@@ -178,24 +178,20 @@ The VM circuit's I/O (`AvmPublicInputs`) is defined below:
 ```
 AvmSessionInputs {
     // Initializes Execution Environment
-    feePerL1Gas: field,
     feePerL2Gas: field,
     feePerDaGas: field,
     globals: PublicGlobalVariables,
     address: AztecAddress,
     storageAddress: AztecAddress,
     sender: AztecAddress,
-    portal: AztecAddress,
     contractCallDepth: field,
     isStaticCall: boolean,
     isDelegateCall: boolean,
     // Initializes Machine State
-    l1GasLeft: field,
     l2GasLeft: field,
     daGasLeft: field,
 }
 AvmSessionResults {
-    l1GasLeft: field,
     l2GasLeft: field,
     daGasLeft: field,
     reverted: boolean,

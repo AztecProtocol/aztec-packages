@@ -3,12 +3,8 @@ import { type Proof, makeEmptyProof } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
 
-import { type MemDown, default as memdown } from 'memdown';
-
 import { TestContext } from '../mocks/test_context.js';
 import { BBNativeRollupProver, type BBProverConfig } from './bb_prover.js';
-
-export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 const logger = createDebugLogger('aztec:bb-prover-public-kernel');
 
@@ -25,7 +21,7 @@ describe('prover/bb_prover/public-kernel', () => {
       ];
       return BBNativeRollupProver.new(bbConfig);
     };
-    context = await TestContext.new(logger, buildProver);
+    context = await TestContext.new(logger, 1, buildProver);
   }, 60_000);
 
   afterAll(async () => {
@@ -73,13 +69,13 @@ describe('prover/bb_prover/public-kernel', () => {
       if (request.type === PublicKernelType.TAIL) {
         await expect(
           context.prover.getPublicTailProof(request).then(result => {
-            proof = result[1];
+            proof = result.proof;
           }),
         ).resolves.not.toThrow();
       } else {
         await expect(
           context.prover.getPublicKernelProof(request).then(result => {
-            proof = result[1];
+            proof = result.proof;
           }),
         ).resolves.not.toThrow();
       }

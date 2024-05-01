@@ -1,5 +1,6 @@
 import { type BlockProver, type ProcessedTx, type Tx, type TxValidator } from '@aztec/circuit-types';
-import { GlobalVariables, Header } from '@aztec/circuits.js';
+import { type Gas, GlobalVariables, Header, type TxContext } from '@aztec/circuits.js';
+import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import {
@@ -20,6 +21,9 @@ import * as fs from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
+import { MemoryProvingQueue } from '../prover-pool/memory-proving-queue.js';
+import { ProverAgent } from '../prover-pool/prover-agent.js';
+import { ProverPool } from '../prover-pool/prover-pool.js';
 import { type BBProverConfig } from '../prover/bb_prover.js';
 import { type CircuitProver } from '../prover/interface.js';
 import { TestCircuitProver } from '../prover/test_circuit_prover.js';
@@ -35,6 +39,7 @@ export class TestContext {
     public globalVariables: GlobalVariables,
     public actualDb: MerkleTreeOperations,
     public prover: CircuitProver,
+    public proverPool: ProverPool,
     public orchestrator: ProvingOrchestrator,
     public blockNumber: number,
     public directoriesToCleanup: string[],
@@ -43,6 +48,7 @@ export class TestContext {
 
   static async new(
     logger: DebugLogger,
+    proverCount = 4,
     createProver: (bbConfig: BBProverConfig) => Promise<CircuitProver> = _ =>
       Promise.resolve(new TestCircuitProver(new WASMSimulator())),
     blockNumber = 3,
@@ -82,7 +88,11 @@ export class TestContext {
       localProver = await createProver(bbConfig);
     }
 
-    const orchestrator = await ProvingOrchestrator.new(actualDb, localProver);
+    const queue = new MemoryProvingQueue();
+    const proverPool = new ProverPool(proverCount, i => new ProverAgent(localProver, 10, `${i}`));
+    const orchestrator = new ProvingOrchestrator(actualDb, queue);
+
+    await proverPool.start(queue);
 
     return new this(
       publicExecutor,
@@ -93,6 +103,7 @@ export class TestContext {
       globalVariables,
       actualDb,
       localProver,
+      proverPool,
       orchestrator,
       blockNumber,
       [config?.directoryToCleanup ?? ''],
@@ -101,7 +112,7 @@ export class TestContext {
   }
 
   async cleanup() {
-    await this.orchestrator.stop();
+    await this.proverPool.stop();
     for (const dir of this.directoriesToCleanup.filter(x => x !== '')) {
       await fs.rm(dir, { recursive: true, force: true });
     }
@@ -113,11 +124,22 @@ export class TestContext {
     blockProver?: BlockProver,
     txValidator?: TxValidator<ProcessedTx>,
   ) {
-    const defaultExecutorImplementation = (execution: PublicExecution, _1: GlobalVariables, _2?: number) => {
+    const defaultExecutorImplementation = (
+      execution: PublicExecution,
+      _globalVariables: GlobalVariables,
+      availableGas: Gas,
+      _txContext: TxContext,
+      transactionFee?: Fr,
+      _sideEffectCounter?: number,
+    ) => {
       for (const tx of txs) {
         for (const request of tx.enqueuedPublicFunctionCalls) {
           if (execution.contractAddress.equals(request.contractAddress)) {
-            const result = PublicExecutionResultBuilder.fromPublicCallRequest({ request }).build();
+            const result = PublicExecutionResultBuilder.fromPublicCallRequest({ request }).build({
+              startGasLeft: availableGas,
+              endGasLeft: availableGas,
+              transactionFee,
+            });
             // result.unencryptedLogs = tx.unencryptedLogs.functionLogs[0];
             return Promise.resolve(result);
           }
@@ -142,6 +164,9 @@ export class TestContext {
     executorMock?: (
       execution: PublicExecution,
       globalVariables: GlobalVariables,
+      availableGas: Gas,
+      txContext: TxContext,
+      transactionFee?: Fr,
       sideEffectCounter?: number,
     ) => Promise<PublicExecutionResult>,
   ) {

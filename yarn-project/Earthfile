@@ -47,9 +47,13 @@ build:
     ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
     RUN ./bootstrap.sh full
 
+build-dev:
+    FROM +build
+    SAVE ARTIFACT /usr/src /usr/src
+
 aztec-prod:
     FROM +build
-    RUN yarn workspaces focus @aztec/cli @aztec/aztec --production && yarn cache clean
+    RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
     SAVE ARTIFACT /usr/src /usr/src
 
 aztec-prod-slim:
@@ -59,11 +63,6 @@ aztec-prod-slim:
 aztec:
     FROM +aztec-prod-slim
     ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
-    EXPOSE 8080
-
-cli:
-    FROM +aztec-prod-slim
-    ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/cli/dest/bin/index.js"]
     EXPOSE 8080
 
 end-to-end-prod:
@@ -79,6 +78,11 @@ end-to-end:
     COPY +end-to-end-prod/usr/src /usr/src
     WORKDIR /usr/src/yarn-project/end-to-end
     ENTRYPOINT ["yarn", "test"]
+
+scripts-prod:
+    FROM +build
+    RUN yarn workspaces focus @aztec/scripts --production && yarn cache clean
+    SAVE ARTIFACT /usr/src /usr/src
 
 all:
     BUILD +aztec
@@ -98,3 +102,16 @@ export-end-to-end:
     SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
     FROM +aztec
     SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH
+
+format-check:
+    FROM +build
+    RUN yarn formatting
+
+test:
+    FROM +build
+    RUN yarn test
+
+run-e2e:
+    ARG test
+    FROM +end-to-end
+    RUN DEBUG=aztec:* yarn test $test

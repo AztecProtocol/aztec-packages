@@ -101,8 +101,8 @@ describe('L1Publisher integration', () => {
   let coinbase: EthAddress;
   let feeRecipient: AztecAddress;
 
-  // To overwrite the test data, set this to true and run the tests.
-  const OVERWRITE_TEST_DATA = !!process.env.OVERWRITE_TEST_DATA;
+  // To update the test data, run "export AZTEC_GENERATE_TEST_DATA=1" in shell and run the tests again
+  const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
@@ -143,7 +143,7 @@ describe('L1Publisher integration', () => {
     };
     const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
-    builder = await TxProver.new({}, worldStateSynchronizer, new WASMSimulator());
+    builder = await TxProver.new(config, new WASMSimulator(), worldStateSynchronizer);
     l2Proof = Buffer.alloc(0);
 
     publisher = getL1Publisher({
@@ -232,7 +232,7 @@ describe('L1Publisher integration', () => {
     recipientAddress: AztecAddress,
     deployerAddress: `0x${string}`,
   ) => {
-    if (!OVERWRITE_TEST_DATA) {
+    if (!AZTEC_GENERATE_TEST_DATA) {
       return;
     }
     // Path relative to the package.json in the end-to-end folder
@@ -271,7 +271,6 @@ describe('L1Publisher integration', () => {
             feeRecipient: `0x${block.header.globalVariables.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
             gasFees: {
               feePerDaGas: block.header.globalVariables.gasFees.feePerDaGas.toNumber(),
-              feePerL1Gas: block.header.globalVariables.gasFees.feePerL1Gas.toNumber(),
               feePerL2Gas: block.header.globalVariables.gasFees.feePerL2Gas.toNumber(),
             },
           },

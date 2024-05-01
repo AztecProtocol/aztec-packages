@@ -27,22 +27,8 @@ namespace bb::avm_trace {
  * @param bytecode A vector of bytes representing the bytecode to execute.
  * @param calldata expressed as a vector of finite field elements.
  * @throws runtime_error exception when the bytecode is invalid.
- * @return A zk proof of the execution.
+ * @return The verifier key and zk proof of the execution.
  */
-HonkProof Execution::run_and_prove(std::vector<uint8_t> const& bytecode, std::vector<FF> const& calldata)
-{
-    auto instructions = Deserialization::parse(bytecode);
-    auto trace = gen_trace(instructions, calldata);
-    auto circuit_builder = bb::AvmCircuitBuilder();
-    circuit_builder.set_trace(std::move(trace));
-
-    auto composer = AvmComposer();
-    auto prover = composer.create_prover(circuit_builder);
-    auto verifier = composer.create_verifier(circuit_builder);
-    auto proof = prover.construct_proof();
-    return proof;
-}
-
 std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<uint8_t> const& bytecode,
                                                                    std::vector<FF> const& calldata)
 {
@@ -50,9 +36,6 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     auto trace = gen_trace(instructions, calldata);
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
-
-    // Temporarily use this until #4954 is resolved
-    assert(circuit_builder.check_circuit());
 
     auto composer = AvmComposer();
     auto prover = composer.create_prover(circuit_builder);
@@ -121,12 +104,11 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                  std::get<uint32_t>(inst.operands.at(4)),
                                  std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
-        case OpCode::DIV:
-            trace_builder.op_div(std::get<uint8_t>(inst.operands.at(0)),
-                                 std::get<uint32_t>(inst.operands.at(2)),
-                                 std::get<uint32_t>(inst.operands.at(3)),
-                                 std::get<uint32_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+        case OpCode::FDIV:
+            trace_builder.op_fdiv(std::get<uint8_t>(inst.operands.at(0)),
+                                  std::get<uint32_t>(inst.operands.at(1)),
+                                  std::get<uint32_t>(inst.operands.at(2)),
+                                  std::get<uint32_t>(inst.operands.at(3)));
             break;
         // Compute - Comparators
         case OpCode::EQ:
@@ -175,6 +157,20 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
 
         case OpCode::XOR:
             trace_builder.op_xor(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint32_t>(inst.operands.at(2)),
+                                 std::get<uint32_t>(inst.operands.at(3)),
+                                 std::get<uint32_t>(inst.operands.at(4)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        case OpCode::SHR:
+            trace_builder.op_shr(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint32_t>(inst.operands.at(2)),
+                                 std::get<uint32_t>(inst.operands.at(3)),
+                                 std::get<uint32_t>(inst.operands.at(4)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        case OpCode::SHL:
+            trace_builder.op_shl(std::get<uint8_t>(inst.operands.at(0)),
                                  std::get<uint32_t>(inst.operands.at(2)),
                                  std::get<uint32_t>(inst.operands.at(3)),
                                  std::get<uint32_t>(inst.operands.at(4)),

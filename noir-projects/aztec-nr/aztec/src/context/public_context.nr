@@ -13,7 +13,7 @@ use dep::protocol_types::{
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
     public_call_stack_item::PublicCallStackItem,
     public_circuit_public_inputs::PublicCircuitPublicInputs, read_request::ReadRequest,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    note_hash::NoteHash, nullifier::Nullifier, side_effect::SideEffect
 },
     hash::silo_nullifier, address::{AztecAddress, EthAddress},
     constants::{
@@ -40,8 +40,8 @@ struct PublicContext {
     contract_storage_reads: BoundedVec<StorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
     public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
 
-    new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_CALL>,
-    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
+    new_note_hashes: BoundedVec<NoteHash, MAX_NEW_NOTE_HASHES_PER_CALL>,
+    new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_CALL>,
 
     new_l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
@@ -167,9 +167,12 @@ impl PublicContext {
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
             unencrypted_log_preimages_length,
             historical_header: self.inputs.historical_header,
+            global_variables: self.inputs.public_global_variables,
             prover_address: self.prover_address,
             revert_code: 0,
-            gas_left: self.inputs.call_context.gas_left
+            start_gas_left: self.inputs.gas_left,
+            end_gas_left: self.inputs.gas_left, // AVM should decrease this value
+            transaction_fee: self.inputs.transaction_fee
         };
         pub_circuit_pub_inputs
     }
@@ -182,10 +185,6 @@ impl ContextInterface for PublicContext {
 
     fn this_address(self) -> AztecAddress {
         self.inputs.call_context.storage_contract_address
-    }
-
-    fn this_portal_address(self) -> EthAddress {
-        self.inputs.call_context.portal_contract_address
     }
 
     fn chain_id(self) -> Field {
@@ -205,18 +204,16 @@ impl ContextInterface for PublicContext {
     }
 
     fn push_new_note_hash(&mut self, note_hash: Field) {
-        let side_effect = SideEffect { value: note_hash, counter: self.side_effect_counter };
-        self.new_note_hashes.push(side_effect);
+        self.new_note_hashes.push(NoteHash { value: note_hash, counter: self.side_effect_counter });
         self.side_effect_counter = self.side_effect_counter + 1;
     }
 
-    fn push_new_nullifier(&mut self, nullifier: Field, _nullified_commitment: Field) {
-        let side_effect = SideEffectLinkedToNoteHash {
+    fn push_new_nullifier(&mut self, nullifier: Field, _nullified_note_hash: Field) {
+        self.new_nullifiers.push(Nullifier {
             value: nullifier,
             note_hash: 0, // cannot nullify pending notes in public context
             counter: self.side_effect_counter
-        };
-        self.new_nullifiers.push(side_effect);
+        });
         self.side_effect_counter = self.side_effect_counter + 1;
     }
 }
@@ -240,10 +237,6 @@ impl PublicContextInterface for PublicContext {
 
     fn fee_per_da_gas(self) -> Field {
         self.inputs.public_global_variables.gas_fees.fee_per_da_gas
-    }
-
-    fn fee_per_l1_gas(self) -> Field {
-        self.inputs.public_global_variables.gas_fees.fee_per_l1_gas
     }
 
     fn fee_per_l2_gas(self) -> Field {
@@ -281,14 +274,11 @@ impl PublicContextInterface for PublicContext {
     }
 
     fn emit_unencrypted_log<T>(&mut self, log: T) {
-        let _void1 = self;
-        let _void2 = log;
+        let event_selector = 5;
+        let log_hash = emit_unencrypted_log_oracle(self.this_address(), event_selector, log);
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
         // Once we hash inside circuits, this replaces push_unencrypted_log
         // For now we need an oracle to get the hash
-    }
-
-    fn push_unencrypted_log(&mut self, log_hash: Field) {
         let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
         self.unencrypted_logs_hashes.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
@@ -356,6 +346,13 @@ impl Empty for PublicContext {
 
 #[oracle(checkNullifierExists)]
 fn nullifier_exists_oracle(nullifier: Field) -> Field {}
+
+#[oracle(emitUnencryptedLog)]
+fn emit_unencrypted_log_oracle<T>(
+    _contract_address: AztecAddress,
+    _event_selector: Field,
+    _message: T
+) -> Field {}
 
 struct FunctionReturns<N> {
     values: [Field; N]

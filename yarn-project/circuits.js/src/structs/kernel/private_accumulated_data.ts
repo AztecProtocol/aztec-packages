@@ -13,8 +13,9 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { CallRequest } from '../call_request.js';
-import { Gas } from '../gas.js';
-import { SideEffect, SideEffectLinkedToNoteHash } from '../side_effects.js';
+import { NoteHashContext } from '../note_hash.js';
+import { Nullifier } from '../nullifier.js';
+import { SideEffect } from '../side_effects.js';
 
 /**
  * Specific accumulated data structure for the final ordering private kernel circuit. It is included
@@ -25,11 +26,11 @@ export class PrivateAccumulatedData {
     /**
      * The new note hashes made in this transaction.
      */
-    public newNoteHashes: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
+    public newNoteHashes: Tuple<NoteHashContext, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     /**
      * The new nullifiers made in this transaction.
      */
-    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public newNullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
@@ -61,9 +62,6 @@ export class PrivateAccumulatedData {
      * Current public call stack.
      */
     public publicCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
-
-    /** Gas used so far by this transaction. */
-    public gasUsed: Gas,
   ) {}
 
   toBuffer() {
@@ -77,7 +75,6 @@ export class PrivateAccumulatedData {
       this.unencryptedLogPreimagesLength,
       this.privateCallStack,
       this.publicCallStack,
-      this.gasUsed,
     );
   }
 
@@ -93,8 +90,8 @@ export class PrivateAccumulatedData {
   static fromBuffer(buffer: Buffer | BufferReader): PrivateAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new PrivateAccumulatedData(
-      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, SideEffect),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
+      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, NoteHashContext),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Nullifier),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, SideEffect),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, SideEffect),
@@ -102,7 +99,6 @@ export class PrivateAccumulatedData {
       Fr.fromBuffer(reader),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
-      reader.readObject(Gas),
     );
   }
 
@@ -117,8 +113,8 @@ export class PrivateAccumulatedData {
 
   static empty() {
     return new PrivateAccumulatedData(
-      makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, SideEffect.empty),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
+      makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, NoteHashContext.empty),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Nullifier.empty),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
       makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, SideEffect.empty),
       makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, SideEffect.empty),
@@ -126,7 +122,6 @@ export class PrivateAccumulatedData {
       Fr.zero(),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
-      Gas.empty(),
     );
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@aztec/aztec",
-  "version": "0.35.1",
+  "version": "0.36.0",
   "type": "module",
   "exports": {
     ".": "./dest/index.js"
@@ -31,6 +31,7 @@
     "@aztec/archiver": "workspace:^",
     "@aztec/aztec-node": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
+    "@aztec/builder": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/entrypoints": "workspace:^",
@@ -38,10 +39,10 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
-    "@aztec/noir-compiler": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/prover-client": "workspace:^",
     "@aztec/pxe": "workspace:^",
     "abitype": "^0.8.11",
     "commander": "^11.1.0",
@@ -78,6 +79,14 @@
     },
     "extensionsToTreatAsEsm": [
       ".ts"
+    ],
+    "reporters": [
+      [
+        "default",
+        {
+          "summaryThreshold": 9999
+        }
+      ]
     ]
   },
   "engines": {

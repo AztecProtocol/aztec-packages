@@ -31,7 +31,6 @@ template <class Flavor> class ProverInstance_ {
 
   public:
     ProvingKey proving_key;
-    ProverPolynomials prover_polynomials;
 
     RelationSeparator alphas;
     bb::RelationParameters<FF> relation_parameters;
@@ -42,21 +41,35 @@ template <class Flavor> class ProverInstance_ {
     std::vector<FF> gate_challenges;
     FF target_sum;
 
-    ProverInstance_(Circuit& circuit)
+    ProverInstance_(Circuit& circuit, bool is_structured = false)
     {
         BB_OP_COUNT_TIME_NAME("ProverInstance(Circuit&)");
         circuit.add_gates_to_ensure_all_polys_are_non_zero();
         circuit.finalize_circuit();
+        // If using a structured trace, ensure that no block exceeds the fixed size
+        if (is_structured) {
+            for (auto& block : circuit.blocks.get()) {
+                ASSERT(block.size() <= circuit.FIXED_BLOCK_SIZE);
+            }
+        }
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/905): This is adding ops to the op queue but NOT to
+        // the circuit, meaning the ECCVM/Translator will use different ops than the main circuit. This will lead to
+        // failure once https://github.com/AztecProtocol/barretenberg/issues/746 is resolved.
         if constexpr (IsGoblinFlavor<Flavor>) {
             circuit.op_queue->append_nonzero_ops();
         }
 
-        dyadic_circuit_size = compute_dyadic_size(circuit);
+        if (is_structured) { // Compute dyadic size based on a structured trace with fixed block size
+            dyadic_circuit_size = compute_structured_dyadic_size(circuit);
+        } else { // Otherwise, compute conventional dyadic circuit size
+            dyadic_circuit_size = compute_dyadic_size(circuit);
+        }
 
-        proving_key = std::move(ProvingKey(dyadic_circuit_size, circuit.public_inputs.size()));
+        proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size());
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
-        Trace::populate(circuit, proving_key);
+        Trace::populate(circuit, proving_key, is_structured);
 
         // If Goblin, construct the databus polynomials
         if constexpr (IsGoblinFlavor<Flavor>) {
@@ -64,16 +77,14 @@ template <class Flavor> class ProverInstance_ {
         }
 
         // First and last lagrange polynomials (in the full circuit size)
-        const auto [lagrange_first, lagrange_last] =
-            compute_first_and_last_lagrange_polynomials<FF>(dyadic_circuit_size);
-        proving_key.lagrange_first = lagrange_first;
-        proving_key.lagrange_last = lagrange_last;
+        proving_key.polynomials.lagrange_first[0] = 1;
+        proving_key.polynomials.lagrange_last[dyadic_circuit_size - 1] = 1;
 
-        construct_table_polynomials(circuit, dyadic_circuit_size);
+        construct_lookup_table_polynomials<Flavor>(proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size);
 
         proving_key.sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, dyadic_circuit_size);
 
-        std::span<FF> public_wires_source = proving_key.w_r;
+        std::span<FF> public_wires_source = proving_key.polynomials.w_r;
 
         // Construct the public inputs array
         for (size_t i = 0; i < proving_key.num_public_inputs; ++i) {
@@ -85,9 +96,6 @@ template <class Flavor> class ProverInstance_ {
     ProverInstance_() = default;
     ~ProverInstance_() = default;
 
-    void compute_databus_id()
-        requires IsGoblinFlavor<Flavor>;
-
   private:
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
@@ -95,10 +103,19 @@ template <class Flavor> class ProverInstance_ {
 
     size_t compute_dyadic_size(Circuit&);
 
+    /**
+     * @brief Compute dyadic size based on a structured trace with fixed block size
+     *
+     */
+    size_t compute_structured_dyadic_size(Circuit& builder)
+    {
+        size_t num_blocks = builder.blocks.get().size();
+        size_t minimum_size = num_blocks * builder.FIXED_BLOCK_SIZE;
+        return builder.get_circuit_subgroup_size(minimum_size);
+    }
+
     void construct_databus_polynomials(Circuit&)
         requires IsGoblinFlavor<Flavor>;
-
-    void construct_table_polynomials(Circuit&, size_t);
 };
 
 } // namespace bb

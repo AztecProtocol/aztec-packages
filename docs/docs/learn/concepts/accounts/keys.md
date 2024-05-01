@@ -27,9 +27,9 @@ Storing the signing public key in a private note makes it accessible from the en
 
 Similar to using a private note, but using an immutable private note removes the need to nullify the note on every read. This generates less nullifiers and commitments per transaction, and does not enforce an order across transactions. However, it does not allow the user to rotate their key should they lose it.
 
-### Using the slow updates tree
+### Using shared state
 
-A compromise between the two solutions above is to use the [slow updates tree](../communication/public_private_calls/slow_updates_tree.md). This would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the slow updates tree.
+A compromise between the two solutions above is to use [shared state](../../../developers/contracts/references/storage/shared_state.md). This would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the mutable shared state, as well as imposing restrictions on how fast keys can be rotated due to minimum delays.
 
 ### Reusing the privacy master key
 

@@ -1,8 +1,11 @@
 use dep::aztec::{
-    protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}},
+    protocol_types::{
+    address::AztecAddress, traits::{Deserialize, Serialize},
+    constants::GENERATOR_INDEX__NOTE_NULLIFIER
+},
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
-    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key},
-    log::emit_encrypted_log, hash::pedersen_hash, context::PrivateContext
+    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_app_nullifier_secret_key, get_public_key::get_public_key},
+    log::emit_encrypted_log, hash::poseidon2_hash, context::PrivateContext
 };
 
 global VALUE_NOTE_LEN: Field = 3; // 3 plus a header.
@@ -21,26 +24,24 @@ impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
 
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_nullifier_secret_key(self.owner);
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash([
+        let secret = context.request_app_nullifier_secret_key(self.owner);
+        poseidon2_hash([
             note_hash_for_nullify,
-            secret.low,
-            secret.high,
-        ],0)
+            secret,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+        ])
     }
 
     // docs:end:nullifier
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nullifier_secret_key(self.owner);
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash([
+        let secret = get_app_nullifier_secret_key(self.owner);
+        poseidon2_hash([
             note_hash_for_nullify,
-            secret.low,
-            secret.high,
-        ],0)
+            secret,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+        ])
     }
 
     // Broadcasts the note as an encrypted log on L1.

@@ -10,7 +10,6 @@ import {
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
-  type GrumpkinPrivateKey,
   type Header,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type PrivateCallStackItem,
@@ -18,22 +17,15 @@ import {
 } from '@aztec/circuits.js';
 import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
 
-/**
- * A pair of public key and secret key.
- */
-export interface KeyPair {
-  /**
-   * Public key.
-   */
-  publicKey: PublicKey;
-  /**
-   * Secret Key.
-   */
-  secretKey: GrumpkinPrivateKey;
+/** Nullifier keys which both correspond to the same master nullifier secret key. */
+export interface NullifierKeys {
+  /** Master nullifier public key. */
+  masterNullifierPublicKey: PublicKey;
+  /** App nullifier secret key. */
+  appNullifierSecretKey: Fr;
 }
 
 /**
@@ -97,8 +89,8 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('unpackReturns');
   }
 
-  getNullifierKeyPair(_accountAddress: AztecAddress): Promise<KeyPair> {
-    throw new OracleMethodNotAvailableError('getNullifierKeyPair');
+  getNullifierKeys(_accountAddress: AztecAddress): Promise<NullifierKeys> {
+    throw new OracleMethodNotAvailableError('getNullifierKeys');
   }
 
   getPublicKeyAndPartialAddress(_address: AztecAddress): Promise<Fr[] | undefined> {
@@ -167,11 +159,11 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getNotes');
   }
 
-  notifyCreatedNote(_storageSlot: Fr, _noteTypeId: Fr, _note: Fr[], _innerNoteHash: Fr): void {
+  notifyCreatedNote(_storageSlot: Fr, _noteTypeId: Fr, _note: Fr[], _innerNoteHash: Fr, _counter: number): void {
     throw new OracleMethodNotAvailableError('notifyCreatedNote');
   }
 
-  notifyNullifiedNote(_innerNullifier: Fr, _innerNoteHash: Fr): Promise<void> {
+  notifyNullifiedNote(_innerNullifier: Fr, _innerNoteHash: Fr, _counter: number): Promise<void> {
     throw new OracleMethodNotAvailableError('notifyNullifiedNote');
   }
 
@@ -185,10 +177,6 @@ export abstract class TypedOracle {
     _secret: Fr,
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     throw new OracleMethodNotAvailableError('getL1ToL2MembershipWitness');
-  }
-
-  getPortalContractAddress(_contractAddress: AztecAddress): Promise<EthAddress> {
-    throw new OracleMethodNotAvailableError('getPortalContractAddress');
   }
 
   storageRead(_startStorageSlot: Fr, _numberOfElements: number): Promise<Fr[]> {
@@ -244,5 +232,9 @@ export abstract class TypedOracle {
     _isDelegateCall: boolean,
   ): Promise<PublicCallRequest> {
     throw new OracleMethodNotAvailableError('enqueuePublicFunctionCall');
+  }
+
+  aes128Encrypt(_input: Buffer, _initializationVector: Buffer, _key: Buffer): Buffer {
+    throw new OracleMethodNotAvailableError('encrypt');
   }
 }

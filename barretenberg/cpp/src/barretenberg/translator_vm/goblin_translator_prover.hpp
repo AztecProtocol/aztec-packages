@@ -18,7 +18,6 @@ class GoblinTranslatorProver {
     using CommitmentKey = typename Flavor::CommitmentKey;
     using ProvingKey = typename Flavor::ProvingKey;
     using Polynomial = typename Flavor::Polynomial;
-    using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using PCS = typename Flavor::PCS;
     using Transcript = typename Flavor::Transcript;
@@ -27,10 +26,6 @@ class GoblinTranslatorProver {
     size_t total_num_gates = 0;          // num_gates (already include zero row offset) (used to compute dyadic size)
     size_t dyadic_circuit_size = 0;      // final power-of-2 circuit size
     size_t mini_circuit_dyadic_size = 0; // The size of the small circuit that contains non-range constraint relations
-
-    explicit GoblinTranslatorProver(const std::shared_ptr<ProvingKey>& input_key,
-                                    const std::shared_ptr<CommitmentKey>& commitment_key,
-                                    const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     explicit GoblinTranslatorProver(CircuitBuilder& circuit_builder, const std::shared_ptr<Transcript>& transcript);
 
@@ -50,9 +45,6 @@ class GoblinTranslatorProver {
     bb::RelationParameters<FF> relation_parameters;
 
     std::shared_ptr<ProvingKey> key;
-
-    // Container for spans of all polynomials required by the prover (i.e. all multivariates evaluated by Sumcheck).
-    ProverPolynomials prover_polynomials;
 
     CommitmentLabels commitment_labels;
 

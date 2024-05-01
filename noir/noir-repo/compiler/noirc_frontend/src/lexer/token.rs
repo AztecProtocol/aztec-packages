@@ -412,8 +412,8 @@ impl Token {
         [Plus, Minus, Star, Slash, Percent, Ampersand, Caret, ShiftLeft, ShiftRight, Pipe]
     }
 
-    pub fn try_into_binary_op(self, span: Span) -> Option<Spanned<crate::BinaryOpKind>> {
-        use crate::BinaryOpKind::*;
+    pub fn try_into_binary_op(self, span: Span) -> Option<Spanned<crate::ast::BinaryOpKind>> {
+        use crate::ast::BinaryOpKind::*;
         let binary_op = match self {
             Token::Plus => Add,
             Token::Ampersand => And,
@@ -581,6 +581,10 @@ impl Attributes {
     pub fn is_foldable(&self) -> bool {
         self.function.as_ref().map_or(false, |func_attribute| func_attribute.is_foldable())
     }
+
+    pub fn is_inline(&self) -> bool {
+        self.function.as_ref().map_or(false, |func_attribute| func_attribute.is_inline())
+    }
 }
 
 /// An Attribute can be either a Primary Attribute or a Secondary Attribute
@@ -641,6 +645,10 @@ impl Attribute {
             ["test"] => Attribute::Function(FunctionAttribute::Test(TestScope::None)),
             ["recursive"] => Attribute::Function(FunctionAttribute::Recursive),
             ["fold"] => Attribute::Function(FunctionAttribute::Fold),
+            ["inline", tag] => {
+                validate(tag)?;
+                Attribute::Function(FunctionAttribute::Inline(tag.to_string()))
+            }
             ["test", name] => {
                 validate(name)?;
                 let malformed_scope =
@@ -659,7 +667,6 @@ impl Attribute {
             ["contract_library_method"] => {
                 Attribute::Secondary(SecondaryAttribute::ContractLibraryMethod)
             }
-            ["event"] => Attribute::Secondary(SecondaryAttribute::Event),
             ["abi", tag] => Attribute::Secondary(SecondaryAttribute::Abi(tag.to_string())),
             ["export"] => Attribute::Secondary(SecondaryAttribute::Export),
             ["deprecated", name] => {
@@ -694,6 +701,7 @@ pub enum FunctionAttribute {
     Test(TestScope),
     Recursive,
     Fold,
+    Inline(String),
 }
 
 impl FunctionAttribute {
@@ -726,6 +734,13 @@ impl FunctionAttribute {
     pub fn is_foldable(&self) -> bool {
         matches!(self, FunctionAttribute::Fold)
     }
+
+    /// Check whether we have an `inline` attribute
+    /// Although we also do not want to inline foldable functions,
+    /// we keep the two attributes distinct for clarity.
+    pub fn is_inline(&self) -> bool {
+        matches!(self, FunctionAttribute::Inline(_))
+    }
 }
 
 impl fmt::Display for FunctionAttribute {
@@ -737,6 +752,7 @@ impl fmt::Display for FunctionAttribute {
             FunctionAttribute::Oracle(ref k) => write!(f, "#[oracle({k})]"),
             FunctionAttribute::Recursive => write!(f, "#[recursive]"),
             FunctionAttribute::Fold => write!(f, "#[fold]"),
+            FunctionAttribute::Inline(ref k) => write!(f, "#[inline({k})]"),
         }
     }
 }
@@ -751,7 +767,6 @@ pub enum SecondaryAttribute {
     // is a helper method for a contract and should not be seen as
     // the entry point.
     ContractLibraryMethod,
-    Event,
     Export,
     Field(String),
     Custom(String),
@@ -767,7 +782,6 @@ impl fmt::Display for SecondaryAttribute {
             }
             SecondaryAttribute::Custom(ref k) => write!(f, "#[{k}]"),
             SecondaryAttribute::ContractLibraryMethod => write!(f, "#[contract_library_method]"),
-            SecondaryAttribute::Event => write!(f, "#[event]"),
             SecondaryAttribute::Export => write!(f, "#[export]"),
             SecondaryAttribute::Field(ref k) => write!(f, "#[field({k})]"),
             SecondaryAttribute::Abi(ref k) => write!(f, "#[abi({k})]"),
@@ -784,6 +798,7 @@ impl AsRef<str> for FunctionAttribute {
             FunctionAttribute::Test { .. } => "",
             FunctionAttribute::Recursive => "",
             FunctionAttribute::Fold => "",
+            FunctionAttribute::Inline(string) => string,
         }
     }
 }
@@ -797,7 +812,7 @@ impl AsRef<str> for SecondaryAttribute {
             | SecondaryAttribute::Field(string)
             | SecondaryAttribute::Abi(string) => string,
             SecondaryAttribute::ContractLibraryMethod => "",
-            SecondaryAttribute::Event | SecondaryAttribute::Export => "",
+            SecondaryAttribute::Export => "",
         }
     }
 }
@@ -814,7 +829,7 @@ pub enum Keyword {
     Break,
     CallData,
     Char,
-    CompTime,
+    Comptime,
     Constrain,
     Continue,
     Contract,
@@ -839,6 +854,7 @@ pub enum Keyword {
     ReturnData,
     String,
     Struct,
+    Super,
     Trait,
     Type,
     Unchecked,
@@ -858,7 +874,7 @@ impl fmt::Display for Keyword {
             Keyword::Break => write!(f, "break"),
             Keyword::Char => write!(f, "char"),
             Keyword::CallData => write!(f, "call_data"),
-            Keyword::CompTime => write!(f, "comptime"),
+            Keyword::Comptime => write!(f, "comptime"),
             Keyword::Constrain => write!(f, "constrain"),
             Keyword::Continue => write!(f, "continue"),
             Keyword::Contract => write!(f, "contract"),
@@ -883,6 +899,7 @@ impl fmt::Display for Keyword {
             Keyword::ReturnData => write!(f, "return_data"),
             Keyword::String => write!(f, "str"),
             Keyword::Struct => write!(f, "struct"),
+            Keyword::Super => write!(f, "super"),
             Keyword::Trait => write!(f, "trait"),
             Keyword::Type => write!(f, "type"),
             Keyword::Unchecked => write!(f, "unchecked"),
@@ -905,7 +922,7 @@ impl Keyword {
             "break" => Keyword::Break,
             "call_data" => Keyword::CallData,
             "char" => Keyword::Char,
-            "comptime" => Keyword::CompTime,
+            "comptime" => Keyword::Comptime,
             "constrain" => Keyword::Constrain,
             "continue" => Keyword::Continue,
             "contract" => Keyword::Contract,
@@ -930,6 +947,7 @@ impl Keyword {
             "return_data" => Keyword::ReturnData,
             "str" => Keyword::String,
             "struct" => Keyword::Struct,
+            "super" => Keyword::Super,
             "trait" => Keyword::Trait,
             "type" => Keyword::Type,
             "unchecked" => Keyword::Unchecked,

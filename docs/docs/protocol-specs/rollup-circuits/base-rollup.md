@@ -41,7 +41,6 @@ class GlobalVariables {
     coinbase: EthAddress
     fee_recipient: Address
     gas_fees.fees_per_da_gas: Fr
-    gas_fees.fees_per_l1_gas: Fr
     gas_fees.fees_per_l2_gas: Fr
 }
 
@@ -124,12 +123,6 @@ class PublicDataRead {
     value: Fr
 }
 
-class NewContractData {
-    function_tree_root: Fr
-    address: Address
-    portal: EthAddress
-}
-
 class CombinedAccumulatedData {
     aggregation_object: AggregationObject
     read_requests: List~Fr~
@@ -139,7 +132,6 @@ class CombinedAccumulatedData {
     nullified_note_hashes: List~Fr~
 
     l2_to_l1_messages: List~Fr~
-    contracts: List~NewContractData~
     public_update_requests: List~PublicDataUpdateRequest~
     public_reads: List~PublicDataRead~
     logs: Logs
@@ -150,40 +142,26 @@ class CombinedAccumulatedData {
     end_public_data_root: Fr
 
     gas_used.da_gas: u32
-    gas_used.l1_gas: u32
     gas_used.l2_gas: u32
 }
-CombinedAccumulatedData *-- "m" NewContractData: contracts
 CombinedAccumulatedData *-- "m" PublicDataUpdateRequest: public_update_requests
 CombinedAccumulatedData *-- "m" PublicDataRead: public_reads
 CombinedAccumulatedData *-- Logs : logs
 
-class ContractDeploymentData {
-    deployer_public_key: Point
-    constructor_vk_hash: Fr
-    constructor_args_hash: Fr
-    function_tree_root: Fr
-    salt: Fr
-    portal_address: Fr
-}
-
 class TxContext {
-    fee_context: FeeContext
-    is_contract_deployment: bool
     chain_id: Fr
     version: Fr
-    contract_deployment_data: ContractDeploymentData
+    gas_settings: GasSettings
 }
-TxContext *-- ContractDeploymentData: contract_deployment_data
+
+TxContext *-- GasSettings : gas_settings
 
 class CombinedConstantData {
     historical_header: Header
     tx_context: TxContext
-    gas_settings: GasSettings
 }
 CombinedConstantData *-- Header : historical_header
 CombinedConstantData *-- TxContext : tx_context
-CombinedConstantData *-- GasSettings : gas_settings
 
 class GasSettings {
     da.gas_limit: u32

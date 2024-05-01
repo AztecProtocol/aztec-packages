@@ -1,21 +1,22 @@
 use crate::{
     abis::{
-    call_context::CallContext, gas_settings::{GasSettings, DimensionGasSettings}, gas::Gas,
-    max_block_number::MaxBlockNumber, nullifier_key_validation_request::NullifierKeyValidationRequest,
+    call_context::CallContext, gas_settings::GasSettings, gas::Gas, max_block_number::MaxBlockNumber,
+    note_hash::NoteHash, nullifier::Nullifier,
+    nullifier_key_validation_request::NullifierKeyValidationRequest,
     private_circuit_public_inputs::PrivateCircuitPublicInputs, read_request::ReadRequest,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    side_effect::SideEffect
 },
     address::{AztecAddress, compute_initialization_hash}, header::Header,
-    messaging::l2_to_l1_message::L2ToL1Message, tests::fixtures
+    messaging::l2_to_l1_message::L2ToL1Message, tests::fixtures, transaction::tx_context::TxContext
 };
 use crate::{
     constants::{
     MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL,
     MAX_NEW_NULLIFIERS_PER_CALL, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-    MAX_ENCRYPTED_LOGS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL
-    },
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_ENCRYPTED_LOGS_PER_CALL,
+    MAX_UNENCRYPTED_LOGS_PER_CALL
+},
     traits::Empty
 };
 
@@ -33,8 +34,8 @@ struct PrivateCircuitPublicInputsBuilder {
     nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
-    new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_CALL>,
-    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
+    new_note_hashes: BoundedVec<NoteHash, MAX_NEW_NOTE_HASHES_PER_CALL>,
+    new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_CALL>,
 
     private_call_stack_hashes: BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
@@ -50,6 +51,8 @@ struct PrivateCircuitPublicInputsBuilder {
 
     chain_id: Field,
     version: Field,
+
+    gas_settings: GasSettings,
 }
 
 impl PrivateCircuitPublicInputsBuilder {
@@ -59,7 +62,6 @@ impl PrivateCircuitPublicInputsBuilder {
         let args_hash = 0;
 
         let contract_data = fixtures::contracts::default_contract;
-        let portal_contract_address = contract_data.portal_contract_address;
 
         let contract_function = fixtures::contract_functions::default_private_function;
         let function_data = contract_function.data;
@@ -69,22 +71,23 @@ impl PrivateCircuitPublicInputsBuilder {
         let call_context = CallContext {
             msg_sender: fixtures::contracts::parent_contract.address,
             storage_contract_address: contract_address,
-            portal_contract_address,
             function_selector: function_data.selector,
             is_delegate_call: false,
             is_static_call: false,
-            side_effect_counter: 0,
-            gas_left: Gas::empty(),
-            gas_settings: GasSettings::empty(),
-            transaction_fee: 0
+            side_effect_counter: 0
         };
         public_inputs.call_context = call_context;
         public_inputs.args_hash = args_hash;
         public_inputs.historical_header = fixtures::HEADER;
         public_inputs.chain_id = 0;
         public_inputs.version = 1;
+        public_inputs.gas_settings = GasSettings::default();
 
         public_inputs
+    }
+
+    pub fn build_tx_context(self) -> TxContext {
+        TxContext::new(self.chain_id, self.version, self.gas_settings)
     }
 
     pub fn finish(self) -> PrivateCircuitPublicInputs {
@@ -109,8 +112,7 @@ impl PrivateCircuitPublicInputsBuilder {
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             historical_header: self.historical_header,
-            chain_id: self.chain_id,
-            version: self.version
+            tx_context: self.build_tx_context()
         }
     }
 }
@@ -138,6 +140,7 @@ impl Empty for PrivateCircuitPublicInputsBuilder {
             historical_header: Header::empty(),
             chain_id: 0,
             version: 0,
+            gas_settings: GasSettings::empty()
         }
     }
 }
