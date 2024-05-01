@@ -425,7 +425,7 @@ export async function writeVkUltraHonk(bytecodePath: string, crsPath: string, ou
 }
 
 export async function verifyUltraHonk(proofPath: string, vkPath: string) {
-  const { api, acirComposer } = await initLite();
+  const { api } = await initLite();
   try {
     const verified = await api.acirVerifyUltraHonk(readFileSync(proofPath), new RawBuffer(readFileSync(vkPath)));
     debug(`verified: ${verified}`);
