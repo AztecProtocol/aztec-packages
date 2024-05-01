@@ -632,7 +632,7 @@ __metadata:
     "@libp2p/kad-dht": 10.0.4
     "@libp2p/mplex": 10.0.16
     "@libp2p/peer-id": 4.0.7
-    "@libp2p/peer-id-factory": 4.0.7
+    "@libp2p/peer-id-factory": 4.1.1
     "@libp2p/peer-store": 10.0.16
     "@libp2p/tcp": 9.0.20
     "@multiformats/multiaddr": 12.1.14
@@ -2175,7 +2175,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@libp2p/crypto@npm:^4.0.0, @libp2p/crypto@npm:^4.0.1, @libp2p/crypto@npm:^4.0.3, @libp2p/crypto@npm:^4.1.1":
+"@libp2p/crypto@npm:^4.0.0, @libp2p/crypto@npm:^4.0.1, @libp2p/crypto@npm:^4.1.1":
   version: 4.1.1
   resolution: "@libp2p/crypto@npm:4.1.1"
   dependencies:
@@ -2387,21 +2387,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@libp2p/peer-id-factory@npm:4.0.7":
-  version: 4.0.7
-  resolution: "@libp2p/peer-id-factory@npm:4.0.7"
-  dependencies:
-    "@libp2p/crypto": ^4.0.3
-    "@libp2p/interface": ^1.1.4
-    "@libp2p/peer-id": ^4.0.7
-    protons-runtime: ^5.4.0
-    uint8arraylist: ^2.4.8
-    uint8arrays: ^5.0.2
-  checksum: 524084042e773e225d847871971ce4c9004fe88398c403ef5a80653f4dec0bbfd027c50c39de30c888e419a96165b5705ebb4a885e52f82963932fbed8ca2e30
-  languageName: node
-  linkType: hard
-
-"@libp2p/peer-id-factory@npm:^4.1.1":
+"@libp2p/peer-id-factory@npm:4.1.1, @libp2p/peer-id-factory@npm:^4.1.1":
   version: 4.1.1
   resolution: "@libp2p/peer-id-factory@npm:4.1.1"
   dependencies:
@@ -2437,7 +2423,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@libp2p/peer-id@npm:^4.0.0, @libp2p/peer-id@npm:^4.0.10, @libp2p/peer-id@npm:^4.0.4, @libp2p/peer-id@npm:^4.0.5, @libp2p/peer-id@npm:^4.0.7, @libp2p/peer-id@npm:^4.1.0, @libp2p/peer-id@npm:^4.1.1":
+"@libp2p/peer-id@npm:^4.0.0, @libp2p/peer-id@npm:^4.0.10, @libp2p/peer-id@npm:^4.0.4, @libp2p/peer-id@npm:^4.0.5, @libp2p/peer-id@npm:^4.1.0, @libp2p/peer-id@npm:^4.1.1":
   version: 4.1.1
   resolution: "@libp2p/peer-id@npm:4.1.1"
   dependencies:

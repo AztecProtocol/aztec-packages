@@ -12,7 +12,7 @@ import type { IncomingStreamData, PeerId, PubSub, Stream } from '@libp2p/interfa
 import '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
 import { peerIdFromString } from '@libp2p/peer-id';
-import { createFromJSON, createSecp256k1PeerId, exportToProtobuf } from '@libp2p/peer-id-factory';
+import { createFromJSON, createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
 import { pipe } from 'it-pipe';
 import { type Libp2p, createLibp2p } from 'libp2p';
@@ -45,15 +45,6 @@ export async function createLibP2PPeerId(privateKey?: string): Promise<PeerId> {
     id: '',
     privKey: base64,
   });
-}
-
-/**
- * Exports a given peer id to a string representation.
- * @param peerId - The peerId instance to be converted.
- * @returns The peer id as a string.
- */
-export function exportLibP2PPeerIdToString(peerId: PeerId) {
-  return Buffer.from(exportToProtobuf(peerId)).toString('hex');
 }
 
 /**
