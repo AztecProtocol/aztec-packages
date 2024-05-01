@@ -55,7 +55,13 @@ import { KeyRegistryContract } from '@aztec/noir-contracts.js';
 import { GasTokenContract } from '@aztec/noir-contracts.js/GasToken';
 import { getCanonicalGasToken, getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
-import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import {
+  type BBNativeProofCreator,
+  PXEService,
+  type PXEServiceConfig,
+  createPXEService,
+  getPXEServiceConfig,
+} from '@aztec/pxe';
 import { type SequencerClient } from '@aztec/sequencer-client';
 
 import { type Anvil, createAnvil } from '@viem/anvil';
@@ -207,6 +213,7 @@ async function initGasBridge({ walletClient, l1ContractAddresses }: DeployL1Cont
  * @param firstPrivKey - The private key of the first account to be created.
  * @param logger - The logger to be used.
  * @param useLogSuffix - Whether to add a randomly generated suffix to the PXE debug logs.
+ * @param proofCreator - An optional proof creator to use
  * @returns Private eXecution Environment (PXE), accounts, wallets and logger.
  */
 export async function setupPXEService(
@@ -215,6 +222,7 @@ export async function setupPXEService(
   opts: Partial<PXEServiceConfig> = {},
   logger = getLogger(),
   useLogSuffix = false,
+  proofCreator?: BBNativeProofCreator,
 ): Promise<{
   /**
    * The PXE instance.
@@ -234,7 +242,7 @@ export async function setupPXEService(
   teardown: () => Promise<void>;
 }> {
   const pxeServiceConfig = { ...getPXEServiceConfig(), ...opts };
-  const pxe = await createPXEService(aztecNode, pxeServiceConfig, useLogSuffix);
+  const pxe = await createPXEService(aztecNode, pxeServiceConfig, useLogSuffix, proofCreator);
 
   const wallets = await createAccounts(pxe, numberOfAccounts);
 

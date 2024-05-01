@@ -14,6 +14,7 @@ import { join } from 'path';
 import { type PXEServiceConfig } from '../config/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { BBNativeProofCreator } from '../kernel_prover/bb_prover/bb_native_proof_creator.js';
+import { type ProofCreator } from '../kernel_prover/interface/proof_creator.js';
 import { TestProofCreator } from '../kernel_prover/test/test_circuit_prover.js';
 import { PXEService } from './pxe_service.js';
 
@@ -25,12 +26,14 @@ import { PXEService } from './pxe_service.js';
  * @param aztecNode - The AztecNode instance to be used by the server.
  * @param config - The PXE Service Config to use
  * @param options - (Optional) Optional information for creating an PXEService.
+ * @param proofCreator - An optional proof creator to use in place of any other configuration
  * @returns A Promise that resolves to the started PXEService instance.
  */
 export async function createPXEService(
   aztecNode: AztecNode,
   config: PXEServiceConfig,
   useLogSuffix: string | boolean | undefined = undefined,
+  proofCreator?: ProofCreator,
 ) {
   const logSuffix =
     typeof useLogSuffix === 'boolean' ? (useLogSuffix ? randomBytes(3).toString('hex') : undefined) : useLogSuffix;
@@ -43,13 +46,17 @@ export async function createPXEService(
     await initStoreForRollup(AztecLmdbStore.open(keyStorePath), l1Contracts.rollupAddress),
   );
   const db = new KVPxeDatabase(await initStoreForRollup(AztecLmdbStore.open(pxeDbPath), l1Contracts.rollupAddress));
+
   // (@PhilWindle) Temporary validation until WASM is implemented
-  if (config.proverEnabled && (!config.bbBinaryPath || !config.bbWorkingDirectory)) {
-    throw new Error(`Prover must be configured with binary path and working directory`);
+  let prover: ProofCreator | undefined = proofCreator;
+  if (!prover) {
+    if (config.proverEnabled && (!config.bbBinaryPath || !config.bbWorkingDirectory)) {
+      throw new Error(`Prover must be configured with binary path and working directory`);
+    }
+    prover = !config.proverEnabled
+      ? new TestProofCreator()
+      : new BBNativeProofCreator(config.bbBinaryPath!, config.bbWorkingDirectory!);
   }
-  const prover = !config.proverEnabled
-    ? new TestProofCreator()
-    : new BBNativeProofCreator(config.bbBinaryPath!, config.bbWorkingDirectory!);
 
   const server = new PXEService(keyStore, aztecNode, db, prover, config, logSuffix);
   for (const contract of [

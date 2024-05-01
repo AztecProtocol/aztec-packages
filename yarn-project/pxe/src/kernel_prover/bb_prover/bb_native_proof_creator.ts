@@ -468,8 +468,11 @@ export class BBNativeProofCreator implements ProofCreator {
   public async createProofTail(
     inputs: PrivateKernelTailCircuitPrivateInputs,
   ): Promise<ProofOutput<PrivateKernelTailCircuitPublicInputs>> {
-    //const witnessMap = convertPrivateKernelTailInputsToWitnessMap(inputs);
-    // return await this.createSafeProof(witnessMap, 'PrivateKernelTailArtifact');
+    // if (!inputs.isForPublic()) {
+    //   const witnessMap = convertPrivateKernelTailInputsToWitnessMap(inputs);
+    //   return await this.createSafeProof(witnessMap, 'PrivateKernelTailArtifact');
+    // }
+
     if (!inputs.isForPublic()) {
       const result = await executeTail(inputs);
       return {
@@ -477,8 +480,8 @@ export class BBNativeProofCreator implements ProofCreator {
         proof: makeEmptyProof(),
       };
     }
-    //const witnessMap = convertPrivateKernelTailToPublicInputsToWitnessMap(inputs);
-    //return await this.createSafeProof(witnessMap, 'PrivateKernelTailToPublicArtifact');
+    // const witnessMap = convertPrivateKernelTailToPublicInputsToWitnessMap(inputs);
+    // return await this.createSafeProof(witnessMap, 'PrivateKernelTailToPublicArtifact');
     const result = await executeTailForPublic(inputs);
     return {
       publicInputs: result,
@@ -491,7 +494,7 @@ export class BBNativeProofCreator implements ProofCreator {
     await fs.mkdir(directory, { recursive: true });
     this.log.debug(`Created directory: ${directory}`);
     try {
-      this.log.error(`PROVING APP CIRCUIT!!`);
+      this.log.debug(`Proving app circuit`);
       const proof = await this.createProof(directory, partialWitness, bytecode, 'App');
       return new Proof(proof);
     } finally {
@@ -596,6 +599,7 @@ export class BBNativeProofCreator implements ProofCreator {
     let promise = this.verificationKeys.get(circuitType);
     if (!promise) {
       promise = this.convertVk(filePath);
+      this.log.debug(`Updated verification key for circuit: ${circuitType}`);
       this.verificationKeys.set(circuitType, promise);
     }
     await promise;
@@ -661,11 +665,11 @@ export class BBNativeProofCreator implements ProofCreator {
       circuitType,
       bytecode,
       inputsWitnessFile,
-      this.log.error,
+      this.log.debug,
     );
 
     if (provingResult.status === BB_RESULT.FAILURE) {
-      this.log.debug(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
+      this.log.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
       throw new Error(provingResult.reason);
     }
 

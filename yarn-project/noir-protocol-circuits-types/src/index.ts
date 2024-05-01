@@ -254,7 +254,6 @@ export async function executeTail(
   const params: TailInputType = {
     input: mapPrivateKernelTailCircuitPrivateInputsToNoir(privateInputs),
   };
-
   const returnType = await executePrivateKernelTailWithACVM(params);
 
   return mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir(returnType);

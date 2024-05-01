@@ -108,6 +108,9 @@ export class KernelProver {
           .map(() => NoteHashReadRequestMembershipWitness.empty(BigInt(0))),
       );
 
+      this.log.debug(
+        `Proving app circuit for: ${currentExecution.callStackItem.contractAddress}:${currentExecution.callStackItem.functionData.selector}`,
+      );
       const proof = await this.proofCreator.createAppCircuitProof(
         currentExecution.partialWitness,
         currentExecution.acir,

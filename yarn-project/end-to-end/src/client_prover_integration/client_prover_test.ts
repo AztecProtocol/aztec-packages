@@ -13,7 +13,7 @@ import {
   createDebugLogger,
 } from '@aztec/aztec.js';
 import { DocsExampleContract, TokenContract } from '@aztec/noir-contracts.js';
-import { type PXEService } from '@aztec/pxe';
+import { BBNativeProofCreator, type PXEService } from '@aztec/pxe';
 
 import * as fs from 'fs/promises';
 
@@ -49,6 +49,7 @@ export class ClientProverTest {
   provenAsset!: TokenContract;
   provenPXETeardown?: () => Promise<void>;
   private directoryToCleanup?: string;
+  proofCreator?: BBNativeProofCreator;
 
   constructor(testName: string) {
     this.logger = createDebugLogger(`aztec:client_prover_test:${testName}`);
@@ -121,17 +122,24 @@ export class ClientProverTest {
     const bbConfig = await getBBConfig(this.logger);
     this.directoryToCleanup = bbConfig?.directoryToCleanup;
 
+    if (!bbConfig?.bbWorkingDirectory || !bbConfig?.expectedBBPath) {
+      throw new Error(`Test must be run with BB native configuration`);
+    }
+
+    this.proofCreator = new BBNativeProofCreator(bbConfig?.expectedBBPath, bbConfig?.bbWorkingDirectory);
+
     this.logger.debug(`Main setup completed, initializing full prover PXE...`);
     ({ pxe: this.fullProverPXE, teardown: this.provenPXETeardown } = await setupPXEService(
       0,
       this.aztecNode,
       {
-        proverEnabled: true,
+        proverEnabled: false,
         bbBinaryPath: bbConfig?.expectedBBPath,
         bbWorkingDirectory: bbConfig?.bbWorkingDirectory,
       },
       undefined,
       true,
+      this.proofCreator,
     ));
     this.logger.debug(`Contract address ${this.asset.address}`);
     await this.fullProverPXE.registerContract(this.asset);
