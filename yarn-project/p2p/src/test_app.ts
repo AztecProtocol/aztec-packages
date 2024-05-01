@@ -114,7 +114,6 @@ export class P2PTestApp {
         From ${propagationSource}
         Topic: ${msg.topic}`,
       );
-      // await this.handleNewMessage(data);
     });
 
     this.subscribeToTopic(TEST_TOPIC);

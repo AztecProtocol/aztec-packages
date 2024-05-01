@@ -58,6 +58,7 @@
     "@libp2p/mplex": "^10.0.16",
     "@libp2p/peer-id": "^4.0.7",
     "@libp2p/peer-id-factory": "^4.0.7",
+    "@libp2p/peer-store": "^10.0.16",
     "@libp2p/tcp": "^9.0.20",
     "@multiformats/multiaddr": "^12.1.14",
     "interface-datastore": "^8.2.11",

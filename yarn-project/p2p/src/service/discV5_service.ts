@@ -8,14 +8,9 @@ import { multiaddr } from '@multiformats/multiaddr';
 import EventEmitter from 'events';
 
 import type { P2PConfig } from '../config.js';
-import type { PeerDiscoveryService } from './service.js';
+import { type PeerDiscoveryService, PeerDiscoveryState } from './service.js';
 
 export const AZTEC_ENR_KEY = 'aztec_network';
-
-export enum PeerDiscoveryState {
-  RUNNING = 'running',
-  STOPPED = 'stopped',
-}
 
 export enum AztecENR {
   devnet = 0x01,

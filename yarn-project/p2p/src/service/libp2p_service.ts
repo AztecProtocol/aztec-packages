@@ -20,11 +20,12 @@ import { type Libp2p, createLibp2p } from 'libp2p';
 import { type P2PConfig } from '../config.js';
 import { type TxPool } from '../tx_pool/index.js';
 import { KnownTxLookup } from './known_txs.js';
+import { PeerManager } from './peer_manager.js';
 import { AztecPeerDb, type AztecPeerStore } from './peer_store.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
 import { AztecTxMessageCreator, fromTxMessage } from './tx_messages.js';
 
-interface PubSubLibp2p extends Libp2p {
+export interface PubSubLibp2p extends Libp2p {
   services: {
     pubsub: PubSub<GossipsubEvents>;
   };
@@ -62,6 +63,7 @@ export class LibP2PService implements P2PService {
   private jobQueue: SerialQueue = new SerialQueue();
   private knownTxLookup: KnownTxLookup = new KnownTxLookup();
   private messageCreator: AztecTxMessageCreator;
+  private peerManager: PeerManager;
   constructor(
     private config: P2PConfig,
     private node: PubSubLibp2p,
@@ -73,6 +75,7 @@ export class LibP2PService implements P2PService {
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
     this.messageCreator = new AztecTxMessageCreator(config.txGossipVersion);
+    this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger);
   }
 
   /**
@@ -97,24 +100,18 @@ export class LibP2PService implements P2PService {
       await this.addPeer(enr);
     });
 
-    this.node.addEventListener('peer:discovery', evt => {
-      const peerId = evt.detail.id;
-      if (this.isBootstrapPeer(peerId)) {
-        this.logger.verbose(`Discovered bootstrap peer ${peerId.toString()}`);
-      }
-    });
-
-    this.node.addEventListener('peer:connect', evt => {
+    this.node.addEventListener('peer:connect', async evt => {
       const peerId = evt.detail;
-      this.handleNewConnection(peerId);
+      await this.handleNewConnection(peerId);
     });
 
-    this.node.addEventListener('peer:disconnect', evt => {
+    this.node.addEventListener('peer:disconnect', async evt => {
       const peerId = evt.detail;
       if (this.isBootstrapPeer(peerId)) {
         this.logger.verbose(`Disconnect from bootstrap peer ${peerId.toString()}`);
       } else {
         this.logger.verbose(`Disconnected from transaction peer ${peerId.toString()}`);
+        await this.peerManager.updateDiscoveryService();
       }
     });
 
@@ -164,7 +161,7 @@ export class LibP2PService implements P2PService {
     txPool: TxPool,
     store: AztecKVStore,
   ) {
-    const { tcpListenIp, tcpListenPort, minPeerCount, maxPeerCount } = config;
+    const { tcpListenIp, tcpListenPort, minPeerCount, maxPeerCount, transactionProtocol: protocolId } = config;
     const bindAddrTcp = `/ip4/${tcpListenIp}/tcp/${tcpListenPort}`;
 
     // The autonat service seems quite problematic in that using it seems to cause a lot of attempts
@@ -213,7 +210,6 @@ export class LibP2PService implements P2PService {
         }),
       },
     });
-    const protocolId = config.transactionProtocol;
 
     // Create an LMDB peer store
     const peerDb = new AztecPeerDb(store);
@@ -352,25 +348,20 @@ export class LibP2PService implements P2PService {
     return { message: buffer, peer: incomingStreamData.connection.remotePeer };
   }
 
-  private handleNewConnection(peerId: PeerId) {
+  private async handleNewConnection(peerId: PeerId) {
     if (this.isBootstrapPeer(peerId)) {
       this.logger.verbose(`Connected to bootstrap peer ${peerId.toString()}`);
     } else {
       this.logger.verbose(`Connected to transaction peer ${peerId.toString()}`);
-      // send the peer our current pooled transaction hashes
-      // void this.jobQueue.put(async () => {
-      //   await this.sendTxHashesMessageToPeer(peerId);
-      // });
+      await this.peerManager.updateDiscoveryService();
     }
   }
 
   private async processTxFromPeer(tx: Tx): Promise<void> {
     const txHash = tx.getTxHash();
     const txHashString = txHash.toString();
-    // this.knownTxLookup.addPeerForTx(peerId, txHashString);
     this.logger.debug(`Received tx ${txHashString} from external peer.`);
     await this.txPool.addTxs([tx]);
-    // this.propagateTx(tx);
   }
 
   private async sendTxToPeers(tx: Tx) {
