@@ -407,18 +407,6 @@ jobs:
           command: create_ecr_manifest yarn-project x86_64,arm64
           aztec_manifest_key: yarn-project
 
-  prover-client-test:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: cond_spot_run_build prover-client-test 128
-          aztec_manifest_key: prover-client-test
-
   aztec-package:
     machine:
       image: default
@@ -430,6 +418,18 @@ jobs:
           name: "Build and test"
           command: build aztec
           aztec_manifest_key: aztec
+
+  aztec-builder:
+    machine:
+      image: default
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build image"
+          command: build aztec-builder
+          aztec_manifest_key: aztec-builder
 
   boxes:
     docker:
@@ -514,6 +514,7 @@ jobs:
             should_release || exit 0
             deploy_dockerhub noir
             deploy_dockerhub aztec
+            deploy_dockerhub aztec-builder
       - run:
           name: "Release canary to NPM: bb.js"
           command: |
@@ -682,7 +683,6 @@ workflows:
             - noir-projects
           <<: *defaults
       - end-to-end: *defaults_yarn_project
-      - prover-client-test: *defaults_yarn_project
       - yarn-project-x86_64: *defaults_yarn_project_pre_join
       - yarn-project-arm64: *defaults_yarn_project_pre_join
       - yarn-project-ecr-manifest:
@@ -693,6 +693,7 @@ workflows:
 
       # Artifacts
       - aztec-package: *defaults_yarn_project
+      - aztec-builder: *defaults_yarn_project
 
       # Boxes.
       - boxes:
@@ -730,8 +731,8 @@ workflows:
             - boxes-vanilla
             - boxes-react
             - noir-packages-tests
-            - prover-client-test
             - e2e-join
+            - aztec-builder
           <<: *defaults
 
       # Production releases.
