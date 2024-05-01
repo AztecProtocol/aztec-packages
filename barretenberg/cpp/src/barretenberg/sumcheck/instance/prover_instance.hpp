@@ -50,6 +50,7 @@ template <class Flavor> class ProverInstance_ {
         if (is_structured) {
             circuit.blocks.check_within_fixed_sizes();
         }
+        // circuit.blocks.summarize();
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/905): This is adding ops to the op queue but NOT to
         // the circuit, meaning the ECCVM/Translator will use different ops than the main circuit. This will lead to

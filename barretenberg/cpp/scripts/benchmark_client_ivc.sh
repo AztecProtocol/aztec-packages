@@ -2,7 +2,8 @@
 set -eu
 
 TARGET="client_ivc_bench"
-FILTER="ClientIVCBench/Full/6$"
+FILTER="ClientIVCBench/FullStructured/6$"
+# FILTER="ClientIVCBench/Full/6$"
 BUILD_DIR=build-op-count-time
 
 # Move above script dir.
