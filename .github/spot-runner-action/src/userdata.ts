@@ -35,7 +35,7 @@ export class UserData {
       `mkdir -p shutdown-refcount`,
       // Shutdown rules:
       // - github actions job starts and ends always bump +ec2InstanceTtl minutes
-      // - when the amount of started jobs (start_run_* files) equal the amount of finished jobs (end_run_* files), we shutdown in 5 minutes
+      // - when the amount of started jobs (start_run_* files) equal the amount of finished jobs (end_run_* files), we shutdown in 5 minutes (with a reaper script installed later)
       `echo "${bumpShutdown}" > /run/delay_shutdown.sh`,
       "chmod +x /run/delay_shutdown.sh",
       "export ACTIONS_RUNNER_HOOK_JOB_STARTED=/run/delay_shutdown.sh",
