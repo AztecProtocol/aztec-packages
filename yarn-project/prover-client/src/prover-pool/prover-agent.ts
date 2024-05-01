@@ -3,6 +3,7 @@ import {
   type ProvingRequest,
   type ProvingRequestResult,
   ProvingRequestType,
+  makePublicInputsAndProof,
 } from '@aztec/circuit-types';
 import { makeEmptyProof } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -10,6 +11,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { elapsed } from '@aztec/foundation/timer';
 
 import { type CircuitProver } from '../prover/interface.js';
+import { ProvingError } from './proving-error.js';
 
 export class ProverAgent {
   private runningPromise?: RunningPromise;
@@ -45,7 +47,7 @@ export class ProverAgent {
         this.log.error(
           `Error processing proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: ${err}`,
         );
-        await queue.rejectProvingJob(job.id, err as Error);
+        await queue.rejectProvingJob(job.id, new ProvingError((err as any)?.message ?? String(err)));
       }
     }, this.intervalMs);
 
@@ -65,7 +67,7 @@ export class ProverAgent {
     const { type, inputs } = request;
     switch (type) {
       case ProvingRequestType.PUBLIC_VM: {
-        return Promise.resolve([{}, makeEmptyProof()] as const);
+        return Promise.resolve(makePublicInputsAndProof<object>({}, makeEmptyProof()));
       }
 
       case ProvingRequestType.PUBLIC_KERNEL_NON_TAIL: {
