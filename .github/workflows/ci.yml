@@ -78,8 +78,25 @@ jobs:
         timeout-minutes: 25
         run: earthly-ci -P --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} --no-output +${{ matrix.test }}
 
+  acir-bench:
+    runs-on: ${{ inputs.username || github.actor }}-bench-x86
+    needs: setup-bench
+    steps:
+      - {
+          uses: actions/checkout@v4,
+          with: { ref: "${{ github.event.pull_request.head.sha }}" },
+        }
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_key: acir-bench-${{ inputs.username || github.actor }}-bench-x86
+      - name: ACIR Proving Bench
+        working-directory: ./noir/
+        timeout-minutes: 15
+        run: earthly-ci -P --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} --no-output +barretenberg-acir-benches-bb
+
   # bench-summary:
-  #   needs: e2e
+  #   needs: [e2e, acir-bench]
   #   runs-on: ${{ inputs.username || github.actor }}-x86
   #   steps:
   #     - uses: actions/checkout@v4
@@ -265,12 +282,14 @@ jobs:
         timeout-minutes: 15
         run: earthly-ci --no-output +bench-ultra-honk --bench_mode=cache
 
+
   merge-check:
     runs-on: ubuntu-latest
     needs:
       - e2e
       - bb-native-tests
       - bb-bench
+      - acir-bench
       - yarn-project-formatting
       - yarn-project-test
       - prover-client-test

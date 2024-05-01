@@ -81,6 +81,44 @@ build:
   BUILD +nargo
   BUILD +packages
 
+build-acir-tests:
+  FROM +nargo
+  ENV PATH="/usr/src/noir-repo/target/release:${PATH}"
+  WORKDIR /usr/src/noir-repo/test_programs
+  COPY . .
+  RUN ./rebuild.sh
+  SAVE ARTIFACT /usr/src/noir-repo/test_programs/acir_artifacts/*
+
+# This is ripped from end-to-end's Earthfile, need to pull from there directly.
+UPLOAD_LOGS:
+  FUNCTION
+  ARG PULL_REQUEST
+  ARG BRANCH
+  ARG COMMIT_HASH
+  ARG LOG_FILE=./log
+  LOCALLY
+  LET COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
+  FROM ../+scripts
+  COPY ./log /usr/var/log
+  ENV PULL_REQUEST=$PULL_REQUEST
+  ENV BRANCH=$BRANCH
+  ENV COMMIT_HASH=$COMMIT_HASH
+  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY /usr/src/scripts/logs/upload_logs_to_s3.sh /usr/var/log
+
+barretenberg-acir-benches-bb:
+  FROM ../build-images/+build
+  WORKDIR /usr/src/barretenberg
+
+  COPY ../barretenberg/cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+  COPY +build-acir-tests/ /usr/src/acir_artifacts
+  COPY ../barretenberg/+acir-tests/ /usr/src/barretenberg/acir_tests
+
+  WORKDIR /usr/src/barretenberg/acir_tests
+  
+  ENV TEST_SRC /usr/src/acir_artifacts
+  ENV LOG_FILE=/log
+  RUN ./bench_acir_tests.sh sha256
+  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 # TOOD
 # test-packages
 # FROM aztecprotocol/noir AS noir
