@@ -93,6 +93,10 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getNullifierKeys');
   }
 
+  getNullifierKeysWithMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr): Promise<NullifierKeys> {
+    throw new OracleMethodNotAvailableError('getNullifierKeys');
+  }
+
   getPublicKeyAndPartialAddress(_address: AztecAddress): Promise<Fr[] | undefined> {
     throw new OracleMethodNotAvailableError('getPublicKeyAndPartialAddress');
   }

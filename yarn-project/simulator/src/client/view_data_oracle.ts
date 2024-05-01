@@ -34,6 +34,17 @@ export class ViewDataOracle extends TypedOracle {
     super();
   }
 
+/**
+ * Retrieve nullifier keys associated with a specific account and app/contract address.
+ *
+ * @param accountAddress - The account address.
+ * @returns A Promise that resolves to nullifier keys of a requested account and contract.
+ * @throws An error if the account is not registered in the database.
+ */
+  public override getNullifierKeys(account: AztecAddress): Promise<NullifierKeys> {
+    return this.db.getNullifierKeys(account, this.contractAddress);
+  }
+
   /**
    * Retrieve nullifier keys associated with a specific account and app/contract address.
    *
@@ -41,7 +52,7 @@ export class ViewDataOracle extends TypedOracle {
    * @returns A Promise that resolves to nullifier keys of a requested account and contract.
    * @throws An error if the account is not registered in the database.
    */
-  public override getNullifierKeys(masterNullifierPublicKeyHash: Fr): Promise<NullifierKeys> {
+  public override getNullifierKeysWithMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr): Promise<NullifierKeys> {
     return this.db.getNullifierKeys(masterNullifierPublicKeyHash, this.contractAddress);
   }
 
