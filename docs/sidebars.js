@@ -359,13 +359,13 @@ const sidebars = {
                 "developers/contracts/writing_contracts/storage/storage_slots",
               ],
             },
-            {
-              label: "Accounts and Account Contracts",
-              type: "category",
-              items: [
-                "developers/contracts/writing_contracts/accounts/write_accounts_contract",
-              ],
-            },
+            // {
+            //   label: "Accounts and Account Contracts",
+            //   type: "category",
+            //   items: [
+            //     "developers/contracts/writing_contracts/accounts/write_accounts_contract",
+            //   ],
+            // },
             {
               label: "Events",
               type: "category",
