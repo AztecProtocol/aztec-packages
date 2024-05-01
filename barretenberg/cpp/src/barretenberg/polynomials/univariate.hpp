@@ -62,6 +62,17 @@ template <class Fr, size_t domain_end, size_t domain_start = 0> class Univariate
     const Fr& value_at(size_t i) const { return evaluations[i - domain_start]; };
     size_t size() { return evaluations.size(); };
 
+    // Check if the univariate is identically zero
+    bool is_zero() const
+    {
+        for (auto& val : evaluations) {
+            if (!val.is_zero()) {
+                return false;
+            };
+        }
+        return true;
+    }
+
     // Write the Univariate evaluations to a buffer
     [[nodiscard]] std::vector<uint8_t> to_buffer() const { return ::to_buffer(evaluations); }
 

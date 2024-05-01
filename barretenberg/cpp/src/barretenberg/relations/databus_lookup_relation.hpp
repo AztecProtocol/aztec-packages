@@ -66,9 +66,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
     template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
     {
         // WORKTODO: comments
-        return in.q_busread.value_at(0).is_zero() && in.q_busread.value_at(1).is_zero() &&
-               in.calldata_read_counts.value_at(0).is_zero() && in.calldata_read_counts.value_at(1).is_zero() &&
-               in.return_data_read_counts.value_at(0).is_zero() && in.return_data_read_counts.value_at(1).is_zero();
+        return in.q_busread.is_zero() && in.calldata_read_counts.is_zero() && in.return_data_read_counts.is_zero();
     }
 
     // Interface for easy access of databus components by column (bus_idx)
@@ -239,6 +237,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
                                                      const Parameters& params,
                                                      const FF& scaling_factor)
     {
+        BB_OP_COUNT_TIME_NAME("DatabusRead::accumulate");
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
 

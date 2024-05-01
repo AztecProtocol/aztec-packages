@@ -21,7 +21,7 @@ template <typename FF_> class EccOpQueueRelationImpl {
     template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
     {
         // WORKTODO: comments
-        return in.lagrange_ecc_op.value_at(0).is_zero() && in.lagrange_ecc_op.value_at(1).is_zero();
+        return in.lagrange_ecc_op.is_zero();
     }
 
     /**
@@ -49,6 +49,7 @@ template <typename FF_> class EccOpQueueRelationImpl {
                                   const Parameters&,
                                   const FF& scaling_factor)
     {
+        BB_OP_COUNT_TIME_NAME("EccOp::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
 
