@@ -296,6 +296,26 @@
       }
     },
     {
+      "name": "wasm-op-count",
+      "displayName": "Release build with operation counts",
+      "description": "Build with op counting",
+      "inherits": "wasm-threads",
+      "binaryDir": "build-wasm-op-count",
+      "environment": {
+        "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TRACK_ONLY"
+      }
+    },
+    {
+      "name": "wasm-op-count-time",
+      "displayName": "Release build with time and clock counts",
+      "description": "Build with op counting",
+      "inherits": "wasm-threads",
+      "binaryDir": "build-wasm-op-count-time",
+      "environment": {
+        "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TIME_ONLY"
+      }
+    },
+    {
       "name": "xray",
       "displayName": "Build with multi-threaded XRay Profiling",
       "description": "Build with Clang and enable multi-threaded LLVM XRay for profiling",
@@ -463,6 +483,24 @@
     {
       "name": "wasm-threads",
       "configurePreset": "wasm-threads",
+      "inheritConfigureEnvironment": true,
+      "jobs": 0,
+      "targets": [
+        "barretenberg.wasm"
+      ]
+    },
+    {
+      "name": "wasm-op-count-time",
+      "configurePreset": "wasm-op-count-time",
+      "inheritConfigureEnvironment": true,
+      "jobs": 0,
+      "targets": [
+        "barretenberg.wasm"
+      ]
+    },
+    {
+      "name": "wasm-op-count",
+      "configurePreset": "wasm-op-count",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
       "targets": [

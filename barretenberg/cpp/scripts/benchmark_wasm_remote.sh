@@ -9,22 +9,24 @@ set -eu
 
 BENCHMARK=${1:-goblin_bench}
 COMMAND=${2:-./$BENCHMARK}
+PRESET=${3:-wasm-threads}
+BUILD_DIR=${4:-build-wasm-threads}
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 
 # Move above script dir.
 cd $(dirname $0)/..
 
 # Configure and build.
-cmake --preset wasm-threads
-cmake --build --preset wasm-threads --target $BENCHMARK
+cmake --preset $PRESET
+cmake --build --preset $PRESET --target $BENCHMARK
 
 source scripts/_benchmark_remote_lock.sh
 
-cd build-wasm-threads
+cd $BUILD_DIR
 # ensure folder structure
-ssh $BB_SSH_KEY $BB_SSH_INSTANCE "mkdir -p $BB_SSH_CPP_PATH/build-wasm-threads"
+ssh $BB_SSH_KEY $BB_SSH_INSTANCE "mkdir -p $BB_SSH_CPP_PATH/$BUILD_DIR"
 # copy build wasm threads
-scp $BB_SSH_KEY ./bin/$BENCHMARK $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build-wasm-threads
+scp $BB_SSH_KEY ./bin/$BENCHMARK $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/$BUILD_DIR
 # run wasm benchmarking
 ssh $BB_SSH_KEY $BB_SSH_INSTANCE \
-  "cd $BB_SSH_CPP_PATH/build-wasm-threads ; /home/ubuntu/.wasmtime/bin/wasmtime run --env HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY -Wthreads=y -Sthreads=y --dir=.. $COMMAND"
+  "cd $BB_SSH_CPP_PATH/$BUILD_DIR ; /home/ubuntu/.wasmtime/bin/wasmtime run --env HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY -Wthreads=y -Sthreads=y --dir=.. $COMMAND"
