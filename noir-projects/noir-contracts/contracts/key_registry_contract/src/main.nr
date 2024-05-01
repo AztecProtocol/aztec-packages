@@ -40,14 +40,18 @@ contract KeyRegistry {
   fn rotate_nullifier_public_key(
     address: AztecAddress,
     new_nullifier_public_key: GrumpkinPoint,
+    nonce: Field,
   ) {
     assert(
       !new_nullifier_public_key.is_zero(),
       "New nullifier public key must be non-zero"
     );
 
+    // TODO: (#6137)
     if (!address.eq(context.msg_sender())) {
       assert_current_call_valid_authwit_public(&mut context, address);
+    } else {
+      assert(nonce == 0, "invalid nonce");
     }
 
     let nullifier_key_registry = storage.nullifier_public_key_hash_registry.at(address);

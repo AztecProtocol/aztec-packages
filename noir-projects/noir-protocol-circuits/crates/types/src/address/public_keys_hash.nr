@@ -38,7 +38,7 @@ impl PublicKeysHash {
         Self { inner: field }
     }
 
-    // TODO(#5830): update this
+    // TODO(#5830): When we do this refactor, rename compute_new -> compute
     pub fn compute(public_key: GrumpkinPoint) -> Self {
         PublicKeysHash::from_field(
             pedersen_hash(
@@ -51,7 +51,7 @@ impl PublicKeysHash {
         )
     }
 
-    // TODO(#5830): Use this as the new one
+    // TODO(#5830): When we do this refactor, rename compute_new -> compute
     pub fn compute_new(
         nullifier_public_key: GrumpkinPoint,
         incoming_public_key: GrumpkinPoint,
