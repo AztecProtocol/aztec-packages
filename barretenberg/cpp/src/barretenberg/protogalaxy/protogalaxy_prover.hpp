@@ -290,34 +290,35 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
 
-        Relation::accumulate(
-            std::get<relation_idx>(univariate_accumulators), extended_univariates, relation_parameters, scaling_factor);
+        // Relation::accumulate(
+        //     std::get<relation_idx>(univariate_accumulators), extended_univariates, relation_parameters,
+        //     scaling_factor);
 
-        if constexpr (isSkippable<Relation, decltype(extended_univariates)>) {
-            Relation::skip(extended_univariates);
-        }
-
-        // // Check if the relation is skippable to speed up accumulation
-        // if constexpr (!isSkippable<Relation, decltype(extended_univariates)>) {
-        //     // info("NOT SKIPPABLE!");
-        //     // If not, accumulate normally
-        //     Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
-        //                          extended_univariates,
-        //                          relation_parameters,
-        //                          scaling_factor);
-        // } else {
-        //     // info("SKIPPABLE!");
-        //     // If so, only compute the contribution if the relation is active
-        //     if (!Relation::skip(extended_univariates)) {
-        //         // info("NOT skipping!", relation_idx);
-        //         Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
-        //                              extended_univariates,
-        //                              relation_parameters,
-        //                              scaling_factor);
-        //     } else {
-        //         // info("Skipping!", relation_idx);
-        //     }
+        // if constexpr (isSkippable<Relation, decltype(extended_univariates)>) {
+        //     Relation::skip(extended_univariates);
         // }
+
+        // Check if the relation is skippable to speed up accumulation
+        if constexpr (!isSkippable<Relation, decltype(extended_univariates)>) {
+            // info("NOT SKIPPABLE!");
+            // If not, accumulate normally
+            Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
+                                 extended_univariates,
+                                 relation_parameters,
+                                 scaling_factor);
+        } else {
+            // info("SKIPPABLE!");
+            // If so, only compute the contribution if the relation is active
+            if (!Relation::skip(extended_univariates)) {
+                // info("NOT skipping!", relation_idx);
+                Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
+                                     extended_univariates,
+                                     relation_parameters,
+                                     scaling_factor);
+            } else {
+                // info("Skipping!", relation_idx);
+            }
+        }
 
         // Repeat for the next relation.
         if constexpr (relation_idx + 1 < Flavor::NUM_RELATIONS) {
