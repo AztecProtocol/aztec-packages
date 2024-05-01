@@ -20,10 +20,6 @@ This guide shows you how to use oracles in your Noir program. For the sake of cl
 
 For reference, you can find the snippets used in this tutorial on the [Aztec DevRel Repository](https://github.com/AztecProtocol/dev-rel/tree/main/code-snippets/how-to-oracles).
 
-:::warning
-note that the code linked in the dev-rel repo is not as up to date as the aztec-packages monorepo.
-:::
-
 ## Rundown
 
 This guide has 3 major steps:
