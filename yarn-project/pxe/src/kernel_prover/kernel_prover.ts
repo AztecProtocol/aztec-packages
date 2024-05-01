@@ -59,11 +59,7 @@ export class KernelProver {
     };
 
     const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
-
-    const noteHashNullifierCounterMap = new Map();
-    collectNullifiedNoteHashCounters(executionResult).forEach(({ noteHashCounter, nullifierCounter }) =>
-      noteHashNullifierCounterMap.set(noteHashCounter, nullifierCounter),
-    );
+    const noteHashNullifierCounterMap = collectNullifiedNoteHashCounters(executionResult);
 
     while (executionStack.length) {
       const currentExecution = executionStack.pop()!;

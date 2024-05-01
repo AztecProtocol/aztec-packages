@@ -30,7 +30,7 @@ import { type NoteData, toACVMWitness } from '../acvm/index.js';
 import { type PackedValuesCache } from '../common/packed_values_cache.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionNoteCache } from './execution_note_cache.js';
-import { type ExecutionResult, type NoteAndSlot, type NullifiedNoteHashCounter } from './execution_result.js';
+import { type ExecutionResult, type NoteAndSlot } from './execution_result.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -57,7 +57,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * They should act as references for the read requests output by an app circuit via public inputs.
    */
   private noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
-  private nullifiedNoteHashCounters: NullifiedNoteHashCounter[] = [];
+  private nullifiedNoteHashCounters: Map<number, number> = new Map();
   private encryptedLogs: EncryptedL2Log[] = [];
   private unencryptedLogs: UnencryptedL2Log[] = [];
   private nestedExecutions: ExecutionResult[] = [];
@@ -308,7 +308,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       innerNoteHash,
     );
     if (nullifiedNoteHashCounter !== undefined) {
-      this.nullifiedNoteHashCounters.push({ noteHashCounter: nullifiedNoteHashCounter, nullifierCounter: counter });
+      this.nullifiedNoteHashCounters.set(nullifiedNoteHashCounter, counter);
     }
     return Promise.resolve();
   }

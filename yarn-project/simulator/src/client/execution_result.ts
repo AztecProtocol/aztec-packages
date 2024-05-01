@@ -16,11 +16,6 @@ export interface NoteAndSlot {
   noteTypeId: Fr;
 }
 
-export interface NullifiedNoteHashCounter {
-  noteHashCounter: number;
-  nullifierCounter: number;
-}
-
 /**
  * The result of executing a private function.
  */
@@ -39,7 +34,8 @@ export interface ExecutionResult {
   noteHashLeafIndexMap: Map<bigint, bigint>;
   /** The notes created in the executed function. */
   newNotes: NoteAndSlot[];
-  nullifiedNoteHashCounters: NullifiedNoteHashCounter[];
+  /** Mapping of note hash counter to the counter of its nullifier. */
+  nullifiedNoteHashCounters: Map<number, number>;
   /** The raw return values of the executed function. */
   returnValues: Fr[];
   /** The nested executions. */
@@ -64,11 +60,10 @@ export function collectNoteHashLeafIndexMap(execResult: ExecutionResult, accum: 
   return accum;
 }
 
-export function collectNullifiedNoteHashCounters(execResult: ExecutionResult): NullifiedNoteHashCounter[] {
-  return [
-    execResult.nullifiedNoteHashCounters,
-    ...execResult.nestedExecutions.flatMap(collectNullifiedNoteHashCounters),
-  ].flat();
+export function collectNullifiedNoteHashCounters(execResult: ExecutionResult, accum: Map<number, number> = new Map()) {
+  execResult.nullifiedNoteHashCounters.forEach((value, key) => accum.set(key, value));
+  execResult.nestedExecutions.forEach(nested => collectNullifiedNoteHashCounters(nested, accum));
+  return accum;
 }
 
 /**

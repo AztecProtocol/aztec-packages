@@ -11,6 +11,7 @@ import {
   type ExecutionResult,
   collectEncryptedLogs,
   collectNoteHashLeafIndexMap,
+  collectNullifiedNoteHashCounters,
   collectUnencryptedLogs,
 } from './execution_result.js';
 
@@ -22,7 +23,7 @@ function emptyExecutionResult(): ExecutionResult {
     callStackItem: PrivateCallStackItem.empty(),
     noteHashLeafIndexMap: new Map(),
     newNotes: [],
-    nullifiedNoteHashCounters: [],
+    nullifiedNoteHashCounters: new Map(),
     returnValues: [],
     nestedExecutions: [],
     enqueuedPublicFunctionCalls: [],
@@ -70,6 +71,48 @@ describe('collectNoteHashLeafIndexMap', () => {
     expect(res.get(56n)).toBe(77n);
     expect(res.get(78n)).toBe(66n);
     expect(res.get(90n)).toBe(55n);
+  });
+});
+
+describe('collectNullifiedNoteHashCounters', () => {
+  let executionResult: ExecutionResult;
+
+  beforeEach(() => {
+    executionResult = emptyExecutionResult();
+  });
+
+  it('returns a map for note hash leaf indexes', () => {
+    executionResult.nullifiedNoteHashCounters = new Map();
+    executionResult.nullifiedNoteHashCounters.set(12, 99);
+    executionResult.nullifiedNoteHashCounters.set(34, 88);
+    const res = collectNullifiedNoteHashCounters(executionResult);
+    expect(res.size).toBe(2);
+    expect(res.get(12)).toBe(99);
+    expect(res.get(34)).toBe(88);
+  });
+
+  it('returns a map containing note hash leaf indexes for nested executions', () => {
+    executionResult.nullifiedNoteHashCounters.set(12, 99);
+    executionResult.nullifiedNoteHashCounters.set(34, 88);
+
+    const childExecution0 = emptyExecutionResult();
+    childExecution0.nullifiedNoteHashCounters.set(56, 77);
+
+    const childExecution1 = emptyExecutionResult();
+    childExecution1.nullifiedNoteHashCounters.set(78, 66);
+    const grandchildExecution = emptyExecutionResult();
+    grandchildExecution.nullifiedNoteHashCounters.set(90, 55);
+    childExecution1.nestedExecutions = [grandchildExecution];
+
+    executionResult.nestedExecutions = [childExecution0, childExecution1];
+
+    const res = collectNullifiedNoteHashCounters(executionResult);
+    expect(res.size).toBe(5);
+    expect(res.get(12)).toBe(99);
+    expect(res.get(34)).toBe(88);
+    expect(res.get(56)).toBe(77);
+    expect(res.get(78)).toBe(66);
+    expect(res.get(90)).toBe(55);
   });
 });
 
