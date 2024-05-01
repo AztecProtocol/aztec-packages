@@ -45,7 +45,7 @@ jobs:
           concurrency_key: base-${{ inputs.username || github.actor }}-x86
       - name: "Base Build Image"
         timeout-minutes: 40
-        run: earthly-ci ./yarn-project+export-end-to-end
+        run: earthly-ci ./build-images/+build
 
   build:
     needs: base
