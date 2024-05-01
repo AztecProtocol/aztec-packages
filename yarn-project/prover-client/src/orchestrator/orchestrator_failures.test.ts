@@ -75,29 +75,26 @@ describe('prover/orchestrator/failures', () => {
           jest.spyOn(mockProver, 'getRootParityProof').mockRejectedValue('Root Parity Failed');
         },
       ],
-    ] as const)(
-      'handles a %s error',
-      async (message: string, fn: () => void) => {
-        fn();
-        const txs = await Promise.all([
-          makeEmptyProcessedTestTx(context.actualDb),
-          makeEmptyProcessedTestTx(context.actualDb),
-          makeEmptyProcessedTestTx(context.actualDb),
-          makeEmptyProcessedTestTx(context.actualDb),
-        ]);
+    ] as const)('handles a %s error', async (message: string, fn: () => void) => {
+      fn();
+      const txs = await Promise.all([
+        makeEmptyProcessedTestTx(context.actualDb),
+        makeEmptyProcessedTestTx(context.actualDb),
+        makeEmptyProcessedTestTx(context.actualDb),
+        makeEmptyProcessedTestTx(context.actualDb),
+      ]);
 
-        const blockTicket = await orchestrator.startNewBlock(
-          txs.length,
-          context.globalVariables,
-          [],
-          await makeEmptyProcessedTestTx(context.actualDb),
-        );
+      const blockTicket = await orchestrator.startNewBlock(
+        txs.length,
+        context.globalVariables,
+        [],
+        await makeEmptyProcessedTestTx(context.actualDb),
+      );
 
-        for (const tx of txs) {
-          await orchestrator.addNewTx(tx);
-        }
-        await expect(blockTicket.provingPromise).resolves.toEqual({ status: PROVING_STATUS.FAILURE, reason: message });
+      for (const tx of txs) {
+        await orchestrator.addNewTx(tx);
       }
-    );
+      await expect(blockTicket.provingPromise).resolves.toEqual({ status: PROVING_STATUS.FAILURE, reason: message });
+    });
   });
 });

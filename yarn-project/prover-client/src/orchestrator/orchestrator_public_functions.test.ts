@@ -58,7 +58,7 @@ describe('prover/orchestrator/public-functions', () => {
         const finalisedBlock = await context.orchestrator.finaliseBlock();
 
         expect(finalisedBlock.block.number).toEqual(context.blockNumber);
-      }
+      },
     );
   });
 });
