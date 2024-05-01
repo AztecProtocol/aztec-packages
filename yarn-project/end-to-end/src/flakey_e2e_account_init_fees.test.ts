@@ -12,7 +12,7 @@ import {
   type TxHash,
   TxStatus,
   type Wallet,
-  computeMessageSecretHash,
+  computeSecretHash,
   deriveKeys,
 } from '@aztec/aztec.js';
 import { type AztecAddress, CompleteAddress, Fq, GasSettings } from '@aztec/circuits.js';
@@ -38,7 +38,7 @@ import { GasPortalTestingHarnessFactory, type IGasBridgingTestHarness } from './
 const TOKEN_NAME = 'BananaCoin';
 const TOKEN_SYMBOL = 'BC';
 const TOKEN_DECIMALS = 18n;
-const BRIDGED_FPC_GAS = 444n;
+const BRIDGED_FPC_GAS = BigInt(10e12);
 
 jest.setTimeout(1000_000);
 
@@ -125,13 +125,8 @@ describe('e2e_fees_account_init', () => {
   afterAll(() => ctx.teardown());
 
   beforeEach(() => {
-    gasSettings = GasSettings.from({
-      gasLimits: { daGas: 2, l1Gas: 2, l2Gas: 2 },
-      teardownGasLimits: { daGas: 1, l1Gas: 1, l2Gas: 1 },
-      maxFeesPerGas: { feePerDaGas: Fr.ONE, feePerL1Gas: Fr.ONE, feePerL2Gas: Fr.ONE },
-      inclusionFee: new Fr(5),
-    });
-    maxFee = 3n * 3n + 5n;
+    gasSettings = GasSettings.default();
+    maxFee = gasSettings.getFeeLimit().toBigInt();
     actualFee = 1n;
     bobsSecretKey = Fr.random();
     bobsPrivateSigningKey = Fq.random();
@@ -168,7 +163,7 @@ describe('e2e_fees_account_init', () => {
     describe('privately through an FPC', () => {
       let mintedPrivateBananas: bigint;
       beforeEach(async () => {
-        mintedPrivateBananas = 42n;
+        mintedPrivateBananas = BigInt(1e12);
 
         // TODO the following sequence of events ends in a timeout
         // 1. pxe.registerRecipient (aka just add the public key so pxe can encrypt notes)
@@ -178,7 +173,7 @@ describe('e2e_fees_account_init', () => {
         await bobsAccountManager.register();
 
         const secret = Fr.random();
-        const secretHash = computeMessageSecretHash(secret);
+        const secretHash = computeSecretHash(secret);
         const mintTx = await bananaCoin.methods.mint_private(mintedPrivateBananas, secretHash).send().wait();
         await addTransparentNoteToPxe(sequencersAddress, mintedPrivateBananas, secretHash, mintTx.txHash);
 
@@ -224,7 +219,7 @@ describe('e2e_fees_account_init', () => {
         // the new account should have received a refund
         await expect(
           // this rejects if note can't be added
-          addTransparentNoteToPxe(bobsAddress, maxFee - actualFee, computeMessageSecretHash(rebateSecret), tx.txHash),
+          addTransparentNoteToPxe(bobsAddress, maxFee - actualFee, computeSecretHash(rebateSecret), tx.txHash),
         ).resolves.toBeUndefined();
 
         // and it can redeem the refund
@@ -243,7 +238,7 @@ describe('e2e_fees_account_init', () => {
       let mintedPublicBananas: bigint;
 
       beforeEach(async () => {
-        mintedPublicBananas = 37n;
+        mintedPublicBananas = BigInt(1e12);
         await bananaCoin.methods.mint_public(bobsAddress, mintedPublicBananas).send().wait();
       });
 
@@ -338,8 +333,8 @@ describe('e2e_fees_account_init', () => {
   });
 
   async function addTransparentNoteToPxe(owner: AztecAddress, amount: bigint, secretHash: Fr, txHash: TxHash) {
-    const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
-    const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
+    const storageSlot = bananaCoin.artifact.storageLayout['pending_shields'].slot;
+    const noteTypeId = bananaCoin.artifact.notes['TransparentNote'].id;
 
     const note = new Note([new Fr(amount), secretHash]);
     // this note isn't encrypted but we need to provide a registered public key

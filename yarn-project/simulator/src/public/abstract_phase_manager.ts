@@ -29,6 +29,8 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_CALL,
   MembershipWitness,
+  NoteHash,
+  Nullifier,
   type PrivateKernelTailCircuitPublicInputs,
   type Proof,
   PublicCallData,
@@ -43,7 +45,6 @@ import {
   ReadRequest,
   RevertCode,
   SideEffect,
-  SideEffectLinkedToNoteHash,
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
@@ -227,6 +228,9 @@ export abstract class AbstractPhaseManager {
 
     const newUnencryptedFunctionLogs: UnencryptedFunctionL2Logs[] = [];
 
+    // Transaction fee is zero for all phases except teardown
+    const transactionFee = this.getTransactionFee(tx, previousPublicKernelOutput);
+
     // TODO(#1684): Should multiple separately enqueued public calls be treated as
     // separate public callstacks to be proven by separate public kernel sequences
     // and submitted separately to the base rollup?
@@ -243,9 +247,17 @@ export abstract class AbstractPhaseManager {
         const current = executionStack.pop()!;
         const isExecutionRequest = !isPublicExecutionResult(current);
         const sideEffectCounter = lastSideEffectCounter(tx) + 1;
+        const availableGas = this.getAvailableGas(tx, previousPublicKernelOutput);
 
         const result = isExecutionRequest
-          ? await this.publicExecutor.simulate(current, this.globalVariables, sideEffectCounter)
+          ? await this.publicExecutor.simulate(
+              current,
+              this.globalVariables,
+              availableGas,
+              tx.data.constants.txContext,
+              transactionFee,
+              sideEffectCounter,
+            )
           : current;
 
         const functionSelector = result.execution.functionData.selector.toString();
@@ -308,6 +320,17 @@ export abstract class AbstractPhaseManager {
     return [publicKernelInputs, kernelOutput, kernelProof, newUnencryptedFunctionLogs, undefined, returns];
   }
 
+  protected getAvailableGas(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs) {
+    return tx.data.constants.txContext.gasSettings
+      .getLimits() // No need to subtract teardown limits since they are already included in end.gasUsed
+      .sub(previousPublicKernelOutput.end.gasUsed)
+      .sub(previousPublicKernelOutput.endNonRevertibleData.gasUsed);
+  }
+
+  protected getTransactionFee(_tx: Tx, _previousPublicKernelOutput: PublicKernelCircuitPublicInputs) {
+    return Fr.ZERO;
+  }
+
   protected async runKernelCircuit(
     previousOutput: PublicKernelCircuitPublicInputs,
     previousProof: Proof,
@@ -348,7 +371,7 @@ export abstract class AbstractPhaseManager {
     return new PublicKernelData(previousOutput, previousProof, vk, vkIndex, vkSiblingPath);
   }
 
-  protected async getPublicCircuitPublicInputs(result: PublicExecutionResult) {
+  protected async getPublicCallStackItem(result: PublicExecutionResult, isExecutionRequest = false) {
     const publicDataTreeInfo = await this.db.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE);
     this.historicalHeader.state.partial.publicDataTree.root = Fr.fromBuffer(publicDataTreeInfo.root);
 
@@ -361,12 +384,12 @@ export abstract class AbstractPhaseManager {
 
     const unencryptedLogPreimagesLength = new Fr(result.unencryptedLogs.getSerializedLength());
 
-    return PublicCircuitPublicInputs.from({
+    const publicCircuitPublicInputs = PublicCircuitPublicInputs.from({
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.ZERO,
       argsHash: computeVarArgsHash(result.execution.args),
-      newNoteHashes: padArrayEnd(result.newNoteHashes, SideEffect.empty(), MAX_NEW_NOTE_HASHES_PER_CALL),
-      newNullifiers: padArrayEnd(result.newNullifiers, SideEffectLinkedToNoteHash.empty(), MAX_NEW_NULLIFIERS_PER_CALL),
+      newNoteHashes: padArrayEnd(result.newNoteHashes, NoteHash.empty(), MAX_NEW_NOTE_HASHES_PER_CALL),
+      newNullifiers: padArrayEnd(result.newNullifiers, Nullifier.empty(), MAX_NEW_NULLIFIERS_PER_CALL),
       newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, L2ToL1Message.empty(), MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
       startSideEffectCounter: result.startSideEffectCounter,
       endSideEffectCounter: result.endSideEffectCounter,
@@ -399,20 +422,18 @@ export abstract class AbstractPhaseManager {
       ),
       unencryptedLogPreimagesLength,
       historicalHeader: this.historicalHeader,
+      globalVariables: this.globalVariables,
+      startGasLeft: Gas.from(result.startGasLeft),
+      endGasLeft: Gas.from(result.endGasLeft),
+      transactionFee: result.transactionFee,
       // TODO(@just-mitch): need better mapping from simulator to revert code.
       revertCode: result.reverted ? RevertCode.REVERTED : RevertCode.OK,
-      // TODO(palla/gas): Set proper values
-      startGasLeft: Gas.test(),
-      endGasLeft: Gas.test(),
-      transactionFee: Fr.ZERO,
     });
-  }
 
-  protected async getPublicCallStackItem(result: PublicExecutionResult, isExecutionRequest = false) {
     return new PublicCallStackItem(
       result.execution.contractAddress,
       result.execution.functionData,
-      await this.getPublicCircuitPublicInputs(result),
+      publicCircuitPublicInputs,
       isExecutionRequest,
     );
   }
@@ -450,8 +471,7 @@ export abstract class AbstractPhaseManager {
       c.toCallRequest(callStackItem.publicInputs.callContext),
     );
     const publicCallStack = padArrayEnd(publicCallRequests, CallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
-    const portalContractAddress = result.execution.callContext.portalContractAddress.toField();
-    return new PublicCallData(callStackItem, publicCallStack, makeEmptyProof(), portalContractAddress, bytecodeHash);
+    return new PublicCallData(callStackItem, publicCallStack, makeEmptyProof(), bytecodeHash);
   }
 }
 

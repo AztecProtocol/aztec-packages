@@ -3,13 +3,13 @@ import {
   CallContext,
   FunctionData,
   type FunctionSelector,
-  Gas,
+  type Gas,
+  type GasSettings,
   type GlobalVariables,
   type Header,
   PublicContextInputs,
 } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type ContractInstance } from '@aztec/types/contracts';
@@ -41,6 +41,9 @@ export class PublicExecutionContext extends TypedOracle {
     public readonly stateDb: PublicStateDB,
     public readonly contractsDb: PublicContractsDB,
     public readonly commitmentsDb: CommitmentsDB,
+    public readonly availableGas: Gas,
+    public readonly transactionFee: Fr,
+    public readonly gasSettings: GasSettings,
     private log = createDebugLogger('aztec:simulator:public_execution_context'),
   ) {
     super();
@@ -63,8 +66,8 @@ export class PublicExecutionContext extends TypedOracle {
       this.header,
       this.globalVariables,
       this.sideEffectCounter.current(),
-      Gas.test(), // TODO(palla/gas): Set proper values
-      new Fr(0),
+      this.availableGas,
+      this.transactionFee,
     );
     const fields = [...publicContextInputs.toFields(), ...args];
     return toACVMWitness(witnessStartIndex, fields);
@@ -197,12 +200,10 @@ export class PublicExecutionContext extends TypedOracle {
       `Public function call: addr=${targetContractAddress} selector=${functionSelector} args=${args.join(',')}`,
     );
 
-    const portalAddress = (await this.contractsDb.getPortalContractAddress(targetContractAddress)) ?? EthAddress.ZERO;
     const functionData = new FunctionData(functionSelector, /*isPrivate=*/ false);
     const callContext = CallContext.from({
       msgSender: isDelegateCall ? this.execution.callContext.msgSender : this.execution.contractAddress,
       storageContractAddress: isDelegateCall ? this.execution.contractAddress : targetContractAddress,
-      portalContractAddress: portalAddress,
       functionSelector,
       isDelegateCall,
       isStaticCall,
@@ -225,6 +226,9 @@ export class PublicExecutionContext extends TypedOracle {
       this.stateDb,
       this.contractsDb,
       this.commitmentsDb,
+      this.availableGas,
+      this.transactionFee,
+      this.gasSettings,
       this.log,
     );
 

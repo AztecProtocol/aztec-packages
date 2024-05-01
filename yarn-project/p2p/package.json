@@ -38,6 +38,14 @@
     },
     "extensionsToTreatAsEsm": [
       ".ts"
+    ],
+    "reporters": [
+      [
+        "default",
+        {
+          "summaryThreshold": 9999
+        }
+      ]
     ]
   },
   "dependencies": {

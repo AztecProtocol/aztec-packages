@@ -1,13 +1,18 @@
 import { type AztecNode, CompleteAddress, Note } from '@aztec/circuit-types';
-import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
-import { computeUniqueCommitment, siloNoteHash } from '@aztec/circuits.js/hash';
+import { GeneratorIndex, computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
+import {
+  computeInnerNoteHash,
+  computeNoteContentHash,
+  computeUniqueNoteHash,
+  siloNoteHash,
+} from '@aztec/circuits.js/hash';
 import {
   ABIParameterVisibility,
   type FunctionArtifactWithDebugMetadata,
   getFunctionArtifact,
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
@@ -54,8 +59,8 @@ describe('Simulator', () => {
   describe('computeNoteHashAndNullifier', () => {
     const artifact = getFunctionArtifact(TokenContractArtifact, 'compute_note_hash_and_nullifier');
     const nonce = Fr.random();
-    const storageSlot = Fr.random();
-    const noteTypeId = new Fr(8411110710111078111116101n); // TODO(#5833): This can be imported from artifact now
+    const storageSlot = TokenContractArtifact.storageLayout['balances'].slot;
+    const noteTypeId = TokenContractArtifact.notes['TokenNote'].id;
 
     const createNote = (amount = 123n) => new Note([new Fr(amount), owner.toField(), Fr.random()]);
 
@@ -63,12 +68,15 @@ describe('Simulator', () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(artifact);
 
       const note = createNote();
-      const tokenNoteHash = pedersenHash(note.items);
-      const innerNoteHash = pedersenHash([storageSlot, tokenNoteHash]);
+      const tokenNoteHash = computeNoteContentHash(note.items);
+      const innerNoteHash = computeInnerNoteHash(storageSlot, tokenNoteHash);
       const siloedNoteHash = siloNoteHash(contractAddress, innerNoteHash);
-      const uniqueSiloedNoteHash = computeUniqueCommitment(nonce, siloedNoteHash);
-      // TODO(#5832): all the pedersen hashes in notes should be replaced with poseidon2
-      const innerNullifier = pedersenHash([uniqueSiloedNoteHash, appNullifierSecretKey]);
+      const uniqueSiloedNoteHash = computeUniqueNoteHash(nonce, siloedNoteHash);
+      const innerNullifier = poseidon2Hash([
+        uniqueSiloedNoteHash,
+        appNullifierSecretKey,
+        GeneratorIndex.NOTE_NULLIFIER,
+      ]);
 
       const result = await simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note);
 

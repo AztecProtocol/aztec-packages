@@ -16,7 +16,7 @@ The private inputs of a private function circuit are customizable.
 
 <!-- Mike review:
 - Elaborate on what the `counter`s are for (or link to a section which describes them).
-- It would be nice to explain what's inside a call_stack_item_hash, or to link to a definition of the the private_call_stack_item and public_call_stack_item structs.
+- It would be nice to explain what's inside a call_stack_item_hash, or to link to a definition of the private_call_stack_item and public_call_stack_item structs.
 - It seems the L1->L2 messages tree doesn't exist anymore (according to the `../state/*` section of this paper. Perhaps it's been absorbed into the note hashes tree?). Consider updating the structs accordingly. EDIT: it should still exist.
 - I think there's still some outstanding ugliness originating from the "where to read?" debate:
     - Read requests for notes are being output by private functions, but the `note_hash_tree_root` is also available - so which should be used by an app?
@@ -82,9 +82,6 @@ After generating a proof for a private function circuit, that proof (and associa
 | `da.gas_limit`          | `u32`   | Total limit for DA gas for the transaction.                          |
 | `da.teardown_gas_limit` | `u32`   | Limit for DA gas specific to the teardown phase.                     |
 | `da.max_fee_per_gas`    | `field` | Maximum amount that the sender is willing to pay per unit of DA gas. |
-| `l1.gas_limit`          | `u32`   | Total limit for L1 gas for the transaction.                          |
-| `l1.teardown_gas_limit` | `u32`   | Limit for L1 gas specific to the teardown phase.                     |
-| `l1.max_fee_per_gas`    | `field` | Maximum amount that the sender is willing to pay per unit of L1 gas. |
 | `l2.gas_limit`          | `u32`   | Total limit for L2 gas for the transaction.                          |
 | `l2.teardown_gas_limit` | `u32`   | Limit for L2 gas specific to the teardown phase.                     |
 | `l2.max_fee_per_gas`    | `field` | Maximum amount that the sender is willing to pay per unit of L2 gas. |

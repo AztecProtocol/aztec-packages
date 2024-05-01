@@ -34,7 +34,6 @@ struct PrivateCallDataBuilder {
     contract_class_public_bytecode_commitment: Field,
     function_leaf_membership_witness: FunctionLeafMembershipWitness,
     note_hash_read_request_membership_witnesses: BoundedVec<NoteHashReadRequestMembershipWitness, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
-    portal_contract_address: EthAddress,
     acir_hash: Field,
     gas_settings: GasSettings,
 }
@@ -62,7 +61,6 @@ impl PrivateCallDataBuilder {
             contract_class_artifact_hash: contract_data.artifact_hash,
             contract_class_public_bytecode_commitment: contract_data.public_bytecode_commitment,
             note_hash_read_request_membership_witnesses: BoundedVec::new(),
-            portal_contract_address: public_inputs.call_context.portal_contract_address,
             acir_hash: contract_function.acir_hash,
             gas_settings: public_inputs.gas_settings
         }
@@ -71,7 +69,6 @@ impl PrivateCallDataBuilder {
     pub fn is_delegate_call(&mut self) -> Self {
         self.public_inputs.call_context.is_delegate_call = true;
         self.public_inputs.call_context.storage_contract_address = fixtures::contracts::parent_contract.address;
-        self.public_inputs.call_context.portal_contract_address = fixtures::contracts::parent_contract.portal_contract_address;
         self.public_inputs.call_context.msg_sender = fixtures::MSG_SENDER;
         *self
     }
@@ -92,7 +89,7 @@ impl PrivateCallDataBuilder {
     }
 
     pub fn build_tx_context(self) -> TxContext {
-        TxContext { chain_id: 1, version: 0, gas_settings: self.gas_settings }
+        self.public_inputs.build_tx_context()
     }
 
     pub fn append_private_call_requests(&mut self, num_requests: u64, is_delegate_call: bool) {
@@ -173,24 +170,21 @@ impl PrivateCallDataBuilder {
         self.public_inputs.unencrypted_log_preimages_length += preimages_length;
     }
 
-    pub fn get_call_stack_item_hash(self) -> Field {
-        let call_stack_item = PrivateCallStackItem {
+    fn build_call_stack_item(self) -> PrivateCallStackItem {
+        PrivateCallStackItem {
             contract_address: self.contract_address,
             function_data: self.function_data,
             public_inputs: self.public_inputs.finish()
-        };
-        call_stack_item.hash()
+        }
+    }
+
+    pub fn get_call_stack_item_hash(self) -> Field {
+        self.build_call_stack_item().hash()
     }
 
     pub fn finish(self) -> PrivateCallData {
-        let call_stack_item = PrivateCallStackItem {
-            contract_address: self.contract_address,
-            function_data: self.function_data,
-            public_inputs: self.public_inputs.finish()
-        };
-
         PrivateCallData {
-            call_stack_item,
+            call_stack_item: self.build_call_stack_item(),
             private_call_stack: self.private_call_stack.storage,
             public_call_stack: self.public_call_stack.storage,
             proof: self.proof,
@@ -201,7 +195,6 @@ impl PrivateCallDataBuilder {
             contract_class_artifact_hash: self.contract_class_artifact_hash,
             contract_class_public_bytecode_commitment: self.contract_class_public_bytecode_commitment,
             note_hash_read_request_membership_witnesses: self.note_hash_read_request_membership_witnesses.storage,
-            portal_contract_address: self.portal_contract_address,
             acir_hash: self.acir_hash
         }
     }

@@ -7,7 +7,7 @@ import {
   Note,
   type PXE,
   type Wallet,
-  computeMessageSecretHash,
+  computeSecretHash,
 } from '@aztec/aztec.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { TestContract, TokenContract } from '@aztec/noir-contracts.js';
@@ -47,7 +47,7 @@ describe('e2e_cheat_codes', () => {
     admin = wallet.getCompleteAddress();
 
     token = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18).send().deployed();
-  }, 100_000);
+  });
 
   afterAll(() => teardown());
 
@@ -186,7 +186,7 @@ describe('e2e_cheat_codes', () => {
           .wait({ interval: 0.1 });
         // block is published at t >= newTimestamp + 1.
         expect(Number(await rollup.read.lastBlockTs())).toBeGreaterThanOrEqual(newTimestamp + 1);
-      }, 50_000);
+      });
 
       it('should throw if setting L2 block time to a past timestamp', async () => {
         const timestamp = await cc.eth.timestamp();
@@ -218,7 +218,7 @@ describe('e2e_cheat_codes', () => {
       // docs:start:load_private_cheatcode
       const mintAmount = 100n;
       const secret = Fr.random();
-      const secretHash = computeMessageSecretHash(secret);
+      const secretHash = computeSecretHash(secret);
       const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
       // docs:start:pxe_add_note
@@ -244,6 +244,6 @@ describe('e2e_cheat_codes', () => {
       const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
       expect(balance).toEqual(mintAmount);
       // docs:end:load_private_cheatcode
-    }, 50_000);
+    });
   });
 });

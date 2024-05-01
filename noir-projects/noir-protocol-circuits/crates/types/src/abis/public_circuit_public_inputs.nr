@@ -1,7 +1,7 @@
 use crate::{
     abis::{
-    call_context::CallContext, read_request::ReadRequest,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}, gas::Gas
+    call_context::CallContext, note_hash::NoteHash, nullifier::Nullifier, read_request::ReadRequest,
+    side_effect::SideEffect, gas::Gas, global_variables::GlobalVariables
 },
     address::AztecAddress,
     constants::{
@@ -29,8 +29,8 @@ struct PublicCircuitPublicInputs {
 
     // todo: add sideeffect ranges for the input to these hashes
     public_call_stack_hashes: [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-    new_note_hashes: [SideEffect; MAX_NEW_NOTE_HASHES_PER_CALL],
-    new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_CALL],
+    new_note_hashes: [NoteHash; MAX_NEW_NOTE_HASHES_PER_CALL],
+    new_nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_CALL],
     new_l2_to_l1_msgs: [L2ToL1Message; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
 
     start_side_effect_counter: u32,
@@ -45,6 +45,9 @@ struct PublicCircuitPublicInputs {
     // Header of a block whose state is used during public execution. Set by sequencer to be a header of a block
     // previous to the one in which the tx is included.
     historical_header: Header,
+
+    // Global variables injected into this circuit
+    global_variables: GlobalVariables,
 
     prover_address: AztecAddress,
 
@@ -99,6 +102,7 @@ impl Serialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInput
         }
         fields.push(self.unencrypted_log_preimages_length);
         fields.extend_from_array(self.historical_header.serialize());
+        fields.extend_from_array(self.global_variables.serialize());
         fields.push(self.prover_address.to_field());
         fields.push(self.revert_code as Field);
         fields.extend_from_array(self.start_gas_left.serialize());
@@ -121,14 +125,15 @@ impl Deserialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInp
             contract_storage_update_requests: reader.read_struct_array(StorageUpdateRequest::deserialize, [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL]),
             contract_storage_reads: reader.read_struct_array(StorageRead::deserialize, [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL]),
             public_call_stack_hashes: reader.read_array([0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL]),
-            new_note_hashes: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_NEW_NOTE_HASHES_PER_CALL]),
-            new_nullifiers: reader.read_struct_array(SideEffectLinkedToNoteHash::deserialize, [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL]),
+            new_note_hashes: reader.read_struct_array(NoteHash::deserialize, [NoteHash::empty(); MAX_NEW_NOTE_HASHES_PER_CALL]),
+            new_nullifiers: reader.read_struct_array(Nullifier::deserialize, [Nullifier::empty(); MAX_NEW_NULLIFIERS_PER_CALL]),
             new_l2_to_l1_msgs: reader.read_struct_array(L2ToL1Message::deserialize, [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
             start_side_effect_counter: reader.read() as u32,
             end_side_effect_counter: reader.read() as u32,
             unencrypted_logs_hashes: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL]),
             unencrypted_log_preimages_length: reader.read(),
             historical_header: reader.read_struct(Header::deserialize),
+            global_variables: reader.read_struct(GlobalVariables::deserialize),
             prover_address: reader.read_struct(AztecAddress::deserialize),
             revert_code: reader.read() as u8,
             start_gas_left: reader.read_struct(Gas::deserialize),
@@ -158,14 +163,15 @@ impl Empty for PublicCircuitPublicInputs {
             contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
             contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
             public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-            new_note_hashes: [SideEffect::empty(); MAX_NEW_NOTE_HASHES_PER_CALL],
-            new_nullifiers: [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
+            new_note_hashes: [NoteHash::empty(); MAX_NEW_NOTE_HASHES_PER_CALL],
+            new_nullifiers: [Nullifier::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
             new_l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
             start_side_effect_counter: 0 as u32,
             end_side_effect_counter: 0 as u32,
             unencrypted_logs_hashes: [SideEffect::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL],
             unencrypted_log_preimages_length: 0,
             historical_header: Header::empty(),
+            global_variables: GlobalVariables::empty(),
             prover_address: AztecAddress::zero(),
             revert_code: 0 as u8,
             start_gas_left: Gas::empty(),
@@ -189,6 +195,6 @@ fn empty_hash() {
     let hash = inputs.hash();
 
     // Value from public_circuit_public_inputs.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x19eaa0a5aea3d131456d0daffc2d79fd27db9c201e91475ab620801b78504d79;
+    let test_data_empty_hash = 0x1a2da219bb2e3ac24519fd844365c4f656fc3ba8c58f2960706d25bceb4d1769;
     assert_eq(hash, test_data_empty_hash);
 }

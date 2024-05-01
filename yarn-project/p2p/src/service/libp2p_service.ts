@@ -102,7 +102,7 @@ export class LibP2PService implements P2PService {
 
     this.node.addEventListener('peer:connect', async evt => {
       const peerId = evt.detail;
-      await this.handleNewConnection(peerId);
+      await this.handleNewConnection(peerId as PeerId);
     });
 
     this.node.addEventListener('peer:disconnect', async evt => {
@@ -309,7 +309,6 @@ export class LibP2PService implements P2PService {
         if (!this.peerStore.getPeer(peerIdStr)) {
           await this.peerStore.addPeer(peerIdStr, enr);
         }
-        await stream.close();
       } catch (err) {
         this.logger.error(`Failed to dial peer ${peerIdStr}`, err);
       } finally {

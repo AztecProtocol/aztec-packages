@@ -4,7 +4,7 @@ title: How to compile a contract
 
 Once you have written a [contract](../main.md) in Aztec.nr, you will need to compile it into an [artifact](./artifacts.md) in order to use it.
 
-In this guide we will cover how to do so, both using the CLI and programmatically.
+In this guide we will cover how to do so, both using the `aztec-nargo` command and programmatically.
 
 We'll also cover how to generate a helper [TypeScript interface](#typescript-interfaces) and an [Aztec.nr interface](#noir-interfaces) for easily interacting with your contract from your typescript app and from other Aztec.nr contracts, respectively.
 
@@ -20,12 +20,23 @@ aztec-nargo compile
 
 This will output a JSON [artifact](./artifacts.md) for each contract in the project to a `target` folder containing the Noir ABI artifacts.
 
+:::note
+This command looks for `Nargo.toml` files by ascending up the parent directories, and will compile the top-most Nargo.toml file it finds.
+Eg: if you are in `/hobbies/cool-game/contracts/easter-egg/`, and both `cool-game` and `easter-egg` contain a Nargo.toml file, then `aztec-nargo compile` will be performed on `cool-game/Nargo.toml` and compile the project(s) specified within it. Eg
+```
+[workspace]
+members = [
+    "contracts/easter-egg",
+]
+```
+:::
+
 ### Typescript Interfaces
 
 You can use the code generator to autogenerate type-safe typescript classes for each of your contracts. These classes define type-safe methods for deploying and interacting with your contract based on their artifact.
 
 ```bash
-aztec-cli codegen ./aztec-nargo/output/target/path -o src/artifacts
+aztec-builder codegen ./aztec-nargo/output/target/path -o src/artifacts
 ```
 
 Below is typescript code generated from the [Token](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) contract:

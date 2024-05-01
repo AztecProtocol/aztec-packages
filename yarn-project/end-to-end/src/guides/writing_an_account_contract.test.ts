@@ -10,7 +10,7 @@ import {
   GrumpkinScalar,
   Note,
   Schnorr,
-  computeMessageSecretHash,
+  computeSecretHash,
 } from '@aztec/aztec.js';
 import { SchnorrHardcodedAccountContractArtifact } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -49,7 +49,7 @@ describe('guides/writing_an_account_contract', () => {
 
   beforeEach(async () => {
     context = await setup(0);
-  }, 60_000);
+  });
 
   afterEach(() => context.teardown());
 
@@ -68,7 +68,7 @@ describe('guides/writing_an_account_contract', () => {
     logger.info(`Deployed token contract at ${token.address}`);
 
     const secret = Fr.random();
-    const secretHash = computeMessageSecretHash(secret);
+    const secretHash = computeSecretHash(secret);
 
     const mintAmount = 50n;
     const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
@@ -104,5 +104,5 @@ describe('guides/writing_an_account_contract', () => {
       logger.info(`Failed to send tx: ${err}`);
     }
     // docs:end:account-contract-fails
-  }, 60_000);
+  });
 });
