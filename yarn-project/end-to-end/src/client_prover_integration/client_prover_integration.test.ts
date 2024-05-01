@@ -4,7 +4,7 @@ import { type BBNativeProofCreator } from '@aztec/pxe';
 
 import { ClientProverTest } from './client_prover_test.js';
 
-const TIMEOUT = 600_000;
+const TIMEOUT = 300_000;
 
 async function verifyProof(_1: ClientProtocolArtifact, _2: Tx, _3: BBNativeProofCreator) {
   // TODO(@PhilWindle): Will verify proof once the circuits are fixed

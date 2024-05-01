@@ -12,7 +12,7 @@ import {
   computeSecretHash,
   createDebugLogger,
 } from '@aztec/aztec.js';
-import { DocsExampleContract, TokenContract } from '@aztec/noir-contracts.js';
+import { TokenContract } from '@aztec/noir-contracts.js';
 import { BBNativeProofCreator, type PXEService } from '@aztec/pxe';
 
 import * as fs from 'fs/promises';
@@ -42,7 +42,6 @@ export class ClientProverTest {
   accounts: CompleteAddress[] = [];
   asset!: TokenContract;
   tokenSim!: TokenSimulator;
-  badAccount!: DocsExampleContract;
   aztecNode!: AztecNode;
   pxe!: PXEService;
   fullProverPXE!: PXEService;
@@ -53,16 +52,16 @@ export class ClientProverTest {
 
   constructor(testName: string) {
     this.logger = createDebugLogger(`aztec:client_prover_test:${testName}`);
-    this.snapshotManager = new SnapshotManager(`e2e_token_contract/${testName}`, dataPath);
+    this.snapshotManager = new SnapshotManager(`client_prover_integration/${testName}`, dataPath);
   }
 
   /**
    * Adds two state shifts to snapshot manager.
-   * 1. Add 3 accounts.
-   * 2. Publicly deploy accounts, deploy token contract and a "bad account".
+   * 1. Add 2 accounts.
+   * 2. Publicly deploy accounts, deploy token contract
    */
   async applyBaseSnapshots() {
-    await this.snapshotManager.snapshot('3_accounts', addAccounts(3, this.logger), async ({ accountKeys }, { pxe }) => {
+    await this.snapshotManager.snapshot('2_accounts', addAccounts(2, this.logger), async ({ accountKeys }, { pxe }) => {
       this.keys = accountKeys;
       const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], SALT));
       this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
@@ -71,7 +70,7 @@ export class ClientProverTest {
     });
 
     await this.snapshotManager.snapshot(
-      'e2e_token_contract',
+      'client_prover_integration',
       async () => {
         // Create the token contract state.
         // Move this account thing to addAccounts above?
@@ -90,19 +89,12 @@ export class ClientProverTest {
           .deployed();
         this.logger.verbose(`Token deployed to ${asset.address}`);
 
-        this.logger.verbose(`Deploying bad account...`);
-        this.badAccount = await DocsExampleContract.deploy(this.wallets[0]).send().deployed();
-        this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
-
-        return { tokenContractAddress: asset.address, badAccountAddress: this.badAccount.address };
+        return { tokenContractAddress: asset.address };
       },
-      async ({ tokenContractAddress, badAccountAddress }) => {
+      async ({ tokenContractAddress }) => {
         // Restore the token contract state.
         this.asset = await TokenContract.at(tokenContractAddress, this.wallets[0]);
         this.logger.verbose(`Token contract address: ${this.asset.address}`);
-
-        this.badAccount = await DocsExampleContract.at(badAccountAddress, this.wallets[0]);
-        this.logger.verbose(`Bad account address: ${this.badAccount.address}`);
 
         this.tokenSim = new TokenSimulator(
           this.asset,
