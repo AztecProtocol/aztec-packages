@@ -1,5 +1,6 @@
 ---
 title: Setup & Installation
+draft: true
 ---
 
 This tutorial builds on top of the project created in the previous tutorial. It can exist on its own, but for our sake it is much easier to utilize the existing L1 contracts that we already have in place.
