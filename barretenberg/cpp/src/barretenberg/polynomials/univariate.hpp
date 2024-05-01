@@ -149,7 +149,8 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     }
     Univariate& self_sqr()
     {
-        for (size_t i = 0; i < LENGTH; ++i) {
+        evaluations[0].self_sqr();
+        for (size_t i = skip_count + 1; i < LENGTH; ++i) {
             evaluations[i].self_sqr();
         }
         return *this;
@@ -555,9 +556,9 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         res *= other;
         return res;
     }
-    Univariate<Fr, domain_end, domain_start> sqr() const
+    Univariate<Fr, domain_end, domain_start, skip_count> sqr() const
     {
-        Univariate<Fr, domain_end, domain_start> res(*this);
+        Univariate<Fr, domain_end, domain_start, skip_count> res(*this);
         res = res.sqr();
         return res;
     }
