@@ -328,8 +328,11 @@ impl Ssa {
             bytecode: brillig.byte_code,
         });
 
-        for acir in acirs.iter_mut() {
-            generate_distinct_return_witnesses(acir);
+        let runtime_types = self.functions.iter().map(|(_, function)| function.runtime());
+        for (acir, runtime_type) in acirs.iter_mut().zip(runtime_types) {
+            if matches!(runtime_type, RuntimeType::Acir(_)) {
+                generate_distinct_return_witnesses(acir);
+            }
         }
 
         Ok((acirs, brillig, self.error_selector_to_type))
