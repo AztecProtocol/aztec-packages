@@ -199,8 +199,6 @@ export class P2PTestApp {
       },
     });
 
-    libp2p.services.pubsub;
-
     return new P2PTestApp(libp2p, discV5, config);
   }
 
