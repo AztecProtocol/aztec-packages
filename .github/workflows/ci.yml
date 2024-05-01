@@ -37,7 +37,7 @@ jobs:
     needs: setup
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
-      - uses: actions/checkout@v4,
+      - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
@@ -53,7 +53,7 @@ jobs:
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
     steps:
-      - uses: actions/checkout@v4,
+      - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
@@ -124,7 +124,7 @@ jobs:
     needs: base
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
-      - uses: actions/checkout@v4,
+      - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
@@ -142,7 +142,7 @@ jobs:
     needs: base
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
-      - uses: actions/checkout@v4,
+      - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
@@ -156,7 +156,7 @@ jobs:
     needs: base
     runs-on: ${{ github.actor }}-x86
     steps:
-      - uses: actions/checkout@v4,
+      - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
@@ -171,7 +171,7 @@ jobs:
     needs: noir-projects
     runs-on: ${{ github.actor }}-x86
     steps:
-      - uses: actions/checkout@v4,
+      - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
@@ -187,7 +187,7 @@ jobs:
     runs-on: ${{ inputs.username || github.actor }}-x86
     if: github.event.number
     steps:
-      - uses: actions/checkout@v4,
+      - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
@@ -202,7 +202,7 @@ jobs:
     needs: base
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
-      - uses: actions/checkout@v4,
+      - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
@@ -230,7 +230,7 @@ jobs:
     runs-on: ${{ inputs.username || github.actor }}-bench-x86
     needs: setup-bench
     steps:
-      - uses: actions/checkout@v4,
+      - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
