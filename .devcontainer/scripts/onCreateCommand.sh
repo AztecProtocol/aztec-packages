@@ -22,4 +22,5 @@ rm -rf $NAME
 yarn
 
 npx -y playwright install --with-deps
+yarn add @aztec/builder
 yarn prep

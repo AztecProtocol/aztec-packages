@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@aztec/accounts": "latest",
+    "@aztec/builder": "latest",
     "@aztec/aztec.js": "latest"
   },
   "devDependencies": {
