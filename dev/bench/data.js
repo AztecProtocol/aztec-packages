@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1714569347904,
+  "lastUpdate": 1714575300402,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -623,6 +623,74 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/AztecProtocol/aztec-packages/pull/5787/commits/58400d17bbeaa0a8d14245f07de35fa0f1dc0286"
         },
         "date": 1714569347339,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 19994.92798200001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15194.826200000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5585.914260999971,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5240.4520330000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 72535.611679,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 72535613000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 19093.186957,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19093185000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5368512661,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5368512661 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 181942865,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 181942865 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4444572823,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4444572823 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 149177195,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 149177195 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "30b05f4cb54ba02dd20a4504b7bcbd28cd3dd790",
+          "message": "feat(ci): C++ google-bench, MSAN",
+          "timestamp": "2024-05-01T14:31:37Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/5787/commits/30b05f4cb54ba02dd20a4504b7bcbd28cd3dd790"
+        },
+        "date": 1714575299830,
         "tool": "googlecpp",
         "benches": [
           {
