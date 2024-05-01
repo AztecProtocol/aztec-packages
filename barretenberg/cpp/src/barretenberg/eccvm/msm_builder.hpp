@@ -120,7 +120,7 @@ class ECCVMMSMMBuilder {
         msm_row_counts.push_back(1);
         // compute the program counter (i.e. the index among all single scalar muls) that each multiscalar
         // multiplication will start at.
-        std::vector<size_t> pc_values; // WORKTODO
+        std::vector<size_t> pc_values;
         pc_values.reserve(msms.size() + 1);
         pc_values.push_back(total_number_of_muls);
         for (const auto& msm : msms) {
@@ -245,8 +245,8 @@ class ECCVMMSMMBuilder {
                             // windowed-non-adjacent-form. Value range is `-15, -13,
                             // ..., 15`) If `add_state.add = 1`, we want `add_state.slice` to be the *compressed*
                             // form of the WNAF slice value. (compressed = no gaps in the value range. i.e. -15,
-                            // -13, ..., 15 maps to 0, ... , 15) WORKTODO: enum?
-                            add_state.slice = add_state.add ? (slice + 15) / 2 : 0; // WORKTODO: slice_idx
+                            // -13, ..., 15 maps to 0, ... , 15)
+                            add_state.slice = add_state.add ? (slice + 15) / 2 : 0;
                             add_state.point =
                                 add_state.add
                                     ? msm[offset + point_idx].precomputed_table[static_cast<size_t>(add_state.slice)]
@@ -276,7 +276,7 @@ class ECCVMMSMMBuilder {
                         row.q_add = true;
                         row.q_double = false;
                         row.q_skew = false;
-                        row.msm_round = static_cast<uint32_t>(digit_idx); // WORKTODO: offset by 1 needed here?
+                        row.msm_round = static_cast<uint32_t>(digit_idx);
                         row.msm_size = static_cast<uint32_t>(msm_size);
                         row.msm_count = static_cast<uint32_t>(offset);
                         row.pc = pc;

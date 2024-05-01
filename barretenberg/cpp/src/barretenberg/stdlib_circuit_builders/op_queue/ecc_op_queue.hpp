@@ -9,7 +9,7 @@ enum EccOpCode { NULL_OP, ADD_ACCUM, MUL_ACCUM, EQUALITY };
 
 struct UltraOp {
     using Fr = curve::BN254::ScalarField;
-    EccOpCode op_code = NULL_OP; // WORKTODO: what does this do?
+    EccOpCode op_code = NULL_OP;
     Fr op;
     Fr x_lo;
     Fr x_hi;
