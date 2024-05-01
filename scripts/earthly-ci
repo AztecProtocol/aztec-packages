@@ -29,7 +29,7 @@ elif ! earthly $@ 2>&1 | tee $OUTPUT_FILE >&2 ; then
     earthly $@
     # TODO handle
     # could not configure satellite: failed getting org: unable to authenticate: failed to execute login request: Post
-  else if grep 'Error: pull ping error: pull ping response' $OUTPUT_FILE >/dev/null ; then
+  elif grep 'Error: pull ping error: pull ping response' $OUTPUT_FILE >/dev/null ; then
     echo "Got 'Error: pull ping error: pull ping response', intermittent failure when writing out images to docker"
     earthly $@
   else
