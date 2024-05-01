@@ -89,7 +89,8 @@ mod tests {
     };
     use dep::types::constants::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE
     };
     use dep::types::{
         abis::{
@@ -114,6 +115,8 @@ mod tests {
     impl PrivateKernelTailInputsBuilder {
         pub fn new() -> Self {
             let mut previous_kernel = FixtureBuilder::new();
+            previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1_000_000, 1_000_000);
+
             previous_kernel.append_new_nullifiers(1);
 
             PrivateKernelTailInputsBuilder {
@@ -508,6 +511,8 @@ mod tests {
         let public_inputs = builder.execute();
         assert_eq(array_length(public_inputs.end.new_note_hashes), 2);
         assert_eq(array_length(public_inputs.end.new_nullifiers), 3);
+        let expected_gas = Gas::tx_overhead() + Gas::new(DA_GAS_PER_BYTE * DA_BYTES_PER_FIELD * 5, 0);
+        assert_eq(public_inputs.end.gas_used, expected_gas);
     }
 
     #[test(should_fail_with="Hinted note hash does not match")]
@@ -558,12 +563,23 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn set_teardown_gas_as_gas_used() {
-        // TODO(gas): When we compute DA gas used, we'll have to include it here as well.
+    unconstrained fn empty_tx_consumes_teardown_limits_plus_fixed_gas() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.end.gas_used, Gas::new(300, 300));
+
+        let expected_gas_consumed = Gas::new(300, 300) // teardown gas
+            + Gas::tx_overhead() // tx overhead
+            + Gas::new(DA_GAS_PER_BYTE * DA_BYTES_PER_FIELD * 1, 0); // tx nullifier
+        assert_eq(public_inputs.end.gas_used, expected_gas_consumed);
+    }
+
+    #[test(should_fail_with="The gas used exceeds the gas limits")]
+    unconstrained fn gas_limits_are_enforced() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
+        builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1, 1);
+        builder.failed();
     }
 }

@@ -22,7 +22,7 @@ describe('e2e_state_vars', () => {
   beforeAll(async () => {
     ({ teardown, wallet, pxe } = await setup(2));
     contract = await DocsExampleContract.deploy(wallet).send().deployed();
-  }, 30_000);
+  });
 
   afterAll(() => teardown());
 
@@ -84,7 +84,7 @@ describe('e2e_state_vars', () => {
       await expect(contract.methods.initialize_shared_immutable(1).send().wait()).rejects.toThrow(
         "Assertion failed: SharedImmutable already initialized 'fields_read[0] == 0'",
       );
-    }, 100_000);
+    });
   });
 
   describe('PublicImmutable', () => {
@@ -96,7 +96,7 @@ describe('e2e_state_vars', () => {
 
       expect(p.account).toEqual(wallet.getCompleteAddress().address);
       expect(p.points).toEqual(numPoints);
-    }, 200_000);
+    });
 
     it('initializing PublicImmutable the second time should fail', async () => {
       // Jest executes the tests sequentially and the first call to initialize_public_immutable was executed
@@ -104,7 +104,7 @@ describe('e2e_state_vars', () => {
       await expect(contract.methods.initialize_public_immutable(1).send().wait()).rejects.toThrow(
         "Assertion failed: PublicImmutable already initialized 'fields_read[0] == 0'",
       );
-    }, 100_000);
+    });
   });
 
   describe('PrivateMutable', () => {
@@ -246,30 +246,24 @@ describe('e2e_state_vars', () => {
         .methods.set_authorized(AztecAddress.fromField(new Fr(6969696969)))
         .send()
         .wait();
-    }, 30_000);
+    });
 
     it("checks authorized in auth contract from test contract and finds the old value because the change hasn't been applied yet", async () => {
-      const { txHash } = await testContract.methods
+      const authorized = await testContract.methods
         .test_shared_mutable_private_getter(authContract.address, 2)
-        .send()
-        .wait();
+        .simulate();
 
-      // The function above emits an unencrypted log as a means of returning the data
-      const rawLogs = await pxe.getUnencryptedLogs({ txHash });
-      expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(new Fr(0));
+      expect(AztecAddress.fromBigInt(authorized)).toEqual(AztecAddress.ZERO);
     });
 
     it('checks authorized in auth contract from test contract and finds the correctly set value', async () => {
       await delay(5);
 
-      const { txHash } = await testContract.methods
+      const authorized = await testContract.methods
         .test_shared_mutable_private_getter(authContract.address, 2)
-        .send()
-        .wait();
+        .simulate();
 
-      // The function above emits an unencrypted log as a means of returning the data
-      const rawLogs = await pxe.getUnencryptedLogs({ txHash });
-      expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(new Fr(6969696969));
+      expect(AztecAddress.fromBigInt(authorized)).toEqual(AztecAddress.fromBigInt(6969696969n));
     });
   });
 });

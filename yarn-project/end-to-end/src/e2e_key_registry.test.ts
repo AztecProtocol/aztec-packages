@@ -28,7 +28,7 @@ describe('Key Registry', () => {
     testContract = await TestContract.deploy(wallets[0]).send().deployed();
 
     await publicDeployAccounts(wallets[0], wallets.slice(0, 2));
-  }, 120_000);
+  });
 
   const delay = async (blocks: number) => {
     for (let i = 0; i < blocks; i++) {
@@ -41,7 +41,7 @@ describe('Key Registry', () => {
   describe('failure cases', () => {
     let accountAddedToRegistry: AztecAddress;
 
-    describe('should fail registering with bad input', () => {
+    describe('should fail when registering with different types of invalid input', () => {
       const masterNullifierPublicKey = Point.random();
       const masterIncomingViewingPublicKey = Point.random();
       const masterOutgoingViewingPublicKey = Point.random();
@@ -57,13 +57,13 @@ describe('Key Registry', () => {
         GeneratorIndex.PUBLIC_KEYS_HASH,
       ]);
 
-      // We hash the partial address and the public keys hash to get the account address
+      
       // TODO(#5726): Move the following line to AztecAddress class?
       accountAddedToRegistry = AztecAddress.fromField(
-        poseidon2Hash([partialAddress, publicKeysHash, GeneratorIndex.CONTRACT_ADDRESS_V1]),
+        poseidon2Hash([publicKeysHash, partialAddress, GeneratorIndex.CONTRACT_ADDRESS_V1]),
       );
 
-      it('should fail registering with mismatched address', async () => {
+      it('should fail when we register with a mismatched address', async () => {
         const mismatchedAddress = AztecAddress.random();
 
         await expect(
@@ -82,7 +82,7 @@ describe('Key Registry', () => {
         ).rejects.toThrow('Computed address does not match supplied address');
       });
 
-      it('should fail registering with mismatched nullifier public key', async () => {
+      it('should fail when we register with mismatched nullifier public key', async () => {
         const mismatchedMasterNullifierPublicKey = Point.random();
 
         await expect(
@@ -102,8 +102,8 @@ describe('Key Registry', () => {
       });
     });
 
-    describe('should fail when rotating keys with bad input', () => {
-      it('should fail when trying to rotate setting a 0 key', async () => {
+    describe('should fail when rotating keys with different types of bad input', () => {
+      it('should fail when we try to rotate keys, while setting a 0 key', async () => {
         await expect(
           keyRegistry
             .withWallet(wallets[0])
@@ -113,7 +113,7 @@ describe('Key Registry', () => {
         ).rejects.toThrow('New nullifier public key must be non-zero');
       });
 
-      it('should fail when trying to rotate for another address without authwit', async () => {
+      it('should fail when we try to rotate keys for another address without authwit', async () => {
         await expect(
           keyRegistry
             .withWallet(wallets[0])
@@ -127,13 +127,13 @@ describe('Key Registry', () => {
 
   describe('key registration flow', () => {
     let accountAddedToRegistry: AztecAddress;
-    const masterNullifierPublicKey: Point = new Point(new Fr(1), new Fr(2));
+    const masterNullifierPublicKey = Point.random();
 
-    it('should generate and register with original keys', async () => {
-      const masterIncomingViewingPublicKey: Point = new Point(new Fr(3), new Fr(4));
-      const masterOutgoingViewingPublicKey: Point = new Point(new Fr(5), new Fr(6));
-      const masterTaggingPublicKey: Point = new Point(new Fr(7), new Fr(8));
-      const partialAddress: PartialAddress = new Fr(69);
+    it('should generate master public keys, a partial address, and register with the key registry', async () => {
+      const masterIncomingViewingPublicKey = Point.random();
+      const masterOutgoingViewingPublicKey = Point.random();
+      const masterTaggingPublicKey = Point.random();
+      const partialAddress: PartialAddress = new Fr(420);
 
       const publicKeysHash = poseidon2Hash([
         masterNullifierPublicKey,
@@ -143,10 +143,9 @@ describe('Key Registry', () => {
         GeneratorIndex.PUBLIC_KEYS_HASH,
       ]);
 
-      // We hash the partial address and the public keys hash to get the account address
       // TODO(#5726): Move the following line to AztecAddress class?
       accountAddedToRegistry = AztecAddress.fromField(
-        poseidon2Hash([partialAddress, publicKeysHash, GeneratorIndex.CONTRACT_ADDRESS_V1]),
+        poseidon2Hash([publicKeysHash, partialAddress, GeneratorIndex.CONTRACT_ADDRESS_V1]),
       );
 
       await keyRegistry
@@ -161,75 +160,60 @@ describe('Key Registry', () => {
         )
         .send()
         .wait();
-    });
 
-    it('checks our registry contract from test contract and fails because the address has not been registered yet', async () => {
-      const { txHash } = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, accountAddedToRegistry)
-        .send()
-        .wait();
+      // We check if our registered nullifier key is equal to the key obtained from the getter by 
+      // reading our registry contract from the test contract. We expect this to fail because the change has not been applied yet
+      const emptyNullifierPublicKey = await testContract.methods
+        .test_shared_mutable_private_getter_for_registry_contract(1, accountAddedToRegistry)
+        .simulate();
 
-      const rawLogs = await pxe.getUnencryptedLogs({ txHash });
-      expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(Fr.ZERO);
-    });
+      expect(new Fr(emptyNullifierPublicKey)).toEqual(Fr.ZERO);
 
-    it('checks our registry contract from test contract and finds the address and associated nullifier public key after a delay', async () => {
+      // We check it again after a delay and expect that the change has been applied and consequently the assert is true
       await delay(5);
 
-      const { txHash } = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, accountAddedToRegistry)
-        .send()
-        .wait();
+      const nullifierPublicKey = await testContract.methods
+        .test_shared_mutable_private_getter_for_registry_contract(1, accountAddedToRegistry)
+        .simulate();
 
-      const rawLogs = await pxe.getUnencryptedLogs({ txHash });
-
-      expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(poseidon2Hash(masterNullifierPublicKey.toFields()));
+      expect(new Fr(nullifierPublicKey)).toEqual(poseidon2Hash(masterNullifierPublicKey.toFields()));
     });
   });
 
   describe('key rotation flows', () => {
     const firstNewMasterNullifierPublicKey = Point.random();
 
-    describe('normal key rotation flow', () => {
-      it('we rotate the nullifier key', async () => {
+    describe('key rotation flow without authwit', () => {
+      it('we call the key registry to rotate our nullifier key', async () => {
         await keyRegistry
           .withWallet(wallets[0])
           .methods.rotate_nullifier_public_key(wallets[0].getAddress(), firstNewMasterNullifierPublicKey)
           .send()
           .wait();
-      });
 
-      it("checks our registry contract from test contract and finds our old public key because the key rotation hasn't been applied yet", async () => {
-        const { txHash } = await testContract.methods
-          .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
-          .send()
-          .wait();
+      // We check if our rotated nullifier key is equal to the key obtained from the getter by 
+      // reading our registry contract from the test contract. We expect this to fail because the change has not been applied yet
+      const emptyNullifierPublicKey = await testContract.methods
+        .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
+        .simulate();
 
-        const rawLogs = await pxe.getUnencryptedLogs({ txHash });
-        expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(new Fr(0));
-      });
+      expect(new Fr(emptyNullifierPublicKey)).toEqual(Fr.ZERO);
 
-      it('checks our registry contract from test contract and finds the new nullifier public key that has been rotated', async () => {
-        await delay(5);
+      // We check it again after a delay and expect that the change has been applied and consequently the assert is true
+      await delay(5);
 
-        const { txHash } = await testContract.methods
-          .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
-          .send()
-          .wait();
+      const nullifierPublicKey = await testContract.methods
+        .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
+        .simulate();
 
-        const rawLogs = await pxe.getUnencryptedLogs({ txHash });
-
-        expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(
-          poseidon2Hash(firstNewMasterNullifierPublicKey.toFields()),
-        );
+      expect(new Fr(nullifierPublicKey)).toEqual(poseidon2Hash(firstNewMasterNullifierPublicKey.toFields()));
       });
     });
 
     describe('key rotation flow with authwit', () => {
-      // This is the new value
       const secondNewMasterNullifierPublicKey = Point.random();
 
-      it('wallet 0 lets wallet 1 call rotate_nullifier_public_key on his behalf with a pre-defined new public key', async () => {
+      it(`wallet 1 rotates wallet 0's nullifying public key with an authwit`, async () => {
         const action = keyRegistry
           .withWallet(wallets[1])
           .methods.rotate_nullifier_public_key(wallets[0].getAddress(), secondNewMasterNullifierPublicKey);
@@ -240,38 +224,28 @@ describe('Key Registry', () => {
           .wait();
 
         await action.send().wait();
-      });
 
-      it("checks our registry contract from test contract and finds our old public key because the key rotation hasn't been applied yet", async () => {
-        const { txHash } = await testContract.methods
-          .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
-          .send()
-          .wait();
+      // We check if our rotated nullifier key is equal to the key obtained from the getter by 
+      // reading our registry contract from the test contract. We expect this value to be the old one, because the new one hasn't been applied
+      const oldNullifierPublicKey = await testContract.methods
+          .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
+          .simulate();
 
-        const rawLogs = await pxe.getUnencryptedLogs({ txHash });
-        expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(
-          poseidon2Hash(firstNewMasterNullifierPublicKey.toFields()),
-        );
-      });
+        expect(new Fr(oldNullifierPublicKey)).toEqual(poseidon2Hash(firstNewMasterNullifierPublicKey.toFields()));
 
-      it('checks our registry contract from test contract and finds the new nullifier public key that has been rotated', async () => {
+        // We check it again after a delay and expect that the change has been applied and consequently the assert is true
         await delay(5);
 
-        const { txHash } = await testContract.methods
-          .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
-          .send()
-          .wait();
+        const newNullifierPublicKey = await testContract.methods
+          .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
+          .simulate();
 
-        const rawLogs = await pxe.getUnencryptedLogs({ txHash });
-
-        expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(
-          poseidon2Hash(secondNewMasterNullifierPublicKey.toFields()),
-        );
+        expect(new Fr(newNullifierPublicKey)).toEqual(poseidon2Hash(secondNewMasterNullifierPublicKey.toFields()));
       });
     });
   });
 
-  describe('test keys are fresh: key registration flow, no PXE', () => {
+  describe('testing get_fresh_nullifier_public_key_hash: key registration flow, no PXE', () => {
     const masterNullifierPublicKey = Point.random();
     const masterIncomingViewingPublicKey = Point.random();
     const masterOutgoingViewingPublicKey = Point.random();
@@ -286,10 +260,9 @@ describe('Key Registry', () => {
       GeneratorIndex.PUBLIC_KEYS_HASH,
     ]);
 
-    // We hash the partial address and the public keys hash to get the account address
     // TODO(#5726): Move the following line to AztecAddress class?
     const accountAddedToRegistry = AztecAddress.fromField(
-      poseidon2Hash([partialAddress, publicKeysHash, GeneratorIndex.CONTRACT_ADDRESS_V1]),
+      poseidon2Hash([publicKeysHash, partialAddress, GeneratorIndex.CONTRACT_ADDRESS_V1]),
     );
 
     it('should fail as we have not registered anything to the registry nor have we registered a recipient', async () => {
@@ -301,7 +274,7 @@ describe('Key Registry', () => {
       ).rejects.toThrow(`Cannot satisfy constraint 'computed_address.eq(address)'`);
     });
 
-    it('Now we add it to registry', async () => {
+    it('adds an entry to the key registry, and checks the key freshness without and with conflicting information from our pxe', async () => {
       await keyRegistry
         .withWallet(wallets[0])
         .methods.register(
@@ -314,28 +287,25 @@ describe('Key Registry', () => {
         )
         .send()
         .wait();
-    });
 
-    it('checks key freshness and fails because the address change has not been applied yet due to lack of delay', async () => {
+      // We check if our registered nullifier key is equal to the key obtained from the getter by 
+      // reading our registry contract from the test contract. We expect this to fail because the change has not been applied yet
       await expect(
         testContract.methods
           .test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey)
           .send()
           .wait(),
       ).rejects.toThrow(`Cannot satisfy constraint 'computed_address.eq(address)'`);
-    });
 
-    it('checks key freshness after a delay, and is successful', async () => {
+      // We check it again after a delay and expect that the change has been applied and consequently the assert is true
       await delay(5);
 
       await testContract.methods
         .test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey)
         .send()
         .wait();
-    });
 
-    it('should succeed even if our pxe gives conflicting information', async () => {
-      // FIX THIS (#5834)
+      // TODO: (#5834) Refactor complete address to move the public keys
       await pxe.registerRecipient(CompleteAddress.create(accountAddedToRegistry, Point.ZERO, partialAddress), [
         new Point(Fr.random(), Fr.random()),
         masterIncomingViewingPublicKey,
@@ -343,6 +313,7 @@ describe('Key Registry', () => {
         masterTaggingPublicKey,
       ]);
 
+      // Our check should still succeed even if our pxe gives conflicting information, taking the registry as the source of truth.
       await testContract.methods
         .test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey)
         .send()
@@ -350,12 +321,11 @@ describe('Key Registry', () => {
     });
   });
 
-  describe('test keys are fresh: key registration flow, with PXE', () => {
-    const masterNullifierPublicKey: Point = new Point(new Fr(17), new Fr(18));
-    const masterIncomingViewingPublicKey: Point = new Point(new Fr(19), new Fr(20));
-    const masterOutgoingViewingPublicKey: Point = new Point(new Fr(21), new Fr(22));
-    const masterTaggingPublicKey: Point = new Point(new Fr(23), new Fr(24));
-
+  describe('testing assert_nullifier_key_is_fresh: key registration flow, with PXE', () => {
+    const masterNullifierPublicKey = Point.random();
+    const masterIncomingViewingPublicKey = Point.random();
+    const masterOutgoingViewingPublicKey = Point.random();
+    const masterTaggingPublicKey = Point.random();
     const partialAddress: PartialAddress = new Fr(69420);
 
     const publicKeysHash = poseidon2Hash([
@@ -366,10 +336,9 @@ describe('Key Registry', () => {
       GeneratorIndex.PUBLIC_KEYS_HASH,
     ]);
 
-    // We hash the partial address and the public keys hash to get the account address
     // TODO(#5726): Move the following line to AztecAddress class?
     const accountAddedToRegistry = AztecAddress.fromField(
-      poseidon2Hash([partialAddress, publicKeysHash, GeneratorIndex.CONTRACT_ADDRESS_V1]),
+      poseidon2Hash([publicKeysHash, partialAddress, GeneratorIndex.CONTRACT_ADDRESS_V1]),
     );
 
     it('should fail as we have not registered anything to the registry nor have we registered a recipient', async () => {
@@ -381,9 +350,9 @@ describe('Key Registry', () => {
       ).rejects.toThrow(`Cannot satisfy constraint 'computed_address.eq(address)'`);
     });
 
-    it('should fail when we register bad keys and the lib checks our pxe', async () => {
+    it('should fail when we try to check the public keys for a invalid address', async () => {
       const randAddress = AztecAddress.random();
-      // FIX THIS (#5834)
+      // TODO: (#5834) Refactor complete address to move the public keys
       await pxe.registerRecipient(CompleteAddress.create(randAddress, Point.ZERO, partialAddress), [
         masterNullifierPublicKey,
         masterIncomingViewingPublicKey,
@@ -394,32 +363,24 @@ describe('Key Registry', () => {
       await expect(
         testContract.methods.test_nullifier_key_freshness(randAddress, masterNullifierPublicKey).send().wait(),
       ).rejects.toThrow(`Cannot satisfy constraint 'computed_address.eq(address)'`);
-    });
+    })
 
-    it('should succeed because we register our recipient manually and the lib checks our pxe', async () => {
-      // FIX THIS (#5834)
+    it('adds a recipient to our pxe, and checks the key freshness with and without adding an entry to our key registry', async () => {
+      // TODO: (#5834) Refactor complete address to move the public keys
       await pxe.registerRecipient(CompleteAddress.create(accountAddedToRegistry, Point.ZERO, partialAddress), [
         masterNullifierPublicKey,
         masterIncomingViewingPublicKey,
         masterOutgoingViewingPublicKey,
         masterTaggingPublicKey,
       ]);
+
+      // The check should succeed because we register our recipient manually and the lib checks our pxe
       await testContract.methods
         .test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey)
         .send()
         .wait();
-    });
 
-    it('should fail when we put in a different key', async () => {
-      await expect(
-        testContract.methods
-          .test_nullifier_key_freshness(accountAddedToRegistry, masterIncomingViewingPublicKey)
-          .send()
-          .wait(),
-      ).rejects.toThrow(`Cannot satisfy constraint 'keys[key_type].eq(key)'`);
-    });
-
-    it('Now we add it to registry', async () => {
+      // Now we add the keys to registry
       await keyRegistry
         .withWallet(wallets[0])
         .methods.register(
@@ -432,36 +393,23 @@ describe('Key Registry', () => {
         )
         .send()
         .wait();
-    });
 
-    it('we start the change in the registry, it has not been applied yet, but we still see we have a fresh key due to it being added in the pxe', async () => {
-      const { txHash } = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, accountAddedToRegistry)
-        .send()
-        .wait();
+      // We check if our rotated nullifier key is equal to the key obtained from the getter by 
+      // reading our registry contract from the test contract. We expect this to be 0 because the change has not been applied yet
+      const emptyNullifierPublicKey = await testContract.methods
+        .test_shared_mutable_private_getter_for_registry_contract(1, accountAddedToRegistry)
+        .simulate();
 
-      const rawLogs = await pxe.getUnencryptedLogs({ txHash });
-      expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(Fr.ZERO);
+      expect(new Fr(emptyNullifierPublicKey)).toEqual(Fr.ZERO);
 
-      // Checks freshness of newly added keys, but the change hasn't been affected yet, but we have manually added it to our pxe so it should pass
+      // We check if our rotated nullifier key is equal to the key obtained from the getter. We expect this to succeed because even though the change 
+      // has not been applied yet to the registry, we have manually the keys to our pxe
       await testContract.methods
         .test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey)
         .send()
         .wait();
-    });
 
-    it('in the case where the key exists both in the pxe and our registry, we know nothing weird will happen', async () => {
-      await delay(5);
-
-      const { txHash } = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, accountAddedToRegistry)
-        .send()
-        .wait();
-
-      const rawLogs = await pxe.getUnencryptedLogs({ txHash });
-
-      expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(poseidon2Hash(masterNullifierPublicKey.toFields()));
-
+      // In the case where the key exists both in the pxe and our registry, we know that our assert will still remain true
       await testContract.methods
         .test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey)
         .send()
@@ -469,29 +417,28 @@ describe('Key Registry', () => {
     });
   });
 
-  describe('key rotation flow; assert keys are fresh', () => {
+  describe('testing assert_nullifier_key_is_fresh: key rotation flow', () => {
     const newMasterNullifierPublicKey = Point.random();
 
-    it('we rotate the nullifier key', async () => {
+    it('we rotate the nullifier key and check that the key is fresh', async () => {
       await keyRegistry
         .withWallet(wallets[0])
         .methods.rotate_nullifier_public_key(wallets[0].getAddress(), newMasterNullifierPublicKey)
         .send()
         .wait();
-    });
 
-    it("checks our registry contract from test contract and fails because the change hasn't been applied yet", async () => {
+      // We check if our rotated nullifier key is equal to the key obtained from the getter by 
+      // reading our registry contract from the test contract. We expect this to fail because the change has not been applied yet
       await expect(
         testContract.methods
           .test_nullifier_key_freshness(wallets[0].getAddress(), newMasterNullifierPublicKey)
           .send()
           .wait(),
       ).rejects.toThrow(
-        `Cannot satisfy constraint 'hashed_nullifier_public_key_in_registry == poseidon2_hash(nullifier_public_key_to_test.serialize())'`,
+        `Cannot satisfy constraint 'assert_eq(get_fresh_nullifier_public_key_hash(&mut context, address), poseidon2_hash(public_nullifying_key.serialize()))'`,
       );
-    });
 
-    it('checks our registry contract from test contract and succeeds because the change has been applied', async () => {
+      // We check it again after a delay and expect that the change has been applied and consequently the assert is true
       await delay(5);
 
       await testContract.methods
