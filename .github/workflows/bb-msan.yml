@@ -3,8 +3,14 @@ name: BB MSAN
 on:
   push:
     branches: [master]
+    paths:
+      - 'barretenberg/**'
   workflow_dispatch:
     inputs: {}
+concurrency:
+  # force parallelism when NOT in master, just let it run overnight assuming no commits into barretenberg
+  group: ci-${{ github.ref_name != 'master' && github.ref_name || github.run_id }}
+  cancel-in-progress: true
 jobs:
   bb-msan-check:
     runs-on: ubuntu-latest
