@@ -164,7 +164,7 @@ describe('Key Registry', () => {
       // We check if our registered nullifier key is equal to the key obtained from the getter by 
       // reading our registry contract from the test contract. We expect this to fail because the change has not been applied yet
       const emptyNullifierPublicKey = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, accountAddedToRegistry)
+        .test_shared_mutable_private_getter_for_registry_contract(1, accountAddedToRegistry)
         .simulate();
 
       expect(new Fr(emptyNullifierPublicKey)).toEqual(Fr.ZERO);
@@ -173,7 +173,7 @@ describe('Key Registry', () => {
       await delay(5);
 
       const nullifierPublicKey = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, accountAddedToRegistry)
+        .test_shared_mutable_private_getter_for_registry_contract(1, accountAddedToRegistry)
         .simulate();
 
       expect(new Fr(nullifierPublicKey)).toEqual(poseidon2Hash(masterNullifierPublicKey.toFields()));
@@ -194,7 +194,7 @@ describe('Key Registry', () => {
       // We check if our rotated nullifier key is equal to the key obtained from the getter by 
       // reading our registry contract from the test contract. We expect this to fail because the change has not been applied yet
       const emptyNullifierPublicKey = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
+        .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
         .simulate();
 
       expect(new Fr(emptyNullifierPublicKey)).toEqual(Fr.ZERO);
@@ -203,7 +203,7 @@ describe('Key Registry', () => {
       await delay(5);
 
       const nullifierPublicKey = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
+        .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
         .simulate();
 
       expect(new Fr(nullifierPublicKey)).toEqual(poseidon2Hash(firstNewMasterNullifierPublicKey.toFields()));
@@ -228,7 +228,7 @@ describe('Key Registry', () => {
       // We check if our rotated nullifier key is equal to the key obtained from the getter by 
       // reading our registry contract from the test contract. We expect this value to be the old one, because the new one hasn't been applied
       const oldNullifierPublicKey = await testContract.methods
-          .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
+          .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
           .simulate();
 
         expect(new Fr(oldNullifierPublicKey)).toEqual(poseidon2Hash(firstNewMasterNullifierPublicKey.toFields()));
@@ -237,7 +237,7 @@ describe('Key Registry', () => {
         await delay(5);
 
         const newNullifierPublicKey = await testContract.methods
-          .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
+          .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
           .simulate();
 
         expect(new Fr(newNullifierPublicKey)).toEqual(poseidon2Hash(secondNewMasterNullifierPublicKey.toFields()));
@@ -397,7 +397,7 @@ describe('Key Registry', () => {
       // We check if our rotated nullifier key is equal to the key obtained from the getter by 
       // reading our registry contract from the test contract. We expect this to be 0 because the change has not been applied yet
       const emptyNullifierPublicKey = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, accountAddedToRegistry)
+        .test_shared_mutable_private_getter_for_registry_contract(1, accountAddedToRegistry)
         .simulate();
 
       expect(new Fr(emptyNullifierPublicKey)).toEqual(Fr.ZERO);
