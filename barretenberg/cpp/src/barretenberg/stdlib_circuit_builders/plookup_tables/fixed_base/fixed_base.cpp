@@ -105,7 +105,7 @@ grumpkin::g1::affine_element table::generate_generator_offset(const grumpkin::g1
  */
 bool table::lookup_table_exists_for_point(const affine_element& input)
 {
-    return (input == LHS_GENERATOR_POINT || input == RHS_GENERATOR_POINT);
+    return (input == LHS_GENERATOR_POINT() || input == RHS_GENERATOR_POINT());
 }
 
 /**
@@ -118,10 +118,10 @@ bool table::lookup_table_exists_for_point(const affine_element& input)
 std::optional<std::array<MultiTableId, 2>> table::get_lookup_table_ids_for_point(
     const grumpkin::g1::affine_element& input)
 {
-    if (input == LHS_GENERATOR_POINT) {
+    if (input == LHS_GENERATOR_POINT()) {
         return { { FIXED_BASE_LEFT_LO, FIXED_BASE_LEFT_HI } };
     }
-    if (input == RHS_GENERATOR_POINT) {
+    if (input == RHS_GENERATOR_POINT()) {
         return { { FIXED_BASE_RIGHT_LO, FIXED_BASE_RIGHT_HI } };
     }
     return {};

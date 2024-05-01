@@ -82,7 +82,7 @@ TYPED_TEST(ultra_plonk_composer, create_gates_from_plookup_accumulators)
     {
         const auto mask = plookup::fixed_base::table::MAX_TABLE_SIZE - 1;
 
-        grumpkin::g1::affine_element base_point = plookup::fixed_base::table::LHS_GENERATOR_POINT;
+        grumpkin::g1::affine_element base_point = plookup::fixed_base::table::LHS_GENERATOR_POINT();
         std::vector<uint8_t> input_buf;
         serialize::write(input_buf, base_point);
         const auto offset_generators =

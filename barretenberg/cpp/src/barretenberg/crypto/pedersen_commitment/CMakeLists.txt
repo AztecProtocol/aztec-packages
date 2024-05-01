@@ -1,1 +1,1 @@
-barretenberg_module(crypto_pedersen_commitment ecc)
+barretenberg_module(crypto_pedersen_commitment crypto_generators ecc)

@@ -1,1 +1,1 @@
-barretenberg_module(plonk_honk_shared polynomials)
+barretenberg_module(plonk_honk_shared polynomials crypto_generators)
