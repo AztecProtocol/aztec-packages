@@ -26,7 +26,14 @@ cd aztec-private-counter
 mkdir contracts
 ```
 
-Inside contracts create the following file structure:
+Inside `contracts` create a new project called `counter`:
+
+```bash
+cd contracts
+aztec-nargo new --contract counter
+```
+
+Your structure should look like this:
 
 ```tree
 .
@@ -40,14 +47,14 @@ Inside contracts create the following file structure:
 
 The file `main.nr` will soon turn into our smart contract!
 
-Add the following content to `Nargo.toml`:
+Add the following dependencies to `Nargo.toml`:
 
 ```toml
 [package]
 name = "counter"
 type = "contract"
 authors = [""]
-compiler_version = ">=0.25.0"
+compiler_version = ">=0.28.0"
 
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
