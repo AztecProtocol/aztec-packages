@@ -1,14 +1,14 @@
 // This will be moved to a separate Read Request Reset Circuit.
 use crate::reset::read_request::{PendingReadHint, ReadRequestStatus, ReadValueHint, SettledReadHint};
 use dep::types::{
-    abis::{note_hash_leaf_preimage::NoteHashLeafPreimage},
+    abis::{membership_witness::NoteHashMembershipWitness, note_hash_leaf_preimage::NoteHashLeafPreimage},
     constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_TX, NOTE_HASH_TREE_HEIGHT},
     merkle_tree::MembershipWitness
 };
 
 struct NoteHashSettledReadHint {
     read_request_index: u64,
-    membership_witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT>,
+    membership_witness: NoteHashMembershipWitness, // Should be MembershipWitness<NOTE_HASH_TREE_HEIGHT> when we can handle generics when converting to ts types.
     leaf_preimage: NoteHashLeafPreimage,
 }
 
@@ -20,7 +20,7 @@ impl ReadValueHint for NoteHashSettledReadHint {
 
 impl SettledReadHint<NOTE_HASH_TREE_HEIGHT, NoteHashLeafPreimage> for NoteHashSettledReadHint {
     fn membership_witness(self) -> MembershipWitness<NOTE_HASH_TREE_HEIGHT> {
-        self.membership_witness
+        MembershipWitness { leaf_index: self.membership_witness.leaf_index, sibling_path: self.membership_witness.sibling_path }
     }
 
     fn leaf_preimage(self) -> NoteHashLeafPreimage {
@@ -30,7 +30,7 @@ impl SettledReadHint<NOTE_HASH_TREE_HEIGHT, NoteHashLeafPreimage> for NoteHashSe
     fn nada(read_request_len: u64) -> Self {
         NoteHashSettledReadHint {
             read_request_index: read_request_len,
-            membership_witness: MembershipWitness::empty(),
+            membership_witness: NoteHashMembershipWitness::empty(),
             leaf_preimage: NoteHashLeafPreimage::empty()
         }
     }
@@ -48,10 +48,10 @@ mod tests {
     use dep::types::{
         address::AztecAddress,
         abis::{
-        note_hash::NoteHashContext, note_hash_leaf_preimage::NoteHashLeafPreimage,
-        read_request::ReadRequestContext
+        membership_witness::NoteHashMembershipWitness, note_hash::NoteHashContext,
+        note_hash_leaf_preimage::NoteHashLeafPreimage, read_request::ReadRequestContext
     },
-        constants::NOTE_HASH_TREE_HEIGHT, hash::silo_note_hash, merkle_tree::MembershipWitness,
+        constants::NOTE_HASH_TREE_HEIGHT, hash::silo_note_hash,
         tests::merkle_tree_utils::NonEmptyMerkleTree
     };
 
@@ -62,14 +62,16 @@ mod tests {
     global note_hashes = inner_note_hashes.map(|n| silo_note_hash(contract_address, n));
 
     // Create 5 read requests. 0 and 3 are reading settled note hashes. 1, 2 and 4 are reading pending note hashes.
+    // TODO(#2847): Read request values for settled note hashes shouldn't have been siloed by apps.
     global read_requests = [
-        ReadRequestContext { value: inner_note_hashes[1], counter: 11, contract_address }, // settled
+        ReadRequestContext { value: note_hashes[1], counter: 11, contract_address }, // settled
         ReadRequestContext { value: inner_note_hashes[3], counter: 13, contract_address }, // pending
         ReadRequestContext { value: inner_note_hashes[2], counter: 39, contract_address }, // pending
-        ReadRequestContext { value: inner_note_hashes[0], counter: 46, contract_address }, // settled
+        ReadRequestContext { value: note_hashes[0], counter: 46, contract_address }, // settled
         ReadRequestContext { value: inner_note_hashes[3], counter: 78, contract_address }, // pending
     ];
 
+    // TODO(#6122): Pending values shouldn't have been siloed at this point.
     global pending_values = [NoteHashContext { value: note_hashes[2], counter: 2, nullifier_counter: 0 }, NoteHashContext { value: note_hashes[3], counter: 8, nullifier_counter: 0 }];
     global pending_read_hints = [
         PendingReadHint { read_request_index: 1, pending_value_index: 1 },
@@ -106,12 +108,12 @@ mod tests {
         let hints = [
             NoteHashSettledReadHint {
                 read_request_index: 0,
-                membership_witness: MembershipWitness { leaf_index: 1, sibling_path: tree.get_sibling_path(1) },
+                membership_witness: NoteHashMembershipWitness { leaf_index: 1, sibling_path: tree.get_sibling_path(1) },
                 leaf_preimage: leaf_preimages[1]
             },
             NoteHashSettledReadHint {
                 read_request_index: 3,
-                membership_witness: MembershipWitness { leaf_index: 0, sibling_path: tree.get_sibling_path(0) },
+                membership_witness: NoteHashMembershipWitness { leaf_index: 0, sibling_path: tree.get_sibling_path(0) },
                 leaf_preimage: leaf_preimages[0]
             }
         ];

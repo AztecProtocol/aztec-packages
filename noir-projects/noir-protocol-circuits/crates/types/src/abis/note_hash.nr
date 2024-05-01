@@ -120,6 +120,7 @@ impl Deserialize<NOTE_HASH_CONTEXT_LENGTH> for NoteHashContext {
 
 impl Readable for NoteHashContext {
     fn assert_match_read_request(self, read_request: ReadRequestContext) {
+        // TODO(#6122)
         let siloed_value = silo_note_hash(read_request.contract_address, read_request.value);
         assert_eq(self.value, siloed_value, "Value of the note hash does not match read request");
         assert(

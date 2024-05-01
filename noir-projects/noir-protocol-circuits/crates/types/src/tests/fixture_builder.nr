@@ -316,8 +316,8 @@ impl FixtureBuilder {
 
     pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u64) -> u64 {
         let read_request_index = self.note_hash_read_requests.len();
-        let unsiloed_value = self.get_mocked_note_hash_value(note_hash_index);
-        let read_request = ReadRequestContext { value: unsiloed_value, counter: self.next_counter(), contract_address: self.storage_contract_address };
+        let value = self.get_mocked_note_hash_value(note_hash_index);
+        let read_request = ReadRequestContext { value, counter: self.next_counter(), contract_address: self.storage_contract_address };
         self.note_hash_read_requests.push(read_request);
         read_request_index
     }

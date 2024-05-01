@@ -7,7 +7,12 @@ import {
 import { AztecAddress, PrivateCallStackItem } from '@aztec/circuits.js';
 import { EventSelector } from '@aztec/foundation/abi';
 
-import { type ExecutionResult, collectEncryptedLogs, collectUnencryptedLogs } from './execution_result.js';
+import {
+  type ExecutionResult,
+  collectEncryptedLogs,
+  collectNoteHashLeafIndexMap,
+  collectUnencryptedLogs,
+} from './execution_result.js';
 
 function emptyExecutionResult(): ExecutionResult {
   return {
@@ -15,7 +20,7 @@ function emptyExecutionResult(): ExecutionResult {
     vk: Buffer.from(''),
     partialWitness: new Map(),
     callStackItem: PrivateCallStackItem.empty(),
-    noteHashReadRequestPartialWitnesses: [],
+    noteHashLeafIndexMap: new Map(),
     newNotes: [],
     nullifiedNoteHashCounters: [],
     returnValues: [],
@@ -25,6 +30,48 @@ function emptyExecutionResult(): ExecutionResult {
     unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
   };
 }
+
+describe('collectNoteHashLeafIndexMap', () => {
+  let executionResult: ExecutionResult;
+
+  beforeEach(() => {
+    executionResult = emptyExecutionResult();
+  });
+
+  it('returns a map for note hash leaf indexes', () => {
+    executionResult.noteHashLeafIndexMap = new Map();
+    executionResult.noteHashLeafIndexMap.set(12n, 99n);
+    executionResult.noteHashLeafIndexMap.set(34n, 88n);
+    const res = collectNoteHashLeafIndexMap(executionResult);
+    expect(res.size).toBe(2);
+    expect(res.get(12n)).toBe(99n);
+    expect(res.get(34n)).toBe(88n);
+  });
+
+  it('returns a map containing note hash leaf indexes for nested executions', () => {
+    executionResult.noteHashLeafIndexMap.set(12n, 99n);
+    executionResult.noteHashLeafIndexMap.set(34n, 88n);
+
+    const childExecution0 = emptyExecutionResult();
+    childExecution0.noteHashLeafIndexMap.set(56n, 77n);
+
+    const childExecution1 = emptyExecutionResult();
+    childExecution1.noteHashLeafIndexMap.set(78n, 66n);
+    const grandchildExecution = emptyExecutionResult();
+    grandchildExecution.noteHashLeafIndexMap.set(90n, 55n);
+    childExecution1.nestedExecutions = [grandchildExecution];
+
+    executionResult.nestedExecutions = [childExecution0, childExecution1];
+
+    const res = collectNoteHashLeafIndexMap(executionResult);
+    expect(res.size).toBe(5);
+    expect(res.get(12n)).toBe(99n);
+    expect(res.get(34n)).toBe(88n);
+    expect(res.get(56n)).toBe(77n);
+    expect(res.get(78n)).toBe(66n);
+    expect(res.get(90n)).toBe(55n);
+  });
+});
 
 describe('Execution Result test suite - collect encrypted logs', () => {
   function emptyExecutionResultWithEncryptedLogs(encryptedLogs = EncryptedFunctionL2Logs.empty()): ExecutionResult {

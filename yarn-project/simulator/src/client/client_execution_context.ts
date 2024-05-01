@@ -15,10 +15,8 @@ import {
   FunctionData,
   FunctionSelector,
   type Header,
-  NoteHashReadRequestMembershipWitness,
   PrivateContextInputs,
   PublicCallRequest,
-  type SideEffect,
   type TxContext,
 } from '@aztec/circuits.js';
 import { Aes128, type Grumpkin } from '@aztec/circuits.js/barretenberg';
@@ -58,7 +56,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * because these notes are meant to be maintained on a per-call basis
    * They should act as references for the read requests output by an app circuit via public inputs.
    */
-  private gotNotes: Map<bigint, bigint> = new Map();
+  private noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
   private nullifiedNoteHashCounters: NullifiedNoteHashCounter[] = [];
   private encryptedLogs: EncryptedL2Log[] = [];
   private unencryptedLogs: UnencryptedL2Log[] = [];
@@ -113,23 +111,11 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * This function will populate readRequestPartialWitnesses which
-   * here is just used to flag reads as "transient" for new notes created during this execution
-   * or to flag non-transient reads with their leafIndex.
-   * The KernelProver will use this to fully populate witnesses and provide hints to
-   * the kernel regarding which commitments each transient read request corresponds to.
-   * @param noteHashReadRequests - SideEffect containing Note hashed of the notes being read and counter.
-   * @returns An array of partially filled in read request membership witnesses.
+   * The KernelProver will use this to fully populate witnesses and provide hints to the kernel circuit
+   * regarding which note hash each settled read request corresponds to.
    */
-  public getNoteHashReadRequestPartialWitnesses(noteHashReadRequests: SideEffect[]) {
-    return noteHashReadRequests
-      .filter(r => !r.isEmpty())
-      .map(r => {
-        const index = this.gotNotes.get(r.value.toBigInt());
-        return index !== undefined
-          ? NoteHashReadRequestMembershipWitness.empty(index)
-          : NoteHashReadRequestMembershipWitness.emptyTransient();
-      });
+  public getNoteHashLeafIndexMap() {
+    return this.noteHashLeafIndexMap;
   }
 
   /**
@@ -266,7 +252,7 @@ export class ClientExecutionContext extends ViewDataOracle {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
         // Should always be uniqueSiloedNoteHash when publicly created notes include nonces.
         const noteHashForReadRequest = n.nonce.isZero() ? siloedNoteHash : uniqueSiloedNoteHash;
-        this.gotNotes.set(noteHashForReadRequest.value, n.index);
+        this.noteHashLeafIndexMap.set(noteHashForReadRequest.toBigInt(), n.index);
       }
     });
 
