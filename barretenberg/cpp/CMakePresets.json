@@ -35,6 +35,7 @@
       "name": "darwin-arm64",
       "displayName": "Apple arm64 Cross-compile",
       "inherits": "default",
+      "binaryDir": "build-darwin-arm64",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_TOOLCHAIN_FILE": "/opt/osxcross/toolchain.cmake"
@@ -50,6 +51,7 @@
       "name": "darwin-amd64",
       "displayName": "Apple amd64 Cross-compile",
       "inherits": "darwin-arm64",
+      "binaryDir": "build-darwin-amd64",
       "environment": {
         "OSXCROSS_HOST": "x86_64-apple-darwin23"
       }
@@ -380,6 +382,16 @@
       "name": "op-count",
       "inherits": "default",
       "configurePreset": "op-count"
+    },
+    {
+      "name": "darwin-arm64",
+      "inherits": "default",
+      "configurePreset": "darwin-arm64"
+    },
+    {
+      "name": "darwin-amd64",
+      "inherits": "default",
+      "configurePreset": "darwin-amd64"
     },
     {
       "name": "clang16-dbg",
