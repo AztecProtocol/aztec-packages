@@ -3,6 +3,7 @@ barretenberg_module(
     stdlib_circuit_builders
     stdlib_pedersen_commitment
     stdlib_blake3s
+    stdlib_sha256
     ultra_honk
     stdlib_poseidon2
     protogalaxy

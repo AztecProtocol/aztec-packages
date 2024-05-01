@@ -103,7 +103,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
  * @param other
  * @return std::array<element<C, Fq, Fr, G>, 2>
  */
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/657): This function is untested
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/657): This function is untested and doesn't work in the
+// context of batch mul with array of commitments that are equal
 template <typename C, class Fq, class Fr, class G>
 std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::add_sub(const element& other) const
 {

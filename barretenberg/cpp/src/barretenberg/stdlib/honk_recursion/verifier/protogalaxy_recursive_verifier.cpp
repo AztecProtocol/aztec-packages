@@ -170,12 +170,19 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
         std::vector<Commitment> commitments;
         for (auto& instance : instances) {
             scalars.emplace_back(lagranges[inst]);
+            // info("lagranges ", lagranges[inst]);
             commitments.emplace_back(instance->verification_key->get_all()[vk_idx]);
+            info("vk ",
+                 instance->commitment_labels.get_precomputed()[vk_idx],
+                 instance->verification_key->get_all()[vk_idx]);
             inst++;
         }
+        // info("batch mul length vk ", commitments.size());
         expected_vk = Commitment::batch_mul(commitments, scalars);
         vk_idx++;
     }
+    info("past vk folding");
+
     next_accumulator->is_accumulator = true;
 
     // Compute next folding parameters and verify against the ones received from the prover
@@ -193,12 +200,18 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
         size_t inst = 0;
         for (auto& instance : instances) {
             scalars.emplace_back(lagranges[inst]);
+            // info("lagrange ", lagranges[inst]);
             commitments.emplace_back(instance->witness_commitments.get_all()[comm_idx]);
+            info("comm ",
+                 instance->commitment_labels.get_witness()[comm_idx],
+                 instance->witness_commitments.get_all()[comm_idx]);
             inst++;
         }
+        // info("batch mul length witness comm ", commitments.size());
         comm = Commitment::batch_mul(commitments, scalars);
         comm_idx++;
     }
+    // info("past commitments folding");
 
     next_accumulator->public_inputs = std::vector<FF>(next_accumulator->verification_key->num_public_inputs, 0);
     size_t public_input_idx = 0;
@@ -245,4 +258,12 @@ template class ProtoGalaxyRecursiveVerifier_<
     RecursiveVerifierInstances_<UltraRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
 template class ProtoGalaxyRecursiveVerifier_<
     RecursiveVerifierInstances_<GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, 2>>;
+template class ProtoGalaxyRecursiveVerifier_<
+    RecursiveVerifierInstances_<UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, 2>>;
+template class ProtoGalaxyRecursiveVerifier_<
+    RecursiveVerifierInstances_<GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
+template class ProtoGalaxyRecursiveVerifier_<
+    RecursiveVerifierInstances_<UltraRecursiveFlavor_<CircuitSimulatorBN254>, 2>>;
+template class ProtoGalaxyRecursiveVerifier_<
+    RecursiveVerifierInstances_<GoblinUltraRecursiveFlavor_<CircuitSimulatorBN254>, 2>>;
 } // namespace bb::stdlib::recursion::honk
