@@ -11,18 +11,15 @@ global SUBSCRIPTION_NOTE_LEN: Field = 3;
 // TODO: Do we need to include a nonce, in case we want to read/nullify/recreate with the same pubkey value?
 #[aztec(note)]
 struct SubscriptionNote {
+    owner: AztecAddress,
     expiry_block_number: Field,
     remaining_txs: Field,
-    // the nullifying public key of the person who owns the note. The owner (recipient) to ensure that the note 
-    // can be privately spent. When nullifier secret and encryption private key is same 
-    // we can simply use the owner for this one.
-    owner_nullifying_public_key_hash: Field,
 }
 
 impl NoteInterface<SUBSCRIPTION_NOTE_LEN> for SubscriptionNote {
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_app_nullifier_secret_key(self.owner_nullifying_public_key_hash);
+        let secret = context.request_app_nullifier_secret_key(self.owner);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -32,7 +29,7 @@ impl NoteInterface<SUBSCRIPTION_NOTE_LEN> for SubscriptionNote {
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_app_nullifier_secret_key(self.owner_nullifying_public_key_hash);
+        let secret = get_app_nullifier_secret_key(self.owner);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -42,21 +39,20 @@ impl NoteInterface<SUBSCRIPTION_NOTE_LEN> for SubscriptionNote {
 
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
-        // TODO (ek): Disabled this until we fix the emit log types
-        // let encryption_pub_key = get_public_key(self.owner_nullifying_public_key_hash);
-        // emit_encrypted_log(
-        //     context,
-        //     (*context).this_address(),
-        //     slot,
-        //     Self::get_note_type_id(),
-        //     encryption_pub_key,
-        //     self.serialize_content(),
-        // );
+        let encryption_pub_key = get_public_key(self.owner);
+        emit_encrypted_log(
+            context,
+            (*context).this_address(),
+            slot,
+            Self::get_note_type_id(),
+            encryption_pub_key,
+            self.serialize_content(),
+        );
     }
 }
 
 impl SubscriptionNote {
-    pub fn new(expiry_block_number: Field, remaining_txs: Field, owner_nullifying_public_key_hash: Field) -> Self {
-        SubscriptionNote { expiry_block_number, remaining_txs, owner_nullifying_public_key_hash, header: NoteHeader::empty() }
+    pub fn new(owner: AztecAddress, expiry_block_number: Field, remaining_txs: Field) -> Self {
+        SubscriptionNote { owner, expiry_block_number, remaining_txs, header: NoteHeader::empty() }
     }
 }
