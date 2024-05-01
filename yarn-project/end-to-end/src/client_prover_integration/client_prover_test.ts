@@ -31,6 +31,13 @@ const { E2E_DATA_PATH: dataPath } = process.env;
 
 const SALT = 1;
 
+/**
+ * Largely taken from the e2e_token_contract test file. We deploy 2 accounts and a token contract.
+ * However, we then setup a second PXE with a full prover instance.
+ * We configure this instance with all of the accounts and contracts.
+ * We then prove and verify transactions created via this full prover PXE.
+ */
+
 export class ClientProverTest {
   static TOKEN_NAME = 'Aztec Token';
   static TOKEN_SYMBOL = 'AZT';
@@ -111,6 +118,7 @@ export class ClientProverTest {
     const context = await this.snapshotManager.setup();
     ({ pxe: this.pxe, aztecNode: this.aztecNode } = context);
 
+    // Configure a full prover PXE
     const bbConfig = await getBBConfig(this.logger);
     this.directoryToCleanup = bbConfig?.directoryToCleanup;
 
@@ -167,6 +175,8 @@ export class ClientProverTest {
 
   async teardown() {
     await this.snapshotManager.teardown();
+
+    // Cleanup related to the second 'full prover' PXE
     await this.provenPXETeardown?.();
 
     if (this.directoryToCleanup) {
