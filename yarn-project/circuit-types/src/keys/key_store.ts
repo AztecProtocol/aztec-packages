@@ -126,6 +126,7 @@ export interface KeyStore {
    * @param masterOutgoingViewingPublicKey - The stored outgoing viewing public key
    * @param masterTaggingPublicKey - The stored master tagging public key
    */
+  // TODO(#5834): Move this function out of here. Key store should only be used for accounts, not recipients
   addPublicKeysForAccount(
     accountAddress: AztecAddress,
     masterNullifierPublicKey: Point,

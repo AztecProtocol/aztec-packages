@@ -25,9 +25,12 @@ contract KeyRegistry {
 
   #[aztec(storage)]
   struct Storage {
+    //! This should stay at storage slot 1. If you change this, make sure you change the hardcoded value in keys/assert_public_key_freshness.
+    //! We use this hardcoded storage slot with derive_storage_slot_in_map and the SharedMutablePrivateGetter to directly read the value at an address in this contract.
+    nullifier_public_key_hash_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+
     // We are not supporting rotating / changing keys other than the nullifier public in the registry at the moment, but will in the future.
     // Uncomment lines below to enable that functionality
-    nullifier_public_key_hash_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
     // incoming_public_key_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
     // outgoing_public_key_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
     // tagging_public_key_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
@@ -70,30 +73,13 @@ contract KeyRegistry {
        "All public keys must be non-zero"
     );
 
-    // TODO (ek): Do it below after refactoring all public_keys_hash_elemtns
-    // let public_keys_hash = PublicKeysHash::compute(nullifier_public_key, tagging_public_key, incoming_public_key, outgoing_public_key);
-    // let address = AztecAddress::compute(public_keys_hash, partial_address);
     // We could also pass in original_public_keys_hash instead of computing it here, if all we need the original one is for being able to prove ownership of address
-    let public_keys_hash = poseidon2_hash([
-        nullifier_public_key.serialize()[0],
-        nullifier_public_key.serialize()[1],
-        incoming_public_key.serialize()[0],
-        incoming_public_key.serialize()[1],
-        outgoing_public_key.serialize()[0],
-        outgoing_public_key.serialize()[1],
-        tagging_public_key.serialize()[0],
-        tagging_public_key.serialize()[1],
-        GENERATOR_INDEX__PUBLIC_KEYS_HASH,
-      ]
-    );
-
-    let computed_address = AztecAddress::from_field(
-      poseidon2_hash([
-          partial_address.to_field(),
-          public_keys_hash.to_field(),
-          GENERATOR_INDEX__CONTRACT_ADDRESS_V1 as Field,
-        ]
-      )
+    let computed_address = AztecAddress::compute_from_public_keys_and_partial_address(
+      nullifier_public_key,
+      incoming_public_key,
+      outgoing_public_key,
+      tagging_public_key,
+      partial_address,
     );
 
     assert(computed_address.eq(address), "Computed address does not match supplied address");

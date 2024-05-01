@@ -10,18 +10,18 @@ contract Test {
 
     use dep::aztec::protocol_types::{
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Serialize,
+        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, CANONICAL_KEY_REGISTRY_ADDRESS}, traits::Serialize,
         grumpkin_point::GrumpkinPoint
     };
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
 
-    use dep::aztec::state_vars::shared_mutable::SharedMutablePrivateGetter;
+    use dep::aztec::state_vars::{shared_mutable::SharedMutablePrivateGetter, map::derive_storage_slot_in_map};
 
     use dep::aztec::{
-        keys::assert_public_key_freshness::assert_nullifier_public_key_is_fresh,
+        keys::getters::get_fresh_nullifier_public_key_hash,
         context::{Context, inputs::private_context_inputs::PrivateContextInputs},
-        hash::{pedersen_hash, compute_secret_hash, ArgsHasher},
+        hash::{pedersen_hash, poseidon2_hash, compute_secret_hash, ArgsHasher},
         note::{
         lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
         note_getter_options::NoteStatus
@@ -379,36 +379,34 @@ contract Test {
 
     #[aztec(private)]
     fn test_shared_mutable_private_getter_for_registry_contract(
-        contract_address_to_read: AztecAddress,
         storage_slot_of_shared_mutable: Field,
         address_to_get_in_registry: AztecAddress
-    ) {
+    ) -> Field {
         // We have to derive this slot to get the location of the shared mutable inside the Map
-        let derived_slot = dep::aztec::hash::pedersen_hash(
-            [storage_slot_of_shared_mutable, address_to_get_in_registry.to_field()],
-            0
-        );
+        let derived_slot = derive_storage_slot_in_map(storage_slot_of_shared_mutable, address_to_get_in_registry);
+
         // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
-        let registry_private_getter: SharedMutablePrivateGetter<Field, 5> = SharedMutablePrivateGetter::new(context, contract_address_to_read, derived_slot);
+        let registry_private_getter: SharedMutablePrivateGetter<Field, 5> = SharedMutablePrivateGetter::new(context, AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS), derived_slot);
         let nullifier_public_key = registry_private_getter.get_current_value_in_private();
 
-        context.emit_unencrypted_log(nullifier_public_key);
+        nullifier_public_key
     }
 
     #[aztec(private)]
     fn test_shared_mutable_private_getter(
         contract_address_to_read: AztecAddress,
         storage_slot_of_shared_mutable: Field
-    ) {
+    ) -> AztecAddress {
         // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
         let test: SharedMutablePrivateGetter<AztecAddress, 5> = SharedMutablePrivateGetter::new(
             context,
             contract_address_to_read,
             storage_slot_of_shared_mutable
         );
+
         let authorized = test.get_current_value_in_private();
 
-        context.emit_unencrypted_log(authorized);
+        authorized
     }
 
     #[aztec(private)]
@@ -416,7 +414,7 @@ contract Test {
         address: AztecAddress,
         public_nullifying_key: GrumpkinPoint,
     ) {
-        assert_nullifier_public_key_is_fresh(&mut context, address, public_nullifying_key);
+        assert_eq(get_fresh_nullifier_public_key_hash(&mut context, address), poseidon2_hash(public_nullifying_key.serialize()));
     }
 
     #[aztec(public)]

@@ -1,3 +1,3 @@
-mod assert_public_key_freshness;
+mod getters;
 
-use crate::keys::assert_public_key_freshness::assert_nullifier_public_key_is_fresh;
+use crate::keys::getters::get_fresh_nullifier_public_key_hash;

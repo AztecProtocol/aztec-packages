@@ -293,6 +293,7 @@ export class TestKeyStore implements KeyStore {
     return Promise.resolve(Fr.fromBuffer(publicKeysHashBuffer));
   }
 
+  // TODO(#5834): Re-add separation between recipients and accounts in keystore.
   public async addPublicKeysForAccount(
     accountAddress: AztecAddress,
     masterNullifierPublicKey: Point,

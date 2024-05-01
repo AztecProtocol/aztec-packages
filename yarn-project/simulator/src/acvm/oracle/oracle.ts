@@ -173,8 +173,9 @@ export class Oracle {
   }
 
   async getPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<ACVMField[]> {
-    let partialAddress: PartialAddress;
     let publicKeys: Point[] | undefined;
+    let partialAddress: PartialAddress;
+
     // TODO #5834: This should be reworked to return the public keys as well
     try {
       ({ partialAddress } = await this.typedOracle.getCompleteAddress(AztecAddress.fromField(fromACVMField(address))));
@@ -188,9 +189,9 @@ export class Oracle {
       publicKeys = Array(4).fill(Point.ZERO);
     }
 
-    const acvmKeys = publicKeys.flatMap(key => key.toFields());
+    const acvmPublicKeys = publicKeys.flatMap(key => key.toFields());
 
-    return [partialAddress, ...acvmKeys].map(toACVMField);
+    return [...acvmPublicKeys, partialAddress].map(toACVMField);
   }
 
   async getNotes(
