@@ -1367,48 +1367,6 @@ impl<'a> Resolver<'a> {
         }
     }
 
-    fn resolve_assert_message(
-        &mut self,
-        assert_message_expr: Option<Expression>,
-        span: Span,
-        condition: Expression,
-    ) -> Option<ExprId> {
-        let assert_message_expr = assert_message_expr?;
-
-        if matches!(
-            assert_message_expr,
-            Expression { kind: ExpressionKind::Literal(Literal::Str(..)), .. }
-        ) {
-            return Some(self.resolve_expression(assert_message_expr));
-        }
-
-        let is_in_stdlib = self.path_resolver.module_id().krate.is_stdlib();
-        let assert_msg_call_path = if is_in_stdlib {
-            ExpressionKind::Variable(Path {
-                segments: vec![Ident::from("internal"), Ident::from("resolve_assert_message")],
-                kind: PathKind::Crate,
-                span,
-            })
-        } else {
-            ExpressionKind::Variable(Path {
-                segments: vec![
-                    Ident::from("std"),
-                    Ident::from("internal"),
-                    Ident::from("resolve_assert_message"),
-                ],
-                kind: PathKind::Dep,
-                span,
-            })
-        };
-        let assert_msg_call_args = vec![assert_message_expr.clone(), condition];
-        let assert_msg_call_expr = Expression::call(
-            Expression { kind: assert_msg_call_path, span },
-            assert_msg_call_args,
-            span,
-        );
-        Some(self.resolve_expression(assert_msg_call_expr))
-    }
-
     pub fn intern_stmt(&mut self, stmt: Statement) -> StmtId {
         let hir_stmt = self.resolve_stmt(stmt.kind, stmt.span);
         let id = self.interner.push_stmt(hir_stmt);
