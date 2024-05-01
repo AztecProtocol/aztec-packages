@@ -48,6 +48,8 @@ avm-transpiler:
   rebuildPatterns:
     - ^avm-transpiler/
     - ^noir/
+  dependencies:
+    - noir
 
 # Compiles all aztec noir projects using nargo and the avm-transpiler.
 noir-projects:
