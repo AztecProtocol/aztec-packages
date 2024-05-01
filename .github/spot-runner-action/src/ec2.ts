@@ -4,9 +4,7 @@ import {
   CreateFleetInstance,
   CreateFleetRequest,
   CreateLaunchTemplateRequest,
-  FleetLaunchTemplateConfig,
   FleetLaunchTemplateConfigRequest,
-  RunInstancesRequest,
 } from "aws-sdk/clients/ec2";
 import * as crypto from "crypto";
 import * as core from "@actions/core";
@@ -163,7 +161,7 @@ export class Ec2Instance {
     // NOTE: This should be deterministic or we will create a launch template each time
     const userData = await new UserData(this.config).getUserData();
     const ec2InstanceTypeHash = this.getHashOfStringArray(
-      this.config.ec2InstanceType.concat([userData]).concat([JSON.stringify(this.tags)])
+      this.config.ec2InstanceType.concat([userData, JSON.stringify(this.tags), this.config.ec2KeyName])
     );
     const launchTemplateName =
       "aztec-packages-spot-" + this.config.ec2AmiId + "-" + ec2InstanceTypeHash;
@@ -179,6 +177,7 @@ export class Ec2Instance {
           MemoryMiB: { Min: 0 },
           AllowedInstanceTypes: this.config.ec2InstanceType,
         },
+        KeyName: this.config.ec2KeyName,
         UserData: userData,
         TagSpecifications: [
           {
@@ -229,6 +228,7 @@ export class Ec2Instance {
         InstanceType: instanceType,
         AvailabilityZone: availabilityZone,
         SubnetId: this.config.ec2SubnetId,
+        KeyName: this.config.ec2KeyName,
       })),
     };
     const createFleetRequest: CreateFleetRequest = {
