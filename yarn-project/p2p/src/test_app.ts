@@ -26,13 +26,7 @@ import { AztecDatastore } from './service/data_store.js';
 import { DiscV5Service } from './service/discV5_service.js';
 import { createLibP2PPeerId } from './service/libp2p_service.js';
 
-// import { AztecPeerDb, type AztecPeerStore } from './service/peer_store.js';
-
-// type AztecComponents = {
-//   datastore: AztecDatastore;
-// };
-
-const { PRIVATE_KEY /*DATA_DIR*/ } = process.env;
+const { PRIVATE_KEY } = process.env;
 
 const TEST_TOPIC = 'aztec_txs';
 
