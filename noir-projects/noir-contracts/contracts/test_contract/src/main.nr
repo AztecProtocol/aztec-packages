@@ -10,7 +10,7 @@ contract Test {
 
     use dep::aztec::protocol_types::{
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, CANONICAL_KEY_REGISTRY_ADDRESS}, traits::Serialize,
+        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, CANONICAL_KEY_REGISTRY_ADDRESS}, traits::{Serialize, ToField, FromField},
         grumpkin_point::GrumpkinPoint
     };
 
@@ -377,6 +377,26 @@ contract Test {
         constant.value
     }
 
+    // This function is used in the e2e_state_vars to test the SharedMutablePrivateGetter in isolation
+    #[aztec(private)]
+    fn test_shared_mutable_private_getter<T>(
+        contract_address_to_read: AztecAddress,
+        storage_slot_of_shared_mutable: Field
+    ) where T: FromField, T: ToField {
+        // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
+        let test: SharedMutablePrivateGetter<T, 5> = SharedMutablePrivateGetter::new(
+            context,
+            contract_address_to_read,
+            storage_slot_of_shared_mutable
+        );
+
+        let ret = test.get_current_value_in_private();
+
+        ret.to_field()
+    }
+
+    // This function is used for testing the registry contract and fresh public key getters. If nothing exists in the registry, but we have added public
+    // keys to the pxe, this function will return nothing, but the public key getters will return the correct value
     #[aztec(private)]
     fn test_shared_mutable_private_getter_for_registry_contract(
         storage_slot_of_shared_mutable: Field,
@@ -390,23 +410,6 @@ contract Test {
         let nullifier_public_key = registry_private_getter.get_current_value_in_private();
 
         nullifier_public_key
-    }
-
-    #[aztec(private)]
-    fn test_shared_mutable_private_getter(
-        contract_address_to_read: AztecAddress,
-        storage_slot_of_shared_mutable: Field
-    ) -> AztecAddress {
-        // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
-        let test: SharedMutablePrivateGetter<AztecAddress, 5> = SharedMutablePrivateGetter::new(
-            context,
-            contract_address_to_read,
-            storage_slot_of_shared_mutable
-        );
-
-        let authorized = test.get_current_value_in_private();
-
-        authorized
     }
 
     #[aztec(private)]

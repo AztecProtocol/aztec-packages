@@ -106,7 +106,7 @@ describe('Key Registry', () => {
         await expect(
           keyRegistry
             .withWallet(wallets[0])
-            .methods.rotate_nullifier_public_key(wallets[0].getAddress(), Point.ZERO)
+            .methods.rotate_nullifier_public_key(wallets[0].getAddress(), Point.ZERO, new Fr(1))
             .send()
             .wait(),
         ).rejects.toThrow('New nullifier public key must be non-zero');
@@ -116,7 +116,7 @@ describe('Key Registry', () => {
         await expect(
           keyRegistry
             .withWallet(wallets[0])
-            .methods.rotate_nullifier_public_key(wallets[1].getAddress(), Point.random())
+            .methods.rotate_nullifier_public_key(wallets[1].getAddress(), Point.random(), new Fr(1))
             .send()
             .wait(),
         ).rejects.toThrow('Assertion failed: Message not authorized by account');
@@ -186,7 +186,7 @@ describe('Key Registry', () => {
       it('we call the key registry to rotate our nullifier key', async () => {
         await keyRegistry
           .withWallet(wallets[0])
-          .methods.rotate_nullifier_public_key(wallets[0].getAddress(), firstNewMasterNullifierPublicKey)
+          .methods.rotate_nullifier_public_key(wallets[0].getAddress(), firstNewMasterNullifierPublicKey, new Fr(1))
           .send()
           .wait();
 
@@ -215,7 +215,7 @@ describe('Key Registry', () => {
       it(`wallet 1 rotates wallet 0's nullifying public key with an authwit`, async () => {
         const action = keyRegistry
           .withWallet(wallets[1])
-          .methods.rotate_nullifier_public_key(wallets[0].getAddress(), secondNewMasterNullifierPublicKey);
+          .methods.rotate_nullifier_public_key(wallets[0].getAddress(), secondNewMasterNullifierPublicKey, new Fr(1));
 
         await wallets[0]
           .setPublicAuthWit({ caller: wallets[1].getCompleteAddress().address, action }, true)
@@ -422,7 +422,7 @@ describe('Key Registry', () => {
     it('we rotate the nullifier key and check that the key is fresh', async () => {
       await keyRegistry
         .withWallet(wallets[0])
-        .methods.rotate_nullifier_public_key(wallets[0].getAddress(), newMasterNullifierPublicKey)
+        .methods.rotate_nullifier_public_key(wallets[0].getAddress(), newMasterNullifierPublicKey, new Fr(1))
         .send()
         .wait();
 
