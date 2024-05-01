@@ -273,6 +273,7 @@ jobs:
       - bb-bench
       - yarn-project-formatting
       - yarn-project-test
+      - prover-client-test
     if: always()
     steps:
       - run: |
@@ -295,6 +296,7 @@ jobs:
         bb-bench,
         yarn-project-formatting,
         yarn-project-test,
+        prover-client-test,
       ]
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/master' && failure() }}
