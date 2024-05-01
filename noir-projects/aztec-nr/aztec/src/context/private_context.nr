@@ -67,8 +67,6 @@ struct PrivateContext {
     unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_CALL>,
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
-    // encrypted_logs_preimages: Vec<Field>,
-    // unencrypted_logs_preimages: Vec<Field>,
 
     nullifier_key: Option<NullifierKeys>,
 }
@@ -136,8 +134,6 @@ impl PrivateContext {
             unencrypted_logs_hashes: BoundedVec::new(),
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
-            // encrypted_logs_preimages: Vec::new(),
-            // unencrypted_logs_preimages: Vec::new(),
             nullifier_key: Option::none()
         }
     }
