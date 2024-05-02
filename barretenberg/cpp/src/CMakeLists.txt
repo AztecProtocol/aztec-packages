@@ -186,15 +186,27 @@ if(WASM)
         $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
     )
 
-    target_link_options(
-        barretenberg.wasm
-        PRIVATE
-        -nostartfiles -Wl,--no-entry,--export-dynamic
-    )
-
-    target_link_options(
-        acvm_backend.wasm
-        PRIVATE
-        -nostartfiles -Wl,--no-entry,--export-dynamic
-    )
+    if(MULTITHREADING)
+        target_link_options(
+            barretenberg.wasm
+            PRIVATE
+            -nostartfiles -Wl,--no-entry,--export-dynamic -Wl,--shared-memory
+        )
+        target_link_options(
+            acvm_backend.wasm
+            PRIVATE
+            -nostartfiles -Wl,--no-entry,--export-dynamic -Wl,--shared-memory
+        )
+    else()
+        target_link_options(
+            barretenberg.wasm
+            PRIVATE
+            -nostartfiles -Wl,--no-entry,--export-dynamic
+        )
+        target_link_options(
+            acvm_backend.wasm
+            PRIVATE
+            -nostartfiles -Wl,--no-entry,--export-dynamic
+        )
+    endif()
 endif()
