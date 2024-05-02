@@ -128,7 +128,7 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
      * @details In the folding recursive verifier we might hit the scenerio where we do a batch_mul(commitments,
      * lagranges) where the commitments are equal. That is because when we add gates to ensure no zero commitments,
      * these will be the same for all circuits, hitting an edge case in batch_mul that creates a failing constraint.
-     * Specifically, at some point in the algorithm we combute the difference between the points which, if they are
+     * Specifically, at some point in the algorithm we compute the difference between the points which, if they are
      * equal, would be zero, case that is not supported. See https://github.com/AztecProtocol/barretenberg/issues/971.
      */
     void fold_commitments(std::vector<FF> lagranges,
