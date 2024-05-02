@@ -579,6 +579,27 @@ bool avm_verify(const std::filesystem::path& proof_path)
     return true;
 }
 
+template <IsUltraFlavor Flavor> size_t compute_dyadic_size(typename Flavor::CircuitBuilder& circuit)
+{
+
+    // minimum circuit size due to lookup argument
+    const size_t min_size_due_to_lookups = circuit.get_tables_size() + circuit.get_lookups_size();
+
+    // minimum size of execution trace due to everything else
+    size_t min_size_of_execution_trace = circuit.public_inputs.size() + circuit.num_gates;
+    if constexpr (IsGoblinFlavor<Flavor>) {
+        min_size_of_execution_trace += circuit.blocks.ecc_op.size();
+    }
+
+    // The number of gates is the maximum required by the lookup argument or everything else, plus an optional zero row
+    // to allow for shifts.
+    size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
+    size_t total_num_gates = num_zero_rows + std::max(min_size_due_to_lookups, min_size_of_execution_trace);
+
+    // Next power of 2 (dyadic circuit size)
+    return circuit.get_circuit_subgroup_size(total_num_gates);
+}
+
 /**
  * @brief Creates a proof for an ACIR circuit
  *
@@ -601,8 +622,11 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
 
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness);
 
-    const size_t additional_gates_buffer = 15; // conservatively large to be safe
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6161): Make the total circuit size estimation more
+    // accurate for GoblinUltraHonk so that we can remove this magic buffer
+    const size_t additional_gates_buffer = 30; // conservatively large to be safe
     size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + additional_gates_buffer);
+
     init_bn254_crs(srs_size);
 
     // Construct Honk proof
@@ -672,7 +696,9 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
     auto constraint_system = get_constraint_system(bytecodePath);
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, {});
 
-    const size_t additional_gates_buffer = 15; // conservatively large to be safe
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6161): Make the total circuit size estimation more
+    // accurate for GoblinUltraHonk so that we can remove this magic buffer
+    const size_t additional_gates_buffer = 30; // conservatively large to be safe
     size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + additional_gates_buffer);
     init_bn254_crs(srs_size);
 

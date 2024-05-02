@@ -37,6 +37,8 @@ template <class Flavor> class ProverInstance_ {
 
     bool is_accumulator = false;
 
+    size_t dyadic_circuit_size = 0; // final power-of-2 circuit size
+
     // The folding parameters (\vec{β}, e) which are set for accumulators (i.e. relaxed instances).
     std::vector<FF> gate_challenges;
     FF target_sum;
@@ -46,6 +48,7 @@ template <class Flavor> class ProverInstance_ {
         BB_OP_COUNT_TIME_NAME("ProverInstance(Circuit&)");
         circuit.add_gates_to_ensure_all_polys_are_non_zero();
         circuit.finalize_circuit();
+
         // If using a structured trace, ensure that no block exceeds the fixed size
         if (is_structured) {
             for (auto& block : circuit.blocks.get()) {
@@ -99,7 +102,6 @@ template <class Flavor> class ProverInstance_ {
   private:
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
-    size_t dyadic_circuit_size = 0; // final power-of-2 circuit size
 
     size_t compute_dyadic_size(Circuit&);
 
