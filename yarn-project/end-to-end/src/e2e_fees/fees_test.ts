@@ -143,7 +143,6 @@ export class FeesTest {
 
         this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
 
-        await publicDeployAccounts(this.aliceWallet, this.wallets);
         await harness.bridgeFromL1ToL2(this.BRIDGED_FPC_GAS, this.BRIDGED_FPC_GAS, bananaFPC.address);
 
         return {
