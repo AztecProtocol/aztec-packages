@@ -64,8 +64,6 @@ impl<T> BalancesMap<T> {
         // We fetch the nullifier public key hash in the registry / from our PXE
         let nullifier_public_key_hash = get_fresh_nullifier_public_key_hash(self.map.context.private.unwrap(), owner);
 
-        dep::aztec::oracle::debug_log::debug_log_array_with_prefix("Nullifier Pub Key Hash", [nullifier_public_key_hash]);
-
         let mut addend_note = T::new(addend, nullifier_public_key_hash);
 
         // docs:start:insert

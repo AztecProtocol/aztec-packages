@@ -334,6 +334,12 @@ export class TestKeyStore implements KeyStore {
     return Promise.resolve(Fr.fromBuffer(publicKeysHashBuffer));
   }
 
+  /**
+   * Gets the account address for a given master nullifier public key hash.
+   * @throws If the master nullifier public key hash does not exist in the key store.
+   * @param masterNullifierPublicKeyHash - The master nullifier public key hash for which to retrieve the address.
+   * @returns The address for the account.
+   */
   public getAccountAddressForMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr): AztecAddress {
     const accountAddressBuffer = this.#keys.get(`${masterNullifierPublicKeyHash.toString()}-accountAddress`);
 

@@ -36,7 +36,6 @@ export class ViewDataOracle extends TypedOracle {
 
   /**
    * Retrieve nullifier keys associated with a specific account and app/contract address.
-   *
    * @param accountAddress - The account address.
    * @returns A Promise that resolves to nullifier keys of a requested account and contract.
    * @throws An error if the account is not registered in the database.
@@ -46,8 +45,7 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
-   * Retrieve nullifier keys associated with a specific account and app/contract address.
-   *
+   * Retrieve nullifier keys associated with a specific masterNullifierPublicKeyHash and app/contract address.
    * @param masterNullifierPublicKeyHash - The master nullifer public key hash.
    * @returns A Promise that resolves to nullifier keys of a requested account and contract.
    * @throws An error if the account is not registered in the database.
@@ -149,6 +147,11 @@ export class ViewDataOracle extends TypedOracle {
     return this.db.getCompleteAddress(address);
   }
 
+  /**
+   * Retrieve the complete address associated to a given master nullifier public key hash.
+   * @param masterNullifierPublicKeyHash - Master nullifier public key hash to fetch the complete address for.
+   * @returns A complete address associated with the input master nullifier public key hash.
+   */
   public override getCompleteAddressWithMasterNullifierPublicKey(
     masterNullifierPublicKeyHash: Fr,
   ): Promise<CompleteAddress> {

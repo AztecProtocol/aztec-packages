@@ -223,10 +223,12 @@ impl PrivateContext {
         keys.app_nullifier_secret_key
     }
 
-    // TODO(ek): Replace above with this
+    // TODO(ek): Replace request_app_nullifier_secret_key above with this once we no longer get app nullifier secret key with address
     pub fn request_app_nullifier_secret_key_with_master_public_nullifying_key_hash(&mut self, master_public_nullifying_key_hash: Field) -> Field {
         let keys = if self.nullifier_key.is_none() {
             let keys = get_nullifier_keys_with_master_nullifier_public_key_hash(master_public_nullifying_key_hash);
+            // Should we inside here constrain the below?
+            // assert(keys.master_nullifier_public_key_hash == master_public_nullifying_key_hash);
             let request = NullifierKeyValidationRequest {
                 master_nullifier_public_key: keys.master_nullifier_public_key,
                 app_nullifier_secret_key: keys.app_nullifier_secret_key
@@ -238,7 +240,7 @@ impl PrivateContext {
             let keys = self.nullifier_key.unwrap_unchecked();
             // If MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL is larger than 1, need to update the way the key pair is cached.
             assert(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL == 1);
-            // TODO: (ek) Enable this after we nuke all the accounts
+            // TODO: (ek) Enable this after we nuke the account in all notes and when NullifierKeys has a reference to master_nullifier_public_key_hash
             // assert(keys.master_nullifier_public_key_hash == master_public_nullifying_key_hash, "Cannot query nullifier key for more than one master_nullifying_public_key_hash per call");
             keys
         };

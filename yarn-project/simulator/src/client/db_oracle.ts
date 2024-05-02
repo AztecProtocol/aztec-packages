@@ -50,6 +50,11 @@ export interface DBOracle extends CommitmentsDB {
    */
   getCompleteAddress(address: AztecAddress): Promise<CompleteAddress>;
 
+  /**
+   * Retrieve the complete address associated to a given master nullifier public key hash.
+   * @param masterNullifierPublicKeyHash - Master nullifier public key hash to fetch the complete address for.
+   * @returns A complete address associated with the input master nullifier public key hash.
+   */
   getCompleteAddressWithMasterNullifierPublicKey(masterNullifierPublicKey: Fr): Promise<CompleteAddress>;
 
   /**

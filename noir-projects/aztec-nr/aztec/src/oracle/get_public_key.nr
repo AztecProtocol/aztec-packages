@@ -26,6 +26,7 @@ unconstrained fn get_public_key_and_partial_address_with_master_nullifier_public
     get_public_key_and_partial_address_with_master_nullifier_public_key_hash_oracle(master_nullifier_public_key_hash)
 }
 
+// TODO: This is used when we emit encrypted logs and will be changed.
 pub fn get_public_key_with_master_nullifier_public_key_hash(master_nullifier_public_key_hash: Field) -> GrumpkinPoint {
     let result = get_public_key_and_partial_address_with_master_nullifier_public_key_hash_internal(master_nullifier_public_key_hash);
     let pub_key = GrumpkinPoint::new(result[0], result[1]);
