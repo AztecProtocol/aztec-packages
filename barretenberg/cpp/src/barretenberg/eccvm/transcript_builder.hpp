@@ -32,6 +32,13 @@ class ECCVMTranscriptBuilder {
         FF msm_output_x = 0;
         FF msm_output_y = 0;
         FF collision_check = 0;
+        bool base_infinity = 0;
+        FF base_x_inverse = 0;
+        FF base_y_inverse = 0;
+        bool transcript_add_x_equal = false;
+        bool transcript_add_y_equal = false;
+        FF transcript_y_collision_check = 0;
+        FF transcript_add_lambda = 0;
     };
     struct VMState {
         uint32_t pc = 0;
@@ -64,6 +71,11 @@ class ECCVMTranscriptBuilder {
 
         std::vector<TranscriptState> transcript_state(num_transcript_entries);
         std::vector<FF> inverse_trace(num_transcript_entries - 2);
+        std::vector<FF> inverse_trace_x(num_transcript_entries - 2);
+        std::vector<FF> inverse_trace_y(num_transcript_entries - 2);
+        std::vector<FF> transcript_y_collision_check(num_transcript_entries - 2);
+        std::vector<FF> transcript_add_lambda(num_transcript_entries - 2);
+
         VMState state{
             .pc = total_number_of_muls,
             .count = 0,
@@ -138,8 +150,53 @@ class ECCVMTranscriptBuilder {
             row.msm_transition = msm_transition;
             row.pc = state.pc;
             row.msm_count = state.count;
-            row.base_x = (entry.add || entry.mul || entry.eq) ? entry.base_point.x : 0;
-            row.base_y = (entry.add || entry.mul || entry.eq) ? entry.base_point.y : 0;
+            auto base_point_infinity = entry.base_point.is_point_at_infinity();
+            auto base_point_x = entry.base_point.x;
+            auto base_point_y = entry.base_point.y;
+            if ((entry.add || entry.mul || entry.eq) && base_point_infinity) {
+                base_point_x = 0;
+                base_point_y = 0;
+            }
+            row.base_x = (entry.add || entry.mul || entry.eq) ? base_point_x : 0;
+            row.base_y = (entry.add || entry.mul || entry.eq) ? base_point_y : 0;
+            row.base_infinity = (entry.add || entry.mul || entry.eq) ? (base_point_infinity ? 1 : 0) : 0;
+            if (msm_transition) {
+                auto lhsx = AffineElement(updated_state.msm_accumulator).x;
+                auto lhsy = AffineElement(updated_state.msm_accumulator).y;
+                auto rhsx = (state.accumulator.is_point_at_infinity()) ? 0 : state.accumulator.x;
+                auto rhsy = (state.accumulator.is_point_at_infinity()) ? 0 : state.accumulator.y;
+                inverse_trace_x[i] = lhsx - rhsx;
+                inverse_trace_y[i] = lhsy - rhsy;
+            } else if (entry.add) {
+                auto lhsx = base_point_x;
+                auto lhsy = base_point_y;
+                auto rhsx = (state.accumulator.is_point_at_infinity()) ? 0 : state.accumulator.x;
+                auto rhsy = (state.accumulator.is_point_at_infinity()) ? 0 : state.accumulator.y;
+                inverse_trace_x[i] = lhsx - rhsx;
+                inverse_trace_y[i] = lhsy - rhsy;
+            } else {
+                inverse_trace_x[i] = 0;
+                inverse_trace_y[i] = 0;
+            }
+
+            if (entry.add || msm_transition) {
+                auto lhs = entry.add ? entry.base_point : updated_state.msm_accumulator;
+                auto rhs = state.accumulator;
+                row.transcript_add_x_equal = lhs.x == rhs.x; // check infinity?
+                row.transcript_add_y_equal = lhs.y == rhs.y;
+                if (lhs.x == rhs.x && !lhs.is_point_at_infinity() && !rhs.is_point_at_infinity()) {
+                    row.transcript_add_lambda = (lhs.x * lhs.x * 3) / (lhs.y * 2);
+                } else if (!lhs.is_point_at_infinity() && !rhs.is_point_at_infinity()) {
+                    row.transcript_add_lambda = (rhs.y - lhs.y) / (rhs.x - lhs.x);
+                } else {
+                    row.transcript_add_lambda = 0;
+                }
+            } else {
+                row.transcript_add_x_equal = 0;
+                row.transcript_add_y_equal = 0;
+                row.transcript_add_lambda = 0;
+            }
+
             row.z1 = (entry.mul) ? entry.z1 : 0;
             row.z2 = (entry.mul) ? entry.z2 : 0;
             row.z1_zero = z1_zero;
@@ -177,15 +234,18 @@ class ECCVMTranscriptBuilder {
         }
 
         FF::batch_invert(&inverse_trace[0], inverse_trace.size());
+        FF::batch_invert(&inverse_trace_x[0], inverse_trace.size());
+        FF::batch_invert(&inverse_trace_y[0], inverse_trace.size());
         for (size_t i = 0; i < inverse_trace.size(); ++i) {
             transcript_state[i + 1].collision_check = inverse_trace[i];
+            transcript_state[i + 1].base_x_inverse = inverse_trace_x[i];
+            transcript_state[i + 1].base_y_inverse = inverse_trace_y[i];
         }
         TranscriptState& final_row = transcript_state.back();
         final_row.pc = updated_state.pc;
         final_row.accumulator_x = (updated_state.accumulator.is_point_at_infinity()) ? 0 : updated_state.accumulator.x;
         final_row.accumulator_y = (updated_state.accumulator.is_point_at_infinity()) ? 0 : updated_state.accumulator.y;
         final_row.accumulator_empty = updated_state.is_accumulator_empty;
-
         return transcript_state;
     }
 };

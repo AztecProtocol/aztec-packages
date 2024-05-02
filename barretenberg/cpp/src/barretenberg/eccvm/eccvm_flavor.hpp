@@ -35,17 +35,17 @@ class ECCVMFlavor {
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using RelationSeparator = FF;
 
-    static constexpr size_t NUM_WIRES = 74;
+    static constexpr size_t NUM_WIRES = 81;
 
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 105;
+    static constexpr size_t NUM_ALL_ENTITIES = 112;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 3;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 76;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 83;
 
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
@@ -180,7 +180,14 @@ class ECCVMFlavor {
                               transcript_reset_accumulator, // column 70
                               precompute_select,            // column 71
                               lookup_read_counts_0,         // column 72
-                              lookup_read_counts_1);        // column 73
+                              lookup_read_counts_1,         // column 73
+                              transcript_base_infinity,     // column 74
+                              transcript_base_x_inverse,    // column 75
+                              transcript_base_y_inverse,    // column 76
+                              transcript_add_x_equal,       // column 77
+                              transcript_add_y_equal,       // column 78
+                              transcript_y_collision_check, // column 79
+                              transcript_add_lambda);       // column 80
     };
 
     /**
@@ -572,6 +579,13 @@ class ECCVMFlavor {
                     transcript_msm_x[i] = transcript_state[i].msm_output_x;
                     transcript_msm_y[i] = transcript_state[i].msm_output_y;
                     transcript_collision_check[i] = transcript_state[i].collision_check;
+                    transcript_base_infinity[i] = transcript_state[i].base_infinity;
+                    transcript_base_x_inverse[i] = transcript_state[i].base_x_inverse;
+                    transcript_base_y_inverse[i] = transcript_state[i].base_y_inverse;
+                    transcript_add_x_equal[i] = transcript_state[i].transcript_add_x_equal;
+                    transcript_add_y_equal[i] = transcript_state[i].transcript_add_y_equal;
+                    transcript_y_collision_check[i] = transcript_state[i].transcript_y_collision_check;
+                    transcript_add_lambda[i] = transcript_state[i].transcript_add_lambda;
                 }
             });
 
@@ -583,6 +597,13 @@ class ECCVMFlavor {
                     transcript_accumulator_empty[i] = 1;
                 }
             }
+            // in addition, unless the accumulator is reset, it contains the value from the previous row so this
+            // must be propagated
+            for (size_t i = transcript_state.size(); i < num_rows_pow2; ++i) {
+                transcript_accumulator_x[i] = transcript_accumulator_x[i - 1];
+                transcript_accumulator_y[i] = transcript_accumulator_y[i - 1];
+            }
+
             run_loop_in_parallel(precompute_table_state.size(), [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
                     // first row is always an empty row (to accommodate shifted polynomials which must have 0 as 1st
@@ -768,6 +789,13 @@ class ECCVMFlavor {
             Base::precompute_select = "PRECOMPUTE_SELECT";
             Base::lookup_read_counts_0 = "LOOKUP_READ_COUNTS_0";
             Base::lookup_read_counts_1 = "LOOKUP_READ_COUNTS_1";
+            Base::transcript_base_infinity = "TRANSCRIPT_BASE_INFINITY";
+            Base::transcript_base_x_inverse = "TRANSCRIPT_BASE_X_INVERSE";
+            Base::transcript_base_y_inverse = "TRANSCRIPT_BASE_Y_INVERSE";
+            Base::transcript_add_x_equal = "TRANSCRIPT_ADD_X_EQUAL";
+            Base::transcript_add_y_equal = "TRANSCRIPT_ADD_Y_EQUAL";
+            Base::transcript_y_collision_check = "TRANSCRIPT_Y_COLLISION_CHECK";
+            Base::transcript_add_lambda = "TRANSCRIPT_ADD_LAMBDA";
             Base::z_perm = "Z_PERM";
             Base::lookup_inverses = "LOOKUP_INVERSES";
             // The ones beginning with "__" are only used for debugging
@@ -868,6 +896,13 @@ class ECCVMFlavor {
         Commitment precompute_select_comm;
         Commitment lookup_read_counts_0_comm;
         Commitment lookup_read_counts_1_comm;
+        Commitment transcript_base_infinity_comm;
+        Commitment transcript_base_x_inverse_comm;
+        Commitment transcript_base_y_inverse_comm;
+        Commitment transcript_add_x_equal_comm;
+        Commitment transcript_add_y_equal_comm;
+        Commitment transcript_y_collision_check_comm;
+        Commitment transcript_add_lambda_comm;
         Commitment z_perm_comm;
         Commitment lookup_inverses_comm;
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
@@ -1051,6 +1086,20 @@ class ECCVMFlavor {
                 NativeTranscript::proof_data, num_frs_read);
             lookup_read_counts_1_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
+            transcript_base_infinity_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
+                NativeTranscript::proof_data, num_frs_read);
+            transcript_base_x_inverse_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
+                NativeTranscript::proof_data, num_frs_read);
+            transcript_base_y_inverse_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
+                NativeTranscript::proof_data, num_frs_read);
+            transcript_add_x_equal_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
+                NativeTranscript::proof_data, num_frs_read);
+            transcript_add_y_equal_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
+                NativeTranscript::proof_data, num_frs_read);
+            transcript_y_collision_check_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
+                NativeTranscript::proof_data, num_frs_read);
+            transcript_add_lambda_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
+                NativeTranscript::proof_data, num_frs_read);
             lookup_inverses_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
             z_perm_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
@@ -1195,6 +1244,16 @@ class ECCVMFlavor {
             NativeTranscript::template serialize_to_buffer(precompute_select_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(lookup_read_counts_0_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(lookup_read_counts_1_comm, NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_base_infinity_comm, NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_base_x_inverse_comm,
+                                                           NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_base_y_inverse_comm,
+                                                           NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_add_x_equal_comm, NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_add_y_equal_comm, NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_y_collision_check_comm,
+                                                           NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_add_lambda_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(lookup_inverses_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(z_perm_comm, NativeTranscript::proof_data);
             for (size_t i = 0; i < log_n; ++i) {
