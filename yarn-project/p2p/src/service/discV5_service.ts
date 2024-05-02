@@ -93,7 +93,6 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     this.currentState = PeerDiscoveryState.RUNNING;
 
     // Add bootnode ENR if provided
-    this.logger.info(`this.bootstrapNodes, ${this.bootstrapNodes}`);
     if (this.bootstrapNodes?.length) {
       this.logger.info(`Adding bootstrap ENRs: ${this.bootstrapNodes.join(', ')}`);
       try {
