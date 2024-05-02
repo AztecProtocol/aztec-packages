@@ -91,6 +91,9 @@ build-acir-tests:
 
 
 barretenberg-acir-benches-bb:
+  ARG PULL_REQUEST
+  ARG BRANCH
+  ARG COMMIT_HASH
   LOCALLY
 
   COPY ../barretenberg/cpp/+preset-clang-assert/bin/bb ../barretenberg/cpp/build/bin/bb
