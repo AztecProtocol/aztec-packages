@@ -245,7 +245,7 @@ jobs:
         timeout-minutes: 25
         run: earthly-ci --no-output ./+barretenberg-acir-tests-sol
 
-  barretenberg-acir-tests-bb.js:
+  barretenberg-acir-tests-bb-js:
     needs: build
     runs-on: ${{ github.actor }}-x86
     steps:
