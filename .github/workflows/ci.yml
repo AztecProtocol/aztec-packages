@@ -128,7 +128,7 @@ jobs:
         # limit our parallelism to half our cores
         run: earthly-ci --no-output +test --hardware_concurrency=64
 
-  bb.js-test:
+  bb-js-test:
     needs: setup
     runs-on: ${{ github.actor }}-x86
     steps:
