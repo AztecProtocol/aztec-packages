@@ -601,10 +601,7 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
 
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness);
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6161): Make the total circuit size estimation more
-    // accurate for GoblinUltraHonk so that we can remove this magic buffer
-    const size_t additional_gates_buffer = 30; // conservatively large to be safe
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + additional_gates_buffer);
+    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size());
 
     init_bn254_crs(srs_size);
 
@@ -675,10 +672,7 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
     auto constraint_system = get_constraint_system(bytecodePath);
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, {});
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6161): Make the total circuit size estimation more
-    // accurate for GoblinUltraHonk so that we can remove this magic buffer
-    const size_t additional_gates_buffer = 30; // conservatively large to be safe
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + additional_gates_buffer);
+    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size());
     init_bn254_crs(srs_size);
 
     ProverInstance prover_inst(builder);

@@ -12,7 +12,10 @@ namespace bb {
 
 template <typename FF> void GoblinUltraCircuitBuilder_<FF>::finalize_circuit()
 {
-    UltraCircuitBuilder_<UltraHonkArith<FF>>::finalize_circuit();
+    if (!this->circuit_finalized) {
+        add_gates_to_ensure_all_polys_are_non_zero();
+        UltraCircuitBuilder_<UltraHonkArith<FF>>::finalize_circuit();
+    }
 }
 
 /**
