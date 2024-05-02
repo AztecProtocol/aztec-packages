@@ -579,27 +579,6 @@ bool avm_verify(const std::filesystem::path& proof_path)
     return true;
 }
 
-template <IsUltraFlavor Flavor> size_t compute_dyadic_size(typename Flavor::CircuitBuilder& circuit)
-{
-
-    // minimum circuit size due to lookup argument
-    const size_t min_size_due_to_lookups = circuit.get_tables_size() + circuit.get_lookups_size();
-
-    // minimum size of execution trace due to everything else
-    size_t min_size_of_execution_trace = circuit.public_inputs.size() + circuit.num_gates;
-    if constexpr (IsGoblinFlavor<Flavor>) {
-        min_size_of_execution_trace += circuit.blocks.ecc_op.size();
-    }
-
-    // The number of gates is the maximum required by the lookup argument or everything else, plus an optional zero row
-    // to allow for shifts.
-    size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
-    size_t total_num_gates = num_zero_rows + std::max(min_size_due_to_lookups, min_size_of_execution_trace);
-
-    // Next power of 2 (dyadic circuit size)
-    return circuit.get_circuit_subgroup_size(total_num_gates);
-}
-
 /**
  * @brief Creates a proof for an ACIR circuit
  *
