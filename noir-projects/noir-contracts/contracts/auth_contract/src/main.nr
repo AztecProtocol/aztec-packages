@@ -12,7 +12,7 @@ contract Auth {
         // Admin can change the value of the authorized address via set_authorized()
         admin: PublicImmutable<AztecAddress>,
         // docs:start:shared_mutable_storage
-        authorized: SharedMutable<AztecAddress>, 
+        authorized: SharedMutable<AztecAddress, CHANGE_AUTHORIZED_DELAY_BLOCKS>, 
         // docs:end:shared_mutable_storage
     }
 
@@ -21,10 +21,6 @@ contract Auth {
     fn constructor(admin: AztecAddress) {
         assert(!admin.is_zero(), "invalid admin");
         storage.admin.initialize(admin);
-
-        storage.authorized.schedule_delay_change(CHANGE_AUTHORIZED_DELAY_BLOCKS);
-        // Note that we don't initialize authorized with any value: because storage defaults to 0 it'll have a 'post'
-        // value of 0 and block of change 0, meaning it is effectively autoinitialized at the zero address.
     }
 
     // docs:start:shared_mutable_schedule
