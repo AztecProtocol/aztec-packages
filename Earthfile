@@ -44,7 +44,7 @@ UPLOAD_LOGS:
     ARG LOG_FILE=./log
     LOCALLY
     LET COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
-    FROM ../+scripts
+    FROM +scripts
     COPY ./log /usr/var/log
     ENV PULL_REQUEST=$PULL_REQUEST
     ENV BRANCH=$BRANCH
