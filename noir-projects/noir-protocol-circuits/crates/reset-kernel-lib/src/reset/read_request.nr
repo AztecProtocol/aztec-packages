@@ -65,13 +65,14 @@ fn validate_pending_read_requests<READ_REQUEST_LEN, T, PENDING_VALUE_LEN, NUM_PE
 ) where T: OrderedValue<Field> { // TODO: Should be ContractScopedOrderedValue.
     for i in 0..NUM_PENDING_READS {
         let read_request_index = hints[i].read_request_index;
+        let pending_value = pending_values[hints[i].pending_value_index];
+        let counter = pending_value.counter();
         if read_request_index != READ_REQUEST_LEN {
             let read_request = read_requests[read_request_index];
             let siloed_value = silo_nullifier(read_request.contract_address, read_request.value); // TODO: Should be comparing the contract address with ContractScopedOrderedValue.
-            let pending_value = pending_values[hints[i].pending_value_index];
             assert(siloed_value.eq(pending_value.value()), "Hinted value does not match read request");
             assert(
-                read_request.counter > pending_value.counter(), "Read request counter must be greater than counter of the value being read"
+                read_request.counter > counter, "Read request counter must be greater than counter of the value being read"
             );
             // TODO: for transient note hash, the counter of the read request must be less than the counter of the nullifier.
         }

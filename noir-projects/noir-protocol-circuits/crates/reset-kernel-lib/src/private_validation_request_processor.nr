@@ -29,11 +29,11 @@ impl PrivateValidationRequestProcessor {
         let read_requests = self.validation_requests.note_hash_read_requests;
         for i in 0..read_requests.len() {
             let read_request = read_requests[i];
+            let index = self.note_hash_read_request_hints[i];
+            let note_hash = self.pending_note_hashes[index];
             println(f"Read request value: {read_request}");
             if (read_request.value != 0) {
                 println(f"Should never print me! {read_request}");
-                let index = self.note_hash_read_request_hints[i];
-                let note_hash = self.pending_note_hashes[index];
                 assert_eq(read_request.value, note_hash.value, "Hinted note hash does not match read request");
                 assert(read_request.counter > note_hash.counter, "Should never be evaluated");
             }
