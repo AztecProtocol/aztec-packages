@@ -166,14 +166,14 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
 
     next_accumulator->is_accumulator = true;
 
-    // Compute next folding parameters and verify against the ones received from the prover
+    // Compute next folding parameters
     next_accumulator->target_sum =
         perturbator_at_challenge * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
     next_accumulator->gate_challenges =
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
-    // Compute ϕ and verify against the data received from the prover
-    fold_commitments(lagranges, instances, accumulator);
+    // Compute ϕ
+    fold_commitments(lagranges, instances, next_accumulator);
 
     next_accumulator->public_inputs = std::vector<FF>(next_accumulator->verification_key->num_public_inputs, 0);
     size_t public_input_idx = 0;

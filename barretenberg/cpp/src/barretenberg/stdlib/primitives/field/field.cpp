@@ -560,7 +560,6 @@ template <typename Builder> void field_t<Builder>::assert_is_zero(std::string co
 template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::string const& msg) const
 {
     if (get_value() == bb::fr(0)) {
-        info("how did I get here");
         context->failure(msg);
         // We don't return; we continue with the function, for debugging purposes.
     }

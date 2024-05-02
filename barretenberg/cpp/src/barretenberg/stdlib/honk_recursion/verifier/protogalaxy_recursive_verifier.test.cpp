@@ -287,7 +287,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto decider_proof = decider_prover.construct_proof();
 
         OuterBuilder decider_circuit;
-        DeciderRecursiveVerifier decider_verifier{ &decider_circuit, verifier_accumulator };
+        DeciderRecursiveVerifier decider_verifier{ &decider_circuit, native_verifier_acc };
         auto pairing_points = decider_verifier.verify_proof(decider_proof);
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
         // Check for a failure flag in the recursive verifier circuit

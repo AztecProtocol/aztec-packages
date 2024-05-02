@@ -121,6 +121,16 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
         return result;
     };
 
+    /**
+     * @brief Hack method to fold the witness commitments and verification key without the batch_mul in the case where
+     * the recursive folding verifier is instantiated as a vanilla ultra circuit.
+     *
+     * @details In the folding recursive verifier we might hit the scenerio where we do a batch_mul(commitments,
+     * lagranges) where the commitments are equal. That is because when we add gates to ensure no zero commitments,
+     * these will be the same for all circuits, hitting an edge case in batch_mul that creates a failing constraint.
+     * Specifically, at some point in the algorithm we combute the difference between the points which, if they are
+     * equal, would be zero, case that is not supported. See https://github.com/AztecProtocol/barretenberg/issues/971.
+     */
     void fold_commitments(std::vector<FF> lagranges,
                           VerifierInstances& instances,
                           std::shared_ptr<Instance>& accumulator)
@@ -149,11 +159,18 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
             size_t inst = 0;
             for (auto& instance : instances) {
                 comm += instance->witness_commitments.get_all()[comm_idx] * lagranges[inst];
+                inst++;
             }
             comm -= offset_generator;
             comm_idx++;
         }
     }
+
+    /**
+     * @brief Folds the witness commitments and verification key (part of ϕ) and stores the values in the accumulator.
+     *
+     *
+     */
 
     void fold_commitments(std::vector<FF> lagranges,
                           VerifierInstances& instances,
