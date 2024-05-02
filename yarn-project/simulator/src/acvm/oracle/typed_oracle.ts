@@ -93,7 +93,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getNullifierKeys');
   }
 
-  getNullifierKeysWithMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr): Promise<NullifierKeys> {
+  getNullifierKeysWithMasterNullifierPublicKeyHash(_masterNullifierPublicKeyHash: Fr): Promise<NullifierKeys> {
     throw new OracleMethodNotAvailableError('getNullifierKeys');
   }
 

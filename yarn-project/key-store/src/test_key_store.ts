@@ -109,7 +109,7 @@ export class TestKeyStore implements KeyStore {
     return Promise.resolve(Point.fromBuffer(masterNullifierPublicKeyBuffer));
   }
 
-    /**
+  /**
    * Gets the master nullifier public key for a given master nullifier public key hash.
    * @throws If the master nullifier public key hash does not exist in the key store.
    * @param masterNullifierPublicKeyHash - The master nullifier public key hash for which to retrieve the master nullifier public key.
@@ -118,9 +118,7 @@ export class TestKeyStore implements KeyStore {
   getMasterNullifierPublicKeyWithMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr): Promise<PublicKey> {
     const masterNullifierPublicKeyBuffer = this.#keys.get(`${masterNullifierPublicKeyHash.toString()}-npk_m`);
     if (!masterNullifierPublicKeyBuffer) {
-      throw new Error(
-        `Master nullifier public keys hash ${masterNullifierPublicKeyHash.toString()} does not exist.`,
-      );
+      throw new Error(`Master nullifier public keys hash ${masterNullifierPublicKeyHash.toString()} does not exist.`);
     }
     return Promise.resolve(Point.fromBuffer(masterNullifierPublicKeyBuffer));
   }
@@ -192,19 +190,20 @@ export class TestKeyStore implements KeyStore {
     return Promise.resolve(appNullifierSecretKey);
   }
 
-/**
- * Retrieves application nullifier secret key.
- * @throws If the masterNullifierPublicKeyHash does not exist in the key store.
- * @param masterNullifierPublicKeyHash - The account to retrieve the application nullifier secret key for.
- * @param app - The application address to retrieve the nullifier secret key for.
- * @returns A Promise that resolves to the application nullifier secret key.
- */
-  getAppNullifierSecretKeyWithMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr, app: AztecAddress): Promise<Fr> {
+  /**
+   * Retrieves application nullifier secret key.
+   * @throws If the masterNullifierPublicKeyHash does not exist in the key store.
+   * @param masterNullifierPublicKeyHash - The account to retrieve the application nullifier secret key for.
+   * @param app - The application address to retrieve the nullifier secret key for.
+   * @returns A Promise that resolves to the application nullifier secret key.
+   */
+  getAppNullifierSecretKeyWithMasterNullifierPublicKeyHash(
+    masterNullifierPublicKeyHash: Fr,
+    app: AztecAddress,
+  ): Promise<Fr> {
     const masterNullifierSecretKeyBuffer = this.#keys.get(`${masterNullifierPublicKeyHash.toString()}-nsk_m-mnpk`);
     if (!masterNullifierSecretKeyBuffer) {
-      throw new Error(
-        `Master nullifier public keys hash ${masterNullifierPublicKeyHash.toString()} does not exist.`,
-      );
+      throw new Error(`Master nullifier public keys hash ${masterNullifierPublicKeyHash.toString()} does not exist.`);
     }
     const masterNullifierSecretKey = GrumpkinScalar.fromBuffer(masterNullifierSecretKeyBuffer);
     const appNullifierSecretKey = computeAppNullifierSecretKey(masterNullifierSecretKey, app);
@@ -339,9 +338,7 @@ export class TestKeyStore implements KeyStore {
     const accountAddressBuffer = this.#keys.get(`${masterNullifierPublicKeyHash.toString()}-accountAddress`);
 
     if (!accountAddressBuffer) {
-      throw new Error(
-        `Master nullifier public key hash ${masterNullifierPublicKeyHash.toString()} does not exist.`,
-      );
+      throw new Error(`Master nullifier public key hash ${masterNullifierPublicKeyHash.toString()} does not exist.`);
     }
 
     return AztecAddress.fromBuffer(accountAddressBuffer);

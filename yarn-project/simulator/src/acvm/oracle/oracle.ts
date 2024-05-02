@@ -53,7 +53,9 @@ export class Oracle {
     ];
   }
 
-  async getNullifierKeysWithMasterNullifierPublicKeyHash([masterNullifierPublicKeyHash]: ACVMField[]): Promise<ACVMField[]> {
+  async getNullifierKeysWithMasterNullifierPublicKeyHash([masterNullifierPublicKeyHash]: ACVMField[]): Promise<
+    ACVMField[]
+  > {
     const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeys(
       fromACVMField(masterNullifierPublicKeyHash),
     );
@@ -74,7 +76,9 @@ export class Oracle {
 
   // TODO: #5834 Nuke this
   async getPublicKeyAndPartialAddressWithMasterNullifierPublicKeyHash([masterNullifierPublicKeyHash]: ACVMField[]) {
-    const { publicKey, partialAddress } = await this.typedOracle.getCompleteAddressWithMasterNullifierPublicKey(fromACVMField(masterNullifierPublicKeyHash));
+    const { publicKey, partialAddress } = await this.typedOracle.getCompleteAddressWithMasterNullifierPublicKey(
+      fromACVMField(masterNullifierPublicKeyHash),
+    );
     return [publicKey.x, publicKey.y, partialAddress].map(toACVMField);
   }
 

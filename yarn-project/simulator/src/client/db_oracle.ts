@@ -92,7 +92,10 @@ export interface DBOracle extends CommitmentsDB {
    * @returns A Promise that resolves to nullifier keys of a requested account and contract.
    * @throws An error if the account is not registered in the database.
    */
-  getNullifierKeysWithMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr, contractAddress: AztecAddress): Promise<NullifierKeys>;
+  getNullifierKeysWithMasterNullifierPublicKeyHash(
+    masterNullifierPublicKeyHash: Fr,
+    contractAddress: AztecAddress,
+  ): Promise<NullifierKeys>;
 
   /**
    * Retrieves a set of notes stored in the database for a given contract address and storage slot.

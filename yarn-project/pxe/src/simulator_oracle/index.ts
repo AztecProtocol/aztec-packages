@@ -9,7 +9,7 @@ import {
   type SiblingPath,
 } from '@aztec/circuit-types';
 import {
-  AztecAddress,
+  type AztecAddress,
   type CompleteAddress,
   type Fr,
   type FunctionSelector,
@@ -44,9 +44,17 @@ export class SimulatorOracle implements DBOracle {
     return { masterNullifierPublicKey, appNullifierSecretKey };
   }
 
-  async getNullifierKeysWithMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: AztecAddress, contractAddress: AztecAddress): Promise<NullifierKeys> {
-    const masterNullifierPublicKey = await this.keyStore.getMasterNullifierPublicKeyWithMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash);
-    const appNullifierSecretKey = await this.keyStore.getAppNullifierSecretKeyWithMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash, contractAddress);
+  async getNullifierKeysWithMasterNullifierPublicKeyHash(
+    masterNullifierPublicKeyHash: AztecAddress,
+    contractAddress: AztecAddress,
+  ): Promise<NullifierKeys> {
+    const masterNullifierPublicKey = await this.keyStore.getMasterNullifierPublicKeyWithMasterNullifierPublicKeyHash(
+      masterNullifierPublicKeyHash,
+    );
+    const appNullifierSecretKey = await this.keyStore.getAppNullifierSecretKeyWithMasterNullifierPublicKeyHash(
+      masterNullifierPublicKeyHash,
+      contractAddress,
+    );
     return { masterNullifierPublicKey, appNullifierSecretKey };
   }
 
