@@ -206,7 +206,7 @@ template <typename FF_> class UltraArith {
         }
 
         /**
-         * @brief Check that the number of rows poulated in each block does not exceed the specified fixed size
+         * @brief Check that the number of rows populated in each block does not exceed the specified fixed size
          * @note This check is only applicable when utilizing a structured trace
          *
          */

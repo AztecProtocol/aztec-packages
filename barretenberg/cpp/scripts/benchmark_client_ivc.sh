@@ -2,8 +2,8 @@
 set -eu
 
 TARGET="client_ivc_bench"
-FILTER="ClientIVCBench/FullStructured/6$"
-# FILTER="ClientIVCBench/Full/6$"
+# Note: to run structured trace version, change "Full" to "FullStructured" here and in analyze script
+FILTER="ClientIVCBench/Full/6$"
 BUILD_DIR=build-op-count-time
 
 # Move above script dir.
