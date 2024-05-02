@@ -504,7 +504,7 @@ mod tests {
         assert_eq(public_inputs.end.new_note_hashes[2].nullifier_counter, 20);
     }
 
-    #[test(should_fail_with="invalid nullifier counter")]
+    #[test(should_fail_with="Invalid nullifier counter")]
     fn propagate_note_hashes_with_incorrect_nullifier_counters_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
         builder.private_call.public_inputs.new_note_hashes.push(NoteHash { value: 12, counter: 3 });

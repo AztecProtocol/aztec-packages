@@ -1,10 +1,10 @@
-use dep::types::{abis::{note_hash::NoteHashContext, nullifier::Nullifier}, traits::is_empty};
+use dep::types::{abis::{note_hash::NoteHashContext, nullifier::NullifierContext}, traits::is_empty};
 
 pub fn verify_squashed_transient_note_hashes_and_nullifiers<NUM_NOTE_HASHES, NUM_NULLIFIERS>(
     note_hashes: [NoteHashContext; NUM_NOTE_HASHES],
-    nullifiers: [Nullifier; NUM_NULLIFIERS],
+    nullifiers: [NullifierContext; NUM_NULLIFIERS],
     expected_note_hashes: [NoteHashContext; NUM_NOTE_HASHES],
-    expected_nullifiers: [Nullifier; NUM_NULLIFIERS],
+    expected_nullifiers: [NullifierContext; NUM_NULLIFIERS],
     transient_nullifier_indexes_for_note_hashes: [u64; NUM_NOTE_HASHES],
     transient_note_hash_indexes_for_nullifiers: [u64; NUM_NULLIFIERS]
 ) {
@@ -62,35 +62,37 @@ pub fn verify_squashed_transient_note_hashes_and_nullifiers<NUM_NOTE_HASHES, NUM
 
 mod tests {
     use crate::reset::transient_data::verify_squashed_transient_note_hashes_and_nullifiers;
-    use dep::types::{abis::{note_hash::NoteHashContext, nullifier::Nullifier}};
+    use dep::types::{abis::{note_hash::NoteHashContext, nullifier::NullifierContext}, address::AztecAddress};
 
     struct TestDataBuilder<NUM_NOTE_HASHES, NUM_NULLIFIERS> {
         num_note_hashes: u64,
         num_nullifiers: u64,
         note_hashes: [NoteHashContext; NUM_NOTE_HASHES],
-        nullifiers: [Nullifier; NUM_NULLIFIERS],
+        nullifiers: [NullifierContext; NUM_NULLIFIERS],
         expected_note_hashes: [NoteHashContext; NUM_NOTE_HASHES],
-        expected_nullifiers: [Nullifier; NUM_NULLIFIERS],
+        expected_nullifiers: [NullifierContext; NUM_NULLIFIERS],
         transient_nullifier_indexes_for_note_hashes: [u64; NUM_NOTE_HASHES],
         transient_note_hash_indexes_for_nullifiers: [u64; NUM_NULLIFIERS],
     }
 
     impl<NUM_NOTE_HASHES, NUM_NULLIFIERS> TestDataBuilder<NUM_NOTE_HASHES, NUM_NULLIFIERS> {
         pub fn default() -> TestDataBuilder<3, 3> {
+            let contract_address = AztecAddress::from_field(987654);
+
             let note_hashes = [
-                NoteHashContext { value: 11, counter: 100, nullifier_counter: 500 },
-                NoteHashContext { value: 22, counter: 200, nullifier_counter: 0 },
-                NoteHashContext { value: 33, counter: 300, nullifier_counter: 400 }
+                NoteHashContext { value: 11, counter: 100, nullifier_counter: 500, contract_address },
+                NoteHashContext { value: 22, counter: 200, nullifier_counter: 0, contract_address },
+                NoteHashContext { value: 33, counter: 300, nullifier_counter: 400, contract_address }
             ];
 
             let nullifiers = [
-                Nullifier { value: 44, counter: 400, note_hash: 33 },
-                Nullifier { value: 55, counter: 500, note_hash: 11 },
-                Nullifier { value: 66, counter: 600, note_hash: 0 }
+                NullifierContext { value: 44, counter: 400, note_hash: 33, contract_address },
+                NullifierContext { value: 55, counter: 500, note_hash: 11, contract_address },
+                NullifierContext { value: 66, counter: 600, note_hash: 0, contract_address }
             ];
 
             let expected_note_hashes = [note_hashes[1], NoteHashContext::empty(), NoteHashContext::empty()];
-            let expected_nullifiers = [nullifiers[2], Nullifier::empty(), Nullifier::empty()];
+            let expected_nullifiers = [nullifiers[2], NullifierContext::empty(), NullifierContext::empty()];
 
             let transient_nullifier_indexes_for_note_hashes = [1, 3, 0];
             let transient_note_hash_indexes_for_nullifiers = [2, 0, 3];
@@ -108,20 +110,22 @@ mod tests {
         }
 
         pub fn default_all_clear() -> TestDataBuilder<3, 3> {
+            let contract_address = AztecAddress::from_field(987654);
+
             let note_hashes = [
-                NoteHashContext { value: 11, counter: 100, nullifier_counter: 500 },
-                NoteHashContext { value: 22, counter: 200, nullifier_counter: 600 },
-                NoteHashContext { value: 33, counter: 300, nullifier_counter: 400 }
+                NoteHashContext { value: 11, counter: 100, nullifier_counter: 500, contract_address },
+                NoteHashContext { value: 22, counter: 200, nullifier_counter: 600, contract_address },
+                NoteHashContext { value: 33, counter: 300, nullifier_counter: 400, contract_address }
             ];
 
             let nullifiers = [
-                Nullifier { value: 44, counter: 400, note_hash: 33 },
-                Nullifier { value: 55, counter: 500, note_hash: 11 },
-                Nullifier { value: 66, counter: 600, note_hash: 22 }
+                NullifierContext { value: 44, counter: 400, note_hash: 33, contract_address },
+                NullifierContext { value: 55, counter: 500, note_hash: 11, contract_address },
+                NullifierContext { value: 66, counter: 600, note_hash: 22, contract_address }
             ];
 
             let expected_note_hashes = [NoteHashContext::empty(); 3];
-            let expected_nullifiers = [Nullifier::empty(); 3];
+            let expected_nullifiers = [NullifierContext::empty(); 3];
 
             let transient_nullifier_indexes_for_note_hashes = [1, 2, 0];
             let transient_note_hash_indexes_for_nullifiers = [2, 0, 1];

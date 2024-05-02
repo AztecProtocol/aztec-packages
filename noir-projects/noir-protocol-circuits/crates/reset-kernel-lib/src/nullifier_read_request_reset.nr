@@ -67,7 +67,10 @@ mod tests {
         ReadRequestContext { value: inner_nullifiers[3], counter: 78, contract_address }, // pending
     ];
 
-    global pending_values = [Nullifier { value: nullifiers[2], counter: 2, note_hash: 0 }, Nullifier { value: nullifiers[3], counter: 8, note_hash: 0 }];
+    global pending_values = [
+        Nullifier { value: inner_nullifiers[2], counter: 2, note_hash: 0 },
+        Nullifier { value: inner_nullifiers[3], counter: 8, note_hash: 0 },
+    ];
     global pending_read_hints = [
         PendingReadHint { read_request_index: 1, pending_value_index: 1 },
         PendingReadHint { read_request_index: 2, pending_value_index: 0 },

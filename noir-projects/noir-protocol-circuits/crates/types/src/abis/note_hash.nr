@@ -1,7 +1,6 @@
 use crate::{
     abis::read_request::ReadRequestContext, address::AztecAddress,
-    abis::side_effect::{Ordered, OrderedValue, Readable},
-    constants::{NOTE_HASH_LENGTH, NOTE_HASH_CONTEXT_LENGTH}, hash::silo_note_hash,
+    abis::side_effect::{Ordered, Readable}, constants::{NOTE_HASH_LENGTH, NOTE_HASH_CONTEXT_LENGTH},
     traits::{Empty, Serialize, Deserialize}
 };
 use dep::std::cmp::Eq;
@@ -9,21 +8,6 @@ use dep::std::cmp::Eq;
 struct NoteHash {
     value: Field,
     counter: u32,
-}
-
-impl Ordered for NoteHash {
-    fn counter(self) -> u32 {
-        self.counter
-    }
-}
-
-impl OrderedValue<Field> for NoteHash {
-    fn value(self) -> Field {
-        self.value
-    }
-    fn counter(self) -> u32 {
-        self.counter
-    }
 }
 
 impl Eq for NoteHash {
@@ -58,8 +42,8 @@ impl Deserialize<NOTE_HASH_LENGTH> for NoteHash {
 }
 
 impl NoteHash {
-    pub fn to_context(self, nullifier_counter: u32) -> NoteHashContext {
-        NoteHashContext { value: self.value, counter: self.counter, nullifier_counter }
+    pub fn to_context(self, nullifier_counter: u32, contract_address: AztecAddress) -> NoteHashContext {
+        NoteHashContext { value: self.value, counter: self.counter, nullifier_counter, contract_address }
     }
 }
 
@@ -67,18 +51,10 @@ struct NoteHashContext {
     value: Field,
     counter: u32,
     nullifier_counter: u32,
+    contract_address: AztecAddress,
 }
 
 impl Ordered for NoteHashContext {
-    fn counter(self) -> u32 {
-        self.counter
-    }
-}
-
-impl OrderedValue<Field> for NoteHashContext {
-    fn value(self) -> Field {
-        self.value
-    }
     fn counter(self) -> u32 {
         self.counter
     }
@@ -89,6 +65,7 @@ impl Eq for NoteHashContext {
         (self.value == other.value)
             & (self.counter == other.counter) 
             & (self.nullifier_counter == other.nullifier_counter)
+            & (self.contract_address == other.contract_address)
     }
 }
 
@@ -98,13 +75,14 @@ impl Empty for NoteHashContext {
             value: 0,
             counter: 0,
             nullifier_counter: 0,
+            contract_address: AztecAddress::zero(),
         }
     }
 }
 
 impl Serialize<NOTE_HASH_CONTEXT_LENGTH> for NoteHashContext {
     fn serialize(self) -> [Field; NOTE_HASH_CONTEXT_LENGTH] {
-        [self.value, self.counter as Field, self.nullifier_counter as Field]
+        [self.value, self.counter as Field, self.nullifier_counter as Field, self.contract_address.to_field()]
     }
 }
 
@@ -114,15 +92,15 @@ impl Deserialize<NOTE_HASH_CONTEXT_LENGTH> for NoteHashContext {
             value: values[0],
             counter: values[1] as u32,
             nullifier_counter: values[2] as u32,
+            contract_address: AztecAddress::from_field(values[3]),
         }
     }
 }
 
 impl Readable for NoteHashContext {
     fn assert_match_read_request(self, read_request: ReadRequestContext) {
-        // TODO(#6122)
-        let siloed_value = silo_note_hash(read_request.contract_address, read_request.value);
-        assert_eq(self.value, siloed_value, "Value of the note hash does not match read request");
+        assert_eq(self.value, read_request.value, "Value of the note hash does not match read request");
+        assert_eq(self.contract_address, read_request.contract_address, "Contract address of the note hash does not match read request");
         assert(
             read_request.counter > self.counter, "Read request counter must be greater than the counter of the note hash"
         );
@@ -133,10 +111,6 @@ impl Readable for NoteHashContext {
 }
 
 impl NoteHashContext {
-    pub fn to_note_hash(self) -> NoteHash {
-        NoteHash { value: self.value, counter: self.counter }
-    }
-
     pub fn expose_to_public(self) -> NoteHash {
         // Hide the actual counter when exposing it to the public kernel.
         NoteHash { value: self.value, counter: 0 }

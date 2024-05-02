@@ -71,8 +71,10 @@ mod tests {
         ReadRequestContext { value: inner_note_hashes[3], counter: 78, contract_address }, // pending
     ];
 
-    // TODO(#6122): Pending values shouldn't have been siloed at this point.
-    global pending_values = [NoteHashContext { value: note_hashes[2], counter: 2, nullifier_counter: 0 }, NoteHashContext { value: note_hashes[3], counter: 8, nullifier_counter: 0 }];
+    global pending_values = [
+        NoteHashContext { value: inner_note_hashes[2], counter: 2, nullifier_counter: 0, contract_address },
+        NoteHashContext { value: inner_note_hashes[3], counter: 8, nullifier_counter: 0, contract_address },
+    ];
     global pending_read_hints = [
         PendingReadHint { read_request_index: 1, pending_value_index: 1 },
         PendingReadHint { read_request_index: 2, pending_value_index: 0 },

@@ -3,13 +3,14 @@ use dep::types::{
     abis::{
     kernel_data::PrivateKernelData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder, PublicKernelCircuitPublicInputs},
-    note_hash::NoteHashContext, nullifier::Nullifier, side_effect::{SideEffect, Ordered}, gas::Gas
+    note_hash::NoteHashContext, nullifier::NullifierContext, side_effect::{SideEffect, Ordered},
+    gas::Gas
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
     MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash},
+    hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash, silo_note_hash, silo_nullifier},
     utils::arrays::{array_length, array_to_bounded_vec, assert_sorted_array}
 };
 
@@ -25,13 +26,13 @@ struct KernelCircuitPublicInputsComposer {
     previous_kernel: PrivateKernelData,
     // Final data
     note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
-    nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
+    nullifiers: [NullifierContext; MAX_NEW_NULLIFIERS_PER_TX],
     // Hints
     transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
     transient_note_hash_indexes_for_nullifiers: [u64; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-    sorted_nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
+    sorted_nullifiers: [NullifierContext; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_encrypted_log_hashes: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
@@ -43,12 +44,12 @@ impl KernelCircuitPublicInputsComposer {
     pub fn new(
         previous_kernel: PrivateKernelData,
         note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
-        nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
+        nullifiers: [NullifierContext; MAX_NEW_NULLIFIERS_PER_TX],
         transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
         transient_note_hash_indexes_for_nullifiers: [u64; MAX_NEW_NULLIFIERS_PER_TX],
         sorted_note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
         sorted_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-        sorted_nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
+        sorted_nullifiers: [NullifierContext; MAX_NEW_NULLIFIERS_PER_TX],
         sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
         sorted_encrypted_log_hashes: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX],
         sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
@@ -122,6 +123,7 @@ impl KernelCircuitPublicInputsComposer {
 
     fn silo_values(&mut self) {
         self.silo_note_hashes();
+        self.silo_nullifiers();
         // TODO: Move siloing from init/inner circuits to here.
     }
 
@@ -133,9 +135,21 @@ impl KernelCircuitPublicInputsComposer {
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             let note_hash = note_hashes[i];
             if note_hash.value != 0 {
+                let siloed = silo_note_hash(note_hash.contract_address, note_hash.value);
                 let nonce = compute_note_hash_nonce(first_nullifier.value, i);
-                let unique_note_hash = compute_unique_siloed_note_hash(nonce, note_hash.value);
+                let unique_note_hash = compute_unique_siloed_note_hash(nonce, siloed);
                 self.public_inputs.end.new_note_hashes.storage[i].value = unique_note_hash;
+            }
+        }
+    }
+
+    fn silo_nullifiers(&mut self) {
+        let nullifiers = self.public_inputs.end.new_nullifiers.storage;
+        for i in 1..MAX_NEW_NOTE_HASHES_PER_TX { // i starts from 1 to skip the first nullifier.
+            let nullifier = nullifiers[i];
+            if nullifier.value != 0 {
+                let siloed = silo_nullifier(nullifier.contract_address, nullifier.value);
+                self.public_inputs.end.new_nullifiers.storage[i].value = siloed;
             }
         }
     }

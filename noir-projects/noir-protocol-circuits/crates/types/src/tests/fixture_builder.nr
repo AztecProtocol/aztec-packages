@@ -6,7 +6,7 @@ use crate::{
     global_variables::GlobalVariables, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
     kernel_data::{PrivateKernelData, PublicKernelData, KernelData}, max_block_number::MaxBlockNumber,
-    note_hash::NoteHashContext, nullifier::Nullifier,
+    note_hash::{NoteHash, NoteHashContext}, nullifier::{Nullifier, NullifierContext},
     nullifier_key_validation_request::NullifierKeyValidationRequestContext,
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
     read_request::ReadRequestContext, side_effect::SideEffect,
@@ -21,9 +21,9 @@ use crate::{
     MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
     VK_TREE_HEIGHT, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    hash::{silo_note_hash, silo_nullifier}, header::Header,
-    mocked::{AggregationObject, Proof, VerificationKey}, partial_state_reference::PartialStateReference,
-    tests::fixtures, transaction::tx_context::TxContext, traits::Empty
+    header::Header, mocked::{AggregationObject, Proof, VerificationKey},
+    partial_state_reference::PartialStateReference, tests::fixtures, transaction::tx_context::TxContext,
+    traits::Empty
 };
 
 struct FixtureBuilder {
@@ -37,7 +37,7 @@ struct FixtureBuilder {
     
     // Accumulated data.
     new_note_hashes: BoundedVec<NoteHashContext, MAX_NEW_NOTE_HASHES_PER_TX>,
-    new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_TX>,
+    new_nullifiers: BoundedVec<NullifierContext, MAX_NEW_NULLIFIERS_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
     encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_TX>,
     unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_TX>,
@@ -140,8 +140,10 @@ impl FixtureBuilder {
 
     pub fn to_public_accumulated_data(self) -> PublicAccumulatedData {
         PublicAccumulatedData {
-            new_note_hashes: self.new_note_hashes.storage.map(|n: NoteHashContext| n.to_note_hash()),
-            new_nullifiers: self.new_nullifiers.storage,
+            new_note_hashes: self.new_note_hashes.storage.map(|n: NoteHashContext| NoteHash { value: n.value, counter: n.counter }),
+            new_nullifiers: self.new_nullifiers.storage.map(
+                |n: NullifierContext| Nullifier { value: n.value, counter: n.counter, note_hash: n.note_hash }
+            ),
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
@@ -156,7 +158,7 @@ impl FixtureBuilder {
     pub fn to_combined_accumulated_data(self) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
             new_note_hashes: self.new_note_hashes.storage.map(|n: NoteHashContext| n.value),
-            new_nullifiers: self.new_nullifiers.storage.map(|n: Nullifier| n.value),
+            new_nullifiers: self.new_nullifiers.storage.map(|n: NullifierContext| n.value),
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
             encrypted_logs_hash: self.encrypted_logs_hash,
             unencrypted_logs_hash: self.unencrypted_logs_hash,
@@ -249,7 +251,14 @@ impl FixtureBuilder {
     }
 
     pub fn add_new_note_hash(&mut self, value: Field) {
-        self.new_note_hashes.push(NoteHashContext { value, counter: self.next_counter(), nullifier_counter: 0 });
+        self.new_note_hashes.push(
+            NoteHashContext {
+            value,
+            counter: self.next_counter(),
+            nullifier_counter: 0,
+            contract_address: self.storage_contract_address
+        }
+        );
     }
 
     pub fn append_new_note_hashes(&mut self, num_new_note_hashes: u64) {
@@ -257,15 +266,15 @@ impl FixtureBuilder {
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             if i < num_new_note_hashes {
                 let mocked_value = self.get_mocked_note_hash_value(index_offset + i);
-                let value = silo_note_hash(self.storage_contract_address, mocked_value);
-                self.add_new_note_hash(value);
+                self.add_new_note_hash(mocked_value);
             }
         }
     }
 
-    pub fn add_nullifier(&mut self, unsiloed_nullifier: Field) {
-        let value = silo_nullifier(self.storage_contract_address, unsiloed_nullifier);
-        self.new_nullifiers.push(Nullifier { value, note_hash: 0, counter: self.next_counter() });
+    pub fn add_nullifier(&mut self, value: Field) {
+        self.new_nullifiers.push(
+            NullifierContext { value, counter: self.next_counter(), note_hash: 0, contract_address: self.storage_contract_address }
+        );
     }
 
     pub fn append_new_nullifiers(&mut self, num_extra_nullifier: u64) {
@@ -336,22 +345,14 @@ impl FixtureBuilder {
 
     pub fn add_read_request_for_pending_nullifier(&mut self, nullifier_index: u64) -> u64 {
         let read_request_index = self.nullifier_read_requests.len();
-        let unsiloed_nullifier = self.get_mocked_nullifier_value(nullifier_index);
-        let read_request = ReadRequestContext {
-            value: unsiloed_nullifier,
-            counter: self.next_counter(),
-            contract_address: self.storage_contract_address
-        };
+        let nullifier = self.get_mocked_nullifier_value(nullifier_index);
+        let read_request = ReadRequestContext { value: nullifier, counter: self.next_counter(), contract_address: self.storage_contract_address };
         self.nullifier_read_requests.push(read_request);
         read_request_index
     }
 
-    pub fn add_non_existent_read_request_for_nullifier(&mut self, unsiloed_nullifier: Field) {
-        let read_request = ReadRequestContext {
-            value: unsiloed_nullifier,
-            counter: self.next_counter(),
-            contract_address: self.storage_contract_address
-        };
+    pub fn add_non_existent_read_request_for_nullifier(&mut self, nullifier: Field) {
+        let read_request = ReadRequestContext { value: nullifier, counter: self.next_counter(), contract_address: self.storage_contract_address };
         self.nullifier_non_existent_read_requests.push(read_request);
     }
 

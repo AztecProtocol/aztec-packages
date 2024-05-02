@@ -115,7 +115,8 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, kernel_data::PublicKernelData,
-        nullifier_leaf_preimage::NullifierLeafPreimage, membership_witness::PublicDataMembershipWitness
+        nullifier::{Nullifier, NullifierContext}, nullifier_leaf_preimage::NullifierLeafPreimage,
+        membership_witness::PublicDataMembershipWitness
     },
         constants::{
         MAX_NEW_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_PUBLIC_DATA_HINTS,
@@ -229,6 +230,8 @@ mod tests {
             let nullifiers = array_merge(
                 self.previous_kernel.new_nullifiers.storage,
                 self.previous_revertible.new_nullifiers.storage
+            ).map(
+                |n: NullifierContext| Nullifier { value: n.value, counter: n.counter, note_hash: n.note_hash }
             );
             self.nullifier_non_existent_read_request_hints_builder.set_nullifiers(nullifiers);
         }

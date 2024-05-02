@@ -7,7 +7,7 @@ use crate::{
     private_accumulated_data::PrivateAccumulatedData, public_accumulated_data::PublicAccumulatedData,
     public_accumulated_data_builder::PublicAccumulatedDataBuilder
 },
-    call_request::CallRequest, note_hash::{NoteHash, NoteHashContext}, nullifier::Nullifier,
+    call_request::CallRequest, note_hash::{NoteHash, NoteHashContext}, nullifier::NullifierContext,
     public_data_update_request::PublicDataUpdateRequest, side_effect::SideEffect
 },
     constants::{
@@ -25,7 +25,7 @@ use crate::{
 // .split_to_public: PublicKernelCircuitPublicInputs.(end,end_non_revertible)
 struct PrivateAccumulatedDataBuilder {
     new_note_hashes: BoundedVec<NoteHashContext, MAX_NEW_NOTE_HASHES_PER_TX>,
-    new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_TX>,
+    new_nullifiers: BoundedVec<NullifierContext, MAX_NEW_NULLIFIERS_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
 
     encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_TX>,
@@ -64,7 +64,7 @@ impl PrivateAccumulatedDataBuilder {
 
         CombinedAccumulatedData {
             new_note_hashes: self.new_note_hashes.storage.map(|n: NoteHashContext| n.value),
-            new_nullifiers: self.new_nullifiers.storage.map(|n: Nullifier| n.value),
+            new_nullifiers: self.new_nullifiers.storage.map(|n: NullifierContext| n.value),
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
             encrypted_logs_hash,
             unencrypted_logs_hash,
@@ -139,14 +139,15 @@ impl PrivateAccumulatedDataBuilder {
 
         for i in 0..MAX_NEW_NULLIFIERS_PER_TX {
             let nullifier = self.new_nullifiers.storage[i];
+            let public_nullifier = nullifier.expose_to_public();
             if nullifier.counter < min_revertible_side_effect_counter {
-                non_revertible_builder.new_nullifiers.push(nullifier);
-                if !is_empty(nullifier) {
+                non_revertible_builder.new_nullifiers.push(public_nullifier);
+                if !is_empty(public_nullifier) {
                     non_revertible_da_gas_used += DA_GAS_PER_FIELD;
                 }
             } else {
-                revertible_builder.new_nullifiers.push(nullifier);
-                if !is_empty(nullifier) {
+                revertible_builder.new_nullifiers.push(public_nullifier);
+                if !is_empty(public_nullifier) {
                     revertible_da_gas_used += DA_GAS_PER_FIELD;
                 }
             }
@@ -198,7 +199,7 @@ mod tests {
         abis::{
         accumulated_data::private_accumulated_data_builder::PrivateAccumulatedDataBuilder, gas::Gas,
         call_request::CallRequest, caller_context::CallerContext,
-        note_hash::{NoteHash, NoteHashContext}, nullifier::Nullifier,
+        note_hash::{NoteHash, NoteHashContext}, nullifier::{Nullifier, NullifierContext},
         public_data_update_request::PublicDataUpdateRequest, side_effect::SideEffect
     },
         address::AztecAddress, utils::arrays::array_eq, constants::{DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE}
@@ -209,13 +210,13 @@ mod tests {
         let mut builder = PrivateAccumulatedDataBuilder::empty();
 
         let non_revertible_note_hashes = [
-            NoteHashContext { value: 1, counter: 1, nullifier_counter: 20 },
-            NoteHashContext { value: 2, counter: 3, nullifier_counter: 5 }
+            NoteHashContext { value: 1, counter: 1, nullifier_counter: 20, contract_address: AztecAddress::from_field(7788) },
+            NoteHashContext { value: 2, counter: 3, nullifier_counter: 5, contract_address: AztecAddress::from_field(5566) }
         ];
 
         let non_revertible_nullifiers = [
-            Nullifier { value: 10, note_hash: 1, counter: 2 },
-            Nullifier { value: 20, note_hash: 2, counter: 4 }
+            NullifierContext { value: 10, note_hash: 1, counter: 2, contract_address: AztecAddress::from_field(9900) },
+            NullifierContext { value: 20, note_hash: 2, counter: 4, contract_address: AztecAddress::from_field(7788) }
         ];
 
         let non_revertible_public_stack = [
@@ -236,13 +237,13 @@ mod tests {
         ];
 
         let revertible_note_hashes = [
-            NoteHashContext { value: 3, counter: 7, nullifier_counter: 15 },
-            NoteHashContext { value: 4, counter: 10, nullifier_counter: 0 }
+            NoteHashContext { value: 3, counter: 7, nullifier_counter: 15, contract_address: AztecAddress::from_field(9900) },
+            NoteHashContext { value: 4, counter: 10, nullifier_counter: 0, contract_address: AztecAddress::from_field(7788) }
         ];
 
         let revertible_nullifiers = [
-            Nullifier { value: 30, note_hash: 3, counter: 8 },
-            Nullifier { value: 40, note_hash: 4, counter: 11 }
+            NullifierContext { value: 30, note_hash: 3, counter: 8, contract_address: AztecAddress::from_field(9900) },
+            NullifierContext { value: 40, note_hash: 4, counter: 11, contract_address: AztecAddress::from_field(5566) }
         ];
 
         let revertible_public_call_stack = [
@@ -275,7 +276,15 @@ mod tests {
         ]
             )
         );
-        assert(array_eq(non_revertible.new_nullifiers, non_revertible_nullifiers));
+        assert(
+            array_eq(
+                non_revertible.new_nullifiers,
+                [
+            Nullifier { value: 10, note_hash: 0, counter: 0 },
+            Nullifier { value: 20, note_hash: 0, counter: 0 }
+        ]
+            )
+        );
         assert(array_eq(non_revertible.public_call_stack, non_revertible_public_stack));
 
         assert(
@@ -287,7 +296,15 @@ mod tests {
         ]
             )
         );
-        assert(array_eq(revertible.new_nullifiers, revertible_nullifiers));
+        assert(
+            array_eq(
+                revertible.new_nullifiers,
+                [
+            Nullifier { value: 30, note_hash: 0, counter: 0 },
+            Nullifier { value: 40, note_hash: 0, counter: 0 }
+        ]
+            )
+        );
         assert(array_eq(revertible.public_call_stack, revertible_public_call_stack));
 
         assert_eq(

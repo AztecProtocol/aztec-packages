@@ -3,7 +3,7 @@ use crate::{
     nullifier_read_request_reset::NullifierReadRequestHints, reset::read_request::reset_read_requests
 };
 use dep::types::{
-    abis::{note_hash::NoteHashContext, nullifier::Nullifier, validation_requests::ValidationRequests},
+    abis::{note_hash::NoteHashContext, nullifier::NullifierContext, validation_requests::ValidationRequests},
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
     GENERATOR_INDEX__NSK_M
@@ -17,7 +17,7 @@ struct PrivateValidationRequestProcessor {
     pending_note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
     note_hash_tree_root: Field,
     nullifier_read_request_hints: NullifierReadRequestHints,
-    pending_nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
+    pending_nullifiers: [NullifierContext; MAX_NEW_NULLIFIERS_PER_TX],
     nullifier_tree_root: Field,
     master_nullifier_secret_keys: [GrumpkinPrivateKey; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
 }
