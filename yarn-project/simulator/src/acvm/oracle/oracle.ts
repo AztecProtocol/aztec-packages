@@ -56,7 +56,7 @@ export class Oracle {
   async getNullifierKeysWithMasterNullifierPublicKeyHash([masterNullifierPublicKeyHash]: ACVMField[]): Promise<
     ACVMField[]
   > {
-    const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeys(
+    const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeysWithMasterNullifierPublicKeyHash(
       fromACVMField(masterNullifierPublicKeyHash),
     );
     return [

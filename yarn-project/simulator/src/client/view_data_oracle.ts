@@ -53,7 +53,7 @@ export class ViewDataOracle extends TypedOracle {
   public override getNullifierKeysWithMasterNullifierPublicKeyHash(
     masterNullifierPublicKeyHash: Fr,
   ): Promise<NullifierKeys> {
-    return this.db.getNullifierKeys(masterNullifierPublicKeyHash, this.contractAddress);
+    return this.db.getNullifierKeysWithMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash, this.contractAddress);
   }
 
   /**
