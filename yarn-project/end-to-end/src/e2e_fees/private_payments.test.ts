@@ -3,6 +3,7 @@ import {
   BatchCall,
   Fr,
   PrivateFeePaymentMethod,
+  type TxReceipt,
   type Wallet,
   computeSecretHash,
 } from '@aztec/aztec.js';
@@ -47,18 +48,14 @@ describe('e2e_fees private_payment', () => {
 
   let InitialSequencerGas: bigint;
 
-  let MaxFee: bigint;
-  let FeeAmount: bigint;
-  let RefundAmount: bigint;
-  let RefundSecret: Fr;
+  let maxFee: bigint;
+  let refundSecret: Fr;
 
   beforeEach(async () => {
-    FeeAmount = 1n;
-    MaxFee = BigInt(20e9);
-    RefundAmount = MaxFee - FeeAmount;
-    RefundSecret = Fr.random();
+    maxFee = BigInt(20e9);
+    refundSecret = Fr.random();
 
-    expect(gasSettings.getFeeLimit().toBigInt()).toEqual(MaxFee);
+    expect(gasSettings.getFeeLimit().toBigInt()).toEqual(maxFee);
 
     [
       [InitialAlicePrivateBananas, InitialBobPrivateBananas, InitialFPCPrivateBananas],
@@ -70,6 +67,8 @@ describe('e2e_fees private_payment', () => {
       t.gasBalances(aliceAddress, bananaFPC.address, sequencerAddress),
     ]);
   });
+
+  const getFeeAndRefund = (tx: Pick<TxReceipt, 'transactionFee'>) => [tx.transactionFee!, maxFee - tx.transactionFee!];
 
   it('pays fees for tx that dont run public app logic', async () => {
     /**
@@ -107,7 +106,7 @@ describe('e2e_fees private_payment', () => {
       .send({
         fee: {
           gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, RefundSecret),
+          paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, refundSecret),
         },
       })
       .wait();
@@ -131,26 +130,27 @@ describe('e2e_fees private_payment', () => {
      *    but we shouldn't.
      */
     expect(tx.transactionFee).toEqual(200018496n);
+    const [feeAmount, refundAmount] = getFeeAndRefund(tx);
 
     await expectMapping(
       t.bananaPrivateBalances,
       [aliceAddress, bobAddress, bananaFPC.address, sequencerAddress],
-      [InitialAlicePrivateBananas - MaxFee - transferAmount, transferAmount, InitialFPCPrivateBananas, 0n],
+      [InitialAlicePrivateBananas - maxFee - transferAmount, transferAmount, InitialFPCPrivateBananas, 0n],
     );
     await expectMapping(
       t.bananaPublicBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAlicePublicBananas, InitialFPCPublicBananas + MaxFee - RefundAmount, 0n],
+      [InitialAlicePublicBananas, InitialFPCPublicBananas + maxFee - refundAmount, 0n],
     );
     await expectMapping(
       t.gasBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAliceGas, InitialFPCGas - FeeAmount, InitialSequencerGas + FeeAmount],
+      [InitialAliceGas, InitialFPCGas - feeAmount, InitialSequencerGas + feeAmount],
     );
 
     await expect(
       // this rejects if note can't be added
-      t.addPendingShieldNoteToPXE(t.aliceWallet, RefundAmount, computeSecretHash(RefundSecret), tx.txHash),
+      t.addPendingShieldNoteToPXE(t.aliceWallet, refundAmount, computeSecretHash(refundSecret), tx.txHash),
     ).resolves.toBeUndefined();
   });
 
@@ -185,30 +185,32 @@ describe('e2e_fees private_payment', () => {
       .send({
         fee: {
           gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, RefundSecret),
+          paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, refundSecret),
         },
       })
       .wait();
 
+    const [feeAmount, refundAmount] = getFeeAndRefund(tx);
+
     await expectMapping(
       t.bananaPrivateBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAlicePrivateBananas - MaxFee + newlyMintedBananas, InitialFPCPrivateBananas, 0n],
+      [InitialAlicePrivateBananas - maxFee + newlyMintedBananas, InitialFPCPrivateBananas, 0n],
     );
     await expectMapping(
       t.bananaPublicBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAlicePublicBananas, InitialFPCPublicBananas + MaxFee - RefundAmount, 0n],
+      [InitialAlicePublicBananas, InitialFPCPublicBananas + maxFee - refundAmount, 0n],
     );
     await expectMapping(
       t.gasBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAliceGas, InitialFPCGas - FeeAmount, InitialSequencerGas + FeeAmount],
+      [InitialAliceGas, InitialFPCGas - feeAmount, InitialSequencerGas + feeAmount],
     );
 
     await expect(
       // this rejects if note can't be added
-      t.addPendingShieldNoteToPXE(t.aliceWallet, RefundAmount, computeSecretHash(RefundSecret), tx.txHash),
+      t.addPendingShieldNoteToPXE(t.aliceWallet, refundAmount, computeSecretHash(refundSecret), tx.txHash),
     ).resolves.toBeUndefined();
   });
 
@@ -246,25 +248,27 @@ describe('e2e_fees private_payment', () => {
       .send({
         fee: {
           gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, RefundSecret),
+          paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, refundSecret),
         },
       })
       .wait();
 
+    const [feeAmount, refundAmount] = getFeeAndRefund(tx);
+
     await expectMapping(
       t.bananaPrivateBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAlicePrivateBananas - MaxFee, InitialFPCPrivateBananas, 0n],
+      [InitialAlicePrivateBananas - maxFee, InitialFPCPrivateBananas, 0n],
     );
     await expectMapping(
       t.bananaPublicBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAlicePublicBananas - shieldedBananas, InitialFPCPublicBananas + MaxFee - RefundAmount, 0n],
+      [InitialAlicePublicBananas - shieldedBananas, InitialFPCPublicBananas + maxFee - refundAmount, 0n],
     );
     await expectMapping(
       t.gasBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAliceGas, InitialFPCGas - FeeAmount, InitialSequencerGas + FeeAmount],
+      [InitialAliceGas, InitialFPCGas - feeAmount, InitialSequencerGas + feeAmount],
     );
 
     await expect(
@@ -272,7 +276,7 @@ describe('e2e_fees private_payment', () => {
     ).resolves.toBeUndefined();
 
     await expect(
-      t.addPendingShieldNoteToPXE(t.aliceWallet, RefundAmount, computeSecretHash(RefundSecret), tx.txHash),
+      t.addPendingShieldNoteToPXE(t.aliceWallet, refundAmount, computeSecretHash(refundSecret), tx.txHash),
     ).resolves.toBeUndefined();
   });
 
@@ -315,16 +319,18 @@ describe('e2e_fees private_payment', () => {
       .send({
         fee: {
           gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, RefundSecret),
+          paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, refundSecret),
         },
       })
       .wait();
+
+    const [feeAmount, refundAmount] = getFeeAndRefund(tx);
 
     await expectMapping(
       t.bananaPrivateBalances,
       [aliceAddress, bobAddress, bananaFPC.address, sequencerAddress],
       [
-        InitialAlicePrivateBananas - MaxFee - privateTransfer,
+        InitialAlicePrivateBananas - maxFee - privateTransfer,
         InitialBobPrivateBananas + privateTransfer,
         InitialFPCPrivateBananas,
         0n,
@@ -333,12 +339,12 @@ describe('e2e_fees private_payment', () => {
     await expectMapping(
       t.bananaPublicBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAlicePublicBananas - shieldedBananas, InitialFPCPublicBananas + MaxFee - RefundAmount, 0n],
+      [InitialAlicePublicBananas - shieldedBananas, InitialFPCPublicBananas + maxFee - refundAmount, 0n],
     );
     await expectMapping(
       t.gasBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAliceGas, InitialFPCGas - FeeAmount, InitialSequencerGas + FeeAmount],
+      [InitialAliceGas, InitialFPCGas - feeAmount, InitialSequencerGas + feeAmount],
     );
 
     await expect(
@@ -346,7 +352,7 @@ describe('e2e_fees private_payment', () => {
     ).resolves.toBeUndefined();
 
     await expect(
-      t.addPendingShieldNoteToPXE(t.aliceWallet, RefundAmount, computeSecretHash(RefundSecret), tx.txHash),
+      t.addPendingShieldNoteToPXE(t.aliceWallet, refundAmount, computeSecretHash(refundSecret), tx.txHash),
     ).resolves.toBeUndefined();
   });
 
@@ -370,7 +376,7 @@ describe('e2e_fees private_payment', () => {
               bananaCoin.address,
               bankruptFPC.address,
               aliceWallet,
-              RefundSecret,
+              refundSecret,
             ),
           },
         })

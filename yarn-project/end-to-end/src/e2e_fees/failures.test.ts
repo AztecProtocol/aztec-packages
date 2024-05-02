@@ -14,7 +14,7 @@ import { type TokenContract as BananaCoin, type FPCContract } from '@aztec/noir-
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
-describe('e2e_fees failure scenarios', () => {
+describe('e2e_fees failures', () => {
   let aliceWallet: AccountWallet;
   let aliceAddress: AztecAddress;
   let sequencerAddress: AztecAddress;
@@ -22,7 +22,7 @@ describe('e2e_fees failure scenarios', () => {
   let bananaFPC: FPCContract;
   let gasSettings: GasSettings;
 
-  const t = new FeesTest('private_payment');
+  const t = new FeesTest('failures');
 
   beforeAll(async () => {
     ({ aliceWallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = await t.setup());
@@ -35,7 +35,6 @@ describe('e2e_fees failure scenarios', () => {
   it('reverts transactions but still pays fees using PublicFeePaymentMethod', async () => {
     const OutrageousPublicAmountAliceDoesNotHave = BigInt(1e15);
     const PublicMintedAlicePublicBananas = BigInt(1e12);
-    const FeeAmount = 1n;
 
     const [initialAlicePrivateBananas, initialFPCPrivateBananas] = await t.bananaPrivateBalances(
       aliceAddress,
@@ -93,7 +92,9 @@ describe('e2e_fees failure scenarios', () => {
         },
       })
       .wait({ dontThrowOnRevert: true });
+
     expect(txReceipt.status).toBe(TxStatus.REVERTED);
+    const feeAmount = txReceipt.transactionFee!;
 
     // and thus we paid the fee
     await expectMapping(
@@ -104,12 +105,12 @@ describe('e2e_fees failure scenarios', () => {
     await expectMapping(
       t.bananaPublicBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [initialAlicePublicBananas + PublicMintedAlicePublicBananas - FeeAmount, initialFPCPublicBananas + FeeAmount, 0n],
+      [initialAlicePublicBananas + PublicMintedAlicePublicBananas - feeAmount, initialFPCPublicBananas + feeAmount, 0n],
     );
     await expectMapping(
       t.gasBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [initialAliceGas, initialFPCGas - FeeAmount, initialSequencerGas + FeeAmount],
+      [initialAliceGas, initialFPCGas - feeAmount, initialSequencerGas + feeAmount],
     );
 
     // TODO(#4712) - demonstrate reverts with the PrivateFeePaymentMethod.
