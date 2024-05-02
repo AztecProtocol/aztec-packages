@@ -86,16 +86,16 @@ build-acir-tests:
   ENV PATH="/usr/src/noir-repo/target/release:${PATH}"
   WORKDIR /usr/src/noir-repo/test_programs
   COPY . .
+  RUN nargo --version
   RUN ./rebuild.sh
   SAVE ARTIFACT /usr/src/noir-repo/test_programs/acir_artifacts/*
 
 barretenberg-acir-tests-bb:
   FROM ../build-images/+build
-  WORKDIR /usr/src/barretenberg
 
   COPY ../barretenberg/cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-  COPY +build-acir-tests/ /usr/src/acir_artifacts
   COPY ../barretenberg/+acir-tests/ /usr/src/barretenberg/acir_tests
+  COPY +build-acir-tests/ /usr/src/acir_artifacts
 
   WORKDIR /usr/src/barretenberg/acir_tests
 
@@ -116,7 +116,8 @@ barretenberg-acir-tests-bb:
   # This is a "full" Goblin flow. It constructs and verifies four proofs: GoblinUltraHonk, ECCVM, Translator, and merge
   RUN FLOW=prove_and_verify_goblin ./run_acir_tests.sh 6_array
   # Run 1_mul through native bb build, all_cmds flow, to test all cli args.
-  RUN VERBOSE=1 FLOW=all_cmds ./run_acir_tests.sh 1_mul
+  RUN FLOW=all_cmds ./run_acir_tests.sh 1_mul
+
 
 # TOOD
 # test-packages
