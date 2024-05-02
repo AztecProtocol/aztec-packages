@@ -91,6 +91,7 @@ build-acir-tests:
 
 
 barretenberg-acir-benches-bb:
+  WAIT
   FROM ../build-images/+build
   WORKDIR /usr/src/barretenberg
 
@@ -100,11 +101,11 @@ barretenberg-acir-benches-bb:
 
   WORKDIR /usr/src/barretenberg/acir_tests
   
-  ENV TEST_SRC /usr/src/acir_artifacts
   ENV LOG_FILE=./log
   RUN ./bench_acir_tests.sh sha256
 
   SAVE ARTIFACT ./log AS LOCAL ./log
+  END
   DO ../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 # TOOD
 # test-packages
