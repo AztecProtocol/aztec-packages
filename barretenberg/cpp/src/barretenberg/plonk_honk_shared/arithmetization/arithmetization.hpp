@@ -51,7 +51,7 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
     bool has_ram_rom = false;   // does the block contain RAM/ROM gates
     bool is_pub_inputs = false; // is this the public inputs block
 
-    size_t fixed_size; // Fixed size for use in structured trace
+    uint32_t fixed_size; // Fixed size for use in structured trace
 
     bool operator==(const ExecutionTraceBlock& other) const = default;
 
@@ -67,8 +67,8 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
         }
     }
 
-    size_t get_fixed_size() const { return fixed_size; }
-    void set_fixed_size(size_t size_in) { fixed_size = size_in; }
+    uint32_t get_fixed_size() const { return fixed_size; }
+    void set_fixed_size(uint32_t size_in) { fixed_size = size_in; }
 };
 
 // These are not magic numbers and they should not be written with global constants. These parameters are not
@@ -162,8 +162,8 @@ template <typename FF_> class UltraArith {
         UltraTraceBlock aux;
         UltraTraceBlock lookup;
 
-        static constexpr size_t FIXED_BLOCK_SIZE = 1 << 10; // (Arbitrary for now)
-        std::array<size_t, 6> fixed_block_sizes{
+        static constexpr uint32_t FIXED_BLOCK_SIZE = 1 << 10; // (Arbitrary for now)
+        std::array<uint32_t, 6> fixed_block_sizes{
             1 << 3,           // pub_inputs;
             FIXED_BLOCK_SIZE, // arithmetic;
             FIXED_BLOCK_SIZE, // delta_range;
@@ -317,7 +317,7 @@ template <typename FF_> class UltraHonkArith {
         // Note 2: Current sizes result in a full trace size of 2^18. It's not possible to define a fixed structure
         // that accomdates both the kernel and the function circuit while remaining under 2^17. This is because the
         // circuits differ in structure but are also both designed to be "full" within the 2^17 size.
-        std::array<size_t, 10> fixed_block_sizes{
+        std::array<uint32_t, 10> fixed_block_sizes{
             1 << 10, // ecc_op;
             1 << 7,  // pub_inputs;
             1 << 16, // arithmetic;
