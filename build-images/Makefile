@@ -1,4 +1,6 @@
 ARCH := $(shell uname -m | sed 's/aarch64/arm64/')
+FOUNDRY_TAG := de33b6af53005037b463318d2628b5cfcaf39916
+VERSION := 1.0
 
 wasi-sdk:
 	docker build -t aztecprotocol/wasi-sdk:$(ARCH)-22.0 --target wasi-sdk --push .
@@ -7,7 +9,6 @@ wasi-sdk:
 		--amend aztecprotocol/wasi-sdk:arm64-22.0
 	docker manifest push aztecprotocol/wasi-sdk:22.0
 
-FOUNDRY_TAG := de33b6af53005037b463318d2628b5cfcaf39916
 foundry:
 	docker build -t aztecprotocol/foundry:$(ARCH)-$(FOUNDRY_TAG) --build-arg TAG=$(FOUNDRY_TAG) --target foundry --push .
 	docker manifest create aztecprotocol/foundry:$(FOUNDRY_TAG) \
@@ -24,9 +25,25 @@ osxcross:
 
 build:
 	docker build -t aztecprotocol/build --target build .
+	docker tag aztecprotocol/build aztecprotocol/build:$(ARCH)-$(VERSION)
+
+build-push: build
+	docker push aztecprotocol/build:$(ARCH)-$(VERSION)
+	docker manifest create aztecprotocol/build:$(VERSION) \
+		--amend aztecprotocol/build:x86_64-$(VERSION) \
+		--amend aztecprotocol/build:arm64-$(VERSION)
+	docker manifest push aztecprotocol/build:$(VERSION)
 
 devbox:
 	docker build -t aztecprotocol/devbox --target devbox .
+	docker tag aztecprotocol/devbox aztecprotocol/devbox:$(ARCH)-$(VERSION)
+
+devbox-push: devbox
+	docker push aztecprotocol/devbox:$(ARCH)-$(VERSION)
+	docker manifest create aztecprotocol/devbox:$(VERSION) \
+		--amend aztecprotocol/devbox:x86_64-$(VERSION) \
+		--amend aztecprotocol/devbox:arm64-$(VERSION)
+	docker manifest push aztecprotocol/devbox:$(VERSION)
 
 sysbox:
 	docker build -t aztecprotocol/sysbox --target sysbox .
