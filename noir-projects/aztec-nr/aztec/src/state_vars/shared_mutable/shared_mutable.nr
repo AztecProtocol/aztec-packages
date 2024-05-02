@@ -189,7 +189,7 @@ mod test {
     global pre_delay = 20;
     global post_delay = 15;
 
-    global TEST_INITIAL_DELAY = 0;
+    global TEST_INITIAL_DELAY = 3;
 
     fn setup(private: bool) -> (SharedMutable<Field, TEST_INITIAL_DELAY>, Field) {
         let block_number = 40;
@@ -240,6 +240,11 @@ mod test {
         let fields = delay_change.serialize();
 
         let _ = OracleMock::mock("storageRead").with_params((delay_change_slot, 1)).returns(fields).times(1);
+    }
+
+    fn mock_delay_change_read_uninitialized(state_var: SharedMutable<Field, TEST_INITIAL_DELAY>) {
+        let delay_change_slot = state_var.get_delay_change_storage_slot();
+        let _ = OracleMock::mock("storageRead").with_params((delay_change_slot, 1)).returns([0]).times(1);
     }
 
     // Useful since change and delay values are always the global pre/post ones, so we typically only care about their
@@ -327,6 +332,10 @@ mod test {
     fn test_get_current_delay_in_public() {
         let (state_var, block_number) = setup(false);
 
+        // Uninitialized
+        mock_delay_change_read_uninitialized(state_var);
+        assert_eq(state_var.get_current_delay_in_public(), TEST_INITIAL_DELAY as u32);
+
         // Change in the future, current value is pre
         mock_delay_change_read(state_var, pre_delay, post_delay, block_number + 1);
         assert_eq(state_var.get_current_delay_in_public(), pre_delay as u32);
@@ -343,6 +352,10 @@ mod test {
     #[test]
     fn test_get_scheduled_delay_in_public_before_change() {
         let (state_var, block_number) = setup(false);
+
+        // Uninitialized
+        mock_delay_change_read_uninitialized(state_var);
+        assert_eq(state_var.get_scheduled_delay_in_public(), (TEST_INITIAL_DELAY as u32, 0));
 
         // Change in the future, scheduled is post (always is)
         mock_delay_change_read(state_var, pre_delay, post_delay, block_number + 1);

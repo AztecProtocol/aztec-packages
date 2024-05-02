@@ -215,6 +215,10 @@ mod test {
         assert_eq(original.block_of_change, converted.block_of_change);
     }
 
+    fn get_initial_delay_change() -> ScheduledDelayChange<TEST_INITIAL_DELAY> {
+        ScheduledDelayChange::deserialize([0])
+    }
+
     #[test]
     fn test_get_current() {
         let pre = 1;
@@ -230,6 +234,14 @@ mod test {
     }
 
     #[test]
+    fn test_get_current_initial() {
+        let delay_change = get_initial_delay_change();
+
+        assert_eq(delay_change.get_current(0), TEST_INITIAL_DELAY);
+        assert_eq(delay_change.get_current(1), TEST_INITIAL_DELAY);
+    }
+
+    #[test]
     fn test_get_scheduled() {
         let pre = 1;
         let post = 2;
@@ -238,6 +250,13 @@ mod test {
         let delay_change: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::new(Option::some(pre), Option::some(post), block_of_change);
 
         assert_eq(delay_change.get_scheduled(), (post, block_of_change));
+    }
+
+    #[test]
+    fn test_get_scheduled_initial() {
+        let delay_change = get_initial_delay_change();
+
+        assert_eq(delay_change.get_scheduled(), (TEST_INITIAL_DELAY, 0));
     }
 
     #[test]
@@ -278,6 +297,22 @@ mod test {
     }
 
     #[test]
+    fn test_schedule_change_to_shorter_delay_from_initial() {
+        let new = TEST_INITIAL_DELAY - 1;
+        let current_block_number = 50;
+
+        let mut delay_change = get_initial_delay_change();
+        delay_change.schedule_change(new, current_block_number);
+
+        // Like in the after change snceario, the schedule time is determined by the different between the current value
+        // (initial) and new delay.
+        assert_eq(delay_change.pre.unwrap(), TEST_INITIAL_DELAY);
+        assert_eq(delay_change.post.unwrap(), new);
+        assert_eq(delay_change.block_of_change, current_block_number + TEST_INITIAL_DELAY - new);
+    }
+
+
+    #[test]
     fn test_schedule_change_to_longer_delay_before_change() {
         let pre = 15;
         let post = 25;
@@ -316,7 +351,27 @@ mod test {
         assert_eq(delay_change.get_current(current_block_number), new);
     }
 
-    fn assert_effective_minimum_delay_invariants<INITIAL_DELAY>(delay_change: &mut ScheduledDelayChange<INITIAL_DELAY>, historical_block_number: u32, effective_minimum_delay: u32) {
+    #[test]
+    fn test_schedule_change_to_longer_delay_from_initial() {
+        let new = TEST_INITIAL_DELAY + 1;
+        let current_block_number = 50;
+
+        let mut delay_change = get_initial_delay_change();
+        delay_change.schedule_change(new, current_block_number);
+
+        // Like in the after change scenario, change is effective immediately because the new delay is longer than the 
+        // current one.
+        assert_eq(delay_change.pre.unwrap(), TEST_INITIAL_DELAY);
+        assert_eq(delay_change.post.unwrap(), new);
+        assert_eq(delay_change.block_of_change, current_block_number);
+        assert_eq(delay_change.get_current(current_block_number), new);
+    }
+
+    fn assert_effective_minimum_delay_invariants<INITIAL_DELAY>(
+        delay_change: &mut ScheduledDelayChange<INITIAL_DELAY>, 
+        historical_block_number: u32, 
+        effective_minimum_delay: u32
+    ) {
         // The effective minimum delays guarantees the earliest block in which a scheduled value change could be made
         // effective. No action, even if executed immediately after the historical block, should result in a scheduled
         // value change having a block of change lower than this.
@@ -419,4 +474,19 @@ mod test {
 
         assert_effective_minimum_delay_invariants(&mut delay_change, historical_block_number, effective_minimum_delay);
     }
+
+    #[test]
+    fn test_get_effective_delay_at_initial() {
+        let mut delay_change = get_initial_delay_change();
+
+        let historical_block_number = 200;
+
+        // Like in the after change scenario, no delay change is scheduled, so the effective delay is simply the current 
+        // one (initial).
+        let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(historical_block_number);
+        assert_eq(effective_minimum_delay, TEST_INITIAL_DELAY);
+
+        assert_effective_minimum_delay_invariants(&mut delay_change, historical_block_number, effective_minimum_delay);
+    }
+
 }
