@@ -54,7 +54,7 @@ contract GasToken {
     #[aztec(public)]
     fn pay_fee(fee_limit: Field) -> Field {
         let fee_limit_u128 = U128::from_integer(fee_limit);
-        let fee = calculate_fee(context);
+        let fee = U128::from_integer(calculate_fee(context));
         assert(fee <= fee_limit_u128, "Fee too high");
 
         let sender_new_balance = storage.balances.at(context.msg_sender()).read() - fee;
