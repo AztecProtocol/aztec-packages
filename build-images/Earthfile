@@ -74,4 +74,4 @@ build:
 
     # Install solhint
     RUN npm install --global solhint
-    SAVE ARTIFACT /opt/foundry
+    SAVE ARTIFACT /opt/foundry/bin/anvil
