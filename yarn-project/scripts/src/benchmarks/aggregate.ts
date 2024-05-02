@@ -9,7 +9,6 @@
 // And then run this script from the yarn-project/scripts folder
 // LOG_FOLDER=../end-to-end/log yarn bench-aggregate
 import {
-  type ProofConstructed,
   BENCHMARK_BLOCK_SIZES,
   BENCHMARK_HISTORY_BLOCK_SIZE,
   BENCHMARK_HISTORY_CHAIN_LENGTHS,
@@ -25,6 +24,7 @@ import {
   type MetricName,
   type NodeSyncedChainHistoryStats,
   type NoteProcessorCaughtUpStats,
+  type ProofConstructed,
   type Stats,
   type TreeInsertionStats,
   type TxAddedToPoolStats,
