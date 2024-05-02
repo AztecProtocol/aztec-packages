@@ -1,5 +1,5 @@
 [package]
-name = "distinct_keyword"
+name = "regression_4709"
 type = "bin"
 authors = [""]
 
