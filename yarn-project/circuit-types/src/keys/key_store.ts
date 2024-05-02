@@ -135,6 +135,8 @@ export interface KeyStore {
    */
   getPublicKeysHash(account: AztecAddress): Promise<Fr>;
 
+  getAccountAddressForMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr): AztecAddress;
+
   /**
    * This is used to register a recipient / for storing public keys of an address
    * @param accountAddress - The account address to store keys for.

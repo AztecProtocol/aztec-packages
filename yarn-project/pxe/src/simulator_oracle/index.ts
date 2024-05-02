@@ -9,7 +9,7 @@ import {
   type SiblingPath,
 } from '@aztec/circuit-types';
 import {
-  type AztecAddress,
+  AztecAddress,
   type CompleteAddress,
   type Fr,
   type FunctionSelector,
@@ -59,6 +59,12 @@ export class SimulatorOracle implements DBOracle {
       );
     }
     return completeAddress;
+  }
+
+  // TODO: #5834
+  getCompleteAddressWithMasterNullifierPublicKey(masterNullifierPublicKey: Fr): Promise<CompleteAddress> {
+    const address = this.keyStore.getAccountAddressForMasterNullifierPublicKeyHash(masterNullifierPublicKey);
+    return this.getCompleteAddress(address);
   }
 
   async getContractInstance(address: AztecAddress): Promise<ContractInstance> {

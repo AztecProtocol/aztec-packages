@@ -136,6 +136,10 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getCompleteAddress');
   }
 
+  getCompleteAddressWithMasterNullifierPublicKey(_masterNullifierPublicKeyHash: Fr): Promise<CompleteAddress> {
+    throw new OracleMethodNotAvailableError('getCompleteAddressWithMasterNullifierPublicKey');
+  }
+
   getAuthWitness(_messageHash: Fr): Promise<Fr[] | undefined> {
     throw new OracleMethodNotAvailableError('getAuthWitness');
   }

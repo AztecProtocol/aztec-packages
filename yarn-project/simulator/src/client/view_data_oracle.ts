@@ -147,6 +147,10 @@ export class ViewDataOracle extends TypedOracle {
     return this.db.getCompleteAddress(address);
   }
 
+  public override getCompleteAddressWithMasterNullifierPublicKey(masterNullifierPublicKeyHash: Fr): Promise<CompleteAddress> {
+    return this.db.getCompleteAddressWithMasterNullifierPublicKey(masterNullifierPublicKeyHash);
+  }
+
   /**
    * Returns a contract instance associated with an address or throws if not found.
    * @param address - Address.

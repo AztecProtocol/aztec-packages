@@ -2,7 +2,7 @@ use dep::aztec::{
     prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext, emit_encrypted_log},
     protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER,
     note::utils::compute_note_hash_for_consumption, hash::poseidon2_hash,
-    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_app_nullifier_secret_key, get_public_key::get_public_key}
+    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_app_nullifier_secret_key_with_master_nullifier_public_key_hash, get_public_key::get_public_key_with_master_nullifier_public_key_hash}
 };
 
 trait OwnedNote {
@@ -29,7 +29,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
     // docs:start:nullifier
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_app_nullifier_secret_key(self.owner_nullifying_public_key_hash);
+        let secret = context.request_app_nullifier_secret_key_with_master_public_nullifying_key_hash(self.owner_nullifying_public_key_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -40,7 +40,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_app_nullifier_secret_key(self.owner_nullifying_public_key_hash);
+        let secret = get_app_nullifier_secret_key_with_master_nullifier_public_key_hash(self.owner_nullifying_public_key_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -52,16 +52,15 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
       // We only bother inserting the note if non-empty to save funds on gas.
       if !(self.amount == U128::from_integer(0)) {
-        // TODO (ek): Disabled this until we fix the emit log types
-        //   let encryption_pub_key = get_public_key(self.owner_nullifying_public_key_hash);
-        //   emit_encrypted_log(
-        //       context,
-        //       (*context).this_address(),
-        //       slot,
-        //       Self::get_note_type_id(),
-        //       encryption_pub_key,
-        //       self.serialize_content(),
-        //   );
+          let encryption_pub_key = get_public_key_with_master_nullifier_public_key_hash(self.owner_nullifying_public_key_hash);
+          emit_encrypted_log(
+              context,
+              (*context).this_address(),
+              slot,
+              Self::get_note_type_id(),
+              encryption_pub_key,
+              self.serialize_content(),
+          );
       }
     }
 }

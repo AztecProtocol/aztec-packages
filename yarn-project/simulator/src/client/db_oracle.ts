@@ -50,6 +50,8 @@ export interface DBOracle extends CommitmentsDB {
    */
   getCompleteAddress(address: AztecAddress): Promise<CompleteAddress>;
 
+  getCompleteAddressWithMasterNullifierPublicKey(masterNullifierPublicKey: Fr): Promise<CompleteAddress>;
+
   /**
    * Retrieve the auth witness for a given message hash.
    * @param messageHash - The message hash.

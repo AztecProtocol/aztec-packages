@@ -72,9 +72,11 @@ export class TestKeyStore implements KeyStore {
     await this.#keys.set(`${accountAddress.toString()}-tpk_m`, masterTaggingPublicKey.toBuffer());
 
     const masterNullifierPublicKeyHash = poseidon2Hash(masterNullifierPublicKey.toFields());
-    // We save nullifier keys to db under the master nullifier key hash
+
+    // We save nullifier keys and account address to db under the master nullifier key hash
     await this.#keys.set(`${masterNullifierPublicKeyHash.toString()}-nsk_m`, masterNullifierSecretKey.toBuffer());
     await this.#keys.set(`${masterNullifierPublicKeyHash.toString()}-npk_m`, masterNullifierPublicKey.toBuffer());
+    await this.#keys.set(`${masterNullifierPublicKeyHash.toString()}-accountAddress`, accountAddress.toBuffer());
 
     // At last, we return the newly derived account address
     return Promise.resolve(accountAddress);
@@ -331,6 +333,18 @@ export class TestKeyStore implements KeyStore {
       );
     }
     return Promise.resolve(Fr.fromBuffer(publicKeysHashBuffer));
+  }
+
+  public getAccountAddressForMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr): AztecAddress {
+    const accountAddressBuffer = this.#keys.get(`${masterNullifierPublicKeyHash.toString()}-accountAddress`);
+
+    if (!accountAddressBuffer) {
+      throw new Error(
+        `Master nullifier public key hash ${masterNullifierPublicKeyHash.toString()} does not exist.`,
+      );
+    }
+
+    return AztecAddress.fromBuffer(accountAddressBuffer);
   }
 
   // TODO(#5834): Re-add separation between recipients and accounts in keystore.
