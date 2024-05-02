@@ -1,6 +1,6 @@
 {
   "name": "create-aztec-app",
-  "packageManager": "yarn@4.1.0",
+  "packageManager": "yarn@4.0.2",
   "version": "0.4.2",
   "type": "module",
   "private": true,
@@ -13,6 +13,18 @@
     "boxes/*"
   ],
   "bin": "bin.js",
+  "resolutions": {
+    "@aztec/accounts": "link:../yarn-project/accounts",
+    "@aztec/aztec.js": "link:../yarn-project/aztec.js",
+    "@aztec/circuits.js": "link:../yarn-project/circuits.js",
+    "@aztec/entrypoints": "link:../yarn-project/entrypoints",
+    "@aztec/foundation": "link:../yarn-project/foundation",
+    "@aztec/bb.js": "link:../barretenberg/ts",
+    "@aztec/circuit-types": "link:../yarn-project/circuit-types",
+    "@aztec/ethereum": "link:../yarn-project/ethereum",
+    "@aztec/protocol-contracts": "link:../yarn-project/protocol-contracts",
+    "@aztec/types": "link:../yarn-project/types"
+  },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
     "@inquirer/confirm": "^3.0.0",
