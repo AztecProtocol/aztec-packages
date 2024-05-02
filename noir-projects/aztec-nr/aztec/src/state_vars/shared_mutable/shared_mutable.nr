@@ -8,7 +8,7 @@ use crate::state_vars::{
     shared_mutable::{scheduled_value_change::ScheduledValueChange, scheduled_delay_change::ScheduledDelayChange}
 };
 
-struct SharedMutable<T> {
+struct SharedMutable<T, INITIAL_DELAY> {
     context: Context,
     storage_slot: Field,
 }
@@ -20,7 +20,7 @@ struct SharedMutable<T> {
 //
 // TODO https://github.com/AztecProtocol/aztec-packages/issues/5736: change the storage allocation scheme so that we 
 // can actually use it here
-impl<T> Storage<T> for SharedMutable<T> {}
+impl<T, INITIAL_DELAY> Storage<T> for SharedMutable<T, INITIAL_DELAY> {}
 
 // SharedMutable<T> stores a value of type T that is:
 //  - publicly known (i.e. unencrypted)
@@ -31,7 +31,7 @@ impl<T> Storage<T> for SharedMutable<T> {}
 // the value is not changed immediately but rather a value change is scheduled to happen in the future after some delay
 // measured in blocks. Reads in private are only valid as long as they are included in a block not too far into the 
 // future, so that they can guarantee the value will not have possibly changed by then (because of the delay).
-impl<T> SharedMutable<T> {
+impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
@@ -111,7 +111,7 @@ impl<T> SharedMutable<T> {
     fn historical_read_from_public_storage(
         self,
         context: PrivateContext
-    ) -> (ScheduledValueChange<T>, ScheduledDelayChange, u32) where T: FromField {
+    ) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>, u32) where T: FromField {
         // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
         let value_change_slot = self.get_value_change_storage_slot();
         let mut raw_value_change_fields = [0; 3];
@@ -139,7 +139,7 @@ impl<T> SharedMutable<T> {
         public_storage::read(self.get_value_change_storage_slot())
     }
 
-    fn read_delay_change(self) -> ScheduledDelayChange {
+    fn read_delay_change(self) -> ScheduledDelayChange<INITIAL_DELAY> {
         public_storage::read(self.get_delay_change_storage_slot())
     }
 
@@ -147,7 +147,7 @@ impl<T> SharedMutable<T> {
         public_storage::write(self.get_value_change_storage_slot(), value_change);
     }
 
-    fn write_delay_change(self, delay_change: ScheduledDelayChange) {
+    fn write_delay_change(self, delay_change: ScheduledDelayChange<INITIAL_DELAY>) {
         public_storage::write(self.get_delay_change_storage_slot(), delay_change);
     }
 
@@ -189,12 +189,14 @@ mod test {
     global pre_delay = 20;
     global post_delay = 15;
 
-    fn setup(private: bool) -> (SharedMutable<Field>, Field) {
+    global TEST_INITIAL_DELAY = 0;
+
+    fn setup(private: bool) -> (SharedMutable<Field, TEST_INITIAL_DELAY>, Field) {
         let block_number = 40;
         let context = create_context(block_number, private);
 
         let storage_slot = 57;
-        let state_var: SharedMutable<Field> = SharedMutable::new(context, storage_slot);
+        let state_var: SharedMutable<Field, TEST_INITIAL_DELAY> = SharedMutable::new(context, storage_slot);
 
         (state_var, block_number)
     }
@@ -212,7 +214,7 @@ mod test {
     }
 
     fn mock_value_change_read(
-        state_var: SharedMutable<Field>,
+        state_var: SharedMutable<Field, TEST_INITIAL_DELAY>,
         pre: Field,
         post: Field,
         block_of_change: Field
@@ -224,13 +226,18 @@ mod test {
     }
 
     fn mock_delay_change_read(
-        state_var: SharedMutable<Field>,
+        state_var: SharedMutable<Field, TEST_INITIAL_DELAY>,
         pre: Field,
         post: Field,
         block_of_change: Field
     ) {
         let delay_change_slot = state_var.get_delay_change_storage_slot();
-        let fields = ScheduledDelayChange::new(pre as u32, post as u32, block_of_change as u32).serialize();
+        let delay_change: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::new(
+            Option::some(pre as u32),
+            Option::some(post as u32),
+            block_of_change as u32
+        );
+        let fields = delay_change.serialize();
 
         let _ = OracleMock::mock("storageRead").with_params((delay_change_slot, 1)).returns(fields).times(1);
     }
@@ -238,7 +245,7 @@ mod test {
     // Useful since change and delay values are always the global pre/post ones, so we typically only care about their
     // block of change.
     fn mock_value_and_delay_read(
-        state_var: SharedMutable<Field>,
+        state_var: SharedMutable<Field, TEST_INITIAL_DELAY>,
         value_block_of_change: Field,
         delay_block_of_change: Field
     ) {
@@ -255,7 +262,7 @@ mod test {
     }
 
     fn assert_value_change_write(
-        state_var: SharedMutable<Field>,
+        state_var: SharedMutable<Field, TEST_INITIAL_DELAY>,
         mock: OracleMock,
         pre: Field,
         post: Field,
@@ -266,13 +273,19 @@ mod test {
     }
 
     fn assert_delay_change_write(
-        state_var: SharedMutable<Field>,
+        state_var: SharedMutable<Field, TEST_INITIAL_DELAY>,
         mock: OracleMock,
         pre: Field,
         post: Field,
         block_of_change: Field
     ) {
-        let fields = ScheduledDelayChange::new(pre as u32, post as u32, block_of_change as u32).serialize();
+        let delay_change: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::new(
+            Option::some(pre as u32),
+            Option::some(post as u32),
+            block_of_change as u32
+        );
+
+        let fields = delay_change.serialize();
         assert_eq(mock.get_last_params(), (state_var.get_delay_change_storage_slot(), fields));
     }
 

@@ -7,15 +7,18 @@ use dep::std::cmp::min;
 // `schedule_change` in order to satisfy ScheduleValueChange constraints: if e.g. we allowed for the delay to be
 // decreased immediately then it'd be possible for the state variable to schedule a value change with a reduced delay,
 // invalidating prior private reads.
-struct ScheduledDelayChange {
-    pre: u32,
-    post: u32,
+struct ScheduledDelayChange<INITIAL_DELAY> {
+    pre: Option<u32>,
+    post: Option<u32>,
     block_of_change: u32,
+    // The _dummy variable forces INITIAL_DELAY to be interpreted as a numberic value. This is a workaround to
+    // https://github.com/noir-lang/noir/issues/4633. Remove once resolved.
+    _dummy: [Field; INITIAL_DELAY],
 }
 
-impl ScheduledDelayChange {
-    pub fn new(pre: u32, post: u32, block_of_change: u32) -> Self {
-        Self { pre, post, block_of_change }
+impl<INITIAL_DELAY> ScheduledDelayChange<INITIAL_DELAY> {
+    pub fn new(pre: Option<u32>, post: Option<u32>, block_of_change: u32) -> Self {
+        Self { pre, post, block_of_change, _dummy: [0; INITIAL_DELAY] }
     }
 
     /// Returns the current value of the delay stored in the data structure.
@@ -26,9 +29,9 @@ impl ScheduledDelayChange {
         // block of change will use the post value.
 
         if current_block_number < self.block_of_change {
-            self.pre
+            self.pre.unwrap_or(INITIAL_DELAY)
         } else {
-            self.post
+            self.post.unwrap_or(INITIAL_DELAY)
         }
     }
 
@@ -36,7 +39,7 @@ impl ScheduledDelayChange {
     /// delay. Note that this block may be in the past if the change has already taken place.
     /// Additionally, further changes might be later scheduled, potentially canceling the one returned by this function.
     pub fn get_scheduled(self) -> (u32, u32) {
-        (self.post, self.block_of_change)
+        (self.post.unwrap_or(INITIAL_DELAY), self.block_of_change)
     }
 
     /// Mutates the delay change by scheduling a change at the current block number. This function is only meaningful
@@ -70,8 +73,8 @@ impl ScheduledDelayChange {
             current - new
         };
 
-        self.pre = current;
-        self.post = new;
+        self.pre = Option::some(current);
+        self.post = Option::some(new);
         self.block_of_change = current_block_number + schedule_delay;
     }
 
@@ -87,7 +90,7 @@ impl ScheduledDelayChange {
         if self.block_of_change <= historical_block_number {
             // If no delay changes were scheduled, then the delay value at the historical block (post) is guaranteed to
             // hold due to how further delay changes would be scheduled by `schedule_change`.
-            self.post
+            self.post.unwrap_or(INITIAL_DELAY)
         } else {
             // If a change is scheduled, then the effective delay might be lower than the current one (pre). At the
             // block of change the current delay will be the scheduled one, with an overall delay from the historical
@@ -111,20 +114,23 @@ impl ScheduledDelayChange {
 
             let blocks_until_change = self.block_of_change - (historical_block_number + 1);
 
-            min(self.pre, blocks_until_change + self.post)
+            min(self.pre.unwrap_or(INITIAL_DELAY), blocks_until_change + self.post.unwrap_or(INITIAL_DELAY))
         }
     }
 }
 
-impl Serialize<1> for ScheduledDelayChange {
+impl<INITIAL_DELAY> Serialize<1> for ScheduledDelayChange<INITIAL_DELAY> {
     fn serialize(self) -> [Field; 1] {
         // We pack all three u32 values into a single U128, which is made up of two u64 limbs.
-        // Low limb: [ pre | post ]
-        // High limb: [ empty | block_of_change ]
+        // Low limb: [ pre_inner: u32 | post_inner: u32 ]
+        // High limb: [ empty | pre_is_some: u8 |  post_is_some: u8 | block_of_change: u32 ]
 
-        let lo = ((self.pre as u64) * (1 << 32))
-            + (self.post as u64);
-        let hi = self.block_of_change as u64;
+        let lo = ((self.pre.unwrap_unchecked() as u64) * (1 << 32))
+            + (self.post.unwrap_unchecked() as u64);
+
+        let hi = (self.pre.is_some() as u64) * (1 << 33) 
+            + (self.post.is_some() as u64 * (1 << 32)) 
+            + self.block_of_change as u64;
 
         let packed = U128::from_u64s_le(lo, hi);
 
@@ -132,23 +138,41 @@ impl Serialize<1> for ScheduledDelayChange {
     }
 }
 
-impl Deserialize<1> for ScheduledDelayChange {
-  fn deserialize(input: [Field; 1]) -> Self {
-    let packed = U128::from_integer(input[0]);
+impl<INITIAL_DELAY> Deserialize<1> for ScheduledDelayChange<INITIAL_DELAY> {
+    fn deserialize(input: [Field; 1]) -> Self {
+        let packed = U128::from_integer(input[0]);
 
-    // Pre and post are both stored in the lower limb, so we use division and modulo to clear the bits that correspond
-    // to the other value when reading these.
+        // We use division and modulo to clear the bits that correspond to other values when unpacking.
 
-    Self {
-        pre: ((packed.lo as u64) / (1 << 32)) as u32,
-        post: ((packed.lo as u64) % (1 << 32)) as u32,
-        block_of_change: packed.hi as u32,
+        let pre_is_some = ((packed.hi as u64) / (1 << 33)) as bool;
+        let pre_inner = ((packed.lo as u64) / (1 << 32)) as u32;
+
+        let post_is_some = (((packed.hi as u64) / (1 << 32)) % (1 << 1)) as bool;
+        let post_inner = ((packed.lo as u64) % (1 << 32)) as u32;
+
+        let block_of_change = ((packed.hi as u64) % (1 << 32)) as u32;
+
+        Self {
+            pre: if pre_is_some { Option::some(pre_inner) } else { Option::none() },
+            post: if post_is_some { Option::some(post_inner) } else { Option::none() },
+            block_of_change,
+            _dummy: [0; INITIAL_DELAY],
+        }
     }
-  }
 }
 
 mod test {
     use crate::state_vars::shared_mutable::scheduled_delay_change::ScheduledDelayChange;
+
+    global TEST_INITIAL_DELAY = 13;
+
+    fn assert_equal_after_conversion(original: ScheduledDelayChange<TEST_INITIAL_DELAY>) {
+        let converted: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::deserialize((original).serialize());
+
+        assert_eq(original.pre, converted.pre);
+        assert_eq(original.post, converted.post);
+        assert_eq(original.block_of_change, converted.block_of_change);
+    }
 
     #[test]
     fn test_serde() {
@@ -156,12 +180,10 @@ mod test {
         let post = 2;
         let block_of_change = 50;
 
-        let original = ScheduledDelayChange::new(pre, post, block_of_change);
-        let converted = ScheduledDelayChange::deserialize((original).serialize());
-
-        assert_eq(original.pre, converted.pre);
-        assert_eq(original.post, converted.post);
-        assert_eq(original.block_of_change, converted.block_of_change);
+        assert_equal_after_conversion(ScheduledDelayChange::new(Option::some(pre), Option::some(post), block_of_change));
+        assert_equal_after_conversion(ScheduledDelayChange::new(Option::some(pre), Option::none(), block_of_change));
+        assert_equal_after_conversion(ScheduledDelayChange::new(Option::none(), Option::some(post), block_of_change));
+        assert_equal_after_conversion(ScheduledDelayChange::new(Option::none(), Option::none(), block_of_change));
     }
 
     #[test]
@@ -172,8 +194,21 @@ mod test {
         let post = (max_u32 - 1) as u32;
         let block_of_change = (max_u32 - 2) as u32;
 
-        let original = ScheduledDelayChange::new(pre, post, block_of_change);
-        let converted = ScheduledDelayChange::deserialize((original).serialize());
+        assert_equal_after_conversion(ScheduledDelayChange::new(Option::some(pre), Option::some(post), block_of_change));
+        assert_equal_after_conversion(ScheduledDelayChange::new(Option::some(pre), Option::none(), block_of_change));
+        assert_equal_after_conversion(ScheduledDelayChange::new(Option::none(), Option::some(post), block_of_change));
+        assert_equal_after_conversion(ScheduledDelayChange::new(Option::none(), Option::none(), block_of_change));
+    }
+
+    #[test]
+    fn test_serde_large_values_pre_none() {
+        let max_u32 = (1 << 32) - 1;
+
+        let post = (max_u32 - 1) as u32;
+        let block_of_change = (max_u32 - 2) as u32;
+
+        let original: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::new(Option::none(), Option::some(post), block_of_change);
+        let converted: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::deserialize((original).serialize());
 
         assert_eq(original.pre, converted.pre);
         assert_eq(original.post, converted.post);
@@ -186,7 +221,7 @@ mod test {
         let post = 2;
         let block_of_change = 50;
 
-        let delay_change = ScheduledDelayChange::new(pre, post, block_of_change);
+        let delay_change: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::new(Option::some(pre), Option::some(post), block_of_change);
 
         assert_eq(delay_change.get_current(0), pre);
         assert_eq(delay_change.get_current(block_of_change - 1), pre);
@@ -200,7 +235,7 @@ mod test {
         let post = 2;
         let block_of_change = 50;
 
-        let delay_change = ScheduledDelayChange::new(pre, post, block_of_change);
+        let delay_change: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::new(Option::some(pre), Option::some(post), block_of_change);
 
         assert_eq(delay_change.get_scheduled(), (post, block_of_change));
     }
@@ -214,13 +249,13 @@ mod test {
         let new = 10;
         let current_block_number = block_of_change - 50;
 
-        let mut delay_change = ScheduledDelayChange::new(pre, post, block_of_change);
+        let mut delay_change: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::new(Option::some(pre), Option::some(post), block_of_change);
         delay_change.schedule_change(new, current_block_number);
 
         // Because we re-schedule before the last scheduled change takes effect, the old `post` value is lost. The
         // schedule time is determined by the different between the current value (pre) and new delay.
-        assert_eq(delay_change.pre, pre);
-        assert_eq(delay_change.post, new);
+        assert_eq(delay_change.pre.unwrap(), pre);
+        assert_eq(delay_change.post.unwrap(), new);
         assert_eq(delay_change.block_of_change, current_block_number + pre - new);
     }
 
@@ -233,12 +268,12 @@ mod test {
         let new = 10;
         let current_block_number = block_of_change + 50;
 
-        let mut delay_change  = ScheduledDelayChange::new(pre, post, block_of_change);
+        let mut delay_change: ScheduledDelayChange<TEST_INITIAL_DELAY>  = ScheduledDelayChange::new(Option::some(pre), Option::some(post), block_of_change);
         delay_change.schedule_change(new, current_block_number);
 
         // The schedule time is determined by the different between the current value (ex post, now pre) and new delay.
-        assert_eq(delay_change.pre, post);
-        assert_eq(delay_change.post, new);
+        assert_eq(delay_change.pre.unwrap(), post);
+        assert_eq(delay_change.post.unwrap(), new);
         assert_eq(delay_change.block_of_change, current_block_number + post - new);
     }
 
@@ -251,13 +286,13 @@ mod test {
         let new = 40;
         let current_block_number = block_of_change - 50;
 
-        let mut delay_change = ScheduledDelayChange::new(pre, post, block_of_change);
+        let mut delay_change: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::new(Option::some(pre), Option::some(post), block_of_change);
         delay_change.schedule_change(new, current_block_number);
 
         // Because we re-schedule before the last scheduled change takes effect, the old `post` value is lost. The
         // change is effective immediately because the new delay is longer than the current one.
-        assert_eq(delay_change.pre, pre);
-        assert_eq(delay_change.post, new);
+        assert_eq(delay_change.pre.unwrap(), pre);
+        assert_eq(delay_change.post.unwrap(), new);
         assert_eq(delay_change.block_of_change, current_block_number);
         assert_eq(delay_change.get_current(current_block_number), new);
     }
@@ -271,17 +306,17 @@ mod test {
         let new = 40;
         let current_block_number = block_of_change + 50;
 
-        let mut delay_change  = ScheduledDelayChange::new(pre, post, block_of_change);
+        let mut delay_change: ScheduledDelayChange<TEST_INITIAL_DELAY>  = ScheduledDelayChange::new(Option::some(pre), Option::some(post), block_of_change);
         delay_change.schedule_change(new, current_block_number);
 
         // Change is effective immediately because the new delay is longer than the current one.
-        assert_eq(delay_change.pre, post);
-        assert_eq(delay_change.post, new);
+        assert_eq(delay_change.pre.unwrap(), post);
+        assert_eq(delay_change.post.unwrap(), new);
         assert_eq(delay_change.block_of_change, current_block_number);
         assert_eq(delay_change.get_current(current_block_number), new);
     }
 
-    fn assert_effective_minimum_delay_invariants(delay_change: &mut ScheduledDelayChange, historical_block_number: u32, effective_minimum_delay: u32) {
+    fn assert_effective_minimum_delay_invariants<INITIAL_DELAY>(delay_change: &mut ScheduledDelayChange<INITIAL_DELAY>, historical_block_number: u32, effective_minimum_delay: u32) {
         // The effective minimum delays guarantees the earliest block in which a scheduled value change could be made
         // effective. No action, even if executed immediately after the historical block, should result in a scheduled
         // value change having a block of change lower than this.
@@ -316,7 +351,7 @@ mod test {
 
         let historical_block_number = 200;
 
-        let mut delay_change = ScheduledDelayChange::new(pre, post, block_of_change);
+        let mut delay_change: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::new(Option::some(pre), Option::some(post), block_of_change);
 
         // The scheduled delay change is far into the future (further than the current delay is), so it doesn't affect
         // the effective delay, which is simply the current one (pre).
@@ -334,7 +369,7 @@ mod test {
 
         let historical_block_number = 495;
 
-        let mut delay_change  = ScheduledDelayChange::new(pre, post, block_of_change);
+        let mut delay_change: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::new(Option::some(pre), Option::some(post), block_of_change);
 
         // The scheduled delay change will be effective soon (it's fewer blocks away than the current delay), but due to
         // it being larger than the current one it doesn't affect the effective delay, which is simply the current one
@@ -353,7 +388,7 @@ mod test {
 
         let historical_block_number = 495;
 
-        let mut delay_change  = ScheduledDelayChange::new(pre, post, block_of_change);
+        let mut delay_change: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::new(Option::some(pre), Option::some(post), block_of_change);
 
         // The scheduled delay change will be effective soon (it's fewer blocks away than the current delay), and it's
         // changing to a value smaller than the current one. This means that at the block of change the delay will be
@@ -376,7 +411,7 @@ mod test {
 
         let historical_block_number = block_of_change + 50;
 
-        let mut delay_change  = ScheduledDelayChange::new(pre, post, block_of_change);
+        let mut delay_change: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::new(Option::some(pre), Option::some(post), block_of_change);
 
         // No delay change is scheduled, so the effective delay is simply the current one (post).
         let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(historical_block_number);
