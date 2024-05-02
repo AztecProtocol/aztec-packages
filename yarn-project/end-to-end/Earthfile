@@ -40,7 +40,7 @@ UPLOAD_LOGS:
 # Define e2e tests
 e2e-tests:
   FROM ../+end-to-end
-  RUN yarn test ./src/e2e
+  RUN yarn test ./src/e2e & pid=$!; while [ -d /proc/$pid ]; do uptime && free -h; sleep 10; done; wait $pid
 
 flakey-e2e-tests:
   FROM ../+end-to-end

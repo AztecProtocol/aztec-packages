@@ -17,7 +17,7 @@ describe('e2e_public_cross_chain_messaging failures', () => {
     ({ crossChainTestHarness, user1Wallet, user2Wallet } = t);
     ethAccount = crossChainTestHarness.ethAccount;
     l2Bridge = crossChainTestHarness.l2Bridge;
-  }, 200_000);
+  });
 
   afterAll(async () => {
     await t.teardown();
@@ -36,7 +36,7 @@ describe('e2e_public_cross_chain_messaging failures', () => {
         .methods.exit_to_l1_public(ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
         .prove(),
     ).rejects.toThrow('Assertion failed: Message not authorized by account');
-  }, 60_000);
+  });
 
   it("can't claim funds privately which were intended for public deposit from the token portal", async () => {
     const bridgeAmount = 100n;
@@ -64,5 +64,5 @@ describe('e2e_public_cross_chain_messaging failures', () => {
     await expect(
       l2Bridge.withWallet(user2Wallet).methods.claim_private(secretHash, bridgeAmount, secret).prove(),
     ).rejects.toThrow(`No non-nullified L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
-  }, 60_000);
+  });
 });
