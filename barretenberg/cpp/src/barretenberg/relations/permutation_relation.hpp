@@ -25,14 +25,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
     {
         // If z_perm == z_perm_shift, this implies that none of the wire values for the present input are involved in
         // non-trivial copy constraints.
-        bool cond = (in.z_perm - in.z_perm_shift).is_zero();
-        BB_OP_COUNT_TIME_NAME("PERM-attempt-skip");
-        if (cond) {
-            BB_OP_COUNT_TIME_NAME("PERM-skip");
-        } else {
-            BB_OP_COUNT_TIME_NAME("PERM-no-skip");
-        }
-        return cond;
+        return (in.z_perm - in.z_perm_shift).is_zero();
     }
 
     inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }

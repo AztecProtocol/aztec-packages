@@ -158,8 +158,23 @@ template <typename Flavor> class RelationUtils {
                                                        const FF& partial_evaluation_result)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
-        Relation::accumulate(
-            std::get<relation_idx>(relation_evaluations), evaluations, relation_parameters, partial_evaluation_result);
+
+        // Check if the relation is skippable to speed up accumulation
+        if constexpr (!isSkippable<Relation, decltype(evaluations)> || !std::is_same_v<FF, bb::fr>) {
+            // If not, accumulate normally
+            Relation::accumulate(std::get<relation_idx>(relation_evaluations),
+                                 evaluations,
+                                 relation_parameters,
+                                 partial_evaluation_result);
+        } else {
+            // If so, only compute the contribution if the relation is active
+            if (!Relation::skip(evaluations)) {
+                Relation::accumulate(std::get<relation_idx>(relation_evaluations),
+                                     evaluations,
+                                     relation_parameters,
+                                     partial_evaluation_result);
+            }
+        }
 
         // Repeat for the next relation.
         if constexpr (relation_idx + 1 < NUM_RELATIONS) {
