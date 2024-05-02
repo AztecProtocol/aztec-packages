@@ -1,7 +1,4 @@
-use crate::{
-    abis::side_effect::OrderedValue, traits::{Empty, Serialize, Deserialize}, address::AztecAddress,
-    constants::READ_REQUEST_LENGTH
-};
+use crate::{traits::{Empty, Serialize, Deserialize}, address::AztecAddress, constants::READ_REQUEST_LENGTH};
 use dep::std::cmp::Eq;
 
 global READ_REQUEST_CONTEXT_SERIALIZED_LEN = 3;
@@ -9,15 +6,6 @@ global READ_REQUEST_CONTEXT_SERIALIZED_LEN = 3;
 struct ReadRequest {
     value: Field,
     counter: u32,
-}
-
-impl OrderedValue<Field> for ReadRequest {
-    fn value(self) -> Field {
-        self.value
-    }
-    fn counter(self) -> u32 {
-        self.counter
-    }
 }
 
 impl Eq for ReadRequest {
@@ -61,15 +49,6 @@ struct ReadRequestContext {
     value: Field,
     counter: u32,
     contract_address: AztecAddress,
-}
-
-impl OrderedValue<Field> for ReadRequestContext {
-    fn value(self) -> Field {
-        self.value
-    }
-    fn counter(self) -> u32 {
-        self.counter
-    }
 }
 
 impl Eq for ReadRequestContext {

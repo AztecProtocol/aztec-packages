@@ -47,7 +47,10 @@ mod tests {
     use crate::reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus, reset_read_requests};
     use dep::types::{
         address::AztecAddress,
-        abis::{nullifier::Nullifier, nullifier_leaf_preimage::NullifierLeafPreimage, read_request::ReadRequestContext},
+        abis::{
+        nullifier::NullifierContext, nullifier_leaf_preimage::NullifierLeafPreimage,
+        read_request::ReadRequestContext
+    },
         constants::NULLIFIER_TREE_HEIGHT, hash::silo_nullifier, merkle_tree::MembershipWitness,
         tests::merkle_tree_utils::NonEmptyMerkleTree
     };
@@ -68,8 +71,8 @@ mod tests {
     ];
 
     global pending_values = [
-        Nullifier { value: inner_nullifiers[2], counter: 2, note_hash: 0 },
-        Nullifier { value: inner_nullifiers[3], counter: 8, note_hash: 0 },
+        NullifierContext { value: inner_nullifiers[2], counter: 2, note_hash: 0, contract_address },
+        NullifierContext { value: inner_nullifiers[3], counter: 8, note_hash: 0, contract_address },
     ];
     global pending_read_hints = [
         PendingReadHint { read_request_index: 1, pending_value_index: 1 },

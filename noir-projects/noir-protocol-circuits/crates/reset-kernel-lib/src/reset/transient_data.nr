@@ -18,9 +18,14 @@ pub fn verify_squashed_transient_note_hashes_and_nullifiers<NUM_NOTE_HASHES, NUM
             note_hashes_kept += 1;
         } else {
             let nullifier = nullifiers[nullifier_index];
-            assert_eq(note_hash.value, nullifier.note_hash, "Hinted note hash does not match");
             assert_eq(
-                note_hash.nullifier_counter, nullifier.counter, "Hinted nullifier counter does not match"
+                note_hash.value, nullifier.note_hash, "Value of the hinted transient note hash does not match"
+            );
+            assert_eq(
+                note_hash.contract_address, nullifier.contract_address, "Contract address of the hinted transient note hash does not match"
+            );
+            assert_eq(
+                note_hash.nullifier_counter, nullifier.counter, "Nullifier counter of the hinted transient note hash does not match"
             );
 
             // The following check is not necessary as the nullifier_counter is assured to be greater than the counter of 
@@ -179,7 +184,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Hinted note hash does not match")]
+    #[test(should_fail_with="Value of the hinted transient note hash does not match")]
     fn mismatch_note_hash_value() {
         let mut builder = TestDataBuilder::default_all_clear();
 
@@ -188,7 +193,16 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Hinted nullifier counter does not match")]
+    #[test(should_fail_with="Contract address of the hinted transient note hash does not match")]
+    fn mismatch_contract_address() {
+        let mut builder = TestDataBuilder::default_all_clear();
+
+        builder.note_hashes[1].contract_address.inner += 1;
+
+        builder.verify();
+    }
+
+    #[test(should_fail_with="Nullifier counter of the hinted transient note hash does not match")]
     fn mismatch_nullifier_counter() {
         let mut builder = TestDataBuilder::default_all_clear();
 

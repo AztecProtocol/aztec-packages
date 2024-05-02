@@ -1,22 +1,24 @@
-import { Fr, NoteHashContext, Nullifier } from '@aztec/circuits.js';
+import { AztecAddress, Fr, NoteHashContext, NullifierContext } from '@aztec/circuits.js';
 
 import { buildTransientDataHints } from './build_transient_data_hints.js';
 
 describe('buildTransientDataHints', () => {
+  const contractAddress = AztecAddress.fromBigInt(987654n);
+
   let noteHashes: NoteHashContext[];
-  let nullifiers: Nullifier[];
+  let nullifiers: NullifierContext[];
 
   beforeEach(() => {
     noteHashes = [
-      new NoteHashContext(new Fr(11), 100, 700),
-      new NoteHashContext(new Fr(22), 200, 0),
-      new NoteHashContext(new Fr(33), 300, 500),
+      new NoteHashContext(new Fr(11), 100, 700, contractAddress),
+      new NoteHashContext(new Fr(22), 200, 0, contractAddress),
+      new NoteHashContext(new Fr(33), 300, 500, contractAddress),
     ];
     nullifiers = [
-      new Nullifier(new Fr(44), 400, new Fr(0)),
-      new Nullifier(new Fr(55), 500, new Fr(33)),
-      new Nullifier(new Fr(66), 600, new Fr(0)),
-      new Nullifier(new Fr(77), 700, new Fr(11)),
+      new NullifierContext(new Fr(44), 400, new Fr(0), contractAddress),
+      new NullifierContext(new Fr(55), 500, new Fr(33), contractAddress),
+      new NullifierContext(new Fr(66), 600, new Fr(0), contractAddress),
+      new NullifierContext(new Fr(77), 700, new Fr(11), contractAddress),
     ];
   });
 
@@ -34,5 +36,12 @@ describe('buildTransientDataHints', () => {
   it('throws if note hash does not match', () => {
     nullifiers[1].noteHash = new Fr(11);
     expect(() => buildTransientDataHints(noteHashes, nullifiers)).toThrow('Hinted note hash does not match.');
+  });
+
+  it('throws if contract address does not match', () => {
+    nullifiers[1].contractAddress = AztecAddress.fromBigInt(123456n);
+    expect(() => buildTransientDataHints(noteHashes, nullifiers)).toThrow(
+      'Contract address of hinted note hash does not match.',
+    );
   });
 });

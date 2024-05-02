@@ -1,7 +1,7 @@
 use crate::{
     abis::{side_effect::{Ordered, OrderedValue, Readable}, read_request::{ReadRequest, ReadRequestContext}},
     address::AztecAddress, constants::{NULLIFIER_CONTEXT_LENGTH, NULLIFIER_LENGTH},
-    traits::{Empty, Hash, Serialize, Deserialize}
+    hash::silo_nullifier, traits::{Empty, Hash, Serialize, Deserialize}
 };
 
 struct Nullifier {
@@ -56,8 +56,9 @@ impl Deserialize<NULLIFIER_LENGTH> for Nullifier {
 impl Readable for Nullifier {
     fn assert_match_read_request(self, read_request: ReadRequestContext) {
         // Public kernels output Nullifier instead of NullifierContext.
-        // The value has been siloed in AVM.
-        assert_eq(self.value, read_request.value, "Value of the nullifier does not match read request");
+        // The nullifier value has been siloed.
+        let siloed_request_value = silo_nullifier(read_request.contract_address, read_request.value);
+        assert_eq(self.value, siloed_request_value, "Value of the nullifier does not match read request");
         assert(
             read_request.counter > self.counter, "Read request counter must be greater than the counter of the nullifier"
         );

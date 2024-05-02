@@ -77,6 +77,7 @@ import {
   NoteHash,
   NoteHashContext,
   Nullifier,
+  NullifierContext,
   NullifierKeyValidationRequest,
   NullifierKeyValidationRequestContext,
   NullifierLeafPreimage,
@@ -161,11 +162,15 @@ function makeNoteHash(seed: number) {
 }
 
 function makeNoteHashContext(seed: number) {
-  return new NoteHashContext(fr(seed), seed + 1, seed + 2);
+  return new NoteHashContext(fr(seed), seed + 1, seed + 2, makeAztecAddress(seed + 3));
 }
 
 function makeNullifier(seed: number) {
   return new Nullifier(fr(seed), seed + 1, fr(seed + 2));
+}
+
+function makeNullifierContext(seed: number) {
+  return new NullifierContext(fr(seed), seed + 1, fr(seed + 2), makeAztecAddress(seed + 3));
 }
 
 /**
@@ -367,7 +372,7 @@ export function makePrivateAccumulatedData(seed = 1, full = false) {
 
   return new PrivateAccumulatedData(
     tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, makeNoteHashContext, seed + 0x120, NoteHashContext.empty),
-    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, makeNullifier, seed + 0x200, Nullifier.empty),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, makeNullifierContext, seed + 0x200, NullifierContext.empty),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
     tupleGenerator(MAX_ENCRYPTED_LOGS_PER_TX, makeNewSideEffect, seed + 0x700, SideEffect.empty), // encrypted logs hashes
     tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeNewSideEffect, seed + 0x800, SideEffect.empty), // unencrypted logs hashes

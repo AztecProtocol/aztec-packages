@@ -21,7 +21,7 @@ use crate::{
     MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
     VK_TREE_HEIGHT, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    header::Header, mocked::{AggregationObject, Proof, VerificationKey},
+    hash::silo_nullifier, header::Header, mocked::{AggregationObject, Proof, VerificationKey},
     partial_state_reference::PartialStateReference, tests::fixtures, transaction::tx_context::TxContext,
     traits::Empty
 };
@@ -277,12 +277,27 @@ impl FixtureBuilder {
         );
     }
 
+    pub fn add_siloed_nullifier(&mut self, value: Field) {
+        let siloed_value = silo_nullifier(self.storage_contract_address, value);
+        self.add_nullifier(siloed_value);
+    }
+
     pub fn append_new_nullifiers(&mut self, num_extra_nullifier: u64) {
         let index_offset = self.new_nullifiers.len();
         for i in 0..MAX_NEW_NULLIFIERS_PER_TX {
             if i < num_extra_nullifier {
                 let mocked_value = self.get_mocked_nullifier_value(index_offset + i);
                 self.add_nullifier(mocked_value);
+            }
+        }
+    }
+
+    pub fn append_siloed_nullifiers(&mut self, num_extra_nullifier: u64) {
+        let index_offset = self.new_nullifiers.len();
+        for i in 0..MAX_NEW_NULLIFIERS_PER_TX {
+            if i < num_extra_nullifier {
+                let mocked_value = self.get_mocked_nullifier_value(index_offset + i);
+                self.add_siloed_nullifier(mocked_value);
             }
         }
     }

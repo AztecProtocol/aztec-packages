@@ -17,9 +17,9 @@ import {
   type PublicDataUpdateRequest,
   type ReadRequestContext,
   buildNullifierNonExistentReadRequestHints,
-  buildNullifierReadRequestHints,
   buildPublicDataHints,
   buildPublicDataReadRequestHints,
+  buildSiloedNullifierReadRequestHints,
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type IndexedTreeId, type MerkleTreeOperations } from '@aztec/world-state';
@@ -31,7 +31,7 @@ export class HintsBuilder {
     nullifierReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     pendingNullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
   ) {
-    return buildNullifierReadRequestHints(this, nullifierReadRequests, pendingNullifiers);
+    return buildSiloedNullifierReadRequestHints(this, nullifierReadRequests, pendingNullifiers);
   }
 
   getNullifierNonExistentReadRequestHints(

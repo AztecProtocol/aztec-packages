@@ -209,19 +209,19 @@ mod tests {
         }
 
         pub fn add_nullifier(&mut self, unsiloed_nullifier: Field) {
-            self.previous_kernel.add_nullifier(unsiloed_nullifier);
+            self.previous_kernel.add_siloed_nullifier(unsiloed_nullifier);
             self.sync_counters();
             self.set_nullifiers_for_non_existent_read_request_hints();
         }
 
         pub fn append_nullifiers_revertible(&mut self, num_nullifiers: u64) {
-            self.previous_revertible.append_new_nullifiers(num_nullifiers);
+            self.previous_revertible.append_siloed_nullifiers(num_nullifiers);
             self.sync_counters();
             self.set_nullifiers_for_non_existent_read_request_hints();
         }
 
         pub fn append_nullifiers_non_revertible(&mut self, num_nullifiers: u64) {
-            self.previous_kernel.append_new_nullifiers(num_nullifiers);
+            self.previous_kernel.append_siloed_nullifiers(num_nullifiers);
             self.sync_counters();
             self.set_nullifiers_for_non_existent_read_request_hints();
         }

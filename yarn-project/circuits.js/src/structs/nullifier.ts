@@ -1,3 +1,4 @@
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -34,5 +35,49 @@ export class Nullifier implements Ordered {
 
   toString(): string {
     return `value=${this.value} counter=${this.counter} noteHash=${this.noteHash}`;
+  }
+}
+
+export class NullifierContext implements Ordered {
+  constructor(public value: Fr, public counter: number, public noteHash: Fr, public contractAddress: AztecAddress) {}
+
+  toFields(): Fr[] {
+    return [this.value, new Fr(this.counter), this.noteHash, this.contractAddress.toField()];
+  }
+
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return new NullifierContext(
+      reader.readField(),
+      reader.readU32(),
+      reader.readField(),
+      AztecAddress.fromField(reader.readField()),
+    );
+  }
+
+  isEmpty() {
+    return this.value.isZero() && !this.counter && this.noteHash.isZero() && this.contractAddress.isZero();
+  }
+
+  static empty() {
+    return new NullifierContext(Fr.zero(), 0, Fr.zero(), AztecAddress.ZERO);
+  }
+
+  toBuffer(): Buffer {
+    return serializeToBuffer(this.value, this.counter, this.noteHash, this.contractAddress);
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new NullifierContext(
+      Fr.fromBuffer(reader),
+      reader.readNumber(),
+      Fr.fromBuffer(reader),
+      AztecAddress.fromBuffer(reader),
+    );
+  }
+
+  toString(): string {
+    return `value=${this.value} counter=${this.counter} noteHash=${this.noteHash} contractAddress=${this.contractAddress}`;
   }
 }

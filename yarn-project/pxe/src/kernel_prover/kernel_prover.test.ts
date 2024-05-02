@@ -35,6 +35,8 @@ describe('Kernel Prover', () => {
   let prover: KernelProver;
   let dependencies: { [name: string]: string[] } = {};
 
+  const contractAddress = AztecAddress.fromBigInt(987654n);
+
   const notesAndSlots: NoteAndSlot[] = Array(10)
     .fill(null)
     .map(() => ({
@@ -80,7 +82,12 @@ describe('Kernel Prover', () => {
     const publicInputs = PrivateKernelCircuitPublicInputs.empty();
     const noteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, NoteHashContext.empty);
     for (let i = 0; i < newNoteIndices.length; i++) {
-      noteHashes[i] = new NoteHashContext(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), 0, 0);
+      noteHashes[i] = new NoteHashContext(
+        generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]),
+        0,
+        0,
+        contractAddress,
+      );
     }
 
     publicInputs.end.newNoteHashes = noteHashes;

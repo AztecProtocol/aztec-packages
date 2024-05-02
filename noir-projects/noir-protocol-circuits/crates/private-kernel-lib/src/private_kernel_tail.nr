@@ -528,7 +528,7 @@ mod tests {
         assert_eq(public_inputs.end.gas_used, expected_gas);
     }
 
-    #[test(should_fail_with="Hinted note hash does not match")]
+    #[test(should_fail_with="Value of the hinted transient note hash does not match")]
     unconstrained fn wrong_transient_nullifier_index_for_note_hash_fails() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.append_new_note_hashes(1);

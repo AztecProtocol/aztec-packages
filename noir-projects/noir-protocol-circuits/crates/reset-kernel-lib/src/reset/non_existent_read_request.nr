@@ -91,7 +91,7 @@ mod tests {
     use dep::types::{
         address::AztecAddress, abis::{read_request::ReadRequestContext, side_effect::SideEffect},
         merkle_tree::{leaf_preimage::IndexedTreeLeafPreimage, membership::MembershipWitness},
-        hash::silo_nullifier, tests::merkle_tree_utils::NonEmptyMerkleTree
+        tests::merkle_tree_utils::NonEmptyMerkleTree
     };
 
     struct TestLeafPreimage {

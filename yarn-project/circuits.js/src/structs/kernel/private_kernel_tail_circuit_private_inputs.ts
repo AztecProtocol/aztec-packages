@@ -11,7 +11,7 @@ import {
 import { type GrumpkinPrivateKey } from '../../types/grumpkin_private_key.js';
 import { countAccumulatedItems } from '../../utils/index.js';
 import { NoteHashContext } from '../note_hash.js';
-import { Nullifier } from '../nullifier.js';
+import { NullifierContext } from '../nullifier.js';
 import {
   type NoteHashReadRequestHints,
   type NullifierReadRequestHints,
@@ -24,7 +24,7 @@ import { PrivateKernelData } from './private_kernel_data.js';
 export class PrivateKernelTailOutputs {
   constructor(
     public noteHashes: Tuple<NoteHashContext, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
-    public nullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public nullifiers: Tuple<NullifierContext, typeof MAX_NEW_NULLIFIERS_PER_TX>,
   ) {}
 
   toBuffer() {
@@ -35,7 +35,7 @@ export class PrivateKernelTailOutputs {
     const reader = BufferReader.asReader(buffer);
     return new PrivateKernelTailOutputs(
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, NoteHashContext),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Nullifier),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, NullifierContext),
     );
   }
 }
@@ -74,7 +74,7 @@ export class PrivateKernelTailHints {
     /**
      * The sorted new nullifiers. Maps original to sorted.
      */
-    public sortedNewNullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public sortedNewNullifiers: Tuple<NullifierContext, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
      * The sorted new nullifiers indexes.
      */
@@ -130,7 +130,7 @@ export class PrivateKernelTailHints {
       reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar),
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, NoteHashContext),
       reader.readNumbers(MAX_NEW_NOTE_HASHES_PER_TX),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Nullifier),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, NullifierContext),
       reader.readNumbers(MAX_NEW_NULLIFIERS_PER_TX),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, SideEffect),
       reader.readNumbers(MAX_ENCRYPTED_LOGS_PER_TX),

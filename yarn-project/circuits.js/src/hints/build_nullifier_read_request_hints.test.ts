@@ -4,9 +4,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 import { MAX_NEW_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX } from '../constants.gen.js';
-import { siloNullifier } from '../hash/index.js';
 import {
-  Nullifier,
+  NullifierContext,
   type NullifierReadRequestHints,
   NullifierReadRequestHintsBuilder,
   PendingReadHint,
@@ -24,7 +23,7 @@ describe('buildNullifierReadRequestHints', () => {
     getNullifierMembershipWitness: () => ({ membershipWitness: {}, leafPreimage: {} } as any),
   };
   let nullifierReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>;
-  let nullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>;
+  let nullifiers: Tuple<NullifierContext, typeof MAX_NEW_NULLIFIERS_PER_TX>;
   let expectedHints: NullifierReadRequestHints;
   let numReadRequests = 0;
   let numPendingReads = 0;
@@ -35,10 +34,8 @@ describe('buildNullifierReadRequestHints', () => {
   const makeReadRequest = (value: number, counter = 2) =>
     new ReadRequestContext(new Fr(value), counter, contractAddress);
 
-  function makeNullifier(value: number, counter = 1) {
-    const siloedValue = siloNullifier(contractAddress, new Fr(value));
-    return new Nullifier(siloedValue, counter, Fr.ZERO);
-  }
+  const makeNullifier = (value: number, counter = 1) =>
+    new NullifierContext(new Fr(value), counter, Fr.ZERO, contractAddress);
 
   const readPendingNullifier = ({
     nullifierIndex,

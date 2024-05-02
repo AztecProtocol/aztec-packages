@@ -38,10 +38,7 @@ describe('buildNoteHashReadRequestHints', () => {
   const makeReadRequest = (value: number, counter = 2) =>
     new ReadRequestContext(new Fr(value), counter, contractAddress);
 
-  function makeNoteHash(value: number, counter = 1) {
-    const siloedValue = siloNoteHash(contractAddress, new Fr(value));
-    return new NoteHashContext(siloedValue, counter, 0);
-  }
+  const makeNoteHash = (value: number, counter = 1) => new NoteHashContext(new Fr(value), counter, 0, contractAddress);
 
   const readPendingNoteHash = ({
     noteHashIndex,
