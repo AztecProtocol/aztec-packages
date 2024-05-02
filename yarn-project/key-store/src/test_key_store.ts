@@ -66,7 +66,7 @@ export class TestKeyStore implements KeyStore {
     await this.#keys.set(`${accountAddress.toString()}-ovsk_m`, masterOutgoingViewingSecretKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-tsk_m`, masterTaggingSecretKey.toBuffer());
 
-    await this.#keys.set(`${accountAddress.toString()}-npk_m`, masterNullifierPublicKey.toBuffer());
+    await this.#keys.set(`${accountAddress.toString()}-npk_m-account`, masterNullifierPublicKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-ivpk_m`, masterIncomingViewingPublicKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-ovpk_m`, masterOutgoingViewingPublicKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-tpk_m`, masterTaggingPublicKey.toBuffer());
@@ -74,8 +74,8 @@ export class TestKeyStore implements KeyStore {
     const masterNullifierPublicKeyHash = poseidon2Hash(masterNullifierPublicKey.toFields());
 
     // We save nullifier keys and account address to db under the master nullifier key hash
-    await this.#keys.set(`${masterNullifierPublicKeyHash.toString()}-nsk_m-mnpk`, masterNullifierSecretKey.toBuffer());
-    await this.#keys.set(`${masterNullifierPublicKeyHash.toString()}-npk_m`, masterNullifierPublicKey.toBuffer());
+    await this.#keys.set(`${masterNullifierPublicKeyHash.toString()}-nsk_m-mnpkh`, masterNullifierSecretKey.toBuffer());
+    await this.#keys.set(`${masterNullifierPublicKeyHash.toString()}-npk_m-mnpkh`, masterNullifierPublicKey.toBuffer());
     await this.#keys.set(`${masterNullifierPublicKeyHash.toString()}-accountAddress`, accountAddress.toBuffer());
 
     // At last, we return the newly derived account address
@@ -100,7 +100,7 @@ export class TestKeyStore implements KeyStore {
    * @returns The master nullifier public key for the account.
    */
   public async getMasterNullifierPublicKey(account: AztecAddress): Promise<PublicKey> {
-    const masterNullifierPublicKeyBuffer = this.#keys.get(`${account.toString()}-npk_m`);
+    const masterNullifierPublicKeyBuffer = this.#keys.get(`${account.toString()}-npk_m-account`);
     if (!masterNullifierPublicKeyBuffer) {
       throw new Error(
         `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
@@ -116,7 +116,7 @@ export class TestKeyStore implements KeyStore {
    * @returns The master nullifier public key for the account.
    */
   getMasterNullifierPublicKeyWithMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr): Promise<PublicKey> {
-    const masterNullifierPublicKeyBuffer = this.#keys.get(`${masterNullifierPublicKeyHash.toString()}-npk_m`);
+    const masterNullifierPublicKeyBuffer = this.#keys.get(`${masterNullifierPublicKeyHash.toString()}-npk_m-mnpkh`);
     if (!masterNullifierPublicKeyBuffer) {
       throw new Error(`Master nullifier public keys hash ${masterNullifierPublicKeyHash.toString()} does not exist.`);
     }
@@ -201,7 +201,7 @@ export class TestKeyStore implements KeyStore {
     masterNullifierPublicKeyHash: Fr,
     app: AztecAddress,
   ): Promise<Fr> {
-    const masterNullifierSecretKeyBuffer = this.#keys.get(`${masterNullifierPublicKeyHash.toString()}-nsk_m-mnpk`);
+    const masterNullifierSecretKeyBuffer = this.#keys.get(`${masterNullifierPublicKeyHash.toString()}-nsk_m-mnpkh`);
     if (!masterNullifierSecretKeyBuffer) {
       throw new Error(`Master nullifier public keys hash ${masterNullifierPublicKeyHash.toString()} does not exist.`);
     }
@@ -273,7 +273,7 @@ export class TestKeyStore implements KeyStore {
   public getMasterNullifierSecretKeyForPublicKey(masterNullifierPublicKey: PublicKey): Promise<GrumpkinPrivateKey> {
     // We iterate over the map keys to find the account address that corresponds to the provided public key
     for (const [key, value] of this.#keys.entries()) {
-      if (value.equals(masterNullifierPublicKey.toBuffer())) {
+      if (value.equals(masterNullifierPublicKey.toBuffer()) && key.endsWith('account')) {
         // We extract the account address from the map key
         const accountAddress = key.split('-')[0];
         // We fetch the secret key and return it
@@ -358,7 +358,7 @@ export class TestKeyStore implements KeyStore {
     masterOutgoingViewingPublicKey: Point,
     masterTaggingPublicKey: Point,
   ): Promise<void> {
-    await this.#keys.set(`${accountAddress.toString()}-npk_m`, masterNullifierPublicKey.toBuffer());
+    await this.#keys.set(`${accountAddress.toString()}-npk_m-account`, masterNullifierPublicKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-ivpk_m`, masterIncomingViewingPublicKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-ovpk_m`, masterOutgoingViewingPublicKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-tpk_m`, masterTaggingPublicKey.toBuffer());
