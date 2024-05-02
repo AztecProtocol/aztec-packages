@@ -10,7 +10,8 @@ wasi-sdk:
 	docker manifest push aztecprotocol/wasi-sdk:22.0
 
 foundry:
-	docker build -t aztecprotocol/foundry:$(ARCH)-$(FOUNDRY_TAG) --build-arg TAG=$(FOUNDRY_TAG) --target foundry --push .
+	docker build -t aztecprotocol/foundry --build-arg TAG=$(FOUNDRY_TAG) --target foundry --push .
+	docker tag aztecprotocol/foundry aztecprotocol/foundry:$(FOUNDRY_TAG)
 	docker manifest create aztecprotocol/foundry:$(FOUNDRY_TAG) \
 		--amend aztecprotocol/foundry:x86_64-$(FOUNDRY_TAG) \
 		--amend aztecprotocol/foundry:arm64-$(FOUNDRY_TAG)
