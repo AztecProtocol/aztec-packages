@@ -209,8 +209,15 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
             // info("group_zero: ", group_zero);
             info("fq_ct::NUM_LAST_LIMB_BITS: ", fq_ct::NUM_LAST_LIMB_BITS);
             info("bb::stdlib::field_conversion::TOTAL_BITS: ", bb::stdlib::field_conversion::TOTAL_BITS);
+            fq x0("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
+            fq x1("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
+            std::array<fq, 2> xs = { x0, x1 };
+
+            fq y0("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
+            fq y1("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
+            std::array<fq, 2> ys = { y0, y1 };
             for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE / 8; ++i) {
-                const auto group_element = bb::g1::affine_point_at_infinity;
+                const auto group_element = g1::element(xs[i], ys[i], 1);
                 info("is group_element infinity: ", group_element.is_point_at_infinity());
 
                 // const auto x = bb::field_conversion::convert_to_bn254_frs(const T &val);

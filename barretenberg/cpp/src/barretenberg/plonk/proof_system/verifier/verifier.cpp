@@ -184,7 +184,7 @@ template <typename program_settings> bool VerifierBase<program_settings>::verify
 
     P[0] = bb::scalar_multiplication::pippenger<curve::BN254>(&scalars[0], &elements[0], num_elements, state);
     P[1] = -(g1::element(PI_Z_OMEGA) * separator_challenge + PI_Z);
-
+    info("contains recursive proof: ", key->contains_recursive_proof);
     if (key->contains_recursive_proof) {
         ASSERT(key->recursive_proof_public_input_indices.size() == 16);
         const auto& inputs = transcript.get_field_element_vector("public_inputs");

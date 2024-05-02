@@ -377,25 +377,15 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
                                                       key->recursive_proof_public_input_indices[13],
                                                       key->recursive_proof_public_input_indices[14],
                                                       key->recursive_proof_public_input_indices[15]);
-
+        info(x0, y0, x1, y1);
         auto g1_0 = g1_ct(x0, y0);
         info("is g1_0 infinity: ", g1_0.get_value().is_point_at_infinity());
         info("g1_0: ", g1_0.get_value());
-        uint256_t inf_check = uint256_t("0x198081f92aa7d12390d80414519d2544f5c5f489fbcf084fb20f07c72b1f0420");
-        if (x0.get_value() == inf_check) {
-            g1_0 = g1_ct(Curve::AffineElementNative::infinity());
-        }
-        info("is g1_0 infinity: ", g1_0.get_value().is_point_at_infinity());
 
         opening_elements.push_back(g1_0);
         opening_scalars.push_back(recursion_separator_challenge);
 
-        auto g1_1 = -g1_ct(x1, y1);
-        info("is g1_1 infinity: ", g1_1.get_value().is_point_at_infinity());
-        info("g1_1: ", g1_0.get_value());
-        if (x1.get_value() == inf_check) {
-            g1_1 = g1_ct(Curve::AffineElementNative::infinity());
-        }
+        auto g1_1 = g1_ct(x1, y1);
         rhs_elements.push_back((g1_1));
         rhs_scalars.push_back(recursion_separator_challenge);
     }
