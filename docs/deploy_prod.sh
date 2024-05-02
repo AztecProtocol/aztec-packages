@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
-set -exu
+set -eu
 
 yarn netlify deploy --site aztec-docs-dev --prod
