@@ -38,9 +38,13 @@ UPLOAD_LOGS:
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY /usr/src/scripts/logs/upload_logs_to_s3.sh /usr/var/log
 
 # Define e2e tests
-e2e-tests:
+e2e-tests-a-l:
   FROM ../+end-to-end
-  RUN yarn test ./src/e2e & pid=$!; while [ -d /proc/$pid ]; do uptime && free -h; sleep 10; done; wait $pid
+  RUN yarn test ./src/e2e_[a-l]
+
+e2e-tests-m-z:
+  FROM ../+end-to-end
+  RUN yarn test ./src/e2e_[m-z]
 
 flakey-e2e-tests:
   FROM ../+end-to-end
