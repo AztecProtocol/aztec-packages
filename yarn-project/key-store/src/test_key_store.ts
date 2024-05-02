@@ -61,7 +61,7 @@ export class TestKeyStore implements KeyStore {
     // We save the keys to db associated with the account address
     await this.#keys.set(`${accountAddress.toString()}-public_keys_hash`, publicKeysHash.toBuffer());
 
-    await this.#keys.set(`${accountAddress.toString()}-nsk_m`, masterNullifierSecretKey.toBuffer());
+    await this.#keys.set(`${accountAddress.toString()}-nsk_m-account`, masterNullifierSecretKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-ivsk_m`, masterIncomingViewingSecretKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-ovsk_m`, masterOutgoingViewingSecretKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-tsk_m`, masterTaggingSecretKey.toBuffer());
@@ -74,7 +74,7 @@ export class TestKeyStore implements KeyStore {
     const masterNullifierPublicKeyHash = poseidon2Hash(masterNullifierPublicKey.toFields());
 
     // We save nullifier keys and account address to db under the master nullifier key hash
-    await this.#keys.set(`${masterNullifierPublicKeyHash.toString()}-nsk_m`, masterNullifierSecretKey.toBuffer());
+    await this.#keys.set(`${masterNullifierPublicKeyHash.toString()}-nsk_m-mnpk`, masterNullifierSecretKey.toBuffer());
     await this.#keys.set(`${masterNullifierPublicKeyHash.toString()}-npk_m`, masterNullifierPublicKey.toBuffer());
     await this.#keys.set(`${masterNullifierPublicKeyHash.toString()}-accountAddress`, accountAddress.toBuffer());
 
@@ -88,8 +88,8 @@ export class TestKeyStore implements KeyStore {
    */
   public getAccounts(): Promise<AztecAddress[]> {
     const allMapKeys = Array.from(this.#keys.keys());
-    // We return account addresses based on the map keys that end with '-nsk_m'
-    const accounts = allMapKeys.filter(key => key.endsWith('-nsk_m')).map(key => key.split('-')[0]);
+    // We return account addresses based on the map keys that end with '-nsk_m-account'
+    const accounts = allMapKeys.filter(key => key.endsWith('-nsk_m-account')).map(key => key.split('-')[0]);
     return Promise.resolve(accounts.map(account => AztecAddress.fromString(account)));
   }
 
@@ -181,7 +181,7 @@ export class TestKeyStore implements KeyStore {
    * @returns A Promise that resolves to the application nullifier secret key.
    */
   public async getAppNullifierSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr> {
-    const masterNullifierSecretKeyBuffer = this.#keys.get(`${account.toString()}-nsk_m`);
+    const masterNullifierSecretKeyBuffer = this.#keys.get(`${account.toString()}-nsk_m-account`);
     if (!masterNullifierSecretKeyBuffer) {
       throw new Error(
         `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
@@ -200,7 +200,7 @@ export class TestKeyStore implements KeyStore {
  * @returns A Promise that resolves to the application nullifier secret key.
  */
   getAppNullifierSecretKeyWithMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr, app: AztecAddress): Promise<Fr> {
-    const masterNullifierSecretKeyBuffer = this.#keys.get(`${masterNullifierPublicKeyHash.toString()}-nsk_m`);
+    const masterNullifierSecretKeyBuffer = this.#keys.get(`${masterNullifierPublicKeyHash.toString()}-nsk_m-mnpk`);
     if (!masterNullifierSecretKeyBuffer) {
       throw new Error(
         `Master nullifier public keys hash ${masterNullifierPublicKeyHash.toString()} does not exist.`,
@@ -278,7 +278,7 @@ export class TestKeyStore implements KeyStore {
         // We extract the account address from the map key
         const accountAddress = key.split('-')[0];
         // We fetch the secret key and return it
-        const masterNullifierSecretKeyBuffer = this.#keys.get(`${accountAddress.toString()}-nsk_m`);
+        const masterNullifierSecretKeyBuffer = this.#keys.get(`${accountAddress.toString()}-nsk_m-account`);
         if (!masterNullifierSecretKeyBuffer) {
           throw new Error(`Could not find master nullifier secret key for account ${accountAddress.toString()}`);
         }
