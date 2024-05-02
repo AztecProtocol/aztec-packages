@@ -163,25 +163,6 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
     next_accumulator->verification_key->pcs_verification_key = accumulator->verification_key->pcs_verification_key;
     next_accumulator->verification_key->pub_inputs_offset = accumulator->verification_key->pub_inputs_offset;
     next_accumulator->public_inputs = accumulator->public_inputs;
-    size_t vk_idx = 0;
-    for (auto& expected_vk : next_accumulator->verification_key->get_all()) {
-        size_t inst = 0;
-        std::vector<FF> scalars;
-        std::vector<Commitment> commitments;
-        for (auto& instance : instances) {
-            scalars.emplace_back(lagranges[inst]);
-            // info("lagranges ", lagranges[inst]);
-            commitments.emplace_back(instance->verification_key->get_all()[vk_idx]);
-            info("vk ",
-                 instance->commitment_labels.get_precomputed()[vk_idx],
-                 instance->verification_key->get_all()[vk_idx]);
-            inst++;
-        }
-        // info("batch mul length vk ", commitments.size());
-        expected_vk = Commitment::batch_mul(commitments, scalars);
-        vk_idx++;
-    }
-    info("past vk folding");
 
     next_accumulator->is_accumulator = true;
 
@@ -192,26 +173,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
     // Compute ϕ and verify against the data received from the prover
-    auto& acc_witness_commitments = next_accumulator->witness_commitments;
-    size_t comm_idx = 0;
-    for (auto& comm : acc_witness_commitments.get_all()) {
-        std::vector<FF> scalars;
-        std::vector<Commitment> commitments;
-        size_t inst = 0;
-        for (auto& instance : instances) {
-            scalars.emplace_back(lagranges[inst]);
-            // info("lagrange ", lagranges[inst]);
-            commitments.emplace_back(instance->witness_commitments.get_all()[comm_idx]);
-            info("comm ",
-                 instance->commitment_labels.get_witness()[comm_idx],
-                 instance->witness_commitments.get_all()[comm_idx]);
-            inst++;
-        }
-        // info("batch mul length witness comm ", commitments.size());
-        comm = Commitment::batch_mul(commitments, scalars);
-        comm_idx++;
-    }
-    // info("past commitments folding");
+    fold_commitments(lagranges, instances, accumulator);
 
     next_accumulator->public_inputs = std::vector<FF>(next_accumulator->verification_key->num_public_inputs, 0);
     size_t public_input_idx = 0;

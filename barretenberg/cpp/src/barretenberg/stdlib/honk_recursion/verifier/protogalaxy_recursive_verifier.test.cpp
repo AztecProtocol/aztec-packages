@@ -97,13 +97,6 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         byte_array_ct to_hash(&builder, "nonsense test data");
         blake3s(to_hash);
 
-        std::string in;
-        in.resize(32);
-        packed_byte_array<InnerBuilder> input(&builder, in);
-        for (size_t i = 0; i < 1; i++) {
-            input = sha256<InnerBuilder>(input);
-        }
-
         fr bigfield_data = fr::random_element();
         fr bigfield_data_a{ bigfield_data.data[0], bigfield_data.data[1], 0, 0 };
         fr bigfield_data_b{ bigfield_data.data[2], bigfield_data.data[3], 0, 0 };
@@ -112,40 +105,6 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         fq_ct big_b(fr_ct(witness_ct(&builder, bigfield_data_b.to_montgomery_form())), fr_ct(witness_ct(&builder, 0)));
 
         big_a* big_b;
-
-        if constexpr (IsGoblinBuilder<InnerBuilder>) {
-            // Add some values to calldata
-            std::vector<fr> calldata_values = { fr::random_element(),
-                                                fr::random_element(),
-                                                fr::random_element(),
-                                                fr::random_element(),
-                                                fr::random_element() };
-            for (auto& val : calldata_values) {
-                builder.add_public_calldata(builder.add_variable(val));
-            }
-
-            // Define some raw indices at which to read calldata
-            std::vector<uint32_t> read_indices = { 1, 4 };
-
-            // Create some calldata read gates and store the variable indices of the result for later
-            std::vector<uint32_t> result_witness_indices;
-            for (uint32_t& read_idx : read_indices) {
-                // Create a variable corresponding to the index at which we want to read into calldata
-                uint32_t read_idx_witness_idx = builder.add_variable(read_idx);
-
-                auto value_witness_idx = builder.read_calldata(read_idx_witness_idx);
-                result_witness_indices.emplace_back(value_witness_idx);
-            }
-
-            // Generally, we'll want to use the result of a read in some other operation. As an example, we construct a
-            // gate that shows the sum of the two values just read is equal to the expected sum.
-            FF expected_sum = 0;
-            for (uint32_t& read_idx : read_indices) {
-                expected_sum += calldata_values[read_idx];
-            }
-            builder.create_add_gate(
-                { result_witness_indices[0], result_witness_indices[1], builder.zero_idx, 1, 1, 0, -expected_sum });
-        }
     };
 
     static std::tuple<std::shared_ptr<InnerProverInstance>, std::shared_ptr<InnerVerifierInstance>>
@@ -299,17 +258,15 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto folding_proof = folding_prover.fold_instances();
 
         // Create a recursive folding verifier circuit for the folding proof of the two instances
-        // OuterBuilder folding_circuit;
-        // auto verifier =
-        //     FoldingRecursiveVerifier(&folding_circuit, verifier_instance_1, { verifier_instance_2->verification_key
-        //     });
-        // auto recursive_verifier_accumulator = verifier.verify_folding_proof(folding_proof.folding_data);
-        // auto native_verifier_acc =
-        // std::make_shared<InnerVerifierInstance>(recursive_verifier_accumulator->get_value()); info("Folding Recursive
-        // Verifier: num gates = ", folding_circuit.num_gates);
+        OuterBuilder folding_circuit;
+        auto verifier =
+            FoldingRecursiveVerifier(&folding_circuit, verifier_instance_1, { verifier_instance_2->verification_key });
+        auto recursive_verifier_accumulator = verifier.verify_folding_proof(folding_proof.folding_data);
+        auto native_verifier_acc = std::make_shared<InnerVerifierInstance>(recursive_verifier_accumulator->get_value());
+        info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
 
-        // // Check for a failure flag in the recursive verifier circuit
-        // EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
+        // Check for a failure flag in the recursive verifier circuit
+        EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
 
         // Perform native folding verification and ensure it returns the same result (either true or false) as
         // calling check_circuit on the recursive folding verifier
@@ -318,13 +275,13 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
 
         // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
         // manifestsproduced by each agree.
-        // auto recursive_folding_manifest = verifier.transcript->get_manifest();
-        // auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
+        auto recursive_folding_manifest = verifier.transcript->get_manifest();
+        auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
 
-        // for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
-        //     EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i])
-        //         << "Recursive Verifier/Verifier manifest discrepency in round " << i;
-        // }
+        for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
+            EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i])
+                << "Recursive Verifier/Verifier manifest discrepency in round " << i;
+        }
 
         InnerDeciderProver decider_prover(folding_proof.accumulator);
         auto decider_proof = decider_prover.construct_proof();
@@ -413,9 +370,9 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
 using FlavorTypes = testing::Types<GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>,
                                    GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>,
                                    UltraRecursiveFlavor_<UltraCircuitBuilder>,
-                                   UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
-//    UltraRecursiveFlavor_<CircuitSimulatorBN254>,
-//    GoblinUltraRecursiveFlavor_<CircuitSimulatorBN254>>;
+                                   UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>,
+                                   UltraRecursiveFlavor_<CircuitSimulatorBN254>,
+                                   GoblinUltraRecursiveFlavor_<CircuitSimulatorBN254>>;
 TYPED_TEST_SUITE(ProtoGalaxyRecursiveTests, FlavorTypes);
 
 TYPED_TEST(ProtoGalaxyRecursiveTests, InnerCircuit)

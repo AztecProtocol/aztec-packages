@@ -120,6 +120,66 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
         }
         return result;
     };
+
+    void fold_commitments(std::vector<FF> lagranges,
+                          VerifierInstances& instances,
+                          std::shared_ptr<Instance>& accumulator)
+        requires IsUltraBuilder<Builder>
+    {
+        using ElementNative = typename Flavor::Curve::ElementNative;
+        using AffineElementNative = typename Flavor::Curve::AffineElementNative;
+
+        auto offset_generator = Commitment::from_witness(builder, AffineElementNative(ElementNative::random_element()));
+
+        size_t vk_idx = 0;
+        for (auto& expected_vk : accumulator->verification_key->get_all()) {
+            expected_vk = offset_generator;
+            size_t inst = 0;
+            for (auto& instance : instances) {
+                expected_vk += instance->verification_key->get_all()[vk_idx] * lagranges[inst];
+                inst++;
+            }
+            expected_vk -= offset_generator;
+            vk_idx++;
+        }
+
+        size_t comm_idx = 0;
+        for (auto& comm : accumulator->witness_commitments.get_all()) {
+            comm = offset_generator;
+            size_t inst = 0;
+            for (auto& instance : instances) {
+                comm += instance->witness_commitments.get_all()[comm_idx] * lagranges[inst];
+            }
+            comm -= offset_generator;
+            comm_idx++;
+        }
+    }
+
+    void fold_commitments(std::vector<FF> lagranges,
+                          VerifierInstances& instances,
+                          std::shared_ptr<Instance>& accumulator)
+        requires(!IsUltraBuilder<Builder>)
+    {
+        size_t vk_idx = 0;
+        for (auto& expected_vk : accumulator->verification_key->get_all()) {
+            std::vector<Commitment> commitments;
+            for (auto& instance : instances) {
+                commitments.emplace_back(instance->verification_key->get_all()[vk_idx]);
+            }
+            expected_vk = Commitment::batch_mul(commitments, lagranges);
+            vk_idx++;
+        }
+
+        size_t comm_idx = 0;
+        for (auto& comm : accumulator->witness_commitments.get_all()) {
+            std::vector<Commitment> commitments;
+            for (auto& instance : instances) {
+                commitments.emplace_back(instance->witness_commitments.get_all()[comm_idx]);
+            }
+            comm = Commitment::batch_mul(commitments, lagranges);
+            comm_idx++;
+        }
+    }
 };
 
 } // namespace bb::stdlib::recursion::honk
