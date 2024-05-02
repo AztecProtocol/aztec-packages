@@ -153,6 +153,7 @@ barretenberg-acir-tests-bb.js:
   RUN cd headless-test && yarn && npx playwright install && npx playwright install-deps
   RUN cd ../ts && yarn
   ENV VERBOSE=1
+  ENV TEST_SRC /usr/src/acir_artifacts
 
   # Run double_verify_proof through bb.js on node to check 512k support.
   RUN BIN=../ts/dest/node/main.js FLOW=prove_then_verify ./run_acir_tests.sh double_verify_proof
