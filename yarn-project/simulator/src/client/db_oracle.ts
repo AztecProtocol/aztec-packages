@@ -90,7 +90,7 @@ export interface DBOracle extends CommitmentsDB {
   getNullifierKeys(accountAddress: AztecAddress, contractAddress: AztecAddress): Promise<NullifierKeys>;
 
   /**
-   * Retrieve nullifier keys associated with a specific account and app/contract address.
+   * Retrieve nullifier keys associated with a specific master nullifier public key hash and app/contract address.
    *
    * @param masterNullifierPublicKeyHash - The master nullifer public key hash.
    * @param contractAddress - The contract address.
