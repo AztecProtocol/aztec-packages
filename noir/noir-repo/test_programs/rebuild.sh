@@ -58,5 +58,7 @@ done
 
 # Exit with a failure status if any job failed.
 if [ ! -z "$exit_status" ]; then
+    echo "Rebuild failed!"
     exit $exit_status
 fi
+echo "Rebuild Succeeded!"
