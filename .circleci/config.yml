@@ -193,18 +193,6 @@ jobs:
           command: build bb.js
           aztec_manifest_key: bb.js
 
-  bb-js-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: cond_spot_run_test bb.js 32 ./scripts/run_tests
-          aztec_manifest_key: bb.js
-
   # Noir
   noir-x86_64:
     docker:
@@ -553,10 +541,6 @@ workflows:
       - bb-js:
           requires:
             - barretenberg-wasm-linux-clang
-          <<: *defaults
-      - bb-js-tests:
-          requires:
-            - bb-js
           <<: *defaults
 
       - l1-contracts: *defaults
