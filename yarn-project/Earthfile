@@ -122,12 +122,16 @@ all:
 export-aztec:
     ARG EARTHLY_GIT_HASH
     FROM +aztec
-    SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH
+    WAIT
+        SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH
+    END
 
 export-end-to-end:
     ARG EARTHLY_GIT_HASH
     FROM +end-to-end
-    SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
+    WAIT
+        SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
+    END
 
 format-check:
     FROM +build

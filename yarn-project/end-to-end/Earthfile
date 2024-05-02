@@ -1,6 +1,8 @@
 VERSION 0.8
 
 E2E_COMPOSE_TEST:
+  BUILD ../+export-aztec
+  BUILD ../+export-end-to-end
   FUNCTION
   ARG test
   ARG compose_file=./scripts/docker-compose.yml
@@ -15,11 +17,7 @@ E2E_COMPOSE_TEST:
   ELSE
     LET CMD="docker-compose"
   END
-  WITH DOCKER \
-    --load aztecprotocol/aztec:latest=../+aztec \
-    --load aztecprotocol/end-to-end:latest=../+end-to-end \
-    RUN $CMD -p $project_name -f $compose_file up --exit-code-from=end-to-end --force-recreate
-  END
+  RUN $CMD -p $project_name -f $compose_file up --exit-code-from=end-to-end --force-recreate
 
 UPLOAD_LOGS:
   FUNCTION
