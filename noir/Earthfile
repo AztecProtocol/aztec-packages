@@ -91,23 +91,17 @@ build-acir-tests:
 
 
 barretenberg-acir-benches-bb:
-  WAIT
-  FROM ../build-images/+build
-  WORKDIR /usr/src/barretenberg
+  LOCALLY
 
-  COPY ../barretenberg/cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-  COPY +build-acir-tests/ /usr/src/acir_artifacts
-  COPY ../barretenberg/+acir-tests/ /usr/src/barretenberg/acir_tests
+  COPY ../barretenberg/cpp/+preset-clang-assert/bin/bb ../barretenberg/cpp/build/bin/bb
+  COPY +build-acir-tests/ noir-repo/test_programs/acir_artifacts
+  COPY ../barretenberg/+acir-tests/ ../barretenberg/acir_tests
 
-  WORKDIR /usr/src/barretenberg/acir_tests
-  
-  # Used by`run_acir_tests.sh` 
-  ENV TEST_SRC /usr/src/acir_artifacts
   ENV LOG_FILE=./log
-  RUN ./bench_acir_tests.sh sha256
+  RUN ls
+  RUN ls ../barretenberg
+  RUN ../barretenberg/acir_tests/bench_acir_tests.sh sha256
 
-  SAVE ARTIFACT ./log AS LOCAL ./log
-  END
   DO ../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 # TOOD
 # test-packages
