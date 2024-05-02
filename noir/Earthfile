@@ -119,6 +119,23 @@ barretenberg-acir-tests-bb:
   RUN FLOW=all_cmds ./run_acir_tests.sh 1_mul
 
 
+barretenberg-acir-tests-sol:
+  FROM ../build-images/+build
+
+  COPY ../barretenberg/cpp/+preset-sol/ /usr/src/barretenberg/cpp/build
+  COPY ../barretenberg/cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+  COPY ../barretenberg/+acir-tests/ /usr/src/barretenberg/acir_tests
+  COPY ../barretenberg/+sol/ /usr/src/barretenberg/sol
+  COPY +build-acir-tests/ /usr/src/acir_artifacts
+
+  WORKDIR /usr/src/barretenberg/acir_tests
+
+  ENV TEST_SRC /usr/src/acir_artifacts
+
+  RUN (cd sol-test && yarn)
+  RUN PARALLEL=1 FLOW=sol ./run_acir_tests.sh assert_statement double_verify_proof double_verify_nested_proof
+
+
 # TOOD
 # test-packages
 # FROM aztecprotocol/noir AS noir
