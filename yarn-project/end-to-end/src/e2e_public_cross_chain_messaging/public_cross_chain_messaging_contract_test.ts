@@ -10,20 +10,11 @@ import {
   type PXE,
   createDebugLogger,
 } from '@aztec/aztec.js';
+import { createL1Clients } from '@aztec/ethereum';
 import { InboxAbi, OutboxAbi, PortalERC20Abi, TokenPortalAbi } from '@aztec/l1-artifacts';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts.js';
 
-import {
-  type Chain,
-  type HttpTransport,
-  type PublicClient,
-  createPublicClient,
-  createWalletClient,
-  getContract,
-  http,
-} from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
-import { foundry } from 'viem/chains';
+import { type Chain, type HttpTransport, type PublicClient, getContract } from 'viem';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
@@ -80,22 +71,6 @@ export class PublicCrossChainMessagingContractTest {
     await this.snapshotManager.teardown();
   }
 
-  viemStuff(rpcUrl: string) {
-    const hdAccount = mnemonicToAccount(MNEMONIC);
-
-    const walletClient = createWalletClient({
-      account: hdAccount,
-      chain: foundry,
-      transport: http(rpcUrl),
-    });
-    const publicClient = createPublicClient({
-      chain: foundry,
-      transport: http(rpcUrl),
-    });
-
-    return { walletClient, publicClient };
-  }
-
   async applyBaseSnapshots() {
     // Note that we are using the same `pxe`, `aztecNodeConfig` and `aztecNode` across all snapshots.
     // This is to not have issues with different networks.
@@ -126,7 +101,7 @@ export class PublicCrossChainMessagingContractTest {
         this.logger.verbose(`Public deploy accounts...`);
         await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 3));
 
-        const { publicClient, walletClient } = this.viemStuff(this.aztecNodeConfig.rpcUrl);
+        const { publicClient, walletClient } = createL1Clients(this.aztecNodeConfig.rpcUrl, MNEMONIC);
 
         this.logger.verbose(`Setting up cross chain harness...`);
         this.crossChainTestHarness = await CrossChainTestHarness.new(
@@ -151,7 +126,7 @@ export class PublicCrossChainMessagingContractTest {
         this.ownerAddress = AztecAddress.fromString(crossChainContext.ownerAddress.toString());
         const tokenPortalAddress = EthAddress.fromString(crossChainContext.tokenPortal.toString());
 
-        const { publicClient, walletClient } = this.viemStuff(this.aztecNodeConfig.rpcUrl);
+        const { publicClient, walletClient } = createL1Clients(this.aztecNodeConfig.rpcUrl, MNEMONIC);
 
         const inbox = getContract({
           address: this.aztecNodeConfig.l1Contracts.inboxAddress.toString(),
