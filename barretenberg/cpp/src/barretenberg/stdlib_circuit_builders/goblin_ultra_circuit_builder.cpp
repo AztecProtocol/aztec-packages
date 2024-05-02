@@ -28,9 +28,6 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::finalize_circuit()
 // polynomials is zero, which is required for them to be shiftable.
 template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_all_polys_are_non_zero()
 {
-    // Most polynomials are handled via the conventional Ultra method
-    UltraCircuitBuilder_<UltraHonkArith<FF>>::add_gates_to_ensure_all_polys_are_non_zero();
-
     // All that remains is to handle databus related and poseidon2 related polynomials. In what follows we populate the
     // calldata with some mock data then constuct a single calldata read gate
 
