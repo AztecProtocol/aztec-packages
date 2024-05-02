@@ -633,12 +633,16 @@ export async function deployCanonicalGasToken(deployer: Wallet) {
   const canonicalGasToken = getCanonicalGasToken(gasPortalAddress);
 
   if (await deployer.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)) {
+    getLogger().debug('Gas token already deployed');
+    await expect(deployer.isContractPubliclyDeployed(canonicalGasToken.address)).resolves.toBe(true);
     return;
   }
 
   const gasToken = await GasTokenContract.deploy(deployer, gasPortalAddress)
     .send({ contractAddressSalt: canonicalGasToken.instance.salt, universalDeploy: true })
     .deployed();
+
+  getLogger().info(`Gas token publicly deployed at ${gasToken.address}`);
 
   await expect(deployer.isContractClassPubliclyRegistered(gasToken.instance.contractClassId)).resolves.toBe(true);
   await expect(deployer.getContractInstance(gasToken.address)).resolves.toBeDefined();
