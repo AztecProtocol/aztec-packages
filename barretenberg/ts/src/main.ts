@@ -71,32 +71,6 @@ async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride 
   return { api, acirComposer, circuitSize, subgroupSize };
 }
 
-async function initUltraHonk(bytecodePath: string, crsPath: string, subgroupSizeOverride = -1) {
-  const api = await Barretenberg.new({ threads });
-
-  const circuitSize = await getGates(bytecodePath, api);
-  // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
-  const subgroupSize = Math.max(subgroupSizeOverride, Math.pow(2, Math.ceil(Math.log2(circuitSize))));
-  if (subgroupSize > MAX_CIRCUIT_SIZE) {
-    throw new Error(`Circuit size of ${subgroupSize} exceeds max supported of ${MAX_CIRCUIT_SIZE}`);
-  }
-
-  debug(`circuit size: ${circuitSize}`);
-  debug(`subgroup size: ${subgroupSize}`);
-  debug('loading crs...');
-  // Plus 1 needed! (Move +1 into Crs?)
-  const crs = await Crs.new(subgroupSize + 1, crsPath);
-
-  // Important to init slab allocator as first thing, to ensure maximum memory efficiency.
-  await api.commonInitSlabAllocator(subgroupSize);
-
-  // Load CRS into wasm global CRS state.
-  // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
-  await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
-
-  return { api, circuitSize, subgroupSize };
-}
-
 async function initGoblin(bytecodePath: string, crsPath: string) {
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove this subgroup size hack
   const hardcodedGrumpkinSubgroupSizeHack = 262144;
@@ -385,7 +359,7 @@ export async function vkAsFields(vkPath: string, vkeyOutputPath: string) {
 }
 
 export async function proveUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string, outputPath: string) {
-  const { api } = await initUltraHonk(bytecodePath, crsPath);
+  const { api } = await init(bytecodePath, crsPath);
   try {
     debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);
