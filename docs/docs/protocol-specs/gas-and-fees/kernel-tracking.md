@@ -165,6 +165,7 @@ It must:
 - set the min_revertible_side_effect_counter if it is present in the `PrivateCallData`
 - set the `fee_payer` if the `is_fee_payer` flag is set in the `PrivateCircuitPublicInputs`
 - set the `public_teardown_function_hash` if it is present in the `PrivateCircuitPublicInputs`
+- set the `combined_constant_data.global_variables` to zero, since these are not yet known during private execution
 
 ## Private Kernel Inner
 
@@ -428,6 +429,8 @@ Further, we can trust that the `transaction_fee` the public VM reported is the o
 
 The PublicKernelSetup circuit takes in a `PublicKernelData` and a `PublicCallData` and outputs a `PublicKernelCircuitPublicInputs`.
 
+It must set the `constant_data.global_variables` to the `global_variables` from `PublicCircuitPublicInputs`, as a means to initialize them, since they were zero in the previous kernel coming from private.
+
 It must assert that the `revert_code` in the `PublicCircuitPublicInputs` is equal to zero.
 
 It must assert that the `public_call.call_stack_item.public_inputs.global_variables.gas_fees` are valid according to the [update rules defined](./published-gas-and-fee-data.md#updating-the-gasfees-object).
@@ -541,6 +544,6 @@ The interplay between these two `revert_code`s is as follows:
 
 The base rollup kernel circuit takes in a `KernelData`, which contains a `KernelCircuitPublicInputs`, which it uses to compute the `transaction_fee`.
 
-Additionally, it verifies that the max fees per gas specified by the user are greater than the current block's fees per gas.
+Additionally, it verifies that the max fees per gas specified by the user are greater than the current block's fees per gas. It also verifies the `constant_data.global_variables.gas_fees` are correct.
 
 After the public data writes specific to this transaction have been processed, and a new tree root is produced, the kernel circuit injects an additional public data write based upon that root which deducts the transaction fee from the `fee_payer`'s balance.
