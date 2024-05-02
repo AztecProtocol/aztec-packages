@@ -6,7 +6,7 @@ keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## 0.36.0
+## 0.38.0
 
 ### [Aztec.nr] Emmiting encrypted logs
 
@@ -19,6 +19,8 @@ The `emit_encrypted_log` function is now a context method.
 - emit_encrypted_log(context, log1);
 + context.emit_encrypted_log(log1);
 ```
+
+## 0.36.0
 
 ### `FieldNote` removed
 

@@ -20,8 +20,8 @@ import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import { setup } from './fixtures/utils.js';
 import { TaggedNote } from '../../circuit-types/src/logs/l1_note_payload/tagged_note.js';
+import { setup } from './fixtures/utils.js';
 
 describe('e2e_block_building', () => {
   let pxe: PXE;
