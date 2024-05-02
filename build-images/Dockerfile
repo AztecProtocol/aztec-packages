@@ -125,6 +125,9 @@ RUN apt update && \
         python3-blessed \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+# Install wasmtime for running tests in WASM
+RUN curl https://wasmtime.dev/install.sh -sSf | bash
+
 # Install earthly.
 RUN wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-$(dpkg --print-architecture) -O /usr/local/bin/earthly && \
     chmod +x /usr/local/bin/earthly
