@@ -10,6 +10,16 @@ if [[ "$OSTYPE" == "linux"* ]]; then
   ID_ARGS="-e LOCAL_USER_ID=$(id -u) -e LOCAL_GROUP_ID=$(id -g)"
 fi
 
+arch=$(uname -m)
+case $arch in
+  x86_64)
+    arch="amd64"
+    ;;
+  aarch64)
+    arch="arm64"
+    ;;
+esac
+
 docker run \
   -ti --rm \
   --hostname devbox \
@@ -20,4 +30,4 @@ docker run \
   -vdevbox-home:/home/aztec-dev \
   -v$HOME/.ssh/id_rsa:/home/aztec-dev/.ssh/id_rsa:ro \
   -v/var/run/docker.sock:/var/run/docker.sock \
-  aztecprotocol/devbox
+  aztecprotocol/devbox:1.0-$arch
