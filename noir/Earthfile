@@ -101,6 +101,8 @@ barretenberg-acir-benches-bb:
 
   WORKDIR /usr/src/barretenberg/acir_tests
   
+  # Used by`run_acir_tests.sh` 
+  ENV TEST_SRC /usr/src/acir_artifacts
   ENV LOG_FILE=./log
   RUN ./bench_acir_tests.sh sha256
 
