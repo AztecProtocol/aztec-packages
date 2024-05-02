@@ -31,6 +31,8 @@ impl<T, INITIAL_DELAY> Storage<T> for SharedMutable<T, INITIAL_DELAY> {}
 // the value is not changed immediately but rather a value change is scheduled to happen in the future after some delay
 // measured in blocks. Reads in private are only valid as long as they are included in a block not too far into the 
 // future, so that they can guarantee the value will not have possibly changed by then (because of the delay).
+// The delay for changing a value is initially equal to INITIAL_DELAY, but can be changed by calling 
+// `schedule_delay_change`.
 impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
