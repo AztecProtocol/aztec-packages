@@ -316,7 +316,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
 
     static void test_tampered_decider_proof()
     {
-        // Innerly fold two circuits
+        // Natively fold two circuits
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify_native();
 
         // Tamper with the accumulator by changing the target sum
