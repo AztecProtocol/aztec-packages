@@ -29,7 +29,7 @@ export function getProverEnvVars(): ProverConfig {
     ACVM_BINARY_PATH = '',
     BB_WORKING_DIRECTORY = tmpdir(),
     BB_BINARY_PATH = '',
-    PROVER_AGENTS = '1',
+    PROVER_AGENTS = '10',
     PROVER_REAL_PROOFS = '',
   } = process.env;
 
