@@ -88,7 +88,7 @@ build-acir-tests:
   COPY . .
   RUN nargo --version
   RUN ./rebuild.sh
-  SAVE ARTIFACT /usr/src/noir-repo/test_programs/acir_artifacts
+  SAVE ARTIFACT /usr/src/noir-repo/test_programs/acir_artifacts/*
 
 barretenberg-acir-tests-bb:
   FROM ../build-images/+build
