@@ -98,8 +98,6 @@ barretenberg-acir-benches-bb:
   COPY ../barretenberg/+acir-tests/ ../barretenberg/acir_tests
 
   ENV LOG_FILE=./log
-  RUN ls
-  RUN ls ../barretenberg
   RUN ../barretenberg/acir_tests/bench_acir_tests.sh sha256
 
   DO ../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
