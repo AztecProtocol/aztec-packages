@@ -8,17 +8,12 @@ wasi-sdk:
     FROM aztecprotocol/wasi-sdk:22.0
     SAVE ARTIFACT /opt/wasi-sdk
 
+osxcross:
+    FROM aztecprotocol/osxcross:14.0
+    SAVE ARTIFACT /opt/osxcross
+
 foundry:
-    FROM ubuntu:noble
-    RUN apt update && apt install -y git cargo
-    RUN ulimit -n 65535 && \
-        git clone --depth 1 --branch nightly-de33b6af53005037b463318d2628b5cfcaf39916 https://github.com/foundry-rs/foundry.git && \
-        cd foundry && cargo build --profile local && \
-        mkdir -p /opt/foundry/bin && \
-        for t in forge cast anvil chisel; do \
-            mv ./target/local/$t /opt/foundry/bin/$t; \
-            strip /opt/foundry/bin/$t; \
-        done
+    FROM aztecprotocol/foundry:de33b6af53005037b463318d2628b5cfcaf39916
     SAVE ARTIFACT /opt/foundry
 
 build:
@@ -51,9 +46,17 @@ build:
             # Python (clang bindings for wasm bindgen.)
             python3 \
             python3-clang && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-    COPY +wasi-sdk/wasi-sdk /opt/wasi-sdk
-    COPY +foundry/foundry /opt/foundry
 
+    # Install wasi-sdk.
+    COPY +wasi-sdk/wasi-sdk /opt/wasi-sdk
+
+    # Install osxcross. Requires developer to mount SDK from their mac host.
+    COPY +osxcross/osxcross /opt/osxcross
+    ENV PATH="/opt/osxcross/bin:$PATH"
+    ENV LD_LIBRARY_PATH="/opt/osxcross/lib:$LD_LIBRARY_PATH"
+
+    # Install foundry.
+    COPY +foundry/foundry /opt/foundry
     ENV PATH="/opt/foundry/bin:$PATH"
 
     # Install rust and cross-compilers. Noir specifically uses 1.74.1.
