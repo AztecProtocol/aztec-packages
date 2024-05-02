@@ -11,7 +11,7 @@ describe('e2e_nested_contract manual_enqueue', () => {
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
-    // We don't have the manual snapshot because every single require a fresh setup and teardown
+    // We don't have the manual snapshot because every test requires a fresh setup and teardown
     await t.setup();
     ({ wallets, pxe } = t);
   });
