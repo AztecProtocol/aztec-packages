@@ -23,21 +23,6 @@ E2E_COMPOSE_TEST:
   # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
   RUN $CMD -p $project_name -f $compose_file up --exit-code-from=end-to-end --force-recreate
 
-UPLOAD_LOGS:
-  FUNCTION
-  ARG PULL_REQUEST
-  ARG BRANCH
-  ARG COMMIT_HASH
-  ARG LOG_FILE=./log
-  LOCALLY
-  LET COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
-  FROM ../../+scripts
-  COPY ./log /usr/var/log
-  ENV PULL_REQUEST=$PULL_REQUEST
-  ENV BRANCH=$BRANCH
-  ENV COMMIT_HASH=$COMMIT_HASH
-  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY /usr/src/scripts/logs/upload_logs_to_s3.sh /usr/var/log
-
 # Define e2e tests
 e2e-tests:
   FROM ../+end-to-end
@@ -84,18 +69,18 @@ bench-publish-rollup:
   ARG BRANCH
   ARG COMMIT_HASH
   DO +E2E_COMPOSE_TEST --test=benchmarks/bench_publish_rollup.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --compose_file=./scripts/docker-compose-no-sandbox.yml
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+  DO ../../../+UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
 bench-process-history:
   ARG PULL_REQUEST
   ARG BRANCH
   ARG COMMIT_HASH
   DO +E2E_COMPOSE_TEST --test=benchmarks/bench_process_history.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --compose_file=./scripts/docker-compose-no-sandbox.yml
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+  DO ../../../+UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
 bench-tx-size:
   ARG PULL_REQUEST
   ARG BRANCH
   ARG COMMIT_HASH
   DO +E2E_COMPOSE_TEST --test=benchmarks/bench_tx_size_fees.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+  DO ../../../+UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH

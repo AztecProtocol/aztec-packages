@@ -89,21 +89,6 @@ build-acir-tests:
   RUN ./rebuild.sh
   SAVE ARTIFACT /usr/src/noir-repo/test_programs/acir_artifacts/*
 
-# This is ripped from end-to-end's Earthfile, need to pull from there directly.
-UPLOAD_LOGS:
-  FUNCTION
-  ARG PULL_REQUEST
-  ARG BRANCH
-  ARG COMMIT_HASH
-  ARG LOG_FILE=./log
-  LOCALLY
-  LET COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
-  FROM ../+scripts
-  COPY ./log /usr/var/log
-  ENV PULL_REQUEST=$PULL_REQUEST
-  ENV BRANCH=$BRANCH
-  ENV COMMIT_HASH=$COMMIT_HASH
-  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY /usr/src/scripts/logs/upload_logs_to_s3.sh /usr/var/log
 
 barretenberg-acir-benches-bb:
   FROM ../build-images/+build
@@ -120,7 +105,7 @@ barretenberg-acir-benches-bb:
   RUN ./bench_acir_tests.sh sha256
 
   SAVE ARTIFACT ./log AS LOCAL ./log
-  DO +UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+  DO ../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 # TOOD
 # test-packages
 # FROM aztecprotocol/noir AS noir
