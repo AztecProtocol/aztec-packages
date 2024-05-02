@@ -18,8 +18,6 @@ E2E_COMPOSE_TEST:
   WITH DOCKER \
     --load aztecprotocol/aztec:latest=../+aztec \
     --load aztecprotocol/end-to-end:latest=../+end-to-end \
-    --load aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991:latest=../../build-images+build
-    # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
     RUN $CMD -p $project_name -f $compose_file up --exit-code-from=end-to-end --force-recreate
   END
 
