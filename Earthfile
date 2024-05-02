@@ -41,7 +41,6 @@ UPLOAD_LOGS:
     ARG PULL_REQUEST
     ARG BRANCH
     ARG COMMIT_HASH
-    ARG LOG_FILE=./log
     LOCALLY
     LET COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
     FROM +scripts
