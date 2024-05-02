@@ -22,18 +22,18 @@ import {Hash} from "../Hash.sol";
  *  |                                                                                           |            | TxEffect 0 {
  *  | 0x4                                                                                       | 0x1        |   revertCode
  *  | 0x5                                                                                       | 0x20       |   transactionFee
- *  | 0x37                                                                                      | 0x1        |   len(newNoteHashes) (denoted b)
- *  | 0x37 + 0x1                                                                                | b * 0x20   |   newNoteHashes
- *  | 0x37 + 0x1 + b * 0x20                                                                     | 0x1        |   len(newNullifiers) (denoted c)
- *  | 0x37 + 0x1 + b * 0x20 + 0x1                                                               | c * 0x20   |   newNullifiers
- *  | 0x37 + 0x1 + b * 0x20 + 0x1 + c * 0x20                                                    | 0x1        |   len(newL2ToL1Msgs) (denoted d)
- *  | 0x37 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1                                              | d * 0x20   |   newL2ToL1Msgs
- *  | 0x37 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20                                   | 0x1        |   len(newPublicDataWrites) (denoted e)
- *  | 0x37 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01                            | e * 0x40   |   newPublicDataWrites
- *  | 0x37 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40                 | 0x04       |   byteLen(newEncryptedLogs) (denoted f)
- *  | 0x37 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4           | f          |   newEncryptedLogs
- *  | 0x37 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4 + f       | 0x04       |   byteLen(newUnencryptedLogs) (denoted g)
- *  | 0x37 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4 + f + 0x4 | g          |   newUnencryptedLogs
+ *  | 0x25                                                                                      | 0x1        |   len(newNoteHashes) (denoted b)
+ *  | 0x25 + 0x1                                                                                | b * 0x20   |   newNoteHashes
+ *  | 0x25 + 0x1 + b * 0x20                                                                     | 0x1        |   len(newNullifiers) (denoted c)
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1                                                               | c * 0x20   |   newNullifiers
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20                                                    | 0x1        |   len(newL2ToL1Msgs) (denoted d)
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1                                              | d * 0x20   |   newL2ToL1Msgs
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20                                   | 0x1        |   len(newPublicDataWrites) (denoted e)
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01                            | e * 0x40   |   newPublicDataWrites
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40                 | 0x04       |   byteLen(newEncryptedLogs) (denoted f)
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4           | f          |   newEncryptedLogs
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4 + f       | 0x04       |   byteLen(newUnencryptedLogs) (denoted g)
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4 + f + 0x4 | g          |   newUnencryptedLogs
  *  |                                                                                           |            | },
  *  |                                                                                           |            | TxEffect 1 {
  *  |                                                                                           |            |   ...
