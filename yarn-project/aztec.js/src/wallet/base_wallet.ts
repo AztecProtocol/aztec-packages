@@ -15,7 +15,7 @@ import {
   type TxHash,
   type TxReceipt,
 } from '@aztec/circuit-types';
-import { type AztecAddress, type CompleteAddress, type Fr, type PartialAddress } from '@aztec/circuits.js';
+import { Point, type AztecAddress, type CompleteAddress, type Fr, type PartialAddress } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
@@ -82,6 +82,9 @@ export abstract class BaseWallet implements Wallet {
   }
   getRegisteredAccountPublicKeysHash(address: AztecAddress): Promise<Fr | undefined> {
     return this.pxe.getRegisteredAccountPublicKeysHash(address);
+  }
+  getRegisteredAccountPublicKeys(address: AztecAddress): Promise<Point[] | undefined> {
+    return this.pxe.getRegisteredAccountPublicKeys(address);
   }
   getRecipients(): Promise<CompleteAddress[]> {
     return this.pxe.getRecipients();

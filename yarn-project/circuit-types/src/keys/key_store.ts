@@ -153,6 +153,7 @@ export interface KeyStore {
    * @param masterIncomingViewingPublicKey - The stored incoming viewing public key
    * @param masterOutgoingViewingPublicKey - The stored outgoing viewing public key
    * @param masterTaggingPublicKey - The stored master tagging public key
+   * @remarks This also adds the master nullifier public key hash to the store for the recipient
    */
   // TODO(#5834): Move this function out of here. Key store should only be used for accounts, not recipients
   addPublicKeysForAccount(

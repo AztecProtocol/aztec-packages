@@ -211,6 +211,19 @@ export class PXEService implements PXE {
     return this.keyStore.getPublicKeysHash(address);
   }
 
+  public async getRegisteredAccountPublicKeys(address: AztecAddress): Promise<Point[] | undefined> {
+    const accounts = await this.keyStore.getAccounts();
+    if (!accounts.some(account => account.equals(address))) {
+      return undefined;
+    }
+    return Promise.all([
+      this.keyStore.getMasterNullifierPublicKey(address),
+      this.keyStore.getMasterIncomingViewingPublicKey(address),
+      this.keyStore.getMasterOutgoingViewingPublicKey(address),
+      this.keyStore.getMasterTaggingPublicKey(address),
+    ]);
+  }
+
   public async registerRecipient(recipient: CompleteAddress, publicKeys: Point[] = []): Promise<void> {
     const wasAdded = await this.db.addCompleteAddress(recipient);
 

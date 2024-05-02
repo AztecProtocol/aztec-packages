@@ -101,6 +101,16 @@ export interface PXE {
   getRegisteredAccountPublicKeysHash(address: AztecAddress): Promise<Fr | undefined>;
 
   /**
+   * Retrieves the public keys of the account corresponding to the provided aztec address.
+   *
+   * @param address - The address of account.
+   * @returns The public keys of the requested account if found.
+   * TODO(#5834): refactor complete address and merge with getRegisteredAccount?
+   * TODO?: Refactor this ? This is used in e2e_2_pxes to share keys with another sender
+   */
+  getRegisteredAccountPublicKeys(address: AztecAddress): Promise<Point[] | undefined>;
+
+  /**
    * Retrieves the recipients added to this PXE Service.
    * @returns An array of recipients registered on this PXE Service.
    */

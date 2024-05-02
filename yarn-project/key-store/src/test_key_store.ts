@@ -350,6 +350,15 @@ export class TestKeyStore implements KeyStore {
     return AztecAddress.fromBuffer(accountAddressBuffer);
   }
 
+  /**
+   * This is used to register a recipient / for storing public keys of an address
+   * @param accountAddress - The account address to store keys for.
+   * @param masterNullifierPublicKey - The stored master nullifier public key
+   * @param masterIncomingViewingPublicKey - The stored incoming viewing public key
+   * @param masterOutgoingViewingPublicKey - The stored outgoing viewing public key
+   * @param masterTaggingPublicKey - The stored master tagging public key
+   * @remarks This also adds the master nullifier public key hash to the store for the recipient
+   */
   // TODO(#5834): Re-add separation between recipients and accounts in keystore.
   public async addPublicKeysForAccount(
     accountAddress: AztecAddress,
@@ -362,5 +371,11 @@ export class TestKeyStore implements KeyStore {
     await this.#keys.set(`${accountAddress.toString()}-ivpk_m`, masterIncomingViewingPublicKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-ovpk_m`, masterOutgoingViewingPublicKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-tpk_m`, masterTaggingPublicKey.toBuffer());
+
+    const masterNullifierPublicKeyHash = poseidon2Hash(masterNullifierPublicKey.toFields());
+
+    // We save nullifier keys and account address to db under the master nullifier key hash
+    await this.#keys.set(`${masterNullifierPublicKeyHash.toString()}-npk_m-mnpkh`, masterNullifierPublicKey.toBuffer());
+    await this.#keys.set(`${masterNullifierPublicKeyHash.toString()}-accountAddress`, accountAddress.toBuffer());
   }
 }

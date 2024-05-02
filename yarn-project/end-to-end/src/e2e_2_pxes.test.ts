@@ -119,10 +119,14 @@ describe('e2e_2_pxes', () => {
     const tokenInstance = await deployTokenContract(initialBalance, walletA.getAddress(), pxeA);
     const tokenAddress = tokenInstance.address;
 
+    // Get public keys of both accounts
+    const walletAPublicKeys = await pxeA.getRegisteredAccountPublicKeys(walletA.getAddress());
+    const walletBPublicKeys = await pxeB.getRegisteredAccountPublicKeys(walletB.getAddress());
+
     // Add account B to wallet A
-    await pxeA.registerRecipient(walletB.getCompleteAddress());
+    await pxeA.registerRecipient(walletB.getCompleteAddress(), walletBPublicKeys);
     // Add account A to wallet B
-    await pxeB.registerRecipient(walletA.getCompleteAddress());
+    await pxeB.registerRecipient(walletA.getCompleteAddress(), walletAPublicKeys);
 
     // Add token to PXE B (PXE A already has it because it was deployed through it)
     await pxeB.registerContract({
@@ -215,10 +219,14 @@ describe('e2e_2_pxes', () => {
     const tokenInstance = await deployTokenContract(userABalance, walletA.getAddress(), pxeA);
     const contractWithWalletA = await TokenContract.at(tokenInstance.address, walletA);
 
+    // Get public keys of both accounts
+    const walletAPublicKeys = await pxeA.getRegisteredAccountPublicKeys(walletA.getAddress());
+    const walletBPublicKeys = await pxeB.getRegisteredAccountPublicKeys(walletB.getAddress());
+
     // Add account B to wallet A
-    await pxeA.registerRecipient(walletB.getCompleteAddress());
+    await pxeA.registerRecipient(walletB.getCompleteAddress(), walletBPublicKeys);
     // Add account A to wallet B
-    await pxeB.registerRecipient(walletA.getCompleteAddress());
+    await pxeB.registerRecipient(walletA.getCompleteAddress(), walletAPublicKeys);
 
     // Add token to PXE B (PXE A already has it because it was deployed through it)
     await pxeB.registerContract({
@@ -268,10 +276,14 @@ describe('e2e_2_pxes', () => {
     const tokenInstance = await deployTokenContract(initialBalance, walletA.getAddress(), pxeA);
     const tokenAddress = tokenInstance.address;
 
+    // Get public keys of both accounts
+    const walletAPublicKeys = await pxeA.getRegisteredAccountPublicKeys(walletA.getAddress());
+    const walletBPublicKeys = await pxeB.getRegisteredAccountPublicKeys(walletB.getAddress());
+
     // Add account B to wallet A
-    await pxeA.registerRecipient(walletB.getCompleteAddress());
+    await pxeA.registerRecipient(walletB.getCompleteAddress(), walletBPublicKeys);
     // Add account A to wallet B
-    await pxeB.registerRecipient(walletA.getCompleteAddress());
+    await pxeB.registerRecipient(walletA.getCompleteAddress(), walletAPublicKeys);
 
     // Check initial balances and logs are as expected
     await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance);
@@ -311,7 +323,11 @@ describe('e2e_2_pxes', () => {
     await sharedAccountOnB.register();
     const sharedWalletOnB = await sharedAccountOnB.getWallet();
 
-    await pxeA.registerRecipient(walletB.getCompleteAddress());
+    // Get the public keys of wallet B
+    const walletBPublicKeys = await pxeB.getRegisteredAccountPublicKeys(walletB.getAddress());
+
+    // Register wallet B in the pxe of wallet A
+    await pxeA.registerRecipient(walletB.getCompleteAddress(), walletBPublicKeys);
 
     // deploy the contract on PXE A
     const tokenInstance = await deployTokenContract(initialBalance, walletA.getAddress(), pxeA);
