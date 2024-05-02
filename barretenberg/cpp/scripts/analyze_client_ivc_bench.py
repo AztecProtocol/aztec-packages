@@ -73,7 +73,9 @@ for key in protogalaxy_round_labels:
 
 
 # Relations breakdown
-print('\n Relation contributions:')
+# Note: The timings here are off likely because the tracking is occuring in a hot loop but 
+# they should be meaningful relative to one another
+print('\nRelation contributions (times to be interpreted relatively):')
 relations = [
     "Arithmetic::accumulate(t)",
     "Permutation::accumulate(t)",
@@ -106,10 +108,3 @@ for key in relations:
     else:
         time_ms = bench[key]/1e6
     print(f"{key:<{max_label_length}}{time_ms:>8.0f}  {time_ms/sum_of_kept_times_ms:>8.2%}")
-
-# Validate that kept times account for most of the total measured time.
-total_time_ms = bench["real_time"]
-totals = '\nTotal time accounted for: {:.0f}ms/{:.0f}ms = {:.2%}'
-totals = totals.format(
-    sum_of_kept_times_ms, total_time_ms, sum_of_kept_times_ms/total_time_ms)
-print(totals)

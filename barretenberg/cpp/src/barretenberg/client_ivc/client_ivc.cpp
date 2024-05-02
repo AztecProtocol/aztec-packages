@@ -25,8 +25,6 @@ ClientIVC::FoldProof ClientIVC::accumulate(ClientCircuit& circuit)
 {
     goblin.merge(circuit); // Add recursive merge verifier and construct new merge proof
     prover_instance = std::make_shared<ProverInstance>(circuit, structured_flag);
-    // info("CIRCUIT SIZE = ", prover_instance->proving_key.circuit_size);
-    // circuit.blocks.summarize();
     FoldingProver folding_prover({ prover_fold_output.accumulator, prover_instance });
     prover_fold_output = folding_prover.fold_instances();
     return prover_fold_output.folding_data;

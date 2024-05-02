@@ -63,6 +63,7 @@ class ClientIVC {
     // be needed in the real IVC as they are provided as inputs
     std::shared_ptr<ProverInstance> prover_instance;
 
+    // A flag indicating whether or not to construct a structured trace in the ProverInstance
     bool structured_flag = false;
 
     void initialize(ClientCircuit& circuit);

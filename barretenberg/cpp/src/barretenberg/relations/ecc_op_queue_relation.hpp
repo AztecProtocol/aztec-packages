@@ -20,7 +20,7 @@ template <typename FF_> class EccOpQueueRelationImpl {
 
     template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
     {
-        // WORKTODO: comments
+        // WORKTODO: Can we just skip this always? input should be zero if its honest..
         return in.lagrange_ecc_op.is_zero();
     }
 

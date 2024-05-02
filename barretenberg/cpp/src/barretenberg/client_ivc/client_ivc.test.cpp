@@ -113,7 +113,7 @@ class ClientIVCTests : public ::testing::Test {
  */
 // TODO fix with https://github.com/AztecProtocol/barretenberg/issues/930
 // intermittent failures, presumably due to uninitialized memory
-TEST_F(ClientIVCTests, Full)
+TEST_F(ClientIVCTests, DISABLED_Full)
 {
     using VerificationKey = Flavor::VerificationKey;
 

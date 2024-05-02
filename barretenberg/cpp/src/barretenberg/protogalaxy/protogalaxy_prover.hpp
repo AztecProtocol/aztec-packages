@@ -345,7 +345,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         extended_univariates.resize(num_threads);
 
         // Accumulate the contribution from each sub-relation
-        // num_threads = 1;
         parallel_for(num_threads, [&](size_t thread_idx) {
             size_t start = thread_idx * iterations_per_thread;
             size_t end = (thread_idx + 1) * iterations_per_thread;

@@ -1,4 +1,3 @@
-#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/polynomials/pow.hpp"
 #include "barretenberg/protogalaxy/decider_prover.hpp"
@@ -314,15 +313,14 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     {
         TupleOfInstances insts = construct_instances(2);
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(insts), get<1>(insts));
-        // check_accumulator_target_sum_manual(prover_accumulator, true);
+        check_accumulator_target_sum_manual(prover_accumulator, true);
 
-        // TupleOfInstances insts_2 = construct_instances(1); // just one set of prover/verifier instances
-        // auto [prover_accumulator_2, verifier_accumulator_2] =
-        //     fold_and_verify({ prover_accumulator, get<0>(insts_2)[0] }, { verifier_accumulator, get<1>(insts_2)[0]
-        //     });
-        // check_accumulator_target_sum_manual(prover_accumulator_2, true);
+        TupleOfInstances insts_2 = construct_instances(1); // just one set of prover/verifier instances
+        auto [prover_accumulator_2, verifier_accumulator_2] =
+            fold_and_verify({ prover_accumulator, get<0>(insts_2)[0] }, { verifier_accumulator, get<1>(insts_2)[0] });
+        check_accumulator_target_sum_manual(prover_accumulator_2, true);
 
-        // decide_and_verify(prover_accumulator_2, verifier_accumulator_2, true);
+        decide_and_verify(prover_accumulator_2, verifier_accumulator_2, true);
     }
 
     /**
@@ -335,22 +333,6 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         TupleOfInstances instances = construct_instances(2, structured);
 
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(instances), get<1>(instances));
-
-        size_t accum_count = bb::detail::GLOBAL_OP_COUNTS.get_aggregate_counts()["Permutation::accumulate"];
-        size_t zero_count = bb::detail::GLOBAL_OP_COUNTS.get_aggregate_counts()["PERM-ZERO"];
-        size_t zero_cond_count = bb::detail::GLOBAL_OP_COUNTS.get_aggregate_counts()["PERM-ZERO-cond"];
-        size_t non_zero_count = bb::detail::GLOBAL_OP_COUNTS.get_aggregate_counts()["PERM-non-zero"];
-        size_t skip_attempt_count = bb::detail::GLOBAL_OP_COUNTS.get_aggregate_counts()["PERM-attempt-skip"];
-        size_t skip_count = bb::detail::GLOBAL_OP_COUNTS.get_aggregate_counts()["PERM-skip"];
-        size_t no_skip_count = bb::detail::GLOBAL_OP_COUNTS.get_aggregate_counts()["PERM-no-skip"];
-        info("accum_count = ", accum_count);
-        info("ZERO Count = ", zero_count);
-        info("ZERO condition Count = ", zero_cond_count);
-        info("non-zero Count = ", non_zero_count);
-        info("skip_attempt_count = ", skip_attempt_count);
-        info("skip_count = ", skip_count);
-        info("no_skip_count = ", no_skip_count);
-
         check_accumulator_target_sum_manual(prover_accumulator, true);
 
         TupleOfInstances instances_2 = construct_instances(1, structured); // just one set of prover/verifier instances
