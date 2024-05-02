@@ -91,8 +91,7 @@ export function collectNullifiedNoteHashCounters(execResult: ExecutionResult): N
  * @returns All encrypted logs.
  */
 function collectEncryptedLogs(execResult: ExecutionResult): CountedLog<EncryptedL2Log>[] {
-  // without the .reverse(), the logs will be in a queue like fashion which is wrong as the kernel processes it like a stack.
-  return [execResult.encryptedLogs, ...[...execResult.nestedExecutions].reverse().flatMap(collectEncryptedLogs)].flat();
+  return [execResult.encryptedLogs, ...[...execResult.nestedExecutions].flatMap(collectEncryptedLogs)].flat();
 }
 
 /**
@@ -101,7 +100,6 @@ function collectEncryptedLogs(execResult: ExecutionResult): CountedLog<Encrypted
  * @returns All encrypted logs.
  */
 export function collectSortedEncryptedLogs(execResult: ExecutionResult): EncryptedFunctionL2Logs {
-  // without the .reverse(), the logs will be in a queue like fashion which is wrong as the kernel processes it like a stack.
   const allLogs = collectEncryptedLogs(execResult);
   const sortedLogs = sortByCounter(allLogs);
   return new EncryptedFunctionL2Logs(sortedLogs.map(l => l.log));
@@ -113,11 +111,7 @@ export function collectSortedEncryptedLogs(execResult: ExecutionResult): Encrypt
  * @returns All unencrypted logs.
  */
 function collectUnencryptedLogs(execResult: ExecutionResult): CountedLog<UnencryptedL2Log>[] {
-  // without the .reverse(), the logs will be in a queue like fashion which is wrong as the kernel processes it like a stack.
-  return [
-    execResult.unencryptedLogs,
-    ...[...execResult.nestedExecutions].reverse().flatMap(collectUnencryptedLogs),
-  ].flat();
+  return [execResult.unencryptedLogs, ...[...execResult.nestedExecutions].flatMap(collectUnencryptedLogs)].flat();
 }
 
 /**
@@ -126,7 +120,6 @@ function collectUnencryptedLogs(execResult: ExecutionResult): CountedLog<Unencry
  * @returns All unencrypted logs.
  */
 export function collectSortedUnencryptedLogs(execResult: ExecutionResult): UnencryptedFunctionL2Logs {
-  // without the .reverse(), the logs will be in a queue like fashion which is wrong as the kernel processes it like a stack.
   const allLogs = collectUnencryptedLogs(execResult);
   const sortedLogs = sortByCounter(allLogs);
   return new UnencryptedFunctionL2Logs(sortedLogs.map(l => l.log));
