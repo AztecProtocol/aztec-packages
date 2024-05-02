@@ -194,7 +194,7 @@ library TxsDecoder {
    * @dev We have logs preimages on the input and we need to perform the same hashing process as is done in the app
    *      circuit (hashing the logs) and in the kernel circuit (accumulating the logs hashes). In each iteration of
    *      kernel, the kernel computes a hash of the previous iteration's logs hash (the hash in the previous kernel's
-   *      public inputs) and the the current iteration private circuit public inputs logs hash.
+   *      public inputs) and the current iteration private circuit public inputs logs hash.
    *
    *      E.g. for resulting logs hash of a kernel with 3 iterations would be computed as:
    *
@@ -227,7 +227,7 @@ library TxsDecoder {
     uint256 remainingLogsLength = read4(_body, offset);
     offset += 0x4;
 
-    bytes32 kernelPublicInputsLogsHash; // The hash on the output of kernel iteration
+    bytes memory flattenedLogHashes; // The hash input
 
     // Iterate until all the logs were processed
     while (remainingLogsLength > 0) {
@@ -245,12 +245,25 @@ library TxsDecoder {
         bytes32 singleLogHash = Hash.sha256ToField(slice(_body, offset, singleCallLogsLength));
         offset += singleCallLogsLength;
 
-        kernelPublicInputsLogsHash =
-          Hash.sha256ToField(bytes.concat(kernelPublicInputsLogsHash, singleLogHash));
+        flattenedLogHashes = bytes.concat(flattenedLogHashes, singleLogHash);
 
         privateCircuitPublicInputLogsLength -= (singleCallLogsLength + 0x4);
       }
     }
+
+    // Not having a 0 value hash for empty logs causes issues with empty txs used for padding.
+    if (flattenedLogHashes.length == 0) {
+      return (0, offset);
+    }
+
+    // padded to MAX_LOGS * 32 bytes
+    // NB: this assumes MAX_ENCRYPTED_LOGS_PER_TX == MAX_UNENCRYPTED_LOGS_PER_TX
+    flattenedLogHashes = bytes.concat(
+      flattenedLogHashes,
+      new bytes(Constants.MAX_ENCRYPTED_LOGS_PER_TX * 32 - flattenedLogHashes.length)
+    );
+
+    bytes32 kernelPublicInputsLogsHash = Hash.sha256ToField(flattenedLogHashes);
 
     return (kernelPublicInputsLogsHash, offset);
   }

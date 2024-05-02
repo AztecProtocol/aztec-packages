@@ -8,13 +8,8 @@ import {
   RevertCode,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
-import { sha256 } from '@aztec/foundation/crypto';
-import {
-  BufferReader,
-  serializeArrayOfBufferableToVector,
-  serializeToBuffer,
-  truncateAndPad,
-} from '@aztec/foundation/serialize';
+import { sha256Trunc } from '@aztec/foundation/crypto';
+import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
@@ -33,7 +28,8 @@ export class TxEffect {
      */
     public nullifiers: Fr[],
     /**
-     * The L2 to L1 messages to be inserted into the messagebox on L1.
+     * The hash of L2 to L1 messages to be inserted into the messagebox on L1.
+     * TODO(just-mitch): rename to l2ToL1MsgHashes
      */
     public l2ToL1Msgs: Fr[],
     /**
@@ -156,7 +152,7 @@ export class TxEffect {
       unencryptedLogsHashKernel0,
     ]);
 
-    return truncateAndPad(sha256(inputValue));
+    return sha256Trunc(inputValue);
   }
 
   static random(

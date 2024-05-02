@@ -4,8 +4,8 @@ use crate::{
     gas::GasOpts
 },
     messaging::process_l1_to_l2_message,
-    oracle::{arguments, public_call::call_public_function_internal, returns},
-    hash::{hash_args, ArgsHasher}
+    oracle::{arguments, public_call::call_public_function_internal, returns, logs_traits::ToBytesForUnencryptedLog},
+    hash::{hash_args, ArgsHasher, compute_unencrypted_log_hash}
 };
 use dep::protocol_types::{
     abis::{
@@ -13,7 +13,7 @@ use dep::protocol_types::{
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
     public_call_stack_item::PublicCallStackItem,
     public_circuit_public_inputs::PublicCircuitPublicInputs, read_request::ReadRequest,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    note_hash::NoteHash, nullifier::Nullifier, side_effect::SideEffect
 },
     hash::silo_nullifier, address::{AztecAddress, EthAddress},
     constants::{
@@ -40,13 +40,13 @@ struct PublicContext {
     contract_storage_reads: BoundedVec<StorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
     public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
 
-    new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_CALL>,
-    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
+    new_note_hashes: BoundedVec<NoteHash, MAX_NEW_NOTE_HASHES_PER_CALL>,
+    new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_CALL>,
 
     new_l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
     unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_CALL>,
-    unencrypted_logs_preimages_length: Field,
+    unencrypted_log_preimages_length: Field,
 
     // Header of a block whose state is used during public execution. Set by sequencer to be a header of a block
     // previous to the one in which the tx is included.
@@ -70,11 +70,9 @@ impl PublicContext {
             new_nullifiers: BoundedVec::new(),
             new_l2_to_l1_msgs: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
-            unencrypted_logs_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
             historical_header: inputs.historical_header,
-            prover_address: AztecAddress::zero() // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-            // encrypted_logs_preimages: Vec::new(),
-            // unencrypted_logs_preimages: Vec::new(),
+            prover_address: AztecAddress::zero(),
         }
     }
 
@@ -111,7 +109,7 @@ impl PublicContext {
         is_delegate_call: bool
     ) -> FunctionReturns<RETURNS_COUNT> {
         let side_effect_counter = self.side_effect_counter;
-        // TODO get next value from output of `call_public_function_internal`
+        // TODO(6052): get next value from output of `call_public_function_internal`
         self.side_effect_counter += 1;
 
         let raw_returns = call_public_function_internal(
@@ -146,8 +144,6 @@ impl PublicContext {
     }
 
     pub fn finish(self) -> PublicCircuitPublicInputs {
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-        let unencrypted_log_preimages_length = 0;
 
         // Compute the public call stack hashes
         let pub_circuit_pub_inputs = PublicCircuitPublicInputs {
@@ -165,8 +161,9 @@ impl PublicContext {
             start_side_effect_counter: self.inputs.start_side_effect_counter,
             end_side_effect_counter: self.side_effect_counter,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
-            unencrypted_log_preimages_length,
+            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length + 4,
             historical_header: self.inputs.historical_header,
+            global_variables: self.inputs.public_global_variables,
             prover_address: self.prover_address,
             revert_code: 0,
             start_gas_left: self.inputs.gas_left,
@@ -203,18 +200,16 @@ impl ContextInterface for PublicContext {
     }
 
     fn push_new_note_hash(&mut self, note_hash: Field) {
-        let side_effect = SideEffect { value: note_hash, counter: self.side_effect_counter };
-        self.new_note_hashes.push(side_effect);
+        self.new_note_hashes.push(NoteHash { value: note_hash, counter: self.side_effect_counter });
         self.side_effect_counter = self.side_effect_counter + 1;
     }
 
-    fn push_new_nullifier(&mut self, nullifier: Field, _nullified_commitment: Field) {
-        let side_effect = SideEffectLinkedToNoteHash {
+    fn push_new_nullifier(&mut self, nullifier: Field, _nullified_note_hash: Field) {
+        self.new_nullifiers.push(Nullifier {
             value: nullifier,
             note_hash: 0, // cannot nullify pending notes in public context
             counter: self.side_effect_counter
-        };
-        self.new_nullifiers.push(side_effect);
+        });
         self.side_effect_counter = self.side_effect_counter + 1;
     }
 }
@@ -238,10 +233,6 @@ impl PublicContextInterface for PublicContext {
 
     fn fee_per_da_gas(self) -> Field {
         self.inputs.public_global_variables.gas_fees.fee_per_da_gas
-    }
-
-    fn fee_per_l1_gas(self) -> Field {
-        self.inputs.public_global_variables.gas_fees.fee_per_l1_gas
     }
 
     fn fee_per_l2_gas(self) -> Field {
@@ -278,16 +269,22 @@ impl PublicContextInterface for PublicContext {
         self.push_new_nullifier(nullifier, 0)
     }
 
-    fn emit_unencrypted_log<T>(&mut self, log: T) {
-        let event_selector = 5;
-        let log_hash = emit_unencrypted_log_oracle(self.this_address(), event_selector, log);
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-        // Once we hash inside circuits, this replaces push_unencrypted_log
-        // For now we need an oracle to get the hash
+    fn emit_unencrypted_log<T, N, M>(&mut self, log: T) where T: ToBytesForUnencryptedLog<N, M> {
+        let event_selector = 5; // TODO: compute actual event selector.
+        let contract_address = self.this_address();
+        let log_slice = log.to_be_bytes_arr();
+        let log_hash = compute_unencrypted_log_hash(
+            contract_address,
+            event_selector,
+            log
+        );
         let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
         self.unencrypted_logs_hashes.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
+        // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4)
+        self.unencrypted_log_preimages_length = self.unencrypted_log_preimages_length + 44 + log_slice.len().to_field();
+        // Call oracle to broadcast log
+        let _void = emit_unencrypted_log_oracle(contract_address, event_selector, log, side_effect.counter);
     }
 
     fn call_public_function<RETURNS_COUNT>(
@@ -342,7 +339,7 @@ impl Empty for PublicContext {
             new_nullifiers: BoundedVec::new(),
             new_l2_to_l1_msgs: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
-            unencrypted_logs_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
             historical_header: Header::empty(),
             prover_address: AztecAddress::zero(),
         }
@@ -356,7 +353,8 @@ fn nullifier_exists_oracle(nullifier: Field) -> Field {}
 fn emit_unencrypted_log_oracle<T>(
     _contract_address: AztecAddress,
     _event_selector: Field,
-    _message: T
+    _message: T,
+    _counter: u32,
 ) -> Field {}
 
 struct FunctionReturns<N> {

@@ -1,8 +1,8 @@
 use crate::{
     abis::{
     call_context::CallContext, max_block_number::MaxBlockNumber, gas_settings::GasSettings,
-    nullifier_key_validation_request::NullifierKeyValidationRequest, read_request::ReadRequest,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    nullifier_key_validation_request::NullifierKeyValidationRequest, note_hash::NoteHash,
+    nullifier::Nullifier, read_request::ReadRequest, side_effect::SideEffect
 },
     constants::{
     MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
@@ -27,12 +27,12 @@ struct PrivateCircuitPublicInputs {
 
     max_block_number: MaxBlockNumber,
 
-    note_hash_read_requests: [SideEffect; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    note_hash_read_requests: [ReadRequest; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     nullifier_read_requests: [ReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
     nullifier_key_validation_requests: [NullifierKeyValidationRequest; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL],
 
-    new_note_hashes: [SideEffect; MAX_NEW_NOTE_HASHES_PER_CALL],
-    new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_CALL],
+    new_note_hashes: [NoteHash; MAX_NEW_NOTE_HASHES_PER_CALL],
+    new_nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_CALL],
     private_call_stack_hashes: [Field; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
     public_call_stack_hashes: [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
     new_l2_to_l1_msgs: [L2ToL1Message; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
@@ -141,11 +141,11 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             returns_hash: reader.read(),
             min_revertible_side_effect_counter: reader.read() as u32,
             max_block_number: reader.read_struct(MaxBlockNumber::deserialize),
-            note_hash_read_requests: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]),
+            note_hash_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]),
             nullifier_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL]),
             nullifier_key_validation_requests: reader.read_struct_array(NullifierKeyValidationRequest::deserialize, [NullifierKeyValidationRequest::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL]),
-            new_note_hashes: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_NEW_NOTE_HASHES_PER_CALL]),
-            new_nullifiers: reader.read_struct_array(SideEffectLinkedToNoteHash::deserialize, [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL]),
+            new_note_hashes: reader.read_struct_array(NoteHash::deserialize, [NoteHash::empty(); MAX_NEW_NOTE_HASHES_PER_CALL]),
+            new_nullifiers: reader.read_struct_array(Nullifier::deserialize, [Nullifier::empty(); MAX_NEW_NULLIFIERS_PER_CALL]),
             private_call_stack_hashes: reader.read_array([0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL]),
             public_call_stack_hashes: reader.read_array([0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL]),
             new_l2_to_l1_msgs: reader.read_struct_array(L2ToL1Message::deserialize, [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
@@ -178,11 +178,11 @@ impl Empty for PrivateCircuitPublicInputs {
             returns_hash: 0,
             min_revertible_side_effect_counter: 0 as u32,
             max_block_number: MaxBlockNumber::empty(),
-            note_hash_read_requests: [SideEffect::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+            note_hash_read_requests: [ReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
             nullifier_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
             nullifier_key_validation_requests: [NullifierKeyValidationRequest::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL],
-            new_note_hashes: [SideEffect::empty(); MAX_NEW_NOTE_HASHES_PER_CALL],
-            new_nullifiers: [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
+            new_note_hashes: [NoteHash::empty(); MAX_NEW_NOTE_HASHES_PER_CALL],
+            new_nullifiers: [Nullifier::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
             private_call_stack_hashes: [0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
             public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
             new_l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
@@ -211,6 +211,6 @@ fn empty_hash() {
     let inputs = PrivateCircuitPublicInputs::empty();
     let hash = inputs.hash();
     // Value from private_circuit_public_inputs.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x2517b9a84487bde68e18647e59530c6ffe4a7a88c5c556f013d09fd22b84ba35;
+    let test_data_empty_hash = 0x29129c06414f4ac73bf889692c7011f91727d4cdbfe4fe143e6adee69b565cc8;
     assert_eq(hash, test_data_empty_hash);
 }

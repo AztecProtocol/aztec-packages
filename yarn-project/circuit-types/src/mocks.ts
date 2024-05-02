@@ -3,12 +3,12 @@ import {
   CallRequest,
   GasSettings,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  Nullifier,
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
   Proof,
   type PublicCallRequest,
   SideEffect,
-  SideEffectLinkedToNoteHash,
   computeContractClassId,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
@@ -63,7 +63,7 @@ export const mockTx = (
 
   const isForPublic = totalPublicCallRequests > 0;
   const data = PrivateKernelTailCircuitPublicInputs.empty();
-  const firstNullifier = new SideEffectLinkedToNoteHash(new Fr(seed + 1), new Fr(seed + 2), Fr.ZERO);
+  const firstNullifier = new Nullifier(new Fr(seed + 1), 0, Fr.ZERO);
   const encryptedLogs = hasLogs ? EncryptedTxL2Logs.random(2, 3) : EncryptedTxL2Logs.empty(); // 2 priv function invocations creating 3 encrypted logs each
   const unencryptedLogs = hasLogs ? UnencryptedTxL2Logs.random(2, 1) : UnencryptedTxL2Logs.empty(); // 2 priv function invocations creating 1 unencrypted log each
   data.constants.txContext.gasSettings = GasSettings.default();
@@ -103,8 +103,8 @@ export const mockTx = (
     );
   } else {
     data.forRollup!.end.newNullifiers[0] = firstNullifier.value;
-    data.forRollup!.end.encryptedLogsHash = hasLogs ? Fr.fromBuffer(encryptedLogs.hash()) : Fr.ZERO;
-    data.forRollup!.end.unencryptedLogsHash = hasLogs ? Fr.fromBuffer(unencryptedLogs.hash()) : Fr.ZERO;
+    data.forRollup!.end.encryptedLogsHash = Fr.fromBuffer(encryptedLogs.hash());
+    data.forRollup!.end.unencryptedLogsHash = Fr.fromBuffer(unencryptedLogs.hash());
   }
 
   const tx = new Tx(data, new Proof(Buffer.alloc(0)), encryptedLogs, unencryptedLogs, publicCallRequests);

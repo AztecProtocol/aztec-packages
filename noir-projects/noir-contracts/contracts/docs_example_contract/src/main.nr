@@ -76,9 +76,7 @@ contract DocsExample {
                 set: PrivateSet::new(context, 5),
                 // docs:end:storage-set-init
                 private_immutable: PrivateImmutable::new(context, 6),
-                // docs:start:storage-shared-immutable
                 shared_immutable: SharedImmutable::new(context, 7),
-                // docs:end:storage-shared-immutable
                 // docs:start:storage-minters-init
                 minters: Map::new(
                     context,
@@ -308,7 +306,7 @@ contract DocsExample {
         b: Field // The actual return type of our circuit is the PrivateCircuitPublicInputs struct, this will be the 
         // input to our kernel! 
         // docs:start:context-example-return
-    ) -> distinct pub PrivateCircuitPublicInputs {
+    ) -> pub PrivateCircuitPublicInputs {
         // docs:end:context-example-return
         // ************************************************************
         // The hasher is a structure used to generate a hash of the circuits inputs. 

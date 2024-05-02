@@ -29,6 +29,8 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_CALL,
   MembershipWitness,
+  NoteHash,
+  Nullifier,
   type PrivateKernelTailCircuitPublicInputs,
   type Proof,
   PublicCallData,
@@ -43,7 +45,6 @@ import {
   ReadRequest,
   RevertCode,
   SideEffect,
-  SideEffectLinkedToNoteHash,
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
@@ -245,6 +246,7 @@ export abstract class AbstractPhaseManager {
       while (executionStack.length) {
         const current = executionStack.pop()!;
         const isExecutionRequest = !isPublicExecutionResult(current);
+        // TODO(6052): Extract correct new counter from nested calls
         const sideEffectCounter = lastSideEffectCounter(tx) + 1;
         const availableGas = this.getAvailableGas(tx, previousPublicKernelOutput);
 
@@ -269,7 +271,9 @@ export abstract class AbstractPhaseManager {
           throw result.revertReason;
         }
 
-        newUnencryptedFunctionLogs.push(result.unencryptedLogs);
+        if (isExecutionRequest) {
+          newUnencryptedFunctionLogs.push(result.allUnencryptedLogs);
+        }
 
         this.log.debug(
           `Running public kernel circuit for ${result.execution.contractAddress.toString()}:${functionSelector}`,
@@ -381,14 +385,12 @@ export abstract class AbstractPhaseManager {
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     );
 
-    const unencryptedLogPreimagesLength = new Fr(result.unencryptedLogs.getSerializedLength());
-
     const publicCircuitPublicInputs = PublicCircuitPublicInputs.from({
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.ZERO,
       argsHash: computeVarArgsHash(result.execution.args),
-      newNoteHashes: padArrayEnd(result.newNoteHashes, SideEffect.empty(), MAX_NEW_NOTE_HASHES_PER_CALL),
-      newNullifiers: padArrayEnd(result.newNullifiers, SideEffectLinkedToNoteHash.empty(), MAX_NEW_NULLIFIERS_PER_CALL),
+      newNoteHashes: padArrayEnd(result.newNoteHashes, NoteHash.empty(), MAX_NEW_NOTE_HASHES_PER_CALL),
+      newNullifiers: padArrayEnd(result.newNullifiers, Nullifier.empty(), MAX_NEW_NULLIFIERS_PER_CALL),
       newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, L2ToL1Message.empty(), MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
       startSideEffectCounter: result.startSideEffectCounter,
       endSideEffectCounter: result.endSideEffectCounter,
@@ -419,8 +421,9 @@ export abstract class AbstractPhaseManager {
         SideEffect.empty(),
         MAX_UNENCRYPTED_LOGS_PER_CALL,
       ),
-      unencryptedLogPreimagesLength,
+      unencryptedLogPreimagesLength: result.unencryptedLogPreimagesLength,
       historicalHeader: this.historicalHeader,
+      globalVariables: this.globalVariables,
       startGasLeft: Gas.from(result.startGasLeft),
       endGasLeft: Gas.from(result.endGasLeft),
       transactionFee: result.transactionFee,
