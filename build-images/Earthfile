@@ -27,7 +27,7 @@ wasi-sdk:
   ARG TARGETARCH
   FROM scratch
   COPY +wasi-sdk-build/opt/wasi-sdk /opt/wasi-sdk
-  # SAVE IMAGE --push aztecprotocol/wasi-sdk:22.0-$TARGETARCH
+  SAVE IMAGE --push aztecprotocol/wasi-sdk:22.0-$TARGETARCH
 
 ########################################################################################################################
 # Build osxcross.
@@ -78,7 +78,7 @@ osxcross:
   ARG TARGETARCH
   FROM scratch
   COPY +osxcross-build/opt/osxcross /opt/osxcross
-  # SAVE IMAGE --push aztecprotocol/osxcross:14.0-$TARGETARCH
+  SAVE IMAGE --push aztecprotocol/osxcross:14.0-$TARGETARCH
 
 ########################################################################################################################
 # Build foundry.
