@@ -140,7 +140,7 @@ class ECCVMTranscriptBuilder {
                 } else {
                     updated_state.accumulator = typename CycleGroup::element(state.accumulator) + entry.base_point;
                 }
-                updated_state.is_accumulator_empty = false;
+                updated_state.is_accumulator_empty = updated_state.accumulator.is_point_at_infinity();
             }
             row.accumulator_empty = state.is_accumulator_empty;
             row.q_add = entry.add;
@@ -182,8 +182,10 @@ class ECCVMTranscriptBuilder {
             if (entry.add || msm_transition) {
                 auto lhs = entry.add ? entry.base_point : updated_state.msm_accumulator;
                 auto rhs = state.accumulator;
-                row.transcript_add_x_equal = lhs.x == rhs.x; // check infinity?
-                row.transcript_add_y_equal = lhs.y == rhs.y;
+                row.transcript_add_x_equal =
+                    lhs.x == rhs.x || (lhs.is_point_at_infinity() && rhs.is_point_at_infinity()); // check infinity?
+                row.transcript_add_y_equal =
+                    lhs.y == rhs.y || (lhs.is_point_at_infinity() && rhs.is_point_at_infinity());
                 if (lhs.x == rhs.x && !lhs.is_point_at_infinity() && !rhs.is_point_at_infinity()) {
                     row.transcript_add_lambda = (lhs.x * lhs.x * 3) / (lhs.y * 2);
                 } else if (!lhs.is_point_at_infinity() && !rhs.is_point_at_infinity()) {

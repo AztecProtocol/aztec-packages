@@ -243,3 +243,37 @@ TEST(ECCVMCircuitBuilderTests, MSM)
     bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
 }
+
+TEST(ECCVMCircuitBuilderTests, EqAgainstPointAtInfinity)
+{
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+
+    auto generators = G1::derive_generators("test generators", 3);
+    typename G1::element a = generators[0];
+    a.self_set_infinity();
+
+    op_queue->add_accumulate(a);
+    op_queue->eq_and_reset();
+
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
+    EXPECT_EQ(result, true);
+}
+
+TEST(ECCVMCircuitBuilderTests, AddPointAtInfinity)
+{
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+
+    auto generators = G1::derive_generators("test generators", 3);
+    typename G1::element a = generators[0];
+    typename G1::element b = generators[0];
+    b.self_set_infinity();
+
+    op_queue->add_accumulate(a);
+    op_queue->add_accumulate(b);
+    op_queue->eq_and_reset();
+
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
+    EXPECT_EQ(result, true);
+}
