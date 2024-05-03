@@ -380,7 +380,7 @@ export async function proveUltraHonk(bytecodePath: string, witnessPath: string, 
 }
 
 export async function writeVkUltraHonk(bytecodePath: string, crsPath: string, outputPath: string) {
-  const { api } = await initUltraHonk(bytecodePath, crsPath);
+  const { api } = await init(bytecodePath, crsPath);
   try {
     const bytecode = getBytecode(bytecodePath);
     debug('initing verification key...');
