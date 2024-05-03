@@ -75,12 +75,12 @@ class MockSnapshotManager implements ISnapshotManager {
     restore: (snapshotData: T, context: SubsystemsContext) => Promise<void> = () => Promise.resolve(),
   ) {
     // We are running in disabled mode. Just apply the state.
-    await this.setup();
+    const context = await this.setup();
     this.logger.verbose(`Applying state transition for ${name}...`);
-    const snapshotData = await apply(this.context!);
+    const snapshotData = await apply(context);
     this.logger.verbose(`State transition for ${name} complete.`);
     // Execute the restoration function.
-    await restore(snapshotData, this.context!);
+    await restore(snapshotData, context);
     return;
   }
 
