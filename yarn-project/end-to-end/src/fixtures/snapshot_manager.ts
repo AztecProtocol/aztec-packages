@@ -43,6 +43,10 @@ type SnapshotEntry = {
   snapshotPath: string;
 };
 
+/**
+ * Snapshot engine for local e2e tests. Read more:
+ * https://github.com/AztecProtocol/aztec-packages/pull/5526
+ */
 export class SnapshotManager {
   private snapshotStack: SnapshotEntry[] = [];
   private context?: SubsystemsContext;

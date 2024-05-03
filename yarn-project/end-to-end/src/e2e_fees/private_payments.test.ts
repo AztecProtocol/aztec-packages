@@ -26,8 +26,10 @@ describe('e2e_fees private_payment', () => {
   const t = new FeesTest('private_payment');
 
   beforeAll(async () => {
+    await t.applyBaseSnapshots();
+    await t.applyFundAlice();
     ({ aliceWallet, aliceAddress, bobAddress, sequencerAddress, gasTokenContract, bananaCoin, bananaFPC, gasSettings } =
-      await t.setupWithFundAlice());
+      await t.setup());
   });
 
   afterAll(async () => {

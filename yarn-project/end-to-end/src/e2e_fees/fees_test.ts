@@ -16,7 +16,13 @@ import {
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { GasSettings } from '@aztec/circuits.js';
 import { createL1Clients } from '@aztec/ethereum';
-import { TokenContract as BananaCoin, FPCContract, GasTokenContract } from '@aztec/noir-contracts.js';
+import {
+  AppSubscriptionContract,
+  TokenContract as BananaCoin,
+  CounterContract,
+  FPCContract,
+  GasTokenContract,
+} from '@aztec/noir-contracts.js';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import { SnapshotManager, type SubsystemsContext, addAccounts } from '../fixtures/snapshot_manager.js';
@@ -35,35 +41,38 @@ export class FeesTest {
 
   public aliceWallet!: AccountWallet;
   public aliceAddress!: AztecAddress;
+  public bobWallet!: AccountWallet;
   public bobAddress!: AztecAddress;
   public sequencerAddress!: AztecAddress;
+
   public gasSettings = GasSettings.default();
+  public maxFee = this.gasSettings.getFeeLimit().toBigInt();
 
   public gasTokenContract!: GasTokenContract;
   public bananaCoin!: BananaCoin;
   public bananaFPC!: FPCContract;
+  public counterContract!: CounterContract;
+  public subscriptionContract!: AppSubscriptionContract;
 
   public gasBalances!: BalancesFn;
   public bananaPublicBalances!: BalancesFn;
   public bananaPrivateBalances!: BalancesFn;
 
-  public BRIDGED_FPC_GAS = BigInt(1e15);
-  public ALICE_BANANACOIN_BALANCE = 1e12;
+  public readonly INITIAL_GAS_BALANCE = BigInt(1e15);
+  public readonly ALICE_INITIAL_BANANAS = BigInt(1e12);
+  public readonly SUBSCRIPTION_AMOUNT = 10_000n;
+  public readonly APP_SPONSORED_TX_GAS_LIMIT = BigInt(10e9);
 
   constructor(testName: string) {
-    this.logger = createDebugLogger(`aztec:e2e_deploy_contract:${testName}`);
-    this.snapshotManager = new SnapshotManager(`e2e_deploy_contract/${testName}`, dataPath);
+    this.logger = createDebugLogger(`aztec:e2e_fees:${testName}`);
+    this.snapshotManager = new SnapshotManager(`e2e_fees/${testName}`, dataPath);
   }
 
   async setup() {
-    await this.applyBaseSnapshots();
-    return await this.setupSnapshotManager();
-  }
-
-  async setupWithFundAlice() {
-    await this.applyBaseSnapshots();
-    await this.applyFundAlice();
-    return await this.setupSnapshotManager();
+    const context = await this.snapshotManager.setup();
+    await context.aztecNode.setConfig({ feeRecipient: this.sequencerAddress });
+    ({ pxe: this.pxe, aztecNode: this.aztecNode } = context);
+    return this;
   }
 
   async teardown() {
@@ -97,14 +106,7 @@ export class FeesTest {
     await wallet.addNote(extendedNote);
   }
 
-  private async setupSnapshotManager() {
-    const context = await this.snapshotManager.setup();
-    await context.aztecNode.setConfig({ feeRecipient: this.sequencerAddress });
-    ({ pxe: this.pxe, aztecNode: this.aztecNode } = context);
-    return this;
-  }
-
-  private async applyBaseSnapshots() {
+  public async applyBaseSnapshots() {
     await this.applyInitialAccountsSnapshot();
     await this.applyPublicDeployAccountsSnapshot();
     await this.applyDeployGasTokenSnapshot();
@@ -120,7 +122,7 @@ export class FeesTest {
         await Promise.all(accountManagers.map(a => a.register()));
         this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
-        this.aliceWallet = this.wallets[0];
+        [this.aliceWallet, this.bobWallet] = this.wallets.slice(0, 2);
         [this.aliceAddress, this.bobAddress, this.sequencerAddress] = this.wallets.map(w => w.getAddress());
       },
     );
@@ -163,7 +165,7 @@ export class FeesTest {
 
         this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
 
-        await harness.bridgeFromL1ToL2(this.BRIDGED_FPC_GAS, this.BRIDGED_FPC_GAS, bananaFPC.address);
+        await harness.bridgeFromL1ToL2(this.INITIAL_GAS_BALANCE, this.INITIAL_GAS_BALANCE, bananaFPC.address);
 
         return {
           bananaCoinAddress: bananaCoin.address,
@@ -187,14 +189,53 @@ export class FeesTest {
     );
   }
 
-  private async applyFundAlice() {
+  public async applyFundAlice() {
     await this.snapshotManager.snapshot(
       'fund_alice',
       async () => {
-        await this.mintPrivate(BigInt(this.ALICE_BANANACOIN_BALANCE), this.aliceAddress);
-        await this.bananaCoin.methods.mint_public(this.aliceAddress, this.ALICE_BANANACOIN_BALANCE).send().wait();
+        await this.mintPrivate(BigInt(this.ALICE_INITIAL_BANANAS), this.aliceAddress);
+        await this.bananaCoin.methods.mint_public(this.aliceAddress, this.ALICE_INITIAL_BANANAS).send().wait();
       },
       () => Promise.resolve(),
+    );
+  }
+
+  public async applySetupSubscription() {
+    await this.snapshotManager.snapshot(
+      'setup_subscription',
+      async () => {
+        // Deploy counter contract for testing with Bob as owner
+        const counterContract = await CounterContract.deploy(this.bobWallet, 0, this.bobAddress).send().deployed();
+
+        // Deploy subscription contract, that allows subscriptions for SUBSCRIPTION_AMOUNT of bananas
+        const subscriptionContract = await AppSubscriptionContract.deploy(
+          this.bobWallet,
+          counterContract.address,
+          this.bobAddress,
+          this.bananaCoin.address,
+          this.SUBSCRIPTION_AMOUNT,
+          this.gasTokenContract.address,
+          this.APP_SPONSORED_TX_GAS_LIMIT,
+        )
+          .send()
+          .deployed();
+
+        // Mint some gas tokens to the subscription contract
+        // Could also use bridgeFromL1ToL2 from the harness, but this is more direct
+        await this.gasTokenContract.methods
+          .mint_public(subscriptionContract.address, this.INITIAL_GAS_BALANCE)
+          .send()
+          .wait();
+
+        return {
+          counterContractAddress: counterContract.address,
+          subscriptionContractAddress: subscriptionContract.address,
+        };
+      },
+      async ({ counterContractAddress, subscriptionContractAddress }) => {
+        this.counterContract = await CounterContract.at(counterContractAddress, this.bobWallet);
+        this.subscriptionContract = await AppSubscriptionContract.at(subscriptionContractAddress, this.bobWallet);
+      },
     );
   }
 
