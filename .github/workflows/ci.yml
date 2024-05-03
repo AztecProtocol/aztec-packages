@@ -377,17 +377,18 @@ jobs:
           echo "Pull request merging now allowed."
 
   notify:
-    needs: [
+    needs:
+      [
         e2e,
         bb-native-tests,
         bb-bench,
         yarn-project-formatting,
         yarn-project-test,
         prover-client-test,
-        - bb-js-test
-        - barretenberg-acir-tests-bb-js
-        - barretenberg-acir-tests-bb
-        - barretenberg-acir-tests-sol,
+        bb-js-test,
+        barretenberg-acir-tests-bb-js,
+        barretenberg-acir-tests-bb,
+        barretenberg-acir-tests-sol,
       ]
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/master' && failure() }}
