@@ -372,13 +372,10 @@ jobs:
           echo "bb-bench status: ${{ needs.bb-bench.result }}"
           echo "yarn-project-formatting status: ${{ needs.yarn-project-formatting.result }}"
           echo "yarn-project-test status: ${{ needs.yarn-project-test.result }}"
-          for need in "${needs[@]}" 
-          do
-              if [ "${{ ${need}.result }}" != 'success' ]; then
-                echo "$need failed, merging not allowed"
-                exit 1
-              fi
-          done
+          if [ ${{ contains(needs.*.result, 'failure') }} ]; then
+            echo "At least one job failed, merging not allowed"
+            exit 1
+          fi
           echo "Pull request merging now allowed."
 
   notify:
