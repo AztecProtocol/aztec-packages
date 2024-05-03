@@ -70,7 +70,7 @@ export interface KeyStore {
    * @param app - The application address to retrieve the nullifier secret key for.
    * @returns A Promise that resolves to the application nullifier secret key.
    */
-  getAppNullifierSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr>;
+  getAppNullifierSecretKey(accountOrMasterNullifierPublicKeyHash: AztecAddress | Fr, app: AztecAddress): Promise<Fr>;
 
   /**
    * Retrieves application incoming viewing secret key.

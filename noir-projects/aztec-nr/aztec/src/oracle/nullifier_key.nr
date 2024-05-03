@@ -2,7 +2,7 @@ use dep::protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint, 
 
 // Nullifier keys pertaining to a specific account
 struct NullifierKeys {
-    // TODO: (ek) Replace this with master_nullifier_public_key_hash
+    // TODO (#6176): Replace get_nullifier_keys above with this once we no longer get nullifier keys with address
     account: AztecAddress,
     master_nullifier_public_key: GrumpkinPoint,
     app_nullifier_secret_key: Field,
