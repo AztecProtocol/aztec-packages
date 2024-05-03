@@ -27,7 +27,7 @@ export class DelegateCallsTest {
     await this.snapshotManager.snapshot('accounts', addAccounts(1, this.logger), async ({ accountKeys }, { pxe }) => {
       const accountManager = getSchnorrAccount(pxe, accountKeys[0][0], accountKeys[0][1], 1);
       this.wallet = await accountManager.getWallet();
-      this.logger.verbose(`Wallet  address: ${this.wallet.getAddress()}`);
+      this.logger.verbose(`Wallet address: ${this.wallet.getAddress()}`);
     });
 
     await this.snapshotManager.snapshot(

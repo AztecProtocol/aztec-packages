@@ -8,18 +8,20 @@ import {
   Fr,
   Note,
   type PXE,
+  SignerlessWallet,
   type TxHash,
   computeSecretHash,
   createDebugLogger,
 } from '@aztec/aztec.js';
+import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { GasSettings } from '@aztec/circuits.js';
 import { createL1Clients } from '@aztec/ethereum';
 import { TokenContract as BananaCoin, FPCContract, GasTokenContract } from '@aztec/noir-contracts.js';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import { SnapshotManager, type SubsystemsContext, addAccounts } from '../fixtures/snapshot_manager.js';
-import { type BalancesFn, expectMapping, getBalancesFn, publicDeployAccounts } from '../fixtures/utils.js';
-import { GasPortalTestingHarnessFactory, type IGasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
+import { type BalancesFn, deployCanonicalGasToken, getBalancesFn, publicDeployAccounts } from '../fixtures/utils.js';
+import { GasPortalTestingHarnessFactory } from '../shared/gas_portal_test_harness.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
 
@@ -41,8 +43,6 @@ export class FeesTest {
   public bananaCoin!: BananaCoin;
   public bananaFPC!: FPCContract;
 
-  public gasBridgeTestHarness!: IGasBridgingTestHarness;
-
   public gasBalances!: BalancesFn;
   public bananaPublicBalances!: BalancesFn;
   public bananaPrivateBalances!: BalancesFn;
@@ -56,19 +56,14 @@ export class FeesTest {
   }
 
   async setup() {
-    await this.applyInitialAccountsSnapshot();
-    await this.applyPublicDeployAccountsSnapshot();
-    await this.applyGasSetupSnapshot();
-    const context = await this.snapshotManager.setup();
-    await context.aztecNode.setConfig({ feeRecipient: this.sequencerAddress });
-    ({ pxe: this.pxe, aztecNode: this.aztecNode } = context);
-    return this;
+    await this.applyBaseSnapshots();
+    return await this.setupSnapshotManager();
   }
 
   async setupWithFundAlice() {
-    await this.setup();
+    await this.applyBaseSnapshots();
     await this.applyFundAlice();
-    return this;
+    return await this.setupSnapshotManager();
   }
 
   async teardown() {
@@ -79,14 +74,14 @@ export class FeesTest {
   async mintPrivate(amount: bigint, address: AztecAddress) {
     const secret = Fr.random();
     const secretHash = computeSecretHash(secret);
+    const balanceBefore = await this.bananaCoin.methods.balance_of_private(this.aliceAddress).simulate();
     this.logger.debug(`Minting ${amount} bananas privately for ${address} with secret ${secretHash.toString()}`);
     const receipt = await this.bananaCoin.methods.mint_private(amount, secretHash).send().wait();
 
     await this.addPendingShieldNoteToPXE(this.aliceWallet, amount, secretHash, receipt.txHash);
-    const txClaim = this.bananaCoin.methods.redeem_shield(address, amount, secret).send();
-    const receiptClaim = await txClaim.wait({ debug: true });
-    const { visibleNotes } = receiptClaim.debugInfo!;
-    expect(visibleNotes[0].note.items[0].toBigInt()).toBe(amount);
+    await this.bananaCoin.methods.redeem_shield(address, amount, secret).send().wait();
+    const balanceAfter = await this.bananaCoin.methods.balance_of_private(this.aliceAddress).simulate();
+    expect(balanceAfter).toEqual(balanceBefore + amount);
   }
 
   async addPendingShieldNoteToPXE(wallet: AccountWallet, amount: bigint, secretHash: Fr, txHash: TxHash) {
@@ -102,12 +97,27 @@ export class FeesTest {
     await wallet.addNote(extendedNote);
   }
 
+  private async setupSnapshotManager() {
+    const context = await this.snapshotManager.setup();
+    await context.aztecNode.setConfig({ feeRecipient: this.sequencerAddress });
+    ({ pxe: this.pxe, aztecNode: this.aztecNode } = context);
+    return this;
+  }
+
+  private async applyBaseSnapshots() {
+    await this.applyInitialAccountsSnapshot();
+    await this.applyPublicDeployAccountsSnapshot();
+    await this.applyDeployGasTokenSnapshot();
+    await this.applyFPCSetupSnapshot();
+  }
+
   private async applyInitialAccountsSnapshot() {
     await this.snapshotManager.snapshot(
       'initial_accounts',
       addAccounts(3, this.logger),
       async ({ accountKeys }, { pxe }) => {
         const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
+        await Promise.all(accountManagers.map(a => a.register()));
         this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
         this.aliceWallet = this.wallets[0];
@@ -117,19 +127,29 @@ export class FeesTest {
   }
 
   private async applyPublicDeployAccountsSnapshot() {
-    await this.snapshotManager.snapshot(
-      'public_deploy_accounts',
-      () => publicDeployAccounts(this.aliceWallet, this.wallets),
-      () => Promise.resolve(),
+    await this.snapshotManager.snapshot('public_deploy_accounts', () =>
+      publicDeployAccounts(this.aliceWallet, this.wallets),
     );
   }
 
-  private async applyGasSetupSnapshot() {
+  private async applyDeployGasTokenSnapshot() {
+    await this.snapshotManager.snapshot('deploy_gas_token', async context => {
+      await deployCanonicalGasToken(
+        new SignerlessWallet(
+          context.pxe,
+          new DefaultMultiCallEntrypoint(context.aztecNodeConfig.chainId, context.aztecNodeConfig.version),
+        ),
+      );
+    });
+  }
+
+  private async applyFPCSetupSnapshot() {
     await this.snapshotManager.snapshot(
-      'gas_setup',
+      'fpc_setup',
       async context => {
         const harness = await this.createGasBridgeTestHarness(context);
         const gasTokenContract = harness.l2Token;
+        expect(await context.pxe.isContractPubliclyDeployed(gasTokenContract.address)).toBe(true);
 
         const bananaCoin = await BananaCoin.deploy(this.aliceWallet, this.aliceAddress, 'BC', 'BC', 18n)
           .send()
@@ -156,25 +176,13 @@ export class FeesTest {
         const bananaCoin = await BananaCoin.at(data.bananaCoinAddress, this.aliceWallet);
         const gasTokenContract = await GasTokenContract.at(data.gasTokenAddress, this.aliceWallet);
 
+        this.bananaCoin = bananaCoin;
+        this.bananaFPC = bananaFPC;
+        this.gasTokenContract = gasTokenContract;
+
         this.bananaPublicBalances = getBalancesFn('🍌.public', bananaCoin.methods.balance_of_public, this.logger);
         this.bananaPrivateBalances = getBalancesFn('🍌.private', bananaCoin.methods.balance_of_private, this.logger);
         this.gasBalances = getBalancesFn('⛽', gasTokenContract.methods.balance_of_public, this.logger);
-
-        await expectMapping(
-          this.bananaPrivateBalances,
-          [this.aliceAddress, bananaFPC.address, this.sequencerAddress],
-          [0n, 0n, 0n],
-        );
-        await expectMapping(
-          this.bananaPublicBalances,
-          [this.aliceAddress, bananaFPC.address, this.sequencerAddress],
-          [0n, 0n, 0n],
-        );
-        await expectMapping(
-          this.gasBalances,
-          [this.aliceAddress, bananaFPC.address, this.sequencerAddress],
-          [0n, this.BRIDGED_FPC_GAS, 0n],
-        );
       },
     );
   }
