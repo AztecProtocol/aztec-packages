@@ -31,6 +31,15 @@ import { GasPortalTestingHarnessFactory } from '../shared/gas_portal_test_harnes
 
 const { E2E_DATA_PATH: dataPath } = process.env;
 
+/**
+ * Test fixture for testing fees. Provides the following snapshots:
+ * InitialAccounts: Initializes 3 Schnorr account contracts.
+ * PublicDeployAccounts: Deploys the accounts publicly.
+ * DeployGasToken: Deploys the gas token contract.
+ * FPCSetup: Deploys BananaCoin and FPC contracts, and bridges gas from L1.
+ * FundAlice: Mints private and public bananas to Alice.
+ * SetupSubscription: Deploys a counter contract and a subscription contract, and mints gas token to the subscription contract.
+ */
 export class FeesTest {
   private snapshotManager: SnapshotManager;
   private wallets: AccountWallet[] = [];
