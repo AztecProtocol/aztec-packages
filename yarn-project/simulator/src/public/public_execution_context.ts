@@ -3,7 +3,8 @@ import {
   CallContext,
   FunctionData,
   type FunctionSelector,
-  Gas,
+  type Gas,
+  type GasSettings,
   type GlobalVariables,
   type Header,
   PublicContextInputs,
@@ -40,6 +41,12 @@ export class PublicExecutionContext extends TypedOracle {
     public readonly stateDb: PublicStateDB,
     public readonly contractsDb: PublicContractsDB,
     public readonly commitmentsDb: CommitmentsDB,
+    public readonly availableGas: Gas,
+    public readonly transactionFee: Fr,
+    public readonly gasSettings: GasSettings,
+    // Unencrypted logs emitted during this call AND any nested calls
+    // Useful for maintaining correct ordering in ts
+    private allUnencryptedLogs: UnencryptedL2Log[] = [],
     private log = createDebugLogger('aztec:simulator:public_execution_context'),
   ) {
     super();
@@ -62,8 +69,8 @@ export class PublicExecutionContext extends TypedOracle {
       this.header,
       this.globalVariables,
       this.sideEffectCounter.current(),
-      Gas.test(), // TODO(palla/gas): Set proper values
-      new Fr(0),
+      this.availableGas,
+      this.transactionFee,
     );
     const fields = [...publicContextInputs.toFields(), ...args];
     return toACVMWitness(witnessStartIndex, fields);
@@ -81,6 +88,13 @@ export class PublicExecutionContext extends TypedOracle {
    */
   public getUnencryptedLogs() {
     return new UnencryptedFunctionL2Logs(this.unencryptedLogs);
+  }
+
+  /**
+   * Return the encrypted logs emitted during this execution, including nested calls.
+   */
+  public getAllUnencryptedLogs() {
+    return new UnencryptedFunctionL2Logs(this.allUnencryptedLogs);
   }
 
   /**
@@ -131,11 +145,10 @@ export class PublicExecutionContext extends TypedOracle {
    * Emit an unencrypted log.
    * @param log - The unencrypted log to be emitted.
    */
-  public override emitUnencryptedLog(log: UnencryptedL2Log) {
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/885)
+  public override emitUnencryptedLog(log: UnencryptedL2Log, _counter: number) {
     this.unencryptedLogs.push(log);
+    this.allUnencryptedLogs.push(log);
     this.log.verbose(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
-    return Fr.fromBuffer(log.hash());
   }
 
   /**
@@ -222,6 +235,10 @@ export class PublicExecutionContext extends TypedOracle {
       this.stateDb,
       this.contractsDb,
       this.commitmentsDb,
+      this.availableGas,
+      this.transactionFee,
+      this.gasSettings,
+      this.allUnencryptedLogs,
       this.log,
     );
 

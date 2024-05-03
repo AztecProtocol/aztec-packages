@@ -1,6 +1,5 @@
 import { type AztecNode, type FunctionCall, type Note, type TxExecutionRequest } from '@aztec/circuit-types';
 import { CallContext, FunctionData } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import {
   type ArrayType,
   type FunctionArtifactWithDebugMetadata,
@@ -20,6 +19,7 @@ import { ClientExecutionContext } from './client_execution_context.js';
 import { type DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { type ExecutionResult } from './execution_result.js';
+import { LogsCache } from './logs_cache.js';
 import { executePrivateFunction } from './private_execution.js';
 import { executeUnconstrainedFunction } from './unconstrained_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -79,8 +79,6 @@ export class AcirSimulator {
       );
     }
 
-    const curve = new Grumpkin();
-
     const header = await this.db.getHeader();
 
     // reserve the first side effect for the tx hash (inserted by the private kernel)
@@ -96,15 +94,15 @@ export class AcirSimulator {
     );
     const context = new ClientExecutionContext(
       contractAddress,
-      request.argsHash,
+      request.firstCallArgsHash,
       request.txContext,
       callContext,
       header,
       request.authWitnesses,
-      PackedValuesCache.create(request.packedArguments),
+      PackedValuesCache.create(request.argsOfCalls),
       new ExecutionNoteCache(),
+      new LogsCache(),
       this.db,
-      curve,
       this.node,
       startSideEffectCounter,
     );

@@ -1,5 +1,12 @@
 import { UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
-import { Fr, Gas, type GlobalVariables, type Header, PublicCircuitPublicInputs } from '@aztec/circuits.js';
+import {
+  Fr,
+  Gas,
+  type GlobalVariables,
+  type Header,
+  PublicCircuitPublicInputs,
+  type TxContext,
+} from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { spawn } from 'child_process';
@@ -64,9 +71,11 @@ async function executePublicFunctionAvm(executionContext: PublicExecutionContext
     executionContext.execution,
     executionContext.header,
     executionContext.globalVariables,
+    executionContext.gasSettings,
+    executionContext.transactionFee,
   );
 
-  const machineState = new AvmMachineState(Gas.test()); // TODO(palla/gas): Set proper values
+  const machineState = new AvmMachineState(executionContext.availableGas);
   const context = new AvmContext(worldStateJournal, executionEnv, machineState);
   const simulator = new AvmSimulator(context);
 
@@ -150,9 +159,13 @@ async function executePublicFunctionAcvm(
       nestedExecutions: [],
       unencryptedLogsHashes: [],
       unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
+      unencryptedLogPreimagesLength: new Fr(4n), // empty logs have len 4
+      allUnencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       reverted,
       revertReason,
-      gasLeft: Gas.empty(),
+      startGasLeft: context.availableGas,
+      endGasLeft: Gas.empty(),
+      transactionFee: context.transactionFee,
     };
   }
 
@@ -171,6 +184,7 @@ async function executePublicFunctionAcvm(
     startSideEffectCounter,
     endSideEffectCounter,
     unencryptedLogsHashes: unencryptedLogsHashesPadded,
+    unencryptedLogPreimagesLength,
   } = PublicCircuitPublicInputs.fromFields(returnWitness);
   const returnValues = await context.unpackReturns(returnsHash);
 
@@ -196,7 +210,11 @@ async function executePublicFunctionAcvm(
 
   const nestedExecutions = context.getNestedExecutions();
   const unencryptedLogs = context.getUnencryptedLogs();
-  const gasLeft = Gas.test(); // TODO(palla/gas): Set proper value
+  const allUnencryptedLogs = context.getAllUnencryptedLogs();
+
+  // TODO(palla/gas): We should be loading these values from the returned PublicCircuitPublicInputs
+  const startGasLeft = context.availableGas;
+  const endGasLeft = context.availableGas; // No gas consumption in non-AVM
 
   return {
     execution,
@@ -213,9 +231,13 @@ async function executePublicFunctionAcvm(
     nestedExecutions,
     unencryptedLogsHashes,
     unencryptedLogs,
+    unencryptedLogPreimagesLength,
+    allUnencryptedLogs,
     reverted: false,
     revertReason: undefined,
-    gasLeft,
+    startGasLeft,
+    endGasLeft,
+    transactionFee: context.transactionFee,
   };
 }
 
@@ -240,6 +262,9 @@ export class PublicExecutor {
   public async simulate(
     execution: PublicExecution,
     globalVariables: GlobalVariables,
+    availableGas: Gas,
+    txContext: TxContext,
+    transactionFee: Fr = Fr.ZERO,
     sideEffectCounter: number = 0,
   ): Promise<PublicExecutionResult> {
     // Functions can request to pack arguments before calling other functions.
@@ -255,6 +280,9 @@ export class PublicExecutor {
       this.stateDb,
       this.contractsDb,
       this.commitmentsDb,
+      availableGas,
+      transactionFee,
+      txContext.gasSettings,
     );
 
     const executionResult = await executePublicFunction(context, /*nested=*/ false);

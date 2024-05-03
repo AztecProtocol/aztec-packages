@@ -1,9 +1,10 @@
 use crate::{
     abis::{
     call_context::CallContext, gas_settings::GasSettings, gas::Gas, max_block_number::MaxBlockNumber,
+    note_hash::NoteHash, nullifier::Nullifier,
     nullifier_key_validation_request::NullifierKeyValidationRequest,
     private_circuit_public_inputs::PrivateCircuitPublicInputs, read_request::ReadRequest,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    side_effect::SideEffect
 },
     address::{AztecAddress, compute_initialization_hash}, header::Header,
     messaging::l2_to_l1_message::L2ToL1Message, tests::fixtures, transaction::tx_context::TxContext
@@ -29,12 +30,12 @@ struct PrivateCircuitPublicInputsBuilder {
 
     max_block_number: MaxBlockNumber,
 
-    note_hash_read_requests: BoundedVec<SideEffect, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    note_hash_read_requests: BoundedVec<ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
-    new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_CALL>,
-    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
+    new_note_hashes: BoundedVec<NoteHash, MAX_NEW_NOTE_HASHES_PER_CALL>,
+    new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_CALL>,
 
     private_call_stack_hashes: BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
@@ -77,12 +78,15 @@ impl PrivateCircuitPublicInputsBuilder {
         };
         public_inputs.call_context = call_context;
         public_inputs.args_hash = args_hash;
-        public_inputs.historical_header = fixtures::HEADER;
         public_inputs.chain_id = 0;
         public_inputs.version = 1;
         public_inputs.gas_settings = GasSettings::default();
 
         public_inputs
+    }
+
+    pub fn build_tx_context(self) -> TxContext {
+        TxContext::new(self.chain_id, self.version, self.gas_settings)
     }
 
     pub fn finish(self) -> PrivateCircuitPublicInputs {
@@ -107,7 +111,7 @@ impl PrivateCircuitPublicInputsBuilder {
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             historical_header: self.historical_header,
-            tx_context: TxContext::new(self.chain_id, self.version, self.gas_settings)
+            tx_context: self.build_tx_context()
         }
     }
 }

@@ -143,7 +143,7 @@ describe('L1Publisher integration', () => {
     };
     const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
-    builder = await TxProver.new({}, worldStateSynchronizer, new WASMSimulator());
+    builder = await TxProver.new(config, new WASMSimulator(), worldStateSynchronizer);
     l2Proof = Buffer.alloc(0);
 
     publisher = getL1Publisher({
@@ -159,7 +159,7 @@ describe('L1Publisher integration', () => {
     feeRecipient = config.feeRecipient || AztecAddress.random();
 
     prevHeader = await builderDb.buildInitialHeader(false);
-  }, 100_000);
+  });
 
   const makeEmptyProcessedTx = () => {
     const tx = makeEmptyProcessedTxFromHistoricalTreeRoots(prevHeader, new Fr(chainId), new Fr(config.version));
@@ -271,7 +271,6 @@ describe('L1Publisher integration', () => {
             feeRecipient: `0x${block.header.globalVariables.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
             gasFees: {
               feePerDaGas: block.header.globalVariables.gasFees.feePerDaGas.toNumber(),
-              feePerL1Gas: block.header.globalVariables.gasFees.feePerL1Gas.toNumber(),
               feePerL2Gas: block.header.globalVariables.gasFees.feePerL2Gas.toNumber(),
             },
           },
@@ -464,7 +463,7 @@ describe('L1Publisher integration', () => {
       // We wipe the messages from previous iteration
       nextL1ToL2Messages = [];
     }
-  }, 360_000);
+  });
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 2 empty txs building on each other`, async () => {
     const archiveInRollup_ = await rollup.read.archive();
@@ -524,7 +523,7 @@ describe('L1Publisher integration', () => {
       });
       expect(ethTx.input).toEqual(expectedData);
     }
-  }, 60_000);
+  });
 });
 
 /**

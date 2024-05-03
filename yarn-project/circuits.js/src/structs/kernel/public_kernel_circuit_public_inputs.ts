@@ -51,6 +51,14 @@ export class PublicKernelCircuitPublicInputs {
     );
   }
 
+  toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  static fromString(str: string) {
+    return PublicKernelCircuitPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
   get needsSetup() {
     return !this.endNonRevertibleData.publicCallStack[1].isEmpty();
   }
@@ -97,7 +105,7 @@ export class PublicKernelCircuitPublicInputs {
       validationRequests: ${inspect(this.validationRequests)},
       endNonRevertibleData: ${inspect(this.endNonRevertibleData)},
       end: ${inspect(this.end)},
-      constants: ${this.constants},
+      constants: ${inspect(this.constants)},
       revertCode: ${this.revertCode}
       }`;
   }

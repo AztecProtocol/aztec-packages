@@ -1,0 +1,4 @@
+VERSION 0.8
+
+build:
+  FROM aztecprotocol/build:1.0

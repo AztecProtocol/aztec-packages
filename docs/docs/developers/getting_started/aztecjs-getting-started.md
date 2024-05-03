@@ -16,10 +16,6 @@ This guide assumes you have followed the [quickstart](./quickstart.md).
 
 We will deploy a pre-compiled token contract, and send tokens privately, using the Sandbox.
 
-:::info
-Find the full code [here](https://github.com/AztecProtocol/dev-rel/tree/main/tutorials/sandbox-tutorial/token)
-:::
-
 We will create a `yarn` project called `token` (although `npm` works fine too).
 
 1. Initialize a yarn project
@@ -360,4 +356,4 @@ That's it! We have successfully deployed a token contract to an instance of the 
 
 ## Next Steps
 
-Learn more about writing Aztec.nr contracts on the [next page](./aztecnr-getting-started.md).
+Write your first smart contract on the [next page](./aztecnr-getting-started.md).

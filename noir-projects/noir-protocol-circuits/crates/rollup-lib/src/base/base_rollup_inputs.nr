@@ -12,8 +12,7 @@ use dep::types::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     membership_witness::{ArchiveRootMembershipWitness, NullifierMembershipWitness, PublicDataMembershipWitness},
     nullifier_leaf_preimage::NullifierLeafPreimage, public_data_update_request::PublicDataUpdateRequest,
-    public_data_read::PublicDataRead, kernel_data::KernelData,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    public_data_read::PublicDataRead, kernel_data::KernelData
 },
     constants::{
     NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
@@ -66,6 +65,14 @@ impl BaseRollupInputs {
             == self.constants.global_variables.version, "kernel version does not match the rollup version"
         );
 
+        // Verify the kernel global variables if set, note these can be empty if this is a request coming directly from the private kernel tail.
+        // TODO(@spalladino) How can we check that this is a request coming from the private kernel tail?
+        assert(
+            self.kernel_data.public_inputs.constants.global_variables.is_empty()
+            | (self.kernel_data.public_inputs.constants.global_variables
+                == self.constants.global_variables), "kernel global variables do not match the rollup global variables"
+        );
+
         self.validate_kernel_start_state();
 
         let rollup_validation_requests = self.kernel_data.public_inputs.rollup_validation_requests;
@@ -100,7 +107,8 @@ impl BaseRollupInputs {
         // Calculate the tx effects hash of the transaction
         let tx_effects_hash = compute_tx_effects_hash(
             self.kernel_data.public_inputs.end,
-            self.kernel_data.public_inputs.revert_code
+            self.kernel_data.public_inputs.revert_code,
+            self.kernel_data.public_inputs.compute_transaction_fee()
         );
         let out_hash = compute_kernel_out_hash(self.kernel_data.public_inputs.end);
 
@@ -719,11 +727,9 @@ mod tests {
         let mut builder = BaseRollupInputsBuilder::new();
 
         let new_note_hashes = [27, 28, 29, 30, 31, 32];
-        let mut new_note_hashes_vec = builder.kernel_data.new_note_hashes;
         for i in 0..new_note_hashes.len() {
-            new_note_hashes_vec.push(SideEffect { value: new_note_hashes[i], counter: 0 });
+            builder.kernel_data.add_new_note_hash(new_note_hashes[i]);
         }
-        builder.kernel_data.new_note_hashes = new_note_hashes_vec;
         let mut expected_commitments_tree = NonEmptyMerkleTree::new(
             [0; MAX_NEW_NOTE_HASHES_PER_TX * 2],
             [0; NOTE_HASH_TREE_HEIGHT],
@@ -980,6 +986,14 @@ mod tests {
     unconstrained fn constants_dont_match_kernels_version() {
         let mut builder = BaseRollupInputsBuilder::new();
         builder.constants.global_variables.version = 3;
+        builder.fails();
+    }
+
+    #[test(should_fail_with = "kernel global variables do not match the rollup global variables")]
+    unconstrained fn constants_global_variables_dont_match_kernels() {
+        let mut builder = BaseRollupInputsBuilder::new();
+        builder.kernel_data.global_variables.block_number = 6;
+        builder.constants.global_variables.block_number = 7;
         builder.fails();
     }
 
