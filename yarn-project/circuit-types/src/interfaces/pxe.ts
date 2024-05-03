@@ -1,4 +1,4 @@
-import { type AztecAddress, type CompleteAddress, type Fr, type PartialAddress, type Point } from '@aztec/circuits.js';
+import { type PublicKeys, type AztecAddress, type CompleteAddress, type Fr, type PartialAddress } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
@@ -68,13 +68,14 @@ export interface PXE {
    * in order to be able to encrypt data for this recipient.
    *
    * @param recipient - The complete address of the recipient
+   * @param publicKeys - The public keys of the recipient (see #5834)
    * @remarks Called recipient because we can only send notes to this account and not receive them via this PXE Service.
    * This is because we don't have the associated private key and for this reason we can't decrypt
    * the recipient's notes. We can send notes to this account because we can encrypt them with the recipient's
    * public key.
    */
   // TODO: #5834: Nuke publicKeys optional parameter after `CompleteAddress` refactor.
-  registerRecipient(recipient: CompleteAddress, publicKeys?: Point[]): Promise<void>;
+  registerRecipient(recipient: CompleteAddress, publicKeys?: PublicKeys): Promise<void>;
 
   /**
    * Retrieves the user accounts registered on this PXE Service.
@@ -106,9 +107,9 @@ export interface PXE {
    * @param address - The address of account.
    * @returns The public keys of the requested account if found.
    * TODO(#5834): refactor complete address and merge with getRegisteredAccount?
-   * TODO?: Refactor this ? This is used in e2e_2_pxes to share keys with another sender
+   * This will change after the re enabling separation of keystore and pxe. We shouldn't need both this function and the above one
    */
-  getRegisteredAccountPublicKeys(address: AztecAddress): Promise<Point[] | undefined>;
+  getRegisteredAccountPublicKeys(address: AztecAddress): Promise<PublicKeys | undefined>;
 
   /**
    * Retrieves the recipients added to this PXE Service.

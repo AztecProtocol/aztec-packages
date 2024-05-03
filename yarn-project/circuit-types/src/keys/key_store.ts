@@ -32,20 +32,12 @@ export interface KeyStore {
   getAccounts(): Promise<AztecAddress[]>;
 
   /**
-   * Gets the master nullifier public key for a given master nullifier public key hash.
-   * @throws If the master nullifier public key hash does not exist in the key store.
-   * @param masterNullifierPublicKeyHash - The master nullifier public key hash for which to retrieve the master nullifier public key.
-   * @returns The master nullifier public key for the account.
-   */
-  getMasterNullifierPublicKeyWithMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr): Promise<PublicKey>;
-
-  /**
-   * Gets the master nullifier public key for a given account.
+   * Gets the master nullifier public key for a given account or master nullifier public key hash.
    * @throws If the account does not exist in the key store.
-   * @param account - The account address for which to retrieve the master nullifier public key.
+   * @param account or master nullifier public key hash - The account address or master nullifier public key hash for which to retrieve the master nullifier public key.
    * @returns The master nullifier public key for the account.
    */
-  getMasterNullifierPublicKey(account: AztecAddress): Promise<PublicKey>;
+  getMasterNullifierPublicKey(accountOrMasterNullifierPublicKeyHash: AztecAddress | Fr): Promise<PublicKey>;
 
   /**
    * Gets the master incoming viewing public key for a given account.
@@ -72,25 +64,13 @@ export interface KeyStore {
   getMasterTaggingPublicKey(account: AztecAddress): Promise<PublicKey>;
 
   /**
-   * Retrieves application nullifier secret key.
+   * Derives and returns the application nullifier secret key for a given account or master nullifier public key hash.
    * @throws If the account does not exist in the key store.
-   * @param account - The account to retrieve the application nullifier secret key for.
+   * @param account or master nullifier public key hash - The account address or master nullifier public key hash for which to retrieve the application nullifier secret key.
    * @param app - The application address to retrieve the nullifier secret key for.
    * @returns A Promise that resolves to the application nullifier secret key.
    */
   getAppNullifierSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr>;
-
-  /**
-   * Retrieves application nullifier secret key.
-   * @throws If the masterNullifierPublicKeyHash does not exist in the key store.
-   * @param masterNullifierPublicKeyHash - The account to retrieve the application nullifier secret key for.
-   * @param app - The application address to retrieve the nullifier secret key for.
-   * @returns A Promise that resolves to the application nullifier secret key.
-   */
-  getAppNullifierSecretKeyWithMasterNullifierPublicKeyHash(
-    masterNullifierPublicKeyHash: Fr,
-    app: AztecAddress,
-  ): Promise<Fr>;
 
   /**
    * Retrieves application incoming viewing secret key.

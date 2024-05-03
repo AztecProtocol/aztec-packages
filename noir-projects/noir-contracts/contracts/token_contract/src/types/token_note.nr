@@ -15,13 +15,12 @@ global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
 
 #[aztec(note)]
 struct TokenNote {
-    // the amount of tokens in the note
+    // The amount of tokens in the note
     amount: U128,
-    // the nullifying public key of the person who owns the note. The owner (recipient) to ensure that the note 
-    // can be privately spent. When nullifier secret and encryption private key is same 
-    // we can simply use the owner for this one.
+    // The nullifying public key hash of the person who owns the note. 
+    // This is used with the app_nullifier_secret_key to ensure that the note can be privately spent.
     owner_nullifying_public_key_hash: Field,
-    // randomness of the note to hide contents.
+    // Randomness of the note to hide its contents
     randomness: Field,
 }
 
@@ -51,6 +50,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
       // We only bother inserting the note if non-empty to save funds on gas.
+      // TODO: (#5901) This will be changed a lot, as it should use the updated encrypted log format
       if !(self.amount == U128::from_integer(0)) {
           let encryption_pub_key = get_public_key_with_master_nullifier_public_key_hash(self.owner_nullifying_public_key_hash);
           context.emit_encrypted_log(

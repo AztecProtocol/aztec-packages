@@ -48,10 +48,10 @@ export class SimulatorOracle implements DBOracle {
     masterNullifierPublicKeyHash: AztecAddress,
     contractAddress: AztecAddress,
   ): Promise<NullifierKeys> {
-    const masterNullifierPublicKey = await this.keyStore.getMasterNullifierPublicKeyWithMasterNullifierPublicKeyHash(
+    const masterNullifierPublicKey = await this.keyStore.getMasterNullifierPublicKey(
       masterNullifierPublicKeyHash,
     );
-    const appNullifierSecretKey = await this.keyStore.getAppNullifierSecretKeyWithMasterNullifierPublicKeyHash(
+    const appNullifierSecretKey = await this.keyStore.getAppNullifierSecretKey(
       masterNullifierPublicKeyHash,
       contractAddress,
     );

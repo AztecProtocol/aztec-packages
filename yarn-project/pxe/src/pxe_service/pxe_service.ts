@@ -33,6 +33,7 @@ import {
   type PublicCallRequest,
   computeContractClassId,
   getContractClassFromArtifact,
+  PublicKeys,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type ContractArtifact, type DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
@@ -211,30 +212,31 @@ export class PXEService implements PXE {
     return this.keyStore.getPublicKeysHash(address);
   }
 
-  public async getRegisteredAccountPublicKeys(address: AztecAddress): Promise<Point[] | undefined> {
+  public async getRegisteredAccountPublicKeys(address: AztecAddress): Promise<PublicKeys | undefined> {
     const accounts = await this.keyStore.getAccounts();
     if (!accounts.some(account => account.equals(address))) {
       return undefined;
     }
-    return Promise.all([
-      this.keyStore.getMasterNullifierPublicKey(address),
-      this.keyStore.getMasterIncomingViewingPublicKey(address),
-      this.keyStore.getMasterOutgoingViewingPublicKey(address),
-      this.keyStore.getMasterTaggingPublicKey(address),
-    ]);
+
+    return {
+      masterNullifierPublicKey: await this.keyStore.getMasterNullifierPublicKey(address),
+      masterIncomingViewingPublicKey: await this.keyStore.getMasterIncomingViewingPublicKey(address),
+      masterOutgoingViewingPublicKey: await this.keyStore.getMasterOutgoingViewingPublicKey(address),
+      masterTaggingPublicKey: await this.keyStore.getMasterTaggingPublicKey(address),
+    }
   }
 
-  public async registerRecipient(recipient: CompleteAddress, publicKeys: Point[] = []): Promise<void> {
+  public async registerRecipient(recipient: CompleteAddress, publicKeys?: PublicKeys): Promise<void> {
     const wasAdded = await this.db.addCompleteAddress(recipient);
 
     // TODO #5834: This should be refactored to be okay with only adding complete address
-    if (publicKeys.length !== 0) {
+    if (publicKeys !== undefined) {
       await this.keyStore.addPublicKeysForAccount(
         recipient.address,
-        publicKeys[0],
-        publicKeys[1],
-        publicKeys[2],
-        publicKeys[3],
+        publicKeys.masterNullifierPublicKey,
+        publicKeys.masterIncomingViewingPublicKey,
+        publicKeys.masterOutgoingViewingPublicKey,
+        publicKeys.masterTaggingPublicKey,
       );
     }
 

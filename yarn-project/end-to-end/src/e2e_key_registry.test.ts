@@ -305,12 +305,12 @@ describe('Key Registry', () => {
         .wait();
 
       // TODO: (#5834) Refactor complete address to move the public keys
-      await pxe.registerRecipient(CompleteAddress.create(accountAddedToRegistry, Point.ZERO, partialAddress), [
-        new Point(Fr.random(), Fr.random()),
+      await pxe.registerRecipient(CompleteAddress.create(accountAddedToRegistry, Point.ZERO, partialAddress), {
+        masterNullifierPublicKey: new Point(Fr.random(), Fr.random()),
         masterIncomingViewingPublicKey,
         masterOutgoingViewingPublicKey,
         masterTaggingPublicKey,
-      ]);
+      });
 
       // Our check should still succeed even if our pxe gives conflicting information, taking the registry as the source of truth.
       await testContract.methods
@@ -352,12 +352,12 @@ describe('Key Registry', () => {
     it('should fail when we try to check the public keys for a invalid address', async () => {
       const randAddress = AztecAddress.random();
       // TODO: (#5834) Refactor complete address to move the public keys
-      await pxe.registerRecipient(CompleteAddress.create(randAddress, Point.ZERO, partialAddress), [
+      await pxe.registerRecipient(CompleteAddress.create(randAddress, Point.ZERO, partialAddress), {
         masterNullifierPublicKey,
         masterIncomingViewingPublicKey,
         masterOutgoingViewingPublicKey,
         masterTaggingPublicKey,
-      ]);
+      });
 
       await expect(
         testContract.methods.test_nullifier_key_freshness(randAddress, masterNullifierPublicKey).send().wait(),
@@ -366,12 +366,12 @@ describe('Key Registry', () => {
 
     it('adds a recipient to our pxe, and checks the key freshness with and without adding an entry to our key registry', async () => {
       // TODO: (#5834) Refactor complete address to move the public keys
-      await pxe.registerRecipient(CompleteAddress.create(accountAddedToRegistry, Point.ZERO, partialAddress), [
+      await pxe.registerRecipient(CompleteAddress.create(accountAddedToRegistry, Point.ZERO, partialAddress), {
         masterNullifierPublicKey,
         masterIncomingViewingPublicKey,
         masterOutgoingViewingPublicKey,
         masterTaggingPublicKey,
-      ]);
+      });
 
       // The check should succeed because we register our recipient manually and the lib checks our pxe
       await testContract.methods
