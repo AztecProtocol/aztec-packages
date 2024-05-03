@@ -386,8 +386,22 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
         opening_scalars.push_back(recursion_separator_challenge);
 
         auto g1_1 = g1_ct(x1, y1);
-        rhs_elements.push_back((g1_1));
+        info("g1_1: ", g1_1.get_value());
+        rhs_elements.push_back(-g1_1);
         rhs_scalars.push_back(recursion_separator_challenge);
+
+        // g1::element P[2] = { g1_0.get_value(), g1_1.get_value() };
+        // g1::element::batch_normalize(P, 2);
+        // // just run the native pairing check here
+        // g1::affine_element P_affine[2]{
+        //     { P[0].x, P[0].y },
+        //     { P[1].x, P[1].y },
+        // };
+        // key->reference_string = srs::get_bn254_crs_factory()->get_verifier_crs();
+        // info("before pairing", key->reference_string);
+        // bb::fq12 result = bb::pairing::reduced_ate_pairing_batch_precomputed(
+        //     P_affine, key->reference_string->get_precomputed_g2_lines(), 2);
+        // info("result of pairing: ", (result == bb::fq12::one()));
     }
 
     auto opening_result = g1_ct::template bn254_endo_batch_mul_with_generator(

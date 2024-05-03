@@ -128,8 +128,8 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     auto witness = get_witness(witnessPath);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose };
+    // init_bn254_crs(acir_composer.get_dyadic_circuit_size());
     acir_composer.create_circuit(constraint_system, witness);
-
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());
 
     Timer pk_timer;
