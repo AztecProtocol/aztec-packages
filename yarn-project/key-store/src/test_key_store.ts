@@ -372,6 +372,7 @@ export class TestKeyStore implements KeyStore {
     await this.#keys.set(`${accountAddress.toString()}-ovpk_m`, masterOutgoingViewingPublicKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-tpk_m`, masterTaggingPublicKey.toBuffer());
 
+    //! This is especially disgusting / hacky, and will be refactored.
     const masterNullifierPublicKeyHash = poseidon2Hash(masterNullifierPublicKey.toFields());
 
     // We save nullifier keys and account address to db under the master nullifier key hash
