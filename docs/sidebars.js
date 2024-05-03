@@ -52,12 +52,12 @@ const aztecNRSidebar = buildSidebarItemsFromStructure(
 );
 
 /** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
-const sidebars = {
-  docsSidebar: [
-    {
-      type: "html",
-      value: '<span class="sidebar-divider" />',
-    },
+export default {
+  sidebar: [
+    // {
+    //   type: "html",
+    //   value: '<span class="sidebar-divider" />',
+    // },
 
     {
       type: "category",
@@ -1046,4 +1046,4 @@ const sidebars = {
   // ],
 };
 
-module.exports = sidebars;
+// module.exports = sidebars.sidebar;

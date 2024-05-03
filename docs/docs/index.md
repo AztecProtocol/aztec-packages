@@ -1,8 +1,7 @@
 ---
-slug: "/"
-id: "welcome"
 title: Welcome
 description: "Aztec introduces a privacy-centric zkRollup solution for Ethereum, enhancing confidentiality and scalability within the Ethereum ecosystem."
+sidebar_position: 0
 ---
 
 # Aztec: A Privacy-First L2 on Ethereum

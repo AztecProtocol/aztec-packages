@@ -1,10 +1,14 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
-const lightCodeTheme = require("prism-react-renderer/themes/github");
-const darkCodeTheme = require("prism-react-renderer/themes/dracula");
-const math = require("remark-math");
-const katex = require("rehype-katex");
+const { themes } = require("prism-react-renderer");
+const lightTheme = themes.github;
+const darkTheme = themes.dracula;
+
+import math from "remark-math";
+import katex from "rehype-katex";
+import remarkMdx from "remark-mdx";
+
 const path = require("path");
 const fs = require("fs");
 const macros = require("./src/katex-macros.js");
@@ -18,7 +22,7 @@ const config = {
   baseUrl: "/",
   trailingSlash: false,
   onBrokenLinks: "throw",
-  onBrokenMarkdownLinks: "throw",
+  onBrokenMarkdownLinks: process.env.ENV === "dev" ? "warn" : "throw",
   favicon: "img/Aztec_docs_icons-02.svg",
 
   // GitHub pages deployment config.
@@ -43,7 +47,7 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
-          path: "processed-docs",
+          path: process.env.ENV === "dev" ? "docs" : "processed-docs",
           sidebarPath: require.resolve("./sidebars.js"),
           editUrl: (params) => {
             return (
@@ -52,7 +56,7 @@ const config = {
             );
           },
           routeBasePath: "/",
-          remarkPlugins: [math],
+          remarkPlugins: [math, remarkMdx],
           rehypePlugins: [
             [
               katex,
@@ -190,12 +194,12 @@ const config = {
         disableSwitch: false,
         respectPrefersColorScheme: false,
       },
-      docs: {
-        sidebar: {
-          hideable: true,
-          autoCollapseCategories: false,
-        },
-      },
+      // docs: {
+      //   sidebar: {
+      //     hideable: true,
+      //     autoCollapseCategories: false,
+      //   },
+      // },
       navbar: {
         logo: {
           alt: "Aztec Logo",
@@ -205,16 +209,16 @@ const config = {
         items: [
           {
             type: "doc",
-            docId: "welcome",
+            docId: "index",
             position: "left",
             label: "Aztec Protocol",
           },
-          {
-            type: "docSidebar",
-            sidebarId: "protocolSpecSidebar",
-            position: "left",
-            label: "Protocol Specification",
-          },
+          // {
+          //   type: "docSidebar",
+          //   sidebarId: "protocolSpecSidebar",
+          //   position: "left",
+          //   label: "Protocol Specification",
+          // },
         ],
       },
       footer: {
@@ -279,8 +283,8 @@ const config = {
         copyright: `Copyright © ${new Date().getFullYear()} Aztec, built with Docusaurus, powered by <a target="_blank" href="https://netlify.com">Netlify.</a>`,
       },
       prism: {
-        theme: lightCodeTheme,
-        darkTheme: darkCodeTheme,
+        theme: lightTheme,
+        darkTheme: darkTheme,
         // https://prismjs.com/#supported-languages
         // Commented-out languages exists in `node_modules/prismjs/components/` so I'm not sure why they don't work.
         additionalLanguages: [
