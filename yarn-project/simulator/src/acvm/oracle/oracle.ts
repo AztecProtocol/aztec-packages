@@ -373,14 +373,14 @@ export class Oracle {
     return toACVMField(logHash);
   }
 
-  debugLog(...args: ACVMField[][]): ACVMField {
+  debugLog(...args: ACVMField[][]): ACVMField[] {
     this.log.verbose(oracleDebugCallToFormattedStr(args));
-    return toACVMField(0);
+    return [];
   }
 
-  debugLogWithPrefix(arg0: ACVMField[], ...args: ACVMField[][]): ACVMField {
+  debugLogWithPrefix(arg0: ACVMField[], ...args: ACVMField[][]): ACVMField[] {
     this.log.verbose(`${acvmFieldMessageToString(arg0)}: ${oracleDebugCallToFormattedStr(args)}`);
-    return toACVMField(0);
+    return [];
   }
 
   async callPrivateFunction(

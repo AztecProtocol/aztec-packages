@@ -105,7 +105,7 @@ export async function acvm(
         }
 
         const result = await oracleFunction.call(callback, ...args);
-        return [result];
+        return Array.isArray(result) && result.length === 0 ? [] : [result];
       } catch (err) {
         let typedError: Error;
         if (err instanceof Error) {
