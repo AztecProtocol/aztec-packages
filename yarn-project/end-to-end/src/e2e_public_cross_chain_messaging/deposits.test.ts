@@ -33,7 +33,7 @@ describe('e2e_public_cross_chain_messaging deposits', () => {
     ownerAddress = crossChainTestHarness.ownerAddress;
     l2Bridge = crossChainTestHarness.l2Bridge;
     l2Token = crossChainTestHarness.l2Token;
-  }, 200_000);
+  });
 
   afterEach(async () => {
     await t.teardown();
@@ -106,7 +106,7 @@ describe('e2e_public_cross_chain_messaging deposits', () => {
       siblingPath,
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);
-  }, 120_000);
+  });
   // docs:end:e2e_public_cross_chain
 
   it('Someone else can mint funds to me on my behalf (publicly)', async () => {
@@ -157,5 +157,5 @@ describe('e2e_public_cross_chain_messaging deposits', () => {
     // ensure funds are gone to owner and not user2.
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount);
     await crossChainTestHarness.expectPublicBalanceOnL2(user2Wallet.getAddress(), 0n);
-  }, 90_000);
+  });
 });
