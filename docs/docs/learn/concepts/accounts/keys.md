@@ -15,7 +15,7 @@ This is a snippet of our Schnorr Account contract implementation, which uses Sch
 
 #include_code entrypoint /noir-projects/noir-contracts/contracts/schnorr_account_contract/src/main.nr rust
 
-Still, different accounts may use different signing schemes, may require multi-factor authentication, or _may not even use signing keys_ and instead rely on other authentication mechanisms. Read [how to write an account contract](../../../developers/contracts/writing_contracts/accounts/write_accounts_contract.md) for a full example of how to manage authentication.
+Still, different accounts may use different signing schemes, may require multi-factor authentication, or _may not even use signing keys_ and instead rely on other authentication mechanisms.
 
 Furthermore, and since signatures are fully abstracted, how the key is stored in the contract is abstracted as well and left to the developer of the account contract. Here are a few ideas on how to store them, each with their pros and cons.
 
@@ -27,15 +27,9 @@ Storing the signing public key in a private note makes it accessible from the en
 
 Similar to using a private note, but using an immutable private note removes the need to nullify the note on every read. This generates less nullifiers and commitments per transaction, and does not enforce an order across transactions. However, it does not allow the user to rotate their key should they lose it.
 
-<!--TODO https://github.com/AztecProtocol/aztec-packages/issues/5508
-mention Shared Mutable, add links, explain limitations (delays)
+### Using shared state
 
-this is the old text:
-
-### Using the slow updates tree
-
-A compromise between the two solutions above is to use the slow updates tree. This would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the slow updates tree.
--->
+A compromise between the two solutions above is to use [shared state](../../../developers/contracts/references/storage/shared_state.md). This would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the mutable shared state, as well as imposing restrictions on how fast keys can be rotated due to minimum delays.
 
 ### Reusing the privacy master key
 
