@@ -366,14 +366,14 @@ jobs:
         working-directory: ./noir-projects/
         timeout-minutes: 25
         run: |
-          earthly-ci --artifact +gates-report/gates_report.json
-          mv gates_report.json ../gates_report.json
+          earthly-ci --artifact +gates-report/protocol_circuits_report.json
+          mv gates_report.json ../protocol_circuits_report.json
 
       - name: Compare gates reports
         id: gates_diff
         uses: vezenovm/noir-gates-diff@acf12797860f237117e15c0d6e08d64253af52b6
         with:
-          report: gates_report.json
+          report: protocol_circuits_report.json
           summaryQuantile: 0 # Display any diff in gate count
 
       - name: Add gates diff to sticky comment
