@@ -87,6 +87,44 @@ describe('Key Registry', () => {
           .wait(),
       ).rejects.toThrow('Assertion failed: Message not authorized by account');
     });
+
+    it('fresh key lib fails for non-existent account', async () => {
+      // Should fail as the contract is not registered in key registry
+
+      const randomAddress = AztecAddress.random();
+      const randomMasterNullifierPublicKey = Point.random();
+
+      await expect(
+        testContract.methods.test_nullifier_key_freshness(randomAddress, randomMasterNullifierPublicKey).send().wait(),
+      ).rejects.toThrow(`Cannot satisfy constraint 'computed_address.eq(address)'`);
+    });
+  });
+
+  it('fresh key lib succeeds for non-registered account available in PXE', async () => {
+    // TODO(#5834): Make this not disgusting
+    const newAccountKeys = deriveKeys(Fr.random());
+    const newAccountPartialAddress = Fr.random();
+    const newAccount = AztecAddress.fromField(
+      poseidon2Hash([newAccountKeys.publicKeysHash, newAccountPartialAddress, GeneratorIndex.CONTRACT_ADDRESS_V1]),
+    );
+    const newAccountCompleteAddress = CompleteAddress.create(
+      newAccount,
+      newAccountKeys.masterIncomingViewingPublicKey,
+      newAccountPartialAddress,
+    );
+
+    await pxe.registerRecipient(newAccountCompleteAddress, [
+      newAccountKeys.masterNullifierPublicKey,
+      newAccountKeys.masterIncomingViewingPublicKey,
+      newAccountKeys.masterOutgoingViewingPublicKey,
+      newAccountKeys.masterTaggingPublicKey,
+    ]);
+
+    // Should succeed as the account is now registered as a recipient in PXE
+    await testContract.methods
+      .test_nullifier_key_freshness(newAccount, newAccountKeys.masterNullifierPublicKey)
+      .send()
+      .wait();
   });
 
   describe('key registration flow', () => {
@@ -121,10 +159,17 @@ describe('Key Registry', () => {
 
       expect(new Fr(nullifierPublicKeyX)).toEqual(masterNullifierPublicKey.x);
     });
+
+    it('key lib succeeds for registered account', async () => {
+      // Should succeed as the account is registered in key registry from tests before
+      await testContract.methods.test_nullifier_key_freshness(account, masterNullifierPublicKey).send().wait();
+    });
   });
 
   describe('key rotation flows', () => {
     const firstNewMasterNullifierPublicKey = Point.random();
+    const secondNewMasterNullifierPublicKey = Point.random();
+
     it('rotates npk_m', async () => {
       await keyRegistry
         .withWallet(wallets[0])
@@ -151,7 +196,6 @@ describe('Key Registry', () => {
     });
 
     it(`rotates npk_m with authwit`, async () => {
-      const secondNewMasterNullifierPublicKey = Point.random();
       const action = keyRegistry
         .withWallet(wallets[1])
         .methods.rotate_nullifier_public_key(wallets[0].getAddress(), secondNewMasterNullifierPublicKey, Fr.ZERO);
@@ -163,96 +207,27 @@ describe('Key Registry', () => {
 
       await action.send().wait();
 
-      // We check if our rotated nullifier key is equal to the key obtained from the getter by
-      // reading our registry contract from the test contract. We expect this value to be the old one, because the new one hasn't been applied
+      // We get the old nullifier key as the change has not been applied yet
       const oldNullifierPublicKeyX = await testContract.methods
         .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
         .simulate();
 
       expect(new Fr(oldNullifierPublicKeyX)).toEqual(firstNewMasterNullifierPublicKey.x);
 
-      // We check it again after a delay and expect that the change has been applied and consequently the assert is true
       await crossDelay();
 
+      // We get the new nullifier key as the change has been applied
       const newNullifierPublicKeyX = await testContract.methods
         .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
         .simulate();
 
       expect(new Fr(newNullifierPublicKeyX)).toEqual(secondNewMasterNullifierPublicKey.x);
     });
-  });
 
-  describe('key freshness lib', () => {
-    it('fails for non-existent account', async () => {
-      // Should fail as the contract is not registered in key registry
-
-      const randomAddress = AztecAddress.random();
-      const randomMasterNullifierPublicKey = Point.random();
-
-      await expect(
-        testContract.methods.test_nullifier_key_freshness(randomAddress, randomMasterNullifierPublicKey).send().wait(),
-      ).rejects.toThrow(`Cannot satisfy constraint 'computed_address.eq(address)'`);
-    });
-
-    it.only('succeeds for registered account', async () => {
-      // Should succeed as the account is registered in key registry from tests before
-      await testContract.methods
-        .test_nullifier_key_freshness(account, masterNullifierPublicKey)
-        .send()
-        .wait();
-    });
-
-    it('succeeds for non-registered account available in PXE', async () => {
-      // TODO(#5834): Make this not disgusting
-      const newAccountKeys = deriveKeys(Fr.random());
-      const newAccountPartialAddress = Fr.random();
-      const newAccount = AztecAddress.fromField(
-        poseidon2Hash([newAccountKeys.publicKeysHash, newAccountPartialAddress, GeneratorIndex.CONTRACT_ADDRESS_V1]),
-      );
-      const newAccountCompleteAddress = CompleteAddress.create(
-        newAccount,
-        newAccountKeys.masterIncomingViewingPublicKey,
-        newAccountPartialAddress,
-      );
-
-      await pxe.registerRecipient(newAccountCompleteAddress, [
-        newAccountKeys.masterNullifierPublicKey,
-        newAccountKeys.masterIncomingViewingPublicKey,
-        newAccountKeys.masterOutgoingViewingPublicKey,
-        newAccountKeys.masterTaggingPublicKey,
-      ]);
-
-      // Should succeed as the account is now registered as a recipient in PXE
-      await testContract.methods
-        .test_nullifier_key_freshness(newAccount, newAccountKeys.masterNullifierPublicKey)
-        .send()
-        .wait();
-    });
-
-    it('gets new key after rotation', async () => {
-      const newMasterNullifierPublicKey = Point.random();
-      // Rotate the key
-      await keyRegistry
-        .withWallet(wallets[0])
-        .methods.rotate_nullifier_public_key(wallets[0].getAddress(), newMasterNullifierPublicKey, Fr.ZERO)
-        .send()
-        .wait();
-
-      // Fails as the rotation has not yet been applied
-      await expect(
-        testContract.methods
-          .test_nullifier_key_freshness(wallets[0].getAddress(), newMasterNullifierPublicKey)
-          .send()
-          .wait(),
-      ).rejects.toThrow(
-        `Cannot satisfy constraint 'assert_eq(get_npk_m(&mut context, address), public_nullifying_key)'`,
-      );
-
-      await crossDelay();
-
+    it('fresh key lib gets new key after rotation', async () => {
       // Change has been applied hence should succeed now
       await testContract.methods
-        .test_nullifier_key_freshness(wallets[0].getAddress(), newMasterNullifierPublicKey)
+        .test_nullifier_key_freshness(wallets[0].getAddress(), secondNewMasterNullifierPublicKey)
         .send()
         .wait();
     });
