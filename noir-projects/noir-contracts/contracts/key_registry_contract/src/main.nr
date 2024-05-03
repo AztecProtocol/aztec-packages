@@ -27,8 +27,6 @@ contract KeyRegistry {
         new_nullifier_public_key: GrumpkinPoint,
         nonce: Field
     ) {
-        assert(!new_nullifier_public_key.is_zero(), "New nullifier public key must be non-zero");
-
         // TODO: (#6137)
         if (!address.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, address);
@@ -49,14 +47,6 @@ contract KeyRegistry {
         outgoing_public_key: GrumpkinPoint,
         tagging_public_key: GrumpkinPoint
     ) {
-        assert(
-            !partial_address.is_zero()
-            & !nullifier_public_key.is_zero()
-            & !incoming_public_key.is_zero()
-            & !outgoing_public_key.is_zero()
-            & !tagging_public_key.is_zero(), "All public keys must be non-zero"
-        );
-
         // We could also pass in original_public_keys_hash instead of computing it here, if all we need the original one is for being able to prove ownership of address
         let computed_address = AztecAddress::compute_from_public_keys_and_partial_address(
             nullifier_public_key,
