@@ -98,6 +98,7 @@ barretenberg-acir-tests-bb:
   COPY +build-acir-tests/ /usr/src/acir_artifacts
 
   WORKDIR /usr/src/barretenberg/acir_tests
+  RUN rm -rf ./acir_tests
 
   ENV TEST_SRC /usr/src/acir_artifacts
   ENV VERBOSE=1
