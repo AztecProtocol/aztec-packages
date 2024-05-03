@@ -66,7 +66,9 @@ export class SnapshotManager {
     if (!this.dataPath) {
       // We are running in disabled mode. Just apply the state.
       this.logger.verbose(`No data path given, will not persist any snapshots.`);
-      this.context = await this.setupFromFresh();
+      if (!this.context) {
+        this.context = await this.setupFromFresh();
+      }
       this.logger.verbose(`Applying state transition for ${name}...`);
       const snapshotData = await apply(this.context);
       this.logger.verbose(`State transition for ${name} complete.`);
