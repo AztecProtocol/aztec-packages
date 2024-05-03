@@ -302,6 +302,20 @@ devbox:
   ARG TARGETARCH
   SAVE IMAGE --push aztecprotocol/devbox:1.0-$TARGETARCH
 
+devbox-manifest:
+  LET VERSION = 1.0
+  ARG TARGETARCH
+  WAIT
+    BUILD +devbox
+  END
+  LOCALLY
+	RUN docker push aztecprotocol/devbox:$VERSION-$TARGETARCH
+	RUN docker manifest rm aztecprotocol/devbox:$VERSION
+	RUN docker manifest create aztecprotocol/devbox:$VERSION \
+		--amend aztecprotocol/devbox:$VERSION-amd64 \
+		--amend aztecprotocol/devbox:$VERSION-arm64
+	RUN docker manifest push aztecprotocol/devbox:$VERSION
+
 ########################################################################################################################
 # This sysbox container can be used to provide a full development environment.
 # It's more advanced than devbox in that it uses nestybox's sysbox container runtime to provide more of a vm experience.
