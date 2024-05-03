@@ -8,6 +8,10 @@ use dep::std::cmp::min;
 // delay to be decreased immediately then it'd be possible for the state variable to schedule a value change with a 
 // reduced delay, invalidating prior private reads.
 struct ScheduledDelayChange<INITIAL_DELAY> {
+    // Both pre and post are stored in public storage, so by default they are zeroed. By wrapping them in an Option, 
+    // they default to Option::none(), which we detect and replace with INITIAL_DELAY. The end result is that a
+    // ScheduledDelayChange that has not been initialized has a delay equal to INITIAL_DELAY, which is the desired
+    // effect. Once initialized, the Option will never be none again.
     pre: Option<u32>,
     post: Option<u32>,
     block_of_change: u32,
