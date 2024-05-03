@@ -25,7 +25,12 @@ import {
 } from '@aztec/noir-contracts.js';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
-import { SnapshotManager, type SubsystemsContext, addAccounts } from '../fixtures/snapshot_manager.js';
+import {
+  type ISnapshotManager,
+  type SubsystemsContext,
+  addAccounts,
+  createSnapshotManager,
+} from '../fixtures/snapshot_manager.js';
 import { type BalancesFn, deployCanonicalGasToken, getBalancesFn, publicDeployAccounts } from '../fixtures/utils.js';
 import { GasPortalTestingHarnessFactory } from '../shared/gas_portal_test_harness.js';
 
@@ -41,7 +46,7 @@ const { E2E_DATA_PATH: dataPath } = process.env;
  * SetupSubscription: Deploys a counter contract and a subscription contract, and mints gas token to the subscription contract.
  */
 export class FeesTest {
-  private snapshotManager: SnapshotManager;
+  private snapshotManager: ISnapshotManager;
   private wallets: AccountWallet[] = [];
 
   public logger: DebugLogger;
@@ -74,7 +79,7 @@ export class FeesTest {
 
   constructor(testName: string) {
     this.logger = createDebugLogger(`aztec:e2e_fees:${testName}`);
-    this.snapshotManager = new SnapshotManager(`e2e_fees/${testName}`, dataPath);
+    this.snapshotManager = createSnapshotManager(`e2e_fees/${testName}`, dataPath);
   }
 
   async setup() {
