@@ -211,8 +211,24 @@ jobs:
         timeout-minutes: 25
         run: earthly-ci --no-output ./yarn-project/+prover-client-test
 
-  barretenberg-acir-tests-bb:
+  build-acir-tests:
     needs: build
+    runs-on: ${{ github.actor }}-x86
+    steps:
+      - {
+          uses: actions/checkout@v4,
+          with: { ref: "${{ github.event.pull_request.head.sha }}" },
+        }
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_key: build-acir-tests-${{ github.actor }}-x86
+      - name: "Build Acir Tests"
+        timeout-minutes: 25
+        run: earthly-ci --no-output ./noir/+build-acir-tests
+
+  barretenberg-acir-tests-bb:
+    needs: build-acir-tests
     runs-on: ${{ github.actor }}-x86
     steps:
       - {
@@ -229,7 +245,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb
 
   barretenberg-acir-tests-sol:
-    needs: build
+    needs: build-acir-tests
     runs-on: ${{ github.actor }}-x86
     steps:
       - {
@@ -246,7 +262,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-sol
 
   barretenberg-acir-tests-bb-js:
-    needs: build
+    needs: build-acir-tests
     runs-on: ${{ github.actor }}-x86
     steps:
       - {

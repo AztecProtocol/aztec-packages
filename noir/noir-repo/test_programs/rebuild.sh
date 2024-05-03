@@ -23,8 +23,6 @@ process_dir() {
     fi
     mkdir $current_dir/acir_artifacts/$dir_name/target
 
-    ls -l ./target
-
     mv ./target/*.gz $current_dir/acir_artifacts/$dir_name/target/
 
     cd $current_dir
