@@ -19,7 +19,7 @@ export enum AztecENR {
 }
 
 // TODO: Make this an env var
-const AZTEC_NET = AztecENR.devnet;
+export const AZTEC_NET = AztecENR.devnet;
 
 /**
  * Peer discovery service using Discv5.
