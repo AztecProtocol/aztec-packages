@@ -10,7 +10,10 @@ use dep::types::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
     MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash, silo_note_hash, silo_nullifier},
+    hash::{
+    compute_l2_to_l1_hash, compute_note_hash_nonce, compute_unique_siloed_note_hash, silo_note_hash,
+    silo_nullifier
+},
     utils::arrays::{array_length, array_to_bounded_vec, assert_sorted_array}
 };
 
@@ -124,7 +127,7 @@ impl KernelCircuitPublicInputsComposer {
     fn silo_values(&mut self) {
         self.silo_note_hashes();
         self.silo_nullifiers();
-        // TODO: Move siloing from init/inner circuits to here.
+        self.silo_l2_to_l1_messages();
     }
 
     fn silo_note_hashes(&mut self) {
@@ -150,6 +153,23 @@ impl KernelCircuitPublicInputsComposer {
             if nullifier.value != 0 {
                 let siloed = silo_nullifier(nullifier.contract_address, nullifier.value);
                 self.public_inputs.end.new_nullifiers.storage[i].value = siloed;
+            }
+        }
+    }
+
+    fn silo_l2_to_l1_messages(&mut self) {
+        let l2_to_l1_msgs = self.public_inputs.end.new_l2_to_l1_msgs.storage;
+        let tx_context = self.previous_kernel.public_inputs.constants.tx_context;
+        for i in 0..l2_to_l1_msgs.len() {
+            let msg = l2_to_l1_msgs[i];
+            if !msg.contract_address.is_zero() {
+                let siloed = compute_l2_to_l1_hash(
+                    msg.contract_address,
+                    tx_context.version,
+                    tx_context.chain_id,
+                    msg.value
+                );
+                self.public_inputs.end.new_l2_to_l1_msgs.storage[i].value.content = siloed;
             }
         }
     }

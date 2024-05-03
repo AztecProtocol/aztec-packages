@@ -29,7 +29,7 @@ import {
   Header,
   KernelCircuitPublicInputs,
   type KernelData,
-  type L2ToL1Message,
+  L2ToL1Message,
   type LeafDataReadHint,
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
@@ -108,6 +108,7 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   RootRollupPublicInputs,
+  ScopedL2ToL1Message,
   type SettledReadHint,
   SideEffect,
   type StateDiffHints,
@@ -157,6 +158,7 @@ import {
   type ReadRequestContext as ReadRequestContextNoir,
   type ReadRequest as ReadRequestNoir,
   type RollupValidationRequests as RollupValidationRequestsNoir,
+  type ScopedL2ToL1Message as ScopedL2ToL1MessageNoir,
   type SideEffect as SideEffectNoir,
   type TxContext as TxContextNoir,
   type TxRequest as TxRequestNoir,
@@ -744,7 +746,23 @@ export function mapL2ToL1MessageToNoir(message: L2ToL1Message): L2ToL1MessageNoi
   return {
     recipient: mapEthAddressToNoir(message.recipient),
     content: mapFieldToNoir(message.content),
+    counter: mapNumberToNoir(message.counter),
   };
+}
+
+function mapL2ToL1MessageFromNoir(message: L2ToL1MessageNoir) {
+  return new L2ToL1Message(
+    mapEthAddressFromNoir(message.recipient),
+    mapFieldFromNoir(message.content),
+    mapNumberFromNoir(message.counter),
+  );
+}
+
+function mapScopedL2ToL1MessageFromNoir(message: ScopedL2ToL1MessageNoir) {
+  return new ScopedL2ToL1Message(
+    mapL2ToL1MessageFromNoir(message.value),
+    mapAztecAddressFromNoir(message.contract_address),
+  );
 }
 
 /**
@@ -1071,7 +1089,11 @@ export function mapPrivateAccumulatedDataFromNoir(
   return new PrivateAccumulatedData(
     mapTupleFromNoir(privateAccumulatedData.new_note_hashes, MAX_NEW_NOTE_HASHES_PER_TX, mapNoteHashContextFromNoir),
     mapTupleFromNoir(privateAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapNullifierContextFromNoir),
-    mapTupleFromNoir(privateAccumulatedData.new_l2_to_l1_msgs, MAX_NEW_L2_TO_L1_MSGS_PER_TX, mapFieldFromNoir),
+    mapTupleFromNoir(
+      privateAccumulatedData.new_l2_to_l1_msgs,
+      MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+      mapScopedL2ToL1MessageFromNoir,
+    ),
     mapTupleFromNoir(privateAccumulatedData.encrypted_logs_hashes, MAX_ENCRYPTED_LOGS_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(
       privateAccumulatedData.unencrypted_logs_hashes,

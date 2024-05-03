@@ -10,8 +10,7 @@ use dep::types::{
     MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL
 },
-    hash::compute_l2_to_l1_hash, traits::is_empty, transaction::tx_request::TxRequest,
-    utils::arrays::array_to_bounded_vec
+    traits::is_empty, transaction::tx_request::TxRequest, utils::arrays::array_to_bounded_vec
 };
 
 struct DataSource {
@@ -174,13 +173,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..l2_to_l1_msgs.len() {
             let msg = l2_to_l1_msgs[i];
             if !is_empty(msg) {
-                let hash = compute_l2_to_l1_hash(
-                    source.storage_contract_address,
-                    source.private_call_public_inputs.tx_context.version,
-                    source.private_call_public_inputs.tx_context.chain_id,
-                    msg
-                );
-                self.public_inputs.end.new_l2_to_l1_msgs.push(hash);
+                self.public_inputs.end.new_l2_to_l1_msgs.push(msg.scope(source.storage_contract_address));
             }
         }
     }

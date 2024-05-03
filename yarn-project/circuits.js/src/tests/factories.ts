@@ -54,7 +54,6 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_HINTS,
@@ -75,9 +74,7 @@ import {
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   NUM_MSGS_PER_BASE_PARITY,
   NoteHash,
-  NoteHashContext,
   Nullifier,
-  NullifierContext,
   NullifierKeyValidationRequest,
   NullifierKeyValidationRequestContext,
   NullifierLeafPreimage,
@@ -91,12 +88,9 @@ import {
   PartialStateReference,
   Point,
   PreviousRollupData,
-  PrivateAccumulatedData,
   PrivateCallData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
-  PrivateKernelCircuitPublicInputs,
-  PrivateKernelData,
   PrivateKernelTailCircuitPublicInputs,
   Proof,
   PublicAccumulatedData,
@@ -161,16 +155,8 @@ function makeNoteHash(seed: number) {
   return new NoteHash(fr(seed), seed + 1);
 }
 
-function makeNoteHashContext(seed: number) {
-  return new NoteHashContext(fr(seed), seed + 1, seed + 2, makeAztecAddress(seed + 3));
-}
-
 function makeNullifier(seed: number) {
   return new Nullifier(fr(seed), seed + 1, fr(seed + 2));
-}
-
-function makeNullifierContext(seed: number) {
-  return new NullifierContext(fr(seed), seed + 1, fr(seed + 2), makeAztecAddress(seed + 3));
 }
 
 /**
@@ -363,27 +349,6 @@ export function makePublicAccumulatedData(seed = 1, full = false): PublicAccumul
 }
 
 /**
- * Creates arbitrary accumulated data.
- * @param seed - The seed to use for generating the accumulated data.
- * @returns An accumulated data.
- */
-export function makePrivateAccumulatedData(seed = 1, full = false) {
-  const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
-
-  return new PrivateAccumulatedData(
-    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, makeNoteHashContext, seed + 0x120, NoteHashContext.empty),
-    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, makeNullifierContext, seed + 0x200, NullifierContext.empty),
-    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
-    tupleGenerator(MAX_ENCRYPTED_LOGS_PER_TX, makeNewSideEffect, seed + 0x700, SideEffect.empty), // encrypted logs hashes
-    tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeNewSideEffect, seed + 0x800, SideEffect.empty), // unencrypted logs hashes
-    fr(seed + 0x900), // encrypted_log_preimages_length
-    fr(seed + 0xa00), // unencrypted_log_preimages_length
-    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400, CallRequest.empty),
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500, CallRequest.empty),
-  );
-}
-
-/**
  * Creates arbitrary aggregation object.
  * @param seed - The seed to use for generating the aggregation object.
  * @returns An aggregation object.
@@ -475,21 +440,6 @@ export function makePublicKernelCircuitPublicInputs(
     makePublicAccumulatedData(seed, fullAccumulatedData),
     makeConstantData(seed + 0x100),
     RevertCode.OK,
-  );
-}
-
-/**
- * Creates arbitrary private kernel inner circuit public inputs.
- * @param seed - The seed to use for generating the kernel circuit public inputs.
- * @returns Private kernel circuit public inputs.
- */
-export function makePrivateKernelCircuitPublicInputs(seed = 1, full = true): PrivateKernelCircuitPublicInputs {
-  return new PrivateKernelCircuitPublicInputs(
-    makeAggregationObject(seed),
-    fr(seed + 0x100),
-    makeValidationRequests(seed),
-    makePrivateAccumulatedData(seed, full),
-    makeConstantData(seed + 0x100),
   );
 }
 
@@ -637,22 +587,6 @@ export function makePublicKernelData(seed = 1, kernelPublicInputs?: PublicKernel
 export function makeRollupKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): KernelData {
   return new KernelData(
     kernelPublicInputs ?? makeKernelCircuitPublicInputs(seed, true),
-    new Proof(Buffer.alloc(16, seed + 0x80)),
-    makeVerificationKey(),
-    0x42,
-    makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
-  );
-}
-
-/**
- * Makes arbitrary previous kernel data.
- * @param seed - The seed to use for generating the previous kernel data.
- * @param inputs - The kernel public inputs to use for generating the private kernel inner data.
- * @returns A previous kernel data.
- */
-export function makePrivateKernelInnerData(seed = 1, inputs?: PrivateKernelCircuitPublicInputs): PrivateKernelData {
-  return new PrivateKernelData(
-    inputs ?? makePrivateKernelCircuitPublicInputs(seed, true),
     new Proof(Buffer.alloc(16, seed + 0x80)),
     makeVerificationKey(),
     0x42,
@@ -1108,7 +1042,7 @@ export function makeL2ToL1Message(seed = 0): L2ToL1Message {
   const recipient = EthAddress.fromField(new Fr(seed));
   const content = new Fr(seed + 1);
 
-  return new L2ToL1Message(recipient, content);
+  return new L2ToL1Message(recipient, content, seed + 2);
 }
 
 /**

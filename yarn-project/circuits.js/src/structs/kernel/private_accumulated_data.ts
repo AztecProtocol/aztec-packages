@@ -13,6 +13,7 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { CallRequest } from '../call_request.js';
+import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
 import { NoteHashContext } from '../note_hash.js';
 import { NullifierContext } from '../nullifier.js';
 import { SideEffect } from '../side_effects.js';
@@ -34,7 +35,7 @@ export class PrivateAccumulatedData {
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
-    public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    public newL2ToL1Msgs: Tuple<ScopedL2ToL1Message, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * Accumulated encrypted logs hash from all the previous kernel iterations.
      * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
@@ -92,7 +93,7 @@ export class PrivateAccumulatedData {
     return new PrivateAccumulatedData(
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, NoteHashContext),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, NullifierContext),
-      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
+      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, SideEffect),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, SideEffect),
       Fr.fromBuffer(reader),
@@ -115,7 +116,7 @@ export class PrivateAccumulatedData {
     return new PrivateAccumulatedData(
       makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, NoteHashContext.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, NullifierContext.empty),
-      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
+      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
       makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, SideEffect.empty),
       makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, SideEffect.empty),
       Fr.zero(),

@@ -12,7 +12,7 @@ use crate::{
     read_request::ReadRequestContext, side_effect::SideEffect,
     validation_requests::{ValidationRequests, ValidationRequestsBuilder}
 },
-    address::AztecAddress,
+    address::{AztecAddress, EthAddress},
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
     MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -21,9 +21,10 @@ use crate::{
     MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
     VK_TREE_HEIGHT, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    hash::silo_nullifier, header::Header, mocked::{AggregationObject, Proof, VerificationKey},
-    partial_state_reference::PartialStateReference, tests::fixtures, transaction::tx_context::TxContext,
-    traits::Empty
+    hash::silo_nullifier, header::Header,
+    messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
+    mocked::{AggregationObject, Proof, VerificationKey}, partial_state_reference::PartialStateReference,
+    tests::fixtures, transaction::tx_context::TxContext, traits::Empty
 };
 
 struct FixtureBuilder {
@@ -38,7 +39,7 @@ struct FixtureBuilder {
     // Accumulated data.
     new_note_hashes: BoundedVec<NoteHashContext, MAX_NEW_NOTE_HASHES_PER_TX>,
     new_nullifiers: BoundedVec<NullifierContext, MAX_NEW_NULLIFIERS_PER_TX>,
-    new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
+    new_l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
     encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_TX>,
     unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_TX>,
     encrypted_logs_hash: Field,
@@ -144,7 +145,7 @@ impl FixtureBuilder {
             new_nullifiers: self.new_nullifiers.storage.map(
                 |n: NullifierContext| Nullifier { value: n.value, counter: n.counter, note_hash: n.note_hash }
             ),
-            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
+            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.value.content),
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
@@ -159,7 +160,7 @@ impl FixtureBuilder {
         CombinedAccumulatedData {
             new_note_hashes: self.new_note_hashes.storage.map(|n: NoteHashContext| n.value),
             new_nullifiers: self.new_nullifiers.storage.map(|n: NullifierContext| n.value),
-            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
+            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.value.content),
             encrypted_logs_hash: self.encrypted_logs_hash,
             unencrypted_logs_hash: self.unencrypted_logs_hash,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
@@ -300,6 +301,15 @@ impl FixtureBuilder {
                 self.add_siloed_nullifier(mocked_value);
             }
         }
+    }
+
+    pub fn add_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
+        self.new_l2_to_l1_msgs.push(
+            ScopedL2ToL1Message {
+            value: L2ToL1Message { recipient, content, counter: self.next_counter() },
+            contract_address: self.storage_contract_address
+        }
+        );
     }
 
     pub fn add_public_data_update_request(&mut self, leaf_slot: Field, value: Field) {

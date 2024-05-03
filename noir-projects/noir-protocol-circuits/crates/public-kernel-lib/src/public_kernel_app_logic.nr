@@ -281,9 +281,9 @@ mod tests {
         // Setup 1 new l2 to l1 message on the previous kernel.
         let previous = [12345];
 
-        builder.previous_kernel.new_l2_to_l1_msgs.extend_from_array(previous);
+        builder.previous_kernel.add_l2_to_l1_message(previous[0], portal_contract_address);
         // Setup 1 new l2 to l1 message on the current public inputs.
-        let current = [L2ToL1Message { recipient: portal_contract_address, content: 67890 }];
+        let current = [L2ToL1Message { recipient: portal_contract_address, content: 67890, counter: 0 }];
         builder.public_call.public_inputs.new_l2_to_l1_msgs.extend_from_array(current);
         let tx_context = builder.previous_kernel.tx_context;
         let version = tx_context.version;

@@ -16,7 +16,7 @@ use crate::{
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
     DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE
 },
-    traits::{Empty, is_empty}
+    messaging::l2_to_l1_message::ScopedL2ToL1Message, traits::{Empty, is_empty}
 };
 
 // Builds via PrivateKernelCircuitPublicInputsBuilder:
@@ -26,7 +26,7 @@ use crate::{
 struct PrivateAccumulatedDataBuilder {
     new_note_hashes: BoundedVec<NoteHashContext, MAX_NEW_NOTE_HASHES_PER_TX>,
     new_nullifiers: BoundedVec<NullifierContext, MAX_NEW_NULLIFIERS_PER_TX>,
-    new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
+    new_l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
 
     encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_TX>,
     unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_TX>,
@@ -65,7 +65,7 @@ impl PrivateAccumulatedDataBuilder {
         CombinedAccumulatedData {
             new_note_hashes: self.new_note_hashes.storage.map(|n: NoteHashContext| n.value),
             new_nullifiers: self.new_nullifiers.storage.map(|n: NullifierContext| n.value),
-            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
+            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.value.content),
             encrypted_logs_hash,
             unencrypted_logs_hash,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
@@ -153,6 +153,15 @@ impl PrivateAccumulatedDataBuilder {
             }
         }
 
+        for i in 0..MAX_NEW_L2_TO_L1_MSGS_PER_TX {
+            let msg = self.new_l2_to_l1_msgs.storage[i];
+            if msg.value.counter < min_revertible_side_effect_counter {
+                non_revertible_builder.new_l2_to_l1_msgs.push(msg.value.content);
+            } else {
+                revertible_builder.new_l2_to_l1_msgs.push(msg.value.content);
+            }
+        }
+
         // TODO(gas): add AVM_STARTUP_L2_GAS here
         for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX {
             let call_stack_item = self.public_call_stack.storage[i];
@@ -181,7 +190,6 @@ impl PrivateAccumulatedDataBuilder {
             }
         }
 
-        revertible_builder.new_l2_to_l1_msgs =  self.new_l2_to_l1_msgs;
         // TODO(1641) & TODO(4712): Once we track logs with more info, including individual lens, split here
         revertible_builder.encrypted_log_preimages_length =  self.encrypted_log_preimages_length;
         revertible_builder.unencrypted_log_preimages_length = self.unencrypted_log_preimages_length;
@@ -202,12 +210,17 @@ mod tests {
         note_hash::{NoteHash, NoteHashContext}, nullifier::{Nullifier, NullifierContext},
         public_data_update_request::PublicDataUpdateRequest, side_effect::SideEffect
     },
-        address::AztecAddress, utils::arrays::array_eq, constants::{DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE}
+        address::{AztecAddress, EthAddress}, messaging::l2_to_l1_message::L2ToL1Message,
+        utils::arrays::array_eq, constants::{DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE}
     };
 
     #[test]
     unconstrained fn splits_revertible_and_non_revertible() {
         let mut builder = PrivateAccumulatedDataBuilder::empty();
+
+        let min_revertible_side_effect_counter = 7;
+
+        // Non revertible: counter < 7
 
         let non_revertible_note_hashes = [
             NoteHashContext { value: 1, counter: 1, nullifier_counter: 20, contract_address: AztecAddress::from_field(7788) },
@@ -217,6 +230,10 @@ mod tests {
         let non_revertible_nullifiers = [
             NullifierContext { value: 10, note_hash: 1, counter: 2, contract_address: AztecAddress::from_field(9900) },
             NullifierContext { value: 20, note_hash: 2, counter: 4, contract_address: AztecAddress::from_field(7788) }
+        ];
+
+        let non_revertible_l2_to_l1_messages = [
+            L2ToL1Message { recipient: EthAddress::from_field(3030), content: 333333, counter: 5 }.scope(AztecAddress::from_field(9900))
         ];
 
         let non_revertible_public_stack = [
@@ -236,6 +253,8 @@ mod tests {
             }
         ];
 
+        // Revertible: counter >= 7
+
         let revertible_note_hashes = [
             NoteHashContext { value: 3, counter: 7, nullifier_counter: 15, contract_address: AztecAddress::from_field(9900) },
             NoteHashContext { value: 4, counter: 10, nullifier_counter: 0, contract_address: AztecAddress::from_field(7788) }
@@ -244,6 +263,10 @@ mod tests {
         let revertible_nullifiers = [
             NullifierContext { value: 30, note_hash: 3, counter: 8, contract_address: AztecAddress::from_field(9900) },
             NullifierContext { value: 40, note_hash: 4, counter: 11, contract_address: AztecAddress::from_field(5566) }
+        ];
+
+        let revertible_l2_to_l1_messages = [
+            L2ToL1Message { recipient: EthAddress::from_field(3030), content: 444444, counter: 13 }.scope(AztecAddress::from_field(7788))
         ];
 
         let revertible_public_call_stack = [
@@ -262,10 +285,13 @@ mod tests {
         builder.new_nullifiers.extend_from_array(non_revertible_nullifiers);
         builder.new_nullifiers.extend_from_array(revertible_nullifiers);
 
+        builder.new_l2_to_l1_msgs.extend_from_array(non_revertible_l2_to_l1_messages);
+        builder.new_l2_to_l1_msgs.extend_from_array(revertible_l2_to_l1_messages);
+
         builder.public_call_stack.extend_from_array(non_revertible_public_stack);
         builder.public_call_stack.extend_from_array(revertible_public_call_stack);
 
-        let (non_revertible, revertible) = builder.split_to_public(7, Gas::new(42, 17));
+        let (non_revertible, revertible) = builder.split_to_public(min_revertible_side_effect_counter, Gas::new(42, 17));
 
         assert(
             array_eq(
@@ -285,6 +311,7 @@ mod tests {
         ]
             )
         );
+        assert(array_eq(non_revertible.new_l2_to_l1_msgs, [333333]));
         assert(array_eq(non_revertible.public_call_stack, non_revertible_public_stack));
 
         assert(
@@ -305,6 +332,7 @@ mod tests {
         ]
             )
         );
+        assert(array_eq(revertible.new_l2_to_l1_msgs, [444444]));
         assert(array_eq(revertible.public_call_stack, revertible_public_call_stack));
 
         assert_eq(

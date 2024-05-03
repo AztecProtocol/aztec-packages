@@ -9,7 +9,6 @@ import {
   type GasSettings,
   type GlobalVariables,
   type Header,
-  L2ToL1Message,
   NoteHash,
   Nullifier,
   ReadRequest,
@@ -147,7 +146,7 @@ export async function convertAvmResults(
   const unencryptedLogsHashes = newWorldState.newLogsHashes.map(
     logHash => new SideEffect(logHash.logHash, logHash.counter),
   );
-  const newL2ToL1Messages = newWorldState.newL1Messages.map(m => new L2ToL1Message(m.recipient, m.content));
+  const newL2ToL1Messages = newWorldState.newL1Messages;
 
   const returnValues = result.output;
 
