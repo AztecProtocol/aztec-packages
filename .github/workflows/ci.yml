@@ -367,11 +367,6 @@ jobs:
     if: always()
     steps:
       - run: |
-          echo "e2e status: ${{ needs.e2e.result }}"
-          echo "bb-native-tests status: ${{ needs.bb-native-tests.result }}"
-          echo "bb-bench status: ${{ needs.bb-bench.result }}"
-          echo "yarn-project-formatting status: ${{ needs.yarn-project-formatting.result }}"
-          echo "yarn-project-test status: ${{ needs.yarn-project-test.result }}"
           if [ ${{ contains(needs.*.result, 'failure') }} ]; then
             echo "At least one job failed, merging not allowed"
             exit 1
