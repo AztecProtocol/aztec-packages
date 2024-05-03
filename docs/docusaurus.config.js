@@ -43,7 +43,7 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
-          path: process.env.ENV === "dev" ? "docs" : "processed-docs",
+          path: "processed-docs",
           sidebarPath: require.resolve("./sidebars.js"),
           editUrl: (params) => {
             return (

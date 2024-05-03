@@ -165,5 +165,6 @@
     "**/target/**": true,
     "**/l1-contracts/lib/**": true,
     "**/barretenberg/cpp/build*/**": true
-  }
+  },
+  "graphite.commandPath": "/usr/local/bin/gt"
 }
