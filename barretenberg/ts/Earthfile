@@ -27,6 +27,14 @@ cjs:
     RUN yarn build:cjs
     SAVE ARTIFACT /usr/src/barretenberg/ts-build build
 
+wasm:
+    COPY --dir ../cpp+preset-wasm/bin /usr/src/barretenberg/cpp/build-wasm/
+    COPY --dir ../cpp+preset-wasm-threads/bin /usr/src/barretenberg/cpp/build-wasm-threads/
+    COPY scripts/build_wasm.sh scripts/
+    ENV SKIP_CPP_BUILD=1
+    RUN yarn build:wasm
+    SAVE ARTIFACT /usr/src/barretenberg/ts-build build
+
 browser:
     RUN yarn build:browser
     SAVE ARTIFACT /usr/src/barretenberg/ts-build build
@@ -39,6 +47,7 @@ build:
     COPY +esm/build /usr/src/barretenberg/ts-build
     COPY +cjs/build /usr/src/barretenberg/ts-build
     COPY +browser/build /usr/src/barretenberg/ts-build
+    COPY +wasm/build /usr/src/barretenberg/ts-build
     # We want to create a pure package, as would be published to npm, for consuming projects.
     RUN yarn pack && tar zxf package.tgz && rm package.tgz && mv package ../ts
     SAVE ARTIFACT /usr/src/barretenberg/ts build
