@@ -2,6 +2,7 @@ import { type Tx, type TxHash } from '@aztec/circuit-types';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
+import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 
 import { ENR } from '@chainsafe/enr';
 import { type GossipsubEvents, gossipsub } from '@chainsafe/libp2p-gossipsub';
@@ -19,6 +20,7 @@ import { type Libp2p, createLibp2p } from 'libp2p';
 
 import { type P2PConfig } from '../config.js';
 import { type TxPool } from '../tx_pool/index.js';
+import { AztecDatastore } from './data_store.js';
 import { KnownTxLookup } from './known_txs.js';
 import { PeerManager } from './peer_manager.js';
 import { AztecPeerDb, type AztecPeerStore } from './peer_store.js';
@@ -120,7 +122,7 @@ export class LibP2PService implements P2PService {
     // add gossipsub listener
     this.node.services.pubsub.addEventListener('gossipsub:message', async e => {
       const { msg } = e.detail;
-      this.logger.info(`Received PUBSUB message.`);
+      this.logger.debug(`Received PUBSUB message.`);
 
       await this.handleNewGossipMessage(msg.topic, msg.data);
     });
@@ -168,6 +170,8 @@ export class LibP2PService implements P2PService {
     //   services.uPnPNAT = uPnPNATService();
     // }
 
+    const datastore = new AztecDatastore(AztecLmdbStore.open('libp2p_service'));
+
     const node = await createLibp2p({
       start: false,
       peerId,
@@ -179,6 +183,7 @@ export class LibP2PService implements P2PService {
           maxConnections: config.maxPeerCount,
         }),
       ],
+      datastore,
       streamMuxers: [yamux(), mplex()],
       connectionEncryption: [noise()],
       connectionManager: {
