@@ -25,6 +25,7 @@ describe('e2e_fees failures', () => {
   const t = new FeesTest('failures');
 
   beforeAll(async () => {
+    await t.applyBaseSnapshots();
     ({ aliceWallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = await t.setup());
   });
 
