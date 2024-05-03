@@ -8,6 +8,10 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## 0.38.0
 
+### Mutable delays in `SharedMutable`
+
+The type signature for `SharedMutable` changed from `SharedMutable<T, DELAY>` to `SharedMutable<T, INITIAL_DELAY>`. The behavior is the same as before, except the delay can now be changed after deployment by calling `schedule_delay_change`.
+
 ### [Aztec.nr] Emmiting encrypted logs
 
 The `emit_encrypted_log` function is now a context method.
