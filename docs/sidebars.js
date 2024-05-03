@@ -279,7 +279,6 @@ const sidebars = {
         //     "developers/tutorials/uniswap/typescript_glue_code",
         //   ],
         // },
-        "developers/tutorials/testing",
       ],
     },
 
@@ -511,6 +510,7 @@ const sidebars = {
           label: "Guides",
           type: "category",
           items: [
+            "developers/aztecjs/guides/test",
             "developers/aztecjs/guides/create_account",
             "developers/aztecjs/guides/deploy_contract",
             "developers/aztecjs/guides/send_transaction",
