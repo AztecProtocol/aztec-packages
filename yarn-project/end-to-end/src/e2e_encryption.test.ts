@@ -55,7 +55,7 @@ describe('e2e_encryption', () => {
     expect(ciphertext).toEqual(expectedCiphertext);
   });
 
-  it('encrypts header ', async () => {
+  it('encrypts header', async () => {
     const ephSecretKey = GrumpkinScalar.random();
     const viewingSecretKey = GrumpkinScalar.random();
 
@@ -64,11 +64,7 @@ describe('e2e_encryption', () => {
 
     const encrypted = await contract.methods.compute_note_header_ciphertext(ephSecretKey, viewingPubKey).simulate();
 
-    const recreated = EncryptedLogHeader.fromCiphertext(
-      encrypted.map((x: bigint) => Number(x)),
-      viewingSecretKey,
-      ephPubKey,
-    );
+    const recreated = EncryptedLogHeader.fromCiphertext(encrypted, viewingSecretKey, ephPubKey);
 
     expect(recreated.address).toEqual(contract.address);
   });

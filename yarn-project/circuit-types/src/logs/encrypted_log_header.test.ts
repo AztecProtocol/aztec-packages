@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, GrumpkinScalar } from '@aztec/circuits.js';
+import { AztecAddress, GrumpkinScalar } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { updateInlineTestData } from '@aztec/foundation/testing';
 
