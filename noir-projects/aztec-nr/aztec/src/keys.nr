@@ -1,4 +1,4 @@
 mod getters;
 mod point_to_symmetric_key;
 
-use crate::keys::getters::get_fresh_nullifier_public_key_hash;
+use crate::keys::getters::{get_npk_m, get_ivpk_m, get_ovpk_m, get_tpk_m};
