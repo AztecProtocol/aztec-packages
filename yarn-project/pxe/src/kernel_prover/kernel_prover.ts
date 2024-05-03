@@ -76,10 +76,16 @@ export class KernelProver {
       );
       const publicCallRequests = currentExecution.enqueuedPublicFunctionCalls.map(result => result.toCallRequest());
 
+      const proof = await this.proofCreator.createAppCircuitProof(
+        currentExecution.partialWitness,
+        currentExecution.acir,
+      );
+
       const privateCallData = await this.createPrivateCallData(
         currentExecution,
         privateCallRequests,
         publicCallRequests,
+        proof,
       );
 
       const hints = buildPrivateKernelInnerHints(
@@ -135,6 +141,7 @@ export class KernelProver {
     { callStackItem, vk }: ExecutionResult,
     privateCallRequests: CallRequest[],
     publicCallRequests: CallRequest[],
+    proof: Proof,
   ) {
     const { contractAddress, functionData } = callStackItem;
 
