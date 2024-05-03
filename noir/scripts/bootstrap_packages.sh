@@ -9,8 +9,7 @@ cd $ROOT/noir-repo
 # Set build data manually.
 export SOURCE_DATE_EPOCH=$(date +%s)
 export GIT_DIRTY=false
-export COMMIT_HASH=${COMMIT_HASH:-$(git rev-parse --verify HEAD)}
-export GIT_COMMIT=${GIT_COMMIT:-$COMMIT_HASH}
+export GIT_COMMIT=${COMMIT_HASH:-$(git rev-parse --verify HEAD)}
 
 PROJECTS=(
   @noir-lang/acvm_js

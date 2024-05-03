@@ -1,8 +1,6 @@
 VERSION 0.8
 
-nargo:
-    LOCALLY
-    LET git_commit = $(git rev-parse HEAD)
+nargo-src:
 
     FROM ../build-images/+build
     WORKDIR /usr/src
@@ -20,12 +18,22 @@ nargo:
       noir-repo/.github \
       noir-repo
 
-    RUN ./noir-repo/.github/scripts/wasm-bindgen-install.sh
+    # NOTE: we use a fake commit hash here
+    # we don't want Noir to rebuild everytime the parent repo changes
+    # just only when it changes
+    # the commit hash gets injected into version strings
+    ENV COMMIT_HASH=$(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}')
+    RUN echo $COMMIT_HASH > .content-hash
 
-    ENV COMMIT_HASH=$git_commit
+    # # borrow Nix's approach to build everything in 1970
+    ENV SOURCE_TIMESTAMP=1
+    ENV SOURCE_DATE_EPOCH=1
+
+nargo:
+    FROM +nargo-src
+    RUN ./noir-repo/.github/scripts/wasm-bindgen-install.sh
     COPY ./scripts/bootstrap_native.sh ./scripts/bootstrap_native.sh
     RUN ./scripts/bootstrap_native.sh
-    RUN echo CONTENT HASH $COMMIT_HASH | tee .content-hash
     SAVE ARTIFACT /usr/src/noir-repo/target/release/nargo nargo
     SAVE ARTIFACT /usr/src/noir-repo/target/release/acvm acvm
     SAVE IMAGE aztecprotocol/nargo
@@ -36,15 +44,8 @@ packages-deps:
     LOCALLY
     LET packages = $(git ls-files "**/package*.json" package*.json)
     LET tsconfigs = $(git ls-files "**/tsconfig*.json" tsconfig*.json)
-    LET git_commit = $(git rev-parse HEAD)
 
-    FROM ../build-images/+build
-
-    RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
-    RUN echo 'source $HOME/.cargo/env' >> $HOME/.bashrc
-    RUN apt update && apt install -y jq libc++1
-
-    ENV PATH=/root/.cargo/bin:$PATH
+    FROM +nargo-src
 
     COPY ../barretenberg/ts/+build/build /usr/src/barretenberg/ts
 
@@ -90,23 +91,15 @@ packages-deps:
       noir-repo/.github \
       noir-repo
 
-    ENV GIT_DIRTY=false
-    ENV GIT_COMMIT=$git_commit
-    ENV SOURCE_TIMESTAMP=$(date +%s)
-    ENV SOURCE_DATE_EPOCH=$(date +%s)
-
-    SAVE ARTIFACT noir-repo
-
 packages:
     FROM +packages-deps
 
-    RUN echo CONTENT HASH $GIT_COMMIT | tee .content-hash
     COPY ./scripts/bootstrap_packages.sh ./scripts/bootstrap_packages.sh
     RUN ./scripts/bootstrap_packages.sh
     SAVE ARTIFACT packages
     SAVE IMAGE --cache-hint
 
-packages-test-deps:
+packages-test-build:
   FROM +packages-deps
 
   COPY +nargo/nargo /usr/src/noir/noir-repo/target/release/nargo
@@ -119,16 +112,22 @@ packages-test-deps:
   RUN yarn --immutable
 
   WORKDIR /usr/src/noir/noir-repo
-  COPY --dir noir-repo/.github/scripts .github/scripts
+  COPY --dir noir-repo/.github/scripts/wasm-bindgen-install.sh ./.github/scripts/wasm-bindgen-install.sh
   RUN ./.github/scripts/wasm-bindgen-install.sh
+
+  ENV SOURCE_DATE_EPOCH=$(date +%s)
+  ENV GIT_DIRTY=false
+  ENV GIT_COMMIT=$COMMIT_HASH
   RUN yarn build
+  # this builds text fixtures to be used in tests
   RUN yarn workspace @noir-lang/noir_wasm run test:build_fixtures
 
   SAVE ARTIFACT /usr/src /usr/src
 
 packages-test-node:
-  FROM +packages-test-deps
+  FROM +packages-test-build
   ENV NODE_OPTIONS=--max_old_space_size=8192
+  WORKDIR /usr/src/noir/noir-repo
   RUN yarn workspaces foreach \
     --parallel \
     --verbose \
@@ -146,7 +145,7 @@ packages-test-node:
 
 packages-test-browser:
   FROM node:18
-  COPY --dir +packages-test-deps/usr/src /usr
+  COPY --dir +packages-test-build/usr/src /usr
   WORKDIR /usr/src/noir/noir-repo
   RUN ./.github/scripts/playwright-install.sh
   RUN yarn workspaces foreach \
