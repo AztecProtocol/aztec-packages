@@ -19,7 +19,7 @@ contract Test {
     use dep::aztec::state_vars::{shared_mutable::SharedMutablePrivateGetter, map::derive_storage_slot_in_map};
 
     use dep::aztec::{
-        keys::getters::get_fresh_nullifier_public_key_hash,
+        keys::getters::get_npk_m,
         context::{Context, inputs::private_context_inputs::PrivateContextInputs},
         hash::{pedersen_hash, poseidon2_hash, compute_secret_hash, ArgsHasher},
         note::{
@@ -435,7 +435,7 @@ contract Test {
         address: AztecAddress,
         public_nullifying_key: GrumpkinPoint,
     ) {
-        assert_eq(get_fresh_nullifier_public_key_hash(&mut context, address), poseidon2_hash(public_nullifying_key.serialize()));
+        assert_eq(get_npk_m(&mut context, address), poseidon2_hash(public_nullifying_key.serialize()));
     }
 
     #[aztec(public)]
