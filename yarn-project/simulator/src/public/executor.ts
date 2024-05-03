@@ -46,7 +46,7 @@ export async function executePublicFunction(
   }
 
   if (isAvmBytecode(bytecode)) {
-    return await executeTopLevelPublicFunctionAvm(context);
+    return await executeTopLevelPublicFunctionAvm(context, bytecode, nested);
   } else {
     return await executePublicFunctionAcvm(context, bytecode, nested);
   }
@@ -57,7 +57,11 @@ export async function executePublicFunction(
  * Translate the results back to the PublicExecutionResult format.
  */
 async function executeTopLevelPublicFunctionAvm(
+  
   executionContext: PublicExecutionContext,
+  bytecode: Buffer,
+  nested: boolean,
+,
 ): Promise<PublicExecutionResult> {
   const address = executionContext.execution.contractAddress;
   const selector = executionContext.execution.functionData.selector;
@@ -91,7 +95,13 @@ async function executeTopLevelPublicFunctionAvm(
   const avmContext = new AvmContext(worldStateJournal, executionEnv, machineState);
   const simulator = new AvmSimulator(avmContext);
 
-  const avmResult = await simulator.execute();
+  const avmResult = await simulator.executeBytecode(bytecode);
+
+  if (!nested) {
+    // Commit the journals state to the DBs if this is the top-level execution.
+    await context.persistableState.commitToDBs();
+    // TODO: Nullifiers, etc.
+  }
 
   log.verbose(
     `[AVM] ${address.toString()}:${selector} returned, reverted: ${avmResult.reverted}, reason: ${
@@ -99,9 +109,8 @@ async function executeTopLevelPublicFunctionAvm(
     }.`,
   );
 
-  return Promise.resolve(
-    convertAvmResultsToPxResult(avmResult, startSideEffectCounter, executionContext.execution, startGas, avmContext),
-  );
+  return 
+    convertAvmResultsToPxResult(avmResult, startSideEffectCounter, executionContext.execution, startGas, avmContext);
 }
 
 async function executePublicFunctionAcvm(

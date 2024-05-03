@@ -50,6 +50,8 @@ export type JournalData = {
   newLogsHashes: TracedUnencryptedL2Log[];
   /** contract address -\> key -\> value */
   currentStorageValue: Map<bigint, Map<bigint, Fr>>;
+
+  sideEffectCounter: number;
 };
 
 // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
@@ -159,8 +161,8 @@ export class AvmPersistableStateManager {
    * @returns the latest value written to slot, or 0 if never written to before
    */
   public async readStorage(storageAddress: Fr, slot: Fr): Promise<Fr> {
-    const [exists, value] = await this.publicStorage.read(storageAddress, slot);
-    this.log.debug(`storage(${storageAddress})@${slot} ?? value: ${value}, exists: ${exists}.`);
+    const { value, exists, cached } = await this.publicStorage.read(storageAddress, slot);
+    this.log.debug(`storage(${storageAddress})@${slot} ?? value: ${value}, exists: ${exists}, cached: ${cached}.`);
 
     // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
     this.transitionalExecutionResult.contractStorageReads.push(
@@ -168,7 +170,7 @@ export class AvmPersistableStateManager {
     );
 
     // We want to keep track of all performed reads (even reverted ones)
-    this.trace.tracePublicStorageRead(storageAddress, slot, value, exists);
+    this.trace.tracePublicStorageRead(storageAddress, slot, value, exists, cached);
     return Promise.resolve(value);
   }
 
@@ -348,6 +350,11 @@ export class AvmPersistableStateManager {
       currentStorageValue: this.publicStorage.getCache().cachePerContract,
       storageReads: this.trace.publicStorageReads,
       storageWrites: this.trace.publicStorageWrites,
+      sideEffectCounter: this.trace.accessCounter,
     };
+  }
+
+  public async commitToDBs() {
+    await this.publicStorage.commitToDB();
   }
 }

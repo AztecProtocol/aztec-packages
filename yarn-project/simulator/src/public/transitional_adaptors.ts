@@ -117,25 +117,35 @@ export function convertAvmResultsToPxResult(
  * @param result
  * @returns
  */
-export async function convertAvmResults(
+export function convertAvmResults(
   executionContext: PublicExecutionContext,
   newWorldState: JournalData,
   result: AvmContractCallResults,
   endMachineState: AvmMachineState,
-): Promise<PublicExecutionResult> {
+): PublicExecutionResult {
   const execution = executionContext.execution;
 
-  const contractStorageReads: ContractStorageRead[] = newWorldState.storageReads.map(
-    read => new ContractStorageRead(read.slot, read.value, read.counter.toNumber(), read.storageAddress),
-  );
-  const contractStorageUpdateRequests: ContractStorageUpdateRequest[] = newWorldState.storageWrites.map(
+  let contractStorageReads: ContractStorageRead[] = newWorldState.storageReads
+    .filter(read => !read.cached) // The kernel doesn't consider cached reads.
+    .map(read => new ContractStorageRead(read.slot, read.value, read.counter.toNumber(), read.storageAddress));
+  let contractStorageUpdateRequests: ContractStorageUpdateRequest[] = newWorldState.storageWrites.map(
     write => new ContractStorageUpdateRequest(write.slot, write.value, write.counter.toNumber(), write.storageAddress),
   );
-  // We need to write the storage updates to the DB, because that's what the ACVM expects.
-  // Assumes the updates are in the right order.
-  for (const write of newWorldState.storageWrites) {
-    await executionContext.stateDb.storageWrite(write.storageAddress, write.slot, write.value);
-  }
+
+  // The current kernel expects only reads that are not overwritten later.
+  // (This implementation is cuadratic and can be improved if needed.)
+  contractStorageReads = contractStorageReads.filter(
+    read => !contractStorageUpdateRequests.some(update => update.storageSlot.equals(read.storageSlot)),
+  );
+  // The current kernel expects only writes that are not overwritten later.
+  contractStorageUpdateRequests = contractStorageUpdateRequests.filter(
+    update =>
+      !contractStorageUpdateRequests.some(
+        otherUpdate =>
+          otherUpdate.storageSlot.equals(update.storageSlot) &&
+          otherUpdate.sideEffectCounter! > update.sideEffectCounter!,
+      ),
+  );
 
   const newNoteHashes = newWorldState.newNoteHashes.map(
     noteHash => new NoteHash(noteHash.noteHash, noteHash.counter.toNumber()),
@@ -167,9 +177,8 @@ export async function convertAvmResults(
   // TODO: Support nested executions.
   const nestedExecutions: PublicExecutionResult[] = [];
   const allUnencryptedLogs = unencryptedLogs;
-  // TODO keep track of side effect counters
-  const startSideEffectCounter = Fr.ZERO;
-  const endSideEffectCounter = Fr.ZERO;
+  const startSideEffectCounter = new Fr(executionContext.execution.callContext.sideEffectCounter);
+  const endSideEffectCounter = new Fr(newWorldState.sideEffectCounter);
 
   return {
     execution,
