@@ -365,7 +365,9 @@ jobs:
       - name: "Noir Protocol Circuits Report"
         working-directory: ./noir-projects/
         timeout-minutes: 25
-        run: earthly-ci --artifact +gates-report/gates_report.json
+        run: |
+          earthly-ci --artifact +gates-report/gates_report.json
+          mv gates_report.json ../gates_report.json
 
       - name: Compare gates reports
         id: gates_diff
