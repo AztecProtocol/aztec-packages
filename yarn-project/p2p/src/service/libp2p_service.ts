@@ -153,7 +153,14 @@ export class LibP2PService implements P2PService {
     txPool: TxPool,
     store: AztecKVStore,
   ) {
-    const { tcpListenIp, tcpListenPort, minPeerCount, maxPeerCount, transactionProtocol: protocolId } = config;
+    const {
+      tcpListenIp,
+      tcpListenPort,
+      minPeerCount,
+      maxPeerCount,
+      dataDirectory,
+      transactionProtocol: protocolId,
+    } = config;
     const bindAddrTcp = `/ip4/${tcpListenIp}/tcp/${tcpListenPort}`;
 
     // The autonat service seems quite problematic in that using it seems to cause a lot of attempts
@@ -170,7 +177,7 @@ export class LibP2PService implements P2PService {
     //   services.uPnPNAT = uPnPNATService();
     // }
 
-    const datastore = new AztecDatastore(AztecLmdbStore.open('libp2p_service'));
+    const datastore = new AztecDatastore(AztecLmdbStore.open(dataDirectory));
 
     const node = await createLibp2p({
       start: false,
