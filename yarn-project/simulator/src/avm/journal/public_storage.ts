@@ -86,6 +86,9 @@ export class PublicStorage {
     this.cache.acceptAndMerge(incomingPublicStorage.cache);
   }
 
+  /**
+   * Commits ALL staged writes to the host's state.
+   */
   public async commitToDB() {
     for (const [storageAddress, cacheAtContract] of this.cache.cachePerContract) {
       for (const [slot, value] of cacheAtContract) {

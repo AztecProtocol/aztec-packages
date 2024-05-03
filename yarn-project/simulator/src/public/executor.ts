@@ -99,8 +99,9 @@ async function executeTopLevelPublicFunctionAvm(
 
   if (!nested) {
     // Commit the journals state to the DBs if this is the top-level execution.
-    await context.persistableState.commitToDBs();
-    // TODO: Nullifiers, etc.
+    // Observe that this will write all the state changes to the DBs, not only the latest for each slot.
+    // However, the underlying DB keep a cache and will only write the latest state to disk.
+    await context.persistableState.publicStorage.commitToDB();
   }
 
   log.verbose(

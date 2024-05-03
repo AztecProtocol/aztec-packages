@@ -353,8 +353,4 @@ export class AvmPersistableStateManager {
       sideEffectCounter: this.trace.accessCounter,
     };
   }
-
-  public async commitToDBs() {
-    await this.publicStorage.commitToDB();
-  }
 }

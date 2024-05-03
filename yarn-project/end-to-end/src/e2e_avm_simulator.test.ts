@@ -98,18 +98,6 @@ describe('e2e_avm_simulator', () => {
         tx = await avmContract.methods.assert_nullifier_exists(nullifier).send().wait();
         expect(tx.status).toEqual(TxStatus.MINED);
       });
-
-      it.skip('Emit and check in separate enqueued calls but same tx', async () => {
-        const nullifier = new Fr(123456);
-
-        // This will create 1 tx with 2 public calls in it.
-        await new BatchCall(wallet, [
-          avmContract.methods.new_nullifier(nullifier).request(),
-          avmContract.methods.assert_nullifier_exists(nullifier).request(),
-        ])
-          .send()
-          .wait();
-      });
     });
   });
 
