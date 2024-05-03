@@ -425,11 +425,11 @@ Therefore, once we verify that the `start_gas_left` which the sequencer provided
 
 Further, we can trust that the `transaction_fee` the public VM reported is the one which was made available to the public functions during teardown (though we must verify that the sequencer provided the correct value).
 
+The `PublicCircuitPublicInputs` include the `global_variables` as injected via the `PublicContextInputs`. The first public kernel circuit to run, regardless of whether it is a setup, app, or teardown kernel, is responsible for setting its `constant_data.global_variables` equal to these. All subsequent public kernel circuit runs must verify that the `global_variables` from the `PublicCircuitPublicInputs` match the ones from the previously set `constant_data.global_variables`.
+
 ## Public Kernel Setup
 
 The PublicKernelSetup circuit takes in a `PublicKernelData` and a `PublicCallData` and outputs a `PublicKernelCircuitPublicInputs`.
-
-It must set the `constant_data.global_variables` to the `global_variables` from `PublicCircuitPublicInputs`, as a means to initialize them, since they were zero in the previous kernel coming from private.
 
 It must assert that the `revert_code` in the `PublicCircuitPublicInputs` is equal to zero.
 
