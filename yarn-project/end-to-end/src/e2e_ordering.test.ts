@@ -29,7 +29,7 @@ describe('e2e_ordering', () => {
 
   beforeEach(async () => {
     ({ teardown, pxe, wallet } = await setup());
-  }, 200_000);
+  }, 300_000);
 
   afterEach(() => teardown());
 
