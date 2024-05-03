@@ -7,7 +7,7 @@ use crate::{
 }
 };
 
-// Note: In fetch_hash_from_registry we expect that shared mutable slow is index * 2 + 1 for x coordinate
+// Note: In fetch_key_from_registry we expect that shared mutable slow is index * 2 + 1 for x coordinate
 // and index * 2 + 2 for y coordinate, if this changes the function will need to be refactored.
 global NULLIFIER_INDEX = 0;
 global INCOMING_INDEX = 1;
