@@ -435,7 +435,7 @@ contract Test {
         address: AztecAddress,
         public_nullifying_key: GrumpkinPoint,
     ) {
-        assert_eq(get_npk_m(&mut context, address), poseidon2_hash(public_nullifying_key.serialize()));
+        assert_eq(get_npk_m(&mut context, address), public_nullifying_key);
     }
 
     #[aztec(public)]
