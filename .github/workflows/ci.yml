@@ -358,6 +358,10 @@ jobs:
       - yarn-project-formatting
       - yarn-project-test
       - prover-client-test
+      - bb-js-test
+      - barretenberg-acir-tests-bb-js
+      - barretenberg-acir-tests-bb
+      - barretenberg-acir-tests-sol
     if: always()
     steps:
       - run: |
@@ -366,21 +370,24 @@ jobs:
           echo "bb-bench status: ${{ needs.bb-bench.result }}"
           echo "yarn-project-formatting status: ${{ needs.yarn-project-formatting.result }}"
           echo "yarn-project-test status: ${{ needs.yarn-project-test.result }}"
-          if [[ "${{ needs.e2e.result }}" != 'success' || "${{ needs.bb-native-tests.result }}" != 'success' || "${{ needs.bb-bench.result }}" != 'success' || "${{ needs.yarn-project-formatting.result }}" != 'success' || "${{ needs.yarn-project-test.result }}" != 'success' ]]; then
+          if [[ "${{ needs.barretenberg-acir-tests-sol.result }}" != 'success' || "${{ needs.barretenberg-acir-tests-bb.result }}" != 'success' || "${{ needs.barretenberg-acir-tests-bb-js.result }}" != 'success'  || "${{ needs.bb-js-test.result }}" != 'success' || "${{ needs.prover-client-test.result }}" != 'success' || "${{ needs.e2e.result }}" != 'success' || "${{ needs.bb-native-tests.result }}" != 'success' || "${{ needs.bb-bench.result }}" != 'success' || "${{ needs.yarn-project-formatting.result }}" != 'success' || "${{ needs.yarn-project-test.result }}" != 'success' ]]; then
             echo "Pull request merging not allowed due to failures."
             exit 1
           fi
           echo "Pull request merging now allowed."
 
   notify:
-    needs:
-      [
+    needs: [
         e2e,
         bb-native-tests,
         bb-bench,
         yarn-project-formatting,
         yarn-project-test,
         prover-client-test,
+        - bb-js-test
+        - barretenberg-acir-tests-bb-js
+        - barretenberg-acir-tests-bb
+        - barretenberg-acir-tests-sol,
       ]
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/master' && failure() }}
