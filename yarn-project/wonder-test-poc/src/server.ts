@@ -31,14 +31,6 @@ let pxe: PXE;
 
 const server = new JSONRPCServer();
 
-// Example: compute square root
-server.addMethod('getSqrt', async params => {
-  const values = params[0].Array.map(({ inner }: { inner: string }) => {
-    return { inner: `${Math.sqrt(parseInt(inner, 16))}` };
-  });
-  return { values: [{ Array: values }] };
-});
-
 // Deploy a contract
 server.addMethod('deployContract', async params => {
   let contractAddy = await deployContract(pxe);
