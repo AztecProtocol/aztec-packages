@@ -68,7 +68,6 @@ fn validate_pending_read_requests<READ_REQUEST_LEN, T, PENDING_VALUE_LEN, NUM_PE
         let pending_value = pending_values[hints[i].pending_value_index];
         if read_request_index != READ_REQUEST_LEN {
             let read_request = read_requests[read_request_index];
-            let pending_value = pending_values[hints[i].pending_value_index];
             pending_value.assert_match_read_request(read_request);
         }
     }
