@@ -224,7 +224,7 @@ impl PrivateContext {
         keys.app_nullifier_secret_key
     }
 
-    // TODO(ek): Replace request_app_nullifier_secret_key above with this once we no longer get app nullifier secret key with address
+    // TODO: (#6176) Replace request_app_nullifier_secret_key above with this once we no longer get app nullifier secret key with address
     pub fn request_app_nullifier_secret_key_with_master_public_nullifying_key_hash(&mut self, master_public_nullifying_key_hash: Field) -> Field {
         let keys = if self.nullifier_key.is_none() {
             let keys = get_nullifier_keys_with_master_nullifier_public_key_hash(master_public_nullifying_key_hash);
