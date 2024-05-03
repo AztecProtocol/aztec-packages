@@ -3,9 +3,9 @@ use noirc_errors::Span;
 use noirc_frontend::ast;
 use noirc_frontend::ast::{
     BlockExpression, ConstrainKind, ConstrainStatement, Expression, ExpressionKind,
-    ForLoopStatement, ForRange, FunctionReturnType, Ident, Literal, NoirFunction, NoirStruct,
-    Param, PathKind, Pattern, Signedness, Statement, StatementKind, UnresolvedType,
-    UnresolvedTypeData, Visibility, FunctionKind
+    ForLoopStatement, ForRange, FunctionKind, FunctionReturnType, Ident, Literal, NoirFunction,
+    NoirStruct, Param, PathKind, Pattern, Signedness, Statement, StatementKind, UnresolvedType,
+    UnresolvedTypeData, Visibility,
 };
 
 use noirc_frontend::{macros_api::FieldElement, parse_program};
