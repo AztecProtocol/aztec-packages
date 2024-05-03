@@ -2,39 +2,57 @@
 title: Quickstart
 ---
 
-In this guide, you will
+Getting started on Aztec is easy. Here are the three recommended ways of starting developing on Aztec:
 
-1. Set up the Aztec sandbox (local development environment) locally
-2. Install the Aztec development kit
-3. Use Aztec.js to deploy an example contract that comes with the sandbox
-4. Use Aztec.js to interact with the contract you just deployed
+- Codespaces - For a zero-requirement, <5min starter that runs on your grandma's IBM PC, you can use Github Codespaces, which is free up to 60h per month.
+- `npx create-aztec-app` - Will guide you through the "Aztec Boxes": full boilerplate projects with a built-in sandbox. Requires node, docker and some 4gb RAM at least.
+- Manual install - Install the sandbox and only the sandbox.
 
-... in less than 10 minutes.
+## 1. Codespaces
 
-## Prerequisites
+Please click one of these buttons and hit "create codespace":
+
+[![One-Click React Starter](/img/codespaces_badges/react_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Freact%2Fdevcontainer.json) [![One-Click HTML/TS Starter](/img/codespaces_badges/vanilla_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Fvanilla%2Fdevcontainer.json) [![One-Click Token Starter](/img/codespaces_badges/token_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Ftoken%2Fdevcontainer.json)
+
+That's it, have a good night 🖐️🎤
+
+### What the...
+
+Ok ok, what this does is create a codespace with a prebuilt image containing one of the "Aztec Boxes" and a development network (sandbox). 
+- You can develop directly on the codespace, push it to a repo, make yourself at home.
+- You can also just use the sandbox that comes with it. The URL will be logged, you just need to use it as your PXE_URL.
+
+## 2. Aztec Boxes
+
+The above method uses aztec boxes to install the sandbox and clone the repo. You can use it too to get started on your own machine and use your own IDE
+
+### Prerequisites
 
 - Node.js >= v18 (recommend installing with [nvm](https://github.com/nvm-sh/nvm))
+- Docker (visit [this page of the Docker docs](https://docs.docker.com/get-docker/) on how to install it)
 
-## Install Docker
+### Run the `npx` script
 
-Aztec tooling requires the Docker daemon to be running, and this is easily achieved via Docker Desktop. See [this page of the Docker docs](https://docs.docker.com/get-docker/) for instructions on how to install Docker Desktop for your operating system.
-Note: if installing via Docker Desktop, you do NOT need to keep the application open at all times (just Docker daemon).
-
-Installing and running the Docker daemon can also be achieved by installing Docker Engine, see [these instructions](https://docs.docker.com/engine/install/).
-
-However installed, ensure Docker daemon is running. See [start Docker daemon](https://docs.docker.com/config/daemon/start/).
-
-### Note on Linux
-
-If you are running Linux, you will need to set the context (because Docker Desktop runs in a VM by default). See [this page](https://docs.docker.com/desktop/faqs/linuxfaqs/#what-is-the-difference-between-docker-desktop-for-linux-and-docker-engine) for more information. You can do this by running:
+With the node installation, you now should have `npm` and be able to run `npx` scripts. You can do that running:
 
 ```bash
-docker context use default
+npx create-aztec-app
 ```
 
-## Install the Sandbox
+And follow the instructions. If all goes well, you should now have a development environment running locally on your machine.
 
-You can run the Sandbox using Docker.
+You can run `npx create-aztec-app sandbox -h` to start, stop, update and output logs from the sandbox. 
+
+## 3. Manual Install
+
+If you don't want a boilerplate project, you can also install the sandbox via the underlying script used by the `npx` command.
+
+### Prerequisites
+
+- Node.js >= v18 (recommend installing with [nvm](https://github.com/nvm-sh/nvm))
+- Docker (visit [this page of the Docker docs](https://docs.docker.com/get-docker/) on how to install it)
+
+### Install the sandbox
 
 To install the latest Sandbox version, run:
 
@@ -42,10 +60,7 @@ To install the latest Sandbox version, run:
 bash -i <(curl -s install.aztec.network)
 ```
 
-> If Docker has been installed on your linux server but you encounter the error "Docker is not running. Please start Docker and try again". If you're encountering this issue, it's likely because Docker is running with root user privileges. In such cases, consider [managing Docker as a non-root user](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user) to resolve the problem.
-
-
-This will install the following:
+This will install the following tools:
 
 - **aztec** - launches various infrastructure subsystems (sequencer, prover, pxe, etc).
 - **aztec-nargo** - aztec's build of nargo, the noir compiler toolchain.
@@ -53,14 +68,13 @@ This will install the following:
 - **aztec-up** - a tool to upgrade the aztec toolchain to the latest, or specific versions.
 - **aztec-builder** - A useful tool for projects to generate ABIs and update their dependencies.
 
-
 Once these have been installed, to start the sandbox, run:
 
 ```bash
 aztec-sandbox
 ```
 
-This will attempt to run the Sandbox on ` localhost:8080`, so you will have to make sure nothing else is running on that port or change the port defined in `./.aztec/docker-compose.yml`. Running the installation again will overwrite any changes made to the `docker-compose.yml`.
+### Have fun!
 
 **Congratulations, you have just installed and run the Aztec Sandbox!**
 
@@ -84,4 +98,5 @@ In the terminal, you will see some logs:
 To deploy a smart contract to your sandbox and interact with it using Aztec.js, go to the [next page](aztecjs-getting-started.md).
 
 To skip this and write your first smart contract, go to the [Aztec.nr getting started page](aztecnr-getting-started.md).
+
 
