@@ -7,8 +7,8 @@ use crate::{
 }
 };
 
-// Note: In fetch_hash_from_registry we expect that shared mutable slow is index + 1 (e.g. NULLIFIER_INDEX + 1),
-// this changes the function will need to be refactored
+// Note: In fetch_hash_from_registry we expect that shared mutable slow is index * 2 + 1 for x coordinate
+// and index * 2 + 2 for y coordinate, if this changes the function will need to be refactored.
 global NULLIFIER_INDEX = 0;
 global INCOMING_INDEX = 1;
 global OUTGOING_INDEX = 2;
@@ -24,13 +24,14 @@ pub fn get_ivpk_m(context: &mut PrivateContext, address: AztecAddress) -> Grumpk
     get_master_key(context, address, INCOMING_INDEX)
 }
 
-pub fn get_ovpk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
-    get_master_key(context, address, OUTGOING_INDEX)
-}
-
-pub fn get_tpk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
-    get_master_key(context, address, TAGGING_INDEX)
-}
+// Commented out as it's currently not enabled in key registry
+// pub fn get_ovpk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
+//     get_master_key(context, address, OUTGOING_INDEX)
+// }
+// 
+// pub fn get_tpk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
+//     get_master_key(context, address, TAGGING_INDEX)
+// }
 
 fn get_master_key(
     context: &mut PrivateContext,
@@ -38,33 +39,40 @@ fn get_master_key(
     key_index: Field
 ) -> GrumpkinPoint {
     // 1. Get key hash from registry
-    let key_hash = fetch_hash_from_registry(context, key_index, address);
-    if key_hash == 0 {
-        // i. Keys were not registered yet --> fetch address preimage and check that the hash matches
+    let key = fetch_key_from_registry(context, key_index, address);
+    if key.is_zero() {
+        // i. Keys were not registered yet --> fetch key from PXE
         fetch_and_constrain_keys(address)[key_index]
     } else {
-        // ii. Keys were registered --> we fetch the key from oracle, hash it and check that it matches the hash in the registry
-        let (keys, _) = get_public_keys_and_partial_address(address);
-        let key = keys[key_index];
-        let key_hash_from_oracle = poseidon2_hash(key.serialize());
-        assert(key_hash_from_oracle == key_hash);
+        // ii. Keys were registered --> return the key
         key
     }
 }
 
-fn fetch_hash_from_registry(
+fn fetch_key_from_registry(
     context: &mut PrivateContext,
     key_index: Field,
     address: AztecAddress
-) -> Field {
-    let derived_slot = derive_storage_slot_in_map(key_index + 1, address);
+) -> GrumpkinPoint {
+    let x_coordinate_map_slot = key_index * 2 + 1;
+    let y_coordinate_map_slot = x_coordinate_map_slot + 1;
+    let x_coordinate_derived_slot = derive_storage_slot_in_map(x_coordinate_map_slot, address);
+    let y_coordinate_derived_slot = derive_storage_slot_in_map(y_coordinate_map_slot, address);
 
-    let registry_private_getter: SharedMutablePrivateGetter<Field, DELAY> = SharedMutablePrivateGetter::new(
+    let x_coordinate_registry: SharedMutablePrivateGetter<Field, DELAY> = SharedMutablePrivateGetter::new(
         *context,
         AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS),
-        derived_slot
+        x_coordinate_derived_slot
     );
-    registry_private_getter.get_current_value_in_private()
+    let y_coordinate_registry: SharedMutablePrivateGetter<Field, DELAY> = SharedMutablePrivateGetter::new(
+        *context,
+        AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS),
+        y_coordinate_derived_slot
+    );
+    let x_coordinate = x_coordinate_registry.get_current_value_in_private();
+    let y_coordinate = y_coordinate_registry.get_current_value_in_private();
+
+    GrumpkinPoint::new(x_coordinate, y_coordinate)
 }
 
 // Passes only when keys were not rotated - is expected to be called only when keys were not registered yet

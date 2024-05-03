@@ -5,7 +5,6 @@ contract KeyRegistry {
         state_vars::{SharedMutable, Map},
         protocol_types::{
         grumpkin_point::GrumpkinPoint, address::{AztecAddress, PartialAddress},
-        hash::poseidon2_hash
     }
     };
 
@@ -14,11 +13,19 @@ contract KeyRegistry {
     #[aztec(storage)]
   struct Storage {
     // The following stores a hash of individual master public keys
-    // If you change slots of vars bellow, you must update the slot in `SharedMutablePrivateGetter` in aztec-nr keys.
-    nullifier_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
-    incoming_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
-    outgoing_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
-    tagging_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+    // If you change slots of vars bellow, you must update the slots in `SharedMutablePrivateGetter` in aztec-nr keys.
+    // We store x and y coordinates in individual shared mutables as shared mutable currently supports only 1 field
+    npk_m_x_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+    npk_m_y_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+
+    ivpk_m_x_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+    ivpk_m_y_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+    
+    ovpk_m_x_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+    ovpk_m_y_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+    
+    tpk_m_x_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+    tpk_m_y_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
   }
 
     #[aztec(public)]
@@ -34,8 +41,10 @@ contract KeyRegistry {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let nullifier_registry = storage.nullifier_registry.at(address);
-        nullifier_registry.schedule_value_change(poseidon2_hash(new_nullifier_public_key.serialize()));
+        let npk_m_x_registry = storage.npk_m_x_registry.at(address);
+        let npk_m_y_registry = storage.npk_m_y_registry.at(address);
+        npk_m_x_registry.schedule_value_change(new_nullifier_public_key.x);
+        npk_m_y_registry.schedule_value_change(new_nullifier_public_key.y);
     }
 
     #[aztec(public)]
@@ -47,7 +56,6 @@ contract KeyRegistry {
         outgoing_public_key: GrumpkinPoint,
         tagging_public_key: GrumpkinPoint
     ) {
-        // We could also pass in original_public_keys_hash instead of computing it here, if all we need the original one is for being able to prove ownership of address
         let computed_address = AztecAddress::compute_from_public_keys_and_partial_address(
             nullifier_public_key,
             incoming_public_key,
@@ -58,14 +66,23 @@ contract KeyRegistry {
 
         assert(computed_address.eq(address), "Computed address does not match supplied address");
 
-        let nullifier_registry = storage.nullifier_registry.at(address);
-        let incoming_registry = storage.incoming_registry.at(address);
-        let outgoing_registry = storage.outgoing_registry.at(address);
-        let tagging_registry = storage.tagging_registry.at(address);
+        let npk_m_x_registry = storage.npk_m_x_registry.at(address);
+        let npk_m_y_registry = storage.npk_m_y_registry.at(address);
+        let ivpk_m_x_registry = storage.ivpk_m_x_registry.at(address);
+        let ivpk_m_y_registry = storage.ivpk_m_y_registry.at(address);
+        // let ovpk_m_x_registry = storage.ovpk_m_x_registry.at(address);
+        // let ovpk_m_y_registry = storage.ovpk_m_y_registry.at(address);
+        // let tpk_m_x_registry = storage.tpk_m_x_registry.at(address);
+        // let tpk_m_y_registry = storage.tpk_m_y_registry.at(address);
 
-        nullifier_registry.schedule_value_change(poseidon2_hash(nullifier_public_key.serialize()));
-        incoming_registry.schedule_value_change(poseidon2_hash(incoming_public_key.serialize()));
-        outgoing_registry.schedule_value_change(poseidon2_hash(outgoing_public_key.serialize()));
-        tagging_registry.schedule_value_change(poseidon2_hash(tagging_public_key.serialize()));
+        npk_m_x_registry.schedule_value_change(nullifier_public_key.x);
+        npk_m_y_registry.schedule_value_change(nullifier_public_key.y);
+        ivpk_m_x_registry.schedule_value_change(incoming_public_key.x);
+        ivpk_m_y_registry.schedule_value_change(incoming_public_key.y);
+        // Commented out as we hit the max enqueued public calls limit when not done so
+        // ovpk_m_x_registry.schedule_value_change(outgoing_public_key.x);
+        // ovpk_m_y_registry.schedule_value_change(outgoing_public_key.y);
+        // tpk_m_x_registry.schedule_value_change(tagging_public_key.x);
+        // tpk_m_y_registry.schedule_value_change(tagging_public_key.y);
     }
 }
