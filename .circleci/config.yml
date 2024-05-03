@@ -407,18 +407,6 @@ jobs:
           command: create_ecr_manifest yarn-project x86_64,arm64
           aztec_manifest_key: yarn-project
 
-  prover-client-test:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: cond_spot_run_build prover-client-test 128
-          aztec_manifest_key: prover-client-test
-
   aztec-package:
     machine:
       image: default
@@ -431,41 +419,17 @@ jobs:
           command: build aztec
           aztec_manifest_key: aztec
 
-  boxes:
-    docker:
-      - image: aztecprotocol/alpine-build-image
+  aztec-builder:
+    machine:
+      image: default
     resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
-          name: "Build"
-          command: cond_spot_run_build boxes 4
-          aztec_manifest_key: boxes
-
-  boxes-vanilla:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=vanilla
-          aztec_manifest_key: boxes
-
-  boxes-react:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=react
-          aztec_manifest_key: boxes
+          name: "Build image"
+          command: build aztec-builder
+          aztec_manifest_key: aztec-builder
 
   end-to-end:
     machine:
@@ -514,6 +478,7 @@ jobs:
             should_release || exit 0
             deploy_dockerhub noir
             deploy_dockerhub aztec
+            deploy_dockerhub aztec-builder
       - run:
           name: "Release canary to NPM: bb.js"
           command: |
@@ -682,7 +647,6 @@ workflows:
             - noir-projects
           <<: *defaults
       - end-to-end: *defaults_yarn_project
-      - prover-client-test: *defaults_yarn_project
       - yarn-project-x86_64: *defaults_yarn_project_pre_join
       - yarn-project-arm64: *defaults_yarn_project_pre_join
       - yarn-project-ecr-manifest:
@@ -693,20 +657,7 @@ workflows:
 
       # Artifacts
       - aztec-package: *defaults_yarn_project
-
-      # Boxes.
-      - boxes:
-          requires:
-            - aztec-package
-          <<: *defaults
-      - boxes-vanilla:
-          requires:
-            - boxes
-          <<: *defaults
-      - boxes-react:
-          requires:
-            - boxes
-          <<: *defaults
+      - aztec-builder: *defaults_yarn_project
 
       # End to end tests.
       - e2e-join:
@@ -727,11 +678,9 @@ workflows:
             - barretenberg-acir-tests-bb
             - barretenberg-acir-tests-bb-sol
             - barretenberg-docs
-            - boxes-vanilla
-            - boxes-react
             - noir-packages-tests
-            - prover-client-test
             - e2e-join
+            - aztec-builder
           <<: *defaults
 
       # Production releases.
