@@ -234,16 +234,16 @@ inline std::string get_relation_label_avm_alu(int index)
     case 64:
         return "SHL_OUTPUT";
 
-    case 70:
+    case 71:
         return "ALU_PROD_DIV";
 
-    case 71:
+    case 72:
         return "REMAINDER_RANGE_CHK";
 
-    case 73:
+    case 74:
         return "CMP_CTR_REL_3";
 
-    case 75:
+    case 76:
         return "DIVISION_RELATION";
     }
     return std::to_string(index);
@@ -253,10 +253,10 @@ template <typename FF_> class avm_aluImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 76> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr std::array<size_t, 77> SUBRELATION_PARTIAL_LENGTHS{
         2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 5, 5, 5, 5, 6, 6, 8, 3, 4, 4, 5, 4, 4,
         3, 4, 3, 3, 4, 3, 6, 5, 3, 3, 3, 3, 4, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 2, 5,
-        3, 3, 4, 4, 4, 4, 4, 3, 5, 5, 4, 5, 5, 2, 3, 3, 4, 3, 4, 3, 3, 3, 3, 4,
+        3, 3, 4, 4, 4, 4, 4, 3, 5, 5, 4, 5, 5, 2, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 4,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -1009,7 +1009,7 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(68);
 
-            auto tmp = ((avm_alu_op_div_a_lt_b * avm_alu_ic) * (avm_alu_ia - avm_alu_remainder));
+            auto tmp = (avm_alu_op_div_a_lt_b * avm_alu_ic);
             tmp *= scaling_factor;
             std::get<68>(evals) += tmp;
         }
@@ -1017,7 +1017,7 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(69);
 
-            auto tmp = (avm_alu_op_div_std * (-avm_alu_op_div_std + FF(1)));
+            auto tmp = (avm_alu_op_div_a_lt_b * (avm_alu_ia - avm_alu_remainder));
             tmp *= scaling_factor;
             std::get<69>(evals) += tmp;
         }
@@ -1025,8 +1025,7 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(70);
 
-            auto tmp = (avm_alu_op_div_std * ((avm_alu_ib * avm_alu_ic) -
-                                              (avm_alu_a_lo + (avm_alu_a_hi * FF(uint256_t{ 0UL, 0UL, 1UL, 0UL })))));
+            auto tmp = (avm_alu_op_div_std * (-avm_alu_op_div_std + FF(1)));
             tmp *= scaling_factor;
             std::get<70>(evals) += tmp;
         }
@@ -1034,7 +1033,8 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(71);
 
-            auto tmp = (avm_alu_op_div_std * (avm_alu_b_lo - ((avm_alu_ib - avm_alu_remainder) - FF(1))));
+            auto tmp = (avm_alu_op_div_std * ((avm_alu_ib * avm_alu_ic) -
+                                              (avm_alu_a_lo + (avm_alu_a_hi * FF(uint256_t{ 0UL, 0UL, 1UL, 0UL })))));
             tmp *= scaling_factor;
             std::get<71>(evals) += tmp;
         }
@@ -1042,7 +1042,7 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(72);
 
-            auto tmp = (avm_alu_op_div_std * avm_alu_b_hi);
+            auto tmp = (avm_alu_op_div_std * (avm_alu_b_lo - ((avm_alu_ib - avm_alu_remainder) - FF(1))));
             tmp *= scaling_factor;
             std::get<72>(evals) += tmp;
         }
@@ -1050,7 +1050,7 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(73);
 
-            auto tmp = ((avm_alu_cmp_rng_ctr_shift - FF(2)) * avm_alu_op_div_std);
+            auto tmp = (avm_alu_op_div_std * avm_alu_b_hi);
             tmp *= scaling_factor;
             std::get<73>(evals) += tmp;
         }
@@ -1058,7 +1058,7 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(74);
 
-            auto tmp = (avm_alu_rng_chk_sel * avm_alu_op_div_std);
+            auto tmp = ((avm_alu_cmp_rng_ctr_shift - FF(2)) * avm_alu_op_div_std);
             tmp *= scaling_factor;
             std::get<74>(evals) += tmp;
         }
@@ -1066,9 +1066,17 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(75);
 
-            auto tmp = (avm_alu_op_div_std * ((avm_alu_ib * avm_alu_ic) - (avm_alu_ia - avm_alu_remainder)));
+            auto tmp = (avm_alu_rng_chk_sel * avm_alu_op_div_std);
             tmp *= scaling_factor;
             std::get<75>(evals) += tmp;
+        }
+        // Contribution 76
+        {
+            Avm_DECLARE_VIEWS(76);
+
+            auto tmp = (avm_alu_op_div_std * ((avm_alu_ib * avm_alu_ic) - (avm_alu_ia - avm_alu_remainder)));
+            tmp *= scaling_factor;
+            std::get<76>(evals) += tmp;
         }
     }
 };

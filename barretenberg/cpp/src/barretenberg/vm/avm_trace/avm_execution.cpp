@@ -110,6 +110,12 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                   std::get<uint32_t>(inst.operands.at(2)),
                                   std::get<uint32_t>(inst.operands.at(3)));
             break;
+        case OpCode::DIV:
+            trace_builder.op_div(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint32_t>(inst.operands.at(1)),
+                                 std::get<uint32_t>(inst.operands.at(2)),
+                                 std::get<uint32_t>(inst.operands.at(3)));
+            break;
         // Compute - Comparators
         case OpCode::EQ:
             trace_builder.op_eq(std::get<uint8_t>(inst.operands.at(0)),

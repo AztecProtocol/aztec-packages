@@ -654,24 +654,25 @@ namespace avm_alu(256);
     // To show this, we constrain ib - ia - 1 to be within 128-bits
     // Since we need a range check we use the existing a_lo column that is range checked over 128-bits
     op_div_a_lt_b * (a_lo - (ib - ia - 1)) = 0;
-    op_div_a_lt_b * ic * (ia - remainder) = 0;
+    op_div_a_lt_b * ic  = 0; // ic = 0
+    op_div_a_lt_b * (ia - remainder) = 0; // remainder = a, might not be needed.
 
 
     // ====== Handling ia > ib =====
     pol commit op_div_std;
     op_div_std * (1 - op_div_std) = 0;
 
-    pol PRODUCT = ib * ic; // This can be up to a 256-bit number
+    pol PRODUCT = ib * ic; // This number can be up to 256-bits long
     // We need to check that this value has not overflowed the field.
     // (1) Decompose ib * ic into two 128-bit limbs, we will re-use the a_lo and a_hi columns.
-    // (2) Perform a 128-bit range check, over these two limbs.
+    // (2) Perform a 128-bit range check, over these two limbs. Again re-using the a_lo and a_hi columns.
     // (3) Perform the primality check, we re-use the p_sub_a_lo and p_sub_a_hi columns.
 
     // Check that a_lo and a_hi correctly represent PRODUCT
     #[ALU_PROD_DIV]
     op_div_std * (PRODUCT - (a_lo + 2 ** 128 * a_hi)) = 0;
     // Range checks already performed via a_lo and a_hi
-    // Primality checks already performed above p_sub_a_lo and p_sub_a_hi
+    // Primality checks already performed above via p_sub_a_lo and p_sub_a_hi
 
     //Range check remainder < ib and put the value in b_lo, it has to fit into a 128-bit range check
     // b_hi is zero, TODO: does it need to be enforced as zero?
