@@ -2,11 +2,12 @@
 
 ## Design
 This implements integration or end-to-end testing in Noir, using the builtin `#[test]` macro and an RPC server acting as oracle resolver.
+
 See ........ for the technical details
 
-## Repo org
+The noir tests are run in parallels, reason why we redeploy the tested contract in every test fn (similar to how Foundry behaves). A typescript test suite is provided for comparison, with the exact same steps. Running this later is timed at 1:59 while the Noir version at 59 seconds (with a very little increase for each new test fn added).
 
-NOTE: the first time(s) you run `yarn test`, it might fails with tx dropped from the p2p node. Running it again usually fixes it (something to investigate later one - wild guess is contract class id collision - maybe we should try with a first non-concomitant deploy, before running the others)
+## Repo org
 
 src
 ├── sandbox.ts: wrap pxe calls/sandbox interactions
@@ -15,6 +16,7 @@ src
 │ └── main.nr: a mock contract which is the target of the test (simple storage read/write, in private or public)
 └── noir_test
 └── main.nr: the actual integration test along the oracle calls. run the test with `yarn test`
+└── e2e_mock.test.ts: the same test implemented in typescript, using Jest (redoing the exact same steps, for timing comparison)
 
 To run this, after bootstrapping the whole multirepo (./bootstrap.sh full at the root) - this does _not_ work with the docker container as we need a higher timeout for the foreign call from nargo's minreq (see https://github.com/noir-lang/noir/issues/4772#event-12468173848):
 
