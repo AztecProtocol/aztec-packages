@@ -5,7 +5,7 @@ E2E_COMPOSE_TEST:
   ARG test
   ARG compose_file=./scripts/docker-compose.yml
   ARG debug="aztec:*"
-  ARG EARTHLY_TARGET_NAME
+  ARG skip_build
   LOCALLY
   ENV TEST=$test
   ENV DEBUG=$debug
@@ -15,8 +15,13 @@ E2E_COMPOSE_TEST:
   ELSE
     LET CMD="docker-compose"
   END
-  WAIT
-    BUILD ../+export-e2e-test-images
+  # In CI, we do an optimization to push these images to docker once
+  # We still want the default code path to work with no faff locally
+  # To not rebuild unnecessarily, we pass --skip_build=true in CI
+  IF [ $skip_build != "true" ]
+    WAIT
+      BUILD ../+export-e2e-test-images
+    END
   END
   # Let docker compose know about the pushed tags above
   ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
@@ -47,28 +52,36 @@ flakey-e2e-tests:
   RUN yarn test --passWithNoTests ./src/flakey || true
 
 e2e-sandbox-example:
-  DO +E2E_COMPOSE_TEST --test=e2e_sandbox_example.test.ts
+  ARG skip_build=false
+  DO +E2E_COMPOSE_TEST --test=e2e_sandbox_example.test.ts --skip_build=$skip_build
 
 uniswap-trade-on-l1-from-l2:
-  DO +E2E_COMPOSE_TEST --test=uniswap_trade_on_l1_from_l2.test.ts
+  ARG skip_build=false
+  DO +E2E_COMPOSE_TEST --test=uniswap_trade_on_l1_from_l2.test.ts --skip_build=$skip_build
 
 integration-l1-publisher:
-  DO +E2E_COMPOSE_TEST --test=integration_l1_publisher.test.ts
+  ARG skip_build=false
+  DO +E2E_COMPOSE_TEST --test=integration_l1_publisher.test.ts --skip_build=$skip_build
 
 e2e-browser:
-  DO +E2E_COMPOSE_TEST --test=e2e_aztec_js_browser.test.ts
+  ARG skip_build=false
+  DO +E2E_COMPOSE_TEST --test=e2e_aztec_js_browser.test.ts --skip_build=$skip_build
 
 pxe:
-  DO +E2E_COMPOSE_TEST --test=pxe.test.ts
+  ARG skip_build=false
+  DO +E2E_COMPOSE_TEST --test=pxe.test.ts --skip_build=$skip_build
 
 e2e-docs-examples:
-  DO +E2E_COMPOSE_TEST --test=docs_examples.test.ts
+  ARG skip_build=false
+  DO +E2E_COMPOSE_TEST --test=docs_examples.test.ts --skip_build=$skip_build
 
 guides-writing-an-account-contract:
-  DO +E2E_COMPOSE_TEST --test=guides/writing_an_account_contract.test.ts
+  ARG skip_build=false
+  DO +E2E_COMPOSE_TEST --test=guides/writing_an_account_contract.test.ts --skip_build=$skip_build
 
 guides-dapp-testing:
-  DO +E2E_COMPOSE_TEST --test=guides/dapp_testing.test.ts
+  ARG skip_build=false
+  DO +E2E_COMPOSE_TEST --test=guides/dapp_testing.test.ts --skip_build=$skip_build
 
 # TODO intermittent failure
 # guides-sample-dapp:
@@ -82,19 +95,22 @@ bench-publish-rollup:
   ARG PULL_REQUEST
   ARG BRANCH
   ARG COMMIT_HASH
-  DO +E2E_COMPOSE_TEST --test=benchmarks/bench_publish_rollup.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --compose_file=./scripts/docker-compose-no-sandbox.yml
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+  ARG skip_build=false
+  DO +E2E_COMPOSE_TEST --test=benchmarks/bench_publish_rollup.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --compose_file=./scripts/docker-compose-no-sandbox.yml --skip_build=$skip_build
+  DO +UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
 bench-process-history:
   ARG PULL_REQUEST
   ARG BRANCH
   ARG COMMIT_HASH
-  DO +E2E_COMPOSE_TEST --test=benchmarks/bench_process_history.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --compose_file=./scripts/docker-compose-no-sandbox.yml
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+  ARG skip_build=false
+  DO +E2E_COMPOSE_TEST --test=benchmarks/bench_process_history.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --compose_file=./scripts/docker-compose-no-sandbox.yml --skip_build=$skip_build
+  DO +UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
 bench-tx-size:
   ARG PULL_REQUEST
   ARG BRANCH
   ARG COMMIT_HASH
-  DO +E2E_COMPOSE_TEST --test=benchmarks/bench_tx_size_fees.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+  ARG skip_build=false
+  DO +E2E_COMPOSE_TEST --test=benchmarks/bench_tx_size_fees.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml --skip_build=$skip_build
+  DO +UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
