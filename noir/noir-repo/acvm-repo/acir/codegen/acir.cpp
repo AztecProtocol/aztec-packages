@@ -1310,7 +1310,7 @@ struct Opcode {
 
     struct FixedBaseScalarMul {
       Program::FunctionInput low;
-      Program::FunctionInput high;
+      Program::FunctionInput high2;
       std::array<Program::Witness, 2> outputs;
 
       friend bool operator==(const FixedBaseScalarMul &,
