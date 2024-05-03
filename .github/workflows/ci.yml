@@ -374,7 +374,7 @@ jobs:
           echo "yarn-project-test status: ${{ needs.yarn-project-test.result }}"
           for need in "${needs[@]}" 
           do
-              if [ "${{ need.result }}" != 'success' ]; then
+              if [ "${{ ${need}.result }}" != 'success' ]; then
                 echo "$need failed, merging not allowed"
                 exit 1
               fi
