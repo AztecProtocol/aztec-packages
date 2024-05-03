@@ -4,8 +4,8 @@ import { type Point } from '@aztec/foundation/fields';
 export type PublicKey = Point;
 
 export type PublicKeys = {
-  masterNullifierPublicKey: Point,
-  masterIncomingViewingPublicKey: Point,
-  masterOutgoingViewingPublicKey: Point,
-  masterTaggingPublicKey: Point,
-}
+  masterNullifierPublicKey: Point;
+  masterIncomingViewingPublicKey: Point;
+  masterOutgoingViewingPublicKey: Point;
+  masterTaggingPublicKey: Point;
+};

@@ -31,14 +31,14 @@ import {
   type PartialAddress,
   type PrivateKernelTailCircuitPublicInputs,
   type PublicCallRequest,
+  type PublicKeys,
   computeContractClassId,
   getContractClassFromArtifact,
-  PublicKeys,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type ContractArtifact, type DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
-import { Fr, type Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -223,7 +223,7 @@ export class PXEService implements PXE {
       masterIncomingViewingPublicKey: await this.keyStore.getMasterIncomingViewingPublicKey(address),
       masterOutgoingViewingPublicKey: await this.keyStore.getMasterOutgoingViewingPublicKey(address),
       masterTaggingPublicKey: await this.keyStore.getMasterTaggingPublicKey(address),
-    }
+    };
   }
 
   public async registerRecipient(recipient: CompleteAddress, publicKeys?: PublicKeys): Promise<void> {

@@ -15,7 +15,13 @@ import {
   type TxHash,
   type TxReceipt,
 } from '@aztec/circuit-types';
-import { PublicKeys, type AztecAddress, type CompleteAddress, type Fr, type PartialAddress, type Point } from '@aztec/circuits.js';
+import {
+  type AztecAddress,
+  type CompleteAddress,
+  type Fr,
+  type PartialAddress,
+  type PublicKeys,
+} from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';

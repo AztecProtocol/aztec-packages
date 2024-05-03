@@ -93,13 +93,20 @@ export class TestKeyStore implements KeyStore {
    * @param account or master nullifier public key hash - The account address or master nullifier public key hash for which to retrieve the master nullifier public key.
    * @returns The master nullifier public key for the account.
    */
-  public async getMasterNullifierPublicKey(accountOrMasterNullifierPublicKeyHash: AztecAddress | Fr): Promise<PublicKey> {
-    const masterNullifierPublicKeyBuffer = this.#keys.get(`${accountOrMasterNullifierPublicKeyHash.toString()}-npk_m`) ?? 
-      this.#keys.get(`${this.getAccountAddressForMasterNullifierPublicKeyHashInternal(accountOrMasterNullifierPublicKeyHash)?.toString()}-npk_m`);
+  public async getMasterNullifierPublicKey(
+    accountOrMasterNullifierPublicKeyHash: AztecAddress | Fr,
+  ): Promise<PublicKey> {
+    const masterNullifierPublicKeyBuffer =
+      this.#keys.get(`${accountOrMasterNullifierPublicKeyHash.toString()}-npk_m`) ??
+      this.#keys.get(
+        `${this.getAccountAddressForMasterNullifierPublicKeyHashInternal(
+          accountOrMasterNullifierPublicKeyHash,
+        )?.toString()}-npk_m`,
+      );
     if (!masterNullifierPublicKeyBuffer) {
-        throw new Error(
-          `Account or master nullifier public key hash ${accountOrMasterNullifierPublicKeyHash.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
-        );
+      throw new Error(
+        `Account or master nullifier public key hash ${accountOrMasterNullifierPublicKeyHash.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
+      );
     }
     return Promise.resolve(Point.fromBuffer(masterNullifierPublicKeyBuffer));
   }
@@ -163,8 +170,13 @@ export class TestKeyStore implements KeyStore {
     accountOrMasterNullifierPublicKeyHash: AztecAddress | Fr,
     app: AztecAddress,
   ): Promise<Fr> {
-    const masterNullifierSecretKeyBuffer = this.#keys.get(`${accountOrMasterNullifierPublicKeyHash.toString()}-nsk_m`) ?? 
-      this.#keys.get(`${this.getAccountAddressForMasterNullifierPublicKeyHashInternal(accountOrMasterNullifierPublicKeyHash)?.toString()}-nsk_m`);
+    const masterNullifierSecretKeyBuffer =
+      this.#keys.get(`${accountOrMasterNullifierPublicKeyHash.toString()}-nsk_m`) ??
+      this.#keys.get(
+        `${this.getAccountAddressForMasterNullifierPublicKeyHashInternal(
+          accountOrMasterNullifierPublicKeyHash,
+        )?.toString()}-nsk_m`,
+      );
     if (!masterNullifierSecretKeyBuffer) {
       throw new Error(
         `Account or master nullifier public key hash ${accountOrMasterNullifierPublicKeyHash.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
@@ -309,9 +321,7 @@ export class TestKeyStore implements KeyStore {
   public getAccountAddressForMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr) {
     const account = this.getAccountAddressForMasterNullifierPublicKeyHashInternal(masterNullifierPublicKeyHash);
     if (!account) {
-      throw new Error(
-        `Master nullifier public key hash ${masterNullifierPublicKeyHash.toString()} does not exist.`,
-      );
+      throw new Error(`Master nullifier public key hash ${masterNullifierPublicKeyHash.toString()} does not exist.`);
     }
     return account;
   }
