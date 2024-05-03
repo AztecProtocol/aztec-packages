@@ -88,7 +88,8 @@ build-acir-tests:
   WORKDIR /usr/src/noir-repo/test_programs
   COPY ./noir-repo/test_programs/ /usr/src/noir-repo/test_programs/
   RUN /usr/src/noir-repo/target/release/nargo --version
-  # Switch off parallel compilation, it causes problems in Earthly
+  # We run this with parallel compilation switched off, which isn't ideal.
+  # There seems to be problems with this when running under Earthly
   RUN ./rebuild.sh true
   SAVE ARTIFACT /usr/src/noir-repo/test_programs/acir_artifacts/*
 
