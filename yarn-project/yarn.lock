@@ -3227,6 +3227,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/jest@npm:^29.5.12":
+  version: 29.5.12
+  resolution: "@types/jest@npm:29.5.12"
+  dependencies:
+    expect: ^29.0.0
+    pretty-format: ^29.0.0
+  checksum: 19b1efdeed9d9a60a81edc8226cdeae5af7479e493eaed273e01243891c9651f7b8b4c08fc633a7d0d1d379b091c4179bbaa0807af62542325fd72f2dd17ce1c
+  languageName: node
+  linkType: hard
+
 "@types/json-schema@npm:*, @types/json-schema@npm:^7.0.12, @types/json-schema@npm:^7.0.8":
   version: 7.0.15
   resolution: "@types/json-schema@npm:7.0.15"
@@ -4593,9 +4603,12 @@ __metadata:
     "@aztec/accounts": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/simulator": "workspace:^"
+    "@jest/globals": ^29.5.0
     "@types/express": ^4.17.21
+    "@types/jest": ^29.5.12
     "@types/node": ^20.11.26
     express: ^4.18.3
+    jest: ^29.7.0
     json-rpc-2.0: ^1.7.0
     nodemon: ^3.1.0
     ts-node: ^10.9.2
@@ -9221,7 +9234,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jest@npm:^29.5.0":
+"jest@npm:^29.5.0, jest@npm:^29.7.0":
   version: 29.7.0
   resolution: "jest@npm:29.7.0"
   dependencies:

@@ -33,7 +33,7 @@ contract OracleResolver {
     }
 
     #[test]
-    fn test_internal_call() {
+    fn test_private_call() {
         let deployment_address = deploy();
         let tx_hash = call_private_function(
             deployment_address,
