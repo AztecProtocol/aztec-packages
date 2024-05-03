@@ -1,10 +1,11 @@
 {
   "name": "Development",
-  "build": {
-    "dockerfile": "../../build-images/Dockerfile",
-    "context": "../../build-images",
-    "target": "devbox"
-  },
+  // "build": {
+  //   "dockerfile": "../../build-images/Dockerfile",
+  //   "context": "../../build-images",
+  //   "target": "devbox"
+  // },
+  "image": "aztecprotocol/devbox:1.0-amd64",
   "containerUser": "aztec-dev",
   // ubuntu:noble is currently not supported.
   // Can possibly workaround cherry-picking from here:
