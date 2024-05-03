@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
+NO_PARALLEL=${1:-}
+
 process_dir() {
     local dir=$1
     local current_dir=$2
@@ -20,6 +22,8 @@ process_dir() {
       rm -r "$current_dir/acir_artifacts/$dir_name/target"
     fi
     mkdir $current_dir/acir_artifacts/$dir_name/target
+
+    ls -l ./target
 
     mv ./target/*.gz $current_dir/acir_artifacts/$dir_name/target/
 
@@ -46,10 +50,17 @@ done
 
 # Process each directory in parallel
 pids=()
+if [ -z $NO_PARALLEL ]; then
 for dir in "${dirs_to_process[@]}"; do
     process_dir "$dir" "$current_dir" &
     pids+=($!)
 done
+else
+for dir in "${dirs_to_process[@]}"; do
+    process_dir "$dir" "$current_dir"
+    pids+=($!)
+done
+fi
 
 # Check the exit status of each background job.
 for pid in "${pids[@]}"; do

@@ -20,7 +20,6 @@ nargo:
     ENV COMMIT_HASH=$(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}')
     COPY ./scripts/bootstrap_native.sh ./scripts/bootstrap_native.sh
     RUN ./scripts/bootstrap_native.sh
-    RUN /usr/src/noir-repo/target/release/nargo --version
     RUN echo CONTENT HASH $COMMIT_HASH | tee .content-hash
     SAVE ARTIFACT /usr/src/noir-repo/target/release/nargo nargo
     SAVE ARTIFACT /usr/src/noir-repo/target/release/acvm acvm
@@ -83,11 +82,14 @@ build:
   BUILD +packages
 
 build-acir-tests:
-  FROM +nargo
+  FROM ../build-images/+build
+  COPY +nargo/ /usr/src/noir-repo/target/release
   ENV PATH="/usr/src/noir-repo/target/release:${PATH}"
   WORKDIR /usr/src/noir-repo/test_programs
+  COPY ./noir-repo/test_programs/ /usr/src/noir-repo/test_programs/
   RUN /usr/src/noir-repo/target/release/nargo --version
-  RUN ./rebuild.sh
+  # Switch off parallel compilation, it causes problems in Earthly
+  RUN ./rebuild.sh true
   SAVE ARTIFACT /usr/src/noir-repo/test_programs/acir_artifacts/*
 
 barretenberg-acir-tests-bb:
