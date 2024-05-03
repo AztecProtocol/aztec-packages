@@ -1,9 +1,4 @@
-use crate::common;
-use dep::std::{cmp::Eq, option::Option};
-use dep::reset_kernel_lib::{
-    NullifierReadRequestHints, PrivateValidationRequestProcessor,
-    verify_squashed_transient_note_hashes_and_nullifiers
-};
+use dep::reset_kernel_lib::verify_squashed_transient_note_hashes_and_nullifiers;
 use dep::types::{
     abis::{
     kernel_data::PrivateKernelData,
@@ -11,15 +6,11 @@ use dep::types::{
     note_hash::NoteHashContext, nullifier::Nullifier, side_effect::{SideEffect, Ordered}, gas::Gas
 },
     constants::{
-    MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-    MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-    MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, DA_BYTES_PER_FIELD, FIXED_DA_GAS,
-    DA_GAS_PER_BYTE
+    MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
+    MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    grumpkin_private_key::GrumpkinPrivateKey,
     hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash},
-    utils::arrays::{array_length, array_to_bounded_vec, assert_sorted_array}, traits::{Empty, is_empty}
+    utils::arrays::{array_length, array_to_bounded_vec, assert_sorted_array}
 };
 
 fn asc_sort_by_counters<T>(a: T, b: T) -> bool where T: Ordered {
@@ -113,13 +104,20 @@ impl KernelCircuitPublicInputsComposer {
 
     pub fn finish(self) -> KernelCircuitPublicInputs {
         let teardown_gas = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.teardown_gas_limits;
-        self.public_inputs.finish_tail(teardown_gas)
+        let inputs = self.public_inputs.finish_tail(teardown_gas);
+        let limits = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.gas_limits;
+        assert(inputs.end.gas_used.within(limits), "The gas used exceeds the gas limits");
+        inputs
     }
 
     pub fn finish_to_public(self) -> PublicKernelCircuitPublicInputs {
         let min_revertible_side_effect_counter = self.previous_kernel.public_inputs.min_revertible_side_effect_counter;
         let teardown_gas = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.teardown_gas_limits;
-        self.public_inputs.finish_to_public(teardown_gas, min_revertible_side_effect_counter)
+        let inputs = self.public_inputs.finish_to_public(teardown_gas, min_revertible_side_effect_counter);
+        let limits = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.gas_limits;
+        let total_gas_used = inputs.end.gas_used + inputs.end_non_revertible.gas_used;
+        assert(total_gas_used.within(limits), "The gas used exceeds the gas limits");
+        inputs
     }
 
     fn silo_values(&mut self) {

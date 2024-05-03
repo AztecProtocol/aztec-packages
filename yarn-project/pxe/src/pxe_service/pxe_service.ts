@@ -1,8 +1,6 @@
 import {
   type AuthWitness,
   type AztecNode,
-  EncryptedFunctionL2Logs,
-  type EncryptedL2Log,
   EncryptedTxL2Logs,
   ExtendedNote,
   type FunctionCall,
@@ -20,8 +18,6 @@ import {
   type TxExecutionRequest,
   type TxHash,
   type TxReceipt,
-  UnencryptedFunctionL2Logs,
-  type UnencryptedL2Log,
   UnencryptedTxL2Logs,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
@@ -35,23 +31,22 @@ import {
   type PartialAddress,
   type PrivateKernelTailCircuitPublicInputs,
   type PublicCallRequest,
-  type SideEffect,
   computeContractClassId,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type ContractArtifact, type DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, type Point } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
   type AcirSimulator,
   type ExecutionResult,
-  collectEncryptedLogs,
   collectEnqueuedPublicFunctionCalls,
-  collectUnencryptedLogs,
+  collectSortedEncryptedLogs,
+  collectSortedUnencryptedLogs,
   resolveOpcodeLocations,
 } from '@aztec/simulator';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
@@ -218,8 +213,20 @@ export class PXEService implements PXE {
     return this.keyStore.getPublicKeysHash(address);
   }
 
-  public async registerRecipient(recipient: CompleteAddress): Promise<void> {
+  public async registerRecipient(recipient: CompleteAddress, publicKeys: Point[] = []): Promise<void> {
     const wasAdded = await this.db.addCompleteAddress(recipient);
+
+    // TODO #5834: This should be refactored to be okay with only adding complete address
+    if (publicKeys.length !== 0) {
+      await this.keyStore.addPublicKeysForAccount(
+        recipient.address,
+        publicKeys[0],
+        publicKeys[1],
+        publicKeys[2],
+        publicKeys[3],
+      );
+    }
+
     if (wasAdded) {
       this.log.info(`Added recipient:\n ${recipient.toReadableString()}`);
     } else {
@@ -660,7 +667,8 @@ export class PXEService implements PXE {
     this.log.debug(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
 
-    const { encryptedLogs, unencryptedLogs } = this.patchLogsOrdering(executionResult);
+    const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(executionResult)]);
+    const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(executionResult)]);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
 
     // HACK(#1639): Manually patches the ordering of the public call stack
@@ -776,61 +784,6 @@ export class PXEService implements PXE {
       CallRequest.empty(),
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     );
-  }
-
-  // As above, this is a hack for encrypted/unencrypted logs ordering, now they are sorted. Since the private kernel
-  // cannot keep track of side effects that happen after or before a nested call, we override the gathered logs.
-  // As a sanity check, we at least verify that the elements are the same, so we are only tweaking their ordering.
-  // See yarn-project/end-to-end/src/e2e_ordering.test.ts
-  // See https://github.com/AztecProtocol/aztec-packages/issues/1641
-  // Added as part of resolving #5017
-  private patchLogsOrdering(execResult: ExecutionResult) {
-    const encLogs = collectEncryptedLogs(execResult).flatMap(l => l.logs);
-    const unencLogs = collectUnencryptedLogs(execResult).flatMap(l => l.logs);
-    const getLogs = (res: ExecutionResult, enc: boolean) => {
-      const logs: SideEffect[] = enc
-        ? res.callStackItem.publicInputs.encryptedLogsHashes.concat(res.nestedExecutions.flatMap(e => getLogs(e, true)))
-        : res.callStackItem.publicInputs.unencryptedLogsHashes.concat(
-            res.nestedExecutions.flatMap(e => getLogs(e, false)),
-          );
-
-      return logs;
-    };
-
-    const sortSEs = (a: SideEffect, b: SideEffect) => {
-      if (a.isEmpty()) {
-        return 1;
-      } else if (b.isEmpty()) {
-        return -1;
-      } else {
-        return Number(a.counter.toBigInt() - b.counter.toBigInt());
-      }
-    };
-
-    const sortedEncLogs = getLogs(execResult, true).sort(sortSEs);
-    const sortedUnencLogs = getLogs(execResult, false).sort(sortSEs);
-
-    const finalEncLogs: EncryptedL2Log[] = [];
-    sortedEncLogs.forEach((sideEffect: SideEffect) => {
-      if (!sideEffect.isEmpty()) {
-        const isLog = (log: EncryptedL2Log) => Fr.fromBuffer(log.hash()).equals(sideEffect.value);
-        const thisLogIndex = encLogs.findIndex(isLog);
-        finalEncLogs.push(encLogs[thisLogIndex]);
-      }
-    });
-
-    const finalUnencLogs: UnencryptedL2Log[] = [];
-    sortedUnencLogs.forEach((sideEffect: SideEffect) => {
-      if (!sideEffect.isEmpty()) {
-        const isLog = (log: UnencryptedL2Log) => Fr.fromBuffer(log.hash()).equals(sideEffect.value);
-        const thisLogIndex = unencLogs.findIndex(isLog);
-        finalUnencLogs.push(unencLogs[thisLogIndex]);
-      }
-    });
-
-    const encryptedLogs = new EncryptedTxL2Logs([new EncryptedFunctionL2Logs(finalEncLogs)]);
-    const unencryptedLogs = new UnencryptedTxL2Logs([new UnencryptedFunctionL2Logs(finalUnencLogs)]);
-    return { encryptedLogs, unencryptedLogs };
   }
 
   public async isGlobalStateSynchronized() {
