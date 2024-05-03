@@ -4,7 +4,10 @@ deps:
     LOCALLY
     LET packages = $(git ls-files "**/package*.json" package*.json)
     LET tsconfigs = $(git ls-files "**/tsconfig*.json" tsconfig*.json)
-    FROM node:18.19.0
+    # use the build image to build the project so that nargo has access to the same libc
+    # later on, once everything is built and we don't need nargo, copy to a debian based image
+    # that's supported by playwright
+    FROM ../build-images+build
 
     # copy the aztec yarn workspace, needed to resolve portal dependencies
     COPY ../yarn-project+build-dev/usr/src /usr/src
@@ -16,7 +19,8 @@ deps:
         COPY $file $file
     END
     RUN yarn install --immutable
-    RUN yarn install-browsers
+    # don't install playwright here as it's not compatible with ubuntu 24.04 yet
+    # https://github.com/microsoft/playwright/issues/30368
     FOR file IN $tsconfigs
         COPY $file $file
     END
@@ -35,8 +39,13 @@ build:
     COPY . .
     RUN yarn build
 
+    SAVE ARTIFACT /usr/src /usr/src
+
 boxes:
-    FROM +build
+    FROM node:18.19
+    COPY --dir +build/usr/src /usr
+    WORKDIR /usr/src/boxes
+    RUN yarn install-browsers
     ENTRYPOINT ["/bin/sh", "-c"]
 
 BOX_TEST_LOCAL:

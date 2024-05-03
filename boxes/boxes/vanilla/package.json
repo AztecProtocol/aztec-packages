@@ -12,13 +12,14 @@
     "dev": "yarn prep && webpack serve --mode development",
     "build": "yarn prep && webpack",
     "serve": "webpack serve --no-open --mode development",
-    "test": "yarn prep && npx playwright test",
+    "test": "npx playwright test",
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src"
   },
   "dependencies": {
     "@aztec/accounts": "latest",
-    "@aztec/aztec.js": "latest"
+    "@aztec/aztec.js": "latest",
+    "@aztec/builder": "latest"
   },
   "devDependencies": {
     "@playwright/test": "1.42.0",
