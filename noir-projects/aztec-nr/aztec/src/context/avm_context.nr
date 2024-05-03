@@ -219,6 +219,9 @@ fn fee_per_l2_gas() -> Field {}
 #[oracle(avmOpcodeFeePerDaGas)]
 fn fee_per_da_gas() -> Field {}
 
+#[oracle(avmOpcodeTransactionFee)]
+fn transaction_fee() -> Field {}
+
 #[oracle(avmOpcodeChainId)]
 fn chain_id() -> Field {}
 
