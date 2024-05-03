@@ -190,12 +190,13 @@ if(WASM)
         target_link_options(
             barretenberg.wasm
             PRIVATE
-            -nostartfiles -Wl,--no-entry,--export-dynamic -Wl,--shared-memory
+            -nostartfiles -Wl,--no-entry,--export-dynamic -lpthread
         )
+
         target_link_options(
             acvm_backend.wasm
             PRIVATE
-            -nostartfiles -Wl,--no-entry,--export-dynamic -Wl,--shared-memory
+            -nostartfiles -Wl,--no-entry,--export-dynamic -lpthread
         )
     else()
         target_link_options(
@@ -203,6 +204,7 @@ if(WASM)
             PRIVATE
             -nostartfiles -Wl,--no-entry,--export-dynamic
         )
+
         target_link_options(
             acvm_backend.wasm
             PRIVATE

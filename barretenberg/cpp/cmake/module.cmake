@@ -35,6 +35,10 @@ function(barretenberg_module MODULE_NAME)
         FILES ${HEADER_FILES}
     )
 
+    # We would include this at a top-level, but CMake is inflexible once you set flags at a top-level.
+    # To be able to build WASM binaries that both include shared and non-shared memory, we need this flexibility.
+    include(${CMAKE_SOURCE_DIR}/cmake/threading.cmake)
+
     if(SOURCE_FILES)
         add_library(
             ${MODULE_NAME}_objects

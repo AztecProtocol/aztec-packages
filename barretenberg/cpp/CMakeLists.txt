@@ -19,7 +19,7 @@ configure_file(
 # Add doxygen build command
 find_package(Doxygen)
 if (DOXYGEN_FOUND)
-add_custom_target(build_docs 
+add_custom_target(build_docs
 COMMAND ${DOXYGEN_EXECUTABLE} ${PROJECT_SOURCE_DIR}/docs/Doxyfile
 WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
 COMMENT "Generate documentation with Doxygen")
@@ -131,7 +131,6 @@ endif()
 include(cmake/build.cmake)
 include(GNUInstallDirs)
 include(cmake/arch.cmake)
-include(cmake/threading.cmake)
 include(cmake/gtest.cmake)
 include(cmake/benchmark.cmake)
 include(cmake/module.cmake)
