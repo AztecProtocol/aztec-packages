@@ -254,6 +254,7 @@ export async function executeTail(
   const params: TailInputType = {
     input: mapPrivateKernelTailCircuitPrivateInputsToNoir(privateInputs),
   };
+  console.log(JSON.stringify(params));
   const returnType = await executePrivateKernelTailWithACVM(params);
 
   return mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir(returnType);
@@ -311,6 +312,7 @@ export function convertPrivateKernelTailInputsToWitnessMap(
   privateKernelTailCircuitPrivateInputs: PrivateKernelTailCircuitPrivateInputs,
 ): WitnessMap {
   const mapped = mapPrivateKernelTailCircuitPrivateInputsToNoir(privateKernelTailCircuitPrivateInputs);
+  console.log(JSON.stringify({ input: mapped as any }));
   const initialWitnessMap = abiEncode(PrivateKernelTailArtifact.abi as Abi, { input: mapped as any });
   return initialWitnessMap;
 }

@@ -23,7 +23,9 @@ import {
   convertPrivateKernelInnerInputsToWitnessMap,
   convertPrivateKernelInnerOutputsFromWitnessMap,
   convertPrivateKernelTailForPublicOutputsFromWitnessMap,
+  convertPrivateKernelTailInputsToWitnessMap,
   convertPrivateKernelTailOutputsFromWitnessMap,
+  convertPrivateKernelTailToPublicInputsToWitnessMap,
   executeTail,
   executeTailForPublic,
 } from '@aztec/noir-protocol-circuits-types';
@@ -468,25 +470,25 @@ export class BBNativeProofCreator implements ProofCreator {
   public async createProofTail(
     inputs: PrivateKernelTailCircuitPrivateInputs,
   ): Promise<ProofOutput<PrivateKernelTailCircuitPublicInputs>> {
-    // if (!inputs.isForPublic()) {
-    //   const witnessMap = convertPrivateKernelTailInputsToWitnessMap(inputs);
-    //   return await this.createSafeProof(witnessMap, 'PrivateKernelTailArtifact');
-    // }
-
     if (!inputs.isForPublic()) {
-      const result = await executeTail(inputs);
-      return {
-        publicInputs: result,
-        proof: makeEmptyProof(),
-      };
+      const witnessMap = convertPrivateKernelTailInputsToWitnessMap(inputs);
+      return await this.createSafeProof(witnessMap, 'PrivateKernelTailArtifact');
     }
-    // const witnessMap = convertPrivateKernelTailToPublicInputsToWitnessMap(inputs);
-    // return await this.createSafeProof(witnessMap, 'PrivateKernelTailToPublicArtifact');
-    const result = await executeTailForPublic(inputs);
-    return {
-      publicInputs: result,
-      proof: makeEmptyProof(),
-    };
+
+    // if (!inputs.isForPublic()) {
+    //   const result = await executeTail(inputs);
+    //   return {
+    //     publicInputs: result,
+    //     proof: makeEmptyProof(),
+    //   };
+    // }
+    const witnessMap = convertPrivateKernelTailToPublicInputsToWitnessMap(inputs);
+    return await this.createSafeProof(witnessMap, 'PrivateKernelTailToPublicArtifact');
+    // const result = await executeTailForPublic(inputs);
+    // return {
+    //   publicInputs: result,
+    //   proof: makeEmptyProof(),
+    // };
   }
 
   public async createAppCircuitProof(partialWitness: Map<number, ACVMField>, bytecode: Buffer): Promise<Proof> {
