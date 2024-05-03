@@ -9,7 +9,7 @@ use noirc_frontend::monomorphization::ast::InlineType;
 use crate::ssa::ir::{
     basic_block::BasicBlockId,
     function::{Function, FunctionId},
-    instruction::{Binary, BinaryOp, ErrorSelector, Instruction, TerminatorInstruction},
+    instruction::{Binary, BinaryOp, Instruction, TerminatorInstruction},
     types::Type,
     value::{Value, ValueId},
 };
