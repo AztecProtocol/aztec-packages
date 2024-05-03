@@ -8,13 +8,8 @@ import {
   RevertCode,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
-import { sha256 } from '@aztec/foundation/crypto';
-import {
-  BufferReader,
-  serializeArrayOfBufferableToVector,
-  serializeToBuffer,
-  truncateAndPad,
-} from '@aztec/foundation/serialize';
+import { sha256Trunc } from '@aztec/foundation/crypto';
+import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
@@ -24,6 +19,10 @@ export class TxEffect {
      * Whether the transaction reverted during public app logic.
      */
     public revertCode: RevertCode,
+    /**
+     * The transaction fee, denominated in FPA.
+     */
+    public transactionFee: Fr,
     /**
      * The note hashes to be inserted into the note hash tree.
      */
@@ -91,6 +90,7 @@ export class TxEffect {
   toBuffer(): Buffer {
     return serializeToBuffer([
       this.revertCode,
+      this.transactionFee,
       serializeArrayOfBufferableToVector(this.noteHashes, 1),
       serializeArrayOfBufferableToVector(this.nullifiers, 1),
       serializeArrayOfBufferableToVector(this.l2ToL1Msgs, 1),
@@ -110,6 +110,7 @@ export class TxEffect {
 
     return new TxEffect(
       RevertCode.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       reader.readVectorUint8Prefix(Fr),
       reader.readVectorUint8Prefix(Fr),
       reader.readVectorUint8Prefix(Fr),
@@ -149,6 +150,7 @@ export class TxEffect {
 
     const inputValue = Buffer.concat([
       this.revertCode.toHashPreimage(),
+      this.transactionFee.toBuffer(),
       noteHashesBuffer,
       nullifiersBuffer,
       l2ToL1MsgsBuffer,
@@ -157,7 +159,7 @@ export class TxEffect {
       unencryptedLogsHashKernel0,
     ]);
 
-    return truncateAndPad(sha256(inputValue));
+    return sha256Trunc(inputValue);
   }
 
   static random(
@@ -168,6 +170,7 @@ export class TxEffect {
   ): TxEffect {
     return new TxEffect(
       RevertCode.random(),
+      Fr.random(),
       makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, Fr.random),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.random),
@@ -178,7 +181,7 @@ export class TxEffect {
   }
 
   static empty(): TxEffect {
-    return new TxEffect(RevertCode.OK, [], [], [], [], EncryptedTxL2Logs.empty(), UnencryptedTxL2Logs.empty());
+    return new TxEffect(RevertCode.OK, Fr.ZERO, [], [], [], [], EncryptedTxL2Logs.empty(), UnencryptedTxL2Logs.empty());
   }
 
   isEmpty(): boolean {
@@ -197,6 +200,7 @@ export class TxEffect {
 
     return `TxEffect { 
       revertCode: ${this.revertCode},
+      transactionFee: ${this.transactionFee},
       note hashes: [${this.noteHashes.map(h => h.toString()).join(', ')}],
       nullifiers: [${this.nullifiers.map(h => h.toString()).join(', ')}],
       l2ToL1Msgs: [${this.l2ToL1Msgs.map(h => h.toString()).join(', ')}],

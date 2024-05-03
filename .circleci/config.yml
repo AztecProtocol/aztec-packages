@@ -193,18 +193,6 @@ jobs:
           command: build bb.js
           aztec_manifest_key: bb.js
 
-  bb-js-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: cond_spot_run_test bb.js 32 ./scripts/run_tests
-          aztec_manifest_key: bb.js
-
   # Noir
   noir-x86_64:
     docker:
@@ -278,18 +266,6 @@ jobs:
           command: cond_spot_run_build noir-packages-tests 32
           aztec_manifest_key: noir-packages-tests
 
-  noir-compile-acir-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: cond_spot_run_build noir-compile-acir-tests 32
-          aztec_manifest_key: noir-compile-acir-tests
-
   avm-transpiler:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -301,42 +277,6 @@ jobs:
           name: "Build"
           command: cond_spot_run_build avm-transpiler 32
           aztec_manifest_key: avm-transpiler
-
-  barretenberg-acir-tests-bb:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: cond_spot_run_build barretenberg-acir-tests-bb 32
-          aztec_manifest_key: barretenberg-acir-tests-bb
-
-  barretenberg-acir-tests-bb-sol:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: cond_spot_run_build barretenberg-acir-tests-bb-sol 32
-          aztec_manifest_key: barretenberg-acir-tests-bb-sol
-
-  bb-js-acir-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: cond_spot_run_build barretenberg-acir-tests-bb.js 32
-          aztec_manifest_key: barretenberg-acir-tests-bb.js
 
   l1-contracts:
     machine:
@@ -407,18 +347,6 @@ jobs:
           command: create_ecr_manifest yarn-project x86_64,arm64
           aztec_manifest_key: yarn-project
 
-  prover-client-test:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: cond_spot_run_build prover-client-test 128
-          aztec_manifest_key: prover-client-test
-
   aztec-package:
     machine:
       image: default
@@ -431,41 +359,17 @@ jobs:
           command: build aztec
           aztec_manifest_key: aztec
 
-  boxes:
-    docker:
-      - image: aztecprotocol/alpine-build-image
+  aztec-builder:
+    machine:
+      image: default
     resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
-          name: "Build"
-          command: cond_spot_run_build boxes 4
-          aztec_manifest_key: boxes
-
-  boxes-vanilla:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=vanilla
-          aztec_manifest_key: boxes
-
-  boxes-react:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=react
-          aztec_manifest_key: boxes
+          name: "Build image"
+          command: build aztec-builder
+          aztec_manifest_key: aztec-builder
 
   end-to-end:
     machine:
@@ -481,55 +385,6 @@ jobs:
 
   # For old e2e tests see yarn-project/end-to-end/Earthfile
   # Semantics are similar to Dockerfile
-
-  # NOTE: Unlike other e2e, these will be re-enabled here as currently the logs functionality is not in the new earthfile setup
-  bench-publish-rollup:
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Benchmark"
-          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_publish_rollup.test.ts DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
-          aztec_manifest_key: end-to-end
-    <<: *defaults_e2e_test
-
-  bench-process-history:
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Benchmark"
-          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_process_history.test.ts DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
-          aztec_manifest_key: end-to-end
-    <<: *defaults_e2e_test
-
-  bench-tx-size:
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Benchmark"
-          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_tx_size_fees.test.ts ENABLE_GAS=1 DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
-          aztec_manifest_key: end-to-end
-    <<: *defaults_e2e_test
-
-  build-docs:
-    machine:
-      image: default
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build docs"
-          command: |
-            echo "Building docs"
-            build docs
-      - run:
-          name: "Deploy docs"
-          command: |
-            echo "Deploying docs"
-            docs/deploy_netlify.sh $BRANCH $PULL_REQUEST
 
   e2e-join:
     docker:
@@ -549,16 +404,6 @@ jobs:
           name: "Noop"
           command: echo Noop
 
-  bench-summary:
-    machine:
-      image: default
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Assemble benchmark summary from uploaded logs"
-          command: ./scripts/ci/assemble_e2e_benchmark.sh
-
   # Deploy & release jobs.
   deploy-and-release:
     machine:
@@ -573,6 +418,7 @@ jobs:
             should_release || exit 0
             deploy_dockerhub noir
             deploy_dockerhub aztec
+            deploy_dockerhub aztec-builder
       - run:
           name: "Release canary to NPM: bb.js"
           command: |
@@ -625,12 +471,6 @@ defaults: &defaults
     - slack/notify:
         event: fail
         branch_pattern: "master"
-
-bb_acir_tests: &bb_acir_tests
-  requires:
-    - barretenberg-x86_64-linux-clang-assert
-    - noir-compile-acir-tests
-  <<: *defaults
 
 defaults_yarn_project_pre_join: &defaults_yarn_project_pre_join
   requires:
@@ -687,10 +527,6 @@ workflows:
             - noir-ecr-manifest
             - noir-packages
           <<: *defaults
-      - noir-compile-acir-tests:
-          requires:
-            - noir-ecr-manifest
-          <<: *defaults
 
       # Transpiler
       - avm-transpiler: *defaults
@@ -701,27 +537,10 @@ workflows:
       - barretenberg-x86_64-linux-clang-assert: *defaults
       - barretenberg-x86_64-linux-clang-fuzzing: *defaults
       - barretenberg-wasm-linux-clang: *defaults
-      - barretenberg-x86_64-linux-clang-sol: *defaults
-      - barretenberg-acir-tests-bb: *bb_acir_tests
-      - barretenberg-acir-tests-bb-sol:
-          requires:
-            - barretenberg-x86_64-linux-clang-assert
-            - barretenberg-x86_64-linux-clang-sol
-            - noir-compile-acir-tests
-          <<: *bb_acir_tests
       - barretenberg-docs: *defaults
       - bb-js:
           requires:
             - barretenberg-wasm-linux-clang
-          <<: *defaults
-      - bb-js-tests:
-          requires:
-            - bb-js
-          <<: *defaults
-      - bb-js-acir-tests:
-          requires:
-            - bb-js
-            - noir-compile-acir-tests
           <<: *defaults
 
       - l1-contracts: *defaults
@@ -741,8 +560,6 @@ workflows:
             - noir-projects
           <<: *defaults
       - end-to-end: *defaults_yarn_project
-      - build-docs: *defaults_yarn_project_pre_join
-      - prover-client-test: *defaults_yarn_project
       - yarn-project-x86_64: *defaults_yarn_project_pre_join
       - yarn-project-arm64: *defaults_yarn_project_pre_join
       - yarn-project-ecr-manifest:
@@ -753,20 +570,7 @@ workflows:
 
       # Artifacts
       - aztec-package: *defaults_yarn_project
-
-      # Boxes.
-      - boxes:
-          requires:
-            - aztec-package
-          <<: *defaults
-      - boxes-vanilla:
-          requires:
-            - boxes
-          <<: *defaults
-      - boxes-react:
-          requires:
-            - boxes
-          <<: *defaults
+      - aztec-builder: *defaults_yarn_project
 
       # End to end tests.
       - e2e-join:
@@ -783,27 +587,10 @@ workflows:
             - barretenberg-x86_64-linux-clang-assert
             - barretenberg-x86_64-linux-clang-fuzzing
             - barretenberg-wasm-linux-clang
-            - barretenberg-x86_64-linux-clang-sol
-            - barretenberg-acir-tests-bb
-            - barretenberg-acir-tests-bb-sol
             - barretenberg-docs
-            - build-docs
-            - boxes-vanilla
-            - boxes-react
             - noir-packages-tests
-            - prover-client-test
             - e2e-join
-          <<: *defaults
-
-      # Benchmark jobs.
-      - bench-publish-rollup: *e2e_test
-      - bench-process-history: *e2e_test
-      - bench-tx-size: *e2e_test
-      - bench-summary:
-          requires:
-            - bench-publish-rollup
-            - bench-process-history
-            - bench-tx-size
+            - aztec-builder
           <<: *defaults
 
       # Production releases.
