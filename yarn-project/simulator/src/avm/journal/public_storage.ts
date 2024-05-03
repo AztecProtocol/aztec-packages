@@ -1,6 +1,5 @@
 import { AztecAddress } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
 
 import type { PublicStateDB } from '../../index.js';
 
@@ -88,11 +87,8 @@ export class PublicStorage {
   }
 
   public async commitToDB() {
-    const logger = createDebugLogger('aztec:avm:public_storage:commitToDB');
-    logger.verbose('Committing staged storage writes to the host state.');
     for (const [storageAddress, cacheAtContract] of this.cache.cachePerContract) {
       for (const [slot, value] of cacheAtContract) {
-        logger.verbose(`-> 0x${storageAddress.toString(16)}@0x${slot.toString(16)}: ${value.toString()}`);
         await this.hostPublicStorage.storageWrite(AztecAddress.fromBigInt(storageAddress), new Fr(slot), value);
       }
     }
