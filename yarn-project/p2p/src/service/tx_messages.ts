@@ -2,7 +2,7 @@ import { EncryptedTxL2Logs, Tx, UnencryptedTxL2Logs } from '@aztec/circuit-types
 import { PrivateKernelTailCircuitPublicInputs, Proof, PublicCallRequest } from '@aztec/circuits.js';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 
-import { SemVer } from 'semver';
+import { type SemVer } from 'semver';
 
 export const TX_MESSAGE_TOPIC = '';
 
