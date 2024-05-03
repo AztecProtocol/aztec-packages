@@ -24,27 +24,37 @@ impl PublicKernelTeardownCircuitPrivateInputs {
 
     // Validates that the start gas injected into the app circuit matches the teardown gas limits set by the user
     fn validate_start_gas(self) {
-        let public_call_start_gas = self.public_call.call_stack_item.public_inputs.start_gas_left;
-        let teardown_gas_limit = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.teardown_gas_limits;
-        assert(
-            public_call_start_gas == teardown_gas_limit, "Start gas for teardown phase does not match teardown gas allocation"
-        );
+        // If this is a nested call (not an execution request), the start gas is correct as long as the
+        // call being processed by this kernel iteration matches the call at the top of the callstack
+        // as per the previous kernel's outputs.
+        // An execution request's start gas is the remaining gas left in the transaction after the previous kernel.
+        // A nested call's start gas is the gas allocated to it by its caller and placed in the callstack.
+        if (self.public_call.call_stack_item.is_execution_request) {
+            let public_call_start_gas = self.public_call.call_stack_item.public_inputs.start_gas_left;
+            let teardown_gas_limit = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.teardown_gas_limits;
+            assert(
+                public_call_start_gas == teardown_gas_limit, "Start gas for teardown phase does not match teardown gas allocation"
+            );
+        }
     }
 
     // Validates the transaction fee injected into the app circuit is properly computed from gas_used and block gas_fees
     fn validate_transaction_fee(self, public_inputs: PublicKernelCircuitPublicInputsBuilder) {
         let transaction_fee = self.public_call.call_stack_item.public_inputs.transaction_fee;
         // Note that teardown_gas is already included in end.gas_used as it was injected by the private kernel
-        let total_gas_used = self.previous_kernel.public_inputs.end.gas_used.add(self.previous_kernel.public_inputs.end_non_revertible.gas_used);
+        let total_gas_used = self.previous_kernel.public_inputs.end.gas_used
+            + self.previous_kernel.public_inputs.end_non_revertible.gas_used;
         let block_gas_fees = public_inputs.constants.global_variables.gas_fees;
         let inclusion_fee = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.inclusion_fee;
         let computed_transaction_fee = total_gas_used.compute_fee(block_gas_fees) + inclusion_fee;
 
         // dep::types::debug_log::debug_log_format(
-        //     "Validating tx fee: total_gas_used.da={0} total_gas_used.l1={1} total_gas_used.l2={2} block_fee_per_gas.da={3} block_fee_per_gas.l1={4} block_fee_per_gas.l2={5} inclusion_fee={6} computed={7} actual={8}",
+        //     "Validating tx fee: end.gas_used.da={0} end.gas_used.l2={1} non_revertible.gas_used.da={2} non_revertible.gas_used.l2={3} block_fee_per_gas.da={4}  block_fee_per_gas.l2={5} inclusion_fee={6} computed={7} actual={8}",
         //     [
-        //     total_gas_used.da_gas as Field,
-        //     total_gas_used.l2_gas as Field,
+        //     self.previous_kernel.public_inputs.end.gas_used.da_gas as Field,
+        //     self.previous_kernel.public_inputs.end.gas_used.l2_gas as Field,
+        //     self.previous_kernel.public_inputs.end_non_revertible.gas_used.da_gas as Field,
+        //     self.previous_kernel.public_inputs.end_non_revertible.gas_used.l2_gas as Field,
         //     block_gas_fees.fee_per_da_gas as Field,
         //     block_gas_fees.fee_per_l2_gas as Field,
         //     inclusion_fee,
@@ -413,6 +423,8 @@ mod tests {
     #[test(should_fail_with="Start gas for teardown phase does not match teardown gas allocation")]
     fn validates_start_gas() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
+
+        builder.public_call.is_execution_request = true; // don't need to check start gas for nested calls
         builder.public_call.public_inputs.start_gas_left = Gas::new(10, 30);
 
         builder.failed();
