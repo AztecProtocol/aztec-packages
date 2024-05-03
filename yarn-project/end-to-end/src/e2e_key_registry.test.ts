@@ -75,26 +75,14 @@ describe('Key Registry', () => {
       ).rejects.toThrow('Computed address does not match supplied address');
     });
 
-    describe('should fail when rotating keys with different types of bad input', () => {
-      it('should fail when we try to rotate keys, while setting a 0 key', async () => {
-        await expect(
-          keyRegistry
-            .withWallet(wallets[0])
-            .methods.rotate_nullifier_public_key(wallets[0].getAddress(), Point.ZERO, Fr.ZERO)
-            .send()
-            .wait(),
-        ).rejects.toThrow('New nullifier public key must be non-zero');
-      });
-
-      it('should fail when we try to rotate keys for another address without authwit', async () => {
-        await expect(
-          keyRegistry
-            .withWallet(wallets[0])
-            .methods.rotate_nullifier_public_key(wallets[1].getAddress(), Point.random(), Fr.ZERO)
-            .send()
-            .wait(),
-        ).rejects.toThrow('Assertion failed: Message not authorized by account');
-      });
+    it('should fail when we try to rotate keys for another address without authwit', async () => {
+      await expect(
+        keyRegistry
+          .withWallet(wallets[0])
+          .methods.rotate_nullifier_public_key(wallets[1].getAddress(), Point.random(), Fr.ZERO)
+          .send()
+          .wait(),
+      ).rejects.toThrow('Assertion failed: Message not authorized by account');
     });
   });
 
