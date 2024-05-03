@@ -4,9 +4,9 @@ use dep::aztec::prelude::{
 };
 use dep::aztec::{
     context::{PublicContext, Context}, hash::pedersen_hash,
-    protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+    protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, hash::poseidon2_hash},
     note::{note_getter::view_notes, note_getter_options::SortOrder},
-    keys::getters::get_fresh_nullifier_public_key_hash,
+    keys::getters::get_npk_m,
 };
 use crate::types::token_note::{TokenNote, OwnedNote};
 
@@ -62,9 +62,9 @@ impl<T> BalancesMap<T> {
         addend: U128
     ) where T: NoteInterface<T_SERIALIZED_LEN> + OwnedNote {
         // We fetch the nullifier public key hash in the registry / from our PXE
-        let nullifier_public_key_hash = get_fresh_nullifier_public_key_hash(self.map.context.private.unwrap(), owner);
+        let nullifier_public_key_hash = get_npk_m(self.map.context.private.unwrap(), owner);
 
-        let mut addend_note = T::new(addend, nullifier_public_key_hash);
+        let mut addend_note = T::new(addend, poseidon2_hash(nullifier_public_key_hash.serialize()));
 
         // docs:start:insert
         self.map.at(owner).insert(&mut addend_note, true);

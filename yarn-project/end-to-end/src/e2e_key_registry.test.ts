@@ -113,12 +113,12 @@ describe('Key Registry', () => {
       newAccountPartialAddress,
     );
 
-    await pxe.registerRecipient(newAccountCompleteAddress, [
-      newAccountKeys.masterNullifierPublicKey,
-      newAccountKeys.masterIncomingViewingPublicKey,
-      newAccountKeys.masterOutgoingViewingPublicKey,
-      newAccountKeys.masterTaggingPublicKey,
-    ]);
+    await pxe.registerRecipient(newAccountCompleteAddress, {
+      masterNullifierPublicKey: newAccountKeys.masterNullifierPublicKey,
+      masterIncomingViewingPublicKey: newAccountKeys.masterIncomingViewingPublicKey,
+      masterOutgoingViewingPublicKey: newAccountKeys.masterOutgoingViewingPublicKey,
+      masterTaggingPublicKey: newAccountKeys.masterTaggingPublicKey,
+    });
 
     // Should succeed as the account is now registered as a recipient in PXE
     await testContract.methods
