@@ -253,8 +253,8 @@ if mount | grep -q /host_mark/Users; then
 fi
 ' >> /etc/zsh/zshrc
 EOF
-# Create the user we'll run as and become the user.
-RUN useradd --shell /bin/zsh -G sudo -m aztec-dev
+# Create the user we'll run as and become the user (remove ubuntu first).
+RUN userdel -r ubuntu && useradd --shell /bin/zsh -G sudo -m aztec-dev
 USER aztec-dev
 WORKDIR /home/aztec-dev
 # Add dotfiles.
