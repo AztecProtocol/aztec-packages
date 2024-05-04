@@ -3,7 +3,11 @@
   "build": {
     "dockerfile": "../../build-images/Dockerfile",
     "context": "../../build-images",
-    "target": "devbox"
+    "target": "devbox",
+    "args": {
+      // See `FOUNDRY_TAG` in `../../build-images/Makefile`
+      "TAG": "de33b6af53005037b463318d2628b5cfcaf39916"
+    }
   },
   "containerUser": "aztec-dev",
   // ubuntu:noble is currently not supported.
@@ -18,5 +22,7 @@
   //     "dockerDashComposeVersion": "v1"
   //   }
   // },
-  "mounts": ["source=devbox-home,target=/home/aztec-dev,type=volume"]
+  "mounts": [
+    "source=devbox-home,target=/home/aztec-dev,type=volume"
+  ]
 }
