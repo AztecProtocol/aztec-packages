@@ -367,7 +367,8 @@ jobs:
     if: always()
     steps:
       - run: |
-          if [ ${{ contains(needs.*.result, 'failure') }} ]; then
+          if [ ${{ contains(needs.*.result, 'failure') }} ]
+          then
             echo "At least one job failed, merging not allowed"
             exit 1
           fi
