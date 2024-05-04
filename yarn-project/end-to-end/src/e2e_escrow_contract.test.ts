@@ -10,11 +10,12 @@ import {
   computeSecretHash,
   deriveKeys,
 } from '@aztec/aztec.js';
-import { computePartialAddress } from '@aztec/circuits.js';
+import { PublicKeys, computePartialAddress } from '@aztec/circuits.js';
 import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { setup } from './fixtures/utils.js';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 
 describe('e2e_escrow_contract', () => {
   let pxe: PXE;
@@ -47,7 +48,9 @@ describe('e2e_escrow_contract', () => {
     // Note that we need to register it first if we want to emit an encrypted note for it in the constructor
     escrowSecretKey = Fr.random();
     escrowPublicKeysHash = deriveKeys(escrowSecretKey).publicKeysHash;
-    const escrowDeployment = EscrowContract.deployWithPublicKeysHash(escrowPublicKeysHash, wallet, owner);
+    const ownerPublicKeys = await pxe.getRegisteredAccountPublicKeys(owner);
+    const ownerMasterNullifyingPublicKeyHash = poseidon2Hash(ownerPublicKeys!.masterNullifierPublicKey.toFields());
+    const escrowDeployment = EscrowContract.deployWithPublicKeysHash(escrowPublicKeysHash, wallet, owner, ownerMasterNullifyingPublicKeyHash);
     const escrowInstance = escrowDeployment.getInstance();
     await pxe.registerAccount(escrowSecretKey, computePartialAddress(escrowInstance));
     escrowContract = await escrowDeployment.send().deployed();
