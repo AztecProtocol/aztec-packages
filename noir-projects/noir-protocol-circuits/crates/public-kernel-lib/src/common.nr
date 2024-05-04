@@ -232,7 +232,7 @@ pub fn update_non_revertible_gas_used(public_call: PublicCallData, circuit_outpu
     let accum_end_gas_used = circuit_outputs.end.gas_used;
 
     // dep::types::debug_log::debug_log_format(
-    //     "Updating non-revertible gas: limit.da={0} limit.l1={1} limit.l2={2} left.da={3} left.l1={4} left.l2={5} used.da={6} used.l1={7} used.l2={8}",
+    //     "Updating non-revertible gas: limit.da={0} limit.l2={1} left.da={2} left.l2={3} used.da={4} used.l2={5}",
     //     [
     //     tx_gas_limits.da_gas as Field,
     //     tx_gas_limits.l2_gas as Field,
@@ -243,10 +243,6 @@ pub fn update_non_revertible_gas_used(public_call: PublicCallData, circuit_outpu
     // ]
     // );
 
-    // println(
-    //     f"Updating non-revertible gas: tx_gas_limits={tx_gas_limits} call_gas_left={call_gas_left} accum_end_gas_used={accum_end_gas_used}"
-    // );
-
     circuit_outputs.end_non_revertible.gas_used = tx_gas_limits
         .sub(call_gas_left)
         .sub(accum_end_gas_used);
@@ -254,12 +250,19 @@ pub fn update_non_revertible_gas_used(public_call: PublicCallData, circuit_outpu
 
 // Validates that the start gas injected into the app circuit matches the remaining gas
 pub fn validate_start_gas(public_call: PublicCallData, previous_kernel: PublicKernelData) {
-    let public_call_start_gas = public_call.call_stack_item.public_inputs.start_gas_left;
-    let tx_gas_limits = previous_kernel.public_inputs.constants.tx_context.gas_settings.gas_limits;
-    let computed_start_gas = tx_gas_limits.sub(previous_kernel.public_inputs.end.gas_used).sub(previous_kernel.public_inputs.end_non_revertible.gas_used);
-    assert(
-        public_call_start_gas == computed_start_gas, "Start gas for public phase does not match transaction gas left"
-    );
+    // If this is a nested call (not an execution request), the start gas is correct as long as the
+    // call being processed by this kernel iteration matches the call at the top of the callstack
+    // as per the previous kernel's outputs.
+    // An execution request's start gas is the remaining gas left in the transaction after the previous kernel.
+    // A nested call's start gas is the gas allocated to it by its caller and placed in the callstack.
+    if (public_call.call_stack_item.is_execution_request) {
+        let public_call_start_gas = public_call.call_stack_item.public_inputs.start_gas_left;
+        let tx_gas_limits = previous_kernel.public_inputs.constants.tx_context.gas_settings.gas_limits;
+        let computed_start_gas = tx_gas_limits.sub(previous_kernel.public_inputs.end.gas_used).sub(previous_kernel.public_inputs.end_non_revertible.gas_used);
+        assert(
+            public_call_start_gas == computed_start_gas, "Start gas for public phase does not match transaction gas left"
+        );
+    }
 }
 
 // Validates the transaction fee injected into the app circuit is zero for non-teardown phases

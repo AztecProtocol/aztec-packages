@@ -128,6 +128,23 @@ jobs:
         # limit our parallelism to half our cores
         run: earthly-ci --no-output +test --hardware_concurrency=64
 
+  bb-js-test:
+    needs: setup
+    runs-on: ${{ github.actor }}-x86
+    steps:
+      - {
+          uses: actions/checkout@v4,
+          with: { ref: "${{ github.event.pull_request.head.sha }}" },
+        }
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_key: bb-js-test-${{ github.actor }}-x86
+      - name: "bb.js Tests"
+        working-directory: ./barretenberg/ts/
+        timeout-minutes: 25
+        run: earthly-ci --no-output ./+test
+
   noir-projects:
     needs: setup
     runs-on: ${{ inputs.username || github.actor }}-x86
@@ -145,7 +162,7 @@ jobs:
         run: earthly-ci --no-output ./noir-projects/+test
 
   yarn-project-formatting:
-    needs: setup
+    needs: noir-projects
     runs-on: ${{ github.actor }}-x86
     steps:
       - {
@@ -175,7 +192,7 @@ jobs:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: yarn-project-test-${{ github.actor }}-x86
       - name: "Yarn Project Tests"
-        timeout-minutes: 25
+        timeout-minutes: 30
         run: earthly-ci --no-output ./yarn-project/+test
 
   prover-client-test:
@@ -194,8 +211,75 @@ jobs:
         timeout-minutes: 25
         run: earthly-ci --no-output ./yarn-project/+prover-client-test
 
+  build-acir-tests:
+    needs: build
+    runs-on: ${{ github.actor }}-x86
+    steps:
+      - {
+          uses: actions/checkout@v4,
+          with: { ref: "${{ github.event.pull_request.head.sha }}" },
+        }
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_key: build-acir-tests-${{ github.actor }}-x86
+      - name: "Build Acir Tests"
+        timeout-minutes: 25
+        run: earthly-ci --no-output ./noir/+build-acir-tests
+
+  barretenberg-acir-tests-bb:
+    needs: build-acir-tests
+    runs-on: ${{ github.actor }}-x86
+    steps:
+      - {
+          uses: actions/checkout@v4,
+          with: { ref: "${{ github.event.pull_request.head.sha }}" },
+        }
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_key: barretenberg-acir-tests-bb-${{ github.actor }}-x86
+      - name: "BB Native Acir Tests"
+        working-directory: ./noir/
+        timeout-minutes: 25
+        run: earthly-ci --no-output ./+barretenberg-acir-tests-bb
+
+  barretenberg-acir-tests-sol:
+    needs: build-acir-tests
+    runs-on: ${{ github.actor }}-x86
+    steps:
+      - {
+          uses: actions/checkout@v4,
+          with: { ref: "${{ github.event.pull_request.head.sha }}" },
+        }
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_key: barretenberg-acir-tests-sol-${{ github.actor }}-x86
+      - name: "BB Solidity Acir Tests"
+        working-directory: ./noir/
+        timeout-minutes: 25
+        run: earthly-ci --no-output ./+barretenberg-acir-tests-sol
+
+  barretenberg-acir-tests-bb-js:
+    needs: build-acir-tests
+    runs-on: ${{ github.actor }}-x86
+    steps:
+      - {
+          uses: actions/checkout@v4,
+          with: { ref: "${{ github.event.pull_request.head.sha }}" },
+        }
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_key: barretenberg-acir-tests-bb-js-${{ github.actor }}-x86
+      - name: "BB JS Acir Tests"
+        working-directory: ./noir/
+        timeout-minutes: 25
+        run: earthly-ci --no-output ./+barretenberg-acir-tests-bb.js
+
   docs-preview:
-    needs: setup
+    needs: build
     runs-on: ${{ inputs.username || github.actor }}-x86
     if: github.event.number
     steps:
@@ -208,7 +292,7 @@ jobs:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: docs-preview-${{ inputs.username || github.actor }}-x86
       - name: "Docs Preview"
-        timeout-minutes: 25
+        timeout-minutes: 30
         run: earthly --no-output ./docs/+deploy-preview --PR=${{ github.event.number }} --AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
 
   # push benchmarking binaries to dockerhub registry
@@ -264,6 +348,41 @@ jobs:
         working-directory: ./barretenberg/cpp/
         timeout-minutes: 15
         run: earthly-ci --no-output +bench-ultra-honk --bench_mode=cache
+  
+  protocol-circuits-gates-report:
+    needs: setup
+    runs-on: ${{ inputs.username || github.actor }}-x86
+    steps:
+      - {
+          uses: actions/checkout@v4,
+          with: { ref: "${{ github.event.pull_request.head.sha }}" },
+        }
+      # Only allow one memory-hunger prover test to use this runner
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_key: protocol-circuits-gates-report-${{ inputs.username || github.actor }}-x86
+      - name: "Noir Protocol Circuits Report"
+        working-directory: ./noir-projects/
+        timeout-minutes: 25
+        run: |
+          earthly-ci --artifact +gates-report/gates_report.json
+          mv gates_report.json ../protocol_circuits_report.json
+
+      - name: Compare gates reports
+        id: gates_diff
+        uses: vezenovm/noir-gates-diff@acf12797860f237117e15c0d6e08d64253af52b6
+        with:
+          report: protocol_circuits_report.json
+          summaryQuantile: 0 # Display any diff in gate count
+
+      - name: Add gates diff to sticky comment
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          # delete the comment in case changes no longer impact circuit sizes
+          delete: ${{ !steps.gates_diff.outputs.markdown }}
+          message: ${{ steps.gates_diff.outputs.markdown }}
 
   merge-check:
     runs-on: ubuntu-latest
