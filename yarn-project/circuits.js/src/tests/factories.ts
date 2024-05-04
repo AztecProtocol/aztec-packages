@@ -470,6 +470,7 @@ export function makePublicKernelCircuitPublicInputs(
     makePublicAccumulatedData(seed, fullAccumulatedData),
     makeConstantData(seed + 0x100),
     RevertCode.OK,
+    makeCallRequest(seed + 0x200),
   );
 }
 
@@ -485,6 +486,7 @@ export function makePrivateKernelCircuitPublicInputs(seed = 1, full = true): Pri
     makeValidationRequests(seed),
     makePrivateAccumulatedData(seed, full),
     makeConstantData(seed + 0x100),
+    makeCallRequest(seed + 0x200),
   );
 }
 
@@ -502,6 +504,7 @@ export function makePrivateKernelTailCircuitPublicInputs(
         ValidationRequests.empty(),
         makePublicAccumulatedData(seed + 0x100, false),
         makePublicAccumulatedData(seed + 0x200, false),
+        makeCallRequest(seed + 0x300),
       )
     : undefined;
   const forRollup = !isForPublic
@@ -840,6 +843,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, makeNullifier, seed + 0x500),
     privateCallStackHashes: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
     publicCallStackHashes: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x700),
+    publicTeardownFunctionHash: fr(seed + 0x800),
     newL2ToL1Msgs: makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x800),
     startSideEffectCounter: fr(seed + 0x849),
     endSideEffectCounter: fr(seed + 0x850),
