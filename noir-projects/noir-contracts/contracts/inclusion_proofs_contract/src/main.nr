@@ -6,7 +6,7 @@ contract InclusionProofs {
     };
 
     use dep::aztec::protocol_types::{grumpkin_point::GrumpkinPoint, contract_class_id::ContractClassId};
-    use dep::aztec::{context::Context, note::note_getter_options::NoteStatus};
+    use dep::aztec::{context::Context, note::note_getter_options::NoteStatus, keys::getters::get_npk_m_hash};
     // docs:start:imports
     use dep::aztec::history::{
         contract_inclusion::{
@@ -43,8 +43,10 @@ contract InclusionProofs {
     // Creates a value note owned by `owner`.
     #[aztec(private)]
     fn create_note(owner: AztecAddress, value: Field) {
+        let owner_nullifier_public_key_hash = get_npk_m_hash(&mut context, owner);
+
         let owner_private_values = storage.private_values.at(owner);
-        let mut note = ValueNote::new(value, owner);
+        let mut note = ValueNote::new(value, owner_nullifier_public_key_hash);
         owner_private_values.insert(&mut note, true);
     }
     // docs:end:create_note
@@ -56,13 +58,15 @@ contract InclusionProofs {
         block_number: u32, // The block at which we'll prove that the note exists
         nullified: bool
     ) {
+        let owner_nullifier_public_key_hash = get_npk_m_hash(&mut context, owner);
+
         // docs:start:get_note_from_pxe
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
         options = options.select(
-            ValueNote::properties().owner,
-            owner.to_field(),
+            ValueNote::properties().owner_nullifying_public_key_hash,
+            owner_nullifier_public_key_hash,
             Option::none()
         ).set_limit(1);
         if (nullified) {
@@ -88,7 +92,9 @@ contract InclusionProofs {
         use_block_number: bool,
         block_number: u32 // The block at which we'll prove that the note exists
     ) {
-        let mut note = ValueNote::new(1, owner);
+        let owner_nullifier_public_key_hash = get_npk_m_hash(&mut context, owner);
+
+        let mut note = ValueNote::new(1, owner_nullifier_public_key_hash);
 
         if (use_block_number) {
             prove_note_inclusion_at(note, block_number, context);
@@ -108,12 +114,14 @@ contract InclusionProofs {
         // because PXE performs note commitment inclusion check when you add a new note).
         fail_case: bool
     ) {
+        let owner_nullifier_public_key_hash = get_npk_m_hash(&mut context, owner);
+
         // 2) Get the note from PXE
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
         options = options.select(
-            ValueNote::properties().owner,
-            owner.to_field(),
+            ValueNote::properties().owner_nullifying_public_key_hash,
+            owner_nullifier_public_key_hash,
             Option::none()
         ).set_limit(1);
         if (fail_case) {
@@ -139,12 +147,14 @@ contract InclusionProofs {
         block_number: u32, // The block at which we'll prove that the note exists and is not nullified
         nullified: bool
     ) {
+        let owner_nullifier_public_key_hash = get_npk_m_hash(&mut context, owner);
+
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
         options = options.select(
-            ValueNote::properties().owner,
-            owner.to_field(),
+            ValueNote::properties().owner_nullifying_public_key_hash,
+            owner_nullifier_public_key_hash,
             Option::none()
         ).set_limit(1);
         if (nullified) {
@@ -166,11 +176,13 @@ contract InclusionProofs {
     // docs:start:nullify_note
     #[aztec(private)]
     fn nullify_note(owner: AztecAddress) {
+        let owner_nullifier_public_key_hash = get_npk_m_hash(&mut context, owner);
+
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
         options = options.select(
-            ValueNote::properties().owner,
-            owner.to_field(),
+            ValueNote::properties().owner_nullifying_public_key_hash,
+            owner_nullifier_public_key_hash,
             Option::none()
         ).set_limit(1);
         let notes = private_values.get_notes(options);

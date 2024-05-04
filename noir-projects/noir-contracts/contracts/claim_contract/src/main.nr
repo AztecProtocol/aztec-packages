@@ -2,7 +2,8 @@ contract Claim {
     use dep::aztec::{
         history::note_inclusion::prove_note_inclusion,
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
-        state_vars::SharedImmutable
+        state_vars::SharedImmutable,
+        keys::getters::get_npk_m_hash,
     };
     use dep::value_note::value_note::ValueNote;
     use dep::token::Token;
@@ -29,7 +30,9 @@ contract Claim {
         assert(
             target_address == proof_note.header.contract_address, "Note does not correspond to the target contract"
         );
-        assert_eq(proof_note.owner, context.msg_sender(), "Note does not belong to the sender");
+
+        let owner_nullifier_public_key_hash = get_npk_m_hash(&mut context, context.msg_sender());
+        assert_eq(proof_note.owner_nullifying_public_key_hash, owner_nullifier_public_key_hash, "Note does not belong to the sender");
 
         // 2) Prove that the note hash exists in the note hash tree
         prove_note_inclusion(proof_note, context);

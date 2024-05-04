@@ -75,12 +75,12 @@ contract Test {
     fn dummy_public_call() {}
 
     #[aztec(private)]
-    fn call_create_note(value: Field, owner: AztecAddress, storage_slot: Field) {
+    fn call_create_note(value: Field, owner_nullifying_public_key_hash: Field, storage_slot: Field) {
         assert(
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
         );
 
-        let mut note = ValueNote::new(value, owner);
+        let mut note = ValueNote::new(value, owner_nullifying_public_key_hash);
         create_note(&mut context, storage_slot, &mut note, true);
     }
 
@@ -244,14 +244,14 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn emit_encrypted_logs_nested(value: Field, owner: AztecAddress) {
+    fn emit_encrypted_logs_nested(value: Field, owner_nullifying_public_key_hash: Field) {
         let mut storage_slot = storage.example_constant.get_storage_slot() + 1;
-        Test::at(context.this_address()).call_create_note(value, owner, storage_slot).call(&mut context);
+        Test::at(context.this_address()).call_create_note(value, owner_nullifying_public_key_hash, storage_slot).call(&mut context);
         storage_slot += 1;
-        let mut note = ValueNote::new(value + 1, owner);
+        let mut note = ValueNote::new(value + 1, owner_nullifying_public_key_hash);
         create_note(&mut context, storage_slot, &mut note, true);
         storage_slot += 1;
-        Test::at(context.this_address()).call_create_note(value + 2, owner, storage_slot).call(&mut context);
+        Test::at(context.this_address()).call_create_note(value + 2, owner_nullifying_public_key_hash, storage_slot).call(&mut context);
     }
 
     // docs:start:is-time-equal

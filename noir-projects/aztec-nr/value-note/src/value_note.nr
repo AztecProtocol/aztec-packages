@@ -4,7 +4,7 @@ use dep::aztec::{
     constants::GENERATOR_INDEX__NOTE_NULLIFIER
 },
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
-    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_app_nullifier_secret_key, get_public_key::get_public_key},
+    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_app_nullifier_secret_key_with_master_nullifier_public_key_hash, get_public_key::get_public_key_with_master_nullifier_public_key_hash},
     hash::poseidon2_hash, context::PrivateContext
 };
 
@@ -14,7 +14,9 @@ global VALUE_NOTE_LEN: Field = 3; // 3 plus a header.
 #[aztec(note)]
 struct ValueNote {
     value: Field,
-    owner: AztecAddress,
+    // The nullifying public key hash of the person who owns the note. 
+    // This is used with the app_nullifier_secret_key to ensure that the note can be privately spent.
+    owner_nullifying_public_key_hash: Field,
     randomness: Field,
 }
 // docs:end:value-note-def
@@ -24,7 +26,7 @@ impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
 
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_app_nullifier_secret_key(self.owner);
+        let secret = context.request_app_nullifier_secret_key_with_master_public_nullifying_key_hash(self.owner_nullifying_public_key_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -36,7 +38,7 @@ impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_app_nullifier_secret_key(self.owner);
+        let secret = get_app_nullifier_secret_key_with_master_nullifier_public_key_hash(self.owner_nullifying_public_key_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -46,7 +48,7 @@ impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
 
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
-        let encryption_pub_key = get_public_key(self.owner);
+        let encryption_pub_key = get_public_key_with_master_nullifier_public_key_hash(self.owner_nullifying_public_key_hash);
         context.emit_encrypted_log(
             (*context).this_address(),
             slot,
@@ -58,10 +60,10 @@ impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
 }
 
 impl ValueNote {
-    pub fn new(value: Field, owner: AztecAddress) -> Self {
+    pub fn new(value: Field, owner_nullifying_public_key_hash: Field) -> Self {
         let randomness = unsafe_rand();
         let header = NoteHeader::empty();
-        ValueNote { value, owner, randomness, header }
+        ValueNote { value, owner_nullifying_public_key_hash, randomness, header }
     }
 }
 
@@ -69,6 +71,6 @@ impl Serialize<7> for ValueNote {
     fn serialize(self) -> [Field; 7] {
         let header = self.header.serialize();
 
-        [self.value, self.owner.to_field(), self.randomness, header[0], header[1], header[2], header[3]]
+        [self.value, self.owner_nullifying_public_key_hash.to_field(), self.randomness, header[0], header[1], header[2], header[3]]
     }
 }

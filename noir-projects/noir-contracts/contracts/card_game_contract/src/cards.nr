@@ -5,6 +5,7 @@ use dep::aztec::{
     traits::{ToField, Serialize, FromField},
     constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
 },
+    keys::getters::get_npk_m_hash,
     context::{PublicContext, Context}, note::note_getter::view_notes, state_vars::PrivateSet,
     note::constants::MAX_NOTES_PER_PAGE,
 };
@@ -52,13 +53,13 @@ struct CardNote {
 }
 
 impl CardNote {
-    fn new(strength: u32, points: u32, owner: AztecAddress) -> Self {
+    fn new(strength: u32, points: u32, owner_nullifying_public_key_hash: Field) -> Self {
         let card = Card { strength, points };
-        CardNote::from_card(card, owner)
+        CardNote::from_card(card, owner_nullifying_public_key_hash)
     }
 
-    pub fn from_card(card: Card, owner: AztecAddress) -> CardNote {
-        CardNote { card, note: ValueNote::new(card.to_field(), owner) }
+    pub fn from_card(card: Card, owner_nullifying_public_key_hash: Field) -> CardNote {
+        CardNote { card, note: ValueNote::new(card.to_field(), owner_nullifying_public_key_hash) }
     }
 
     pub fn from_note(note: ValueNote) -> CardNote {
@@ -104,10 +105,12 @@ impl Deck {
 
     pub fn add_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
         let _context = self.set.context.private.unwrap();
+        
+        let owner_nullifier_public_key_hash = get_npk_m_hash(self.set.context.private.unwrap(), owner);
 
         let mut inserted_cards = &[];
         for card in cards {
-            let mut card_note = CardNote::from_card(card, owner);
+            let mut card_note = CardNote::from_card(card, owner_nullifier_public_key_hash);
             self.set.insert(&mut card_note.note, true);
             inserted_cards = inserted_cards.push_back(card_note);
         }
@@ -124,7 +127,9 @@ impl Deck {
                 let card_note = CardNote::from_note(maybe_notes[i].unwrap_unchecked());
                 // Ensure the notes are actually owned by the owner (to prevent user from generating a valid proof while
                 // spending someone else's notes).
-                assert(card_note.note.owner.eq(owner));
+                let owner_nullifying_public_key_hash = get_npk_m_hash(self.set.context.private.unwrap(), owner);
+
+                assert(card_note.note.owner_nullifying_public_key_hash.eq(owner_nullifying_public_key_hash));
 
                 for j in 0..cards.len() {
                     if found_cards[j].is_none()

@@ -1,7 +1,7 @@
 use dep::aztec::prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext};
 use dep::aztec::{
     note::utils::compute_note_hash_for_consumption, hash::poseidon2_hash,
-    oracle::{nullifier_key::get_app_nullifier_secret_key, get_public_key::get_public_key},
+    oracle::{nullifier_key::get_app_nullifier_secret_key_with_master_nullifier_public_key_hash, get_public_key::get_public_key_with_master_nullifier_public_key_hash},
     protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER,
 };
 
@@ -13,13 +13,16 @@ global PUBLIC_KEY_NOTE_LEN: Field = 3;
 struct PublicKeyNote {
     x: Field,
     y: Field,
-    owner: AztecAddress, // We store the owner address only to get the secret key to compute the nullifier and to broadcast
+    // We store the owner address only to get the secret key to compute the nullifier
+    // The nullifying public key hash of the person who owns the note. 
+    // This is used with the app_nullifier_secret_key to ensure that the note can be privately spent.
+    owner_nullifying_public_key_hash: Field,
 }
 
 impl NoteInterface<PUBLIC_KEY_NOTE_LEN> for PublicKeyNote {
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_app_nullifier_secret_key(self.owner);
+        let secret = context.request_app_nullifier_secret_key_with_master_public_nullifying_key_hash(self.owner_nullifying_public_key_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -29,7 +32,7 @@ impl NoteInterface<PUBLIC_KEY_NOTE_LEN> for PublicKeyNote {
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_app_nullifier_secret_key(self.owner);
+        let secret = get_app_nullifier_secret_key_with_master_nullifier_public_key_hash(self.owner_nullifying_public_key_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -39,7 +42,7 @@ impl NoteInterface<PUBLIC_KEY_NOTE_LEN> for PublicKeyNote {
 
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
-        let encryption_pub_key = get_public_key(self.owner);
+        let encryption_pub_key = get_public_key_with_master_nullifier_public_key_hash(self.owner_nullifying_public_key_hash);
         context.emit_encrypted_log(
             (*context).this_address(),
             slot,
@@ -51,7 +54,7 @@ impl NoteInterface<PUBLIC_KEY_NOTE_LEN> for PublicKeyNote {
 }
 
 impl PublicKeyNote {
-    pub fn new(x: Field, y: Field, owner: AztecAddress) -> Self {
-        PublicKeyNote { x, y, owner, header: NoteHeader::empty() }
+    pub fn new(x: Field, y: Field, owner_nullifying_public_key_hash: Field) -> Self {
+        PublicKeyNote { x, y, owner_nullifying_public_key_hash, header: NoteHeader::empty() }
     }
 }

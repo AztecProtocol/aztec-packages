@@ -12,7 +12,7 @@ contract AppSubscription {
 
     use dep::aztec::protocol_types::traits::is_empty;
 
-    use dep::aztec::{context::Context, oracle::get_public_key::get_public_key};
+    use dep::aztec::{context::Context, keys::getters::get_npk_m_hash};
     use dep::authwit::{account::AccountActions, auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit};
 
     use crate::subscription_note::{SubscriptionNote, SUBSCRIPTION_NOTE_LEN};
@@ -109,8 +109,9 @@ contract AppSubscription {
 
         // Assert that the given expiry_block_number < current_block_number + SUBSCRIPTION_DURATION_IN_BLOCKS.
         AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).static_enqueue(&mut context);
+        let subscriber_nullifier_public_key_hash = get_npk_m_hash(&mut context, subscriber_address);
 
-        let mut subscription_note = SubscriptionNote::new(subscriber_address, expiry_block_number, tx_count);
+        let mut subscription_note = SubscriptionNote::new(subscriber_nullifier_public_key_hash, expiry_block_number, tx_count);
         if (!is_initialized(subscriber_address)) {
             storage.subscriptions.at(subscriber_address).initialize(&mut subscription_note, true);
         } else {
