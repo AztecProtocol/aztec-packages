@@ -765,6 +765,13 @@ function mapScopedL2ToL1MessageFromNoir(message: ScopedL2ToL1MessageNoir) {
   );
 }
 
+function mapScopedL2ToL1MessageToNoir(message: ScopedL2ToL1Message): ScopedL2ToL1MessageNoir {
+  return {
+    value: mapL2ToL1MessageToNoir(message.value),
+    contract_address: mapAztecAddressToNoir(message.contractAddress),
+  };
+}
+
 /**
  * Maps private circuit public inputs to noir private circuit public inputs.
  * @param privateCircuitPublicInputs - The private circuit public inputs.
@@ -1120,7 +1127,7 @@ export function mapPrivateAccumulatedDataToNoir(data: PrivateAccumulatedData): P
   return {
     new_note_hashes: mapTuple(data.newNoteHashes, mapNoteHashContextToNoir),
     new_nullifiers: mapTuple(data.newNullifiers, mapNullifierContextToNoir),
-    new_l2_to_l1_msgs: mapTuple(data.newL2ToL1Msgs, mapFieldToNoir),
+    new_l2_to_l1_msgs: mapTuple(data.newL2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
     encrypted_logs_hashes: mapTuple(data.encryptedLogsHashes, mapSideEffectToNoir),
     unencrypted_logs_hashes: mapTuple(data.unencryptedLogsHashes, mapSideEffectToNoir),
     encrypted_log_preimages_length: mapFieldToNoir(data.encryptedLogPreimagesLength),
