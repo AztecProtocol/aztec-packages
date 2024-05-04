@@ -39,7 +39,7 @@ build-push: build
 	docker manifest push aztecprotocol/build:$(VERSION)
 
 devbox:
-	docker build -t aztecprotocol/devbox:$(ARCH)-$(VERSION) --build-arg TAG=${FOUNDRY_TAG} --target devbox  .
+	docker build -t aztecprotocol/devbox:$(ARCH)-$(VERSION) --build-arg TAG=${FOUNDRY_TAG} --target devbox .
 	docker tag aztecprotocol/devbox:$(ARCH)-$(VERSION) aztecprotocol/devbox
 
 devbox-push: devbox
