@@ -9,7 +9,7 @@ use crate::{
     nullifier_key::{get_nullifier_keys, get_nullifier_keys_with_master_nullifier_public_key_hash, NullifierKeys},
     enqueue_public_function_call::{
     enqueue_public_function_call_internal, set_public_teardown_function_call_internal,
-    parse_public_call_stack_item_from_oracle
+    parse_public_call_stack_item_from_oracle},
     },
 };
 use dep::protocol_types::{
