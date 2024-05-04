@@ -27,7 +27,7 @@ osxcross:
 	docker manifest push aztecprotocol/osxcross:14.0
 
 build:
-	docker build -t aztecprotocol/build:$(ARCH)-$(VERSION) --target build .
+	docker build -t aztecprotocol/build:$(ARCH)-$(VERSION) --build-arg TAG=${FOUNDRY_TAG} --target build .
 	docker tag aztecprotocol/build:$(ARCH)-$(VERSION) aztecprotocol/build
 
 build-push: build
@@ -39,7 +39,7 @@ build-push: build
 	docker manifest push aztecprotocol/build:$(VERSION)
 
 devbox:
-	docker build -t aztecprotocol/devbox:$(ARCH)-$(VERSION) --target devbox .
+	docker build -t aztecprotocol/devbox:$(ARCH)-$(VERSION) --build-arg TAG=${FOUNDRY_TAG} --target devbox  .
 	docker tag aztecprotocol/devbox:$(ARCH)-$(VERSION) aztecprotocol/devbox
 
 devbox-push: devbox
@@ -51,7 +51,7 @@ devbox-push: devbox
 	docker manifest push aztecprotocol/devbox:$(VERSION)
 
 sysbox:
-	docker build -t aztecprotocol/sysbox --target sysbox .
+	docker build -t aztecprotocol/sysbox --build-arg TAG=${FOUNDRY_TAG} --target sysbox .
 
 all: build devbox sysbox
 
