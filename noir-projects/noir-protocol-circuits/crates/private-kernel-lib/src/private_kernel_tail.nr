@@ -2,7 +2,7 @@ use crate::kernel_circuit_public_inputs_composer::KernelCircuitPublicInputsCompo
 use dep::reset_kernel_lib::{NoteHashReadRequestHints, NullifierReadRequestHints, PrivateValidationRequestProcessor};
 use dep::types::{
     abis::{
-    kernel_data::PrivateKernelData, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+    private_kernel_data::{PrivateKernelData, verify_previous_kernel_proof}, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
     note_hash::NoteHashContext, nullifier::Nullifier, side_effect::SideEffect
 },
     constants::{
@@ -46,6 +46,9 @@ impl PrivateKernelTailCircuitPrivateInputs {
         assert_eq(
             array_length(previous_public_inputs.end.public_call_stack), 0, "Public call stack must be empty when executing the tail circuit"
         );
+
+        // verify/aggregate the previous kernel
+        verify_previous_kernel_proof(self.previous_kernel);
 
         let note_hash_tree_root = previous_public_inputs.constants.historical_header.state.partial.note_hash_tree.root;
         let nullifier_tree_root = previous_public_inputs.constants.historical_header.state.partial.nullifier_tree.root;

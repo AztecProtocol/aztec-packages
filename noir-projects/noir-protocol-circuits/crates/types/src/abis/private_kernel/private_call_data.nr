@@ -1,11 +1,12 @@
 use crate::abis::{
     call_request::CallRequest, private_call_stack_item::PrivateCallStackItem,
-    membership_witness::FunctionLeafMembershipWitness
+    membership_witness::FunctionLeafMembershipWitness,
+    private_circuit_public_inputs::PrivateCircuitPublicInputs
 };
 use crate::address::{SaltedInitializationHash, PublicKeysHash, EthAddress};
 use crate::contract_class_id::ContractClassId;
-use crate::mocked::{Proof, VerificationKey};
 use crate::constants::{MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL};
+use crate::recursion::{verification_key::VerificationKey, proof::RecursiveProof};
 
 struct PrivateCallData {
     call_stack_item: PrivateCallStackItem,
@@ -13,7 +14,7 @@ struct PrivateCallData {
     private_call_stack: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
     public_call_stack: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
 
-    proof: Proof,
+    proof: RecursiveProof,
     vk: VerificationKey,
 
     salted_initialization_hash: SaltedInitializationHash,
@@ -23,4 +24,13 @@ struct PrivateCallData {
     function_leaf_membership_witness: FunctionLeafMembershipWitness,
     
     acir_hash: Field,
+}
+
+fn verify_private_call(call: PrivateCallData) {
+    dep::std::verify_proof(
+        call.vk.key.as_slice(),
+        call.proof.fields.as_slice(),
+        PrivateCircuitPublicInputs::serialize(call.call_stack_item.public_inputs).as_slice(),
+        call.vk.hash
+    );
 }

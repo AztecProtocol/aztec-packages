@@ -255,6 +255,7 @@ pub(crate) fn convert_black_box_call(
         BlackBoxFunc::RecursiveAggregation => unimplemented!(
             "ICE: `BlackBoxFunc::RecursiveAggregation` is not implemented by the Brillig VM"
         ),
+        BlackBoxFunc::RecursiveAggregation => {}
         BlackBoxFunc::BigIntAdd => {
             if let (
                 [BrilligVariable::SingleAddr(lhs), BrilligVariable::SingleAddr(lhs_modulus), BrilligVariable::SingleAddr(rhs), BrilligVariable::SingleAddr(rhs_modulus)],

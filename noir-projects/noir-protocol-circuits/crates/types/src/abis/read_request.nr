@@ -1,10 +1,8 @@
 use crate::{
     abis::side_effect::OrderedValue, traits::{Empty, Serialize, Deserialize}, address::AztecAddress,
-    constants::READ_REQUEST_LENGTH
+    constants::{READ_REQUEST_LENGTH, READ_REQUEST_CONTEXT_SERIALIZED_LEN}
 };
 use dep::std::cmp::Eq;
-
-global READ_REQUEST_CONTEXT_SERIALIZED_LEN = 3;
 
 struct ReadRequest {
     value: Field,
