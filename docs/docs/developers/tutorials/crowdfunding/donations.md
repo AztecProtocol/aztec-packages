@@ -1,9 +1,9 @@
 ---
-title: Build a donations contract
+title: Write a donations contract
 tags: [developers, tutorial, example]
 ---
 
-# Build a donations contract
+# Write a donations contract
 
 In this tutorial we'll create two contracts related to crowdfunding:
 
