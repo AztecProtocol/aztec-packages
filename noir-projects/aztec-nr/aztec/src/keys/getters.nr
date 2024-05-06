@@ -7,8 +7,10 @@ use crate::{
 }
 };
 
-// Note: In fetch_key_from_registry we expect that the shared mutable slot is index * 2 + 1 for the x coordinate. For example, the npk_m x coordinates will be stored in a map at storage slot 1. (0) * 2 + 1 = 1, and the novk_m y coordinates will be stored in a map at storage slot 6. (2) * 2 + 2 = 6.
-// and index * 2 + 2 for the y coordinate. If this changes the function will need to be refactored.
+// Note: In fetch_key_from_registry we expect that the shared mutable slot is index * 2 + 1 for the x coordinate and
+// index * 2 + 2 for the y coordinate. For example, the npk_m x coordinates will be stored in a map at storage slot
+// 0 * 2 + 1 = 1, and the npk_m y coordinates at 2 * 2 + 2 = 6. If this changes the function will need to be
+// refactored.
 global NULLIFIER_INDEX = 0;
 global INCOMING_INDEX = 1;
 global OUTGOING_INDEX = 2;
@@ -38,13 +40,12 @@ fn get_master_key(
     address: AztecAddress,
     key_index: Field
 ) -> GrumpkinPoint {
-    // 1. Get key hash from registry
     let key = fetch_key_from_registry(context, key_index, address);
     if key.is_zero() {
-        // i. Keys were not registered yet --> fetch key from PXE
+        // Keys were not registered in registry yet --> fetch key from PXE
         fetch_and_constrain_keys(address)[key_index]
     } else {
-        // ii. Keys were registered --> return the key
+        // Keys were registered --> return the key
         key
     }
 }
