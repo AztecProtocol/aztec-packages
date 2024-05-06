@@ -7,7 +7,6 @@ const darkTheme = themes.dracula;
 
 import math from "remark-math";
 import katex from "rehype-katex";
-import remarkMdx from "remark-mdx";
 
 const path = require("path");
 const fs = require("fs");
@@ -45,10 +44,10 @@ const config = {
     [
       "@docusaurus/preset-classic",
       /** @type {import('@docusaurus/preset-classic').Options} */
-      ({
+      {
         docs: {
           path: process.env.ENV === "dev" ? "docs" : "processed-docs",
-          sidebarPath: require.resolve("./sidebars.js"),
+          sidebarPath: "./sidebars.js",
           editUrl: (params) => {
             return (
               `https://github.com/AztecProtocol/aztec-packages/edit/master/docs/docs/` +
@@ -56,7 +55,7 @@ const config = {
             );
           },
           routeBasePath: "/",
-          remarkPlugins: [math, remarkMdx],
+          remarkPlugins: [math],
           rehypePlugins: [
             [
               katex,
@@ -72,12 +71,7 @@ const config = {
         theme: {
           customCss: require.resolve("./src/css/custom.css"),
         },
-        // removed until approved by legal (GDPR)
-        //         gtag: {
-        //           trackingID: "G-WSBTSFJCSF",
-        //           anonymizeIP: true,
-        //         }
-      }),
+      },
     ],
   ],
   stylesheets: [
@@ -204,6 +198,7 @@ const config = {
         logo: {
           alt: "Aztec Logo",
           srcDark: "img/new_logo-01.svg",
+          href: "/",
           src: "img/Aztec_logo_dark-01.svg",
         },
         items: [
@@ -213,12 +208,12 @@ const config = {
             position: "left",
             label: "Aztec Protocol",
           },
-          // {
-          //   type: "docSidebar",
-          //   sidebarId: "protocolSpecSidebar",
-          //   position: "left",
-          //   label: "Protocol Specification",
-          // },
+          {
+            type: "docSidebar",
+            sidebarId: "protocolSpecSidebar",
+            position: "left",
+            label: "Protocol Specification",
+          },
         ],
       },
       footer: {

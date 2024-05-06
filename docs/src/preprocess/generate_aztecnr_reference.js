@@ -156,8 +156,6 @@ function parseFunctions(content) {
 
     if (!functions.some((f) => f.name === name && f.isMethod)) {
       const params = parseParameters(standaloneFunctionMatch[2]);
-      if (name === "emit_unencrypted_log")
-        console.log(standaloneFunctionMatch[1]);
       const returnType = (standaloneFunctionMatch[3] || "")
         .replace(/[\[:;,.]$/g, "")
         .replace(/^[\[:;,.]/g, "");
@@ -227,8 +225,6 @@ function generateMarkdown(structs, functions) {
           if (func.description) {
             markdown += `${escapeHtml(func.description)}\n\n`;
           }
-          if (escapeHtml(func.name) === "emit_unencrypted_log")
-            console.log(func);
 
           // Codeblock for example usage
           const usageParams = func.params.map((param) => param.name).join(", ");
@@ -350,12 +346,7 @@ function processFiles(baseDir, outputBaseDir) {
 let baseDir = path.resolve(__dirname, "../../../noir-projects/aztec-nr");
 let outputBaseDir = path.resolve(
   __dirname,
-  "../../docs/developers/contracts/references/aztec-nr"
+  "../../docs/reference/reference/smart_contract_reference/aztec-nr"
 );
-
-// if (process.env.CI === 'true') {
-//     baseDir = path.resolve(__dirname, '../noir-projects/aztec-nr');
-//     outputBaseDir = path.resolve(__dirname, '../../docs/developers/contracts/references/aztec-nr');
-// }
-
+console.log(outputBaseDir);
 processFiles(baseDir, outputBaseDir);

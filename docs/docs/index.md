@@ -10,11 +10,11 @@ On Ethereum today, everything is publicly visible, by everyone. In the real worl
 
 ## Get started
 
-### Learn :book:
+### Learn 📚
 
 Start on the [Technical Overview page](./learn/about_aztec/technical_overview.md) to read about how Aztec works.
 
-### Build :technologist:
+### Build 🧑‍💻
 
 Go to the [Getting Started section](./developers/getting_started/main.md) of the developer docs to get your hands dirty and start developing on Aztec.
 

@@ -33,8 +33,8 @@
     "react-dom": "^18.2.0",
     "react-markdown": "6.0.0",
     "react-player": "^2.12.0",
-    "rehype-katex": "5",
-    "remark-math": "3",
+    "rehype-katex": "7",
+    "remark-math": "6",
     "remark-mdx": "^3.0.1",
     "sharp": "^0.33.3"
   },
