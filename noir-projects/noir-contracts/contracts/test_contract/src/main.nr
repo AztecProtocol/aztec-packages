@@ -19,12 +19,12 @@ contract Test {
     use dep::aztec::state_vars::{shared_mutable::SharedMutablePrivateGetter, map::derive_storage_slot_in_map};
 
     use dep::aztec::{
-        keys::getters::get_npk_m,
+        keys::getters::{get_npk_m, get_npk_m_hash},
         context::{Context, inputs::private_context_inputs::PrivateContextInputs},
         hash::{pedersen_hash, poseidon2_hash, compute_secret_hash, ArgsHasher},
         note::{
         lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
-        note_getter_options::NoteStatus
+        note_getter_options::NoteStatus,
     },
         deploy::deploy_contract as aztec_deploy_contract,
         oracle::{
@@ -75,12 +75,13 @@ contract Test {
     fn dummy_public_call() {}
 
     #[aztec(private)]
-    fn call_create_note(value: Field, owner_nullifying_public_key_hash: Field, storage_slot: Field) {
+    fn call_create_note(value: Field, owner: AztecAddress, storage_slot: Field) {
         assert(
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
         );
 
-        let mut note = ValueNote::new(value, owner_nullifying_public_key_hash);
+        let owner_nullifier_public_key_hash = get_npk_m_hash(&mut context, owner);
+        let mut note = ValueNote::new(value, owner_nullifier_public_key_hash);
         create_note(&mut context, storage_slot, &mut note, true);
     }
 
@@ -244,14 +245,16 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn emit_encrypted_logs_nested(value: Field, owner_nullifying_public_key_hash: Field) {
+    fn emit_encrypted_logs_nested(value: Field, owner: AztecAddress) {
         let mut storage_slot = storage.example_constant.get_storage_slot() + 1;
-        Test::at(context.this_address()).call_create_note(value, owner_nullifying_public_key_hash, storage_slot).call(&mut context);
+        Test::at(context.this_address()).call_create_note(value, owner, storage_slot).call(&mut context);
         storage_slot += 1;
-        let mut note = ValueNote::new(value + 1, owner_nullifying_public_key_hash);
+
+        let owner_nullifier_public_key_hash = get_npk_m_hash(&mut context, owner);
+        let mut note = ValueNote::new(value + 1, owner_nullifier_public_key_hash);
         create_note(&mut context, storage_slot, &mut note, true);
         storage_slot += 1;
-        Test::at(context.this_address()).call_create_note(value + 2, owner_nullifying_public_key_hash, storage_slot).call(&mut context);
+        Test::at(context.this_address()).call_create_note(value + 2, owner, storage_slot).call(&mut context);
     }
 
     // docs:start:is-time-equal

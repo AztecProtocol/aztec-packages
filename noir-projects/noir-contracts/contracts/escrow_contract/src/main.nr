@@ -2,7 +2,7 @@
 contract Escrow {
     use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, NoteHeader, PrivateContext, PrivateImmutable};
 
-    use dep::aztec::{context::{PublicContext, Context}, oracle::get_public_key::get_public_key};
+    use dep::aztec::{context::{PublicContext, Context}, oracle::get_public_key::get_public_key, keys::getters::get_npk_m_hash};
 
     use dep::address_note::address_note::AddressNote;
 
@@ -16,8 +16,10 @@ contract Escrow {
     // Creates a new instance
     #[aztec(private)]
     #[aztec(initializer)]
-    fn constructor(owner: pub AztecAddress, owner_nullifying_public_key_hash: pub Field) {
-        let mut note = AddressNote::new(owner, owner_nullifying_public_key_hash);
+    fn constructor(owner: pub AztecAddress) {
+        let owner_nullifier_public_key_hash = get_npk_m_hash(&mut context, owner);
+
+        let mut note = AddressNote::new(owner, owner_nullifier_public_key_hash);
         storage.owner.initialize(&mut note, true);
     }
 

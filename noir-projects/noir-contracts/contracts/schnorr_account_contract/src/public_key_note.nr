@@ -13,9 +13,7 @@ global PUBLIC_KEY_NOTE_LEN: Field = 3;
 struct PublicKeyNote {
     x: Field,
     y: Field,
-    // We store the owner address only to get the secret key to compute the nullifier
-    // The nullifying public key hash of the person who owns the note. 
-    // This is used with the app_nullifier_secret_key to ensure that the note can be privately spent.
+    // We store the owner_nullifying_public_key_hash only to get the secret key to compute the nullifier
     owner_nullifying_public_key_hash: Field,
 }
 
