@@ -1,12 +1,9 @@
-use dep::aztec::prelude::{
-    AztecAddress, FunctionSelector, NoteHeader, NoteInterface, NoteGetterOptions, PrivateContext
-};
+use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteInterface, NoteGetterOptions, PrivateContext};
 
 use dep::aztec::{
-    keys::getters::get_ivpk_m,
-    note::utils::compute_note_hash_for_consumption,
-    oracle::nullifier_key::get_app_nullifier_secret_key,
-    hash::poseidon2_hash, protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+    keys::getters::get_ivpk_m, note::utils::compute_note_hash_for_consumption,
+    oracle::nullifier_key::get_app_nullifier_secret_key, hash::poseidon2_hash,
+    protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER
 };
 
 global ECDSA_PUBLIC_KEY_NOTE_LEN: Field = 5;

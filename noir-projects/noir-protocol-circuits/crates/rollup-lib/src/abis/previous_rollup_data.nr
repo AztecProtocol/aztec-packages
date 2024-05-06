@@ -1,9 +1,7 @@
 use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs;
 use dep::types::{
-    abis::membership_witness::VKMembershipWitness,
-    constants::ROLLUP_VK_TREE_HEIGHT,
-    mocked::{Proof, VerificationKey},
-    traits::Empty
+    abis::membership_witness::VKMembershipWitness, constants::ROLLUP_VK_TREE_HEIGHT,
+    mocked::{Proof, VerificationKey}, traits::Empty
 };
 
 struct PreviousRollupData{
