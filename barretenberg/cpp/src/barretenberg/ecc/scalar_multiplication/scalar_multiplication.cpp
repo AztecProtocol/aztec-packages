@@ -336,6 +336,12 @@ void add_affine_points(typename Curve::AffineElement* points,
         __builtin_prefetch(points + i - 2);
         __builtin_prefetch(points + i - 1);
         __builtin_prefetch(points + ((i + num_points - 2) >> 1));
+        /* at the addition on the next line:
+        /mnt/user-data/cody/aztec-packages/barretenberg/cpp/src/barretenberg/ecc/scalar_multiplication/scalar_multiplication.cpp:339:42:
+        runtime error: addition of unsigned offset to 0x711f7c4bb040 overflowed to 0x711f7c4bb020
+        SUMMARY: UndefinedBehaviorSanitizer: undefined-behavior
+        /mnt/user-data/cody/aztec-packages/barretenberg/cpp/src/barretenberg/ecc/scalar_multiplication/scalar_multiplication.cpp:339:42
+         */
         __builtin_prefetch(scratch_space + ((i - 2) >> 1));
 
         points[i + 1].y *= batch_inversion_accumulator; // update accumulator

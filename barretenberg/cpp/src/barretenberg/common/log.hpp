@@ -61,6 +61,11 @@ template <typename... Args> inline void info(Args... args)
     logstr(format(args...).c_str());
 }
 
+template <typename... T> void __attribute__((noinline)) breakpoint_info(const T&... args)
+{
+    info(args...);
+}
+
 template <typename... Args> inline void important(Args... args)
 {
     logstr(format("important: ", args...).c_str());
