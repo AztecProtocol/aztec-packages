@@ -246,7 +246,7 @@ const sidebars = {
           ],
         },
         {
-          label: "Build a Token Bridge",
+          label: "Write a Token Bridge",
           type: "category",
           link: {
             type: "doc",
