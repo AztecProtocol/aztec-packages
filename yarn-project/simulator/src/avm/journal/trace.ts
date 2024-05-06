@@ -29,6 +29,7 @@ export class WorldStateAccessTrace {
 
   constructor(parentTrace?: WorldStateAccessTrace) {
     this.accessCounter = parentTrace ? parentTrace.accessCounter : 0;
+    // TODO(4805): consider tracking the parent's trace vector lengths so we can enforce limits
   }
 
   public getAccessCounter() {
@@ -150,9 +151,6 @@ export class WorldStateAccessTrace {
 
   /**
    * Merges another trace into this one
-   *
-   * - Public state journals (r/w logs), with the accessing being appended in chronological order
-   * - Utxo objects are concatenated
    *
    * @param incomingTrace - the incoming trace to merge into this instance
    */
