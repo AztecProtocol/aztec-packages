@@ -164,14 +164,14 @@ No correctness is guaranteed on the result of `simulate`! Correct execution is e
 
 #### `prove`
 
-This creates and returns a transaction request, which includes proof of correct private execution and side-efects. The request is not broadcast however, and no gas is spent. It is typically used in testing contexts to inspect transaction parameters or check private execution failure.
+This creates and returns a transaction request, which includes proof of correct private execution and side-efects. The request is not broadcast however, and no gas is spent. It is typically used in testing contexts to inspect transaction parameters or to check for execution failure.
 
 #include_code local-tx-fails /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
+
+Like most Ethereum libraries, `prove` also simulates public execution to try to detect runtime errors that would only occur once the transaction is picked up by the sequencer. This makes `prove` very useful in testing environments, but users shuld be wary of both false positives and negatives in production environments, particularly if the node's data is stale. Public simulation can be skipped by setting the `skipPublicSimulation` flag.
 
 #### `send`
 
 This is the same as [`prove`](#prove) except it also broadcasts the transaction and returns a receipt. This is how transactions are sent, getting them to be included in blocks and spending gas. It is similar to [`eth_sendTransaction`](#eth_sendtransaction), except it also performs some work on the user's device, namely the production of the proof for the private part of the transaction.
 
 #include_code send_tx yarn-project/end-to-end/src/e2e_card_game.test.ts typescript
-
-Unlike many Ethereum client libraries, `send` does not first `simulate` the call, so when testing for expected public execution failure use `simulate` as `send` will broadcast a valid transaction that reverts.
