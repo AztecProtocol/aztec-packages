@@ -276,8 +276,6 @@ impl Instruction {
             | Load { .. }
             | Store { .. }
             | IncrementRc { .. }
-            | ArrayGet { .. }
-            | ArraySet { .. }
             | DecrementRc { .. }
             | RangeCheck { .. } => false,
 
