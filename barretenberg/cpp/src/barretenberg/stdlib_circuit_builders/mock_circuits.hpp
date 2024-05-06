@@ -4,7 +4,7 @@
 namespace bb {
 
 namespace {
-numeric::RNG& engine = numeric::get_debug_randomness();
+auto& engine = numeric::get_debug_randomness();
 }
 class MockCircuits {
   public:
