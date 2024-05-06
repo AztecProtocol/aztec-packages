@@ -53,7 +53,7 @@ class Goblin {
         HonkProof translator_proof;
         TranslationEvaluations translation_evaluations;
 
-        uint64_t size() const
+        size_t size() const
         {
             return merge_proof.size() + eccvm_proof.size() + translator_proof.size() + TranslationEvaluations::size();
         };

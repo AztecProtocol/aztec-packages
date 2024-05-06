@@ -6,7 +6,7 @@ namespace bb {
 struct TranslationEvaluations {
     fq op, Px, Py, z1, z2;
     static constexpr uint32_t NUM_EVALUATIONS = 5;
-    static std::uint32_t size() { return field_conversion::calc_num_bn254_frs<fq>() * NUM_EVALUATIONS; }
+    static size_t size() { return field_conversion::calc_num_bn254_frs<fq>() * NUM_EVALUATIONS; }
     std::vector<fr> to_buffer() const
     {
         std::vector<fr> result;
