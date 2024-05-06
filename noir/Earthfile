@@ -186,7 +186,6 @@ build-acir-tests:
     COPY .earthly-staging/noir-repo/test_programs /usr/src/noir-repo/test_programs/
     RUN /usr/src/noir-repo/target/release/nargo --version
     RUN ./rebuild.sh
-    RUN du -hs execution_success/eddsa/target/witness.gz
     SAVE ARTIFACT /usr/src/noir-repo/test_programs/acir_artifacts/*
 
 barretenberg-acir-tests-bb:
