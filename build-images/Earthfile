@@ -10,17 +10,18 @@ wasi-sdk-build:
       ninja-build \
       git \
       cargo
-  RUN git clone --depth 1 --recursive --branch wasi-sdk-22 https://github.com/WebAssembly/wasi-sdk.git
-  RUN mkdir -p /wasi-sdk/build/install/opt/wasi-sdk
-  WORKDIR /wasi-sdk
-  ENV MAKEFLAGS="-j$(nproc)"
-  RUN make build/llvm.BUILT
-  RUN make build/wasi-libc.BUILT
-  RUN make build/compiler-rt.BUILT
-  RUN make build/libcxx.BUILT
-  RUN make build/config.BUILT
-  RUN make build/version.BUILT
-  RUN mv build/install/opt/wasi-sdk /opt/wasi-sdk
+  RUN git clone --depth 1 --recursive --branch wasi-sdk-22 https://github.com/WebAssembly/wasi-sdk.git \
+      && mkdir -p /wasi-sdk/build/install/opt/wasi-sdk \
+      && cd /wasi-sdk \
+      && export MAKEFLAGS="-j$(nproc)" \
+      && make build/llvm.BUILT \
+      && make build/wasi-libc.BUILT \
+      && make build/compiler-rt.BUILT \
+      && make build/libcxx.BUILT \
+      && make build/config.BUILT \
+      && make build/version.BUILT \
+      && mv build/install/opt/wasi-sdk /opt/wasi-sdk \
+      && cd / && rm -rf /wasi-sdk
   SAVE ARTIFACT /opt/wasi-sdk /opt/wasi-sdk
 
 wasi-sdk:
@@ -230,9 +231,9 @@ basebox:
   COPY ./key-bindings.zsh /usr/share/doc/fzf/examples/key-bindings.zsh
 
   # Sets LANG explicitly. Ensures tmux shows unicode symbols.
-  # Sets RUSTUP_HOME.
-  # Adds foundry and cargo bin dirs to PATH.
-  COPY environment /etc/environment
+  ENV LANG=C.UTF-8
+  # Ensure we get color terminal.
+  ENV TERM=xterm-256color
 
   # Cargo home and bin path should be set within users home dir at login.
   RUN echo 'export CARGO_HOME="$HOME/.cargo"' >> /etc/zsh/zshenv
@@ -257,17 +258,8 @@ basebox:
 devbox:
   FROM +basebox
 
-  # Install docker client. Will use mounted host docker socket.
-  RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --batch --yes --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
-      && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
-          | tee /etc/apt/sources.list.d/docker.list > /dev/null \
-      && apt-get update && apt-get install -y docker-ce-cli
-  RUN curl -fsSL https://raw.githubusercontent.com/docker/docker-ce/master/components/cli/contrib/completion/bash/docker > /etc/bash_completion.d/docker.sh
-
   # Install gosu so we can start as root, adjust uid/gid, and then use gosu to become aztec-dev.
   RUN apt install -y gosu
-
-  ENV TERM=xterm-256color
 
   # Detect if the host machine is Mac, if so set an env var, and disable prompts vcs info for performance.
   RUN echo ' \
@@ -277,9 +269,8 @@ devbox:
     fi \
     ' >> /etc/zsh/zshrc
 
-  # Create the user we'll run as and become the user (remove ubuntu first).
+  # Create the user we'll run as (remove ubuntu first).
   RUN userdel -r ubuntu && useradd --shell /bin/zsh -G sudo -m aztec-dev
-  USER aztec-dev
   WORKDIR /home/aztec-dev
 
   # Add dotfiles.
@@ -289,10 +280,10 @@ devbox:
   ENV PATH=/home/aztec-dev/.npm-global/bin:$PATH
 
   # Need to ensure correct permissions, under some conditions these would otherwise be created by root.
-  RUN mkdir .vscode-server .npm-global .ssh
+  RUN mkdir .vscode-server .npm-global .ssh && chown aztec-dev:aztec-dev .*
 
-  # Switch back to root. Gives option for root runtime adjustments before becoming aztec-dev.
-  USER root
+  COPY install-docker.sh /install-docker.sh
+  RUN /install-docker.sh && rm /install-docker.sh
 
   # Use as entrypoint when running in an environment that requires uid/gid alignment (e.g. vanilla linux docker).
   COPY ./entrypoint.sh /entrypoint.sh
@@ -301,6 +292,8 @@ devbox:
 
   ARG TARGETARCH
   SAVE IMAGE --push aztecprotocol/devbox:1.0-$TARGETARCH
+  # Save it without the arch tag as this is what's referenced in devcontainer.json
+  SAVE IMAGE aztecprotocol/devbox:1.0
 
 devbox-manifest:
   LET VERSION = 1.0
@@ -395,7 +388,13 @@ sysbox:
   # Install google authenticator for setting up 2fa.
   RUN apt update && apt install -y libpam-google-authenticator
 
+  # We login to sysbox via ssh. This loses env vars set with ENV, so add them here.
+  # Sets RUSTUP_HOME.
+  # Adds foundry and cargo bin dirs to PATH.
+  COPY environment /etc/environment
+
   EXPOSE 22
 
   ARG TARGETARCH
   SAVE IMAGE aztecprotocol/sysbox:1.0-$TARGETARCH
+  SAVE IMAGE aztecprotocol/sysbox:1.0
