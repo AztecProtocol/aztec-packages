@@ -10,7 +10,8 @@ use dep::types::{
 },
     constants::{MAX_PUBLIC_DATA_HINTS, MAX_NULLIFIER_READ_REQUESTS_PER_TX},
     merkle_tree::{conditionally_assert_check_membership, MembershipWitness},
-    partial_state_reference::PartialStateReference, utils::{arrays::array_length}
+    partial_state_reference::PartialStateReference, utils::{arrays::array_length},
+    address::AztecAddress,
 };
 
 struct PublicKernelTailCircuitPrivateInputs {
