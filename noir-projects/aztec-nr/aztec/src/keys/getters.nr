@@ -7,7 +7,7 @@ use crate::{
 }
 };
 
-// Note: In fetch_key_from_registry we expect that shared mutable slow is index * 2 + 1 for x coordinate
+// Note: In fetch_key_from_registry we expect that the shared mutable slot is index * 2 + 1 for the x coordinate. For example, the npk_m x coordinates will be stored in a map at storage slot 1. (0) * 2 + 1 = 1, and the novk_m y coordinates will be stored in a map at storage slot 6. (2) * 2 + 2 = 6.
 // and index * 2 + 2 for the y coordinate. If this changes the function will need to be refactored.
 global NULLIFIER_INDEX = 0;
 global INCOMING_INDEX = 1;
