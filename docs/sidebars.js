@@ -260,25 +260,25 @@ const sidebars = {
             "developers/tutorials/token_portal/typescript_glue_code",
           ],
         },
-        {
-          label: "Swap on L1 Uniswap from L2 with Portals",
-          type: "category",
-          link: {
-            type: "doc",
-            id: "developers/tutorials/uniswap/main",
-          },
-          items: [
-            "developers/tutorials/uniswap/setup",
-            "developers/tutorials/uniswap/l1_portal",
-            "developers/tutorials/uniswap/l2_contract_setup",
-            "developers/tutorials/uniswap/swap_publicly",
-            "developers/tutorials/uniswap/execute_public_swap_on_l1",
-            "developers/tutorials/uniswap/swap_privately",
-            "developers/tutorials/uniswap/execute_private_swap_on_l1",
-            "developers/tutorials/uniswap/redeeming_swapped_assets_on_l2",
-            "developers/tutorials/uniswap/typescript_glue_code",
-          ],
-        },
+        // { // temporarily removing as it is very very messy with monorepo references. we need to write new ts for this
+        //   label: "Swap on L1 Uniswap from L2 with Portals",
+        //   type: "category",
+        //   link: {
+        //     type: "doc",
+        //     id: "developers/tutorials/uniswap/main",
+        //   },
+        //   items: [
+        //     "developers/tutorials/uniswap/setup",
+        //     "developers/tutorials/uniswap/l1_portal",
+        //     "developers/tutorials/uniswap/l2_contract_setup",
+        //     "developers/tutorials/uniswap/swap_publicly",
+        //     "developers/tutorials/uniswap/execute_public_swap_on_l1",
+        //     "developers/tutorials/uniswap/swap_privately",
+        //     "developers/tutorials/uniswap/execute_private_swap_on_l1",
+        //     "developers/tutorials/uniswap/redeeming_swapped_assets_on_l2",
+        //     "developers/tutorials/uniswap/typescript_glue_code",
+        //   ],
+        // },
         "developers/tutorials/testing",
       ],
     },
@@ -437,6 +437,7 @@ const sidebars = {
               items: [
                 "developers/contracts/references/storage/private_state",
                 "developers/contracts/references/storage/public_state",
+                "developers/contracts/references/storage/shared_state",
               ],
             },
             {

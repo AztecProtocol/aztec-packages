@@ -55,7 +55,13 @@ import { KeyRegistryContract } from '@aztec/noir-contracts.js';
 import { GasTokenContract } from '@aztec/noir-contracts.js/GasToken';
 import { getCanonicalGasToken, getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
-import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import {
+  type BBNativeProofCreator,
+  PXEService,
+  type PXEServiceConfig,
+  createPXEService,
+  getPXEServiceConfig,
+} from '@aztec/pxe';
 import { type SequencerClient } from '@aztec/sequencer-client';
 
 import { type Anvil, createAnvil } from '@viem/anvil';
@@ -87,6 +93,9 @@ const {
   TEMP_DIR = '/tmp',
   ACVM_BINARY_PATH = '',
   ACVM_WORKING_DIRECTORY = '',
+  BB_BINARY_PATH = '',
+  BB_WORKING_DIRECTORY = '',
+  BB_RELEASE_DIR = 'cpp/build/bin',
 } = process.env;
 
 const getAztecUrl = () => {
@@ -111,6 +120,28 @@ const getACVMConfig = async (logger: DebugLogger) => {
     };
   } catch (err) {
     logger.error(`Native ACVM not available, error: ${err}`);
+    return undefined;
+  }
+};
+
+// Determines if we have access to the bb binary and a tmp folder for temp files
+export const getBBConfig = async (logger: DebugLogger) => {
+  try {
+    const expectedBBPath = BB_BINARY_PATH
+      ? BB_BINARY_PATH
+      : `${path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../barretenberg/', BB_RELEASE_DIR)}/bb`;
+    await fs.access(expectedBBPath, fs.constants.R_OK);
+    const tempWorkingDirectory = `${TEMP_DIR}/${randomBytes(4).toString('hex')}`;
+    const bbWorkingDirectory = BB_WORKING_DIRECTORY ? BB_WORKING_DIRECTORY : `${tempWorkingDirectory}/bb`;
+    await fs.mkdir(bbWorkingDirectory, { recursive: true });
+    logger.info(`Using native BB binary at ${expectedBBPath} with working directory ${bbWorkingDirectory}`);
+    return {
+      bbWorkingDirectory,
+      expectedBBPath,
+      directoryToCleanup: BB_WORKING_DIRECTORY ? undefined : tempWorkingDirectory,
+    };
+  } catch (err) {
+    logger.error(`Native BB not available, error: ${err}`);
     return undefined;
   }
 };
@@ -182,6 +213,7 @@ async function initGasBridge({ walletClient, l1ContractAddresses }: DeployL1Cont
  * @param firstPrivKey - The private key of the first account to be created.
  * @param logger - The logger to be used.
  * @param useLogSuffix - Whether to add a randomly generated suffix to the PXE debug logs.
+ * @param proofCreator - An optional proof creator to use
  * @returns Private eXecution Environment (PXE), accounts, wallets and logger.
  */
 export async function setupPXEService(
@@ -190,11 +222,12 @@ export async function setupPXEService(
   opts: Partial<PXEServiceConfig> = {},
   logger = getLogger(),
   useLogSuffix = false,
+  proofCreator?: BBNativeProofCreator,
 ): Promise<{
   /**
    * The PXE instance.
    */
-  pxe: PXE;
+  pxe: PXEService;
   /**
    * The wallets to be used.
    */
@@ -209,7 +242,7 @@ export async function setupPXEService(
   teardown: () => Promise<void>;
 }> {
   const pxeServiceConfig = { ...getPXEServiceConfig(), ...opts };
-  const pxe = await createPXEService(aztecNode, pxeServiceConfig, useLogSuffix);
+  const pxe = await createPXEService(aztecNode, pxeServiceConfig, useLogSuffix, proofCreator);
 
   const wallets = await createAccounts(pxe, numberOfAccounts);
 
@@ -568,8 +601,9 @@ export function getBalancesFn(
   symbol: string,
   method: ContractMethod,
   logger: any,
-): (...addresses: AztecAddress[]) => Promise<bigint[]> {
-  const balances = async (...addresses: AztecAddress[]) => {
+): (...addresses: (AztecAddress | { address: AztecAddress })[]) => Promise<bigint[]> {
+  const balances = async (...addressLikes: (AztecAddress | { address: AztecAddress })[]) => {
+    const addresses = addressLikes.map(addressLike => ('address' in addressLike ? addressLike.address : addressLike));
     const b = await Promise.all(addresses.map(address => method(address).simulate()));
     const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
     logger.verbose(debugString);
@@ -591,6 +625,20 @@ export async function expectMapping<K, V>(
   expect(outputs).toEqual(expectedOutputs);
 }
 
+export async function expectMappingDelta<K, V extends number | bigint>(
+  initialValues: V[],
+  fn: (...k: K[]) => Promise<V[]>,
+  inputs: K[],
+  expectedDiffs: V[],
+): Promise<void> {
+  expect(inputs.length).toBe(expectedDiffs.length);
+
+  const outputs = await fn(...inputs);
+  const diffs = outputs.map((output, i) => output - initialValues[i]);
+
+  expect(diffs).toEqual(expectedDiffs);
+}
+
 /**
  * Deploy the protocol contracts to a running instance.
  */
@@ -600,12 +648,16 @@ export async function deployCanonicalGasToken(deployer: Wallet) {
   const canonicalGasToken = getCanonicalGasToken(gasPortalAddress);
 
   if (await deployer.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)) {
+    getLogger().debug('Gas token already deployed');
+    await expect(deployer.isContractPubliclyDeployed(canonicalGasToken.address)).resolves.toBe(true);
     return;
   }
 
   const gasToken = await GasTokenContract.deploy(deployer, gasPortalAddress)
     .send({ contractAddressSalt: canonicalGasToken.instance.salt, universalDeploy: true })
     .deployed();
+
+  getLogger().info(`Gas token publicly deployed at ${gasToken.address}`);
 
   await expect(deployer.isContractClassPubliclyRegistered(gasToken.instance.contractClassId)).resolves.toBe(true);
   await expect(deployer.getContractInstance(gasToken.address)).resolves.toBeDefined();

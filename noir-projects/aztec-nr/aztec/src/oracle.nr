@@ -11,6 +11,7 @@ mod get_nullifier_membership_witness;
 mod get_public_data_witness;
 mod get_membership_witness;
 mod get_public_key;
+mod keys;
 mod nullifier_key;
 mod get_sibling_path;
 mod unsafe_rand;
@@ -20,6 +21,7 @@ mod public_call;
 mod notes;
 mod storage;
 mod logs;
+mod logs_traits;
 mod returns;
 
 // debug_log oracle is used by both noir-protocol-circuits and this crate and for this reason we just re-export it

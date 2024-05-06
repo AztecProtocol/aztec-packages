@@ -4,16 +4,14 @@ use std::{
     fmt::{Formatter, Result},
 };
 
-use acvm::acir::circuit::STRING_ERROR_SELECTOR;
+use acvm::acir::circuit::{ErrorSelector, STRING_ERROR_SELECTOR};
 use iter_extended::vecmap;
 
 use super::{
     basic_block::BasicBlockId,
     dfg::DataFlowGraph,
     function::Function,
-    instruction::{
-        ConstrainError, ErrorSelector, Instruction, InstructionId, TerminatorInstruction,
-    },
+    instruction::{ConstrainError, Instruction, InstructionId, TerminatorInstruction},
     value::{Value, ValueId},
 };
 
@@ -183,7 +181,7 @@ fn display_instruction_inner(
             let index = show(*index);
             let value = show(*value);
             let mutable = if *mutable { " mut" } else { "" };
-            writeln!(f, "array_set{mutable} {array}, index {index}, value {value}",)
+            writeln!(f, "array_set{mutable} {array}, index {index}, value {value}")
         }
         Instruction::IncrementRc { value } => {
             writeln!(f, "inc_rc {}", show(*value))
@@ -194,6 +192,16 @@ fn display_instruction_inner(
         Instruction::RangeCheck { value, max_bit_size, .. } => {
             writeln!(f, "range_check {} to {} bits", show(*value), *max_bit_size,)
         }
+        Instruction::IfElse { then_condition, then_value, else_condition, else_value } => {
+            let then_condition = show(*then_condition);
+            let then_value = show(*then_value);
+            let else_condition = show(*else_condition);
+            let else_value = show(*else_value);
+            writeln!(
+                f,
+                "if {then_condition} then {then_value} else if {else_condition} then {else_value}"
+            )
+        }
     }
 }
 
@@ -203,7 +211,7 @@ pub(crate) fn try_to_extract_string_from_error_payload(
     values: &[ValueId],
     dfg: &DataFlowGraph,
 ) -> Option<String> {
-    ((error_selector.to_u64() == STRING_ERROR_SELECTOR) && (values.len() == 1))
+    ((error_selector == STRING_ERROR_SELECTOR) && (values.len() == 1))
         .then_some(())
         .and_then(|()| {
             let Value::Array { array: values, .. } = &dfg[values[0]] else {
