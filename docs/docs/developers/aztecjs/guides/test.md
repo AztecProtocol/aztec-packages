@@ -42,6 +42,14 @@ You can use `aztec.js` to write assertions about transaction statuses, about cha
 
 ## Import relevant libraries
 
+You will need to import `aztecjs` package. This is an example of some functions and types you might need in your test:
+
+#include_code imports /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
+
+You should also import the Typescript class you generated from the `codegen`:
+
+#include_code import_contract /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
+
 ## Run local sandbox and fetch it in your TS
 
 You will need to run your sandbox locally to test against it:
@@ -50,8 +58,9 @@ You will need to run your sandbox locally to test against it:
 aztec-sandbox
 ```
 
-Then you can fetch it in your test:
-<!--  TODO include code -->
+Then you can create a PXE client to use in your tests:
+
+#include_code create_pxe_client /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
 and use the accounts that are initialized with it:
 
@@ -100,10 +109,6 @@ We can have private transactions that work fine locally, but are dropped by the 
 
 Public function calls can be caught failing locally similar to how we catch private function calls. For this example, we use a [`TokenContract`](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) instead of a private one.
 
-:::info
-Keep in mind that public function calls behave as in EVM blockchains, in that they are executed by the sequencer and not locally. Local simulation helps alert the user of a potential failure, but the actual execution path of a public function call will depend on when it gets mined.
-:::
-
 #include_code local-pub-fails /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
 #### A public call fails on the sequencer
@@ -118,7 +123,7 @@ WARN Error processing tx 06dc87c4d64462916ea58426ffcfaf20017880b353c9ec3e0f0ee5f
 
 ### Querying state
 
-We can check private or public state directly rather than going through view-only methods, as we did in the initial example by calling `token.methods.balance().simulate()`. Bear in mind that directly accessing contract storage will break any kind of encapsulation.
+We can check private or public state directly rather than going through view-only methods, as we did in the initial example by calling `token.methods.balance().simulate()`.
 
 To query storage directly, you'll need to know the slot you want to access. This can be checked in the [contract's `Storage` definition](../contracts/writing_contracts/storage/main.md) directly for most data types. However, when it comes to mapping types, as in most EVM languages, we'll need to calculate the slot for a given key. To do this, we'll use the [`CheatCodes`](../sandbox/references/cheat_codes.md) utility class:
 
@@ -126,31 +131,23 @@ To query storage directly, you'll need to know the slot you want to access. This
 
 #### Querying private state
 
-Private state in the Aztec Network is represented via sets of [private notes](../../learn/concepts/hybrid_state/main.md#private-state). In our token contract example, the balance of a user is represented as a set of unspent value notes, each with their own corresponding numeric value.
-
-#include_code value-note-def noir-projects/aztec-nr/value-note/src/value_note.nr rust
-
-We can query the Private eXecution Environment (PXE) for all notes encrypted for a given user in a contract slot. For this example, we'll get all notes encrypted for the `owner` user that are stored on the token contract address and on the slot we calculated earlier. To calculate the actual balance, we extract the `value` of each note, which is the first element, and sum them up.
+Private state in the Aztec is represented via sets of [private notes](../../learn/concepts/hybrid_state/main.md#private-state). We can query the Private Execution Environment (PXE) for all notes encrypted for a given user in a contract slot. For example, this gets all notes encrypted for the `owner` user that are stored on the token contract address and on the slot that was calculated earlier. To calculate the actual balance, it extracts the `value` of each note, which is the first element, and sums them up.
 
 #include_code private-storage /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
 #### Querying public state
 
-[Public state](../../learn/concepts/hybrid_state/main.md#public-state) behaves as a key-value store, much like in the EVM. This scenario is much more straightforward, in that we can directly query the target slot and get the result back as a buffer. Note that we use the [`TokenContract`](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) in this example, which defines a mapping of public balances on slot 6.
+[Public state](../../learn/concepts/hybrid_state/main.md#public-state) behaves as a key-value store, much like in the EVM. We can directly query the target slot and get the result back as a buffer. Note that we use the [`TokenContract`](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) in this example, which defines a mapping of public balances on slot 6.
 
 #include_code public-storage /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
 ### Logs
 
-Last but not least, we can check the logs of [events](../contracts/writing_contracts/events/emit_event.md) emitted by our contracts. Contracts in Aztec can emit both [encrypted](../contracts/writing_contracts/events/emit_event.md#encrypted-events) and [unencrypted](../contracts/writing_contracts/events/emit_event.md#unencrypted-events) events.
-
-:::info
-At the time of this writing, only unencrypted events can be queried directly. Encrypted events are always assumed to be encrypted notes.
-:::
+You can check the logs of [events](../contracts/writing_contracts/events/emit_event.md) emitted by contracts. Contracts in Aztec can emit both [encrypted](../contracts/writing_contracts/events/emit_event.md#encrypted-events) and [unencrypted](../contracts/writing_contracts/events/emit_event.md#unencrypted-events) events.
 
 #### Querying unencrypted logs
 
-We can query the PXE for the unencrypted logs emitted in the block where our transaction is mined. Note that logs need to be unrolled and formatted as strings for consumption.
+We can query the PXE for the unencrypted logs emitted in the block where our transaction is mined. Logs need to be unrolled and formatted as strings for consumption.
 
 #include_code unencrypted-logs /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
@@ -168,6 +165,11 @@ We can then call `warp` and rely on the `isTimeEqual` function to check that the
 
 #include_code warp /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
-:::info
-The `warp` method calls `evm_setNextBlockTimestamp` under the hood on L1.
-:::
+## Further reading
+
+* [How to call a view transactions in Aztec.js]()
+* [How to send a transactions in Aztec.js]()
+* [How to deploy a contract in Aztec.js]()
+* [How to create an account in Aztec.js]()
+* [Cheat codes](../../sandbox/references/cheat_codes.md)
+* [How to compile a contract](../../contracts/compiling_contracts/how_to_compile_contract.md).
