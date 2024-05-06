@@ -116,15 +116,15 @@ Since the public call is made asynchronously, any return values or side effects 
 
 It is also possible to create public functions that can _only_ be invoked by privately enqueing a call from the same contract, which can very useful to update public state after private exection (e.g. update a token's supply after privately minting). This is achieved by annotating functions with `#[aztec(internal)]`.
 
-:::warning
-Calling public functions privately leaks some privacy! The caller of the function and all arguments will be revelead, so exercise care when mixing the private and public domains.
-:::
-
 A common pattern is to enqueue public calls to check some validity condition on public state, e.g. that a deadline has not expired or that some public value is set.
 
-#include_code enqueue_check /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
+#include_code call-check-deadline /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
 
-To learn about alternative ways to acess public state privately, look into [Shared State](../../developers/contracts/references/storage/shared_state.md).
+#include_code deadline /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
+
+:::warning
+Calling public functions privately leaks some privacy! The caller of the function and all arguments will be revelead, so exercise care when mixing the private and public domains. To learn about alternative ways to access public state privately, look into [Shared State](../../developers/contracts/references/storage/shared_state.md).
+:::
 
 ### Public Execution
 
