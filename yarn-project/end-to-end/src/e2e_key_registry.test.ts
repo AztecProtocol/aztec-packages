@@ -66,7 +66,7 @@ describe('Key Registry', () => {
         masterTaggingPublicKey,
       ];
 
-      // we randomly invalidate some of the keys
+      // We randomly invalidate some of the keys
       keys[Math.floor(Math.random() * keys.length)] = Point.random();
 
       await expect(
@@ -160,6 +160,7 @@ describe('Key Registry', () => {
       expect(new Fr(nullifierPublicKeyX)).toEqual(masterNullifierPublicKey.x);
     });
 
+    // Note: This test case is dependent on state from the previous one
     it('key lib succeeds for registered account', async () => {
       // Should succeed as the account is registered in key registry from tests before
       await testContract.methods.test_nullifier_key_freshness(account, masterNullifierPublicKey).send().wait();
@@ -177,8 +178,8 @@ describe('Key Registry', () => {
         .send()
         .wait();
 
-      // We check if our rotated nullifier key is equal to the key obtained from the getter by
-      // reading our registry contract from the test contract. We expect this to fail because the change has not been applied yet
+      // We check if our rotated nullifier key is equal to the key obtained from the getter by reading our registry
+      // contract from the test contract. We expect this to fail because the change has not been applied yet
       const emptyNullifierPublicKeyX = await testContract.methods
         .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
         .simulate();
