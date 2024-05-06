@@ -570,9 +570,9 @@ mod tests {
         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
         let public_inputs = builder.execute();
 
-        // let expected_gas_consumed = Gas::new(300, 300) // teardown gas
-        //     + Gas::tx_overhead() // tx overhead
-        //     + Gas::new(DA_GAS_PER_BYTE * DA_BYTES_PER_FIELD * 1, 0); // tx nullifier
+        let expected_gas_consumed = Gas::new(300, 300) // teardown gas
+            + Gas::tx_overhead() // tx overhead
+            + Gas::new(DA_GAS_PER_BYTE * DA_BYTES_PER_FIELD * 1, 0); // tx nullifier
         assert_eq(public_inputs.end.gas_used, expected_gas_consumed);
     }
 
