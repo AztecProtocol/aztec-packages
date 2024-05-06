@@ -302,13 +302,15 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
  */
 void gateCount(const std::string& bytecodePath)
 {
-    auto constraint_system = get_constraint_system(bytecodePath);
-    acir_proofs::AcirComposer acir_composer(0, verbose);
-    acir_composer.create_circuit(constraint_system);
-    auto gate_count = acir_composer.get_total_circuit_size();
+    auto constraint_systems = get_constraint_systems(bytecodePath);
+    for (auto constraint_system : constraint_systems) {
+        acir_proofs::AcirComposer acir_composer(0, verbose);
+        acir_composer.create_circuit(constraint_system);
+        auto gate_count = acir_composer.get_total_circuit_size();
 
-    writeUint64AsRawBytesToStdout(static_cast<uint64_t>(gate_count));
-    vinfo("gate count: ", gate_count);
+        writeUint64AsRawBytesToStdout(static_cast<uint64_t>(gate_count));
+        vinfo("gate count: ", gate_count);
+    }
 }
 
 /**
