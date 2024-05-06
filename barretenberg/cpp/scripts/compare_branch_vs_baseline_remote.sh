@@ -35,8 +35,9 @@ echo -e "\nRunning benchmark in feature branch.."
                               "./$BENCHMARK --benchmark_filter=$FILTER\
                                             --benchmark_out=results_after.json\
                                             --benchmark_out_format=json"\
-                              $PRESET
+                              $PRESET\
                               $BUILD_DIR
+
 scp $BB_SSH_KEY $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build/results_after.json $BUILD_DIR/
 
 # Configure and build benchmark in $BASELINE branch
@@ -51,8 +52,9 @@ echo -e "\nRunning benchmark in feature branch.."
                               "./$BENCHMARK --benchmark_filter=$FILTER\
                                             --benchmark_out=results_before.json\
                                             --benchmark_out_format=json"\
-                              $PRESET
+                              $PRESET\
                               $BUILD_DIR
+
 scp $BB_SSH_KEY $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build/results_before.json $BUILD_DIR/
 
 # Call compare.py on the results (json) to get high level statistics.
