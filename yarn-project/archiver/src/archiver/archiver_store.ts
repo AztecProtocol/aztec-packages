@@ -1,25 +1,28 @@
 import {
-  Body,
-  GetUnencryptedLogsResponse,
-  InboxLeaf,
-  L2Block,
-  L2BlockL2Logs,
-  LogFilter,
-  LogType,
-  TxEffect,
-  TxHash,
-  TxReceipt,
+  type Body,
+  type EncryptedL2BlockL2Logs,
+  type FromLogType,
+  type GetUnencryptedLogsResponse,
+  type InboxLeaf,
+  type L2Block,
+  type L2BlockL2Logs,
+  type LogFilter,
+  type LogType,
+  type TxEffect,
+  type TxHash,
+  type TxReceipt,
+  type UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type Fr } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import {
-  ContractClassPublic,
-  ContractInstanceWithAddress,
-  ExecutablePrivateFunctionWithMembershipProof,
-  UnconstrainedFunctionWithMembershipProof,
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
+  type ExecutablePrivateFunctionWithMembershipProof,
+  type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
-import { DataRetrieval } from './data_retrieval.js';
+import { type DataRetrieval } from './data_retrieval.js';
 
 /**
  * Represents the latest L1 block processed by the archiver for various objects in L2.
@@ -88,8 +91,8 @@ export interface ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addLogs(
-    encryptedLogs: L2BlockL2Logs | undefined,
-    unencryptedLogs: L2BlockL2Logs | undefined,
+    encryptedLogs: EncryptedL2BlockL2Logs | undefined,
+    unencryptedLogs: UnencryptedL2BlockL2Logs | undefined,
     blockNumber: number,
   ): Promise<boolean>;
 
@@ -122,7 +125,11 @@ export interface ArchiverDataStore {
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]>;
+  getLogs<TLogType extends LogType>(
+    from: number,
+    limit: number,
+    logType: TLogType,
+  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
 
   /**
    * Gets unencrypted logs based on the provided filter.

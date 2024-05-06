@@ -75,25 +75,6 @@ pub fn array_cp<T, N, S>(array: [T; N]) -> [T; S] where T: Empty {
     result
 }
 
-pub fn array_concat<T, N, S, M>(array1: [T; N], array2: [T; S]) -> [T; M] where T: Empty + Eq {
-    assert(N + S <= M, "combined array length exceeds length of return array");
-    let mut result: [T; M] = [T::empty(); M];
-    let mut i = 0;
-    for elem in array1 {
-        if !is_empty(elem) {
-            result[i] = elem;
-            i += 1;
-        }
-    }
-    for elem in array2 {
-        if !is_empty(elem) {
-            result[i] = elem;
-            i += 1;
-        }
-    }
-    result
-}
-
 pub fn array_merge<T, N>(array1: [T; N], array2: [T; N]) -> [T; N] where T: Empty + Eq {
     let mut result: [T; N] = [T::empty(); N];
     let mut i = 0;
@@ -153,7 +134,7 @@ pub fn assert_sorted_array<T, N, Env>(
 
 #[test]
 fn smoke_validate_array() {
-    let valid_array = [];
+    let valid_array: [Field; 0] = [];
     validate_array(valid_array);
 
     let valid_array = [0];
@@ -183,7 +164,8 @@ fn smoke_validate_array_invalid_case2() {
 
 #[test]
 fn test_empty_array_length() {
-    assert_eq(array_length([]), 0);
+    let empty_array: [Field; 0] = [];
+    assert_eq(array_length(empty_array), 0);
     assert_eq(array_length([0]), 0);
     assert_eq(array_length([0, 0, 0]), 0);
 }

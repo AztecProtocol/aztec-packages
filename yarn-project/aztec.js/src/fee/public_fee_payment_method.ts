@@ -1,12 +1,12 @@
-import { FunctionCall } from '@aztec/circuit-types';
-import { FunctionData } from '@aztec/circuits.js';
+import { type FunctionCall } from '@aztec/circuit-types';
+import { FunctionData, type GasSettings } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { computeAuthWitMessageHash } from '../utils/authwit.js';
-import { AccountWallet } from '../wallet/account_wallet.js';
-import { FeePaymentMethod } from './fee_payment_method.js';
+import { type AccountWallet } from '../wallet/account_wallet.js';
+import { type FeePaymentMethod } from './fee_payment_method.js';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.
@@ -46,12 +46,12 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
 
   /**
    * Creates a function call to pay the fee in the given asset.
-   * @param maxFee - The maximum fee to be paid in the given asset.
+   * @param gasSettings - The gas settings.
    * @returns The function call to pay the fee.
    */
-  getFunctionCalls(maxFee: Fr): Promise<FunctionCall[]> {
+  getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
     const nonce = Fr.random();
-
+    const maxFee = gasSettings.getFeeLimit();
     const messageHash = computeAuthWitMessageHash(
       this.paymentContract,
       this.wallet.getChainId(),

@@ -1,14 +1,22 @@
-import { Body, L2Block, L2BlockL2Logs, LogType } from '@aztec/circuit-types';
+import { type Body, EncryptedL2BlockL2Logs, L2Block, LogType, UnencryptedL2BlockL2Logs } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
-import { AvailabilityOracleAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { AvailabilityOracleAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
-import { MockProxy, mock } from 'jest-mock-extended';
-import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
+import { type MockProxy, mock } from 'jest-mock-extended';
+import {
+  type Chain,
+  type HttpTransport,
+  type Log,
+  type PublicClient,
+  type Transaction,
+  encodeFunctionData,
+  toHex,
+} from 'viem';
 
 import { Archiver } from './archiver.js';
-import { ArchiverDataStore } from './archiver_store.js';
+import { type ArchiverDataStore } from './archiver_store.js';
 import { MemoryArchiverStore } from './memory_archiver_store/memory_archiver_store.js';
 
 describe('Archiver', () => {
@@ -39,7 +47,7 @@ describe('Archiver', () => {
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
-    const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, x * 2, x * 3));
+    const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, 2, 2));
     const publishTxs = blocks.map(block => block.body).map(makePublishTx);
     const rollupTxs = blocks.map(makeRollupTx);
 
@@ -101,8 +109,8 @@ describe('Archiver', () => {
     expect(encryptedLogs.length).toEqual(blockNumbers.length);
 
     for (const [index, x] of blockNumbers.entries()) {
-      const expectedTotalNumEncryptedLogs = 4 * x * (x * 2);
-      const totalNumEncryptedLogs = L2BlockL2Logs.unrollLogs([encryptedLogs[index]]).length;
+      const expectedTotalNumEncryptedLogs = 4 * x * 2;
+      const totalNumEncryptedLogs = EncryptedL2BlockL2Logs.unrollLogs([encryptedLogs[index]]).length;
       expect(totalNumEncryptedLogs).toEqual(expectedTotalNumEncryptedLogs);
     }
 
@@ -110,8 +118,8 @@ describe('Archiver', () => {
     expect(unencryptedLogs.length).toEqual(blockNumbers.length);
 
     blockNumbers.forEach((x, index) => {
-      const expectedTotalNumUnencryptedLogs = 4 * (x + 1) * (x * 3);
-      const totalNumUnencryptedLogs = L2BlockL2Logs.unrollLogs([unencryptedLogs[index]]).length;
+      const expectedTotalNumUnencryptedLogs = 4 * (x + 1) * 2;
+      const totalNumUnencryptedLogs = UnencryptedL2BlockL2Logs.unrollLogs([unencryptedLogs[index]]).length;
       expect(totalNumUnencryptedLogs).toEqual(expectedTotalNumUnencryptedLogs);
     });
 
@@ -133,7 +141,7 @@ describe('Archiver', () => {
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
-    const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, x * 2, x * 3));
+    const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, 2, 2));
 
     const publishTxs = blocks.map(block => block.body).map(makePublishTx);
     const rollupTxs = blocks.map(makeRollupTx);

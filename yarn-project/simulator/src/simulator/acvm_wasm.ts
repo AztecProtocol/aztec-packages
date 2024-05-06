@@ -1,9 +1,14 @@
-import { NoirCompiledCircuit } from '@aztec/types/noir';
+import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types';
+import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
-import { WasmBlackBoxFunctionSolver, createBlackBoxSolver, executeCircuitWithBlackBoxSolver } from '@noir-lang/acvm_js';
-import { WitnessMap } from '@noir-lang/types';
+import {
+  type WasmBlackBoxFunctionSolver,
+  createBlackBoxSolver,
+  executeCircuitWithBlackBoxSolver,
+} from '@noir-lang/acvm_js';
+import { type WitnessMap } from '@noir-lang/types';
 
-import { SimulationProvider } from './simulation_provider.js';
+import { type SimulationProvider } from './simulation_provider.js';
 
 let solver: Promise<WasmBlackBoxFunctionSolver>;
 
@@ -22,9 +27,12 @@ export class WASMSimulator implements SimulationProvider {
     const decodedBytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
     //
     // Execute the circuit
-    const _witnessMap = await executeCircuitWithBlackBoxSolver(await getSolver(), decodedBytecode, input, () => {
-      throw Error('unexpected oracle during execution');
-    });
+    const _witnessMap = await executeCircuitWithBlackBoxSolver(
+      await getSolver(),
+      decodedBytecode,
+      input,
+      foreignCallHandler, // handle calls to debug_log
+    );
 
     return _witnessMap;
   }

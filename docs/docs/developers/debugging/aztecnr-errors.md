@@ -45,7 +45,7 @@ To address the error. find the line in the contract that is throwing the error a
 
 This error occurs when you are trying to interact with a smart contract via an Private Execution Environment (PXE) that does not have the necessary information to execute a transaction.
 
-To execute a transaction, the PXE needs to know the complete address of a contract, portal address (if portal is used) and contract artifacts.
+To execute a transaction, the PXE needs to know the complete address of a contract and contract artifacts.
 
 To address the error, add the contract to the PXE by calling [`pxe.addContracts(...)`](../../apis/pxe/interfaces/PXE.md#addcontracts).
 
@@ -67,7 +67,7 @@ This error occurs when your contract is trying to get a secret via the `get_secr
 This error might occur when you register an account only as a recipient and not as an account.
 To address the error, register the account by calling `server.registerAccount(...)`.
 
-#### `Failed to solve brillig function, reason: explicit trap hit in brillig 'self._is_some`
+#### `Failed to solve brillig function 'self._is_some`
 
 You may encounter this error when trying to send a transaction that is using an invalid contract. The contract may compile without errors and you only encounter this when sending the transaction.
 

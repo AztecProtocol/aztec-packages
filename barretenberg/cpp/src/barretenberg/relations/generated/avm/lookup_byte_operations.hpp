@@ -60,7 +60,7 @@ class lookup_byte_operations_lookup_settings {
      * @brief The polynomial degree of the relation telling us if the inverse polynomial value needs to be computed
      *
      */
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 2;
+    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
 
     /**
      * @brief The degree of the read term if implemented arbitrarily. This value is not used by basic and scaled read
@@ -138,9 +138,9 @@ class lookup_byte_operations_lookup_settings {
                                      in.avm_binary_bin_sel,
                                      in.avm_byte_lookup_bin_sel,
                                      in.avm_binary_op_id,
-                                     in.avm_binary_bin_ia_bytes,
-                                     in.avm_binary_bin_ib_bytes,
-                                     in.avm_binary_bin_ic_bytes,
+                                     in.avm_binary_ia_bytes,
+                                     in.avm_binary_ib_bytes,
+                                     in.avm_binary_ic_bytes,
                                      in.avm_byte_lookup_table_op_id,
                                      in.avm_byte_lookup_table_input_a,
                                      in.avm_byte_lookup_table_input_b,
@@ -162,9 +162,9 @@ class lookup_byte_operations_lookup_settings {
                                      in.avm_binary_bin_sel,
                                      in.avm_byte_lookup_bin_sel,
                                      in.avm_binary_op_id,
-                                     in.avm_binary_bin_ia_bytes,
-                                     in.avm_binary_bin_ib_bytes,
-                                     in.avm_binary_bin_ic_bytes,
+                                     in.avm_binary_ia_bytes,
+                                     in.avm_binary_ib_bytes,
+                                     in.avm_binary_ic_bytes,
                                      in.avm_byte_lookup_table_op_id,
                                      in.avm_byte_lookup_table_input_a,
                                      in.avm_byte_lookup_table_input_b,

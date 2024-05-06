@@ -1,6 +1,6 @@
 import { fileURLToPath } from '@aztec/aztec.js';
-import { ServerList, createNamespacedJsonRpcServer, createStatusRouter } from '@aztec/foundation/json-rpc/server';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { type ServerList, createNamespacedJsonRpcServer, createStatusRouter } from '@aztec/foundation/json-rpc/server';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
@@ -56,6 +56,9 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
       } else if (options.p2pBootstrap) {
         const { startP2PBootstrap } = await import('./cmds/start_p2p_bootstrap.js');
         await startP2PBootstrap(options, signalHandlers, userLog, debugLogger);
+      } else if (options.prover) {
+        const { startProver } = await import('./cmds/start_prover.js');
+        services = await startProver(options, signalHandlers, userLog);
       }
       if (services.length) {
         const rpcServer = createNamespacedJsonRpcServer(services, debugLogger);
@@ -69,7 +72,7 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
         httpServer.listen(options.port);
         userLog(`Aztec Server listening on port ${options.port}`);
       }
-      installSignalHandlers(debugLogger, signalHandlers);
+      installSignalHandlers(debugLogger.info, signalHandlers);
     });
   return program;
 }

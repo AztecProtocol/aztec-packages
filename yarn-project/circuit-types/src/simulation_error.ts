@@ -1,5 +1,5 @@
-import { AztecAddress, FunctionSelector } from '@aztec/circuits.js';
-import { OpcodeLocation } from '@aztec/foundation/abi';
+import { type AztecAddress, type FunctionSelector } from '@aztec/circuits.js';
+import { type OpcodeLocation } from '@aztec/foundation/abi';
 
 /**
  * Address and selector of a function that failed during simulation.
@@ -72,6 +72,8 @@ export class SimulationError extends Error {
     options?: ErrorOptions,
   ) {
     super(originalMessage, options);
+    const getMessage = () => this.getMessage();
+    const getStack = () => this.getStack();
     Object.defineProperties(this, {
       message: {
         configurable: false,
@@ -82,7 +84,7 @@ export class SimulationError extends Error {
          * @returns The message.
          */
         get() {
-          return this.getMessage();
+          return getMessage();
         },
       },
       stack: {
@@ -93,7 +95,7 @@ export class SimulationError extends Error {
          * @returns The stack.
          */
         get() {
-          return this.getStack();
+          return getStack();
         },
       },
     });

@@ -48,6 +48,8 @@ import {Hash} from "./Hash.sol";
  *  | 0x0194                                                                           | 0x20         |     timestamp
  *  | 0x01b4                                                                           | 0x14         |     coinbase
  *  | 0x01c8                                                                           | 0x20         |     feeRecipient
+ *  | 0x01e8                                                                           | 0x20         |     gasFees.feePerDaGas
+ *  | 0x0208                                                                           | 0x20         |     gasFees.feePerL2Gas
  *  |                                                                                  |              |   }
  *  |                                                                                  |              | }
  *  | ---                                                                              | ---          | ---
@@ -67,8 +69,13 @@ library HeaderLib {
 
   struct StateReference {
     AppendOnlyTreeSnapshot l1ToL2MessageTree;
-    // Note: Can't use "partial" name here as in yellow paper because it is a reserved solidity keyword
+    // Note: Can't use "partial" name here as in protocol specs because it is a reserved solidity keyword
     PartialStateReference partialStateReference;
+  }
+
+  struct GasFees {
+    uint256 feePerDaGas;
+    uint256 feePerL2Gas;
   }
 
   struct GlobalVariables {
@@ -78,6 +85,7 @@ library HeaderLib {
     uint256 timestamp;
     address coinbase;
     bytes32 feeRecipient;
+    GasFees gasFees;
   }
 
   struct ContentCommitment {
@@ -94,7 +102,7 @@ library HeaderLib {
     GlobalVariables globalVariables;
   }
 
-  uint256 private constant HEADER_LENGTH = 0x1e8; // Header byte length
+  uint256 private constant HEADER_LENGTH = 0x228; // Header byte length
 
   /**
    * @notice Validates the header
@@ -178,7 +186,9 @@ library HeaderLib {
     header.globalVariables.blockNumber = uint256(bytes32(_header[0x0174:0x0194]));
     header.globalVariables.timestamp = uint256(bytes32(_header[0x0194:0x01b4]));
     header.globalVariables.coinbase = address(bytes20(_header[0x01b4:0x01c8]));
-    header.globalVariables.feeRecipient = bytes32(_header[0x01c8:HEADER_LENGTH]);
+    header.globalVariables.feeRecipient = bytes32(_header[0x01c8:0x01e8]);
+    header.globalVariables.gasFees.feePerDaGas = uint256(bytes32(_header[0x01e8:0x0208]));
+    header.globalVariables.gasFees.feePerL2Gas = uint256(bytes32(_header[0x0208:0x0228]));
 
     return header;
   }

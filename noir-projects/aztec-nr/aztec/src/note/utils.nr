@@ -2,7 +2,10 @@ use crate::{context::PrivateContext, note::{note_header::NoteHeader, note_interf
 
 use dep::protocol_types::{
     address::AztecAddress,
-    constants::{GENERATOR_INDEX__OUTER_NULLIFIER, GENERATOR_INDEX__UNIQUE_NOTE_HASH, GENERATOR_INDEX__SILOED_NOTE_HASH},
+    constants::{
+    GENERATOR_INDEX__OUTER_NULLIFIER, GENERATOR_INDEX__UNIQUE_NOTE_HASH,
+    GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__INNER_NOTE_HASH
+},
     hash::pedersen_hash, utils::arr_copy_slice
 };
 
@@ -20,8 +23,10 @@ fn compute_inner_note_hash<Note, N>(note: Note) -> Field where Note: NoteInterfa
     let header = note.get_header();
     let note_hash = note.compute_note_content_hash();
 
-    // TODO(#1205) Do we need a generator index here?
-    pedersen_hash([header.storage_slot, note_hash], 0)
+    pedersen_hash(
+        [header.storage_slot, note_hash],
+        GENERATOR_INDEX__INNER_NOTE_HASH
+    )
 }
 
 fn compute_siloed_note_hash<Note, N>(note_with_header: Note) -> Field where Note: NoteInterface<N> {
@@ -71,8 +76,8 @@ pub fn compute_note_hash_for_consumption<Note, N>(note: Note) -> Field where Not
     } else {
         // When nonce is nonzero, that means we are reading a settled note (from tree) created in a
         // previous TX. So we need the unique_siloed_note_hash which has already been hashed with
-        // contract address and then nonce. This hash will match the existing leaf in the private
-        // data tree, so the kernel can just perform a membership check directly on this hash/leaf.
+        // contract address and then nonce. This hash will match the existing leaf in the note hash
+        // tree, so the kernel can just perform a membership check directly on this hash/leaf.
         compute_unique_siloed_note_hash(note)
         // IMPORTANT NOTE ON REDUNDANT SILOING BY CONTRACT ADDRESS: The note hash computed above is
         // "siloed" by contract address. When a note hash is computed solely for the purpose of
@@ -81,7 +86,7 @@ pub fn compute_note_hash_for_consumption<Note, N>(note: Note) -> Field where Not
         // be computed from a siloed note hash. After all, persistable note hashes and nullifiers are
         // siloed by the kernel circuit. That being said, the siloed note hash computed above CAN be
         // used for nullifier computation, and this achieves the (arguably unnecessary) property that
-        // nullifiers are computed from a note hash's fully-computed private data tree leaf.
+        // nullifiers are computed from a note hash's fully-computed note hash tree leaf.
     }
 }
 

@@ -1,4 +1,4 @@
-import { Key, Range } from './common.js';
+import { type Key, type Range } from './common.js';
 
 /**
  * A map that counts how many times it sees a key. Once 0 is reached,  that key is removed from the map.
@@ -12,7 +12,7 @@ export interface AztecCounter<K extends Key = Key> {
    * @param key - The key to reset
    * @param value - The value to reset the key to
    */
-  set(key: K, value: number): Promise<boolean>;
+  set(key: K, value: number): Promise<void>;
 
   /**
    * Updates the count of the given key by the given delta. This can be used to increment or decrement the count.
@@ -21,7 +21,7 @@ export interface AztecCounter<K extends Key = Key> {
    * @param key - The key to update
    * @param delta - The amount to modify the key by
    */
-  update(key: K, delta: number): Promise<boolean>;
+  update(key: K, delta: number): Promise<void>;
 
   /**
    * Gets the current count.

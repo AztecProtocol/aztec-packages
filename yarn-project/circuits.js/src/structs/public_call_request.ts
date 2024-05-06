@@ -1,7 +1,7 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { FieldsOf } from '@aztec/foundation/types';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 import { computeVarArgsHash } from '../hash/hash.js';
 import { CallContext } from './call_context.js';
@@ -131,5 +131,19 @@ export class PublicCallRequest {
    */
   getArgsHash() {
     return computeVarArgsHash(this.args);
+  }
+
+  static empty() {
+    return new PublicCallRequest(AztecAddress.ZERO, FunctionData.empty(), CallContext.empty(), CallContext.empty(), []);
+  }
+
+  isEmpty(): boolean {
+    return (
+      this.contractAddress.isZero() &&
+      this.functionData.isEmpty() &&
+      this.callContext.isEmpty() &&
+      this.parentCallContext.isEmpty() &&
+      this.args.length === 0
+    );
   }
 }

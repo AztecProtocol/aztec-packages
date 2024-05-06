@@ -1,28 +1,31 @@
 import {
-  Body,
-  GetUnencryptedLogsResponse,
-  InboxLeaf,
-  L2Block,
-  L2BlockL2Logs,
-  LogFilter,
-  LogType,
-  TxEffect,
-  TxHash,
-  TxReceipt,
+  type Body,
+  type EncryptedL2BlockL2Logs,
+  type FromLogType,
+  type GetUnencryptedLogsResponse,
+  type InboxLeaf,
+  type L2Block,
+  type L2BlockL2Logs,
+  type LogFilter,
+  type LogType,
+  type TxEffect,
+  type TxHash,
+  type TxReceipt,
+  type UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type Fr } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecKVStore } from '@aztec/kv-store';
+import { type AztecKVStore } from '@aztec/kv-store';
 import {
-  ContractClassPublic,
-  ContractInstanceWithAddress,
-  ExecutablePrivateFunctionWithMembershipProof,
-  UnconstrainedFunctionWithMembershipProof,
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
+  type ExecutablePrivateFunctionWithMembershipProof,
+  type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
-import { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
-import { DataRetrieval } from '../data_retrieval.js';
+import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
+import { type DataRetrieval } from '../data_retrieval.js';
 import { BlockBodyStore } from './block_body_store.js';
 import { BlockStore } from './block_store.js';
 import { ContractClassStore } from './contract_class_store.js';
@@ -150,8 +153,8 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addLogs(
-    encryptedLogs: L2BlockL2Logs | undefined,
-    unencryptedLogs: L2BlockL2Logs | undefined,
+    encryptedLogs: EncryptedL2BlockL2Logs | undefined,
+    unencryptedLogs: UnencryptedL2BlockL2Logs | undefined,
     blockNumber: number,
   ): Promise<boolean> {
     return this.#logStore.addLogs(encryptedLogs, unencryptedLogs, blockNumber);
@@ -196,7 +199,11 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  getLogs(start: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]> {
+  getLogs<TLogType extends LogType>(
+    start: number,
+    limit: number,
+    logType: TLogType,
+  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     try {
       return Promise.resolve(Array.from(this.#logStore.getLogs(start, limit, logType)));
     } catch (err) {

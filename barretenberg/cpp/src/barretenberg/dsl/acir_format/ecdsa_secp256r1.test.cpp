@@ -22,35 +22,35 @@ size_t generate_r1_constraints(EcdsaSecp256r1Constraint& ecdsa_r1_constraint,
                                ecdsa_signature signature)
 {
 
-    std::vector<uint32_t> message_in;
-    std::vector<uint32_t> pub_x_indices_in;
-    std::vector<uint32_t> pub_y_indices_in;
-    std::vector<uint32_t> signature_in;
+    std::array<uint32_t, 32> message_in;
+    std::array<uint32_t, 32> pub_x_indices_in;
+    std::array<uint32_t, 32> pub_y_indices_in;
+    std::array<uint32_t, 64> signature_in;
     size_t offset = 0;
     for (size_t i = 0; i < hashed_message.size(); ++i) {
-        message_in.emplace_back(i + offset);
+        message_in[i] = static_cast<uint32_t>(i + offset);
         const auto byte = static_cast<uint8_t>(hashed_message[i]);
         witness_values.emplace_back(byte);
     }
     offset += message_in.size();
 
     for (size_t i = 0; i < 32; ++i) {
-        pub_x_indices_in.emplace_back(i + offset);
+        pub_x_indices_in[i] = static_cast<uint32_t>(i + offset);
         witness_values.emplace_back(pub_x_value.slice(248 - i * 8, 256 - i * 8));
     }
     offset += pub_x_indices_in.size();
     for (size_t i = 0; i < 32; ++i) {
-        pub_y_indices_in.emplace_back(i + offset);
+        pub_y_indices_in[i] = static_cast<uint32_t>(i + offset);
         witness_values.emplace_back(pub_y_value.slice(248 - i * 8, 256 - i * 8));
     }
     offset += pub_y_indices_in.size();
     for (size_t i = 0; i < 32; ++i) {
-        signature_in.emplace_back(i + offset);
+        signature_in[i] = static_cast<uint32_t>(i + offset);
         witness_values.emplace_back(signature.r[i]);
     }
     offset += signature.r.size();
     for (size_t i = 0; i < 32; ++i) {
-        signature_in.emplace_back(i + offset);
+        signature_in[i + 32] = static_cast<uint32_t>(i + offset);
         witness_values.emplace_back(signature.s[i]);
     }
     offset += signature.s.size();
@@ -136,18 +136,19 @@ TEST(ECDSASecp256r1, test_hardcoded)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_constraints = {},
-        .keccak_var_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
+        .variable_base_scalar_mul_constraints = {},
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
-        .constraints = {},
+        .poly_triple_constraints = {},
+        .quad_constraints = {},
         .block_constraints = {},
     };
 
@@ -187,18 +188,19 @@ TEST(ECDSASecp256r1, TestECDSAConstraintSucceed)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_constraints = {},
-        .keccak_var_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
+        .variable_base_scalar_mul_constraints = {},
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
-        .constraints = {},
+        .poly_triple_constraints = {},
+        .quad_constraints = {},
         .block_constraints = {},
     };
 
@@ -236,18 +238,19 @@ TEST(ECDSASecp256r1, TestECDSACompilesForVerifier)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_constraints = {},
-        .keccak_var_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
+        .variable_base_scalar_mul_constraints = {},
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
-        .constraints = {},
+        .poly_triple_constraints = {},
+        .quad_constraints = {},
         .block_constraints = {},
     };
     auto builder = create_circuit(constraint_system);
@@ -280,18 +283,19 @@ TEST(ECDSASecp256r1, TestECDSAConstraintFail)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_constraints = {},
-        .keccak_var_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
+        .variable_base_scalar_mul_constraints = {},
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
-        .constraints = {},
+        .poly_triple_constraints = {},
+        .quad_constraints = {},
         .block_constraints = {},
     };
 

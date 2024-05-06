@@ -63,11 +63,11 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async poseidonHash(inputsBuffer: Fr[]): Promise<Fr> {
+  async poseidon2Hash(inputsBuffer: Fr[]): Promise<Fr> {
     const inArgs = [inputsBuffer].map(serializeBufferable);
     const outTypes: OutputType[] = [Fr];
     const result = await this.wasm.callWasmExport(
-      'poseidon_hash',
+      'poseidon2_hash',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -75,11 +75,23 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async poseidonHashes(inputsBuffer: Fr[]): Promise<Fr> {
+  async poseidon2Hashes(inputsBuffer: Fr[]): Promise<Fr> {
     const inArgs = [inputsBuffer].map(serializeBufferable);
     const outTypes: OutputType[] = [Fr];
     const result = await this.wasm.callWasmExport(
-      'poseidon_hashes',
+      'poseidon2_hashes',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  async poseidon2Permutation(inputsBuffer: Fr[]): Promise<Fr[]> {
+    const inArgs = [inputsBuffer].map(serializeBufferable);
+    const outTypes: OutputType[] = [VectorDeserializer(Fr)];
+    const result = await this.wasm.callWasmExport(
+      'poseidon2_permutation',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -555,6 +567,42 @@ export class BarretenbergApi {
     const out = result.map((r, i) => outTypes[i].fromBuffer(r));
     return out as any;
   }
+
+  async acirProveUltraHonk(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Promise<Uint8Array> {
+    const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'acir_prove_ultra_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  async acirVerifyUltraHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): Promise<boolean> {
+    const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'acir_verify_ultra_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  async acirWriteVkUltraHonk(constraintSystemBuf: Uint8Array): Promise<Uint8Array> {
+    const inArgs = [constraintSystemBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'acir_write_vk_ultra_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
 }
 export class BarretenbergApiSync {
   constructor(protected wasm: BarretenbergWasm) {}
@@ -607,11 +655,11 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  poseidonHash(inputsBuffer: Fr[]): Fr {
+  poseidon2Hash(inputsBuffer: Fr[]): Fr {
     const inArgs = [inputsBuffer].map(serializeBufferable);
     const outTypes: OutputType[] = [Fr];
     const result = this.wasm.callWasmExport(
-      'poseidon_hash',
+      'poseidon2_hash',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -619,11 +667,23 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  poseidonHashes(inputsBuffer: Fr[]): Fr {
+  poseidon2Hashes(inputsBuffer: Fr[]): Fr {
     const inArgs = [inputsBuffer].map(serializeBufferable);
     const outTypes: OutputType[] = [Fr];
     const result = this.wasm.callWasmExport(
-      'poseidon_hashes',
+      'poseidon2_hashes',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  poseidon2Permutation(inputsBuffer: Fr[]): Fr[] {
+    const inArgs = [inputsBuffer].map(serializeBufferable);
+    const outTypes: OutputType[] = [VectorDeserializer(Fr)];
+    const result = this.wasm.callWasmExport(
+      'poseidon2_permutation',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -1086,5 +1146,41 @@ export class BarretenbergApiSync {
     );
     const out = result.map((r, i) => outTypes[i].fromBuffer(r));
     return out as any;
+  }
+
+  acirUltraHonkProve(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Uint8Array {
+    const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'acir_prove_ultra_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  acirVerifyUltraHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): boolean {
+    const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'acir_verify_ultra_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  acirWriteVkUltraHonk(constraintSystemBuf: Uint8Array): Uint8Array {
+    const inArgs = [constraintSystemBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'acir_write_vk_ultra_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
   }
 }

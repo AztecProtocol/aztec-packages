@@ -1,8 +1,11 @@
-use acvm::acir::{brillig::BlackBoxOp, BlackBoxFunc};
+use acvm::{
+    acir::{brillig::BlackBoxOp, BlackBoxFunc},
+    FieldElement,
+};
 
 use crate::brillig::brillig_ir::{
     brillig_variable::{BrilligVariable, BrilligVector, SingleAddrVariable},
-    BrilligContext,
+    BrilligBinaryOp, BrilligContext,
 };
 
 /// Transforms SSA's black box function calls into the corresponding brillig instructions
@@ -198,7 +201,26 @@ pub(crate) fn convert_black_box_call(
                 });
             } else {
                 unreachable!(
-                    "ICE: FixedBaseScalarMul expects one register argument and one array result"
+                    "ICE: FixedBaseScalarMul expects two register arguments and one array result"
+                )
+            }
+        }
+        BlackBoxFunc::VariableBaseScalarMul => {
+            if let (
+                [BrilligVariable::SingleAddr(point_x), BrilligVariable::SingleAddr(point_y), BrilligVariable::SingleAddr(scalar_low), BrilligVariable::SingleAddr(scalar_high)],
+                [BrilligVariable::BrilligArray(result_array)],
+            ) = (function_arguments, function_results)
+            {
+                brillig_context.black_box_op_instruction(BlackBoxOp::VariableBaseScalarMul {
+                    point_x: point_x.address,
+                    point_y: point_y.address,
+                    scalar_low: scalar_low.address,
+                    scalar_high: scalar_high.address,
+                    result: result_array.to_heap_array(),
+                });
+            } else {
+                unreachable!(
+                    "ICE: VariableBaseScalarMul expects four register arguments and one array result"
                 )
             }
         }
@@ -235,10 +257,17 @@ pub(crate) fn convert_black_box_call(
         ),
         BlackBoxFunc::BigIntAdd => {
             if let (
-                [BrilligVariable::SingleAddr(lhs), BrilligVariable::SingleAddr(rhs)],
-                [BrilligVariable::SingleAddr(output)],
+                [BrilligVariable::SingleAddr(lhs), BrilligVariable::SingleAddr(lhs_modulus), BrilligVariable::SingleAddr(rhs), BrilligVariable::SingleAddr(rhs_modulus)],
+                [BrilligVariable::SingleAddr(output), BrilligVariable::SingleAddr(modulus_id)],
             ) = (function_arguments, function_results)
             {
+                prepare_bigint_output(
+                    brillig_context,
+                    lhs_modulus,
+                    rhs_modulus,
+                    output,
+                    modulus_id,
+                );
                 brillig_context.black_box_op_instruction(BlackBoxOp::BigIntAdd {
                     lhs: lhs.address,
                     rhs: rhs.address,
@@ -246,16 +275,23 @@ pub(crate) fn convert_black_box_call(
                 });
             } else {
                 unreachable!(
-                    "ICE: EmbeddedCurveAdd expects two register arguments and one array result"
+                    "ICE: BigIntAdd expects four register arguments and two result registers"
                 )
             }
         }
         BlackBoxFunc::BigIntSub => {
             if let (
-                [BrilligVariable::SingleAddr(lhs), BrilligVariable::SingleAddr(rhs)],
-                [BrilligVariable::SingleAddr(output)],
+                [BrilligVariable::SingleAddr(lhs), BrilligVariable::SingleAddr(lhs_modulus), BrilligVariable::SingleAddr(rhs), BrilligVariable::SingleAddr(rhs_modulus)],
+                [BrilligVariable::SingleAddr(output), BrilligVariable::SingleAddr(modulus_id)],
             ) = (function_arguments, function_results)
             {
+                prepare_bigint_output(
+                    brillig_context,
+                    lhs_modulus,
+                    rhs_modulus,
+                    output,
+                    modulus_id,
+                );
                 brillig_context.black_box_op_instruction(BlackBoxOp::BigIntSub {
                     lhs: lhs.address,
                     rhs: rhs.address,
@@ -263,16 +299,23 @@ pub(crate) fn convert_black_box_call(
                 });
             } else {
                 unreachable!(
-                    "ICE: EmbeddedCurveAdd expects two register arguments and one array result"
+                    "ICE: BigIntSub expects four register arguments and two result registers"
                 )
             }
         }
         BlackBoxFunc::BigIntMul => {
             if let (
-                [BrilligVariable::SingleAddr(lhs), BrilligVariable::SingleAddr(rhs)],
-                [BrilligVariable::SingleAddr(output)],
+                [BrilligVariable::SingleAddr(lhs), BrilligVariable::SingleAddr(lhs_modulus), BrilligVariable::SingleAddr(rhs), BrilligVariable::SingleAddr(rhs_modulus)],
+                [BrilligVariable::SingleAddr(output), BrilligVariable::SingleAddr(modulus_id)],
             ) = (function_arguments, function_results)
             {
+                prepare_bigint_output(
+                    brillig_context,
+                    lhs_modulus,
+                    rhs_modulus,
+                    output,
+                    modulus_id,
+                );
                 brillig_context.black_box_op_instruction(BlackBoxOp::BigIntMul {
                     lhs: lhs.address,
                     rhs: rhs.address,
@@ -280,16 +323,23 @@ pub(crate) fn convert_black_box_call(
                 });
             } else {
                 unreachable!(
-                    "ICE: EmbeddedCurveAdd expects two register arguments and one array result"
+                    "ICE: BigIntMul expects four register arguments and two result registers"
                 )
             }
         }
         BlackBoxFunc::BigIntDiv => {
             if let (
-                [BrilligVariable::SingleAddr(lhs), BrilligVariable::SingleAddr(rhs)],
-                [BrilligVariable::SingleAddr(output)],
+                [BrilligVariable::SingleAddr(lhs), BrilligVariable::SingleAddr(lhs_modulus), BrilligVariable::SingleAddr(rhs), BrilligVariable::SingleAddr(rhs_modulus)],
+                [BrilligVariable::SingleAddr(output), BrilligVariable::SingleAddr(modulus_id)],
             ) = (function_arguments, function_results)
             {
+                prepare_bigint_output(
+                    brillig_context,
+                    lhs_modulus,
+                    rhs_modulus,
+                    output,
+                    modulus_id,
+                );
                 brillig_context.black_box_op_instruction(BlackBoxOp::BigIntDiv {
                     lhs: lhs.address,
                     rhs: rhs.address,
@@ -297,16 +347,20 @@ pub(crate) fn convert_black_box_call(
                 });
             } else {
                 unreachable!(
-                    "ICE: EmbeddedCurveAdd expects two register arguments and one array result"
+                    "ICE: BigIntDiv expects four register arguments and two result registers"
                 )
             }
         }
         BlackBoxFunc::BigIntFromLeBytes => {
-            if let ([inputs, modulus], [BrilligVariable::SingleAddr(output)]) =
-                (function_arguments, function_results)
+            if let (
+                [inputs, modulus],
+                [BrilligVariable::SingleAddr(output), BrilligVariable::SingleAddr(_modulus_id)],
+            ) = (function_arguments, function_results)
             {
                 let inputs_vector = convert_array_or_vector(brillig_context, inputs, bb_func);
                 let modulus_vector = convert_array_or_vector(brillig_context, modulus, bb_func);
+                let output_id = brillig_context.get_new_bigint_id();
+                brillig_context.const_instruction(*output, FieldElement::from(output_id as u128));
                 brillig_context.black_box_op_instruction(BlackBoxOp::BigIntFromLeBytes {
                     inputs: inputs_vector.to_heap_vector(),
                     modulus: modulus_vector.to_heap_vector(),
@@ -314,23 +368,24 @@ pub(crate) fn convert_black_box_call(
                 });
             } else {
                 unreachable!(
-                    "ICE: EmbeddedCurveAdd expects two register arguments and one array result"
+                    "ICE: BigIntFromLeBytes expects a register and an array  as arguments and two result registers"
                 )
             }
         }
         BlackBoxFunc::BigIntToLeBytes => {
             if let (
-                [BrilligVariable::SingleAddr(input)],
-                [BrilligVariable::BrilligVector(result_vector)],
+                [BrilligVariable::SingleAddr(input), BrilligVariable::SingleAddr(_modulus)],
+                [result_array],
             ) = (function_arguments, function_results)
             {
+                let output = convert_array_or_vector(brillig_context, result_array, bb_func);
                 brillig_context.black_box_op_instruction(BlackBoxOp::BigIntToLeBytes {
                     input: input.address,
-                    output: result_vector.to_heap_vector(),
+                    output: output.to_heap_vector(),
                 });
             } else {
                 unreachable!(
-                    "ICE: EmbeddedCurveAdd expects two register arguments and one array result"
+                    "ICE: BigIntToLeBytes expects two register arguments and one array result"
                 )
             }
         }
@@ -382,4 +437,31 @@ fn convert_array_or_vector(
             array_or_vector
         ),
     }
+}
+
+fn prepare_bigint_output(
+    brillig_context: &mut BrilligContext,
+    lhs_modulus: &SingleAddrVariable,
+    rhs_modulus: &SingleAddrVariable,
+    output: &SingleAddrVariable,
+    modulus_id: &SingleAddrVariable,
+) {
+    // Check moduli
+    let condition = brillig_context.allocate_register();
+    let condition_adr = SingleAddrVariable { address: condition, bit_size: 1 };
+    brillig_context.binary_instruction(
+        *lhs_modulus,
+        *rhs_modulus,
+        condition_adr,
+        BrilligBinaryOp::Equals,
+    );
+    brillig_context.codegen_constrain(
+        condition_adr,
+        Some("moduli should be identical in BigInt operation".to_string()),
+    );
+    brillig_context.deallocate_register(condition);
+    // Set output id
+    let output_id = brillig_context.get_new_bigint_id();
+    brillig_context.const_instruction(*output, FieldElement::from(output_id as u128));
+    brillig_context.mov_instruction(modulus_id.address, lhs_modulus.address);
 }

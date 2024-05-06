@@ -9,7 +9,8 @@ describe('Avm Context', () => {
 
     const newAddress = AztecAddress.random();
     const newCalldata = [new Fr(1), new Fr(2)];
-    const newContext = context.createNestedContractCallContext(newAddress, newCalldata);
+    const allocatedGas = { l2Gas: 2, daGas: 3 }; // How much of the current call gas we pass to the nested call
+    const newContext = context.createNestedContractCallContext(newAddress, newCalldata, allocatedGas, 'CALL');
 
     expect(newContext.environment).toEqual(
       allSameExcept(context.environment, {
@@ -23,6 +24,8 @@ describe('Avm Context', () => {
     expect(newContext.machineState).toEqual(
       allSameExcept(context.machineState, {
         pc: 0,
+        l2GasLeft: 2,
+        daGasLeft: 3,
       }),
     );
 
@@ -36,7 +39,8 @@ describe('Avm Context', () => {
 
     const newAddress = AztecAddress.random();
     const newCalldata = [new Fr(1), new Fr(2)];
-    const newContext = context.createNestedContractStaticCallContext(newAddress, newCalldata);
+    const allocatedGas = { l2Gas: 2, daGas: 3 };
+    const newContext = context.createNestedContractCallContext(newAddress, newCalldata, allocatedGas, 'STATICCALL');
 
     expect(newContext.environment).toEqual(
       allSameExcept(context.environment, {
@@ -50,6 +54,8 @@ describe('Avm Context', () => {
     expect(newContext.machineState).toEqual(
       allSameExcept(context.machineState, {
         pc: 0,
+        l2GasLeft: 2,
+        daGasLeft: 3,
       }),
     );
 

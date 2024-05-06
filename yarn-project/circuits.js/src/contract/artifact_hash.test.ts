@@ -1,11 +1,22 @@
-import { getBenchmarkContractArtifact } from '../tests/fixtures.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
+
 import { computeArtifactHash } from './artifact_hash.js';
 
 describe('ArtifactHash', () => {
   it('calculates the artifact hash', () => {
-    const artifact = getBenchmarkContractArtifact();
-    expect(computeArtifactHash(artifact).toString()).toMatchInlineSnapshot(
-      `"0x1c4308cf4acda970916ac5dd5ae32106bd782b17d2da4f50090ff5b77032ad02"`,
+    const emptyArtifact: ContractArtifact = {
+      fileMap: [],
+      functions: [],
+      name: 'Test',
+      outputs: {
+        globals: {},
+        structs: {},
+      },
+      storageLayout: {},
+      notes: {},
+    };
+    expect(computeArtifactHash(emptyArtifact).toString()).toMatchInlineSnapshot(
+      `"0x0dea64e7fa0688017f77bcb7075485485afb4a5f1f8508483398869439f82fdf"`,
     );
   });
 });

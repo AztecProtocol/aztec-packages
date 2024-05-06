@@ -1,4 +1,4 @@
-import { AztecAddress, AztecNode, CompleteAddress, DebugLogger, Fr, Wallet } from '@aztec/aztec.js';
+import { type AztecAddress, type AztecNode, type DebugLogger, Fr, type Wallet } from '@aztec/aztec.js';
 import { PendingNoteHashesContract } from '@aztec/noir-contracts.js/PendingNoteHashes';
 
 import { setup } from './fixtures/utils.js';
@@ -12,10 +12,9 @@ describe('e2e_pending_note_hashes_contract', () => {
   let contract: PendingNoteHashesContract;
 
   beforeEach(async () => {
-    let accounts: CompleteAddress[];
-    ({ teardown, aztecNode, accounts, wallet, logger } = await setup(2));
-    owner = accounts[0].address;
-  }, 100_000);
+    ({ teardown, aztecNode, wallet, logger } = await setup(2));
+    owner = wallet.getAddress();
+  });
 
   afterEach(() => teardown());
 
@@ -43,7 +42,7 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     // 0th nullifier should be nonzero (txHash), all others should be zero (should be squashed)
     for (let n = 0; n < exceptFirstFew + 1; n++) {
-      logger(`Expecting nullifier ${n} to be nonzero`);
+      logger.info(`Expecting nullifier ${n} to be nonzero`);
       expect(nullifierArray[n]).not.toEqual(Fr.ZERO); // 0th nullifier is txHash
     }
     for (let n = exceptFirstFew + 1; n < nullifierArray.length; n++) {
@@ -52,9 +51,9 @@ describe('e2e_pending_note_hashes_contract', () => {
   };
 
   const deployContract = async () => {
-    logger(`Deploying L2 contract...`);
+    logger.debug(`Deploying L2 contract...`);
     contract = await PendingNoteHashesContract.deploy(wallet).send().deployed();
-    logger('L2 contract deployed');
+    logger.info(`L2 contract deployed at ${contract.address}`);
     return contract;
   };
 
@@ -64,7 +63,7 @@ describe('e2e_pending_note_hashes_contract', () => {
     const deployedContract = await deployContract();
 
     await deployedContract.methods.test_insert_then_get_then_nullify_flat(mintAmount, owner).send().wait();
-  }, 60_000);
+  });
 
   it('Squash! Aztec.nr function can "create" and "nullify" note in the same TX', async () => {
     // Kernel will squash the noteHash and its nullifier.
@@ -82,13 +81,13 @@ describe('e2e_pending_note_hashes_contract', () => {
       )
       .send()
       .wait();
-    await expect(deployedContract.methods.get_note_zero_balance(owner).send().wait()).rejects.toThrow(
+    await expect(deployedContract.methods.get_note_zero_balance(owner).prove()).rejects.toThrow(
       `Assertion failed: Cannot return zero notes`,
     );
 
     await expectNoteHashesSquashedExcept(0);
     await expectNullifiersSquashedExcept(0);
-  }, 60_000);
+  });
 
   it('Squash! Aztec.nr function can "create" 2 notes and "nullify" both in the same TX', async () => {
     // Kernel will squash both noteHashes and their nullifier.
@@ -109,7 +108,7 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     await expectNoteHashesSquashedExcept(0);
     await expectNullifiersSquashedExcept(0);
-  }, 60_000);
+  });
 
   it('Squash! Aztec.nr function can "create" 2 notes and "nullify" 1 in the same TX (kernel will squash one note + nullifier)', async () => {
     // Kernel will squash one noteHash and its nullifier.
@@ -131,7 +130,7 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     await expectNoteHashesSquashedExcept(1);
     await expectNullifiersSquashedExcept(0);
-  }, 60_000);
+  });
 
   it('Squash! Aztec.nr function can nullify a pending note and a persistent in the same TX', async () => {
     // Create 1 note in isolated TX.
@@ -159,7 +158,7 @@ describe('e2e_pending_note_hashes_contract', () => {
       )
       .send()
       .wait();
-    await expect(deployedContract.methods.get_note_zero_balance(owner).send().wait()).rejects.toThrow(
+    await expect(deployedContract.methods.get_note_zero_balance(owner).prove()).rejects.toThrow(
       `Assertion failed: Cannot return zero notes`,
     );
 
@@ -168,7 +167,7 @@ describe('e2e_pending_note_hashes_contract', () => {
     // the nullifier corresponding to this transient note is squashed, but the
     // other nullifier corresponding to the persistent note becomes persistent itself.
     await expectNullifiersSquashedExcept(1);
-  }, 60_000);
+  });
 
   it('get_notes function filters a nullified note created in a previous transaction', async () => {
     // Create a note in an isolated transaction.
@@ -196,5 +195,5 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     // There is a single new nullifier.
     await expectNullifiersSquashedExcept(1);
-  }, 60_000);
+  });
 });

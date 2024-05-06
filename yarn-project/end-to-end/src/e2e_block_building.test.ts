@@ -1,16 +1,18 @@
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
-  AztecAddress,
-  AztecNode,
+  type AztecAddress,
+  type AztecNode,
   BatchCall,
   ContractDeployer,
   ContractFunctionInteraction,
-  DebugLogger,
+  type DebugLogger,
   Fr,
-  PXE,
-  SentTx,
-  TxReceipt,
+  type PXE,
+  type SentTx,
+  type TxReceipt,
   TxStatus,
-  Wallet,
+  type Wallet,
+  deriveKeys,
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
@@ -18,6 +20,7 @@ import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
+import { TaggedNote } from '../../circuit-types/src/logs/l1_note_payload/tagged_note.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_block_building', () => {
@@ -39,7 +42,7 @@ describe('e2e_block_building', () => {
         aztecNode,
         wallets: [owner, minter],
       } = await setup(2));
-    }, 100_000);
+    });
 
     afterEach(() => aztecNode.setConfig({ minTxsPerBlock: 1 }));
     afterAll(() => teardown());
@@ -57,14 +60,14 @@ describe('e2e_block_building', () => {
           skipClassRegistration: true,
           skipPublicDeployment: true,
         });
-        await methods[i].simulate({});
+        await methods[i].prove({});
       }
 
       // Send them simultaneously to be picked up by the sequencer
       const txs = await Promise.all(methods.map(method => method.send()));
-      logger(`Txs sent with hashes: `);
+      logger.info(`Txs sent with hashes: `);
       for (const tx of txs) {
-        logger(` ${await tx.getTxHash()}`);
+        logger.info(` ${await tx.getTxHash()}`);
       }
 
       // Await txs to be mined and assert they are all mined on the same block
@@ -75,7 +78,7 @@ describe('e2e_block_building', () => {
       const isContractDeployed = async (address: AztecAddress) => !!(await pxe.getContractInstance(address));
       const areDeployed = await Promise.all(receipts.map(r => isContractDeployed(r.contract.address)));
       expect(areDeployed).toEqual(times(TX_COUNT, () => true));
-    }, 60_000);
+    });
 
     it.skip('can call public function from different tx in same block', async () => {
       // Ensure both txs will land on the same block
@@ -95,8 +98,8 @@ describe('e2e_block_building', () => {
         [minter.getCompleteAddress(), true],
       );
 
-      await deployer.simulate({});
-      await callInteraction.simulate({
+      await deployer.prove({});
+      await callInteraction.prove({
         // we have to skip simulation of public calls simulation is done on individual transactions
         // and the tx deploying the contract might go in the same block as this one
         skipPublicSimulation: true,
@@ -108,7 +111,7 @@ describe('e2e_block_building', () => {
       ]);
 
       expect(deployTxReceipt.blockNumber).toEqual(callTxReceipt.blockNumber);
-    }, 60_000);
+    });
   });
 
   describe('double-spends', () => {
@@ -118,8 +121,8 @@ describe('e2e_block_building', () => {
     beforeAll(async () => {
       ({ teardown, pxe, logger, wallet: owner } = await setup(1));
       contract = await TestContract.deploy(owner).send().deployed();
-      logger(`Test contract deployed at ${contract.address}`);
-    }, 100_000);
+      logger.info(`Test contract deployed at ${contract.address}`);
+    });
 
     afterAll(() => teardown());
 
@@ -129,27 +132,27 @@ describe('e2e_block_building', () => {
         const nullifier = Fr.random();
         const calls = times(2, () => contract.methods.emit_nullifier(nullifier));
         for (const call of calls) {
-          await call.simulate();
+          await call.prove();
         }
         const [tx1, tx2] = calls.map(call => call.send());
         await expectXorTx(tx1, tx2);
-      }, 30_000);
+      });
 
       it('drops tx with public nullifier already emitted on the same block', async () => {
         const secret = Fr.random();
         const calls = times(2, () => contract.methods.create_nullifier_public(140n, secret));
         for (const call of calls) {
-          await call.simulate();
+          await call.prove();
         }
         const [tx1, tx2] = calls.map(call => call.send());
         await expectXorTx(tx1, tx2);
-      }, 30_000);
+      });
 
       it('drops tx with two equal nullifiers', async () => {
         const nullifier = Fr.random();
         const calls = times(2, () => contract.methods.emit_nullifier(nullifier).request());
         await expect(new BatchCall(owner, calls).send().wait()).rejects.toThrow(/dropped/);
-      }, 30_000);
+      });
 
       it('drops tx with private nullifier already emitted from public on the same block', async () => {
         const secret = Fr.random();
@@ -162,11 +165,11 @@ describe('e2e_block_building', () => {
         ];
 
         for (const call of calls) {
-          await call.simulate();
+          await call.prove();
         }
         const [tx1, tx2] = calls.map(call => call.send());
         await expectXorTx(tx1, tx2);
-      }, 30_000);
+      });
     });
 
     describe('across blocks', () => {
@@ -183,6 +186,60 @@ describe('e2e_block_building', () => {
         await expect(contract.methods.emit_nullifier(emittedPublicNullifier).send().wait()).rejects.toThrow(/dropped/);
       });
     });
+  });
+
+  describe('logs in nested calls are ordered as expected', () => {
+    // This test was originally writted for e2e_nested, but it was refactored
+    // to not use TestContract.
+    let testContract: TestContract;
+
+    beforeEach(async () => {
+      ({ teardown, pxe, logger, wallet: owner } = await setup(1));
+      logger.info(`Deploying test contract`);
+      testContract = await TestContract.deploy(owner).send().deployed();
+    }, 60_000);
+
+    it('calls a method with nested unencrypted logs', async () => {
+      const tx = await testContract.methods.emit_unencrypted_logs_nested([1, 2, 3, 4, 5]).send().wait();
+      const logs = (await pxe.getUnencryptedLogs({ txHash: tx.txHash })).logs.map(l => l.log);
+
+      // First log should be contract address
+      expect(logs[0].data).toEqual(testContract.address.toBuffer());
+
+      // Second log should be array of fields
+      let expectedBuffer = Buffer.concat([1, 2, 3, 4, 5].map(num => new Fr(num).toBuffer()));
+      expect(logs[1].data.subarray(-32 * 5)).toEqual(expectedBuffer);
+
+      // Third log should be string "test"
+      expectedBuffer = Buffer.concat(
+        ['t', 'e', 's', 't'].map(num => Buffer.concat([Buffer.alloc(31), Buffer.from(num)])),
+      );
+      expect(logs[2].data.subarray(-32 * 5)).toEqual(expectedBuffer);
+    }, 60_000);
+
+    it('calls a method with nested encrypted logs', async () => {
+      // account setup
+      const privateKey = new Fr(7n);
+      const keys = deriveKeys(privateKey);
+      const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
+      await account.deploy().wait();
+      const thisWallet = await account.getWallet();
+
+      // call test contract
+      const action = testContract.methods.emit_encrypted_logs_nested(10, thisWallet.getAddress());
+      const tx = await action.prove();
+      const rct = await action.send().wait();
+
+      // compare logs
+      expect(rct.status).toEqual('mined');
+      const decryptedLogs = tx.encryptedLogs
+        .unrollLogs()
+        .map(l => TaggedNote.fromEncryptedBuffer(l.data, keys.masterIncomingViewingSecretKey));
+      const notevalues = decryptedLogs.map(l => l?.notePayload.note.items[0]);
+      expect(notevalues[0]).toEqual(new Fr(10));
+      expect(notevalues[1]).toEqual(new Fr(11));
+      expect(notevalues[2]).toEqual(new Fr(12));
+    }, 30_000);
   });
 });
 

@@ -1,19 +1,21 @@
 import {
   AuthWitness,
   CompleteAddress,
+  EncryptedL2BlockL2Logs,
   ExtendedNote,
   ExtendedUnencryptedL2Log,
   L2Block,
-  L2BlockL2Logs,
   LogId,
   Note,
   NullifierMembershipWitness,
-  PXE,
+  type PXE,
+  SimulatedTx,
   Tx,
   TxEffect,
   TxExecutionRequest,
   TxHash,
   TxReceipt,
+  UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
 import { FunctionSelector } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -48,7 +50,7 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
       TxEffect,
       LogId,
     },
-    { Tx, TxReceipt, L2BlockL2Logs, NullifierMembershipWitness },
+    { SimulatedTx, Tx, TxReceipt, EncryptedL2BlockL2Logs, UnencryptedL2BlockL2Logs, NullifierMembershipWitness },
     ['start', 'stop'],
   );
 }

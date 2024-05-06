@@ -7,23 +7,39 @@ fn notify_created_note_oracle<N>(
     _storage_slot: Field,
     _note_type_id: Field,
     _serialized_note: [Field; N],
-    _inner_note_hash: Field
+    _inner_note_hash: Field,
+    _counter: u32
 ) -> Field {}
 
 unconstrained pub fn notify_created_note<N>(
     storage_slot: Field,
     note_type_id: Field,
     serialized_note: [Field; N],
-    inner_note_hash: Field
+    inner_note_hash: Field,
+    counter: u32
 ) -> Field {
-    notify_created_note_oracle(storage_slot, note_type_id, serialized_note, inner_note_hash)
+    notify_created_note_oracle(
+        storage_slot,
+        note_type_id,
+        serialized_note,
+        inner_note_hash,
+        counter
+    )
 }
 
 #[oracle(notifyNullifiedNote)]
-fn notify_nullified_note_oracle<N>(_nullifier: Field, _inner_note_hash: Field) -> Field {}
+fn notify_nullified_note_oracle<N>(
+    _nullifier: Field,
+    _inner_note_hash: Field,
+    _counter: u32
+) -> Field {}
 
-unconstrained pub fn notify_nullified_note<N>(nullifier: Field, inner_note_hash: Field) -> Field {
-    notify_nullified_note_oracle(nullifier, inner_note_hash)
+unconstrained pub fn notify_nullified_note<N>(
+    nullifier: Field,
+    inner_note_hash: Field,
+    counter: u32
+) -> Field {
+    notify_nullified_note_oracle(nullifier, inner_note_hash, counter)
 }
 
 #[oracle(getNotes)]
@@ -141,9 +157,11 @@ unconstrained pub fn get_notes<Note, N, M, S, NS>(
     placeholder_opt_notes
 }
 
+// Only ever use this in private!
 #[oracle(checkNullifierExists)]
 fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
 
+// Only ever use this in private!
 unconstrained pub fn check_nullifier_exists(inner_nullifier: Field) -> bool {
     check_nullifier_exists_oracle(inner_nullifier) == 1
 }

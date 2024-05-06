@@ -2,10 +2,9 @@ import debug from 'debug';
 import isNode from 'detect-node';
 import { isatty } from 'tty';
 
-import { LogData, LogFn } from './log_fn.js';
+import { type LogData, type LogFn } from './log_fn.js';
 
-// Matches a subset of Winston log levels
-const LogLevels = ['silent', 'error', 'warn', 'info', 'verbose', 'debug', 'trace'] as const;
+const LogLevels = ['silent', 'error', 'warn', 'info', 'verbose', 'debug'] as const;
 const DefaultLogLevel = process.env.NODE_ENV === 'test' ? ('silent' as const) : ('info' as const);
 
 /**
@@ -28,7 +27,7 @@ export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ er
  * Logger that supports multiple severity levels and can be called directly to issue a debug statement.
  * Intended as a drop-in replacement for the debug module.
  */
-export type DebugLogger = LogFn & Logger;
+export type DebugLogger = Logger;
 
 /**
  * Creates a new DebugLogger for the current module, defaulting to the LOG_LEVEL env var.
@@ -50,7 +49,6 @@ export function createDebugLogger(name: string): DebugLogger {
     info: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'info', msg, data),
     verbose: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'verbose', msg, data),
     debug: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, data),
-    trace: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'trace', msg, data),
   };
   return Object.assign((msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, data), logger);
 }
@@ -99,7 +97,7 @@ function logWithDebug(debug: debug.Debugger, level: LogLevel, msg: string, data?
 function getPrefix(debugLogger: debug.Debugger, level: LogLevel) {
   const levelLabel = currentLevel !== level ? ` ${level.toUpperCase()}` : '';
   const prefix = `${debugLogger.namespace.replace(/^aztec:/, '')}${levelLabel}`;
-  if (!isNode || !isatty(process.stderr.fd)) {
+  if ((!isNode || !isatty(process.stderr.fd)) && !process.env.DEBUG_COLORS) {
     return prefix;
   }
   const colorIndex = debug.selectColor(debugLogger.namespace) as number;
@@ -112,7 +110,8 @@ function getPrefix(debugLogger: debug.Debugger, level: LogLevel) {
  * @param msg - What to log.
  */
 function printLog(msg: string) {
-  process.stderr.write(msg + '\n');
+  // eslint-disable-next-line no-console
+  isNode ? process.stderr.write(msg + '\n') : console.error(msg);
 }
 
 /**

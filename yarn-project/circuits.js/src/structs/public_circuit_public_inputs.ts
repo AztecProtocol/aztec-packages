@@ -3,8 +3,14 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { isArrayEmpty } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, FieldReader, Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
-import { FieldsOf } from '@aztec/foundation/types';
+import {
+  BufferReader,
+  FieldReader,
+  type Tuple,
+  serializeToBuffer,
+  serializeToFields,
+} from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 import {
   GeneratorIndex,
@@ -16,17 +22,22 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+  MAX_UNENCRYPTED_LOGS_PER_CALL,
   PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-  RETURN_VALUES_LENGTH,
 } from '../constants.gen.js';
+import { isEmptyArray } from '../utils/index.js';
 import { CallContext } from './call_context.js';
 import { ContractStorageRead } from './contract_storage_read.js';
 import { ContractStorageUpdateRequest } from './contract_storage_update_request.js';
+import { Gas } from './gas.js';
+import { GlobalVariables } from './global_variables.js';
 import { Header } from './header.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
+import { NoteHash } from './note_hash.js';
+import { Nullifier } from './nullifier.js';
 import { ReadRequest } from './read_request.js';
 import { RevertCode } from './revert_code.js';
-import { SideEffect, SideEffectLinkedToNoteHash } from './side_effects.js';
+import { SideEffect } from './side_effects.js';
 
 /**
  * Public inputs to a public circuit.
@@ -42,9 +53,9 @@ export class PublicCircuitPublicInputs {
      */
     public argsHash: Fr,
     /**
-     * Return values of the call.
+     * Pedersen hash of the return values of the call.
      */
-    public returnValues: Tuple<Fr, typeof RETURN_VALUES_LENGTH>,
+    public returnsHash: Fr,
     /**
      * Nullifier read requests executed during the call.
      */
@@ -74,11 +85,11 @@ export class PublicCircuitPublicInputs {
     /**
      * New note hashes created within a public execution call
      */
-    public newNoteHashes: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_CALL>,
+    public newNoteHashes: Tuple<NoteHash, typeof MAX_NEW_NOTE_HASHES_PER_CALL>,
     /**
      * New nullifiers created within a public execution call
      */
-    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
+    public newNullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
     /**
      * New L2 to L1 messages generated during the call.
      */
@@ -95,7 +106,7 @@ export class PublicCircuitPublicInputs {
      * Hash of the unencrypted logs emitted in this function call.
      * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public unencryptedLogsHash: Fr,
+    public unencryptedLogsHashes: Tuple<SideEffect, typeof MAX_UNENCRYPTED_LOGS_PER_CALL>,
     /**
      * Length of the unencrypted log preimages emitted in this function call.
      */
@@ -105,6 +116,8 @@ export class PublicCircuitPublicInputs {
      * previous to the one in which the tx is included.
      */
     public historicalHeader: Header,
+    /** Global variables for the block. */
+    public globalVariables: GlobalVariables,
     /**
      * Address of the prover.
      */
@@ -114,6 +127,15 @@ export class PublicCircuitPublicInputs {
      * Flag indicating if the call was reverted.
      */
     public revertCode: RevertCode,
+
+    /** How much gas was available for execution. */
+    public startGasLeft: Gas,
+
+    /** How much gas was left after execution. */
+    public endGasLeft: Gas,
+
+    /** Transaction fee in the fee-payment asset. Zero in all phases except teardown. */
+    public transactionFee: Fr,
   ) {}
 
   /**
@@ -133,49 +155,54 @@ export class PublicCircuitPublicInputs {
     return new PublicCircuitPublicInputs(
       CallContext.empty(),
       Fr.ZERO,
-      makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
+      Fr.ZERO,
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.empty),
       makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, ReadRequest.empty),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest.empty),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, SideEffect.empty),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash.empty),
+      makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, NoteHash.empty),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier.empty),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
       Fr.ZERO,
       Fr.ZERO,
-      Fr.ZERO,
+      makeTuple(MAX_UNENCRYPTED_LOGS_PER_CALL, SideEffect.empty),
       Fr.ZERO,
       Header.empty(),
+      GlobalVariables.empty(),
       AztecAddress.ZERO,
       RevertCode.OK,
+      Gas.empty(),
+      Gas.empty(),
+      Fr.ZERO,
     );
   }
 
   isEmpty() {
-    const isSideEffectArrayEmpty = (arr: SideEffect[]) => isArrayEmpty(arr, item => item.isEmpty());
-    const isSideEffectLinkedArrayEmpty = (arr: SideEffectLinkedToNoteHash[]) =>
-      isArrayEmpty(arr, item => item.isEmpty());
     const isFrArrayEmpty = (arr: Fr[]) => isArrayEmpty(arr, item => item.isZero());
     return (
       this.callContext.isEmpty() &&
       this.argsHash.isZero() &&
-      isFrArrayEmpty(this.returnValues) &&
-      isArrayEmpty(this.nullifierReadRequests, item => item.isEmpty()) &&
-      isArrayEmpty(this.nullifierNonExistentReadRequests, item => item.isEmpty()) &&
-      isArrayEmpty(this.contractStorageUpdateRequests, item => item.isEmpty()) &&
-      isArrayEmpty(this.contractStorageReads, item => item.isEmpty()) &&
+      this.returnsHash.isZero() &&
+      isEmptyArray(this.nullifierReadRequests) &&
+      isEmptyArray(this.nullifierNonExistentReadRequests) &&
+      isEmptyArray(this.contractStorageUpdateRequests) &&
+      isEmptyArray(this.contractStorageReads) &&
       isFrArrayEmpty(this.publicCallStackHashes) &&
-      isSideEffectArrayEmpty(this.newNoteHashes) &&
-      isSideEffectLinkedArrayEmpty(this.newNullifiers) &&
-      isArrayEmpty(this.newL2ToL1Msgs, item => item.isEmpty()) &&
+      isEmptyArray(this.newNoteHashes) &&
+      isEmptyArray(this.newNullifiers) &&
+      isEmptyArray(this.newL2ToL1Msgs) &&
       this.startSideEffectCounter.isZero() &&
       this.endSideEffectCounter.isZero() &&
-      this.unencryptedLogsHash.isZero() &&
+      isEmptyArray(this.unencryptedLogsHashes) &&
       this.unencryptedLogPreimagesLength.isZero() &&
       this.historicalHeader.isEmpty() &&
+      this.globalVariables.isEmpty() &&
       this.proverAddress.isZero() &&
-      this.revertCode.isOK()
+      this.revertCode.isOK() &&
+      this.startGasLeft.isEmpty() &&
+      this.endGasLeft.isEmpty() &&
+      this.transactionFee.isZero()
     );
   }
 
@@ -188,7 +215,7 @@ export class PublicCircuitPublicInputs {
     return [
       fields.callContext,
       fields.argsHash,
-      fields.returnValues,
+      fields.returnsHash,
       fields.nullifierReadRequests,
       fields.nullifierNonExistentReadRequests,
       fields.contractStorageUpdateRequests,
@@ -199,11 +226,15 @@ export class PublicCircuitPublicInputs {
       fields.newL2ToL1Msgs,
       fields.startSideEffectCounter,
       fields.endSideEffectCounter,
-      fields.unencryptedLogsHash,
+      fields.unencryptedLogsHashes,
       fields.unencryptedLogPreimagesLength,
       fields.historicalHeader,
+      fields.globalVariables,
       fields.proverAddress,
       fields.revertCode,
+      fields.startGasLeft,
+      fields.endGasLeft,
+      fields.transactionFee,
     ] as const;
   }
 
@@ -235,22 +266,26 @@ export class PublicCircuitPublicInputs {
     return new PublicCircuitPublicInputs(
       reader.readObject(CallContext),
       reader.readObject(Fr),
-      reader.readArray(RETURN_VALUES_LENGTH, Fr),
+      reader.readObject(Fr),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest),
       reader.readArray(MAX_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr),
-      reader.readArray(MAX_NEW_NOTE_HASHES_PER_CALL, SideEffect),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash),
+      reader.readArray(MAX_NEW_NOTE_HASHES_PER_CALL, NoteHash),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readObject(Fr),
       reader.readObject(Fr),
-      reader.readObject(Fr),
+      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, SideEffect),
       reader.readObject(Fr),
       reader.readObject(Header),
+      reader.readObject(GlobalVariables),
       reader.readObject(AztecAddress),
       reader.readObject(RevertCode),
+      reader.readObject(Gas),
+      reader.readObject(Gas),
+      reader.readObject(Fr),
     );
   }
 
@@ -260,22 +295,26 @@ export class PublicCircuitPublicInputs {
     return new PublicCircuitPublicInputs(
       CallContext.fromFields(reader),
       reader.readField(),
-      reader.readFieldArray(RETURN_VALUES_LENGTH),
+      reader.readField(),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest),
       reader.readArray(MAX_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead),
       reader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
-      reader.readArray(MAX_NEW_NOTE_HASHES_PER_CALL, SideEffect),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash),
+      reader.readArray(MAX_NEW_NOTE_HASHES_PER_CALL, NoteHash),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readField(),
       reader.readField(),
-      reader.readField(),
+      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, SideEffect),
       reader.readField(),
       Header.fromFields(reader),
+      GlobalVariables.fromFields(reader),
       AztecAddress.fromFields(reader),
       RevertCode.fromFields(reader),
+      Gas.fromFields(reader),
+      Gas.fromFields(reader),
+      reader.readField(),
     );
   }
 

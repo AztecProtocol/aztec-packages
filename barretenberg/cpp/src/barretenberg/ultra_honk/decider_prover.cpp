@@ -17,7 +17,7 @@ DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<Instance>& inst,
                                        const std::shared_ptr<Transcript>& transcript)
     : accumulator(std::move(inst))
     , transcript(transcript)
-    , commitment_key(accumulator->proving_key->commitment_key)
+    , commitment_key(accumulator->proving_key.commitment_key)
 {}
 
 /**
@@ -28,7 +28,7 @@ DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<Instance>& inst,
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_check_rounds()
 {
     using Sumcheck = SumcheckProver<Flavor>;
-    auto instance_size = accumulator->proving_key->circuit_size;
+    auto instance_size = accumulator->proving_key.circuit_size;
     auto sumcheck = Sumcheck(instance_size, transcript);
     sumcheck_output = sumcheck.prove(accumulator);
 }
@@ -40,8 +40,8 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
  * */
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_zeromorph_rounds()
 {
-    ZeroMorph::prove(accumulator->prover_polynomials.get_unshifted(),
-                     accumulator->prover_polynomials.get_to_be_shifted(),
+    ZeroMorph::prove(accumulator->proving_key.polynomials.get_unshifted(),
+                     accumulator->proving_key.polynomials.get_to_be_shifted(),
                      sumcheck_output.claimed_evaluations.get_unshifted(),
                      sumcheck_output.claimed_evaluations.get_shifted(),
                      sumcheck_output.challenge,

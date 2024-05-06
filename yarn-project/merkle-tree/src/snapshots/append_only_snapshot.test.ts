@@ -1,6 +1,6 @@
-import { randomBytes } from '@aztec/foundation/crypto';
-import { FromBuffer } from '@aztec/foundation/serialize';
-import { AztecKVStore } from '@aztec/kv-store';
+import { Fr } from '@aztec/foundation/fields';
+import { type FromBuffer } from '@aztec/foundation/serialize';
+import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 
 import { Pedersen, StandardTree, newTree } from '../index.js';
@@ -24,7 +24,7 @@ describe('AppendOnlySnapshot', () => {
     () => tree,
     () => snapshotBuilder,
     async tree => {
-      const newLeaves = Array.from({ length: 2 }).map(() => randomBytes(32));
+      const newLeaves = Array.from({ length: 2 }).map(() => Fr.random().toBuffer());
       await tree.appendLeaves(newLeaves);
     },
   );

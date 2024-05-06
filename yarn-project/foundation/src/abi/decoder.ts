@@ -1,6 +1,6 @@
 import { AztecAddress } from '../aztec-address/index.js';
-import { Fr } from '../fields/index.js';
-import { ABIParameter, type ABIType, ABIVariable, FunctionArtifact } from './abi.js';
+import { type Fr } from '../fields/index.js';
+import { type ABIParameter, type ABIVariable, type AbiType, type FunctionAbi } from './abi.js';
 import { isAztecAddressStruct } from './utils.js';
 
 /**
@@ -13,14 +13,14 @@ export type DecodedReturn = bigint | boolean | AztecAddress | DecodedReturn[] | 
  * Missing support for integer and string.
  */
 class ReturnValuesDecoder {
-  constructor(private artifact: FunctionArtifact, private flattened: Fr[]) {}
+  constructor(private artifact: FunctionAbi, private flattened: Fr[]) {}
 
   /**
    * Decodes a single return value from field to the given type.
    * @param abiType - The type of the return value.
    * @returns The decoded return value.
    */
-  private decodeReturn(abiType: ABIType): DecodedReturn {
+  private decodeReturn(abiType: AbiType): DecodedReturn {
     switch (abiType.kind) {
       case 'field':
         return this.getNextField().toBigInt();
@@ -96,7 +96,7 @@ class ReturnValuesDecoder {
  * @param returnValues - The decoded return values.
  * @returns
  */
-export function decodeReturnValues(abi: FunctionArtifact, returnValues: Fr[]) {
+export function decodeReturnValues(abi: FunctionAbi, returnValues: Fr[]) {
   return new ReturnValuesDecoder(abi, returnValues.slice()).decode();
 }
 
@@ -114,7 +114,7 @@ export class FunctionSignatureDecoder {
    * @param param - The parameter type to decode.
    * @returns A string representing the parameter type.
    */
-  private getParameterType(param: ABIType): string {
+  private getParameterType(param: AbiType): string {
     switch (param.kind) {
       case 'field':
         return 'Field';

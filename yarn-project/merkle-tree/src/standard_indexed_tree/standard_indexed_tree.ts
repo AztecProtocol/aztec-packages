@@ -1,15 +1,20 @@
 import { SiblingPath } from '@aztec/circuit-types';
-import { TreeInsertionStats } from '@aztec/circuit-types/stats';
+import { type TreeInsertionStats } from '@aztec/circuit-types/stats';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { FromBuffer } from '@aztec/foundation/serialize';
+import { type FromBuffer } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
-import { IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { AztecKVStore, AztecMap } from '@aztec/kv-store';
-import { Hasher } from '@aztec/types/interfaces';
+import { type IndexedTreeLeaf, type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
+import { type Hasher } from '@aztec/types/interfaces';
 
-import { BatchInsertionResult, IndexedTree, LowLeafWitnessData, PreimageFactory } from '../interfaces/indexed_tree.js';
+import {
+  type BatchInsertionResult,
+  type IndexedTree,
+  type LowLeafWitnessData,
+  type PreimageFactory,
+} from '../interfaces/indexed_tree.js';
 import { IndexedTreeSnapshotBuilder } from '../snapshots/indexed_tree_snapshot.js';
-import { IndexedTreeSnapshot } from '../snapshots/snapshot_builder.js';
+import { type IndexedTreeSnapshot } from '../snapshots/snapshot_builder.js';
 import { TreeBase } from '../tree_base.js';
 
 export const buildDbKeyForPreimage = (name: string, index: bigint) => {
@@ -87,7 +92,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
    * @returns Empty promise.
    * @remarks Use batchInsert method instead.
    */
-  appendLeaves(_leaves: Buffer[]): Promise<void> {
+  override appendLeaves(_leaves: Buffer[]): Promise<void> {
     throw new Error('Not implemented');
   }
 
@@ -95,7 +100,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
    * Commits the changes to the database.
    * @returns Empty promise.
    */
-  public async commit(): Promise<void> {
+  public override async commit(): Promise<void> {
     await super.commit();
     await this.commitLeaves();
   }
@@ -104,7 +109,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
    * Rolls back the not-yet-committed changes.
    * @returns Empty promise.
    */
-  public async rollback(): Promise<void> {
+  public override async rollback(): Promise<void> {
     await super.rollback();
     this.clearCachedLeaves();
   }
@@ -115,7 +120,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
    * @param includeUncommitted - Indicates whether to include uncommitted leaves in the computation.
    * @returns The value of the leaf at the given index or undefined if the leaf is empty.
    */
-  public getLeafValue(index: bigint, includeUncommitted: boolean): Buffer | undefined {
+  public override getLeafValue(index: bigint, includeUncommitted: boolean): Buffer | undefined {
     const preimage = this.getLatestLeafPreimageCopy(index, includeUncommitted);
     return preimage && preimage.toBuffer();
   }
@@ -257,7 +262,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
    *    1024 leaves for the first block, because there's only neat space for 1023 leaves after 0. By padding with 1023
    *    more leaves, we can then insert the first block of 1024 leaves into indices 1024:2047.
    */
-  public async init(prefilledSize: number): Promise<void> {
+  public override async init(prefilledSize: number): Promise<void> {
     if (prefilledSize < 1) {
       throw new Error(`Prefilled size must be at least 1!`);
     }
@@ -566,7 +571,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
     // inclusion. See {@link encodeLeaf} for  a more through param explanation.
     this.encodeAndAppendLeaves(pendingInsertionSubtree, false);
 
-    this.log(`Inserted ${leaves.length} leaves into ${this.getName()} tree`, {
+    this.log.debug(`Inserted ${leaves.length} leaves into ${this.getName()} tree`, {
       eventName: 'tree-insertion',
       duration: timer.ms(),
       batchSize: leaves.length,

@@ -1,18 +1,18 @@
-import { AztecNode, KeyStore } from '@aztec/circuit-types';
+import { type AztecNode, type KeyStore } from '@aztec/circuit-types';
 import {
-  AztecAddress,
-  Fr,
-  FunctionSelector,
+  type AztecAddress,
+  type Fr,
+  type FunctionSelector,
   MembershipWitness,
-  NOTE_HASH_TREE_HEIGHT,
-  Point,
+  type NOTE_HASH_TREE_HEIGHT,
+  type Point,
   computeContractClassIdPreimage,
   computeSaltedInitializationHash,
 } from '@aztec/circuits.js';
-import { Tuple } from '@aztec/foundation/serialize';
+import { type Tuple } from '@aztec/foundation/serialize';
 
-import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
+import { type ContractDataOracle } from '../contract_data_oracle/index.js';
+import { type ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
 
 // TODO: Block number should not be "latest".
 // It should be fixed at the time the proof is being simulated. I.e., it should be the same as the value defined in the constant data.
@@ -43,7 +43,7 @@ export class KernelOracle implements ProvingDataOracle {
     return await this.contractDataOracle.getVkMembershipWitness();
   }
 
-  async getNoteMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>> {
+  async getNoteHashMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>> {
     const path = await this.node.getNoteHashSiblingPath('latest', leafIndex);
     return new MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>(
       path.pathSize,
@@ -62,6 +62,6 @@ export class KernelOracle implements ProvingDataOracle {
   }
 
   public getMasterNullifierSecretKey(nullifierPublicKey: Point) {
-    return this.keyStore.getNullifierSecretKeyFromPublicKey(nullifierPublicKey);
+    return this.keyStore.getMasterNullifierSecretKeyForPublicKey(nullifierPublicKey);
   }
 }

@@ -1,6 +1,6 @@
-import { pedersenHash, sha256 } from '@aztec/foundation/crypto';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { ContractClass } from '@aztec/types/contracts';
+import { type ContractClass } from '@aztec/types/contracts';
 
 import { GeneratorIndex } from '../constants.gen.js';
 import { computePrivateFunctionsRoot } from './private_function.js';
@@ -56,7 +56,8 @@ export type ContractClassIdPreimage = {
   publicBytecodeCommitment: Fr;
 };
 
-// TODO(@spalladino): Replace with actual implementation
-export function computePublicBytecodeCommitment(bytecode: Buffer) {
-  return Fr.fromBufferReduce(sha256(bytecode));
+// TODO(#5860): Replace with actual implementation
+// Changed to work with canonical contracts that may have non-deterministic noir compiles and we want to keep the address constant
+export function computePublicBytecodeCommitment(_bytecode: Buffer) {
+  return new Fr(5);
 }

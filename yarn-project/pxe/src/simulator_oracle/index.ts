@@ -1,30 +1,30 @@
 import {
-  AztecNode,
-  KeyStore,
-  L2Block,
+  type AztecNode,
+  type KeyStore,
+  type L2Block,
   MerkleTreeId,
-  NoteStatus,
-  NullifierMembershipWitness,
-  PublicDataWitness,
-  SiblingPath,
+  type NoteStatus,
+  type NullifierMembershipWitness,
+  type PublicDataWitness,
+  type SiblingPath,
 } from '@aztec/circuit-types';
 import {
-  AztecAddress,
-  CompleteAddress,
-  EthAddress,
-  Fr,
-  FunctionSelector,
-  Header,
-  L1_TO_L2_MSG_TREE_HEIGHT,
+  type AztecAddress,
+  type CompleteAddress,
+  type Fr,
+  type FunctionSelector,
+  type Header,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+  type Point,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
-import { FunctionArtifactWithDebugMetadata, getFunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
+import { type FunctionArtifactWithDebugMetadata, getFunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { DBOracle, KeyPair, MessageLoadOracleInputs } from '@aztec/simulator';
-import { ContractInstance } from '@aztec/types/contracts';
+import { type DBOracle, MessageLoadOracleInputs, type NullifierKeys } from '@aztec/simulator';
+import { type ContractInstance } from '@aztec/types/contracts';
 
-import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { PxeDatabase } from '../database/index.js';
+import { type ContractDataOracle } from '../contract_data_oracle/index.js';
+import { type PxeDatabase } from '../database/index.js';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -38,13 +38,13 @@ export class SimulatorOracle implements DBOracle {
     private log = createDebugLogger('aztec:pxe:simulator_oracle'),
   ) {}
 
-  async getNullifierKeyPair(accountAddress: AztecAddress, contractAddress: AztecAddress): Promise<KeyPair> {
-    const accountPublicKey = (await this.db.getCompleteAddress(accountAddress))!.publicKey;
-    const publicKey = await this.keyStore.getNullifierPublicKey(accountPublicKey);
-    const secretKey = await this.keyStore.getSiloedNullifierSecretKey(accountPublicKey, contractAddress);
-    return { publicKey, secretKey };
+  async getNullifierKeys(accountAddress: AztecAddress, contractAddress: AztecAddress): Promise<NullifierKeys> {
+    const masterNullifierPublicKey = await this.keyStore.getMasterNullifierPublicKey(accountAddress);
+    const appNullifierSecretKey = await this.keyStore.getAppNullifierSecretKey(accountAddress, contractAddress);
+    return { masterNullifierPublicKey, appNullifierSecretKey };
   }
 
+  // TODO: #5834
   async getCompleteAddress(address: AztecAddress): Promise<CompleteAddress> {
     const completeAddress = await this.db.getCompleteAddress(address);
     if (!completeAddress) {
@@ -77,6 +77,16 @@ export class SimulatorOracle implements DBOracle {
       throw new Error(`No capsules available`);
     }
     return capsule;
+  }
+
+  // TODO: #5834
+  async getPublicKeysForAddress(address: AztecAddress): Promise<Point[]> {
+    const nullifierPublicKey = await this.keyStore.getMasterNullifierPublicKey(address);
+    const incomingViewingPublicKey = await this.keyStore.getMasterIncomingViewingPublicKey(address);
+    const outgoingViewingPublicKey = await this.keyStore.getMasterOutgoingViewingPublicKey(address);
+    const taggingPublicKey = await this.keyStore.getMasterTaggingPublicKey(address);
+
+    return [nullifierPublicKey, incomingViewingPublicKey, outgoingViewingPublicKey, taggingPublicKey];
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus) {
@@ -118,10 +128,6 @@ export class SimulatorOracle implements DBOracle {
     return artifact && getFunctionArtifactWithDebugMetadata(artifact, functionName);
   }
 
-  async getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress> {
-    return await this.contractDataOracle.getPortalContractAddress(contractAddress);
-  }
-
   /**
    * Fetches a message from the db, given its key.
    * @param contractAddress - Address of a contract by which the message was emitted.
@@ -157,6 +163,11 @@ export class SimulatorOracle implements DBOracle {
 
     // Assuming messageIndex is what you intended to use for the index in MessageLoadOracleInputs
     return new MessageLoadOracleInputs(messageIndex, siblingPath);
+  }
+
+  // Only used in public.
+  public getL1ToL2LeafValue(_leafIndex: bigint): Promise<Fr | undefined> {
+    throw new Error('Unimplemented in private!');
   }
 
   /**

@@ -1,12 +1,8 @@
 use crate::common;
 use dep::types::abis::{
-    kernel_circuit_public_inputs::{
-    PrivateKernelTailCircuitPublicInputs, PublicKernelCircuitPublicInputs,
-    PublicKernelCircuitPublicInputsBuilder
-},
-    kernel_data::PublicKernelData, public_call_data::PublicCallData
+    kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder},
+    kernel_data::PublicKernelData, public_call_data::PublicCallData, gas_fees::GasFees
 };
-use dep::std::unsafe;
 
 struct PublicKernelTeardownCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
@@ -15,17 +11,66 @@ struct PublicKernelTeardownCircuitPrivateInputs {
 
 impl PublicKernelTeardownCircuitPrivateInputs {
     fn validate_inputs(self) {
-        let needs_setup = self.previous_kernel.public_inputs.needs_setup;
-        assert(needs_setup == false, "Cannot run teardown circuit before setup circuit");
-        let needs_app_logic = self.previous_kernel.public_inputs.needs_app_logic;
+        // Currently the nested calls will be pushed to the public call stack and need_setup will return true.
+        // This should not be the case when nested calls are handled in avm.
+        // But we should also consider merging this and the setup circuit and have one circuit that deals with non-revertibles.
+        // let needs_setup = self.previous_kernel.public_inputs.needs_setup();
+        // assert(needs_setup == false, "Cannot run teardown circuit before setup circuit");
+        let needs_app_logic = self.previous_kernel.public_inputs.needs_app_logic();
         assert(needs_app_logic == false, "Cannot run teardown circuit before app logic circuit");
-        let needs_teardown = self.previous_kernel.public_inputs.needs_teardown;
+        let needs_teardown = self.previous_kernel.public_inputs.needs_teardown();
         assert(needs_teardown == true, "Cannot run unnecessary teardown circuit");
+    }
+
+    // Validates that the start gas injected into the app circuit matches the teardown gas limits set by the user
+    fn validate_start_gas(self) {
+        // If this is a nested call (not an execution request), the start gas is correct as long as the
+        // call being processed by this kernel iteration matches the call at the top of the callstack
+        // as per the previous kernel's outputs.
+        // An execution request's start gas is the remaining gas left in the transaction after the previous kernel.
+        // A nested call's start gas is the gas allocated to it by its caller and placed in the callstack.
+        if (self.public_call.call_stack_item.is_execution_request) {
+            let public_call_start_gas = self.public_call.call_stack_item.public_inputs.start_gas_left;
+            let teardown_gas_limit = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.teardown_gas_limits;
+            assert(
+                public_call_start_gas == teardown_gas_limit, "Start gas for teardown phase does not match teardown gas allocation"
+            );
+        }
+    }
+
+    // Validates the transaction fee injected into the app circuit is properly computed from gas_used and block gas_fees
+    fn validate_transaction_fee(self, public_inputs: PublicKernelCircuitPublicInputsBuilder) {
+        let transaction_fee = self.public_call.call_stack_item.public_inputs.transaction_fee;
+        // Note that teardown_gas is already included in end.gas_used as it was injected by the private kernel
+        let total_gas_used = self.previous_kernel.public_inputs.end.gas_used
+            + self.previous_kernel.public_inputs.end_non_revertible.gas_used;
+        let block_gas_fees = public_inputs.constants.global_variables.gas_fees;
+        let inclusion_fee = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.inclusion_fee;
+        let computed_transaction_fee = total_gas_used.compute_fee(block_gas_fees) + inclusion_fee;
+
+        // dep::types::debug_log::debug_log_format(
+        //     "Validating tx fee: end.gas_used.da={0} end.gas_used.l2={1} non_revertible.gas_used.da={2} non_revertible.gas_used.l2={3} block_fee_per_gas.da={4}  block_fee_per_gas.l2={5} inclusion_fee={6} computed={7} actual={8}",
+        //     [
+        //     self.previous_kernel.public_inputs.end.gas_used.da_gas as Field,
+        //     self.previous_kernel.public_inputs.end.gas_used.l2_gas as Field,
+        //     self.previous_kernel.public_inputs.end_non_revertible.gas_used.da_gas as Field,
+        //     self.previous_kernel.public_inputs.end_non_revertible.gas_used.l2_gas as Field,
+        //     block_gas_fees.fee_per_da_gas as Field,
+        //     block_gas_fees.fee_per_l2_gas as Field,
+        //     inclusion_fee,
+        //     computed_transaction_fee,
+        //     transaction_fee
+        // ]
+        // );
+
+        assert(
+            transaction_fee == computed_transaction_fee, "Transaction fee on teardown phase does not match expected value"
+        );
     }
 
     fn public_kernel_teardown(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
-        let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();
         // since this phase is non-revertible, we must assert the public call did not revert
         common::validate_public_call_non_revert(self.public_call);
         common::initialize_revert_code(self.previous_kernel, self.public_call, &mut public_inputs);
@@ -36,6 +81,9 @@ impl PublicKernelTeardownCircuitPrivateInputs {
         // validate the inputs common to all invocation circumstances
         common::validate_inputs(self.public_call);
 
+        // validate constants injected into the public call are correct or set them if this is the first public call
+        common::initialize_from_or_validate_public_call_variables(self.previous_kernel, self.public_call, &mut public_inputs);
+
         // validate the inputs unique to having a previous private kernel
         self.validate_inputs();
 
@@ -43,26 +91,14 @@ impl PublicKernelTeardownCircuitPrivateInputs {
         let call_request = public_inputs.end_non_revertible.public_call_stack.pop();
         common::validate_call_against_request(self.public_call, call_request);
 
+        self.validate_start_gas();
+        self.validate_transaction_fee(public_inputs);
+
         common::update_validation_requests(self.public_call, &mut public_inputs);
 
         common::update_public_end_non_revertible_values(self.public_call, &mut public_inputs);
 
-        if public_inputs.end_non_revertible.revert_code == 0 {
-            common::accumulate_unencrypted_logs(
-                self.public_call,
-                self.previous_kernel.public_inputs.end.unencrypted_logs_hash,
-                self.previous_kernel.public_inputs.end.unencrypted_log_preimages_length,
-                &mut public_inputs
-            );
-        }
-
-        let mut output = public_inputs.to_inner();
-
-        // If we enqueued multiple public functions as part of executing the teardown circuit,
-        // continue to treat them as part of teardown.
-        output.needs_setup = false;
-
-        output
+        public_inputs.finish()
     }
 }
 
@@ -76,13 +112,13 @@ mod tests {
     };
     use dep::types::{
         abis::{
-        call_request::CallRequest, function_selector::FunctionSelector,
+        call_request::CallRequest, function_selector::FunctionSelector, gas::Gas,
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, public_data_read::PublicDataRead,
         public_data_update_request::PublicDataUpdateRequest
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
-        contrakt::storage_read::StorageRead, hash::compute_logs_hash,
-        tests::{kernel_data_builder::PreviousKernelDataBuilder, public_call_data_builder::PublicCallDataBuilder},
+        contrakt::storage_read::StorageRead,
+        tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
         utils::{arrays::{array_eq, array_length}}
     };
     use dep::types::constants::{
@@ -91,16 +127,18 @@ mod tests {
     };
 
     struct PublicKernelTeardownCircuitPrivateInputsBuilder {
-        previous_kernel: PreviousKernelDataBuilder,
+        previous_kernel: FixtureBuilder,
+        previous_revertible: FixtureBuilder,
         public_call: PublicCallDataBuilder,
     }
 
     impl PublicKernelTeardownCircuitPrivateInputsBuilder {
         pub fn new() -> Self {
-            let previous_kernel = PreviousKernelDataBuilder::new(true);
+            let previous_kernel = FixtureBuilder::new();
+            let previous_revertible = FixtureBuilder::new();
             let public_call = PublicCallDataBuilder::new();
 
-            PublicKernelTeardownCircuitPrivateInputsBuilder { previous_kernel, public_call }
+            PublicKernelTeardownCircuitPrivateInputsBuilder { previous_kernel, previous_revertible, public_call }
         }
 
         pub fn is_delegate_call(&mut self) -> Self {
@@ -125,8 +163,9 @@ mod tests {
             // Adjust the call stack item hash for the current call in the previous iteration.
             let hash = public_call.call_stack_item.hash();
             let is_delegate_call = public_call.call_stack_item.public_inputs.call_context.is_delegate_call;
-            self.previous_kernel.push_public_call_request_non_revertible(hash, is_delegate_call);
-            let previous_kernel = self.previous_kernel.to_public_kernel_data();
+            self.previous_kernel.push_public_call_request(hash, is_delegate_call);
+            let mut previous_kernel = self.previous_kernel.to_public_kernel_data(false);
+            previous_kernel.public_inputs.end = self.previous_revertible.to_public_accumulated_data();
 
             let kernel = PublicKernelTeardownCircuitPrivateInputs { previous_kernel, public_call };
 
@@ -181,8 +220,8 @@ mod tests {
 
         let hash = public_call.call_stack_item.hash();
         // Tweak the call stack item hash.
-        builder.previous_kernel.push_public_call_request_non_revertible(hash + 1, false);
-        let previous_kernel = builder.previous_kernel.to_public_kernel_data();
+        builder.previous_kernel.push_public_call_request(hash + 1, false);
+        let previous_kernel = builder.previous_kernel.to_public_kernel_data(false);
 
         let kernel = PublicKernelTeardownCircuitPrivateInputs { previous_kernel, public_call };
 
@@ -223,8 +262,8 @@ mod tests {
         let hash = public_call.call_stack_item.hash();
         // Caller context is empty for regular calls.
         let is_delegate_call = false;
-        builder.previous_kernel.push_public_call_request_non_revertible(hash, is_delegate_call);
-        let previous_kernel = builder.previous_kernel.to_public_kernel_data();
+        builder.previous_kernel.push_public_call_request(hash, is_delegate_call);
+        let previous_kernel = builder.previous_kernel.to_public_kernel_data(false);
 
         let kernel = PublicKernelTeardownCircuitPrivateInputs { previous_kernel, public_call };
 
@@ -322,7 +361,7 @@ mod tests {
 
         let public_call = builder.public_call.finish();
         // Don't push a call for teardown
-        let previous_kernel = builder.previous_kernel.to_public_kernel_data();
+        let previous_kernel = builder.previous_kernel.to_public_kernel_data(false);
 
         let kernel = PublicKernelTeardownCircuitPrivateInputs { previous_kernel, public_call };
 
@@ -360,21 +399,62 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.end.encrypted_log_preimages_length, prev_encrypted_log_preimages_length);
         assert_eq(
-            public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
+            public_inputs.end_non_revertible.encrypted_log_preimages_length, prev_encrypted_log_preimages_length
         );
-
-        assert_eq(public_inputs.end.encrypted_logs_hash, prev_encrypted_logs_hash);
-
-        let expected_unencrypted_logs_hash = compute_logs_hash(prev_unencrypted_logs_hash, unencrypted_logs_hash);
-        assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+        assert_eq(
+            public_inputs.end_non_revertible.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
+        );
+        assert_eq(public_inputs.end_non_revertible.encrypted_logs_hashes[0].value, prev_encrypted_logs_hash);
+        assert_eq(
+            public_inputs.end_non_revertible.unencrypted_logs_hashes[0].value, prev_unencrypted_logs_hash
+        );
+        assert_eq(public_inputs.end_non_revertible.unencrypted_logs_hashes[1].value, unencrypted_logs_hash);
     }
 
     #[test(should_fail_with="Public call cannot be reverted")]
     fn fails_if_public_call_reverted() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
         builder.public_call.public_inputs.revert_code = 1;
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with="Start gas for teardown phase does not match teardown gas allocation")]
+    fn validates_start_gas() {
+        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
+
+        builder.public_call.is_execution_request = true; // don't need to check start gas for nested calls
+        builder.public_call.public_inputs.start_gas_left = Gas::new(10, 30);
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with="Transaction fee on teardown phase does not match expected value")]
+    fn validates_transaction_fee() {
+        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
+        builder.public_call.public_inputs.transaction_fee = 1234;
+
+        builder.failed();
+    }
+
+    #[test]
+    fn propagates_global_variables_if_empty() {
+        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
+
+        builder.public_call.public_inputs.global_variables.block_number = 11;
+
+        let public_inputs = builder.execute();
+
+        assert_eq(public_inputs.constants.global_variables.block_number, 11);
+    }
+
+    #[test(should_fail_with="Global variables injected into the public call do not match constants")]
+    fn validates_global_variables() {
+        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
+
+        builder.previous_kernel.global_variables.block_number = 10;
+        builder.public_call.public_inputs.global_variables.block_number = 11;
 
         builder.failed();
     }

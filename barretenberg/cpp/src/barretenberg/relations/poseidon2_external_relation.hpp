@@ -14,6 +14,15 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
     };
 
     /**
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
+     *
+     */
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return (in.q_poseidon2_external.value_at(0).is_zero() && in.q_poseidon2_external.value_at(1).is_zero());
+    }
+
+    /**
      * @brief Expression for the poseidon2 external round relation, based on E_i in Section 6 of
      * https://eprint.iacr.org/2023/323.pdf.
      * @details This relation is defined as C(in(X)...) :=
@@ -95,20 +104,17 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         auto v1 = t3 + v2; // 5u_1 + 7u_2 + u_3 + 3u_4
         auto v3 = t2 + v4; // u_1 + 3u_2 + 5u_3 + 7u_4
 
-        auto tmp = q_poseidon2_external * (v1 - w_l_shift);
-        tmp *= scaling_factor;
+        auto q_pos_by_scaling = q_poseidon2_external * scaling_factor;
+        auto tmp = q_pos_by_scaling * (v1 - w_l_shift);
         std::get<0>(evals) += tmp;
 
-        tmp = q_poseidon2_external * (v2 - w_r_shift);
-        tmp *= scaling_factor;
+        tmp = q_pos_by_scaling * (v2 - w_r_shift);
         std::get<1>(evals) += tmp;
 
-        tmp = q_poseidon2_external * (v3 - w_o_shift);
-        tmp *= scaling_factor;
+        tmp = q_pos_by_scaling * (v3 - w_o_shift);
         std::get<2>(evals) += tmp;
 
-        tmp = q_poseidon2_external * (v4 - w_4_shift);
-        tmp *= scaling_factor;
+        tmp = q_pos_by_scaling * (v4 - w_4_shift);
         std::get<3>(evals) += tmp;
     };
 };

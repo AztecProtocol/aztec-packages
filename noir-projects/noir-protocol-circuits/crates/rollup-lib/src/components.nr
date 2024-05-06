@@ -3,8 +3,8 @@ use crate::abis::previous_rollup_data::PreviousRollupData;
 use dep::types::{
     mocked::AggregationObject, hash::accumulate_sha256,
     constants::{
-    MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
-    MAX_NEW_L2_TO_L1_MSGS_PER_TX, NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, NUM_ENCRYPTED_LOGS_HASHES_PER_TX,
+    MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+    NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, NUM_ENCRYPTED_LOGS_HASHES_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
 },
     utils::uint256::U256,
@@ -89,8 +89,8 @@ pub fn compute_out_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field 
     accumulate_sha256(
         [
         previous_rollup_data[0].base_or_merge_rollup_public_inputs.out_hash,
-        previous_rollup_data[1].base_or_merge_rollup_public_inputs.out_hash,
-        ]
+        previous_rollup_data[1].base_or_merge_rollup_public_inputs.out_hash
+    ]
     )
 }
 
@@ -119,18 +119,24 @@ pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -
     accumulate_sha256(
         [
         previous_rollup_data[0].base_or_merge_rollup_public_inputs.txs_effects_hash,
-        previous_rollup_data[1].base_or_merge_rollup_public_inputs.txs_effects_hash,
+        previous_rollup_data[1].base_or_merge_rollup_public_inputs.txs_effects_hash
     ]
     )
 }
 
-global TX_EFFECTS_HASH_INPUT_FIELDS = 197;
+global TX_EFFECTS_HASH_INPUT_FIELDS = 198;
 
 // Computes the tx effects hash for a base rollup (a single transaction)
 // TODO(Alvaro): This is too slow for brillig without the array optimization
-pub fn compute_tx_effects_hash(combined: CombinedAccumulatedData) -> Field {
+pub fn compute_tx_effects_hash(
+    combined: CombinedAccumulatedData,
+    revert_code: u8,
+    transaction_fee: Field
+) -> Field {
     // Compute tx effect hash
     // Consist of
+    // 1 field for revert code
+    // 1 field for transaction fee
     // MAX_NEW_NOTE_HASHES_PER_TX fields for note hashes
     // MAX_NEW_NULLIFIERS_PER_TX fields for nullifiers
     // 2 l2 -> l1 messages -> 2 fields
@@ -140,7 +146,6 @@ pub fn compute_tx_effects_hash(combined: CombinedAccumulatedData) -> Field {
     // 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!
     let mut txs_effects_hash_input = [0; TX_EFFECTS_HASH_INPUT_FIELDS];
 
-    let revert_code = combined.revert_code;
     let new_note_hashes = combined.new_note_hashes;
     let new_nullifiers = combined.new_nullifiers;
     let new_l2_to_l1_msgs = combined.new_l2_to_l1_msgs;
@@ -154,13 +159,16 @@ pub fn compute_tx_effects_hash(combined: CombinedAccumulatedData) -> Field {
     txs_effects_hash_input[offset] = revert_code as Field;
     offset += 1;
 
+    txs_effects_hash_input[offset] = transaction_fee;
+    offset += 1;
+
     for j in 0..MAX_NEW_NOTE_HASHES_PER_TX {
-        txs_effects_hash_input[offset + j] = new_note_hashes[j].value;
+        txs_effects_hash_input[offset + j] = new_note_hashes[j];
     }
     offset += MAX_NEW_NOTE_HASHES_PER_TX ;
 
     for j in 0..MAX_NEW_NULLIFIERS_PER_TX {
-        txs_effects_hash_input[offset + j] = new_nullifiers[j].value;
+        txs_effects_hash_input[offset + j] = new_nullifiers[j];
     }
     offset += MAX_NEW_NULLIFIERS_PER_TX ;
 
@@ -201,7 +209,9 @@ pub fn compute_tx_effects_hash(combined: CombinedAccumulatedData) -> Field {
 #[test]
 fn consistent_TX_EFFECTS_HASH_INPUT_FIELDS() {
     // 1 for revert_code
+    // 1 for transaction_fee
     let expected_size = 1
+        + 1
         + MAX_NEW_NOTE_HASHES_PER_TX
         + MAX_NEW_NULLIFIERS_PER_TX
         + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2

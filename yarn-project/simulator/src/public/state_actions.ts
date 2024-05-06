@@ -1,8 +1,8 @@
 import { ContractStorageRead, ContractStorageUpdateRequest } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { PublicStateDB } from './db.js';
+import { type PublicStateDB } from './db.js';
 
 /**
  * Implements read/write operations on a contract public storage, collecting
@@ -83,6 +83,7 @@ export class ContractStorageActionsCollector {
   public collect(): [ContractStorageRead[], ContractStorageUpdateRequest[]] {
     const reads = Array.from(this.contractStorageReads.entries()).map(([slot, valueAndCounter]) =>
       ContractStorageRead.from({
+        contractAddress: this.address,
         storageSlot: new Fr(slot),
         ...valueAndCounter,
       }),
@@ -90,6 +91,7 @@ export class ContractStorageActionsCollector {
 
     const updateRequests = Array.from(this.contractStorageUpdateRequests.entries()).map(([slot, valuesAndCounter]) =>
       ContractStorageUpdateRequest.from({
+        contractAddress: this.address,
         storageSlot: new Fr(slot),
         ...valuesAndCounter,
       }),

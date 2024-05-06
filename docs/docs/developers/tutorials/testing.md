@@ -88,7 +88,7 @@ This debug information will be populated in the transaction receipt. You can log
 
 If a note doesn't appear when you expect it to, check the visible notes returned by the debug options. See the following example for reference on how it's done in the token contract tests.
 
-#include_code debug /yarn-project/end-to-end/src/e2e_token_contract.test.ts typescript
+#include_code debug /yarn-project/end-to-end/src/e2e_token_contract/minting.test.ts typescript
 
 If the note appears in the visible notes and it contains the expected values there is probably an issue with how you fetch the notes. Check that the note getter (or note viewer) parameters are set correctly. If the note doesn't appear, ensure that you have emitted the corresponding encrypted log (usually by passing in a `broadcast = true` param to the `create_note` function). You can also check the Sandbox logs to see if the `emitEncryptedLog` was emitted. Run `export DEBUG="aztec:\*" before spinning up sandbox to see all the logs.
 
@@ -140,7 +140,7 @@ WARN Error processing tx 06dc87c4d64462916ea58426ffcfaf20017880b353c9ec3e0f0ee5f
 
 ### State
 
-We can check private or public state directly rather than going through view-only methods, as we did in the initial example by calling `token.methods.balance().view()`. Bear in mind that directly accessing contract storage will break any kind of encapsulation.
+We can check private or public state directly rather than going through view-only methods, as we did in the initial example by calling `token.methods.balance().simulate()`. Bear in mind that directly accessing contract storage will break any kind of encapsulation.
 
 To query storage directly, you'll need to know the slot you want to access. This can be checked in the [contract's `Storage` definition](../contracts/writing_contracts/storage/main.md) directly for most data types. However, when it comes to mapping types, as in most EVM languages, we'll need to calculate the slot for a given key. To do this, we'll use the [`CheatCodes`](../sandbox/references/cheat_codes.md) utility class:
 

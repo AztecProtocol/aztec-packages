@@ -16,16 +16,16 @@ describe('BoxReact Contract Tests', () => {
       .send({ contractAddressSalt: salt })
       .deployed();
 
-    logger(`L2 contract deployed at ${contract.address}`);
+    logger.info(`L2 contract deployed at ${contract.address}`);
   }, 60000);
 
   test('Can set a number', async () => {
-    logger(`${await wallet.getRegisteredAccounts()}`);
+    logger.info(`${await wallet.getRegisteredAccounts()}`);
     await contract.methods.setNumber(numberToSet, wallet.getCompleteAddress()).send().wait();
   }, 40000);
 
   test('Can read a number', async () => {
-    const viewTxReceipt = await contract.methods.getNumber(wallet.getCompleteAddress()).view();
+    const viewTxReceipt = await contract.methods.getNumber(wallet.getCompleteAddress()).simulate();
     expect(numberToSet.toBigInt()).toEqual(viewTxReceipt.value);
   }, 40000);
 });

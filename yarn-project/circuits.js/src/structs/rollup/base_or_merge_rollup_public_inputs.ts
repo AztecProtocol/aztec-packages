@@ -3,7 +3,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AggregationObject } from '../aggregation_object.js';
 import { PartialStateReference } from '../partial_state_reference.js';
-import { RollupTypes } from '../shared.js';
+import { type RollupTypes } from '../shared.js';
 import { ConstantRollupData } from './base_rollup.js';
 
 /**
@@ -87,5 +87,22 @@ export class BaseOrMergeRollupPublicInputs {
       this.txsEffectsHash,
       this.outHash,
     );
+  }
+
+  /**
+   * Serialize this as a hex string.
+   * @returns - The hex string.
+   */
+  toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  /**
+   * Deserializes from a hex string.
+   * @param str - A hex string to deserialize from.
+   * @returns A new BaseOrMergeRollupPublicInputs instance.
+   */
+  static fromString(str: string) {
+    return BaseOrMergeRollupPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
   }
 }

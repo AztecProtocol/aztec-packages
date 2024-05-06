@@ -1,10 +1,10 @@
-import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { AztecKVStore, AztecMap } from '@aztec/kv-store';
+import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
-import { IndexedTree, PreimageFactory } from '../interfaces/indexed_tree.js';
-import { TreeBase } from '../tree_base.js';
+import { type IndexedTree, type PreimageFactory } from '../interfaces/indexed_tree.js';
+import { type TreeBase } from '../tree_base.js';
 import { BaseFullTreeSnapshot, BaseFullTreeSnapshotBuilder } from './base_full_snapshot.js';
-import { IndexedTreeSnapshot, TreeSnapshotBuilder } from './snapshot_builder.js';
+import { type IndexedTreeSnapshot, type TreeSnapshotBuilder } from './snapshot_builder.js';
 
 const snapshotLeafValue = (node: Buffer, index: bigint) => 'snapshot:leaf:' + node.toString('hex') + ':' + index;
 
@@ -23,7 +23,7 @@ export class IndexedTreeSnapshotBuilder
     return new IndexedTreeSnapshotImpl(this.nodes, this.leaves, root, numLeaves, this.tree, this.leafPreimageBuilder);
   }
 
-  protected handleLeaf(index: bigint, node: Buffer) {
+  protected override handleLeaf(index: bigint, node: Buffer) {
     const leafPreimage = this.tree.getLatestLeafPreimageCopy(index, false);
     if (leafPreimage) {
       void this.leaves.set(snapshotLeafValue(node, index), leafPreimage.toBuffer());
@@ -44,7 +44,7 @@ class IndexedTreeSnapshotImpl extends BaseFullTreeSnapshot<Buffer> implements In
     super(db, historicRoot, numLeaves, tree, { fromBuffer: buf => buf });
   }
 
-  getLeafValue(index: bigint): Buffer | undefined {
+  override getLeafValue(index: bigint): Buffer | undefined {
     const leafPreimage = this.getLatestLeafPreimageCopy(index);
     return leafPreimage?.toBuffer();
   }
@@ -99,7 +99,7 @@ class IndexedTreeSnapshotImpl extends BaseFullTreeSnapshot<Buffer> implements In
     return { index: BigInt(minIndex), alreadyPresent: false };
   }
 
-  findLeafIndex(value: Buffer): bigint | undefined {
+  override findLeafIndex(value: Buffer): bigint | undefined {
     const index = this.tree.findLeafIndex(value, false);
     if (index !== undefined && index < this.getNumLeaves()) {
       return index;

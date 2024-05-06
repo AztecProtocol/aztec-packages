@@ -1,18 +1,18 @@
-import { NoirCallStack, SourceCodeLocation } from '@aztec/circuit-types';
-import { FunctionDebugMetadata, OpcodeLocation } from '@aztec/foundation/abi';
+import { type NoirCallStack, type SourceCodeLocation } from '@aztec/circuit-types';
+import { type FunctionDebugMetadata, type OpcodeLocation } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import {
-  ExecutionError,
-  ForeignCallInput,
-  ForeignCallOutput,
-  WasmBlackBoxFunctionSolver,
-  executeCircuitWithBlackBoxSolver,
+  type ExecutionError,
+  type ForeignCallInput,
+  type ForeignCallOutput,
+  type WasmBlackBoxFunctionSolver,
+  executeCircuitWithReturnWitness,
 } from '@noir-lang/acvm_js';
 
 import { traverseCauseChain } from '../common/errors.js';
-import { ACVMWitness } from './acvm_types.js';
-import { ORACLE_NAMES } from './oracle/index.js';
+import { type ACVMWitness } from './acvm_types.js';
+import { type ORACLE_NAMES } from './oracle/index.js';
 
 /**
  * The callback interface for the ACIR.
@@ -27,9 +27,12 @@ type ACIRCallback = Record<
  */
 export interface ACIRExecutionResult {
   /**
-   * The partial witness of the execution.
+   * An execution result contains two witnesses.
+   * 1. The partial witness of the execution.
+   * 2. The return witness which contains the given public return values within the full witness.
    */
   partialWitness: ACVMWitness;
+  returnWitness: ACVMWitness;
 }
 
 /**
@@ -89,13 +92,13 @@ export async function acvm(
 ): Promise<ACIRExecutionResult> {
   const logger = createDebugLogger('aztec:simulator:acvm');
 
-  const partialWitness = await executeCircuitWithBlackBoxSolver(
+  const solvedAndReturnWitness = await executeCircuitWithReturnWitness(
     solver,
     acir,
     initialWitness,
     async (name: string, args: ForeignCallInput[]) => {
       try {
-        logger(`Oracle callback ${name}`);
+        logger.debug(`Oracle callback ${name}`);
         const oracleFunction = callback[name as ORACLE_NAMES];
         if (!oracleFunction) {
           throw new Error(`Oracle callback ${name} not found`);
@@ -127,7 +130,7 @@ export async function acvm(
     throw err;
   });
 
-  return { partialWitness };
+  return { partialWitness: solvedAndReturnWitness.solvedWitness, returnWitness: solvedAndReturnWitness.returnWitness };
 }
 
 /**

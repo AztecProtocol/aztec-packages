@@ -13,8 +13,11 @@ template <typename Builder>
 void build_constraints(Builder& builder, AcirFormat const& constraint_system, bool has_valid_witness_assignments)
 {
     // Add arithmetic gates
-    for (const auto& constraint : constraint_system.constraints) {
+    for (const auto& constraint : constraint_system.poly_triple_constraints) {
         builder.create_poly_gate(constraint);
+    }
+    for (const auto& constraint : constraint_system.quad_constraints) {
+        builder.create_big_mul_gate(constraint);
     }
 
     // Add logic constraint
@@ -65,9 +68,6 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
     for (const auto& constraint : constraint_system.keccak_constraints) {
         create_keccak_constraints(builder, constraint);
     }
-    for (const auto& constraint : constraint_system.keccak_var_constraints) {
-        create_keccak_var_constraints(builder, constraint);
-    }
     for (const auto& constraint : constraint_system.keccak_permutations) {
         create_keccak_permutations(builder, constraint);
     }
@@ -87,6 +87,11 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
     // Add fixed base scalar mul constraints
     for (const auto& constraint : constraint_system.fixed_base_scalar_mul_constraints) {
         create_fixed_base_constraint(builder, constraint);
+    }
+
+    // Add variable base scalar mul constraints
+    for (const auto& constraint : constraint_system.variable_base_scalar_mul_constraints) {
+        create_variable_base_constraint(builder, constraint);
     }
 
     // Add ec add constraints
@@ -114,7 +119,7 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for UGH for now since we're not yet
     // dealing with proper recursion
-    if constexpr (IsGoblinBuilder<Builder>) {
+    if constexpr (IsGoblinUltraBuilder<Builder>) {
         if (!constraint_system.recursion_constraints.empty()) {
             info("WARNING: this circuit contains recursion_constraints!");
         }
@@ -221,6 +226,8 @@ UltraCircuitBuilder create_circuit(const AcirFormat& constraint_system, size_t s
     bool has_valid_witness_assignments = !witness.empty();
     build_constraints(builder, constraint_system, has_valid_witness_assignments);
 
+    builder.finalize_circuit();
+
     return builder;
 };
 
@@ -247,9 +254,7 @@ GoblinUltraCircuitBuilder create_circuit(const AcirFormat& constraint_system,
     bool has_valid_witness_assignments = !witness.empty();
     acir_format::build_constraints(builder, constraint_system, has_valid_witness_assignments);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): Add some arbitrary op gates to ensure the
-    // associated polynomials are non-zero and to give ECCVM and Translator some ECC ops to process.
-    MockCircuits::construct_goblin_ecc_op_circuit(builder);
+    builder.finalize_circuit();
 
     return builder;
 };

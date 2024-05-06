@@ -1,4 +1,4 @@
-import { Tx, TxHash, TxL2Logs } from '@aztec/circuit-types';
+import { EncryptedTxL2Logs, Tx, TxHash, UnencryptedTxL2Logs } from '@aztec/circuit-types';
 import { PrivateKernelTailCircuitPublicInputs, Proof, PublicCallRequest } from '@aztec/circuits.js';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 
@@ -146,6 +146,7 @@ export function toTxMessage(tx: Tx): Buffer {
     createMessageComponent(tx.encryptedLogs),
     createMessageComponent(tx.unencryptedLogs),
     createMessageComponents(tx.enqueuedPublicFunctionCalls),
+    createMessageComponent(tx.publicTeardownFunctionCall),
   ]);
   const messageLength = numToUInt32BE(messageBuffer.length);
   return Buffer.concat([messageLength, messageBuffer]);
@@ -188,15 +189,24 @@ export function fromTxMessage(buffer: Buffer): Tx {
   const publicInputs = toObject(buffer.subarray(4), PrivateKernelTailCircuitPublicInputs);
   const proof = toObject(publicInputs.remainingData, Proof);
 
-  const encryptedLogs = toObject(proof.remainingData, TxL2Logs);
+  const encryptedLogs = toObject(proof.remainingData, EncryptedTxL2Logs);
   if (!encryptedLogs.obj) {
-    encryptedLogs.obj = new TxL2Logs([]);
+    encryptedLogs.obj = new EncryptedTxL2Logs([]);
   }
-  const unencryptedLogs = toObject(encryptedLogs.remainingData, TxL2Logs);
+  const unencryptedLogs = toObject(encryptedLogs.remainingData, UnencryptedTxL2Logs);
   if (!unencryptedLogs.obj) {
-    unencryptedLogs.obj = new TxL2Logs([]);
+    unencryptedLogs.obj = new UnencryptedTxL2Logs([]);
   }
 
   const publicCalls = toObjectArray(unencryptedLogs.remainingData, PublicCallRequest);
-  return new Tx(publicInputs.obj!, proof.obj!, encryptedLogs.obj, unencryptedLogs.obj, publicCalls.objects);
+
+  const publicTeardownCall = toObject(publicCalls.remainingData, PublicCallRequest);
+  return new Tx(
+    publicInputs.obj!,
+    proof.obj!,
+    encryptedLogs.obj,
+    unencryptedLogs.obj,
+    publicCalls.objects,
+    publicTeardownCall.obj!,
+  );
 }

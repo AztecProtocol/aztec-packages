@@ -1,11 +1,11 @@
-use dep::protocol_types::{address::AztecAddress, constants::{GENERATOR_INDEX__INITIALIZATION_NULLIFIER}, hash::pedersen_hash};
+use dep::protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::pedersen_hash};
 
 use crate::context::{PrivateContext, PublicContext, Context};
 use crate::note::{
     lifecycle::{create_note, destroy_note}, note_getter::{get_note, view_notes},
     note_interface::NoteInterface, note_viewer_options::NoteViewerOptions
 };
-use crate::oracle::{nullifier_key::get_nullifier_secret_key, notes::check_nullifier_exists};
+use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::Storage;
 
 // docs:start:struct
@@ -62,7 +62,7 @@ impl<Note> PrivateMutable<Note> {
     // docs:start:replace
     pub fn replace<N>(self, new_note: &mut Note, broadcast: bool) where Note: NoteInterface<N> {
         let context = self.context.unwrap();
-        let prev_note = get_note(context, self.storage_slot);
+        let prev_note: Note = get_note(context, self.storage_slot);
 
         // Nullify previous note.
         destroy_note(context, prev_note);
@@ -90,8 +90,8 @@ impl<Note> PrivateMutable<Note> {
 
     // docs:start:view_note
     unconstrained pub fn view_note<N>(self) -> Note where Note: NoteInterface<N> {
-        let options = NoteViewerOptions::new().set_limit(1);
-        view_notes(self.storage_slot, options)[0].unwrap()
+        let mut options = NoteViewerOptions::new();
+        view_notes(self.storage_slot, options.set_limit(1))[0].unwrap()
     }
     // docs:end:view_note
 }
