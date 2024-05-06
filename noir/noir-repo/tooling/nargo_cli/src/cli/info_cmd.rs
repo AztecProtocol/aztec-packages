@@ -288,7 +288,7 @@ fn count_opcodes_and_gates_in_program(
     // before sending a serialized program to the backend
     compiled_program.program.unconstrained_functions.clear();
 
-    let program_circuit_sizes = backend.get_exact_circuit_size(&compiled_program.program)?;
+    let program_circuit_sizes = backend.get_exact_circuit_sizes(&compiled_program.program)?;
     let functions = compiled_program
         .program
         .functions
@@ -319,7 +319,7 @@ fn count_opcodes_and_gates_in_contract(
                 name: function.name,
                 // TODO(https://github.com/noir-lang/noir/issues/4720)
                 acir_opcodes: function.bytecode.functions[0].opcodes.len(),
-                circuit_size: backend.get_exact_circuit_size(&function.bytecode)?[0],
+                circuit_size: backend.get_exact_circuit_sizes(&function.bytecode)?[0],
             })
         })
         .collect::<Result<_, _>>()?;

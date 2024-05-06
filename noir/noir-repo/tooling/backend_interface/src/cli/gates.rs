@@ -27,6 +27,7 @@ impl GatesCommand {
         }
         // Note: barretenberg includes the newline, so that subsequent prints to stdout
         // are not on the same line as the gates output.
+
         const EXPECTED_BYTES: usize = 8;
         let mut values = Vec::new();
         for value_bytes in output.stdout.chunks(8) {

@@ -17,7 +17,7 @@ use crate::cli::{
 use crate::{Backend, BackendError};
 
 impl Backend {
-    pub fn get_exact_circuit_size(&self, program: &Program) -> Result<Vec<u32>, BackendError> {
+    pub fn get_exact_circuit_sizes(&self, program: &Program) -> Result<Vec<u32>, BackendError> {
         let binary_path = self.assert_binary_exists()?;
         self.assert_correct_version()?;
 

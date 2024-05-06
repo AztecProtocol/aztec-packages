@@ -69,7 +69,6 @@ impl Backend {
 
             backends_directory().join(&name).join(BINARY_NAME)
         };
-
         Backend { name, binary_path }
     }
 
