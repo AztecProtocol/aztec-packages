@@ -113,7 +113,7 @@ contract DocsExample {
         // and returns the response.
         // Used to test that we can retrieve values through calls and 
         // correctly return them in the simulation
-        let mut leader = DocsExample::at(context.this_address()).get_shared_immutable_constrained_private().call(&mut context);
+        let mut leader = DocsExample::at(context.this_address()).get_shared_immutable_constrained_private().static_call(&mut context);
         leader.points += 1;
         leader
     }
@@ -124,7 +124,7 @@ contract DocsExample {
         // and returns the response.
         // Used to test that we can retrieve values through calls and 
         // correctly return them in the simulation
-        let mut leader = DocsExample::at(context.this_address()).get_shared_immutable_constrained_public().call(&mut context);
+        let mut leader = DocsExample::at(context.this_address()).get_shared_immutable_constrained_public().static_call(&mut context);
         leader.points += 1;
         leader
     }
@@ -306,7 +306,7 @@ contract DocsExample {
         b: Field // The actual return type of our circuit is the PrivateCircuitPublicInputs struct, this will be the 
         // input to our kernel! 
         // docs:start:context-example-return
-    ) -> distinct pub PrivateCircuitPublicInputs {
+    ) -> pub PrivateCircuitPublicInputs {
         // docs:end:context-example-return
         // ************************************************************
         // The hasher is a structure used to generate a hash of the circuits inputs. 

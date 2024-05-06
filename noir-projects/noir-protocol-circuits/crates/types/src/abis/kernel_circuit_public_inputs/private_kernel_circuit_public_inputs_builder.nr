@@ -6,7 +6,8 @@ use crate::{
     private_kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     public_kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs
 },
-    validation_requests::validation_requests_builder::ValidationRequestsBuilder
+    gas::Gas, validation_requests::validation_requests_builder::ValidationRequestsBuilder,
+    call_request::CallRequest
 },
     mocked::AggregationObject, partial_state_reference::PartialStateReference, traits::Empty
 };
@@ -21,6 +22,7 @@ struct PrivateKernelCircuitPublicInputsBuilder {
     validation_requests: ValidationRequestsBuilder,
     end: PrivateAccumulatedDataBuilder,
     constants: CombinedConstantData,
+    public_teardown_call_request: CallRequest,
 }
 
 impl PrivateKernelCircuitPublicInputsBuilder {
@@ -30,23 +32,28 @@ impl PrivateKernelCircuitPublicInputsBuilder {
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             validation_requests: self.validation_requests.finish(),
             end: self.end.finish(),
-            constants: self.constants
+            constants: self.constants,
+            public_teardown_call_request: self.public_teardown_call_request
         }
     }
 
-    pub fn finish_tail(self) -> KernelCircuitPublicInputs {
+    pub fn finish_tail(self, teardown_gas: Gas) -> KernelCircuitPublicInputs {
         KernelCircuitPublicInputs {
             aggregation_object: self.aggregation_object,
             rollup_validation_requests: self.validation_requests.to_rollup(),
-            end: self.end.to_combined(),
+            end: self.end.to_combined(teardown_gas),
             constants: self.constants,
             start_state: PartialStateReference::empty(),
             revert_code: 0
         }
     }
 
-    pub fn finish_to_public(self, min_revertible_side_effect_counter: u32) -> PublicKernelCircuitPublicInputs {
-        let (end_non_revertible, end) = self.end.split_to_public(min_revertible_side_effect_counter);
+    pub fn finish_to_public(
+        self,
+        teardown_gas: Gas,
+        min_revertible_side_effect_counter: u32
+    ) -> PublicKernelCircuitPublicInputs {
+        let (end_non_revertible, end) = self.end.split_to_public(min_revertible_side_effect_counter, teardown_gas);
 
         PublicKernelCircuitPublicInputs {
             aggregation_object: self.aggregation_object,
@@ -54,7 +61,8 @@ impl PrivateKernelCircuitPublicInputsBuilder {
             end_non_revertible,
             end,
             constants: self.constants,
-            revert_code: 0
+            revert_code: 0,
+            public_teardown_call_request: self.public_teardown_call_request
         }
     }
 }
@@ -67,6 +75,7 @@ impl Empty for PrivateKernelCircuitPublicInputsBuilder {
             validation_requests: ValidationRequestsBuilder::empty(),
             end: PrivateAccumulatedDataBuilder::empty(),
             constants: CombinedConstantData::empty(),
+            public_teardown_call_request: CallRequest::empty()
         }
     }
 }

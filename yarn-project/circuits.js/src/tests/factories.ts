@@ -69,7 +69,6 @@ import {
   MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
-  NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -77,7 +76,6 @@ import {
   NUM_MSGS_PER_BASE_PARITY,
   NoteHash,
   NoteHashContext,
-  NoteHashReadRequestMembershipWitness,
   Nullifier,
   NullifierKeyValidationRequest,
   NullifierKeyValidationRequestContext,
@@ -286,7 +284,7 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
 export function makeValidationRequests(seed = 1) {
   return new ValidationRequests(
     makeRollupValidationRequests(seed),
-    makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, makeNewSideEffect, seed + 0x80),
+    makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, makeReadRequestContext, seed + 0x80),
     makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, makeReadRequestContext, seed + 0x90),
     makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, makeReadRequestContext, seed + 0x95),
     makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, makeNullifierKeyValidationRequestContext, seed + 0x100),
@@ -472,6 +470,7 @@ export function makePublicKernelCircuitPublicInputs(
     makePublicAccumulatedData(seed, fullAccumulatedData),
     makeConstantData(seed + 0x100),
     RevertCode.OK,
+    makeCallRequest(seed + 0x200),
   );
 }
 
@@ -487,6 +486,7 @@ export function makePrivateKernelCircuitPublicInputs(seed = 1, full = true): Pri
     makeValidationRequests(seed),
     makePrivateAccumulatedData(seed, full),
     makeConstantData(seed + 0x100),
+    makeCallRequest(seed + 0x200),
   );
 }
 
@@ -504,6 +504,7 @@ export function makePrivateKernelTailCircuitPublicInputs(
         ValidationRequests.empty(),
         makePublicAccumulatedData(seed + 0x100, false),
         makePublicAccumulatedData(seed + 0x200, false),
+        makeCallRequest(seed + 0x300),
       )
     : undefined;
   const forRollup = !isForPublic
@@ -573,34 +574,6 @@ export function makeDynamicSizeBuffer(size: number, fill: number) {
  */
 export function makeMembershipWitness<N extends number>(size: N, start: number): MembershipWitness<N> {
   return new MembershipWitness(size, BigInt(start), makeTuple(size, fr, start));
-}
-
-/**
- * Creates arbitrary/mocked membership witness where the sibling paths is an array of fields in an ascending order starting from `start`.
- * @param start - The start of the membership witness.
- * @returns A non-transient read request membership witness.
- */
-export function makeNoteHashReadRequestMembershipWitness(start: number): NoteHashReadRequestMembershipWitness {
-  return new NoteHashReadRequestMembershipWitness(
-    new Fr(start),
-    makeTuple(NOTE_HASH_TREE_HEIGHT, fr, start + 1),
-    false,
-    new Fr(0),
-  );
-}
-
-/**
- * Creates empty membership witness where the sibling paths is an array of fields filled with zeros.
- * @param start - The start of the membership witness.
- * @returns Non-transient empty read request membership witness.
- */
-export function makeEmptyNoteHashReadRequestMembershipWitness(): NoteHashReadRequestMembershipWitness {
-  return new NoteHashReadRequestMembershipWitness(
-    new Fr(0),
-    makeTuple(NOTE_HASH_TREE_HEIGHT, Fr.zero),
-    false,
-    new Fr(0),
-  );
 }
 
 /**
@@ -830,11 +803,6 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
     publicKeysHash: fr(seed + 0x72),
     saltedInitializationHash: fr(seed + 0x73),
     functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
-    noteHashReadRequestMembershipWitnesses: makeTuple(
-      MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-      makeNoteHashReadRequestMembershipWitness,
-      seed + 0x70,
-    ),
     acirHash: fr(seed + 0x60),
   });
 }
@@ -864,7 +832,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     argsHash: fr(seed + 0x100),
     returnsHash: fr(seed + 0x200),
     minRevertibleSideEffectCounter: fr(0),
-    noteHashReadRequests: makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, makeNewSideEffect, seed + 0x300),
+    noteHashReadRequests: makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x300),
     nullifierReadRequests: makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x310),
     nullifierKeyValidationRequests: makeTuple(
       MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
@@ -875,6 +843,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, makeNullifier, seed + 0x500),
     privateCallStackHashes: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
     publicCallStackHashes: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x700),
+    publicTeardownFunctionHash: fr(seed + 0x800),
     newL2ToL1Msgs: makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x800),
     startSideEffectCounter: fr(seed + 0x849),
     endSideEffectCounter: fr(seed + 0x850),
