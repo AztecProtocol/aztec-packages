@@ -51,8 +51,8 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
     BB_PROFILE void execute_relation_check_rounds();
     BB_PROFILE void execute_zeromorph_rounds();
 
-    HonkProof& export_proof();
-    HonkProof& construct_proof();
+    HonkProof export_proof();
+    HonkProof construct_proof();
 
   private:
     HonkProof proof;

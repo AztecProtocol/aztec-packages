@@ -66,13 +66,13 @@ template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_zeromorph_rou
                      transcript);
 }
 
-template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::export_proof()
+template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::export_proof()
 {
     proof = transcript->proof_data;
     return proof;
 }
 
-template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::construct_proof()
+template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof()
 {
     OinkProver<Flavor> oink_prover(instance->proving_key, transcript);
     auto [proving_key, relation_params, alphas] = oink_prover.prove();
