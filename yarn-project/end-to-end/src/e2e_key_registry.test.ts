@@ -118,7 +118,11 @@ describe('Key Registry', () => {
       masterIncomingViewingPublicKey: newAccountKeys.masterIncomingViewingPublicKey,
       masterOutgoingViewingPublicKey: newAccountKeys.masterOutgoingViewingPublicKey,
       masterTaggingPublicKey: newAccountKeys.masterTaggingPublicKey,
+<<<<<<< HEAD
     });
+=======
+  });
+>>>>>>> b9244205c8 (feat: making keys getters complete (#6171))
 
     // Should succeed as the account is now registered as a recipient in PXE
     await testContract.methods
