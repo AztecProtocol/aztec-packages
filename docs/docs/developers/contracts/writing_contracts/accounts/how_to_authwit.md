@@ -3,6 +3,10 @@ title: Authentication Witness
 description: Developer Documentation to use Authentication Witness for authentication actions on Aztec.
 ---
 
+This page introduces the authwit library and how you can use it in your Aztec.nr smart contracts. [Skip to the usage](#usage).
+
+For a guide on using authwit in Aztec.js, [read this](../../../aztecjs/guides/authwit.md).
+
 ## Prerequisite reading
 
 - [Authwit](./../../../../learn/concepts/accounts/authwit.md)
@@ -117,7 +121,7 @@ Very similar to the above, we have variations that work in the public domain. Th
 
 ## Usage
 
-Ok, enough talking, how the hell do we use this?
+Ok, enough talking, how do we use this?
 
 ### Importing it
 
