@@ -5,7 +5,7 @@ import {
   UnencryptedFunctionL2Logs,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { type IsEmpty, type PrivateCallStackItem, type PublicCallRequest, sortByCounter } from '@aztec/circuits.js';
+import { type IsEmpty, type PrivateCallStackItem, PublicCallRequest, sortByCounter } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type ACVMField } from '../acvm/index.js';
@@ -56,6 +56,8 @@ export interface ExecutionResult {
   nestedExecutions: this[];
   /** Enqueued public function execution requests to be picked up by the sequencer. */
   enqueuedPublicFunctionCalls: PublicCallRequest[];
+  /** Public function execution requested for teardown */
+  publicTeardownFunctionCall: PublicCallRequest;
   /**
    * Encrypted logs emitted during execution of this function call.
    * Note: These are preimages to `encryptedLogsHashes`.
@@ -132,4 +134,19 @@ export function collectEnqueuedPublicFunctionCalls(execResult: ExecutionResult):
     ...execResult.enqueuedPublicFunctionCalls,
     ...[...execResult.nestedExecutions].flatMap(collectEnqueuedPublicFunctionCalls),
   ].sort((a, b) => b.callContext.sideEffectCounter - a.callContext.sideEffectCounter);
+}
+
+export function collectPublicTeardownFunctionCall(execResult: ExecutionResult): PublicCallRequest {
+  const teardownCalls = [
+    execResult.publicTeardownFunctionCall,
+    ...[...execResult.nestedExecutions].flatMap(collectPublicTeardownFunctionCall),
+  ].filter(call => !call.isEmpty());
+
+  if (teardownCalls.length > 1) {
+    throw new Error('Multiple public teardown calls detected');
+  } else if (teardownCalls.length === 0) {
+    return PublicCallRequest.empty();
+  } else {
+    return teardownCalls[0];
+  }
 }
