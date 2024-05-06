@@ -1,8 +1,12 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 use dep::protocol_types::{address::AztecAddress, constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint, hash::poseidon2_hash};
 =======
 use dep::protocol_types::{address::AztecAddress, constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint};
 >>>>>>> b9244205c8 (feat: making keys getters complete (#6171))
+=======
+use dep::protocol_types::{address::AztecAddress, constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint, hash::poseidon2_hash};
+>>>>>>> 98129ae0b3 (Fix)
 use crate::{
     context::PrivateContext, oracle::keys::get_public_keys_and_partial_address,
     state_vars::{
@@ -24,6 +28,10 @@ global DELAY = 5;
 
 pub fn get_npk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
     get_master_key(context, address, NULLIFIER_INDEX)
+}
+
+pub fn get_npk_m_hash(context: &mut PrivateContext, address: AztecAddress) -> Field {
+    poseidon2_hash(get_master_key(context, address, NULLIFIER_INDEX).serialize())
 }
 
 pub fn get_ivpk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
