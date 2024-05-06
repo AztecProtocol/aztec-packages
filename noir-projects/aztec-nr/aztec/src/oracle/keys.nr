@@ -6,8 +6,6 @@ use dep::protocol_types::{
   grumpkin_point::GrumpkinPoint,
 };
 
-use crate::hash::poseidon2_hash;
-
 #[oracle(getPublicKeysAndPartialAddress)]
 fn get_public_keys_and_partial_address_oracle(_address: AztecAddress) -> [Field; 9] {}
 
