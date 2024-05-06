@@ -7,7 +7,7 @@ use crate::{
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, COMINED_ACCUMULATED_DATA_LENGTH
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, COMBINED_ACCUMULATED_DATA_LENGTH
 },
     utils::arrays::array_merge, traits::{Empty, Serialize}
 };
@@ -80,9 +80,9 @@ impl Empty for CombinedAccumulatedData {
     }
 }
 
-impl Serialize<COMINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
-  fn serialize(self) -> [Field; COMINED_ACCUMULATED_DATA_LENGTH] {
-    let mut fields: BoundedVec<Field, COMINED_ACCUMULATED_DATA_LENGTH> = BoundedVec::new();
+impl Serialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
+  fn serialize(self) -> [Field; COMBINED_ACCUMULATED_DATA_LENGTH] {
+    let mut fields: BoundedVec<Field, COMBINED_ACCUMULATED_DATA_LENGTH> = BoundedVec::new();
 
     fields.extend_from_array(self.new_note_hashes);
     fields.extend_from_array(self.new_nullifiers);
@@ -98,7 +98,7 @@ impl Serialize<COMINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
 
     fields.extend_from_array(self.gas_used.serialize());
 
-    assert_eq(fields.len(), COMINED_ACCUMULATED_DATA_LENGTH);
+    assert_eq(fields.len(), COMBINED_ACCUMULATED_DATA_LENGTH);
 
     fields.storage
   }

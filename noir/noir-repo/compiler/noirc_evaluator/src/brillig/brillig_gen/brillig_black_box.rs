@@ -252,9 +252,6 @@ pub(crate) fn convert_black_box_call(
         BlackBoxFunc::RANGE => unreachable!(
             "ICE: `BlackBoxFunc::RANGE` calls should be transformed into a `Instruction::Cast`"
         ),
-        BlackBoxFunc::RecursiveAggregation => unimplemented!(
-            "ICE: `BlackBoxFunc::RecursiveAggregation` is not implemented by the Brillig VM"
-        ),
         BlackBoxFunc::RecursiveAggregation => {}
         BlackBoxFunc::BigIntAdd => {
             if let (
