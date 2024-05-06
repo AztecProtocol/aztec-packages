@@ -729,7 +729,7 @@ Bitwise leftward shift (a << b)
 	- **bOffset**: memory offset of the operation's right input
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] << M[bOffset]`
-- **Tag checks**: `T[aOffset] == T[bOffset] == inTag`
+- **Tag checks**: `T[aOffset] == inTag`, `T[bOffset] == u8`
 - **Tag updates**: `T[dstOffset] = inTag`
 - **Bit-size**: 128
 
@@ -750,7 +750,7 @@ Bitwise rightward shift (a >> b)
 	- **bOffset**: memory offset of the operation's right input
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] >> M[bOffset]`
-- **Tag checks**: `T[aOffset] == T[bOffset] == inTag`
+- **Tag checks**: `T[aOffset] == inTag`, `T[bOffset] == u8`
 - **Tag updates**: `T[dstOffset] = inTag`
 - **Bit-size**: 128
 
@@ -1103,6 +1103,7 @@ context.machineState.pc = loc`}
 - **Details**: Target location is an immediate value (a constant in the bytecode).
 - **Bit-size**: 48
 
+[![](/img/protocol-specs/public-vm/bit-formats/INTERNALCALL.png)](/img/protocol-specs/public-vm/bit-formats/INTERNALCALL.png)
 
 ### <a id='isa-section-internalreturn'/>`INTERNALRETURN`
 Return from an internal call. Pop from the internal call stack and jump to the popped location.
