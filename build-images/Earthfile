@@ -1,5 +1,4 @@
 VERSION 0.8
 
 build:
-  FROM DOCKERFILE --target build .
-  SAVE ARTIFACT /opt/foundry/bin/anvil
+  FROM aztecprotocol/build:1.0
