@@ -12,7 +12,7 @@ contract AppSubscription {
 
     use dep::aztec::protocol_types::traits::is_empty;
 
-    use dep::aztec::{context::Context, oracle::get_public_key::get_public_key};
+    use dep::aztec::{context::Context, keys::getters::get_ivpk_m};
     use dep::authwit::{account::AccountActions, auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit};
 
     use crate::subscription_note::{SubscriptionNote, SUBSCRIPTION_NOTE_LEN};
