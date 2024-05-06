@@ -31,12 +31,12 @@ cmake --build --preset $PRESET --target $BENCHMARK
 
 # Run bench in current branch
 echo -e "\nRunning benchmark in feature branch.."
-./scripts/benchmark.sh $BENCHMARK\
-                        "./$BENCHMARK --benchmark_filter=$FILTER\
-                                      --benchmark_out=results_after.json\
-                                      --benchmark_out_format=json"\
-                        $PRESET
-                        $BUILD_DIR
+./scripts/benchmark_remote.sh $BENCHMARK\
+                              "./$BENCHMARK --benchmark_filter=$FILTER\
+                                            --benchmark_out=results_after.json\
+                                            --benchmark_out_format=json"\
+                              $PRESET
+                              $BUILD_DIR
 
 # Configure and build benchmark in $BASELINE branch
 echo -e "\nConfiguring and building $BENCHMARK in $BASELINE_BRANCH...\n"
@@ -44,14 +44,14 @@ git checkout $BASELINE_BRANCH
 cmake --preset $PRESET
 cmake --build --preset $PRESET --target $BENCHMARK
 
-# Run bench in current branch
+zs# Run bench in current branch
 echo -e "\nRunning benchmark in feature branch.."
-./scripts/benchmark.sh $BENCHMARK\
-                        "./$BENCHMARK --benchmark_filter=$FILTER\
-                                      --benchmark_out=results_before.json\
-                                      --benchmark_out_format=json"\
-                        $PRESET
-                        $BUILD_DIR
+./scripts/benchmark_remote.sh $BENCHMARK\
+                              "./$BENCHMARK --benchmark_filter=$FILTER\
+                                            --benchmark_out=results_before.json\
+                                            --benchmark_out_format=json"\
+                              $PRESET
+                              $BUILD_DIR
 
 # Call compare.py on the results (json) to get high level statistics.
 # See docs at https://github.com/google/benchmark/blob/main/docs/tools.md for more details.
