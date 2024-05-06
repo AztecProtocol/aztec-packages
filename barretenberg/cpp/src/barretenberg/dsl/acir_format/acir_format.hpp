@@ -17,6 +17,7 @@
 #include "recursion_constraint.hpp"
 #include "schnorr_verify.hpp"
 #include "sha256_constraint.hpp"
+#include "variable_base_scalar_mul.hpp"
 #include <utility>
 
 namespace acir_format {
@@ -47,6 +48,7 @@ struct AcirFormat {
     std::vector<PedersenHashConstraint> pedersen_hash_constraints;
     std::vector<Poseidon2Constraint> poseidon2_constraints;
     std::vector<FixedBaseScalarMul> fixed_base_scalar_mul_constraints;
+    std::vector<VariableBaseScalarMul> variable_base_scalar_mul_constraints;
     std::vector<EcAdd> ec_add_constraints;
     std::vector<RecursionConstraint> recursion_constraints;
     std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
@@ -80,6 +82,7 @@ struct AcirFormat {
                    pedersen_hash_constraints,
                    poseidon2_constraints,
                    fixed_base_scalar_mul_constraints,
+                   variable_base_scalar_mul_constraints,
                    ec_add_constraints,
                    recursion_constraints,
                    poly_triple_constraints,

@@ -452,6 +452,7 @@ fn simplify_black_box_func(
         }
 
         BlackBoxFunc::FixedBaseScalarMul
+        | BlackBoxFunc::VariableBaseScalarMul
         | BlackBoxFunc::SchnorrVerify
         | BlackBoxFunc::PedersenCommitment
         | BlackBoxFunc::PedersenHash
