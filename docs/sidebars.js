@@ -363,7 +363,8 @@ const sidebars = {
               label: "Accounts and Account Contracts",
               type: "category",
               items: [
-                "developers/contracts/writing_contracts/accounts/write_accounts_contract",
+                "developers/contracts/writing_contracts/accounts/how_to_authwit",
+                "developers/contracts/writing_contracts/accounts/authwit",
               ],
             },
             {
@@ -463,22 +464,8 @@ const sidebars = {
           type: "category",
           items: [
             "developers/contracts/resources/dependencies",
+            "developers/contracts/resources/common_patterns/main",
             //"developers/contracts/resources/style_guide",
-            {
-              label: "Common Patterns",
-              type: "category",
-              link: {
-                type: "doc",
-                id: "developers/contracts/resources/common_patterns/main",
-              },
-              items: [
-                "developers/contracts/resources/common_patterns/authwit",
-                //         "developers/contracts/resources/common_patterns/sending_tokens_to_user",
-                //         "developers/contracts/resources/common_patterns/sending_tokens_to_contract",
-                //         "developers/contracts/resources/common_patterns/access_control",
-                //         "developers/contracts/resources/common_patterns/interacting_with_l1",
-              ],
-            },
           ],
         },
         // {
@@ -515,6 +502,7 @@ const sidebars = {
             "developers/aztecjs/guides/deploy_contract",
             "developers/aztecjs/guides/send_transaction",
             "developers/aztecjs/guides/call_view_function",
+            "developers/aztecjs/guides/authwit",
           ],
         },
         {

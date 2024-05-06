@@ -155,6 +155,8 @@ Cool, so we have a function that checks if the current call is authenticated, bu
 
 #include_code authwit_transfer_example /yarn-project/end-to-end/src/e2e_token_contract/transfer_private.test.ts typescript
 
+Learn more about authwits in Aztec.js by [following this guide](../../../aztecjs/guides/authwit.md).
+
 ### Public Functions
 
 With private functions covered, how can we use this in a public function? Well, the answer is that we simply change one name of a function and then we are good to go :eyes: (almost).

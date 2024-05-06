@@ -158,8 +158,12 @@ describe('e2e_blacklist_token_contract transfer private', () => {
         action.request(),
       );
 
+      // docs:start:create_authwit
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
+      // docs:end:create_authwit
+      // docs:start:add_authwit
       await wallets[2].addAuthWitness(witness);
+      // docs:end:add_authwit
 
       await expect(action.prove()).rejects.toThrow(
         `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
