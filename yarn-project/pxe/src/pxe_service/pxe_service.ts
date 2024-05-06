@@ -30,7 +30,7 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   type PartialAddress,
   type PrivateKernelTailCircuitPublicInputs,
-  type PublicCallRequest,
+  PublicCallRequest,
   computeContractClassId,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
@@ -57,6 +57,7 @@ import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
+import { type ProofCreator } from '../kernel_prover/interface/proof_creator.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
@@ -78,6 +79,7 @@ export class PXEService implements PXE {
     private keyStore: KeyStore,
     private node: AztecNode,
     private db: PxeDatabase,
+    private proofCreator: ProofCreator,
     private config: PXEServiceConfig,
     logSuffix?: string,
   ) {
@@ -661,19 +663,27 @@ export class PXEService implements PXE {
     const executionResult = await this.#simulate(txExecutionRequest, msgSender);
 
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
-    const kernelProver = new KernelProver(kernelOracle);
+    const kernelProver = new KernelProver(kernelOracle, this.proofCreator);
     this.log.debug(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
 
     const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(executionResult)]);
     const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(executionResult)]);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
+    const teardownPublicFunction = PublicCallRequest.empty();
 
     // HACK(#1639): Manually patches the ordering of the public call stack
     // TODO(#757): Enforce proper ordering of enqueued public calls
     await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
 
-    const tx = new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions);
+    const tx = new Tx(
+      publicInputs,
+      proof,
+      encryptedLogs,
+      unencryptedLogs,
+      enqueuedPublicFunctions,
+      teardownPublicFunction,
+    );
     return new SimulatedTx(tx, executionResult.returnValues);
   }
 
