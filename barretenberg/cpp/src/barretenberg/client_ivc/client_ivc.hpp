@@ -43,7 +43,7 @@ class ClientIVC {
 
         std::vector<FF> to_buffer() const
         {
-            uint64_t proof_size = folding_proof.size() + decider_proof.size() + goblin_proof.size();
+            size_t proof_size = folding_proof.size() + decider_proof.size() + goblin_proof.size();
 
             std::vector<FF> result;
             result.reserve(proof_size);
