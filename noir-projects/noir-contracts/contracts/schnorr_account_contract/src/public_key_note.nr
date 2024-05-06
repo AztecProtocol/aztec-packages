@@ -1,9 +1,8 @@
 use dep::aztec::prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext};
 use dep::aztec::{
-    keys::getters::get_ivpk_m,
-    note::utils::compute_note_hash_for_consumption, hash::poseidon2_hash,
+    keys::getters::get_ivpk_m, note::utils::compute_note_hash_for_consumption, hash::poseidon2_hash,
     oracle::{nullifier_key::get_app_nullifier_secret_key},
-    protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+    protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER
 };
 
 global PUBLIC_KEY_NOTE_LEN: Field = 3;

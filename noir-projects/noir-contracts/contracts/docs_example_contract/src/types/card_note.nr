@@ -1,9 +1,8 @@
 use dep::aztec::prelude::{AztecAddress, NoteInterface, NoteHeader, PrivateContext};
 use dep::aztec::{
-    keys::getters::get_ivpk_m,
-    note::{utils::compute_note_hash_for_consumption},
-    oracle::nullifier_key::get_app_nullifier_secret_key,
-    hash::poseidon2_hash, protocol_types::{traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER},
+    keys::getters::get_ivpk_m, note::{utils::compute_note_hash_for_consumption},
+    oracle::nullifier_key::get_app_nullifier_secret_key, hash::poseidon2_hash,
+    protocol_types::{traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER}
 };
 
 // Shows how to create a custom note
