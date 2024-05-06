@@ -36,6 +36,15 @@ We use earthly to build things, follow this guide: https://earthly.dev/get-earth
 
 ### Build The Dev Container
 
+If you want to build entirely from scratch, you can do:
+
 ```
 $ earthly +devbox
+```
+
+This will take significant time and compute however, as it builds several toolchains from the ground up.
+If you have a reasonable internet connection, leveraging the cache to avoid building maybe prefereable.
+
+```
+$ earthly --use-inline-cache +devbox
 ```

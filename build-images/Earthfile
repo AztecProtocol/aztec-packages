@@ -1,15 +1,31 @@
 VERSION 0.8
 
+base-build:
+  FROM ubuntu:noble
+  RUN export DEBIAN_FRONTEND="noninteractive" \
+      && apt update && apt install --no-install-recommends -y \
+        build-essential \
+        ca-certificates \
+        bash \
+        clang \
+        cmake \
+        make \
+        ninja-build \
+        git \
+        cargo \
+        curl \
+        python3 \
+        wget \
+      && apt-get -y autoremove \
+      && apt-get clean \
+      && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+  ARG TARGETARCH
+  SAVE IMAGE --push aztecprotocol/cache:base-build-1.0-$TARGETARCH
+
 ########################################################################################################################
 # Build wasi-sdk.
-wasi-sdk-build:
-  FROM ubuntu:noble
-  RUN apt update && apt install -y \
-      clang \
-      cmake \
-      ninja-build \
-      git \
-      cargo
+wasi-sdk:
+  FROM +base-build
   RUN git clone --depth 1 --recursive --branch wasi-sdk-22 https://github.com/WebAssembly/wasi-sdk.git \
       && mkdir -p /wasi-sdk/build/install/opt/wasi-sdk \
       && cd /wasi-sdk \
@@ -23,26 +39,15 @@ wasi-sdk-build:
       && mv build/install/opt/wasi-sdk /opt/wasi-sdk \
       && cd / && rm -rf /wasi-sdk
   SAVE ARTIFACT /opt/wasi-sdk /opt/wasi-sdk
-
-wasi-sdk:
   ARG TARGETARCH
-  FROM scratch
-  COPY +wasi-sdk-build/opt/wasi-sdk /opt/wasi-sdk
-  SAVE IMAGE --push aztecprotocol/wasi-sdk:22.0-$TARGETARCH
+  SAVE IMAGE --push aztecprotocol/cache:wasi-sdk-22.0-$TARGETARCH
 
 ########################################################################################################################
 # Build osxcross.
-osxcross-build:
-  FROM ubuntu:noble
-  RUN export DEBIAN_FRONTEND="noninteractive" \
-      && apt-get update \
-      && apt-get install --no-install-recommends -y \
-          bash \
+osxcross:
+  FROM +base-build
+  RUN apt update && apt-get install --no-install-recommends -y \
           binutils-multiarch-dev \
-          build-essential \
-          ca-certificates \
-          clang \
-          git \
           libbz2-dev \
           libmpc-dev \
           libmpfr-dev \
@@ -53,52 +58,46 @@ osxcross-build:
           libxml2-dev \
           libz-dev \
           lzma-dev \
-          make \
           patch \
-          python3 \
           uuid-dev \
-          wget \
           xz-utils \
           zlib1g-dev \
-          cmake \
-          curl \
       && apt-get -y autoremove \
       && apt-get clean \
       && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-  WORKDIR /usr/src/osxcross
-  ARG OSX_CROSS_COMMIT="ff8d100f3f026b4ffbe4ce96d8aac4ce06f1278b"
-  RUN git clone https://github.com/tpoechtrager/osxcross.git . && git reset --hard $OSX_CROSS_COMMIT
-  ARG OSX_SDK="MacOSX14.0.sdk"
-  ARG OSX_SDK_URL="https://github.com/joseluisq/macosx-sdks/releases/download/14.0/${OSX_SDK}.tar.xz"
-  RUN curl -sSL "$OSX_SDK_URL" -o "./tarballs/$OSX_SDK.tar.xz" \
+  RUN git clone --depth=1 https://github.com/tpoechtrager/osxcross.git \
+      && cd /osxcross \
+      && git reset --hard ff8d100f3f026b4ffbe4ce96d8aac4ce06f1278b \
+      && export OSX_SDK="MacOSX14.0.sdk" \
+      && export OSX_SDK_URL="https://github.com/joseluisq/macosx-sdks/releases/download/14.0/${OSX_SDK}.tar.xz" \
+      && curl -sSL "$OSX_SDK_URL" -o "./tarballs/$OSX_SDK.tar.xz" \
       && OSX_VERSION_MIN=14.0 UNATTENDED=1 ENABLE_COMPILER_RT_INSTALL=1 TARGET_DIR=/opt/osxcross ./build.sh \
-      && rm -rf ./tarballs/$OSX_SDK.tar.xz /opt/osxcross/SDK/$OSX_SDK
+      && rm -rf /osxcross /opt/osxcross/SDK/$OSX_SDK
   SAVE ARTIFACT /opt/osxcross /opt/osxcross
-
-osxcross:
   ARG TARGETARCH
-  FROM scratch
-  COPY +osxcross-build/opt/osxcross /opt/osxcross
-  SAVE IMAGE --push aztecprotocol/osxcross:14.0-$TARGETARCH
+  SAVE IMAGE --push aztecprotocol/cache:osxcross-14.0-$TARGETARCH
 
 ########################################################################################################################
 # Build foundry.
 foundry-build:
   LET FOUNDRY_TAG = de33b6af53005037b463318d2628b5cfcaf39916
-  FROM ubuntu:noble
-  RUN apt update && apt install -y git cargo
-  ARG TAG
-  RUN ulimit -n 65535 && \
-      git clone --depth 1 --branch nightly-$FOUNDRY_TAG https://github.com/foundry-rs/foundry.git && \
-      cd foundry && cargo build --profile local && \
-      mkdir -p /opt/foundry/bin && \
-      for t in forge cast anvil chisel; do \
+  FROM +base-build
+  RUN ulimit -n 65535 \
+      && git clone --depth 1 --branch nightly-$FOUNDRY_TAG https://github.com/foundry-rs/foundry.git \
+      && cd foundry \
+      && cargo build --profile local \
+      && mkdir -p /opt/foundry/bin \
+      && for t in forge cast anvil chisel; do \
           mv ./target/local/$t /opt/foundry/bin/$t; \
           strip /opt/foundry/bin/$t; \
-      done
+      done \
+      && rm -rf /foundry
   SAVE ARTIFACT /opt/foundry /opt/foundry
+  ARG TARGETARCH
+  SAVE IMAGE --push aztecprotocol/cache:foundry-build-$FOUNDRY_TAG-$TARGETARCH
 
 foundry:
+  BUILD +foundry-build
   LET FOUNDRY_TAG = de33b6af53005037b463318d2628b5cfcaf39916
   ARG TARGETARCH
   FROM ubuntu:noble
@@ -110,7 +109,10 @@ foundry:
 # This image contains *just* what's needed to perform a full build of the aztec project.
 # It acts as the base image for all CI builds, and we build on it to produce a developer box.
 build:
-  FROM ubuntu:noble
+  BUILD +wasi-sdk
+  BUILD +osxcross
+  BUILD +foundry
+  FROM +base-build
   RUN apt update && \
       apt install -y \
           # Utils
@@ -139,13 +141,15 @@ build:
           # Python (clang bindings for wasm bindgen.)
           python3 \
           python3-clang \
+      && apt-get -y autoremove \
+      && apt-get clean \
       && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
   # Install wasi-sdk.
-  COPY +wasi-sdk-build/opt/wasi-sdk /opt/wasi-sdk
+  COPY +wasi-sdk/opt/wasi-sdk /opt/wasi-sdk
 
   # Install osxcross. Requires developer to mount SDK from their mac host.
-  COPY +osxcross-build/opt/osxcross /opt/osxcross
+  COPY +osxcross/opt/osxcross /opt/osxcross
   ENV PATH="/opt/osxcross/bin:$PATH"
   ENV LD_LIBRARY_PATH="/opt/osxcross/lib:$LD_LIBRARY_PATH"
 
@@ -154,10 +158,12 @@ build:
   ENV PATH="/opt/foundry/bin:$PATH"
 
   # Install rust and cross-compilers. Noir specifically uses 1.74.1.
-  # We add everyone write ownership so downstream boxes can write.
+  # We remove base-build's rust first.
+  # We give everyone write ownership so downstream boxes can write.
   ENV RUSTUP_HOME=/opt/rust/rustup
   ENV CARGO_HOME=/opt/rust/cargo
   ENV PATH="/opt/rust/cargo/bin:$PATH"
+  RUN apt remove -y cargo rustc
   RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.74.1 && \
       rustup target add wasm32-unknown-unknown wasm32-wasi aarch64-apple-darwin && \
       chmod -R a+w /opt/rust
@@ -187,6 +193,7 @@ build:
 # We want to produce downstream images: codespace, devbox and sysbox. This image is the base image for each.
 # It contains a suite of tools that developers might use to develop aztec.
 basebox:
+  BUILD +build
   FROM +build
   RUN yes | unminimize
 
@@ -242,6 +249,9 @@ basebox:
   # sudo group can sudo without password.
   RUN echo '%sudo ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 
+  ARG TARGETARCH
+  SAVE IMAGE --push aztecprotocol/cache:basebox-1.0-$TARGETARCH
+
 ########################################################################################################################
 # This devbox container can be used to provide a full development environment.
 #
@@ -256,6 +266,7 @@ basebox:
 # - It provides docker via the hosts docker instance, mounted at /var/lib/docker.sock.
 # - It uses an entrypoint script at runtime to perform uid/gid alignment with the host and drop into user account.
 devbox:
+  BUILD +basebox
   FROM +basebox
 
   # Install gosu so we can start as root, adjust uid/gid, and then use gosu to become aztec-dev.
@@ -282,6 +293,7 @@ devbox:
   # Need to ensure correct permissions, under some conditions these would otherwise be created by root.
   RUN mkdir .vscode-server .npm-global .ssh && chown aztec-dev:aztec-dev .*
 
+  # Install docker using docker-in-docker dev-container feature install script, modified to permit noble.
   COPY install-docker.sh /install-docker.sh
   RUN /install-docker.sh && rm /install-docker.sh
 
