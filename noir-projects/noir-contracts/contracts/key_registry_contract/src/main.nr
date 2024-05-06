@@ -13,7 +13,7 @@ contract KeyRegistry {
     #[aztec(storage)]
   struct Storage {
     // The following stores a hash of individual master public keys
-    // If you change slots of vars bellow, you must update the slots in `SharedMutablePrivateGetter` in aztec-nr keys.
+    // If you change slots of vars below, you must update the slots in `SharedMutablePrivateGetter` in aztec-nr/keys.
     // We store x and y coordinates in individual shared mutables as shared mutable currently supports only 1 field
     npk_m_x_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
     npk_m_y_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
