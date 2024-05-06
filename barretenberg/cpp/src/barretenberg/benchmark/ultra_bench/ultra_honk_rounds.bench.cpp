@@ -52,7 +52,7 @@ BB_PROFILE static void test_round_inner(State& state, GoblinUltraProver& prover,
     time_if_index(SORTED_LIST_ACCUMULATOR, [&] { oink_prover.execute_sorted_list_accumulator_round(); });
     time_if_index(LOG_DERIVATIVE_INVERSE, [&] { oink_prover.execute_log_derivative_inverse_round(); });
     time_if_index(GRAND_PRODUCT_COMPUTATION, [&] { oink_prover.execute_grand_product_computation_round(); });
-    prover.instance->alphas = oink_prover.generate_alphas_round();
+    time_if_index(GENERATE_ALPHAS, [&] { prover.instance->alphas = oink_prover.generate_alphas_round(); });
     // we need to get the relation_parameters and prover_polynomials from the oink_prover
     prover.instance->relation_parameters = oink_prover.relation_parameters;
 
