@@ -1,6 +1,6 @@
 use dep::protocol_types::{address::AztecAddress, constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint};
 use crate::{
-    context::PrivateContext, hash::poseidon2_hash, oracle::keys::get_public_keys_and_partial_address,
+    context::PrivateContext, oracle::keys::get_public_keys_and_partial_address,
     state_vars::{
     map::derive_storage_slot_in_map,
     shared_mutable::shared_mutable_private_getter::SharedMutablePrivateGetter
