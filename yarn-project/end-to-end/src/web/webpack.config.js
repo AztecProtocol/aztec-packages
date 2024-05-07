@@ -1,4 +1,4 @@
-import CopyPlugin from 'copy-webpack-plugin';
+import HtmlWebpackPlugin from 'html-webpack-plugin';
 import { createRequire } from 'module';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
@@ -6,14 +6,14 @@ import webpack from 'webpack';
 
 const require = createRequire(import.meta.url);
 
-const src = resolve(dirname(fileURLToPath(import.meta.url)));
-const out = resolve(src, 'dist');
+const dir = resolve(dirname(fileURLToPath(import.meta.url)));
+const out = resolve(dir, 'webpack-dist');
 
 export default {
   target: 'web',
   mode: 'production',
   devtool: false,
-  entry: resolve(src, 'main.ts'),
+  entry: resolve(dir, 'main.ts'),
   module: {
     rules: [
       {
@@ -22,7 +22,7 @@ export default {
           {
             loader: 'ts-loader',
             options: {
-              configFile: resolve(src, './tsconfig.json'),
+              configFile: resolve(dir, './tsconfig.json'),
             },
           },
         ],
@@ -47,7 +47,9 @@ export default {
       },
     }),
     new webpack.ProvidePlugin({ Buffer: ['buffer', 'Buffer'] }),
-    new CopyPlugin({ patterns: [resolve(src, 'index.html')] }),
+    new HtmlWebpackPlugin({
+      scriptLoading: 'module',
+    }),
   ],
   resolve: {
     extensions: ['.ts', '.js'],

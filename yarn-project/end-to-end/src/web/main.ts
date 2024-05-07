@@ -6,7 +6,7 @@ import '@aztec/circuits.js';
 
 import { Buffer } from 'buffer';
 
-export const AztecJs = {
+(window as any).AztecJs = {
   ...aztec,
   ...testingAccounts,
   ...singleKeyAccount,

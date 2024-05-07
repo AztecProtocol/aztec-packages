@@ -49,8 +49,8 @@ docs/dist
 end-to-end/addresses.json
 end-to-end/log
 end-to-end/data
-end-to-end/src/web/main.js
-end-to-end/src/web/main.js.LICENSE.txt
+end-to-end/src/web/webpack-dist
+end-to-end/src/web/vite-dist
 entry-points/src/artifacts
 l1-contracts/generated
 builder/target/

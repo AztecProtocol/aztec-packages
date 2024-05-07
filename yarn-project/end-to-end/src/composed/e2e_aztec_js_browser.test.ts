@@ -1,6 +1,7 @@
 import { createDebugLogger, fileURLToPath } from '@aztec/aztec.js';
 import { startPXEHttpServer } from '@aztec/pxe';
 
+import getPort from 'get-port';
 import Koa from 'koa';
 import serve from 'koa-static';
 import path, { dirname } from 'path';
@@ -12,8 +13,6 @@ const { PXE_URL = '' } = process.env;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const PORT = 4000;
-const PXE_PORT = 4001;
 
 const logger = createDebugLogger('aztec:e2e_aztec_browser.js:web');
 const pageLogger = createDebugLogger('aztec:e2e_aztec_browser.js:web:page');
@@ -31,23 +30,24 @@ const pageLogger = createDebugLogger('aztec:e2e_aztec_browser.js:web:page');
  *       unexpectedly running in the background. Kill it with `killall chrome`
  */
 
-const setupApp = async (name: string) => {
+const setupApp = async (dir: string) => {
   const { pxe: pxeService } = await setup(0);
   let pxeURL = PXE_URL;
   let pxeServer = undefined;
+  const [appPort, pxePort] = [await getPort(), await getPort()];
   if (!PXE_URL) {
-    pxeServer = startPXEHttpServer(pxeService, PXE_PORT);
-    pxeURL = `http://localhost:${PXE_PORT}`;
+    pxeServer = startPXEHttpServer(pxeService, pxePort);
+    pxeURL = `http://localhost:${pxePort}`;
   }
 
   const app = new Koa();
-  app.use(serve(path.resolve(__dirname, '../web', name, 'dist')));
-  const server = app.listen(PORT, () => {
-    logger.info(`Web Server started at http://localhost:${PORT}`);
+  app.use(serve(path.resolve(__dirname, '../web', dir)));
+  const server = app.listen(appPort, () => {
+    logger.info(`Web Server started at http://localhost:${appPort}`);
   });
 
-  return { server, webServerURL: `http://localhost:${PORT}`, pxeServer, pxeURL };
+  return { server, webServerURL: `http://localhost:${appPort}`, pxeServer, pxeURL };
 };
 
-browserTestSuite('webpack', () => setupApp('webpack'), pageLogger);
-browserTestSuite('vite', () => setupApp('vite'), pageLogger);
+browserTestSuite('webpack', () => setupApp('webpack-dist'), pageLogger);
+browserTestSuite('vite', () => setupApp('vite-dist'), pageLogger);

@@ -7,9 +7,7 @@ import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { contractArtifactToBuffer } from '@aztec/types/abi';
 
 import { type Server } from 'http';
-import Koa from 'koa';
-import serve from 'koa-static';
-import path, { dirname } from 'path';
+import { dirname } from 'path';
 import { type Browser, type Page, launch } from 'puppeteer';
 
 declare global {
@@ -60,7 +58,6 @@ export const browserTestSuite = (
 
     let contractAddress: AztecJs.AztecAddress;
 
-    let app: Koa;
     let testClient: AztecJs.PXE;
     let server: Server;
     let webServerURL: string;
@@ -74,9 +71,6 @@ export const browserTestSuite = (
       ({ server, pxeURL, pxeServer, webServerURL } = await setup());
       testClient = AztecJs.createPXEClient(pxeURL);
       await AztecJs.waitForPXE(testClient);
-
-      app = new Koa();
-      app.use(serve(path.resolve(__dirname, './web')));
 
       browser = await launch({
         executablePath: process.env.CHROME_BIN,
