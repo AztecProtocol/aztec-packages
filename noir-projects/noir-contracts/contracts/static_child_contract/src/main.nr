@@ -91,7 +91,7 @@ contract StaticChild {
 
     #[aztec(public)]
     fn set_value_twice_with_nested_first() {
-        let _result = Child::at(context.this_address()).pub_set_value(10).call(&mut context);
+        let _result = StaticChild::at(context.this_address()).pub_set_value(10).call(&mut context);
         storage.current_value.write(20);
         context.emit_unencrypted_log(20);
     }
@@ -100,15 +100,15 @@ contract StaticChild {
     fn set_value_twice_with_nested_last() {
         storage.current_value.write(20);
         context.emit_unencrypted_log(20);
-        let _result = Child::at(context.this_address()).pub_set_value(10).call(&mut context);
+        let _result = StaticChild::at(context.this_address()).pub_set_value(10).call(&mut context);
     }
 
     #[aztec(public)]
     // TODO(6052): The logs emitted are currently in the wrong order as we don't update
     // counters for nested public calls
     fn set_value_with_two_nested_calls() {
-        Child::at(context.this_address()).set_value_twice_with_nested_first().call(&mut context);
-        Child::at(context.this_address()).set_value_twice_with_nested_last().call(&mut context);
+        StaticChild::at(context.this_address()).set_value_twice_with_nested_first().call(&mut context);
+        StaticChild::at(context.this_address()).set_value_twice_with_nested_last().call(&mut context);
         storage.current_value.write(20);
         context.emit_unencrypted_log(20);
     }
