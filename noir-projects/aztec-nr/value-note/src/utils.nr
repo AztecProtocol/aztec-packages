@@ -23,12 +23,23 @@ pub fn increment(mut context: PrivateContext, balance: PrivateSet<ValueNote>, am
     balance.insert(&mut note, amount != 0);
 }
 
+pub fn increment_without_calling_registry(balance: PrivateSet<ValueNote>, amount: Field, recipient_nullifier_public_key_hash: Field) {
+    let mut note = ValueNote::new(amount, recipient_nullifier_public_key_hash);
+    // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
+    balance.insert(&mut note, amount != 0);
+}
+
 // Find some of the `owner`'s notes whose values add up to the `amount`.
 // Remove those notes.
 // If the value of the removed notes exceeds the requested `amount`, create a new note containing the excess value, so that exactly `amount` is removed.
 // Fail if the sum of the selected notes is less than the amount.
 pub fn decrement(mut context: PrivateContext, balance: PrivateSet<ValueNote>, amount: Field, owner: AztecAddress) {
     let sum = decrement_by_at_most(context, balance, amount, owner);
+    assert(sum == amount, "Balance too low");
+}
+
+pub fn decrement_without_calling_registry(balance: PrivateSet<ValueNote>, amount: Field, owner_nullifying_public_key_hash: Field) {
+    let sum = decrement_by_at_most_no_registry(balance, amount, owner_nullifying_public_key_hash);
     assert(sum == amount, "Balance too low");
 }
 
@@ -67,6 +78,32 @@ pub fn decrement_by_at_most(
     decremented
 }
 
+pub fn decrement_by_at_most_no_registry(
+    balance: PrivateSet<ValueNote>,
+    max_amount: Field,
+    owner_nullifying_public_key_hash: Field
+) -> Field {
+    let options = create_note_getter_options_for_decreasing_balance(max_amount);
+    let opt_notes = balance.get_notes(options);
+
+    let mut decremented = 0;
+    for i in 0..opt_notes.len() {
+        if opt_notes[i].is_some() {
+            decremented += destroy_note_no_registry(balance, owner_nullifying_public_key_hash, opt_notes[i].unwrap_unchecked());
+        }
+    }
+
+    // Add the change value back to the owner's balance.
+    let mut change_value = 0;
+    if max_amount.lt(decremented) {
+        change_value = decremented - max_amount;
+        decremented -= change_value;
+    }
+    increment_without_calling_registry(balance, change_value, owner_nullifying_public_key_hash);
+
+    decremented
+}
+
 // Removes the note from the owner's set of notes.
 // Returns the value of the destroyed note.
 pub fn destroy_note(mut context: PrivateContext, balance: PrivateSet<ValueNote>, owner: AztecAddress, note: ValueNote) -> Field {
@@ -74,6 +111,16 @@ pub fn destroy_note(mut context: PrivateContext, balance: PrivateSet<ValueNote>,
     // spending someone else's notes).
     let owner_nullifying_public_key_hash = get_npk_m_hash(&mut context, owner);
 
+    assert(note.owner_nullifying_public_key_hash.eq(owner_nullifying_public_key_hash));
+
+    balance.remove(note);
+
+    note.value
+}
+
+pub fn destroy_note_no_registry(balance: PrivateSet<ValueNote>, owner_nullifying_public_key_hash: Field, note: ValueNote) -> Field {
+    // Ensure the note is actually owned by the owner (to prevent user from generating a valid proof while
+    // spending someone else's notes).
     assert(note.owner_nullifying_public_key_hash.eq(owner_nullifying_public_key_hash));
 
     balance.remove(note);

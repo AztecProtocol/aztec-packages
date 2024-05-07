@@ -44,6 +44,27 @@ contract PendingNoteHashes {
         note0.value
     }
 
+    #[aztec(private)]
+    fn test_insert_then_get_then_nullify_flat_no_registry(amount: Field, owner: AztecAddress, owner_nullifier_public_key_hash: Field) -> Field {
+        let owner_balance = storage.balances.at(owner);
+        let mut note = ValueNote::new(amount, owner_nullifier_public_key_hash);
+
+        // Insert note
+        owner_balance.insert(&mut note, true);
+
+        let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
+        // get note inserted above
+        let maybe_notes = owner_balance.get_notes(options);
+
+        let note0 = maybe_notes[0].unwrap();
+        assert(note.value == note0.value);
+        assert(maybe_notes[1].is_none());
+
+        owner_balance.remove(note0);
+
+        note0.value
+    }
+
     // Confirm cannot access note hashes inserted later in same function
     #[aztec(private)]
     fn test_bad_get_then_insert_flat(amount: Field, owner: AztecAddress) -> Field {
@@ -64,6 +85,24 @@ contract PendingNoteHashes {
         0
     }
 
+    #[aztec(private)]
+    fn test_bad_get_then_insert_flat_no_registry(amount: Field, owner: AztecAddress, owner_nullifier_public_key_hash: Field) -> Field {
+        let owner_balance = storage.balances.at(owner);
+
+        let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
+        // get note (note inserted at bottom of function shouldn't exist yet)
+        let maybe_notes = owner_balance.get_notes(options);
+
+        assert(maybe_notes[0].is_none());
+        assert(maybe_notes[1].is_none());
+
+        // Insert note
+        let mut note = ValueNote::new(amount, owner_nullifier_public_key_hash);
+        owner_balance.insert(&mut note, true);
+
+        0
+    }
+
     // Dummy nested/inner function (to pass a function which does nothing)
     #[aztec(private)]
     fn dummy(amount: Field, owner: AztecAddress) {}
@@ -73,6 +112,15 @@ contract PendingNoteHashes {
     fn insert_note(amount: Field, owner: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
         let owner_nullifier_public_key_hash = get_npk_m_hash(&mut context, owner);
+        let mut note = ValueNote::new(amount, owner_nullifier_public_key_hash);
+
+        // Insert note
+        owner_balance.insert(&mut note, true);
+    }
+
+    #[aztec(private)]
+    fn insert_note_no_registry(amount: Field, owner: AztecAddress, owner_nullifier_public_key_hash: Field) {
+        let owner_balance = storage.balances.at(owner);
         let mut note = ValueNote::new(amount, owner_nullifier_public_key_hash);
 
         // Insert note
@@ -122,6 +170,28 @@ contract PendingNoteHashes {
             inputs.call_context.storage_contract_address,
             insert_fn_selector,
             [amount, owner.to_field()]
+        );
+        // nested call to read and nullify that note
+        let _res = context.call_private_function(
+            inputs.call_context.storage_contract_address,
+            get_then_nullify_fn_selector,
+            [amount, owner.to_field()]
+        );
+    }
+
+    #[aztec(private)]
+    fn test_insert_then_get_then_nullify_all_in_nested_calls_no_registry(
+        amount: Field,
+        owner: AztecAddress,
+        owner_nullifier_public_key_hash: Field,
+        insert_fn_selector: FunctionSelector,
+        get_then_nullify_fn_selector: FunctionSelector
+    ) {
+        // nested call to create/insert note
+        let _res = context.call_private_function(
+            inputs.call_context.storage_contract_address,
+            insert_fn_selector,
+            [amount, owner.to_field(), owner_nullifier_public_key_hash]
         );
         // nested call to read and nullify that note
         let _res = context.call_private_function(
