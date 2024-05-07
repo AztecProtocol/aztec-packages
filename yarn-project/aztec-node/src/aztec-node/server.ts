@@ -668,6 +668,7 @@ export class AztecNodeService implements AztecNode {
     const processor = await publicProcessorFactory.create(prevHeader, newGlobalVariables);
     // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
     const [processedTxs, failedTxs, returns] = await processor.process([tx]);
+    // REFACTOR: Consider returning the error/revert rather than throwing
     if (failedTxs.length) {
       this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`);
       throw failedTxs[0].error;
@@ -686,6 +687,7 @@ export class AztecNodeService implements AztecNode {
       end: processedTx.data.end,
       revertReason: processedTx.revertReason,
       publicReturnValues: returns[0],
+      gasUsed: processedTx.gasUsed,
     };
   }
 
