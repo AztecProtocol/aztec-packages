@@ -372,6 +372,35 @@ namespace avm_main(256);
     ALU_R_TAG_SEL * (alu_in_tag - r_in_tag) = 0;
     ALU_W_TAG_SEL * (alu_in_tag - w_in_tag) = 0;
 
+
+    //===== KERNEL INPUTS CONSTRAINTS ===========================================
+    // The general pattern for environment lookups is as follows:
+    //  Each kernel opcode related to some fixed positions in the `public kernel_inputs` polynomial
+    //  We can lookup into a fixed index of this polynomial by including constraints that force the value
+    //  of kernel_sel to the value relevant to the given opcode that is active
+
+    #[SENDER_KERNEL]
+    sel_op_sender * (avm_kernel.kernel_sel - constants.SENDER_SELECTOR) = 0;
+
+    #[ADDRESS_KERNEL]
+    sel_op_address * (avm_kernel.kernel_sel - constants.ADDRESS_SELECTOR) = 0;
+
+    #[PORTAL_KERNEL]
+    sel_op_portal * (avm_kernel.kernel_sel - constants.PORTAL_SELECTOR) = 0;
+
+    #[FUNCTION_KERNEL]
+    sel_op_function_selector * (avm_kernel.kernel_sel - constants.FUNCTION_SELECTOR) = 0;
+
+    #[FEE_DA_GAS_KERNEL]
+    sel_op_fee_per_da_gas  * (avm_kernel.kernel_sel - constants.FEE_PER_DA_GAS_SELECTOR) = 0;
+
+    #[FEE_L2_GAS_KERNEL]
+    sel_op_fee_per_l2_gas  * (avm_kernel.kernel_sel - constants.FEE_PER_L2_GAS_SELECTOR) = 0;
+
+    #[LOOKUP_INTO_KERNEL]
+    // TODO: FIX not having the trailing is_public breaking compilation :(
+    q_kernel_lookup { avm_main.ia, avm_kernel.kernel_sel } in avm_kernel.q_public_input_kernel_add_to_table { avm_kernel.kernel_inputs__is_public, clk };
+
     //====== Inter-table Constraints ============================================
     #[INCL_MAIN_TAG_ERR]
     avm_mem.tag_err {avm_mem.clk} in tag_err {clk};
