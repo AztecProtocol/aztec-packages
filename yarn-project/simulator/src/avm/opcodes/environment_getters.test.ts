@@ -6,28 +6,29 @@ import {
   BlockNumber,
   ChainId,
   FeePerDAGas,
-  FeePerL1Gas,
   FeePerL2Gas,
   Sender,
   StorageAddress,
   Timestamp,
+  TransactionFee,
   Version,
 } from './environment_getters.js';
 
 type EnvInstruction =
-  | typeof FeePerL1Gas
   | typeof FeePerL2Gas
   | typeof FeePerDAGas
   | typeof Sender
   | typeof StorageAddress
-  | typeof Address;
+  | typeof Address
+  | typeof TransactionFee;
+
 describe.each([
-  [FeePerL1Gas, 'feePerL1Gas'],
   [FeePerL2Gas, 'feePerL2Gas'],
   [FeePerDAGas, 'feePerDaGas'],
   [Sender, 'sender'],
   [StorageAddress, 'storageAddress'],
   [Address, 'address'],
+  [TransactionFee, 'transactionFee'],
 ])('Environment getters instructions', (clsValue: EnvInstruction, key: string) => {
   it(`${clsValue.name} should (de)serialize correctly`, () => {
     const buf = Buffer.from([

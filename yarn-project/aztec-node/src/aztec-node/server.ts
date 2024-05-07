@@ -15,6 +15,7 @@ import {
   NullifierMembershipWitness,
   type ProcessOutput,
   type ProverClient,
+  type ProverConfig,
   PublicDataWitness,
   type SequencerConfig,
   type SiblingPath,
@@ -151,7 +152,7 @@ export class AztecNodeService implements AztecNode {
     const simulationProvider = await getSimulationProvider(config, log);
     const prover = config.disableProver
       ? await DummyProver.new()
-      : await TxProver.new(config, worldStateSynchronizer, simulationProvider);
+      : await TxProver.new(config, simulationProvider, worldStateSynchronizer);
 
     // now create the sequencer
     const sequencer = config.disableSequencer
@@ -192,6 +193,10 @@ export class AztecNodeService implements AztecNode {
    */
   public getSequencer(): SequencerClient | undefined {
     return this.sequencer;
+  }
+
+  public getProver(): ProverClient {
+    return this.prover;
   }
 
   /**
@@ -672,7 +677,7 @@ export class AztecNodeService implements AztecNode {
       this.log.warn(`Simulated tx ${tx.getTxHash()} reverts: ${reverted[0].revertReason}`);
       throw reverted[0].revertReason;
     }
-    this.log.info(`Simulated tx ${tx.getTxHash()} succeeds`);
+    this.log.debug(`Simulated tx ${tx.getTxHash()} succeeds`);
     const [processedTx] = processedTxs;
     return {
       constants: processedTx.data.constants,
@@ -684,9 +689,9 @@ export class AztecNodeService implements AztecNode {
     };
   }
 
-  public setConfig(config: Partial<SequencerConfig>): Promise<void> {
+  public async setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {
     this.sequencer?.updateSequencerConfig(config);
-    return Promise.resolve();
+    await this.prover.updateProverConfig(config);
   }
 
   /**

@@ -64,7 +64,6 @@ describe('AVM simulator: injected bytecode', () => {
     expect(results.output).toEqual([]);
     expect(results.revertReason?.name).toEqual('OutOfGasError');
     expect(context.machineState.l2GasLeft).toEqual(0);
-    expect(context.machineState.l1GasLeft).toEqual(0);
     expect(context.machineState.daGasLeft).toEqual(0);
   });
 });
@@ -113,7 +112,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     expect(results.reverted).toBe(true);
     expect(results.revertReason?.message).toEqual("Reverted with output: Nullifier doesn't exist!");
-    expect(results.output).toEqual([..."Nullifier doesn't exist!"].flatMap(c => new Fr(c.charCodeAt(0))));
+    expect(results.output).toEqual([
+      new Fr(0),
+      ...[..."Nullifier doesn't exist!"].flatMap(c => new Fr(c.charCodeAt(0))),
+    ]);
   });
 
   describe.each([
@@ -187,11 +189,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       await testEnvGetter('sender', sender, 'get_sender');
     });
 
-    it('getFeePerL1Gas', async () => {
-      const fee = new Fr(1);
-      await testEnvGetter('feePerL1Gas', fee, 'get_fee_per_l1_gas');
-    });
-
     it('getFeePerL2Gas', async () => {
       const fee = new Fr(1);
       await testEnvGetter('feePerL2Gas', fee, 'get_fee_per_l2_gas');
@@ -200,6 +197,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     it('getFeePerDaGas', async () => {
       const fee = new Fr(1);
       await testEnvGetter('feePerDaGas', fee, 'get_fee_per_da_gas');
+    });
+
+    it('getTransactionFee', async () => {
+      const fee = new Fr(1);
+      await testEnvGetter('transactionFee', fee, 'get_transaction_fee');
     });
 
     it('chainId', async () => {

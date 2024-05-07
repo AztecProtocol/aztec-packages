@@ -3,6 +3,7 @@ import {
   type ProvingRequest,
   type ProvingRequestResult,
   ProvingRequestType,
+  makePublicInputsAndProof,
 } from '@aztec/circuit-types';
 import { makeEmptyProof } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -10,6 +11,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { elapsed } from '@aztec/foundation/timer';
 
 import { type CircuitProver } from '../prover/interface.js';
+import { ProvingError } from './proving-error.js';
 
 export class ProverAgent {
   private runningPromise?: RunningPromise;
@@ -38,34 +40,37 @@ export class ProverAgent {
       try {
         const [time, result] = await elapsed(() => this.work(job.request));
         await queue.resolveProvingJob(job.id, result);
-        this.log.info(
+        this.log.debug(
           `Processed proving job id=${job.id} type=${ProvingRequestType[job.request.type]} duration=${time}ms`,
         );
       } catch (err) {
         this.log.error(
           `Error processing proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: ${err}`,
         );
-        await queue.rejectProvingJob(job.id, err as Error);
+        await queue.rejectProvingJob(job.id, new ProvingError((err as any)?.message ?? String(err)));
       }
     }, this.intervalMs);
 
     this.runningPromise.start();
+    this.log.info('Agent started');
   }
 
   async stop(): Promise<void> {
-    if (!this.runningPromise) {
-      throw new Error('Agent is not running');
+    if (!this.runningPromise?.isRunning()) {
+      return;
     }
 
     await this.runningPromise.stop();
     this.runningPromise = undefined;
+
+    this.log.info('Agent stopped');
   }
 
   private work(request: ProvingRequest): Promise<ProvingRequestResult<typeof type>> {
     const { type, inputs } = request;
     switch (type) {
       case ProvingRequestType.PUBLIC_VM: {
-        return Promise.resolve([{}, makeEmptyProof()] as const);
+        return Promise.resolve(makePublicInputsAndProof<object>({}, makeEmptyProof()));
       }
 
       case ProvingRequestType.PUBLIC_KERNEL_NON_TAIL: {

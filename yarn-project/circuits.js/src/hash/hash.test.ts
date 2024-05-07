@@ -1,29 +1,21 @@
 import { times } from '@aztec/foundation/collection';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
-import { AztecAddress, Fr, SideEffect, SideEffectLinkedToNoteHash } from '../index.js';
-import { makeAztecAddress, makeVerificationKey } from '../tests/factories.js';
+import { AztecAddress, Fr } from '../index.js';
+import { makeAztecAddress } from '../tests/factories.js';
 import {
   computeCommitmentNonce,
-  computeCommitmentsHash,
-  computeNullifierHash,
   computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
   computeSecretHash,
   computeUniqueNoteHash,
   computeVarArgsHash,
-  hashVK,
   siloNoteHash,
   siloNullifier,
 } from './hash.js';
 
 describe('hash', () => {
   setupCustomSnapshotSerializers(expect);
-  it('hashes VK', () => {
-    const vk = makeVerificationKey();
-    const res = hashVK(vk.toBuffer());
-    expect(res).toMatchSnapshot();
-  });
 
   it('computes commitment nonce', () => {
     const nullifierZero = new Fr(123n);
@@ -87,19 +79,6 @@ describe('hash', () => {
     const value = new Fr(8n);
     const hash = computeSecretHash(value);
     expect(hash).toMatchSnapshot();
-  });
-
-  it('Computes an empty nullifier hash ', () => {
-    const emptyNull = SideEffectLinkedToNoteHash.empty();
-
-    const emptyHash = computeNullifierHash(emptyNull).toString();
-    expect(emptyHash).toMatchSnapshot();
-  });
-
-  it('Computes an empty sideeffect hash ', () => {
-    const emptySideEffect = SideEffect.empty();
-    const emptyHash = computeCommitmentsHash(emptySideEffect).toString();
-    expect(emptyHash).toMatchSnapshot();
   });
 
   it('Var args hash matches noir', () => {
