@@ -1758,6 +1758,7 @@ impl AcirContext {
         block_id: BlockId,
         len: usize,
         optional_value: Option<AcirValue>,
+        databus: u8,
     ) -> Result<(), InternalError> {
         let initialized_values = match optional_value {
             None => {
@@ -1772,7 +1773,11 @@ impl AcirContext {
             }
         };
 
-        self.acir_ir.push_opcode(Opcode::MemoryInit { block_id, init: initialized_values });
+        self.acir_ir.push_opcode(Opcode::MemoryInit {
+            block_id,
+            init: initialized_values,
+            databus,
+        });
 
         Ok(())
     }

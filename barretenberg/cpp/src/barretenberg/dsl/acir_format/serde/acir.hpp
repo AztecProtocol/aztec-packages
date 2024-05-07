@@ -454,6 +454,7 @@ struct Opcode {
     struct MemoryInit {
         Program::BlockId block_id;
         std::vector<Program::Witness> init;
+        uint8_t databus;
 
         friend bool operator==(const MemoryInit&, const MemoryInit&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -7824,6 +7825,9 @@ inline bool operator==(const Opcode::MemoryInit& lhs, const Opcode::MemoryInit& 
     if (!(lhs.init == rhs.init)) {
         return false;
     }
+    if (!(lhs.databus == rhs.databus)) {
+        return false;
+    }
     return true;
 }
 
@@ -7853,6 +7857,7 @@ void serde::Serializable<Program::Opcode::MemoryInit>::serialize(const Program::
 {
     serde::Serializable<decltype(obj.block_id)>::serialize(obj.block_id, serializer);
     serde::Serializable<decltype(obj.init)>::serialize(obj.init, serializer);
+    serde::Serializable<decltype(obj.databus)>::serialize(obj.databus, serializer);
 }
 
 template <>
@@ -7862,6 +7867,7 @@ Program::Opcode::MemoryInit serde::Deserializable<Program::Opcode::MemoryInit>::
     Program::Opcode::MemoryInit obj;
     obj.block_id = serde::Deserializable<decltype(obj.block_id)>::deserialize(deserializer);
     obj.init = serde::Deserializable<decltype(obj.init)>::deserialize(deserializer);
+    obj.databus = serde::Deserializable<decltype(obj.databus)>::deserialize(deserializer);
     return obj;
 }
 

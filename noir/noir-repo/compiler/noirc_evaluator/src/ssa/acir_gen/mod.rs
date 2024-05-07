@@ -1630,7 +1630,18 @@ impl<'a> Context<'a> {
         len: usize,
         value: Option<AcirValue>,
     ) -> Result<(), InternalError> {
-        self.acir_context.initialize_array(array, len, value)?;
+        let databus = if self.data_bus.call_data.is_some()
+            && self.block_id(&self.data_bus.call_data.unwrap()) == array
+        {
+            1
+        } else if self.data_bus.return_data.is_some()
+            && self.block_id(&self.data_bus.return_data.unwrap()) == array
+        {
+            2
+        } else {
+            0
+        };
+        self.acir_context.initialize_array(array, len, value, databus)?;
         self.initialized_arrays.insert(array);
         Ok(())
     }

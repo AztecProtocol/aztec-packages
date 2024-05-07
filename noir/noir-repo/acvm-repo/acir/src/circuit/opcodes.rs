@@ -30,6 +30,8 @@ pub enum Opcode {
     MemoryInit {
         block_id: BlockId,
         init: Vec<Witness>,
+        /// 0 for regular memory, 1 for call-data and 2 for return-data
+        databus: u8,
     },
     /// Calls to unconstrained functions
     BrilligCall {
@@ -103,8 +105,13 @@ impl std::fmt::Display for Opcode {
                     write!(f, "(id: {}, op {} at: {}) ", block_id.0, op.operation, op.index)
                 }
             }
-            Opcode::MemoryInit { block_id, init } => {
-                write!(f, "INIT ")?;
+            Opcode::MemoryInit { block_id, init, databus } => {
+                match databus {
+                    0 => write!(f, "INIT ")?,
+                    1 => write!(f, "INIT CALLDATA ")?,
+                    2 => write!(f, "INIT RETURNDATA ")?,
+                    _ => unreachable!(),
+                }
                 write!(f, "(id: {}, len: {}) ", block_id.0, init.len())
             }
             // We keep the display for a BrilligCall and circuit Call separate as they
