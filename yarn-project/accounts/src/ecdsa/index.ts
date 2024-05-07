@@ -8,9 +8,9 @@ import { AccountManager, type Salt } from '@aztec/aztec.js/account';
 import { type AccountWallet, getWallet } from '@aztec/aztec.js/wallet';
 import { type PXE } from '@aztec/circuit-types';
 import { type AztecAddress, Fr, deriveKeys } from '@aztec/circuits.js';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 
 import { EcdsaAccountContract } from './account_contract.js';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
 
 export { EcdsaAccountContractArtifact } from './artifact.js';
 export { EcdsaAccountContract };
@@ -23,7 +23,15 @@ export { EcdsaAccountContract };
  * @param salt - Deployment salt.
  */
 export function getEcdsaAccount(pxe: PXE, secretKey: Fr, signingPrivateKey: Buffer, salt?: Salt): AccountManager {
-  return new AccountManager(pxe, secretKey, new EcdsaAccountContract(signingPrivateKey, poseidon2Hash(deriveKeys(secretKey).masterNullifierPublicKey.toFields())), salt);
+  return new AccountManager(
+    pxe,
+    secretKey,
+    new EcdsaAccountContract(
+      signingPrivateKey,
+      poseidon2Hash(deriveKeys(secretKey).masterNullifierPublicKey.toFields()),
+    ),
+    salt,
+  );
 }
 
 /**
