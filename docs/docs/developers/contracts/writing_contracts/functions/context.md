@@ -61,9 +61,7 @@ The call context contains information about the current call being made:
 
    - This value is the address of the current context's contract address. This value will be the value of the current contract that is being executed except for when the current call is a delegate call (Warning: This is yet to be implemented). In this case the value will be that of the sending contract.
 
-3. Portal Contract Address
-   - This value stores the current contract's linked [portal contract](../portals/portals.md) address. As a quick recap, this value is the value of the contracts related ethereum l1 contract address, and will be the recipient of any messages that are created by this contract.
-4. Flags
+3. Flags
    - Furthermore there are a series of flags that are stored within the application context:
      - is_delegate_call: Denotes whether the current call is a delegate call. If true, then the storage contract address will be the address of the sender.
      - is_static_call: This will be set if and only if the current call is a static call. In a static call, state changing altering operations are not allowed.
@@ -76,11 +74,11 @@ In the public context this header is set by sequencer (sequencer executes public
 
 #include_code header /noir-projects/noir-protocol-circuits/crates/types/src/header.nr rust
 
-### Private Global Variables
+### Transaction Context
 
-In the private execution context, we only have access to a subset of the total global variables, we are restricted to those which can be reliably proven by the kernel circuits.
+The private context provides access to the transaction context as well, which are user-defined values for the transaction in general that stay constant throughout its execution.
 
-#include_code private-global-variables /noir-projects/aztec-nr/aztec/src/context/globals/private_global_variables.nr rust
+#include_code tx-context /noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr rust
 
 ### Args Hash
 

@@ -20,6 +20,7 @@ class AvmMemTraceBuilder {
     static const uint32_t SUB_CLK_STORE_B = 9;
     static const uint32_t SUB_CLK_STORE_C = 10;
     static const uint32_t SUB_CLK_STORE_D = 11;
+    static const uint32_t NUM_SUB_CLK = 12;
 
     // Keeps track of the number of times a mem tag err should appear in the trace
     // clk -> count
@@ -92,6 +93,7 @@ class AvmMemTraceBuilder {
                                                       uint32_t a_addr,
                                                       uint32_t b_addr,
                                                       uint32_t cond_addr);
+    MemEntry read_and_load_cast_opcode(uint32_t clk, uint32_t addr, AvmMemoryTag w_in_tag);
     MemRead read_and_load_from_memory(
         uint32_t clk, IntermRegister interm_reg, uint32_t addr, AvmMemoryTag r_in_tag, AvmMemoryTag w_in_tag);
     MemRead indirect_read_and_load_from_memory(uint32_t clk, IndirectRegister ind_reg, uint32_t addr);

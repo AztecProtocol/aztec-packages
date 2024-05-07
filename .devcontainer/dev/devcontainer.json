@@ -1,0 +1,22 @@
+{
+  "name": "Development",
+  "build": {
+    "dockerfile": "../../build-images/Dockerfile",
+    "context": "../../build-images",
+    "target": "devbox"
+  },
+  "containerUser": "aztec-dev",
+  // ubuntu:noble is currently not supported.
+  // Can possibly workaround cherry-picking from here:
+  //   https://github.com/devcontainers/features/blob/main/src/docker-in-docker/install.sh
+  //
+  // "image": "aztecprotocol/codespace",
+  // "features": {
+  //   "docker-in-docker": {
+  //     "version": "latest",
+  //     "moby": true,
+  //     "dockerDashComposeVersion": "v1"
+  //   }
+  // },
+  "mounts": ["source=devbox-home,target=/home/aztec-dev,type=volume"]
+}

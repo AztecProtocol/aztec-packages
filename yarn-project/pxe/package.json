@@ -37,20 +37,30 @@
     },
     "extensionsToTreatAsEsm": [
       ".ts"
+    ],
+    "reporters": [
+      [
+        "default",
+        {
+          "summaryThreshold": 9999
+        }
+      ]
     ]
   },
   "dependencies": {
+    "@aztec/bb.js": "portal:../../barretenberg/ts",
+    "@aztec/builder": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/key-store": "workspace:^",
     "@aztec/kv-store": "workspace:^",
-    "@aztec/noir-compiler": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/simulator": "workspace:^",
     "@aztec/types": "workspace:^",
+    "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi",
     "koa": "^2.14.2",
     "koa-router": "^12.0.0",
     "lodash.omit": "^4.5.0",

@@ -15,7 +15,9 @@ import {
   type BenchmarkMetricResults,
   type BenchmarkResults,
   type BenchmarkResultsWithTimestamp,
+  type CircuitProvingStats,
   type CircuitSimulationStats,
+  type CircuitWitnessGenerationStats,
   type L1PublishStats,
   type L2BlockBuiltStats,
   type L2BlockHandledStats,
@@ -105,23 +107,36 @@ function processCircuitSimulation(entry: CircuitSimulationStats, results: Benchm
 }
 
 /**
+ * Processes an entry with event name 'circuit-proving' and updates results
+ * Buckets are circuit names
+ */
+function processCircuitProving(entry: CircuitProvingStats, results: BenchmarkCollectedResults) {
+  const bucket = entry.circuitName;
+  if (!bucket) {
+    return;
+  }
+  append(results, 'circuit_proving_time_in_ms', bucket, entry.duration);
+  append(results, 'circuit_proof_size_in_bytes', bucket, entry.proofSize);
+}
+
+/**
+ * Processes an entry with event name 'circuit-proving' and updates results
+ * Buckets are circuit names
+ */
+function processCircuitWitnessGeneration(entry: CircuitWitnessGenerationStats, results: BenchmarkCollectedResults) {
+  const bucket = entry.circuitName;
+  if (!bucket) {
+    return;
+  }
+  append(results, 'circuit_witness_generation_time_in_ms', bucket, entry.duration);
+}
+/**
  * Processes an entry with event name 'note-processor-caught-up' and updates results
- * Buckets are rollup sizes for NOTE_DECRYPTING_TIME, or chain sizes for NOTE_HISTORY_DECRYPTING_TIME
  */
 function processNoteProcessorCaughtUp(entry: NoteProcessorCaughtUpStats, results: BenchmarkCollectedResults) {
-  const { seen, decrypted, blocks, duration, dbSize } = entry;
-  if (BENCHMARK_BLOCK_SIZES.includes(decrypted)) {
-    append(results, 'note_successful_decrypting_time_in_ms', decrypted, duration);
-  }
-  if (BENCHMARK_BLOCK_SIZES.includes(seen) && decrypted === 0) {
-    append(results, 'note_trial_decrypting_time_in_ms', seen, duration);
-  }
+  const { decrypted, blocks, dbSize } = entry;
   if (BENCHMARK_HISTORY_CHAIN_LENGTHS.includes(blocks) && decrypted > 0) {
-    append(results, 'note_history_successful_decrypting_time_in_ms', blocks, duration);
     append(results, 'pxe_database_size_in_bytes', blocks, dbSize);
-  }
-  if (BENCHMARK_HISTORY_CHAIN_LENGTHS.includes(blocks) && decrypted === 0) {
-    append(results, 'note_history_trial_decrypting_time_in_ms', blocks, duration);
   }
 }
 
@@ -209,6 +224,10 @@ function processEntry(entry: Stats, results: BenchmarkCollectedResults, fileName
       return processRollupBlockSynced(entry, results);
     case 'circuit-simulation':
       return processCircuitSimulation(entry, results);
+    case 'circuit-witness-generation':
+      return processCircuitWitnessGeneration(entry, results);
+    case 'circuit-proving':
+      return processCircuitProving(entry, results);
     case 'note-processor-caught-up':
       return processNoteProcessorCaughtUp(entry, results);
     case 'l2-block-built':

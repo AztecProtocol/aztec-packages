@@ -1,10 +1,9 @@
 use crate::{
-    abis::side_effect::{OrderedValue, ContractScopedOrderedValue},
-    traits::{Empty, Serialize, Deserialize}, address::AztecAddress
+    abis::side_effect::OrderedValue, traits::{Empty, Serialize, Deserialize}, address::AztecAddress,
+    constants::READ_REQUEST_LENGTH
 };
 use dep::std::cmp::Eq;
 
-global READ_REQUEST_SERIALIZED_LEN = 2;
 global READ_REQUEST_CONTEXT_SERIALIZED_LEN = 3;
 
 struct ReadRequest {
@@ -37,14 +36,14 @@ impl Empty for ReadRequest {
     }
 }
 
-impl Serialize<READ_REQUEST_SERIALIZED_LEN> for ReadRequest {
-    fn serialize(self) -> [Field; READ_REQUEST_SERIALIZED_LEN] {
+impl Serialize<READ_REQUEST_LENGTH> for ReadRequest {
+    fn serialize(self) -> [Field; READ_REQUEST_LENGTH] {
         [self.value, self.counter as Field]
     }
 }
 
-impl Deserialize<READ_REQUEST_SERIALIZED_LEN> for ReadRequest {
-    fn deserialize(values: [Field; READ_REQUEST_SERIALIZED_LEN]) -> Self {
+impl Deserialize<READ_REQUEST_LENGTH> for ReadRequest {
+    fn deserialize(values: [Field; READ_REQUEST_LENGTH]) -> Self {
         Self {
             value: values[0],
             counter: values[1] as u32,
@@ -70,18 +69,6 @@ impl OrderedValue<Field> for ReadRequestContext {
     }
     fn counter(self) -> u32 {
         self.counter
-    }
-}
-
-impl ContractScopedOrderedValue<Field> for ReadRequestContext {
-    fn value(self) -> Field {
-        self.value
-    }
-    fn counter(self) -> u32 {
-        self.counter
-    }
-    fn contract_address(self) -> AztecAddress {
-        self.contract_address
     }
 }
 

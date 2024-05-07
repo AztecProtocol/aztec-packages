@@ -20,13 +20,14 @@ import {
   type LogType,
 } from '../logs/index.js';
 import { type MerkleTreeId } from '../merkle_tree_id.js';
+import { type PublicDataWitness } from '../public_data_witness.js';
 import { type SiblingPath } from '../sibling_path/index.js';
-import { type ProcessReturnValues, type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
+import { type ProcessOutput, type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
 import { type TxEffect } from '../tx_effect.js';
 import { type SequencerConfig } from './configs.js';
 import { type L2BlockNumber } from './l2_block_number.js';
 import { type NullifierMembershipWitness } from './nullifier_tree.js';
-import { type PublicDataWitness } from './public_data_tree.js';
+import { type ProverConfig } from './prover-client.js';
 
 /**
  * The aztec node.
@@ -282,13 +283,13 @@ export interface AztecNode {
    * This currently just checks that the transaction execution succeeds.
    * @param tx - The transaction to simulate.
    **/
-  simulatePublicCalls(tx: Tx): Promise<ProcessReturnValues>;
+  simulatePublicCalls(tx: Tx): Promise<ProcessOutput>;
 
   /**
    * Updates the configuration of this node.
    * @param config - Updated configuration to be merged with the current one.
    */
-  setConfig(config: Partial<SequencerConfig>): Promise<void>;
+  setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void>;
 
   /**
    * Returns a registered contract class given its id.

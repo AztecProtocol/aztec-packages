@@ -84,9 +84,10 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
     for (const auto& constraint : constraint_system.poseidon2_constraints) {
         create_poseidon2_permutations(builder, constraint);
     }
-    // Add fixed base scalar mul constraints
-    for (const auto& constraint : constraint_system.fixed_base_scalar_mul_constraints) {
-        create_fixed_base_constraint(builder, constraint);
+
+    // Add multi scalar mul constraints
+    for (const auto& constraint : constraint_system.multi_scalar_mul_constraints) {
+        create_multi_scalar_mul_constraint(builder, constraint);
     }
 
     // Add ec add constraints
@@ -114,7 +115,7 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for UGH for now since we're not yet
     // dealing with proper recursion
-    if constexpr (IsGoblinBuilder<Builder>) {
+    if constexpr (IsGoblinUltraBuilder<Builder>) {
         if (!constraint_system.recursion_constraints.empty()) {
             info("WARNING: this circuit contains recursion_constraints!");
         }
@@ -221,6 +222,8 @@ UltraCircuitBuilder create_circuit(const AcirFormat& constraint_system, size_t s
     bool has_valid_witness_assignments = !witness.empty();
     build_constraints(builder, constraint_system, has_valid_witness_assignments);
 
+    builder.finalize_circuit();
+
     return builder;
 };
 
@@ -246,6 +249,8 @@ GoblinUltraCircuitBuilder create_circuit(const AcirFormat& constraint_system,
     // Populate constraints in the builder via the data in constraint_system
     bool has_valid_witness_assignments = !witness.empty();
     acir_format::build_constraints(builder, constraint_system, has_valid_witness_assignments);
+
+    builder.finalize_circuit();
 
     return builder;
 };

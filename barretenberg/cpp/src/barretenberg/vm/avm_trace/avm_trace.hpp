@@ -38,8 +38,8 @@ class AvmTraceBuilder {
     // Multiplication with direct or indirect memory access.
     void op_mul(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
-    // Division with direct or indirect memory access.
-    void op_div(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+    // Finite field division with direct or indirect memory access.
+    void op_fdiv(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
 
     // Bitwise not with direct or indirect memory access.
     void op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
@@ -62,6 +62,12 @@ class AvmTraceBuilder {
     // Less Than or Equal to with direct or indirect memory access.
     void op_lte(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
+    // Shift Right with direct or indirect memory access.
+    void op_shr(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+
+    // Shift Left with direct or indirect memory access.
+    void op_shl(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+
     // Set a constant from bytecode with direct or indirect memory access.
     void op_set(uint8_t indirect, uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag);
 
@@ -71,6 +77,10 @@ class AvmTraceBuilder {
     // Move (copy) the value and tag of a memory cell to another one whereby the source
     // is determined conditionally based on a conditional value determined by cond_offset.
     void op_cmov(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t cond_offset, uint32_t dst_offset);
+
+    // Cast an element pointed by the address a_offset into type specified by dst_tag and
+    // store the result in address given by dst_offset.
+    void op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag dst_tag);
 
     // Jump to a given program counter.
     void jump(uint32_t jmp_dest);

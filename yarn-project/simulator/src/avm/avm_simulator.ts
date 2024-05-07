@@ -2,6 +2,7 @@ import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
 
+import { isAvmBytecode } from '../public/transitional_adaptors.js';
 import type { AvmContext } from './avm_context.js';
 import { AvmContractCallResults } from './avm_message_call_result.js';
 import { AvmExecutionError, InvalidProgramCounterError, NoBytecodeForContractError } from './errors.js';
@@ -32,6 +33,7 @@ export class AvmSimulator {
     if (!bytecode) {
       throw new NoBytecodeForContractError(this.context.environment.address);
     }
+    assert(isAvmBytecode(bytecode), "AVM simulator can't execute non-AVM bytecode");
 
     return await this.executeBytecode(bytecode);
   }
@@ -61,7 +63,7 @@ export class AvmSimulator {
           'AVM attempted to execute non-existent instruction. This should never happen (invalid bytecode or AVM simulator bug)!',
         );
 
-        const gasLeft = `l1=${machineState.l1GasLeft} l2=${machineState.l2GasLeft} da=${machineState.daGasLeft}`;
+        const gasLeft = `l2=${machineState.l2GasLeft} da=${machineState.daGasLeft}`;
         this.log.debug(`@${machineState.pc} ${instruction.toString()} (${gasLeft})`);
         // Execute the instruction.
         // Normal returns and reverts will return normally here.

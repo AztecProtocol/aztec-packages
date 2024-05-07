@@ -251,19 +251,16 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode]) -> Vec<u8> {
                     ..Default::default()
                 });
             }
-            BrilligOpcode::Trap {
-                revert_data_offset,
-                revert_data_size,
-            } => {
+            BrilligOpcode::Trap { revert_data } => {
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::REVERT,
-                    indirect: Some(ALL_DIRECT),
+                    indirect: Some(ZEROTH_OPERAND_INDIRECT),
                     operands: vec![
                         AvmOperand::U32 {
-                            value: *revert_data_offset as u32,
+                            value: revert_data.pointer.0 as u32,
                         },
                         AvmOperand::U32 {
-                            value: *revert_data_size as u32,
+                            value: revert_data.size as u32,
                         },
                     ],
                     ..Default::default()
@@ -390,10 +387,10 @@ fn handle_external_call(
     let gas = inputs[0];
     let gas_offset = match gas {
         ValueOrArray::HeapArray(HeapArray { pointer, size }) => {
-            assert!(size == 3, "Call instruction's gas input should be a HeapArray of size 3 (`[l1Gas, l2Gas, daGas]`)");
+            assert!(size == 2, "Call instruction's gas input should be a HeapArray of size 2 (`[l2Gas, daGas]`)");
             pointer.0 as u32
         }
-        ValueOrArray::HeapVector(_) => panic!("Call instruction's gas input must be a HeapArray, not a HeapVector. Make sure you are explicitly defining its size as 3 (`[l1Gas, l2Gas, daGas]`)!"),
+        ValueOrArray::HeapVector(_) => panic!("Call instruction's gas input must be a HeapArray, not a HeapVector. Make sure you are explicitly defining its size as 2 (`[l2Gas, daGas]`)!"),
         _ => panic!("Call instruction's gas input should be a HeapArray"),
     };
     let address_offset = match &inputs[1] {
@@ -510,28 +507,42 @@ fn handle_emit_unencrypted_log(
             inputs.len()
         );
     }
-    let (event_offset, message_array) = match &inputs[..] {
-        [ValueOrArray::MemoryAddress(offset), ValueOrArray::HeapArray(array)] => {
-            (offset.to_usize() as u32, array)
+    let event_offset = match &inputs[0] {
+        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        _ => panic!(
+            "Unexpected inputs[0] (event) for ForeignCall::EMITUNENCRYPTEDLOG: {:?}",
+            inputs[0]
+        ),
+    };
+    let (message_offset, message_size, message_offset_indirect) = match &inputs[1] {
+        ValueOrArray::HeapArray(array) => {
+            // Heap array, so offset to array is an indirect memory offset
+            (array.pointer.to_usize() as u32, array.size as u32, true)
         }
+        ValueOrArray::MemoryAddress(single_val) => (single_val.to_usize() as u32, 1 as u32, false),
         _ => panic!(
             "Unexpected inputs for ForeignCall::EMITUNENCRYPTEDLOG: {:?}",
             inputs
         ),
     };
+    let indirect_flag = if message_offset_indirect {
+        FIRST_OPERAND_INDIRECT
+    } else {
+        0
+    };
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::EMITUNENCRYPTEDLOG,
         // The message array from Brillig is indirect.
-        indirect: Some(FIRST_OPERAND_INDIRECT),
+        indirect: Some(indirect_flag),
         operands: vec![
             AvmOperand::U32 {
                 value: event_offset,
             },
             AvmOperand::U32 {
-                value: message_array.pointer.to_usize() as u32,
+                value: message_offset,
             },
             AvmOperand::U32 {
-                value: message_array.size as u32,
+                value: message_size,
             },
         ],
         ..Default::default()
@@ -744,15 +755,13 @@ fn handle_getter_instruction(
         "avmOpcodeAddress" => AvmOpcode::ADDRESS,
         "avmOpcodeStorageAddress" => AvmOpcode::STORAGEADDRESS,
         "avmOpcodeSender" => AvmOpcode::SENDER,
-        "avmOpcodePortal" => AvmOpcode::PORTAL,
-        "avmOpcodeFeePerL1Gas" => AvmOpcode::FEEPERL1GAS,
         "avmOpcodeFeePerL2Gas" => AvmOpcode::FEEPERL2GAS,
         "avmOpcodeFeePerDaGas" => AvmOpcode::FEEPERDAGAS,
+        "avmOpcodeTransactionFee" => AvmOpcode::TRANSACTIONFEE,
         "avmOpcodeChainId" => AvmOpcode::CHAINID,
         "avmOpcodeVersion" => AvmOpcode::VERSION,
         "avmOpcodeBlockNumber" => AvmOpcode::BLOCKNUMBER,
         "avmOpcodeTimestamp" => AvmOpcode::TIMESTAMP,
-        "avmOpcodeL1GasLeft" => AvmOpcode::L1GASLEFT,
         "avmOpcodeL2GasLeft" => AvmOpcode::L2GASLEFT,
         "avmOpcodeDaGasLeft" => AvmOpcode::DAGASLEFT,
         // "callStackDepth" => AvmOpcode::CallStackDepth,

@@ -66,11 +66,11 @@ pub enum BlackBoxOp {
         domain_separator: MemoryAddress,
         output: MemoryAddress,
     },
-    /// Performs scalar multiplication over the embedded curve.
-    FixedBaseScalarMul {
-        low: MemoryAddress,
-        high: MemoryAddress,
-        result: HeapArray,
+    /// Performs multi scalar multiplication over the embedded curve.
+    MultiScalarMul {
+        points: HeapVector,
+        scalars: HeapVector,
+        outputs: HeapArray,
     },
     /// Performs addition over the embedded curve.
     EmbeddedCurveAdd {

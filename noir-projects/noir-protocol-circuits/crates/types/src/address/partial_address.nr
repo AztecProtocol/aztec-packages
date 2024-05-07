@@ -41,12 +41,11 @@ impl PartialAddress {
         contract_class_id: ContractClassId,
         salt: Field,
         initialization_hash: Field,
-        portal_contract_address: EthAddress,
         deployer: AztecAddress
     ) -> Self {
         PartialAddress::compute_from_salted_initialization_hash(
             contract_class_id,
-            SaltedInitializationHash::compute(salt, initialization_hash, portal_contract_address, deployer)
+            SaltedInitializationHash::compute(salt, initialization_hash, deployer)
         )
     }
 
@@ -67,6 +66,10 @@ impl PartialAddress {
 
     pub fn to_field(self) -> Field {
         self.inner
+    }
+
+    pub fn is_zero(self) -> bool {
+        self.to_field() == 0
     }
 
     pub fn assert_is_zero(self) {

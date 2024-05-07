@@ -17,10 +17,10 @@ bash -i <(curl -s install.aztec.network)
 This will install the following:
 
 - **aztec** - launches various infrastructure subsystems (sequencer, prover, pxe, etc).
-- **aztec-cli** - a command line tool for interfacing and experimenting with infrastructure.
 - **aztec-nargo** - aztec's build of nargo, the noir compiler toolchain.
 - **aztec-sandbox** - a wrapper around docker-compose that launches services needed for sandbox testing.
 - **aztec-up** - a tool to upgrade the aztec toolchain to the latest, or specific versions.
+- **aztec-builder** - A useful tool for projects to generate ABIs and update their dependencies.
 
 Once these have been installed, to start the sandbox, run:
 
@@ -62,35 +62,25 @@ If you wish to run components of the Aztec network stack separately, you can use
 aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] --prover [proverOptions] ----p2p-bootstrap [p2pOptions]
 ```
 
-Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node. If you want to e.g. run a PXE separately to a node, you can:
-Start a node:
-
-```bash
-aztec start --node [node] --archiver [archiverOptions]
-```
-
-Then start a PXE on a separate terminal that connects to that node:
-
-```bash
-aztec start --pxe nodeUrl=http://localhost:8080
-```
+Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node.Eg if you want to run a PXE separately to a node, you can [read this guide](../guides/run_more_than_one_pxe_sandbox.md)/
 
 ## Environment Variables
 
 There are various environment variables you can use when running the whole sandbox or when running on of the available modes.
 
+To change them, you can open `~/.aztec/docker-compose.yml` and edit them directly.
+
 **Sandbox**
 
 ```sh
 DEBUG=aztec:* # The level of debugging logs to be displayed. using "aztec:*" will log everything.
-ETHEREUM_HOST=http://ethereum:8545 # The Ethereum JSON RPC URL. We use an anvil instance that runs in parallel to the sandbox on docker by default.
 HOST_WORKDIR='${PWD}' # The location to store log outpus. Will use ~/.aztec where the docker-compose.yml file is stored by default.
+ETHEREUM_HOST=http://ethereum:8545 # The Ethereum JSON RPC URL. We use an anvil instance that runs in parallel to the sandbox on docker by default.
 CHAIN_ID=31337 # The Chain ID that the Ethereum host is using.
 TEST_ACCOUNTS='true' # Option to deploy 3 test account when sandbox starts. (default: true)
-DEPLOY_AZTEC_CONTRACTS='true' # Option to deploy the Aztec contracts when sandbox starts. (default: true)
 MODE='sandbox' # Option to start the sandbox or a standalone part of the system. (default: sandbox)
-AZTEC_NODE_PORT=8079 # The port that the Aztec node wil be listening to (default: 8079)
 PXE_PORT=8080 # The port that the PXE will be listening to (default: 8080)
+AZTEC_NODE_PORT=8080 # The port that Aztec Node will be listening to (default: 8080)
 
 # Ethereum Forking (Optional: not enabled by default) #
 FORK_BLOCK_NUMBER=0 # The block number to fork from
@@ -115,6 +105,7 @@ Variables like `DEPLOY_AZTEC_CONTRACTS` & `AZTEC_NODE_PORT` are valid here as de
 # Configuration variables for connecting a Node to the Aztec Node P2P network. You'll need a running P2P-Bootstrap node to connect to.
 P2P_ENABLED='false' # A flag to enable P2P networking for this node. (default: false)
 P2P_BLOCK_CHECK_INTERVAL_MS=100 # The frequency in which to check for new L2 blocks.
+P2P_PEER_CHECK_INTERVAL_MS=1000 # The frequency in which to check for peers.
 P2P_L2_BLOCK_QUEUE_SIZE=1000 # Size of queue of L2 blocks to store.
 P2P_TCP_LISTEN_PORT=40400 # The tcp port on which the P2P service should listen for connections.
 P2P_TCP_LISTEN_IP= #The tcp IP on which the P2P service should listen for connections.
@@ -122,7 +113,6 @@ PEER_ID_PRIVATE_KEY='' # An optional peer id private key. If blank, will generat
 BOOTSTRAP_NODES='' # A list of bootstrap peers to connect to, separated by commas
 P2P_ANNOUNCE_HOSTNAME='' # Hostname to announce to the p2p network
 P2P_ANNOUNCE_PORT='' # Port to announce to the p2p network
-P2P_KAD_CLIENT='false' # Optional specification to run as a client in the Kademlia routing protocol.
 P2P_NAT_ENABLED='false' # Whether to enable NAT from libp2p
 P2P_MIN_PEERS=10 # The minimum number of peers (a peer count below this will cause the node to look for more peers)
 P2P_MAX_PEERS=100 # The maximum number of peers (a peer count above this will cause the node to refuse connection attempts)
@@ -143,7 +133,6 @@ SEQ_MIN_TX_PER_BLOCK=1 # Minimum txs to go on a block. (default: 1)
 **PXE**
 
 Variables like `TEST_ACCOUNTS` & `PXE_PORT` are valid here as described above.
-`DEPLOY_AZTEC_CONTRACTS` cannot be used here as the PXE does not control an Ethereum account.
 
 ```sh
 AZTEC_NODE_URL='http://localhost:8079' # The address of an Aztec Node URL that the PXE will connect to (default: http://localhost:8079)
@@ -175,25 +164,36 @@ You can find the cheat code reference [here](../../sandbox/references/cheat_code
 
 ## Contracts
 
-We have shipped a number of example contracts in the `@aztec/noir-contracts.js` [npm package](https://www.npmjs.com/package/@aztec/noir-contracts.js). This is included with the cli by default so you are able to use these contracts to test with. To get a list of the names of the contracts run:
+We have shipped a number of example contracts in the `@aztec/noir-contracts.js` [npm package](https://www.npmjs.com/package/@aztec/noir-contracts.js). This is included with the sandbox by default so you are able to use these contracts to test with. 
 
-```bash title="example-contracts" showLineNumbers
-% aztec-cli example-contracts
+```bash
+AppSubscriptionContractArtifact
+AuthContractArtifact
 BenchmarkingContractArtifact
 CardGameContractArtifact
 ChildContractArtifact
+ClaimContractArtifact
+ContractClassRegistererContractArtifact
+ContractInstanceDeployerContractArtifact
 CounterContractArtifact
+CrowdfundingContractArtifact
+DelegatedOnContractArtifact
+DelegatorContractArtifact
 DocsExampleContractArtifact
 EasyPrivateTokenContractArtifact
 EasyPrivateVotingContractArtifact
 EcdsaAccountContractArtifact
 EscrowContractArtifact
+FPCContractArtifact
+GasTokenContractArtifact
 ImportTestContractArtifact
 InclusionProofsContractArtifact
 LendingContractArtifact
+MultiCallEntrypointContractArtifact
 ParentContractArtifact
 PendingNoteHashesContractArtifact
 PriceFeedContractArtifact
+ReaderContractArtifact
 SchnorrAccountContractArtifact
 SchnorrHardcodedAccountContractArtifact
 SchnorrSingleKeyAccountContractArtifact
