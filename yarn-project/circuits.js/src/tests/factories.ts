@@ -651,8 +651,8 @@ export function makeRollupKernelData(seed = 1, kernelPublicInputs?: KernelCircui
 export function makePrivateKernelInnerData(seed = 1, inputs?: PrivateKernelCircuitPublicInputs): PrivateKernelData {
   return new PrivateKernelData(
     inputs ?? makePrivateKernelCircuitPublicInputs(seed, true),
-    new Proof(Buffer.alloc(16, seed + 0x80)),
-    makeVerificationKey(),
+    makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x80),
+    makeVerificationKeyAsFields(),
     0x42,
     makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
   );
@@ -796,8 +796,8 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
     callStackItem: makePrivateCallStackItem(seed),
     privateCallStack: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, makeCallRequest, seed + 0x10),
     publicCallStack: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, makeCallRequest, seed + 0x20),
-    proof: new Proof(Buffer.alloc(16).fill(seed + 0x50)),
-    vk: makeVerificationKey(),
+    proof: makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH, seed + 0x50),
+    vk: makeVerificationKeyAsFields(),
     contractClassArtifactHash: fr(seed + 0x70),
     contractClassPublicBytecodeCommitment: fr(seed + 0x71),
     publicKeysHash: fr(seed + 0x72),

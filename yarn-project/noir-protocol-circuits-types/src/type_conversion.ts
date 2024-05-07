@@ -799,8 +799,8 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
     call_stack_item: mapPrivateCallStackItemToNoir(privateCallData.callStackItem),
     private_call_stack: mapTuple(privateCallData.privateCallStack, mapCallRequestToNoir),
     public_call_stack: mapTuple(privateCallData.publicCallStack, mapCallRequestToNoir),
-    proof: {},
-    vk: {},
+    proof: mapRecursiveProofToNoir(privateCallData.proof),
+    vk: mapVerificationKeyToNoir(privateCallData.vk),
     function_leaf_membership_witness: mapFunctionLeafMembershipWitnessToNoir(
       privateCallData.functionLeafMembershipWitness,
     ),
@@ -1246,7 +1246,6 @@ export function mapPublicKernelCircuitPublicInputsToNoir(
   inputs: PublicKernelCircuitPublicInputs,
 ): PublicKernelCircuitPublicInputsNoir {
   return {
-    aggregation_object: {},
     constants: mapCombinedConstantDataToNoir(inputs.constants),
     validation_requests: mapValidationRequestsToNoir(inputs.validationRequests),
     end: mapPublicAccumulatedDataToNoir(inputs.end),
@@ -1269,7 +1268,6 @@ export function mapKernelCircuitPublicInputsFromNoir(inputs: KernelCircuitPublic
 
 export function mapKernelCircuitPublicInputsToNoir(inputs: KernelCircuitPublicInputs): KernelCircuitPublicInputsNoir {
   return {
-    aggregation_object: {},
     rollup_validation_requests: mapRollupValidationRequestsToNoir(inputs.rollupValidationRequests),
     constants: mapCombinedConstantDataToNoir(inputs.constants),
     end: mapCombinedAccumulatedDataToNoir(inputs.end),
@@ -1327,7 +1325,6 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
   inputs: PrivateKernelCircuitPublicInputs,
 ): PrivateKernelCircuitPublicInputsNoir {
   return {
-    aggregation_object: {},
     constants: mapCombinedConstantDataToNoir(inputs.constants),
     validation_requests: mapValidationRequestsToNoir(inputs.validationRequests),
     end: mapPrivateAccumulatedDataToNoir(inputs.end),
@@ -1344,8 +1341,8 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
 export function mapPrivateKernelDataToNoir(privateKernelInnerData: PrivateKernelData): PrivateKernelDataNoir {
   return {
     public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(privateKernelInnerData.publicInputs),
-    proof: {},
-    vk: {},
+    proof: mapNestedRecursiveProofToNoir(privateKernelInnerData.proof),
+    vk: mapVerificationKeyToNoir(privateKernelInnerData.vk),
     vk_index: mapFieldToNoir(new Fr(privateKernelInnerData.vkIndex)),
     vk_path: mapTuple(privateKernelInnerData.vkPath, mapFieldToNoir),
   };
@@ -1744,7 +1741,7 @@ export function mapAppendOnlyTreeSnapshotToNoir(snapshot: AppendOnlyTreeSnapshot
   };
 }
 
-export function mapRootRollupRecursiveProofToNoir(proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>) {
+export function mapNestedRecursiveProofToNoir(proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>) {
   return {
     fields: mapTuple(proof.proof, mapFieldToNoir),
   };
@@ -1754,7 +1751,7 @@ export function mapRootRollupParityInputToNoir(
   rootParityInput: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
 ): RootRollupParityInputNoir {
   return {
-    proof: mapRootRollupRecursiveProofToNoir(rootParityInput.proof),
+    proof: mapNestedRecursiveProofToNoir(rootParityInput.proof),
     verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey),
     public_inputs: mapParityPublicInputsToNoir(rootParityInput.publicInputs),
   };
