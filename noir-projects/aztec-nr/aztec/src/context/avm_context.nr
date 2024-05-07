@@ -78,6 +78,10 @@ impl PublicContextInterface for AvmContext {
         0
     }
 
+    fn transaction_fee(self) -> Field {
+        transaction_fee()
+    }
+
     fn nullifier_exists(self, unsiloed_nullifier: Field, address: AztecAddress) -> bool {
         nullifier_exists(unsiloed_nullifier, address.to_field()) == 1
     }
@@ -213,6 +217,9 @@ fn fee_per_l2_gas() -> Field {}
 
 #[oracle(avmOpcodeFeePerDaGas)]
 fn fee_per_da_gas() -> Field {}
+
+#[oracle(avmOpcodeTransactionFee)]
+fn transaction_fee() -> Field {}
 
 #[oracle(avmOpcodeChainId)]
 fn chain_id() -> Field {}
