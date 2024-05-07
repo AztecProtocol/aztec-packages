@@ -49,7 +49,7 @@ impl<T> ScheduledValueChange<T> {
     /// The caller of this function must know how quickly the value can change due to a scheduled change in the form of
     /// `minimum_delay`. If the delay itself is immutable, then this is just its duration. If the delay is mutable
     /// however, then this value is the 'effective minimum delay' (obtained by calling
-    /// `ScheduledValueChange.get_effective_minimum_delay_at`), which equals the minimum number of blocks that need to
+    /// `ScheduledDelayChange.get_effective_minimum_delay_at`), which equals the minimum number of blocks that need to
     /// elapse from the next block until the value changes, regardless of further delay changes.
     /// The value returned by `get_current_at` in private when called with a historical block number is only safe to use
     /// if the transaction's `max_block_number` property is set to a value lower or equal to the block horizon computed

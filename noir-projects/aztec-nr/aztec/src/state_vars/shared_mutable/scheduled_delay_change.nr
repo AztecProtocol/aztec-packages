@@ -1,7 +1,7 @@
 use dep::protocol_types::traits::{Serialize, Deserialize, FromField, ToField};
 use dep::std::cmp::min;
 
-// This data structure is used by SharedMutable to store the minimum delay with which a ScheuledValueChange object can
+// This data structure is used by SharedMutable to store the minimum delay with which a ScheduledValueChange object can
 // schedule a change.
 // This delay is initally equal to INITIAL_DELAY, and can be safely mutated to any other value over time. This mutation 
 // is performed via `schedule_change` in order to satisfy ScheduleValueChange constraints: if e.g. we allowed for the 
@@ -14,8 +14,9 @@ struct ScheduledDelayChange<INITIAL_DELAY> {
     // effect. Once initialized, the Option will never be none again.
     pre: Option<u32>,
     post: Option<u32>,
+    // Block at which `post` value is used instead of `pre`
     block_of_change: u32,
-    // The _dummy variable forces INITIAL_DELAY to be interpreted as a numberic value. This is a workaround to
+    // The _dummy variable forces INITIAL_DELAY to be interpreted as a numeric value. This is a workaround to
     // https://github.com/noir-lang/noir/issues/4633. Remove once resolved.
     _dummy: [Field; INITIAL_DELAY],
 }
@@ -27,7 +28,7 @@ impl<INITIAL_DELAY> ScheduledDelayChange<INITIAL_DELAY> {
 
     /// Returns the current value of the delay stored in the data structure.
     /// This function only returns a meaningful value when called in public with the current block number - for
-    //// historical private reads use `get_effective_minimum_delay_at` instead.
+    /// historical private reads use `get_effective_minimum_delay_at` instead.
     pub fn get_current(self, current_block_number: u32) -> u32 {
         // The post value becomes the current one at the block of change, so any transaction that is included in the
         // block of change will use the post value.
@@ -84,7 +85,7 @@ impl<INITIAL_DELAY> ScheduledDelayChange<INITIAL_DELAY> {
 
     /// Returns the minimum delay before a value might mutate due to a scheduled change, from the perspective of some
     /// historical block number. It only returns a meaningful value when called in private with historical blocks. This 
-    /// function can be used alongside `ScheduledValuechange.get_block_horizon` to properly constrain the
+    /// function can be used alongside `ScheduledValueChange.get_block_horizon` to properly constrain the
     /// `max_block_number` transaction property when reading mutable shared state.
     /// This value typically equals the current delay at the block following the historical one (the earliest one in
     /// which a value change could be scheduled), but it also considers scenarios in which a delay reduction is 
@@ -114,7 +115,7 @@ impl<INITIAL_DELAY> ScheduledDelayChange<INITIAL_DELAY> {
             //          |  until change                                         |
             //          |                                                       |
             //          |-------------------------------------------------------|
-            //            current delay at earliest value  change schedule block
+            //            current delay at earliest value change schedule block
 
             let blocks_until_change = self.block_of_change - (historical_block_number + 1);
 
@@ -171,7 +172,7 @@ mod test {
     global TEST_INITIAL_DELAY = 13;
 
     fn assert_equal_after_conversion(original: ScheduledDelayChange<TEST_INITIAL_DELAY>) {
-        // We have to do explicit type annotations because since Noir lacks turbofish support.
+        // We have to do explicit type annotations because Noir lacks turbofish support.
         // TODO: improve syntax once https://github.com/noir-lang/noir/issues/4710 is implemented.
         let converted: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::deserialize((original).serialize());
 
@@ -267,7 +268,7 @@ mod test {
         delay_change.schedule_change(new, current_block_number);
 
         // Because we re-schedule before the last scheduled change takes effect, the old `post` value is lost. The
-        // schedule time is determined by the different between the current value (pre) and new delay.
+        // schedule time is determined by the difference between the current value (pre) and new delay.
         assert_eq(delay_change.pre.unwrap(), pre);
         assert_eq(delay_change.post.unwrap(), new);
         assert_eq(delay_change.block_of_change, current_block_number + pre - new);
@@ -299,7 +300,7 @@ mod test {
         let mut delay_change = get_initial_delay_change();
         delay_change.schedule_change(new, current_block_number);
 
-        // Like in the after change snceario, the schedule time is determined by the different between the current value
+        // Like in the after change scenario, the schedule time is determined by the difference between the current value
         // (initial) and new delay.
         assert_eq(delay_change.pre.unwrap(), TEST_INITIAL_DELAY);
         assert_eq(delay_change.post.unwrap(), new);
