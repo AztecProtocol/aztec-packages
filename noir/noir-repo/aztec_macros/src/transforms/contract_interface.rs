@@ -39,7 +39,7 @@ use crate::utils::{
 // }
 //
 // The selector placeholder has to be replaced with the actual function signature after type checking in the next macro pass
-pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> String {
+pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call: bool) -> String {
     let fn_name = func.name().to_string();
     let fn_parameters = func
         .parameters()
@@ -59,6 +59,7 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> String {
 
     let parameters = func.parameters();
     let is_void = if matches!(fn_return_type.typ, UnresolvedTypeData::Unit) { "Void" } else { "" };
+    let is_static = if is_static_call { "Static" } else { "" };
     let return_type_hint = if is_void == "Void" {
         "".to_string()
     } else {
@@ -100,18 +101,18 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> String {
 
         let fn_body = format!(
             "{}
-                dep::aztec::context::{}{}CallInterface {{
+                dep::aztec::context::{}{}{}CallInterface {{
                     target_contract: self.target_contract,
                     selector: {},
                     args_hash,
                 }}",
-            args_hash, aztec_visibility, is_void, fn_selector,
+            args_hash, aztec_visibility, is_void, is_static, fn_selector,
         );
         format!(
-            "pub fn {}(self, {}) -> dep::aztec::context::{}{}CallInterface{} {{
+            "pub fn {}(self, {}) -> dep::aztec::context::{}{}{}CallInterface{} {{
                     {}
                 }}",
-            fn_name, fn_parameters, aztec_visibility, is_void, return_type_hint, fn_body
+            fn_name, fn_parameters, aztec_visibility, is_void, is_static, return_type_hint, fn_body
         )
     } else {
         let args = format!(
@@ -122,18 +123,18 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> String {
         );
         let fn_body = format!(
             "{}
-            dep::aztec::context::Avm{}CallInterface {{
+            dep::aztec::context::Avm{}{}CallInterface {{
                 target_contract: self.target_contract,
                 selector: {},
                 args: args_acc,
             }}",
-            args, is_void, fn_selector,
+            args, is_void, is_static, fn_selector,
         );
         format!(
-            "pub fn {}(self, {}) -> dep::aztec::context::Avm{}CallInterface{} {{
+            "pub fn {}(self, {}) -> dep::aztec::context::Avm{}{}CallInterface{} {{
                     {}
             }}",
-            fn_name, fn_parameters, is_void, return_type_hint, fn_body
+            fn_name, fn_parameters, is_void, is_static, return_type_hint, fn_body
         )
     }
 }

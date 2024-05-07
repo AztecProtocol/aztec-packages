@@ -33,12 +33,19 @@ pub fn transform_function(
     is_initializer: bool,
     insert_init_check: bool,
     is_internal: bool,
+    is_static: bool,
 ) -> Result<(), AztecMacroError> {
     let context_name = format!("{}Context", ty);
     let inputs_name = format!("{}ContextInputs", ty);
     let return_type_name = format!("{}CircuitPublicInputs", ty);
     let is_avm = ty == "Avm";
     let is_private = ty == "Private";
+
+    // Add check that the context is set as static
+    if is_static {
+        let is_static_check = create_static_check(func.name());
+        func.def.body.statements.insert(0, is_static_check);
+    }
 
     // Add check that msg sender equals this address and flag function as internal
     if is_internal {
@@ -270,6 +277,25 @@ fn create_mark_as_initialized(ty: &str) -> Statement {
     make_statement(StatementKind::Expression(call(
         variable_path(chained_dep!("aztec", "initializer", &fname)),
         vec![mutable_reference("context")],
+    )))
+}
+
+/// Creates a check for static functions ensuring that the context is correctly set to avoid state modifications
+///
+/// ```noir
+/// assert(context.inputs.call_context.is_static == true, "Function can only be called from a static context");
+/// ```
+fn create_static_check(fname: &str) -> Statement {
+    make_statement(StatementKind::Constrain(ConstrainStatement(
+        make_eq(
+            variable_path(chained_dep!("context", "inputs", "call_context", "is_static_call")),
+            expression(ExpressionKind::Literal(Literal::Bool(true))),
+        ),
+        Some(expression(ExpressionKind::Literal(Literal::Str(format!(
+            "Function {} can only be called internally",
+            fname
+        ))))),
+        ConstrainKind::Assert,
     )))
 }
 

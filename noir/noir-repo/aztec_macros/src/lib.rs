@@ -132,6 +132,7 @@ fn transform_module(
         let mut is_initializer = false;
         let mut is_internal = false;
         let mut insert_init_check = has_initializer;
+        let mut is_static = false;
 
         for secondary_attribute in func.def.attributes.secondary.clone() {
             if is_custom_attribute(&secondary_attribute, "aztec(private)") {
@@ -148,6 +149,9 @@ fn transform_module(
             } else if is_custom_attribute(&secondary_attribute, "aztec(public-vm)") {
                 is_public_vm = true;
             }
+            if is_custom_attribute(&secondary_attribute, "aztec(view)") {
+                is_static = true;
+            }
         }
 
         // Apply transformations to the function based on collected attributes
@@ -159,7 +163,7 @@ fn transform_module(
             } else {
                 "Public"
             };
-            stubs.push(stub_function(fn_type, func));
+            stubs.push(stub_function(fn_type, func, is_static));
 
             export_fn_abi(&mut module.types, func)?;
             transform_function(
@@ -169,6 +173,7 @@ fn transform_module(
                 is_initializer,
                 insert_init_check,
                 is_internal,
+                is_static,
             )?;
             has_transformed_module = true;
         } else if storage_defined && func.def.is_unconstrained {

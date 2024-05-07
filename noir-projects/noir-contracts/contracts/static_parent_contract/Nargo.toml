@@ -1,0 +1,8 @@
+[package]
+name = "static_parent_contract"
+type = "bin"
+authors = [""]
+compiler_version = ">=0.28.0"
+
+[dependencies]
+aztec = { path = "../../../aztec-nr/aztec" }
