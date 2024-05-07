@@ -71,6 +71,7 @@ export function toTxMessage(tx: Tx): Buffer {
     createMessageComponent(tx.encryptedLogs),
     createMessageComponent(tx.unencryptedLogs),
     createMessageComponents(tx.enqueuedPublicFunctionCalls),
+    createMessageComponent(tx.publicTeardownFunctionCall),
   ]);
   const messageLength = numToUInt32BE(messageBuffer.length);
   return Buffer.concat([messageLength, messageBuffer]);
@@ -123,5 +124,14 @@ export function fromTxMessage(buffer: Buffer): Tx {
   }
 
   const publicCalls = toObjectArray(unencryptedLogs.remainingData, PublicCallRequest);
-  return new Tx(publicInputs.obj!, proof.obj!, encryptedLogs.obj, unencryptedLogs.obj, publicCalls.objects);
+
+  const publicTeardownCall = toObject(publicCalls.remainingData, PublicCallRequest);
+  return new Tx(
+    publicInputs.obj!,
+    proof.obj!,
+    encryptedLogs.obj,
+    unencryptedLogs.obj,
+    publicCalls.objects,
+    publicTeardownCall.obj!,
+  );
 }
