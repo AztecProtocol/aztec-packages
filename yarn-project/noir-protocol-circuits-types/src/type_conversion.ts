@@ -121,7 +121,6 @@ import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize'
 
 import {
   type AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
-  type ArchiveRootMembershipWitness as ArchiveRootMembershipWitnessNoir,
   type BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
   type BaseParityInputs as BaseParityInputsNoir,
   type BaseRollupInputs as BaseRollupInputsNoir,
@@ -134,7 +133,6 @@ import {
   type ContentCommitment as ContentCommitmentNoir,
   type Field,
   type FunctionData as FunctionDataNoir,
-  type FunctionLeafMembershipWitness as FunctionLeafMembershipWitnessNoir,
   type FunctionSelector as FunctionSelectorNoir,
   type GasFees as GasFeesNoir,
   type Gas as GasNoir,
@@ -147,6 +145,7 @@ import {
   type L2ToL1Message as L2ToL1MessageNoir,
   type LeafDataReadHint as LeafDataReadHintNoir,
   type MaxBlockNumber as MaxBlockNumberNoir,
+  type MembershipWitness as MembershipWitnessNoir,
   type MergeRollupInputs as MergeRollupInputsNoir,
   type AztecAddress as NoirAztecAddress,
   type EthAddress as NoirEthAddress,
@@ -154,14 +153,12 @@ import {
   type GrumpkinPoint as NoirPoint,
   type NoteHashContext as NoteHashContextNoir,
   type NoteHashLeafPreimage as NoteHashLeafPreimageNoir,
-  type NoteHashMembershipWitness as NoteHashMembershipWitnessNoir,
   type NoteHash as NoteHashNoir,
   type NoteHashReadRequestHints as NoteHashReadRequestHintsNoir,
   type NoteHashSettledReadHint as NoteHashSettledReadHintNoir,
   type NullifierKeyValidationRequestContext as NullifierKeyValidationRequestContextNoir,
   type NullifierKeyValidationRequest as NullifierKeyValidationRequestNoir,
   type NullifierLeafPreimage as NullifierLeafPreimageNoir,
-  type NullifierMembershipWitness as NullifierMembershipWitnessNoir,
   type Nullifier as NullifierNoir,
   type NullifierNonExistentReadRequestHints as NullifierNonExistentReadRequestHintsNoir,
   type NullifierNonMembershipHint as NullifierNonMembershipHintNoir,
@@ -190,7 +187,6 @@ import {
   type PublicCallStackItem as PublicCallStackItemNoir,
   type PublicCircuitPublicInputs as PublicCircuitPublicInputsNoir,
   type PublicDataHint as PublicDataHintNoir,
-  type PublicDataMembershipWitness as PublicDataMembershipWitnessNoir,
   type PublicDataRead as PublicDataReadNoir,
   type PublicDataReadRequestHints as PublicDataReadRequestHintsNoir,
   type PublicDataTreeLeaf as PublicDataTreeLeafNoir,
@@ -766,7 +762,7 @@ export function mapPrivateCallStackItemToNoir(privateCallStackItem: PrivateCallS
  */
 function mapFunctionLeafMembershipWitnessToNoir(
   membershipWitness: MembershipWitness<typeof FUNCTION_TREE_HEIGHT>,
-): FunctionLeafMembershipWitnessNoir {
+): MembershipWitnessNoir<typeof FUNCTION_TREE_HEIGHT> {
   return {
     leaf_index: membershipWitness.leafIndex.toString(),
     sibling_path: mapTuple(membershipWitness.siblingPath, mapFieldToNoir),
@@ -1943,7 +1939,7 @@ export function mapNullifierLeafPreimageToNoir(
 
 function mapNoteHashMembershipWitnessToNoir(
   membershipWitness: MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>,
-): NoteHashMembershipWitnessNoir {
+): MembershipWitnessNoir<typeof NOTE_HASH_TREE_HEIGHT> {
   return {
     leaf_index: membershipWitness.leafIndex.toString(),
     sibling_path: mapTuple(membershipWitness.siblingPath, mapFieldToNoir),
@@ -1957,7 +1953,7 @@ function mapNoteHashMembershipWitnessToNoir(
  */
 export function mapNullifierMembershipWitnessToNoir(
   membershipWitness: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>,
-): NullifierMembershipWitnessNoir {
+): MembershipWitnessNoir<typeof NULLIFIER_TREE_HEIGHT> {
   return {
     leaf_index: membershipWitness.leafIndex.toString(),
     sibling_path: mapTuple(membershipWitness.siblingPath, mapFieldToNoir),
@@ -1969,7 +1965,7 @@ export function mapNullifierMembershipWitnessToNoir(
  */
 export function mapPublicDataMembershipWitnessToNoir(
   membershipWitness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
-): PublicDataMembershipWitnessNoir {
+): MembershipWitnessNoir<typeof PUBLIC_DATA_TREE_HEIGHT> {
   return {
     leaf_index: membershipWitness.leafIndex.toString(),
     sibling_path: mapTuple(membershipWitness.siblingPath, mapFieldToNoir),
@@ -1983,7 +1979,7 @@ export function mapPublicDataMembershipWitnessToNoir(
  */
 export function mapArchiveRootMembershipWitnessToNoir(
   membershipWitness: MembershipWitness<typeof ARCHIVE_HEIGHT>,
-): ArchiveRootMembershipWitnessNoir {
+): MembershipWitnessNoir<typeof ARCHIVE_HEIGHT> {
   return {
     leaf_index: membershipWitness.leafIndex.toString(),
     sibling_path: mapTuple(membershipWitness.siblingPath, mapFieldToNoir),
