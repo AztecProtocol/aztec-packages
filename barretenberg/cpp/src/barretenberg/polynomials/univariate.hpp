@@ -89,10 +89,13 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     // Check if the univariate is identically zero
     bool is_zero() const
     {
-        for (auto& val : evaluations) {
-            if (!val.is_zero()) {
+        if (!evaluations[0].is_zero()) {
+            return false;
+        }
+        for (size_t i = skip_count + 1; i < LENGTH; ++i) {
+            if (!evaluations[i].is_zero()) {
                 return false;
-            };
+            }
         }
         return true;
     }
