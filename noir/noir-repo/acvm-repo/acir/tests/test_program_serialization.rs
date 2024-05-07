@@ -348,7 +348,11 @@ fn complex_brillig_foreign_call() {
 fn memory_op_circuit() {
     let init = vec![Witness(1), Witness(2)];
 
-    let memory_init = Opcode::MemoryInit { block_id: BlockId(0), init };
+    let memory_init = Opcode::MemoryInit {
+        block_id: BlockId(0),
+        init,
+        block_type: acir::circuit::opcodes::BlockType::Memory,
+    };
     let write = Opcode::MemoryOp {
         block_id: BlockId(0),
         op: MemOp::write_to_mem_index(FieldElement::from(1u128).into(), Witness(3).into()),
