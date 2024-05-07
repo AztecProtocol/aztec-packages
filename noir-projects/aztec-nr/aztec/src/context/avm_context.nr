@@ -24,9 +24,6 @@ impl AvmContext {
     pub fn storage_address(self) -> AztecAddress {
         storage_address()
     }
-    pub fn fee_per_l1_gas(self) -> Field {
-        fee_per_l1_gas()
-    }
     pub fn fee_per_l2_gas(self) -> Field {
         fee_per_l2_gas()
     }
@@ -41,7 +38,7 @@ impl AvmContext {
     * Should be automatically convertible to [Field; N]. For example str<N> works with
     * one char per field. Otherwise you can use CompressedString.
     */
-    pub fn emit_unencrypted_log<T>(&mut self, event_selector: Field, log: T) {
+    pub fn emit_unencrypted_log_with_selector<T>(&mut self, event_selector: Field, log: T) {
         emit_unencrypted_log(event_selector, log);
     }
     pub fn note_hash_exists(self, note_hash: Field, leaf_index: Field) -> bool {
@@ -49,36 +46,6 @@ impl AvmContext {
     }
     pub fn l1_to_l2_msg_exists(self, msg_hash: Field, msg_leaf_index: Field) -> bool {
         l1_to_l2_msg_exists(msg_hash, msg_leaf_index) == 1
-    }
-
-    fn call_public_function_raw<RET_COUNT>(
-        self: &mut Self,
-        gas: GasOpts,
-        contract_address: AztecAddress,
-        temporary_function_selector: Field,
-        args: [Field]
-    ) -> ([Field; RET_COUNT], u8) {
-        call(
-            gas_for_call(gas),
-            contract_address,
-            args,
-            temporary_function_selector
-        )
-    }
-
-    fn static_call_public_function_raw<RET_COUNT>(
-        self: &mut Self,
-        gas: GasOpts,
-        contract_address: AztecAddress,
-        temporary_function_selector: Field,
-        args: [Field]
-    ) -> ([Field; RET_COUNT], u8) {
-        call_static(
-            gas_for_call(gas),
-            contract_address,
-            args,
-            temporary_function_selector
-        )
     }
 }
 
@@ -106,27 +73,22 @@ impl PublicContextInterface for AvmContext {
         0
     }
 
-    fn fee_per_l1_gas(self) -> Field {
-        assert(false, "'fee_per_l1_gas' not implemented!");
-        0
-    }
-
     fn fee_per_l2_gas(self) -> Field {
         assert(false, "'fee_per_l2_gas' not implemented!");
         0
+    }
+
+    fn transaction_fee(self) -> Field {
+        transaction_fee()
     }
 
     fn nullifier_exists(self, unsiloed_nullifier: Field, address: AztecAddress) -> bool {
         nullifier_exists(unsiloed_nullifier, address.to_field()) == 1
     }
 
-    fn emit_unencrypted_log<T>(&mut self, log: T) {
-        let event_selector = 0;
-        self.emit_unencrypted_log(event_selector, log);
-    }
-
-    fn push_unencrypted_log(&mut self, log_hash: Field) {
-        assert(false, "'push_unencrypted_log' not required for avm - use emit_unencrypted_log!");
+    fn emit_unencrypted_log<T,N,M>(&mut self, log: T) {
+        let event_selector = 5;  // Matches current PublicContext.
+        self.emit_unencrypted_log_with_selector(event_selector, log);
     }
 
     fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress, leaf_index: Field) {
@@ -215,9 +177,6 @@ impl ContextInterface for AvmContext {
     fn this_address(self) -> AztecAddress {
         address()
     }
-    fn this_portal_address(self) -> EthAddress {
-        portal()
-    }
     fn chain_id(self) -> Field {
         chain_id()
     }
@@ -233,9 +192,8 @@ impl ContextInterface for AvmContext {
 }
 
 // Helper functions
-fn gas_for_call(user_gas: GasOpts) -> [Field; 3] {
+fn gas_for_call(user_gas: GasOpts) -> [Field; 2] {
     [
-        user_gas.l1_gas.unwrap_or_else(|| l1_gas_left()),
         user_gas.l2_gas.unwrap_or_else(|| l2_gas_left() - NESTED_CALL_L2_GAS_BUFFER),
         user_gas.da_gas.unwrap_or_else(|| da_gas_left())
     ]
@@ -254,14 +212,14 @@ fn sender() -> AztecAddress {}
 #[oracle(avmOpcodePortal)]
 fn portal() -> EthAddress {}
 
-#[oracle(avmOpcodeFeePerL1Gas)]
-fn fee_per_l1_gas() -> Field {}
-
 #[oracle(avmOpcodeFeePerL2Gas)]
 fn fee_per_l2_gas() -> Field {}
 
 #[oracle(avmOpcodeFeePerDaGas)]
 fn fee_per_da_gas() -> Field {}
+
+#[oracle(avmOpcodeTransactionFee)]
+fn transaction_fee() -> Field {}
 
 #[oracle(avmOpcodeChainId)]
 fn chain_id() -> Field {}
@@ -274,9 +232,6 @@ fn block_number() -> Field {}
 
 #[oracle(avmOpcodeTimestamp)]
 fn timestamp() -> u64 {}
-
-#[oracle(avmOpcodeL1GasLeft)]
-fn l1_gas_left() -> Field {}
 
 #[oracle(avmOpcodeL2GasLeft)]
 fn l2_gas_left() -> Field {}
@@ -307,7 +262,7 @@ fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {}
 
 #[oracle(avmOpcodeCall)]
 fn call<RET_SIZE>(
-    gas: [Field; 3], // gas allocation: [l1_gas, l2_gas, da_gas]
+    gas: [Field; 2], // gas allocation: [l2_gas, da_gas]
     address: AztecAddress,
     args: [Field],
     // TODO(5110): consider passing in calldata directly
@@ -317,7 +272,7 @@ fn call<RET_SIZE>(
 
 #[oracle(avmOpcodeStaticCall)]
 fn call_static<RET_SIZE>(
-    gas: [Field; 3], // gas allocation: [l1_gas, l2_gas, da_gas]
+    gas: [Field; 2], // gas allocation: [l2_gas, da_gas]
     address: AztecAddress,
     args: [Field],
     // TODO(5110): consider passing in calldata directly

@@ -1,6 +1,9 @@
-use dep::aztec::prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext, emit_encrypted_log};
-use dep::aztec::{note::utils::compute_note_hash_for_consumption, hash::pedersen_hash};
-use dep::aztec::oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key};
+use dep::aztec::{
+    prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext},
+    protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+    note::utils::compute_note_hash_for_consumption, hash::poseidon2_hash,
+    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_app_nullifier_secret_key, get_public_key::get_public_key}
+};
 
 trait OwnedNote {
     fn new(amount: U128, owner: AztecAddress) -> Self;
@@ -26,25 +29,23 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
     // docs:start:nullifier
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_nullifier_secret_key(self.owner);
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash([
+        let secret = context.request_app_nullifier_secret_key(self.owner);
+        poseidon2_hash([
             note_hash_for_nullify,
-            secret.low,
-            secret.high,
-        ],0)
+            secret,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+        ])
     }
     // docs:end:nullifier
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nullifier_secret_key(self.owner);
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash([
+        let secret = get_app_nullifier_secret_key(self.owner);
+        poseidon2_hash([
             note_hash_for_nullify,
-            secret.low,
-            secret.high,
-        ],0)
+            secret,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+        ])
     }
 
     // Broadcasts the note as an encrypted log on L1.
@@ -52,8 +53,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
       // We only bother inserting the note if non-empty to save funds on gas.
       if !(self.amount == U128::from_integer(0)) {
           let encryption_pub_key = get_public_key(self.owner);
-          emit_encrypted_log(
-              context,
+          context.emit_encrypted_log(
               (*context).this_address(),
               slot,
               Self::get_note_type_id(),
@@ -81,5 +81,4 @@ impl OwnedNote for TokenNote {
     fn get_owner(self) -> AztecAddress {
         self.owner
     }
-   
 }

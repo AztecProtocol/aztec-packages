@@ -1,5 +1,5 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { INITIAL_TEST_ENCRYPTION_KEYS } from '@aztec/accounts/testing';
+import { INITIAL_TEST_SECRET_KEYS } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
   AztecAddress,
@@ -7,9 +7,10 @@ import {
   GrumpkinScalar,
   type PXE,
   type Wallet,
-  generatePublicKey,
+  computeAppNullifierSecretKey,
+  deriveKeys,
+  deriveMasterNullifierSecretKey,
 } from '@aztec/aztec.js';
-import { computeNullifierSecretKey, computeSiloedNullifierSecretKey } from '@aztec/circuits.js';
 import { toBufferLE } from '@aztec/foundation/bigint-buffer';
 import { sha256 } from '@aztec/foundation/crypto';
 import { CardGameContract } from '@aztec/noir-contracts.js/CardGame';
@@ -56,7 +57,7 @@ function unwrapOptions<T>(options: NoirOption<T>[]): T[] {
 const PACK_CARDS = 3;
 const GAME_ID = 42;
 
-const PLAYER_ENCRYPTION_KEYS = INITIAL_TEST_ENCRYPTION_KEYS;
+const PLAYER_SECRET_KEYS = INITIAL_TEST_SECRET_KEYS;
 
 describe('e2e_card_game', () => {
   let pxe: PXE;
@@ -64,7 +65,7 @@ describe('e2e_card_game', () => {
   let teardown: () => Promise<void>;
 
   let wallets: AccountWallet[];
-  let nullifierSecretKeys: GrumpkinScalar[];
+  let masterNullifierSecretKeys: GrumpkinScalar[];
 
   let firstPlayerWallet: Wallet;
   let secondPlayerWallet: Wallet;
@@ -79,9 +80,11 @@ describe('e2e_card_game', () => {
   let contractAsThirdPlayer: CardGameContract;
 
   const getPackedCards = (accountIndex: number, seed: bigint): Card[] => {
-    const nullifierKey = nullifierSecretKeys[accountIndex];
-    const secret = computeSiloedNullifierSecretKey(nullifierKey, contract.address);
-    const mix = secret.high.add(secret.low).toBigInt() + seed;
+    // First we get the app nullifier secret key for the account
+    const masterNullifierSecretKey = masterNullifierSecretKeys[accountIndex];
+    const appNullifierSecretKey = computeAppNullifierSecretKey(masterNullifierSecretKey, contract.address);
+    // Then we compute the mix from it and hash it to get the random bytes the same way as in the contract
+    const mix = appNullifierSecretKey.toBigInt() + seed;
     const randomBytes = sha256(toBufferLE(mix, 32));
     const cards: Card[] = [];
     for (let i = 0; i < PACK_CARDS; ++i) {
@@ -98,8 +101,8 @@ describe('e2e_card_game', () => {
 
     const preRegisteredAccounts = await pxe.getRegisteredAccounts();
 
-    const toRegister = PLAYER_ENCRYPTION_KEYS.filter(key => {
-      const publicKey = generatePublicKey(key);
+    const secretKeysToRegister = INITIAL_TEST_SECRET_KEYS.filter(key => {
+      const publicKey = deriveKeys(key).masterIncomingViewingPublicKey;
       return (
         preRegisteredAccounts.find(preRegisteredAccount => {
           return preRegisteredAccount.publicKey.equals(publicKey);
@@ -107,9 +110,9 @@ describe('e2e_card_game', () => {
       );
     });
 
-    for (let i = 0; i < toRegister.length; i++) {
-      logger.info(`Deploying account contract ${i}/${toRegister.length}...`);
-      const encryptionPrivateKey = toRegister[i];
+    for (let i = 0; i < secretKeysToRegister.length; i++) {
+      logger.info(`Deploying account contract ${i}/${secretKeysToRegister.length}...`);
+      const encryptionPrivateKey = secretKeysToRegister[i];
       const account = getSchnorrAccount(pxe, encryptionPrivateKey, GrumpkinScalar.random());
       const wallet = await account.waitSetup({ interval: 0.1 });
       wallets.push(wallet);
@@ -119,8 +122,8 @@ describe('e2e_card_game', () => {
     [firstPlayerWallet, secondPlayerWallet, thirdPlayerWallet] = wallets;
     [firstPlayer, secondPlayer, thirdPlayer] = wallets.map(a => a.getAddress());
 
-    nullifierSecretKeys = PLAYER_ENCRYPTION_KEYS.map(pk => computeNullifierSecretKey(pk));
-  }, 100_000);
+    masterNullifierSecretKeys = PLAYER_SECRET_KEYS.map(sk => deriveMasterNullifierSecretKey(sk));
+  });
 
   beforeEach(async () => {
     await deployContract();
@@ -145,7 +148,7 @@ describe('e2e_card_game', () => {
     const collection = await contract.methods.view_collection_cards(firstPlayer, 0).simulate({ from: firstPlayer });
     const expected = getPackedCards(0, seed);
     expect(unwrapOptions(collection)).toMatchObject(expected);
-  }, 30_000);
+  });
 
   describe('game join', () => {
     const seed = 27n;
@@ -159,7 +162,7 @@ describe('e2e_card_game', () => {
       firstPlayerCollection = unwrapOptions(
         await contract.methods.view_collection_cards(firstPlayer, 0).simulate({ from: firstPlayer }),
       );
-    }, 30_000);
+    });
 
     it('should be able to join games', async () => {
       await contract.methods
@@ -196,7 +199,7 @@ describe('e2e_card_game', () => {
         claimed: false,
         current_player: 0n,
       });
-    }, 30_000);
+    });
 
     it('should start games', async () => {
       const secondPlayerCollection = unwrapOptions(
@@ -236,7 +239,7 @@ describe('e2e_card_game', () => {
         claimed: false,
         current_player: 0n,
       });
-    }, 360_000);
+    });
   });
 
   describe('game play', () => {
@@ -263,7 +266,7 @@ describe('e2e_card_game', () => {
       thirdPlayerCOllection = unwrapOptions(
         await contract.methods.view_collection_cards(thirdPlayer, 0).simulate({ from: thirdPlayer }),
       );
-    }, 60_000);
+    });
 
     async function joinGame(playerWallet: Wallet, cards: Card[], id = GAME_ID) {
       await contract.withWallet(playerWallet).methods.join_game(id, cards.map(cardToField)).send().wait();
@@ -340,6 +343,6 @@ describe('e2e_card_game', () => {
       );
 
       expect(game.finished).toBe(true);
-    }, 360_000);
+    });
   });
 });

@@ -1,6 +1,7 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
-import { GasSettings } from '../gas_settings.js';
+import { GlobalVariables } from '../global_variables.js';
 import { Header } from '../header.js';
 import { TxContext } from '../tx_context.js';
 
@@ -9,9 +10,7 @@ import { TxContext } from '../tx_context.js';
  */
 export class CombinedConstantData {
   constructor(
-    /**
-     * Header of a block whose state is used during execution (not the block the transaction is included in).
-     */
+    /** Header of a block whose state is used during execution (not the block the transaction is included in). */
     public historicalHeader: Header,
     /**
      * Context of the transaction.
@@ -23,12 +22,16 @@ export class CombinedConstantData {
      */
     public txContext: TxContext,
 
-    /** Gas limits and max prices for this transaction as set by the sender. */
-    public gasSettings: GasSettings,
+    /** Present when output by a public kernel, empty otherwise. */
+    public globalVariables: GlobalVariables,
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.historicalHeader, this.txContext, this.gasSettings);
+    return serializeToBuffer(this.historicalHeader, this.txContext, this.globalVariables);
+  }
+
+  static from({ historicalHeader, txContext, globalVariables }: FieldsOf<CombinedConstantData>): CombinedConstantData {
+    return new CombinedConstantData(historicalHeader, txContext, globalVariables);
   }
 
   /**
@@ -41,11 +44,11 @@ export class CombinedConstantData {
     return new CombinedConstantData(
       reader.readObject(Header),
       reader.readObject(TxContext),
-      reader.readObject(GasSettings),
+      reader.readObject(GlobalVariables),
     );
   }
 
   static empty() {
-    return new CombinedConstantData(Header.empty(), TxContext.empty(), GasSettings.empty());
+    return new CombinedConstantData(Header.empty(), TxContext.empty(), GlobalVariables.empty());
   }
 }

@@ -3,11 +3,14 @@ import {
   CallContext,
   FunctionData,
   type FunctionSelector,
+  type Gas,
+  type GasSettings,
   type GlobalVariables,
   type Header,
+  type Nullifier,
+  PublicContextInputs,
 } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type ContractInstance } from '@aztec/types/contracts';
@@ -35,10 +38,18 @@ export class PublicExecutionContext extends TypedOracle {
     public readonly header: Header,
     public readonly globalVariables: GlobalVariables,
     private readonly packedValuesCache: PackedValuesCache,
-    private readonly sideEffectCounter: SideEffectCounter,
+    // TRANSITIONAL: once AVM-ACVM interoperability is removed (fully functional AVM), sideEffectCounter can be made private
+    public readonly sideEffectCounter: SideEffectCounter,
     public readonly stateDb: PublicStateDB,
     public readonly contractsDb: PublicContractsDB,
     public readonly commitmentsDb: CommitmentsDB,
+    public readonly availableGas: Gas,
+    public readonly transactionFee: Fr,
+    public readonly gasSettings: GasSettings,
+    public readonly pendingNullifiers: Nullifier[],
+    // Unencrypted logs emitted during this call AND any nested calls
+    // Useful for maintaining correct ordering in ts
+    private allUnencryptedLogs: UnencryptedL2Log[] = [],
     private log = createDebugLogger('aztec:simulator:public_execution_context'),
   ) {
     super();
@@ -56,14 +67,15 @@ export class PublicExecutionContext extends TypedOracle {
    */
   public getInitialWitness(witnessStartIndex = 0) {
     const { callContext, args } = this.execution;
-    const fields = [
-      ...callContext.toFields(),
-      ...this.header.toFields(),
-      ...this.globalVariables.toFields(),
-      new Fr(this.sideEffectCounter.current()),
-      ...args,
-    ];
-
+    const publicContextInputs = new PublicContextInputs(
+      callContext,
+      this.header,
+      this.globalVariables,
+      this.sideEffectCounter.current(),
+      this.availableGas,
+      this.transactionFee,
+    );
+    const fields = [...publicContextInputs.toFields(), ...args];
     return toACVMWitness(witnessStartIndex, fields);
   }
 
@@ -79,6 +91,13 @@ export class PublicExecutionContext extends TypedOracle {
    */
   public getUnencryptedLogs() {
     return new UnencryptedFunctionL2Logs(this.unencryptedLogs);
+  }
+
+  /**
+   * Return the encrypted logs emitted during this execution, including nested calls.
+   */
+  public getAllUnencryptedLogs() {
+    return new UnencryptedFunctionL2Logs(this.allUnencryptedLogs);
   }
 
   /**
@@ -129,21 +148,10 @@ export class PublicExecutionContext extends TypedOracle {
    * Emit an unencrypted log.
    * @param log - The unencrypted log to be emitted.
    */
-  public override emitUnencryptedLog(log: UnencryptedL2Log) {
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/885)
+  public override emitUnencryptedLog(log: UnencryptedL2Log, _counter: number) {
     this.unencryptedLogs.push(log);
+    this.allUnencryptedLogs.push(log);
     this.log.verbose(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
-    return Fr.fromBuffer(log.hash());
-  }
-
-  /**
-   * Retrieves the portal contract address associated with the given contract address.
-   * Returns zero address if the input contract address is not found or invalid.
-   * @param contractAddress - The address of the contract whose portal address is to be fetched.
-   * @returns The portal contract address.
-   */
-  public override async getPortalContractAddress(contractAddress: AztecAddress) {
-    return (await this.contractsDb.getPortalContractAddress(contractAddress)) ?? EthAddress.ZERO;
   }
 
   /**
@@ -204,20 +212,14 @@ export class PublicExecutionContext extends TypedOracle {
       `Public function call: addr=${targetContractAddress} selector=${functionSelector} args=${args.join(',')}`,
     );
 
-    const portalAddress = (await this.contractsDb.getPortalContractAddress(targetContractAddress)) ?? EthAddress.ZERO;
     const functionData = new FunctionData(functionSelector, /*isPrivate=*/ false);
-    const { transactionFee, gasSettings, gasLeft } = this.execution.callContext;
     const callContext = CallContext.from({
       msgSender: isDelegateCall ? this.execution.callContext.msgSender : this.execution.contractAddress,
       storageContractAddress: isDelegateCall ? this.execution.contractAddress : targetContractAddress,
-      portalContractAddress: portalAddress,
       functionSelector,
-      gasLeft, // Propagate the same gas left as when we started since ACVM public functions don't have any metering
       isDelegateCall,
       isStaticCall,
       sideEffectCounter,
-      gasSettings,
-      transactionFee,
     });
 
     const nestedExecution: PublicExecution = {
@@ -236,6 +238,11 @@ export class PublicExecutionContext extends TypedOracle {
       this.stateDb,
       this.contractsDb,
       this.commitmentsDb,
+      this.availableGas,
+      this.transactionFee,
+      this.gasSettings,
+      /*pendingNullifiers=*/ [],
+      this.allUnencryptedLogs,
       this.log,
     );
 

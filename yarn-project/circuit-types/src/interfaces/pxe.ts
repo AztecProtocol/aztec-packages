@@ -1,10 +1,4 @@
-import {
-  type AztecAddress,
-  type CompleteAddress,
-  type Fr,
-  type GrumpkinPrivateKey,
-  type PartialAddress,
-} from '@aztec/circuits.js';
+import { type AztecAddress, type CompleteAddress, type Fr, type PartialAddress, type Point } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
@@ -61,11 +55,11 @@ export interface PXE {
    * the chain and store those that correspond to the registered account. Will do nothing if the
    * account is already registered.
    *
-   * @param privKey - Private key of the corresponding user master public key.
+   * @param secretKey - Secret key of the corresponding user master public key.
    * @param partialAddress - The partial address of the account contract corresponding to the account being registered.
    * @returns The complete address of the account.
    */
-  registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress>;
+  registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress>;
 
   /**
    * Registers a recipient in PXE. This is required when sending encrypted notes to
@@ -79,7 +73,8 @@ export interface PXE {
    * the recipient's notes. We can send notes to this account because we can encrypt them with the recipient's
    * public key.
    */
-  registerRecipient(recipient: CompleteAddress): Promise<void>;
+  // TODO: #5834: Nuke publicKeys optional parameter after `CompleteAddress` refactor.
+  registerRecipient(recipient: CompleteAddress, publicKeys?: Point[]): Promise<void>;
 
   /**
    * Retrieves the user accounts registered on this PXE Service.
@@ -95,6 +90,15 @@ export interface PXE {
    * @returns The complete address of the requested account if found.
    */
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
+
+  /**
+   * Retrieves the public keys hash of the account corresponding to the provided aztec address.
+   *
+   * @param address - The address of account.
+   * @returns The public keys hash of the requested account if found.
+   * TODO(#5834): refactor complete address and merge with getRegisteredAccount?
+   */
+  getRegisteredAccountPublicKeysHash(address: AztecAddress): Promise<Fr | undefined>;
 
   /**
    * Retrieves the recipients added to this PXE Service.
@@ -297,7 +301,7 @@ export interface PXE {
   getSyncStatus(): Promise<SyncStatus>;
 
   /**
-   * Returns a Contact Instance given its address, which includes the contract class identifier, portal address,
+   * Returns a Contact Instance given its address, which includes the contract class identifier,
    * initialization hash, deployment salt, and public keys hash.
    * TODO(@spalladino): Should we return the public keys in plain as well here?
    * @param address - Deployment address of the contract.

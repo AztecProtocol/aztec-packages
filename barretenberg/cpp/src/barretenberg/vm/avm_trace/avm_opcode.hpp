@@ -41,10 +41,9 @@ enum class OpCode : uint8_t {
     ADDRESS,
     STORAGEADDRESS,
     SENDER,
-    PORTAL,
-    FEEPERL1GAS,
     FEEPERL2GAS,
     FEEPERDAGAS,
+    TRANSACTIONFEE,
     CONTRACTCALLDEPTH,
     // Execution Environment - Globals
     CHAINID,
@@ -52,7 +51,6 @@ enum class OpCode : uint8_t {
     BLOCKNUMBER,
     TIMESTAMP,
     COINBASE,
-    BLOCKL1GASLIMIT,
     BLOCKL2GASLIMIT,
     BLOCKDAGASLIMIT,
     // Execution Environment - Calldata
@@ -60,7 +58,6 @@ enum class OpCode : uint8_t {
 
     // Machine State
     // Machine State - Gas
-    L1GASLEFT,
     L2GASLEFT,
     DAGASLEFT,
     // Machine State - Internal Control Flow
@@ -106,8 +103,6 @@ enum class OpCode : uint8_t {
 class Bytecode {
   public:
     static bool is_valid(uint8_t byte);
-    static bool has_in_tag(OpCode);
-    static const std::unordered_map<OpCode, size_t> OPERANDS_NUM;
 };
 
 std::string to_hex(OpCode opcode);

@@ -8,6 +8,9 @@ use crate::state_vars::{storage::Storage, shared_mutable::scheduled_value_change
 struct SharedMutable<T, DELAY> {
     context: Context,
     storage_slot: Field,
+    // The _dummy variable forces DELAY to be interpreted as a numberic value. This is a workaround to
+    // https://github.com/noir-lang/noir/issues/4633. Remove once resolved.
+    _dummy: [Field; DELAY],
 }
 
 impl<T, DELAY> Storage<T> for SharedMutable<T, DELAY> {}
@@ -24,27 +27,32 @@ impl<T, DELAY> Storage<T> for SharedMutable<T, DELAY> {}
 impl<T, DELAY> SharedMutable<T, DELAY> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
-        Self { context, storage_slot }
+        Self { context, storage_slot, _dummy: [0; DELAY] }
     }
 
     pub fn schedule_value_change(self, new_value: T) {
         let context = self.context.public.unwrap();
-        let mut scheduled_value_change: ScheduledValueChange<T, DELAY> = public_storage::read(self.get_derived_storage_slot());
+        let mut scheduled_value_change: ScheduledValueChange<T> = public_storage::read(self.get_derived_storage_slot());
 
-        scheduled_value_change.schedule_change(new_value, context.block_number() as u32);
+        let block_number = context.block_number() as u32;
+        // TODO: make this configurable
+        // https://github.com/AztecProtocol/aztec-packages/issues/5501
+        let block_of_change = block_number + DELAY;
+
+        scheduled_value_change.schedule_change(new_value, block_number, DELAY, block_of_change);
 
         public_storage::write(self.get_derived_storage_slot(), scheduled_value_change);
     }
 
     pub fn get_current_value_in_public(self) -> T {
-        let scheduled_value_change: ScheduledValueChange<T, DELAY> = public_storage::read(self.get_derived_storage_slot());
+        let scheduled_value_change: ScheduledValueChange<T> = public_storage::read(self.get_derived_storage_slot());
 
         let block_number = self.context.public.unwrap().block_number() as u32;
         scheduled_value_change.get_current_at(block_number)
     }
 
     pub fn get_scheduled_value_in_public(self) -> (T, u32) {
-        let scheduled_value_change: ScheduledValueChange<T, DELAY> = public_storage::read(self.get_derived_storage_slot());
+        let scheduled_value_change: ScheduledValueChange<T> = public_storage::read(self.get_derived_storage_slot());
         scheduled_value_change.get_scheduled()
     }
 
@@ -52,7 +60,7 @@ impl<T, DELAY> SharedMutable<T, DELAY> {
         let mut context = self.context.private.unwrap();
 
         let (scheduled_value_change, historical_block_number) = self.historical_read_from_public_storage(*context);
-        let block_horizon = scheduled_value_change.get_block_horizon(historical_block_number);
+        let block_horizon = scheduled_value_change.get_block_horizon(historical_block_number, DELAY);
 
         // We prevent this transaction from being included in any block after the block horizon, ensuring that the 
         // historical public value matches the current one, since it can only change after the horizon.
@@ -63,7 +71,7 @@ impl<T, DELAY> SharedMutable<T, DELAY> {
     fn historical_read_from_public_storage(
         self,
         context: PrivateContext
-    ) -> (ScheduledValueChange<T, DELAY>, u32) where T: FromField {
+    ) -> (ScheduledValueChange<T>, u32) where T: FromField {
         let derived_slot = self.get_derived_storage_slot();
 
         // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
@@ -76,7 +84,7 @@ impl<T, DELAY> SharedMutable<T, DELAY> {
                 );
         }
 
-        let scheduled_value: ScheduledValueChange<T, DELAY> = ScheduledValueChange::deserialize(raw_fields);
+        let scheduled_value: ScheduledValueChange<T> = ScheduledValueChange::deserialize(raw_fields);
         let historical_block_number = context.historical_header.global_variables.block_number as u32;
 
         (scheduled_value, historical_block_number)
@@ -129,14 +137,16 @@ mod test {
 
     global TEST_DELAY = 20;
 
+    global pre = 13;
+    global post = 42;
+
     #[test]
     fn test_get_current_value_in_public_before_change() {
         let (state_var, block_number) = setup(false);
 
         let slot = state_var.get_derived_storage_slot();
-        let (pre, post) = (13, 17);
 
-        // Change in the future
+        // Change in the future, current value is pre
         OracleMock::mock("storageRead").with_params((slot, 3)).returns([pre, post, block_number + 1]);
         assert_eq(state_var.get_current_value_in_public(), pre);
     }
@@ -146,9 +156,8 @@ mod test {
         let (state_var, block_number) = setup(false);
 
         let slot = state_var.get_derived_storage_slot();
-        let (pre, post) = (13, 17);
 
-        // Change in the current block
+        // Change in the current block, current value is post
         OracleMock::mock("storageRead").with_params((slot, 3)).returns([pre, post, block_number]);
         assert_eq(state_var.get_current_value_in_public(), post);
     }
@@ -158,11 +167,43 @@ mod test {
         let (state_var, block_number) = setup(false);
 
         let slot = state_var.get_derived_storage_slot();
-        let (pre, post) = (13, 17);
 
-        // Change in the past
+        // Change in the past, current value is post
         OracleMock::mock("storageRead").with_params((slot, 3)).returns([pre, post, block_number - 1]);
         assert_eq(state_var.get_current_value_in_public(), post);
+    }
+
+    #[test]
+    fn test_get_scheduled_value_in_public_before_change() {
+        let (state_var, block_number) = setup(false);
+
+        let slot = state_var.get_derived_storage_slot();
+
+        // Change in the future, scheduled is post (always is)
+        OracleMock::mock("storageRead").with_params((slot, 3)).returns([pre, post, block_number + 1]);
+        assert_eq(state_var.get_scheduled_value_in_public(), (post, (block_number + 1) as u32));
+    }
+
+    #[test]
+    fn test_get_scheduled_value_in_public_at_change() {
+        let (state_var, block_number) = setup(false);
+
+        let slot = state_var.get_derived_storage_slot();
+
+        // Change in the current block, scheduled is post (always is)
+        OracleMock::mock("storageRead").with_params((slot, 3)).returns([pre, post, block_number]);
+        assert_eq(state_var.get_scheduled_value_in_public(), (post, block_number as u32));
+    }
+
+    #[test]
+    fn test_get_scheduled_value_in_public_after_change() {
+        let (state_var, block_number) = setup(false);
+
+        let slot = state_var.get_derived_storage_slot();
+
+        // Change in the past, scheduled is post (always is)
+        OracleMock::mock("storageRead").with_params((slot, 3)).returns([pre, post, block_number - 1]);
+        assert_eq(state_var.get_scheduled_value_in_public(), (post, (block_number - 1) as u32));
     }
 
     #[test]
@@ -170,7 +211,6 @@ mod test {
         let (state_var, block_number) = setup(false);
 
         let slot = state_var.get_derived_storage_slot();
-        let (pre, post) = (13, 17);
 
         // Change in the future
         OracleMock::mock("storageRead").with_params((slot, 3)).returns([pre, post, block_number + 1]);
@@ -189,7 +229,6 @@ mod test {
         let (state_var, block_number) = setup(false);
 
         let slot = state_var.get_derived_storage_slot();
-        let (pre, post) = (13, 17);
 
         // Change in the current block
         OracleMock::mock("storageRead").with_params((slot, 3)).returns([pre, post, block_number]);
@@ -208,7 +247,6 @@ mod test {
         let (state_var, block_number) = setup(false);
 
         let slot = state_var.get_derived_storage_slot();
-        let (pre, post) = (13, 17);
 
         // Change in the past
         OracleMock::mock("storageRead").with_params((slot, 3)).returns([pre, post, block_number - 1]);

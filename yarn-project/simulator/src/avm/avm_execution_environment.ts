@@ -1,7 +1,6 @@
 import { FunctionSelector, type GasSettings, type GlobalVariables, type Header } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
 
 export class AvmContextInputs {
@@ -24,8 +23,6 @@ export class AvmExecutionEnvironment {
     public readonly address: AztecAddress,
     public readonly storageAddress: AztecAddress,
     public readonly sender: AztecAddress,
-    public readonly portal: EthAddress,
-    public readonly feePerL1Gas: Fr,
     public readonly feePerL2Gas: Fr,
     public readonly feePerDaGas: Fr,
     public readonly contractCallDepth: Fr,
@@ -57,8 +54,6 @@ export class AvmExecutionEnvironment {
       targetAddress,
       /*storageAddress=*/ targetAddress,
       this.address,
-      this.portal,
-      this.feePerL1Gas,
       this.feePerL2Gas,
       this.feePerDaGas,
       this.contractCallDepth,
@@ -82,8 +77,6 @@ export class AvmExecutionEnvironment {
       address,
       /*storageAddress=*/ address,
       this.sender,
-      this.portal,
-      this.feePerL1Gas,
       this.feePerL2Gas,
       this.feePerDaGas,
       this.contractCallDepth,
@@ -107,8 +100,6 @@ export class AvmExecutionEnvironment {
       address,
       this.storageAddress,
       this.sender,
-      this.portal,
-      this.feePerL1Gas,
       this.feePerL2Gas,
       this.feePerDaGas,
       this.contractCallDepth,

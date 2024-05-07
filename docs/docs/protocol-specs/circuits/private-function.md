@@ -16,7 +16,7 @@ The private inputs of a private function circuit are customizable.
 
 <!-- Mike review:
 - Elaborate on what the `counter`s are for (or link to a section which describes them).
-- It would be nice to explain what's inside a call_stack_item_hash, or to link to a definition of the the private_call_stack_item and public_call_stack_item structs.
+- It would be nice to explain what's inside a call_stack_item_hash, or to link to a definition of the private_call_stack_item and public_call_stack_item structs.
 - It seems the L1->L2 messages tree doesn't exist anymore (according to the `../state/*` section of this paper. Perhaps it's been absorbed into the note hashes tree?). Consider updating the structs accordingly. EDIT: it should still exist.
 - I think there's still some outstanding ugliness originating from the "where to read?" debate:
     - Read requests for notes are being output by private functions, but the `note_hash_tree_root` is also available - so which should be used by an app?
@@ -67,18 +67,13 @@ After generating a proof for a private function circuit, that proof (and associa
 
 ### `CallContext`
 
-| Field                      | Type                          | Description                                                                                                                                                                               |
-| -------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `msg_sender`               | `AztecAddress`                | Address of the caller contract.                                                                                                                                                           |
-| `storage_contract_address` | `AztecAddress`                | Address of the contract against which all state changes will be stored. (It is not called `contract_address`, because in the context of delegate calls, that would be an ambiguous name.) |
-| `portal_contract_address`  | `AztecAddress`                | Address of the portal contract to the storage contract.                                                                                                                                   |
-| `is_delegate_call`         | `bool`                        | A flag indicating whether the call is a [delegate call](../calls/delegate-calls.md).                                                                                                      |
-| `is_static_call`           | `bool`                        | A flag indicating whether the call is a [static call](../calls/static-calls.md).                                                                                                          |
-| `gas_settings`             | [`GasSettings`](#gassettings) | User-defined limits and max fees per each gas dimension for the transaction.                                                                                                              |
-| `gas_left.da_gas`          | `u32`                         | How much DA gas is available for this call.                                                                                                                                               |
-| `gas_left.l1_gas`          | `u32`                         | How much L1 gas is available for this call.                                                                                                                                               |
-| `gas_left.l2_gas`          | `u32`                         | How much L2 gas is available for this call.                                                                                                                                               |
-| `transaction_fee`          | `field`                       | Accumulated transaction fee, only set during teardown phase.                                                                                                                              |
+| Field                      | Type           | Description                                                                                                                                                                               |
+| -------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `msg_sender`               | `AztecAddress` | Address of the caller contract.                                                                                                                                                           |
+| `storage_contract_address` | `AztecAddress` | Address of the contract against which all state changes will be stored. (It is not called `contract_address`, because in the context of delegate calls, that would be an ambiguous name.) |
+| `portal_contract_address`  | `AztecAddress` | Address of the portal contract to the storage contract.                                                                                                                                   |
+| `is_delegate_call`         | `bool`         | A flag indicating whether the call is a [delegate call](../calls/delegate-calls.md).                                                                                                      |
+| `is_static_call`           | `bool`         | A flag indicating whether the call is a [static call](../calls/static-calls.md).                                                                                                          |
 
 ### `GasSettings`
 
@@ -87,9 +82,6 @@ After generating a proof for a private function circuit, that proof (and associa
 | `da.gas_limit`          | `u32`   | Total limit for DA gas for the transaction.                          |
 | `da.teardown_gas_limit` | `u32`   | Limit for DA gas specific to the teardown phase.                     |
 | `da.max_fee_per_gas`    | `field` | Maximum amount that the sender is willing to pay per unit of DA gas. |
-| `l1.gas_limit`          | `u32`   | Total limit for L1 gas for the transaction.                          |
-| `l1.teardown_gas_limit` | `u32`   | Limit for L1 gas specific to the teardown phase.                     |
-| `l1.max_fee_per_gas`    | `field` | Maximum amount that the sender is willing to pay per unit of L1 gas. |
 | `l2.gas_limit`          | `u32`   | Total limit for L2 gas for the transaction.                          |
 | `l2.teardown_gas_limit` | `u32`   | Limit for L2 gas specific to the teardown phase.                     |
 | `l2.max_fee_per_gas`    | `field` | Maximum amount that the sender is willing to pay per unit of L2 gas. |

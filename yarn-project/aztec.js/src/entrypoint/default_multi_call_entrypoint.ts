@@ -19,15 +19,15 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
     const payload = EntrypointPayload.fromAppExecution(calls);
     const abi = this.getEntrypointAbi();
     const entrypointPackedArgs = PackedValues.fromValues(encodeArguments(abi, [payload]));
+    const gasSettings = executions.fee?.gasSettings ?? GasSettings.default();
 
     const txRequest = TxExecutionRequest.from({
-      argsHash: entrypointPackedArgs.hash,
+      firstCallArgsHash: entrypointPackedArgs.hash,
       origin: this.address,
       functionData: FunctionData.fromAbi(abi),
-      txContext: TxContext.empty(this.chainId, this.version),
-      packedArguments: [...payload.packedArguments, ...packedArguments, entrypointPackedArgs],
+      txContext: new TxContext(this.chainId, this.version, gasSettings),
+      argsOfCalls: [...payload.packedArguments, ...packedArguments, entrypointPackedArgs],
       authWitnesses,
-      gasSettings: executions.fee?.gasSettings ?? GasSettings.default(),
     });
 
     return Promise.resolve(txRequest);

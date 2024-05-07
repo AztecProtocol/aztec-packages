@@ -74,26 +74,27 @@ class SpikeFlavor {
 
     template <typename DataType> class WitnessEntities {
       public:
-        DEFINE_FLAVOR_MEMBERS(DataType, Spike_kernel_inputs, Spike_x)
+        DEFINE_FLAVOR_MEMBERS(DataType, Spike_kernel_inputs__is_public, Spike_x)
 
-        RefVector<DataType> get_wires() { return { Spike_kernel_inputs, Spike_x }; };
+        RefVector<DataType> get_wires() { return { Spike_kernel_inputs__is_public, Spike_x }; };
     };
 
     template <typename DataType> class AllEntities {
       public:
-        DEFINE_FLAVOR_MEMBERS(DataType, Spike_first, Spike_kernel_inputs, Spike_x)
+        DEFINE_FLAVOR_MEMBERS(DataType, Spike_first, Spike_kernel_inputs__is_public, Spike_x)
 
-        RefVector<DataType> get_wires() { return { Spike_first, Spike_kernel_inputs, Spike_x }; };
-        RefVector<DataType> get_unshifted() { return { Spike_first, Spike_kernel_inputs, Spike_x }; };
+        RefVector<DataType> get_wires() { return { Spike_first, Spike_kernel_inputs__is_public, Spike_x }; };
+        RefVector<DataType> get_unshifted() { return { Spike_first, Spike_kernel_inputs__is_public, Spike_x }; };
         RefVector<DataType> get_to_be_shifted() { return {}; };
         RefVector<DataType> get_shifted() { return {}; };
     };
 
   public:
-    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey> {
+    class ProvingKey
+        : public ProvingKeyAvm_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey> {
       public:
         // Expose constructors on the base class
-        using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
+        using Base = ProvingKeyAvm_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
         using Base::Base;
 
         RefVector<DataType> get_to_be_shifted() { return {}; };
@@ -134,7 +135,7 @@ class SpikeFlavor {
             }
         }
 
-        [[nodiscard]] size_t get_polynomial_size() const { return Spike_kernel_inputs.size(); }
+        [[nodiscard]] size_t get_polynomial_size() const { return Spike_kernel_inputs__is_public.size(); }
         /**
          * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
          * represents one row in the execution trace.
@@ -170,6 +171,14 @@ class SpikeFlavor {
     template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
 
     /**
+     * @brief A container for univariates used during Protogalaxy folding and sumcheck with some of the computation
+     * optmistically ignored
+     * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
+     */
+    template <size_t LENGTH, size_t SKIP_COUNT>
+    using OptimisedProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH, 0, SKIP_COUNT>>;
+
+    /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
      */
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
@@ -189,7 +198,7 @@ class SpikeFlavor {
             : AllEntities<std::string>()
         {
             Base::Spike_first = "SPIKE_FIRST";
-            Base::Spike_kernel_inputs = "SPIKE_KERNEL_INPUTS";
+            Base::Spike_kernel_inputs__is_public = "SPIKE_KERNEL_INPUTS__IS_PUBLIC";
             Base::Spike_x = "SPIKE_X";
         };
     };
@@ -209,7 +218,7 @@ class SpikeFlavor {
       public:
         uint32_t circuit_size;
 
-        Commitment Spike_kernel_inputs;
+        Commitment Spike_kernel_inputs__is_public;
         Commitment Spike_x;
 
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
@@ -230,7 +239,7 @@ class SpikeFlavor {
             circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
             size_t log_n = numeric::get_msb(circuit_size);
 
-            Spike_kernel_inputs = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            Spike_kernel_inputs__is_public = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             Spike_x = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
 
             for (size_t i = 0; i < log_n; ++i) {
@@ -255,7 +264,7 @@ class SpikeFlavor {
 
             serialize_to_buffer(circuit_size, Transcript::proof_data);
 
-            serialize_to_buffer<Commitment>(Spike_kernel_inputs, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(Spike_kernel_inputs__is_public, Transcript::proof_data);
             serialize_to_buffer<Commitment>(Spike_x, Transcript::proof_data);
 
             for (size_t i = 0; i < log_n; ++i) {

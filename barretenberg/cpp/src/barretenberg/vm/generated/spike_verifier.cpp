@@ -26,8 +26,9 @@ SpikeVerifier& SpikeVerifier::operator=(SpikeVerifier&& other) noexcept
 }
 
 using FF = SpikeFlavor::FF;
+
 // Evaluate the given public input column over the multivariate challenge points
-[[maybe_unused]] inline FF evaluate_public_input_column(std::vector<FF> points, std::vector<FF> challenges)
+[[maybe_unused]] FF inline evaluate_public_input_column(std::vector<FF> points, std::vector<FF> challenges)
 {
     Polynomial<FF> polynomial(points);
     return polynomial.evaluate_mle(challenges);
@@ -61,8 +62,8 @@ bool SpikeVerifier::verify_proof(const HonkProof& proof, const std::vector<FF>& 
     }
 
     // Get commitments to VM wires
-    commitments.Spike_kernel_inputs =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.Spike_kernel_inputs);
+    commitments.Spike_kernel_inputs__is_public =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.Spike_kernel_inputs__is_public);
     commitments.Spike_x = transcript->template receive_from_prover<Commitment>(commitment_labels.Spike_x);
 
     // Get commitments to inverses
@@ -87,7 +88,7 @@ bool SpikeVerifier::verify_proof(const HonkProof& proof, const std::vector<FF>& 
     }
 
     FF public_column_evaluation = evaluate_public_input_column(public_inputs, multivariate_challenge);
-    if (public_column_evaluation != claimed_evaluations.Spike_kernel_inputs) {
+    if (public_column_evaluation != claimed_evaluations.Spike_kernel_inputs__is_public) {
         return false;
     }
 

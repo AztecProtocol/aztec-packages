@@ -1,13 +1,10 @@
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { CALL_CONTEXT_LENGTH } from '../constants.gen.js';
-import { Gas } from './gas.js';
-import { GasSettings } from './gas_settings.js';
 
 /**
  * Call context.
@@ -25,15 +22,9 @@ export class CallContext {
      */
     public storageContractAddress: AztecAddress,
     /**
-     * Address of the portal contract to the storage contract.
-     */
-    public portalContractAddress: EthAddress,
-    /**
      * Function selector of the function being called.
      */
     public functionSelector: FunctionSelector,
-    /** How much gas is available for execution of this function. */
-    public gasLeft: Gas,
     /**
      * Determines whether the call is a delegate call (see Ethereum's delegate call opcode for more information).
      */
@@ -46,43 +37,19 @@ export class CallContext {
      * The start side effect counter for this call context.
      */
     public sideEffectCounter: number,
-
-    /** Gas settings for this tx. */
-    public gasSettings: GasSettings,
-
-    /** Accumulated transaction fee, only set during teardown phase. */
-    public transactionFee: Fr,
   ) {}
 
   /**
-   * Returns a new instance of CallContext with zero msg sender, storage contract address and portal contract address.
-   * @returns A new instance of CallContext with zero msg sender, storage contract address and portal contract address.
+   * Returns a new instance of CallContext with zero msg sender, storage contract address.
+   * @returns A new instance of CallContext with zero msg sender, storage contract address.
    */
   public static empty(): CallContext {
-    return new CallContext(
-      AztecAddress.ZERO,
-      AztecAddress.ZERO,
-      EthAddress.ZERO,
-      FunctionSelector.empty(),
-      Gas.empty(),
-      false,
-      false,
-      0,
-      GasSettings.empty(),
-      Fr.ZERO,
-    );
+    return new CallContext(AztecAddress.ZERO, AztecAddress.ZERO, FunctionSelector.empty(), false, false, 0);
   }
 
   isEmpty() {
     return (
-      this.msgSender.isZero() &&
-      this.storageContractAddress.isZero() &&
-      this.portalContractAddress.isZero() &&
-      this.functionSelector.isEmpty() &&
-      this.gasLeft.isEmpty() &&
-      Fr.ZERO &&
-      this.gasSettings.isEmpty() &&
-      this.transactionFee.isZero()
+      this.msgSender.isZero() && this.storageContractAddress.isZero() && this.functionSelector.isEmpty() && Fr.ZERO
     );
   }
 
@@ -94,14 +61,10 @@ export class CallContext {
     return [
       fields.msgSender,
       fields.storageContractAddress,
-      fields.portalContractAddress,
       fields.functionSelector,
-      fields.gasLeft,
       fields.isDelegateCall,
       fields.isStaticCall,
       fields.sideEffectCounter,
-      fields.gasSettings,
-      fields.transactionFee,
     ] as const;
   }
 
@@ -133,14 +96,10 @@ export class CallContext {
     return new CallContext(
       reader.readObject(AztecAddress),
       reader.readObject(AztecAddress),
-      reader.readObject(EthAddress),
       reader.readObject(FunctionSelector),
-      reader.readObject(Gas),
       reader.readBoolean(),
       reader.readBoolean(),
       reader.readNumber(),
-      reader.readObject(GasSettings),
-      reader.readObject(Fr),
     );
   }
 
@@ -149,14 +108,10 @@ export class CallContext {
     return new CallContext(
       reader.readObject(AztecAddress),
       reader.readObject(AztecAddress),
-      reader.readObject(EthAddress),
       reader.readObject(FunctionSelector),
-      reader.readObject(Gas),
       reader.readBoolean(),
       reader.readBoolean(),
       reader.readU32(),
-      reader.readObject(GasSettings),
-      reader.readField(),
     );
   }
 
@@ -164,14 +119,10 @@ export class CallContext {
     return (
       callContext.msgSender.equals(this.msgSender) &&
       callContext.storageContractAddress.equals(this.storageContractAddress) &&
-      callContext.portalContractAddress.equals(this.portalContractAddress) &&
       callContext.functionSelector.equals(this.functionSelector) &&
-      callContext.gasLeft.equals(this.gasLeft) &&
       callContext.isDelegateCall === this.isDelegateCall &&
       callContext.isStaticCall === this.isStaticCall &&
-      callContext.sideEffectCounter === this.sideEffectCounter &&
-      this.gasSettings.equals(callContext.gasSettings) &&
-      callContext.transactionFee.equals(this.transactionFee)
+      callContext.sideEffectCounter === this.sideEffectCounter
     );
   }
 }

@@ -136,10 +136,13 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
             memory.write(*result, verified.into());
             Ok(())
         }
-        BlackBoxOp::FixedBaseScalarMul { low, high, result } => {
-            let low = memory.read(*low).try_into().unwrap();
-            let high = memory.read(*high).try_into().unwrap();
-            let (x, y) = solver.fixed_base_scalar_mul(&low, &high)?;
+        BlackBoxOp::MultiScalarMul { points, scalars, outputs: result } => {
+            let points: Vec<FieldElement> =
+                read_heap_vector(memory, points).iter().map(|x| x.try_into().unwrap()).collect();
+            let scalars: Vec<FieldElement> =
+                read_heap_vector(memory, scalars).iter().map(|x| x.try_into().unwrap()).collect();
+
+            let (x, y) = solver.multi_scalar_mul(&points, &scalars)?;
             memory.write_slice(memory.read_ref(result.pointer), &[x.into(), y.into()]);
             Ok(())
         }
@@ -288,7 +291,7 @@ fn black_box_function_from_op(op: &BlackBoxOp) -> BlackBoxFunc {
         BlackBoxOp::SchnorrVerify { .. } => BlackBoxFunc::SchnorrVerify,
         BlackBoxOp::PedersenCommitment { .. } => BlackBoxFunc::PedersenCommitment,
         BlackBoxOp::PedersenHash { .. } => BlackBoxFunc::PedersenHash,
-        BlackBoxOp::FixedBaseScalarMul { .. } => BlackBoxFunc::FixedBaseScalarMul,
+        BlackBoxOp::MultiScalarMul { .. } => BlackBoxFunc::MultiScalarMul,
         BlackBoxOp::EmbeddedCurveAdd { .. } => BlackBoxFunc::EmbeddedCurveAdd,
         BlackBoxOp::BigIntAdd { .. } => BlackBoxFunc::BigIntAdd,
         BlackBoxOp::BigIntSub { .. } => BlackBoxFunc::BigIntSub,
