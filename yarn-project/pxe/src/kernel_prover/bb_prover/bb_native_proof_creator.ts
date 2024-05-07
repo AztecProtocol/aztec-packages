@@ -1,5 +1,6 @@
 import {
   Fr,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
   type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
@@ -7,8 +8,9 @@ import {
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   Proof,
+  type RECURSIVE_PROOF_LENGTH,
+  RecursiveProof,
   type VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  makeEmptyProof,
 } from '@aztec/circuits.js';
 import { siloNoteHash } from '@aztec/circuits.js/hash';
 import { randomBytes, sha256 } from '@aztec/foundation/crypto';
@@ -45,9 +47,9 @@ import { type ProofCreator, type ProofOutput } from '../interface/proof_creator.
 const VK_FILENAME = 'vk';
 const VK_FIELDS_FILENAME = 'vk_fields.json';
 const PROOF_FILENAME = 'proof';
-//const PROOF_FIELDS_FILENAME = 'proof_fields.json';
+const PROOF_FIELDS_FILENAME = 'proof_fields.json';
 
-//const AGGREGATION_OBJECT_SIZE = 16;
+const AGGREGATION_OBJECT_SIZE = 16;
 const CIRCUIT_SIZE_INDEX = 3;
 const CIRCUIT_PUBLIC_INPUTS_INDEX = 4;
 const CIRCUIT_RECURSIVE_INDEX = 5;
@@ -476,14 +478,17 @@ export class BBNativeProofCreator implements ProofCreator {
     return await this.createSafeProof(witnessMap, 'PrivateKernelTailToPublicArtifact');
   }
 
-  public async createAppCircuitProof(partialWitness: Map<number, ACVMField>, bytecode: Buffer): Promise<Proof> {
+  public async createAppCircuitProof(
+    partialWitness: Map<number, ACVMField>,
+    bytecode: Buffer,
+  ): Promise<RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>> {
     const directory = `${this.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
     await fs.mkdir(directory, { recursive: true });
     this.log.debug(`Created directory: ${directory}`);
     try {
       this.log.debug(`Proving app circuit`);
       const proof = await this.createProof(directory, partialWitness, bytecode, 'App');
-      return new Proof(proof);
+      return proof as RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>;
     } finally {
       await fs.rm(directory, { recursive: true, force: true });
       this.log.debug(`Deleted directory: ${directory}`);
@@ -618,16 +623,17 @@ export class BBNativeProofCreator implements ProofCreator {
 
     const publicInputs = KernelArtifactMapping[circuitType].convertOutputs(outputWitness) as T;
 
-    const proofBuffer = await this.createProof(
+    const proof = await this.createProof(
       directory,
       outputWitness,
       Buffer.from(compiledCircuit.bytecode, 'base64'),
       circuitType,
     );
+    const nestedProof = proof as RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
 
     const proofOutput: ProofOutput<T> = {
       publicInputs,
-      proof: new Proof(proofBuffer),
+      proof: nestedProof,
     };
     return proofOutput;
   }
@@ -662,9 +668,9 @@ export class BBNativeProofCreator implements ProofCreator {
 
     if (circuitType !== 'App') {
       await this.updateVerificationKeyAfterProof(directory, circuitType);
+      return await this.readProofAsFields<typeof NESTED_RECURSIVE_PROOF_LENGTH>(directory, circuitType);
     }
-    const proofFile = `${directory}/${PROOF_FILENAME}`;
-    return await fs.readFile(proofFile);
+    return await this.readProofAsFields<typeof RECURSIVE_PROOF_LENGTH>(directory, circuitType);
   }
 
   /**
@@ -673,28 +679,28 @@ export class BBNativeProofCreator implements ProofCreator {
    * @param circuitType - The type of circuit proven
    * @returns The proof
    */
-  // private async readProofAsFields<PROOF_LENGTH extends number>(
-  //   filePath: string,
-  //   circuitType: ClientProtocolArtifact,
-  // ): Promise<RecursiveProof<PROOF_LENGTH>> {
-  //   const [binaryProof, proofString] = await Promise.all([
-  //     fs.readFile(`${filePath}/${PROOF_FILENAME}`),
-  //     fs.readFile(`${filePath}/${PROOF_FIELDS_FILENAME}`, { encoding: 'utf-8' }),
-  //   ]);
-  //   const json = JSON.parse(proofString);
-  //   const fields = json.map(Fr.fromString);
-  //   const vkData = await this.verificationKeys.get(circuitType);
-  //   if (!vkData) {
-  //     throw new Error(`Invalid verification key for ${circuitType}`);
-  //   }
-  //   const numPublicInputs = CIRCUITS_WITHOUT_AGGREGATION.has(circuitType)
-  //     ? vkData.numPublicInputs
-  //     : vkData.numPublicInputs - AGGREGATION_OBJECT_SIZE;
-  //   const fieldsWithoutPublicInputs = fields.slice(numPublicInputs);
-  //   logger.debug(
-  //     `Circuit type: ${circuitType}, complete proof length: ${fields.length}, without public inputs: ${fieldsWithoutPublicInputs.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
-  //   );
-  //   const proof = new RecursiveProof<PROOF_LENGTH>(fieldsWithoutPublicInputs, new Proof(binaryProof));
-  //   return proof;
-  // }
+  private async readProofAsFields<PROOF_LENGTH extends number>(
+    filePath: string,
+    circuitType: ClientProtocolArtifact | 'App',
+  ): Promise<RecursiveProof<PROOF_LENGTH>> {
+    const [binaryProof, proofString] = await Promise.all([
+      fs.readFile(`${filePath}/${PROOF_FILENAME}`),
+      fs.readFile(`${filePath}/${PROOF_FIELDS_FILENAME}`, { encoding: 'utf-8' }),
+    ]);
+    const json = JSON.parse(proofString);
+    const fields = json.map(Fr.fromString);
+    const vkData =
+      circuitType === 'App' ? await this.convertVk(filePath) : await this.verificationKeys.get(circuitType);
+    if (!vkData) {
+      throw new Error(`Invalid verification key for ${circuitType}`);
+    }
+    const numPublicInputs =
+      circuitType === 'App' ? vkData.numPublicInputs : vkData.numPublicInputs - AGGREGATION_OBJECT_SIZE;
+    const fieldsWithoutPublicInputs = fields.slice(numPublicInputs);
+    this.log.debug(
+      `Circuit type: ${circuitType}, complete proof length: ${fields.length}, without public inputs: ${fieldsWithoutPublicInputs.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
+    );
+    const proof = new RecursiveProof<PROOF_LENGTH>(fieldsWithoutPublicInputs, new Proof(binaryProof));
+    return proof;
+  }
 }
