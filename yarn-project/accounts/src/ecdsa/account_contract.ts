@@ -12,13 +12,13 @@ import { EcdsaAccountContractArtifact } from './artifact.js';
  * verified against a secp256k1 public key stored in an immutable encrypted note.
  */
 export class EcdsaAccountContract extends DefaultAccountContract {
-  constructor(private signingPrivateKey: Buffer) {
+  constructor(private signingPrivateKey: Buffer, private masterNullifierPublicKeyHash: Fr) {
     super(EcdsaAccountContractArtifact as ContractArtifact);
   }
 
   getDeploymentArgs() {
     const signingPublicKey = new Ecdsa().computePublicKey(this.signingPrivateKey);
-    return [signingPublicKey.subarray(0, 32), signingPublicKey.subarray(32, 64)];
+    return [signingPublicKey.subarray(0, 32), signingPublicKey.subarray(32, 64), this.masterNullifierPublicKeyHash];
   }
 
   getAuthWitnessProvider(_address: CompleteAddress): AuthWitnessProvider {

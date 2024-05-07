@@ -12,14 +12,15 @@ import {
   GrumpkinScalar,
   type PXE,
   type Wallet,
+  deriveKeys,
 } from '@aztec/aztec.js';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { poseidon2Hash, randomBytes } from '@aztec/foundation/crypto';
 import { ChildContract } from '@aztec/noir-contracts.js/Child';
 
 import { setup } from './fixtures/utils.js';
 
 function itShouldBehaveLikeAnAccountContract(
-  getAccountContract: (encryptionKey: GrumpkinPrivateKey) => AccountContract,
+  getAccountContract: (encryptionKey: GrumpkinPrivateKey, masterNullifierPublicKeyHash: Fr) => AccountContract,
   walletSetup: (pxe: PXE, secretKey: Fr, accountContract: AccountContract) => Promise<Wallet>,
   walletAt: (pxe: PXE, accountContract: AccountContract, address: CompleteAddress) => Promise<Wallet>,
 ) {
@@ -38,7 +39,7 @@ function itShouldBehaveLikeAnAccountContract(
       secretKey = Fr.random();
       signingKey = GrumpkinScalar.random();
 
-      wallet = await walletSetup(pxe, secretKey, getAccountContract(signingKey));
+      wallet = await walletSetup(pxe, secretKey, getAccountContract(signingKey, poseidon2Hash(deriveKeys(secretKey).masterNullifierPublicKey.toFields())));
       child = await ChildContract.deploy(wallet).send().deployed();
     });
 
@@ -59,7 +60,7 @@ function itShouldBehaveLikeAnAccountContract(
     // TODO(#5830): re-enable this test
     it.skip('fails to call a function using an invalid signature', async () => {
       const accountAddress = wallet.getCompleteAddress();
-      const invalidWallet = await walletAt(pxe, getAccountContract(GrumpkinScalar.random()), accountAddress);
+      const invalidWallet = await walletAt(pxe, getAccountContract(GrumpkinScalar.random(), poseidon2Hash(deriveKeys(secretKey).masterNullifierPublicKey.toFields())), accountAddress);
       const childWithInvalidWallet = await ChildContract.at(child.address, invalidWallet);
       await expect(childWithInvalidWallet.methods.value(42).prove()).rejects.toThrow(/Cannot satisfy constraint.*/);
     });
@@ -92,13 +93,13 @@ describe('e2e_account_contracts', () => {
 
   describe('schnorr multi-key account', () => {
     itShouldBehaveLikeAnAccountContract(
-      () => new SchnorrAccountContract(GrumpkinScalar.random(), Fr.random()),
+      (_, masterNullifierPublicKeyHash: Fr) => new SchnorrAccountContract(GrumpkinScalar.random(), masterNullifierPublicKeyHash),
       walletSetup,
       walletAt,
     );
   });
 
   describe('ecdsa stored-key account', () => {
-    itShouldBehaveLikeAnAccountContract(() => new EcdsaAccountContract(randomBytes(32)), walletSetup, walletAt);
+    itShouldBehaveLikeAnAccountContract((_, masterNullifierPublicKeyHash: Fr) => new EcdsaAccountContract(randomBytes(32), masterNullifierPublicKeyHash), walletSetup, walletAt);
   });
 });
