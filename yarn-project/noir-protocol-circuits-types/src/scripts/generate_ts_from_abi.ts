@@ -64,6 +64,9 @@ function getLastComponentOfPath(str: string): string {
   return lastPart;
 }
 
+/**
+ * Replaces a numeric binding with the corresponding generics name or the actual value.
+ */
 function replaceNumericBinding(id: number | BindingId, genericsNameMap: Map<number, string>): string {
   if (typeof id === 'number') {
     return id.toString();
@@ -73,16 +76,21 @@ function replaceNumericBinding(id: number | BindingId, genericsNameMap: Map<numb
 }
 
 class TypingsGenerator {
-  private primitiveTypesUsed = new Map<string, PrimitiveTypesUsed>();
+  /** All the types in the ABIs */
   private allTypes: AbiTypeWithGenerics[] = [];
-  private monomorphizedAbis: {
+  /** The demonomorphized ABIs of the circuits */
+  private demonomorphizedAbis: {
     circuitName: string;
     params: { name: string; type: AbiTypeWithGenerics }[];
     returnType?: AbiTypeWithGenerics;
   }[] = [];
+  /** Maps struct id to name for structs with the same name and different field sets */
   private structIdToTsName = new Map<string, string>();
+  /** Collect all the primitives used in the types to add them to the codegen */
+  private primitiveTypesUsed = new Map<string, PrimitiveTypesUsed>();
 
   constructor(circuits: { abi: NoirFunctionAbi; circuitName: string }[]) {
+    // Map all the types used in the ABIs to the demonomorphized types
     for (const { abi, circuitName } of circuits) {
       const params = abi.parameters.map(param => {
         const type = mapAbiTypeToAbiTypeWithGenerics(param.type);
@@ -92,11 +100,12 @@ class TypingsGenerator {
       if (abi.return_type) {
         const returnType = mapAbiTypeToAbiTypeWithGenerics(abi.return_type.abi_type);
         this.allTypes.push(returnType);
-        this.monomorphizedAbis.push({ circuitName, params, returnType });
+        this.demonomorphizedAbis.push({ circuitName, params, returnType });
       } else {
-        this.monomorphizedAbis.push({ circuitName, params });
+        this.demonomorphizedAbis.push({ circuitName, params });
       }
     }
+    // Demononmorphize the types
     Demonomorphizer.demonomorphize(this.allTypes);
   }
 
@@ -116,6 +125,7 @@ class TypingsGenerator {
 
   private codegenAllStructs(): string {
     const allStructs = this.allTypes.flatMap(findAllStructsInType);
+    // First, deduplicate the structs used
     const structTypesToExport = new Map<string, StructType>();
     for (const struct of allStructs) {
       const id = Demonomorphizer.buildIdForStruct(struct.structType);
@@ -125,6 +135,8 @@ class TypingsGenerator {
       structTypesToExport.set(id, struct.structType);
     }
 
+    // Then, we have to consider the case where we have struct with the same name but different fields.
+    // For those, we'll naively append a number to the name.
     const idsPerName = new Map<string, string[]>();
     for (const [id, structType] of structTypesToExport.entries()) {
       const name = getLastComponentOfPath(structType.path);
@@ -141,7 +153,7 @@ class TypingsGenerator {
         });
       }
     }
-
+    // Now we can just generate the code for the structs
     let resultCode = '';
 
     for (const structType of structTypesToExport.values()) {
@@ -158,16 +170,19 @@ class TypingsGenerator {
   }
 
   private codegenStructType(structType: StructType): string {
+    // Generate names for the generic bindings.
     const genericsNameMap = new Map<number, string>();
     structType.generics.forEach((generic, index) => {
       genericsNameMap.set(generic.id, String.fromCharCode('A'.charCodeAt(0) + index));
     });
+
     const name = this.getStructName(structType);
     const generics = structType.generics.length
       ? `<${structType.generics
           .map(generic => `${genericsNameMap.get(generic.id)}${generic.isNumeric ? ' extends number' : ''}`)
           .join(', ')}>`
       : '';
+
     let resultCode = `export interface ${name}${generics} {\n`;
 
     for (const field of structType.fields) {
@@ -234,9 +249,13 @@ class TypingsGenerator {
     }
   }
 
+  /**
+   * Codegen all the interfaces for the circuits.
+   * For a circuit named Foo, we'll codegen FooInputType and FooReturnType.
+   */
   private codegenAllInterfaces(): string {
     let resultCode = '';
-    for (const { circuitName, params, returnType } of this.monomorphizedAbis) {
+    for (const { circuitName, params, returnType } of this.demonomorphizedAbis) {
       resultCode += this.codegenStructType({
         path: `${circuitName}InputType`,
         fields: params,
@@ -284,6 +303,7 @@ const main = async () => {
 
   const allAbis = [];
 
+  // Collect all abis
   for (const circuit of circuits) {
     const rawData = await fs.readFile(`./src/target/${circuit}.json`, 'utf-8');
     const abiObj: NoirCompiledCircuit = JSON.parse(rawData);
