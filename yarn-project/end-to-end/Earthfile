@@ -1,11 +1,11 @@
 VERSION 0.8
+ARG --global skip_build=false
 
 E2E_COMPOSE_TEST:
   FUNCTION
   ARG test
   ARG compose_file=./scripts/docker-compose.yml
   ARG debug="aztec:*"
-  ARG EARTHLY_TARGET_NAME
   LOCALLY
   ENV TEST=$test
   ENV DEBUG=$debug
@@ -15,8 +15,13 @@ E2E_COMPOSE_TEST:
   ELSE
     LET CMD="docker-compose"
   END
-  WAIT
-    BUILD ../+export-e2e-test-images
+  # In CI, we do an optimization to push these images to docker once
+  # We still want the default code path to work with no faff locally
+  # To not rebuild unnecessarily, we pass --skip_build=true in CI
+  IF [ $skip_build != "true" ]
+    WAIT
+      BUILD ../+export-e2e-test-images
+    END
   END
   # Let docker compose know about the pushed tags above
   ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
@@ -97,4 +102,12 @@ bench-tx-size:
   ARG BRANCH
   ARG COMMIT_HASH
   DO +E2E_COMPOSE_TEST --test=benchmarks/bench_tx_size_fees.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml
+  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+
+bench-proving:
+  ARG e2e_mode=local
+  ARG PULL_REQUEST
+  ARG BRANCH
+  ARG COMMIT_HASH
+  DO +E2E_COMPOSE_TEST --test=bench_proving --debug="aztec:benchmarks:*,aztec:prover*,aztec:bb*" --e2e_mode=$e2e_mode --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml
   DO +UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
