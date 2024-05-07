@@ -59,7 +59,8 @@ fn gate_command() -> Result<(), BackendError> {
 
     let output = gate_command.run(backend.binary_path())?;
     // Mock backend always returns zero gates.
-    assert_eq!(output, 0);
+    assert_eq!(output.len(), 1);
+    assert_eq!(output[0], 0);
 
     Ok(())
 }
