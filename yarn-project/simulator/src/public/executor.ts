@@ -46,7 +46,7 @@ export async function executePublicFunction(
   }
 
   if (isAvmBytecode(bytecode)) {
-    return await executeTopLevelPublicFunctionAvm(context, bytecode, nested);
+    return await executeTopLevelPublicFunctionAvm(context, bytecode);
   } else {
     return await executePublicFunctionAcvm(context, bytecode, nested);
   }
@@ -57,11 +57,8 @@ export async function executePublicFunction(
  * Translate the results back to the PublicExecutionResult format.
  */
 async function executeTopLevelPublicFunctionAvm(
-  
   executionContext: PublicExecutionContext,
   bytecode: Buffer,
-  nested: boolean,
-,
 ): Promise<PublicExecutionResult> {
   const address = executionContext.execution.contractAddress;
   const selector = executionContext.execution.functionData.selector;
@@ -97,12 +94,10 @@ async function executeTopLevelPublicFunctionAvm(
 
   const avmResult = await simulator.executeBytecode(bytecode);
 
-  if (!nested) {
-    // Commit the journals state to the DBs if this is the top-level execution.
-    // Observe that this will write all the state changes to the DBs, not only the latest for each slot.
-    // However, the underlying DB keep a cache and will only write the latest state to disk.
-    await context.persistableState.publicStorage.commitToDB();
-  }
+  // Commit the journals state to the DBs since this is a top-level execution.
+  // Observe that this will write all the state changes to the DBs, not only the latest for each slot.
+  // However, the underlying DB keep a cache and will only write the latest state to disk.
+  await avmContext.persistableState.publicStorage.commitToDB();
 
   log.verbose(
     `[AVM] ${address.toString()}:${selector} returned, reverted: ${avmResult.reverted}, reason: ${
@@ -110,8 +105,13 @@ async function executeTopLevelPublicFunctionAvm(
     }.`,
   );
 
-  return 
-    convertAvmResultsToPxResult(avmResult, startSideEffectCounter, executionContext.execution, startGas, avmContext);
+  return convertAvmResultsToPxResult(
+    avmResult,
+    startSideEffectCounter,
+    executionContext.execution,
+    startGas,
+    avmContext,
+  );
 }
 
 async function executePublicFunctionAcvm(
