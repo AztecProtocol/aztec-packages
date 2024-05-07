@@ -23,8 +23,8 @@ import {
   convertPrivateKernelInnerInputsToWitnessMap,
   convertPrivateKernelInnerOutputsFromWitnessMap,
   convertPrivateKernelTailForPublicOutputsFromWitnessMap,
-  convertPrivateKernelTailOutputsFromWitnessMap,
   convertPrivateKernelTailInputsToWitnessMap,
+  convertPrivateKernelTailOutputsFromWitnessMap,
   convertPrivateKernelTailToPublicInputsToWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
 import { type ACVMField, WASMSimulator } from '@aztec/simulator';
@@ -296,7 +296,6 @@ export async function generateKeyForNoirCircuit(
     // args are the output path and the input bytecode path
     const args = ['-o', `${outputPath}/${VK_FILENAME}`, '-b', bytecodePath];
     const timer = new Timer();
-    log(`Writing verification key: args ${args.join()}`);
     let result = await executeBB(pathToBB, `write_${key}`, args, log);
     // If we succeeded and the type of key if verification, have bb write the 'fields' version too
     if (result == BB_RESULT.SUCCESS && key === 'vk') {
