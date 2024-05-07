@@ -1,6 +1,6 @@
 {
-    "label": "Development Environment",
     "position": 0,
     "collapsible": true,
-    "collapsed": true
+    "collapsed": true,
+    "label": "Development Environment"
 }

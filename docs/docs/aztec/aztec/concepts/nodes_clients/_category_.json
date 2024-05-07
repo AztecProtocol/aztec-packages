@@ -1,6 +1,6 @@
 {
-    "label": "Nodes and Clients",
     "position": 8,
     "collapsible": true,
-    "collapsed": true
+    "collapsed": true,
+    "label": "Nodes and Clients"
 }
