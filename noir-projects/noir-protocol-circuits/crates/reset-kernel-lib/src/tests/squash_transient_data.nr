@@ -1,4 +1,4 @@
-use dep::types::abis::{note_hash::ScopedNoteHash, nullifier::NullifierContext};
+use dep::types::abis::{note_hash::ScopedNoteHash, nullifier::ScopedNullifier};
 
 pub fn squash_transient_note_hashes<N>(note_hashes: [ScopedNoteHash; N]) -> [ScopedNoteHash; N] {
     let mut final_note_hashes = [ScopedNoteHash::empty(); N];
@@ -15,13 +15,13 @@ pub fn squash_transient_note_hashes<N>(note_hashes: [ScopedNoteHash; N]) -> [Sco
     final_note_hashes
 }
 
-pub fn squash_transient_nullifiers<N>(nullifiers: [NullifierContext; N]) -> [NullifierContext; N] {
-    let mut final_nullifiers = [NullifierContext::empty(); N];
+pub fn squash_transient_nullifiers<N>(nullifiers: [ScopedNullifier; N]) -> [ScopedNullifier; N] {
+    let mut final_nullifiers = [ScopedNullifier::empty(); N];
 
     let mut num_nullifiers = 0;
     for i in 0..N {
         let nullifier = nullifiers[i];
-        if nullifier.note_hash == 0 {
+        if nullifier.nullified_note_hash() == 0 {
             final_nullifiers[num_nullifiers] = nullifier;
             num_nullifiers += 1;
         }

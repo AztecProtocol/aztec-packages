@@ -1,10 +1,10 @@
-use dep::types::{abis::{note_hash::ScopedNoteHash, nullifier::NullifierContext}, traits::is_empty};
+use dep::types::{abis::{note_hash::ScopedNoteHash, nullifier::ScopedNullifier}, traits::is_empty};
 
 pub fn verify_squashed_transient_note_hashes_and_nullifiers<NUM_NOTE_HASHES, NUM_NULLIFIERS>(
     note_hashes: [ScopedNoteHash; NUM_NOTE_HASHES],
-    nullifiers: [NullifierContext; NUM_NULLIFIERS],
+    nullifiers: [ScopedNullifier; NUM_NULLIFIERS],
     expected_note_hashes: [ScopedNoteHash; NUM_NOTE_HASHES],
-    expected_nullifiers: [NullifierContext; NUM_NULLIFIERS],
+    expected_nullifiers: [ScopedNullifier; NUM_NULLIFIERS],
     transient_nullifier_indexes_for_note_hashes: [u64; NUM_NOTE_HASHES],
     transient_note_hash_indexes_for_nullifiers: [u64; NUM_NULLIFIERS]
 ) {
@@ -19,13 +19,13 @@ pub fn verify_squashed_transient_note_hashes_and_nullifiers<NUM_NOTE_HASHES, NUM
         } else {
             let nullifier = nullifiers[nullifier_index];
             assert_eq(
-                note_hash.value(), nullifier.note_hash, "Value of the hinted transient note hash does not match"
+                note_hash.value(), nullifier.nullified_note_hash(), "Value of the hinted transient note hash does not match"
             );
             assert_eq(
                 note_hash.contract_address, nullifier.contract_address, "Contract address of the hinted transient note hash does not match"
             );
             assert_eq(
-                note_hash.nullifier_counter, nullifier.counter, "Nullifier counter of the hinted transient note hash does not match"
+                note_hash.nullifier_counter, nullifier.counter(), "Nullifier counter of the hinted transient note hash does not match"
             );
 
             // The following check is not necessary as the nullifier_counter is assured to be greater than the counter of 
@@ -67,15 +67,18 @@ pub fn verify_squashed_transient_note_hashes_and_nullifiers<NUM_NOTE_HASHES, NUM
 
 mod tests {
     use crate::reset::transient_data::verify_squashed_transient_note_hashes_and_nullifiers;
-    use dep::types::{abis::{note_hash::{NoteHash, ScopedNoteHash}, nullifier::NullifierContext}, address::AztecAddress};
+    use dep::types::{
+        abis::{note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier}},
+        address::AztecAddress
+    };
 
     struct TestDataBuilder<NUM_NOTE_HASHES, NUM_NULLIFIERS> {
         num_note_hashes: u64,
         num_nullifiers: u64,
         note_hashes: [ScopedNoteHash; NUM_NOTE_HASHES],
-        nullifiers: [NullifierContext; NUM_NULLIFIERS],
+        nullifiers: [ScopedNullifier; NUM_NULLIFIERS],
         expected_note_hashes: [ScopedNoteHash; NUM_NOTE_HASHES],
-        expected_nullifiers: [NullifierContext; NUM_NULLIFIERS],
+        expected_nullifiers: [ScopedNullifier; NUM_NULLIFIERS],
         transient_nullifier_indexes_for_note_hashes: [u64; NUM_NOTE_HASHES],
         transient_note_hash_indexes_for_nullifiers: [u64; NUM_NULLIFIERS],
     }
@@ -91,13 +94,13 @@ mod tests {
             ];
 
             let nullifiers = [
-                NullifierContext { value: 44, counter: 400, note_hash: 33, contract_address },
-                NullifierContext { value: 55, counter: 500, note_hash: 11, contract_address },
-                NullifierContext { value: 66, counter: 600, note_hash: 0, contract_address }
+                Nullifier { value: 44, counter: 400, note_hash: 33 }.scope(contract_address),
+                Nullifier { value: 55, counter: 500, note_hash: 11 }.scope(contract_address),
+                Nullifier { value: 66, counter: 600, note_hash: 0 }.scope(contract_address)
             ];
 
             let expected_note_hashes = [note_hashes[1], ScopedNoteHash::empty(), ScopedNoteHash::empty()];
-            let expected_nullifiers = [nullifiers[2], NullifierContext::empty(), NullifierContext::empty()];
+            let expected_nullifiers = [nullifiers[2], ScopedNullifier::empty(), ScopedNullifier::empty()];
 
             let transient_nullifier_indexes_for_note_hashes = [1, 3, 0];
             let transient_note_hash_indexes_for_nullifiers = [2, 0, 3];
@@ -124,13 +127,13 @@ mod tests {
             ];
 
             let nullifiers = [
-                NullifierContext { value: 44, counter: 400, note_hash: 33, contract_address },
-                NullifierContext { value: 55, counter: 500, note_hash: 11, contract_address },
-                NullifierContext { value: 66, counter: 600, note_hash: 22, contract_address }
+                Nullifier { value: 44, counter: 400, note_hash: 33 }.scope(contract_address),
+                Nullifier { value: 55, counter: 500, note_hash: 11 }.scope(contract_address),
+                Nullifier { value: 66, counter: 600, note_hash: 22 }.scope(contract_address)
             ];
 
             let expected_note_hashes = [ScopedNoteHash::empty(); 3];
-            let expected_nullifiers = [NullifierContext::empty(); 3];
+            let expected_nullifiers = [ScopedNullifier::empty(); 3];
 
             let transient_nullifier_indexes_for_note_hashes = [1, 2, 0];
             let transient_note_hash_indexes_for_nullifiers = [2, 0, 1];
@@ -251,7 +254,7 @@ mod tests {
     fn unexpected_nullifier_value() {
         let mut builder = TestDataBuilder::default_all_clear();
 
-        builder.expected_nullifiers[2].value = 11;
+        builder.expected_nullifiers[2].nullifier.value = 11;
 
         builder.verify();
     }
@@ -260,7 +263,7 @@ mod tests {
     fn wrong_expected_nullifier_value() {
         let mut builder = TestDataBuilder::default();
 
-        builder.expected_nullifiers[0].value += 1;
+        builder.expected_nullifiers[0].nullifier.value += 1;
 
         builder.verify();
     }
@@ -269,7 +272,7 @@ mod tests {
     fn wrong_expected_nullifier_counter() {
         let mut builder = TestDataBuilder::default();
 
-        builder.expected_nullifiers[0].counter += 1;
+        builder.expected_nullifiers[0].nullifier.counter += 1;
 
         builder.verify();
     }

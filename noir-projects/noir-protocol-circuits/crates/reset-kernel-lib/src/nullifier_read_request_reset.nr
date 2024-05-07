@@ -47,10 +47,7 @@ mod tests {
     use crate::reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus, reset_read_requests};
     use dep::types::{
         address::AztecAddress,
-        abis::{
-        nullifier::NullifierContext, nullifier_leaf_preimage::NullifierLeafPreimage,
-        read_request::ReadRequestContext
-    },
+        abis::{nullifier::Nullifier, nullifier_leaf_preimage::NullifierLeafPreimage, read_request::ReadRequestContext},
         constants::NULLIFIER_TREE_HEIGHT, hash::silo_nullifier, merkle_tree::MembershipWitness,
         tests::merkle_tree_utils::NonEmptyMerkleTree
     };
@@ -71,8 +68,8 @@ mod tests {
     ];
 
     global pending_values = [
-        NullifierContext { value: inner_nullifiers[2], counter: 2, note_hash: 0, contract_address },
-        NullifierContext { value: inner_nullifiers[3], counter: 8, note_hash: 0, contract_address },
+        Nullifier { value: inner_nullifiers[2], counter: 2, note_hash: 0 }.scope(contract_address),
+        Nullifier { value: inner_nullifiers[3], counter: 8, note_hash: 0 }.scope(contract_address),
     ];
     global pending_read_hints = [
         PendingReadHint { read_request_index: 1, pending_value_index: 1 },
@@ -162,7 +159,7 @@ mod tests {
     fn test_reset_nullifier_read_requests_wrong_hinted_value() {
         let mut tainted_pending_values = pending_values;
         // Tweak the value to be something different.
-        tainted_pending_values[0].value += 1;
+        tainted_pending_values[0].nullifier.value += 1;
 
         let (settled_read_hints, tree_root) = get_settled_read_hints();
         let _ = reset_read_requests(
@@ -181,7 +178,7 @@ mod tests {
         let pending_read = read_requests[hint.read_request_index];
         let mut tainted_pending_values = pending_values;
         // Tweak the counter of the value to be greater than the read request.
-        tainted_pending_values[hint.pending_value_index].counter = pending_read.counter + 1;
+        tainted_pending_values[hint.pending_value_index].nullifier.counter = pending_read.counter + 1;
 
         let (settled_read_hints, tree_root) = get_settled_read_hints();
         let _ = reset_read_requests(

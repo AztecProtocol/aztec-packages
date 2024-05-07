@@ -115,7 +115,7 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, kernel_data::PublicKernelData,
-        nullifier::{Nullifier, NullifierContext}, nullifier_leaf_preimage::NullifierLeafPreimage,
+        nullifier::{Nullifier, ScopedNullifier}, nullifier_leaf_preimage::NullifierLeafPreimage,
         membership_witness::PublicDataMembershipWitness
     },
         constants::{
@@ -123,7 +123,7 @@ mod tests {
         MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT,
         NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT,
         PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT, MAX_ENCRYPTED_LOGS_PER_TX,
-        MAX_UNENCRYPTED_LOGS_PER_TX,
+        MAX_UNENCRYPTED_LOGS_PER_TX
     },
         hash::{silo_nullifier, sha256_to_field},
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
@@ -230,9 +230,7 @@ mod tests {
             let nullifiers = array_merge(
                 self.previous_kernel.new_nullifiers.storage,
                 self.previous_revertible.new_nullifiers.storage
-            ).map(
-                |n: NullifierContext| Nullifier { value: n.value, counter: n.counter, note_hash: n.note_hash }
-            );
+            ).map(|n: ScopedNullifier| n.nullifier);
             self.nullifier_non_existent_read_request_hints_builder.set_nullifiers(nullifiers);
         }
 
@@ -363,18 +361,11 @@ mod tests {
             public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
         );
 
-        let hash_bytes: [u8; MAX_ENCRYPTED_LOGS_PER_TX * 32] = prev_encrypted_logs_hash
-            .to_be_bytes(32)
-            .append(&[0; MAX_ENCRYPTED_LOGS_PER_TX * 32 - 32])
-            .as_array();
+        let hash_bytes: [u8; MAX_ENCRYPTED_LOGS_PER_TX * 32] = prev_encrypted_logs_hash.to_be_bytes(32).append(&[0; MAX_ENCRYPTED_LOGS_PER_TX * 32 - 32]).as_array();
         let expected_encrypted_logs_hash = sha256_to_field(hash_bytes);
         assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
 
-        let hash_bytes: [u8; MAX_UNENCRYPTED_LOGS_PER_TX * 32] = prev_unencrypted_logs_hash
-            .to_be_bytes(32)
-            .append(unencrypted_logs_hash.to_be_bytes(32))
-            .append(&[0; MAX_UNENCRYPTED_LOGS_PER_TX * 32 - 64])
-            .as_array();
+        let hash_bytes: [u8; MAX_UNENCRYPTED_LOGS_PER_TX * 32] = prev_unencrypted_logs_hash.to_be_bytes(32).append(unencrypted_logs_hash.to_be_bytes(32)).append(&[0; MAX_UNENCRYPTED_LOGS_PER_TX * 32 - 64]).as_array();
         let expected_unencrypted_logs_hash = sha256_to_field(hash_bytes);
         assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
     }
@@ -429,7 +420,7 @@ mod tests {
         builder.add_pending_revertible_nullifier_read_request(1);
         let nullifier_being_read = builder.previous_revertible.new_nullifiers.get(1);
         let mut read_request = builder.previous_kernel.nullifier_read_requests.pop();
-        read_request.counter = nullifier_being_read.counter - 1;
+        read_request.counter = nullifier_being_read.counter() - 1;
         builder.previous_kernel.nullifier_read_requests.push(read_request);
 
         builder.failed();

@@ -36,48 +36,54 @@ export class Nullifier implements Ordered {
   toString(): string {
     return `value=${this.value} counter=${this.counter} noteHash=${this.noteHash}`;
   }
+
+  scope(contractAddress: AztecAddress) {
+    return new ScopedNullifier(this, contractAddress);
+  }
 }
 
-export class NullifierContext implements Ordered {
-  constructor(public value: Fr, public counter: number, public noteHash: Fr, public contractAddress: AztecAddress) {}
+export class ScopedNullifier implements Ordered {
+  constructor(public nullifier: Nullifier, public contractAddress: AztecAddress) {}
+
+  get counter() {
+    return this.nullifier.counter;
+  }
+
+  get value() {
+    return this.nullifier.value;
+  }
+
+  get nullifiedNoteHash() {
+    return this.nullifier.noteHash;
+  }
 
   toFields(): Fr[] {
-    return [this.value, new Fr(this.counter), this.noteHash, this.contractAddress.toField()];
+    return [...this.nullifier.toFields(), this.contractAddress.toField()];
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return new NullifierContext(
-      reader.readField(),
-      reader.readU32(),
-      reader.readField(),
-      AztecAddress.fromField(reader.readField()),
-    );
+    return new ScopedNullifier(reader.readObject(Nullifier), AztecAddress.fromField(reader.readField()));
   }
 
   isEmpty() {
-    return this.value.isZero() && !this.counter && this.noteHash.isZero() && this.contractAddress.isZero();
+    return this.nullifier.isEmpty() && this.contractAddress.isZero();
   }
 
   static empty() {
-    return new NullifierContext(Fr.zero(), 0, Fr.zero(), AztecAddress.ZERO);
+    return new ScopedNullifier(Nullifier.empty(), AztecAddress.ZERO);
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer(this.value, this.counter, this.noteHash, this.contractAddress);
+    return serializeToBuffer(this.nullifier, this.contractAddress);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new NullifierContext(
-      Fr.fromBuffer(reader),
-      reader.readNumber(),
-      Fr.fromBuffer(reader),
-      AztecAddress.fromBuffer(reader),
-    );
+    return new ScopedNullifier(Nullifier.fromBuffer(reader), AztecAddress.fromBuffer(reader));
   }
 
   toString(): string {
-    return `value=${this.value} counter=${this.counter} noteHash=${this.noteHash} contractAddress=${this.contractAddress}`;
+    return `nullifier=${this.nullifier} contractAddress=${this.contractAddress}`;
   }
 }

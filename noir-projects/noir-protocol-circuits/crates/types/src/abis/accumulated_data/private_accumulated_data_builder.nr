@@ -7,7 +7,7 @@ use crate::{
     private_accumulated_data::PrivateAccumulatedData, public_accumulated_data::PublicAccumulatedData,
     public_accumulated_data_builder::PublicAccumulatedDataBuilder
 },
-    call_request::CallRequest, note_hash::{NoteHash, ScopedNoteHash}, nullifier::NullifierContext,
+    call_request::CallRequest, note_hash::{NoteHash, ScopedNoteHash}, nullifier::ScopedNullifier,
     public_data_update_request::PublicDataUpdateRequest, side_effect::SideEffect
 },
     constants::{
@@ -25,7 +25,7 @@ use crate::{
 // .split_to_public: PublicKernelCircuitPublicInputs.(end,end_non_revertible)
 struct PrivateAccumulatedDataBuilder {
     new_note_hashes: BoundedVec<ScopedNoteHash, MAX_NEW_NOTE_HASHES_PER_TX>,
-    new_nullifiers: BoundedVec<NullifierContext, MAX_NEW_NULLIFIERS_PER_TX>,
+    new_nullifiers: BoundedVec<ScopedNullifier, MAX_NEW_NULLIFIERS_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
 
     encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_TX>,
@@ -64,7 +64,7 @@ impl PrivateAccumulatedDataBuilder {
 
         CombinedAccumulatedData {
             new_note_hashes: self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value),
-            new_nullifiers: self.new_nullifiers.storage.map(|n: NullifierContext| n.value),
+            new_nullifiers: self.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier.value),
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
             encrypted_logs_hash,
             unencrypted_logs_hash,
@@ -140,7 +140,7 @@ impl PrivateAccumulatedDataBuilder {
         for i in 0..MAX_NEW_NULLIFIERS_PER_TX {
             let nullifier = self.new_nullifiers.storage[i];
             let public_nullifier = nullifier.expose_to_public();
-            if nullifier.counter < min_revertible_side_effect_counter {
+            if nullifier.counter() < min_revertible_side_effect_counter {
                 non_revertible_builder.new_nullifiers.push(public_nullifier);
                 if !is_empty(public_nullifier) {
                     non_revertible_da_gas_used += DA_GAS_PER_FIELD;
@@ -207,7 +207,7 @@ mod tests {
         abis::{
         accumulated_data::private_accumulated_data_builder::PrivateAccumulatedDataBuilder, gas::Gas,
         call_request::CallRequest, caller_context::CallerContext, note_hash::NoteHash,
-        nullifier::{Nullifier, NullifierContext}, public_data_update_request::PublicDataUpdateRequest,
+        nullifier::Nullifier, public_data_update_request::PublicDataUpdateRequest,
         side_effect::SideEffect
     },
         address::{AztecAddress, EthAddress}, messaging::l2_to_l1_message::L2ToL1Message,
@@ -229,8 +229,8 @@ mod tests {
         ];
 
         let non_revertible_nullifiers = [
-            NullifierContext { value: 10, note_hash: 1, counter: 2, contract_address: AztecAddress::from_field(9900) },
-            NullifierContext { value: 20, note_hash: 2, counter: 4, contract_address: AztecAddress::from_field(7788) }
+            Nullifier { value: 10, note_hash: 1, counter: 2 }.scope(contract_address),
+            Nullifier { value: 20, note_hash: 2, counter: 4 }.scope(contract_address)
         ];
 
         let non_revertible_l2_to_l1_messages = [
@@ -262,8 +262,8 @@ mod tests {
         ];
 
         let revertible_nullifiers = [
-            NullifierContext { value: 30, note_hash: 3, counter: 8, contract_address: AztecAddress::from_field(9900) },
-            NullifierContext { value: 40, note_hash: 4, counter: 11, contract_address: AztecAddress::from_field(5566) }
+            Nullifier { value: 30, note_hash: 3, counter: 8 }.scope(contract_address),
+            Nullifier { value: 40, note_hash: 4, counter: 11 }.scope(contract_address)
         ];
 
         let revertible_l2_to_l1_messages = [

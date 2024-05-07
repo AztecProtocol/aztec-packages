@@ -9,11 +9,11 @@ import {
   type MAX_UNENCRYPTED_LOGS_PER_TX,
   MembershipWitness,
   NULLIFIER_TREE_HEIGHT,
-  type NullifierContext,
   type NullifierKeyValidationRequestContext,
   type PrivateKernelCircuitPublicInputs,
   PrivateKernelTailHints,
   type ReadRequestContext,
+  type ScopedNullifier,
   type SideEffect,
   type SideEffectType,
   buildNoteHashReadRequestHints,
@@ -50,7 +50,7 @@ function sortSideEffects<T extends SideEffectType, K extends number>(
 
 function getNullifierReadRequestHints(
   nullifierReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-  nullifiers: Tuple<NullifierContext, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+  nullifiers: Tuple<ScopedNullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
   oracle: ProvingDataOracle,
 ) {
   const getNullifierMembershipWitness = async (nullifier: Fr) => {

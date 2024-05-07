@@ -15,7 +15,7 @@ import {
 import { CallRequest } from '../call_request.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
 import { ScopedNoteHash } from '../note_hash.js';
-import { NullifierContext } from '../nullifier.js';
+import { ScopedNullifier } from '../nullifier.js';
 import { SideEffect } from '../side_effects.js';
 
 /**
@@ -31,7 +31,7 @@ export class PrivateAccumulatedData {
     /**
      * The new nullifiers made in this transaction.
      */
-    public newNullifiers: Tuple<NullifierContext, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public newNullifiers: Tuple<ScopedNullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
@@ -92,7 +92,7 @@ export class PrivateAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new PrivateAccumulatedData(
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, NullifierContext),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, ScopedNullifier),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, SideEffect),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, SideEffect),
@@ -115,7 +115,7 @@ export class PrivateAccumulatedData {
   static empty() {
     return new PrivateAccumulatedData(
       makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash.empty),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, NullifierContext.empty),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, ScopedNullifier.empty),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
       makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, SideEffect.empty),
       makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, SideEffect.empty),

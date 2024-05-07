@@ -1,6 +1,6 @@
 use crate::{
     abis::{
-    call_request::CallRequest, gas::Gas, note_hash::ScopedNoteHash, nullifier::NullifierContext,
+    call_request::CallRequest, gas::Gas, note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
     side_effect::SideEffect
 },
     messaging::l2_to_l1_message::ScopedL2ToL1Message
@@ -13,7 +13,7 @@ use crate::constants::{
 
 struct PrivateAccumulatedData {
     new_note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
-    new_nullifiers: [NullifierContext; MAX_NEW_NULLIFIERS_PER_TX],
+    new_nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
     new_l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
 
     encrypted_logs_hashes: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX],

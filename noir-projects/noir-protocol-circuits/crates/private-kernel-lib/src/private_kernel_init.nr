@@ -150,7 +150,7 @@ mod tests {
 
         // Check the first nullifier is hash of the signed tx request
         let tx_hash = builder.tx_request.hash();
-        assert_eq(public_inputs.end.new_nullifiers[0].value, tx_hash);
+        assert_eq(public_inputs.end.new_nullifiers[0].value(), tx_hash);
 
         // Log preimages length should increase by `(un)encrypted_log_preimages_length` from private input
         assert_eq(

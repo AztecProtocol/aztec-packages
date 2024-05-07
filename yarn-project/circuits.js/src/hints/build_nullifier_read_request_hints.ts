@@ -12,10 +12,10 @@ import {
 import { siloNullifier } from '../hash/hash.js';
 import {
   type MembershipWitness,
-  type Nullifier,
-  NullifierContext,
+  Nullifier,
   NullifierReadRequestHintsBuilder,
   ReadRequestContext,
+  type ScopedNullifier,
 } from '../structs/index.js';
 import { countAccumulatedItems, getNonEmptyItems } from '../utils/index.js';
 
@@ -29,14 +29,14 @@ export async function buildNullifierReadRequestHints(
     getNullifierMembershipWitness(nullifier: Fr): Promise<NullifierMembershipWitnessWithPreimage>;
   },
   nullifierReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-  nullifiers: Tuple<NullifierContext, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+  nullifiers: Tuple<ScopedNullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
   siloed = false,
 ) {
   const builder = new NullifierReadRequestHintsBuilder();
 
   const numReadRequests = countAccumulatedItems(nullifierReadRequests);
 
-  const nullifierMap: Map<bigint, { nullifier: NullifierContext; index: number }[]> = new Map();
+  const nullifierMap: Map<bigint, { nullifier: ScopedNullifier; index: number }[]> = new Map();
   getNonEmptyItems(nullifiers).forEach((nullifier, index) => {
     const value = nullifier.value.toBigInt();
     const arr = nullifierMap.get(value) ?? [];
@@ -85,9 +85,9 @@ export function buildSiloedNullifierReadRequestHints(
     MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   );
 
-  const nullifierContexts = nullifiers.map(
-    n => new NullifierContext(n.value, n.counter, n.noteHash, AztecAddress.ZERO),
-  ) as Tuple<NullifierContext, typeof MAX_NEW_NULLIFIERS_PER_TX>;
+  const scopedNullifiers = nullifiers.map(n =>
+    new Nullifier(n.value, n.counter, n.noteHash).scope(AztecAddress.ZERO),
+  ) as Tuple<ScopedNullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>;
 
-  return buildNullifierReadRequestHints(oracle, siloedReadRequests, nullifierContexts, true);
+  return buildNullifierReadRequestHints(oracle, siloedReadRequests, scopedNullifiers, true);
 }

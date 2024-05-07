@@ -2,7 +2,7 @@ use dep::types::{
     abis::{
     call_request::CallRequest, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
-    max_block_number::MaxBlockNumber, nullifier::NullifierContext,
+    max_block_number::MaxBlockNumber, nullifier::Nullifier,
     private_circuit_public_inputs::PrivateCircuitPublicInputs
 },
     address::AztecAddress,
@@ -37,9 +37,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         public_inputs.min_revertible_side_effect_counter = private_call_public_inputs.min_revertible_side_effect_counter;
 
         // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
-        public_inputs.end.new_nullifiers.push(
-            NullifierContext { value: tx_request.hash(), note_hash: 0, counter: 0, contract_address: AztecAddress::zero() }
-        );
+        public_inputs.end.new_nullifiers.push(Nullifier { value: tx_request.hash(), note_hash: 0, counter: 0 }.scope(AztecAddress::zero()));
         // Note that we do not need to nullify the transaction request nonce anymore.
         // Should an account want to additionally use nonces for replay protection or handling cancellations,
         // they will be able to do so in the account contract logic:
@@ -163,7 +161,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..nullifiers.len() {
             let nullifier = nullifiers[i];
             if nullifier.value != 0 {
-                self.public_inputs.end.new_nullifiers.push(nullifier.to_context(source.storage_contract_address));
+                self.public_inputs.end.new_nullifiers.push(nullifier.scope(source.storage_contract_address));
             }
         }
     }

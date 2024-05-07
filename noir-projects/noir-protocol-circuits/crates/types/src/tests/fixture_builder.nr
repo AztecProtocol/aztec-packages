@@ -6,7 +6,7 @@ use crate::{
     global_variables::GlobalVariables, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
     kernel_data::{PrivateKernelData, PublicKernelData, KernelData}, max_block_number::MaxBlockNumber,
-    note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, NullifierContext},
+    note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
     nullifier_key_validation_request::NullifierKeyValidationRequestContext,
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
     read_request::ReadRequestContext, side_effect::SideEffect,
@@ -39,7 +39,7 @@ struct FixtureBuilder {
     
     // Accumulated data.
     new_note_hashes: BoundedVec<ScopedNoteHash, MAX_NEW_NOTE_HASHES_PER_TX>,
-    new_nullifiers: BoundedVec<NullifierContext, MAX_NEW_NULLIFIERS_PER_TX>,
+    new_nullifiers: BoundedVec<ScopedNullifier, MAX_NEW_NULLIFIERS_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
     encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_TX>,
     unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_TX>,
@@ -144,9 +144,7 @@ impl FixtureBuilder {
     pub fn to_public_accumulated_data(self) -> PublicAccumulatedData {
         PublicAccumulatedData {
             new_note_hashes: self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash),
-            new_nullifiers: self.new_nullifiers.storage.map(
-                |n: NullifierContext| Nullifier { value: n.value, counter: n.counter, note_hash: n.note_hash }
-            ),
+            new_nullifiers: self.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier),
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
@@ -161,7 +159,7 @@ impl FixtureBuilder {
     pub fn to_combined_accumulated_data(self) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
             new_note_hashes: self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value),
-            new_nullifiers: self.new_nullifiers.storage.map(|n: NullifierContext| n.value),
+            new_nullifiers: self.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier.value),
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
             encrypted_logs_hash: self.encrypted_logs_hash,
             unencrypted_logs_hash: self.unencrypted_logs_hash,
@@ -271,7 +269,7 @@ impl FixtureBuilder {
 
     pub fn add_nullifier(&mut self, value: Field) {
         self.new_nullifiers.push(
-            NullifierContext { value, counter: self.next_counter(), note_hash: 0, contract_address: self.storage_contract_address }
+            Nullifier { value, counter: self.next_counter(), note_hash: 0 }.scope(self.storage_contract_address)
         );
     }
 

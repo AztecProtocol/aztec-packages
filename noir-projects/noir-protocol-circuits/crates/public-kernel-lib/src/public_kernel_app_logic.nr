@@ -78,7 +78,7 @@ mod tests {
     use dep::types::{
         abis::{
         gas::Gas, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, NullifierContext},
+        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
         public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
         read_request::ReadRequest
     },
@@ -248,9 +248,7 @@ mod tests {
 
         // Setup 2 new nullifiers on the previous kernel.
         builder.previous_kernel.append_new_nullifiers(2);
-        let previous = builder.previous_kernel.new_nullifiers.storage.map(
-            |n: NullifierContext| Nullifier { value: n.value, counter: n.counter, note_hash: n.note_hash }
-        );
+        let previous = builder.previous_kernel.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier);
         // Setup 2 new note hashes on the current public inputs.
 
         let current = [

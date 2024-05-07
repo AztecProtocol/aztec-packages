@@ -5,13 +5,14 @@ import { type Tuple } from '@aztec/foundation/serialize';
 
 import { MAX_NEW_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX } from '../constants.gen.js';
 import {
-  NullifierContext,
+  Nullifier,
   type NullifierReadRequestHints,
   NullifierReadRequestHintsBuilder,
   PendingReadHint,
   ReadRequestContext,
   ReadRequestState,
   ReadRequestStatus,
+  type ScopedNullifier,
   SettledReadHint,
 } from '../structs/index.js';
 import { buildNullifierReadRequestHints } from './build_nullifier_read_request_hints.js';
@@ -23,7 +24,7 @@ describe('buildNullifierReadRequestHints', () => {
     getNullifierMembershipWitness: () => ({ membershipWitness: {}, leafPreimage: {} } as any),
   };
   let nullifierReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>;
-  let nullifiers: Tuple<NullifierContext, typeof MAX_NEW_NULLIFIERS_PER_TX>;
+  let nullifiers: Tuple<ScopedNullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>;
   let expectedHints: NullifierReadRequestHints;
   let numReadRequests = 0;
   let numPendingReads = 0;
@@ -35,7 +36,7 @@ describe('buildNullifierReadRequestHints', () => {
     new ReadRequestContext(new Fr(value), counter, contractAddress);
 
   const makeNullifier = (value: number, counter = 1) =>
-    new NullifierContext(new Fr(value), counter, Fr.ZERO, contractAddress);
+    new Nullifier(new Fr(value), counter, Fr.ZERO).scope(contractAddress);
 
   const readPendingNullifier = ({
     nullifierIndex,
