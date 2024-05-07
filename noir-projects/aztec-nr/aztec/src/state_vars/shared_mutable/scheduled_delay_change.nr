@@ -103,19 +103,20 @@ impl<INITIAL_DELAY> ScheduledDelayChange<INITIAL_DELAY> {
             // than the current delay, then that is the effective minimum delay.
             //
             //     historical
-            //       block         delay                 actual earliest value
-            //         v      block of change              block of change
-            //  =======NS=============|=============================X===========Y=====>
-            //          ^             ^                             ^           ^
-            //      earliest value    |                             |           |
-            //  change schedule block |                             |           |
-            //          |             |                             |           |
-            //          |-------------|------------------------------           |
-            //          |     blocks                 new delay                  |
-            //          |  until change                                         |
-            //          |                                                       |
-            //          |-------------------------------------------------------|
-            //            current delay at earliest value change schedule block
+            //       block            delay                 actual earliest value
+            //         v         block of change              block of change
+            //  =========NS=====================|=============================X===========Y=====>
+            //            ^                     ^                             ^           ^
+            //     earliest block in            |                             |           |
+            //   which to schedule change       |                             |           |
+            //           |                      |                             |           |
+            //           |----------------------|------------------------------           |
+            //           |         blocks                  new delay                      |
+            //           |      until change                                              |
+            //           |                                                                |
+            //           |----------------------------------------------------------------|
+            //                        current delay at the earliest block in 
+            //                             which to scheduled value change
 
             let blocks_until_change = self.block_of_change - (historical_block_number + 1);
 
