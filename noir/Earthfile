@@ -185,7 +185,7 @@ build-acir-tests:
     WORKDIR /usr/src/noir-repo/test_programs
     COPY .earthly-staging/noir-repo/test_programs /usr/src/noir-repo/test_programs/
     RUN /usr/src/noir-repo/target/release/nargo --version
-    # We have trouble with concurrency, see https://github.com/AztecProtocol/aztec-packages/issues/6225
+    # TODO(AD): We have trouble with concurrency, see https://github.com/AztecProtocol/aztec-packages/issues/6225
     RUN ./rebuild.sh true
     SAVE ARTIFACT /usr/src/noir-repo/test_programs/acir_artifacts/*
 
