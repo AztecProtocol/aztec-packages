@@ -4,9 +4,9 @@ title: Defining Storage
 
 On this page, you will learn how to define storage in your smart contract.
 
-To learn more about how storage works in Aztec, read [the concepts](../../../../learn/concepts/storage/storage_slots.md).
+To learn more about how storage works in Aztec, read [the concepts](/guides/guides/smart_contracts/writing_contracts/storage/storage_slots).
 
-[See the storage reference](../../references/storage/main.md).
+[See the storage reference](/aztec/aztec/concepts/storage/index.md).
 
 ```rust
 #[aztec(storage)]

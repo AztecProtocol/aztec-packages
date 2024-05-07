@@ -4,7 +4,7 @@ sidebar_position: 0
 ---
 
 In this tutorial we will go through writing an L2 native token contract
-for the Aztec Network, using the Aztec.nr contract libraries. It is recommended that you go through the [the introduction to contracts](../contracts/main.md) and [setup instructions](../contracts/setup.md) section before this tutorial to gain some familiarity with writing Aztec smart contracts.
+for the Aztec Network, using the Aztec.nr contract libraries.
 
 This tutorial is intended to help you get familiar with the Aztec.nr library, Aztec contract syntax and some of the underlying structure of the Aztec network.
 
@@ -21,7 +21,7 @@ We are going to start with a blank project and fill in the token contract source
 
 ## Requirements
 
-You will need to have `aztec-nargo` installed in order to compile Aztec.nr contracts. See the [sandbox reference](../sandbox/references/sandbox-reference.md) for installation instructions.
+You will need to have `aztec-nargo` installed in order to compile Aztec.nr contracts. See the [sandbox reference](/reference/reference/sandbox_reference/index.md) for installation instructions.
 
 You should also install the [Noir Language Support extension](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir) for VS Code.
 
@@ -151,7 +151,7 @@ These are functions that have transparent logic, will execute in a publicly veri
 
 ### Private functions
 
-These are functions that have private logic and will be executed on user devices to maintain privacy. The only data that is submitted to the network is a proof of correct execution, new data [commitments](https://en.wikipedia.org/wiki/Commitment_scheme) and [nullifiers](../../learn/concepts/storage/trees/main.md#nullifier-tree), so users will not reveal which contract they are interacting with or which function they are executing. The only information that will be revealed publicly is that someone executed a private transaction on Aztec.
+These are functions that have private logic and will be executed on user devices to maintain privacy. The only data that is submitted to the network is a proof of correct execution, new data [commitments](https://en.wikipedia.org/wiki/Commitment_scheme) and [nullifiers](/aztec/aztec/concepts/storage/trees/index.md#nullifier-tree), so users will not reveal which contract they are interacting with or which function they are executing. The only information that will be revealed publicly is that someone executed a private transaction on Aztec.
 
 - `redeem_shield` enables accounts to claim tokens that have been made private via `mint_private` or `shield` by providing the secret
 - `unshield` enables an account to send tokens from their private balance to any other account's public balance
@@ -209,7 +209,7 @@ We are importing:
 - `compute_secret_hash` that will help with the shielding and unshielding, allowing someone to claim a token from private to public
 - Types for storing note types
 
-For more detail on execution contexts, see [Contract Communication](../../learn/concepts/communication/main).
+For more detail on execution contexts, see [Contract Communication](/aztec/aztec/concepts/smart_contracts/communication).
 
 ### Types files
 
@@ -219,7 +219,7 @@ The main thing to note from this types folder is the `TransparentNote` definitio
 
 ### Note on private state
 
-Private state in Aztec is all [UTXOs](https://en.wikipedia.org/wiki/Unspent_transaction_output) under the hood. Handling UTXOs is largely abstracted away from developers, but there are some unique things for developers to be aware of when creating and managing private state in an Aztec contract. See [State Variables](../contracts/writing_contracts/storage/main.md) to learn more about public and private state in Aztec.
+Private state in Aztec is all [UTXOs](/aztec/aztec/concepts/storage/index.md) to learn more about public and private state in Aztec.
 
 ## Contract Storage
 
@@ -238,7 +238,7 @@ Reading through the storage variables:
 - `pending_shields` is a `PrivateSet` of `TransparentNote`s stored in private state. What is stored publicly is a set of commitments to `TransparentNote`s.
 - `public_balances` is a mapping of Aztec addresses in public state and represents the publicly viewable balances of accounts.
 
-You can read more about it [here](../contracts/writing_contracts/storage/main.md).
+You can read more about it [here](/aztec/aztec/concepts/storage/index.md).
 
 ## Functions
 
@@ -423,7 +423,7 @@ A getter function for checking the public balance of the provided Aztec account.
 
 ## Compiling
 
-Now that the contract is complete, you can compile it with `aztec-nargo`. See the [Sandbox reference page](../sandbox/references/sandbox-reference.md) for instructions on setting it up.
+Now that the contract is complete, you can compile it with `aztec-nargo`. See the [Sandbox reference page](/reference/reference/sandbox_reference/index.md) for instructions on setting it up.
 
 Run the following command in the directory where your `Nargo.toml` file is located:
 
@@ -447,6 +447,6 @@ https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn
 
 ### Token Bridge Contract
 
-The [token bridge tutorial](./token_portal/main) is a great follow up to this one.
+The [token bridge tutorial](/tutorials/tutorials/contract_tutorials/advanced/token_bridge) is a great follow up to this one.
 
 It builds on the Token contract described here and goes into more detail about Aztec contract composability and Ethereum (L1) and Aztec (L2) cross-chain messaging.

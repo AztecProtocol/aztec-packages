@@ -9,7 +9,7 @@ Typically, each account in Aztec is backed by two separate keys:
 
 Signing keys allow their holder to act as their corresponding account in Aztec, similarly to the keys used for an Ethereum account. If a signing key is leaked, the user can potentially lose all their funds.
 
-Since Aztec implements full [signature abstraction](./main.md), signing keys depend on the account contract implementation for each user. Usually, an account contract will validate a signature of the incoming payload against a known public key.
+Since Aztec implements full [signature abstraction](./index.md), signing keys depend on the account contract implementation for each user. Usually, an account contract will validate a signature of the incoming payload against a known public key.
 
 This is a snippet of our Schnorr Account contract implementation, which uses Schnorr signatures for authentication:
 
@@ -29,7 +29,7 @@ Similar to using a private note, but using an immutable private note removes the
 
 ### Using shared state
 
-A compromise between the two solutions above is to use [shared state](../../../developers/contracts/references/storage/shared_state.md). This would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the mutable shared state, as well as imposing restrictions on how fast keys can be rotated due to minimum delays.
+A compromise between the two solutions above is to use [shared state](/reference/reference/smart_contract_reference/storage/shared_state.md). This would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the mutable shared state, as well as imposing restrictions on how fast keys can be rotated due to minimum delays.
 
 ### Reusing the privacy master key
 
@@ -61,7 +61,7 @@ This public key corresponds to the privacy master key of the account. In order t
 Contracts that are not meant to represent a user who handles private state, usually non-account contracts such as applications, do not need to provide a valid public key, and can instead just use zero to denote that they are not expected to receive private notes.
 
 :::info
-A side effect of enshrining and encoding privacy keys into the account address is that these keys cannot be rotated if they are leaked. Read more about this in the [account abstraction section](./main.md#encryption-and-nullifying-keys).
+A side effect of enshrining and encoding privacy keys into the account address is that these keys cannot be rotated if they are leaked. Read more about this in the [account abstraction section](./index.md#encryption-and-nullifying-keys).
 :::
 
 ### Encryption keys

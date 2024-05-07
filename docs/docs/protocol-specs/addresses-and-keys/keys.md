@@ -5,12 +5,15 @@ description: Specification for default privacy keys format and derivation, and n
 
 ## Cheat Sheet
 
+import Image from "@theme/IdealImage";
+
 The protocol does not enforce the usage of any of the following keys, and does not enforce the keys to conform to a particular length or algorithm. Users are expected to pick a set of keys valid for the encryption and tagging precompile they choose for their account.
 
+<!-- prettier-ignore -->
 | Cat. | Key | Derivation | Link |
 |---|---|---|---|
-| Seed | $\seed$ | $\stackrel{\$}\{\leftarrow\}\mathbb{F}$ | [Seed](#seed) |
-| | $\sk$ | $\stackrel{\$}\{\leftarrow\}\mathbb{F}$ | [Master Secret Key](#master-secret-key) |
+| Seed | $\seed$ | $$\stackrel{\$}{\leftarrow} \mathbb{F}$$ | [Seed](#seed) |
+| | $\sk$ | $$\stackrel{\$}{\leftarrow} \mathbb{F}$$ | [Master Secret Key](#master-secret-key) |
 |||||
 | Master Secret Keys | $\nskm$ | $\text{poseidon2}(\text{``az\_nsk\_m''}, \sk)$ | [Master Nullifier Secret Key](#master-nullifier-secret-key) |
 | | $\ovskm$ | $\text{poseidon2}(\text{``az\_ovsk\_m''}, \sk)$ | [Master Outgoing Viewing Secret Key](#master-outgoing-viewing-secret-key) |
@@ -22,10 +25,11 @@ The protocol does not enforce the usage of any of the following keys, and does n
 | | $\Ivpkm$ | $\ivskm \cdot G$ | [Master Incoming Viewing Public Key](#master-incoming-viewing-public-key) |
 | | $\Tpkm$ | $\tskm \cdot G$ | [Master Tagging Public Key](#master-tagging-public-key) | 
 ||||
-| Hardened App-Siloed Secret Keys | $\nskapp$ | $\text{poseidon2}(\text{``az_nsk_app''}, \text{app_address}, \nskm)$ | [Hardened, App-siloed Nullifier Secret Key](#app-siloed-nullifier-secret-key) |
+| Hardened App-Siloed Secret Keys | $\nskapp$ | $\text{poseidon2}(\text{``az\_nsk\_app''}, \text{app\_address}, \nskm)$ | [Hardened, App-siloed Nullifier Secret Key](#app-siloed-nullifier-secret-key) |
 | | $\ovskapp$ | $\text{poseidon2}(\text{``az\_ovsk\_app''}, \text{app\_address}, \ovskm)$ | [Hardened, App-siloed Outgoing Viewing Secret Key](#app-siloed-outgoing-viewing-secret-key) |
 |||||
 | Other App-siloed Keys| $\Nkapp$ | $\text{poseidon2}(\text{``az\_nk\_app''}, \nskapp)$ | [App-siloed Nullifier Key](#app-siloed-nullifier-key) |
+
 
 ## Colour Key
 
@@ -39,7 +43,7 @@ The protocol does not enforce the usage of any of the following keys, and does n
 
 <!-- TODO: Update diagrams -->
 
-:::Danger
+:::danger
 Diagram is out of date vs the content on this page
 :::
 

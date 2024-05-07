@@ -32,7 +32,7 @@ graph TD;
 
 ## PXE Service 
 
-The PXE is a client-side interface of the PXE Service, which is a set of server-side APIs for interacting with the network. It provides functions for account management, contract and transaction interactions, note management, and more. For a more extensive list of operations, refer to the [PXE reference](../../../apis/pxe/index.md).
+The PXE is a client-side interface of the PXE Service, which is a set of server-side APIs for interacting with the network. It provides functions for account management, contract and transaction interactions, note management, and more.
 
 ## Components
 
@@ -63,9 +63,9 @@ The keystore is a secure storage for private and public keys.
 
 ## Oracles
 
-Oracles are pieces of data that are injected into a smart contract function from the client side. You can read more about why and how they work in the [functions section](../../../developers/contracts/writing_contracts/oracles/main.md).
+Oracles are pieces of data that are injected into a smart contract function from the client side. You can read more about why and how they work in the [functions section](/aztec/aztec/concepts/smart_contracts/oracles/index.md).
 
 ## For developers
 To learn how to develop on top of the PXE, refer to these guides:
-* [Run more than one PXE on your local machine](../../../developers/sandbox/guides/run_more_than_one_pxe_sandbox.md)
-* [Use in-built oracles including oracles for arbitrary data](../../../developers/contracts/writing_contracts/oracles/pop_capsule.md)
+* [Run more than one PXE on your local machine](/aztec/aztec/concepts/pxe/index.md)
+* [Use in-built oracles including oracles for arbitrary data](guides/guides/smart_contracts/writing_contracts/how_to_pop_capsules.md)

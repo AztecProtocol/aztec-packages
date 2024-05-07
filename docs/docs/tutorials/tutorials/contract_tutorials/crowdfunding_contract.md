@@ -29,7 +29,7 @@ Along the way you will:
 
 Please ensure that the you already have [Installed the Sandbox](https://docs.aztec.network/developers/getting_started/quickstart#install-the-sandbox).
 
-And if using VSCode, see [here](https://docs.aztec.network/developers/contracts/main#install-noir-lsp-recommended) to install Noir LSP, where you'll benefit from syntax highlighting, profiling, and more.
+And if using VSCode, see [here](https://docs.aztec.network/developers/contracts/main.md#install-noir-lsp-recommended) to install Noir LSP, where you'll benefit from syntax highlighting, profiling, and more.
 
 ### Create an Aztec project
 
@@ -76,7 +76,7 @@ Replace the example functions with an initializer that takes the required campai
 }
 ```
 
-More about initializers [here](../../contracts/writing_contracts/functions/initializers.md).
+More about initializers [here](/guides/guides/smart_contracts/writing_contracts/initializers.md).
 
 #### Dependencies
 
@@ -184,7 +184,7 @@ token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_
 With the dependency already `use`d at the start of the contract, the token contract can be called to make the transfer from msg sender to this contract. 
 
 :::note
-The user must have authorised this action (concept [here](../../../learn/concepts/accounts/main#authorizing-actions)), example use of `createAuthWit` in 'full donor flow' test [here](../../../../../yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts).
+The user must have authorised this action (concept [here](/aztec/aztec/concepts/accounts#authorizing-actions)), example use of `createAuthWit` in 'full donor flow' test [here](../../../../../yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts).
 :::
 
 #### Creating and storing a private receipt note

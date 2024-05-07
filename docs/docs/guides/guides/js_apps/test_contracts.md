@@ -8,16 +8,16 @@ We will be using typescript to write our tests, and rely on the [`aztec.js`](htt
 
 ## A simple example
 
-Let's start with a simple example for a test using the [Sandbox](../sandbox/references/sandbox-reference.md). We will create two accounts and deploy a token contract in a setup step, and then issue a transfer from one user to another.
+Let's start with a simple example for a test using the [Sandbox](/reference/reference/sandbox_reference/index.md). We will create two accounts and deploy a token contract in a setup step, and then issue a transfer from one user to another.
 
 #include_code sandbox-example /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
 This test sets up the environment by creating a client to the Private Execution Environment (PXE) running on the Sandbox on port 8080. It then creates two new accounts, dubbed `owner` and `recipient`. Last, it deploys an instance of the [Token contract](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr), minting an initial 100 tokens to the owner.
 
-Once we have this setup, the test itself is simple. We check the balance of the `recipient` user to ensure it has no tokens, send and await a deployment transaction, and then check the balance again to ensure it was increased. Note that all numeric values are represented as [native bigints](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt) to avoid loss of precision.
+Once we have this setup, the test itself is simple. We check the balance of the `recipient` user to ensure it has no tokens, send and await a deployment transaction, and then check the balance again to ensure it was increased. Note that all numeric values are represented as [native bigints](https://developer.mozilla.org/en-US/docs/Web/JavaScript//reference/Global_Objects/BigInt) to avoid loss of precision.
 
 :::info
-We are using the `Token` contract's typescript interface. Follow the [typescript interface section](../contracts/compiling_contracts/how_to_compile_contract.md#typescript-interfaces) to get type-safe methods for deploying and interacting with the token contract.
+We are using the `Token` contract's typescript interface. Follow the [typescript interface section](/guides/guides/smart_contracts/how_to_compile_contract.md#typescript-interfaces) to get type-safe methods for deploying and interacting with the token contract.
 :::
 
 To run the test, first make sure the Sandbox is running on port 8080, and then [run your tests using jest](https://jestjs.io/docs/getting-started#running-from-command-line). Your test should pass, and you should see the following output in the Sandbox logs, where each chunk corresponds to a transaction. Note how this test run has a total of four transactions: two for deploying the account contracts for the `owner` and `recipient`, another for deploying the token contract, and a last one for actually executing the transfer.
@@ -92,7 +92,7 @@ If a note doesn't appear when you expect it to, check the visible notes returned
 
 If the note appears in the visible notes and it contains the expected values there is probably an issue with how you fetch the notes. Check that the note getter (or note viewer) parameters are set correctly. If the note doesn't appear, ensure that you have emitted the corresponding encrypted log (usually by passing in a `broadcast = true` param to the `create_note` function). You can also check the Sandbox logs to see if the `emitEncryptedLog` was emitted. Run `export DEBUG="aztec:\*" before spinning up sandbox to see all the logs.
 
-For debugging and logging in Aztec contracts, see [this page](../debugging/main.md).
+For debugging and logging in Aztec contracts, see [this page](/reference/reference/debugging.md).
 
 ## Assertions
 
@@ -142,13 +142,13 @@ WARN Error processing tx 06dc87c4d64462916ea58426ffcfaf20017880b353c9ec3e0f0ee5f
 
 We can check private or public state directly rather than going through view-only methods, as we did in the initial example by calling `token.methods.balance().simulate()`. Bear in mind that directly accessing contract storage will break any kind of encapsulation.
 
-To query storage directly, you'll need to know the slot you want to access. This can be checked in the [contract's `Storage` definition](../contracts/writing_contracts/storage/main.md) directly for most data types. However, when it comes to mapping types, as in most EVM languages, we'll need to calculate the slot for a given key. To do this, we'll use the [`CheatCodes`](../sandbox/references/cheat_codes.md) utility class:
+To query storage directly, you'll need to know the slot you want to access. This can be checked in the [contract's `Storage` definition](/aztec/aztec/concepts/storage/index.md) directly for most data types. However, when it comes to mapping types, as in most EVM languages, we'll need to calculate the slot for a given key. To do this, we'll use the [`CheatCodes`](/reference/reference/sandbox_reference/cheat_codes.md) utility class:
 
 #include_code calc-slot /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
 #### Querying private state
 
-Private state in the Aztec Network is represented via sets of [private notes](../../learn/concepts/hybrid_state/main.md#private-state). In our token contract example, the balance of a user is represented as a set of unspent value notes, each with their own corresponding numeric value.
+Private state in the Aztec Network is represented via sets of [private notes](/aztec/aztec/concepts/state_model/index.md#private-state). In our token contract example, the balance of a user is represented as a set of unspent value notes, each with their own corresponding numeric value.
 
 #include_code value-note-def noir-projects/aztec-nr/value-note/src/value_note.nr rust
 
@@ -158,13 +158,13 @@ We can query the Private eXecution Environment (PXE) for all notes encrypted for
 
 #### Querying public state
 
-[Public state](../../learn/concepts/hybrid_state/main.md#public-state) behaves as a key-value store, much like in the EVM. This scenario is much more straightforward, in that we can directly query the target slot and get the result back as a buffer. Note that we use the [`TokenContract`](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) in this example, which defines a mapping of public balances on slot 6.
+[Public state](/aztec/aztec/concepts/state_model/index.md#public-state) behaves as a key-value store, much like in the EVM. This scenario is much more straightforward, in that we can directly query the target slot and get the result back as a buffer. Note that we use the [`TokenContract`](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) in this example, which defines a mapping of public balances on slot 6.
 
 #include_code public-storage /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
 ### Logs
 
-Last but not least, we can check the logs of [events](../contracts/writing_contracts/events/emit_event.md) emitted by our contracts. Contracts in Aztec can emit both [encrypted](../contracts/writing_contracts/events/emit_event.md#encrypted-events) and [unencrypted](../contracts/writing_contracts/events/emit_event.md#unencrypted-events) events.
+Last but not least, we can check the logs of [events](/guides/guides/smart_contracts/writing_contracts/how_to_emit_event) emitted by our contracts. Contracts in Aztec can emit both [encrypted](/guides/guides/smart_contracts/writing_contracts/how_to_emit_event.md#encrypted-events) and [unencrypted](/guides/guides/smart_contracts/writing_contracts/how_to_emit_event.md#unencrypted-events) events.
 
 :::info
 At the time of this writing, only unencrypted events can be queried directly. Encrypted events are always assumed to be encrypted notes.
@@ -178,7 +178,7 @@ We can query the PXE for the unencrypted logs emitted in the block where our tra
 
 ## Cheats
 
-The [`CheatCodes`](../sandbox/references/cheat_codes.md) class, which we used for [calculating the storage slot above](#state), also includes a set of cheat methods for modifying the chain state that can be handy for testing.
+The [`CheatCodes`](/reference/reference/sandbox_reference/cheat_codes.md) class, which we used for [calculating the storage slot above](#state), also includes a set of cheat methods for modifying the chain state that can be handy for testing.
 
 ### Set next block timestamp
 

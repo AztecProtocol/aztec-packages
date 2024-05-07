@@ -2,9 +2,9 @@
 title: Communicating with L1
 ---
 
-Is this your first time hearing the word `Portal`? Check out the [concepts section](../../../../learn/concepts/communication/cross_chain_calls.md).
+Is this your first time hearing the word `Portal`? Check out the [concepts section](/aztec/aztec/concepts/smart_contracts/communication/cross_chain_calls).
 
-Follow the [token bridge tutorial](../../../tutorials/token_portal/main.md) for hands-on experience writing and deploying a Portal contract.
+Follow the [token bridge tutorial](/tutorials/tutorials/contract_tutorials/advanced/token_bridge) for hands-on experience writing and deploying a Portal contract.
 
 ## Passing data to the rollup
 

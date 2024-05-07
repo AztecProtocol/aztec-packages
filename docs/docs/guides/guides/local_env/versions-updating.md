@@ -45,7 +45,7 @@ diff ~/nargo/github.com/AztecProtocol/aztec-packages-v0.23.0/yarn-project/noir-c
 :::tip
 
 ### Language server version (aztec-nargo)
-The [Noir LSP](https://docs.aztec.network/developers/contracts/main#install-noir-lsp-recommended) uses your local version of `aztec-nargo`, and thus also `aztec-nargo compile`.
+The [Noir LSP](https://docs.aztec.network/developers/contracts/main.md#install-noir-lsp-recommended) uses your local version of `aztec-nargo`, and thus also `aztec-nargo compile`.
 The path of the former (once installed) can be seen by hovering over "Nargo" in the bottom status bar of VS Code, and the latter via the `which aztec-nargo` command.
 
 :::caution
@@ -81,11 +81,11 @@ cd your/aztec/project
 aztec-builder update . --contract src/contract1 --contract src/contract2
 ```
 
-The sandbox must be running for the update command to work. Make sure it is [installed and running](../developers/sandbox/references/sandbox-reference.md).
+The sandbox must be running for the update command to work. Make sure it is [installed and running](/reference/reference/sandbox_reference/index.md).
 
 Follow [updating Aztec.nr packages](#updating-aztecnr-packages) and [updating JavaScript packages](#updating-aztecjs-packages) guides.
 
-3. Refer to [Migration Notes](../misc/migration_notes.md) on any breaking changes that might affect your dapp
+3. Refer to [Migration Notes](/migration_notes.md) on any breaking changes that might affect your dapp
 
 ---
 

@@ -2,7 +2,7 @@
 title: How to Simulate a Function Call
 ---
 
-This guide explains how to `simulate` a function call using [Aztec.js](../main.md).
+This guide explains how to `simulate` a function call using Aztec.js.
 
 ## Prerequisites
 

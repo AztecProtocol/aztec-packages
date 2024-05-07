@@ -41,7 +41,7 @@ await pxe.registerRecipient(completeAddress);
 ```
 
 :::info
-If a note recipient is one of the accounts inside the PXE, we don't need to register it as a recipient because we already have the public key available. You can register a recipient as shown [here](../../deploying_contracts/how_to_deploy_contract.md)
+If a note recipient is one of the accounts inside the PXE, we don't need to register it as a recipient because we already have the public key available. You can register a recipient as shown [here](../how_to_deploy_contract.md)
 
 At this point the Sandbox only enables the emitting of encrypted note preimages through encrypted events.
 In the future we will allow emitting arbitrary information.
@@ -71,7 +71,7 @@ They can be emitted by both public and private functions.
 
 :::danger
 - Emitting unencrypted events from private function is a significant privacy leak and it should be considered by the developer whether it is acceptable.
-- Unencrypted events are currently **NOT** linked to the contract emitting them, so it is practically a [`debug_log`](../oracles/main.md#a-few-useful-inbuilt-oracles).
+- Unencrypted events are currently **NOT** linked to the contract emitting them, so it is practically a [`debug_log`](/aztec/aztec/concepts/smart_contracts/oracles/index.md#a-few-useful-inbuilt-oracles).
 
 :::
 

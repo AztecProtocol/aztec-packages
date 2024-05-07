@@ -2,7 +2,7 @@
 title: How to Create a New Account
 ---
 
-This guide explains how to create a new account using [Aztec.js](../main.md).
+This guide explains how to create a new account using Aztec.js.
 
 ## Relevant imports
 

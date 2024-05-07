@@ -12,11 +12,11 @@ On Ethereum today, everything is publicly visible, by everyone. In the real worl
 
 ### Learn 📚
 
-Start on the [Technical Overview page](./learn/about_aztec/technical_overview.md) to read about how Aztec works.
+Start on the [Technical Overview page](/aztec/aztec/what_is_aztec/core_components) to read about how Aztec works.
 
 ### Build 🧑‍💻
 
-Go to the [Getting Started section](./developers/getting_started/main.md) of the developer docs to get your hands dirty and start developing on Aztec.
+Go to the [Getting Started section](/getting_started/getting_started) of the developer docs to get your hands dirty and start developing on Aztec.
 
 #### Go deeper 🔬
 
@@ -24,4 +24,4 @@ Check out the [Awesome Aztec repo](https://github.com/AztecProtocol/awesome-azte
 
 Clone the [Aztec Starter repo](https://github.com/AztecProtocol/aztec-starter) to get a minimal project set up with Sandbox (local developer network), a simple contract and a test suite.
 
-Jump into one of the [tutorials](./developers/tutorials/main.md) to learn how to build more complex applications on Aztec.
+Jump into one of the [tutorials](/tutorials/tutorials/contract_tutorials/private_voting_contract.md) to learn how to build more complex applications on Aztec.

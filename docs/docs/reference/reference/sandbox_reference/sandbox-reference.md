@@ -4,9 +4,9 @@ title: Sandbox Reference
 
 Here you will find a reference to everything available within the Sandbox.
 
-For a quick start, follow the [guide](../../getting_started/quickstart.md) to install the sandbox.
+For a quick start, follow the [guide](/getting_started/getting_started) to install the sandbox.
 
-You can run the Sandbox using Docker. See the [Quickstart](../../getting_started/quickstart.md#install-docker) for instructions on installing Docker.
+You can run the Sandbox using Docker. See the [Quickstart](getting_started/getting_started/index.md#install-docker) for instructions on installing Docker.
 
 ### With Docker
 
@@ -56,7 +56,7 @@ cd ~/.aztec && docker-compose up
 
 ## Manual Install
 
-You can manually install the sandbox via the underlying script used in the [Aztec Boxes](../../getting_started/quickstart.md#run-the-npx-script).
+You can manually install the sandbox via the underlying script used in the [Aztec Boxes](getting_started/getting_started/index.md#run-the-npx-script).
 
 ### Prerequisites
 
@@ -113,7 +113,7 @@ If you wish to run components of the Aztec network stack separately, you can use
 aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] --prover [proverOptions] ----p2p-bootstrap [p2pOptions]
 ```
 
-Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node.Eg if you want to run a PXE separately to a node, you can [read this guide](../guides/run_more_than_one_pxe_sandbox.md)/
+Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node.Eg if you want to run a PXE separately to a node, you can [read this guide](/aztec/aztec/concepts/pxe/index.md)/
 
 ## Environment Variables
 
@@ -211,7 +211,7 @@ To help with testing, the sandbox is shipped with a set of cheatcodes.
 
 Cheatcodes allow you to change the time of the Aztec block, load certain state or more easily manipulate Ethereum instead of having to write dedicated RPC calls to anvil or hardhat.
 
-You can find the cheat code reference [here](../../sandbox/references/cheat_codes.md).
+You can find the cheat code reference [here](/reference/reference/sandbox_reference/cheat_codes.md).
 
 ## Contracts
 

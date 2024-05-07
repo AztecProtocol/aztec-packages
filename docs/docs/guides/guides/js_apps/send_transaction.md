@@ -2,7 +2,7 @@
 title: How to Send a Transaction
 ---
 
-This guide explains how to send a transaction using [Aztec.js](../main.md).
+This guide explains how to send a transaction using Aztec.js.
 
 ## Prerequisites
 

@@ -228,7 +228,7 @@ const config = {
               },
               {
                 label: "Developer Quickstart",
-                to: "/developers/getting_started/quickstart",
+                to: "/getting_started/getting_started",
               },
               {
                 label: "Aztec.nr",

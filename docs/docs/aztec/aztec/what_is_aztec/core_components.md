@@ -35,13 +35,13 @@ An overview of the Aztec network architecture will help contextualize the concep
 
 ### Aztec.js
 
-A user of the Aztec network will interact with the network through Aztec.js. Aztec.js is a library that provides APIs for managing accounts and interacting with smart contracts (including account contracts) on the Aztec network. It communicates with the [Private eXecution Environment (PXE)](../../apis/pxe/index.md) through a `PXE` implementation, allowing developers to easily register new accounts, deploy contracts, view functions, and send transactions.
+A user of the Aztec network will interact with the network through Aztec.js. Aztec.js is a library that provides APIs for managing accounts and interacting with smart contracts (including account contracts) on the Aztec network. It communicates with the [Private eXecution Environment (PXE)](/aztec/aztec/concepts/pxe) through a `PXE` implementation, allowing developers to easily register new accounts, deploy contracts, view functions, and send transactions.
 
 ### Private Execution Environment
 
-The PXE provides a secure environment for the execution of sensitive operations, ensuring private information and decrypted data are not accessible to unauthorized applications. It hides the details of the [state model](../concepts/hybrid_state/main.md) from end users, but the state model is important for Aztec developers to understand as it has implications for [private/public execution](../concepts/communication/public_private_calls.md) and [L1/L2 communication](../concepts/communication/cross_chain_calls.md). The PXE also includes the [ACIR Simulator](../concepts/pxe/acir_simulator.md) for private executions and the KeyStore for secure key management.
+The PXE provides a secure environment for the execution of sensitive operations, ensuring private information and decrypted data are not accessible to unauthorized applications. It hides the details of the [state model](/aztec/aztec/concepts/state_model/index.md) from end users, but the state model is important for Aztec developers to understand as it has implications for [private/public execution](/aztec/aztec/concepts/smart_contracts/communication/public_private_calls.md) and [L1/L2 communication](/aztec/aztec/concepts/smart_contracts/communication/cross_chain_calls). The PXE also includes the [ACIR Simulator](/aztec/aztec/concepts/pxe/acir_simulator.md) for private executions and the KeyStore for secure key management.
 
-Procedurally, the PXE sends results of private function execution and requests for public function executions to the [sequencer](../concepts/nodes_clients/sequencer/main.md), which will update the state of the rollup.
+Procedurally, the PXE sends results of private function execution and requests for public function executions to the [sequencer](/aztec/aztec/concepts/nodes_clients/sequencer), which will update the state of the rollup.
 
 ### Sequencer
 
@@ -49,8 +49,8 @@ The sequencer aggregates transactions into a block, generates proofs of the stat
 
 ## Further Reading
 
-- [The state model](../concepts/hybrid_state/main.md)
-- [Accounts](../concepts/accounts/main.md)
-- [Aztec Smart Contracts](../concepts/smart_contracts/main.md)
-- [Transactions](../concepts/transactions.md)
-- [Communication between network components](../concepts/communication/main.md)
+- [The state model](/aztec/aztec/concepts/state_model)
+- [Accounts](/aztec/aztec/concepts)
+- [Aztec Smart Contracts](/aztec/aztec/concepts/smart_contracts)
+- [Transactions](/aztec/aztec/concepts/transactions)
+- [Communication between network components](/aztec/aztec/concepts/smart_contracts/communication)
