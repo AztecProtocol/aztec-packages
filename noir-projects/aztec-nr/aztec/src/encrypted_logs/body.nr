@@ -4,8 +4,6 @@ use dep::protocol_types::{grumpkin_private_key::GrumpkinPrivateKey, grumpkin_poi
 use crate::oracle::encryption::aes128_encrypt;
 use crate::keys::point_to_symmetric_key::point_to_symmetric_key;
 
-use crate::oracle::debug_log::debug_log_format;
-
 struct EncryptedLogBody<Note> {
     storage_slot: Field,
     note_type_id: Field,

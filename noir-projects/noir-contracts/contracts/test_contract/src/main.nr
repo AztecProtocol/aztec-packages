@@ -18,8 +18,6 @@ contract Test {
     use dep::aztec::encrypted_logs::header::EncryptedLogHeader;
     use dep::aztec::encrypted_logs::body::EncryptedLogBody;
 
-    use dep::aztec::oracle::debug_log::{debug_log_format, debug_log_array};
-
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
 
     use dep::aztec::state_vars::{shared_mutable::SharedMutablePrivateGetter, map::derive_storage_slot_in_map};
