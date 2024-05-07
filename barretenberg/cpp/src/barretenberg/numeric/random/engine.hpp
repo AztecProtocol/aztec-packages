@@ -46,7 +46,7 @@ class RNG {
     }
 };
 
-RNG& get_debug_randomness(bool reset = false, std::seed_seq seed = { 1, 2, 3, 4, 5 });
+RNG& get_debug_randomness(bool reset = false, std::uint_fast64_t seed = 12345);
 RNG& get_randomness();
 
 } // namespace bb::numeric
