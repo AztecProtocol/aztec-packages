@@ -477,6 +477,7 @@ jobs:
         barretenberg-acir-tests-sol,
         noir-test,
         noir-packages-test,
+        client-proof-tests,
       ]
     if: always()
     steps:
