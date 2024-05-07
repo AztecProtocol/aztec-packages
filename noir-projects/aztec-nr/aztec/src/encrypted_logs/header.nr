@@ -23,6 +23,8 @@ impl EncryptedLogHeader {
         for i in 0..16 {
             sym_key[i] = full_key[i];
             iv[i] = full_key[i + 16];
+
+            // We copy address on the following 2 lines in order to avoid having 2 loops  
             input[i] = input_slice[i];
             input[i + 16] = input_slice[i + 16];
         }
