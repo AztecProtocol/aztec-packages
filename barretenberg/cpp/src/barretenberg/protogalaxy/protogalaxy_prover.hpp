@@ -324,9 +324,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
 
-        Relation::accumulate(
-            std::get<relation_idx>(univariate_accumulators), extended_univariates, relation_parameters, scaling_factor);
-
         //  Check if the relation is skippable to speed up accumulation
         if constexpr (!isSkippable<Relation, decltype(extended_univariates)>) {
             // If not, accumulate normally
