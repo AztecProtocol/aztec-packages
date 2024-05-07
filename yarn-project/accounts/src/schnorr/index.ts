@@ -7,7 +7,8 @@
 import { AccountManager, type Salt } from '@aztec/aztec.js/account';
 import { type AccountWallet, getWallet } from '@aztec/aztec.js/wallet';
 import { type GrumpkinPrivateKey, type PXE } from '@aztec/circuit-types';
-import { type AztecAddress, type Fr } from '@aztec/circuits.js';
+import { type AztecAddress, Fr, deriveKeys } from '@aztec/circuits.js';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 
 import { SchnorrAccountContract } from './account_contract.js';
 
@@ -28,7 +29,15 @@ export function getSchnorrAccount(
   signingPrivateKey: GrumpkinPrivateKey,
   salt?: Salt,
 ): AccountManager {
-  return new AccountManager(pxe, secretKey, new SchnorrAccountContract(signingPrivateKey), salt);
+  return new AccountManager(
+    pxe,
+    secretKey,
+    new SchnorrAccountContract(
+      signingPrivateKey,
+      poseidon2Hash(deriveKeys(secretKey).masterNullifierPublicKey.toFields()),
+    ),
+    salt,
+  );
 }
 
 /**
@@ -43,5 +52,5 @@ export function getSchnorrWallet(
   address: AztecAddress,
   signingPrivateKey: GrumpkinPrivateKey,
 ): Promise<AccountWallet> {
-  return getWallet(pxe, address, new SchnorrAccountContract(signingPrivateKey));
+  return getWallet(pxe, address, new SchnorrAccountContract(signingPrivateKey, deriveKeys(Fr.ZERO).publicKeysHash));
 }

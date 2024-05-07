@@ -301,6 +301,7 @@ describe('e2e_fees_account_init', () => {
           alice,
           signingPubKey.x,
           signingPubKey.y,
+          publicKeysHash,
         )
           .send({
             contractAddressSalt: instance.salt,

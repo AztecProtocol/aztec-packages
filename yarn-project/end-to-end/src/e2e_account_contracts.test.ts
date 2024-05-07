@@ -92,7 +92,7 @@ describe('e2e_account_contracts', () => {
 
   describe('schnorr multi-key account', () => {
     itShouldBehaveLikeAnAccountContract(
-      () => new SchnorrAccountContract(GrumpkinScalar.random()),
+      () => new SchnorrAccountContract(GrumpkinScalar.random(), Fr.random()),
       walletSetup,
       walletAt,
     );
