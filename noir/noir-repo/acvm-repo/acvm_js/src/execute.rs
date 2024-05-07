@@ -141,37 +141,6 @@ pub async fn execute_program(
         .await
 }
 
-#[wasm_bindgen(js_name = executeProgramWithReturnWitness, skip_jsdoc)]
-pub async fn execute_program_with_return_witness(
-    solver: &WasmBlackBoxFunctionSolver,
-    program: Vec<u8>,
-    initial_witness: JsWitnessMap,
-    foreign_call_executor: &ForeignCallHandler,
-) -> Result<JsWitnessStack, Error> {
-    console_error_panic_hook::set_once();
-
-    let program: Program = Program::deserialize_program(&program)
-    .map_err(|_| JsExecutionError::new("Failed to deserialize circuit. This is likely due to differing serialization formats between ACVM_JS and your compiler".to_string(), None, None))?;
-
-    let mut witness_stack = execute_program_with_native_program_and_return(
-        solver,
-        &program,
-        initial_witness,
-        &foreign_call_handler,
-    )
-    .await?;
-    let solved_witness =
-        witness_stack.pop().expect("Should have at least one witness on the stack").witness;
-
-    let main_circuit = &program.functions[0];
-    let return_witness =
-        extract_indices(&solved_witness, main_circuit.return_values.0.iter().copied().collect())
-            .map_err(|err| JsExecutionError::new(err, None, None))?;
-
-    Ok((solved_witness, return_witness).into())
-}
-
-
 #[wasm_bindgen(js_name = executeProgramWithBlackBoxSolver, skip_jsdoc)]
 pub async fn execute_program_with_black_box_solver(
     solver: &WasmBlackBoxFunctionSolver,
