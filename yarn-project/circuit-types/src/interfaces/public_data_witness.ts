@@ -1,6 +1,8 @@
-import { Fr, type PUBLIC_DATA_TREE_HEIGHT, type PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
+import { Fr, type PUBLIC_DATA_TREE_HEIGHT, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 
 import { type SiblingPath } from '../sibling_path/index.js';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 
 /**
  * Public data witness.
@@ -38,5 +40,44 @@ export class PublicDataWitness {
       new Fr(this.leafPreimage.nextSlot),
       ...this.siblingPath.toFields(),
     ];
+  }
+
+  toBuffer(): Buffer {
+    return serializeToBuffer([
+      this.index,
+      this.leafPreimage,
+      this.siblingPath,
+    ]);
+  }
+
+  /**
+   * Returns a string representation of the TxEffect object.
+   */
+  toString(): string {
+    return this.toBuffer().toString('hex');
+  }
+
+  /**
+   * Deserializes an PublicDataWitness object from a buffer.
+   * @param buf - Buffer to deserialize.
+   * @returns An instance of PublicDataWitness.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): PublicDataWitness {
+    const reader = BufferReader.asReader(buffer);
+
+    return new PublicDataWitness(
+      toBigIntBE(reader.readBytes(32)),
+      reader.readObject(PublicDataTreeLeafPreimage),
+      reader.readObject(SiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>),
+    );
+  }
+
+  /**
+   * Deserializes an PublicDataWitness object from a string.
+   * @param str - String to deserialize.
+   * @returns An instance of PublicDataWitness.
+   */
+  static fromString(str: string) {
+    return PublicDataWitness.fromBuffer(Buffer.from(str, 'hex'));
   }
 }

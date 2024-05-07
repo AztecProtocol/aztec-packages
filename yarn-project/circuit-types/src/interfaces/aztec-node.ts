@@ -27,7 +27,7 @@ import { type SequencerConfig } from './configs.js';
 import { type L2BlockNumber } from './l2_block_number.js';
 import { type NullifierMembershipWitness } from './nullifier_tree.js';
 import { type ProverConfig } from './prover-client.js';
-import { type PublicDataWitness } from './public_data_tree.js';
+import { type PublicDataWitness } from './public_data_witness.js';
 
 /**
  * The aztec node.
