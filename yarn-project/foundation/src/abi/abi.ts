@@ -86,7 +86,14 @@ export interface BasicType<T extends string> {
 /**
  * A variable type.
  */
-export type AbiType = BasicType<'field'> | BasicType<'boolean'> | IntegerType | ArrayType | StringType | StructType;
+export type AbiType =
+  | BasicType<'field'>
+  | BasicType<'boolean'>
+  | IntegerType
+  | ArrayType
+  | StringType
+  | StructType
+  | TupleType;
 
 /**
  * An integer type.
@@ -138,6 +145,16 @@ export interface StructType extends BasicType<'struct'> {
    * Fully qualified name of the struct.
    */
   path: string;
+}
+
+/**
+ * A tuple type.
+ */
+export interface TupleType extends BasicType<'tuple'> {
+  /**
+   * The fields of the tuple.
+   */
+  fields: AbiType[];
 }
 
 /**
