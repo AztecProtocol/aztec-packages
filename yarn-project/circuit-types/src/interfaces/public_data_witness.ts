@@ -1,8 +1,8 @@
-import { Fr, type PUBLIC_DATA_TREE_HEIGHT, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
-
-import { type SiblingPath } from '../sibling_path/index.js';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { Fr, PUBLIC_DATA_TREE_HEIGHT, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+
+import { SiblingPath } from '../sibling_path/index.js';
 
 /**
  * Public data witness.
@@ -43,11 +43,7 @@ export class PublicDataWitness {
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer([
-      this.index,
-      this.leafPreimage,
-      this.siblingPath,
-    ]);
+    return serializeToBuffer([this.index, this.leafPreimage, this.siblingPath]);
   }
 
   /**
@@ -59,7 +55,7 @@ export class PublicDataWitness {
 
   /**
    * Deserializes an PublicDataWitness object from a buffer.
-   * @param buf - Buffer to deserialize.
+   * @param buf - Buffer or BufferReader to deserialize.
    * @returns An instance of PublicDataWitness.
    */
   static fromBuffer(buffer: Buffer | BufferReader): PublicDataWitness {
@@ -68,7 +64,7 @@ export class PublicDataWitness {
     return new PublicDataWitness(
       toBigIntBE(reader.readBytes(32)),
       reader.readObject(PublicDataTreeLeafPreimage),
-      reader.readObject(SiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>),
+      SiblingPath.fromBuffer(reader.readBytes(4 + 32 * PUBLIC_DATA_TREE_HEIGHT)),
     );
   }
 
