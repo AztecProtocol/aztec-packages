@@ -1,5 +1,5 @@
 import { type BlockProver, type ProcessedTx, type Tx, type TxValidator } from '@aztec/circuit-types';
-import { type Gas, GlobalVariables, Header, Nullifier, type TxContext } from '@aztec/circuits.js';
+import { type Gas, GlobalVariables, Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
