@@ -113,53 +113,59 @@ class ClientIVCTests : public ::testing::Test {
  */
 // TODO fix with https://github.com/AztecProtocol/barretenberg/issues/930
 // intermittent failures, presumably due to uninitialized memory
-TEST_F(ClientIVCTests, DISABLED_Full)
+TEST_F(ClientIVCTests, Full)
 {
-    using VerificationKey = Flavor::VerificationKey;
+    const auto run_test = []() {
+        using VerificationKey = Flavor::VerificationKey;
 
-    ClientIVC ivc;
-    // Initialize IVC with function circuit
-    Builder function_circuit = create_mock_circuit(ivc);
-    ivc.initialize(function_circuit);
-
-    auto function_vk = std::make_shared<VerificationKey>(ivc.prover_fold_output.accumulator->proving_key);
-    auto foo_verifier_instance = std::make_shared<VerifierInstance>(function_vk);
-    // Accumulate kernel circuit (first kernel mocked as simple circuit since no folding proofs yet)
-    Builder kernel_circuit = create_mock_circuit(ivc);
-    FoldProof kernel_fold_proof = ivc.accumulate(kernel_circuit);
-    // This will have a different verification key because we added the recursive merge verification to the circuit
-    auto function_vk_with_merge = std::make_shared<VerificationKey>(ivc.prover_instance->proving_key);
-    auto kernel_vk = function_vk_with_merge;
-    auto intermediary_acc = update_accumulator_and_decide_native(
-        ivc.prover_fold_output.accumulator, kernel_fold_proof, foo_verifier_instance, kernel_vk);
-
-    VerifierFoldData kernel_fold_output = { kernel_fold_proof, function_vk_with_merge };
-    size_t NUM_CIRCUITS = 1;
-    for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
-        // Accumulate function circuit
+        ClientIVC ivc;
+        // Initialize IVC with function circuit
         Builder function_circuit = create_mock_circuit(ivc);
-        FoldProof function_fold_proof = ivc.accumulate(function_circuit);
+        ivc.initialize(function_circuit);
 
-        intermediary_acc = update_accumulator_and_decide_native(
-            ivc.prover_fold_output.accumulator, function_fold_proof, intermediary_acc, function_vk_with_merge);
-
-        VerifierFoldData function_fold_output = { function_fold_proof, function_vk_with_merge };
-        // Accumulate kernel circuit
-        Builder kernel_circuit{ ivc.goblin.op_queue };
-        foo_verifier_instance = construct_mock_folding_kernel(
-            kernel_circuit, kernel_fold_output, function_fold_output, foo_verifier_instance);
+        auto function_vk = std::make_shared<VerificationKey>(ivc.prover_fold_output.accumulator->proving_key);
+        auto foo_verifier_instance = std::make_shared<VerifierInstance>(function_vk);
+        // Accumulate kernel circuit (first kernel mocked as simple circuit since no folding proofs yet)
+        Builder kernel_circuit = create_mock_circuit(ivc);
         FoldProof kernel_fold_proof = ivc.accumulate(kernel_circuit);
-        kernel_vk = std::make_shared<VerificationKey>(ivc.prover_instance->proving_key);
+        // This will have a different verification key because we added the recursive merge verification to the circuit
+        auto function_vk_with_merge = std::make_shared<VerificationKey>(ivc.prover_instance->proving_key);
+        auto kernel_vk = function_vk_with_merge;
+        auto intermediary_acc = update_accumulator_and_decide_native(
+            ivc.prover_fold_output.accumulator, kernel_fold_proof, foo_verifier_instance, kernel_vk);
 
-        intermediary_acc = update_accumulator_and_decide_native(
-            ivc.prover_fold_output.accumulator, kernel_fold_proof, intermediary_acc, kernel_vk);
+        VerifierFoldData kernel_fold_output = { kernel_fold_proof, function_vk_with_merge };
+        size_t NUM_CIRCUITS = 1;
+        for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
+            // Accumulate function circuit
+            Builder function_circuit = create_mock_circuit(ivc);
+            FoldProof function_fold_proof = ivc.accumulate(function_circuit);
 
-        VerifierFoldData kernel_fold_output = { kernel_fold_proof, kernel_vk };
+            intermediary_acc = update_accumulator_and_decide_native(
+                ivc.prover_fold_output.accumulator, function_fold_proof, intermediary_acc, function_vk_with_merge);
+
+            VerifierFoldData function_fold_output = { function_fold_proof, function_vk_with_merge };
+            // Accumulate kernel circuit
+            Builder kernel_circuit{ ivc.goblin.op_queue };
+            foo_verifier_instance = construct_mock_folding_kernel(
+                kernel_circuit, kernel_fold_output, function_fold_output, foo_verifier_instance);
+            FoldProof kernel_fold_proof = ivc.accumulate(kernel_circuit);
+            kernel_vk = std::make_shared<VerificationKey>(ivc.prover_instance->proving_key);
+
+            intermediary_acc = update_accumulator_and_decide_native(
+                ivc.prover_fold_output.accumulator, kernel_fold_proof, intermediary_acc, kernel_vk);
+
+            VerifierFoldData kernel_fold_output = { kernel_fold_proof, kernel_vk };
+        }
+
+        // Constuct four proofs: merge, eccvm, translator, decider
+        auto proof = ivc.prove();
+        auto inst = std::make_shared<VerifierInstance>(kernel_vk);
+        // Verify all four proofs
+        EXPECT_TRUE(ivc.verify(proof, { foo_verifier_instance, inst }));
+    };
+    for (size_t idx = 0; idx < 256; idx++) {
+        info("run ", idx);
+        run_test();
     }
-
-    // Constuct four proofs: merge, eccvm, translator, decider
-    auto proof = ivc.prove();
-    auto inst = std::make_shared<VerifierInstance>(kernel_vk);
-    // Verify all four proofs
-    EXPECT_TRUE(ivc.verify(proof, { foo_verifier_instance, inst }));
 };

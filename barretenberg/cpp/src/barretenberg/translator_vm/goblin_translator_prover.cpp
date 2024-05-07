@@ -19,7 +19,7 @@ GoblinTranslatorProver::GoblinTranslatorProver(CircuitBuilder& circuit_builder,
     // Compute total number of gates, dyadic circuit size, etc.
     key = std::make_shared<ProvingKey>(circuit_builder);
     compute_witness(circuit_builder);
-    compute_commitment_key(key->circuit_size);
+    compute_commitment_key(16 * key->circuit_size);
 }
 
 /**
