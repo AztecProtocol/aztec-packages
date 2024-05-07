@@ -15,16 +15,15 @@ E2E_COMPOSE_TEST:
   ELSE
     LET CMD="docker-compose"
   END
-  # In CI, we do an optimization to push these images to docker once
-  # We still want the default code path to work with no faff locally
-  # To not rebuild unnecessarily, we pass --skip_build=true in CI
-  IF [ $skip_build != "true" ]
+  # Let docker compose know about the pushed tags above
+  ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
+  # Optimize to not cause serial behavior if image already exists
+  IF ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/aztec:$AZTEC_DOCKER_TAG" && \
+       docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"
     WAIT
       BUILD ../+export-e2e-test-images
     END
   END
-  # Let docker compose know about the pushed tags above
-  ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
   # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
   RUN $CMD -p $project_name -f $compose_file up --exit-code-from=end-to-end --force-recreate
 
