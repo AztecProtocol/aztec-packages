@@ -273,7 +273,6 @@ const circuits = [
   'rollup_base',
   'rollup_merge',
   'rollup_root',
-  'test',
 ];
 
 const main = async () => {

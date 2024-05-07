@@ -11,14 +11,20 @@ import {
   findStructsInType,
 } from './abi_type_with_generics.js';
 
+/**
+ * Demonomorphizes a list of ABI types adding generics to structs.
+ * Since monomorphization of the generics destroys information, this process is not guaranteed to return the original structure.
+ * However, it should succesfully unify all struct types that share the same name and field names.
+ */
 export class Demonomorphizer {
   private variantsMap: Map<string, Struct[]>;
   private visitedStructs: Map<string, StructType>;
   private lastBindingId = 0;
 
-  public static demonomorphize(
-    abiTypes: AbiTypeWithGenerics[], // Mutates passed in types
-  ) {
+  /**
+   * Demonomorphizes the passed in ABI types, mutating them.
+   */
+  public static demonomorphize(abiTypes: AbiTypeWithGenerics[]) {
     new Demonomorphizer(abiTypes);
   }
 
@@ -30,6 +36,10 @@ export class Demonomorphizer {
     this.demonomorphizeStructs();
   }
 
+  /**
+   * Finds all the variants of the structs in the types.
+   * A variant is every use of a struct with the same name and fields.
+   */
   private fillVariantsMap() {
     const allStructs = this.types.flatMap(findAllStructsInType);
     for (const struct of allStructs) {
@@ -49,6 +59,11 @@ export class Demonomorphizer {
     }
   }
 
+  /**
+   * Demononomorphizes a struct, by demonomorphizing its dependencies first.
+   * Then it'll unify the types of the variants generating a unique generic type.
+   * It'll also generate args that instantiate the generic type with the concrete arguments for each variant.
+   */
   private demonomorphizeStruct(struct: Struct) {
     const id = Demonomorphizer.buildIdForStruct(struct.structType);
     if (this.visitedStructs.has(id)) {
@@ -77,6 +92,10 @@ export class Demonomorphizer {
     this.visitedStructs.set(id, mappedStructType);
   }
 
+  /**
+   * Tries to unify the types of a set of variants recursively.
+   * Unification will imply replacing some properties with bindings and pushing bindings to the generics of the struct.
+   */
   private unifyTypes(
     types: AbiTypeWithGenerics[],
     generics: BindingId[], // Mutates generics adding new bindings
@@ -161,8 +180,12 @@ export class Demonomorphizer {
         const structs = types as Struct[];
         const ids = new Set(structs.map(struct => Demonomorphizer.buildIdForStruct(struct.structType)));
         if (ids.size > 1) {
+          // If the types are different structs, we can only unify them by creating a new binding.
+          // For example, if we have a struct A { x: u32 } and a struct A { x: Field }, the only possible unification is A<T> { x: T }
           return this.buildBindingAndPushToVariants(types, generics, variants);
         } else {
+          // If the types are the same struct, we must unify the arguments to the struct.
+          // For example, if we have A<Field> and A<u32>, we need to unify to A<T> and push T to the generics of the struct type.
           const newStruct = structuredClone(structs[0]);
 
           if (!structs.every(struct => struct.args.length === structs[0].args.length)) {
@@ -192,6 +215,10 @@ export class Demonomorphizer {
     }
   }
 
+  /**
+   * We consider a struct to be the same if it has the same name and field names.
+   * Structs with the same id will be unified into a single type by the demonomorphizer.
+   */
   public static buildIdForStruct(struct: StructType): string {
     const name = struct.path.split('::').pop()!;
     const fields = struct.fields.map(field => field.name).join(',');
