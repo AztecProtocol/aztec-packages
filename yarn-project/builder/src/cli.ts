@@ -6,7 +6,7 @@ import { lookup } from 'dns/promises';
 import { dirname } from 'path';
 
 const program = new Command();
-const log = createConsoleLogger('aztec:compiler-cli');
+const log = createConsoleLogger('aztec:builder');
 
 /**
  * If we can successfully resolve 'host.docker.internal', then we are running in a container, and we should treat
@@ -51,6 +51,9 @@ const main = async () => {
     });
 
   await program.parseAsync(process.argv);
+  // I force exit here because spawnSync in npm.ts just blocks the process from exiting. Spent a bit of time debugging
+  // it without success and I think it doesn't make sense to invest more time in this.
+  process.exit(0);
 };
 
 main().catch(err => {
