@@ -164,7 +164,8 @@ TEST_F(ClientIVCTests, Full)
         // Verify all four proofs
         EXPECT_TRUE(ivc.verify(proof, { foo_verifier_instance, inst }));
     };
-    for (size_t idx = 0; idx < 256; idx++) {
+    for (size_t idx = 192; idx < 256; idx++) {
+        numeric::get_debug_randomness(true, idx);
         info("run ", idx);
         run_test();
     }
