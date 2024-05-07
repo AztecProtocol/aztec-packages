@@ -1341,7 +1341,7 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
 export function mapPrivateKernelDataToNoir(privateKernelInnerData: PrivateKernelData): PrivateKernelDataNoir {
   return {
     public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(privateKernelInnerData.publicInputs),
-    proof: mapNestedRecursiveProofToNoir(privateKernelInnerData.proof),
+    proof: mapRecursiveProofToNoir(privateKernelInnerData.proof),
     vk: mapVerificationKeyToNoir(privateKernelInnerData.vk),
     vk_index: mapFieldToNoir(new Fr(privateKernelInnerData.vkIndex)),
     vk_path: mapTuple(privateKernelInnerData.vkPath, mapFieldToNoir),
@@ -1741,17 +1741,11 @@ export function mapAppendOnlyTreeSnapshotToNoir(snapshot: AppendOnlyTreeSnapshot
   };
 }
 
-export function mapNestedRecursiveProofToNoir(proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>) {
-  return {
-    fields: mapTuple(proof.proof, mapFieldToNoir),
-  };
-}
-
 export function mapRootRollupParityInputToNoir(
   rootParityInput: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
 ): RootRollupParityInputNoir {
   return {
-    proof: mapNestedRecursiveProofToNoir(rootParityInput.proof),
+    proof: mapRecursiveProofToNoir(rootParityInput.proof),
     verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey),
     public_inputs: mapParityPublicInputsToNoir(rootParityInput.publicInputs),
   };
@@ -1779,7 +1773,7 @@ export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): R
   };
 }
 
-export function mapRecursiveProofToNoir(proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>) {
+export function mapRecursiveProofToNoir<PROOF_LENGTH extends number>(proof: RecursiveProof<PROOF_LENGTH>) {
   return {
     fields: mapTuple(proof.proof, mapFieldToNoir),
   };
