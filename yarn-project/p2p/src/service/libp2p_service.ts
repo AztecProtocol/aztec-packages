@@ -303,7 +303,7 @@ export class LibP2PService implements P2PService {
 
     // add to peer store if not already known
     if (!hasPeer) {
-      this.logger.info(`Discovered peer ${enr.peerId().toString()}. Adding to libp2p peer list`);
+      this.logger.info(`Discovered peer ${peerIdStr}. Adding to libp2p peer list`);
       let stream: Stream | undefined;
       try {
         stream = await this.node.dialProtocol(peerMultiAddr, this.protocolId);
