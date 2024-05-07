@@ -437,7 +437,7 @@ jobs:
     if: always()
     steps:
       - run: |
-          converted=fromJSON(needs)
+          converted=${{ toJSON(needs) }}
           echo $converted
           failed=${{ contains(needs.*.result, 'failure') }}
           if $failed
