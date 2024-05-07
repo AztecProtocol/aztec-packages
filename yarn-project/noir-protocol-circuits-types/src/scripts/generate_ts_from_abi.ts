@@ -283,19 +283,18 @@ const main = async () => {
     await fs.mkdir('./src/types', { recursive: true });
   }
 
+  const allAbis = [];
+
   for (const circuit of circuits) {
     const rawData = await fs.readFile(`./src/target/${circuit}.json`, 'utf-8');
     const abiObj: NoirCompiledCircuit = JSON.parse(rawData);
-
-    const generatedInterface = new TypingsGenerator([
-      {
-        abi: abiObj.abi,
-        circuitName: pascalCase(circuit),
-      },
-    ]).codegen();
-    const outputFile = `./src/types/${circuit}_types.ts`;
-    await fs.writeFile(outputFile, generatedInterface);
+    allAbis.push({
+      abi: abiObj.abi,
+      circuitName: pascalCase(circuit),
+    });
   }
+  const interfaces = new TypingsGenerator(allAbis).codegen();
+  await fs.writeFile('./src/types/index.ts', interfaces);
 };
 
 try {

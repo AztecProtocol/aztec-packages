@@ -28,5 +28,4 @@ members = [
     "crates/rollup-base",
     "crates/rollup-base-simulated",
     "crates/rollup-root",
-    "crates/test",
 ]

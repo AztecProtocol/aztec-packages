@@ -71,26 +71,22 @@ import {
   mapRootRollupInputsToNoir,
   mapRootRollupPublicInputsFromNoir,
 } from './type_conversion.js';
-import { type ParityBaseReturnType as BaseParityReturnType } from './types/parity_base_types.js';
-import { type ParityRootReturnType as RootParityReturnType } from './types/parity_root_types.js';
 import {
+  type ParityBaseReturnType as BaseParityReturnType,
+  type RollupBaseReturnType as BaseRollupReturnType,
   type PrivateKernelInitInputType as InitInputType,
   type PrivateKernelInitReturnType as InitReturnType,
-} from './types/private_kernel_init_types.js';
-import {
   type PrivateKernelInnerInputType as InnerInputType,
   type PrivateKernelInnerReturnType as InnerReturnType,
-} from './types/private_kernel_inner_types.js';
-import { type PrivateKernelTailToPublicInputType as TailToPublicInputType } from './types/private_kernel_tail_to_public_types.js';
-import {
+  type RollupMergeReturnType as MergeRollupReturnType,
+  type PublicKernelAppLogicReturnType as PublicPublicPreviousReturnType,
+  type PublicKernelSetupReturnType as PublicSetupReturnType,
+  type ParityRootReturnType as RootParityReturnType,
+  type RollupRootReturnType as RootRollupReturnType,
   type PrivateKernelTailInputType as TailInputType,
   type PrivateKernelTailReturnType as TailReturnType,
-} from './types/private_kernel_tail_types.js';
-import { type PublicKernelAppLogicReturnType as PublicPublicPreviousReturnType } from './types/public_kernel_app_logic_types.js';
-import { type PublicKernelSetupReturnType as PublicSetupReturnType } from './types/public_kernel_setup_types.js';
-import { type RollupBaseReturnType as BaseRollupReturnType } from './types/rollup_base_types.js';
-import { type RollupMergeReturnType as MergeRollupReturnType } from './types/rollup_merge_types.js';
-import { type RollupRootReturnType as RootRollupReturnType } from './types/rollup_root_types.js';
+  type PrivateKernelTailToPublicInputType as TailToPublicInputType,
+} from './types/index.js';
 
 // TODO(Tom): This should be exported from noirc_abi
 /**
