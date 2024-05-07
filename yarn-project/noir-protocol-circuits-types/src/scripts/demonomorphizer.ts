@@ -109,22 +109,22 @@ export class Demonomorphizer {
       case 'field':
       case 'boolean':
       case 'binding':
-        return structuredClone(types[0]);
+        return types[0];
       case 'integer': {
         if (allDeepEqual(types)) {
-          return structuredClone(types[0]);
+          return types[0];
         } else {
           return this.buildBindingAndPushToVariants(types, generics, variants);
         }
       }
       case 'string': {
         const strings = types as StringType[];
-        const newString = structuredClone(strings[0]);
-        if (strings.every(string => string.length === newString.length)) {
-          return newString;
+        const unifiedString = strings[0];
+        if (strings.every(string => string.length === unifiedString.length)) {
+          return unifiedString;
         } else {
-          const newStringType: StringType = newString;
-          newStringType.length = this.buildNumericBindingAndPushToVariants(
+          const unifiedStringType: StringType = unifiedString;
+          unifiedStringType.length = this.buildNumericBindingAndPushToVariants(
             strings.map(string => {
               if (typeof string.length !== 'number') {
                 throw new Error('Trying to unify strings with bindings');
@@ -134,18 +134,18 @@ export class Demonomorphizer {
             generics,
             variants,
           );
-          return newStringType;
+          return unifiedStringType;
         }
       }
       case 'array': {
         const arrays = types as ArrayType[];
-        const newArrayType: ArrayType = structuredClone(arrays[0]);
+        const unifiedArrayType: ArrayType = arrays[0];
         if (
           !arrays.every(array => {
-            return array.length === newArrayType.length;
+            return array.length === unifiedArrayType.length;
           })
         ) {
-          newArrayType.length = this.buildNumericBindingAndPushToVariants(
+          unifiedArrayType.length = this.buildNumericBindingAndPushToVariants(
             arrays.map(array => {
               if (typeof array.length !== 'number') {
                 throw new Error('Trying to unify arrays with bindings');
@@ -157,24 +157,24 @@ export class Demonomorphizer {
           );
         }
 
-        newArrayType.type = this.unifyTypes(
+        unifiedArrayType.type = this.unifyTypes(
           arrays.map(array => array.type),
           generics,
           variants,
         );
-        return newArrayType;
+        return unifiedArrayType;
       }
       case 'tuple': {
         const tuples = types as Tuple[];
-        const newTupleType: Tuple = structuredClone(tuples[0]);
-        for (let i = 0; i < newTupleType.fields.length; i++) {
-          newTupleType.fields[i] = this.unifyTypes(
+        const unifiedTupleType: Tuple = tuples[0];
+        for (let i = 0; i < unifiedTupleType.fields.length; i++) {
+          unifiedTupleType.fields[i] = this.unifyTypes(
             tuples.map(tuple => tuple.fields[i]),
             generics,
             variants,
           );
         }
-        return newTupleType;
+        return unifiedTupleType;
       }
       case 'struct': {
         const structs = types as Struct[];
@@ -186,23 +186,23 @@ export class Demonomorphizer {
         } else {
           // If the types are the same struct, we must unify the arguments to the struct.
           // For example, if we have A<Field> and A<u32>, we need to unify to A<T> and push T to the generics of the struct type.
-          const newStruct = structuredClone(structs[0]);
+          const unifiedStruct = structs[0];
 
-          if (!structs.every(struct => struct.args.length === structs[0].args.length)) {
+          if (!structs.every(struct => struct.args.length === unifiedStruct.args.length)) {
             throw new Error('Same struct with different number of args encountered');
           }
-          for (let i = 0; i < newStruct.args.length; i++) {
+          for (let i = 0; i < unifiedStruct.args.length; i++) {
             const argTypes = structs.map(struct => struct.args[i]);
-            newStruct.args[i] = this.unifyTypes(argTypes, generics, variants);
+            unifiedStruct.args[i] = this.unifyTypes(argTypes, generics, variants);
           }
-          return newStruct;
+          return unifiedStruct;
         }
       }
 
       case 'constant': {
         const constants = types as Constant[];
         if (constants.every(constant => constant.value === constants[0].value)) {
-          return structuredClone(constants[0]);
+          return constants[0];
         } else {
           return this.buildBindingAndPushToVariants(types, generics, variants, true);
         }
