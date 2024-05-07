@@ -6,11 +6,9 @@ import { ClientProverTest } from './client_prover_test.js';
 
 const TIMEOUT = 300_000;
 
-async function verifyProof(_1: ClientProtocolArtifact, _2: Tx, _3: BBNativeProofCreator) {
-  // TODO(@PhilWindle): Will verify proof once the circuits are fixed
-  await Promise.resolve();
-  //const result = await proofCreator.verifyProof(circuitType, tx.proof);
-  expect(true).toBeTruthy();
+async function verifyProof(circuitType: ClientProtocolArtifact, tx: Tx, proofCreator: BBNativeProofCreator) {
+  const result = await proofCreator.verifyProof(circuitType, tx.proof);
+  expect(result).toBeTruthy();
 }
 
 describe('client_prover_integration', () => {
