@@ -1,5 +1,5 @@
 use crate::{
-    abis::{side_effect::{Ordered, OrderedValue, Readable}, read_request::{ReadRequest, ReadRequestContext}},
+    abis::{side_effect::{Ordered, OrderedValue, Readable}, read_request::ScopedReadRequest},
     address::AztecAddress, constants::{NULLIFIER_LENGTH, SCOPED_NULLIFIER_LENGTH}, hash::silo_nullifier,
     traits::{Empty, Hash, Serialize, Deserialize}, utils::{arrays::array_concat, reader::Reader}
 };
@@ -54,13 +54,13 @@ impl Deserialize<NULLIFIER_LENGTH> for Nullifier {
 }
 
 impl Readable for Nullifier {
-    fn assert_match_read_request(self, read_request: ReadRequestContext) {
+    fn assert_match_read_request(self, read_request: ScopedReadRequest) {
         // Public kernels output Nullifier instead of ScopedNullifier.
         // The nullifier value has been siloed.
-        let siloed_request_value = silo_nullifier(read_request.contract_address, read_request.value);
+        let siloed_request_value = silo_nullifier(read_request.contract_address, read_request.value());
         assert_eq(self.value, siloed_request_value, "Value of the nullifier does not match read request");
         assert(
-            read_request.counter > self.counter, "Read request counter must be greater than the counter of the nullifier"
+            read_request.counter() > self.counter, "Read request counter must be greater than the counter of the nullifier"
         );
     }
 }
@@ -126,11 +126,11 @@ impl Deserialize<SCOPED_NULLIFIER_LENGTH> for ScopedNullifier {
 }
 
 impl Readable for ScopedNullifier {
-    fn assert_match_read_request(self, read_request: ReadRequestContext) {
-        assert_eq(self.nullifier.value, read_request.value, "Value of the nullifier does not match read request");
+    fn assert_match_read_request(self, read_request: ScopedReadRequest) {
+        assert_eq(self.nullifier.value, read_request.value(), "Value of the nullifier does not match read request");
         assert_eq(self.contract_address, read_request.contract_address, "Contract address of the nullifier does not match read request");
         assert(
-            read_request.counter > self.nullifier.counter, "Read request counter must be greater than the counter of the nullifier"
+            read_request.counter() > self.nullifier.counter, "Read request counter must be greater than the counter of the nullifier"
         );
     }
 }

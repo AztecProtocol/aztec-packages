@@ -12,7 +12,7 @@ import {
 } from '../constants.gen.js';
 import { NullifierKeyValidationRequestContext } from './nullifier_key_validation_request.js';
 import { PublicDataRead } from './public_data_read_request.js';
-import { ReadRequestContext } from './read_request.js';
+import { ScopedReadRequest } from './read_request.js';
 import { RollupValidationRequests } from './rollup_validation_requests.js';
 
 /**
@@ -28,16 +28,16 @@ export class ValidationRequests {
     /**
      * All the read requests made in this transaction.
      */
-    public noteHashReadRequests: Tuple<ReadRequestContext, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+    public noteHashReadRequests: Tuple<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     /**
      * All the nullifier read requests made in this transaction.
      */
-    public nullifierReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+    public nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     /**
      * The nullifier read requests made in this transaction.
      */
     public nullifierNonExistentReadRequests: Tuple<
-      ReadRequestContext,
+      ScopedReadRequest,
       typeof MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX
     >,
     /**
@@ -77,9 +77,9 @@ export class ValidationRequests {
     const reader = BufferReader.asReader(buffer);
     return new ValidationRequests(
       reader.readObject(RollupValidationRequests),
-      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ReadRequestContext),
-      reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext),
-      reader.readArray(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, ReadRequestContext),
+      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest),
+      reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest),
+      reader.readArray(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, ScopedReadRequest),
       reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext),
       reader.readArray(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead),
     );
@@ -97,9 +97,9 @@ export class ValidationRequests {
   static empty() {
     return new ValidationRequests(
       RollupValidationRequests.empty(),
-      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ReadRequestContext.empty),
-      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext.empty),
-      makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, ReadRequestContext.empty),
+      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest.empty),
+      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest.empty),
+      makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, ScopedReadRequest.empty),
       makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext.empty),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
     );

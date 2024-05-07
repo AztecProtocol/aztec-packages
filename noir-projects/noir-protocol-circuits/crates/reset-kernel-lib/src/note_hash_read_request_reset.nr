@@ -49,7 +49,7 @@ mod tests {
         address::AztecAddress,
         abis::{
         membership_witness::NoteHashMembershipWitness, note_hash::NoteHash,
-        note_hash_leaf_preimage::NoteHashLeafPreimage, read_request::ReadRequestContext
+        note_hash_leaf_preimage::NoteHashLeafPreimage, read_request::ReadRequest
     },
         constants::NOTE_HASH_TREE_HEIGHT, hash::silo_note_hash,
         tests::merkle_tree_utils::NonEmptyMerkleTree
@@ -64,11 +64,11 @@ mod tests {
     // Create 5 read requests. 0 and 3 are reading settled note hashes. 1, 2 and 4 are reading pending note hashes.
     // TODO(#2847): Read request values for settled note hashes shouldn't have been siloed by apps.
     global read_requests = [
-        ReadRequestContext { value: note_hashes[1], counter: 11, contract_address }, // settled
-        ReadRequestContext { value: inner_note_hashes[3], counter: 13, contract_address }, // pending
-        ReadRequestContext { value: inner_note_hashes[2], counter: 39, contract_address }, // pending
-        ReadRequestContext { value: note_hashes[0], counter: 46, contract_address }, // settled
-        ReadRequestContext { value: inner_note_hashes[3], counter: 78, contract_address }, // pending
+        ReadRequest { value: note_hashes[1], counter: 11 }.scope(contract_address), // settled
+        ReadRequest { value: inner_note_hashes[3], counter: 13 }.scope(contract_address), // pending
+        ReadRequest { value: inner_note_hashes[2], counter: 39 }.scope(contract_address), // pending
+        ReadRequest { value: note_hashes[0], counter: 46 }.scope(contract_address), // settled
+        ReadRequest { value: inner_note_hashes[3], counter: 78 }.scope(contract_address), // pending
     ];
 
     global pending_values = [
@@ -180,7 +180,7 @@ mod tests {
         let pending_read = read_requests[hint.read_request_index];
         let mut tainted_pending_values = pending_values;
         // Tweak the counter of the value to be greater than the read request.
-        tainted_pending_values[hint.pending_value_index].note_hash.counter = pending_read.counter + 1;
+        tainted_pending_values[hint.pending_value_index].note_hash.counter = pending_read.counter() + 1;
 
         let (settled_read_hints, tree_root) = get_settled_read_hints();
         let _ = reset_read_requests(
@@ -199,7 +199,7 @@ mod tests {
         let pending_read = read_requests[hint.read_request_index];
         let mut tainted_pending_values = pending_values;
         // Tweak the nullifier counter to be less than the read request.
-        tainted_pending_values[hint.pending_value_index].nullifier_counter = pending_read.counter - 1;
+        tainted_pending_values[hint.pending_value_index].nullifier_counter = pending_read.counter() - 1;
 
         let (settled_read_hints, tree_root) = get_settled_read_hints();
         let _ = reset_read_requests(
@@ -219,7 +219,7 @@ mod tests {
         let mut tained_read_requests = read_requests;
         let hint = settled_read_hints[0];
         // Tweak the value of the first settled read to be something different.
-        tained_read_requests[hint.read_request_index].value += 1;
+        tained_read_requests[hint.read_request_index].read_request.value += 1;
 
         let _ = reset_read_requests(
             tained_read_requests,

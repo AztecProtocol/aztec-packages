@@ -10,9 +10,10 @@ import {
   type NoteHashReadRequestHints,
   NoteHashReadRequestHintsBuilder,
   PendingReadHint,
-  ReadRequestContext,
+  ReadRequest,
   ReadRequestStatus,
   type ScopedNoteHash,
+  ScopedReadRequest,
   SettledReadHint,
 } from '../structs/index.js';
 import { buildNoteHashReadRequestHints } from './build_note_hash_read_request_hints.js';
@@ -26,7 +27,7 @@ describe('buildNoteHashReadRequestHints', () => {
     getNoteHashMembershipWitness: (leafIndex: bigint) =>
       settledLeafIndexes.includes(leafIndex) ? ({} as any) : undefined,
   };
-  let noteHashReadRequests: Tuple<ReadRequestContext, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>;
+  let noteHashReadRequests: Tuple<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>;
   let noteHashes: Tuple<ScopedNoteHash, typeof MAX_NEW_NOTE_HASHES_PER_TX>;
   let noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
   let expectedHints: NoteHashReadRequestHints;
@@ -37,7 +38,7 @@ describe('buildNoteHashReadRequestHints', () => {
   const innerNoteHash = (index: number) => index + 9999;
 
   const makeReadRequest = (value: number, counter = 2) =>
-    new ReadRequestContext(new Fr(value), counter, contractAddress);
+    new ReadRequest(new Fr(value), counter).scope(contractAddress);
 
   const makeNoteHash = (value: number, counter = 1) => new NoteHash(new Fr(value), counter).scope(0, contractAddress);
 
@@ -66,7 +67,7 @@ describe('buildNoteHashReadRequestHints', () => {
   } = {}) => {
     const value = settledNoteHashes[hintIndex];
     noteHashLeafIndexMap.set(value.toBigInt(), settledLeafIndexes[hintIndex]);
-    noteHashReadRequests[readRequestIndex] = new ReadRequestContext(value, 1, contractAddress);
+    noteHashReadRequests[readRequestIndex] = new ReadRequest(value, 1).scope(contractAddress);
     expectedHints.readRequestStatuses[readRequestIndex] = ReadRequestStatus.settled(hintIndex);
     expectedHints.settledReadHints[hintIndex] = new SettledReadHint(readRequestIndex, {} as any, value);
     numReadRequests++;
@@ -77,7 +78,7 @@ describe('buildNoteHashReadRequestHints', () => {
     buildNoteHashReadRequestHints(oracle, noteHashReadRequests, noteHashes, noteHashLeafIndexMap);
 
   beforeEach(() => {
-    noteHashReadRequests = makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ReadRequestContext.empty);
+    noteHashReadRequests = makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest.empty);
     noteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, i => makeNoteHash(innerNoteHash(i)));
     noteHashLeafIndexMap = new Map();
     expectedHints = NoteHashReadRequestHintsBuilder.empty();
@@ -119,7 +120,7 @@ describe('buildNoteHashReadRequestHints', () => {
   it('throws if cannot find a match in pending set and in the tree', async () => {
     readPendingNoteHash({ noteHashIndex: 2 });
     // Tweak the value of the read request.
-    noteHashReadRequests[0].value = new Fr(123);
+    noteHashReadRequests[0].readRequest.value = new Fr(123);
     await expect(() => buildHints()).rejects.toThrow('Read request is reading an unknown note hash.');
   });
 });

@@ -9,7 +9,7 @@ use crate::{
     note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
     nullifier_key_validation_request::NullifierKeyValidationRequestContext,
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-    read_request::ReadRequestContext, side_effect::SideEffect,
+    read_request::{ReadRequest, ScopedReadRequest}, side_effect::SideEffect,
     validation_requests::{ValidationRequests, ValidationRequestsBuilder}
 },
     address::{AztecAddress, EthAddress},
@@ -55,9 +55,9 @@ struct FixtureBuilder {
 
     // Validation requests.
     max_block_number: MaxBlockNumber,
-    note_hash_read_requests: BoundedVec<ReadRequestContext, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-    nullifier_read_requests: BoundedVec<ReadRequestContext, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-    nullifier_non_existent_read_requests: BoundedVec<ReadRequestContext, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
+    note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+    nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+    nullifier_non_existent_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
     nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequestContext, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
     public_data_reads: BoundedVec<PublicDataRead, MAX_PUBLIC_DATA_READS_PER_TX>,
 
@@ -341,7 +341,7 @@ impl FixtureBuilder {
     pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u64) -> u64 {
         let read_request_index = self.note_hash_read_requests.len();
         let value = self.get_mocked_note_hash_value(note_hash_index);
-        let read_request = ReadRequestContext { value, counter: self.next_counter(), contract_address: self.storage_contract_address };
+        let read_request = ReadRequest { value, counter: self.next_counter() }.scope(self.storage_contract_address);
         self.note_hash_read_requests.push(read_request);
         read_request_index
     }
@@ -350,11 +350,7 @@ impl FixtureBuilder {
         let value_offset = self.note_hash_read_requests.len();
         for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_TX {
             if i < num_reads {
-                let read_request = ReadRequestContext {
-                    value: (value_offset + i + 789) as Field,
-                    counter: self.next_counter(),
-                    contract_address: self.storage_contract_address
-                };
+                let read_request = ReadRequest { value: (value_offset + i + 789) as Field, counter: self.next_counter() }.scope(self.storage_contract_address);
                 self.note_hash_read_requests.push(read_request);
             }
         }
@@ -363,13 +359,13 @@ impl FixtureBuilder {
     pub fn add_read_request_for_pending_nullifier(&mut self, nullifier_index: u64) -> u64 {
         let read_request_index = self.nullifier_read_requests.len();
         let nullifier = self.get_mocked_nullifier_value(nullifier_index);
-        let read_request = ReadRequestContext { value: nullifier, counter: self.next_counter(), contract_address: self.storage_contract_address };
+        let read_request = ReadRequest { value: nullifier, counter: self.next_counter() }.scope(self.storage_contract_address);
         self.nullifier_read_requests.push(read_request);
         read_request_index
     }
 
     pub fn add_non_existent_read_request_for_nullifier(&mut self, nullifier: Field) {
-        let read_request = ReadRequestContext { value: nullifier, counter: self.next_counter(), contract_address: self.storage_contract_address };
+        let read_request = ReadRequest { value: nullifier, counter: self.next_counter() }.scope(self.storage_contract_address);
         self.nullifier_non_existent_read_requests.push(read_request);
     }
 

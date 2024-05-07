@@ -1,5 +1,5 @@
 use crate::{
-    abis::read_request::ReadRequestContext, address::AztecAddress,
+    abis::read_request::ScopedReadRequest, address::AztecAddress,
     abis::side_effect::{Ordered, OrderedValue, Readable},
     constants::{NOTE_HASH_LENGTH, SCOPED_NOTE_HASH_LENGTH}, traits::{Empty, Serialize, Deserialize},
     utils::{arrays::array_concat, reader::Reader}
@@ -107,14 +107,14 @@ impl Deserialize<SCOPED_NOTE_HASH_LENGTH> for ScopedNoteHash {
 }
 
 impl Readable for ScopedNoteHash {
-    fn assert_match_read_request(self, read_request: ReadRequestContext) {
-        assert_eq(self.note_hash.value, read_request.value, "Value of the note hash does not match read request");
+    fn assert_match_read_request(self, read_request: ScopedReadRequest) {
+        assert_eq(self.note_hash.value, read_request.value(), "Value of the note hash does not match read request");
         assert_eq(self.contract_address, read_request.contract_address, "Contract address of the note hash does not match read request");
         assert(
-            read_request.counter > self.note_hash.counter, "Read request counter must be greater than the counter of the note hash"
+            read_request.counter() > self.note_hash.counter, "Read request counter must be greater than the counter of the note hash"
         );
         assert(
-            (self.nullifier_counter == 0) | (read_request.counter < self.nullifier_counter), "Read request counter must be less than the nullifier counter of the note hash"
+            (self.nullifier_counter == 0) | (read_request.counter() < self.nullifier_counter), "Read request counter must be less than the nullifier counter of the note hash"
         );
     }
 }

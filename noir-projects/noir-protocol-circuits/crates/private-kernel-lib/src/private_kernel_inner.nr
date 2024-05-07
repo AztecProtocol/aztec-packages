@@ -571,15 +571,13 @@ mod tests {
         assert_eq(end_note_hash_read_requests[0], prev_requests.storage[0]);
         assert_eq(end_note_hash_read_requests[1], prev_requests.storage[1]);
 
-        let request_context = end_note_hash_read_requests[2];
-        assert_eq(request_context.value, cur_requests[0].value);
-        assert_eq(request_context.counter, cur_requests[0].counter);
-        assert_eq(request_context.contract_address, cur_storage_contract_address);
+        let request = end_note_hash_read_requests[2];
+        assert_eq(request.read_request, cur_requests[0]);
+        assert_eq(request.contract_address, cur_storage_contract_address);
 
-        let request_context = end_note_hash_read_requests[3];
-        assert_eq(request_context.value, cur_requests[1].value);
-        assert_eq(request_context.counter, cur_requests[1].counter);
-        assert_eq(request_context.contract_address, cur_storage_contract_address);
+        let request = end_note_hash_read_requests[3];
+        assert_eq(request.read_request, cur_requests[1]);
+        assert_eq(request.contract_address, cur_storage_contract_address);
     }
 
     #[test]

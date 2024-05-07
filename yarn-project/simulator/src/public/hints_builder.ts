@@ -15,7 +15,7 @@ import {
   type PublicDataRead,
   type PublicDataTreeLeafPreimage,
   type PublicDataUpdateRequest,
-  type ReadRequestContext,
+  type ScopedReadRequest,
   buildNullifierNonExistentReadRequestHints,
   buildPublicDataHints,
   buildPublicDataReadRequestHints,
@@ -28,14 +28,14 @@ export class HintsBuilder {
   constructor(private db: MerkleTreeOperations) {}
 
   getNullifierReadRequestHints(
-    nullifierReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+    nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     pendingNullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
   ) {
     return buildSiloedNullifierReadRequestHints(this, nullifierReadRequests, pendingNullifiers);
   }
 
   getNullifierNonExistentReadRequestHints(
-    nullifierNonExistentReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
+    nullifierNonExistentReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
     pendingNullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
   ) {
     return buildNullifierNonExistentReadRequestHints(this, nullifierNonExistentReadRequests, pendingNullifiers);

@@ -47,7 +47,7 @@ mod tests {
     use crate::reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus, reset_read_requests};
     use dep::types::{
         address::AztecAddress,
-        abis::{nullifier::Nullifier, nullifier_leaf_preimage::NullifierLeafPreimage, read_request::ReadRequestContext},
+        abis::{nullifier::Nullifier, nullifier_leaf_preimage::NullifierLeafPreimage, read_request::ReadRequest},
         constants::NULLIFIER_TREE_HEIGHT, hash::silo_nullifier, merkle_tree::MembershipWitness,
         tests::merkle_tree_utils::NonEmptyMerkleTree
     };
@@ -60,11 +60,11 @@ mod tests {
 
     // Create 5 read requests. 0 and 3 are reading settled nullifiers. 1, 2 and 4 are reading pending nullifiers.
     global read_requests = [
-        ReadRequestContext { value: inner_nullifiers[1], counter: 11, contract_address }, // settled
-        ReadRequestContext { value: inner_nullifiers[3], counter: 13, contract_address }, // pending
-        ReadRequestContext { value: inner_nullifiers[2], counter: 39, contract_address }, // pending
-        ReadRequestContext { value: inner_nullifiers[0], counter: 46, contract_address }, // settled
-        ReadRequestContext { value: inner_nullifiers[3], counter: 78, contract_address }, // pending
+        ReadRequest { value: inner_nullifiers[1], counter: 11 }.scope(contract_address), // settled
+        ReadRequest { value: inner_nullifiers[3], counter: 13 }.scope(contract_address), // pending
+        ReadRequest { value: inner_nullifiers[2], counter: 39 }.scope(contract_address), // pending
+        ReadRequest { value: inner_nullifiers[0], counter: 46 }.scope(contract_address), // settled
+        ReadRequest { value: inner_nullifiers[3], counter: 78 }.scope(contract_address), // pending
     ];
 
     global pending_values = [
@@ -178,7 +178,7 @@ mod tests {
         let pending_read = read_requests[hint.read_request_index];
         let mut tainted_pending_values = pending_values;
         // Tweak the counter of the value to be greater than the read request.
-        tainted_pending_values[hint.pending_value_index].nullifier.counter = pending_read.counter + 1;
+        tainted_pending_values[hint.pending_value_index].nullifier.counter = pending_read.counter() + 1;
 
         let (settled_read_hints, tree_root) = get_settled_read_hints();
         let _ = reset_read_requests(
@@ -198,7 +198,7 @@ mod tests {
         let mut tained_read_requests = read_requests;
         let hint = settled_read_hints[0];
         // Tweak the value of the first settled read to be something different.
-        tained_read_requests[hint.read_request_index].value += 1;
+        tained_read_requests[hint.read_request_index].read_request.value += 1;
 
         let _ = reset_read_requests(
             tained_read_requests,

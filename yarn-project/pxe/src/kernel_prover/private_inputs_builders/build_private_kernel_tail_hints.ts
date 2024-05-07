@@ -12,8 +12,8 @@ import {
   type NullifierKeyValidationRequestContext,
   type PrivateKernelCircuitPublicInputs,
   PrivateKernelTailHints,
-  type ReadRequestContext,
   type ScopedNullifier,
+  type ScopedReadRequest,
   type SideEffect,
   type SideEffectType,
   buildNoteHashReadRequestHints,
@@ -49,7 +49,7 @@ function sortSideEffects<T extends SideEffectType, K extends number>(
 }
 
 function getNullifierReadRequestHints(
-  nullifierReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+  nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
   nullifiers: Tuple<ScopedNullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
   oracle: ProvingDataOracle,
 ) {

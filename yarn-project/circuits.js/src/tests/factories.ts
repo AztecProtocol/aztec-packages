@@ -111,13 +111,13 @@ import {
   RECURSIVE_PROOF_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
   ReadRequest,
-  ReadRequestContext,
   RevertCode,
   RollupTypes,
   RootParityInput,
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
+  ScopedReadRequest,
   SideEffect,
   StateDiffHints,
   StateReference,
@@ -198,8 +198,8 @@ function makeReadRequest(n: number): ReadRequest {
   return new ReadRequest(new Fr(BigInt(n)), n + 1);
 }
 
-function makeReadRequestContext(n: number): ReadRequestContext {
-  return new ReadRequestContext(new Fr(BigInt(n)), n + 1, AztecAddress.fromBigInt(BigInt(n + 2)));
+function makeScopedReadRequest(n: number): ScopedReadRequest {
+  return new ScopedReadRequest(makeReadRequest(n), AztecAddress.fromBigInt(BigInt(n + 2)));
 }
 
 /**
@@ -275,9 +275,9 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
 export function makeValidationRequests(seed = 1) {
   return new ValidationRequests(
     makeRollupValidationRequests(seed),
-    makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, makeReadRequestContext, seed + 0x80),
-    makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, makeReadRequestContext, seed + 0x90),
-    makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, makeReadRequestContext, seed + 0x95),
+    makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x80),
+    makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x90),
+    makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x95),
     makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, makeNullifierKeyValidationRequestContext, seed + 0x100),
     makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
   );

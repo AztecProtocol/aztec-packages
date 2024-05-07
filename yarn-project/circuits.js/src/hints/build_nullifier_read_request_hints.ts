@@ -14,8 +14,9 @@ import {
   type MembershipWitness,
   Nullifier,
   NullifierReadRequestHintsBuilder,
-  ReadRequestContext,
+  ReadRequest,
   type ScopedNullifier,
+  ScopedReadRequest,
 } from '../structs/index.js';
 import { countAccumulatedItems, getNonEmptyItems } from '../utils/index.js';
 
@@ -28,7 +29,7 @@ export async function buildNullifierReadRequestHints(
   oracle: {
     getNullifierMembershipWitness(nullifier: Fr): Promise<NullifierMembershipWitnessWithPreimage>;
   },
-  nullifierReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+  nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
   nullifiers: Tuple<ScopedNullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
   siloed = false,
 ) {
@@ -72,16 +73,16 @@ export function buildSiloedNullifierReadRequestHints(
   oracle: {
     getNullifierMembershipWitness(nullifier: Fr): Promise<NullifierMembershipWitnessWithPreimage>;
   },
-  nullifierReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+  nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
   nullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
 ) {
   // Nullifiers outputted from public kernels are already siloed while read requests are not.
   // Siloing the read request values and set the contract addresses to zero to find the matching nullifier contexts.
   const siloedReadRequests = padArrayEnd(
-    getNonEmptyItems(nullifierReadRequests).map(
-      r => new ReadRequestContext(siloNullifier(r.contractAddress, r.value), r.counter, AztecAddress.ZERO),
+    getNonEmptyItems(nullifierReadRequests).map(r =>
+      new ReadRequest(siloNullifier(r.contractAddress, r.value), r.counter).scope(AztecAddress.ZERO),
     ),
-    ReadRequestContext.empty(),
+    ScopedReadRequest.empty(),
     MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   );
 

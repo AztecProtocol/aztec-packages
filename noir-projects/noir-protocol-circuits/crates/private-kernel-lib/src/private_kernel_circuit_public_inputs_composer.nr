@@ -117,7 +117,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..read_requests.len() {
             let request = read_requests[i];
             if !is_empty(request) {
-                self.public_inputs.validation_requests.note_hash_read_requests.push(request.to_context(source.storage_contract_address));
+                self.public_inputs.validation_requests.note_hash_read_requests.push(request.scope(source.storage_contract_address));
             }
         }
     }
@@ -127,7 +127,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..nullifier_read_requests.len() {
             let request = nullifier_read_requests[i];
             if !is_empty(request) {
-                self.public_inputs.validation_requests.nullifier_read_requests.push(request.to_context(source.storage_contract_address));
+                self.public_inputs.validation_requests.nullifier_read_requests.push(request.scope(source.storage_contract_address));
             }
         }
     }

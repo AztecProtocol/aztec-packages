@@ -420,7 +420,7 @@ mod tests {
         builder.add_pending_revertible_nullifier_read_request(1);
         let nullifier_being_read = builder.previous_revertible.new_nullifiers.get(1);
         let mut read_request = builder.previous_kernel.nullifier_read_requests.pop();
-        read_request.counter = nullifier_being_read.counter() - 1;
+        read_request.read_request.counter = nullifier_being_read.counter() - 1;
         builder.previous_kernel.nullifier_read_requests.push(read_request);
 
         builder.failed();
