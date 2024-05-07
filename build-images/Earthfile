@@ -190,7 +190,7 @@ build:
   SAVE IMAGE --push aztecprotocol/build:1.0-$TARGETARCH
 
 ########################################################################################################################
-# We want to produce downstream images: codespace, devbox and sysbox. This image is the base image for each.
+# We want to produce downstream images: devbox and sysbox. This image is the base image for each.
 # It contains a suite of tools that developers might use to develop aztec.
 basebox:
   BUILD +build

@@ -2,6 +2,18 @@
 set -eu
 
 cd $(dirname $0)
+hostname=$(hostname)
+
+# Define next hostname based on this hostname for nesting. devbox, devbox1, etc.
+if [[ $hostname == "devbox" ]]; then
+  hostname="devbox1"
+elif [[ $hostname =~ ^devbox([0-9]+)$ ]]; then
+    num_suffix="${BASH_REMATCH[1]}"
+    new_num=$((num_suffix + 1))
+    hostname="devbox$new_num"
+else
+    hostname="devbox"
+fi
 
 # On linux we need to perform uid/gid alignment to ensure files modified on the host have the correct owner.
 # The entrypoint.sh script picks up these environment variables and adjusts the aztec-dev user accordingly.
@@ -19,7 +31,7 @@ else
   docker run \
     -ti --rm \
     --name aztec-devbox \
-    --hostname devbox \
+    --hostname $hostname \
     -e SSH_CONNECTION=' ' \
     -e DOCKER_CONFIG=/home/aztec-dev/.docker-devbox \
     ${ID_ARGS:-} \
