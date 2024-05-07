@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-PREFIX = Path("build-op-count-time")
+PREFIX = Path("build-wasm-op-count-time")
 IVC_BENCH_JSON = Path("client_ivc_bench.json")
 BENCHMARK = "ClientIVCBench/Full/6"
 
