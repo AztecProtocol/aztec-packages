@@ -70,11 +70,6 @@ export function mapAbiTypeToAbiTypeWithGenerics(abiType: AbiType): AbiTypeWithGe
         length: abiType.length,
         type: mapAbiTypeToAbiTypeWithGenerics(abiType.type),
       };
-    case 'tuple':
-      return {
-        kind: 'tuple',
-        fields: abiType.fields.map(field => mapAbiTypeToAbiTypeWithGenerics(field)),
-      };
     case 'struct': {
       const structType = {
         path: abiType.path,
