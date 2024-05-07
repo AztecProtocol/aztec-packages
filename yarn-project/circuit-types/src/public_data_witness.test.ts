@@ -3,8 +3,8 @@ import { fr } from '@aztec/circuits.js/testing';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { randomInt } from '@aztec/foundation/crypto';
 
-import { SiblingPath } from '../sibling_path/sibling_path.js';
 import { PublicDataWitness } from './public_data_witness.js';
+import { SiblingPath } from './sibling_path/sibling_path.js';
 
 describe('contract_artifact', () => {
   it('serializes and deserializes an instance', () => {

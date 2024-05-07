@@ -2,7 +2,7 @@ import { Fr, PUBLIC_DATA_TREE_HEIGHT, PublicDataTreeLeafPreimage } from '@aztec/
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { SiblingPath } from '../sibling_path/index.js';
+import { SiblingPath } from './sibling_path/sibling_path.js';
 
 /**
  * Public data witness.
