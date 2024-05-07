@@ -49,11 +49,6 @@ impl EasyPrivateUint {
                 // spending someone else's notes).
                 assert(note.owner.eq(owner));
 
-                // Removes the note from the owner's set of notes.
-                // docs:start:remove
-                self.set.remove(note);
-                // docs:end:remove
-
                 minuend += note.value as u64;
             }
         }

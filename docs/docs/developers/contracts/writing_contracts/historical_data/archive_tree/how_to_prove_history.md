@@ -55,6 +55,10 @@ Retrieve the note from the user's PXE.
 
 In this example, the user's notes are stored in a map called `private_values`. We retrieve this map, then select 1 note from it with the value of `1`.
 
+:::note 
+We use `view_notes` since we just need the note data - we'll construct the inclusion proofs ourselves. We could have also received the note data via e.g. function parameters. Had we used `get_notes`, that would've created a second redundant inclusion proof for the note, as well as emitted a nullifier to ensure the note is active. However, using `view_notes` means we must constrain the retrieved note manually.
+:::
+
 ## 4. Prove that a note was included in a specified block
 
 To prove that a note existed in a specified block, call `prove_note_inclusion_at` as shown in this example:
@@ -63,7 +67,7 @@ To prove that a note existed in a specified block, call `prove_note_inclusion_at
 
 This function takes in 3 arguments:
 
-1. The note (`maybe_note.unwrap_unchecked()`). Here, `unwrap_unchecked()` returns the inner value without asserting `self.is_some()`
+1. The note
 2. The block number
 3. Private context
 

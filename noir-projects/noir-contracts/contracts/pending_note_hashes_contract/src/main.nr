@@ -4,9 +4,7 @@
 // be read/nullified before their creation etc.
 contract PendingNoteHashes {
     // Libs
-    use dep::aztec::prelude::{
-        AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, PrivateContext, Map, PrivateSet
-    };
+    use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, PrivateContext, Map, PrivateSet};
     use dep::value_note::{balance_utils, filter::filter_notes_min_sum, value_note::{VALUE_NOTE_LEN, ValueNote}};
     use dep::aztec::context::{PublicContext, Context};
 
@@ -30,14 +28,12 @@ contract PendingNoteHashes {
         owner_balance.insert(&mut note, true);
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
-        // get note inserted above
+        // get and delete note inserted above
         let maybe_notes = owner_balance.get_notes(options);
 
         let note0 = maybe_notes[0].unwrap();
         assert(note.value == note0.value);
         assert(maybe_notes[1].is_none());
-
-        owner_balance.remove(note0);
 
         note0.value
     }
@@ -85,8 +81,6 @@ contract PendingNoteHashes {
         let note = owner_balance.get_notes(options)[0].unwrap();
 
         assert(expected_value == note.value);
-
-        owner_balance.remove(note);
 
         expected_value
     }

@@ -10,8 +10,8 @@ contract Test {
 
     use dep::aztec::protocol_types::{
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, CANONICAL_KEY_REGISTRY_ADDRESS}, traits::{Serialize, ToField, FromField},
-        grumpkin_point::GrumpkinPoint
+        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, CANONICAL_KEY_REGISTRY_ADDRESS},
+        traits::{Serialize, ToField, FromField}, grumpkin_point::GrumpkinPoint
     };
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
@@ -385,9 +385,7 @@ contract Test {
         let secret_hash = compute_secret_hash(secret);
         let mut options = NoteGetterOptions::new();
         options = options.select(TestNote::properties().value, secret_hash, Option::none()).set_limit(1);
-        let notes = notes_set.get_notes(options);
-        let note = notes[0].unwrap_unchecked();
-        notes_set.remove(note);
+        let _ = notes_set.get_notes(options);
     }
 
     unconstrained fn get_constant() -> pub Field {
@@ -424,15 +422,16 @@ contract Test {
         let derived_slot = derive_storage_slot_in_map(storage_slot_of_shared_mutable, address_to_get_in_registry);
 
         // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
-        let registry_private_getter: SharedMutablePrivateGetter<Field, 5> = SharedMutablePrivateGetter::new(context, AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS), derived_slot);
+        let registry_private_getter: SharedMutablePrivateGetter<Field, 5> = SharedMutablePrivateGetter::new(
+            context,
+            AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS),
+            derived_slot
+        );
         registry_private_getter.get_current_value_in_private()
     }
 
     #[aztec(private)]
-    fn test_nullifier_key_freshness(
-        address: AztecAddress,
-        public_nullifying_key: GrumpkinPoint,
-    ) {
+    fn test_nullifier_key_freshness(address: AztecAddress, public_nullifying_key: GrumpkinPoint) {
         assert_eq(get_npk_m(&mut context, address), public_nullifying_key);
     }
 

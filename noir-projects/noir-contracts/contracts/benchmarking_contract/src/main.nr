@@ -32,7 +32,6 @@ contract Benchmarking {
         let mut getter_options = NoteGetterOptions::new();
         let notes = owner_notes.get_notes(getter_options.set_limit(1).set_offset(index));
         let note = notes[0].unwrap_unchecked();
-        owner_notes.remove(note);
         increment(owner_notes, note.value, owner);
     }
 

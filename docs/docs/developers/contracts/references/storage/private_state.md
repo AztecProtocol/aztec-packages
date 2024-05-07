@@ -61,7 +61,7 @@ A `PrivateSet` may point to _multiple_ notes at a time. The "current value" of a
 :::note
 The term "some accumulation" is intentionally vague. The interpretation of the "current value" of a `PrivateSet` must be expressed by the smart contract developer. A common use case for a `PrivateSet` is to represent the sum of a collection of values (in which case 'accumulation' is 'summation').
 
-Think of a ZCash balance (or even a Bitcoin balance). The "current value" of a user's ZCash balance is the sum of all unspent (not-yet nullified) notes belonging to that user. To modify the "current value" of a `PrivateSet` state variable, is to [`insert`](#insert) new notes into the `PrivateSet`, or [`remove`](#remove) notes from that set.
+Think of a ZCash balance (or even a Bitcoin balance). The "current value" of a user's ZCash balance is the sum of all unspent (not-yet nullified) notes belonging to that user. To modify the "current value" of a `PrivateSet` state variable, is to [`insert`](#insert) new notes into the `PrivateSet`, or to remove (via [`get_notes`](#get_notes)) notes from that set.
 :::
 
 Interestingly, if a developer requires a private state to be modifiable by users who _aren't_ privy to the value of that state, a `PrivateSet` is a very useful type. The `insert` method allows new notes to be added to the `PrivateSet` without knowing any of the other notes in the set! (Like posting an envelope into a post box, you don't know what else is in there!).
@@ -212,16 +212,6 @@ The usage is similar to using the `insert` method with the difference that this 
 
 #include_code insert_from_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
-### `remove`
-
-Will remove a note from the `PrivateSet` if it previously has been read from storage, e.g. you have fetched it through a `get_notes` call. This is useful when you want to remove a note that you have previously read from storage and do not have to read it again.
-
-Nullifiers are emitted when reading values to make sure that they are up to date.
-
-An example of how to use this operation is visible in the `easy_private_state`:
-
-#include_code remove /noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr rust
-
 ### `get_notes`
 
 This function returns the notes the account has access to.
@@ -233,6 +223,8 @@ Because of this limit, we should always consider using the second argument `Note
 An example of such options is using the [filter_notes_min_sum](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/value-note/src/filter.nr) to get "enough" notes to cover a given value. Essentially, this function will return just enough notes to cover the amount specified such that we don't need to read all our notes. For users with a lot of notes, this becomes increasingly important.
 
 #include_code get_notes /noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr rust
+
+To ensure that the notes being read are current and have not yet been nullified, `get_notes` automatically emits nullifiers for them. This means that reading notes from a set also destroys said notes! While this might seem strange at first, it is actually consistent with most use cases: for example, token notes are consumed when used in order to perform a transfer.
 
 ### `view_notes`
 

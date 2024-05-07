@@ -36,7 +36,9 @@ contract CardGame {
         let player = context.msg_sender();
 
         let mut collection = storage.collections.at(player);
-        collection.remove_cards(cards, player);
+        // Note that by reading the cards we're also removing them from the set.
+        let _ = collection.get_cards(cards, player);
+
         let mut game_deck = storage.game_decks.at(game as Field).at(player);
         let _added_to_game_deck = game_deck.add_cards(cards, player);
         let strength = compute_deck_strength(cards);
@@ -68,7 +70,8 @@ contract CardGame {
         let player = context.msg_sender();
 
         let mut game_deck = storage.game_decks.at(game as Field).at(player);
-        game_deck.remove_cards([card], player);
+        // Note that by reading the cards we're also removing them from the set.
+        let _ = game_deck.get_cards([card], player);
 
         // docs:start:call_public_function
         CardGame::at(context.this_address()).on_card_played(game, player, card.to_field()).enqueue(&mut context);

@@ -72,24 +72,13 @@ impl<T> BalancesMap<T> {
         owner: AztecAddress,
         subtrahend: U128
     ) where T: NoteInterface<T_SERIALIZED_LEN> + OwnedNote {
-        // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend);
         let maybe_notes = self.map.at(owner).get_notes(options);
-        // docs:end:get_notes
 
         let mut minuend: U128 = U128::from_integer(0);
         for i in 0..maybe_notes.len() {
             if maybe_notes[i].is_some() {
                 let note = maybe_notes[i].unwrap_unchecked();
-
-                // Removes the note from the owner's set of notes.
-                // This will call the the `compute_nullifer` function of the `token_note`
-                // which require knowledge of the secret key (currently the users encryption key).
-                // The contract logic must ensure that the spending key is used as well.
-                // docs:start:remove
-                self.map.at(owner).remove(note);
-                // docs:end:remove
-
                 minuend = minuend + note.get_amount();
             }
         }
