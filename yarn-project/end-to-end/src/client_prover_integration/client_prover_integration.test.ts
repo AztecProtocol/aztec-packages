@@ -7,8 +7,7 @@ import { ClientProverTest } from './client_prover_test.js';
 const TIMEOUT = 300_000;
 
 async function verifyProof(circuitType: ClientProtocolArtifact, tx: Tx, proofCreator: BBNativeProofCreator) {
-  const result = await proofCreator.verifyProof(circuitType, tx.proof);
-  expect(result).toBeTruthy();
+  await expect(proofCreator.verifyProof(circuitType, tx.proof)).resolves.not.toThrow();
 }
 
 describe('client_prover_integration', () => {
@@ -61,7 +60,7 @@ describe('client_prover_integration', () => {
       const balance0 = await provenAsset.methods.balance_of_public(accounts[0].address).simulate();
       const amount = balance0 / 2n;
       expect(amount).toBeGreaterThan(0n);
-      const interaction = provenAsset.methods.transfer(accounts[0].address, accounts[1].address, amount, 0);
+      const interaction = provenAsset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, 0);
       const provenTx = await interaction.prove();
 
       // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
