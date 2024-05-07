@@ -9,6 +9,7 @@ use dep::std::cmp::min;
 struct ScheduledValueChange<T> {
     pre: T,
     post: T,
+    // Block at which `post` value is used instead of `pre`
     block_of_change: u32,
 }
 

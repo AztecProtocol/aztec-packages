@@ -59,7 +59,7 @@ impl<INITIAL_DELAY> ScheduledDelayChange<INITIAL_DELAY> {
 
         // When changing the delay value we must ensure that it is not possible to produce a value change with a delay
         // shorter than the current one.
-        let schedule_delay = if new > current {
+        let blocks_until_change = if new > current {
             // Increasing the delay value can therefore be done immediately: this does not invalidate prior contraints
             // about how quickly a value might be changed (indeed it strengthens them).
             0
@@ -67,20 +67,20 @@ impl<INITIAL_DELAY> ScheduledDelayChange<INITIAL_DELAY> {
             // Decreasing the delay requires waiting for the difference between current and new delay in order to ensure
             // that overall the current delay is respected.
             //
-            //      current              delay              earliest value block of change
-            //       block           block of change         if delay remained unchanged
-            //  =======N===================|================================X=================>
-            //         ^                   ^                                ^
-            //         |-------------------|--------------------------------|
-            //         |  schedule delay                new delay           |
-            //         ------------------------------------------------------
+            //      current                    delay              earliest value block of change
+            //       block                 block of change         if delay remained unchanged
+            //  =======N=========================|================================X=================>
+            //         ^                         ^                                ^
+            //         |-------------------------|--------------------------------|
+            //         |   blocks until change               new delay            |
+            //         ------------------------------------------------------------
             //                            current delay
             current - new
         };
 
         self.pre = Option::some(current);
         self.post = Option::some(new);
-        self.block_of_change = current_block_number + schedule_delay;
+        self.block_of_change = current_block_number + blocks_until_change;
     }
 
     /// Returns the minimum delay before a value might mutate due to a scheduled change, from the perspective of some
@@ -102,9 +102,9 @@ impl<INITIAL_DELAY> ScheduledDelayChange<INITIAL_DELAY> {
             // block number equal to the number of blocks until the change plus the new delay. If this value is lower
             // than the current delay, then that is the effective minimum delay.
             //
-            //
-            //     historical       delay                 actual earliest value
-            //       block      block of change              block of change
+            //     historical
+            //       block         delay                 actual earliest value
+            //         v      block of change              block of change
             //  =======NS=============|=============================X===========Y=====>
             //          ^             ^                             ^           ^
             //      earliest value    |                             |           |
