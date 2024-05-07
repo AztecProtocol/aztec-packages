@@ -40,7 +40,7 @@ export class ProverAgent {
       try {
         const [time, result] = await elapsed(() => this.work(job.request));
         await queue.resolveProvingJob(job.id, result);
-        this.log.info(
+        this.log.debug(
           `Processed proving job id=${job.id} type=${ProvingRequestType[job.request.type]} duration=${time}ms`,
         );
       } catch (err) {
@@ -52,15 +52,18 @@ export class ProverAgent {
     }, this.intervalMs);
 
     this.runningPromise.start();
+    this.log.info('Agent started');
   }
 
   async stop(): Promise<void> {
-    if (!this.runningPromise) {
-      throw new Error('Agent is not running');
+    if (!this.runningPromise?.isRunning()) {
+      return;
     }
 
     await this.runningPromise.stop();
     this.runningPromise = undefined;
+
+    this.log.info('Agent stopped');
   }
 
   private work(request: ProvingRequest): Promise<ProvingRequestResult<typeof type>> {
