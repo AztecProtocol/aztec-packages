@@ -28,14 +28,14 @@ contract Uniswap {
     }
     // docs:end:uniswap_setup
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(initializer)]
     fn constructor(portal_address: EthAddress) {
         storage.portal_address.initialize(portal_address);
     }
 
     // docs:start:swap_public
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn swap_public(
         sender: AztecAddress,
         input_asset_bridge: AztecAddress,
@@ -157,8 +157,8 @@ contract Uniswap {
     // Since the token bridge burns funds on behalf of this contract, this contract has to tell the token contract if the signature is valid
     // implementation is similar to how account contracts validate public approvals.
     // if valid, it returns the IS_VALID selector which is expected by token contract
-    #[aztec(public)]
-    fn spend_public_authwit(inner_hash: Field) -> Field {
+    #[aztec(public-vm)]
+    fn spend_public_authwit(inner_hash: Field) -> pub Field {
         let message_hash = compute_outer_authwit_hash(
             context.msg_sender(),
             context.chain_id(),
@@ -181,7 +181,7 @@ contract Uniswap {
     // Assume `token` relates to `token_bridge` (ie token_bridge.token == token)
     // Note that private can't read public return values so created an internal public that handles everything
     // this method is used for both private and public swaps.
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn _approve_bridge_and_exit_input_asset_to_L1(
         token: AztecAddress,
@@ -216,14 +216,14 @@ contract Uniswap {
     // docs:end:authwit_uniswap_set
 
     // docs:start:assert_token_is_same
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn _assert_token_is_same(token: AztecAddress, token_bridge: AztecAddress) {
         assert(
             token.eq(TokenBridge::at(token_bridge).get_token().static_call(&mut context)), "input_asset address is not the same as seen in the bridge contract"
         );
     }
-    
+
     // /// Unconstrained ///
 
     // this method exists solely for e2e tests to test that nonce gets incremented each time.
@@ -231,5 +231,4 @@ contract Uniswap {
         storage.nonce_for_burn_approval.read()
     }
     // docs:end:assert_token_is_same
-
 }

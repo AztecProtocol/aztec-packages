@@ -12,13 +12,13 @@ contract GasToken {
         portal_address: SharedImmutable<EthAddress>,
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(initializer)]
     fn constructor(portal_address: EthAddress) {
         storage.portal_address.initialize(portal_address);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn claim_public(to: AztecAddress, amount: Field, secret: Field, leaf_index: Field) {
         let content_hash = get_bridge_gas_msg_hash(to, amount);
 
@@ -37,7 +37,7 @@ contract GasToken {
     // TODO(@just-mitch): remove this function before mainnet deployment
     // convenience function for testing
     // the true canonical gas token contract will not have this function
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn mint_public(to: AztecAddress, amount: Field) {
         let amount = U128::from_integer(amount);
         let new_balance = storage.balances.at(to).read().add(amount);
@@ -45,20 +45,20 @@ contract GasToken {
         storage.balances.at(to).write(new_balance);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn check_balance(fee_limit: Field) {
         let fee_limit = U128::from_integer(fee_limit);
         assert(storage.balances.at(context.msg_sender()).read() >= fee_limit, "Balance too low");
     }
 
-    #[aztec(public)]
-    fn pay_fee(fee_limit: Field) -> Field {
+    #[aztec(public-vm)]
+    fn pay_fee(fee_limit: Field) -> pub Field {
         let fee_limit_u128 = U128::from_integer(fee_limit);
         let fee = U128::from_integer(calculate_fee(context));
-        dep::aztec::oracle::debug_log::debug_log_format(
-            "Gas token: paying fee {0} (limit {1})",
-            [fee.to_field(), fee_limit]
-        );
+        //dep::aztec::oracle::debug_log::debug_log_format(
+        //    "Gas token: paying fee {0} (limit {1})",
+        //    [fee.to_field(), fee_limit]
+        //);
         assert(fee <= fee_limit_u128, "Fee too high");
 
         let sender_new_balance = storage.balances.at(context.msg_sender()).read() - fee;

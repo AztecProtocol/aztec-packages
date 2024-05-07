@@ -43,7 +43,7 @@ contract CardGame {
         CardGame::at(context.this_address()).on_game_joined(game, player, strength as u32).enqueue(&mut context);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn on_game_joined(game: u32, player: AztecAddress, deck_strength: u32) {
         let game_storage = storage.games.at(game as Field);
@@ -54,7 +54,7 @@ contract CardGame {
         game_storage.write(game_data);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn start_game(game: u32) {
         let game_storage = storage.games.at(game as Field);
 
@@ -75,7 +75,7 @@ contract CardGame {
         // docs:end:call_public_function
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn on_card_played(game: u32, player: AztecAddress, card_as_field: Field) {
         let game_storage = storage.games.at(game as Field);
@@ -100,7 +100,7 @@ contract CardGame {
         CardGame::at(context.this_address()).on_cards_claimed(game, player, pedersen_hash(cards_fields, 0)).enqueue(&mut context);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn on_cards_claimed(game: u32, player: AztecAddress, cards_hash: Field) {
         let game_storage = storage.games.at(game as Field);

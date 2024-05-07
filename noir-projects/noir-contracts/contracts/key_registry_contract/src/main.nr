@@ -28,7 +28,7 @@ contract KeyRegistry {
     tpk_m_y_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
   }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
   fn rotate_nullifier_public_key(
         address: AztecAddress,
         new_nullifier_public_key: GrumpkinPoint,
@@ -47,7 +47,7 @@ contract KeyRegistry {
         npk_m_y_registry.schedule_value_change(new_nullifier_public_key.y);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
   fn register(
         address: AztecAddress,
         partial_address: PartialAddress,

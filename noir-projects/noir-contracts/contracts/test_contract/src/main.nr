@@ -11,7 +11,8 @@ contract Test {
     use dep::aztec::protocol_types::{
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, CANONICAL_KEY_REGISTRY_ADDRESS},
-        traits::{Serialize, ToField, FromField}, grumpkin_point::GrumpkinPoint, grumpkin_private_key::GrumpkinPrivateKey
+        traits::{Serialize, ToField, FromField}, grumpkin_point::GrumpkinPoint,
+        grumpkin_private_key::GrumpkinPrivateKey
     };
 
     use dep::aztec::encrypted_logs::header::EncryptedLogHeader;
@@ -72,7 +73,7 @@ contract Test {
         }
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn dummy_public_call() {}
 
@@ -190,7 +191,7 @@ contract Test {
     }
 
     // Purely exists for testing
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn create_l2_to_l1_message_public(amount: Field, secret_hash: Field, portal_address: EthAddress) {
         // Create a commitment to the amount
         let note = DummyNote::new(amount, secret_hash);
@@ -199,7 +200,7 @@ contract Test {
         context.message_portal(portal_address, note.get_commitment());
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn create_l2_to_l1_message_arbitrary_recipient_public(content: Field, recipient: EthAddress) {
         // Public oracle call to emit new commitment.
         context.message_portal(recipient, content);
@@ -212,7 +213,7 @@ contract Test {
     }
 
     // Purely exists for testing
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn create_nullifier_public(amount: Field, secret_hash: Field) {
         // Create a commitment to the amount
         let note = DummyNote::new(amount, secret_hash);
@@ -257,22 +258,22 @@ contract Test {
     }
 
     // docs:start:is-time-equal
-    #[aztec(public)]
-    fn is_time_equal(time: u64) -> u64 {
+    #[aztec(public-vm)]
+    fn is_time_equal(time: u64) -> pub u64 {
         assert(context.timestamp() == time);
         time
     }
     // docs:end:is-time-equal
 
-    #[aztec(public)]
-    fn emit_unencrypted(value: Field) -> Field {
+    #[aztec(public-vm)]
+    fn emit_unencrypted(value: Field) -> pub Field {
         // docs:start:emit_unencrypted
         context.emit_unencrypted_log(value);
         // docs:end:emit_unencrypted
         0
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn consume_mint_public_message(
         to: AztecAddress,
         amount: Field,
@@ -301,7 +302,7 @@ contract Test {
         );
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn consume_message_from_arbitrary_sender_public(
         content: Field,
         secret: Field,
@@ -349,7 +350,7 @@ contract Test {
         EncryptedLogHeader::new(context.this_address()).compute_ciphertext(secret, point)
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn assert_public_global_vars(
         chain_id: Field,
         version: Field,
@@ -375,10 +376,11 @@ contract Test {
         assert(context.historical_header.hash() == header_hash, "Invalid header hash");
     }
 
-    #[aztec(public)]
-    fn assert_header_public(header_hash: Field) {
-        assert(context.historical_header.hash() == header_hash, "Invalid header hash");
-    }
+    // TODO(4840): add AVM opcodes for getting header (members)
+    //#[aztec(public-vm)]
+    //fn assert_header_public(header_hash: Field) {
+    //    assert(context.historical_header.hash() == header_hash, "Invalid header hash");
+    //}
 
     #[aztec(private)]
     fn deploy_contract(target: AztecAddress) {
@@ -431,15 +433,16 @@ contract Test {
         let derived_slot = derive_storage_slot_in_map(storage_slot_of_shared_mutable, address_to_get_in_registry);
 
         // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
-        let registry_private_getter: SharedMutablePrivateGetter<Field, 5> = SharedMutablePrivateGetter::new(context, AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS), derived_slot);
+        let registry_private_getter: SharedMutablePrivateGetter<Field, 5> = SharedMutablePrivateGetter::new(
+            context,
+            AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS),
+            derived_slot
+        );
         registry_private_getter.get_current_value_in_private()
     }
 
     #[aztec(private)]
-    fn test_nullifier_key_freshness(
-        address: AztecAddress,
-        public_nullifying_key: GrumpkinPoint,
-    ) {
+    fn test_nullifier_key_freshness(address: AztecAddress, public_nullifying_key: GrumpkinPoint) {
         assert_eq(get_npk_m(&mut context, address), public_nullifying_key);
     }
 

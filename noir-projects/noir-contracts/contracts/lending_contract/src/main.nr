@@ -41,7 +41,7 @@ contract Lending {
     fn constructor(
     ) {}
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn init(
         oracle: AztecAddress,
         loan_to_value: Field,
@@ -68,8 +68,8 @@ contract Lending {
     }
 
     // Create a position.
-    #[aztec(public)]
-    fn update_accumulator() -> Asset {
+    #[aztec(public-vm)]
+    fn update_accumulator() -> pub Asset {
         let asset_loc = storage.assets.at(0);
         let mut asset: Asset = asset_loc.read();
 
@@ -111,7 +111,7 @@ contract Lending {
         ).enqueue(&mut context);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn deposit_public(amount: Field, nonce: Field, on_behalf_of: Field, collateral_asset: AztecAddress) {
         let _ = Token::at(collateral_asset).transfer_public(context.msg_sender(), context.this_address(), amount, nonce).call(&mut context);
         let _ = Lending::at(context.this_address())._deposit(
@@ -121,7 +121,7 @@ contract Lending {
         ).call(&mut context);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn _deposit(owner: AztecAddress, amount: Field, collateral_asset: AztecAddress) {
         let _asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
@@ -140,12 +140,12 @@ contract Lending {
         Lending::at(context.this_address())._withdraw(AztecAddress::from_field(on_behalf_of), to, amount).enqueue(&mut context);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn withdraw_public(to: AztecAddress, amount: Field) {
         let _ = Lending::at(context.this_address())._withdraw(context.msg_sender(), to, amount).call(&mut context);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn _withdraw(owner: AztecAddress, recipient: AztecAddress, amount: Field) {
         let asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
@@ -188,12 +188,12 @@ contract Lending {
         let _ = Lending::at(context.this_address())._borrow(AztecAddress::from_field(on_behalf_of), to, amount).enqueue(&mut context);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn borrow_public(to: AztecAddress, amount: Field) {
         let _ = Lending::at(context.this_address())._borrow(context.msg_sender(), to, amount).call(&mut context);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn _borrow(owner: AztecAddress, to: AztecAddress, amount: Field) {
         let asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
@@ -240,13 +240,13 @@ contract Lending {
         let _ = Lending::at(context.this_address())._repay(AztecAddress::from_field(on_behalf_of), amount, stable_coin).enqueue(&mut context);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn repay_public(amount: Field, nonce: Field, owner: AztecAddress, stable_coin: AztecAddress) {
         let _ = Token::at(stable_coin).burn_public(context.msg_sender(), amount, nonce).call(&mut context);
         let _ = Lending::at(context.this_address())._repay(owner, amount, stable_coin).call(&mut context);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn _repay(owner: AztecAddress, amount: Field, stable_coin: AztecAddress) {
         let asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);

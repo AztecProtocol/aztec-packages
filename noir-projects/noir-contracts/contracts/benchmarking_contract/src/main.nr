@@ -37,7 +37,7 @@ contract Benchmarking {
     }
 
     // Reads and writes to public storage and enqueues a call to another public function.
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn increment_balance(owner: AztecAddress, value: Field) {
         let current = storage.balances.at(owner).read();
         storage.balances.at(owner).write(current + value);
@@ -45,7 +45,7 @@ contract Benchmarking {
     }
 
     // Emits a public log.
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn broadcast(owner: AztecAddress) {
         context.emit_unencrypted_log(storage.balances.at(owner).read());
     }

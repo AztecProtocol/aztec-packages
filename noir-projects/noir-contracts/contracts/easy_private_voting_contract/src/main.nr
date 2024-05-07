@@ -16,7 +16,7 @@ contract EasyPrivateVoting {
     // docs:end:storage_struct
 
     // docs:start:constructor
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(initializer)] // annotation to mark function as a constructor
     fn constructor(admin: AztecAddress) {
         storage.admin.write(admin);
@@ -35,7 +35,7 @@ contract EasyPrivateVoting {
     // docs:end:cast_vote
 
     // docs:start:add_to_tally_public
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn add_to_tally_public(candidate: Field) {
         assert(storage.vote_ended.read() == false, "Vote has ended"); // assert that vote has not ended
@@ -45,7 +45,7 @@ contract EasyPrivateVoting {
     // docs:end:add_to_tally_public
 
     // docs:start:end_vote
-    #[aztec(public)] 
+    #[aztec(public-vm)] 
     fn end_vote() {
         assert(storage.admin.read().eq(context.msg_sender()), "Only admin can end votes"); // assert that caller is admin
         storage.vote_ended.write(true);

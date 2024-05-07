@@ -11,14 +11,14 @@ contract PriceFeed {
         assets: Map<Field, PublicMutable<Asset>>,
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn set_price(asset_id: Field, price: Field) {
         let asset = storage.assets.at(asset_id);
         asset.write(Asset { price: U128::from_integer(price) });
     }
 
-    #[aztec(public)]
-    fn get_price(asset_id: Field) -> Asset {
+    #[aztec(public-vm)]
+    fn get_price(asset_id: Field) -> pub Asset {
         storage.assets.at(asset_id).read()
     }
 

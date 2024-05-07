@@ -11,12 +11,12 @@ contract Parent {
     }
 
     // Public function to directly call another public function to the target_contract using the selector and value provided
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn pub_entry_point(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
         init_value: Field
-    ) -> Field {
+    ) -> pub Field {
         context.call_public_function(
             target_contract,
             target_selector,
@@ -26,12 +26,12 @@ contract Parent {
     }
 
     // Same as pub_entry_point, but calls the target contract twice, using the return value from the first invocation as the argument for the second.
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn pub_entry_point_twice(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
         init_value: Field
-    ) -> Field {
+    ) -> pub Field {
         let return_value: Field = context.call_public_function(
             target_contract,
             target_selector,
@@ -183,12 +183,12 @@ contract Parent {
     }
 
     // Public function to directly call another public function to the target_contract using the selector and value provided
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn public_static_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
         args: [Field; 1]
-    ) -> Field {
+    ) -> pub Field {
         context.static_call_public_function(
             target_contract,
             target_selector,
@@ -198,12 +198,12 @@ contract Parent {
     }
 
     // Public function to set a static context and verify correct propagation for nested public calls
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn public_nested_static_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
         args: [Field; 1]
-    ) -> Field {
+    ) -> pub Field {
         // Call the target public function through the pub entrypoint statically
         let pub_entry_point_selector = FunctionSelector::from_signature("pub_entry_point((Field),(u32),Field)");
         let this_address = context.this_address();

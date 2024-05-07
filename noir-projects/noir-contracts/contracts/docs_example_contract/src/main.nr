@@ -92,7 +92,7 @@ contract DocsExample {
         }
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn initialize_shared_immutable(points: u8) {
         let mut new_leader = Leader { account: context.msg_sender(), points };
         storage.shared_immutable.initialize(new_leader);
@@ -118,7 +118,7 @@ contract DocsExample {
         leader
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn get_shared_immutable_constrained_public_indirect() -> pub Leader {
         // This is a public function that calls another public function
         // and returns the response.
@@ -129,12 +129,12 @@ contract DocsExample {
         leader
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn get_shared_immutable_constrained_public() -> pub Leader {
         storage.shared_immutable.read_public()
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn get_shared_immutable_constrained_public_multiple() -> pub [Leader; 5] {
         let a = storage.shared_immutable.read_public();
         [a, a, a, a, a]
@@ -149,7 +149,7 @@ contract DocsExample {
         storage.shared_immutable.read_public()
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn initialize_public_immutable(points: u8) {
         // docs:start:initialize_public_immutable
         let mut new_leader = Leader { account: context.msg_sender(), points };
@@ -239,12 +239,12 @@ contract DocsExample {
         1
     }
 
-    #[aztec(public)]
-    fn spend_public_authwit(inner_hash: Field) -> Field {
+    #[aztec(public-vm)]
+    fn spend_public_authwit(inner_hash: Field) -> pub Field {
         1
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn update_leader(account: AztecAddress, points: u8) {
         let new_leader = Leader { account, points };

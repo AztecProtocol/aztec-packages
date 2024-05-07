@@ -15,7 +15,7 @@ contract Claim {
       reward_token: SharedImmutable<AztecAddress>,
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(initializer)]
     fn constructor(target_contract: AztecAddress, reward_token: AztecAddress) {
         storage.target_contract.initialize(target_contract);

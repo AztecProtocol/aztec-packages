@@ -16,7 +16,7 @@ contract Auth {
         // docs:end:shared_mutable_storage
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(initializer)]
     fn constructor(admin: AztecAddress) {
         assert(!admin.is_zero(), "invalid admin");
@@ -26,22 +26,22 @@ contract Auth {
     }
 
     // docs:start:shared_mutable_schedule
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn set_authorized(authorized: AztecAddress) {
         assert_eq(storage.admin.read(), context.msg_sender(), "caller is not admin");
         storage.authorized.schedule_value_change(authorized);
         // docs:end:shared_mutable_schedule
     }
 
-    #[aztec(public)]
-    fn get_authorized() -> AztecAddress {
+    #[aztec(public-vm)]
+    fn get_authorized() -> pub AztecAddress {
         // docs:start:shared_mutable_get_current_public
         storage.authorized.get_current_value_in_public()
         // docs:end:shared_mutable_get_current_public
     }
 
-    #[aztec(public)]
-    fn get_scheduled_authorized() -> AztecAddress {
+    #[aztec(public-vm)]
+    fn get_scheduled_authorized() -> pub AztecAddress {
         // docs:start:shared_mutable_get_scheduled_public
         let (scheduled_value, _block_of_change): (AztecAddress, u32) = storage.authorized.get_scheduled_value_in_public();
         // docs:end:shared_mutable_get_scheduled_public

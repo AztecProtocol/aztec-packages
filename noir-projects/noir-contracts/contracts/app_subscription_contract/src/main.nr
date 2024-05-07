@@ -58,7 +58,7 @@ contract AppSubscription {
         payload.execute_calls(&mut context, storage.target_address.read_private());
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(initializer)]
     fn constructor(
         target_address: AztecAddress,
@@ -76,13 +76,13 @@ contract AppSubscription {
         storage.gas_token_limit_per_tx.initialize(gas_token_limit_per_tx);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn assert_not_expired(expiry_block_number: Field) {
         assert((context.block_number()) as u64 < expiry_block_number as u64);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn assert_block_number(expiry_block_number: Field) {
         assert(

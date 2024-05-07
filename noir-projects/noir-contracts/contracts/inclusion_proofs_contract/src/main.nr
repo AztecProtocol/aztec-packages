@@ -33,7 +33,7 @@ contract InclusionProofs {
         public_unused_value: PublicMutable<Field>,
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(initializer)]
     fn constructor(public_value: Field) {
         storage.public_value.write(public_value);
@@ -198,13 +198,13 @@ contract InclusionProofs {
         }
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn push_nullifier_public(nullifier: Field) {
         context.push_new_nullifier(nullifier, 0);
     }
 
     // Proves nullifier existed at latest block
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn test_nullifier_inclusion_from_public(nullifier: Field) {
         assert(context.nullifier_exists(nullifier, context.this_address()));
     }

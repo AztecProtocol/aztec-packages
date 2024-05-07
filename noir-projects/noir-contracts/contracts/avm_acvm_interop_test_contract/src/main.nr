@@ -17,7 +17,7 @@ contract AvmAcvmInteropTest {
     /************************************************************************
      * ACVM interoperability
      ************************************************************************/
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn constant_field_acvm() -> pub Field {
         123456
     }
@@ -27,12 +27,12 @@ contract AvmAcvmInteropTest {
         123456
     }
 
-    #[aztec(public)]
-    fn new_nullifier_acvm(nullifier: Field) -> pub Field {
+    #[aztec(public-vm)]
+    fn new_nullifier_acvm(nullifier: Field) {
         context.push_new_nullifier(nullifier, 0);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn assert_unsiloed_nullifier_acvm(unsiloed_nullifier: Field) {
         assert(context.nullifier_exists(unsiloed_nullifier, context.this_address()));
     }
@@ -47,7 +47,7 @@ contract AvmAcvmInteropTest {
         ).deserialize_into()
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn call_avm_from_acvm() -> pub Field {
         context.call_public_function(
             context.this_address(),

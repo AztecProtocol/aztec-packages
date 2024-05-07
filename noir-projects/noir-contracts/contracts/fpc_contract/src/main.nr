@@ -11,7 +11,7 @@ contract FPC {
         gas_token_address: SharedImmutable<AztecAddress>,
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(initializer)]
     fn constructor(other_asset: AztecAddress, gas_token_address: AztecAddress) {
         storage.other_asset.initialize(other_asset);
@@ -31,13 +31,13 @@ contract FPC {
         FPC::at(context.this_address()).pay_fee(context.msg_sender(), amount, asset).enqueue(&mut context);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn prepare_fee(from: AztecAddress, amount: Field, asset: AztecAddress, nonce: Field) {
         Token::at(asset).transfer_public(from, context.this_address(), amount, nonce).call(&mut context);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn pay_fee(refund_address: AztecAddress, amount: Field, asset: AztecAddress) {
         let refund = GasToken::at(storage.gas_token_address.read_public()).pay_fee(amount).call(&mut context);
@@ -45,7 +45,7 @@ contract FPC {
         Token::at(asset).transfer_public(context.this_address(), refund_address, refund, 0).call(&mut context);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn pay_fee_with_shielded_rebate(amount: Field, asset: AztecAddress, secret_hash: Field) {
         let refund = GasToken::at(storage.gas_token_address.read_public()).pay_fee(amount).call(&mut context);

@@ -29,8 +29,8 @@ contract Child {
     }
 
     // Returns base_value + chain_id + version + block_number + timestamp
-    #[aztec(public)]
-    fn pub_get_value(base_value: Field) -> Field {
+    #[aztec(public-vm)]
+    fn pub_get_value(base_value: Field) -> pub Field {
         let return_value = base_value
             + context.chain_id()
             + context.version()
@@ -41,8 +41,8 @@ contract Child {
     }
 
     // Sets `current_value` to `new_value`
-    #[aztec(public)]
-    fn pub_set_value(new_value: Field) -> Field {
+    #[aztec(public-vm)]
+    fn pub_set_value(new_value: Field) -> pub Field {
         storage.current_value.write(new_value);
         context.emit_unencrypted_log(new_value);
 
@@ -69,8 +69,8 @@ contract Child {
     }
 
     // Increments `current_value` by `new_value`
-    #[aztec(public)]
-    fn pub_inc_value(new_value: Field) -> Field {
+    #[aztec(public-vm)]
+    fn pub_inc_value(new_value: Field) -> pub Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
         context.emit_unencrypted_log(new_value);
@@ -79,9 +79,9 @@ contract Child {
     }
 
     // Increments `current_value` by `new_value`. Can only be called from this contract.
-    #[aztec(public)] 
+    #[aztec(public-vm)] 
     #[aztec(internal)]
-    fn pub_inc_value_internal(new_value: Field) -> Field {
+    fn pub_inc_value_internal(new_value: Field) -> pub Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
         context.emit_unencrypted_log(new_value);
@@ -89,21 +89,21 @@ contract Child {
         new_value
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn set_value_twice_with_nested_first() {
         let _result = Child::at(context.this_address()).pub_set_value(10).call(&mut context);
         storage.current_value.write(20);
         context.emit_unencrypted_log(20);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn set_value_twice_with_nested_last() {
         storage.current_value.write(20);
         context.emit_unencrypted_log(20);
         let _result = Child::at(context.this_address()).pub_set_value(10).call(&mut context);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     // TODO(6052): The logs emitted are currently in the wrong order as we don't update
     // counters for nested public calls
     fn set_value_with_two_nested_calls() {

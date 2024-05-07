@@ -57,7 +57,7 @@ contract Benchmarking {
     }
 
     // Ultrices in iaculis nunc sed augue lacus.
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn increment_balance(owner: Field, value: Field) {
         let current = storage.balances.at(owner).read();
         storage.balances.at(owner).write(current + value);
@@ -69,7 +69,7 @@ contract Benchmarking {
     }
 
     // Est ultricies integer quis auctor elit sed. In nibh mauris cursus mattis molestie a iaculis.
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn broadcast(owner: Field) {
         emit_unencrypted_log(&mut context, storage.balances.at(owner).read());
     }

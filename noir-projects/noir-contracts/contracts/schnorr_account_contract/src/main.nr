@@ -59,9 +59,9 @@ contract SchnorrAccount {
         actions.spend_private_authwit(inner_hash)
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(noinitcheck)]
-    fn spend_public_authwit(inner_hash: Field) -> Field {
+    fn spend_public_authwit(inner_hash: Field) -> pub Field {
         let actions = AccountActions::public(
             &mut context,
             storage.approved_actions.storage_slot,
@@ -76,7 +76,7 @@ contract SchnorrAccount {
         context.push_new_nullifier(outer_hash, 0);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     #[aztec(noinitcheck)]
     fn approve_public_authwit(outer_hash: Field) {

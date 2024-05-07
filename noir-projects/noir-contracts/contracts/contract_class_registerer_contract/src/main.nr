@@ -76,17 +76,17 @@ contract ContractClassRegisterer {
             artifact_function_tree_leaf_index,
             function: function_data
         };
-        dep::aztec::oracle::debug_log::debug_log_array_with_prefix(
-            "ClassPrivateFunctionBroadcasted",
-            [
-            contract_class_id.to_field(),
-            artifact_metadata_hash,
-            unconstrained_functions_artifact_tree_root,
-            function_data.selector.to_field(),
-            function_data.vk_hash,
-            function_data.metadata_hash
-        ]
-        );
+        //dep::aztec::oracle::debug_log::debug_log_array_with_prefix(
+        //    "ClassPrivateFunctionBroadcasted",
+        //    [
+        //    contract_class_id.to_field(),
+        //    artifact_metadata_hash,
+        //    unconstrained_functions_artifact_tree_root,
+        //    function_data.selector.to_field(),
+        //    function_data.vk_hash,
+        //    function_data.metadata_hash
+        //]
+        //);
         context.emit_contract_class_unencrypted_log(event.serialize());
     }
 

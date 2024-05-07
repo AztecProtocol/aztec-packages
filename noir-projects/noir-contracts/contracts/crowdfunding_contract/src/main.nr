@@ -40,7 +40,7 @@ contract Crowdfunding {
     // docs:start:init
     // docs:start:init-header
     // docs:start:init-header-error
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(initializer)]
     // this-will-error:init-header-error
     fn init(donation_token: AztecAddress, operator: AztecAddress, deadline: u64) {
@@ -54,7 +54,7 @@ contract Crowdfunding {
 
     // docs:start:deadline
     // docs:start:deadline-header
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn _check_deadline() {
         // docs:end:deadline-header

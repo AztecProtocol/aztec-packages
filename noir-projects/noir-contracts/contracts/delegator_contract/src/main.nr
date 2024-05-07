@@ -25,8 +25,8 @@ contract Delegator {
         DelegatedOn::at(target_contract).public_set_value(value).delegate_enqueue(&mut context)
     }
 
-    #[aztec(public)]
-    fn public_delegate_set_value(target_contract: AztecAddress, value: Field) -> Field {
+    #[aztec(public-vm)]
+    fn public_delegate_set_value(target_contract: AztecAddress, value: Field) -> pub Field {
         DelegatedOn::at(target_contract).public_set_value(value).delegate_call(&mut context)
     }
 

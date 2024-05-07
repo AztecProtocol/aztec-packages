@@ -22,7 +22,7 @@ contract TokenBridge {
     }
 
     // Constructs the contract.
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(initializer)]
     fn constructor(token: AztecAddress, portal_address: EthAddress) {
         storage.token.write(token);
@@ -35,14 +35,14 @@ contract TokenBridge {
         storage.portal_address.read_private()
     }
 
-    #[aztec(public)]
-    fn get_portal_address_public() -> EthAddress {
+    #[aztec(public-vm)]
+    fn get_portal_address_public() -> pub EthAddress {
         storage.portal_address.read_public()
     }
 
     // docs:start:claim_public
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn claim_public(to: AztecAddress, amount: Field, secret: Field, message_leaf_index: Field) {
         let content_hash = get_mint_public_content_hash(to, amount);
 
@@ -62,7 +62,7 @@ contract TokenBridge {
     // docs:start:exit_to_l1_public
     // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message publicly
     // Requires `msg.sender` to give approval to the bridge to burn tokens on their behalf using witness signatures
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn exit_to_l1_public(
         recipient: EthAddress, // ethereum address to withdraw to
         amount: Field,
@@ -138,8 +138,8 @@ contract TokenBridge {
     // View function that is callable by other contracts.
     // Unconstrained can't be called by others since it isn't safe.
     // docs:start:get_token
-    #[aztec(public)]
-    fn get_token() -> AztecAddress {
+    #[aztec(public-vm)]
+    fn get_token() -> pub AztecAddress {
         storage.token.read()
     }
     // docs:end:get_token
@@ -156,7 +156,7 @@ contract TokenBridge {
     // This is a public call as we need to read from public storage.
     // Also, note that user hashes their secret in private and only sends the hash in public
     // meaning only user can `redeem_shield` at a later time with their secret.
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn _call_mint_on_token(amount: Field, secret_hash: Field) {
         Token::at(storage.token.read()).mint_private(amount, secret_hash).call(&mut context);
@@ -164,7 +164,7 @@ contract TokenBridge {
     // docs:end:call_mint_on_token
 
     // docs:start:assert_token_is_same
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn _assert_token_is_same(token: AztecAddress) {
         assert(storage.token.read().eq(token), "Token address is not the same as seen in storage");

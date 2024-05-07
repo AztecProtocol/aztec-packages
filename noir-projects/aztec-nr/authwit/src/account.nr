@@ -1,4 +1,4 @@
-use dep::aztec::context::{PrivateContext, PublicContext, Context};
+use dep::aztec::context::{AvmContext, PrivateContext, PublicContext, Context};
 use dep::aztec::state_vars::{Map, PublicMutable};
 use dep::aztec::protocol_types::{address::AztecAddress, abis::function_selector::FunctionSelector, hash::pedersen_hash};
 
@@ -43,12 +43,24 @@ impl AccountActions {
     }
 
     pub fn public(
-        context: &mut PublicContext,
+        context: &mut AvmContext,
         approved_action_storage_slot: Field,
         is_valid_impl: fn(&mut PrivateContext, Field) -> bool
     ) -> Self {
         AccountActions::init(
-            Context::public(context),
+            Context::avm(context),
+            approved_action_storage_slot,
+            is_valid_impl
+        )
+    }
+
+    pub fn avm(
+        context: &mut AvmContext,
+        approved_action_storage_slot: Field,
+        is_valid_impl: fn(&mut PrivateContext, Field) -> bool
+    ) -> Self {
+        AccountActions::init(
+            Context::avm(context),
             approved_action_storage_slot,
             is_valid_impl
         )

@@ -3,6 +3,7 @@ use dep::protocol_types::{
     traits::Deserialize
 };
 
+use crate::hash::hash_args;
 use crate::context::private_context::PrivateContext;
 use crate::context::public_context::PublicContext;
 use crate::context::avm_context::AvmContext;
@@ -212,23 +213,53 @@ struct AvmCallInterface<T> {
 }
 
 impl<T> AvmCallInterface<T> {
-    pub fn call<N>(self, context: &mut AvmContext, gas_opts: GasOpts) -> T where T: Deserialize<N> {
-        let returns = context.call_public_function(self.target_contract, self.selector, self.args, gas_opts);
+    pub fn call<N>(self, context: &mut AvmContext) -> T where T: Deserialize<N> {
+        let returns = context.call_public_function(
+            self.target_contract,
+            self.selector,
+            self.args,
+            GasOpts::default()
+        );
         returns.deserialize_into()
     }
 
-    pub fn static_call<N>(
+    pub fn call_with_gas<N>(
         self,
         context: &mut AvmContext,
         gas_opts: GasOpts
     ) -> T where T: Deserialize<N> {
-        let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, gas_opts);
+        let returns = context.call_public_function(self.target_contract, self.selector, self.args, gas_opts);
+        returns.deserialize_into()
+    }
+
+    pub fn static_call<N>(self, context: &mut AvmContext) -> T where T: Deserialize<N> {
+        let returns = context.static_call_public_function(
+            self.target_contract,
+            self.selector,
+            self.args,
+            GasOpts::default()
+        );
         returns.deserialize_into()
     }
 
     pub fn delegate_call<N>(self, context: &mut AvmContext) -> T where T: Deserialize<N> {
         let returns = context.delegate_call_public_function(self.target_contract, self.selector, self.args);
         returns.deserialize_into()
+    }
+
+    pub fn enqueue(self, context: &mut PrivateContext) {
+        let args_hash = hash_args(self.args);
+        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, false, false)
+    }
+
+    pub fn static_enqueue(self, context: &mut PrivateContext) {
+        let args_hash = hash_args(self.args);
+        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, true, false)
+    }
+
+    pub fn delegate_enqueue(self, context: &mut PrivateContext) {
+        let args_hash = hash_args(self.args);
+        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, false, true)
     }
 }
 
@@ -239,18 +270,48 @@ struct AvmVoidCallInterface {
 }
 
 impl AvmVoidCallInterface {
-    pub fn call<N>(self, context: &mut AvmContext, gas_opts: GasOpts) {
+    pub fn call<N>(self, context: &mut AvmContext) {
+        let returns = context.call_public_function(
+            self.target_contract,
+            self.selector,
+            self.args,
+            GasOpts::default()
+        );
+        returns.assert_empty()
+    }
+
+    pub fn call_with_gas<N>(self, context: &mut AvmContext, gas_opts: GasOpts) {
         let returns = context.call_public_function(self.target_contract, self.selector, self.args, gas_opts);
         returns.assert_empty()
     }
 
-    pub fn static_call<N>(self, context: &mut AvmContext, gas_opts: GasOpts) {
-        let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, gas_opts);
+    pub fn static_call<N>(self, context: &mut AvmContext) {
+        let returns = context.static_call_public_function(
+            self.target_contract,
+            self.selector,
+            self.args,
+            GasOpts::default()
+        );
         returns.assert_empty()
     }
 
     pub fn delegate_call<N>(self, context: &mut AvmContext) {
         let returns = context.delegate_call_public_function(self.target_contract, self.selector, self.args);
         returns.assert_empty()
+    }
+
+    pub fn enqueue(self, context: &mut PrivateContext) {
+        let args_hash = hash_args(self.args);
+        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, false, false)
+    }
+
+    pub fn static_enqueue(self, context: &mut PrivateContext) {
+        let args_hash = hash_args(self.args);
+        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, true, false)
+    }
+
+    pub fn delegate_enqueue(self, context: &mut PrivateContext) {
+        let args_hash = hash_args(self.args);
+        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, false, true)
     }
 }

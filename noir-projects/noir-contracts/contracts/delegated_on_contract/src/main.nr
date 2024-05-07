@@ -19,8 +19,8 @@ contract DelegatedOn {
         new_value
     }
 
-    #[aztec(public)]
-    fn public_set_value(new_value: Field) -> Field {
+    #[aztec(public-vm)]
+    fn public_set_value(new_value: Field) -> pub Field {
         storage.current_value.write(new_value);
         new_value
     }

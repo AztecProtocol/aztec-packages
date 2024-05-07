@@ -52,7 +52,7 @@ contract Token {
     // docs:end:storage_struct
 
     // docs:start:constructor
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(initializer)]
     fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {
         assert(!admin.is_zero(), "invalid admin");
@@ -67,7 +67,7 @@ contract Token {
     // docs:end:constructor
 
     // docs:start:set_admin
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn set_admin(new_admin: AztecAddress) {
         assert(storage.admin.read().eq(context.msg_sender()), "caller is not admin");
         // docs:start:write_admin
@@ -76,7 +76,7 @@ contract Token {
     }
     // docs:end:set_admin
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn public_get_name() -> pub FieldCompressedString {
         storage.name.read_public()
     }
@@ -90,7 +90,7 @@ contract Token {
         storage.name.read_public().to_bytes()
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn public_get_symbol() -> pub FieldCompressedString {
         storage.symbol.read_public()
     }
@@ -104,7 +104,7 @@ contract Token {
         storage.symbol.read_public().to_bytes()
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn public_get_decimals() -> pub u8 {
         // docs:start:read_decimals_public
         storage.decimals.read_public()
@@ -123,7 +123,7 @@ contract Token {
     }
 
     // docs:start:set_minter
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn set_minter(minter: AztecAddress, approve: bool) {
         // docs:start:read_admin
         assert(storage.admin.read().eq(context.msg_sender()), "caller is not admin");
@@ -135,7 +135,7 @@ contract Token {
     // docs:end:set_minter
 
     // docs:start:mint_public
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn mint_public(to: AztecAddress, amount: Field) {
         // docs:start:read_minter
         assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
@@ -150,7 +150,7 @@ contract Token {
     // docs:end:mint_public
 
     // docs:start:mint_private
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn mint_private(amount: Field, secret_hash: Field) {
         assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
         let pending_shields = storage.pending_shields;
@@ -170,7 +170,7 @@ contract Token {
         Token::at(context.this_address()).assert_minter_and_mint(context.msg_sender(), amount).enqueue(&mut context);
     }
 
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn assert_minter_and_mint(minter: AztecAddress, amount: Field) {
         assert(storage.minters.at(minter).read(), "caller is not minter");
@@ -179,7 +179,7 @@ contract Token {
     }
 
     // docs:start:shield
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn shield(from: AztecAddress, amount: Field, secret_hash: Field, nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             // The redeem is only spendable once, so we need to ensure that you cannot insert multiple shields from the same message.
@@ -200,7 +200,7 @@ contract Token {
     // docs:end:shield
 
     // docs:start:transfer_public
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn transfer_public(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, from);
@@ -218,7 +218,7 @@ contract Token {
     // docs:end:transfer_public
 
     // docs:start:burn_public
-    #[aztec(public)]
+    #[aztec(public-vm)]
     fn burn_public(from: AztecAddress, amount: Field, nonce: Field) {
         // docs:start:assert_current_call_valid_authwit_public
         if (!from.eq(context.msg_sender())) {
@@ -312,7 +312,7 @@ contract Token {
     /// Internal ///
 
     // docs:start:increase_public_balance
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn _increase_public_balance(to: AztecAddress, amount: Field) {
         let new_balance = storage.public_balances.at(to).read().add(U128::from_integer(amount));
@@ -321,7 +321,7 @@ contract Token {
     // docs:end:increase_public_balance
 
     // docs:start:reduce_total_supply
-    #[aztec(public)]
+    #[aztec(public-vm)]
     #[aztec(internal)]
     fn _reduce_total_supply(amount: Field) {
         // Only to be called from burn.
