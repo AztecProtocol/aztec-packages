@@ -1,4 +1,3 @@
-use crate::println;
 
 #[foreign(aes128_encrypt)]
 // docs:start:aes128
