@@ -1,6 +1,6 @@
 use crate::{
     address::{AztecAddress, EthAddress},
-    constants::{L2_TO_L1_MESSAGE_LENGTH, SCOPED_L2_TO_L1_MESSAGE_LENGTH},
+    constants::{L2_TO_L1_MESSAGE_LENGTH, SCOPED_L2_TO_L1_MESSAGE_LENGTH}, abis::side_effect::Ordered,
     traits::{Deserialize, Empty, Serialize}, utils::{arrays::array_concat, reader::Reader}
 };
 
@@ -45,18 +45,24 @@ impl Deserialize<L2_TO_L1_MESSAGE_LENGTH> for L2ToL1Message {
 
 impl L2ToL1Message {
     pub fn scope(self, contract_address: AztecAddress) -> ScopedL2ToL1Message {
-        ScopedL2ToL1Message { value: self, contract_address }
+        ScopedL2ToL1Message { message: self, contract_address }
     }
 }
 
 struct ScopedL2ToL1Message {
-    value: L2ToL1Message,
+    message: L2ToL1Message,
     contract_address: AztecAddress,
+}
+
+impl Ordered for ScopedL2ToL1Message {
+    fn counter(self) -> u32 {
+        self.message.counter
+    }
 }
 
 impl Eq for ScopedL2ToL1Message {
     fn eq(self, other: ScopedL2ToL1Message) -> bool {
-        (self.value == other.value)
+        (self.message == other.message)
             & (self.contract_address == other.contract_address) 
     }
 }
@@ -64,7 +70,7 @@ impl Eq for ScopedL2ToL1Message {
 impl Empty for ScopedL2ToL1Message {
     fn empty() -> Self {
         ScopedL2ToL1Message {
-            value: L2ToL1Message::empty(),
+            message: L2ToL1Message::empty(),
             contract_address: AztecAddress::empty(),
         }
     }
@@ -72,7 +78,7 @@ impl Empty for ScopedL2ToL1Message {
 
 impl Serialize<SCOPED_L2_TO_L1_MESSAGE_LENGTH> for ScopedL2ToL1Message {
     fn serialize(self) -> [Field; SCOPED_L2_TO_L1_MESSAGE_LENGTH] {
-        array_concat(self.value.serialize(), [self.contract_address.to_field()])
+        array_concat(self.message.serialize(), [self.contract_address.to_field()])
     }
 }
 
@@ -80,7 +86,7 @@ impl Deserialize<SCOPED_L2_TO_L1_MESSAGE_LENGTH> for ScopedL2ToL1Message {
     fn deserialize(values: [Field; SCOPED_L2_TO_L1_MESSAGE_LENGTH]) -> Self {
         let mut reader = Reader::new(values);
         let res = Self {
-            value: reader.read_struct(L2ToL1Message::deserialize),
+            message: reader.read_struct(L2ToL1Message::deserialize),
             contract_address: reader.read_struct(AztecAddress::deserialize),
         };
         reader.finish();

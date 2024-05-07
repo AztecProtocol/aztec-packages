@@ -166,9 +166,9 @@ impl KernelCircuitPublicInputsComposer {
                     msg.contract_address,
                     tx_context.version,
                     tx_context.chain_id,
-                    msg.value
+                    msg.message
                 );
-                self.public_inputs.end.new_l2_to_l1_msgs.storage[i].value.content = siloed;
+                self.public_inputs.end.new_l2_to_l1_msgs.storage[i].message.content = siloed;
             }
         }
     }

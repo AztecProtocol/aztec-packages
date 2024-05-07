@@ -147,7 +147,7 @@ impl FixtureBuilder {
             new_nullifiers: self.new_nullifiers.storage.map(
                 |n: NullifierContext| Nullifier { value: n.value, counter: n.counter, note_hash: n.note_hash }
             ),
-            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.value.content),
+            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
@@ -162,7 +162,7 @@ impl FixtureBuilder {
         CombinedAccumulatedData {
             new_note_hashes: self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value),
             new_nullifiers: self.new_nullifiers.storage.map(|n: NullifierContext| n.value),
-            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.value.content),
+            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
             encrypted_logs_hash: self.encrypted_logs_hash,
             unencrypted_logs_hash: self.unencrypted_logs_hash,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
@@ -302,10 +302,7 @@ impl FixtureBuilder {
 
     pub fn add_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
         self.new_l2_to_l1_msgs.push(
-            ScopedL2ToL1Message {
-            value: L2ToL1Message { recipient, content, counter: self.next_counter() },
-            contract_address: self.storage_contract_address
-        }
+            L2ToL1Message { recipient, content, counter: self.next_counter() }.scope(self.storage_contract_address)
         );
     }
 

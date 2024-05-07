@@ -79,18 +79,18 @@ export class L2ToL1Message {
 }
 
 export class ScopedL2ToL1Message {
-  constructor(public value: L2ToL1Message, public contractAddress: AztecAddress) {}
+  constructor(public message: L2ToL1Message, public contractAddress: AztecAddress) {}
 
   static empty() {
     return new ScopedL2ToL1Message(L2ToL1Message.empty(), AztecAddress.ZERO);
   }
 
   equals(other: ScopedL2ToL1Message): boolean {
-    return this.value.equals(other.value) && this.contractAddress.equals(other.contractAddress);
+    return this.message.equals(other.message) && this.contractAddress.equals(other.contractAddress);
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer(this.value, this.contractAddress);
+    return serializeToBuffer(this.message, this.contractAddress);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
@@ -99,6 +99,6 @@ export class ScopedL2ToL1Message {
   }
 
   isEmpty(): boolean {
-    return this.value.isEmpty() && this.contractAddress.isZero();
+    return this.message.isEmpty() && this.contractAddress.isZero();
   }
 }

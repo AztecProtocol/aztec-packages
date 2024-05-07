@@ -65,7 +65,7 @@ impl PrivateAccumulatedDataBuilder {
         CombinedAccumulatedData {
             new_note_hashes: self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value),
             new_nullifiers: self.new_nullifiers.storage.map(|n: NullifierContext| n.value),
-            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.value.content),
+            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
             encrypted_logs_hash,
             unencrypted_logs_hash,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
@@ -155,10 +155,10 @@ impl PrivateAccumulatedDataBuilder {
 
         for i in 0..MAX_NEW_L2_TO_L1_MSGS_PER_TX {
             let msg = self.new_l2_to_l1_msgs.storage[i];
-            if msg.value.counter < min_revertible_side_effect_counter {
-                non_revertible_builder.new_l2_to_l1_msgs.push(msg.value.content);
+            if msg.counter() < min_revertible_side_effect_counter {
+                non_revertible_builder.new_l2_to_l1_msgs.push(msg.message.content);
             } else {
-                revertible_builder.new_l2_to_l1_msgs.push(msg.value.content);
+                revertible_builder.new_l2_to_l1_msgs.push(msg.message.content);
             }
         }
 

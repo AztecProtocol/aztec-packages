@@ -758,14 +758,14 @@ function mapL2ToL1MessageFromNoir(message: L2ToL1MessageNoir) {
 
 function mapScopedL2ToL1MessageFromNoir(message: ScopedL2ToL1MessageNoir) {
   return new ScopedL2ToL1Message(
-    mapL2ToL1MessageFromNoir(message.value),
+    mapL2ToL1MessageFromNoir(message.message),
     mapAztecAddressFromNoir(message.contract_address),
   );
 }
 
 function mapScopedL2ToL1MessageToNoir(message: ScopedL2ToL1Message): ScopedL2ToL1MessageNoir {
   return {
-    value: mapL2ToL1MessageToNoir(message.value),
+    message: mapL2ToL1MessageToNoir(message.message),
     contract_address: mapAztecAddressToNoir(message.contractAddress),
   };
 }
