@@ -437,15 +437,13 @@ jobs:
     if: always()
     steps:
       - run: |
-          converted=${{ toJSON(needs) }}
-          echo $converted
           failed=${{ contains(needs.*.result, 'failure') }}
           if $failed
           then
             echo "At least one job failed, merging not allowed."
             exit 1
           fi
-          echo "Pull request merge allowed."
+          echo "All jobs succeeded, merge allowed."
 
   notify:
     needs:
