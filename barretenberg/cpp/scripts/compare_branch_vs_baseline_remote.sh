@@ -35,7 +35,8 @@ echo -e "\nRunning benchmark in feature branch.."
 
 scp $BB_SSH_KEY $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build/results_after.json $BUILD_DIR/
 
-# Run benchmark in $BASELINE branch
+# Run benchmark in baseline branch
+git checkout $BASELINE_BRANCH
 echo -e "\nRunning benchmark in feature branch.."
 ./scripts/benchmark_remote.sh $BENCHMARK\
                               "./$BENCHMARK --benchmark_filter=$FILTER\
