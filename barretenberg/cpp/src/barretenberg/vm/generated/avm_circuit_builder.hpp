@@ -13,7 +13,6 @@
 
 #include "barretenberg/relations/generated/avm/avm_alu.hpp"
 #include "barretenberg/relations/generated/avm/avm_binary.hpp"
-#include "barretenberg/relations/generated/avm/avm_kernel.hpp"
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
 #include "barretenberg/relations/generated/avm/avm_mem.hpp"
 #include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
@@ -726,10 +725,6 @@ class AvmCircuitBuilder {
         }
         if (!evaluate_relation.template operator()<Avm_vm::avm_binary<FF>>("avm_binary",
                                                                            Avm_vm::get_relation_label_avm_binary)) {
-            return false;
-        }
-        if (!evaluate_relation.template operator()<Avm_vm::avm_kernel<FF>>("avm_kernel",
-                                                                           Avm_vm::get_relation_label_avm_kernel)) {
             return false;
         }
         if (!evaluate_relation.template operator()<Avm_vm::avm_main<FF>>("avm_main",

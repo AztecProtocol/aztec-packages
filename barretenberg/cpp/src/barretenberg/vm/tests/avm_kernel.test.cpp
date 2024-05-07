@@ -156,24 +156,6 @@ TEST_F(AvmKernelPositiveTests, kernelFeePerDa)
     test_kernel_lookup(apply_opcodes, checks);
 }
 
-TEST_F(AvmKernelPositiveTests, kernelFeePerL1)
-{
-    uint32_t dst_offset = 42;
-    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_fee_per_l1_gas(dst_offset); };
-    auto checks = [=](const std::vector<Row>& trace) {
-        std::vector<Row>::const_iterator fee_row = std::ranges::find_if(
-            trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fee_per_l1_gas == FF(1); });
-        EXPECT_TRUE(fee_row != trace.end());
-
-        expect_row(fee_row,
-                   /*kernel_sel=*/FEE_PER_L1_GAS_SELECTOR,
-                   /*ia=*/FEE_PER_L1_GAS_SELECTOR +
-                       1, // Note the value generated above for public inputs is the same as the index read + 1
-                   /*mem_idx_a*/ dst_offset);
-    };
-    test_kernel_lookup(apply_opcodes, checks);
-}
-
 TEST_F(AvmKernelPositiveTests, kernelFeePerL2)
 {
     uint32_t dst_offset = 42;
@@ -327,28 +309,6 @@ TEST_F(AvmKernelNegativeTests, incorrectIaDaGas)
         expect_row(
             sender_row,
             /*kernel_sel=*/FEE_PER_DA_GAS_SELECTOR,
-            /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a*/ dst_offset);
-    };
-
-    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
-}
-
-TEST_F(AvmKernelNegativeTests, incorrectIaD1Gas)
-{
-    uint32_t dst_offset = 42;
-    FF incorrect_ia = FF(69);
-
-    // We test that the sender opcode is inlcuded at index x in the public inputs
-    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_fee_per_l1_gas(dst_offset); };
-    auto checks = [=](const std::vector<Row>& trace) {
-        std::vector<Row>::const_iterator sender_row = std::ranges::find_if(
-            trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fee_per_l1_gas == FF(1); });
-        EXPECT_TRUE(sender_row != trace.end());
-
-        expect_row(
-            sender_row,
-            /*kernel_sel=*/FEE_PER_L1_GAS_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a*/ dst_offset);
     };

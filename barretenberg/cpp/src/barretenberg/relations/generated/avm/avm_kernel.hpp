@@ -36,9 +36,6 @@ inline std::string get_relation_label_avm_kernel(int index)
         return "FEE_DA_GAS_KERNEL";
 
     case 5:
-        return "FEE_L1_GAS_KERNEL";
-
-    case 6:
         return "FEE_L2_GAS_KERNEL";
     }
     return std::to_string(index);

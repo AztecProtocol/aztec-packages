@@ -53,11 +53,6 @@ FF AvmKernelTraceBuilder::op_fee_per_da_gas()
     return perform_kernel_lookup(FEE_PER_DA_GAS_SELECTOR);
 }
 
-FF AvmKernelTraceBuilder::op_fee_per_l1_gas()
-{
-    return perform_kernel_lookup(FEE_PER_L1_GAS_SELECTOR);
-}
-
 FF AvmKernelTraceBuilder::op_fee_per_l2_gas()
 {
     return perform_kernel_lookup(FEE_PER_L2_GAS_SELECTOR);

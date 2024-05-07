@@ -86,7 +86,6 @@ class AvmTraceBuilder {
     void op_portal(uint32_t dst_offset);
     void op_function(uint32_t dst_offset);
     void op_fee_per_da_gas(uint32_t dst_offset);
-    void op_fee_per_l1_gas(uint32_t dst_offset);
     void op_fee_per_l2_gas(uint32_t dst_offset);
     // Cast an element pointed by the address a_offset into type specified by dst_tag and
     // store the result in address given by dst_offset.

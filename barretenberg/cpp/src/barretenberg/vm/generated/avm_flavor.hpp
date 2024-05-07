@@ -15,7 +15,6 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/relations/generated/avm/avm_alu.hpp"
 #include "barretenberg/relations/generated/avm/avm_binary.hpp"
-#include "barretenberg/relations/generated/avm/avm_kernel.hpp"
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
 #include "barretenberg/relations/generated/avm/avm_mem.hpp"
 #include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
@@ -120,7 +119,6 @@ class AvmFlavor {
 
     using Relations = std::tuple<Avm_vm::avm_alu<FF>,
                                  Avm_vm::avm_binary<FF>,
-                                 Avm_vm::avm_kernel<FF>,
                                  Avm_vm::avm_main<FF>,
                                  Avm_vm::avm_mem<FF>,
                                  perm_main_alu_relation<FF>,

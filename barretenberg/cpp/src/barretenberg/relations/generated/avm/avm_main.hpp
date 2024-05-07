@@ -7,6 +7,7 @@
 namespace bb::Avm_vm {
 
 template <typename FF> struct Avm_mainRow {
+    FF avm_kernel_kernel_sel{};
     FF avm_main_alu_in_tag{};
     FF avm_main_alu_sel{};
     FF avm_main_bin_op_id{};
@@ -133,9 +134,27 @@ inline std::string get_relation_label_avm_main(int index)
         return "MOV_MAIN_SAME_TAG";
 
     case 80:
-        return "BIN_SEL_1";
+        return "SENDER_KERNEL";
 
     case 81:
+        return "ADDRESS_KERNEL";
+
+    case 82:
+        return "PORTAL_KERNEL";
+
+    case 83:
+        return "FUNCTION_KERNEL";
+
+    case 84:
+        return "FEE_DA_GAS_KERNEL";
+
+    case 85:
+        return "FEE_L2_GAS_KERNEL";
+
+    case 86:
+        return "BIN_SEL_1";
+
+    case 87:
         return "BIN_SEL_2";
     }
     return std::to_string(index);
@@ -145,10 +164,10 @@ template <typename FF_> class avm_mainImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 82> SUBRELATION_PARTIAL_LENGTHS{
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
+    static constexpr std::array<size_t, 88> SUBRELATION_PARTIAL_LENGTHS{
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -857,7 +876,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(80);
 
-            auto tmp = (avm_main_bin_op_id - (avm_main_sel_op_or + (avm_main_sel_op_xor * FF(2))));
+            auto tmp = (avm_main_sel_op_sender * (avm_kernel_kernel_sel - FF(0)));
             tmp *= scaling_factor;
             std::get<80>(evals) += tmp;
         }
@@ -865,9 +884,57 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(81);
 
-            auto tmp = (avm_main_bin_sel - ((avm_main_sel_op_and + avm_main_sel_op_or) + avm_main_sel_op_xor));
+            auto tmp = (avm_main_sel_op_address * (avm_kernel_kernel_sel - FF(1)));
             tmp *= scaling_factor;
             std::get<81>(evals) += tmp;
+        }
+        // Contribution 82
+        {
+            Avm_DECLARE_VIEWS(82);
+
+            auto tmp = (avm_main_sel_op_portal * (avm_kernel_kernel_sel - FF(2)));
+            tmp *= scaling_factor;
+            std::get<82>(evals) += tmp;
+        }
+        // Contribution 83
+        {
+            Avm_DECLARE_VIEWS(83);
+
+            auto tmp = (avm_main_sel_op_function_selector * (avm_kernel_kernel_sel - FF(3)));
+            tmp *= scaling_factor;
+            std::get<83>(evals) += tmp;
+        }
+        // Contribution 84
+        {
+            Avm_DECLARE_VIEWS(84);
+
+            auto tmp = (avm_main_sel_op_fee_per_da_gas * (avm_kernel_kernel_sel - FF(9)));
+            tmp *= scaling_factor;
+            std::get<84>(evals) += tmp;
+        }
+        // Contribution 85
+        {
+            Avm_DECLARE_VIEWS(85);
+
+            auto tmp = (avm_main_sel_op_fee_per_l2_gas * (avm_kernel_kernel_sel - FF(13)));
+            tmp *= scaling_factor;
+            std::get<85>(evals) += tmp;
+        }
+        // Contribution 86
+        {
+            Avm_DECLARE_VIEWS(86);
+
+            auto tmp = (avm_main_bin_op_id - (avm_main_sel_op_or + (avm_main_sel_op_xor * FF(2))));
+            tmp *= scaling_factor;
+            std::get<86>(evals) += tmp;
+        }
+        // Contribution 87
+        {
+            Avm_DECLARE_VIEWS(87);
+
+            auto tmp = (avm_main_bin_sel - ((avm_main_sel_op_and + avm_main_sel_op_or) + avm_main_sel_op_xor));
+            tmp *= scaling_factor;
+            std::get<87>(evals) += tmp;
         }
     }
 };

@@ -1129,15 +1129,6 @@ void AvmTraceBuilder::op_fee_per_da_gas(uint32_t dst_offset)
     main_trace.push_back(row);
 }
 
-void AvmTraceBuilder::op_fee_per_l1_gas(uint32_t dst_offset)
-{
-    FF ia_value = kernel_trace_builder.op_fee_per_l1_gas();
-    Row row = create_kernel_lookup_opcode(dst_offset, FEE_PER_L1_GAS_SELECTOR, ia_value);
-    row.avm_main_sel_op_fee_per_l1_gas = FF(1);
-
-    main_trace.push_back(row);
-}
-
 void AvmTraceBuilder::op_fee_per_l2_gas(uint32_t dst_offset)
 {
     FF ia_value = kernel_trace_builder.op_fee_per_l2_gas();
