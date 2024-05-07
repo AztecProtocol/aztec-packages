@@ -1,0 +1,3 @@
+__tls_align
+__wasm_init_tls
+__tls_size

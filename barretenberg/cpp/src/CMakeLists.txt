@@ -190,13 +190,16 @@ if(WASM)
         target_link_options(
             barretenberg.wasm
             PRIVATE
-            -nostartfiles -Wl,--no-entry,--export-dynamic -lpthread
+            # A string of things implied by -pthread
+            # BUT we leave off the shared memory flag
+            -nostartfiles -Wl,--no-entry,--export-dynamic -matomics -mbulk-memory -mmutable-globals -msign-ext --target=wasm32-wasi-threads -Wl,--allow-undefined-file=${CMAKE_SOURCE_DIR}/src/barretenberg/wasm-undefined.txt
         )
 
+        # We don't have variants for acvm_backend
         target_link_options(
             acvm_backend.wasm
             PRIVATE
-            -nostartfiles -Wl,--no-entry,--export-dynamic -lpthread
+            -nostartfiles -Wl,--no-entry,--export-dynamic -pthread
         )
     else()
         target_link_options(
