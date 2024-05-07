@@ -3,8 +3,7 @@ use dep::types::{
     abis::{
     kernel_data::PrivateKernelData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder, PublicKernelCircuitPublicInputs},
-    note_hash::NoteHashContext, nullifier::NullifierContext, side_effect::{SideEffect, Ordered},
-    gas::Gas
+    note_hash::ScopedNoteHash, nullifier::NullifierContext, side_effect::{SideEffect, Ordered}, gas::Gas
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
@@ -28,12 +27,12 @@ struct KernelCircuitPublicInputsComposer {
     public_inputs: PrivateKernelCircuitPublicInputsBuilder,
     previous_kernel: PrivateKernelData,
     // Final data
-    note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
+    note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
     nullifiers: [NullifierContext; MAX_NEW_NULLIFIERS_PER_TX],
     // Hints
     transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
     transient_note_hash_indexes_for_nullifiers: [u64; MAX_NEW_NULLIFIERS_PER_TX],
-    sorted_note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
+    sorted_note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_nullifiers: [NullifierContext; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
@@ -46,11 +45,11 @@ struct KernelCircuitPublicInputsComposer {
 impl KernelCircuitPublicInputsComposer {
     pub fn new(
         previous_kernel: PrivateKernelData,
-        note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
+        note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
         nullifiers: [NullifierContext; MAX_NEW_NULLIFIERS_PER_TX],
         transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
         transient_note_hash_indexes_for_nullifiers: [u64; MAX_NEW_NULLIFIERS_PER_TX],
-        sorted_note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
+        sorted_note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
         sorted_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
         sorted_nullifiers: [NullifierContext; MAX_NEW_NULLIFIERS_PER_TX],
         sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
@@ -137,11 +136,11 @@ impl KernelCircuitPublicInputsComposer {
         let note_hashes = self.public_inputs.end.new_note_hashes.storage;
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             let note_hash = note_hashes[i];
-            if note_hash.value != 0 {
-                let siloed = silo_note_hash(note_hash.contract_address, note_hash.value);
+            if note_hash.value() != 0 {
+                let siloed = silo_note_hash(note_hash.contract_address, note_hash.value());
                 let nonce = compute_note_hash_nonce(first_nullifier.value, i);
                 let unique_note_hash = compute_unique_siloed_note_hash(nonce, siloed);
-                self.public_inputs.end.new_note_hashes.storage[i].value = unique_note_hash;
+                self.public_inputs.end.new_note_hashes.storage[i].note_hash.value = unique_note_hash;
             }
         }
     }

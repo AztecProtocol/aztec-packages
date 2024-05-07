@@ -1,7 +1,7 @@
-use dep::types::abis::{note_hash::NoteHashContext, nullifier::NullifierContext};
+use dep::types::abis::{note_hash::ScopedNoteHash, nullifier::NullifierContext};
 
-pub fn squash_transient_note_hashes<N>(note_hashes: [NoteHashContext; N]) -> [NoteHashContext; N] {
-    let mut final_note_hashes = [NoteHashContext::empty(); N];
+pub fn squash_transient_note_hashes<N>(note_hashes: [ScopedNoteHash; N]) -> [ScopedNoteHash; N] {
+    let mut final_note_hashes = [ScopedNoteHash::empty(); N];
 
     let mut num_note_hashes = 0;
     for i in 0..N {

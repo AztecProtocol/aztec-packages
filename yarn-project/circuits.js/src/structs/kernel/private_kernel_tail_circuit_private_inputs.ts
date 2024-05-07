@@ -10,7 +10,7 @@ import {
 } from '../../constants.gen.js';
 import { type GrumpkinPrivateKey } from '../../types/grumpkin_private_key.js';
 import { countAccumulatedItems } from '../../utils/index.js';
-import { NoteHashContext } from '../note_hash.js';
+import { ScopedNoteHash } from '../note_hash.js';
 import { NullifierContext } from '../nullifier.js';
 import {
   type NoteHashReadRequestHints,
@@ -23,7 +23,7 @@ import { PrivateKernelData } from './private_kernel_data.js';
 
 export class PrivateKernelTailOutputs {
   constructor(
-    public noteHashes: Tuple<NoteHashContext, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
+    public noteHashes: Tuple<ScopedNoteHash, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     public nullifiers: Tuple<NullifierContext, typeof MAX_NEW_NULLIFIERS_PER_TX>,
   ) {}
 
@@ -34,7 +34,7 @@ export class PrivateKernelTailOutputs {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new PrivateKernelTailOutputs(
-      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, NoteHashContext),
+      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, NullifierContext),
     );
   }
@@ -66,7 +66,7 @@ export class PrivateKernelTailHints {
     /*
      * The sorted new note hashes.
      */
-    public sortedNewNoteHashes: Tuple<NoteHashContext, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
+    public sortedNewNoteHashes: Tuple<ScopedNoteHash, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     /**
      * The sorted new note hashes indexes. Maps original to sorted.
      */
@@ -128,7 +128,7 @@ export class PrivateKernelTailHints {
       reader.readObject({ fromBuffer: noteHashReadRequestHintsFromBuffer }),
       reader.readObject({ fromBuffer: nullifierReadRequestHintsFromBuffer }),
       reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar),
-      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, NoteHashContext),
+      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash),
       reader.readNumbers(MAX_NEW_NOTE_HASHES_PER_TX),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, NullifierContext),
       reader.readNumbers(MAX_NEW_NULLIFIERS_PER_TX),

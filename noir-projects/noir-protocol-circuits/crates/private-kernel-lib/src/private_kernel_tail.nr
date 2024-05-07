@@ -3,7 +3,7 @@ use dep::reset_kernel_lib::{NoteHashReadRequestHints, NullifierReadRequestHints,
 use dep::types::{
     abis::{
     kernel_data::PrivateKernelData, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-    note_hash::NoteHashContext, nullifier::NullifierContext, side_effect::SideEffect
+    note_hash::ScopedNoteHash, nullifier::NullifierContext, side_effect::SideEffect
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
@@ -14,7 +14,7 @@ use dep::types::{
 
 // Can just be KernelCircuitPublicInputs.
 struct PrivateKernelTailOutputs {
-    note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
+    note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
     nullifiers: [NullifierContext; MAX_NEW_NULLIFIERS_PER_TX],
 }
 
@@ -24,7 +24,7 @@ struct PrivateKernelTailHints {
     note_hash_read_request_hints: NoteHashReadRequestHints,
     nullifier_read_request_hints: NullifierReadRequestHints,
     master_nullifier_secret_keys: [GrumpkinPrivateKey; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
-    sorted_new_note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
+    sorted_new_note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_new_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_new_nullifiers: [NullifierContext; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_new_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
@@ -97,7 +97,7 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
-        note_hash::{NoteHash, NoteHashContext}, nullifier::{Nullifier, NullifierContext}, side_effect::SideEffect, gas::Gas
+        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, NullifierContext}, side_effect::SideEffect, gas::Gas
     },
         grumpkin_private_key::GrumpkinPrivateKey,
         hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash, sha256_to_field, silo_note_hash, silo_nullifier},
@@ -134,14 +134,14 @@ mod tests {
         // note_hashes for the given note_hashes.
         pub fn compute_output_note_hashes<N>(
             self,
-            note_hashes: [NoteHashContext; N]
+            note_hashes: [ScopedNoteHash; N]
         ) -> [Field; N] {
             let first_nullifier = self.previous_kernel.new_nullifiers.get_unchecked(0);
             let mut unique_siloed_note_hashes = [0; N];
             for i in 0..N {
                 let note_hash = note_hashes[i];
-                if note_hash.value != 0 {
-                    let siloed = silo_note_hash(note_hash.contract_address, note_hash.value);
+                if note_hash.value() != 0 {
+                    let siloed = silo_note_hash(note_hash.contract_address, note_hash.value());
                     let nonce = compute_note_hash_nonce(first_nullifier.value, i);
                     unique_siloed_note_hashes[i] = compute_unique_siloed_note_hash(nonce, siloed);
                 }
@@ -177,7 +177,7 @@ mod tests {
 
         pub fn nullify_pending_note_hash(&mut self, nullifier_index: u64, note_hash_index: u64) {
             self.previous_kernel.new_note_hashes.storage[note_hash_index].nullifier_counter = self.previous_kernel.new_nullifiers.get(nullifier_index).counter;
-            self.previous_kernel.new_nullifiers.storage[nullifier_index].note_hash = self.previous_kernel.new_note_hashes.get(note_hash_index).value;
+            self.previous_kernel.new_nullifiers.storage[nullifier_index].note_hash = self.previous_kernel.new_note_hashes.get(note_hash_index).note_hash.value;
             self.transient_nullifier_indexes_for_note_hashes[note_hash_index] = nullifier_index;
             self.transient_note_hash_indexes_for_nullifiers[nullifier_index] = note_hash_index;
         }
@@ -185,7 +185,7 @@ mod tests {
         pub fn execute(&mut self) -> KernelCircuitPublicInputs {
             let sorted = sort_get_sorted_hints(
                 self.previous_kernel.new_note_hashes.storage,
-                |a: NoteHashContext, b: NoteHashContext| a.counter < b.counter
+                |a: ScopedNoteHash, b: ScopedNoteHash| a.counter() < b.counter()
             );
             let sorted_new_note_hashes = sorted.sorted_array;
             let sorted_new_note_hashes_indexes = sorted.sorted_index_hints;
@@ -495,7 +495,7 @@ mod tests {
         let sorted_note_hashes = builder.previous_kernel.new_note_hashes.storage;
         let sorted_nullifiers = builder.previous_kernel.new_nullifiers.storage;
 
-        let mut reversed_note_hashes = [NoteHashContext::empty(); 10];
+        let mut reversed_note_hashes = [ScopedNoteHash::empty(); 10];
         let mut reversed_nullifiers = [NullifierContext::empty(); 10];
 
         for i in 0..10 {

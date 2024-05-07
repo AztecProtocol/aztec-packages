@@ -1,9 +1,9 @@
-import { type NoteHashContext, type NullifierContext, countAccumulatedItems } from '@aztec/circuits.js';
+import { type NullifierContext, type ScopedNoteHash, countAccumulatedItems } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 export function buildTransientDataHints<NOTE_HASHES_LEN extends number, NULLIFIERS_LEN extends number>(
-  noteHashes: Tuple<NoteHashContext, NOTE_HASHES_LEN>,
+  noteHashes: Tuple<ScopedNoteHash, NOTE_HASHES_LEN>,
   nullifiers: Tuple<NullifierContext, NULLIFIERS_LEN>,
   noteHashesLength: NOTE_HASHES_LEN = noteHashes.length as NOTE_HASHES_LEN,
   nullifiersLength: NULLIFIERS_LEN = nullifiers.length as NULLIFIERS_LEN,

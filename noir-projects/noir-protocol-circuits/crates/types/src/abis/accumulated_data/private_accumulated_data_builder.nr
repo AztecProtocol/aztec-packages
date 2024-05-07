@@ -7,7 +7,7 @@ use crate::{
     private_accumulated_data::PrivateAccumulatedData, public_accumulated_data::PublicAccumulatedData,
     public_accumulated_data_builder::PublicAccumulatedDataBuilder
 },
-    call_request::CallRequest, note_hash::{NoteHash, NoteHashContext}, nullifier::NullifierContext,
+    call_request::CallRequest, note_hash::{NoteHash, ScopedNoteHash}, nullifier::NullifierContext,
     public_data_update_request::PublicDataUpdateRequest, side_effect::SideEffect
 },
     constants::{
@@ -24,7 +24,7 @@ use crate::{
 // .to_combined: KernelCircuitPublicInputs.end
 // .split_to_public: PublicKernelCircuitPublicInputs.(end,end_non_revertible)
 struct PrivateAccumulatedDataBuilder {
-    new_note_hashes: BoundedVec<NoteHashContext, MAX_NEW_NOTE_HASHES_PER_TX>,
+    new_note_hashes: BoundedVec<ScopedNoteHash, MAX_NEW_NOTE_HASHES_PER_TX>,
     new_nullifiers: BoundedVec<NullifierContext, MAX_NEW_NULLIFIERS_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
 
@@ -63,7 +63,7 @@ impl PrivateAccumulatedDataBuilder {
         let gas_used = self.to_metered_gas_used() + Gas::tx_overhead() + teardown_gas;
 
         CombinedAccumulatedData {
-            new_note_hashes: self.new_note_hashes.storage.map(|n: NoteHashContext| n.value),
+            new_note_hashes: self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value),
             new_nullifiers: self.new_nullifiers.storage.map(|n: NullifierContext| n.value),
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.value.content),
             encrypted_logs_hash,
@@ -124,7 +124,7 @@ impl PrivateAccumulatedDataBuilder {
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             let note_hash = self.new_note_hashes.storage[i];
             let public_note_hash = note_hash.expose_to_public();
-            if note_hash.counter < min_revertible_side_effect_counter {
+            if note_hash.counter() < min_revertible_side_effect_counter {
                 non_revertible_builder.new_note_hashes.push(public_note_hash);
                 if !is_empty(public_note_hash) {
                     non_revertible_da_gas_used += DA_GAS_PER_FIELD ;
@@ -206,9 +206,9 @@ mod tests {
     use crate::{
         abis::{
         accumulated_data::private_accumulated_data_builder::PrivateAccumulatedDataBuilder, gas::Gas,
-        call_request::CallRequest, caller_context::CallerContext,
-        note_hash::{NoteHash, NoteHashContext}, nullifier::{Nullifier, NullifierContext},
-        public_data_update_request::PublicDataUpdateRequest, side_effect::SideEffect
+        call_request::CallRequest, caller_context::CallerContext, note_hash::NoteHash,
+        nullifier::{Nullifier, NullifierContext}, public_data_update_request::PublicDataUpdateRequest,
+        side_effect::SideEffect
     },
         address::{AztecAddress, EthAddress}, messaging::l2_to_l1_message::L2ToL1Message,
         utils::arrays::array_eq, constants::{DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE}
@@ -217,14 +217,15 @@ mod tests {
     #[test]
     unconstrained fn splits_revertible_and_non_revertible() {
         let mut builder = PrivateAccumulatedDataBuilder::empty();
+        let contract_address = AztecAddress::from_field(8989);
 
         let min_revertible_side_effect_counter = 7;
 
         // Non revertible: counter < 7
 
         let non_revertible_note_hashes = [
-            NoteHashContext { value: 1, counter: 1, nullifier_counter: 20, contract_address: AztecAddress::from_field(7788) },
-            NoteHashContext { value: 2, counter: 3, nullifier_counter: 5, contract_address: AztecAddress::from_field(5566) }
+            NoteHash { value: 1, counter: 1 }.scope(20, contract_address),
+            NoteHash { value: 2, counter: 3 }.scope(5, contract_address)
         ];
 
         let non_revertible_nullifiers = [
@@ -256,8 +257,8 @@ mod tests {
         // Revertible: counter >= 7
 
         let revertible_note_hashes = [
-            NoteHashContext { value: 3, counter: 7, nullifier_counter: 15, contract_address: AztecAddress::from_field(9900) },
-            NoteHashContext { value: 4, counter: 10, nullifier_counter: 0, contract_address: AztecAddress::from_field(7788) }
+            NoteHash { value: 3, counter: 7 }.scope(15, contract_address),
+            NoteHash { value: 4, counter: 10 }.scope(0, contract_address)
         ];
 
         let revertible_nullifiers = [

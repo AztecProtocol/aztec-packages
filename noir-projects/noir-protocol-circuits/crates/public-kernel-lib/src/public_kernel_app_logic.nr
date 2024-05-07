@@ -78,7 +78,7 @@ mod tests {
     use dep::types::{
         abis::{
         gas::Gas, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-        note_hash::{NoteHash, NoteHashContext}, nullifier::{Nullifier, NullifierContext},
+        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, NullifierContext},
         public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
         read_request::ReadRequest
     },
@@ -187,7 +187,7 @@ mod tests {
         let contract_address = builder.public_call.contract_address;
         // Setup 2 new note hashes on the previous kernel.
         builder.previous_kernel.append_new_note_hashes(2);
-        let previous = builder.previous_kernel.new_note_hashes.storage.map(|n: NoteHashContext| NoteHash { value: n.value, counter: n.counter });
+        let previous = builder.previous_kernel.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash);
         // Setup 2 new note hashes on the current public inputs.
         let current = [
             NoteHash { value: previous[1].value + 1, counter: 3 },

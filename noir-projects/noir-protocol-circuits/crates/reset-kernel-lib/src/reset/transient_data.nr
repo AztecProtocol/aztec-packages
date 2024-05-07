@@ -1,9 +1,9 @@
-use dep::types::{abis::{note_hash::NoteHashContext, nullifier::NullifierContext}, traits::is_empty};
+use dep::types::{abis::{note_hash::ScopedNoteHash, nullifier::NullifierContext}, traits::is_empty};
 
 pub fn verify_squashed_transient_note_hashes_and_nullifiers<NUM_NOTE_HASHES, NUM_NULLIFIERS>(
-    note_hashes: [NoteHashContext; NUM_NOTE_HASHES],
+    note_hashes: [ScopedNoteHash; NUM_NOTE_HASHES],
     nullifiers: [NullifierContext; NUM_NULLIFIERS],
-    expected_note_hashes: [NoteHashContext; NUM_NOTE_HASHES],
+    expected_note_hashes: [ScopedNoteHash; NUM_NOTE_HASHES],
     expected_nullifiers: [NullifierContext; NUM_NULLIFIERS],
     transient_nullifier_indexes_for_note_hashes: [u64; NUM_NOTE_HASHES],
     transient_note_hash_indexes_for_nullifiers: [u64; NUM_NULLIFIERS]
@@ -19,7 +19,7 @@ pub fn verify_squashed_transient_note_hashes_and_nullifiers<NUM_NOTE_HASHES, NUM
         } else {
             let nullifier = nullifiers[nullifier_index];
             assert_eq(
-                note_hash.value, nullifier.note_hash, "Value of the hinted transient note hash does not match"
+                note_hash.value(), nullifier.note_hash, "Value of the hinted transient note hash does not match"
             );
             assert_eq(
                 note_hash.contract_address, nullifier.contract_address, "Contract address of the hinted transient note hash does not match"
@@ -30,7 +30,7 @@ pub fn verify_squashed_transient_note_hashes_and_nullifiers<NUM_NOTE_HASHES, NUM
 
             // The following check is not necessary as the nullifier_counter is assured to be greater than the counter of 
             // the note hash when propagated from either the initial or inner private kernel circuits.
-            // assert(nullifier.counter > note_hash.counter);
+            // assert(nullifier.counter > note_hash.counter());
 
             note_hashes_removed += 1;
 
@@ -67,14 +67,14 @@ pub fn verify_squashed_transient_note_hashes_and_nullifiers<NUM_NOTE_HASHES, NUM
 
 mod tests {
     use crate::reset::transient_data::verify_squashed_transient_note_hashes_and_nullifiers;
-    use dep::types::{abis::{note_hash::NoteHashContext, nullifier::NullifierContext}, address::AztecAddress};
+    use dep::types::{abis::{note_hash::{NoteHash, ScopedNoteHash}, nullifier::NullifierContext}, address::AztecAddress};
 
     struct TestDataBuilder<NUM_NOTE_HASHES, NUM_NULLIFIERS> {
         num_note_hashes: u64,
         num_nullifiers: u64,
-        note_hashes: [NoteHashContext; NUM_NOTE_HASHES],
+        note_hashes: [ScopedNoteHash; NUM_NOTE_HASHES],
         nullifiers: [NullifierContext; NUM_NULLIFIERS],
-        expected_note_hashes: [NoteHashContext; NUM_NOTE_HASHES],
+        expected_note_hashes: [ScopedNoteHash; NUM_NOTE_HASHES],
         expected_nullifiers: [NullifierContext; NUM_NULLIFIERS],
         transient_nullifier_indexes_for_note_hashes: [u64; NUM_NOTE_HASHES],
         transient_note_hash_indexes_for_nullifiers: [u64; NUM_NULLIFIERS],
@@ -85,9 +85,9 @@ mod tests {
             let contract_address = AztecAddress::from_field(987654);
 
             let note_hashes = [
-                NoteHashContext { value: 11, counter: 100, nullifier_counter: 500, contract_address },
-                NoteHashContext { value: 22, counter: 200, nullifier_counter: 0, contract_address },
-                NoteHashContext { value: 33, counter: 300, nullifier_counter: 400, contract_address }
+                NoteHash { value: 11, counter: 100 }.scope(500, contract_address),
+                NoteHash { value: 22, counter: 200 }.scope(0, contract_address),
+                NoteHash { value: 33, counter: 300 }.scope(400, contract_address)
             ];
 
             let nullifiers = [
@@ -96,7 +96,7 @@ mod tests {
                 NullifierContext { value: 66, counter: 600, note_hash: 0, contract_address }
             ];
 
-            let expected_note_hashes = [note_hashes[1], NoteHashContext::empty(), NoteHashContext::empty()];
+            let expected_note_hashes = [note_hashes[1], ScopedNoteHash::empty(), ScopedNoteHash::empty()];
             let expected_nullifiers = [nullifiers[2], NullifierContext::empty(), NullifierContext::empty()];
 
             let transient_nullifier_indexes_for_note_hashes = [1, 3, 0];
@@ -118,9 +118,9 @@ mod tests {
             let contract_address = AztecAddress::from_field(987654);
 
             let note_hashes = [
-                NoteHashContext { value: 11, counter: 100, nullifier_counter: 500, contract_address },
-                NoteHashContext { value: 22, counter: 200, nullifier_counter: 600, contract_address },
-                NoteHashContext { value: 33, counter: 300, nullifier_counter: 400, contract_address }
+                NoteHash { value: 11, counter: 100 }.scope(500, contract_address),
+                NoteHash { value: 22, counter: 200 }.scope(600, contract_address),
+                NoteHash { value: 33, counter: 300 }.scope(400, contract_address)
             ];
 
             let nullifiers = [
@@ -129,7 +129,7 @@ mod tests {
                 NullifierContext { value: 66, counter: 600, note_hash: 22, contract_address }
             ];
 
-            let expected_note_hashes = [NoteHashContext::empty(); 3];
+            let expected_note_hashes = [ScopedNoteHash::empty(); 3];
             let expected_nullifiers = [NullifierContext::empty(); 3];
 
             let transient_nullifier_indexes_for_note_hashes = [1, 2, 0];
@@ -188,7 +188,7 @@ mod tests {
     fn mismatch_note_hash_value() {
         let mut builder = TestDataBuilder::default_all_clear();
 
-        builder.note_hashes[1].value += 1;
+        builder.note_hashes[1].note_hash.value += 1;
 
         builder.verify();
     }
@@ -215,7 +215,7 @@ mod tests {
     fn unexpected_note_hash_value() {
         let mut builder = TestDataBuilder::default_all_clear();
 
-        builder.expected_note_hashes[2].value = 11;
+        builder.expected_note_hashes[2].note_hash.value = 11;
 
         builder.verify();
     }
@@ -224,7 +224,7 @@ mod tests {
     fn wrong_expected_note_hash_value() {
         let mut builder = TestDataBuilder::default();
 
-        builder.expected_note_hashes[0].value += 1;
+        builder.expected_note_hashes[0].note_hash.value += 1;
 
         builder.verify();
     }
@@ -233,7 +233,7 @@ mod tests {
     fn wrong_expected_note_hash_counter() {
         let mut builder = TestDataBuilder::default();
 
-        builder.expected_note_hashes[0].counter += 1;
+        builder.expected_note_hashes[0].note_hash.counter += 1;
 
         builder.verify();
     }

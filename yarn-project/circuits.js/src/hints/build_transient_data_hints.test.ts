@@ -1,18 +1,18 @@
-import { AztecAddress, Fr, NoteHashContext, NullifierContext } from '@aztec/circuits.js';
+import { AztecAddress, Fr, NoteHash, NullifierContext, type ScopedNoteHash } from '@aztec/circuits.js';
 
 import { buildTransientDataHints } from './build_transient_data_hints.js';
 
 describe('buildTransientDataHints', () => {
   const contractAddress = AztecAddress.fromBigInt(987654n);
 
-  let noteHashes: NoteHashContext[];
+  let noteHashes: ScopedNoteHash[];
   let nullifiers: NullifierContext[];
 
   beforeEach(() => {
     noteHashes = [
-      new NoteHashContext(new Fr(11), 100, 700, contractAddress),
-      new NoteHashContext(new Fr(22), 200, 0, contractAddress),
-      new NoteHashContext(new Fr(33), 300, 500, contractAddress),
+      new NoteHash(new Fr(11), 100).scope(700, contractAddress),
+      new NoteHash(new Fr(22), 200).scope(0, contractAddress),
+      new NoteHash(new Fr(33), 300).scope(500, contractAddress),
     ];
     nullifiers = [
       new NullifierContext(new Fr(44), 400, new Fr(0), contractAddress),

@@ -6,12 +6,13 @@ import { type Tuple } from '@aztec/foundation/serialize';
 import { MAX_NEW_NOTE_HASHES_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX } from '../constants.gen.js';
 import { siloNoteHash } from '../hash/index.js';
 import {
-  NoteHashContext,
+  NoteHash,
   type NoteHashReadRequestHints,
   NoteHashReadRequestHintsBuilder,
   PendingReadHint,
   ReadRequestContext,
   ReadRequestStatus,
+  type ScopedNoteHash,
   SettledReadHint,
 } from '../structs/index.js';
 import { buildNoteHashReadRequestHints } from './build_note_hash_read_request_hints.js';
@@ -26,7 +27,7 @@ describe('buildNoteHashReadRequestHints', () => {
       settledLeafIndexes.includes(leafIndex) ? ({} as any) : undefined,
   };
   let noteHashReadRequests: Tuple<ReadRequestContext, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>;
-  let noteHashes: Tuple<NoteHashContext, typeof MAX_NEW_NOTE_HASHES_PER_TX>;
+  let noteHashes: Tuple<ScopedNoteHash, typeof MAX_NEW_NOTE_HASHES_PER_TX>;
   let noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
   let expectedHints: NoteHashReadRequestHints;
   let numReadRequests = 0;
@@ -38,7 +39,7 @@ describe('buildNoteHashReadRequestHints', () => {
   const makeReadRequest = (value: number, counter = 2) =>
     new ReadRequestContext(new Fr(value), counter, contractAddress);
 
-  const makeNoteHash = (value: number, counter = 1) => new NoteHashContext(new Fr(value), counter, 0, contractAddress);
+  const makeNoteHash = (value: number, counter = 1) => new NoteHash(new Fr(value), counter).scope(0, contractAddress);
 
   const readPendingNoteHash = ({
     noteHashIndex,

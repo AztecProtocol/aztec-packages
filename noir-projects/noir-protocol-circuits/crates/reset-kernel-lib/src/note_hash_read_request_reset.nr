@@ -48,7 +48,7 @@ mod tests {
     use dep::types::{
         address::AztecAddress,
         abis::{
-        membership_witness::NoteHashMembershipWitness, note_hash::NoteHashContext,
+        membership_witness::NoteHashMembershipWitness, note_hash::NoteHash,
         note_hash_leaf_preimage::NoteHashLeafPreimage, read_request::ReadRequestContext
     },
         constants::NOTE_HASH_TREE_HEIGHT, hash::silo_note_hash,
@@ -72,8 +72,8 @@ mod tests {
     ];
 
     global pending_values = [
-        NoteHashContext { value: inner_note_hashes[2], counter: 2, nullifier_counter: 0, contract_address },
-        NoteHashContext { value: inner_note_hashes[3], counter: 8, nullifier_counter: 0, contract_address },
+        NoteHash { value: inner_note_hashes[2], counter: 2, }.scope(0, contract_address),
+        NoteHash { value: inner_note_hashes[3], counter: 8,  }.scope(0, contract_address),
     ];
     global pending_read_hints = [
         PendingReadHint { read_request_index: 1, pending_value_index: 1 },
@@ -161,7 +161,7 @@ mod tests {
     fn test_reset_note_hash_read_requests_wrong_hinted_value() {
         let mut tainted_pending_values = pending_values;
         // Tweak the value to be something different.
-        tainted_pending_values[0].value += 1;
+        tainted_pending_values[0].note_hash.value += 1;
 
         let (settled_read_hints, tree_root) = get_settled_read_hints();
         let _ = reset_read_requests(
@@ -180,7 +180,7 @@ mod tests {
         let pending_read = read_requests[hint.read_request_index];
         let mut tainted_pending_values = pending_values;
         // Tweak the counter of the value to be greater than the read request.
-        tainted_pending_values[hint.pending_value_index].counter = pending_read.counter + 1;
+        tainted_pending_values[hint.pending_value_index].note_hash.counter = pending_read.counter + 1;
 
         let (settled_read_hints, tree_root) = get_settled_read_hints();
         let _ = reset_read_requests(

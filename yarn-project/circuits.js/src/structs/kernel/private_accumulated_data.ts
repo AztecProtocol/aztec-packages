@@ -14,7 +14,7 @@ import {
 } from '../../constants.gen.js';
 import { CallRequest } from '../call_request.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
-import { NoteHashContext } from '../note_hash.js';
+import { ScopedNoteHash } from '../note_hash.js';
 import { NullifierContext } from '../nullifier.js';
 import { SideEffect } from '../side_effects.js';
 
@@ -27,7 +27,7 @@ export class PrivateAccumulatedData {
     /**
      * The new note hashes made in this transaction.
      */
-    public newNoteHashes: Tuple<NoteHashContext, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
+    public newNoteHashes: Tuple<ScopedNoteHash, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     /**
      * The new nullifiers made in this transaction.
      */
@@ -91,7 +91,7 @@ export class PrivateAccumulatedData {
   static fromBuffer(buffer: Buffer | BufferReader): PrivateAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new PrivateAccumulatedData(
-      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, NoteHashContext),
+      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, NullifierContext),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, SideEffect),
@@ -114,7 +114,7 @@ export class PrivateAccumulatedData {
 
   static empty() {
     return new PrivateAccumulatedData(
-      makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, NoteHashContext.empty),
+      makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, NullifierContext.empty),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
       makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, SideEffect.empty),

@@ -153,7 +153,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
                 assert(
                     (nullifier_counter == 0) | (nullifier_counter > note_hash.counter), "Invalid nullifier counter"
                 );
-                self.public_inputs.end.new_note_hashes.push(note_hash.to_context(nullifier_counter, source.storage_contract_address));
+                self.public_inputs.end.new_note_hashes.push(note_hash.scope(nullifier_counter, source.storage_contract_address));
             }
         }
     }

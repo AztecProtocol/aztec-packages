@@ -7,13 +7,13 @@ import {
 } from '../constants.gen.js';
 import {
   type MembershipWitness,
-  type NoteHashContext,
   NoteHashReadRequestHintsBuilder,
   type ReadRequestContext,
+  type ScopedNoteHash,
 } from '../structs/index.js';
 import { countAccumulatedItems, getNonEmptyItems } from '../utils/index.js';
 
-function isValidNoteHashReadRequest(readRequest: ReadRequestContext, noteHash: NoteHashContext) {
+function isValidNoteHashReadRequest(readRequest: ReadRequestContext, noteHash: ScopedNoteHash) {
   return (
     noteHash.contractAddress.equals(readRequest.contractAddress) &&
     readRequest.counter > noteHash.counter &&
@@ -26,14 +26,14 @@ export async function buildNoteHashReadRequestHints(
     getNoteHashMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>>;
   },
   noteHashReadRequests: Tuple<ReadRequestContext, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-  noteHashes: Tuple<NoteHashContext, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
+  noteHashes: Tuple<ScopedNoteHash, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
   noteHashLeafIndexMap: Map<bigint, bigint>,
 ) {
   const builder = new NoteHashReadRequestHintsBuilder();
 
   const numReadRequests = countAccumulatedItems(noteHashReadRequests);
 
-  const noteHashMap: Map<bigint, { noteHash: NoteHashContext; index: number }[]> = new Map();
+  const noteHashMap: Map<bigint, { noteHash: ScopedNoteHash; index: number }[]> = new Map();
   getNonEmptyItems(noteHashes).forEach((noteHash, index) => {
     const value = noteHash.value.toBigInt();
     const arr = noteHashMap.get(value) ?? [];

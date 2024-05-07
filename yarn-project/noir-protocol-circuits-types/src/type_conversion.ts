@@ -53,7 +53,6 @@ import {
   NUM_BYTES_PER_SHA256,
   type NonMembershipHint,
   NoteHash,
-  NoteHashContext,
   type NoteHashReadRequestHints,
   Nullifier,
   NullifierContext,
@@ -109,6 +108,7 @@ import {
   type RootRollupInputs,
   RootRollupPublicInputs,
   ScopedL2ToL1Message,
+  ScopedNoteHash,
   type SettledReadHint,
   SideEffect,
   type StateDiffHints,
@@ -142,7 +142,6 @@ import {
   type EthAddress as NoirEthAddress,
   type Field as NoirField,
   type GrumpkinPoint as NoirPoint,
-  type NoteHashContext as NoteHashContextNoir,
   type NoteHash as NoteHashNoir,
   type NullifierContext as NullifierContextNoir,
   type NullifierKeyValidationRequestContext as NullifierKeyValidationRequestContextNoir,
@@ -159,6 +158,7 @@ import {
   type ReadRequest as ReadRequestNoir,
   type RollupValidationRequests as RollupValidationRequestsNoir,
   type ScopedL2ToL1Message as ScopedL2ToL1MessageNoir,
+  type ScopedNoteHash as ScopedNoteHashNoir,
   type SideEffect as SideEffectNoir,
   type TxContext as TxContextNoir,
   type TxRequest as TxRequestNoir,
@@ -559,19 +559,17 @@ function mapNoteHashFromNoir(noteHash: NoteHashNoir) {
   return new NoteHash(mapFieldFromNoir(noteHash.value), mapNumberFromNoir(noteHash.counter));
 }
 
-function mapNoteHashContextToNoir(noteHash: NoteHashContext): NoteHashContextNoir {
+function mapScopedNoteHashToNoir(noteHash: ScopedNoteHash): ScopedNoteHashNoir {
   return {
-    value: mapFieldToNoir(noteHash.value),
-    counter: mapNumberToNoir(noteHash.counter),
+    note_hash: mapNoteHashToNoir(noteHash.noteHash),
     nullifier_counter: mapNumberToNoir(noteHash.nullifierCounter),
     contract_address: mapAztecAddressToNoir(noteHash.contractAddress),
   };
 }
 
-function mapNoteHashContextFromNoir(noteHash: NoteHashContextNoir) {
-  return new NoteHashContext(
-    mapFieldFromNoir(noteHash.value),
-    mapNumberFromNoir(noteHash.counter),
+function mapScopedNoteHashFromNoir(noteHash: ScopedNoteHashNoir) {
+  return new ScopedNoteHash(
+    mapNoteHashFromNoir(noteHash.note_hash),
     mapNumberFromNoir(noteHash.nullifier_counter),
     mapAztecAddressFromNoir(noteHash.contract_address),
   );
@@ -1095,7 +1093,7 @@ export function mapPrivateAccumulatedDataFromNoir(
   privateAccumulatedData: PrivateAccumulatedDataNoir,
 ): PrivateAccumulatedData {
   return new PrivateAccumulatedData(
-    mapTupleFromNoir(privateAccumulatedData.new_note_hashes, MAX_NEW_NOTE_HASHES_PER_TX, mapNoteHashContextFromNoir),
+    mapTupleFromNoir(privateAccumulatedData.new_note_hashes, MAX_NEW_NOTE_HASHES_PER_TX, mapScopedNoteHashFromNoir),
     mapTupleFromNoir(privateAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapNullifierContextFromNoir),
     mapTupleFromNoir(
       privateAccumulatedData.new_l2_to_l1_msgs,
@@ -1125,7 +1123,7 @@ export function mapPrivateAccumulatedDataFromNoir(
 
 export function mapPrivateAccumulatedDataToNoir(data: PrivateAccumulatedData): PrivateAccumulatedDataNoir {
   return {
-    new_note_hashes: mapTuple(data.newNoteHashes, mapNoteHashContextToNoir),
+    new_note_hashes: mapTuple(data.newNoteHashes, mapScopedNoteHashToNoir),
     new_nullifiers: mapTuple(data.newNullifiers, mapNullifierContextToNoir),
     new_l2_to_l1_msgs: mapTuple(data.newL2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
     encrypted_logs_hashes: mapTuple(data.encryptedLogsHashes, mapSideEffectToNoir),
@@ -1463,7 +1461,7 @@ export function mapPrivateKernelInnerCircuitPrivateInputsToNoir(
 
 function mapPrivateKernelTailOutputsToNoir(inputs: PrivateKernelTailOutputs): PrivateKernelTailOutputsNoir {
   return {
-    note_hashes: mapTuple(inputs.noteHashes, mapNoteHashContextToNoir),
+    note_hashes: mapTuple(inputs.noteHashes, mapScopedNoteHashToNoir),
     nullifiers: mapTuple(inputs.nullifiers, mapNullifierContextToNoir),
   };
 }
@@ -1478,7 +1476,7 @@ function mapPrivateKernelTailHintsToNoir(inputs: PrivateKernelTailHints): Privat
     note_hash_read_request_hints: mapNoteHashReadRequestHintsToNoir(inputs.noteHashReadRequestHints),
     nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
     master_nullifier_secret_keys: mapTuple(inputs.masterNullifierSecretKeys, mapGrumpkinPrivateKeyToNoir),
-    sorted_new_note_hashes: mapTuple(inputs.sortedNewNoteHashes, mapNoteHashContextToNoir),
+    sorted_new_note_hashes: mapTuple(inputs.sortedNewNoteHashes, mapScopedNoteHashToNoir),
     sorted_new_note_hashes_indexes: mapTuple(inputs.sortedNewNoteHashesIndexes, mapNumberToNoir),
     sorted_new_nullifiers: mapTuple(inputs.sortedNewNullifiers, mapNullifierContextToNoir),
     sorted_new_nullifiers_indexes: mapTuple(inputs.sortedNewNullifiersIndexes, mapNumberToNoir),

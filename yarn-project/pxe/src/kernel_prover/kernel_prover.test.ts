@@ -6,11 +6,11 @@ import {
   MAX_NEW_NOTE_HASHES_PER_TX,
   MembershipWitness,
   NoteHash,
-  NoteHashContext,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
+  ScopedNoteHash,
   type TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
@@ -80,11 +80,9 @@ describe('Kernel Prover', () => {
 
   const createProofOutput = (newNoteIndices: number[]) => {
     const publicInputs = PrivateKernelCircuitPublicInputs.empty();
-    const noteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, NoteHashContext.empty);
+    const noteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash.empty);
     for (let i = 0; i < newNoteIndices.length; i++) {
-      noteHashes[i] = new NoteHashContext(
-        generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]),
-        0,
+      noteHashes[i] = new NoteHash(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), 0).scope(
         0,
         contractAddress,
       );
