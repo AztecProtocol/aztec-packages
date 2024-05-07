@@ -67,8 +67,8 @@ example
 
 ```rust
 fn main() {
-    let point1 = EmbeddedCurvePoint { x: Field::new(1), y: Field::new(2) };
-    let point2 = EmbeddedCurvePoint { x: Field::new(3), y: Field::new(4) };
+    let point1 = EmbeddedCurvePoint { x: 1, y: 2 };
+    let point2 = EmbeddedCurvePoint { x: 3, y: 4 };
     let result = std::embedded_curve_ops::embedded_curve_add(point1, point2);
     println!("Resulting Point: ({}, {})", result.x, result.y);
 }
