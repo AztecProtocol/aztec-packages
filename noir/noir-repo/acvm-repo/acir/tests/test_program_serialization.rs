@@ -58,47 +58,22 @@ fn addition_circuit() {
 }
 
 #[test]
-fn fixed_base_scalar_mul_circuit() {
-    let fixed_base_scalar_mul = Opcode::BlackBoxFuncCall(BlackBoxFuncCall::FixedBaseScalarMul {
-        low: FunctionInput { witness: Witness(1), num_bits: 128 },
-        high: FunctionInput { witness: Witness(2), num_bits: 128 },
-        outputs: (Witness(3), Witness(4)),
+fn multi_scalar_mul_circuit() {
+    let multi_scalar_mul = Opcode::BlackBoxFuncCall(BlackBoxFuncCall::MultiScalarMul {
+        points: vec![
+            FunctionInput { witness: Witness(1), num_bits: 128 },
+            FunctionInput { witness: Witness(2), num_bits: 128 },
+        ],
+        scalars: vec![
+            FunctionInput { witness: Witness(3), num_bits: 128 },
+            FunctionInput { witness: Witness(4), num_bits: 128 },
+        ],
+        outputs: (Witness(5), Witness(6)),
     });
 
     let circuit = Circuit {
-        current_witness_index: 5,
-        opcodes: vec![fixed_base_scalar_mul],
-        private_parameters: BTreeSet::from([Witness(1), Witness(2)]),
-        return_values: PublicInputs(BTreeSet::from_iter(vec![Witness(3), Witness(4)])),
-        ..Circuit::default()
-    };
-    let program = Program { functions: vec![circuit], unconstrained_functions: vec![] };
-
-    let bytes = Program::serialize_program(&program);
-
-    let expected_serialization: Vec<u8> = vec![
-        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 85, 138, 81, 10, 0, 48, 8, 66, 87, 219, 254, 118, 232,
-        29, 61, 35, 3, 19, 228, 137, 60, 91, 149, 139, 26, 119, 242, 145, 31, 117, 114, 163, 135,
-        142, 139, 219, 91, 127, 117, 71, 2, 140, 82, 246, 133, 113, 0, 0, 0,
-    ];
-
-    assert_eq!(bytes, expected_serialization)
-}
-
-#[test]
-fn variable_base_scalar_mul_circuit() {
-    let variable_base_scalar_mul =
-        Opcode::BlackBoxFuncCall(BlackBoxFuncCall::VariableBaseScalarMul {
-            point_x: FunctionInput { witness: Witness(1), num_bits: 128 },
-            point_y: FunctionInput { witness: Witness(2), num_bits: 128 },
-            scalar_low: FunctionInput { witness: Witness(3), num_bits: 128 },
-            scalar_high: FunctionInput { witness: Witness(4), num_bits: 128 },
-            outputs: (Witness(5), Witness(6)),
-        });
-
-    let circuit = Circuit {
         current_witness_index: 7,
-        opcodes: vec![variable_base_scalar_mul],
+        opcodes: vec![multi_scalar_mul],
         private_parameters: BTreeSet::from([Witness(1), Witness(2), Witness(3), Witness(4)]),
         return_values: PublicInputs(BTreeSet::from_iter(vec![Witness(5), Witness(6)])),
         ..Circuit::default()
@@ -108,10 +83,10 @@ fn variable_base_scalar_mul_circuit() {
     let bytes = Program::serialize_program(&program);
 
     let expected_serialization: Vec<u8> = vec![
-        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 93, 139, 65, 10, 0, 32, 8, 4, 213, 172, 78, 253, 185,
-        167, 103, 52, 65, 185, 176, 140, 44, 142, 202, 73, 143, 42, 247, 230, 128, 51, 106, 176,
-        64, 135, 53, 218, 112, 252, 113, 141, 223, 187, 9, 155, 36, 231, 203, 2, 189, 15, 68, 136,
-        137, 0, 0, 0,
+        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 85, 76, 65, 14, 0, 32, 8, 82, 179, 186, 244, 104, 159,
+        30, 45, 218, 136, 141, 33, 40, 186, 93, 76, 208, 57, 31, 93, 96, 136, 47, 250, 146, 188,
+        209, 39, 181, 131, 131, 187, 148, 110, 240, 246, 101, 38, 63, 180, 243, 97, 3, 125, 173,
+        118, 131, 153, 0, 0, 0,
     ];
 
     assert_eq!(bytes, expected_serialization)

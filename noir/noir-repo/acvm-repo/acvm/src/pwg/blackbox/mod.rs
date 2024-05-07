@@ -15,7 +15,7 @@ use crate::{pwg::witness_to_value, BlackBoxFunctionSolver};
 
 mod aes128;
 pub(crate) mod bigint;
-mod fixed_base_scalar_mul;
+mod embedded_curve_ops;
 mod hash;
 mod logic;
 mod pedersen;
@@ -23,7 +23,7 @@ mod range;
 mod signature;
 pub(crate) mod utils;
 
-use fixed_base_scalar_mul::{embedded_curve_add, fixed_base_scalar_mul, variable_base_scalar_mul};
+use embedded_curve_ops::{embedded_curve_add, multi_scalar_mul};
 // Hash functions should eventually be exposed for external consumers.
 use hash::{solve_generic_256_hash_opcode, solve_sha_256_permutation_opcode};
 use logic::{and, xor};
@@ -161,24 +161,9 @@ pub(crate) fn solve(
             message.as_ref(),
             *output,
         ),
-        BlackBoxFuncCall::FixedBaseScalarMul { low, high, outputs } => {
-            fixed_base_scalar_mul(backend, initial_witness, *low, *high, *outputs)
+        BlackBoxFuncCall::MultiScalarMul { points, scalars, outputs } => {
+            multi_scalar_mul(backend, initial_witness, points, scalars, *outputs)
         }
-        BlackBoxFuncCall::VariableBaseScalarMul {
-            point_x,
-            point_y,
-            scalar_low,
-            scalar_high,
-            outputs,
-        } => variable_base_scalar_mul(
-            backend,
-            initial_witness,
-            *point_x,
-            *point_y,
-            *scalar_low,
-            *scalar_high,
-            *outputs,
-        ),
         BlackBoxFuncCall::EmbeddedCurveAdd { input1_x, input1_y, input2_x, input2_y, outputs } => {
             embedded_curve_add(
                 backend,
