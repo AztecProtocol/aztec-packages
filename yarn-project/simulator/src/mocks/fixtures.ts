@@ -102,7 +102,7 @@ export class PublicExecutionResultBuilder {
     return this;
   }
 
-  build(): PublicExecutionResult {
+  build(overrides: Partial<PublicExecutionResult> = {}): PublicExecutionResult {
     return {
       execution: this._execution,
       nestedExecutions: this._nestedExecutions,
@@ -116,11 +116,16 @@ export class PublicExecutionResultBuilder {
       contractStorageReads: [],
       unencryptedLogsHashes: [],
       unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
+      unencryptedLogPreimagesLength: new Fr(4n), // empty logs have len 4
+      allUnencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       startSideEffectCounter: Fr.ZERO,
       endSideEffectCounter: Fr.ZERO,
       reverted: this._reverted,
       revertReason: this._revertReason,
-      gasLeft: Gas.test(), // TODO(palla/gas): Set a proper value
+      startGasLeft: Gas.test(),
+      endGasLeft: Gas.test(),
+      transactionFee: Fr.ZERO,
+      ...overrides,
     };
   }
 }

@@ -1,5 +1,12 @@
 import { UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
-import { Fr, Gas, type GlobalVariables, type Header, PublicCircuitPublicInputs } from '@aztec/circuits.js';
+import {
+  Fr,
+  Gas,
+  type GlobalVariables,
+  type Header,
+  PublicCircuitPublicInputs,
+  type TxContext,
+} from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { spawn } from 'child_process';
@@ -19,7 +26,7 @@ import { PackedValuesCache } from '../common/packed_values_cache.js';
 import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db.js';
 import { type PublicExecution, type PublicExecutionResult, checkValidStaticCall } from './execution.js';
 import { PublicExecutionContext } from './public_execution_context.js';
-import { convertAvmResults, createAvmExecutionEnvironment, isAvmBytecode } from './transitional_adaptors.js';
+import { convertAvmResultsToPxResult, createAvmExecutionEnvironment, isAvmBytecode } from './transitional_adaptors.js';
 
 /**
  * Execute a public function and return the execution result.
@@ -39,15 +46,22 @@ export async function executePublicFunction(
   }
 
   if (isAvmBytecode(bytecode)) {
-    return await executePublicFunctionAvm(context);
+    return await executeTopLevelPublicFunctionAvm(context);
   } else {
     return await executePublicFunctionAcvm(context, bytecode, nested);
   }
 }
 
-async function executePublicFunctionAvm(executionContext: PublicExecutionContext): Promise<PublicExecutionResult> {
+/**
+ * Execute a top-level public function call (the first call in an enqueued-call/execution-request) in the AVM.
+ * Translate the results back to the PublicExecutionResult format.
+ */
+async function executeTopLevelPublicFunctionAvm(
+  executionContext: PublicExecutionContext,
+): Promise<PublicExecutionResult> {
   const address = executionContext.execution.contractAddress;
   const selector = executionContext.execution.functionData.selector;
+  const startGas = executionContext.availableGas;
   const log = createDebugLogger('aztec:simulator:public_execution');
   log.verbose(`[AVM] Executing public external function ${address.toString()}:${selector}.`);
 
@@ -58,26 +72,36 @@ async function executePublicFunctionAvm(executionContext: PublicExecutionContext
     executionContext.contractsDb,
     executionContext.commitmentsDb,
   );
+
+  // TODO(6207): add sideEffectCounter to persistableState construction
+  // or modify the PersistableStateManager to manage rollbacks across enqueued-calls and transactions.
   const worldStateJournal = new AvmPersistableStateManager(hostStorage);
+  const startSideEffectCounter = executionContext.execution.callContext.sideEffectCounter;
+  worldStateJournal.trace.accessCounter = startSideEffectCounter;
 
   const executionEnv = createAvmExecutionEnvironment(
     executionContext.execution,
     executionContext.header,
     executionContext.globalVariables,
+    executionContext.gasSettings,
+    executionContext.transactionFee,
   );
 
-  const machineState = new AvmMachineState(Gas.test()); // TODO(palla/gas): Set proper values
-  const context = new AvmContext(worldStateJournal, executionEnv, machineState);
-  const simulator = new AvmSimulator(context);
+  const machineState = new AvmMachineState(startGas);
+  const avmContext = new AvmContext(worldStateJournal, executionEnv, machineState);
+  const simulator = new AvmSimulator(avmContext);
 
-  const result = await simulator.execute();
-  const newWorldState = context.persistableState.flush();
+  const avmResult = await simulator.execute();
 
   log.verbose(
-    `[AVM] ${address.toString()}:${selector} returned, reverted: ${result.reverted}, reason: ${result.revertReason}.`,
+    `[AVM] ${address.toString()}:${selector} returned, reverted: ${avmResult.reverted}, reason: ${
+      avmResult.revertReason
+    }.`,
   );
 
-  return await convertAvmResults(executionContext, newWorldState, result, machineState);
+  return Promise.resolve(
+    convertAvmResultsToPxResult(avmResult, startSideEffectCounter, executionContext.execution, startGas, avmContext),
+  );
 }
 
 async function executePublicFunctionAcvm(
@@ -150,9 +174,13 @@ async function executePublicFunctionAcvm(
       nestedExecutions: [],
       unencryptedLogsHashes: [],
       unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
+      unencryptedLogPreimagesLength: new Fr(4n), // empty logs have len 4
+      allUnencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       reverted,
       revertReason,
-      gasLeft: Gas.empty(),
+      startGasLeft: context.availableGas,
+      endGasLeft: Gas.empty(),
+      transactionFee: context.transactionFee,
     };
   }
 
@@ -171,6 +199,7 @@ async function executePublicFunctionAcvm(
     startSideEffectCounter,
     endSideEffectCounter,
     unencryptedLogsHashes: unencryptedLogsHashesPadded,
+    unencryptedLogPreimagesLength,
   } = PublicCircuitPublicInputs.fromFields(returnWitness);
   const returnValues = await context.unpackReturns(returnsHash);
 
@@ -196,7 +225,11 @@ async function executePublicFunctionAcvm(
 
   const nestedExecutions = context.getNestedExecutions();
   const unencryptedLogs = context.getUnencryptedLogs();
-  const gasLeft = Gas.test(); // TODO(palla/gas): Set proper value
+  const allUnencryptedLogs = context.getAllUnencryptedLogs();
+
+  // TODO(palla/gas): We should be loading these values from the returned PublicCircuitPublicInputs
+  const startGasLeft = context.availableGas;
+  const endGasLeft = context.availableGas; // No gas consumption in non-AVM
 
   return {
     execution,
@@ -213,9 +246,13 @@ async function executePublicFunctionAcvm(
     nestedExecutions,
     unencryptedLogsHashes,
     unencryptedLogs,
+    unencryptedLogPreimagesLength,
+    allUnencryptedLogs,
     reverted: false,
     revertReason: undefined,
-    gasLeft,
+    startGasLeft,
+    endGasLeft,
+    transactionFee: context.transactionFee,
   };
 }
 
@@ -240,6 +277,9 @@ export class PublicExecutor {
   public async simulate(
     execution: PublicExecution,
     globalVariables: GlobalVariables,
+    availableGas: Gas,
+    txContext: TxContext,
+    transactionFee: Fr = Fr.ZERO,
     sideEffectCounter: number = 0,
   ): Promise<PublicExecutionResult> {
     // Functions can request to pack arguments before calling other functions.
@@ -255,6 +295,9 @@ export class PublicExecutor {
       this.stateDb,
       this.contractsDb,
       this.commitmentsDb,
+      availableGas,
+      transactionFee,
+      txContext.gasSettings,
     );
 
     const executionResult = await executePublicFunction(context, /*nested=*/ false);

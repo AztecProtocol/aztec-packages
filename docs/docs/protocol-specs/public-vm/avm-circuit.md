@@ -178,7 +178,6 @@ The VM circuit's I/O (`AvmPublicInputs`) is defined below:
 ```
 AvmSessionInputs {
     // Initializes Execution Environment
-    feePerL1Gas: field,
     feePerL2Gas: field,
     feePerDaGas: field,
     globals: PublicGlobalVariables,
@@ -188,13 +187,12 @@ AvmSessionInputs {
     contractCallDepth: field,
     isStaticCall: boolean,
     isDelegateCall: boolean,
+    transactionFee: field,
     // Initializes Machine State
-    l1GasLeft: field,
     l2GasLeft: field,
     daGasLeft: field,
 }
 AvmSessionResults {
-    l1GasLeft: field,
     l2GasLeft: field,
     daGasLeft: field,
     reverted: boolean,

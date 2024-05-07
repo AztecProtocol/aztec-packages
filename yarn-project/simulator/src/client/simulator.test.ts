@@ -6,11 +6,7 @@ import {
   computeUniqueNoteHash,
   siloNoteHash,
 } from '@aztec/circuits.js/hash';
-import {
-  ABIParameterVisibility,
-  type FunctionArtifactWithDebugMetadata,
-  getFunctionArtifact,
-} from '@aztec/foundation/abi';
+import { ABIParameterVisibility, type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -59,8 +55,8 @@ describe('Simulator', () => {
   describe('computeNoteHashAndNullifier', () => {
     const artifact = getFunctionArtifact(TokenContractArtifact, 'compute_note_hash_and_nullifier');
     const nonce = Fr.random();
-    const storageSlot = Fr.random();
-    const noteTypeId = new Fr(8411110710111078111116101n); // TODO(#5833): This can be imported from artifact now
+    const storageSlot = TokenContractArtifact.storageLayout['balances'].slot;
+    const noteTypeId = TokenContractArtifact.notes['TokenNote'].id;
 
     const createNote = (amount = 123n) => new Note([new Fr(amount), owner.toField(), Fr.random()]);
 
@@ -100,7 +96,7 @@ describe('Simulator', () => {
     it('throw if "compute_note_hash_and_nullifier" has the wrong number of parameters', async () => {
       const note = createNote();
 
-      const modifiedArtifact: FunctionArtifactWithDebugMetadata = {
+      const modifiedArtifact: FunctionArtifact = {
         ...artifact,
         parameters: artifact.parameters.slice(1),
       };
@@ -119,7 +115,7 @@ describe('Simulator', () => {
       const note = createNote();
       const wrongPreimageLength = note.length - 1;
 
-      const modifiedArtifact: FunctionArtifactWithDebugMetadata = {
+      const modifiedArtifact: FunctionArtifact = {
         ...artifact,
         parameters: [
           ...artifact.parameters.slice(0, -1),

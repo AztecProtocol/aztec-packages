@@ -91,11 +91,11 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       const gasSettings = options.gasSettings ?? GasSettings.simulation();
 
       const txRequest = TxExecutionRequest.from({
-        argsHash: packedArgs.hash,
+        firstCallArgsHash: packedArgs.hash,
         origin: this.contractAddress,
         functionData: FunctionData.fromAbi(this.functionDao),
         txContext: new TxContext(nodeInfo.chainId, nodeInfo.protocolVersion, gasSettings),
-        packedArguments: [packedArgs],
+        argsOfCalls: [packedArgs],
         authWitnesses: [],
       });
       const simulatedTx = await this.pxe.simulateTx(txRequest, true, options.from ?? this.wallet.getAddress());
@@ -105,7 +105,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       const txRequest = await this.create();
       const simulatedTx = await this.pxe.simulateTx(txRequest, true);
       this.txRequest = undefined;
-      const flattened = simulatedTx.publicReturnValues;
+      const flattened = simulatedTx.publicOutput?.publicReturnValues;
       return flattened ? decodeReturnValues(this.functionDao, flattened) : [];
     }
   }

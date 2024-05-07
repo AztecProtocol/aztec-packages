@@ -4,6 +4,7 @@
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -70,19 +71,42 @@ TEST_F(UltraHonkComposerTests, ANonZeroPolynomialIsAGoodPolynomial)
     auto instance = std::make_shared<ProverInstance>(circuit_builder);
     UltraProver prover(instance);
     auto proof = prover.construct_proof();
-    auto& proving_key = instance->proving_key;
+    auto& polynomials = instance->proving_key.polynomials;
 
-    for (auto& poly : proving_key.get_selectors()) {
+    for (auto& poly : polynomials.get_selectors()) {
         ensure_non_zero(poly);
     }
 
-    for (auto& poly : proving_key.get_table_polynomials()) {
+    for (auto& poly : polynomials.get_tables()) {
         ensure_non_zero(poly);
     }
 
-    for (auto& poly : proving_key.get_wires()) {
+    for (auto& poly : polynomials.get_wires()) {
         ensure_non_zero(poly);
     }
+}
+
+/**
+ * @brief Test proof construction/verification for a structured execution trace
+ *
+ */
+TEST_F(UltraHonkComposerTests, StructuredTrace)
+{
+    auto builder = UltraCircuitBuilder();
+    size_t num_gates = 3;
+
+    // Add some arbitrary arithmetic gates that utilize public inputs
+    MockCircuits::add_arithmetic_gates_with_public_inputs(builder, num_gates);
+
+    // Construct an instance with a structured execution trace
+    bool structured = true;
+    auto instance = std::make_shared<ProverInstance>(builder, structured);
+    info(instance->proving_key.circuit_size);
+    UltraProver prover(instance);
+    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    UltraVerifier verifier(verification_key);
+    auto proof = prover.construct_proof();
+    EXPECT_TRUE(verifier.verify_proof(proof));
 }
 
 /**
@@ -95,19 +119,7 @@ TEST_F(UltraHonkComposerTests, PublicInputs)
     size_t num_gates = 10;
 
     // Add some arbitrary arithmetic gates that utilize public inputs
-    for (size_t i = 0; i < num_gates; ++i) {
-        fr a = fr::random_element();
-        uint32_t a_idx = builder.add_public_variable(a);
-
-        fr b = fr::random_element();
-        fr c = fr::random_element();
-        fr d = a + b + c;
-        uint32_t b_idx = builder.add_variable(b);
-        uint32_t c_idx = builder.add_variable(c);
-        uint32_t d_idx = builder.add_variable(d);
-
-        builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
-    }
+    MockCircuits::add_arithmetic_gates_with_public_inputs(builder, num_gates);
 
     prove_and_verify(builder, /*expected_result=*/true);
 }
@@ -195,15 +207,8 @@ TEST_F(UltraHonkComposerTests, create_gates_from_plookup_accumulators)
             expected_scalar >>= table_bits;
         }
     }
-    auto instance = std::make_shared<ProverInstance>(circuit_builder);
-    UltraProver prover(instance);
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
-    UltraVerifier verifier(verification_key);
-    auto proof = prover.construct_proof();
 
-    bool result = verifier.verify_proof(proof);
-
-    EXPECT_EQ(result, true);
+    prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
 TEST_F(UltraHonkComposerTests, test_no_lookup_proof)
