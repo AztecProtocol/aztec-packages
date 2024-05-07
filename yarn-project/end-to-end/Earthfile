@@ -90,10 +90,6 @@ e2e-crowdfunding-and-claim:
   FROM ../+end-to-end
   RUN yarn test ./src/e2e_crowdfunding_and_claim.test.ts
 
-e2e-dapp-subscription:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_dapp_subscription.test.ts
-
 e2e-delegate-calls:
   FROM ../+end-to-end
   RUN yarn test ./src/e2e_delegate_calls
@@ -109,10 +105,6 @@ e2e-encryption:
 e2e-escrow-contract:
   FROM ../+end-to-end
   RUN yarn test ./src/e2e_escrow_contract.test.ts
-
-e2e-fees:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_fees.test.ts
 
 e2e-key-registry:
   FROM ../+end-to-end
