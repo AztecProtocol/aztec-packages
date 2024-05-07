@@ -33,7 +33,7 @@ export class Demonomorphizer {
   private fillVariantsMap() {
     const allStructs = this.types.flatMap(findAllStructsInType);
     for (const struct of allStructs) {
-      const id = Demonomorphizer.buildIdForStruct(struct);
+      const id = Demonomorphizer.buildIdForStruct(struct.structType);
       const variants = this.variantsMap.get(id) ?? [];
       variants.push(struct);
       this.variantsMap.set(id, variants);
@@ -50,7 +50,7 @@ export class Demonomorphizer {
   }
 
   private demonomorphizeStruct(struct: Struct) {
-    const id = Demonomorphizer.buildIdForStruct(struct);
+    const id = Demonomorphizer.buildIdForStruct(struct.structType);
     if (this.visitedStructs.has(id)) {
       return;
     }
@@ -159,7 +159,7 @@ export class Demonomorphizer {
       }
       case 'struct': {
         const structs = types as Struct[];
-        const ids = new Set(structs.map(Demonomorphizer.buildIdForStruct));
+        const ids = new Set(structs.map(struct => Demonomorphizer.buildIdForStruct(struct.structType)));
         if (ids.size > 1) {
           return this.buildBindingAndPushToVariants(types, generics, variants);
         } else {
@@ -192,9 +192,9 @@ export class Demonomorphizer {
     }
   }
 
-  public static buildIdForStruct(struct: Struct): string {
-    const name = struct.structType.path.split('::').pop()!;
-    const fields = struct.structType.fields.map(field => field.name).join(',');
+  public static buildIdForStruct(struct: StructType): string {
+    const name = struct.path.split('::').pop()!;
+    const fields = struct.fields.map(field => field.name).join(',');
     return `${name}(${fields})`;
   }
 

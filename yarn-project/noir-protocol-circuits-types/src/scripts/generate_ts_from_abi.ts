@@ -1,4 +1,3 @@
-import { type AbiType } from '@aztec/foundation/abi';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { type NoirCompiledCircuit, type NoirFunctionAbi } from '@aztec/types/noir';
 
@@ -40,52 +39,6 @@ type PrimitiveTypesUsed = {
   tsType: string;
 };
 
-const noirPrimitiveTypesToTsTypes = new Map<string, PrimitiveTypesUsed>();
-
-/**
- * Typescript does not allow us to check for equality of non-primitive types
- * easily, so we create a addIfUnique function that will only add an item
- * to the map if it is not already there by using JSON.stringify.
- * @param item - The item to add to the map.
- */
-function addIfUnique(item: PrimitiveTypesUsed) {
-  const key = JSON.stringify(item);
-  if (!noirPrimitiveTypesToTsTypes.has(key)) {
-    noirPrimitiveTypesToTsTypes.set(key, item);
-  }
-}
-
-/**
- * Converts an ABI type to a TypeScript type.
- * @param type - The ABI type to convert.
- * @returns The typescript code to define the type.
- */
-function abiTypeToTs(type: AbiType): string {
-  switch (type.kind) {
-    case 'integer': {
-      let tsIntType = '';
-      if (type.sign === 'signed') {
-        tsIntType = `i${type.width}`;
-      } else {
-        tsIntType = `u${type.width}`;
-      }
-      addIfUnique({ aliasName: tsIntType, tsType: 'string' });
-      return tsIntType;
-    }
-    case 'boolean':
-      return `boolean`;
-    case 'array':
-      return `FixedLengthArray<${abiTypeToTs(type.type)}, ${type.length}>`;
-    case 'struct':
-      return getLastComponentOfPath(type.path);
-    case 'field':
-      addIfUnique({ aliasName: 'Field', tsType: 'string' });
-      return 'Field';
-    default:
-      throw new Error(`Unknown ABI type ${type}`);
-  }
-}
-
 /**
  * Returns the last component of a path, e.g. "foo::bar::baz" -\> "baz"
  * Note: that if we have a path such as "Baz", we will return "Baz".
@@ -111,102 +64,6 @@ function getLastComponentOfPath(str: string): string {
   return lastPart;
 }
 
-/**
- * Generates TypeScript interfaces for the structs used in the ABI.
- * @param type - The ABI type to generate the interface for.
- * @param output - The set of structs that we have already generated bindings for.
- * @returns The TypeScript code to define the struct.
- */
-function generateStructInterfaces(type: AbiType, output: Set<string>): string {
-  let result = '';
-
-  // Edge case to handle the array of structs case.
-  if (
-    type.kind === 'array' &&
-    ((type.type.kind === 'struct' && !output.has(getLastComponentOfPath(type.type.path))) || type.type.kind === 'array')
-  ) {
-    result += generateStructInterfaces(type.type, output);
-  }
-
-  if (type.kind !== 'struct') {
-    return result;
-  }
-
-  // List of structs encountered while viewing this type that we need to generate
-  // bindings for.
-  const typesEncountered = new Set<AbiType>();
-
-  // Codegen the struct and then its fields, so that the structs fields
-  // are defined before the struct itself.
-  let codeGeneratedStruct = '';
-  let codeGeneratedStructFields = '';
-
-  const structName = getLastComponentOfPath(type.path);
-  if (!output.has(structName)) {
-    codeGeneratedStruct += `export interface ${structName} {\n`;
-    for (const field of type.fields) {
-      codeGeneratedStruct += `  ${field.name}: ${abiTypeToTs(field.type)};\n`;
-      typesEncountered.add(field.type);
-    }
-    codeGeneratedStruct += `}\n\n`;
-    output.add(structName);
-
-    // Generate code for the encountered structs in the field above
-    for (const type of typesEncountered) {
-      codeGeneratedStructFields += generateStructInterfaces(type, output);
-    }
-  }
-
-  return codeGeneratedStructFields + '\n' + codeGeneratedStruct;
-}
-
-/**
- * Generates a TypeScript interface for the ABI.
- * @param abiObj - The ABI to generate the interface for.
- * @returns The TypeScript code to define the interface.
- */
-function generateTsInterface(abiObj: NoirFunctionAbi): string {
-  let result = ``;
-  const outputStructs = new Set<string>();
-
-  // Define structs for composite types
-  for (const param of abiObj.parameters) {
-    result += generateStructInterfaces(param.type, outputStructs);
-  }
-
-  // Generating Return type, if it exists
-  //
-  if (abiObj.return_type != null) {
-    result += generateStructInterfaces(abiObj.return_type.abi_type, outputStructs);
-    result += `export type ReturnType = ${abiTypeToTs(abiObj.return_type.abi_type)};\n`;
-  }
-
-  // Generating Input type
-  result += '\nexport interface InputType {\n';
-  for (const param of abiObj.parameters) {
-    result += `  ${param.name}: ${abiTypeToTs(param.type)};\n`;
-  }
-  result += '}';
-
-  // Add the primitive Noir types that do not have a 1-1 mapping to TypeScript.
-  let primitiveTypeAliases = '';
-  for (const [, value] of noirPrimitiveTypesToTsTypes) {
-    primitiveTypeAliases += `\nexport type ${value.aliasName} = ${value.tsType};`;
-  }
-
-  const fixedLengthArray =
-    '\nexport type FixedLengthArray<T, L extends number> = L extends 0 ? never[]: T[] & { length: L }';
-
-  return (
-    `/* Autogenerated file, do not edit! */\n\n/* eslint-disable */\n` +
-    fixedLengthArray +
-    '\n' +
-    primitiveTypeAliases +
-    '\n' +
-    result
-  );
-}
-
 function replaceNumericBinding(id: number | BindingId, genericsNameMap: Map<number, string>): string {
   if (typeof id === 'number') {
     return id.toString();
@@ -223,6 +80,7 @@ class TypingsGenerator {
     params: { name: string; type: AbiTypeWithGenerics }[];
     returnType?: AbiTypeWithGenerics;
   }[] = [];
+  private structIdToTsName = new Map<string, string>();
 
   constructor(circuits: { abi: NoirFunctionAbi; circuitName: string }[]) {
     for (const { abi, circuitName } of circuits) {
@@ -260,11 +118,28 @@ class TypingsGenerator {
     const allStructs = this.allTypes.flatMap(findAllStructsInType);
     const structTypesToExport = new Map<string, StructType>();
     for (const struct of allStructs) {
-      const id = Demonomorphizer.buildIdForStruct(struct);
+      const id = Demonomorphizer.buildIdForStruct(struct.structType);
       if (structTypesToExport.has(id)) {
         continue;
       }
       structTypesToExport.set(id, struct.structType);
+    }
+
+    const idsPerName = new Map<string, string[]>();
+    for (const [id, structType] of structTypesToExport.entries()) {
+      const name = getLastComponentOfPath(structType.path);
+      const ids = idsPerName.get(name) ?? [];
+      ids.push(id);
+      idsPerName.set(name, ids);
+    }
+
+    this.structIdToTsName = new Map();
+    for (const [name, ids] of idsPerName.entries()) {
+      if (ids.length !== 1) {
+        ids.forEach((id, index) => {
+          this.structIdToTsName.set(id, `${name}${index + 1}`);
+        });
+      }
     }
 
     let resultCode = '';
@@ -276,12 +151,18 @@ class TypingsGenerator {
     return resultCode;
   }
 
+  private getStructName(structType: StructType): string {
+    return (
+      this.structIdToTsName.get(Demonomorphizer.buildIdForStruct(structType)) || getLastComponentOfPath(structType.path)
+    );
+  }
+
   private codegenStructType(structType: StructType): string {
     const genericsNameMap = new Map<number, string>();
     structType.generics.forEach((generic, index) => {
       genericsNameMap.set(generic.id, String.fromCharCode('A'.charCodeAt(0) + index));
     });
-    const name = structType.path.split('::').pop();
+    const name = this.getStructName(structType);
     const generics = structType.generics.length
       ? `<${structType.generics
           .map(generic => `${genericsNameMap.get(generic.id)}${generic.isNumeric ? ' extends number' : ''}`)
@@ -329,7 +210,7 @@ class TypingsGenerator {
       case 'tuple':
         throw new Error('Unimplemented');
       case 'struct': {
-        const name = type.structType.path.split('::').pop()!;
+        const name = this.getStructName(type.structType);
         if (type.args.length) {
           const args = type.args.map(arg => this.codegenType(arg, genericsNameMap)).join(', ');
           return `${name}<${args}>`;
@@ -371,7 +252,7 @@ class TypingsGenerator {
   private codegenAllPrimitives(): string {
     let primitiveTypeAliases =
       'export type FixedLengthArray<T, L extends number> = L extends 0 ? never[]: T[] & { length: L }\n';
-    for (const [, value] of noirPrimitiveTypesToTsTypes) {
+    for (const [, value] of this.primitiveTypesUsed) {
       primitiveTypeAliases += `export type ${value.aliasName} = ${value.tsType};\n`;
     }
     return primitiveTypeAliases;
@@ -402,23 +283,19 @@ const main = async () => {
     await fs.mkdir('./src/types', { recursive: true });
   }
 
-  const allAbis = [];
-
   for (const circuit of circuits) {
     const rawData = await fs.readFile(`./src/target/${circuit}.json`, 'utf-8');
     const abiObj: NoirCompiledCircuit = JSON.parse(rawData);
-    const generatedInterface = generateTsInterface(abiObj.abi);
-    allAbis.push({
-      abi: abiObj.abi,
-      circuitName: pascalCase(circuit),
-    });
 
+    const generatedInterface = new TypingsGenerator([
+      {
+        abi: abiObj.abi,
+        circuitName: pascalCase(circuit),
+      },
+    ]).codegen();
     const outputFile = `./src/types/${circuit}_types.ts`;
     await fs.writeFile(outputFile, generatedInterface);
   }
-
-  const typing = new TypingsGenerator(allAbis).codegen();
-  await fs.writeFile(`./src/types/types.ts`, typing);
 };
 
 try {
