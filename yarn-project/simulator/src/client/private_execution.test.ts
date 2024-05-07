@@ -215,21 +215,23 @@ describe('Private Execution test suite', () => {
       }
       throw new Error(`Unknown address ${accountAddress}`);
     });
-    oracle.getNullifierKeysWithMasterNullifierPublicKeyHash.mockImplementation((masterNullifierPublicKeyHash: Fr, contractAddress: AztecAddress) => {
-      if (masterNullifierPublicKeyHash.equals(poseidon2Hash(ownerMasterNullifierPublicKey.toFields()))) {
-        return Promise.resolve({
-          masterNullifierPublicKey: ownerMasterNullifierPublicKey,
-          appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
-        });
-      }
-      if (masterNullifierPublicKeyHash.equals(poseidon2Hash(recipientMasterNullifierPublicKey.toFields()))) {
-        return Promise.resolve({
-          masterNullifierPublicKey: recipientMasterNullifierPublicKey,
-          appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
-        });
-      }
-      throw new Error(`Unknown master nullifier public key hash: ${masterNullifierPublicKeyHash}`);
-    });
+    oracle.getNullifierKeysWithMasterNullifierPublicKeyHash.mockImplementation(
+      (masterNullifierPublicKeyHash: Fr, contractAddress: AztecAddress) => {
+        if (masterNullifierPublicKeyHash.equals(poseidon2Hash(ownerMasterNullifierPublicKey.toFields()))) {
+          return Promise.resolve({
+            masterNullifierPublicKey: ownerMasterNullifierPublicKey,
+            appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
+          });
+        }
+        if (masterNullifierPublicKeyHash.equals(poseidon2Hash(recipientMasterNullifierPublicKey.toFields()))) {
+          return Promise.resolve({
+            masterNullifierPublicKey: recipientMasterNullifierPublicKey,
+            appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
+          });
+        }
+        throw new Error(`Unknown master nullifier public key hash: ${masterNullifierPublicKeyHash}`);
+      },
+    );
     oracle.getHeader.mockResolvedValue(header);
 
     acirSimulator = new AcirSimulator(oracle, node);
@@ -340,7 +342,10 @@ describe('Private Execution test suite', () => {
       const initArgs = [owner, poseidon2Hash(recipientMasterNullifierPublicKey.toFields()), 140];
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'constructor_no_registry');
 
-      const instance = getContractInstanceFromDeployParams(StatefulTestContractArtifact, { constructorArtifact: artifact, constructorArgs: initArgs });
+      const instance = getContractInstanceFromDeployParams(StatefulTestContractArtifact, {
+        constructorArtifact: artifact,
+        constructorArgs: initArgs,
+      });
       oracle.getContractInstance.mockResolvedValue(instance);
       const topLevelResult = await runSimulator({ args: initArgs, artifact, contractAddress: instance.address });
       const result = topLevelResult.nestedExecutions[0];
@@ -374,7 +379,10 @@ describe('Private Execution test suite', () => {
     it('should run the create_note function', async () => {
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'create_note_no_registry_no_init_check');
 
-      const result = await runSimulator({ args: [owner, poseidon2Hash(recipientMasterNullifierPublicKey.toFields()), 140], artifact });
+      const result = await runSimulator({
+        args: [owner, poseidon2Hash(recipientMasterNullifierPublicKey.toFields()), 140],
+        artifact,
+      });
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
@@ -404,7 +412,10 @@ describe('Private Execution test suite', () => {
 
     it('should run the destroy_and_create function', async () => {
       const amountToTransfer = 100n;
-      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create_no_registry_no_init_check');
+      const artifact = getFunctionArtifact(
+        StatefulTestContractArtifact,
+        'destroy_and_create_no_registry_no_init_check',
+      );
 
       const storageSlot = computeSlotForMapping(StatefulTestContractArtifact.storageLayout['notes'].slot, owner);
       const recipientStorageSlot = computeSlotForMapping(
@@ -414,7 +425,10 @@ describe('Private Execution test suite', () => {
 
       const noteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
 
-      const notes = [buildNote(60n, poseidon2Hash(ownerMasterNullifierPublicKey.toFields()), storageSlot, noteTypeId), buildNote(80n, poseidon2Hash(ownerMasterNullifierPublicKey.toFields()), storageSlot, noteTypeId)];
+      const notes = [
+        buildNote(60n, poseidon2Hash(ownerMasterNullifierPublicKey.toFields()), storageSlot, noteTypeId),
+        buildNote(80n, poseidon2Hash(ownerMasterNullifierPublicKey.toFields()), storageSlot, noteTypeId),
+      ];
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>
@@ -422,7 +436,12 @@ describe('Private Execution test suite', () => {
       );
       await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
 
-      const args = [poseidon2Hash(ownerMasterNullifierPublicKey.toFields()), recipient, poseidon2Hash(recipientMasterNullifierPublicKey.toFields()), amountToTransfer];
+      const args = [
+        poseidon2Hash(ownerMasterNullifierPublicKey.toFields()),
+        recipient,
+        poseidon2Hash(recipientMasterNullifierPublicKey.toFields()),
+        amountToTransfer,
+      ];
       const result = await runSimulator({ args, artifact, msgSender: owner });
 
       // The two notes were nullified
@@ -466,12 +485,17 @@ describe('Private Execution test suite', () => {
     it('should be able to destroy_and_create with dummy notes', async () => {
       const amountToTransfer = 100n;
       const balance = 160n;
-      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create_no_registry_no_init_check');
+      const artifact = getFunctionArtifact(
+        StatefulTestContractArtifact,
+        'destroy_and_create_no_registry_no_init_check',
+      );
 
       const storageSlot = computeSlotForMapping(new Fr(1n), owner);
       const noteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
 
-      const notes = [buildNote(balance, poseidon2Hash(ownerMasterNullifierPublicKey.toFields()), storageSlot, noteTypeId)];
+      const notes = [
+        buildNote(balance, poseidon2Hash(ownerMasterNullifierPublicKey.toFields()), storageSlot, noteTypeId),
+      ];
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>
@@ -479,7 +503,12 @@ describe('Private Execution test suite', () => {
       );
       await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
 
-      const args = [poseidon2Hash(ownerMasterNullifierPublicKey.toFields()), recipient, poseidon2Hash(recipientMasterNullifierPublicKey.toFields()), amountToTransfer];
+      const args = [
+        poseidon2Hash(ownerMasterNullifierPublicKey.toFields()),
+        recipient,
+        poseidon2Hash(recipientMasterNullifierPublicKey.toFields()),
+        amountToTransfer,
+      ];
       const result = await runSimulator({ args, artifact, msgSender: owner });
 
       const newNullifiers = getNonEmptyItems(result.callStackItem.publicInputs.newNullifiers).map(n => n.value);
@@ -996,7 +1025,13 @@ describe('Private Execution test suite', () => {
         getThenNullifyArtifact.parameters,
       );
 
-      const args = [amountToTransfer, owner, poseidon2Hash(ownerMasterNullifierPublicKey.toFields()), insertFnSelector.toField(), getThenNullifyFnSelector.toField()];
+      const args = [
+        amountToTransfer,
+        owner,
+        poseidon2Hash(ownerMasterNullifierPublicKey.toFields()),
+        insertFnSelector.toField(),
+        getThenNullifyFnSelector.toField(),
+      ];
       const result = await runSimulator({
         args: args,
         artifact: artifact,
@@ -1062,7 +1097,10 @@ describe('Private Execution test suite', () => {
 
       const contractAddress = AztecAddress.random();
 
-      const artifact = getFunctionArtifact(PendingNoteHashesContractArtifact, 'test_bad_get_then_insert_flat_no_registry');
+      const artifact = getFunctionArtifact(
+        PendingNoteHashesContractArtifact,
+        'test_bad_get_then_insert_flat_no_registry',
+      );
 
       const args = [amountToTransfer, owner, poseidon2Hash(ownerMasterNullifierPublicKey.toFields())];
       await expect(() =>
