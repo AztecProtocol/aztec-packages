@@ -11,6 +11,8 @@ import {
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   type Proof,
+  RECURSIVE_PROOF_LENGTH,
+  RecursiveProof,
   type TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
@@ -141,7 +143,7 @@ export class KernelProver {
     { callStackItem, vk }: ExecutionResult,
     privateCallRequests: CallRequest[],
     publicCallRequests: CallRequest[],
-    proof: Proof,
+    proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>,
   ) {
     const { contractAddress, functionData } = callStackItem;
 

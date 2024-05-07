@@ -1,11 +1,13 @@
 import {
+  type NESTED_RECURSIVE_PROOF_LENGTH,
   type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
-  type Proof,
+  type RECURSIVE_PROOF_LENGTH,
+  type RecursiveProof,
 } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type ACVMField } from '@aztec/simulator';
@@ -22,7 +24,7 @@ export type ProofOutput<PublicInputsType> = {
   /**
    * The zk-SNARK proof for the kernel execution.
    */
-  proof: Proof;
+  proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
 };
 
 /**
@@ -75,5 +77,8 @@ export interface ProofCreator {
    * @param bytecode - The circuit bytecode in gzipped bincode format
    * @returns A Promise resolving to a Proof object
    */
-  createAppCircuitProof(partialWitness: Map<number, ACVMField>, bytecode: Buffer): Promise<Proof>;
+  createAppCircuitProof(
+    partialWitness: Map<number, ACVMField>,
+    bytecode: Buffer,
+  ): Promise<RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>>;
 }
