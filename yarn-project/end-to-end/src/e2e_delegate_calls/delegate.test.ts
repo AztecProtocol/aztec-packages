@@ -27,11 +27,10 @@ describe('e2e_delegate_calls', () => {
         .view_private_value(sentValue, wallet.getCompleteAddress().address)
         .simulate();
 
-      const delegatedOnValue = await delegatedOnContract.methods
+      await expect(delegatedOnContract.methods
         .view_private_value(sentValue, wallet.getCompleteAddress().address)
-        .simulate();
+        .simulate()).rejects.toThrow(`Assertion failed: Cannot return zero notes 'num_notes != 0'`);
 
-      expect(delegatedOnValue).toEqual(0n);
       expect(delegatorValue).toEqual(sentValue);
     });
 
