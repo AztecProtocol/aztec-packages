@@ -446,18 +446,7 @@ jobs:
 
   notify:
     needs:
-      [
-        e2e,
-        bb-native-tests,
-        bb-bench,
-        yarn-project-formatting,
-        yarn-project-test,
-        prover-client-test,
-        bb-js-test,
-        barretenberg-acir-tests-bb-js,
-        barretenberg-acir-tests-bb,
-        barretenberg-acir-tests-sol,
-      ]
+      - merge-check
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/master' && failure() }}
     steps:
