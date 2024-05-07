@@ -10,10 +10,10 @@ INCONSISTENT_GRAPH_STATE_COUNT=0  # Counter for 'inconsistent graph state' error
 MAX_ATTEMPTS=3
 ATTEMPT_COUNT=0
 
-EARTHLY_USE_INLINE_CACHE=true
+export EARTHLY_USE_INLINE_CACHE=true
 if [ "$GITHUB_REF_NAME" == "master" ]; then
-  EARTHLY_SAVE_INLINE_CACHE=true
-  EARTHLY_PUSH=true
+  export EARTHLY_SAVE_INLINE_CACHE=true
+  export EARTHLY_PUSH=true
 fi
 
 # Handle earthly commands and retries
