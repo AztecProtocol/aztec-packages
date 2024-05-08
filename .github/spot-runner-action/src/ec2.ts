@@ -204,13 +204,25 @@ export class Ec2Instance {
       },
     };
     core.info("Creating launch template: " + launchTemplateName);
-    await client.createLaunchTemplate(launchTemplateParams).promise();
+    try {
+      await client.createLaunchTemplate(launchTemplateParams).promise();
+    } catch (error) {
+      if (
+        error?.code &&
+        error.code === "InvalidLaunchTemplateName.AlreadyExistsException"
+      ) {
+        // Ignore if it is already created
+        return launchTemplateName;
+      }
+      throw error;
+    }
     return launchTemplateName;
   }
 
   async requestMachine(useOnDemand: boolean): Promise<string | undefined> {
     // Note advice re max bid: "If you specify a maximum price, your instances will be interrupted more frequently than if you do not specify this parameter."
     const launchTemplateName = await this.getLaunchTemplate();
+    // Launch template name already in use
     const availabilityZone = await this.getSubnetAz();
     const fleetLaunchConfig: FleetLaunchTemplateConfigRequest = {
       LaunchTemplateSpecification: {
