@@ -1,6 +1,6 @@
 [package]
 name = "static_parent_contract"
-type = "bin"
+type = "contract"
 authors = [""]
 compiler_version = ">=0.28.0"
 

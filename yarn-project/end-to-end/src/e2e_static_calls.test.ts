@@ -1,18 +1,18 @@
 import { type Wallet } from '@aztec/aztec.js';
-import { ChildContract, ParentContract } from '@aztec/noir-contracts.js';
+import { StaticChildContract, StaticParentContract } from '@aztec/noir-contracts.js';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_static_calls', () => {
   let wallet: Wallet;
-  let parentContract: ParentContract;
-  let childContract: ChildContract;
+  let parentContract: StaticParentContract;
+  let childContract: StaticChildContract;
   let teardown: () => Promise<void>;
 
   beforeAll(async () => {
     ({ teardown, wallet } = await setup());
-    parentContract = await ParentContract.deploy(wallet).send().deployed();
-    childContract = await ChildContract.deploy(wallet).send().deployed();
+    parentContract = await StaticParentContract.deploy(wallet).send().deployed();
+    childContract = await StaticChildContract.deploy(wallet).send().deployed();
 
     // We create a note in the set, such that later reads doesn't fail due to get_notes returning 0 notes
     await childContract.methods.private_set_value(42n, wallet.getCompleteAddress().address).send().wait();
