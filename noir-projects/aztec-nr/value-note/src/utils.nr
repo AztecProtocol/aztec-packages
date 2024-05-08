@@ -19,9 +19,9 @@ pub fn increment(
     amount: Field,
     recipient: AztecAddress
 ) {
-    let recipient_nullifier_public_key_hash = get_npk_m_h(&mut context, recipient);
+    let recipient_npk_m_h = get_npk_m_h(&mut context, recipient);
 
-    let mut note = ValueNote::new(amount, recipient_nullifier_public_key_hash);
+    let mut note = ValueNote::new(amount, recipient_npk_m_h);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
     balance.insert(&mut note, amount != 0);
 }
@@ -29,9 +29,9 @@ pub fn increment(
 pub fn increment_without_calling_registry(
     balance: PrivateSet<ValueNote>,
     amount: Field,
-    recipient_nullifier_public_key_hash: Field
+    recipient_npk_m_h: Field
 ) {
-    let mut note = ValueNote::new(amount, recipient_nullifier_public_key_hash);
+    let mut note = ValueNote::new(amount, recipient_npk_m_h);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
     balance.insert(&mut note, amount != 0);
 }

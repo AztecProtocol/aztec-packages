@@ -30,9 +30,9 @@ contract Claim {
             target_address == proof_note.header.contract_address, "Note does not correspond to the target contract"
         );
 
-        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, context.msg_sender());
+        let owner_npk_m_h = get_npk_m_h(&mut context, context.msg_sender());
         assert_eq(
-            proof_note.owner_npk_m_h, owner_nullifier_public_key_hash, "Note does not belong to the sender"
+            proof_note.owner_npk_m_h, owner_npk_m_h, "Note does not belong to the sender"
         );
 
         // 2) Prove that the note hash exists in the note hash tree

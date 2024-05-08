@@ -22,10 +22,10 @@ impl EasyPrivateUint {
     pub fn add(self, addend: u64, owner: AztecAddress) {
         assert(self.context.public.is_none(), "EasyPrivateUint::add can be called from private only.");
 
-        let owner_nullifier_public_key_hash = get_npk_m_h(self.context.private.unwrap(), owner);
+        let owner_npk_m_h = get_npk_m_h(self.context.private.unwrap(), owner);
 
         // Creates new note for the owner.
-        let mut addend_note = ValueNote::new(addend as Field, owner_nullifier_public_key_hash);
+        let mut addend_note = ValueNote::new(addend as Field, owner_npk_m_h);
 
         // Insert the new note to the owner's set of notes.
         // docs:start:insert
@@ -37,7 +37,7 @@ impl EasyPrivateUint {
     pub fn sub(self, subtrahend: u64, owner: AztecAddress) {
         assert(self.context.public.is_none(), "EasyPrivateUint::sub can be called from private only.");
 
-        let owner_nullifier_public_key_hash = get_npk_m_h(self.context.private.unwrap(), owner);
+        let owner_npk_m_h = get_npk_m_h(self.context.private.unwrap(), owner);
 
         // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
@@ -51,7 +51,7 @@ impl EasyPrivateUint {
 
                 // Ensure the notes are actually owned by the owner (to prevent user from generating a valid proof while
                 // spending someone else's notes).
-                assert(note.owner_npk_m_h.eq(owner_nullifier_public_key_hash));
+                assert(note.owner_npk_m_h.eq(owner_npk_m_h));
 
                 // Removes the note from the owner's set of notes.
                 // docs:start:remove
@@ -66,7 +66,7 @@ impl EasyPrivateUint {
 
         // Creates change note for the owner.
         let result_value = minuend - subtrahend;
-        let mut result_note = ValueNote::new(result_value as Field, owner_nullifier_public_key_hash);
+        let mut result_note = ValueNote::new(result_value as Field, owner_npk_m_h);
         self.set.insert(&mut result_note, result_value != 0);
     }
 }

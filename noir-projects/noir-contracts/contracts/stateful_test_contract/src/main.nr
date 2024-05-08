@@ -28,10 +28,10 @@ contract StatefulTest {
     #[aztec(initializer)]
     fn constructor_no_registry(
         owner: AztecAddress,
-        owner_nullifier_public_key_hash: Field,
+        owner_npk_m_h: Field,
         value: Field
     ) {
-        StatefulTest::at(context.this_address()).create_note_no_registry_no_init_check(owner, owner_nullifier_public_key_hash, value).call(&mut context);
+        StatefulTest::at(context.this_address()).create_note_no_registry_no_init_check(owner, owner_npk_m_h, value).call(&mut context);
     }
 
     #[aztec(private)]
@@ -68,12 +68,12 @@ contract StatefulTest {
     #[aztec(noinitcheck)]
     fn create_note_no_registry_no_init_check(
         owner: AztecAddress,
-        owner_nullifier_public_key_hash: Field,
+        owner_npk_m_h: Field,
         value: Field
     ) {
         if (value != 0) {
             let loc = storage.notes.at(owner);
-            increment_without_calling_registry(loc, value, owner_nullifier_public_key_hash);
+            increment_without_calling_registry(loc, value, owner_npk_m_h);
         }
     }
 
@@ -104,16 +104,16 @@ contract StatefulTest {
     #[aztec(private)]
     #[aztec(noinitcheck)]
     fn destroy_and_create_no_registry_no_init_check(
-        sender_nullifier_public_key_hash: Field,
+        sender_npk_m_h: Field,
         recipient: AztecAddress,
-        recipient_nullifier_public_key_hash: Field,
+        recipient_npk_m_h: Field,
         amount: Field
     ) {
         let sender_notes = storage.notes.at(context.msg_sender());
-        decrement_without_calling_registry(sender_notes, amount, sender_nullifier_public_key_hash);
+        decrement_without_calling_registry(sender_notes, amount, sender_npk_m_h);
 
         let recipient_notes = storage.notes.at(recipient);
-        increment_without_calling_registry(recipient_notes, amount, recipient_nullifier_public_key_hash);
+        increment_without_calling_registry(recipient_notes, amount, recipient_npk_m_h);
     }
 
     #[aztec(public)]

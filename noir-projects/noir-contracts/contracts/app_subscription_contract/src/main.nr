@@ -111,10 +111,10 @@ contract AppSubscription {
 
         // Assert that the given expiry_block_number < current_block_number + SUBSCRIPTION_DURATION_IN_BLOCKS.
         AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).static_enqueue(&mut context);
-        let subscriber_nullifier_public_key_hash = get_npk_m_h(&mut context, subscriber_address);
+        let subscriber_npk_m_h = get_npk_m_h(&mut context, subscriber_address);
 
         let mut subscription_note = SubscriptionNote::new(
-            subscriber_nullifier_public_key_hash,
+            subscriber_npk_m_h,
             expiry_block_number,
             tx_count
         );

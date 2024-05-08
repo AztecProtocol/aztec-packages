@@ -17,9 +17,9 @@ contract Escrow {
     #[aztec(private)]
     #[aztec(initializer)]
     fn constructor(owner: pub AztecAddress) {
-        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, owner);
+        let owner_npk_m_h = get_npk_m_h(&mut context, owner);
 
-        let mut note = AddressNote::new(owner, owner_nullifier_public_key_hash);
+        let mut note = AddressNote::new(owner, owner_npk_m_h);
         storage.owner.initialize(&mut note, true);
     }
 

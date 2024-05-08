@@ -21,10 +21,10 @@ contract PendingNoteHashes {
     // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
     #[aztec(private)]
     fn test_insert_then_get_then_nullify_flat(amount: Field, owner: AztecAddress) -> Field {
-        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, owner);
+        let owner_npk_m_h = get_npk_m_h(&mut context, owner);
 
         let owner_balance = storage.balances.at(owner);
-        let mut note = ValueNote::new(amount, owner_nullifier_public_key_hash);
+        let mut note = ValueNote::new(amount, owner_npk_m_h);
 
         // Insert note
         owner_balance.insert(&mut note, true);
@@ -43,9 +43,9 @@ contract PendingNoteHashes {
     }
 
     #[aztec(private)]
-    fn test_insert_then_get_then_nullify_flat_no_registry(amount: Field, owner: AztecAddress, owner_nullifier_public_key_hash: Field) -> Field {
+    fn test_insert_then_get_then_nullify_flat_no_registry(amount: Field, owner: AztecAddress, owner_npk_m_h: Field) -> Field {
         let owner_balance = storage.balances.at(owner);
-        let mut note = ValueNote::new(amount, owner_nullifier_public_key_hash);
+        let mut note = ValueNote::new(amount, owner_npk_m_h);
 
         // Insert note
         owner_balance.insert(&mut note, true);
@@ -75,9 +75,9 @@ contract PendingNoteHashes {
         assert(maybe_notes[0].is_none());
         assert(maybe_notes[1].is_none());
 
-        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, owner);
+        let owner_npk_m_h = get_npk_m_h(&mut context, owner);
         // Insert note
-        let mut note = ValueNote::new(amount, owner_nullifier_public_key_hash);
+        let mut note = ValueNote::new(amount, owner_npk_m_h);
         owner_balance.insert(&mut note, true);
 
         0
@@ -87,7 +87,7 @@ contract PendingNoteHashes {
     fn test_bad_get_then_insert_flat_no_registry(
         amount: Field,
         owner: AztecAddress,
-        owner_nullifier_public_key_hash: Field
+        owner_npk_m_h: Field
     ) -> Field {
         let owner_balance = storage.balances.at(owner);
 
@@ -99,7 +99,7 @@ contract PendingNoteHashes {
         assert(maybe_notes[1].is_none());
 
         // Insert note
-        let mut note = ValueNote::new(amount, owner_nullifier_public_key_hash);
+        let mut note = ValueNote::new(amount, owner_npk_m_h);
         owner_balance.insert(&mut note, true);
 
         0
@@ -113,8 +113,8 @@ contract PendingNoteHashes {
     #[aztec(private)]
     fn insert_note(amount: Field, owner: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
-        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, owner);
-        let mut note = ValueNote::new(amount, owner_nullifier_public_key_hash);
+        let owner_npk_m_h = get_npk_m_h(&mut context, owner);
+        let mut note = ValueNote::new(amount, owner_npk_m_h);
 
         // Insert note
         owner_balance.insert(&mut note, true);
@@ -124,10 +124,10 @@ contract PendingNoteHashes {
     fn insert_note_no_registry(
         amount: Field,
         owner: AztecAddress,
-        owner_nullifier_public_key_hash: Field
+        owner_npk_m_h: Field
     ) {
         let owner_balance = storage.balances.at(owner);
-        let mut note = ValueNote::new(amount, owner_nullifier_public_key_hash);
+        let mut note = ValueNote::new(amount, owner_npk_m_h);
 
         // Insert note
         owner_balance.insert(&mut note, true);
@@ -189,7 +189,7 @@ contract PendingNoteHashes {
     fn test_insert_then_get_then_nullify_all_in_nested_calls_no_registry(
         amount: Field,
         owner: AztecAddress,
-        owner_nullifier_public_key_hash: Field,
+        owner_npk_m_h: Field,
         insert_fn_selector: FunctionSelector,
         get_then_nullify_fn_selector: FunctionSelector
     ) {
@@ -197,7 +197,7 @@ contract PendingNoteHashes {
         let _res = context.call_private_function(
             inputs.call_context.storage_contract_address,
             insert_fn_selector,
-            [amount, owner.to_field(), owner_nullifier_public_key_hash]
+            [amount, owner.to_field(), owner_npk_m_h]
         );
         // nested call to read and nullify that note
         let _res = context.call_private_function(
