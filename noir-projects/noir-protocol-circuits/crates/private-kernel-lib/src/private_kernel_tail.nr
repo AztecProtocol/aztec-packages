@@ -91,16 +91,19 @@ mod tests {
     use dep::types::constants::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-        MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE
+        MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE
     };
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
-        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier}, side_effect::SideEffect, gas::Gas
+        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
+        side_effect::SideEffect, gas::Gas
     },
         grumpkin_private_key::GrumpkinPrivateKey,
-        hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash, sha256_to_field, silo_note_hash, silo_nullifier},
+        hash::{
+        compute_note_hash_nonce, compute_unique_siloed_note_hash, sha256_to_field, silo_note_hash,
+        silo_nullifier
+    },
         tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
         utils::{arrays::{array_eq, array_length}}, traits::{Empty, is_empty, is_empty_array}
     };
@@ -132,10 +135,7 @@ mod tests {
 
         // A helper function that uses the first nullifer in the previous kernel to compute the unique siloed
         // note_hashes for the given note_hashes.
-        pub fn compute_output_note_hashes<N>(
-            self,
-            note_hashes: [ScopedNoteHash; N]
-        ) -> [Field; N] {
+        pub fn compute_output_note_hashes<N>(self, note_hashes: [ScopedNoteHash; N]) -> [Field; N] {
             let first_nullifier = self.previous_kernel.new_nullifiers.get_unchecked(0);
             let mut unique_siloed_note_hashes = [0; N];
             for i in 0..N {
@@ -305,6 +305,7 @@ mod tests {
             public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
         );
 
+        // noir-fmt:ignore
         let hash_bytes: [u8; MAX_ENCRYPTED_LOGS_PER_TX * 32] = prev_encrypted_logs_hash
             .to_be_bytes(32)
             .append(&[0; MAX_ENCRYPTED_LOGS_PER_TX * 32 - 32])
@@ -312,6 +313,7 @@ mod tests {
         let expected_encrypted_logs_hash = sha256_to_field(hash_bytes);
         assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
 
+        // noir-fmt:ignore
         let hash_bytes: [u8; MAX_UNENCRYPTED_LOGS_PER_TX * 32] = prev_unencrypted_logs_hash
             .to_be_bytes(32)
             .append(unencrypted_logs_hash.to_be_bytes(32))
@@ -580,7 +582,6 @@ mod tests {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
         let public_inputs = builder.execute();
-
 
         let expected_gas_consumed = Gas::new(300, 300) // teardown gas
             + Gas::tx_overhead() // tx overhead
