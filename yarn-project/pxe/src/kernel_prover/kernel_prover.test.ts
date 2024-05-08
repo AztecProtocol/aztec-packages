@@ -12,6 +12,7 @@ import {
   PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
+  RECURSIVE_PROOF_LENGTH,
   type TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
@@ -108,6 +109,13 @@ describe('Kernel Prover', () => {
     };
   };
 
+  const createAppCircuitProofOutput = () => {
+    return {
+      proof: makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH),
+      verificationKey: VerificationKeyAsFields.makeEmpty(),
+    };
+  };
+
   const expectExecution = (fns: string[]) => {
     const callStackItemsInit = proofCreator.createProofInit.mock.calls.map(args =>
       String.fromCharCode(args[0].privateCall.callStackItem.functionData.selector.value),
@@ -150,6 +158,7 @@ describe('Kernel Prover', () => {
     proofCreator.createProofInit.mockResolvedValue(createProofOutput([]));
     proofCreator.createProofInner.mockResolvedValue(createProofOutput([]));
     proofCreator.createProofTail.mockResolvedValue(createProofOutputFinal([]));
+    proofCreator.createAppCircuitProof.mockResolvedValue(createAppCircuitProofOutput());
 
     prover = new KernelProver(oracle, proofCreator);
   });
