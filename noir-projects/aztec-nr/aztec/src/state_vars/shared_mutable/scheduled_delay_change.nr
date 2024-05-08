@@ -102,9 +102,9 @@ impl<INITIAL_DELAY> ScheduledDelayChange<INITIAL_DELAY> {
             // block number equal to the number of blocks until the change plus the new delay. If this value is lower
             // than the current delay, then that is the effective minimum delay.
             //
-            //     historical
-            //       block            delay                 actual earliest value
-            //         v         block of change              block of change
+            //       historical
+            //         block                  delay                  actual earliest value
+            //           v                block of change              block of change
             //  =========NS=====================|=============================X===========Y=====>
             //            ^                     ^                             ^           ^
             //     earliest block in            |                             |           |
