@@ -2,7 +2,7 @@ use crate::kernel_circuit_public_inputs_composer::KernelCircuitPublicInputsCompo
 use dep::reset_kernel_lib::{NoteHashReadRequestHints, NullifierReadRequestHints, PrivateValidationRequestProcessor};
 use dep::types::{
     abis::{
-    kernel_data::PrivateKernelData, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
+    private_kernel_data::{PrivateKernelData, verify_previous_kernel_proof}, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
     note_hash::ScopedNoteHash, nullifier::ScopedNullifier, side_effect::SideEffect
 },
     constants::{

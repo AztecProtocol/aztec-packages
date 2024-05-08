@@ -11,6 +11,7 @@ import {
   PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
+  RECURSIVE_PROOF_LENGTH,
   ScopedNoteHash,
   type TxRequest,
   VK_TREE_HEIGHT,
