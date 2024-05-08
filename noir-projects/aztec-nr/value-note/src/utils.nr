@@ -38,8 +38,8 @@ pub fn decrement(mut context: PrivateContext, balance: PrivateSet<ValueNote>, am
     assert(sum == amount, "Balance too low");
 }
 
-pub fn decrement_without_calling_registry(balance: PrivateSet<ValueNote>, amount: Field, owner_nullifying_public_key_hash: Field) {
-    let sum = decrement_by_at_most_no_registry(balance, amount, owner_nullifying_public_key_hash);
+pub fn decrement_without_calling_registry(balance: PrivateSet<ValueNote>, amount: Field, owner_npk_m_h: Field) {
+    let sum = decrement_by_at_most_no_registry(balance, amount, owner_npk_m_h);
     assert(sum == amount, "Balance too low");
 }
 
@@ -81,7 +81,7 @@ pub fn decrement_by_at_most(
 pub fn decrement_by_at_most_no_registry(
     balance: PrivateSet<ValueNote>,
     max_amount: Field,
-    owner_nullifying_public_key_hash: Field
+    owner_npk_m_h: Field
 ) -> Field {
     let options = create_note_getter_options_for_decreasing_balance(max_amount);
     let opt_notes = balance.get_notes(options);
@@ -89,7 +89,7 @@ pub fn decrement_by_at_most_no_registry(
     let mut decremented = 0;
     for i in 0..opt_notes.len() {
         if opt_notes[i].is_some() {
-            decremented += destroy_note_no_registry(balance, owner_nullifying_public_key_hash, opt_notes[i].unwrap_unchecked());
+            decremented += destroy_note_no_registry(balance, owner_npk_m_h, opt_notes[i].unwrap_unchecked());
         }
     }
 
@@ -99,7 +99,7 @@ pub fn decrement_by_at_most_no_registry(
         change_value = decremented - max_amount;
         decremented -= change_value;
     }
-    increment_without_calling_registry(balance, change_value, owner_nullifying_public_key_hash);
+    increment_without_calling_registry(balance, change_value, owner_npk_m_h);
 
     decremented
 }
@@ -109,19 +109,19 @@ pub fn decrement_by_at_most_no_registry(
 pub fn destroy_note(mut context: PrivateContext, balance: PrivateSet<ValueNote>, owner: AztecAddress, note: ValueNote) -> Field {
     // Ensure the note is actually owned by the owner (to prevent user from generating a valid proof while
     // spending someone else's notes).
-    let owner_nullifying_public_key_hash = get_npk_m_h(&mut context, owner);
+    let owner_npk_m_h = get_npk_m_h(&mut context, owner);
 
-    assert(note.owner_nullifying_public_key_hash.eq(owner_nullifying_public_key_hash));
+    assert(note.owner_npk_m_h.eq(owner_npk_m_h));
 
     balance.remove(note);
 
     note.value
 }
 
-pub fn destroy_note_no_registry(balance: PrivateSet<ValueNote>, owner_nullifying_public_key_hash: Field, note: ValueNote) -> Field {
+pub fn destroy_note_no_registry(balance: PrivateSet<ValueNote>, owner_npk_m_h: Field, note: ValueNote) -> Field {
     // Ensure the note is actually owned by the owner (to prevent user from generating a valid proof while
     // spending someone else's notes).
-    assert(note.owner_nullifying_public_key_hash.eq(owner_nullifying_public_key_hash));
+    assert(note.owner_npk_m_h.eq(owner_npk_m_h));
 
     balance.remove(note);
 

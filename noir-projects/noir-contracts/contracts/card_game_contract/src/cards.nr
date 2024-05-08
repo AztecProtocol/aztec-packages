@@ -53,13 +53,13 @@ struct CardNote {
 }
 
 impl CardNote {
-    fn new(strength: u32, points: u32, owner_nullifying_public_key_hash: Field) -> Self {
+    fn new(strength: u32, points: u32, owner_npk_m_h: Field) -> Self {
         let card = Card { strength, points };
-        CardNote::from_card(card, owner_nullifying_public_key_hash)
+        CardNote::from_card(card, owner_npk_m_h)
     }
 
-    pub fn from_card(card: Card, owner_nullifying_public_key_hash: Field) -> CardNote {
-        CardNote { card, note: ValueNote::new(card.to_field(), owner_nullifying_public_key_hash) }
+    pub fn from_card(card: Card, owner_npk_m_h: Field) -> CardNote {
+        CardNote { card, note: ValueNote::new(card.to_field(), owner_npk_m_h) }
     }
 
     pub fn from_note(note: ValueNote) -> CardNote {
@@ -127,9 +127,9 @@ impl Deck {
                 let card_note = CardNote::from_note(maybe_notes[i].unwrap_unchecked());
                 // Ensure the notes are actually owned by the owner (to prevent user from generating a valid proof while
                 // spending someone else's notes).
-                let owner_nullifying_public_key_hash = get_npk_m_h(self.set.context.private.unwrap(), owner);
+                let owner_npk_m_h = get_npk_m_h(self.set.context.private.unwrap(), owner);
 
-                assert(card_note.note.owner_nullifying_public_key_hash.eq(owner_nullifying_public_key_hash));
+                assert(card_note.note.owner_npk_m_h.eq(owner_npk_m_h));
 
                 for j in 0..cards.len() {
                     if found_cards[j].is_none()

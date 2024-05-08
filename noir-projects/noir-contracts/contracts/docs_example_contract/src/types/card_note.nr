@@ -16,20 +16,20 @@ struct CardNote {
     randomness: Field,
     // The nullifying public key hash of the person who owns the note. 
     // This is used with the app_nullifier_secret_key to ensure that the note can be privately spent.
-    owner_nullifying_public_key_hash: Field,
+    owner_npk_m_h: Field,
 }
 // docs:end:state_vars-CardNote
 
 impl CardNote {
-    pub fn new(points: u8, randomness: Field, owner_nullifying_public_key_hash: Field) -> Self {
-        CardNote { points, randomness, owner_nullifying_public_key_hash, header: NoteHeader::empty() }
+    pub fn new(points: u8, randomness: Field, owner_npk_m_h: Field) -> Self {
+        CardNote { points, randomness, owner_npk_m_h, header: NoteHeader::empty() }
     }
 }
 
 impl NoteInterface<CARD_NOTE_LEN> for CardNote {
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_nsk_app_with_npk_m_h(self.owner_nullifying_public_key_hash);
+        let secret = context.request_nsk_app_with_npk_m_h(self.owner_npk_m_h);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -39,7 +39,7 @@ impl NoteInterface<CARD_NOTE_LEN> for CardNote {
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nsk_app_with_npk_m_h(self.owner_nullifying_public_key_hash);
+        let secret = get_nsk_app_with_npk_m_h(self.owner_npk_m_h);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -49,7 +49,7 @@ impl NoteInterface<CARD_NOTE_LEN> for CardNote {
 
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
-        let encryption_pub_key = get_public_key_with_npk_m_h(self.owner_nullifying_public_key_hash);
+        let encryption_pub_key = get_public_key_with_npk_m_h(self.owner_npk_m_h);
         context.emit_encrypted_log(
             (*context).this_address(),
             slot,

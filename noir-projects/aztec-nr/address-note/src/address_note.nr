@@ -14,14 +14,14 @@ struct AddressNote {
     address: AztecAddress,
     // The nullifying public key hash of the person who owns the note. 
     // This is used with the app_nullifier_secret_key to ensure that the note can be privately spent.
-    owner_nullifying_public_key_hash: Field,
+    owner_npk_m_h: Field,
     randomness: Field,
 }
 
 impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_nsk_app_with_npk_m_h(self.owner_nullifying_public_key_hash);
+        let secret = context.request_nsk_app_with_npk_m_h(self.owner_npk_m_h);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -31,7 +31,7 @@ impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nsk_app_with_npk_m_h(self.owner_nullifying_public_key_hash);
+        let secret = get_nsk_app_with_npk_m_h(self.owner_npk_m_h);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -41,7 +41,7 @@ impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
 
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
-        let encryption_pub_key = get_public_key_with_npk_m_h(self.owner_nullifying_public_key_hash);
+        let encryption_pub_key = get_public_key_with_npk_m_h(self.owner_npk_m_h);
         // docs:start:encrypted
         context.emit_encrypted_log(
             (*context).this_address(),
@@ -55,9 +55,9 @@ impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
 }
 
 impl AddressNote {
-    pub fn new(address: AztecAddress, owner_nullifying_public_key_hash: Field) -> Self {
+    pub fn new(address: AztecAddress, owner_npk_m_h: Field) -> Self {
         let randomness = unsafe_rand();
-        AddressNote { address, owner_nullifying_public_key_hash, randomness, header: NoteHeader::empty() }
+        AddressNote { address, owner_npk_m_h, randomness, header: NoteHeader::empty() }
     }
     // docs:end:address_note_def
 }

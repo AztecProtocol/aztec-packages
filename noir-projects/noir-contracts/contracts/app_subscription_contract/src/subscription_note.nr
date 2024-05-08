@@ -13,7 +13,7 @@ global SUBSCRIPTION_NOTE_LEN: Field = 3;
 struct SubscriptionNote {
     // The nullifying public key hash of the person who owns the note. 
     // This is used with the app_nullifier_secret_key to ensure that the note can be privately spent.
-    owner_nullifying_public_key_hash: Field,
+    owner_npk_m_h: Field,
     expiry_block_number: Field,
     remaining_txs: Field,
 }
@@ -21,7 +21,7 @@ struct SubscriptionNote {
 impl NoteInterface<SUBSCRIPTION_NOTE_LEN> for SubscriptionNote {
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_nsk_app_with_npk_m_h(self.owner_nullifying_public_key_hash);
+        let secret = context.request_nsk_app_with_npk_m_h(self.owner_npk_m_h);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -31,7 +31,7 @@ impl NoteInterface<SUBSCRIPTION_NOTE_LEN> for SubscriptionNote {
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nsk_app_with_npk_m_h(self.owner_nullifying_public_key_hash);
+        let secret = get_nsk_app_with_npk_m_h(self.owner_npk_m_h);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -41,7 +41,7 @@ impl NoteInterface<SUBSCRIPTION_NOTE_LEN> for SubscriptionNote {
 
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
-        let encryption_pub_key = get_public_key_with_npk_m_h(self.owner_nullifying_public_key_hash);
+        let encryption_pub_key = get_public_key_with_npk_m_h(self.owner_npk_m_h);
         context.emit_encrypted_log(
             (*context).this_address(),
             slot,
@@ -53,7 +53,7 @@ impl NoteInterface<SUBSCRIPTION_NOTE_LEN> for SubscriptionNote {
 }
 
 impl SubscriptionNote {
-    pub fn new(owner_nullifying_public_key_hash: Field, expiry_block_number: Field, remaining_txs: Field) -> Self {
-        SubscriptionNote { owner_nullifying_public_key_hash, expiry_block_number, remaining_txs, header: NoteHeader::empty() }
+    pub fn new(owner_npk_m_h: Field, expiry_block_number: Field, remaining_txs: Field) -> Self {
+        SubscriptionNote { owner_npk_m_h, expiry_block_number, remaining_txs, header: NoteHeader::empty() }
     }
 }

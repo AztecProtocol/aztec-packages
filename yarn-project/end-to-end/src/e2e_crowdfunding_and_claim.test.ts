@@ -189,7 +189,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       },
       value: extendedNote.note.items[0],
       // eslint-disable-next-line camelcase
-      owner_nullifying_public_key_hash: extendedNote.note.items[1],
+      owner_npk_m_h: extendedNote.note.items[1],
       randomness: extendedNote.note.items[2],
     };
   };

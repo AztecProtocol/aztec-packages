@@ -37,7 +37,7 @@ contract Delegator {
 
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, amount, Option::none()).select(
-            ValueNote::properties().owner_nullifying_public_key_hash,
+            ValueNote::properties().owner_npk_m_h,
             owner_nullifier_public_key_hash,
             Option::none()
         ).set_limit(1);
