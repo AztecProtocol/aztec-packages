@@ -510,26 +510,15 @@ export class BBNativeProofCreator implements ProofCreator {
    * @param proof - The proof to be verified
    */
   public async verifyProof(circuitType: ClientProtocolArtifact, proof: Proof) {
-    // Create random directory to be used for temp files
-    const bbWorkingDirectory = `${this.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
-    await fs.mkdir(bbWorkingDirectory, { recursive: true });
-
-    const proofFileName = `${bbWorkingDirectory}/proof`;
-    const verificationKeyPath = `${bbWorkingDirectory}/vk`;
     const verificationKey = await this.getVerificationKeyDataForCircuit(circuitType);
 
     this.log.debug(`Verifying with key: ${verificationKey.hash.toString()}`);
-
-    await fs.writeFile(proofFileName, proof.buffer);
-    await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
 
     const logFunction = (message: string) => {
       this.log.debug(`${circuitType} BB out - ${message}`);
     };
 
-    const result = await verifyProof(this.bbBinaryPath, proofFileName, verificationKeyPath!, logFunction);
-
-    await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
+    const result = await this.verifyProofFromKey(verificationKey.keyAsBytes, proof, logFunction);
 
     if (result.status === BB_RESULT.FAILURE) {
       const errorMessage = `Failed to verify ${circuitType} proof!`;
@@ -537,6 +526,28 @@ export class BBNativeProofCreator implements ProofCreator {
     }
 
     this.log.info(`Successfully verified ${circuitType} proof in ${result.duration} ms`);
+  }
+
+  private async verifyProofFromKey(
+    verificationKey: Buffer,
+    proof: Proof,
+    logFunction: (message: string) => void = () => {},
+  ) {
+    // Create random directory to be used for temp files
+    const bbWorkingDirectory = `${this.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
+    await fs.mkdir(bbWorkingDirectory, { recursive: true });
+
+    const proofFileName = `${bbWorkingDirectory}/proof`;
+    const verificationKeyPath = `${bbWorkingDirectory}/vk`;
+
+    await fs.writeFile(proofFileName, proof.buffer);
+    await fs.writeFile(verificationKeyPath, verificationKey);
+
+    const result = await verifyProof(this.bbBinaryPath, proofFileName, verificationKeyPath!, logFunction);
+
+    await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
+
+    return result;
   }
 
   /**

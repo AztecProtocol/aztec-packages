@@ -27,10 +27,11 @@ struct PrivateCallData {
 }
 
 fn verify_private_call(call: PrivateCallData) {
+    let inputs = PrivateCircuitPublicInputs::serialize(call.call_stack_item.public_inputs);
     dep::std::verify_proof(
         call.vk.key.as_slice(),
         call.proof.fields.as_slice(),
-        PrivateCircuitPublicInputs::serialize(call.call_stack_item.public_inputs).as_slice(),
+        inputs.as_slice(),
         call.vk.hash
     );
 }
