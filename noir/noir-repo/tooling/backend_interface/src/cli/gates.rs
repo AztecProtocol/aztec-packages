@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
 use crate::BackendError;
@@ -12,8 +13,19 @@ pub(crate) struct GatesCommand {
     pub(crate) bytecode_path: PathBuf,
 }
 
+#[derive(Deserialize, Clone, Debug)]
+struct GatesResponse {
+    functions: Vec<CircuitReport>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct CircuitReport {
+    pub acir_opcodes: u32,
+    pub circuit_size: u32,
+}
+
 impl GatesCommand {
-    pub(crate) fn run(self, binary_path: &Path) -> Result<Vec<u32>, BackendError> {
+    pub(crate) fn run(self, binary_path: &Path) -> Result<Vec<CircuitReport>, BackendError> {
         let output = std::process::Command::new(binary_path)
             .arg("gates")
             .arg("-c")
@@ -25,20 +37,11 @@ impl GatesCommand {
         if !output.status.success() {
             return Err(BackendError::CommandFailed(string_from_stderr(&output.stderr)));
         }
-        // Note: barretenberg includes the newline, so that subsequent prints to stdout
-        // are not on the same line as the gates output.
 
-        const EXPECTED_BYTES: usize = 8;
-        let mut values = Vec::new();
-        for value_bytes in output.stdout.chunks(8) {
-            // Convert bytes to u64 in little-endian format
-            let value = u64::from_le_bytes(value_bytes.try_into().map_err(|_| {
-                BackendError::UnexpectedNumberOfBytes(EXPECTED_BYTES, output.stdout.clone())
-            })?);
-            values.push(value as u32)
-        }
+        let gates_info: GatesResponse =
+            serde_json::from_slice(&output.stdout).expect("Backend should return valid json");
 
-        Ok(values)
+        Ok(gates_info.functions)
     }
 }
 

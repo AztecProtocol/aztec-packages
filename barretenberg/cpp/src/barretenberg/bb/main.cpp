@@ -17,9 +17,12 @@
 #include <barretenberg/dsl/acir_proofs/acir_composer.hpp>
 #include <barretenberg/dsl/acir_proofs/goblin_acir_composer.hpp>
 #include <barretenberg/srs/global_crs.hpp>
+#include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <iostream>
 #include <stdexcept>
+// #include <stdio.h>
 #include <string>
 #include <vector>
 
@@ -296,21 +299,52 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
  * @brief Computes the number of Barretenberg specific gates needed to create a proof for the specific ACIR circuit
  *
  * Communication:
- * - stdout: The number of gates is written to stdout
+ * - stdout: A JSON string of the number of ACIR opcodes and final backend circuit size
  *
  * @param bytecodePath Path to the file containing the serialized circuit
  */
 void gateCount(const std::string& bytecodePath)
 {
+    // All circuit reports will be built into the string below
+    std::string functions_string = "{\"functions\": [\n  ";
     auto constraint_systems = get_constraint_systems(bytecodePath);
+    size_t i = 0;
     for (auto constraint_system : constraint_systems) {
         acir_proofs::AcirComposer acir_composer(0, verbose);
         acir_composer.create_circuit(constraint_system);
-        auto gate_count = acir_composer.get_total_circuit_size();
+        auto circuit_size = acir_composer.get_total_circuit_size();
 
-        writeUint64AsRawBytesToStdout(static_cast<uint64_t>(gate_count));
-        vinfo("gate count: ", gate_count);
+        // Build individual circuit report
+        auto result_string = format("{\n        \"acir_opcodes\": ",
+                                    constraint_system.num_acir_opcodes,
+                                    ",\n        \"circuit_size\": ",
+                                    circuit_size,
+                                    "\n  }");
+
+        // Attach a comma if we still circuit reports to generate
+        if (i != (constraint_systems.size() - 1)) {
+            result_string = format(result_string, ",");
+        }
+
+        functions_string = format(functions_string, result_string);
+
+        i++;
     }
+    functions_string = format(functions_string, "\n]}");
+
+    const char* jsonData = functions_string.c_str();
+    size_t length = strlen(jsonData);
+    std::vector<uint8_t> data(jsonData, jsonData + length);
+    writeRawBytesToStdout(data);
+
+    // TODO(maxim): allow writing to the output path
+    // if (output_path == "-") {
+    //     writeRawBytesToStdout(data);
+    //     vinfo("info written to stdout");
+    // } else {
+    //     write_file(output_path, data);
+    //     vinfo("info written to: ", output_path);
+    // }
 }
 
 /**

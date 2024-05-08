@@ -294,11 +294,11 @@ fn count_opcodes_and_gates_in_program(
         .functions
         .into_par_iter()
         .enumerate()
-        .map(|(i, function)| -> Result<_, BackendError> {
+        .map(|(i, _)| -> Result<_, BackendError> {
             Ok(FunctionInfo {
                 name: compiled_program.names[i].clone(),
-                acir_opcodes: function.opcodes.len(),
-                circuit_size: program_circuit_sizes[i],
+                acir_opcodes: program_circuit_sizes[i].acir_opcodes as usize,
+                circuit_size: program_circuit_sizes[i].circuit_size,
             })
         })
         .collect::<Result<_, _>>()?;
@@ -319,7 +319,7 @@ fn count_opcodes_and_gates_in_contract(
                 name: function.name,
                 // TODO(https://github.com/noir-lang/noir/issues/4720)
                 acir_opcodes: function.bytecode.functions[0].opcodes.len(),
-                circuit_size: backend.get_exact_circuit_sizes(&function.bytecode)?[0],
+                circuit_size: backend.get_exact_circuit_sizes(&function.bytecode)?[0].circuit_size,
             })
         })
         .collect::<Result<_, _>>()?;
