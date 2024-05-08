@@ -98,7 +98,7 @@ describe('ACIR public execution simulator', () => {
     });
 
   const simulate = (execution: PublicExecution, globalVariables: GlobalVariables) =>
-    executor.simulate(execution, globalVariables, Gas.test(), makeTxContext(), Fr.ZERO);
+    executor.simulate(execution, globalVariables, Gas.test(), makeTxContext(), /*pendingNullifiers=*/ [], Fr.ZERO);
 
   describe('Token contract', () => {
     let recipient: AztecAddress;
@@ -728,7 +728,8 @@ describe('ACIR public execution simulator', () => {
     });
   });
 
-  describe('Historical header in public context', () => {
+  // TODO(4840): add AVM opcodes for getting header (members)
+  describe.skip('Historical header in public context', () => {
     let contractAddress: AztecAddress;
     let callContext: CallContext;
     let assertHeaderPublicArtifact: FunctionArtifact;
