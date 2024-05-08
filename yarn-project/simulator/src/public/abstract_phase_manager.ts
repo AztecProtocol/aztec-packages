@@ -182,9 +182,7 @@ export abstract class AbstractPhaseManager {
       c => revertibleCallStack.findIndex(p => p.equals(c)) !== -1,
     );
 
-    const teardownCallStackLength = arrayNonEmptyLength(data.publicTeardownCallStack, f => f.isEmpty());
-
-    const teardownCallStack = teardownCallStackLength === 0 ? [] : [tx.publicTeardownFunctionCall];
+    const teardownCallStack = tx.publicTeardownFunctionCall.isEmpty() ? [] : [tx.publicTeardownFunctionCall];
 
     if (firstRevertibleCallIndex === 0) {
       return {

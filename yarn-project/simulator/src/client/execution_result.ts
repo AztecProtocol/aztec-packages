@@ -132,21 +132,23 @@ export function collectEnqueuedPublicFunctionCalls(execResult: ExecutionResult):
   // as the kernel processes it like a stack, popping items off and pushing them to output
   return [
     ...execResult.enqueuedPublicFunctionCalls,
-    ...[...execResult.nestedExecutions].flatMap(collectEnqueuedPublicFunctionCalls),
+    ...execResult.nestedExecutions.flatMap(collectEnqueuedPublicFunctionCalls),
   ].sort((a, b) => b.callContext.sideEffectCounter - a.callContext.sideEffectCounter);
 }
 
 export function collectPublicTeardownFunctionCall(execResult: ExecutionResult): PublicCallRequest {
   const teardownCalls = [
     execResult.publicTeardownFunctionCall,
-    ...[...execResult.nestedExecutions].flatMap(collectPublicTeardownFunctionCall),
+    ...execResult.nestedExecutions.flatMap(collectPublicTeardownFunctionCall),
   ].filter(call => !call.isEmpty());
+
+  if (teardownCalls.length === 1) {
+    return teardownCalls[0];
+  }
 
   if (teardownCalls.length > 1) {
     throw new Error('Multiple public teardown calls detected');
-  } else if (teardownCalls.length === 0) {
-    return PublicCallRequest.empty();
-  } else {
-    return teardownCalls[0];
   }
+
+  return PublicCallRequest.empty();
 }

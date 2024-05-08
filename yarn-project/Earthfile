@@ -146,7 +146,7 @@ run-e2e:
     ARG test
     ARG debug=""
     FROM +end-to-end
-    RUN DEBUG=$DEBUG yarn test $test
+    RUN DEBUG=$debug yarn test $test
 
 prover-client-test:
     FROM +build
