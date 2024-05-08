@@ -14,7 +14,7 @@ pub(crate) struct GatesCommand {
 pub(crate) fn run(args: GatesCommand) {
     assert!(args.bytecode_path.is_file(), "Could not find bytecode file at provided path");
 
-    let response: &str = r#"{ "functions": [{"acir_opcodes": 123, "circuit_size": 123 }] }"#;
+    let response: &str = r#"{ "functions": [{"acir_opcodes": 123, "circuit_size": 125 }] }"#;
 
     std::io::stdout().write_all(response.as_bytes()).unwrap();
 }
