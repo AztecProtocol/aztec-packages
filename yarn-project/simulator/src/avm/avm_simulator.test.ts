@@ -111,7 +111,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(true);
-    expect(results.revertReason?.message).toEqual("Reverted with output: Nullifier doesn't exist!");
+    expect(results.revertReason?.message).toEqual("Assertion failed: Nullifier doesn't exist!");
     expect(results.output).toEqual([
       new Fr(0),
       ...[..."Nullifier doesn't exist!"].flatMap(c => new Fr(c.charCodeAt(0))),
@@ -197,6 +197,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     it('getFeePerDaGas', async () => {
       const fee = new Fr(1);
       await testEnvGetter('feePerDaGas', fee, 'get_fee_per_da_gas');
+    });
+
+    it('getTransactionFee', async () => {
+      const fee = new Fr(1);
+      await testEnvGetter('transactionFee', fee, 'get_transaction_fee');
     });
 
     it('chainId', async () => {
@@ -837,7 +842,23 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(callBytecode);
 
       expect(results.reverted).toBe(true); // The outer call should revert.
-      expect(results.revertReason?.message).toMatch(/Nested static call failed/);
+      expect(results.revertReason?.message).toEqual('Static calls cannot alter storage');
+    });
+
+    it(`Nested calls rethrow exceptions`, async () => {
+      const calldata: Fr[] = [new Fr(1), new Fr(2)];
+      const callBytecode = getAvmNestedCallsTestContractBytecode('nested_call_to_add');
+      // We actually don't pass the function ADD, but it's ok because the signature is the same.
+      const nestedBytecode = getAvmNestedCallsTestContractBytecode('assert_same');
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+      jest
+        .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+        .mockReturnValue(Promise.resolve(nestedBytecode));
+
+      const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+      expect(results.reverted).toBe(true); // The outer call should revert.
+      expect(results.revertReason?.message).toEqual('Assertion failed: Values are not equal');
     });
   });
 });
