@@ -1,0 +1,96 @@
+# Run on a spot instance.
+name: Run On Spot
+on:
+  workflow_call:
+    inputs:
+      ec2_instance_type:
+        required: true
+        type: string
+      ec2_ami_id:
+        required: true
+        type: string
+      # how much time to add to shutdown when a job finishes or starts
+      ec2_instance_ttl:
+        required: true
+        type: number
+      ec2_subnet_id:
+        default: subnet-4cfabd25
+        type: string
+      ec2_security_group_id:
+        default: sg-0ccd4e5df0dcca0c9
+        type: string
+      ec2_spot_instance_strategy:
+        default: None
+        type: string
+      aws_region:
+        default: "us-east-2"
+        type: string
+      subaction:
+        required: true
+        type: string
+      # command to run on the spot
+      command:
+        required: true
+        type: string
+
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      BUILD_INSTANCE_SSH_KEY:
+        required: true
+      DOCKERHUB_PASSWORD:
+        required: true
+jobs:
+  start-builder:
+    runs-on: ubuntu-latest
+    # we want to avoid race conditions when making spot across multiple PRs as we only use one runner
+    concurrency:
+      group: start-builder-${{ inputs.runner_label }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Checkout Merge Pipeline Files
+        uses: actions/checkout@v4
+        # Only check PRs for consistency (not master)
+        if: ${{ github.event.pull_request.head.sha != '' }}
+        with:
+          path: merge-commit-pipeline-files
+          sparse-checkout: |
+            .github/workflows/ci.yml
+            .github/workflows/run-on-spot.yml
+
+      - name: Ensure CI Consistency
+        # Only check PRs for consistency (not master)
+        if: ${{ github.event.pull_request.head.sha != '' }}
+        run: |
+          # Compare the checked-out CI configuration files with the reference files
+          if ! git diff --no-index .github/workflows/ci.yml merge-commit-pipeline-files/.github/workflows/ci.yml; then
+            echo "Error: ci.yml changes in master (or PR base). Please merge these changes. This is to prevent surprises from Github Action's merge behavior."
+            exit 1
+          fi
+          if ! git diff --no-index .github/workflows/setup-runner.yml merge-commit-pipeline-files/.github/workflows/run-on-spot.yml; then
+            echo "Error: setup-runner.yml changes in master (or PR base). Please merge these changes. This is to prevent surprises from Github Action's merge behavior."
+            exit 1
+          fi
+
+      - name: Run Action on EC2 Runner
+        uses: ./.github/spot-runner-action
+        with:
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_region: ${{ inputs.aws_region }}
+          ec2_subnet_id: ${{ inputs.ec2_subnet_id }}
+          ec2_security_group_id: ${{ inputs.ec2_security_group_id }}
+          ec2_spot_instance_strategy: ${{ inputs.ec2_spot_instance_strategy }}
+          subaction: ${{ inputs.subaction }}
+          ec2_instance_type: ${{ inputs.ec2_instance_type }}
+          ec2_ami_id: ${{ inputs.ec2_ami_id }}
+          ec2_instance_ttl: ${{ inputs.ec2_instance_ttl }}
+          ec2_key_name: "build-instance"
+          ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          command: ${{ inputs.command }}
