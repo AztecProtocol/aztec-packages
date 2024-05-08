@@ -2,7 +2,6 @@ import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
-  Fr,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type ParityPublicInputs,
@@ -25,6 +24,7 @@ import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import {
   type ForeignCallInput,
+  type ForeignCallOutput,
   type WasmBlackBoxFunctionSolver,
   createBlackBoxSolver,
   executeCircuitWithBlackBoxSolver,
@@ -71,26 +71,22 @@ import {
   mapRootRollupInputsToNoir,
   mapRootRollupPublicInputsFromNoir,
 } from './type_conversion.js';
-import { type ReturnType as BaseParityReturnType } from './types/parity_base_types.js';
-import { type ReturnType as RootParityReturnType } from './types/parity_root_types.js';
 import {
-  type InputType as InitInputType,
-  type ReturnType as InitReturnType,
-} from './types/private_kernel_init_types.js';
-import {
-  type InputType as InnerInputType,
-  type ReturnType as InnerReturnType,
-} from './types/private_kernel_inner_types.js';
-import { type InputType as TailToPublicInputType } from './types/private_kernel_tail_to_public_types.js';
-import {
-  type InputType as TailInputType,
-  type ReturnType as TailReturnType,
-} from './types/private_kernel_tail_types.js';
-import { type ReturnType as PublicPublicPreviousReturnType } from './types/public_kernel_app_logic_types.js';
-import { type ReturnType as PublicSetupReturnType } from './types/public_kernel_setup_types.js';
-import { type ReturnType as BaseRollupReturnType } from './types/rollup_base_types.js';
-import { type ReturnType as MergeRollupReturnType } from './types/rollup_merge_types.js';
-import { type ReturnType as RootRollupReturnType } from './types/rollup_root_types.js';
+  type ParityBaseReturnType as BaseParityReturnType,
+  type RollupBaseReturnType as BaseRollupReturnType,
+  type PrivateKernelInitInputType as InitInputType,
+  type PrivateKernelInitReturnType as InitReturnType,
+  type PrivateKernelInnerInputType as InnerInputType,
+  type PrivateKernelInnerReturnType as InnerReturnType,
+  type RollupMergeReturnType as MergeRollupReturnType,
+  type PublicKernelAppLogicReturnType as PublicPublicPreviousReturnType,
+  type PublicKernelSetupReturnType as PublicSetupReturnType,
+  type ParityRootReturnType as RootParityReturnType,
+  type RollupRootReturnType as RootRollupReturnType,
+  type PrivateKernelTailInputType as TailInputType,
+  type PrivateKernelTailReturnType as TailReturnType,
+  type PrivateKernelTailToPublicInputType as TailToPublicInputType,
+} from './types/index.js';
 
 // TODO(Tom): This should be exported from noirc_abi
 /**
@@ -755,7 +751,7 @@ async function executePrivateKernelTailToPublicWithACVM(
   return decodedInputs.return_value as PublicPublicPreviousReturnType;
 }
 
-export const foreignCallHandler = (name: string, args: ForeignCallInput[]) => {
+export function foreignCallHandler(name: string, args: ForeignCallInput[]): Promise<ForeignCallOutput[]> {
   const log = createDebugLogger('aztec:noir-protocol-circuits:oracle');
 
   if (name === 'debugLog') {
@@ -766,5 +762,5 @@ export const foreignCallHandler = (name: string, args: ForeignCallInput[]) => {
     throw Error(`unexpected oracle during execution: ${name}`);
   }
 
-  return Promise.resolve([`0x${Buffer.alloc(Fr.SIZE_IN_BYTES).toString('hex')}`]);
-};
+  return Promise.resolve([]);
+}
