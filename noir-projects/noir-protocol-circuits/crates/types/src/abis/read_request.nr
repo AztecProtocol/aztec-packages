@@ -1,6 +1,6 @@
 use crate::{
-    abis::side_effect::OrderedValue, traits::{Empty, Serialize, Deserialize}, address::AztecAddress,
-    constants::{READ_REQUEST_LENGTH, READ_REQUEST_CONTEXT_SERIALIZED_LEN},
+    traits::{Empty, Serialize, Deserialize}, address::AztecAddress,
+    constants::READ_REQUEST_LENGTH,
     utils::{arrays::array_concat, reader::Reader}
 };
 use dep::std::cmp::Eq;
