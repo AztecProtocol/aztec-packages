@@ -50,10 +50,8 @@ export class ViewDataOracle extends TypedOracle {
    * @returns A Promise that resolves to nullifier keys of a requested account and contract.
    * @throws An error if the account is not registered in the database.
    */
-  public override getNullifierKeysWithMasterNullifierPublicKeyHash(
-    masterNullifierPublicKeyHash: Fr,
-  ): Promise<NullifierKeys> {
-    return this.db.getNullifierKeysWithMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash, this.contractAddress);
+  public override getNullifierKeysWithNpkMH(masterNullifierPublicKeyHash: Fr): Promise<NullifierKeys> {
+    return this.db.getNullifierKeysWithNpkMH(masterNullifierPublicKeyHash, this.contractAddress);
   }
 
   /**
@@ -152,10 +150,8 @@ export class ViewDataOracle extends TypedOracle {
    * @param masterNullifierPublicKeyHash - Master nullifier public key hash to fetch the complete address for.
    * @returns A complete address associated with the input master nullifier public key hash.
    */
-  public override getCompleteAddressWithMasterNullifierPublicKey(
-    masterNullifierPublicKeyHash: Fr,
-  ): Promise<CompleteAddress> {
-    return this.db.getCompleteAddressWithMasterNullifierPublicKey(masterNullifierPublicKeyHash);
+  public override getCompleteAddressWithNpkMH(masterNullifierPublicKeyHash: Fr): Promise<CompleteAddress> {
+    return this.db.getCompleteAddressWithNpkMH(masterNullifierPublicKeyHash);
   }
 
   /**

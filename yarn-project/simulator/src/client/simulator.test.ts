@@ -43,7 +43,7 @@ describe('Simulator', () => {
 
     oracle = mock<DBOracle>();
     node = mock<AztecNode>();
-    oracle.getNullifierKeysWithMasterNullifierPublicKeyHash.mockResolvedValue({
+    oracle.getNullifierKeysWithNpkMH.mockResolvedValue({
       masterNullifierPublicKey: ownerMasterNullifierPublicKey,
       appNullifierSecretKey,
     });

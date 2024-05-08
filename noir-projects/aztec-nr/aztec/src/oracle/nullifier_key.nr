@@ -29,7 +29,7 @@ pub fn get_app_nullifier_secret_key(account: AztecAddress) -> Field {
 }
 
 // TODO (#6176): Replace get_nullifier_keys above with this once we no longer get nullifier keys with address
-#[oracle(getNullifierKeysWithMasterNullifierPublicKeyHash)]
+#[oracle(getNullifierKeysWithNpkMH)]
 fn get_nk_with_npk_m_h_oracle(_master_nullifier_public_key_hash: Field) -> [Field; 3] {}
 
 unconstrained fn get_nk_with_npk_m_h_internal(master_nullifier_public_key_hash: Field) -> NullifierKeys {

@@ -44,7 +44,7 @@ export class SimulatorOracle implements DBOracle {
     return { masterNullifierPublicKey, appNullifierSecretKey };
   }
 
-  async getNullifierKeysWithMasterNullifierPublicKeyHash(
+  async getNullifierKeysWithNpkMH(
     masterNullifierPublicKeyHash: AztecAddress,
     contractAddress: AztecAddress,
   ): Promise<NullifierKeys> {
@@ -68,8 +68,8 @@ export class SimulatorOracle implements DBOracle {
   }
 
   // TODO: #5834
-  getCompleteAddressWithMasterNullifierPublicKey(masterNullifierPublicKey: Fr): Promise<CompleteAddress> {
-    const address = this.keyStore.getAccountAddressForMasterNullifierPublicKeyHash(masterNullifierPublicKey);
+  getCompleteAddressWithNpkMH(masterNullifierPublicKeyHash: Fr): Promise<CompleteAddress> {
+    const address = this.keyStore.getAccountAddressForMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash);
     return this.getCompleteAddress(address);
   }
 
