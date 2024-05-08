@@ -25,7 +25,7 @@ jobs:
       ec2_instance_type: r6in.32xlarge r6a.32xlarge i4i.32xlarge r7iz.32xlarge
       ec2_ami_id: ami-04d8422a9ba4de80f
       local_command:
-        scp -r -o StrictHostKeychecking=no -i $SPOT_KEY . ubuntu@$SPOT_IP:/home/ubuntu/aztec-packages
+        scp -o StrictHostKeychecking=no -i $SPOT_KEY -r . ubuntu@$SPOT_IP:/home/ubuntu/aztec-packages
       command: |
         cd ~/aztec-packages
         ls
