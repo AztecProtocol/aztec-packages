@@ -28,7 +28,7 @@ AvmVerifier& AvmVerifier::operator=(AvmVerifier&& other) noexcept
 using FF = AvmFlavor::FF;
 
 // Evaluate the given public input column over the multivariate challenge points
-[[maybe_unused]] inline FF evaluate_public_input_column(std::vector<FF> points, std::vector<FF> challenges)
+[[maybe_unused]] FF evaluate_public_input_column(std::vector<FF> points, std::vector<FF> challenges)
 {
     Polynomial<FF> polynomial(points);
     return polynomial.evaluate_mle(challenges);
@@ -295,8 +295,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<FF>& pu
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_fdiv);
     commitments.avm_main_sel_op_fee_per_da_gas =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_fee_per_da_gas);
-    commitments.avm_main_sel_op_fee_per_l1_gas =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_fee_per_l1_gas);
     commitments.avm_main_sel_op_fee_per_l2_gas =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_fee_per_l2_gas);
     commitments.avm_main_sel_op_function_selector =
@@ -323,6 +321,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<FF>& pu
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_sub);
     commitments.avm_main_sel_op_timestamp =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_timestamp);
+    commitments.avm_main_sel_op_transaction_fee =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_transaction_fee);
     commitments.avm_main_sel_op_version =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_version);
     commitments.avm_main_sel_op_xor =

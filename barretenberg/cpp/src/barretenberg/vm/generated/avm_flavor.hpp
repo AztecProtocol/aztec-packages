@@ -333,7 +333,6 @@ class AvmFlavor {
                               avm_main_sel_op_eq,
                               avm_main_sel_op_fdiv,
                               avm_main_sel_op_fee_per_da_gas,
-                              avm_main_sel_op_fee_per_l1_gas,
                               avm_main_sel_op_fee_per_l2_gas,
                               avm_main_sel_op_function_selector,
                               avm_main_sel_op_lt,
@@ -347,6 +346,7 @@ class AvmFlavor {
                               avm_main_sel_op_shr,
                               avm_main_sel_op_sub,
                               avm_main_sel_op_timestamp,
+                              avm_main_sel_op_transaction_fee,
                               avm_main_sel_op_version,
                               avm_main_sel_op_xor,
                               avm_main_sel_rng_16,
@@ -590,7 +590,6 @@ class AvmFlavor {
                      avm_main_sel_op_eq,
                      avm_main_sel_op_fdiv,
                      avm_main_sel_op_fee_per_da_gas,
-                     avm_main_sel_op_fee_per_l1_gas,
                      avm_main_sel_op_fee_per_l2_gas,
                      avm_main_sel_op_function_selector,
                      avm_main_sel_op_lt,
@@ -604,6 +603,7 @@ class AvmFlavor {
                      avm_main_sel_op_shr,
                      avm_main_sel_op_sub,
                      avm_main_sel_op_timestamp,
+                     avm_main_sel_op_transaction_fee,
                      avm_main_sel_op_version,
                      avm_main_sel_op_xor,
                      avm_main_sel_rng_16,
@@ -852,7 +852,6 @@ class AvmFlavor {
                               avm_main_sel_op_eq,
                               avm_main_sel_op_fdiv,
                               avm_main_sel_op_fee_per_da_gas,
-                              avm_main_sel_op_fee_per_l1_gas,
                               avm_main_sel_op_fee_per_l2_gas,
                               avm_main_sel_op_function_selector,
                               avm_main_sel_op_lt,
@@ -866,6 +865,7 @@ class AvmFlavor {
                               avm_main_sel_op_shr,
                               avm_main_sel_op_sub,
                               avm_main_sel_op_timestamp,
+                              avm_main_sel_op_transaction_fee,
                               avm_main_sel_op_version,
                               avm_main_sel_op_xor,
                               avm_main_sel_rng_16,
@@ -1153,7 +1153,6 @@ class AvmFlavor {
                      avm_main_sel_op_eq,
                      avm_main_sel_op_fdiv,
                      avm_main_sel_op_fee_per_da_gas,
-                     avm_main_sel_op_fee_per_l1_gas,
                      avm_main_sel_op_fee_per_l2_gas,
                      avm_main_sel_op_function_selector,
                      avm_main_sel_op_lt,
@@ -1167,6 +1166,7 @@ class AvmFlavor {
                      avm_main_sel_op_shr,
                      avm_main_sel_op_sub,
                      avm_main_sel_op_timestamp,
+                     avm_main_sel_op_transaction_fee,
                      avm_main_sel_op_version,
                      avm_main_sel_op_xor,
                      avm_main_sel_rng_16,
@@ -1454,7 +1454,6 @@ class AvmFlavor {
                      avm_main_sel_op_eq,
                      avm_main_sel_op_fdiv,
                      avm_main_sel_op_fee_per_da_gas,
-                     avm_main_sel_op_fee_per_l1_gas,
                      avm_main_sel_op_fee_per_l2_gas,
                      avm_main_sel_op_function_selector,
                      avm_main_sel_op_lt,
@@ -1468,6 +1467,7 @@ class AvmFlavor {
                      avm_main_sel_op_shr,
                      avm_main_sel_op_sub,
                      avm_main_sel_op_timestamp,
+                     avm_main_sel_op_transaction_fee,
                      avm_main_sel_op_version,
                      avm_main_sel_op_xor,
                      avm_main_sel_rng_16,
@@ -2033,7 +2033,6 @@ class AvmFlavor {
             Base::avm_main_sel_op_eq = "AVM_MAIN_SEL_OP_EQ";
             Base::avm_main_sel_op_fdiv = "AVM_MAIN_SEL_OP_FDIV";
             Base::avm_main_sel_op_fee_per_da_gas = "AVM_MAIN_SEL_OP_FEE_PER_DA_GAS";
-            Base::avm_main_sel_op_fee_per_l1_gas = "AVM_MAIN_SEL_OP_FEE_PER_L1_GAS";
             Base::avm_main_sel_op_fee_per_l2_gas = "AVM_MAIN_SEL_OP_FEE_PER_L2_GAS";
             Base::avm_main_sel_op_function_selector = "AVM_MAIN_SEL_OP_FUNCTION_SELECTOR";
             Base::avm_main_sel_op_lt = "AVM_MAIN_SEL_OP_LT";
@@ -2047,6 +2046,7 @@ class AvmFlavor {
             Base::avm_main_sel_op_shr = "AVM_MAIN_SEL_OP_SHR";
             Base::avm_main_sel_op_sub = "AVM_MAIN_SEL_OP_SUB";
             Base::avm_main_sel_op_timestamp = "AVM_MAIN_SEL_OP_TIMESTAMP";
+            Base::avm_main_sel_op_transaction_fee = "AVM_MAIN_SEL_OP_TRANSACTION_FEE";
             Base::avm_main_sel_op_version = "AVM_MAIN_SEL_OP_VERSION";
             Base::avm_main_sel_op_xor = "AVM_MAIN_SEL_OP_XOR";
             Base::avm_main_sel_rng_16 = "AVM_MAIN_SEL_RNG_16";
@@ -2306,7 +2306,6 @@ class AvmFlavor {
         Commitment avm_main_sel_op_eq;
         Commitment avm_main_sel_op_fdiv;
         Commitment avm_main_sel_op_fee_per_da_gas;
-        Commitment avm_main_sel_op_fee_per_l1_gas;
         Commitment avm_main_sel_op_fee_per_l2_gas;
         Commitment avm_main_sel_op_function_selector;
         Commitment avm_main_sel_op_lt;
@@ -2320,6 +2319,7 @@ class AvmFlavor {
         Commitment avm_main_sel_op_shr;
         Commitment avm_main_sel_op_sub;
         Commitment avm_main_sel_op_timestamp;
+        Commitment avm_main_sel_op_transaction_fee;
         Commitment avm_main_sel_op_version;
         Commitment avm_main_sel_op_xor;
         Commitment avm_main_sel_rng_16;
@@ -2582,7 +2582,6 @@ class AvmFlavor {
             avm_main_sel_op_eq = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_fdiv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_fee_per_da_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_main_sel_op_fee_per_l1_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_fee_per_l2_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_function_selector =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2597,6 +2596,7 @@ class AvmFlavor {
             avm_main_sel_op_shr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_sub = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_timestamp = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_transaction_fee = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_version = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_xor = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_rng_16 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2860,7 +2860,6 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_sel_op_eq, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_fdiv, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_fee_per_da_gas, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_main_sel_op_fee_per_l1_gas, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_fee_per_l2_gas, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_function_selector, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_lt, Transcript::proof_data);
@@ -2874,6 +2873,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_sel_op_shr, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_sub, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_timestamp, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_transaction_fee, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_version, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_xor, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_rng_16, Transcript::proof_data);

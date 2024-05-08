@@ -43,11 +43,6 @@ FF AvmKernelTraceBuilder::op_portal()
     return perform_kernel_lookup(PORTAL_SELECTOR);
 }
 
-FF AvmKernelTraceBuilder::op_function()
-{
-    return perform_kernel_lookup(FUNCTION_SELECTOR);
-}
-
 FF AvmKernelTraceBuilder::op_fee_per_da_gas()
 {
     return perform_kernel_lookup(FEE_PER_DA_GAS_SELECTOR);
@@ -56,6 +51,36 @@ FF AvmKernelTraceBuilder::op_fee_per_da_gas()
 FF AvmKernelTraceBuilder::op_fee_per_l2_gas()
 {
     return perform_kernel_lookup(FEE_PER_L2_GAS_SELECTOR);
+}
+
+FF AvmKernelTraceBuilder::op_transaction_fee()
+{
+    return perform_kernel_lookup(TRANSACTION_FEE_SELECTOR);
+}
+
+FF AvmKernelTraceBuilder::op_chain_id()
+{
+    return perform_kernel_lookup(CHAIN_ID_SELECTOR);
+}
+
+FF AvmKernelTraceBuilder::op_version()
+{
+    return perform_kernel_lookup(VERSION_SELECTOR);
+}
+
+FF AvmKernelTraceBuilder::op_block_number()
+{
+    return perform_kernel_lookup(BLOCK_NUMBER_SELECTOR);
+}
+
+FF AvmKernelTraceBuilder::op_coinbase()
+{
+    return perform_kernel_lookup(COINBASE_SELECTOR);
+}
+
+FF AvmKernelTraceBuilder::op_timestamp()
+{
+    return perform_kernel_lookup(TIMESTAMP_SELECTOR);
 }
 
 } // namespace bb::avm_trace

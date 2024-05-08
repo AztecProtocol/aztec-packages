@@ -201,7 +201,6 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_op_eq{};
     FF avm_main_sel_op_fdiv{};
     FF avm_main_sel_op_fee_per_da_gas{};
-    FF avm_main_sel_op_fee_per_l1_gas{};
     FF avm_main_sel_op_fee_per_l2_gas{};
     FF avm_main_sel_op_function_selector{};
     FF avm_main_sel_op_lt{};
@@ -215,6 +214,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_op_shr{};
     FF avm_main_sel_op_sub{};
     FF avm_main_sel_op_timestamp{};
+    FF avm_main_sel_op_transaction_fee{};
     FF avm_main_sel_op_version{};
     FF avm_main_sel_op_xor{};
     FF avm_main_sel_rng_16{};
@@ -529,7 +529,6 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_op_eq[i] = rows[i].avm_main_sel_op_eq;
             polys.avm_main_sel_op_fdiv[i] = rows[i].avm_main_sel_op_fdiv;
             polys.avm_main_sel_op_fee_per_da_gas[i] = rows[i].avm_main_sel_op_fee_per_da_gas;
-            polys.avm_main_sel_op_fee_per_l1_gas[i] = rows[i].avm_main_sel_op_fee_per_l1_gas;
             polys.avm_main_sel_op_fee_per_l2_gas[i] = rows[i].avm_main_sel_op_fee_per_l2_gas;
             polys.avm_main_sel_op_function_selector[i] = rows[i].avm_main_sel_op_function_selector;
             polys.avm_main_sel_op_lt[i] = rows[i].avm_main_sel_op_lt;
@@ -543,6 +542,7 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_op_shr[i] = rows[i].avm_main_sel_op_shr;
             polys.avm_main_sel_op_sub[i] = rows[i].avm_main_sel_op_sub;
             polys.avm_main_sel_op_timestamp[i] = rows[i].avm_main_sel_op_timestamp;
+            polys.avm_main_sel_op_transaction_fee[i] = rows[i].avm_main_sel_op_transaction_fee;
             polys.avm_main_sel_op_version[i] = rows[i].avm_main_sel_op_version;
             polys.avm_main_sel_op_xor[i] = rows[i].avm_main_sel_op_xor;
             polys.avm_main_sel_rng_16[i] = rows[i].avm_main_sel_rng_16;

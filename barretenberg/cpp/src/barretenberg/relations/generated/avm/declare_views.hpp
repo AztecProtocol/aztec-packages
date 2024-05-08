@@ -148,7 +148,6 @@
     [[maybe_unused]] auto avm_main_sel_op_eq = View(new_term.avm_main_sel_op_eq);                                      \
     [[maybe_unused]] auto avm_main_sel_op_fdiv = View(new_term.avm_main_sel_op_fdiv);                                  \
     [[maybe_unused]] auto avm_main_sel_op_fee_per_da_gas = View(new_term.avm_main_sel_op_fee_per_da_gas);              \
-    [[maybe_unused]] auto avm_main_sel_op_fee_per_l1_gas = View(new_term.avm_main_sel_op_fee_per_l1_gas);              \
     [[maybe_unused]] auto avm_main_sel_op_fee_per_l2_gas = View(new_term.avm_main_sel_op_fee_per_l2_gas);              \
     [[maybe_unused]] auto avm_main_sel_op_function_selector = View(new_term.avm_main_sel_op_function_selector);        \
     [[maybe_unused]] auto avm_main_sel_op_lt = View(new_term.avm_main_sel_op_lt);                                      \
@@ -162,6 +161,7 @@
     [[maybe_unused]] auto avm_main_sel_op_shr = View(new_term.avm_main_sel_op_shr);                                    \
     [[maybe_unused]] auto avm_main_sel_op_sub = View(new_term.avm_main_sel_op_sub);                                    \
     [[maybe_unused]] auto avm_main_sel_op_timestamp = View(new_term.avm_main_sel_op_timestamp);                        \
+    [[maybe_unused]] auto avm_main_sel_op_transaction_fee = View(new_term.avm_main_sel_op_transaction_fee);            \
     [[maybe_unused]] auto avm_main_sel_op_version = View(new_term.avm_main_sel_op_version);                            \
     [[maybe_unused]] auto avm_main_sel_op_xor = View(new_term.avm_main_sel_op_xor);                                    \
     [[maybe_unused]] auto avm_main_sel_rng_16 = View(new_term.avm_main_sel_rng_16);                                    \

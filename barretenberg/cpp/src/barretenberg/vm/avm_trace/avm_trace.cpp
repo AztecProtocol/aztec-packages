@@ -15,6 +15,7 @@
 #include "avm_mem_trace.hpp"
 #include "avm_trace.hpp"
 #include "barretenberg/vm/avm_trace/avm_kernel_trace.hpp"
+#include "barretenberg/vm/avm_trace/aztec_constants.hpp"
 
 namespace bb::avm_trace {
 
@@ -1111,15 +1112,6 @@ void AvmTraceBuilder::op_portal(uint32_t dst_offset)
     main_trace.push_back(row);
 }
 
-void AvmTraceBuilder::op_function(uint32_t dst_offset)
-{
-    FF ia_value = kernel_trace_builder.op_function();
-    Row row = create_kernel_lookup_opcode(dst_offset, FUNCTION_SELECTOR, ia_value);
-    row.avm_main_sel_op_function_selector = FF(1);
-
-    main_trace.push_back(row);
-}
-
 void AvmTraceBuilder::op_fee_per_da_gas(uint32_t dst_offset)
 {
     FF ia_value = kernel_trace_builder.op_fee_per_da_gas();
@@ -1134,6 +1126,60 @@ void AvmTraceBuilder::op_fee_per_l2_gas(uint32_t dst_offset)
     FF ia_value = kernel_trace_builder.op_fee_per_l2_gas();
     Row row = create_kernel_lookup_opcode(dst_offset, FEE_PER_L2_GAS_SELECTOR, ia_value);
     row.avm_main_sel_op_fee_per_l2_gas = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_transaction_fee(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_transaction_fee();
+    Row row = create_kernel_lookup_opcode(dst_offset, TRANSACTION_FEE_SELECTOR, ia_value);
+    row.avm_main_sel_op_transaction_fee = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_chain_id(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_chain_id();
+    Row row = create_kernel_lookup_opcode(dst_offset, CHAIN_ID_SELECTOR, ia_value);
+    row.avm_main_sel_op_chain_id = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_version(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_version();
+    Row row = create_kernel_lookup_opcode(dst_offset, VERSION_SELECTOR, ia_value);
+    row.avm_main_sel_op_version = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_block_number(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_block_number();
+    Row row = create_kernel_lookup_opcode(dst_offset, BLOCK_NUMBER_SELECTOR, ia_value);
+    row.avm_main_sel_op_block_number = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_coinbase(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_coinbase();
+    Row row = create_kernel_lookup_opcode(dst_offset, COINBASE_SELECTOR, ia_value);
+    row.avm_main_sel_op_coinbase = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_timestamp(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_timestamp();
+    Row row = create_kernel_lookup_opcode(dst_offset, TIMESTAMP_SELECTOR, ia_value);
+    row.avm_main_sel_op_timestamp = FF(1);
 
     main_trace.push_back(row);
 }
@@ -1613,9 +1659,8 @@ std::vector<Row> AvmTraceBuilder::finalize()
     // long)
     size_t const lookup_table_size = bin_trace_size > 0 ? 3 * (1 << 16) : 0;
     size_t const range_check_size = range_check_required ? UINT16_MAX + 1 : 0;
-    std::vector<size_t> trace_sizes = {
-        mem_trace_size, main_trace_size, alu_trace_size, lookup_table_size, range_check_size
-    };
+    std::vector<size_t> trace_sizes = { mem_trace_size,    main_trace_size,  alu_trace_size,
+                                        lookup_table_size, range_check_size, KERNEL_INPUTS_LENGTH };
     auto trace_size = std::max_element(trace_sizes.begin(), trace_sizes.end());
 
     // We only need to pad with zeroes to the size to the largest trace here, pow_2 padding is handled in the
@@ -1950,24 +1995,8 @@ std::vector<Row> AvmTraceBuilder::finalize()
         }
     }
 
-    // TODO: pub public inputs inside a function?
-    // Include env trace table
-    // Selector columns and lookup counts
-    // Add all of the lookup counts for the input environment
-    // TODO: this index will have to move with the hardcoded public inputs
-
-    // Add public inputs into the kernel column
-    // edge case: If the number of public inputs is more than the trace then we pad to its size
-    size_t initial_size = main_trace.size();
-    size_t number_of_kernel_inputs = kernel_trace_builder.kernel_inputs.size();
-    if (initial_size < number_of_kernel_inputs) {
-        auto diff = number_of_kernel_inputs - initial_size;
-        for (size_t i = 0; i < diff; ++i) {
-            // We need clk to increment for kernel lookups to remain valid
-            main_trace.push_back(Row{ .avm_main_clk = initial_size + i });
-        }
-    }
-    auto kernel_inputs_size = std::min(main_trace.size(), kernel_trace_builder.kernel_inputs.size());
+    // 1. Calculate the lookup counts for each environment access
+    // 2. Add public inputs into the kernel column
 
     // We add the lookup counts in the index of the kernel inputs selectors that are active
     for (uint32_t selector_index : KERNEL_INPUTS_SELECTORS) {
@@ -1977,7 +2006,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
         dest.avm_kernel_q_public_input_kernel_add_to_table = FF(1);
     }
 
-    for (size_t i = 0; i < kernel_inputs_size; i++) {
+    for (size_t i = 0; i < KERNEL_INPUTS_LENGTH; i++) {
         main_trace.at(i).avm_kernel_kernel_inputs__is_public = kernel_trace_builder.kernel_inputs.at(i);
     }
 
