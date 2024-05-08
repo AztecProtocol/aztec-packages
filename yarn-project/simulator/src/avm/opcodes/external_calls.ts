@@ -102,14 +102,14 @@ abstract class ExternalCall extends Instruction {
 
     // TRANSITIONAL: We rethrow here so that the MESSAGE gets propagated.
     if (!success) {
-      class RethrowedError extends AvmExecutionError {
+      class RethrownError extends AvmExecutionError {
         constructor(message: string) {
           super(message);
-          this.name = 'RethrowedError';
+          this.name = 'RethrownError';
         }
       }
 
-      throw new RethrowedError(nestedCallResults.revertReason?.message || 'Unknown nested call error');
+      throw new RethrownError(nestedCallResults.revertReason?.message || 'Unknown nested call error');
     }
 
     // We only take as much data as was specified in the return size and pad with zeroes if the return data is smaller
