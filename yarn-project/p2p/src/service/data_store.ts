@@ -62,6 +62,7 @@ export class AztecDatastore implements Datastore {
   }
 
   put(key: Key, val: Uint8Array): Promise<Key> {
+    console.log('putting: ', key, val);
     return this._put(key, val, false);
   }
 
