@@ -2,7 +2,7 @@ use crate::{
     abis::{
     call_context::CallContext, max_block_number::MaxBlockNumber, gas_settings::GasSettings,
     nullifier_key_validation_request::NullifierKeyValidationRequest, note_hash::NoteHash,
-    nullifier::Nullifier, read_request::ReadRequest, side_effect::SideEffect
+    nullifier::Nullifier, read_request::ReadRequest, side_effect::SideEffect, log_hash::LogHash
 },
     constants::{
     MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
@@ -39,8 +39,8 @@ struct PrivateCircuitPublicInputs {
 
     start_side_effect_counter : u32,
     end_side_effect_counter : u32,
-    encrypted_logs_hashes: [SideEffect; MAX_ENCRYPTED_LOGS_PER_CALL],
-    unencrypted_logs_hashes: [SideEffect; MAX_UNENCRYPTED_LOGS_PER_CALL],
+    encrypted_logs_hashes: [LogHash; MAX_ENCRYPTED_LOGS_PER_CALL],
+    unencrypted_logs_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_CALL],
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
     // variable-length data.
@@ -151,8 +151,8 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             new_l2_to_l1_msgs: reader.read_struct_array(L2ToL1Message::deserialize, [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
             start_side_effect_counter: reader.read() as u32,
             end_side_effect_counter: reader.read() as u32,
-            encrypted_logs_hashes: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_ENCRYPTED_LOGS_PER_CALL]),
-            unencrypted_logs_hashes: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL]),
+            encrypted_logs_hashes: reader.read_struct_array(LogHash::deserialize, [LogHash::empty(); MAX_ENCRYPTED_LOGS_PER_CALL]),
+            unencrypted_logs_hashes: reader.read_struct_array(LogHash::deserialize, [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL]),
             encrypted_log_preimages_length: reader.read(),
             unencrypted_log_preimages_length: reader.read(),
             historical_header: reader.read_struct(Header::deserialize),
@@ -188,8 +188,8 @@ impl Empty for PrivateCircuitPublicInputs {
             new_l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
             start_side_effect_counter : 0 as u32,
             end_side_effect_counter : 0 as u32,
-            encrypted_logs_hashes: [SideEffect::empty(); MAX_ENCRYPTED_LOGS_PER_CALL],
-            unencrypted_logs_hashes: [SideEffect::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL],
+            encrypted_logs_hashes: [LogHash::empty(); MAX_ENCRYPTED_LOGS_PER_CALL],
+            unencrypted_logs_hashes: [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL],
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
             historical_header: Header::empty(),
@@ -211,6 +211,6 @@ fn empty_hash() {
     let inputs = PrivateCircuitPublicInputs::empty();
     let hash = inputs.hash();
     // Value from private_circuit_public_inputs.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x29129c06414f4ac73bf889692c7011f91727d4cdbfe4fe143e6adee69b565cc8;
+    let test_data_empty_hash = 0x0a3dfc8de6b8efe607dafb4d85880d7884e045e45991f3fd275406c628cb626a;
     assert_eq(hash, test_data_empty_hash);
 }

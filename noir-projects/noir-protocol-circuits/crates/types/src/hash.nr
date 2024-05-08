@@ -3,7 +3,7 @@ use crate::mocked::VerificationKey;
 use crate::abis::function_selector::FunctionSelector;
 use crate::abis::contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage;
 use crate::contract_class_id::ContractClassId;
-use crate::abis::side_effect::SideEffect;
+use crate::abis::log_hash::LogHash;
 use crate::traits::is_empty;
 use crate::utils::{uint256::U256, field::field_from_bytes_32_trunc};
 use crate::constants::{
@@ -122,7 +122,7 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
 // Computes the final logs hash for a tx.
 // NB: this assumes MAX_ENCRYPTED_LOGS_PER_TX == MAX_UNENCRYPTED_LOGS_PER_TX
 // to avoid doubling code, since we can't define the byte len to be 32*N directly. 
-pub fn compute_tx_logs_hash(logs: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field {
+pub fn compute_tx_logs_hash(logs: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field {
     // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
     let mut hash_input_flattened = [0; MAX_ENCRYPTED_LOGS_PER_TX * 32];
     for offset in 0..MAX_ENCRYPTED_LOGS_PER_TX {

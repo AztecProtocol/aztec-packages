@@ -3,7 +3,7 @@ use dep::reset_kernel_lib::{NoteHashReadRequestHints, NullifierReadRequestHints,
 use dep::types::{
     abis::{
     kernel_data::PrivateKernelData, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-    note_hash::NoteHashContext, nullifier::Nullifier, side_effect::SideEffect
+    note_hash::NoteHashContext, nullifier::Nullifier, log_hash::LogHash
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
@@ -28,9 +28,9 @@ struct PrivateKernelTailHints {
     sorted_new_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_new_nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_new_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
-    sorted_encrypted_log_hashes: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX],
+    sorted_encrypted_log_hashes: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
-    sorted_unencrypted_log_hashes: [SideEffect; MAX_UNENCRYPTED_LOGS_PER_TX],
+    sorted_unencrypted_log_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
     sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX],
 }
 
@@ -99,7 +99,7 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
-        note_hash::NoteHashContext, nullifier::Nullifier, side_effect::{SideEffect, Ordered}, gas::Gas
+        note_hash::NoteHashContext, nullifier::Nullifier, side_effect::Ordered, log_hash::LogHash, gas::Gas
     },
         grumpkin_private_key::GrumpkinPrivateKey,
         hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash, sha256_to_field},
@@ -190,14 +190,14 @@ mod tests {
 
             let sorted = sort_get_sorted_hints(
                 self.previous_kernel.encrypted_logs_hashes.storage,
-                |a: SideEffect, b: SideEffect| a.counter < b.counter
+                |a: LogHash, b: LogHash| a.counter < b.counter
             );
             let sorted_encrypted_log_hashes = sorted.sorted_array;
             let sorted_encrypted_log_hashes_indexes = sorted.sorted_index_hints;
 
             let sorted = sort_get_sorted_hints(
                 self.previous_kernel.unencrypted_logs_hashes.storage,
-                |a: SideEffect, b: SideEffect| a.counter < b.counter
+                |a: LogHash, b: LogHash| a.counter < b.counter
             );
             let sorted_unencrypted_log_hashes = sorted.sorted_array;
             let sorted_unencrypted_log_hashes_indexes = sorted.sorted_index_hints;

@@ -1,12 +1,12 @@
 import {
   type Fr,
   GrumpkinScalar,
-  type MAX_ENCRYPTED_LOGS_PER_TX,
+  MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   type MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-  type MAX_UNENCRYPTED_LOGS_PER_TX,
+  MAX_UNENCRYPTED_LOGS_PER_TX,
   MembershipWitness,
   NULLIFIER_TREE_HEIGHT,
   type Nullifier,
@@ -14,8 +14,6 @@ import {
   type PrivateKernelCircuitPublicInputs,
   PrivateKernelTailHints,
   type ReadRequestContext,
-  type SideEffect,
-  type SideEffectType,
   buildNoteHashReadRequestHints,
   buildNullifierReadRequestHints,
   buildTransientDataHints,
@@ -25,28 +23,6 @@ import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 import { type ProvingDataOracle } from '../proving_data_oracle.js';
-
-/** @deprecated Use sortByCounterGetSortedHints instead */
-function sortSideEffects<T extends SideEffectType, K extends number>(
-  sideEffects: Tuple<T, K>,
-): [Tuple<T, K>, Tuple<number, K>] {
-  const sorted = sideEffects
-    .map((sideEffect, index) => ({ sideEffect, index }))
-    .sort((a, b) => {
-      // Empty ones go to the right
-      if (a.sideEffect.isEmpty()) {
-        return 1;
-      }
-      return Number(a.sideEffect.counter.toBigInt() - b.sideEffect.counter.toBigInt());
-    });
-
-  const originalToSorted = sorted.map(() => 0);
-  sorted.forEach(({ index }, i) => {
-    originalToSorted[index] = i;
-  });
-
-  return [sorted.map(({ sideEffect }) => sideEffect) as Tuple<T, K>, originalToSorted as Tuple<number, K>];
-}
 
 function getNullifierReadRequestHints(
   nullifierReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
@@ -124,15 +100,15 @@ export async function buildPrivateKernelTailHints(
     MAX_NEW_NULLIFIERS_PER_TX,
   );
 
-  const [sortedEncryptedLogHashes, sortedEncryptedLogHashesIndexes] = sortSideEffects<
-    SideEffect,
-    typeof MAX_ENCRYPTED_LOGS_PER_TX
-  >(publicInputs.end.encryptedLogsHashes);
+  const [sortedEncryptedLogHashes, sortedEncryptedLogHashesIndexes] = sortByCounterGetSortedHints(
+    publicInputs.end.encryptedLogsHashes,
+    MAX_ENCRYPTED_LOGS_PER_TX,
+  );
 
-  const [sortedUnencryptedLogHashes, sortedUnencryptedLogHashesIndexes] = sortSideEffects<
-    SideEffect,
-    typeof MAX_UNENCRYPTED_LOGS_PER_TX
-  >(publicInputs.end.unencryptedLogsHashes);
+  const [sortedUnencryptedLogHashes, sortedUnencryptedLogHashesIndexes] = sortByCounterGetSortedHints(
+    publicInputs.end.unencryptedLogsHashes,
+    MAX_UNENCRYPTED_LOGS_PER_TX,
+  );
 
   const [transientNullifierIndexesForNoteHashes, transientNoteHashIndexesForNullifiers] = buildTransientDataHints(
     sortedNoteHashes,

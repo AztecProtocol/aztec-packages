@@ -13,9 +13,9 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { CallRequest } from '../call_request.js';
+import { LogHash } from '../log_hash.js';
 import { NoteHashContext } from '../note_hash.js';
 import { Nullifier } from '../nullifier.js';
-import { SideEffect } from '../side_effects.js';
 
 /**
  * Specific accumulated data structure for the final ordering private kernel circuit. It is included
@@ -39,12 +39,12 @@ export class PrivateAccumulatedData {
      * Accumulated encrypted logs hash from all the previous kernel iterations.
      * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
      */
-    public encryptedLogsHashes: Tuple<SideEffect, typeof MAX_ENCRYPTED_LOGS_PER_TX>,
+    public encryptedLogsHashes: Tuple<LogHash, typeof MAX_ENCRYPTED_LOGS_PER_TX>,
     /**
      * Accumulated unencrypted logs hash from all the previous kernel iterations.
      * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
      */
-    public unencryptedLogsHashes: Tuple<SideEffect, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
+    public unencryptedLogsHashes: Tuple<LogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
     /**
      * Total accumulated length of the encrypted log preimages emitted in all the previous kernel iterations
      */
@@ -93,8 +93,8 @@ export class PrivateAccumulatedData {
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, NoteHashContext),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Nullifier),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
-      reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, SideEffect),
-      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, SideEffect),
+      reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, LogHash),
+      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, LogHash),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest),
@@ -116,8 +116,8 @@ export class PrivateAccumulatedData {
       makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, NoteHashContext.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Nullifier.empty),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
-      makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, SideEffect.empty),
-      makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, SideEffect.empty),
+      makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, LogHash.empty),
+      makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, LogHash.empty),
       Fr.zero(),
       Fr.zero(),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),

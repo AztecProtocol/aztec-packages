@@ -2,7 +2,7 @@ use crate::{
     abis::{
     gas::Gas, accumulated_data::public_accumulated_data::PublicAccumulatedData,
     call_request::CallRequest, note_hash::NoteHash, nullifier::Nullifier,
-    public_data_update_request::PublicDataUpdateRequest, side_effect::SideEffect
+    public_data_update_request::PublicDataUpdateRequest, log_hash::LogHash
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
@@ -17,8 +17,8 @@ struct PublicAccumulatedDataBuilder {
     new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
 
-    encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_TX>,
-    unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_TX>,
+    encrypted_logs_hashes: BoundedVec<LogHash, MAX_ENCRYPTED_LOGS_PER_TX>,
+    unencrypted_logs_hashes: BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
     // variable-length data.

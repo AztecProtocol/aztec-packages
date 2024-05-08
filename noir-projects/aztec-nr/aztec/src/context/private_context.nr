@@ -2,6 +2,7 @@ use crate::{
     context::{inputs::PrivateContextInputs, interface::ContextInterface},
     messaging::process_l1_to_l2_message,
     hash::{hash_args_array, ArgsHasher, compute_encrypted_log_hash, compute_unencrypted_log_hash},
+    note::{note_interface::NoteInterface, utils::compute_note_hash_for_insertion},
     oracle::{
     arguments, returns, call_private_function::call_private_function_internal,
     enqueue_public_function_call::enqueue_public_function_call_internal, header::get_header_at,
@@ -14,11 +15,10 @@ use dep::protocol_types::{
     global_variables::GlobalVariables, gas::Gas, call_context::CallContext, function_data::FunctionData,
     function_selector::FunctionSelector, max_block_number::MaxBlockNumber,
     nullifier_key_validation_request::NullifierKeyValidationRequest,
-    private_call_stack_item::PrivateCallStackItem,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
     public_call_stack_item::PublicCallStackItem,
     public_circuit_public_inputs::PublicCircuitPublicInputs, read_request::ReadRequest,
-    note_hash::NoteHash, nullifier::Nullifier, side_effect::SideEffect
+    note_hash::NoteHash, nullifier::Nullifier, log_hash::LogHash
 },
     address::{AztecAddress, EthAddress},
     constants::{
@@ -63,8 +63,8 @@ struct PrivateContext {
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
     historical_header: Header,
 
-    encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_CALL>,
-    unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_CALL>,
+    encrypted_logs_hashes: BoundedVec<LogHash, MAX_ENCRYPTED_LOGS_PER_CALL>,
+    unencrypted_logs_hashes: BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_CALL>,
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
 
@@ -262,11 +262,12 @@ impl PrivateContext {
             event_selector,
             log,
         );
-        let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
+        // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4)
+        let len = 44 + log_slice.len().to_field();
+        let side_effect = LogHash { value: log_hash, counter: self.side_effect_counter, length: len };
         self.unencrypted_logs_hashes.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
-        // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4)
-        self.unencrypted_log_preimages_length += 44 + log_slice.len().to_field();
+        self.unencrypted_log_preimages_length += len;
         // call oracle
         let _void = emit_unencrypted_log_private_internal(contract_address, event_selector, log, side_effect.counter);
     }
@@ -287,11 +288,12 @@ impl PrivateContext {
             log,
             self.side_effect_counter
         );
-        let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
+        // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4)
+        let len = 44 + N*32;
+        let side_effect = LogHash { value: log_hash, counter: self.side_effect_counter, length: len };
         self.unencrypted_logs_hashes.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
-        // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4)
-        self.unencrypted_log_preimages_length += 44 + N*32;
+        self.unencrypted_log_preimages_length += len;
     }
 
     pub fn emit_encrypted_log<N, M, L>(
@@ -312,13 +314,45 @@ impl PrivateContext {
             preimage,
             self.side_effect_counter
         );
+        // = 32*all fields + bytes for encryption (112) + processed log len (4)
+        let len = 112 + 32*(N + 3) + 4;
         let log_hash = compute_encrypted_log_hash(encrypted_log);
-        let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
+        let side_effect = LogHash { value: log_hash, counter: self.side_effect_counter, length: len };
         self.encrypted_logs_hashes.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
-        let encrypted_log_byte_len = 112 + 32*(N + 3);
-        // + processed log len (4)
-        self.encrypted_log_preimages_length += encrypted_log_byte_len + 4;
+    
+        self.encrypted_log_preimages_length += len;
+    }
+    // TODO(Miranda): integrate
+    pub fn emit_note_log<Note, N, M, L>(
+        &mut self,
+        contract_address: AztecAddress,
+        storage_slot: Field,
+        note_type_id: Field,
+        encryption_pub_key: GrumpkinPoint,
+        note: Note
+    ) where [Field; N]: LensForEncryptedLog<N, M, L>, Note: NoteInterface<N> {
+        let note_hash = compute_note_hash_for_insertion(note);
+        let note_exists = self.new_note_hashes.any(|n: NoteHash| n.value == note_hash);
+        assert(note_exists, "Can only emit a note log for an existing note.");
+        let preimage = note.serialize_content();
+        // TODO(1139): perform encryption in the circuit
+        // The oracle call should come last, but we require the encrypted value for now
+        let encrypted_log: [Field; M] = emit_encrypted_log(
+            contract_address,
+            storage_slot,
+            note_type_id,
+            encryption_pub_key,
+            preimage,
+            self.side_effect_counter
+        );
+        // = 32*all fields + bytes for encryption (112) + processed log len (4)
+        let len = 112 + 32*(preimage.len() as Field + 3) + 4;
+        let log_hash = compute_encrypted_log_hash(encrypted_log);
+        let side_effect = LogHash { value: log_hash, counter: self.side_effect_counter, length: len };
+        self.encrypted_logs_hashes.push(side_effect);
+        self.side_effect_counter = self.side_effect_counter + 1;
+        self.encrypted_log_preimages_length += len;
     }
 
     pub fn call_private_function<ARGS_COUNT>(
@@ -537,7 +571,7 @@ impl PrivateContext {
                 new_l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
                 start_side_effect_counter: 0,
                 end_side_effect_counter: 0,
-                unencrypted_logs_hashes: [SideEffect::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL],
+                unencrypted_logs_hashes: [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL],
                 unencrypted_log_preimages_length: 0,
                 historical_header: Header::empty(),
                 global_variables: GlobalVariables::empty(),

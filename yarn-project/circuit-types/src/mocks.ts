@@ -2,13 +2,13 @@ import {
   AztecAddress,
   CallRequest,
   GasSettings,
+  LogHash,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   Nullifier,
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
   Proof,
   type PublicCallRequest,
-  SideEffect,
   computeContractClassId,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
@@ -88,12 +88,21 @@ export const mockTx = (
       encryptedLogs.functionLogs.forEach((log, j) => {
         // ts complains if we dont check .forPublic here, even though it is defined ^
         if (data.forPublic) {
-          data.forPublic.end.encryptedLogsHashes[j] = new SideEffect(Fr.fromBuffer(log.hash()), new Fr(i++));
+          // TODO(Miranda): check lens here - do we use the +4 len or raw?
+          data.forPublic.end.encryptedLogsHashes[j] = new LogHash(
+            Fr.fromBuffer(log.hash()),
+            i++,
+            new Fr(log.toBuffer().length),
+          );
         }
       });
       unencryptedLogs.functionLogs.forEach((log, j) => {
         if (data.forPublic) {
-          data.forPublic.end.unencryptedLogsHashes[j] = new SideEffect(Fr.fromBuffer(log.hash()), new Fr(i++));
+          data.forPublic.end.unencryptedLogsHashes[j] = new LogHash(
+            Fr.fromBuffer(log.hash()),
+            i++,
+            new Fr(log.toBuffer().length),
+          );
         }
       });
     }

@@ -2,8 +2,7 @@ use crate::{common, private_kernel_circuit_public_inputs_composer::PrivateKernel
 use dep::types::{
     abis::{
     kernel_data::PrivateKernelData, private_kernel::private_call_data::PrivateCallData,
-    kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
-    side_effect::SideEffect
+    kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder}
 },
     constants::MAX_NEW_NOTE_HASHES_PER_CALL, mocked::verify_previous_kernel_state,
     utils::arrays::array_length
@@ -64,7 +63,7 @@ mod tests {
         abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         max_block_number::MaxBlockNumber, note_hash::NoteHash, nullifier::Nullifier,
-        read_request::ReadRequest, side_effect::SideEffect
+        read_request::ReadRequest, log_hash::LogHash
     },
         address::{AztecAddress, EthAddress}, constants::MAX_NEW_NOTE_HASHES_PER_CALL,
         messaging::l2_to_l1_message::L2ToL1Message, utils::{arrays::array_length},
@@ -464,8 +463,8 @@ mod tests {
 
         builder.private_call.public_inputs.encrypted_logs_hashes.extend_from_array(
             [
-            SideEffect { value: 0, counter: 0 },
-            SideEffect { value: 9123, counter: 1 }
+            LogHash { value: 0, counter: 0, length: 0 },
+            LogHash { value: 9123, counter: 1, length: 2 }
         ]
         );
 

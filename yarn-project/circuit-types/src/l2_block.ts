@@ -212,11 +212,11 @@ export class L2Block {
         0,
       ),
       unencryptedLogCount: this.body.txEffects.reduce(
-        (logCount, txEffect) => logCount + txEffect.unencryptedLogs.getSerializedLength(),
+        (logCount, txEffect) => logCount + txEffect.unencryptedLogs.getTotalLogCount(),
         0,
       ),
       unencryptedLogSize: this.body.txEffects.reduce(
-        (logCount, txEffect) => logCount + txEffect.unencryptedLogs.getTotalLogCount(),
+        (logCount, txEffect) => logCount + txEffect.unencryptedLogs.getSerializedLength(),
         0,
       ),
     };

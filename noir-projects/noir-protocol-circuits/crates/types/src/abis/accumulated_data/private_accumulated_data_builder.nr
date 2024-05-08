@@ -8,7 +8,7 @@ use crate::{
     public_accumulated_data_builder::PublicAccumulatedDataBuilder
 },
     call_request::CallRequest, note_hash::{NoteHash, NoteHashContext}, nullifier::Nullifier,
-    public_data_update_request::PublicDataUpdateRequest, side_effect::SideEffect
+    public_data_update_request::PublicDataUpdateRequest, log_hash::LogHash
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
@@ -28,8 +28,8 @@ struct PrivateAccumulatedDataBuilder {
     new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
 
-    encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_TX>,
-    unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_TX>,
+    encrypted_logs_hashes: BoundedVec<LogHash, MAX_ENCRYPTED_LOGS_PER_TX>,
+    unencrypted_logs_hashes: BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
     // variable-length data.
@@ -166,8 +166,12 @@ impl PrivateAccumulatedDataBuilder {
             let encrypted_logs_hash = self.encrypted_logs_hashes.storage[i];
             if encrypted_logs_hash.counter < min_revertible_side_effect_counter {
                 non_revertible_builder.encrypted_logs_hashes.push(encrypted_logs_hash);
+                non_revertible_builder.encrypted_log_preimages_length += encrypted_logs_hash.length;
+                non_revertible_da_gas_used += encrypted_logs_hash.length as u32 * DA_GAS_PER_BYTE;
             } else {
                 revertible_builder.encrypted_logs_hashes.push(encrypted_logs_hash);
+                revertible_builder.encrypted_log_preimages_length += encrypted_logs_hash.length;
+                revertible_da_gas_used += encrypted_logs_hash.length as u32 * DA_GAS_PER_BYTE;
             }
         }
 
@@ -175,17 +179,16 @@ impl PrivateAccumulatedDataBuilder {
             let unencrypted_logs_hash = self.unencrypted_logs_hashes.storage[i];
             if unencrypted_logs_hash.counter < min_revertible_side_effect_counter {
                 non_revertible_builder.unencrypted_logs_hashes.push(unencrypted_logs_hash);
+                non_revertible_builder.unencrypted_log_preimages_length += unencrypted_logs_hash.length;
+                non_revertible_da_gas_used += unencrypted_logs_hash.length as u32 * DA_GAS_PER_BYTE;
             } else {
                 revertible_builder.unencrypted_logs_hashes.push(unencrypted_logs_hash);
+                revertible_builder.unencrypted_log_preimages_length += unencrypted_logs_hash.length;
+                revertible_da_gas_used += unencrypted_logs_hash.length as u32 * DA_GAS_PER_BYTE;
             }
         }
 
         revertible_builder.new_l2_to_l1_msgs =  self.new_l2_to_l1_msgs;
-        // TODO(1641) & TODO(4712): Once we track logs with more info, including individual lens, split here
-        revertible_builder.encrypted_log_preimages_length =  self.encrypted_log_preimages_length;
-        revertible_builder.unencrypted_log_preimages_length = self.unencrypted_log_preimages_length;
-
-        revertible_da_gas_used += DA_GAS_PER_BYTE * (self.encrypted_log_preimages_length as u32 + self.unencrypted_log_preimages_length as u32);
 
         revertible_builder.gas_used = Gas::new(revertible_da_gas_used, revertible_l2_gas_used);
         non_revertible_builder.gas_used = Gas::tx_overhead() + Gas::new(non_revertible_da_gas_used, non_revertible_l2_gas_used);
@@ -199,7 +202,7 @@ mod tests {
         accumulated_data::private_accumulated_data_builder::PrivateAccumulatedDataBuilder, gas::Gas,
         call_request::CallRequest, caller_context::CallerContext,
         note_hash::{NoteHash, NoteHashContext}, nullifier::Nullifier,
-        public_data_update_request::PublicDataUpdateRequest, side_effect::SideEffect
+        public_data_update_request::PublicDataUpdateRequest, log_hash::LogHash
     },
         address::AztecAddress, utils::arrays::array_eq, constants::{DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE}
     };
@@ -235,14 +238,24 @@ mod tests {
             }
         ];
 
+        let non_revertible_enc_log_hashes = [
+            LogHash { value: 11, counter: 7, length: 2 },
+            LogHash { value: 22, counter: 8, length: 2 },
+        ];
+
+        let non_revertible_unenc_log_hashes = [
+            LogHash { value: 33, counter: 9, length: 5 },
+            LogHash { value: 44, counter: 10, length: 5 },
+        ];
+
         let revertible_note_hashes = [
-            NoteHashContext { value: 3, counter: 7, nullifier_counter: 15 },
-            NoteHashContext { value: 4, counter: 10, nullifier_counter: 0 }
+            NoteHashContext { value: 3, counter: 11, nullifier_counter: 15 },
+            NoteHashContext { value: 4, counter: 13, nullifier_counter: 0 }
         ];
 
         let revertible_nullifiers = [
-            Nullifier { value: 30, note_hash: 3, counter: 8 },
-            Nullifier { value: 40, note_hash: 4, counter: 11 }
+            Nullifier { value: 30, note_hash: 3, counter: 12 },
+            Nullifier { value: 40, note_hash: 4, counter: 15 }
         ];
 
         let revertible_public_call_stack = [
@@ -250,9 +263,19 @@ mod tests {
                 hash: 3,
                 caller_contract_address: AztecAddress::from_field(3),
                 caller_context: CallerContext::empty(),
-                start_side_effect_counter: 9,
+                start_side_effect_counter: 13,
                 end_side_effect_counter: 0
             }
+        ];
+
+        let revertible_enc_log_hashes = [
+            LogHash { value: 55, counter: 16, length: 2 },
+            LogHash { value: 66, counter: 17, length: 2 },
+        ];
+
+        let revertible_unenc_log_hashes = [
+            LogHash { value: 77, counter: 18, length: 5 },
+            LogHash { value: 88, counter: 19, length: 5 },
         ];
 
         builder.new_note_hashes.extend_from_array(non_revertible_note_hashes);
@@ -264,7 +287,15 @@ mod tests {
         builder.public_call_stack.extend_from_array(non_revertible_public_stack);
         builder.public_call_stack.extend_from_array(revertible_public_call_stack);
 
-        let (non_revertible, revertible) = builder.split_to_public(7, Gas::new(42, 17));
+        builder.encrypted_logs_hashes.extend_from_array(non_revertible_enc_log_hashes);
+        builder.encrypted_logs_hashes.extend_from_array(revertible_enc_log_hashes);
+        builder.encrypted_log_preimages_length = 12; // = 8 + 4 to store len
+
+        builder.unencrypted_logs_hashes.extend_from_array(non_revertible_unenc_log_hashes);
+        builder.unencrypted_logs_hashes.extend_from_array(revertible_unenc_log_hashes);
+        builder.unencrypted_log_preimages_length = 24; // = 20 + 4 to store len
+
+        let (non_revertible, revertible) = builder.split_to_public(11, Gas::new(42, 17));
 
         assert(
             array_eq(
@@ -277,6 +308,8 @@ mod tests {
         );
         assert(array_eq(non_revertible.new_nullifiers, non_revertible_nullifiers));
         assert(array_eq(non_revertible.public_call_stack, non_revertible_public_stack));
+        assert(array_eq(non_revertible.encrypted_logs_hashes, non_revertible_enc_log_hashes));
+        assert(array_eq(non_revertible.unencrypted_logs_hashes, non_revertible_unenc_log_hashes));
 
         assert(
             array_eq(
@@ -289,14 +322,22 @@ mod tests {
         );
         assert(array_eq(revertible.new_nullifiers, revertible_nullifiers));
         assert(array_eq(revertible.public_call_stack, revertible_public_call_stack));
+        assert(array_eq(revertible.encrypted_logs_hashes, revertible_enc_log_hashes));
+        assert(array_eq(revertible.unencrypted_logs_hashes, revertible_unenc_log_hashes));
 
         assert_eq(
-            revertible.gas_used, Gas::new(4 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE, 0) + Gas::new(42, 17)
+            revertible.gas_used,
+            Gas::new(
+                ( 4 * DA_BYTES_PER_FIELD + revertible.encrypted_log_preimages_length as u32 + revertible.unencrypted_log_preimages_length as u32 ) * DA_GAS_PER_BYTE, 0
+            ) + Gas::new(42, 17)
         );
 
         print(non_revertible.gas_used);
         assert_eq(
-            non_revertible.gas_used, Gas::new(4 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE, 0) + Gas::tx_overhead()
+            non_revertible.gas_used,
+            Gas::new(
+                ( 4 * DA_BYTES_PER_FIELD + non_revertible.encrypted_log_preimages_length as u32 + non_revertible.unencrypted_log_preimages_length as u32) * DA_GAS_PER_BYTE, 0
+            ) + Gas::tx_overhead()
         );
     }
 }

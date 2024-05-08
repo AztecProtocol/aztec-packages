@@ -10,6 +10,7 @@ import {
 } from '../../constants.gen.js';
 import { type GrumpkinPrivateKey } from '../../types/grumpkin_private_key.js';
 import { countAccumulatedItems } from '../../utils/index.js';
+import { LogHash } from '../log_hash.js';
 import { NoteHashContext } from '../note_hash.js';
 import { Nullifier } from '../nullifier.js';
 import {
@@ -18,7 +19,6 @@ import {
   noteHashReadRequestHintsFromBuffer,
   nullifierReadRequestHintsFromBuffer,
 } from '../read_request_hints/index.js';
-import { SideEffect } from '../side_effects.js';
 import { PrivateKernelData } from './private_kernel_data.js';
 
 export class PrivateKernelTailOutputs {
@@ -82,7 +82,7 @@ export class PrivateKernelTailHints {
     /**
      * The sorted encrypted log hashes.
      */
-    public sortedEncryptedLogHashes: Tuple<SideEffect, typeof MAX_ENCRYPTED_LOGS_PER_TX>,
+    public sortedEncryptedLogHashes: Tuple<LogHash, typeof MAX_ENCRYPTED_LOGS_PER_TX>,
     /**
      * The sorted encrypted log hashes indexes. Maps original to sorted.
      */
@@ -90,7 +90,7 @@ export class PrivateKernelTailHints {
     /**
      * The sorted unencrypted log hashes.
      */
-    public sortedUnencryptedLogHashes: Tuple<SideEffect, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
+    public sortedUnencryptedLogHashes: Tuple<LogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
     /**
      * The sorted encrypted log hashes indexes. Maps original to sorted.
      */
@@ -132,9 +132,9 @@ export class PrivateKernelTailHints {
       reader.readNumbers(MAX_NEW_NOTE_HASHES_PER_TX),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Nullifier),
       reader.readNumbers(MAX_NEW_NULLIFIERS_PER_TX),
-      reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, SideEffect),
+      reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, LogHash),
       reader.readNumbers(MAX_ENCRYPTED_LOGS_PER_TX),
-      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, SideEffect),
+      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, LogHash),
       reader.readNumbers(MAX_UNENCRYPTED_LOGS_PER_TX),
     );
   }

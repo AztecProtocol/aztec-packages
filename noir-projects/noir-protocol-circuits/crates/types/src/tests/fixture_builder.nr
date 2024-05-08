@@ -9,7 +9,7 @@ use crate::{
     note_hash::NoteHashContext, nullifier::Nullifier,
     nullifier_key_validation_request::NullifierKeyValidationRequestContext,
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-    read_request::ReadRequestContext, side_effect::SideEffect,
+    read_request::ReadRequestContext, log_hash::LogHash,
     validation_requests::{ValidationRequests, ValidationRequestsBuilder}
 },
     address::AztecAddress,
@@ -39,8 +39,8 @@ struct FixtureBuilder {
     new_note_hashes: BoundedVec<NoteHashContext, MAX_NEW_NOTE_HASHES_PER_TX>,
     new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
-    encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_TX>,
-    unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_TX>,
+    encrypted_logs_hashes: BoundedVec<LogHash, MAX_ENCRYPTED_LOGS_PER_TX>,
+    unencrypted_logs_hashes: BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
     encrypted_logs_hash: Field,
     unencrypted_logs_hash: Field,
     encrypted_log_preimages_length: Field,
@@ -364,13 +364,13 @@ impl FixtureBuilder {
     }
 
     pub fn set_encrypted_logs(&mut self, hash: Field, preimages_length: Field) {
-        let side_effect = SideEffect { value: hash, counter: self.next_counter() };
+        let side_effect = LogHash { value: hash, counter: self.next_counter(), length: preimages_length };
         self.encrypted_logs_hashes.push(side_effect);
         self.encrypted_log_preimages_length += preimages_length;
     }
 
     pub fn set_unencrypted_logs(&mut self, hash: Field, preimages_length: Field) {
-        let side_effect = SideEffect { value: hash, counter: self.next_counter() };
+        let side_effect = LogHash { value: hash, counter: self.next_counter(), length: preimages_length };
         self.unencrypted_logs_hashes.push(side_effect);
         self.unencrypted_log_preimages_length += preimages_length;
     }

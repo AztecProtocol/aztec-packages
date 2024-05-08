@@ -10,10 +10,10 @@ import {
   type GlobalVariables,
   type Header,
   L2ToL1Message,
+  LogHash,
   NoteHash,
   Nullifier,
   ReadRequest,
-  SideEffect,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -144,8 +144,9 @@ export async function convertAvmResults(
   const unencryptedLogs: UnencryptedFunctionL2Logs = new UnencryptedFunctionL2Logs(
     newWorldState.newLogs.map(log => new UnencryptedL2Log(log.contractAddress, log.selector, log.data)),
   );
+  // TODO(Miranda): check below log length - currently includes +4 bytes to store len, needed?
   const unencryptedLogsHashes = newWorldState.newLogsHashes.map(
-    logHash => new SideEffect(logHash.logHash, logHash.counter),
+    (logHash, i) => new LogHash(logHash.logHash, logHash.counter.toNumber(), new Fr(unencryptedLogs.logs[i].length)),
   );
   const newL2ToL1Messages = newWorldState.newL1Messages.map(m => new L2ToL1Message(m.recipient, m.content));
 

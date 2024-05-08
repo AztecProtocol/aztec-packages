@@ -4,7 +4,7 @@ use dep::types::{
     kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder, kernel_data::PublicKernelData,
     note_hash::NoteHash, nullifier::Nullifier, public_call_data::PublicCallData,
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-    read_request::ReadRequestContext, side_effect::SideEffect, global_variables::GlobalVariables,
+    read_request::ReadRequestContext, log_hash::LogHash, global_variables::GlobalVariables,
     combined_constant_data::CombinedConstantData
 },
     address::AztecAddress,
@@ -550,7 +550,7 @@ pub fn propagate_new_unencrypted_logs(public_call: PublicCallData, public_inputs
     // new unencrypted logs
     let new_logs = public_call.call_stack_item.public_inputs.unencrypted_logs_hashes;
     // TODO(Miranda): silo logs here once we have finalised struct
-    let mut new_logs_to_insert : BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_CALL> = BoundedVec::new();
+    let mut new_logs_to_insert : BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_UNENCRYPTED_LOGS_PER_CALL {
         let new_log = new_logs[i];
         if new_log.value != 0 {
@@ -569,7 +569,7 @@ pub fn propagate_new_unencrypted_logs_non_revertible(
     // new unencrypted logs
     let new_logs = public_call.call_stack_item.public_inputs.unencrypted_logs_hashes;
     // TODO(Miranda): silo logs here once we have finalised struct
-    let mut new_logs_to_insert : BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_CALL> = BoundedVec::new();
+    let mut new_logs_to_insert : BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_UNENCRYPTED_LOGS_PER_CALL {
         let new_log = new_logs[i];
         if new_log.value != 0 {
