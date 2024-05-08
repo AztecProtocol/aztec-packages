@@ -115,9 +115,10 @@ async function startBareSpot(config: ActionConfig) {
   const instanceId = await requestAndWaitForSpot(config);
   const ip = await ec2Client.getPublicIpFromInstanceId(instanceId);
   if (config.localCommand) {
+    const tempKeyPath = installSshKey(config.ec2Key);
     await standardSpawn("bash", [
       "-c",
-      `export SPOT_IP={ip}\n` + config.localCommand,
+      `export SPOT_IP={ip}\nexport SPOT_KEY={tempKeyPath}\n` + config.localCommand,
     ]);
   }
   if (config.command) {
@@ -224,6 +225,12 @@ function standardSpawn(command: string, args: string[]): Promise<string> {
     });
   });
 }
+function installSshKey(encodedSshKey: string) {
+  const decodedKey = Buffer.from(encodedSshKey, "base64").toString("utf8");
+  const tempKeyPath = "/tmp/ec2_ssh_key.pem";
+  fs.writeFileSync(tempKeyPath, decodedKey, { mode: 0o600 });
+  return tempKeyPath;
+}
 async function ec2CommandOverSsh(
   ip: String,
   encodedSshKey: string,
@@ -231,10 +238,7 @@ async function ec2CommandOverSsh(
 ): Promise<string> {
   core.info(`Attempting SSH into EC2 instance with IP ${ip}`);
 
-  const decodedKey = Buffer.from(encodedSshKey, "base64").toString("utf8");
-  const tempKeyPath = "/tmp/ec2_ssh_key.pem";
-  fs.writeFileSync(tempKeyPath, decodedKey, { mode: 0o600 });
-
+  const tempKeyPath = installSshKey(encodedSshKey);
   // Improved SSH connection retry logic
   let attempts = 0;
   const maxAttempts = 60;

@@ -21,6 +21,10 @@ on:
       aws_region:
         default: "us-east-2"
         type: string
+      # command to run on the runner, with IP available as param
+      local_command:
+        required: true
+        type: string
       # command to run on the spot
       command:
         required: true
@@ -86,8 +90,8 @@ jobs:
           ec2_instance_ttl: 20
           ec2_key_name: "build-instance"
           ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          local_command:
+            ${{ inputs.local_command }}
           command: |
-            set -x
-
             ${{ inputs.command }}
           ec2_instance_tags: "[]"
