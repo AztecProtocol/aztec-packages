@@ -36,9 +36,6 @@ It's telling us:
 - 4987 constraints can be owed to the section of code labelled `compute_txs_effects_hash` (see below how to label sections of code).
 - 42790 constraints can be owed to the section of code labelled `sha256_to_field` (see below how to label sections of code).
 
-> Q: why doesn't the sum of the parts equal the whole? (4987 + 42790 != 45970).
-> A: probably because lookup tables skew constraint measurements.
-
 ## To use:
 
 To measure the cost of a section of code, you need to:
