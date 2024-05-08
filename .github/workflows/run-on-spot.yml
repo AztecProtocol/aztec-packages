@@ -70,7 +70,7 @@ jobs:
             echo "Error: ci.yml changes in master (or PR base). Please merge these changes. This is to prevent surprises from Github Action's merge behavior."
             exit 1
           fi
-          if ! git diff --no-index .github/workflows/setup-runner.yml merge-commit-pipeline-files/.github/workflows/run-on-spot.yml; then
+          if ! git diff --no-index .github/workflows/run-on-spot.yml merge-commit-pipeline-files/.github/workflows/run-on-spot.yml; then
             echo "Error: setup-runner.yml changes in master (or PR base). Please merge these changes. This is to prevent surprises from Github Action's merge behavior."
             exit 1
           fi
