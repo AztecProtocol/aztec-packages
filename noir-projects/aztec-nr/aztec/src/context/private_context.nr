@@ -3,14 +3,14 @@ use crate::{
     messaging::process_l1_to_l2_message,
     hash::{hash_args_array, ArgsHasher, compute_encrypted_log_hash, compute_unencrypted_log_hash},
     oracle::{
-    arguments, returns, call_private_function::call_private_function_internal,
-    header::get_header_at,
+    arguments, returns, call_private_function::call_private_function_internal, header::get_header_at,
     logs::emit_encrypted_log, logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog},
     nullifier_key::{get_nullifier_keys, get_nullifier_keys_with_npk_m_h, NullifierKeys},
     enqueue_public_function_call::{
     enqueue_public_function_call_internal, set_public_teardown_function_call_internal,
-    parse_public_call_stack_item_from_oracle},
-    },
+    parse_public_call_stack_item_from_oracle
+}
+}
 };
 use dep::protocol_types::{
     abis::{
@@ -31,8 +31,7 @@ use dep::protocol_types::{
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint, header::Header,
     messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader,
-    traits::{is_empty, Deserialize, Empty},
-    hash::poseidon2_hash
+    traits::{is_empty, Deserialize, Empty}, hash::poseidon2_hash
 };
 
 // When finished, one can call .finish() to convert back to the abi
@@ -241,7 +240,9 @@ impl PrivateContext {
         };
 
         // We have to check if the key that was requested or cached corresponds to the one we request for
-        assert_eq(poseidon2_hash(keys.master_nullifier_public_key.serialize()), master_public_nullifying_key_hash);
+        assert_eq(
+            poseidon2_hash(keys.master_nullifier_public_key.serialize()), master_public_nullifying_key_hash
+        );
         keys.app_nullifier_secret_key
     }
 
