@@ -2,7 +2,6 @@ use crate::note::{note_interface::NoteInterface};
 use dep::protocol_types::{grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint};
 
 use dep::std::aes128::aes128_encrypt_slice;
-use dep::std::println;
 use crate::keys::point_to_symmetric_key::point_to_symmetric_key;
 
 struct EncryptedLogBody<Note> {
@@ -25,17 +24,12 @@ impl<Note> EncryptedLogBody<Note> {
         secret: GrumpkinPrivateKey,
         point: GrumpkinPoint
     ) -> [u8] where Note: NoteInterface<N> {
-        // We need 32 bytes for every field in the note, and then we have 2 extra fields (storage_slot and note_type_id)
-        let serialized_note: [Field; N] = self.note.serialize_content(); //  Note::serialize_content(self.note);
+        let serialized_note: [Field; N] = self.note.serialize_content();
 
         let mut buffer_slice: [u8] = &[];
 
         let storage_slot_bytes = self.storage_slot.to_be_bytes(32);
         let note_type_id_bytes = self.note_type_id.to_be_bytes(32);
-
-        for _ in 0..(serialized_note.len() * 32 + 64) {
-            buffer_slice = buffer_slice.push_back(0);
-        }
 
         for i in 0..32 {
             buffer_slice = buffer_slice.push_back(storage_slot_bytes[i]);
@@ -112,7 +106,6 @@ mod test {
         pub fn new(address: AztecAddress, owner: AztecAddress, randomness: Field) -> Self {
             AddressNote { address, owner, randomness, header: NoteHeader::empty() }
         }
-        // docs:end:address_note_def
     }
 
     #[test]
@@ -139,10 +132,12 @@ mod test {
         let ciphertext = body.compute_ciphertext(secret, point);
 
         let expected_body_ciphertext = [
-            131, 119, 105, 129, 244, 32, 151, 205, 12, 99, 93, 62, 10, 180, 72, 21, 36, 194, 14, 168, 0, 137, 126, 59, 151, 177, 136, 254, 153, 190, 92, 33, 40, 151, 178, 54, 34, 166, 124, 96, 117, 108, 168, 7, 147, 222, 81, 201, 254, 170, 244, 151, 60, 64, 226, 45, 156, 185, 53, 23, 121, 63, 243, 101, 134, 21, 167, 39, 226, 203, 162, 223, 28, 74, 244, 159, 54, 201, 192, 168, 19, 85, 103, 82, 148, 3, 153, 210, 89, 245, 171, 171, 12, 248, 40, 74, 199, 65, 96, 42, 84, 83, 48, 21, 188, 134, 45, 247, 134, 166, 109, 170, 68, 212, 99, 235, 74, 202, 162, 108, 130, 128, 122, 16, 79, 242, 30, 157, 26, 75, 57, 24, 18, 124, 217, 74, 155, 13, 171, 205, 194, 193, 103, 134, 224, 204, 46, 105, 135, 166, 192, 163, 186, 42, 71, 51, 156, 161, 8, 131, 233, 228, 107, 151, 254, 111, 215, 19, 22, 34, 252, 158, 214, 97, 197, 22
+            131, 119, 105, 129, 244, 32, 151, 205, 12, 99, 93, 62, 10, 180, 72, 21, 47, 232, 95, 17, 240, 230, 80, 129, 174, 158, 23, 76, 114, 185, 43, 18, 254, 148, 147, 230, 66, 216, 167, 62, 180, 213, 238, 33, 108, 29, 84, 139, 99, 206, 212, 253, 92, 116, 137, 31, 0, 104, 45, 91, 250, 109, 141, 114, 189, 53, 35, 60, 108, 156, 170, 206, 150, 114, 150, 187, 198, 13, 62, 153, 133, 13, 169, 167, 242, 221, 40, 168, 186, 203, 104, 82, 47, 238, 142, 179, 90, 37, 9, 70, 245, 176, 122, 247, 42, 87, 75, 7, 20, 89, 166, 123, 14, 26, 230, 156, 49, 94, 0, 94, 72, 58, 171, 239, 115, 174, 155, 7, 151, 17, 60, 206, 193, 134, 70, 87, 215, 88, 21, 194, 63, 26, 106, 105, 124, 213, 252, 152, 192, 71, 115, 13, 181, 5, 169, 15, 170, 196, 174, 228, 170, 192, 91, 76, 110, 220, 89, 47, 248, 144, 189, 251, 167, 149, 248, 226
         ];
-        for i in 0..ciphertext.len() {
+
+        for i in 0..expected_body_ciphertext.len() {
             assert_eq(ciphertext[i], expected_body_ciphertext[i]);
         }
+        assert_eq(expected_body_ciphertext.len(), ciphertext.len());
     }
 }
