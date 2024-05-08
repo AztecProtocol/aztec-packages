@@ -297,10 +297,11 @@ fn count_opcodes_and_gates_in_program(
         .functions
         .into_par_iter()
         .enumerate()
-        .map(|(i, _)| -> Result<_, BackendError> {
+        .map(|(i, function)| -> Result<_, BackendError> {
             Ok(FunctionInfo {
                 name: compiled_program.names[i].clone(),
-                acir_opcodes: program_circuit_sizes[i].acir_opcodes as usize,
+                // Required while mock backend doesn't return correct circuit size.
+                acir_opcodes: function.opcodes.len(),
                 circuit_size: program_circuit_sizes[i].circuit_size,
             })
         })
