@@ -119,6 +119,7 @@ describe('Key Registry', () => {
       masterOutgoingViewingPublicKey: newAccountKeys.masterOutgoingViewingPublicKey,
       masterTaggingPublicKey: newAccountKeys.masterTaggingPublicKey,
     });
+
     // Should succeed as the account is now registered as a recipient in PXE
     await testContract.methods
       .test_nullifier_key_freshness(newAccount, newAccountKeys.masterNullifierPublicKey)
