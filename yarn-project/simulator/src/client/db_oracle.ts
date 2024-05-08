@@ -5,10 +5,10 @@ import {
   type NullifierMembershipWitness,
   type PublicDataWitness,
 } from '@aztec/circuit-types';
-import { type CompleteAddress, type Header } from '@aztec/circuits.js';
+import { type CompleteAddress, type Header, type PublicKeys } from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { type Fr, type Point } from '@aztec/foundation/fields';
+import { type Fr } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
 
 import { type NoteData, type NullifierKeys } from '../acvm/index.js';
@@ -77,7 +77,7 @@ export interface DBOracle extends CommitmentsDB {
    * @returns The public keys for a specific address
    * TODO(#5834): Replace with `getCompleteAddress`.
    */
-  getPublicKeysForAddress(address: AztecAddress): Promise<Point[]>;
+  getPublicKeysForAddress(address: AztecAddress): Promise<PublicKeys>;
 
   /**
    * Retrieve nullifier keys associated with a specific account and app/contract address.

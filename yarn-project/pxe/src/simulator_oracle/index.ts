@@ -15,7 +15,7 @@ import {
   type FunctionSelector,
   type Header,
   type L1_TO_L2_MSG_TREE_HEIGHT,
-  type Point,
+  type PublicKeys,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
@@ -98,13 +98,18 @@ export class SimulatorOracle implements DBOracle {
   }
 
   // TODO: #5834
-  async getPublicKeysForAddress(address: AztecAddress): Promise<Point[]> {
-    const nullifierPublicKey = await this.keyStore.getMasterNullifierPublicKey(address);
-    const incomingViewingPublicKey = await this.keyStore.getMasterIncomingViewingPublicKey(address);
-    const outgoingViewingPublicKey = await this.keyStore.getMasterOutgoingViewingPublicKey(address);
-    const taggingPublicKey = await this.keyStore.getMasterTaggingPublicKey(address);
+  async getPublicKeysForAddress(address: AztecAddress): Promise<PublicKeys> {
+    const masterNullifierPublicKey = await this.keyStore.getMasterNullifierPublicKey(address);
+    const masterIncomingViewingPublicKey = await this.keyStore.getMasterIncomingViewingPublicKey(address);
+    const masterOutgoingViewingPublicKey = await this.keyStore.getMasterOutgoingViewingPublicKey(address);
+    const masterTaggingPublicKey = await this.keyStore.getMasterTaggingPublicKey(address);
 
-    return [nullifierPublicKey, incomingViewingPublicKey, outgoingViewingPublicKey, taggingPublicKey];
+    return {
+      masterNullifierPublicKey,
+      masterIncomingViewingPublicKey,
+      masterOutgoingViewingPublicKey,
+      masterTaggingPublicKey,
+    };
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus) {
