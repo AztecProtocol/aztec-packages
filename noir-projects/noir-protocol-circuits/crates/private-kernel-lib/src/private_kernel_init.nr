@@ -405,18 +405,17 @@ mod tests {
     fn propagate_nullifier_key_validation_requests() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        let request = NullifierKeyValidationRequest { master_nullifier_public_key: GrumpkinPoint { x: 1, y: 2 }, app_nullifier_secret_key: 3 };
-        builder.private_call.public_inputs.nullifier_key_validation_requests.push(request);
+        let request_0 = NullifierKeyValidationRequest { master_nullifier_public_key: GrumpkinPoint { x: 1, y: 2 }, app_nullifier_secret_key: 3 };
+        builder.private_call.public_inputs.nullifier_key_validation_requests.push(request_0);
 
         let public_inputs = builder.execute();
 
         assert_eq(array_length(public_inputs.validation_requests.nullifier_key_validation_requests), 1);
 
-        let request_context = public_inputs.validation_requests.nullifier_key_validation_requests[0];
-        assert_eq(request_context.master_nullifier_public_key, request.master_nullifier_public_key);
-        assert_eq(request_context.app_nullifier_secret_key, request.app_nullifier_secret_key);
+        let request = public_inputs.validation_requests.nullifier_key_validation_requests[0];
+        assert_eq(request.request, request_0);
         assert_eq(
-            request_context.contract_address, builder.private_call.public_inputs.call_context.storage_contract_address
+            request.contract_address, builder.private_call.public_inputs.call_context.storage_contract_address
         );
     }
 }

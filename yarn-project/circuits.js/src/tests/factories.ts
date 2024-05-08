@@ -76,7 +76,6 @@ import {
   NoteHash,
   Nullifier,
   NullifierKeyValidationRequest,
-  NullifierKeyValidationRequestContext,
   NullifierLeafPreimage,
   NullifierNonExistentReadRequestHintsBuilder,
   NullifierReadRequestHintsBuilder,
@@ -117,6 +116,7 @@ import {
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
+  ScopedNullifierKeyValidationRequest,
   ScopedReadRequest,
   SideEffect,
   StateDiffHints,
@@ -211,13 +211,8 @@ function makeNullifierKeyValidationRequest(seed: number): NullifierKeyValidation
   return new NullifierKeyValidationRequest(makePoint(seed), fr(seed + 2));
 }
 
-/**
- * Creates arbitrary NullifierKeyValidationRequestContext from the given seed.
- * @param seed - The seed to use for generating the NullifierKeyValidationRequestContext.
- * @returns A NullifierKeyValidationRequestContext.
- */
-function makeNullifierKeyValidationRequestContext(seed: number): NullifierKeyValidationRequestContext {
-  return new NullifierKeyValidationRequestContext(makePoint(seed), fr(seed + 2), makeAztecAddress(seed + 4));
+function makeScopedNullifierKeyValidationRequest(seed: number): ScopedNullifierKeyValidationRequest {
+  return new ScopedNullifierKeyValidationRequest(makeNullifierKeyValidationRequest(seed), makeAztecAddress(seed + 4));
 }
 
 /**
@@ -278,7 +273,7 @@ export function makeValidationRequests(seed = 1) {
     makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x80),
     makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x90),
     makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x95),
-    makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, makeNullifierKeyValidationRequestContext, seed + 0x100),
+    makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, makeScopedNullifierKeyValidationRequest, seed + 0x100),
     makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
   );
 }

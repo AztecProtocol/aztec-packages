@@ -56,7 +56,6 @@ import {
   type NoteHashReadRequestHints,
   Nullifier,
   NullifierKeyValidationRequest,
-  NullifierKeyValidationRequestContext,
   type NullifierLeafPreimage,
   type NullifierNonExistentReadRequestHints,
   type NullifierReadRequestHints,
@@ -108,6 +107,7 @@ import {
   ScopedL2ToL1Message,
   ScopedNoteHash,
   ScopedNullifier,
+  ScopedNullifierKeyValidationRequest,
   ScopedReadRequest,
   type SettledReadHint,
   SideEffect,
@@ -143,7 +143,6 @@ import {
   type Field as NoirField,
   type GrumpkinPoint as NoirPoint,
   type NoteHash as NoteHashNoir,
-  type NullifierKeyValidationRequestContext as NullifierKeyValidationRequestContextNoir,
   type NullifierKeyValidationRequest as NullifierKeyValidationRequestNoir,
   type Nullifier as NullifierNoir,
   type PrivateAccumulatedData as PrivateAccumulatedDataNoir,
@@ -157,6 +156,7 @@ import {
   type RollupValidationRequests as RollupValidationRequestsNoir,
   type ScopedL2ToL1Message as ScopedL2ToL1MessageNoir,
   type ScopedNoteHash as ScopedNoteHashNoir,
+  type ScopedNullifierKeyValidationRequest as ScopedNullifierKeyValidationRequestNoir,
   type ScopedNullifier as ScopedNullifierNoir,
   type ScopedReadRequest as ScopedReadRequestNoir,
   type SideEffect as SideEffectNoir,
@@ -694,32 +694,20 @@ export function mapNullifierKeyValidationRequestFromNoir(
   );
 }
 
-/**
- * Maps a NullifierKeyValidationRequest to a noir NullifierKeyValidationRequest.
- * @param request - The NullifierKeyValidationRequest.
- * @returns The noir NullifierKeyValidationRequest.
- */
-export function mapNullifierKeyValidationRequestContextToNoir(
-  request: NullifierKeyValidationRequestContext,
-): NullifierKeyValidationRequestContextNoir {
+function mapScopedNullifierKeyValidationRequestToNoir(
+  request: ScopedNullifierKeyValidationRequest,
+): ScopedNullifierKeyValidationRequestNoir {
   return {
-    master_nullifier_public_key: mapPointToNoir(request.masterNullifierPublicKey),
-    app_nullifier_secret_key: mapFieldToNoir(request.appNullifierSecretKey),
+    request: mapNullifierKeyValidationRequestToNoir(request.request),
     contract_address: mapAztecAddressToNoir(request.contractAddress),
   };
 }
 
-/**
- * Maps a noir NullifierKeyValidationRequestContext to NullifierKeyValidationRequestContext.
- * @param request - The noir NullifierKeyValidationRequestContext.
- * @returns The TS NullifierKeyValidationRequestContext.
- */
-export function mapNullifierKeyValidationRequestContextFromNoir(
-  request: NullifierKeyValidationRequestContextNoir,
-): NullifierKeyValidationRequestContext {
-  return new NullifierKeyValidationRequestContext(
-    mapPointFromNoir(request.master_nullifier_public_key),
-    mapFieldFromNoir(request.app_nullifier_secret_key),
+function mapScopedNullifierKeyValidationRequestFromNoir(
+  request: ScopedNullifierKeyValidationRequestNoir,
+): ScopedNullifierKeyValidationRequest {
+  return new ScopedNullifierKeyValidationRequest(
+    mapNullifierKeyValidationRequestFromNoir(request.request),
     mapAztecAddressFromNoir(request.contract_address),
   );
 }
@@ -1045,7 +1033,7 @@ function mapValidationRequestsToNoir(requests: ValidationRequests): ValidationRe
     ),
     nullifier_key_validation_requests: mapTuple(
       requests.nullifierKeyValidationRequests,
-      mapNullifierKeyValidationRequestContextToNoir,
+      mapScopedNullifierKeyValidationRequestToNoir,
     ),
     public_data_reads: mapTuple(requests.publicDataReads, mapPublicDataReadToNoir),
   };
@@ -1072,7 +1060,7 @@ function mapValidationRequestsFromNoir(requests: ValidationRequestsNoir): Valida
     mapTupleFromNoir(
       requests.nullifier_key_validation_requests,
       MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-      mapNullifierKeyValidationRequestContextFromNoir,
+      mapScopedNullifierKeyValidationRequestFromNoir,
     ),
     mapTupleFromNoir(requests.public_data_reads, MAX_PUBLIC_DATA_READS_PER_TX, mapPublicDataReadFromNoir),
   );

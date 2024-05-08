@@ -9,10 +9,10 @@ import {
   type MAX_UNENCRYPTED_LOGS_PER_TX,
   MembershipWitness,
   NULLIFIER_TREE_HEIGHT,
-  type NullifierKeyValidationRequestContext,
   type PrivateKernelCircuitPublicInputs,
   PrivateKernelTailHints,
   type ScopedNullifier,
+  type ScopedNullifierKeyValidationRequest,
   type ScopedReadRequest,
   type SideEffect,
   type SideEffectType,
@@ -75,7 +75,7 @@ function getNullifierReadRequestHints(
 
 async function getMasterNullifierSecretKeys(
   nullifierKeyValidationRequests: Tuple<
-    NullifierKeyValidationRequestContext,
+    ScopedNullifierKeyValidationRequest,
     typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
   >,
   oracle: ProvingDataOracle,

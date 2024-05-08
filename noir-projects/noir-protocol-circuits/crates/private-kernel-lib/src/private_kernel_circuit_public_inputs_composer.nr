@@ -137,7 +137,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..nullifier_key_validation_requests.len() {
             let request = nullifier_key_validation_requests[i];
             if !is_empty(request) {
-                self.public_inputs.validation_requests.nullifier_key_validation_requests.push(request.to_context(source.storage_contract_address));
+                self.public_inputs.validation_requests.nullifier_key_validation_requests.push(request.scope(source.storage_contract_address));
             }
         }
     }

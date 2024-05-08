@@ -7,7 +7,7 @@ use crate::{
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
     kernel_data::{PrivateKernelData, PublicKernelData, KernelData}, max_block_number::MaxBlockNumber,
     note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
-    nullifier_key_validation_request::NullifierKeyValidationRequestContext,
+    nullifier_key_validation_request::ScopedNullifierKeyValidationRequest,
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
     read_request::{ReadRequest, ScopedReadRequest}, side_effect::SideEffect,
     validation_requests::{ValidationRequests, ValidationRequestsBuilder}
@@ -58,7 +58,7 @@ struct FixtureBuilder {
     note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     nullifier_non_existent_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
-    nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequestContext, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
+    nullifier_key_validation_requests: BoundedVec<ScopedNullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
     public_data_reads: BoundedVec<PublicDataRead, MAX_PUBLIC_DATA_READS_PER_TX>,
 
     // Proof.

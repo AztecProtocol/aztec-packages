@@ -62,8 +62,9 @@ impl PrivateValidationRequestProcessor {
     fn validate_nullifier_keys(self) {
         let requests = self.validation_requests.nullifier_key_validation_requests;
         for i in 0..MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX {
-            let request = requests[i];
+            let request = requests[i].request;
             if !is_empty(request) {
+                let contract_address = requests[i].contract_address;
                 let master_nullifier_secret_key = self.master_nullifier_secret_keys[i];
                 // First we check that derived public key matches master nullifier public key from request
                 let master_nullifier_public_key = master_nullifier_secret_key.derive_public_key();
@@ -75,7 +76,7 @@ impl PrivateValidationRequestProcessor {
 
                 let app_nullifier_secret_key = poseidon2_hash(
                     [
-                    master_nullifier_secret_key.high, master_nullifier_secret_key.low, request.contract_address.to_field(), GENERATOR_INDEX__NSK_M
+                    master_nullifier_secret_key.high, master_nullifier_secret_key.low, contract_address.to_field(), GENERATOR_INDEX__NSK_M
                 ]
                 );
                 assert(
