@@ -1,5 +1,5 @@
 import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
-import { type PartialAddress, acvmFieldMessageToString, oracleDebugCallToFormattedStr } from '@aztec/circuits.js';
+import { type PartialAddress, acvmFieldMessageToString, oracleDebugCallToFormattedStr, PublicKeys } from '@aztec/circuits.js';
 import { EventSelector, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
@@ -192,7 +192,7 @@ export class Oracle {
   }
 
   async getPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<ACVMField[]> {
-    let publicKeys: Point[] | undefined;
+    let publicKeys: PublicKeys;
     let partialAddress: PartialAddress;
 
     // TODO #5834: This should be reworked to return the public keys as well

@@ -29,6 +29,7 @@ import {
   getNonEmptyItems,
   PUBLIC_DATA_TREE_HEIGHT,
   PublicDataTreeLeafPreimage,
+  PublicKeys,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, computeSecretHash, computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
@@ -83,7 +84,9 @@ describe('Private Execution test suite', () => {
   let recipientCompleteAddress: CompleteAddress;
 
   let ownerMasterNullifierPublicKey: PublicKey;
+  let ownerPublicKeys: PublicKeys;
   let recipientMasterNullifierPublicKey: PublicKey;
+  let recipientPublicKeys: PublicKeys;
   let ownerMasterNullifierSecretKey: GrumpkinPrivateKey;
   let recipientMasterNullifierSecretKey: GrumpkinPrivateKey;
 
@@ -183,6 +186,12 @@ describe('Private Execution test suite', () => {
     const allOwnerKeys = deriveKeys(ownerSk);
     ownerMasterNullifierPublicKey = allOwnerKeys.masterNullifierPublicKey;
     ownerMasterNullifierSecretKey = allOwnerKeys.masterNullifierSecretKey;
+    ownerPublicKeys = {
+      masterNullifierPublicKey: allOwnerKeys.masterNullifierPublicKey,
+      masterIncomingViewingPublicKey: allOwnerKeys.masterIncomingViewingPublicKey,
+      masterOutgoingViewingPublicKey: allOwnerKeys.masterOutgoingViewingPublicKey,
+      masterTaggingPublicKey: allOwnerKeys.masterTaggingPublicKey,
+    };
 
     const recipientPartialAddress = Fr.random();
     recipientCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(recipientSk, recipientPartialAddress);
@@ -190,6 +199,12 @@ describe('Private Execution test suite', () => {
     const allRecipientKeys = deriveKeys(recipientSk);
     recipientMasterNullifierPublicKey = allRecipientKeys.masterNullifierPublicKey;
     recipientMasterNullifierSecretKey = allRecipientKeys.masterNullifierSecretKey;
+    recipientPublicKeys = {
+      masterNullifierPublicKey: allRecipientKeys.masterNullifierPublicKey,
+      masterIncomingViewingPublicKey: allRecipientKeys.masterIncomingViewingPublicKey,
+      masterOutgoingViewingPublicKey: allRecipientKeys.masterOutgoingViewingPublicKey,
+      masterTaggingPublicKey: allRecipientKeys.masterTaggingPublicKey,
+    };
 
     owner = ownerCompleteAddress.address;
     recipient = recipientCompleteAddress.address;
@@ -319,10 +334,20 @@ describe('Private Execution test suite', () => {
 
       oracle.getPublicKeysForAddress.mockImplementation((address: AztecAddress) => {
         if (address.equals(owner)) {
-          return Promise.resolve(ownerCompleteAddress);
+          return Promise.resolve({
+            masterNullifierPublicKey: ownerPublicKeys.masterNullifierPublicKey,
+            masterIncomingViewingPublicKey: ownerPublicKeys.masterIncomingViewingPublicKey,
+            masterOutgoingViewingPublicKey: ownerPublicKeys.masterOutgoingViewingPublicKey,
+            masterTaggingPublicKey: ownerPublicKeys.masterTaggingPublicKey,
+          });
         }
         if (address.equals(recipient)) {
-          return Promise.resolve(recipientCompleteAddress);
+          return Promise.resolve({
+            masterNullifierPublicKey: recipientPublicKeys.masterNullifierPublicKey,
+            masterIncomingViewingPublicKey: recipientPublicKeys.masterIncomingViewingPublicKey,
+            masterOutgoingViewingPublicKey: recipientPublicKeys.masterOutgoingViewingPublicKey,
+            masterTaggingPublicKey: recipientPublicKeys.masterTaggingPublicKey,
+          });
         }
         throw new Error(`Unknown address ${address}`);
       });
