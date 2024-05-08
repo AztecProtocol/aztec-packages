@@ -5,33 +5,32 @@ use crate::{
     note::{note_interface::NoteInterface, utils::compute_note_hash_for_insertion},
     oracle::{
     arguments, returns, call_private_function::call_private_function_internal,
-    enqueue_public_function_call::enqueue_public_function_call_internal, header::get_header_at,
-    logs::emit_encrypted_log, logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog},
+    enqueue_public_function_call::{
+    enqueue_public_function_call_internal, set_public_teardown_function_call_internal,
+    parse_public_call_stack_item_from_oracle
+},
+    header::get_header_at, logs::emit_encrypted_log,
+    logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog},
     nullifier_key::{get_nullifier_keys, NullifierKeys}
 }
 };
 use dep::protocol_types::{
     abis::{
-    global_variables::GlobalVariables, gas::Gas, call_context::CallContext, function_data::FunctionData,
     function_selector::FunctionSelector, max_block_number::MaxBlockNumber,
     nullifier_key_validation_request::NullifierKeyValidationRequest,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
     public_call_stack_item::PublicCallStackItem,
-    public_circuit_public_inputs::PublicCircuitPublicInputs, read_request::ReadRequest,
-    note_hash::NoteHash, nullifier::Nullifier, log_hash::LogHash
+    read_request::ReadRequest, note_hash::NoteHash, nullifier::Nullifier, log_hash::LogHash
 },
     address::{AztecAddress, EthAddress},
     constants::{
     MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-    MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
-    MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
-    MAX_ENCRYPTED_LOGS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL
+    MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_ENCRYPTED_LOGS_PER_CALL,
+    MAX_UNENCRYPTED_LOGS_PER_CALL
 },
-    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
-    grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint, header::Header,
-    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader,
+    grumpkin_point::GrumpkinPoint, header::Header, messaging::l2_to_l1_message::L2ToL1Message,
     traits::{is_empty, Deserialize, Empty}
 };
 
@@ -57,6 +56,7 @@ struct PrivateContext {
 
     private_call_stack_hashes : BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     public_call_stack_hashes : BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    public_teardown_function_hash: Field,
     new_l2_to_l1_msgs : BoundedVec<L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     // docs:end:private-context
 
@@ -129,6 +129,7 @@ impl PrivateContext {
             historical_header: inputs.historical_header,
             private_call_stack_hashes: BoundedVec::new(),
             public_call_stack_hashes: BoundedVec::new(),
+            public_teardown_function_hash: 0,
             new_l2_to_l1_msgs: BoundedVec::new(),
             encrypted_logs_hashes: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
@@ -169,6 +170,7 @@ impl PrivateContext {
             new_nullifiers: self.new_nullifiers.storage,
             private_call_stack_hashes: self.private_call_stack_hashes.storage,
             public_call_stack_hashes: self.public_call_stack_hashes.storage,
+            public_teardown_function_hash: self.public_teardown_function_hash,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
             start_side_effect_counter: self.inputs.start_side_effect_counter,
             end_side_effect_counter: self.side_effect_counter,
@@ -257,11 +259,7 @@ impl PrivateContext {
         let event_selector = 5; // TODO: compute actual event selector.
         let contract_address = self.this_address();
         let log_slice = log.to_be_bytes_arr();
-        let log_hash = compute_unencrypted_log_hash(
-            contract_address,
-            event_selector,
-            log,
-        );
+        let log_hash = compute_unencrypted_log_hash(contract_address, event_selector, log);
         // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4)
         let len = 44 + log_slice.len().to_field();
         let side_effect = LogHash { value: log_hash, counter: self.side_effect_counter, length: len };
@@ -282,12 +280,7 @@ impl PrivateContext {
     pub fn emit_contract_class_unencrypted_log<N>(&mut self, log: [Field; N]) {
         let event_selector = 5; // TODO: compute actual event selector.
         let contract_address = self.this_address();
-        let log_hash = emit_contract_class_unencrypted_log_private_internal(
-            contract_address,
-            event_selector,
-            log,
-            self.side_effect_counter
-        );
+        let log_hash = emit_contract_class_unencrypted_log_private_internal(contract_address, event_selector, log, self.side_effect_counter);
         // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4)
         let len = 44 + N*32;
         let side_effect = LogHash { value: log_hash, counter: self.side_effect_counter, length: len };
@@ -550,47 +543,77 @@ impl PrivateContext {
             is_delegate_call
         );
 
-        let mut reader = Reader::new(fields);
+        let item = parse_public_call_stack_item_from_oracle(fields);
+        self.validate_call_stack_item_from_oracle(
+            item,
+            contract_address,
+            function_selector,
+            args_hash,
+            is_static_call,
+            is_delegate_call
+        );
 
-        // Note: Not using PublicCirclePublicInputs::deserialize here, because everything below args_hash is 0 and
-        // there is no more data in fields because there is only ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_SIZE fields!
-        let item = PublicCallStackItem {
-            contract_address: AztecAddress::from_field(reader.read()),
-            function_data: reader.read_struct(FunctionData::deserialize),
-            public_inputs: PublicCircuitPublicInputs {
-                call_context: reader.read_struct(CallContext::deserialize),
-                args_hash: reader.read(),
-                returns_hash: 0,
-                nullifier_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
-                nullifier_non_existent_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL],
-                contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
-                contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
-                public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-                new_note_hashes: [NoteHash::empty(); MAX_NEW_NOTE_HASHES_PER_CALL],
-                new_nullifiers: [Nullifier::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
-                new_l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
-                start_side_effect_counter: 0,
-                end_side_effect_counter: 0,
-                unencrypted_logs_hashes: [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL],
-                unencrypted_log_preimages_length: 0,
-                historical_header: Header::empty(),
-                global_variables: GlobalVariables::empty(),
-                prover_address: AztecAddress::zero(),
-                revert_code: 0,
-                start_gas_left: Gas::empty(),
-                end_gas_left: Gas::empty(),
-                transaction_fee: 0
-            },
-            is_execution_request: true
-        };
-        reader.finish();
+        self.side_effect_counter = self.side_effect_counter + 1;
+        self.public_call_stack_hashes.push(item.hash());
+    }
 
+    pub fn set_public_teardown_function<ARGS_COUNT>(
+        &mut self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
+        args: [Field; ARGS_COUNT]
+    ) {
+        let args_hash = hash_args_array(args);
+        assert(args_hash == arguments::pack_arguments_array(args));
+        self.set_public_teardown_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
+    }
+
+    pub fn set_public_teardown_function_with_packed_args<ARGS_COUNT>(
+        &mut self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
+        args_hash: Field,
+        is_static_call: bool,
+        is_delegate_call: bool
+    ) {
+        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
+        let fields = set_public_teardown_function_call_internal(
+            contract_address,
+            function_selector,
+            args_hash,
+            self.side_effect_counter,
+            is_static_call,
+            is_delegate_call
+        );
+
+        let item = parse_public_call_stack_item_from_oracle(fields);
+        self.validate_call_stack_item_from_oracle(
+            item,
+            contract_address,
+            function_selector,
+            args_hash,
+            is_static_call,
+            is_delegate_call
+        );
+
+        self.side_effect_counter = self.side_effect_counter + 1;
+        self.public_teardown_function_hash = item.hash();
+    }
+
+    fn validate_call_stack_item_from_oracle(
+        self,
+        item: PublicCallStackItem,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
+        args_hash: Field,
+        is_static_call: bool,
+        is_delegate_call: bool
+    ) {
         assert(contract_address.eq(item.contract_address));
         assert(function_selector.eq(item.function_data.selector));
 
         assert_eq(item.public_inputs.call_context.side_effect_counter, self.side_effect_counter);
         // We increment the sideffect counter by one, to account for the call itself being a side effect.
-        self.side_effect_counter = self.side_effect_counter + 1;
 
         assert(args_hash == item.public_inputs.args_hash);
 
@@ -611,8 +634,6 @@ impl PrivateContext {
                 item.public_inputs.call_context.msg_sender.eq(self.inputs.call_context.storage_contract_address)
             );
         }
-
-        self.public_call_stack_hashes.push(item.hash());
     }
 }
 
@@ -632,6 +653,7 @@ impl Empty for PrivateContext {
             new_nullifiers: BoundedVec::new(),
             private_call_stack_hashes : BoundedVec::new(),
             public_call_stack_hashes : BoundedVec::new(),
+            public_teardown_function_hash: 0,
             new_l2_to_l1_msgs : BoundedVec::new(),
             historical_header: Header::empty(),
             encrypted_logs_hashes: BoundedVec::new(),
@@ -696,7 +718,6 @@ fn emit_contract_class_unencrypted_log_private<N>(
     message: [Field; N],
     counter: u32
 ) -> Field {}
-
 
 unconstrained pub fn emit_contract_class_unencrypted_log_private_internal<N>(
     contract_address: AztecAddress,

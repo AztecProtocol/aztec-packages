@@ -12,7 +12,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::errors::{RuntimeError, SsaReport};
 use acvm::acir::{
     circuit::{
-        brillig::BrilligBytecode, Circuit, ExpressionWidth, Program as AcirProgram, PublicInputs,
+        brillig::BrilligBytecode, Circuit, ErrorSelector, ExpressionWidth, Program as AcirProgram,
+        PublicInputs,
     },
     native_types::Witness,
 };
@@ -67,7 +68,10 @@ pub(crate) fn optimize_into_acir(
         .run_pass(Ssa::mem2reg, "After Mem2Reg:")
         // Run the inlining pass again to handle functions with `InlineType::NoPredicates`.
         // Before flattening is run, we treat functions marked with the `InlineType::NoPredicates` as an entry point.
+        // This pass must come immediately following `mem2reg` as the succeeding passes
+        // may create an SSA which inlining fails to handle.
         .run_pass(Ssa::inline_functions_with_no_predicates, "After Inlining:")
+        .run_pass(Ssa::remove_if_else, "After Remove IfElse:")
         .run_pass(Ssa::fold_constants, "After Constant Folding:")
         .run_pass(Ssa::remove_enable_side_effects, "After EnableSideEffects removal:")
         .run_pass(Ssa::fold_constants_using_constraints, "After Constraint Folding:")
@@ -103,13 +107,13 @@ pub struct SsaProgramArtifact {
     pub main_input_witnesses: Vec<Witness>,
     pub main_return_witnesses: Vec<Witness>,
     pub names: Vec<String>,
-    pub error_types: BTreeMap<u64, HirType>,
+    pub error_types: BTreeMap<ErrorSelector, HirType>,
 }
 
 impl SsaProgramArtifact {
     fn new(
         unconstrained_functions: Vec<BrilligBytecode>,
-        error_types: BTreeMap<u64, HirType>,
+        error_types: BTreeMap<ErrorSelector, HirType>,
     ) -> Self {
         let program = AcirProgram { functions: Vec::default(), unconstrained_functions };
         Self {
@@ -166,11 +170,6 @@ pub fn create_program(
         func_sigs.len(),
         "The generated ACIRs should match the supplied function signatures"
     );
-
-    let error_types = error_types
-        .into_iter()
-        .map(|(error_typ_id, error_typ)| (error_typ_id.to_u64(), error_typ))
-        .collect();
 
     let mut program_artifact = SsaProgramArtifact::new(generated_brillig, error_types);
     // For setting up the ABI we need separately specify main's input and return witnesses

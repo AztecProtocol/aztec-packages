@@ -9,7 +9,7 @@ use self::acir_ir::generated_acir::BrilligStdlibFunc;
 use super::function_builder::data_bus::DataBus;
 use super::ir::dfg::CallStack;
 use super::ir::function::FunctionId;
-use super::ir::instruction::{ConstrainError, ErrorSelector, ErrorType};
+use super::ir::instruction::{ConstrainError, ErrorType};
 use super::ir::printer::try_to_extract_string_from_error_payload;
 use super::{
     ir::{
@@ -32,7 +32,7 @@ pub(crate) use acir_ir::generated_acir::GeneratedAcir;
 use noirc_frontend::monomorphization::ast::InlineType;
 
 use acvm::acir::circuit::brillig::BrilligBytecode;
-use acvm::acir::circuit::{AssertionPayload, OpcodeLocation};
+use acvm::acir::circuit::{AssertionPayload, ErrorSelector, OpcodeLocation};
 use acvm::acir::native_types::Witness;
 use acvm::acir::BlackBoxFunc;
 use acvm::{
@@ -639,7 +639,7 @@ impl<'a> Context<'a> {
                                     self.acir_context.vars_to_expressions_or_memory(&acir_vars)?;
 
                                 Some(AssertionPayload::Dynamic(
-                                    error_selector.to_u64(),
+                                    error_selector.as_u64(),
                                     expressions_or_memory,
                                 ))
                             }
@@ -705,6 +705,9 @@ impl<'a> Context<'a> {
                     assert_message.clone(),
                 )?;
             }
+            Instruction::IfElse { .. } => {
+                unreachable!("IfElse instruction remaining in acir-gen")
+            }
         }
 
         self.acir_context.set_call_stack(CallStack::new());
@@ -732,11 +735,10 @@ impl<'a> Context<'a> {
                                 assert!(!matches!(inline_type, InlineType::Inline), "ICE: Got an ACIR function named {} that should have already been inlined", func.name());
 
                                 let inputs = vecmap(arguments, |arg| self.convert_value(*arg, dfg));
-                                // TODO(https://github.com/noir-lang/noir/issues/4608): handle complex return types from ACIR functions
-                                let output_count =
-                                    result_ids.iter().fold(0usize, |sum, result_id| {
-                                        sum + dfg.try_get_array_length(*result_id).unwrap_or(1)
-                                    });
+                                let output_count = result_ids
+                                    .iter()
+                                    .map(|result_id| dfg.type_of_value(*result_id).flattened_size())
+                                    .sum();
 
                                 let acir_function_id = ssa
                                     .entry_point_to_generated_index
@@ -748,6 +750,7 @@ impl<'a> Context<'a> {
                                     output_count,
                                     self.current_side_effects_enabled_var,
                                 )?;
+
                                 let output_values =
                                     self.convert_vars_to_values(output_vars, dfg, result_ids);
 
@@ -973,13 +976,39 @@ impl<'a> Context<'a> {
             return Ok(());
         }
 
-        let (new_index, new_value) =
-            self.convert_array_operation_inputs(array, dfg, index, store_value)?;
+        // Get an offset such that the type of the array at the offset is the same as the type at the 'index'
+        // If we find one, we will use it when computing the index under the enable_side_effect predicate
+        // If not, array_get(..) will use a fallback costing one multiplication in the worst case.
+        // cf. https://github.com/noir-lang/noir/pull/4971
+        let array_id = dfg.resolve(array);
+        let array_typ = dfg.type_of_value(array_id);
+        // For simplicity we compute the offset only for simple arrays
+        let is_simple_array = dfg.instruction_results(instruction).len() == 1
+            && can_omit_element_sizes_array(&array_typ);
+        let offset = if is_simple_array {
+            let result_type = dfg.type_of_value(dfg.instruction_results(instruction)[0]);
+            match array_typ {
+                Type::Array(item_type, _) | Type::Slice(item_type) => item_type
+                    .iter()
+                    .enumerate()
+                    .find_map(|(index, typ)| (result_type == *typ).then_some(index)),
+                _ => None,
+            }
+        } else {
+            None
+        };
+        let (new_index, new_value) = self.convert_array_operation_inputs(
+            array,
+            dfg,
+            index,
+            store_value,
+            offset.unwrap_or_default(),
+        )?;
 
         if let Some(new_value) = new_value {
             self.array_set(instruction, new_index, new_value, dfg, mutable_array_set)?;
         } else {
-            self.array_get(instruction, array, new_index, dfg)?;
+            self.array_get(instruction, array, new_index, dfg, offset.is_none())?;
         }
 
         Ok(())
@@ -1028,6 +1057,7 @@ impl<'a> Context<'a> {
                             });
                         }
                     };
+
                     if self.acir_context.is_constant_one(&self.current_side_effects_enabled_var) {
                         // Report the error if side effects are enabled.
                         if index >= array_size {
@@ -1068,7 +1098,7 @@ impl<'a> Context<'a> {
     /// - new_index is the index of the array. ACIR memory operations work with a flat memory, so we fully flattened the specified index
     ///     in case we have a nested array. The index for SSA array operations only represents the flattened index of the current array.
     ///     Thus internal array element type sizes need to be computed to accurately transform the index.
-    /// - predicate_index is 0, or the index if the predicate is true
+    /// - predicate_index is offset, or the index if the predicate is true
     /// - new_value is the optional value when the operation is an array_set
     ///     When there is a predicate, it is predicate*value + (1-predicate)*dummy, where dummy is the value of the array at the requested index.
     ///     It is a dummy value because in the case of a false predicate, the value stored at the requested index will be itself.
@@ -1078,14 +1108,18 @@ impl<'a> Context<'a> {
         dfg: &DataFlowGraph,
         index: ValueId,
         store_value: Option<ValueId>,
+        offset: usize,
     ) -> Result<(AcirVar, Option<AcirValue>), RuntimeError> {
         let (array_id, array_typ, block_id) = self.check_array_is_initialized(array, dfg)?;
 
         let index_var = self.convert_numeric_value(index, dfg)?;
         let index_var = self.get_flattened_index(&array_typ, array_id, index_var, dfg)?;
 
-        let predicate_index =
-            self.acir_context.mul_var(index_var, self.current_side_effects_enabled_var)?;
+        // predicate_index = index*predicate + (1-predicate)*offset
+        let offset = self.acir_context.add_constant(offset);
+        let sub = self.acir_context.sub_var(index_var, offset)?;
+        let pred = self.acir_context.mul_var(sub, self.current_side_effects_enabled_var)?;
+        let predicate_index = self.acir_context.add_var(pred, offset)?;
 
         let new_value = if let Some(store) = store_value {
             let store_value = self.convert_value(store, dfg);
@@ -1186,12 +1220,14 @@ impl<'a> Context<'a> {
     }
 
     /// Generates a read opcode for the array
+    /// `index_side_effect == false` means that we ensured `var_index` will have a type matching the value in the array
     fn array_get(
         &mut self,
         instruction: InstructionId,
         array: ValueId,
         mut var_index: AcirVar,
         dfg: &DataFlowGraph,
+        mut index_side_effect: bool,
     ) -> Result<AcirValue, RuntimeError> {
         let (array_id, _, block_id) = self.check_array_is_initialized(array, dfg)?;
         let results = dfg.instruction_results(instruction);
@@ -1210,7 +1246,7 @@ impl<'a> Context<'a> {
                     self.data_bus.call_data_map[&array_id] as i128,
                 ));
                 let new_index = self.acir_context.add_var(offset, bus_index)?;
-                return self.array_get(instruction, call_data, new_index, dfg);
+                return self.array_get(instruction, call_data, new_index, dfg, index_side_effect);
             }
         }
 
@@ -1219,7 +1255,28 @@ impl<'a> Context<'a> {
             !res_typ.contains_slice_element(),
             "ICE: Nested slice result found during ACIR generation"
         );
-        let value = self.array_get_value(&res_typ, block_id, &mut var_index)?;
+        let mut value = self.array_get_value(&res_typ, block_id, &mut var_index)?;
+
+        if let AcirValue::Var(value_var, typ) = &value {
+            let array_id = dfg.resolve(array_id);
+            let array_typ = dfg.type_of_value(array_id);
+            if let (Type::Numeric(numeric_type), AcirType::NumericType(num)) =
+                (array_typ.first(), typ)
+            {
+                if numeric_type.bit_size() <= num.bit_size() {
+                    // first element is compatible
+                    index_side_effect = false;
+                }
+            }
+            // Fallback to multiplication if the index side_effects have not already been handled
+            if index_side_effect {
+                // Set the value to 0 if current_side_effects is 0, to ensure it fits in any value type
+                value = AcirValue::Var(
+                    self.acir_context.mul_var(*value_var, self.current_side_effects_enabled_var)?,
+                    typ.clone(),
+                );
+            }
+        }
 
         self.define_result(dfg, instruction, value.clone());
 
