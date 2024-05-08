@@ -73,7 +73,7 @@ class AvmFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 261;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 253;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
@@ -199,20 +199,12 @@ class AvmFlavor {
                               avm_alu_cmp_sel,
                               avm_alu_div_u16_r0,
                               avm_alu_div_u16_r1,
-                              avm_alu_div_u16_r10,
-                              avm_alu_div_u16_r11,
-                              avm_alu_div_u16_r12,
-                              avm_alu_div_u16_r13,
-                              avm_alu_div_u16_r14,
-                              avm_alu_div_u16_r15,
                               avm_alu_div_u16_r2,
                               avm_alu_div_u16_r3,
                               avm_alu_div_u16_r4,
                               avm_alu_div_u16_r5,
                               avm_alu_div_u16_r6,
                               avm_alu_div_u16_r7,
-                              avm_alu_div_u16_r8,
-                              avm_alu_div_u16_r9,
                               avm_alu_divisor_hi,
                               avm_alu_divisor_lo,
                               avm_alu_ff_tag,
@@ -463,20 +455,12 @@ class AvmFlavor {
                      avm_alu_cmp_sel,
                      avm_alu_div_u16_r0,
                      avm_alu_div_u16_r1,
-                     avm_alu_div_u16_r10,
-                     avm_alu_div_u16_r11,
-                     avm_alu_div_u16_r12,
-                     avm_alu_div_u16_r13,
-                     avm_alu_div_u16_r14,
-                     avm_alu_div_u16_r15,
                      avm_alu_div_u16_r2,
                      avm_alu_div_u16_r3,
                      avm_alu_div_u16_r4,
                      avm_alu_div_u16_r5,
                      avm_alu_div_u16_r6,
                      avm_alu_div_u16_r7,
-                     avm_alu_div_u16_r8,
-                     avm_alu_div_u16_r9,
                      avm_alu_divisor_hi,
                      avm_alu_divisor_lo,
                      avm_alu_ff_tag,
@@ -732,20 +716,12 @@ class AvmFlavor {
                               avm_alu_cmp_sel,
                               avm_alu_div_u16_r0,
                               avm_alu_div_u16_r1,
-                              avm_alu_div_u16_r10,
-                              avm_alu_div_u16_r11,
-                              avm_alu_div_u16_r12,
-                              avm_alu_div_u16_r13,
-                              avm_alu_div_u16_r14,
-                              avm_alu_div_u16_r15,
                               avm_alu_div_u16_r2,
                               avm_alu_div_u16_r3,
                               avm_alu_div_u16_r4,
                               avm_alu_div_u16_r5,
                               avm_alu_div_u16_r6,
                               avm_alu_div_u16_r7,
-                              avm_alu_div_u16_r8,
-                              avm_alu_div_u16_r9,
                               avm_alu_divisor_hi,
                               avm_alu_divisor_lo,
                               avm_alu_ff_tag,
@@ -988,6 +964,14 @@ class AvmFlavor {
                               avm_alu_b_lo_shift,
                               avm_alu_cmp_rng_ctr_shift,
                               avm_alu_cmp_sel_shift,
+                              avm_alu_div_u16_r0_shift,
+                              avm_alu_div_u16_r1_shift,
+                              avm_alu_div_u16_r2_shift,
+                              avm_alu_div_u16_r3_shift,
+                              avm_alu_div_u16_r4_shift,
+                              avm_alu_div_u16_r5_shift,
+                              avm_alu_div_u16_r6_shift,
+                              avm_alu_div_u16_r7_shift,
                               avm_alu_op_add_shift,
                               avm_alu_op_cast_prev_shift,
                               avm_alu_op_cast_shift,
@@ -1041,20 +1025,12 @@ class AvmFlavor {
                      avm_alu_cmp_sel,
                      avm_alu_div_u16_r0,
                      avm_alu_div_u16_r1,
-                     avm_alu_div_u16_r10,
-                     avm_alu_div_u16_r11,
-                     avm_alu_div_u16_r12,
-                     avm_alu_div_u16_r13,
-                     avm_alu_div_u16_r14,
-                     avm_alu_div_u16_r15,
                      avm_alu_div_u16_r2,
                      avm_alu_div_u16_r3,
                      avm_alu_div_u16_r4,
                      avm_alu_div_u16_r5,
                      avm_alu_div_u16_r6,
                      avm_alu_div_u16_r7,
-                     avm_alu_div_u16_r8,
-                     avm_alu_div_u16_r9,
                      avm_alu_divisor_hi,
                      avm_alu_divisor_lo,
                      avm_alu_ff_tag,
@@ -1297,6 +1273,14 @@ class AvmFlavor {
                      avm_alu_b_lo_shift,
                      avm_alu_cmp_rng_ctr_shift,
                      avm_alu_cmp_sel_shift,
+                     avm_alu_div_u16_r0_shift,
+                     avm_alu_div_u16_r1_shift,
+                     avm_alu_div_u16_r2_shift,
+                     avm_alu_div_u16_r3_shift,
+                     avm_alu_div_u16_r4_shift,
+                     avm_alu_div_u16_r5_shift,
+                     avm_alu_div_u16_r6_shift,
+                     avm_alu_div_u16_r7_shift,
                      avm_alu_op_add_shift,
                      avm_alu_op_cast_prev_shift,
                      avm_alu_op_cast_shift,
@@ -1350,20 +1334,12 @@ class AvmFlavor {
                      avm_alu_cmp_sel,
                      avm_alu_div_u16_r0,
                      avm_alu_div_u16_r1,
-                     avm_alu_div_u16_r10,
-                     avm_alu_div_u16_r11,
-                     avm_alu_div_u16_r12,
-                     avm_alu_div_u16_r13,
-                     avm_alu_div_u16_r14,
-                     avm_alu_div_u16_r15,
                      avm_alu_div_u16_r2,
                      avm_alu_div_u16_r3,
                      avm_alu_div_u16_r4,
                      avm_alu_div_u16_r5,
                      avm_alu_div_u16_r6,
                      avm_alu_div_u16_r7,
-                     avm_alu_div_u16_r8,
-                     avm_alu_div_u16_r9,
                      avm_alu_divisor_hi,
                      avm_alu_divisor_lo,
                      avm_alu_ff_tag,
@@ -1605,7 +1581,11 @@ class AvmFlavor {
             return { avm_alu_a_hi,         avm_alu_a_lo,
                      avm_alu_alu_sel,      avm_alu_b_hi,
                      avm_alu_b_lo,         avm_alu_cmp_rng_ctr,
-                     avm_alu_cmp_sel,      avm_alu_op_add,
+                     avm_alu_cmp_sel,      avm_alu_div_u16_r0,
+                     avm_alu_div_u16_r1,   avm_alu_div_u16_r2,
+                     avm_alu_div_u16_r3,   avm_alu_div_u16_r4,
+                     avm_alu_div_u16_r5,   avm_alu_div_u16_r6,
+                     avm_alu_div_u16_r7,   avm_alu_op_add,
                      avm_alu_op_cast_prev, avm_alu_op_cast,
                      avm_alu_op_div,       avm_alu_op_mul,
                      avm_alu_op_shl,       avm_alu_op_shr,
@@ -1630,7 +1610,11 @@ class AvmFlavor {
             return { avm_alu_a_hi_shift,         avm_alu_a_lo_shift,
                      avm_alu_alu_sel_shift,      avm_alu_b_hi_shift,
                      avm_alu_b_lo_shift,         avm_alu_cmp_rng_ctr_shift,
-                     avm_alu_cmp_sel_shift,      avm_alu_op_add_shift,
+                     avm_alu_cmp_sel_shift,      avm_alu_div_u16_r0_shift,
+                     avm_alu_div_u16_r1_shift,   avm_alu_div_u16_r2_shift,
+                     avm_alu_div_u16_r3_shift,   avm_alu_div_u16_r4_shift,
+                     avm_alu_div_u16_r5_shift,   avm_alu_div_u16_r6_shift,
+                     avm_alu_div_u16_r7_shift,   avm_alu_op_add_shift,
                      avm_alu_op_cast_prev_shift, avm_alu_op_cast_shift,
                      avm_alu_op_div_shift,       avm_alu_op_mul_shift,
                      avm_alu_op_shl_shift,       avm_alu_op_shr_shift,
@@ -1665,7 +1649,11 @@ class AvmFlavor {
             return { avm_alu_a_hi,         avm_alu_a_lo,
                      avm_alu_alu_sel,      avm_alu_b_hi,
                      avm_alu_b_lo,         avm_alu_cmp_rng_ctr,
-                     avm_alu_cmp_sel,      avm_alu_op_add,
+                     avm_alu_cmp_sel,      avm_alu_div_u16_r0,
+                     avm_alu_div_u16_r1,   avm_alu_div_u16_r2,
+                     avm_alu_div_u16_r3,   avm_alu_div_u16_r4,
+                     avm_alu_div_u16_r5,   avm_alu_div_u16_r6,
+                     avm_alu_div_u16_r7,   avm_alu_op_add,
                      avm_alu_op_cast_prev, avm_alu_op_cast,
                      avm_alu_op_div,       avm_alu_op_mul,
                      avm_alu_op_shl,       avm_alu_op_shr,
@@ -1866,20 +1854,12 @@ class AvmFlavor {
             Base::avm_alu_cmp_sel = "AVM_ALU_CMP_SEL";
             Base::avm_alu_div_u16_r0 = "AVM_ALU_DIV_U16_R0";
             Base::avm_alu_div_u16_r1 = "AVM_ALU_DIV_U16_R1";
-            Base::avm_alu_div_u16_r10 = "AVM_ALU_DIV_U16_R10";
-            Base::avm_alu_div_u16_r11 = "AVM_ALU_DIV_U16_R11";
-            Base::avm_alu_div_u16_r12 = "AVM_ALU_DIV_U16_R12";
-            Base::avm_alu_div_u16_r13 = "AVM_ALU_DIV_U16_R13";
-            Base::avm_alu_div_u16_r14 = "AVM_ALU_DIV_U16_R14";
-            Base::avm_alu_div_u16_r15 = "AVM_ALU_DIV_U16_R15";
             Base::avm_alu_div_u16_r2 = "AVM_ALU_DIV_U16_R2";
             Base::avm_alu_div_u16_r3 = "AVM_ALU_DIV_U16_R3";
             Base::avm_alu_div_u16_r4 = "AVM_ALU_DIV_U16_R4";
             Base::avm_alu_div_u16_r5 = "AVM_ALU_DIV_U16_R5";
             Base::avm_alu_div_u16_r6 = "AVM_ALU_DIV_U16_R6";
             Base::avm_alu_div_u16_r7 = "AVM_ALU_DIV_U16_R7";
-            Base::avm_alu_div_u16_r8 = "AVM_ALU_DIV_U16_R8";
-            Base::avm_alu_div_u16_r9 = "AVM_ALU_DIV_U16_R9";
             Base::avm_alu_divisor_hi = "AVM_ALU_DIVISOR_HI";
             Base::avm_alu_divisor_lo = "AVM_ALU_DIVISOR_LO";
             Base::avm_alu_ff_tag = "AVM_ALU_FF_TAG";
@@ -2146,20 +2126,12 @@ class AvmFlavor {
         Commitment avm_alu_cmp_sel;
         Commitment avm_alu_div_u16_r0;
         Commitment avm_alu_div_u16_r1;
-        Commitment avm_alu_div_u16_r10;
-        Commitment avm_alu_div_u16_r11;
-        Commitment avm_alu_div_u16_r12;
-        Commitment avm_alu_div_u16_r13;
-        Commitment avm_alu_div_u16_r14;
-        Commitment avm_alu_div_u16_r15;
         Commitment avm_alu_div_u16_r2;
         Commitment avm_alu_div_u16_r3;
         Commitment avm_alu_div_u16_r4;
         Commitment avm_alu_div_u16_r5;
         Commitment avm_alu_div_u16_r6;
         Commitment avm_alu_div_u16_r7;
-        Commitment avm_alu_div_u16_r8;
-        Commitment avm_alu_div_u16_r9;
         Commitment avm_alu_divisor_hi;
         Commitment avm_alu_divisor_lo;
         Commitment avm_alu_ff_tag;
@@ -2426,20 +2398,12 @@ class AvmFlavor {
             avm_alu_cmp_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_div_u16_r0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_div_u16_r1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_alu_div_u16_r10 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_alu_div_u16_r11 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_alu_div_u16_r12 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_alu_div_u16_r13 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_alu_div_u16_r14 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_alu_div_u16_r15 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_div_u16_r2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_div_u16_r3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_div_u16_r4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_div_u16_r5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_div_u16_r6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_div_u16_r7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_alu_div_u16_r8 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_alu_div_u16_r9 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_divisor_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_divisor_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_ff_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2711,20 +2675,12 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_alu_cmp_sel, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_div_u16_r0, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_div_u16_r1, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_alu_div_u16_r10, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_alu_div_u16_r11, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_alu_div_u16_r12, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_alu_div_u16_r13, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_alu_div_u16_r14, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_alu_div_u16_r15, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_div_u16_r2, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_div_u16_r3, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_div_u16_r4, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_div_u16_r5, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_div_u16_r6, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_div_u16_r7, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_alu_div_u16_r8, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_alu_div_u16_r9, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_divisor_hi, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_divisor_lo, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_ff_tag, Transcript::proof_data);

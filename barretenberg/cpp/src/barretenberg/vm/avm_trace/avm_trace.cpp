@@ -1773,6 +1773,14 @@ std::vector<Row> AvmTraceBuilder::finalize()
         dest.avm_alu_u16_r13 = FF(src.alu_u16_reg.at(13));
         dest.avm_alu_u16_r14 = FF(src.alu_u16_reg.at(14));
 
+        dest.avm_alu_div_u16_r0 = FF(src.div_u64_range_chk.at(0));
+        dest.avm_alu_div_u16_r1 = FF(src.div_u64_range_chk.at(1));
+        dest.avm_alu_div_u16_r2 = FF(src.div_u64_range_chk.at(2));
+        dest.avm_alu_div_u16_r3 = FF(src.div_u64_range_chk.at(3));
+        dest.avm_alu_div_u16_r4 = FF(src.div_u64_range_chk.at(4));
+        dest.avm_alu_div_u16_r5 = FF(src.div_u64_range_chk.at(5));
+        dest.avm_alu_div_u16_r6 = FF(src.div_u64_range_chk.at(6));
+        dest.avm_alu_div_u16_r7 = FF(src.div_u64_range_chk.at(7));
         dest.avm_alu_op_eq_diff_inv = FF(src.alu_op_eq_diff_inv);
 
         // Not all rows in ALU are enabled with a selector. For instance,
@@ -1815,21 +1823,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
             dest.avm_alu_quotient_hi = src.quotient_hi;
             dest.avm_alu_partial_prod_lo = src.partial_prod_lo;
             dest.avm_alu_partial_prod_hi = src.partial_prod_hi;
-            dest.avm_alu_div_u16_r0 = FF(src.div_u16_range_chk.at(0));
-            dest.avm_alu_div_u16_r1 = FF(src.div_u16_range_chk.at(1));
-            dest.avm_alu_div_u16_r2 = FF(src.div_u16_range_chk.at(2));
-            dest.avm_alu_div_u16_r3 = FF(src.div_u16_range_chk.at(3));
-            dest.avm_alu_div_u16_r4 = FF(src.div_u16_range_chk.at(4));
-            dest.avm_alu_div_u16_r5 = FF(src.div_u16_range_chk.at(5));
-            dest.avm_alu_div_u16_r6 = FF(src.div_u16_range_chk.at(6));
-            dest.avm_alu_div_u16_r7 = FF(src.div_u16_range_chk.at(7));
-            dest.avm_alu_div_u16_r8 = FF(src.div_u16_range_chk.at(8));
-            dest.avm_alu_div_u16_r9 = FF(src.div_u16_range_chk.at(9));
-            dest.avm_alu_div_u16_r10 = FF(src.div_u16_range_chk.at(10));
-            dest.avm_alu_div_u16_r11 = FF(src.div_u16_range_chk.at(11));
-            dest.avm_alu_div_u16_r12 = FF(src.div_u16_range_chk.at(12));
-            dest.avm_alu_div_u16_r13 = FF(src.div_u16_range_chk.at(13));
-            dest.avm_alu_div_u16_r14 = FF(src.div_u16_range_chk.at(14));
         }
 
         if (dest.avm_alu_op_add == FF(1) || dest.avm_alu_op_sub == FF(1) || dest.avm_alu_op_mul == FF(1)) {

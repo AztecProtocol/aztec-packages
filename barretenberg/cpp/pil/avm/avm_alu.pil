@@ -707,7 +707,7 @@ namespace avm_alu(256);
 
     // === DIVISION 64 BIT RANGE CHECKS
     // 64-bit decompositions and implicit 64-bit range checks for each limb,
-    // TODO: These slices are needed because we are performing an additional 256 bit range check in the same row, look into re-using old columns or refactoring
+    // TODO: We need extra slice registers because we are performing an additional 64-bit bit range check in the same row, look into re-using old columns or refactoring
     // range checks to be more modular.
     pol commit div_u16_r0;
     pol commit div_u16_r1;
@@ -717,21 +717,14 @@ namespace avm_alu(256);
     pol commit div_u16_r5;
     pol commit div_u16_r6;
     pol commit div_u16_r7;
-    pol commit div_u16_r8;
-    pol commit div_u16_r9;
-    pol commit div_u16_r10;
-    pol commit div_u16_r11;
-    pol commit div_u16_r12;
-    pol commit div_u16_r13;
-    pol commit div_u16_r14;
-    pol commit div_u16_r15;
 
     divisor_lo =  op_div_std * (div_u16_r0 + div_u16_r1 * 2**16 + div_u16_r2 * 2**32 + div_u16_r3 * 2 **48);
     divisor_hi =  op_div_std * (div_u16_r4 + div_u16_r5 * 2**16 + div_u16_r6 * 2**32 + div_u16_r7 * 2**48);
-    quotient_lo = op_div_std * (div_u16_r8 + div_u16_r9 * 2**16 + div_u16_r10 * 2**32 + div_u16_r11 * 2**48);
-    quotient_hi = op_div_std * (div_u16_r12 + div_u16_r13 * 2**16 + div_u16_r14 * 2**32 + div_u16_r15 * 2**48);
+    quotient_lo = op_div_std * (div_u16_r0' + div_u16_r1' * 2**16 + div_u16_r2' * 2**32 + div_u16_r3' * 2**48);
+    quotient_hi = op_div_std * (div_u16_r4' + div_u16_r5' * 2**16 + div_u16_r6' * 2**32 + div_u16_r7' * 2**48);
 
     // We need an extra 128 bits to do 2 more 64 bit range checks. We use b_lo to store partial_prod_lo and partial_prod_hi. 
+    // Use a shift to access the slices (b_lo is moved into the alu slice registers on the next row)
     pol NEXT_SUM_64 = u8_r0' + u8_r1' * 2**8 + u16_r0' * 2**16 + u16_r1' * 2**32 + u16_r2' * 2**48;
     pol NEXT_SUM_128 = u16_r3' + u16_r4' * 2**16 + u16_r5' * 2**32 + u16_r6' * 2**48;
     partial_prod_lo = op_div_std * NEXT_SUM_64;

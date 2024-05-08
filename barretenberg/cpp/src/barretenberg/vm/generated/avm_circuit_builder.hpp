@@ -69,20 +69,12 @@ template <typename FF> struct AvmFullRow {
     FF avm_alu_cmp_sel{};
     FF avm_alu_div_u16_r0{};
     FF avm_alu_div_u16_r1{};
-    FF avm_alu_div_u16_r10{};
-    FF avm_alu_div_u16_r11{};
-    FF avm_alu_div_u16_r12{};
-    FF avm_alu_div_u16_r13{};
-    FF avm_alu_div_u16_r14{};
-    FF avm_alu_div_u16_r15{};
     FF avm_alu_div_u16_r2{};
     FF avm_alu_div_u16_r3{};
     FF avm_alu_div_u16_r4{};
     FF avm_alu_div_u16_r5{};
     FF avm_alu_div_u16_r6{};
     FF avm_alu_div_u16_r7{};
-    FF avm_alu_div_u16_r8{};
-    FF avm_alu_div_u16_r9{};
     FF avm_alu_divisor_hi{};
     FF avm_alu_divisor_lo{};
     FF avm_alu_ff_tag{};
@@ -325,6 +317,14 @@ template <typename FF> struct AvmFullRow {
     FF avm_alu_b_lo_shift{};
     FF avm_alu_cmp_rng_ctr_shift{};
     FF avm_alu_cmp_sel_shift{};
+    FF avm_alu_div_u16_r0_shift{};
+    FF avm_alu_div_u16_r1_shift{};
+    FF avm_alu_div_u16_r2_shift{};
+    FF avm_alu_div_u16_r3_shift{};
+    FF avm_alu_div_u16_r4_shift{};
+    FF avm_alu_div_u16_r5_shift{};
+    FF avm_alu_div_u16_r6_shift{};
+    FF avm_alu_div_u16_r7_shift{};
     FF avm_alu_op_add_shift{};
     FF avm_alu_op_cast_prev_shift{};
     FF avm_alu_op_cast_shift{};
@@ -374,7 +374,7 @@ class AvmCircuitBuilder {
     using ProverPolynomials = Flavor::ProverPolynomials;
 
     static constexpr size_t num_fixed_columns = 306;
-    static constexpr size_t num_polys = 263;
+    static constexpr size_t num_polys = 255;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -404,20 +404,12 @@ class AvmCircuitBuilder {
             polys.avm_alu_cmp_sel[i] = rows[i].avm_alu_cmp_sel;
             polys.avm_alu_div_u16_r0[i] = rows[i].avm_alu_div_u16_r0;
             polys.avm_alu_div_u16_r1[i] = rows[i].avm_alu_div_u16_r1;
-            polys.avm_alu_div_u16_r10[i] = rows[i].avm_alu_div_u16_r10;
-            polys.avm_alu_div_u16_r11[i] = rows[i].avm_alu_div_u16_r11;
-            polys.avm_alu_div_u16_r12[i] = rows[i].avm_alu_div_u16_r12;
-            polys.avm_alu_div_u16_r13[i] = rows[i].avm_alu_div_u16_r13;
-            polys.avm_alu_div_u16_r14[i] = rows[i].avm_alu_div_u16_r14;
-            polys.avm_alu_div_u16_r15[i] = rows[i].avm_alu_div_u16_r15;
             polys.avm_alu_div_u16_r2[i] = rows[i].avm_alu_div_u16_r2;
             polys.avm_alu_div_u16_r3[i] = rows[i].avm_alu_div_u16_r3;
             polys.avm_alu_div_u16_r4[i] = rows[i].avm_alu_div_u16_r4;
             polys.avm_alu_div_u16_r5[i] = rows[i].avm_alu_div_u16_r5;
             polys.avm_alu_div_u16_r6[i] = rows[i].avm_alu_div_u16_r6;
             polys.avm_alu_div_u16_r7[i] = rows[i].avm_alu_div_u16_r7;
-            polys.avm_alu_div_u16_r8[i] = rows[i].avm_alu_div_u16_r8;
-            polys.avm_alu_div_u16_r9[i] = rows[i].avm_alu_div_u16_r9;
             polys.avm_alu_divisor_hi[i] = rows[i].avm_alu_divisor_hi;
             polys.avm_alu_divisor_lo[i] = rows[i].avm_alu_divisor_lo;
             polys.avm_alu_ff_tag[i] = rows[i].avm_alu_ff_tag;
@@ -627,6 +619,14 @@ class AvmCircuitBuilder {
         polys.avm_alu_b_lo_shift = Polynomial(polys.avm_alu_b_lo.shifted());
         polys.avm_alu_cmp_rng_ctr_shift = Polynomial(polys.avm_alu_cmp_rng_ctr.shifted());
         polys.avm_alu_cmp_sel_shift = Polynomial(polys.avm_alu_cmp_sel.shifted());
+        polys.avm_alu_div_u16_r0_shift = Polynomial(polys.avm_alu_div_u16_r0.shifted());
+        polys.avm_alu_div_u16_r1_shift = Polynomial(polys.avm_alu_div_u16_r1.shifted());
+        polys.avm_alu_div_u16_r2_shift = Polynomial(polys.avm_alu_div_u16_r2.shifted());
+        polys.avm_alu_div_u16_r3_shift = Polynomial(polys.avm_alu_div_u16_r3.shifted());
+        polys.avm_alu_div_u16_r4_shift = Polynomial(polys.avm_alu_div_u16_r4.shifted());
+        polys.avm_alu_div_u16_r5_shift = Polynomial(polys.avm_alu_div_u16_r5.shifted());
+        polys.avm_alu_div_u16_r6_shift = Polynomial(polys.avm_alu_div_u16_r6.shifted());
+        polys.avm_alu_div_u16_r7_shift = Polynomial(polys.avm_alu_div_u16_r7.shifted());
         polys.avm_alu_op_add_shift = Polynomial(polys.avm_alu_op_add.shifted());
         polys.avm_alu_op_cast_prev_shift = Polynomial(polys.avm_alu_op_cast_prev.shifted());
         polys.avm_alu_op_cast_shift = Polynomial(polys.avm_alu_op_cast.shifted());

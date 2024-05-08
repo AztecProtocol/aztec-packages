@@ -1009,22 +1009,15 @@ FF AvmAluTraceBuilder::op_div(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
 
     FF b_hi = b_u256 - rem_u256 - 1;
 
-    std::array<uint16_t, 16> div_u16_rng_chk;
+    std::array<uint16_t, 8> div_u64_rng_chk;
+    std::array<uint16_t, 8> div_u64_rng_chk_shifted;
     for (size_t i = 0; i < 4; i++) {
-        div_u16_rng_chk.at(i) = uint16_t(divisor_lo >> (16 * i));
-        div_u16_rng_chk.at(i + 4) = uint16_t(divisor_hi >> (16 * i));
-        div_u16_rng_chk.at(i + 8) = uint16_t(quotient_lo >> (16 * i));
-        div_u16_rng_chk.at(i + 12) = uint16_t(quotient_hi >> (16 * i));
+        div_u64_rng_chk.at(i) = uint16_t(divisor_lo >> (16 * i));
+        div_u64_rng_chk.at(i + 4) = uint16_t(divisor_hi >> (16 * i));
+        div_u64_rng_chk_shifted.at(i) = uint16_t(quotient_lo >> (16 * i));
+        div_u64_rng_chk_shifted.at(i + 4) = uint16_t(quotient_hi >> (16 * i));
     }
 
-    // auto [u8_r0, u8_r1, u16_reg] =
-    //     to_alu_slice_registers(divisor_lo + (divisor_hi << 64) + (quotient_lo << 128) + (quotient_hi << 192));
-    // std::array<uint16_t, 16> div_u16_rng_chk = { uint16_t(u8_r0 + (u8_r1 << 8)) };
-    //
-    // for (size_t i = 0; i < 15; i++) {
-    //     div_u16_rng_chk.at(i + 1) = u16_reg.at(i);
-    // }
-    //
     // Each hi and lo limb is range checked over 128 bits
     // Load the range check values into the ALU registers
     auto hi_lo_limbs = std::vector<uint256_t>{ a_lo, a_hi, partial_prod, b_hi, p_sub_a_lo, p_sub_a_hi };
@@ -1047,12 +1040,13 @@ FF AvmAluTraceBuilder::op_div(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
         .quotient_hi = quotient_hi,
         .partial_prod_lo = partial_prod_lo,
         .partial_prod_hi = partial_prod_hi,
-        .div_u16_range_chk = div_u16_rng_chk,
+        .div_u64_range_chk = div_u64_rng_chk,
 
     };
     // We perform the range checks here
     std::vector<AvmAluTraceBuilder::AluTraceEntry> rows = cmp_range_check_helper(row, hi_lo_limbs);
     alu_trace.insert(alu_trace.end(), rows.begin(), rows.end());
+    alu_trace.at(1).div_u64_range_chk = div_u64_rng_chk_shifted;
 
     return c_u256;
 }

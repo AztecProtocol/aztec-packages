@@ -68,18 +68,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_div_u16_r0);
     commitments.avm_alu_div_u16_r1 =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_div_u16_r1);
-    commitments.avm_alu_div_u16_r10 =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_div_u16_r10);
-    commitments.avm_alu_div_u16_r11 =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_div_u16_r11);
-    commitments.avm_alu_div_u16_r12 =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_div_u16_r12);
-    commitments.avm_alu_div_u16_r13 =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_div_u16_r13);
-    commitments.avm_alu_div_u16_r14 =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_div_u16_r14);
-    commitments.avm_alu_div_u16_r15 =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_div_u16_r15);
     commitments.avm_alu_div_u16_r2 =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_div_u16_r2);
     commitments.avm_alu_div_u16_r3 =
@@ -92,10 +80,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_div_u16_r6);
     commitments.avm_alu_div_u16_r7 =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_div_u16_r7);
-    commitments.avm_alu_div_u16_r8 =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_div_u16_r8);
-    commitments.avm_alu_div_u16_r9 =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_div_u16_r9);
     commitments.avm_alu_divisor_hi =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_divisor_hi);
     commitments.avm_alu_divisor_lo =
