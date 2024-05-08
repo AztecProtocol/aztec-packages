@@ -15,7 +15,7 @@ export class Aes128 {
    */
   public encryptBufferCBC(data: Uint8Array, iv: Uint8Array, key: Uint8Array) {
     const rawLength = data.length;
-    const numPaddingBytes = rawLength % 16 != 0 ? 16 - (rawLength % 16) : 0;
+    const numPaddingBytes = 16 - (rawLength % 16);
     const paddingBuffer = Buffer.alloc(numPaddingBytes);
     // input num bytes needs to be a multiple of 16
     // node uses PKCS#7-Padding scheme, where padding byte value = the number of padding bytes
