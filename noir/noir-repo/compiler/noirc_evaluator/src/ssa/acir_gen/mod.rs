@@ -281,10 +281,7 @@ pub(crate) type Artifacts =
 
 impl Ssa {
     #[tracing::instrument(level = "trace", skip_all)]
-    pub(crate) fn into_acir(
-        self,
-        brillig: &Brillig,
-    ) -> Result<(Vec<GeneratedAcir>, Vec<BrilligBytecode>), RuntimeError> {
+    pub(crate) fn into_acir(self, brillig: &Brillig) -> Result<Artifacts, RuntimeError> {
         let mut acirs = Vec::new();
         // TODO: can we parallelise this?
         let mut shared_context = SharedContext::default();

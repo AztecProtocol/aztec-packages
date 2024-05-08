@@ -13,8 +13,6 @@ use noirc_frontend::hir_def::types::Type as HirType;
 
 use crate::ssa::opt::flatten_cfg::value_merger::ValueMerger;
 
-use crate::ssa::opt::flatten_cfg::value_merger::ValueMerger;
-
 use super::{
     basic_block::BasicBlockId,
     dfg::{CallStack, DataFlowGraph},
