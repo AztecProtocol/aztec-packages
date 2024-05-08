@@ -2,7 +2,7 @@ use dep::std::cmp::Eq;
 use crate::{
     address::AztecAddress,
     constants::{NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH, NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH},
-    traits::{Empty, Serialize, Deserialize}, grumpkin_point::GrumpkinPoint
+    traits::{Empty, Serialize, Deserialize}, grumpkin_point::GrumpkinPoint,
     utils::{arrays::array_concat, reader::Reader}
 };
 
