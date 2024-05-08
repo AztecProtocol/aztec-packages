@@ -118,7 +118,7 @@ pub(crate) fn run(
                 backend,
                 program,
                 &package,
-                args.compile_options.expression_width.unwrap_or_default(),
+                args.compile_options.expression_width,
             )
         })
         .collect::<Result<_, _>>()?;
@@ -129,7 +129,7 @@ pub(crate) fn run(
             count_opcodes_and_gates_in_contract(
                 backend,
                 contract,
-                args.compile_options.expression_width.unwrap_or_default(),
+                args.compile_options.expression_width,
             )
         })
         .collect::<Result<_, _>>()?;
