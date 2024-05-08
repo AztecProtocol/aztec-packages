@@ -30,10 +30,10 @@ pub fn get_app_nullifier_secret_key(account: AztecAddress) -> Field {
 
 // TODO (#6176): Replace get_nullifier_keys above with this once we no longer get nullifier keys with address
 #[oracle(getNullifierKeysWithMasterNullifierPublicKeyHash)]
-fn get_nullifier_keys_with_master_nullifier_public_key_hash_oracle(_master_nullifier_public_key_hash: Field) -> [Field; 3] {}
+fn get_nk_with_npk_m_h_oracle(_master_nullifier_public_key_hash: Field) -> [Field; 3] {}
 
-unconstrained fn get_nullifier_keys_with_master_nullifier_public_key_hash_internal(master_nullifier_public_key_hash: Field) -> NullifierKeys {
-    let result = get_nullifier_keys_with_master_nullifier_public_key_hash_oracle(master_nullifier_public_key_hash);
+unconstrained fn get_nk_with_npk_m_h_internal(master_nullifier_public_key_hash: Field) -> NullifierKeys {
+    let result = get_nk_with_npk_m_h_oracle(master_nullifier_public_key_hash);
     NullifierKeys {
         account: AztecAddress::zero(),
         master_nullifier_public_key: GrumpkinPoint { x: result[0], y: result[1] },
@@ -42,11 +42,11 @@ unconstrained fn get_nullifier_keys_with_master_nullifier_public_key_hash_intern
 }
 
 // We get the full struct Nullifier Keys here
-pub fn get_nullifier_keys_with_master_nullifier_public_key_hash(master_nullifier_public_key_hash: Field) -> NullifierKeys {
-    get_nullifier_keys_with_master_nullifier_public_key_hash_internal(master_nullifier_public_key_hash)
+pub fn get_nk_with_npk_m_h(master_nullifier_public_key_hash: Field) -> NullifierKeys {
+    get_nk_with_npk_m_h_internal(master_nullifier_public_key_hash)
 }
 
 // We are only getting the app_nullifier_secret_key here
-pub fn get_app_nullifier_secret_key_with_master_nullifier_public_key_hash(master_nullifier_public_key_hash: Field) -> Field {
-    get_nullifier_keys_with_master_nullifier_public_key_hash_internal(master_nullifier_public_key_hash).app_nullifier_secret_key
+pub fn get_nsk_app_with_npk_m_h(master_nullifier_public_key_hash: Field) -> Field {
+    get_nk_with_npk_m_h_internal(master_nullifier_public_key_hash).app_nullifier_secret_key
 }
