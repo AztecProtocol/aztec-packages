@@ -1,6 +1,6 @@
 import * as core from "@actions/core";
 import * as fs from "fs";
-import { exec } from "child_process";
+import { exec, execSync } from "child_process";
 import { ActionConfig } from "./config";
 import { Ec2Instance } from "./ec2";
 import { GithubClient } from "./github";
@@ -181,6 +181,27 @@ async function ec2CommandOverSsh(
   const tempKeyPath = "/tmp/ec2_ssh_key.pem";
   fs.writeFileSync(tempKeyPath, decodedKey, { mode: 0o600 });
 
+  // Improved SSH connection retry logic
+  let attempts = 0;
+  const maxAttempts = 60;
+  while (attempts < maxAttempts) {
+    try {
+      execSync(`ssh -F $SSH_CONFIG_PATH -o ConnectTimeout=1 ubuntu@${ip} true`);
+      break;
+    } catch {
+      if (attempts >= maxAttempts - 1) {
+        core.error(
+          `Timeout: SSH could not connect to ${ip} within 60 seconds.`
+        );
+        throw new Error(
+          `Timeout: SSH could not connect to ${ip} within 60 seconds.`
+        );
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Retry every second
+      attempts++;
+    }
+  }
+  core.info(`SSH connection established with ${ip}`);
   // Wrap the process execution in a Promise to handle asynchronous execution and output streaming
   return new Promise((resolve, reject) => {
     const child = spawn(
