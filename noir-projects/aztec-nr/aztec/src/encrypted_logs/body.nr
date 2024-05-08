@@ -1,18 +1,18 @@
 use crate::note::{note_interface::NoteInterface};
 use dep::protocol_types::{grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint};
 
-use dep::std::aes128::aes128_encrypt;
+use dep::std::aes128::aes128_encrypt_slice;
 use dep::std::println;
 use crate::keys::point_to_symmetric_key::point_to_symmetric_key;
 
-struct EncryptedLogBody<Note, N> {
+struct EncryptedLogBody<Note> {
     storage_slot: Field,
     note_type_id: Field,
     note: Note,
 }
 
-impl<Note, N> EncryptedLogBody<Note, N> {
-    pub fn new(
+impl<Note> EncryptedLogBody<Note> {
+    pub fn new<N>(
         storage_slot: Field,
         note_type_id: Field,
         note: Note
@@ -20,43 +20,37 @@ impl<Note, N> EncryptedLogBody<Note, N> {
         Self { storage_slot, note_type_id, note }
     }
 
-    pub fn compute_ciphertext<M>(
+    pub fn compute_ciphertext<N>(
         self,
         secret: GrumpkinPrivateKey,
-        point: GrumpkinPoint,
-        serialized_note: [Field; N]
+        point: GrumpkinPoint
     ) -> [u8] where Note: NoteInterface<N> {
         // We need 32 bytes for every field in the note, and then we have 2 extra fields (storage_slot and note_type_id)
-        // let serialized_note: [Field; N] = self.note.serialize_content();//  Note::serialize_content(self.note);
+        let serialized_note: [Field; N] = self.note.serialize_content(); //  Note::serialize_content(self.note);
 
-        // Work around not being able to use N directly beyond the size of the array above.
-        let N_ = serialized_note.len();
-
-        // assert(N_ * 32 + 64 == M, "Invalid size of encrypted log body");
         let mut buffer_slice: [u8] = &[];
 
         let storage_slot_bytes = self.storage_slot.to_be_bytes(32);
         let note_type_id_bytes = self.note_type_id.to_be_bytes(32);
 
-        for i in 0..(N_ * 32 + 64) {
-            buffer_slice.push_back(0);
+        for _ in 0..(serialized_note.len() * 32 + 64) {
+            buffer_slice = buffer_slice.push_back(0);
         }
 
-        // Cannot use N in here :(
-        //let mut buffer: [u8; N * 32 + 64] = [0; N * 32 + 64];
-
-/*
         for i in 0..32 {
-            buffer_slice.push_back(storage_slot_bytes[i]);
-            buffer[32 + i] = note_type_id_bytes[i];
+            buffer_slice = buffer_slice.push_back(storage_slot_bytes[i]);
         }
 
-        for i in 0..N_ {
+        for i in 0..32 {
+            buffer_slice = buffer_slice.push_back(note_type_id_bytes[i]);
+        }
+
+        for i in 0..serialized_note.len() {
             let bytes = serialized_note[i].to_be_bytes(32);
             for j in 0..32 {
-                buffer[64 + i * 32 + j] = bytes[j];
+                buffer_slice = buffer_slice.push_back(bytes[j]);
             }
-        }*/
+        }
 
         let full_key = point_to_symmetric_key(secret, point);
         let mut sym_key = [0; 16];
@@ -66,21 +60,16 @@ impl<Note, N> EncryptedLogBody<Note, N> {
             sym_key[i] = full_key[i];
             iv[i] = full_key[i + 16];
         }
-
-        aes128_encrypt(buffer_slice.as_array(), iv, sym_key)
-/*
-        let mut return_slice: [u8] = &[];
-        for i in 0..(ciphertext.len()) {
-            return_slice.push_back(ciphertext[i]);
-        }
-
-        return_slice*/
+        aes128_encrypt_slice(buffer_slice, iv, sym_key)
     }
 }
 
 mod test {
     use crate::encrypted_logs::body::EncryptedLogBody;
-    use dep::protocol_types::{address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint};
+    use dep::protocol_types::{
+        address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+        grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint
+    };
 
     use crate::{
         note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
@@ -147,10 +136,13 @@ mod test {
             0x1e96887b117afca01c00468264f4f80b5bb16d94c1808a448595f115556e5c8e
         );
 
-        let ciphertext = body.compute_ciphertext(secret, point, note.serialize_content());
+        let ciphertext = body.compute_ciphertext(secret, point);
 
-        let expected_body_ciphertext = [131,119,105,129,244,32,151,205,12,99,93,62,10,180,72,21,36,194,14,168,0,137,126,59,151,177,136,254,153,190,92,33,40,151,178,54,34,166,124,96,117,108,168,7,147,222,81,201,254,170,244,151,60,64,226,45,156,185,53,23,121,63,243,101,134,21,167,39,226,203,162,223,28,74,244,159,54,201,192,168,19,85,103,82,148,3,153,210,89,245,171,171,12,248,40,74,199,65,96,42,84,83,48,21,188,134,45,247,134,166,109,170,68,212,99,235,74,202,162,108,130,128,122,16,79,242,30,157,26,75,57,24,18,124,217,74,155,13,171,205,194,193,103,134,224,204,46,105,135,166,192,163,186,42,71,51,156,161,8,131,233,228,107,151,254,111,215,19,22,34,252,158,214,97,197,22];
-
-        // assert_eq(ciphertext, expected_body_ciphertext);
+        let expected_body_ciphertext = [
+            131, 119, 105, 129, 244, 32, 151, 205, 12, 99, 93, 62, 10, 180, 72, 21, 36, 194, 14, 168, 0, 137, 126, 59, 151, 177, 136, 254, 153, 190, 92, 33, 40, 151, 178, 54, 34, 166, 124, 96, 117, 108, 168, 7, 147, 222, 81, 201, 254, 170, 244, 151, 60, 64, 226, 45, 156, 185, 53, 23, 121, 63, 243, 101, 134, 21, 167, 39, 226, 203, 162, 223, 28, 74, 244, 159, 54, 201, 192, 168, 19, 85, 103, 82, 148, 3, 153, 210, 89, 245, 171, 171, 12, 248, 40, 74, 199, 65, 96, 42, 84, 83, 48, 21, 188, 134, 45, 247, 134, 166, 109, 170, 68, 212, 99, 235, 74, 202, 162, 108, 130, 128, 122, 16, 79, 242, 30, 157, 26, 75, 57, 24, 18, 124, 217, 74, 155, 13, 171, 205, 194, 193, 103, 134, 224, 204, 46, 105, 135, 166, 192, 163, 186, 42, 71, 51, 156, 161, 8, 131, 233, 228, 107, 151, 254, 111, 215, 19, 22, 34, 252, 158, 214, 97, 197, 22
+        ];
+        for i in 0..ciphertext.len() {
+            assert_eq(ciphertext[i], expected_body_ciphertext[i]);
+        }
     }
 }
