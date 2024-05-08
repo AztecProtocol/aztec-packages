@@ -91,3 +91,4 @@ jobs:
           ec2_key_name: "build-instance"
           ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           command: ${{ inputs.command }}
+          ec2_instance_tags: "[]"
