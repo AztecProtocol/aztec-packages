@@ -3,7 +3,7 @@ use acir::{BlackBoxFunc, FieldElement};
 use acvm_blackbox_solver::BigIntSolver;
 use acvm_blackbox_solver::{
     aes128_encrypt, blake2s, blake3, ecdsa_secp256k1_verify, ecdsa_secp256r1_verify, keccak256,
-    keccakf1600, sha256compression, BlackBoxFunctionSolver, BlackBoxResolutionError,
+    keccakf1600, sha256_compression, BlackBoxFunctionSolver, BlackBoxResolutionError,
 };
 
 use crate::memory::MemoryValue;
