@@ -1,5 +1,10 @@
 import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
-import { type PartialAddress, acvmFieldMessageToString, oracleDebugCallToFormattedStr, PublicKeys } from '@aztec/circuits.js';
+import {
+  type PartialAddress,
+  type PublicKeys,
+  acvmFieldMessageToString,
+  oracleDebugCallToFormattedStr,
+} from '@aztec/circuits.js';
 import { EventSelector, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
