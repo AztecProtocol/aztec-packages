@@ -25,6 +25,8 @@ export interface ConfigInterface {
   ec2SubnetId: string;
   ec2KeyName: string;
   ec2SpotInstanceStrategy: string;
+  ec2Key: string;
+  command: string;
 }
 
 export class ActionConfig implements ConfigInterface {
@@ -51,6 +53,8 @@ export class ActionConfig implements ConfigInterface {
   ec2SubnetId: string;
   ec2KeyName: string;
   ec2SpotInstanceStrategy: string;
+  ec2Key: string;
+  command: string;
 
   constructor() {
     // AWS account and credentials params
@@ -62,7 +66,7 @@ export class ActionConfig implements ConfigInterface {
 
     // Github params
     this.githubToken = core.getInput("github_token");
-    this.githubJobId = core.getInput("runner_label");
+    this.githubJobId = core.getInput("runner_label") || "spot";
     this.githubRef = github.context.ref;
     this.githubRepo = github.context.repo.repo;
     this.githubActionRunnerVersion = core.getInput(
@@ -83,5 +87,7 @@ export class ActionConfig implements ConfigInterface {
     this.ec2SpotInstanceStrategy = core
       .getInput("ec2_spot_instance_strategy")
       .toLowerCase();
+    this.ec2Key = core.getInput("ec2_key");
+    this.command = core.getInput("command");
   }
 }

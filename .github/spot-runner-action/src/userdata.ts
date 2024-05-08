@@ -9,7 +9,18 @@ export class UserData {
     this.config = config;
   }
 
-  async getUserData(): Promise<string> {
+  async getUserDataForBareSpot(): Promise<string> {
+    const cmds = [
+      "#!/bin/bash",
+      "echo TODO not installing anything yet"];
+    console.log(
+      "Sending: ",
+      cmds.filter((x) => !x.startsWith("TOKENS")).join("\n")
+    );
+    return Buffer.from(cmds.join("\n")).toString("base64");
+  }
+
+  async getUserDataForGithubRunners(): Promise<string> {
     const ghClient = new GithubClient(this.config);
     const githubActionRunnerVersion = await ghClient.getRunnerVersion();
     // Retrieve runner registration tokens in parallel

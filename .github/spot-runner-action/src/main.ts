@@ -1,14 +1,17 @@
 import * as core from "@actions/core";
+import * as fs from "fs";
+import { exec } from "child_process";
 import { ActionConfig } from "./config";
 import { Ec2Instance } from "./ec2";
 import { GithubClient } from "./github";
 import { assertIsError } from "./utils";
+import { spawn } from "child_process";
 
 async function pollSpotStatus(
   config: ActionConfig,
   ec2Client: Ec2Instance,
   ghClient: GithubClient
-): Promise<"usable" | "unusable" | "none"> {
+): Promise<string | "unusable" | "none"> {
   // 12 iters x 10000 ms = 2 minutes
   for (let iter = 0; iter < 12; iter++) {
     const instances = await ec2Client.getInstancesForTags("running");
@@ -20,7 +23,7 @@ async function pollSpotStatus(
       core.info("Found ec2 instance, looking for runners.");
       if (await ghClient.hasRunner([config.githubJobId])) {
         // we have runners
-        return "usable";
+        return instances[0].InstanceId!;
       }
     } catch (err) {}
     // wait 10 seconds
@@ -33,43 +36,11 @@ async function pollSpotStatus(
   return "unusable";
 }
 
-async function start() {
-  const config = new ActionConfig();
-  if (config.subaction === "stop") {
-    await terminate();
-    return;
-  } else if (config.subaction === "restart") {
-    await terminate();
-    // then we make a fresh instance
-  } else if (config.subaction === "start") {
-    // We need to terminate
-    await terminate("stopped", false);
-  } else {
-    throw new Error("Unexpected subaction: " + config.subaction);
-  }
+async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
   // subaction is 'start' or 'restart'estart'
   const ec2Client = new Ec2Instance(config);
-  const ghClient = new GithubClient(config);
-  const spotStatus = await pollSpotStatus(config, ec2Client, ghClient);
-  if (spotStatus === "usable") {
-    core.info(
-      `Runner already running. Continuing as we can target it with jobs.`
-    );
-    return;
-  }
-  if (spotStatus === "unusable") {
-    core.warning(
-      "Taking down spot as it has no runners! If we were mistaken, this could impact existing jobs."
-    );
-    if (config.subaction === "restart") {
-      throw new Error(
-        "Taking down spot we just started. This seems wrong, erroring out."
-      );
-    }
-    await terminate();
-  }
 
-  var ec2SpotStrategies: string[];
+  let ec2SpotStrategies: string[];
   switch (config.ec2SpotInstanceStrategy) {
     case "besteffort": {
       ec2SpotStrategies = ["BestEffort", "none"];
@@ -86,7 +57,7 @@ async function start() {
     }
   }
 
-  var instanceId = "";
+  let instanceId = "";
   for (const ec2Strategy of ec2SpotStrategies) {
     core.info(`Starting instance with ${ec2Strategy} strategy`);
     // 6 * 10000ms = 1 minute per strategy
@@ -94,10 +65,11 @@ async function start() {
     for (let i = 0; i < 6; i++) {
       try {
         // Start instance
-        instanceId = await ec2Client.requestMachine(
-          // we fallback to on-demand
-          ec2Strategy.toLocaleLowerCase() === "none"
-        ) || "";
+        instanceId =
+          (await ec2Client.requestMachine(
+            // we fallback to on-demand
+            ec2Strategy.toLocaleLowerCase() === "none"
+          )) || "";
         if (instanceId) {
           break;
         }
@@ -132,11 +104,122 @@ async function start() {
     core.error("Failed to get ID of running instance");
     throw Error("Failed to get ID of running instance");
   }
+  return instanceId;
+}
+
+async function startBareSpot(config: ActionConfig): Promise<string> {
+  if (config.subaction !== "start") {
+    throw new Error("Unexpected subaction for bare spot, only 'start' is allowed: " + config.subaction);
+  }
+  const ec2Client = new Ec2Instance(config);
+  const instanceId = await requestAndWaitForSpot(config);
+  if (config.command) {
+    await ec2CommandOverSsh(ec2Client, instanceId, config.ec2Key, config.command);
+  }
+  return instanceId;
+}
+
+async function startWithGithubRunners(config: ActionConfig): Promise<string> {
+  if (config.subaction === "stop") {
+    await terminate();
+    return "";
+  } else if (config.subaction === "restart") {
+    await terminate();
+    // then we make a fresh instance
+  } else if (config.subaction === "start") {
+    // We need to terminate
+    await terminate("stopped", false);
+  } else {
+    throw new Error("Unexpected subaction: " + config.subaction);
+  }
+  // subaction is 'start' or 'restart'estart'
+  const ec2Client = new Ec2Instance(config);
+  const ghClient = new GithubClient(config);
+  const spotStatus = await pollSpotStatus(config, ec2Client, ghClient);
+  if (spotStatus === "unusable") {
+    core.warning(
+      "Taking down spot as it has no runners! If we were mistaken, this could impact existing jobs."
+    );
+    if (config.subaction === "restart") {
+      throw new Error(
+        "Taking down spot we just started. This seems wrong, erroring out."
+      );
+    }
+    await terminate();
+  }
+  if (spotStatus !== "none") {
+    core.info(
+      `Runner already running. Continuing as we can target it with jobs.`
+    );
+    return spotStatus;
+  }
+
+  const instanceId = await requestAndWaitForSpot(config);
+  if (instanceId) await ec2Client.waitForInstanceRunningStatus(instanceId);
+  else {
+    core.error("Failed to get ID of running instance");
+    throw Error("Failed to get ID of running instance");
+  }
   if (instanceId) await ghClient.pollForRunnerCreation([config.githubJobId]);
   else {
     core.error("Instance failed to register with Github Actions");
     throw Error("Instance failed to register with Github Actions");
   }
+  return instanceId;
+}
+
+async function ec2CommandOverSsh(
+  ec2Client: Ec2Instance,
+  instanceId: string,
+  encodedSshKey: string,
+  command: string
+): Promise<string> {
+  const ip = await ec2Client.getPublicIpFromInstanceId(instanceId);
+  core.info(`Attempting SSH into EC2 instance ${instanceId}`);
+
+  const decodedKey = Buffer.from(encodedSshKey, "base64").toString("utf8");
+  const tempKeyPath = "/tmp/ec2_ssh_key.pem";
+  fs.writeFileSync(tempKeyPath, decodedKey, { mode: 0o600 });
+
+  // Wrap the process execution in a Promise to handle asynchronous execution and output streaming
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      "ssh",
+      [
+        "-o",
+        "StrictHostKeyChecking=no",
+        "-i",
+        tempKeyPath,
+        `ubuntu@${ip}`,
+        command,
+      ],
+      { shell: true }
+    );
+
+    // Handle standard output
+    child.stdout.on("data", (data) => {
+      console.log(data.toString());
+    });
+
+    // Handle standard error
+    child.stderr.on("data", (data) => {
+      console.error(data.toString());
+    });
+
+    // Handle close event
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve(`SSH command completed with code ${code}`);
+      } else {
+        reject(new Error(`SSH command failed with code ${code}`));
+      }
+    });
+
+    // Handle process errors (e.g., command not found, cannot spawn process)
+    child.on("error", (err) => {
+      reject(new Error(`Failed to execute SSH command: ${err.message}`));
+    });
+  });
 }
 
 async function terminate(instanceStatus?: string, cleanupRunners = true) {
@@ -167,7 +250,12 @@ async function terminate(instanceStatus?: string, cleanupRunners = true) {
 
 (async function () {
   try {
-    start();
+    const config = new ActionConfig();
+    if (config.githubToken) {
+      startWithGithubRunners(config);
+    } else {
+      startBareSpot(config);
+    }
   } catch (error) {
     terminate();
     assertIsError(error);

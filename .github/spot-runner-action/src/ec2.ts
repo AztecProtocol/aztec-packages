@@ -4,6 +4,7 @@ import {
   CreateFleetInstance,
   CreateFleetRequest,
   CreateLaunchTemplateRequest,
+  DescribeInstancesResult,
   FleetLaunchTemplateConfigRequest,
 } from "aws-sdk/clients/ec2";
 import * as crypto from "crypto";
@@ -157,10 +158,16 @@ export class Ec2Instance {
 
   async getLaunchTemplate(): Promise<string> {
     const client = await this.getEc2Client();
-
-    const userData = await new UserData(this.config).getUserData();
+    const userData = await new UserData(
+      this.config
+    );
+    const userDataScript = this.config.githubToken ? await userData.getUserDataForGithubRunners() : await userData.getUserDataForBareSpot();
     const ec2InstanceTypeHash = this.getHashOfStringArray(
-      this.config.ec2InstanceType.concat([userData, JSON.stringify(this.tags), this.config.ec2KeyName])
+      this.config.ec2InstanceType.concat([
+        userDataScript,
+        JSON.stringify(this.tags),
+        this.config.ec2KeyName,
+      ])
     );
     const launchTemplateName =
       "aztec-packages-spot-" + this.config.ec2AmiId + "-" + ec2InstanceTypeHash;
@@ -179,7 +186,7 @@ export class Ec2Instance {
         },
         SecurityGroupIds: [this.config.ec2SecurityGroupId],
         KeyName: this.config.ec2KeyName,
-        UserData: userData,
+        UserData: userDataScript,
         TagSpecifications: [
           {
             ResourceType: "instance",
@@ -201,7 +208,7 @@ export class Ec2Instance {
     return launchTemplateName;
   }
 
-  async requestMachine(useOnDemand: boolean): Promise<string|undefined> {
+  async requestMachine(useOnDemand: boolean): Promise<string | undefined> {
     // Note advice re max bid: "If you specify a maximum price, your instances will be interrupted more frequently than if you do not specify this parameter."
     const launchTemplateName = await this.getLaunchTemplate();
     const availabilityZone = await this.getSubnetAz();
@@ -251,7 +258,32 @@ export class Ec2Instance {
     }
   }
 
-  async getInstancesForTags(instanceStatus?: string): Promise<AWS.EC2.Instance[]> {
+  async getPublicIpFromInstanceId(
+    instanceId: string
+  ): Promise<string> {
+    const client = await this.getEc2Client();
+    try {
+      const instance: DescribeInstancesResult = await client.describeInstances({ InstanceIds: [instanceId] }).promise();
+      if (
+        !instance ||
+        !instance.Reservations ||
+        !instance.Reservations[0].Instances ||
+        instance.Reservations[0].Instances[0].State?.Name !== "running"
+      ) {
+        throw new Error("Could not find running instance:" + instanceId);
+      }
+      return instance.Reservations[0].Instances[0].PublicIpAddress!;
+    } catch (error) {
+      core.error(
+        `Failed to lookup instance for instance ID ${instanceId}`
+      );
+      throw error;
+    }
+  }
+
+  async getInstancesForTags(
+    instanceStatus?: string
+  ): Promise<AWS.EC2.Instance[]> {
     const client = await this.getEc2Client();
     const filters: FilterInterface[] = [
       {
