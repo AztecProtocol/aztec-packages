@@ -176,8 +176,8 @@ impl PrivateContext {
             end_side_effect_counter: self.side_effect_counter,
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
-            encrypted_log_preimages_length: self.encrypted_log_preimages_length + 4,
-            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length + 4,
+            encrypted_log_preimages_length: self.encrypted_log_preimages_length,
+            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             historical_header: self.historical_header,
             tx_context: self.inputs.tx_context
         }

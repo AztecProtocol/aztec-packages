@@ -157,7 +157,7 @@ impl PublicContext {
             start_side_effect_counter: self.inputs.start_side_effect_counter,
             end_side_effect_counter: self.side_effect_counter,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
-            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length + 4,
+            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             historical_header: self.inputs.historical_header,
             global_variables: self.inputs.public_global_variables,
             prover_address: self.prover_address,

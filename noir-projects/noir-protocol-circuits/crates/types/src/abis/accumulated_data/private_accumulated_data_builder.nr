@@ -190,6 +190,9 @@ impl PrivateAccumulatedDataBuilder {
 
         revertible_builder.new_l2_to_l1_msgs =  self.new_l2_to_l1_msgs;
 
+        assert(revertible_builder.encrypted_log_preimages_length + non_revertible_builder.encrypted_log_preimages_length == self.encrypted_log_preimages_length, "encrypted logs length mismatch");
+        assert(revertible_builder.unencrypted_log_preimages_length + non_revertible_builder.unencrypted_log_preimages_length == self.unencrypted_log_preimages_length, "unencrypted logs length mismatch");
+
         revertible_builder.gas_used = Gas::new(revertible_da_gas_used, revertible_l2_gas_used);
         non_revertible_builder.gas_used = Gas::tx_overhead() + Gas::new(non_revertible_da_gas_used, non_revertible_l2_gas_used);
         (non_revertible_builder.finish(), revertible_builder.finish())
@@ -289,11 +292,11 @@ mod tests {
 
         builder.encrypted_logs_hashes.extend_from_array(non_revertible_enc_log_hashes);
         builder.encrypted_logs_hashes.extend_from_array(revertible_enc_log_hashes);
-        builder.encrypted_log_preimages_length = 12; // = 8 + 4 to store len
+        builder.encrypted_log_preimages_length = 8;
 
         builder.unencrypted_logs_hashes.extend_from_array(non_revertible_unenc_log_hashes);
         builder.unencrypted_logs_hashes.extend_from_array(revertible_unenc_log_hashes);
-        builder.unencrypted_log_preimages_length = 24; // = 20 + 4 to store len
+        builder.unencrypted_log_preimages_length = 20;
 
         let (non_revertible, revertible) = builder.split_to_public(11, Gas::new(42, 17));
 

@@ -167,7 +167,8 @@ describe('Private Execution test suite', () => {
 
   const getEncryptedSerializedLength = (result: ExecutionResult) => {
     const fnLogs = new EncryptedFunctionL2Logs(result.encryptedLogs.map(l => l.log));
-    return fnLogs.getSerializedLength();
+    // We take 4 to avoid counting the extra 4 bytes used to store len for L1
+    return fnLogs.getSerializedLength() - 4;
   };
 
   beforeAll(() => {
@@ -227,8 +228,9 @@ describe('Private Execution test suite', () => {
 
       const [unencryptedLog] = newUnencryptedLogs;
       expect(unencryptedLog.value).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
+      // We take 4 to avoid counting the extra 4 bytes used to store len for L1
       expect(result.callStackItem.publicInputs.unencryptedLogPreimagesLength).toEqual(
-        new Fr(functionLogs.getSerializedLength()),
+        new Fr(functionLogs.getSerializedLength() - 4),
       );
       // Test that the log payload (ie ignoring address, selector, and header) matches what we emitted
       expect(functionLogs.logs[0].data.subarray(-32).toString('hex')).toEqual(owner.toBuffer().toString('hex'));
@@ -246,8 +248,9 @@ describe('Private Execution test suite', () => {
 
       const [unencryptedLog] = newUnencryptedLogs;
       expect(unencryptedLog.value).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
+      // We take 4 to avoid counting the extra 4 bytes used to store len for L1
       expect(result.callStackItem.publicInputs.unencryptedLogPreimagesLength).toEqual(
-        new Fr(functionLogs.getSerializedLength()),
+        new Fr(functionLogs.getSerializedLength() - 4),
       );
       // Test that the log payload (ie ignoring address, selector, and header) matches what we emitted
       const expected = Buffer.concat(args[0].map(arg => arg.toBuffer())).toString('hex');
