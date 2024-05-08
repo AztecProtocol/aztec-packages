@@ -118,7 +118,7 @@ async function startBareSpot(config: ActionConfig) {
     const tempKeyPath = installSshKey(config.ec2Key);
     await standardSpawn("bash", [
       "-c",
-      `export SPOT_IP={ip}\nexport SPOT_KEY={tempKeyPath}\n` + config.localCommand,
+      `export SPOT_IP=${ip}\nexport SPOT_KEY=${tempKeyPath}\n` + config.localCommand,
     ]);
   }
   if (config.command) {
