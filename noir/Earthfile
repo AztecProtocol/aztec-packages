@@ -54,7 +54,7 @@ format:
   WORKDIR ./noir-repo/test_programs
   RUN ./format.sh check
 
-  WORKDIR ./noir-repo/noir_stdlib
+  WORKDIR ../noir_stdlib
   RUN nargo fmt --check
   
 packages-deps:
