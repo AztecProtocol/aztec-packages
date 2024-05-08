@@ -6,6 +6,6 @@
  */
 inline std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
 {
-    std::string command = "gunzip -c \"" + bytecodePath + "\"";
+    std::string command = "jq -r '.bytecode' \"" + bytecodePath + "\" | base64 -d | gunzip -c";
     return exec_pipe(command);
 }

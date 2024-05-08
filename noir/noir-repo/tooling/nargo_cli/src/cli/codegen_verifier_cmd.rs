@@ -46,7 +46,7 @@ pub(crate) fn run(
     let binary_packages = workspace.into_iter().filter(|package| package.is_binary());
     for package in binary_packages {
         let program_artifact_path = workspace.package_build_path(package);
-        let program: CompiledProgram = read_program_from_file(program_artifact_path)?.into();
+        let program: CompiledProgram = read_program_from_file(&program_artifact_path)?.into();
 
         // TODO(https://github.com/noir-lang/noir/issues/4428):
         // We do not expect to have a smart contract verifier for a foldable program with multiple circuits.
@@ -54,7 +54,7 @@ pub(crate) fn run(
         // that will be inlined at a later step such as by the ACVM compiler or by the backend.
         // Add appropriate handling here once the compiler enables multiple ACIR functions.
         assert_eq!(program.program.functions.len(), 1);
-        let smart_contract_string = backend.eth_contract(&program.program)?;
+        let smart_contract_string = backend.eth_contract(program_artifact_path)?;
 
         let contract_dir = workspace.contracts_directory_path(package);
         create_named_dir(&contract_dir, "contract");

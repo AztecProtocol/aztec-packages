@@ -19,7 +19,7 @@ mod debug_cmd;
 mod execute_cmd;
 mod export_cmd;
 mod fmt_cmd;
-mod info_cmd;
+// mod info_cmd;
 mod init_cmd;
 mod lsp_cmd;
 mod new_cmd;
@@ -76,7 +76,7 @@ enum NargoCommand {
     Prove(prove_cmd::ProveCommand),
     Verify(verify_cmd::VerifyCommand),
     Test(test_cmd::TestCommand),
-    Info(info_cmd::InfoCommand),
+    // Info(info_cmd::InfoCommand),
     Lsp(lsp_cmd::LspCommand),
     #[command(hide = true)]
     Dap(dap_cmd::DapCommand),
@@ -117,7 +117,7 @@ pub(crate) fn start_cli() -> eyre::Result<()> {
         NargoCommand::Prove(args) => prove_cmd::run(&backend, args, config),
         NargoCommand::Verify(args) => verify_cmd::run(&backend, args, config),
         NargoCommand::Test(args) => test_cmd::run(args, config),
-        NargoCommand::Info(args) => info_cmd::run(&backend, args, config),
+        // NargoCommand::Info(args) => info_cmd::run(&backend, args, config),
         NargoCommand::CodegenVerifier(args) => codegen_verifier_cmd::run(&backend, args, config),
         NargoCommand::Backend(args) => backend_cmd::run(args),
         NargoCommand::Lsp(args) => lsp_cmd::run(args, config),
