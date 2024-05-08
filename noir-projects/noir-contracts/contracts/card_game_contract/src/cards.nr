@@ -1,13 +1,9 @@
 use dep::aztec::prelude::{AztecAddress, FunctionSelector, PrivateContext, NoteHeader, NoteGetterOptions, NoteViewerOptions};
 
 use dep::aztec::{
-    protocol_types::{
-    traits::{ToField, Serialize, FromField},
-    constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-},
-    keys::getters::get_npk_m_h,
-    context::{PublicContext, Context}, note::note_getter::view_notes, state_vars::PrivateSet,
-    note::constants::MAX_NOTES_PER_PAGE
+    protocol_types::{traits::{ToField, Serialize, FromField}, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
+    keys::getters::get_npk_m_h, context::{PublicContext, Context}, note::note_getter::view_notes,
+    state_vars::PrivateSet, note::constants::MAX_NOTES_PER_PAGE
 };
 use dep::std;
 use dep::std::{option::Option};
@@ -105,7 +101,7 @@ impl Deck {
 
     pub fn add_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
         let _context = self.set.context.private.unwrap();
-        
+
         let owner_nullifier_public_key_hash = get_npk_m_h(self.set.context.private.unwrap(), owner);
 
         let mut inserted_cards = &[];

@@ -53,7 +53,10 @@ pub fn filter_min_points(
 // docs:end:state_vars-OptionFilter
 
 // docs:start:state_vars-NoteGetterOptionsFilter
-pub fn create_account_cards_with_min_points_getter_options(account_nullifying_public_key_hash: Field, min_points: u8) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, u8> {
+pub fn create_account_cards_with_min_points_getter_options(
+    account_nullifying_public_key_hash: Field,
+    min_points: u8
+) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, u8> {
     NoteGetterOptions::with_filter(filter_min_points, min_points).select(
         CardNote::properties().owner_npk_m_h,
         account_nullifying_public_key_hash,

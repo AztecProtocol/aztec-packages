@@ -166,7 +166,7 @@ contract DocsExample {
     // docs:start:initialize-private-mutable
     #[aztec(private)]
     fn initialize_private_immutable(randomness: Field, points: u8) {
-        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, context.msg_sender());        
+        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, context.msg_sender());
 
         let mut new_card = CardNote::new(points, randomness, owner_nullifier_public_key_hash);
         storage.private_immutable.initialize(&mut new_card, true);
@@ -176,7 +176,7 @@ contract DocsExample {
     #[aztec(private)]
     // msg_sender() is 0 at deploy time. So created another function
     fn initialize_private(randomness: Field, points: u8) {
-        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, context.msg_sender());        
+        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, context.msg_sender());
 
         let mut legendary_card = CardNote::new(points, randomness, owner_nullifier_public_key_hash);
         // create and broadcast note
@@ -185,7 +185,7 @@ contract DocsExample {
 
     #[aztec(private)]
     fn insert_notes(amounts: [u8; 3]) {
-        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, context.msg_sender());        
+        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, context.msg_sender());
 
         for i in 0..amounts.len() {
             let mut note = CardNote::new(amounts[i], 1, owner_nullifier_public_key_hash);
@@ -195,7 +195,7 @@ contract DocsExample {
 
     #[aztec(private)]
     fn insert_note(amount: u8, randomness: Field) {
-        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, context.msg_sender());        
+        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, context.msg_sender());
 
         let mut note = CardNote::new(amount, randomness, owner_nullifier_public_key_hash);
         storage.set.insert(&mut note, true);
@@ -218,7 +218,7 @@ contract DocsExample {
 
     #[aztec(private)]
     fn update_legendary_card(randomness: Field, points: u8) {
-        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, context.msg_sender());        
+        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, context.msg_sender());
 
         let mut new_card = CardNote::new(points, randomness, owner_nullifier_public_key_hash);
         storage.legendary_card.replace(&mut new_card, true);
@@ -236,7 +236,7 @@ contract DocsExample {
 
         let points = card.points + 1;
 
-        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, context.msg_sender());        
+        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, context.msg_sender());
 
         let mut new_card = CardNote::new(points, card.randomness, owner_nullifier_public_key_hash);
         // docs:start:state_vars-PrivateMutableReplace

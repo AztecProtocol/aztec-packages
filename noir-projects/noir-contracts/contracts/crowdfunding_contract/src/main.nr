@@ -5,8 +5,7 @@ contract Crowdfunding {
     // docs:start:all-deps
     use dep::aztec::{
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize},
-        state_vars::{PrivateSet, PublicImmutable, SharedImmutable},
-        keys::getters::get_npk_m_h,
+        state_vars::{PrivateSet, PublicImmutable, SharedImmutable}, keys::getters::get_npk_m_h
     };
     use dep::value_note::value_note::ValueNote;
     use dep::token::Token;

@@ -28,7 +28,7 @@ contract Test {
         hash::{pedersen_hash, poseidon2_hash, compute_secret_hash, ArgsHasher},
         note::{
         lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
-        note_getter_options::NoteStatus,
+        note_getter_options::NoteStatus
     },
         deploy::deploy_contract as aztec_deploy_contract,
         oracle::{

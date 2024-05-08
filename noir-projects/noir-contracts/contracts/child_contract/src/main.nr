@@ -6,7 +6,7 @@ contract Child {
         context::{PublicContext, Context, gas::GasOpts},
         protocol_types::{abis::{call_context::CallContext}},
         note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader},
-        keys::getters::get_npk_m_h,
+        keys::getters::get_npk_m_h
     };
     use dep::value_note::value_note::ValueNote;
 

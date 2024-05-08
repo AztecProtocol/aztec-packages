@@ -1,7 +1,11 @@
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract StatefulTest {
     use dep::aztec::prelude::{PrivateContext, NoteHeader, Map, PublicMutable, PrivateSet, AztecAddress, FunctionSelector};
-    use dep::value_note::{balance_utils, utils::{increment, increment_without_calling_registry, decrement, decrement_without_calling_registry}, value_note::{VALUE_NOTE_LEN, ValueNote}};
+    use dep::value_note::{
+        balance_utils,
+        utils::{increment, increment_without_calling_registry, decrement, decrement_without_calling_registry},
+        value_note::{VALUE_NOTE_LEN, ValueNote}
+    };
     use dep::aztec::{
         deploy::deploy_contract as aztec_deploy_contract,
         context::{PublicContext, Context, gas::GasOpts},
@@ -22,7 +26,11 @@ contract StatefulTest {
 
     #[aztec(private)]
     #[aztec(initializer)]
-    fn constructor_no_registry(owner: AztecAddress, owner_nullifier_public_key_hash: Field, value: Field) {
+    fn constructor_no_registry(
+        owner: AztecAddress,
+        owner_nullifier_public_key_hash: Field,
+        value: Field
+    ) {
         StatefulTest::at(context.this_address()).create_note_no_registry_no_init_check(owner, owner_nullifier_public_key_hash, value).call(&mut context);
     }
 
@@ -58,7 +66,11 @@ contract StatefulTest {
 
     #[aztec(private)]
     #[aztec(noinitcheck)]
-    fn create_note_no_registry_no_init_check(owner: AztecAddress, owner_nullifier_public_key_hash: Field, value: Field) {
+    fn create_note_no_registry_no_init_check(
+        owner: AztecAddress,
+        owner_nullifier_public_key_hash: Field,
+        value: Field
+    ) {
         if (value != 0) {
             let loc = storage.notes.at(owner);
             increment_without_calling_registry(loc, value, owner_nullifier_public_key_hash);
@@ -91,7 +103,12 @@ contract StatefulTest {
 
     #[aztec(private)]
     #[aztec(noinitcheck)]
-    fn destroy_and_create_no_registry_no_init_check(sender_nullifier_public_key_hash: Field, recipient: AztecAddress, recipient_nullifier_public_key_hash: Field, amount: Field) {
+    fn destroy_and_create_no_registry_no_init_check(
+        sender_nullifier_public_key_hash: Field,
+        recipient: AztecAddress,
+        recipient_nullifier_public_key_hash: Field,
+        amount: Field
+    ) {
         let sender_notes = storage.notes.at(context.msg_sender());
         decrement_without_calling_registry(sender_notes, amount, sender_nullifier_public_key_hash);
 

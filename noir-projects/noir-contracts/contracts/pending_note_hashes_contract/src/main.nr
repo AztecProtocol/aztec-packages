@@ -84,7 +84,11 @@ contract PendingNoteHashes {
     }
 
     #[aztec(private)]
-    fn test_bad_get_then_insert_flat_no_registry(amount: Field, owner: AztecAddress, owner_nullifier_public_key_hash: Field) -> Field {
+    fn test_bad_get_then_insert_flat_no_registry(
+        amount: Field,
+        owner: AztecAddress,
+        owner_nullifier_public_key_hash: Field
+    ) -> Field {
         let owner_balance = storage.balances.at(owner);
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
@@ -117,7 +121,11 @@ contract PendingNoteHashes {
     }
 
     #[aztec(private)]
-    fn insert_note_no_registry(amount: Field, owner: AztecAddress, owner_nullifier_public_key_hash: Field) {
+    fn insert_note_no_registry(
+        amount: Field,
+        owner: AztecAddress,
+        owner_nullifier_public_key_hash: Field
+    ) {
         let owner_balance = storage.balances.at(owner);
         let mut note = ValueNote::new(amount, owner_nullifier_public_key_hash);
 

@@ -3,7 +3,7 @@ use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteInterf
 use dep::aztec::{
     note::utils::compute_note_hash_for_consumption,
     oracle::{nullifier_key::get_nsk_app_with_npk_m_h, get_public_key::get_public_key_with_npk_m_h},
-    hash::poseidon2_hash, protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+    hash::poseidon2_hash, protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER
 };
 
 global ECDSA_PUBLIC_KEY_NOTE_LEN: Field = 5;

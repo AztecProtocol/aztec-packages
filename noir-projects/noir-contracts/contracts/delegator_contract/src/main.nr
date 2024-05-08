@@ -1,6 +1,9 @@
 // A contract used along with `Parent` contract to test nested calls.
 contract Delegator {
-    use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteViewerOptions, NoteGetterOptions, PublicMutable, PrivateSet, Deserialize};
+    use dep::aztec::prelude::{
+        AztecAddress, FunctionSelector, NoteHeader, NoteViewerOptions, NoteGetterOptions, PublicMutable,
+        PrivateSet, Deserialize
+    };
     use dep::aztec::keys::getters::get_npk_m_h;
     use dep::value_note::value_note::ValueNote;
     use dep::delegated_on::DelegatedOn;
