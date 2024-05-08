@@ -147,7 +147,7 @@ class AvmTraceBuilder {
     AvmBinaryTraceBuilder bin_trace_builder;
     AvmKernelTraceBuilder kernel_trace_builder;
 
-    Row create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t selector, FF value);
+    Row create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t selector, FF value, AvmMemoryTag w_tag);
     void finalise_mem_trace_lookup_counts();
 
     IndirectThreeResolution resolve_ind_three(

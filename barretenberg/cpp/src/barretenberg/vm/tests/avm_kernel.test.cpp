@@ -1,5 +1,6 @@
 
 #include "avm_common.test.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_kernel_trace.hpp"
 #include "barretenberg/vm/avm_trace/constants.hpp"
 
@@ -48,7 +49,7 @@ void test_kernel_lookup(OpcodesFunc apply_opcodes, CheckFunc check_trace)
 /*
  * Helper function to assert row values for a kernel lookup opcode
  */
-void expect_row(std::vector<Row>::const_iterator row, FF selector, FF ia, FF mem_idx_a)
+void expect_row(std::vector<Row>::const_iterator row, FF selector, FF ia, FF mem_idx_a, AvmMemoryTag w_in_tag)
 {
     // Checks dependent on the opcode
     EXPECT_EQ(row->avm_kernel_kernel_sel, selector);
@@ -60,7 +61,7 @@ void expect_row(std::vector<Row>::const_iterator row, FF selector, FF ia, FF mem
     EXPECT_EQ(row->avm_main_ind_a, FF(0));
     EXPECT_EQ(row->avm_mem_op_a, FF(1));
     // TODO: below should really be a field element for each type
-    EXPECT_EQ(row->avm_main_w_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32));
+    EXPECT_EQ(row->avm_main_w_in_tag, static_cast<uint32_t>(w_in_tag));
     EXPECT_EQ(row->avm_main_q_kernel_lookup, FF(1));
 }
 
@@ -78,7 +79,8 @@ TEST_F(AvmKernelPositiveTests, kernelSender)
                    /*kernel_sel=*/SENDER_SELECTOR,
                    /*ia=*/SENDER_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
-                   /*mem_idx_a*/ dst_offset);
+                   /*mem_idx_a=*/dst_offset,
+                   /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
     test_kernel_lookup(apply_opcodes, checks);
@@ -97,7 +99,8 @@ TEST_F(AvmKernelPositiveTests, kernelAddress)
                    /*kernel_sel=*/ADDRESS_SELECTOR,
                    /*ia=*/ADDRESS_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
-                   /*mem_idx_a*/ dst_offset);
+                   /*mem_idx_a=*/dst_offset,
+                   /*w_in_tag=*/AvmMemoryTag::FF);
     };
     test_kernel_lookup(apply_opcodes, checks);
 }
@@ -115,7 +118,8 @@ TEST_F(AvmKernelPositiveTests, kernelPortal)
                    /*kernel_sel=*/PORTAL_SELECTOR,
                    /*ia=*/PORTAL_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
-                   /*mem_idx_a*/ dst_offset);
+                   /*mem_idx_a=*/dst_offset,
+                   /*w_in_tag=*/AvmMemoryTag::FF);
     };
     test_kernel_lookup(apply_opcodes, checks);
 }
@@ -133,7 +137,8 @@ TEST_F(AvmKernelPositiveTests, kernelFeePerDa)
                    /*kernel_sel=*/FEE_PER_DA_GAS_SELECTOR,
                    /*ia=*/FEE_PER_DA_GAS_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
-                   /*mem_idx_a*/ dst_offset);
+                   /*mem_idx_a=*/dst_offset,
+                   /*w_in_tag=*/AvmMemoryTag::FF);
     };
     test_kernel_lookup(apply_opcodes, checks);
 }
@@ -151,7 +156,8 @@ TEST_F(AvmKernelPositiveTests, kernelFeePerL2)
                    /*kernel_sel=*/FEE_PER_L2_GAS_SELECTOR,
                    /*ia=*/FEE_PER_L2_GAS_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
-                   /*mem_idx_a*/ dst_offset);
+                   /*mem_idx_a=*/dst_offset,
+                   /*w_in_tag=*/AvmMemoryTag::FF);
     };
     test_kernel_lookup(apply_opcodes, checks);
 }
@@ -166,10 +172,11 @@ TEST_F(AvmKernelPositiveTests, kernelTransactionFee)
         EXPECT_TRUE(fee_row != trace.end());
 
         expect_row(fee_row,
-                   /*kernel_sel=*/TRANSCTION_FEE_SELECTOR,
-                   /*ia=*/TRANSCTION_FEE_SELECTOR +
+                   /*kernel_sel=*/TRANSACTION_FEE_SELECTOR,
+                   /*ia=*/TRANSACTION_FEE_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
-                   /*mem_idx_a*/ dst_offset);
+                   /*mem_idx_a=*/dst_offset,
+                   /*w_in_tag=*/AvmMemoryTag::FF);
     };
     test_kernel_lookup(apply_opcodes, checks);
 }
@@ -187,7 +194,8 @@ TEST_F(AvmKernelPositiveTests, kernelChainId)
                    /*kernel_sel=*/CHAIN_ID_SELECTOR,
                    /*ia=*/CHAIN_ID_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
-                   /*mem_idx_a*/ dst_offset);
+                   /*mem_idx_a=*/dst_offset,
+                   /*w_in_tag=*/AvmMemoryTag::FF);
     };
     test_kernel_lookup(apply_opcodes, checks);
 }
@@ -205,7 +213,8 @@ TEST_F(AvmKernelPositiveTests, kernelVersion)
                    /*kernel_sel=*/VERSION_SELECTOR,
                    /*ia=*/VERSION_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
-                   /*mem_idx_a*/ dst_offset);
+                   /*mem_idx_a=*/dst_offset,
+                   /*w_in_tag=*/AvmMemoryTag::FF);
     };
     test_kernel_lookup(apply_opcodes, checks);
 }
@@ -223,7 +232,8 @@ TEST_F(AvmKernelPositiveTests, kernelBlockNumber)
                    /*kernel_sel=*/BLOCK_NUMBER_SELECTOR,
                    /*ia=*/BLOCK_NUMBER_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
-                   /*mem_idx_a*/ dst_offset);
+                   /*mem_idx_a=*/dst_offset,
+                   /*w_in_tag=*/AvmMemoryTag::FF);
     };
     test_kernel_lookup(apply_opcodes, checks);
 }
@@ -241,7 +251,8 @@ TEST_F(AvmKernelPositiveTests, kernelCoinbase)
                    /*kernel_sel=*/COINBASE_SELECTOR,
                    /*ia=*/COINBASE_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
-                   /*mem_idx_a*/ dst_offset);
+                   /*mem_idx_a*/ dst_offset,
+                   /*w_in_tag=*/AvmMemoryTag::FF);
     };
     test_kernel_lookup(apply_opcodes, checks);
 }
@@ -259,7 +270,8 @@ TEST_F(AvmKernelPositiveTests, kernelTimestamp)
                    /*kernel_sel=*/TIMESTAMP_SELECTOR,
                    /*ia=*/TIMESTAMP_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
-                   /*mem_idx_a*/ dst_offset);
+                   /*mem_idx_a*/ dst_offset,
+                   /*w_in_tag=*/AvmMemoryTag::U64);
     };
     test_kernel_lookup(apply_opcodes, checks);
 }
@@ -312,7 +324,8 @@ TEST_F(AvmKernelNegativeTests, incorrectIaSender)
             sender_row,
             /*kernel_sel=*/SENDER_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a*/ dst_offset);
+            /*mem_idx_a=*/dst_offset,
+            /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
     negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
@@ -334,7 +347,8 @@ TEST_F(AvmKernelNegativeTests, incorrectIaAddress)
             sender_row,
             /*kernel_sel=*/ADDRESS_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a*/ dst_offset);
+            /*mem_idx_a=*/dst_offset,
+            /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
     negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
@@ -356,7 +370,8 @@ TEST_F(AvmKernelNegativeTests, incorrectIaPortal)
             sender_row,
             /*kernel_sel=*/PORTAL_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a*/ dst_offset);
+            /*mem_idx_a=*/dst_offset,
+            /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
     negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
@@ -378,7 +393,8 @@ TEST_F(AvmKernelNegativeTests, incorrectIaDaGas)
             sender_row,
             /*kernel_sel=*/FEE_PER_DA_GAS_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a*/ dst_offset);
+            /*mem_idx_a=*/dst_offset,
+            /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
     negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
@@ -400,7 +416,8 @@ TEST_F(AvmKernelNegativeTests, incorrectIal2Gas)
             sender_row,
             /*kernel_sel=*/FEE_PER_L2_GAS_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a*/ dst_offset);
+            /*mem_idx_a=*/dst_offset,
+            /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
     negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
@@ -422,7 +439,8 @@ TEST_F(AvmKernelNegativeTests, incorrectIaTransactionFee)
             sender_row,
             /*kernel_sel=*/TRANSACTION_FEE_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a*/ dst_offset);
+            /*mem_idx_a=*/dst_offset,
+            /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
     negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
@@ -444,7 +462,8 @@ TEST_F(AvmKernelNegativeTests, incorrectIaChainId)
             sender_row,
             /*kernel_sel=*/CHAIN_ID_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a*/ dst_offset);
+            /*mem_idx_a=*/dst_offset,
+            /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
     negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
@@ -466,7 +485,8 @@ TEST_F(AvmKernelNegativeTests, incorrectIaVersion)
             sender_row,
             /*kernel_sel=*/VERSION_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a*/ dst_offset);
+            /*mem_idx_a=*/dst_offset,
+            /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
     negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
@@ -488,7 +508,8 @@ TEST_F(AvmKernelNegativeTests, incorrectIaBlockNumber)
             sender_row,
             /*kernel_sel=*/BLOCK_NUMBER_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a*/ dst_offset);
+            /*mem_idx_a=*/dst_offset,
+            /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
     negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
@@ -510,7 +531,8 @@ TEST_F(AvmKernelNegativeTests, incorrectIaTimestamp)
             sender_row,
             /*kernel_sel=*/TIMESTAMP_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a*/ dst_offset);
+            /*mem_idx_a*/ dst_offset,
+            /*w_in_tag=*/AvmMemoryTag::U64);
     };
 
     negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
@@ -532,7 +554,8 @@ TEST_F(AvmKernelNegativeTests, incorrectIaCoinbase)
             sender_row,
             /*kernel_sel=*/COINBASE_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
-            /*mem_idx_a*/ dst_offset);
+            /*mem_idx_a=*/dst_offset,
+            /*w_in_tag=*/AvmMemoryTag::FF);
     };
 
     negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");

@@ -1058,14 +1058,11 @@ void AvmTraceBuilder::op_cmov(
 }
 
 // Helper function to add kernel lookup operations into the main trace
-Row AvmTraceBuilder::create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t selector, FF value)
+Row AvmTraceBuilder::create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t selector, FF value, AvmMemoryTag w_tag)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size());
 
-    // Get the value of op sender from the mem trace
-    // TODO: the tag of sender should be a field element no?
     AvmMemoryTag r_tag = AvmMemoryTag::U0;
-    AvmMemoryTag w_tag = AvmMemoryTag::U32; // THIS WAS U32
     mem_trace_builder.write_into_memory(clk, IntermRegister::IA, dst_offset, value, r_tag, w_tag);
 
     // TODO: must i constrain r in tag to be the type of the write operation in pil?
@@ -1088,7 +1085,7 @@ Row AvmTraceBuilder::create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t s
 void AvmTraceBuilder::op_sender(uint32_t dst_offset)
 {
     FF ia_value = kernel_trace_builder.op_sender();
-    Row row = create_kernel_lookup_opcode(dst_offset, SENDER_SELECTOR, ia_value);
+    Row row = create_kernel_lookup_opcode(dst_offset, SENDER_SELECTOR, ia_value, AvmMemoryTag::FF);
     row.avm_main_sel_op_sender = FF(1);
 
     main_trace.push_back(row);
@@ -1097,7 +1094,7 @@ void AvmTraceBuilder::op_sender(uint32_t dst_offset)
 void AvmTraceBuilder::op_address(uint32_t dst_offset)
 {
     FF ia_value = kernel_trace_builder.op_address();
-    Row row = create_kernel_lookup_opcode(dst_offset, ADDRESS_SELECTOR, ia_value);
+    Row row = create_kernel_lookup_opcode(dst_offset, ADDRESS_SELECTOR, ia_value, AvmMemoryTag::FF);
     row.avm_main_sel_op_address = FF(1);
 
     main_trace.push_back(row);
@@ -1106,7 +1103,7 @@ void AvmTraceBuilder::op_address(uint32_t dst_offset)
 void AvmTraceBuilder::op_portal(uint32_t dst_offset)
 {
     FF ia_value = kernel_trace_builder.op_portal();
-    Row row = create_kernel_lookup_opcode(dst_offset, PORTAL_SELECTOR, ia_value);
+    Row row = create_kernel_lookup_opcode(dst_offset, PORTAL_SELECTOR, ia_value, AvmMemoryTag::FF);
     row.avm_main_sel_op_portal = FF(1);
 
     main_trace.push_back(row);
@@ -1115,7 +1112,7 @@ void AvmTraceBuilder::op_portal(uint32_t dst_offset)
 void AvmTraceBuilder::op_fee_per_da_gas(uint32_t dst_offset)
 {
     FF ia_value = kernel_trace_builder.op_fee_per_da_gas();
-    Row row = create_kernel_lookup_opcode(dst_offset, FEE_PER_DA_GAS_SELECTOR, ia_value);
+    Row row = create_kernel_lookup_opcode(dst_offset, FEE_PER_DA_GAS_SELECTOR, ia_value, AvmMemoryTag::FF);
     row.avm_main_sel_op_fee_per_da_gas = FF(1);
 
     main_trace.push_back(row);
@@ -1124,7 +1121,7 @@ void AvmTraceBuilder::op_fee_per_da_gas(uint32_t dst_offset)
 void AvmTraceBuilder::op_fee_per_l2_gas(uint32_t dst_offset)
 {
     FF ia_value = kernel_trace_builder.op_fee_per_l2_gas();
-    Row row = create_kernel_lookup_opcode(dst_offset, FEE_PER_L2_GAS_SELECTOR, ia_value);
+    Row row = create_kernel_lookup_opcode(dst_offset, FEE_PER_L2_GAS_SELECTOR, ia_value, AvmMemoryTag::FF);
     row.avm_main_sel_op_fee_per_l2_gas = FF(1);
 
     main_trace.push_back(row);
@@ -1133,7 +1130,7 @@ void AvmTraceBuilder::op_fee_per_l2_gas(uint32_t dst_offset)
 void AvmTraceBuilder::op_transaction_fee(uint32_t dst_offset)
 {
     FF ia_value = kernel_trace_builder.op_transaction_fee();
-    Row row = create_kernel_lookup_opcode(dst_offset, TRANSACTION_FEE_SELECTOR, ia_value);
+    Row row = create_kernel_lookup_opcode(dst_offset, TRANSACTION_FEE_SELECTOR, ia_value, AvmMemoryTag::FF);
     row.avm_main_sel_op_transaction_fee = FF(1);
 
     main_trace.push_back(row);
@@ -1142,7 +1139,7 @@ void AvmTraceBuilder::op_transaction_fee(uint32_t dst_offset)
 void AvmTraceBuilder::op_chain_id(uint32_t dst_offset)
 {
     FF ia_value = kernel_trace_builder.op_chain_id();
-    Row row = create_kernel_lookup_opcode(dst_offset, CHAIN_ID_SELECTOR, ia_value);
+    Row row = create_kernel_lookup_opcode(dst_offset, CHAIN_ID_SELECTOR, ia_value, AvmMemoryTag::FF);
     row.avm_main_sel_op_chain_id = FF(1);
 
     main_trace.push_back(row);
@@ -1151,7 +1148,7 @@ void AvmTraceBuilder::op_chain_id(uint32_t dst_offset)
 void AvmTraceBuilder::op_version(uint32_t dst_offset)
 {
     FF ia_value = kernel_trace_builder.op_version();
-    Row row = create_kernel_lookup_opcode(dst_offset, VERSION_SELECTOR, ia_value);
+    Row row = create_kernel_lookup_opcode(dst_offset, VERSION_SELECTOR, ia_value, AvmMemoryTag::FF);
     row.avm_main_sel_op_version = FF(1);
 
     main_trace.push_back(row);
@@ -1160,7 +1157,7 @@ void AvmTraceBuilder::op_version(uint32_t dst_offset)
 void AvmTraceBuilder::op_block_number(uint32_t dst_offset)
 {
     FF ia_value = kernel_trace_builder.op_block_number();
-    Row row = create_kernel_lookup_opcode(dst_offset, BLOCK_NUMBER_SELECTOR, ia_value);
+    Row row = create_kernel_lookup_opcode(dst_offset, BLOCK_NUMBER_SELECTOR, ia_value, AvmMemoryTag::FF);
     row.avm_main_sel_op_block_number = FF(1);
 
     main_trace.push_back(row);
@@ -1169,7 +1166,7 @@ void AvmTraceBuilder::op_block_number(uint32_t dst_offset)
 void AvmTraceBuilder::op_coinbase(uint32_t dst_offset)
 {
     FF ia_value = kernel_trace_builder.op_coinbase();
-    Row row = create_kernel_lookup_opcode(dst_offset, COINBASE_SELECTOR, ia_value);
+    Row row = create_kernel_lookup_opcode(dst_offset, COINBASE_SELECTOR, ia_value, AvmMemoryTag::FF);
     row.avm_main_sel_op_coinbase = FF(1);
 
     main_trace.push_back(row);
@@ -1178,7 +1175,7 @@ void AvmTraceBuilder::op_coinbase(uint32_t dst_offset)
 void AvmTraceBuilder::op_timestamp(uint32_t dst_offset)
 {
     FF ia_value = kernel_trace_builder.op_timestamp();
-    Row row = create_kernel_lookup_opcode(dst_offset, TIMESTAMP_SELECTOR, ia_value);
+    Row row = create_kernel_lookup_opcode(dst_offset, TIMESTAMP_SELECTOR, ia_value, AvmMemoryTag::U64);
     row.avm_main_sel_op_timestamp = FF(1);
 
     main_trace.push_back(row);
