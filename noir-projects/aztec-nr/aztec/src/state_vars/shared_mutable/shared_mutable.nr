@@ -130,7 +130,8 @@ mod test {
             Context::private(&mut private_context)
         } else {
             let mut public_context = PublicContext::empty();
-            public_context.inputs.public_global_variables.block_number = block_number;
+            // FIXME
+            // public_context.inputs.public_global_variables.block_number = block_number;
             Context::public(&mut public_context)
         }
     }

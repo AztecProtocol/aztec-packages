@@ -37,7 +37,7 @@ pub fn transform_function(
     let context_name = format!("{}Context", ty);
     let inputs_name = format!("{}ContextInputs", ty);
     let return_type_name = format!("{}CircuitPublicInputs", ty);
-    let is_avm = ty == "Avm";
+    let is_avm = ty == "Public";
     let is_private = ty == "Private";
 
     // Add check that msg sender equals this address and flag function as internal
@@ -108,7 +108,7 @@ pub fn transform_function(
     }
 
     // Public functions should have unconstrained auto-inferred
-    func.def.is_unconstrained = matches!(ty, "Public" | "Avm");
+    func.def.is_unconstrained = is_avm;
 
     // Private functions need to be recursive
     if is_private {
@@ -446,25 +446,29 @@ fn create_context(ty: &str, params: &[Param]) -> Result<Vec<Statement>, AztecMac
 ///
 /// The replaced code:
 /// ```noir
-/// #[aztec(public-vm)]
-/// fn foo(inputs: AvmContextInputs, ...) -> Field {
-///     let mut context = AvmContext::new(inputs);
+/// #[aztec(public)]
+/// fn foo(inputs: PublicContextInputs, ...) -> Field {
+///     let mut context = PublicContext::new(inputs);
 /// }
 /// ```
 fn create_context_avm() -> Result<Vec<Statement>, AztecMacroError> {
     let mut injected_expressions: Vec<Statement> = vec![];
 
     // Create the inputs to the context
-    let ty = "AvmContext";
     let inputs_expression = variable("inputs");
-    let path_snippet = ty.to_case(Case::Snake); // e.g. private_context
 
     // let mut context = {ty}::new(inputs, hash);
     let let_context = mutable_assignment(
         "context", // Assigned to
         call(
-            variable_path(chained_dep!("aztec", "context", &path_snippet, ty, "new")), // Path
-            vec![inputs_expression],                                                   // args
+            variable_path(chained_dep!(
+                "aztec",
+                "context",
+                "public_context",
+                "PublicContext",
+                "new"
+            )), // Path
+            vec![inputs_expression], // args
         ),
     );
     injected_expressions.push(let_context);

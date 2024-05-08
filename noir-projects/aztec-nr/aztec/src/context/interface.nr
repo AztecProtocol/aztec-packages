@@ -3,7 +3,6 @@ use dep::protocol_types::{abis::function_selector::FunctionSelector, address::{A
 use crate::hash::hash_args;
 use crate::context::private_context::PrivateContext;
 use crate::context::public_context::PublicContext;
-use crate::context::avm_context::AvmContext;
 use crate::context::gas::GasOpts;
 use crate::context::public_context::FunctionReturns;
 
@@ -19,8 +18,8 @@ trait ContextInterface {
 }
 
 // TEMPORARY: This trait is to promote sharing of the current public context
-// and the upcoming AvmContext. This will be removed once the AvmContext is the default.
-// If you are adding something here, then you should also implement it in the AvmContext.
+// and the upcoming PublicContext. This will be removed once the PublicContext is the default.
+// If you are adding something here, then you should also implement it in the PublicContext.
 trait PublicContextInterface {
     fn block_number(self) -> Field;
     fn timestamp(self) -> u64;
@@ -114,119 +113,27 @@ impl PrivateVoidCallInterface {
 struct PublicCallInterface<T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
-    args_hash: Field,
-}
-
-impl<T> PublicCallInterface<T> {
-
-    pub fn call<N>(self, context: &mut PublicContext) -> T where T: Deserialize<N> {
-        let returns = context.call_public_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            self.args_hash,
-            false,
-            false
-        );
-        returns.deserialize_into()
-    }
-
-    pub fn static_call<N>(self, context: &mut PublicContext) -> T where T: Deserialize<N> {
-        let returns = context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false);
-        returns.deserialize_into()
-    }
-
-    pub fn delegate_call<N>(self, context: &mut PublicContext) -> T where T: Deserialize<N> {
-        let returns = context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true);
-        returns.deserialize_into()
-    }
-
-    pub fn enqueue(self, context: &mut PrivateContext) {
-        context.call_public_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            self.args_hash,
-            false,
-            false
-        )
-    }
-
-    pub fn static_enqueue(self, context: &mut PrivateContext) {
-        context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false)
-    }
-
-    pub fn delegate_enqueue(self, context: &mut PrivateContext) {
-        context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true)
-    }
-}
-
-struct PublicVoidCallInterface {
-    target_contract: AztecAddress,
-    selector: FunctionSelector,
-    args_hash: Field
-}
-
-impl PublicVoidCallInterface {
-    pub fn call(self, context: &mut PublicContext) {
-        context.call_public_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            self.args_hash,
-            false,
-            false
-        ).assert_empty()
-    }
-
-    pub fn static_call(self, context: &mut PublicContext) {
-        context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false).assert_empty();
-    }
-
-    pub fn delegate_call(self, context: &mut PublicContext) {
-        context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true).assert_empty();
-    }
-
-    pub fn enqueue(self, context: &mut PrivateContext) {
-        context.call_public_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            self.args_hash,
-            false,
-            false
-        )
-    }
-
-    pub fn static_enqueue(self, context: &mut PrivateContext) {
-        context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false)
-    }
-
-    pub fn delegate_enqueue(self, context: &mut PrivateContext) {
-        context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true)
-    }
-}
-
-struct AvmCallInterface<T> {
-    target_contract: AztecAddress,
-    selector: FunctionSelector,
     args: [Field],
     gas_opts: GasOpts,
 }
 
-impl<T> AvmCallInterface<T> {
+impl<T> PublicCallInterface<T> {
     pub fn with_gas(self: &mut Self, gas_opts: GasOpts) -> &mut Self {
         self.gas_opts = gas_opts;
         self
     }
 
-    pub fn call<N>(self, context: &mut AvmContext) -> T where T: Deserialize<N> {
+    pub fn call<N>(self, context: &mut PublicContext) -> T where T: Deserialize<N> {
         let returns = context.call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
         returns.deserialize_into()
     }
 
-    pub fn static_call<N>(self, context: &mut AvmContext) -> T where T: Deserialize<N> {
+    pub fn static_call<N>(self, context: &mut PublicContext) -> T where T: Deserialize<N> {
         let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
         returns.deserialize_into()
     }
 
-    pub fn delegate_call<N>(self, context: &mut AvmContext) -> T where T: Deserialize<N> {
+    pub fn delegate_call<N>(self, context: &mut PublicContext) -> T where T: Deserialize<N> {
         let returns = context.delegate_call_public_function(self.target_contract, self.selector, self.args);
         returns.deserialize_into()
     }
@@ -247,30 +154,30 @@ impl<T> AvmCallInterface<T> {
     }
 }
 
-struct AvmVoidCallInterface {
+struct PublicVoidCallInterface {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     args: [Field],
     gas_opts: GasOpts,
 }
 
-impl AvmVoidCallInterface {
+impl PublicVoidCallInterface {
     pub fn with_gas(self: &mut Self, gas_opts: GasOpts) -> &mut Self {
         self.gas_opts = gas_opts;
         self
     }
 
-    pub fn call<N>(self, context: &mut AvmContext) {
+    pub fn call<N>(self, context: &mut PublicContext) {
         let returns = context.call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
         returns.assert_empty()
     }
 
-    pub fn static_call<N>(self, context: &mut AvmContext) {
+    pub fn static_call<N>(self, context: &mut PublicContext) {
         let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
         returns.assert_empty()
     }
 
-    pub fn delegate_call<N>(self, context: &mut AvmContext) {
+    pub fn delegate_call<N>(self, context: &mut PublicContext) {
         let returns = context.delegate_call_public_function(self.target_contract, self.selector, self.args);
         returns.assert_empty()
     }
