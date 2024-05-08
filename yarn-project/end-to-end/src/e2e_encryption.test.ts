@@ -1,6 +1,5 @@
 import { EncryptedLogBody, EncryptedLogHeader, Fr, GrumpkinScalar, Note, type Wallet } from '@aztec/aztec.js';
 import { Aes128, Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { TestContract } from '@aztec/noir-contracts.js';
 
 import { randomBytes } from 'crypto';
