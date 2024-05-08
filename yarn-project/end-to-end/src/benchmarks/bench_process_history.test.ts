@@ -21,7 +21,7 @@ import {
 const BLOCK_SIZE = BENCHMARK_HISTORY_BLOCK_SIZE;
 const CHAIN_LENGTHS = BENCHMARK_HISTORY_CHAIN_LENGTHS;
 const MAX_CHAIN_LENGTH = CHAIN_LENGTHS[CHAIN_LENGTHS.length - 1];
-const SETUP_BLOCK_COUNT = 2; // deploy account + deploy contract
+const SETUP_BLOCK_COUNT = 3; // deploy protocol contracts + deploy account + deploy contract
 
 describe('benchmarks/process_history', () => {
   let context: EndToEndContext;
@@ -30,7 +30,7 @@ describe('benchmarks/process_history', () => {
 
   beforeEach(async () => {
     ({ context, contract, sequencer } = await benchmarkSetup({ maxTxsPerBlock: BLOCK_SIZE }));
-  }, 60_000);
+  });
 
   it(
     `processes chain history of ${MAX_CHAIN_LENGTH} with ${BLOCK_SIZE}-tx blocks`,

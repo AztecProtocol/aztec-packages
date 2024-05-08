@@ -213,8 +213,8 @@ const sidebars = {
       },
       items: [
         "developers/getting_started/quickstart",
-        "developers/getting_started/aztecnr-getting-started",
         "developers/getting_started/aztecjs-getting-started",
+        "developers/getting_started/aztecnr-getting-started",
       ],
     },
 
@@ -226,8 +226,9 @@ const sidebars = {
         id: "developers/tutorials/main",
       },
       items: [
-        "developers/tutorials/writing_token_contract",
         "developers/tutorials/writing_private_voting_contract",
+        "developers/tutorials/writing_token_contract",
+        "developers/tutorials/crowdfunding/donations",
 
         {
           label: "Writing a DApp",
@@ -259,25 +260,25 @@ const sidebars = {
             "developers/tutorials/token_portal/typescript_glue_code",
           ],
         },
-        {
-          label: "Swap on L1 Uniswap from L2 with Portals",
-          type: "category",
-          link: {
-            type: "doc",
-            id: "developers/tutorials/uniswap/main",
-          },
-          items: [
-            "developers/tutorials/uniswap/setup",
-            "developers/tutorials/uniswap/l1_portal",
-            "developers/tutorials/uniswap/l2_contract_setup",
-            "developers/tutorials/uniswap/swap_publicly",
-            "developers/tutorials/uniswap/execute_public_swap_on_l1",
-            "developers/tutorials/uniswap/swap_privately",
-            "developers/tutorials/uniswap/execute_private_swap_on_l1",
-            "developers/tutorials/uniswap/redeeming_swapped_assets_on_l2",
-            "developers/tutorials/uniswap/typescript_glue_code",
-          ],
-        },
+        // { // temporarily removing as it is very very messy with monorepo references. we need to write new ts for this
+        //   label: "Swap on L1 Uniswap from L2 with Portals",
+        //   type: "category",
+        //   link: {
+        //     type: "doc",
+        //     id: "developers/tutorials/uniswap/main",
+        //   },
+        //   items: [
+        //     "developers/tutorials/uniswap/setup",
+        //     "developers/tutorials/uniswap/l1_portal",
+        //     "developers/tutorials/uniswap/l2_contract_setup",
+        //     "developers/tutorials/uniswap/swap_publicly",
+        //     "developers/tutorials/uniswap/execute_public_swap_on_l1",
+        //     "developers/tutorials/uniswap/swap_privately",
+        //     "developers/tutorials/uniswap/execute_private_swap_on_l1",
+        //     "developers/tutorials/uniswap/redeeming_swapped_assets_on_l2",
+        //     "developers/tutorials/uniswap/typescript_glue_code",
+        //   ],
+        // },
         "developers/tutorials/testing",
       ],
     },
@@ -436,6 +437,7 @@ const sidebars = {
               items: [
                 "developers/contracts/references/storage/private_state",
                 "developers/contracts/references/storage/public_state",
+                "developers/contracts/references/storage/shared_state",
               ],
             },
             {
@@ -762,8 +764,12 @@ const sidebars = {
       type: "category",
       link: { type: "doc", id: "protocol-specs/gas-and-fees/index" },
       items: [
-        "protocol-specs/gas-and-fees/fee-payments-and-metering",
+        "protocol-specs/gas-and-fees/fee-payment-asset",
+        "protocol-specs/gas-and-fees/specifying-gas-fee-info",
+        "protocol-specs/gas-and-fees/tx-setup-and-teardown",
+        "protocol-specs/gas-and-fees/kernel-tracking",
         "protocol-specs/gas-and-fees/fee-schedule",
+        "protocol-specs/gas-and-fees/published-gas-and-fee-data",
       ],
     },
     {

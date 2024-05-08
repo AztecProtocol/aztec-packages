@@ -1,50 +1,54 @@
 import { type ProcessedTx } from '@aztec/circuit-types';
-import { type BlockResult, type ProverClient, type ProvingTicket } from '@aztec/circuit-types/interfaces';
+import {
+  type BlockResult,
+  type ProverClient,
+  type ProverConfig,
+  type ProvingJobSource,
+  type ProvingTicket,
+} from '@aztec/circuit-types/interfaces';
 import { type Fr, type GlobalVariables } from '@aztec/circuits.js';
 import { type SimulationProvider } from '@aztec/simulator';
 import { type WorldStateSynchronizer } from '@aztec/world-state';
 
-import { type ProverConfig } from '../config.js';
+import { type ProverClientConfig } from '../config.js';
 import { type VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
-import { CircuitProverAgent } from '../prover-pool/circuit-prover-agent.js';
+import { MemoryProvingQueue } from '../prover-pool/memory-proving-queue.js';
 import { ProverPool } from '../prover-pool/prover-pool.js';
-import { TestCircuitProver } from '../prover/test_circuit_prover.js';
 
 /**
  * A prover accepting individual transaction requests
  */
 export class TxProver implements ProverClient {
   private orchestrator: ProvingOrchestrator;
-  private proverPool: ProverPool;
+  private queue = new MemoryProvingQueue();
 
   constructor(
     private worldStateSynchronizer: WorldStateSynchronizer,
-    simulationProvider: SimulationProvider,
     protected vks: VerificationKeys,
-    agentCount = 4,
-    agentPollIntervalMS = 10,
+    private proverPool?: ProverPool,
   ) {
-    this.proverPool = new ProverPool(
-      agentCount,
-      i => new CircuitProverAgent(new TestCircuitProver(simulationProvider), agentPollIntervalMS, `${i}`),
-    );
+    this.orchestrator = new ProvingOrchestrator(worldStateSynchronizer.getLatest(), this.queue);
+  }
 
-    this.orchestrator = new ProvingOrchestrator(worldStateSynchronizer.getLatest(), this.proverPool.queue);
+  async updateProverConfig(config: Partial<ProverConfig>): Promise<void> {
+    if (typeof config.proverAgents === 'number') {
+      await this.proverPool?.rescale(config.proverAgents);
+    }
   }
 
   /**
    * Starts the prover instance
    */
   public async start() {
-    await this.proverPool.start();
+    await this.proverPool?.start(this.queue);
   }
 
   /**
    * Stops the prover instance
    */
   public async stop() {
-    await this.proverPool.stop();
+    await this.proverPool?.stop();
   }
 
   /**
@@ -54,11 +58,29 @@ export class TxProver implements ProverClient {
    * @returns An instance of the prover, constructed and started.
    */
   public static async new(
-    config: ProverConfig,
-    worldStateSynchronizer: WorldStateSynchronizer,
+    config: ProverClientConfig,
     simulationProvider: SimulationProvider,
+    worldStateSynchronizer: WorldStateSynchronizer,
   ) {
-    const prover = new TxProver(worldStateSynchronizer, simulationProvider, getVerificationKeys());
+    let pool: ProverPool | undefined;
+    if (config.proverAgents === 0) {
+      pool = undefined;
+    } else if (config.realProofs) {
+      if (
+        !config.acvmBinaryPath ||
+        !config.acvmWorkingDirectory ||
+        !config.bbBinaryPath ||
+        !config.bbWorkingDirectory
+      ) {
+        throw new Error();
+      }
+
+      pool = ProverPool.nativePool(config, config.proverAgents, config.proverAgentPollInterval);
+    } else {
+      pool = ProverPool.testPool(simulationProvider, config.proverAgents, config.proverAgentPollInterval);
+    }
+
+    const prover = new TxProver(worldStateSynchronizer, getVerificationKeys(), pool);
     await prover.start();
     return prover;
   }
@@ -109,5 +131,9 @@ export class TxProver implements ProverClient {
    */
   public setBlockCompleted(): Promise<void> {
     return this.orchestrator.setBlockCompleted();
+  }
+
+  getProvingJobSource(): ProvingJobSource {
+    return this.queue;
   }
 }

@@ -3,6 +3,7 @@
  * instantiate templates.
  */
 #pragma once
+#include "barretenberg/stdlib_circuit_builders/circuit_simulator.hpp"
 #include "barretenberg/stdlib_circuit_builders/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -13,10 +14,11 @@ concept HasPlookup = bb::IsAnyOf<T, bb::UltraCircuitBuilder, bb::GoblinUltraCirc
 template <typename T>
 concept IsStandardBuilder = bb::IsAnyOf<T, bb::StandardCircuitBuilder_<bb::fr>, bb::StandardCircuitBuilder_<bb::fq>>;
 template <typename T>
-concept IsUltraBuilder = bb::IsAnyOf<T, bb::UltraCircuitBuilder, bb::GoblinUltraCircuitBuilder>;
+concept IsUltraBuilder = bb::IsAnyOf<T, bb::UltraCircuitBuilder>;
+template <typename T>
+concept IsGoblinUltraBuilder = bb::IsAnyOf<T, bb::GoblinUltraCircuitBuilder>;
+template <typename T>
+concept IsNotGoblinUltraBuilder = !IsGoblinUltraBuilder<T>;
 
 template <typename T>
-concept IsGoblinBuilder = bb::IsAnyOf<T, bb::GoblinUltraCircuitBuilder>;
-template <typename T>
-concept IsNotGoblinBuilder = !
-IsGoblinBuilder<T>;
+concept IsSimulator = bb::IsAnyOf<T, bb::CircuitSimulatorBN254>;

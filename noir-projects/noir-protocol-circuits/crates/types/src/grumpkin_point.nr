@@ -3,6 +3,7 @@ use dep::std::cmp::Eq;
 
 global GRUMPKIN_POINT_SERIALIZED_LEN: Field = 2;
 
+// TODO(https://github.com/noir-lang/noir/issues/4931)
 struct GrumpkinPoint {
     x: Field,
     y: Field,
@@ -49,5 +50,16 @@ impl GrumpkinPoint {
     fn assert_is_zero(self) {
         assert(self.x == 0);
         assert(self.y == 0);
+    }
+
+    pub fn to_be_bytes(self: Self) -> [u8; 64] {
+        let mut result = [0 as u8; 64];
+        let x_bytes = self.x.to_be_bytes(32);
+        let y_bytes = self.y.to_be_bytes(32);
+        for i in 0..32 {
+            result[i] = x_bytes[i];
+            result[i + 32] = y_bytes[i];
+        }
+        result
     }
 }
