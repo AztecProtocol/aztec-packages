@@ -61,9 +61,9 @@ impl<T> BalancesMap<T> {
         addend: U128
     ) where T: NoteInterface<T_SERIALIZED_LEN> + OwnedNote {
         // We fetch the nullifier public key hash in the registry / from our PXE
-        let nullifier_public_key_hash = get_npk_m_h(self.map.context.private.unwrap(), owner);
+        let owner_npk_m_h = get_npk_m_h(self.map.context.private.unwrap(), owner);
 
-        let mut addend_note = T::new(addend, nullifier_public_key_hash);
+        let mut addend_note = T::new(addend, owner_npk_m_h);
 
         // docs:start:insert
         self.map.at(owner).insert(&mut addend_note, true);
