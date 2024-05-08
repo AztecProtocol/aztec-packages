@@ -6,7 +6,7 @@ use crate::{
     arguments, returns, call_private_function::call_private_function_internal,
     header::get_header_at,
     logs::emit_encrypted_log, logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog},
-    nullifier_key::{get_nullifier_keys, get_nullifier_keys_with_master_nullifier_public_key_hash, NullifierKeys},
+    nullifier_key::{get_nullifier_keys, get_nk_with_npk_m_h, NullifierKeys},
     enqueue_public_function_call::{
     enqueue_public_function_call_internal, set_public_teardown_function_call_internal,
     parse_public_call_stack_item_from_oracle},
@@ -227,10 +227,9 @@ impl PrivateContext {
     }
 
     // TODO: (#6176) Replace request_app_nullifier_secret_key above with this once we no longer get app nullifier secret key with address
-    pub fn request_app_nullifier_secret_key_with_master_public_nullifying_key_hash(&mut self, master_public_nullifying_key_hash: Field) -> Field {
+    pub fn request_nsk_app_with_npk_m_h(&mut self, master_public_nullifying_key_hash: Field) -> Field {
         let keys = if self.nullifier_key.is_none() {
-            let keys = get_nullifier_keys_with_master_nullifier_public_key_hash(master_public_nullifying_key_hash);
-            assert_eq(poseidon2_hash(keys.master_nullifier_public_key.serialize()), master_public_nullifying_key_hash);
+            let keys = get_nk_with_npk_m_h(master_public_nullifying_key_hash);
             let request = NullifierKeyValidationRequest {
                 master_nullifier_public_key: keys.master_nullifier_public_key,
                 app_nullifier_secret_key: keys.app_nullifier_secret_key
@@ -245,8 +244,8 @@ impl PrivateContext {
             keys
         };
 
-        // TODO: (#6176) (ek) Enable this after we nuke the account in all notes and when NullifierKeys has a reference to master_nullifier_public_key_hash
-        // assert_eq(keys.master_nullifier_public_key_hash, master_public_nullifying_key_hash);
+        // We have to check if the key that was requested or cached corresponds to the one we request for
+        assert_eq(poseidon2_hash(keys.master_nullifier_public_key.serialize()), master_public_nullifying_key_hash);
         keys.app_nullifier_secret_key
     }
 

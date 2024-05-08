@@ -6,7 +6,7 @@ import {
   type PublicDataWitness,
 } from '@aztec/circuit-types';
 import { type CompleteAddress, type Header } from '@aztec/circuits.js';
-import { type FunctionArtifactWithDebugMetadata, type FunctionSelector } from '@aztec/foundation/abi';
+import { type FunctionArtifact, type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr, type Point } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
@@ -55,7 +55,7 @@ export interface DBOracle extends CommitmentsDB {
    * @param masterNullifierPublicKeyHash - Master nullifier public key hash to fetch the complete address for.
    * @returns A complete address associated with the input master nullifier public key hash.
    */
-  getCompleteAddressWithMasterNullifierPublicKey(masterNullifierPublicKey: Fr): Promise<CompleteAddress>;
+  getCompleteAddressWithNpkMH(masterNullifierPublicKeyHash: Fr): Promise<CompleteAddress>;
 
   /**
    * Retrieve the auth witness for a given message hash.
@@ -97,10 +97,7 @@ export interface DBOracle extends CommitmentsDB {
    * @returns A Promise that resolves to nullifier keys of a requested account and contract.
    * @throws An error if the account is not registered in the database.
    */
-  getNullifierKeysWithMasterNullifierPublicKeyHash(
-    masterNullifierPublicKeyHash: Fr,
-    contractAddress: AztecAddress,
-  ): Promise<NullifierKeys>;
+  getNullifierKeysWithNpkMH(masterNullifierPublicKeyHash: Fr, contractAddress: AztecAddress): Promise<NullifierKeys>;
 
   /**
    * Retrieves a set of notes stored in the database for a given contract address and storage slot.
@@ -122,10 +119,7 @@ export interface DBOracle extends CommitmentsDB {
    * @param selector - The corresponding function selector.
    * @returns A Promise that resolves to a FunctionArtifact object.
    */
-  getFunctionArtifact(
-    contractAddress: AztecAddress,
-    selector: FunctionSelector,
-  ): Promise<FunctionArtifactWithDebugMetadata>;
+  getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector): Promise<FunctionArtifact>;
 
   /**
    * Retrieves the artifact of a specified function within a given contract.
@@ -135,10 +129,7 @@ export interface DBOracle extends CommitmentsDB {
    * @param functionName - The name of the function.
    * @returns The corresponding function's artifact as an object.
    */
-  getFunctionArtifactByName(
-    contractAddress: AztecAddress,
-    functionName: string,
-  ): Promise<FunctionArtifactWithDebugMetadata | undefined>;
+  getFunctionArtifactByName(contractAddress: AztecAddress, functionName: string): Promise<FunctionArtifact | undefined>;
 
   /**
    * Gets the index of a nullifier in the nullifier tree.

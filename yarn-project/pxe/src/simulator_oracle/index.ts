@@ -18,7 +18,7 @@ import {
   type Point,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
-import { type FunctionArtifactWithDebugMetadata, getFunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
+import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type DBOracle, MessageLoadOracleInputs, type NullifierKeys } from '@aztec/simulator';
 import { type ContractInstance } from '@aztec/types/contracts';
@@ -44,7 +44,7 @@ export class SimulatorOracle implements DBOracle {
     return { masterNullifierPublicKey, appNullifierSecretKey };
   }
 
-  async getNullifierKeysWithMasterNullifierPublicKeyHash(
+  async getNullifierKeysWithNpkMH(
     masterNullifierPublicKeyHash: AztecAddress,
     contractAddress: AztecAddress,
   ): Promise<NullifierKeys> {
@@ -68,8 +68,8 @@ export class SimulatorOracle implements DBOracle {
   }
 
   // TODO: #5834
-  getCompleteAddressWithMasterNullifierPublicKey(masterNullifierPublicKey: Fr): Promise<CompleteAddress> {
-    const address = this.keyStore.getAccountAddressForMasterNullifierPublicKeyHash(masterNullifierPublicKey);
+  getCompleteAddressWithNpkMH(masterNullifierPublicKeyHash: Fr): Promise<CompleteAddress> {
+    const address = this.keyStore.getAccountAddressForMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash);
     return this.getCompleteAddress(address);
   }
 
@@ -125,10 +125,7 @@ export class SimulatorOracle implements DBOracle {
     }));
   }
 
-  async getFunctionArtifact(
-    contractAddress: AztecAddress,
-    selector: FunctionSelector,
-  ): Promise<FunctionArtifactWithDebugMetadata> {
+  async getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector): Promise<FunctionArtifact> {
     const artifact = await this.contractDataOracle.getFunctionArtifact(contractAddress, selector);
     const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, selector);
     return {
@@ -140,10 +137,10 @@ export class SimulatorOracle implements DBOracle {
   async getFunctionArtifactByName(
     contractAddress: AztecAddress,
     functionName: string,
-  ): Promise<FunctionArtifactWithDebugMetadata | undefined> {
+  ): Promise<FunctionArtifact | undefined> {
     const instance = await this.contractDataOracle.getContractInstance(contractAddress);
     const artifact = await this.contractDataOracle.getContractArtifact(instance.contractClassId);
-    return artifact && getFunctionArtifactWithDebugMetadata(artifact, functionName);
+    return artifact && getFunctionArtifact(artifact, functionName);
   }
 
   /**

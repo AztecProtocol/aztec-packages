@@ -93,8 +93,8 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getNullifierKeys');
   }
 
-  getNullifierKeysWithMasterNullifierPublicKeyHash(_masterNullifierPublicKeyHash: Fr): Promise<NullifierKeys> {
-    throw new OracleMethodNotAvailableError('getNullifierKeysWithMasterNullifierPublicKeyHash');
+  getNullifierKeysWithNpkMH(_masterNullifierPublicKeyHash: Fr): Promise<NullifierKeys> {
+    throw new OracleMethodNotAvailableError('getNullifierKeysWithNpkMH');
   }
 
   getPublicKeyAndPartialAddress(_address: AztecAddress): Promise<Fr[] | undefined> {
@@ -136,8 +136,8 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getCompleteAddress');
   }
 
-  getCompleteAddressWithMasterNullifierPublicKey(_masterNullifierPublicKeyHash: Fr): Promise<CompleteAddress> {
-    throw new OracleMethodNotAvailableError('getCompleteAddressWithMasterNullifierPublicKey');
+  getCompleteAddressWithNpkMH(_masterNullifierPublicKeyHash: Fr): Promise<CompleteAddress> {
+    throw new OracleMethodNotAvailableError('getCompleteAddressWithNpkMH');
   }
 
   getAuthWitness(_messageHash: Fr): Promise<Fr[] | undefined> {
