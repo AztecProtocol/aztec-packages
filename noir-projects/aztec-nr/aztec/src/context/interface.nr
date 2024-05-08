@@ -1,7 +1,4 @@
-use dep::protocol_types::{
-    abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}, header::Header,
-    traits::Deserialize
-};
+use dep::protocol_types::{abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}, traits::Deserialize};
 
 use crate::context::private_context::PrivateContext;
 use crate::context::public_context::PublicContext;
@@ -30,6 +27,7 @@ trait PublicContextInterface {
     fn fee_recipient(self) -> AztecAddress;
     fn fee_per_da_gas(self) -> Field;
     fn fee_per_l2_gas(self) -> Field;
+    fn transaction_fee(self) -> Field;
     fn message_portal(&mut self, recipient: EthAddress, content: Field);
     fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress, leaf_index: Field);
     fn emit_unencrypted_log<T,N,M>(&mut self, log: T);
@@ -54,7 +52,6 @@ trait PublicContextInterface {
         args: [Field]
     ) -> FunctionReturns<RETURNS_COUNT>;
     fn nullifier_exists(self, unsiloed_nullifier: Field, address: AztecAddress) -> bool;
-    fn transaction_fee(self) -> Field;
 }
 
 struct PrivateCallInterface<T> {
@@ -209,20 +206,22 @@ struct AvmCallInterface<T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     args: [Field],
+    gas_opts: GasOpts,
 }
 
 impl<T> AvmCallInterface<T> {
-    pub fn call<N>(self, context: &mut AvmContext, gas_opts: GasOpts) -> T where T: Deserialize<N> {
-        let returns = context.call_public_function(self.target_contract, self.selector, self.args, gas_opts);
+    pub fn with_gas(self: &mut Self, gas_opts: GasOpts) -> &mut Self {
+        self.gas_opts = gas_opts;
+        self
+    }
+
+    pub fn call<N>(self, context: &mut AvmContext) -> T where T: Deserialize<N> {
+        let returns = context.call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
         returns.deserialize_into()
     }
 
-    pub fn static_call<N>(
-        self,
-        context: &mut AvmContext,
-        gas_opts: GasOpts
-    ) -> T where T: Deserialize<N> {
-        let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, gas_opts);
+    pub fn static_call<N>(self, context: &mut AvmContext) -> T where T: Deserialize<N> {
+        let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
         returns.deserialize_into()
     }
 
@@ -236,16 +235,22 @@ struct AvmVoidCallInterface {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     args: [Field],
+    gas_opts: GasOpts,
 }
 
 impl AvmVoidCallInterface {
-    pub fn call<N>(self, context: &mut AvmContext, gas_opts: GasOpts) {
-        let returns = context.call_public_function(self.target_contract, self.selector, self.args, gas_opts);
+    pub fn with_gas(self: &mut Self, gas_opts: GasOpts) -> &mut Self {
+        self.gas_opts = gas_opts;
+        self
+    }
+
+    pub fn call<N>(self, context: &mut AvmContext) {
+        let returns = context.call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
         returns.assert_empty()
     }
 
-    pub fn static_call<N>(self, context: &mut AvmContext, gas_opts: GasOpts) {
-        let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, gas_opts);
+    pub fn static_call<N>(self, context: &mut AvmContext) {
+        let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
         returns.assert_empty()
     }
 
