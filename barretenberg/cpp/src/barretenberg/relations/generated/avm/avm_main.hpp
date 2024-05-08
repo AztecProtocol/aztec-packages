@@ -131,7 +131,7 @@ template <typename FF_> class avm_mainImpl {
 
     static constexpr std::array<size_t, 69> SUBRELATION_PARTIAL_LENGTHS{
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 5, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
+        3, 3, 5, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 4, 4, 3, 3, 3, 3, 3, 4, 3, 3, 3, 2,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -677,15 +677,16 @@ template <typename FF_> class avm_mainImpl {
 
             auto tmp =
                 (avm_main_alu_sel -
-                 (((((((((((avm_main_sel_op_add + avm_main_sel_op_sub) + avm_main_sel_op_mul) + avm_main_sel_op_div) +
-                         avm_main_sel_op_not) +
-                        avm_main_sel_op_eq) +
-                       avm_main_sel_op_lt) +
-                      avm_main_sel_op_lte) +
-                     avm_main_sel_op_shr) +
-                    avm_main_sel_op_shl) +
-                   avm_main_sel_op_cast) *
-                  (-avm_main_tag_err + FF(1))));
+                 ((((((((((((avm_main_sel_op_add + avm_main_sel_op_sub) + avm_main_sel_op_mul) + avm_main_sel_op_div) +
+                          avm_main_sel_op_not) +
+                         avm_main_sel_op_eq) +
+                        avm_main_sel_op_lt) +
+                       avm_main_sel_op_lte) +
+                      avm_main_sel_op_shr) +
+                     avm_main_sel_op_shl) +
+                    avm_main_sel_op_cast) *
+                   (-avm_main_tag_err + FF(1))) *
+                  (-avm_main_op_err + FF(1))));
             tmp *= scaling_factor;
             std::get<64>(evals) += tmp;
         }

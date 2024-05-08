@@ -69,6 +69,7 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.avm_alu_clk = commitment_key->commit(key->avm_alu_clk);
     witness_commitments.avm_alu_cmp_rng_ctr = commitment_key->commit(key->avm_alu_cmp_rng_ctr);
     witness_commitments.avm_alu_cmp_sel = commitment_key->commit(key->avm_alu_cmp_sel);
+    witness_commitments.avm_alu_div_rng_chk_selector = commitment_key->commit(key->avm_alu_div_rng_chk_selector);
     witness_commitments.avm_alu_div_u16_r0 = commitment_key->commit(key->avm_alu_div_u16_r0);
     witness_commitments.avm_alu_div_u16_r1 = commitment_key->commit(key->avm_alu_div_u16_r1);
     witness_commitments.avm_alu_div_u16_r2 = commitment_key->commit(key->avm_alu_div_u16_r2);
@@ -278,6 +279,14 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.lookup_u16_12_counts = commitment_key->commit(key->lookup_u16_12_counts);
     witness_commitments.lookup_u16_13_counts = commitment_key->commit(key->lookup_u16_13_counts);
     witness_commitments.lookup_u16_14_counts = commitment_key->commit(key->lookup_u16_14_counts);
+    witness_commitments.lookup_div_u16_0_counts = commitment_key->commit(key->lookup_div_u16_0_counts);
+    witness_commitments.lookup_div_u16_1_counts = commitment_key->commit(key->lookup_div_u16_1_counts);
+    witness_commitments.lookup_div_u16_2_counts = commitment_key->commit(key->lookup_div_u16_2_counts);
+    witness_commitments.lookup_div_u16_3_counts = commitment_key->commit(key->lookup_div_u16_3_counts);
+    witness_commitments.lookup_div_u16_4_counts = commitment_key->commit(key->lookup_div_u16_4_counts);
+    witness_commitments.lookup_div_u16_5_counts = commitment_key->commit(key->lookup_div_u16_5_counts);
+    witness_commitments.lookup_div_u16_6_counts = commitment_key->commit(key->lookup_div_u16_6_counts);
+    witness_commitments.lookup_div_u16_7_counts = commitment_key->commit(key->lookup_div_u16_7_counts);
 
     // Send all commitments to the verifier
     transcript->send_to_verifier(commitment_labels.avm_alu_a_hi, witness_commitments.avm_alu_a_hi);
@@ -290,6 +299,8 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.avm_alu_clk, witness_commitments.avm_alu_clk);
     transcript->send_to_verifier(commitment_labels.avm_alu_cmp_rng_ctr, witness_commitments.avm_alu_cmp_rng_ctr);
     transcript->send_to_verifier(commitment_labels.avm_alu_cmp_sel, witness_commitments.avm_alu_cmp_sel);
+    transcript->send_to_verifier(commitment_labels.avm_alu_div_rng_chk_selector,
+                                 witness_commitments.avm_alu_div_rng_chk_selector);
     transcript->send_to_verifier(commitment_labels.avm_alu_div_u16_r0, witness_commitments.avm_alu_div_u16_r0);
     transcript->send_to_verifier(commitment_labels.avm_alu_div_u16_r1, witness_commitments.avm_alu_div_u16_r1);
     transcript->send_to_verifier(commitment_labels.avm_alu_div_u16_r2, witness_commitments.avm_alu_div_u16_r2);
@@ -520,6 +531,22 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.lookup_u16_12_counts, witness_commitments.lookup_u16_12_counts);
     transcript->send_to_verifier(commitment_labels.lookup_u16_13_counts, witness_commitments.lookup_u16_13_counts);
     transcript->send_to_verifier(commitment_labels.lookup_u16_14_counts, witness_commitments.lookup_u16_14_counts);
+    transcript->send_to_verifier(commitment_labels.lookup_div_u16_0_counts,
+                                 witness_commitments.lookup_div_u16_0_counts);
+    transcript->send_to_verifier(commitment_labels.lookup_div_u16_1_counts,
+                                 witness_commitments.lookup_div_u16_1_counts);
+    transcript->send_to_verifier(commitment_labels.lookup_div_u16_2_counts,
+                                 witness_commitments.lookup_div_u16_2_counts);
+    transcript->send_to_verifier(commitment_labels.lookup_div_u16_3_counts,
+                                 witness_commitments.lookup_div_u16_3_counts);
+    transcript->send_to_verifier(commitment_labels.lookup_div_u16_4_counts,
+                                 witness_commitments.lookup_div_u16_4_counts);
+    transcript->send_to_verifier(commitment_labels.lookup_div_u16_5_counts,
+                                 witness_commitments.lookup_div_u16_5_counts);
+    transcript->send_to_verifier(commitment_labels.lookup_div_u16_6_counts,
+                                 witness_commitments.lookup_div_u16_6_counts);
+    transcript->send_to_verifier(commitment_labels.lookup_div_u16_7_counts,
+                                 witness_commitments.lookup_div_u16_7_counts);
 }
 
 void AvmProver::execute_log_derivative_inverse_round()
@@ -567,6 +594,14 @@ void AvmProver::execute_log_derivative_inverse_round()
     witness_commitments.lookup_u16_12 = commitment_key->commit(key->lookup_u16_12);
     witness_commitments.lookup_u16_13 = commitment_key->commit(key->lookup_u16_13);
     witness_commitments.lookup_u16_14 = commitment_key->commit(key->lookup_u16_14);
+    witness_commitments.lookup_div_u16_0 = commitment_key->commit(key->lookup_div_u16_0);
+    witness_commitments.lookup_div_u16_1 = commitment_key->commit(key->lookup_div_u16_1);
+    witness_commitments.lookup_div_u16_2 = commitment_key->commit(key->lookup_div_u16_2);
+    witness_commitments.lookup_div_u16_3 = commitment_key->commit(key->lookup_div_u16_3);
+    witness_commitments.lookup_div_u16_4 = commitment_key->commit(key->lookup_div_u16_4);
+    witness_commitments.lookup_div_u16_5 = commitment_key->commit(key->lookup_div_u16_5);
+    witness_commitments.lookup_div_u16_6 = commitment_key->commit(key->lookup_div_u16_6);
+    witness_commitments.lookup_div_u16_7 = commitment_key->commit(key->lookup_div_u16_7);
 
     // Send all commitments to the verifier
     transcript->send_to_verifier(commitment_labels.perm_main_alu, witness_commitments.perm_main_alu);
@@ -604,6 +639,14 @@ void AvmProver::execute_log_derivative_inverse_round()
     transcript->send_to_verifier(commitment_labels.lookup_u16_12, witness_commitments.lookup_u16_12);
     transcript->send_to_verifier(commitment_labels.lookup_u16_13, witness_commitments.lookup_u16_13);
     transcript->send_to_verifier(commitment_labels.lookup_u16_14, witness_commitments.lookup_u16_14);
+    transcript->send_to_verifier(commitment_labels.lookup_div_u16_0, witness_commitments.lookup_div_u16_0);
+    transcript->send_to_verifier(commitment_labels.lookup_div_u16_1, witness_commitments.lookup_div_u16_1);
+    transcript->send_to_verifier(commitment_labels.lookup_div_u16_2, witness_commitments.lookup_div_u16_2);
+    transcript->send_to_verifier(commitment_labels.lookup_div_u16_3, witness_commitments.lookup_div_u16_3);
+    transcript->send_to_verifier(commitment_labels.lookup_div_u16_4, witness_commitments.lookup_div_u16_4);
+    transcript->send_to_verifier(commitment_labels.lookup_div_u16_5, witness_commitments.lookup_div_u16_5);
+    transcript->send_to_verifier(commitment_labels.lookup_div_u16_6, witness_commitments.lookup_div_u16_6);
+    transcript->send_to_verifier(commitment_labels.lookup_div_u16_7, witness_commitments.lookup_div_u16_7);
 }
 
 /**

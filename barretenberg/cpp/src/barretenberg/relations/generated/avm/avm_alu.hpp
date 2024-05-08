@@ -23,6 +23,8 @@ template <typename FF> struct Avm_aluRow {
     FF avm_alu_cmp_rng_ctr_shift{};
     FF avm_alu_cmp_sel{};
     FF avm_alu_cmp_sel_shift{};
+    FF avm_alu_div_rng_chk_selector{};
+    FF avm_alu_div_rng_chk_selector_shift{};
     FF avm_alu_div_u16_r0{};
     FF avm_alu_div_u16_r0_shift{};
     FF avm_alu_div_u16_r1{};
@@ -275,10 +277,10 @@ template <typename FF_> class avm_aluImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 85> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr std::array<size_t, 87> SUBRELATION_PARTIAL_LENGTHS{
         2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 5, 5, 5, 5, 6, 6, 8, 3, 4, 4, 5, 4, 4, 3, 4, 3,
         3, 4, 3, 6, 5, 3, 3, 3, 3, 4, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 2, 5, 3, 3, 4, 4, 4, 4,
-        4, 3, 5, 5, 4, 5, 5, 2, 3, 3, 3, 3, 3, 4, 4, 3, 5, 3, 3, 3, 5, 4, 4, 4, 4, 4, 4,
+        4, 3, 5, 5, 4, 5, 5, 2, 3, 3, 3, 3, 3, 4, 4, 3, 5, 3, 3, 3, 5, 3, 3, 4, 4, 4, 4, 4, 4,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -1130,10 +1132,7 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(79);
 
-            auto tmp =
-                (avm_alu_divisor_lo - (avm_alu_op_div_std * (((avm_alu_div_u16_r0 + (avm_alu_div_u16_r1 * FF(65536))) +
-                                                              (avm_alu_div_u16_r2 * FF(4294967296UL))) +
-                                                             (avm_alu_div_u16_r3 * FF(281474976710656UL)))));
+            auto tmp = (avm_alu_div_rng_chk_selector * (-avm_alu_div_rng_chk_selector + FF(1)));
             tmp *= scaling_factor;
             std::get<79>(evals) += tmp;
         }
@@ -1141,10 +1140,7 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(80);
 
-            auto tmp =
-                (avm_alu_divisor_hi - (avm_alu_op_div_std * (((avm_alu_div_u16_r4 + (avm_alu_div_u16_r5 * FF(65536))) +
-                                                              (avm_alu_div_u16_r6 * FF(4294967296UL))) +
-                                                             (avm_alu_div_u16_r7 * FF(281474976710656UL)))));
+            auto tmp = ((avm_alu_div_rng_chk_selector * avm_alu_div_rng_chk_selector_shift) - avm_alu_op_div_std);
             tmp *= scaling_factor;
             std::get<80>(evals) += tmp;
         }
@@ -1152,10 +1148,10 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(81);
 
-            auto tmp = (avm_alu_quotient_lo -
-                        (avm_alu_op_div_std * (((avm_alu_div_u16_r0_shift + (avm_alu_div_u16_r1_shift * FF(65536))) +
-                                                (avm_alu_div_u16_r2_shift * FF(4294967296UL))) +
-                                               (avm_alu_div_u16_r3_shift * FF(281474976710656UL)))));
+            auto tmp =
+                (avm_alu_divisor_lo - (avm_alu_op_div_std * (((avm_alu_div_u16_r0 + (avm_alu_div_u16_r1 * FF(65536))) +
+                                                              (avm_alu_div_u16_r2 * FF(4294967296UL))) +
+                                                             (avm_alu_div_u16_r3 * FF(281474976710656UL)))));
             tmp *= scaling_factor;
             std::get<81>(evals) += tmp;
         }
@@ -1163,16 +1159,38 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(82);
 
-            auto tmp = (avm_alu_quotient_hi -
-                        (avm_alu_op_div_std * (((avm_alu_div_u16_r4_shift + (avm_alu_div_u16_r5_shift * FF(65536))) +
-                                                (avm_alu_div_u16_r6_shift * FF(4294967296UL))) +
-                                               (avm_alu_div_u16_r7_shift * FF(281474976710656UL)))));
+            auto tmp =
+                (avm_alu_divisor_hi - (avm_alu_op_div_std * (((avm_alu_div_u16_r4 + (avm_alu_div_u16_r5 * FF(65536))) +
+                                                              (avm_alu_div_u16_r6 * FF(4294967296UL))) +
+                                                             (avm_alu_div_u16_r7 * FF(281474976710656UL)))));
             tmp *= scaling_factor;
             std::get<82>(evals) += tmp;
         }
         // Contribution 83
         {
             Avm_DECLARE_VIEWS(83);
+
+            auto tmp = (avm_alu_quotient_lo -
+                        (avm_alu_op_div_std * (((avm_alu_div_u16_r0_shift + (avm_alu_div_u16_r1_shift * FF(65536))) +
+                                                (avm_alu_div_u16_r2_shift * FF(4294967296UL))) +
+                                               (avm_alu_div_u16_r3_shift * FF(281474976710656UL)))));
+            tmp *= scaling_factor;
+            std::get<83>(evals) += tmp;
+        }
+        // Contribution 84
+        {
+            Avm_DECLARE_VIEWS(84);
+
+            auto tmp = (avm_alu_quotient_hi -
+                        (avm_alu_op_div_std * (((avm_alu_div_u16_r4_shift + (avm_alu_div_u16_r5_shift * FF(65536))) +
+                                                (avm_alu_div_u16_r6_shift * FF(4294967296UL))) +
+                                               (avm_alu_div_u16_r7_shift * FF(281474976710656UL)))));
+            tmp *= scaling_factor;
+            std::get<84>(evals) += tmp;
+        }
+        // Contribution 85
+        {
+            Avm_DECLARE_VIEWS(85);
 
             auto tmp =
                 (avm_alu_partial_prod_lo -
@@ -1181,18 +1199,18 @@ template <typename FF_> class avm_aluImpl {
                     (avm_alu_u16_r1_shift * FF(4294967296UL))) +
                    (avm_alu_u16_r2_shift * FF(281474976710656UL)))));
             tmp *= scaling_factor;
-            std::get<83>(evals) += tmp;
+            std::get<85>(evals) += tmp;
         }
-        // Contribution 84
+        // Contribution 86
         {
-            Avm_DECLARE_VIEWS(84);
+            Avm_DECLARE_VIEWS(86);
 
             auto tmp = (avm_alu_partial_prod_hi -
                         (avm_alu_op_div_std * (((avm_alu_u16_r3_shift + (avm_alu_u16_r4_shift * FF(65536))) +
                                                 (avm_alu_u16_r5_shift * FF(4294967296UL))) +
                                                (avm_alu_u16_r6_shift * FF(281474976710656UL)))));
             tmp *= scaling_factor;
-            std::get<84>(evals) += tmp;
+            std::get<86>(evals) += tmp;
         }
     }
 };

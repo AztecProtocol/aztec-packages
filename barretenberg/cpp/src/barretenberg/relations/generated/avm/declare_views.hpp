@@ -14,6 +14,7 @@
     [[maybe_unused]] auto avm_alu_clk = View(new_term.avm_alu_clk);                                                    \
     [[maybe_unused]] auto avm_alu_cmp_rng_ctr = View(new_term.avm_alu_cmp_rng_ctr);                                    \
     [[maybe_unused]] auto avm_alu_cmp_sel = View(new_term.avm_alu_cmp_sel);                                            \
+    [[maybe_unused]] auto avm_alu_div_rng_chk_selector = View(new_term.avm_alu_div_rng_chk_selector);                  \
     [[maybe_unused]] auto avm_alu_div_u16_r0 = View(new_term.avm_alu_div_u16_r0);                                      \
     [[maybe_unused]] auto avm_alu_div_u16_r1 = View(new_term.avm_alu_div_u16_r1);                                      \
     [[maybe_unused]] auto avm_alu_div_u16_r2 = View(new_term.avm_alu_div_u16_r2);                                      \
@@ -232,6 +233,14 @@
     [[maybe_unused]] auto lookup_u16_12 = View(new_term.lookup_u16_12);                                                \
     [[maybe_unused]] auto lookup_u16_13 = View(new_term.lookup_u16_13);                                                \
     [[maybe_unused]] auto lookup_u16_14 = View(new_term.lookup_u16_14);                                                \
+    [[maybe_unused]] auto lookup_div_u16_0 = View(new_term.lookup_div_u16_0);                                          \
+    [[maybe_unused]] auto lookup_div_u16_1 = View(new_term.lookup_div_u16_1);                                          \
+    [[maybe_unused]] auto lookup_div_u16_2 = View(new_term.lookup_div_u16_2);                                          \
+    [[maybe_unused]] auto lookup_div_u16_3 = View(new_term.lookup_div_u16_3);                                          \
+    [[maybe_unused]] auto lookup_div_u16_4 = View(new_term.lookup_div_u16_4);                                          \
+    [[maybe_unused]] auto lookup_div_u16_5 = View(new_term.lookup_div_u16_5);                                          \
+    [[maybe_unused]] auto lookup_div_u16_6 = View(new_term.lookup_div_u16_6);                                          \
+    [[maybe_unused]] auto lookup_div_u16_7 = View(new_term.lookup_div_u16_7);                                          \
     [[maybe_unused]] auto lookup_byte_lengths_counts = View(new_term.lookup_byte_lengths_counts);                      \
     [[maybe_unused]] auto lookup_byte_operations_counts = View(new_term.lookup_byte_operations_counts);                \
     [[maybe_unused]] auto incl_main_tag_err_counts = View(new_term.incl_main_tag_err_counts);                          \
@@ -257,6 +266,14 @@
     [[maybe_unused]] auto lookup_u16_12_counts = View(new_term.lookup_u16_12_counts);                                  \
     [[maybe_unused]] auto lookup_u16_13_counts = View(new_term.lookup_u16_13_counts);                                  \
     [[maybe_unused]] auto lookup_u16_14_counts = View(new_term.lookup_u16_14_counts);                                  \
+    [[maybe_unused]] auto lookup_div_u16_0_counts = View(new_term.lookup_div_u16_0_counts);                            \
+    [[maybe_unused]] auto lookup_div_u16_1_counts = View(new_term.lookup_div_u16_1_counts);                            \
+    [[maybe_unused]] auto lookup_div_u16_2_counts = View(new_term.lookup_div_u16_2_counts);                            \
+    [[maybe_unused]] auto lookup_div_u16_3_counts = View(new_term.lookup_div_u16_3_counts);                            \
+    [[maybe_unused]] auto lookup_div_u16_4_counts = View(new_term.lookup_div_u16_4_counts);                            \
+    [[maybe_unused]] auto lookup_div_u16_5_counts = View(new_term.lookup_div_u16_5_counts);                            \
+    [[maybe_unused]] auto lookup_div_u16_6_counts = View(new_term.lookup_div_u16_6_counts);                            \
+    [[maybe_unused]] auto lookup_div_u16_7_counts = View(new_term.lookup_div_u16_7_counts);                            \
     [[maybe_unused]] auto avm_alu_a_hi_shift = View(new_term.avm_alu_a_hi_shift);                                      \
     [[maybe_unused]] auto avm_alu_a_lo_shift = View(new_term.avm_alu_a_lo_shift);                                      \
     [[maybe_unused]] auto avm_alu_alu_sel_shift = View(new_term.avm_alu_alu_sel_shift);                                \
@@ -264,6 +281,7 @@
     [[maybe_unused]] auto avm_alu_b_lo_shift = View(new_term.avm_alu_b_lo_shift);                                      \
     [[maybe_unused]] auto avm_alu_cmp_rng_ctr_shift = View(new_term.avm_alu_cmp_rng_ctr_shift);                        \
     [[maybe_unused]] auto avm_alu_cmp_sel_shift = View(new_term.avm_alu_cmp_sel_shift);                                \
+    [[maybe_unused]] auto avm_alu_div_rng_chk_selector_shift = View(new_term.avm_alu_div_rng_chk_selector_shift);      \
     [[maybe_unused]] auto avm_alu_div_u16_r0_shift = View(new_term.avm_alu_div_u16_r0_shift);                          \
     [[maybe_unused]] auto avm_alu_div_u16_r1_shift = View(new_term.avm_alu_div_u16_r1_shift);                          \
     [[maybe_unused]] auto avm_alu_div_u16_r2_shift = View(new_term.avm_alu_div_u16_r2_shift);                          \

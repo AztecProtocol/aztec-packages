@@ -67,6 +67,7 @@ class AvmAluTraceBuilder {
         FF quotient_hi{};
         FF partial_prod_lo{};
         FF partial_prod_hi{};
+        bool div_u64_range_chk_sel = false;
         std::array<uint16_t, 8> div_u64_range_chk{};
     };
 

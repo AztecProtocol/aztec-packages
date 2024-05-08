@@ -19,6 +19,14 @@
 #include "barretenberg/relations/generated/avm/incl_mem_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_lengths.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_operations.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_0.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_1.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_2.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_3.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_4.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_5.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_6.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_7.hpp"
 #include "barretenberg/relations/generated/avm/lookup_mem_rng_chk_hi.hpp"
 #include "barretenberg/relations/generated/avm/lookup_mem_rng_chk_lo.hpp"
 #include "barretenberg/relations/generated/avm/lookup_pow_2_0.hpp"
@@ -67,6 +75,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_alu_clk{};
     FF avm_alu_cmp_rng_ctr{};
     FF avm_alu_cmp_sel{};
+    FF avm_alu_div_rng_chk_selector{};
     FF avm_alu_div_u16_r0{};
     FF avm_alu_div_u16_r1{};
     FF avm_alu_div_u16_r2{};
@@ -285,6 +294,14 @@ template <typename FF> struct AvmFullRow {
     FF lookup_u16_12{};
     FF lookup_u16_13{};
     FF lookup_u16_14{};
+    FF lookup_div_u16_0{};
+    FF lookup_div_u16_1{};
+    FF lookup_div_u16_2{};
+    FF lookup_div_u16_3{};
+    FF lookup_div_u16_4{};
+    FF lookup_div_u16_5{};
+    FF lookup_div_u16_6{};
+    FF lookup_div_u16_7{};
     FF lookup_byte_lengths_counts{};
     FF lookup_byte_operations_counts{};
     FF incl_main_tag_err_counts{};
@@ -310,6 +327,14 @@ template <typename FF> struct AvmFullRow {
     FF lookup_u16_12_counts{};
     FF lookup_u16_13_counts{};
     FF lookup_u16_14_counts{};
+    FF lookup_div_u16_0_counts{};
+    FF lookup_div_u16_1_counts{};
+    FF lookup_div_u16_2_counts{};
+    FF lookup_div_u16_3_counts{};
+    FF lookup_div_u16_4_counts{};
+    FF lookup_div_u16_5_counts{};
+    FF lookup_div_u16_6_counts{};
+    FF lookup_div_u16_7_counts{};
     FF avm_alu_a_hi_shift{};
     FF avm_alu_a_lo_shift{};
     FF avm_alu_alu_sel_shift{};
@@ -317,6 +342,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_alu_b_lo_shift{};
     FF avm_alu_cmp_rng_ctr_shift{};
     FF avm_alu_cmp_sel_shift{};
+    FF avm_alu_div_rng_chk_selector_shift{};
     FF avm_alu_div_u16_r0_shift{};
     FF avm_alu_div_u16_r1_shift{};
     FF avm_alu_div_u16_r2_shift{};
@@ -373,8 +399,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 306;
-    static constexpr size_t num_polys = 255;
+    static constexpr size_t num_fixed_columns = 324;
+    static constexpr size_t num_polys = 272;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -402,6 +428,7 @@ class AvmCircuitBuilder {
             polys.avm_alu_clk[i] = rows[i].avm_alu_clk;
             polys.avm_alu_cmp_rng_ctr[i] = rows[i].avm_alu_cmp_rng_ctr;
             polys.avm_alu_cmp_sel[i] = rows[i].avm_alu_cmp_sel;
+            polys.avm_alu_div_rng_chk_selector[i] = rows[i].avm_alu_div_rng_chk_selector;
             polys.avm_alu_div_u16_r0[i] = rows[i].avm_alu_div_u16_r0;
             polys.avm_alu_div_u16_r1[i] = rows[i].avm_alu_div_u16_r1;
             polys.avm_alu_div_u16_r2[i] = rows[i].avm_alu_div_u16_r2;
@@ -610,6 +637,14 @@ class AvmCircuitBuilder {
             polys.lookup_u16_12_counts[i] = rows[i].lookup_u16_12_counts;
             polys.lookup_u16_13_counts[i] = rows[i].lookup_u16_13_counts;
             polys.lookup_u16_14_counts[i] = rows[i].lookup_u16_14_counts;
+            polys.lookup_div_u16_0_counts[i] = rows[i].lookup_div_u16_0_counts;
+            polys.lookup_div_u16_1_counts[i] = rows[i].lookup_div_u16_1_counts;
+            polys.lookup_div_u16_2_counts[i] = rows[i].lookup_div_u16_2_counts;
+            polys.lookup_div_u16_3_counts[i] = rows[i].lookup_div_u16_3_counts;
+            polys.lookup_div_u16_4_counts[i] = rows[i].lookup_div_u16_4_counts;
+            polys.lookup_div_u16_5_counts[i] = rows[i].lookup_div_u16_5_counts;
+            polys.lookup_div_u16_6_counts[i] = rows[i].lookup_div_u16_6_counts;
+            polys.lookup_div_u16_7_counts[i] = rows[i].lookup_div_u16_7_counts;
         }
 
         polys.avm_alu_a_hi_shift = Polynomial(polys.avm_alu_a_hi.shifted());
@@ -619,6 +654,7 @@ class AvmCircuitBuilder {
         polys.avm_alu_b_lo_shift = Polynomial(polys.avm_alu_b_lo.shifted());
         polys.avm_alu_cmp_rng_ctr_shift = Polynomial(polys.avm_alu_cmp_rng_ctr.shifted());
         polys.avm_alu_cmp_sel_shift = Polynomial(polys.avm_alu_cmp_sel.shifted());
+        polys.avm_alu_div_rng_chk_selector_shift = Polynomial(polys.avm_alu_div_rng_chk_selector.shifted());
         polys.avm_alu_div_u16_r0_shift = Polynomial(polys.avm_alu_div_u16_r0.shifted());
         polys.avm_alu_div_u16_r1_shift = Polynomial(polys.avm_alu_div_u16_r1.shifted());
         polys.avm_alu_div_u16_r2_shift = Polynomial(polys.avm_alu_div_u16_r2.shifted());
@@ -855,6 +891,30 @@ class AvmCircuitBuilder {
             return false;
         }
         if (!evaluate_logderivative.template operator()<lookup_u16_14_relation<FF>>("LOOKUP_U16_14")) {
+            return false;
+        }
+        if (!evaluate_logderivative.template operator()<lookup_div_u16_0_relation<FF>>("LOOKUP_DIV_U16_0")) {
+            return false;
+        }
+        if (!evaluate_logderivative.template operator()<lookup_div_u16_1_relation<FF>>("LOOKUP_DIV_U16_1")) {
+            return false;
+        }
+        if (!evaluate_logderivative.template operator()<lookup_div_u16_2_relation<FF>>("LOOKUP_DIV_U16_2")) {
+            return false;
+        }
+        if (!evaluate_logderivative.template operator()<lookup_div_u16_3_relation<FF>>("LOOKUP_DIV_U16_3")) {
+            return false;
+        }
+        if (!evaluate_logderivative.template operator()<lookup_div_u16_4_relation<FF>>("LOOKUP_DIV_U16_4")) {
+            return false;
+        }
+        if (!evaluate_logderivative.template operator()<lookup_div_u16_5_relation<FF>>("LOOKUP_DIV_U16_5")) {
+            return false;
+        }
+        if (!evaluate_logderivative.template operator()<lookup_div_u16_6_relation<FF>>("LOOKUP_DIV_U16_6")) {
+            return false;
+        }
+        if (!evaluate_logderivative.template operator()<lookup_div_u16_7_relation<FF>>("LOOKUP_DIV_U16_7")) {
             return false;
         }
 

@@ -612,6 +612,31 @@ INSTANTIATE_TEST_SUITE_P(AvmArithmeticTestsDiv,
                          AvmArithmeticTestsDiv,
                          testing::ValuesIn(gen_three_op_params(positive_op_div_test_values, uint_mem_tags)));
 
+// Test on division by zero over finite field type.
+// We check that the operator error flag is raised.
+TEST_F(AvmArithmeticTests, DivisionByZeroError)
+{
+    auto trace_builder = avm_trace::AvmTraceBuilder();
+    trace_builder.op_set(0, 100, 0, AvmMemoryTag::U128);
+    trace_builder.op_set(0, 0, 1, AvmMemoryTag::U128);
+    trace_builder.op_div(0, 0, 1, 2, AvmMemoryTag::U128);
+    trace_builder.halt();
+    auto trace = trace_builder.finalize();
+
+    // Find the first row enabling the div selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_div == FF(1); });
+
+    // Check that the correct result is stored at the expected memory location.
+    EXPECT_TRUE(row != trace.end());
+    EXPECT_EQ(row->avm_main_ic, FF(0));
+    EXPECT_EQ(row->avm_main_mem_idx_c, FF(2));
+    EXPECT_EQ(row->avm_main_mem_op_c, FF(1));
+    EXPECT_EQ(row->avm_main_rwc, FF(1));
+    EXPECT_EQ(row->avm_main_op_err, FF(1));
+
+    validate_trace(std::move(trace));
+}
+
 /******************************************************************************
  * Positive Tests - U8
  ******************************************************************************/

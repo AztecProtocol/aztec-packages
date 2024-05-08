@@ -1773,6 +1773,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
         dest.avm_alu_u16_r13 = FF(src.alu_u16_reg.at(13));
         dest.avm_alu_u16_r14 = FF(src.alu_u16_reg.at(14));
 
+        dest.avm_alu_div_rng_chk_selector = FF(static_cast<uint8_t>(src.div_u64_range_chk_sel));
         dest.avm_alu_div_u16_r0 = FF(src.div_u64_range_chk.at(0));
         dest.avm_alu_div_u16_r1 = FF(src.div_u64_range_chk.at(1));
         dest.avm_alu_div_u16_r2 = FF(src.div_u64_range_chk.at(2));
@@ -1868,7 +1869,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
              r.avm_main_sel_op_eq == FF(1) || r.avm_main_sel_op_not == FF(1) || r.avm_main_sel_op_lt == FF(1) ||
              r.avm_main_sel_op_lte == FF(1) || r.avm_main_sel_op_cast == FF(1) || r.avm_main_sel_op_shr == FF(1) ||
              r.avm_main_sel_op_shl == FF(1) || r.avm_main_sel_op_div == FF(1)) &&
-            r.avm_main_tag_err == FF(0)) {
+            r.avm_main_tag_err == FF(0) && r.avm_main_op_err == FF(0)) {
             r.avm_main_alu_sel = FF(1);
         }
 
@@ -1903,6 +1904,15 @@ std::vector<Row> AvmTraceBuilder::finalize()
 
             r.lookup_mem_rng_chk_hi_counts = mem_rng_check_hi_counts[static_cast<uint16_t>(i)];
             r.lookup_mem_rng_chk_lo_counts = mem_rng_check_lo_counts[static_cast<uint16_t>(i)];
+
+            r.lookup_div_u16_0_counts = alu_trace_builder.div_u64_range_chk_counters[0][static_cast<uint16_t>(i)];
+            r.lookup_div_u16_1_counts = alu_trace_builder.div_u64_range_chk_counters[1][static_cast<uint16_t>(i)];
+            r.lookup_div_u16_2_counts = alu_trace_builder.div_u64_range_chk_counters[2][static_cast<uint16_t>(i)];
+            r.lookup_div_u16_3_counts = alu_trace_builder.div_u64_range_chk_counters[3][static_cast<uint16_t>(i)];
+            r.lookup_div_u16_4_counts = alu_trace_builder.div_u64_range_chk_counters[4][static_cast<uint16_t>(i)];
+            r.lookup_div_u16_5_counts = alu_trace_builder.div_u64_range_chk_counters[5][static_cast<uint16_t>(i)];
+            r.lookup_div_u16_6_counts = alu_trace_builder.div_u64_range_chk_counters[6][static_cast<uint16_t>(i)];
+            r.lookup_div_u16_7_counts = alu_trace_builder.div_u64_range_chk_counters[7][static_cast<uint16_t>(i)];
 
             r.avm_main_clk = FF(static_cast<uint32_t>(i));
             r.avm_main_sel_rng_16 = FF(1);
