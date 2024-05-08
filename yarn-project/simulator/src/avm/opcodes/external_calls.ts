@@ -7,6 +7,7 @@ import { gasLeftToGas, sumGas } from '../avm_gas.js';
 import { Field, Uint8 } from '../avm_memory_types.js';
 import { type AvmContractCallResults } from '../avm_message_call_result.js';
 import { AvmSimulator } from '../avm_simulator.js';
+import { AvmExecutionError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -98,6 +99,18 @@ abstract class ExternalCall extends Instruction {
     // const nestedCallResults: AvmContractCallResults = await new AvmSimulator(nestedContext).execute();
 
     const success = !nestedCallResults.reverted;
+
+    // TRANSITIONAL: We rethrow here so that the MESSAGE gets propagated.
+    if (!success) {
+      class RethrowedError extends AvmExecutionError {
+        constructor(message: string) {
+          super(message);
+          this.name = 'RethrowedError';
+        }
+      }
+
+      throw new RethrowedError(nestedCallResults.revertReason?.message || 'Unknown nested call error');
+    }
 
     // We only take as much data as was specified in the return size and pad with zeroes if the return data is smaller
     // than the specified size in order to prevent that memory to be left with garbage
