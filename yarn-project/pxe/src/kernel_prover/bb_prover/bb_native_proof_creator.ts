@@ -1,6 +1,6 @@
 import {
   Fr,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_PROOF_LENGTH,
   type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
@@ -8,9 +8,10 @@ import {
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   Proof,
-  type RECURSIVE_PROOF_LENGTH,
+  RECURSIVE_PROOF_LENGTH,
   RecursiveProof,
   type VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { siloNoteHash } from '@aztec/circuits.js/hash';
 import { randomBytes, sha256 } from '@aztec/foundation/crypto';
@@ -37,7 +38,7 @@ import { serializeWitness } from '@noir-lang/noirc_abi';
 import * as proc from 'child_process';
 import * as fs from 'fs/promises';
 
-import { type ProofCreator, type ProofOutput } from '../interface/proof_creator.js';
+import { type AppCircuitProofOutput, type KernelProofOutput, type ProofCreator } from '../interface/proof_creator.js';
 
 /**
  * Temporary implementation of ProofCreator using the native bb binary.
@@ -455,21 +456,21 @@ export class BBNativeProofCreator implements ProofCreator {
 
   public async createProofInit(
     inputs: PrivateKernelInitCircuitPrivateInputs,
-  ): Promise<ProofOutput<PrivateKernelCircuitPublicInputs>> {
+  ): Promise<KernelProofOutput<PrivateKernelCircuitPublicInputs>> {
     const witnessMap = convertPrivateKernelInitInputsToWitnessMap(inputs);
     return await this.createSafeProof(witnessMap, 'PrivateKernelInitArtifact');
   }
 
   public async createProofInner(
     inputs: PrivateKernelInnerCircuitPrivateInputs,
-  ): Promise<ProofOutput<PrivateKernelCircuitPublicInputs>> {
+  ): Promise<KernelProofOutput<PrivateKernelCircuitPublicInputs>> {
     const witnessMap = convertPrivateKernelInnerInputsToWitnessMap(inputs);
     return await this.createSafeProof(witnessMap, 'PrivateKernelInnerArtifact');
   }
 
   public async createProofTail(
     inputs: PrivateKernelTailCircuitPrivateInputs,
-  ): Promise<ProofOutput<PrivateKernelTailCircuitPublicInputs>> {
+  ): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     if (!inputs.isForPublic()) {
       const witnessMap = convertPrivateKernelTailInputsToWitnessMap(inputs);
       return await this.createSafeProof(witnessMap, 'PrivateKernelTailArtifact');
@@ -481,14 +482,22 @@ export class BBNativeProofCreator implements ProofCreator {
   public async createAppCircuitProof(
     partialWitness: Map<number, ACVMField>,
     bytecode: Buffer,
-  ): Promise<RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>> {
+  ): Promise<AppCircuitProofOutput> {
     const directory = `${this.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
     await fs.mkdir(directory, { recursive: true });
     this.log.debug(`Created directory: ${directory}`);
     try {
       this.log.debug(`Proving app circuit`);
-      const proof = await this.createProof(directory, partialWitness, bytecode, 'App');
-      return proof as RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>;
+      const proofOutput = await this.createProof(directory, partialWitness, bytecode, 'App');
+      if (proofOutput.proof.proof.length != RECURSIVE_PROOF_LENGTH) {
+        throw new Error(`Incorrect proof length`);
+      }
+      const proof = proofOutput.proof as RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>;
+      const output: AppCircuitProofOutput = {
+        proof,
+        verificationKey: proofOutput.verificationKey,
+      };
+      return output;
     } finally {
       await fs.rm(directory, { recursive: true, force: true });
       this.log.debug(`Deleted directory: ${directory}`);
@@ -594,10 +603,13 @@ export class BBNativeProofCreator implements ProofCreator {
       this.log.debug(`Updated verification key for circuit: ${circuitType}`);
       this.verificationKeys.set(circuitType, promise);
     }
-    await promise;
+    return await promise;
   }
 
-  private async createSafeProof<T>(inputs: WitnessMap, circuitType: ClientProtocolArtifact): Promise<ProofOutput<T>> {
+  private async createSafeProof<T>(
+    inputs: WitnessMap,
+    circuitType: ClientProtocolArtifact,
+  ): Promise<KernelProofOutput<T>> {
     const directory = `${this.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
     await fs.mkdir(directory, { recursive: true });
     this.log.debug(`Created directory: ${directory}`);
@@ -613,7 +625,7 @@ export class BBNativeProofCreator implements ProofCreator {
     inputs: WitnessMap,
     circuitType: ClientProtocolArtifact,
     directory: string,
-  ): Promise<ProofOutput<T>> {
+  ): Promise<KernelProofOutput<T>> {
     this.log.debug(`Generating witness for ${circuitType}`);
     const compiledCircuit: NoirCompiledCircuit = ClientCircuitArtifacts[circuitType];
 
@@ -623,19 +635,23 @@ export class BBNativeProofCreator implements ProofCreator {
 
     const publicInputs = KernelArtifactMapping[circuitType].convertOutputs(outputWitness) as T;
 
-    const proof = await this.createProof(
+    const proofOutput = await this.createProof(
       directory,
       outputWitness,
       Buffer.from(compiledCircuit.bytecode, 'base64'),
       circuitType,
     );
-    const nestedProof = proof as RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
+    if (proofOutput.proof.proof.length != NESTED_RECURSIVE_PROOF_LENGTH) {
+      throw new Error(`Incorrect proof length`);
+    }
+    const nestedProof = proofOutput.proof as RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
 
-    const proofOutput: ProofOutput<T> = {
+    const kernelOutput: KernelProofOutput<T> = {
       publicInputs,
       proof: nestedProof,
+      verificationKey: proofOutput.verificationKey,
     };
-    return proofOutput;
+    return kernelOutput;
   }
 
   private async createProof(
@@ -643,7 +659,10 @@ export class BBNativeProofCreator implements ProofCreator {
     partialWitness: WitnessMap,
     bytecode: Buffer,
     circuitType: ClientProtocolArtifact | 'App',
-  ) {
+  ): Promise<{
+    proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH> | RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
+    verificationKey: VerificationKeyAsFields;
+  }> {
     const compressedBincodedWitness = serializeWitness(partialWitness);
 
     const inputsWitnessFile = `${directory}/witness.gz`;
@@ -666,11 +685,15 @@ export class BBNativeProofCreator implements ProofCreator {
       throw new Error(provingResult.reason);
     }
 
-    if (circuitType !== 'App') {
-      await this.updateVerificationKeyAfterProof(directory, circuitType);
-      return await this.readProofAsFields<typeof NESTED_RECURSIVE_PROOF_LENGTH>(directory, circuitType);
+    if (circuitType === 'App') {
+      const vkData = await this.convertVk(directory);
+      const proof = await this.readProofAsFields<typeof RECURSIVE_PROOF_LENGTH>(directory, circuitType, vkData);
+      return { proof, verificationKey: new VerificationKeyAsFields(vkData.keyAsFields, vkData.hash) };
     }
-    return await this.readProofAsFields<typeof RECURSIVE_PROOF_LENGTH>(directory, circuitType);
+
+    const vkData = await this.updateVerificationKeyAfterProof(directory, circuitType);
+    const proof = await this.readProofAsFields<typeof NESTED_RECURSIVE_PROOF_LENGTH>(directory, circuitType, vkData);
+    return { proof, verificationKey: new VerificationKeyAsFields(vkData.keyAsFields, vkData.hash) };
   }
 
   /**
@@ -682,6 +705,7 @@ export class BBNativeProofCreator implements ProofCreator {
   private async readProofAsFields<PROOF_LENGTH extends number>(
     filePath: string,
     circuitType: ClientProtocolArtifact | 'App',
+    vkData: VerificationKeyData,
   ): Promise<RecursiveProof<PROOF_LENGTH>> {
     const [binaryProof, proofString] = await Promise.all([
       fs.readFile(`${filePath}/${PROOF_FILENAME}`),
@@ -689,11 +713,6 @@ export class BBNativeProofCreator implements ProofCreator {
     ]);
     const json = JSON.parse(proofString);
     const fields = json.map(Fr.fromString);
-    const vkData =
-      circuitType === 'App' ? await this.convertVk(filePath) : await this.verificationKeys.get(circuitType);
-    if (!vkData) {
-      throw new Error(`Invalid verification key for ${circuitType}`);
-    }
     const numPublicInputs =
       circuitType === 'App' ? vkData.numPublicInputs : vkData.numPublicInputs - AGGREGATION_OBJECT_SIZE;
     const fieldsWithoutPublicInputs = fields.slice(numPublicInputs);
