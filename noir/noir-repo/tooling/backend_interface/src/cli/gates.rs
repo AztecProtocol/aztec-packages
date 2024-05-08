@@ -13,12 +13,12 @@ pub(crate) struct GatesCommand {
     pub(crate) bytecode_path: PathBuf,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize)]
 struct GatesResponse {
     functions: Vec<CircuitReport>,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize)]
 pub struct CircuitReport {
     pub acir_opcodes: u32,
     pub circuit_size: u32,
