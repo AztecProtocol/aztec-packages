@@ -8,6 +8,14 @@ For an introduction to authentication witnesses on Aztec, [read this explainer](
 
 ## Import libraries
 
+These are all the libraries you will need for the various ways of using authwits in Aztec.js:
+
+```typescript
+import { computeAuthWitMessageHash, computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/aztec.js';
+```
+
+You may not need all of these.
+
 ## Publicly deploy accounts
 
 :::note
@@ -29,9 +37,9 @@ You would then call this like so:
 
 ## Define the action
 
-The next steps are assuming that you do not already have the message hash. If you have this, skip to [the guide for creating authwits with pre-calculated message hashes](#if-message-hash-is-already-computed).
+When creating an authwit, you will need to pass the authwit givier, the authwit receiver (who will perform the action), and the action that is being authorized. The action can be a smart contract function call, or alternatively arbitrary data.
 
-When creating an authwit, you will need to pass the authwit givier, the authwit receiver (who will perform the action), and the action that is being authorized. 
+### When the action is a function call
 
 You can define the action like this:
 
@@ -39,25 +47,23 @@ You can define the action like this:
 
 In this example,
 * `asset` refers to a token contract
-* `withWallet(wallets[1])` is specifying the authwit receiver (`wallets[1]` will do this action
+* `withWallet(wallets[1])` is specifying the authwit receiver (`wallets[1]`) will do this action
 * `.methods.transfer()` is specifying that the action is calling the `transfer` method on the token contract
 * `(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);` are the args of this method - it will send the `amount` from `wallets[0]` to `wallets[1]`
 
+### Arbitrary message
+
+You can hash your own authwit message by creating an inner hash with the data, like this:
+
+#include_code compute_inner_authwit_hash yarn-project/end-to-end/src/e2e_authwit.test.ts typescript
+
+Then create the outer hash by hashing the inner hash with the authwit receiver address, chainId, and version:
+
+#include_code compute_outer_authwit_hash yarn-project/end-to-end/src/e2e_authwit.test.ts typescript
+
 ## Create the authwit
 
-### Public
-
-This is expected to be used alongside [public authwits in Aztec.nr contract](../../contracts/writing_contracts/accounts/how_to_authwit.md#public-functions).
-
-Set a public authwit like this:
-
-#include_code set_public_authwit yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_public.test.ts typescript
-
-In this example,
-* `wallets[0]` is the authwit giver
-* `wallets[1]` is the authwit reciever and caller of the function
-* `action` was [defined previously](#define-the-action)
-* `true` sets the `authorized` boolean (`false` would revoke this authwit)
+These are slightly different interfaces depending on whether your contract is checking the authwit in private or public. As public authwits are stored in the account contract and batched with the authwit action call, it is done with one transaction. Private execution uses oracles, so the authwit needs to be created by the authwit giver and then added to the receiver's wallet. 
 
 ### Private
 
@@ -67,9 +73,38 @@ Create a private authwit like this:
 
 #include_code create_authwit yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts typescript
 
-Then add it to a wallet:
+In this example,
+* `wallets[0]` is the authwit giver
+* `wallets[1]` is the authwit reciever and caller of the function
+* `action` was [defined previously](#define-the-action)
+
+If you created an artbitrary message, you can create the authwit by replacing these params with the outer hash:
+
+#include_code compute_outer_authwit_hash yarn-project/end-to-end/src/e2e_authwit.test.ts typescript
+
+Then add it to the wallet of the authwit receiver (the caller of the transaction):
 
 #include_code add_authwit yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts typescript
 
-# If message hash is already computed
+### Public
 
+This is expected to be used alongside [public authwits in Aztec.nr contract](../../contracts/writing_contracts/accounts/how_to_authwit.md#public-functions).
+
+Set a public authwit like this:
+
+#include_code set_public_authwit yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_public.test.ts typescript
+
+Remember it is a transaction and calls a method in the account contract. In this example,
+* `wallets[0]` is the authwit giver
+* `wallets[1]` is the authwit reciever and caller of the function
+* `action` was [defined previously](#define-the-action)
+* `true` sets the `authorized` boolean (`false` would revoke this authwit)
+
+If you created an arbitrary message, you would replace the first param struct with the outer hash:
+
+#include_code set_public_authwit yarn-project/end-to-end/src/e2e_authwit.test.ts typescript
+
+# Further reading
+
+* [An explainer of authentication witnesses](../../../learn/concepts/accounts/authwit.md)
+* [Authwits in Aztec.nr](../../contracts/writing_contracts/accounts/how_to_authwit.md)

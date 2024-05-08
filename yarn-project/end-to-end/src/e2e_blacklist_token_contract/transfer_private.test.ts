@@ -53,9 +53,12 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       .withWallet(wallets[1])
       .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
     // docs:end:authwit_computeAuthWitMessageHash
-
+    // docs:start:create_authwit
     const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
+    // docs:end:create_authwit
+    // docs:start:add_authwit
     await wallets[1].addAuthWitness(witness);
+    // docs:end:add_authwit
     // docs:end:authwit_transfer_example
 
     // Perform the transfer
@@ -158,12 +161,8 @@ describe('e2e_blacklist_token_contract transfer private', () => {
         action.request(),
       );
 
-      // docs:start:create_authwit
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
-      // docs:end:create_authwit
-      // docs:start:add_authwit
       await wallets[2].addAuthWitness(witness);
-      // docs:end:add_authwit
 
       await expect(action.prove()).rejects.toThrow(
         `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
