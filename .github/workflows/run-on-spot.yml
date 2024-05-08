@@ -6,6 +6,12 @@ on:
       ec2_subnet_id:
         default: subnet-4cfabd25
         type: string
+      ec2_instance_type:
+        required: true
+        type: string
+      ec2_ami_id:
+        required: true
+        type: string
       ec2_security_group_id:
         default: sg-0ccd4e5df0dcca0c9
         type: string
@@ -74,12 +80,14 @@ jobs:
           ec2_subnet_id: ${{ inputs.ec2_subnet_id }}
           ec2_security_group_id: ${{ inputs.ec2_security_group_id }}
           ec2_spot_instance_strategy: ${{ inputs.ec2_spot_instance_strategy }}
+          ec2_instance_type: ${{ inputs.ec2_instance_type }}
+          ec2_ami_id: ${{ inputs.ec2_ami_id }}
           subaction: start
-          # Use instance types with low interruption rate in us-east-2 https://aws.amazon.com/ec2/spot/instance-advisor/
-          ec2_instance_type: r6in.32xlarge r6a.32xlarge i4i.32xlarge r7iz.32xlarge
-          ec2_ami_id: ami-04d8422a9ba4de80f
           ec2_instance_ttl: 20
           ec2_key_name: "build-instance"
           ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          command: ${{ inputs.command }}
+          command: |
+            set -x
+
+            ${{ inputs.command }}
           ec2_instance_tags: "[]"

@@ -107,22 +107,27 @@ async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
   return instanceId;
 }
 
-async function startBareSpot(config: ActionConfig): Promise<string> {
+async function startBareSpot(config: ActionConfig) {
   if (config.subaction !== "start") {
     throw new Error("Unexpected subaction for bare spot, only 'start' is allowed: " + config.subaction);
   }
   const ec2Client = new Ec2Instance(config);
   const instanceId = await requestAndWaitForSpot(config);
+  const ip = await ec2Client.getPublicIpFromInstanceId(instanceId);
+  if (config.localCommand) {
+    await standardSpawn("bash", [
+      "-c",
+      `export SPOT_IP={ip}\n` + config.localCommand,
+    ]);
+  }
   if (config.command) {
-    await ec2CommandOverSsh(ec2Client, instanceId, config.ec2Key, config.command);
+    await ec2CommandOverSsh(ip, config.ec2Key, config.command);
     await ec2CommandOverSsh(
-      ec2Client,
-      instanceId,
+      ip,
       config.ec2Key,
       'sudo shutdown now'
     );
   }
-  return instanceId;
 }
 
 async function startWithGithubRunners(config: ActionConfig) {
@@ -159,15 +164,14 @@ async function startWithGithubRunners(config: ActionConfig) {
     );
 
     if (config.command) {
+      const ip = await ec2Client.getPublicIpFromInstanceId(spotStatus);
       await ec2CommandOverSsh(
-        ec2Client,
-        spotStatus, // the instance id in this case
+        ip,
         config.ec2Key,
         config.command
       );
-      return spotStatus;
     }
-    return spotStatus;
+    return;
   }
 
   const instanceId = await requestAndWaitForSpot(config);
@@ -183,23 +187,49 @@ async function startWithGithubRunners(config: ActionConfig) {
   }
   if (config.command) {
     await ec2CommandOverSsh(
-      ec2Client,
-      instanceId,
+      await ec2Client.getPublicIpFromInstanceId(instanceId),
       config.ec2Key,
       config.command
     );
   }
-  return instanceId;
 }
 
+function standardSpawn(command: string, args: string[]): Promise<string> {
+  // Wrap the process execution in a Promise to handle asynchronous execution and output streaming
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args);
+
+    // Handle standard output
+    child.stdout.on("data", (data) => {
+      console.log(data.toString());
+    });
+
+    // Handle standard error
+    child.stderr.on("data", (data) => {
+      console.error(data.toString());
+    });
+
+    // Handle close event
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve(`SSH command completed with code ${code}`);
+      } else {
+        reject(new Error(`SSH command failed with code ${code}`));
+      }
+    });
+
+    // Handle process errors (e.g., command not found, cannot spawn process)
+    child.on("error", (err) => {
+      reject(new Error(`Failed to execute SSH command: ${err.message}`));
+    });
+  });
+}
 async function ec2CommandOverSsh(
-  ec2Client: Ec2Instance,
-  instanceId: string,
+  ip: String,
   encodedSshKey: string,
   command: string
 ): Promise<string> {
-  const ip = await ec2Client.getPublicIpFromInstanceId(instanceId);
-  core.info(`Attempting SSH into EC2 instance ${instanceId}`);
+  core.info(`Attempting SSH into EC2 instance with IP ${ip}`);
 
   const decodedKey = Buffer.from(encodedSshKey, "base64").toString("utf8");
   const tempKeyPath = "/tmp/ec2_ssh_key.pem";
@@ -228,45 +258,14 @@ async function ec2CommandOverSsh(
     }
   }
   core.info(`SSH connection established with ${ip}`);
-  // Wrap the process execution in a Promise to handle asynchronous execution and output streaming
-  return new Promise((resolve, reject) => {
-    const child = spawn(
-      "ssh",
-      [
-        "-o",
-        "StrictHostKeyChecking=no",
-        "-i",
-        tempKeyPath,
-        `ubuntu@${ip}`,
-        command,
-      ],
-      { shell: true }
-    );
-
-    // Handle standard output
-    child.stdout.on("data", (data) => {
-      console.log(data.toString());
-    });
-
-    // Handle standard error
-    child.stderr.on("data", (data) => {
-      console.error(data.toString());
-    });
-
-    // Handle close event
-    child.on("close", (code) => {
-      if (code === 0) {
-        resolve(`SSH command completed with code ${code}`);
-      } else {
-        reject(new Error(`SSH command failed with code ${code}`));
-      }
-    });
-
-    // Handle process errors (e.g., command not found, cannot spawn process)
-    child.on("error", (err) => {
-      reject(new Error(`Failed to execute SSH command: ${err.message}`));
-    });
-  });
+  return await standardSpawn("ssh", [
+    "-o",
+    "StrictHostKeyChecking=no",
+    "-i",
+    tempKeyPath,
+    `ubuntu@${ip}`,
+    command,
+  ]);
 }
 
 async function terminate(instanceStatus?: string, cleanupRunners = true) {
