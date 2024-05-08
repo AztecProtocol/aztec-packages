@@ -166,8 +166,8 @@ TEST_F(AvmKernelPositiveTests, kernelTransactionFee)
         EXPECT_TRUE(fee_row != trace.end());
 
         expect_row(fee_row,
-                   /*kernel_sel=*/FEE_PER_L2_GAS_SELECTOR,
-                   /*ia=*/FEE_PER_L2_GAS_SELECTOR +
+                   /*kernel_sel=*/TRANSCTION_FEE_SELECTOR,
+                   /*ia=*/TRANSCTION_FEE_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*mem_idx_a*/ dst_offset);
     };
