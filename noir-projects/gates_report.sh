@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -eu
 
+# TODO(https://github.com/noir-lang/noir/issues/4962): This script is still yet to be integrated with noir-lang/noir-gates-diff 
+# The script needs some slight updating as `nargo info` expects a complete JSON object, while this script expects a single object field
+# representing a list of circuit reports for a program. 
 echo "Compile noir-protocol-circuits for gates report..."
 cd noir-protocol-circuits
 PROTOCOL_CIRCUITS_DIR=$PWD
