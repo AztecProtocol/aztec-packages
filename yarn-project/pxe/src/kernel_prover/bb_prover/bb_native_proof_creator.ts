@@ -8,7 +8,6 @@ import {
   type PrivateKernelTailCircuitPublicInputs,
   Proof,
   type VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  makeEmptyProof,
 } from '@aztec/circuits.js';
 import { siloNoteHash } from '@aztec/circuits.js/hash';
 import { randomBytes, sha256 } from '@aztec/foundation/crypto';
