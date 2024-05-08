@@ -244,6 +244,7 @@ impl PrivateContext {
             keys
         };
 
+        // We have to check if the key that was requested or cached corresponds to the one we request for
         assert_eq(poseidon2_hash(keys.master_nullifier_public_key.serialize()), master_public_nullifying_key_hash);
         keys.app_nullifier_secret_key
     }
