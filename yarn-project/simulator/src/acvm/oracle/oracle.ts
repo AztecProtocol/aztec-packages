@@ -205,10 +205,20 @@ export class Oracle {
     try {
       publicKeys = await this.typedOracle.getPublicKeysForAddress(AztecAddress.fromField(fromACVMField(address)));
     } catch (err) {
-      publicKeys = Array(4).fill(Point.ZERO);
+      publicKeys = {
+        masterNullifierPublicKey: Point.ZERO,
+        masterIncomingViewingPublicKey: Point.ZERO,
+        masterOutgoingViewingPublicKey: Point.ZERO,
+        masterTaggingPublicKey: Point.ZERO,
+      };
     }
 
-    const acvmPublicKeys = publicKeys.flatMap(key => key.toFields());
+    const acvmPublicKeys = [
+      publicKeys.masterNullifierPublicKey.toFields(),
+      publicKeys.masterIncomingViewingPublicKey.toFields(),
+      publicKeys.masterOutgoingViewingPublicKey.toFields(),
+      publicKeys.masterTaggingPublicKey.toFields(),
+    ].flat();
 
     return [...acvmPublicKeys, partialAddress].map(toACVMField);
   }
