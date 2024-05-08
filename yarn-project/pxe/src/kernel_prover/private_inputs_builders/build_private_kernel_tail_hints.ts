@@ -82,7 +82,7 @@ async function getMasterNullifierSecretKeys(
 ) {
   const keys = makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar.zero);
   for (let i = 0; i < nullifierKeyValidationRequests.length; ++i) {
-    const request = nullifierKeyValidationRequests[i];
+    const request = nullifierKeyValidationRequests[i].request;
     if (request.isEmpty()) {
       break;
     }

@@ -3,8 +3,8 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
-  NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH,
   NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH,
+  SCOPED_NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH,
 } from '../constants.gen.js';
 
 /**
@@ -74,10 +74,10 @@ export class ScopedNullifierKeyValidationRequest {
   }
 
   toFields(): Fr[] {
-    const fields = [...this.request.toFields(), this.contractAddress].flat();
-    if (fields.length !== NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH) {
+    const fields = [...this.request.toFields(), this.contractAddress];
+    if (fields.length !== SCOPED_NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH) {
       throw new Error(
-        `Invalid number of fields for ScopedNullifierKeyValidationRequest. Expected ${NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH}, got ${fields.length}`,
+        `Invalid number of fields for ScopedNullifierKeyValidationRequest. Expected ${SCOPED_NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH}, got ${fields.length}`,
       );
     }
     return fields;
