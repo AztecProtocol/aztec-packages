@@ -18,7 +18,6 @@
 #include <barretenberg/dsl/acir_proofs/goblin_acir_composer.hpp>
 #include <barretenberg/srs/global_crs.hpp>
 #include <cstdint>
-#include <cstdio>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -334,15 +333,6 @@ void gateCount(const std::string& bytecodePath)
     size_t length = strlen(jsonData);
     std::vector<uint8_t> data(jsonData, jsonData + length);
     writeRawBytesToStdout(data);
-
-    // TODO(maxim): allow writing to the output path
-    // if (output_path == "-") {
-    //     writeRawBytesToStdout(data);
-    //     vinfo("info written to stdout");
-    // } else {
-    //     write_file(output_path, data);
-    //     vinfo("info written to: ", output_path);
-    // }
 }
 
 /**
