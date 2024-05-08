@@ -61,6 +61,13 @@ class AvmAluTraceBuilder {
 
         // Div Operations
         FF remainder{};
+        FF divisor_lo{}; // b
+        FF divisor_hi{};
+        FF quotient_lo{}; // c
+        FF quotient_hi{};
+        FF partial_prod_lo{};
+        FF partial_prod_hi{};
+        std::array<uint16_t, 16> div_u16_range_chk{};
     };
 
     std::array<std::unordered_map<uint8_t, uint32_t>, 2> u8_range_chk_counters;

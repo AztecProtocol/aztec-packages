@@ -624,7 +624,7 @@ namespace avm_alu(256);
    
     // ========= INTEGER DIVISION ===============================
     // Operands: ia contains the dividend, ib contains the divisor, and ic contains the quotient (i.e. the result).
-    // All operands are restricted to be U128.
+    // All operands are restricted to be up to 128.
     // The logic for integer division is to assert the correctness of this relationship:
     // dividend - remainder = divisor * quotient ==> ia - remainder = ib * ic; where remainder < ib
     // We do this using the following steps
@@ -633,11 +633,11 @@ namespace avm_alu(256);
     //      (b) if ia < ib  => ic = 0 and remainder = ia --> isolating this case eliminates the risk of ia - remainder underflowing as remainder < ib < ia
     //      (c) if ib == 0  => error_tag = 1 --> Handled in main trace
     // (2) Given ib and ic are restricted to U128, at most ib * ic will produce a 256-bit number.
-    // (3) We use the primality check from cmp to check that this product has not overflowed the field
+    // (3) We use the primality check from cmp to check that this product has not overflowed the field.
     //     The Primality check takes a field element as input and ouputs two 128-bit limbs.
-    //     i.e. it checks that the field element, represented over 256-bits, is between [0, p).
+    //     i.e. it checks that the field element, represented over 256 bits, is between [0, p).
     //      (a) Given x, PC(x) -> [x_lo, x_hi], where x_lo < 2**128 && x_hi < 2**128 && x == x_lo + x_hi * 2**128
-    //      (b) Additionally produces a witness that the x < p
+    //      (b) Additionally produces a witness that the x < (p - 1)
     //          p_sub_x_lo = p_lo - x_lo + borrow * 2**128  < 2**128
     //          p_sub_x_hi = p_hi - x_hi - borrow           < 2**128
     //      (c) Range checks over 128-bits are applied to x_lo, x_hi, p_sub_x_lo, and p_sub_x_hi.
@@ -661,26 +661,39 @@ namespace avm_alu(256);
     // ====== Handling ia > ib =====
     pol commit op_div_std;
     op_div_std * (1 - op_div_std) = 0;
+    pol commit divisor_lo; // b
+    pol commit divisor_hi;
+    op_div_std * (ib - divisor_lo - 2**64 * divisor_hi) = 0;
+    pol commit quotient_lo; // c
+    pol commit quotient_hi;
+    op_div_std * (ic - quotient_lo - 2**64 * quotient_hi) = 0;
 
-    pol PRODUCT = ib * ic; // This number can be up to 256-bits long
-    // We need to check that this value has not overflowed the field.
-    // (1) Decompose ib * ic into two 128-bit limbs, we will re-use the a_lo and a_hi columns.
-    // (2) Perform a 128-bit range check, over these two limbs. Again re-using the a_lo and a_hi columns.
-    // (3) Perform the primality check, we re-use the p_sub_a_lo and p_sub_a_hi columns.
+    // Multiplying the limbs gives us the following relations.
+    // (1) divisor_lo * quotient_lo --> Represents the bottom 128 bits of the result, i.e. values between [0, 2**128).
+    // (2) divisor_lo * quotient_hi + quotient_lo * divisor_hi --> Represents the middle 128 bits of the result, i.e. values between [2**64, 2**196)
+    // (3) divisor_hi * quotient_hi --> Represents the topmost 128 bits of the result, i.e. values between [2**128, 2**256).
 
-    // Check that a_lo and a_hi correctly represent PRODUCT
+    // We simplify (2) by further decomposing it two limbs of 64 bits and adding the upper 64 bit to (3)
+    // divisor_lo * quotient_hi + quotient_lo * divisor_hi = partial_prod_lo + 2**64 * partial_prod_hi
+    // Need to range check that these are 64 bits
+    pol commit partial_prod_lo;
+    pol commit partial_prod_hi;
+    divisor_hi * quotient_lo + divisor_lo * quotient_hi = partial_prod_lo + 2**64 * partial_prod_hi;
+
+    pol PRODUCT = divisor_lo * quotient_lo + 2**64 * partial_prod_lo + 2**128 * (partial_prod_hi + divisor_hi * quotient_hi);
+
+    // a_lo and a_hi contains the hi and lo limbs of PRODUCT
+    // p_sub_a_lo and p_sub_a_hi contain the primality checks
     #[ALU_PROD_DIV]
     op_div_std * (PRODUCT - (a_lo + 2 ** 128 * a_hi)) = 0;
     // Range checks already performed via a_lo and a_hi
     // Primality checks already performed above via p_sub_a_lo and p_sub_a_hi
 
-    //Range check remainder < ib and put the value in b_lo, it has to fit into a 128-bit range check
-    // b_hi is zero, TODO: does it need to be enforced as zero?
+    //Range check remainder < ib and put the value in b_hi, it has to fit into a 128-bit range check
     #[REMAINDER_RANGE_CHK]
-     op_div_std * (b_lo - (ib - remainder - 1)) = 0;
-     op_div_std * b_hi = 0;
+     op_div_std * (b_hi - (ib - remainder - 1)) = 0;
     
-    // We need to perform 3x 256-bit range checks: (a_lo,a_hi), (b_lo, 0), and (p_sub_a_lo, p_sub_a_hi) 
+    // We need to perform 3x 256-bit range checks: (a_lo, a_hi), (b_lo, b_hi), and (p_sub_a_lo, p_sub_a_hi) 
     // One range check happens in-line with the division
     #[CMP_CTR_REL_3]
     (cmp_rng_ctr' - 2) * op_div_std = 0;
@@ -691,3 +704,35 @@ namespace avm_alu(256);
      // Check PRODUCT = ia - remainder
     #[DIVISION_RELATION]
     op_div_std * (PRODUCT - (ia - remainder)) = 0;
+
+    // === DIVISION 64 BIT RANGE CHECKS
+    // 64-bit decompositions and implicit 64-bit range checks for each limb,
+    // TODO: These slices are needed because we are performing an additional 256 bit range check in the same row, look into re-using old columns or refactoring
+    // range checks to be more modular.
+    pol commit div_u16_r0;
+    pol commit div_u16_r1;
+    pol commit div_u16_r2;
+    pol commit div_u16_r3;
+    pol commit div_u16_r4;
+    pol commit div_u16_r5;
+    pol commit div_u16_r6;
+    pol commit div_u16_r7;
+    pol commit div_u16_r8;
+    pol commit div_u16_r9;
+    pol commit div_u16_r10;
+    pol commit div_u16_r11;
+    pol commit div_u16_r12;
+    pol commit div_u16_r13;
+    pol commit div_u16_r14;
+    pol commit div_u16_r15;
+
+    divisor_lo =  op_div_std * (div_u16_r0 + div_u16_r1 * 2**16 + div_u16_r2 * 2**32 + div_u16_r3 * 2 **48);
+    divisor_hi =  op_div_std * (div_u16_r4 + div_u16_r5 * 2**16 + div_u16_r6 * 2**32 + div_u16_r7 * 2**48);
+    quotient_lo = op_div_std * (div_u16_r8 + div_u16_r9 * 2**16 + div_u16_r10 * 2**32 + div_u16_r11 * 2**48);
+    quotient_hi = op_div_std * (div_u16_r12 + div_u16_r13 * 2**16 + div_u16_r14 * 2**32 + div_u16_r15 * 2**48);
+
+    // We need an extra 128 bits to do 2 more 64 bit range checks. We use b_lo to store partial_prod_lo and partial_prod_hi. 
+    pol NEXT_SUM_64 = u8_r0' + u8_r1' * 2**8 + u16_r0' * 2**16 + u16_r1' * 2**32 + u16_r2' * 2**48;
+    pol NEXT_SUM_128 = u16_r3' + u16_r4' * 2**16 + u16_r5' * 2**32 + u16_r6' * 2**48;
+    partial_prod_lo = op_div_std * NEXT_SUM_64;
+    partial_prod_hi = op_div_std * NEXT_SUM_128;

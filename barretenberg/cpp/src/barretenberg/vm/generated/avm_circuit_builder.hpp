@@ -67,6 +67,24 @@ template <typename FF> struct AvmFullRow {
     FF avm_alu_clk{};
     FF avm_alu_cmp_rng_ctr{};
     FF avm_alu_cmp_sel{};
+    FF avm_alu_div_u16_r0{};
+    FF avm_alu_div_u16_r1{};
+    FF avm_alu_div_u16_r10{};
+    FF avm_alu_div_u16_r11{};
+    FF avm_alu_div_u16_r12{};
+    FF avm_alu_div_u16_r13{};
+    FF avm_alu_div_u16_r14{};
+    FF avm_alu_div_u16_r15{};
+    FF avm_alu_div_u16_r2{};
+    FF avm_alu_div_u16_r3{};
+    FF avm_alu_div_u16_r4{};
+    FF avm_alu_div_u16_r5{};
+    FF avm_alu_div_u16_r6{};
+    FF avm_alu_div_u16_r7{};
+    FF avm_alu_div_u16_r8{};
+    FF avm_alu_div_u16_r9{};
+    FF avm_alu_divisor_hi{};
+    FF avm_alu_divisor_lo{};
     FF avm_alu_ff_tag{};
     FF avm_alu_ia{};
     FF avm_alu_ib{};
@@ -93,6 +111,10 @@ template <typename FF> struct AvmFullRow {
     FF avm_alu_p_sub_a_lo{};
     FF avm_alu_p_sub_b_hi{};
     FF avm_alu_p_sub_b_lo{};
+    FF avm_alu_partial_prod_hi{};
+    FF avm_alu_partial_prod_lo{};
+    FF avm_alu_quotient_hi{};
+    FF avm_alu_quotient_lo{};
     FF avm_alu_remainder{};
     FF avm_alu_res_hi{};
     FF avm_alu_res_lo{};
@@ -351,8 +373,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 284;
-    static constexpr size_t num_polys = 241;
+    static constexpr size_t num_fixed_columns = 306;
+    static constexpr size_t num_polys = 263;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -380,6 +402,24 @@ class AvmCircuitBuilder {
             polys.avm_alu_clk[i] = rows[i].avm_alu_clk;
             polys.avm_alu_cmp_rng_ctr[i] = rows[i].avm_alu_cmp_rng_ctr;
             polys.avm_alu_cmp_sel[i] = rows[i].avm_alu_cmp_sel;
+            polys.avm_alu_div_u16_r0[i] = rows[i].avm_alu_div_u16_r0;
+            polys.avm_alu_div_u16_r1[i] = rows[i].avm_alu_div_u16_r1;
+            polys.avm_alu_div_u16_r10[i] = rows[i].avm_alu_div_u16_r10;
+            polys.avm_alu_div_u16_r11[i] = rows[i].avm_alu_div_u16_r11;
+            polys.avm_alu_div_u16_r12[i] = rows[i].avm_alu_div_u16_r12;
+            polys.avm_alu_div_u16_r13[i] = rows[i].avm_alu_div_u16_r13;
+            polys.avm_alu_div_u16_r14[i] = rows[i].avm_alu_div_u16_r14;
+            polys.avm_alu_div_u16_r15[i] = rows[i].avm_alu_div_u16_r15;
+            polys.avm_alu_div_u16_r2[i] = rows[i].avm_alu_div_u16_r2;
+            polys.avm_alu_div_u16_r3[i] = rows[i].avm_alu_div_u16_r3;
+            polys.avm_alu_div_u16_r4[i] = rows[i].avm_alu_div_u16_r4;
+            polys.avm_alu_div_u16_r5[i] = rows[i].avm_alu_div_u16_r5;
+            polys.avm_alu_div_u16_r6[i] = rows[i].avm_alu_div_u16_r6;
+            polys.avm_alu_div_u16_r7[i] = rows[i].avm_alu_div_u16_r7;
+            polys.avm_alu_div_u16_r8[i] = rows[i].avm_alu_div_u16_r8;
+            polys.avm_alu_div_u16_r9[i] = rows[i].avm_alu_div_u16_r9;
+            polys.avm_alu_divisor_hi[i] = rows[i].avm_alu_divisor_hi;
+            polys.avm_alu_divisor_lo[i] = rows[i].avm_alu_divisor_lo;
             polys.avm_alu_ff_tag[i] = rows[i].avm_alu_ff_tag;
             polys.avm_alu_ia[i] = rows[i].avm_alu_ia;
             polys.avm_alu_ib[i] = rows[i].avm_alu_ib;
@@ -406,6 +446,10 @@ class AvmCircuitBuilder {
             polys.avm_alu_p_sub_a_lo[i] = rows[i].avm_alu_p_sub_a_lo;
             polys.avm_alu_p_sub_b_hi[i] = rows[i].avm_alu_p_sub_b_hi;
             polys.avm_alu_p_sub_b_lo[i] = rows[i].avm_alu_p_sub_b_lo;
+            polys.avm_alu_partial_prod_hi[i] = rows[i].avm_alu_partial_prod_hi;
+            polys.avm_alu_partial_prod_lo[i] = rows[i].avm_alu_partial_prod_lo;
+            polys.avm_alu_quotient_hi[i] = rows[i].avm_alu_quotient_hi;
+            polys.avm_alu_quotient_lo[i] = rows[i].avm_alu_quotient_lo;
             polys.avm_alu_remainder[i] = rows[i].avm_alu_remainder;
             polys.avm_alu_res_hi[i] = rows[i].avm_alu_res_hi;
             polys.avm_alu_res_lo[i] = rows[i].avm_alu_res_lo;
