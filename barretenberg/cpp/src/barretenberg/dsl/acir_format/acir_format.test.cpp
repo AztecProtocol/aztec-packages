@@ -152,8 +152,10 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
                                   .logic_constraints = { logic_constraint },
                                   .range_constraints = { range_a, range_b },
                                   .aes128_constraints = {},
+                                  .sha256_compression = {},
                                   .schnorr_constraints = {},
                                   .ecdsa_k1_constraints = {},
+                                  .ecdsa_r1_constraints = {},
                                   .blake2s_constraints = {},
                                   .blake3_constraints = {},
                                   .keccak_constraints = {},
@@ -223,8 +225,11 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
                                   .ecdsa_k1_constraints = {},
                                   .ecdsa_r1_constraints = {},
                                   .blake2s_constraints = {},
+                                  .blake3_constraints = {},
+                                  .keccak_constraints = {},
                                   .keccak_permutations = {},
                                   .pedersen_constraints = {},
+                                  .pedersen_hash_constraints = {},
                                   .poseidon2_constraints = {},
                                   .multi_scalar_mul_constraints = {},
                                   .ec_add_constraints = {},
@@ -322,8 +327,11 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
         .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
+        .bigint_operations = {},
         .poly_triple_constraints = { poly_triple{
             .a = schnorr_constraint.result,
             .b = schnorr_constraint.result,
@@ -440,6 +448,7 @@ TEST_F(AcirFormatTests, TestVarKeccak)
         .bigint_operations = {},
         .poly_triple_constraints = { dummy },
         .quad_constraints = {},
+        .block_constraints = {},
     };
 
     WitnessVector witness{ 4, 2, 6, 2 };
