@@ -12,7 +12,7 @@ export class UserData {
   async getUserDataForBareSpot(): Promise<string> {
     const cmds = [
       "#!/bin/bash",
-      "echo TODO not installing anything yet"];
+      `shutdown -P +${this.config.ec2InstanceTtl}`,];
     console.log(
       "Sending: ",
       cmds.filter((x) => !x.startsWith("TOKENS")).join("\n")
