@@ -1,6 +1,4 @@
-use dep::aztec::prelude::{
-    AztecAddress, FunctionSelector, NoteHeader, NoteInterface, NoteGetterOptions, PrivateContext
-};
+use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteInterface, NoteGetterOptions, PrivateContext};
 
 use dep::aztec::{
     note::utils::compute_note_hash_for_consumption,

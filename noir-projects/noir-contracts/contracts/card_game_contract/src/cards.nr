@@ -7,7 +7,7 @@ use dep::aztec::{
 },
     keys::getters::get_npk_m_h,
     context::{PublicContext, Context}, note::note_getter::view_notes, state_vars::PrivateSet,
-    note::constants::MAX_NOTES_PER_PAGE,
+    note::constants::MAX_NOTES_PER_PAGE
 };
 use dep::std;
 use dep::std::{option::Option};
