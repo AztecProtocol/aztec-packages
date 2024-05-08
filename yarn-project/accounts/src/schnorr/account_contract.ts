@@ -12,13 +12,13 @@ import { SchnorrAccountContractArtifact } from './artifact.js';
  * verified against a Grumpkin public key stored in an immutable encrypted note.
  */
 export class SchnorrAccountContract extends DefaultAccountContract {
-  constructor(private signingPrivateKey: GrumpkinPrivateKey, private masterNullifierPublicKeyHash: Fr) {
+  constructor(private signingPrivateKey: GrumpkinPrivateKey) {
     super(SchnorrAccountContractArtifact as ContractArtifact);
   }
 
   getDeploymentArgs() {
     const signingPublicKey = new Schnorr().computePublicKey(this.signingPrivateKey);
-    return [signingPublicKey.x, signingPublicKey.y, this.masterNullifierPublicKeyHash];
+    return [signingPublicKey.x, signingPublicKey.y];
   }
 
   getAuthWitnessProvider(_address: CompleteAddress): AuthWitnessProvider {

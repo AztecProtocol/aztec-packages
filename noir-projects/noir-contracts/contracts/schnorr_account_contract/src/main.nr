@@ -28,7 +28,9 @@ contract SchnorrAccount {
     // Constructs the contract
     #[aztec(private)]
     #[aztec(initializer)]
-    fn constructor(signing_pub_key_x: pub Field, signing_pub_key_y: pub Field, this_nullifier_public_key_hash: pub Field) {
+    fn constructor(signing_pub_key_x: pub Field, signing_pub_key_y: pub Field) {
+        let this = context.this_address();
+        let this_nullifier_public_key_hash = get_npk_m_h(&mut context, this);
         // docs:start:initialize
         let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_nullifier_public_key_hash);
         storage.signing_public_key.initialize(&mut pub_key_note, true);

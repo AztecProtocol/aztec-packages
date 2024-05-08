@@ -26,7 +26,9 @@ contract EcdsaAccount {
     // Creates a new account out of an ECDSA public key to use for signature verification
     #[aztec(private)]
     #[aztec(initializer)]
-    fn constructor(signing_pub_key_x: pub [u8; 32], signing_pub_key_y: pub [u8; 32], this_nullifier_public_key_hash: pub Field) {
+    fn constructor(signing_pub_key_x: pub [u8; 32], signing_pub_key_y: pub [u8; 32]) {
+        let this = context.this_address();
+        let this_nullifier_public_key_hash = get_npk_m_h(&mut context, this);
         let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_nullifier_public_key_hash);
         storage.public_key.initialize(&mut pub_key_note, true);
     }
