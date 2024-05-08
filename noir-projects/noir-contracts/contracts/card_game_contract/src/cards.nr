@@ -5,7 +5,7 @@ use dep::aztec::{
     traits::{ToField, Serialize, FromField},
     constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
 },
-    keys::getters::get_npk_m_hash,
+    keys::getters::get_npk_m_h,
     context::{PublicContext, Context}, note::note_getter::view_notes, state_vars::PrivateSet,
     note::constants::MAX_NOTES_PER_PAGE,
 };
@@ -106,7 +106,7 @@ impl Deck {
     pub fn add_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
         let _context = self.set.context.private.unwrap();
         
-        let owner_nullifier_public_key_hash = get_npk_m_hash(self.set.context.private.unwrap(), owner);
+        let owner_nullifier_public_key_hash = get_npk_m_h(self.set.context.private.unwrap(), owner);
 
         let mut inserted_cards = &[];
         for card in cards {
@@ -127,7 +127,7 @@ impl Deck {
                 let card_note = CardNote::from_note(maybe_notes[i].unwrap_unchecked());
                 // Ensure the notes are actually owned by the owner (to prevent user from generating a valid proof while
                 // spending someone else's notes).
-                let owner_nullifying_public_key_hash = get_npk_m_hash(self.set.context.private.unwrap(), owner);
+                let owner_nullifying_public_key_hash = get_npk_m_h(self.set.context.private.unwrap(), owner);
 
                 assert(card_note.note.owner_nullifying_public_key_hash.eq(owner_nullifying_public_key_hash));
 

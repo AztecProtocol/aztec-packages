@@ -1,7 +1,7 @@
 use dep::aztec::{
     protocol_types::{address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER},
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
-    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_app_nullifier_secret_key_with_master_nullifier_public_key_hash, get_public_key::get_public_key_with_master_nullifier_public_key_hash},
+    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_nsk_app_with_npk_m_h, get_public_key::get_public_key_with_npk_m_h},
     context::PrivateContext, hash::poseidon2_hash
 };
 
@@ -21,7 +21,7 @@ struct AddressNote {
 impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_app_nullifier_secret_key_with_master_public_nullifying_key_hash(self.owner_nullifying_public_key_hash);
+        let secret = context.request_nsk_app_with_npk_m_h(self.owner_nullifying_public_key_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -31,7 +31,7 @@ impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_app_nullifier_secret_key_with_master_nullifier_public_key_hash(self.owner_nullifying_public_key_hash);
+        let secret = get_nsk_app_with_npk_m_h(self.owner_nullifying_public_key_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -41,7 +41,7 @@ impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
 
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
-        let encryption_pub_key = get_public_key_with_master_nullifier_public_key_hash(self.owner_nullifying_public_key_hash);
+        let encryption_pub_key = get_public_key_with_npk_m_h(self.owner_nullifying_public_key_hash);
         // docs:start:encrypted
         context.emit_encrypted_log(
             (*context).this_address(),

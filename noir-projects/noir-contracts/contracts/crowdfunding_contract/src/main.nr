@@ -6,7 +6,7 @@ contract Crowdfunding {
     use dep::aztec::{
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize},
         state_vars::{PrivateSet, PublicImmutable, SharedImmutable},
-        keys::getters::get_npk_m_hash,
+        keys::getters::get_npk_m_h,
     };
     use dep::value_note::value_note::ValueNote;
     use dep::token::Token;
@@ -82,7 +82,7 @@ contract Crowdfunding {
         ).call(&mut context);
         // docs:end:do-transfer
 
-        let owner_nullifier_public_key_hash = get_npk_m_hash(&mut context, context.msg_sender());
+        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, context.msg_sender());
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
         let mut note = ValueNote::new(amount as Field, owner_nullifier_public_key_hash);

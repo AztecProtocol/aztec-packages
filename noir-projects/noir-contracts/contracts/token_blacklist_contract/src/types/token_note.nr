@@ -2,7 +2,7 @@ use dep::aztec::{
     prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext},
     protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER,
     note::utils::compute_note_hash_for_consumption, hash::poseidon2_hash,
-    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_app_nullifier_secret_key_with_master_nullifier_public_key_hash, get_public_key::get_public_key_with_master_nullifier_public_key_hash}
+    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_nsk_app_with_npk_m_h, get_public_key::get_public_key_with_npk_m_h}
 };
 
 trait OwnedNote {
@@ -28,7 +28,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
     // docs:start:nullifier
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_app_nullifier_secret_key_with_master_public_nullifying_key_hash(self.owner_nullifying_public_key_hash);
+        let secret = context.request_nsk_app_with_npk_m_h(self.owner_nullifying_public_key_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -39,7 +39,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_app_nullifier_secret_key_with_master_nullifier_public_key_hash(self.owner_nullifying_public_key_hash);
+        let secret = get_nsk_app_with_npk_m_h(self.owner_nullifying_public_key_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -52,7 +52,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
       // We only bother inserting the note if non-empty to save funds on gas.
       // TODO: (#5901) This will be changed a lot, as it should use the updated encrypted log format
       if !(self.amount == U128::from_integer(0)) {
-          let encryption_pub_key = get_public_key_with_master_nullifier_public_key_hash(self.owner_nullifying_public_key_hash);
+          let encryption_pub_key = get_public_key_with_npk_m_h(self.owner_nullifying_public_key_hash);
           context.emit_encrypted_log(
               (*context).this_address(),
               slot,

@@ -1,7 +1,7 @@
 use dep::aztec::{
     protocol_types::address::AztecAddress, context::Context,
     note::note_getter_options::NoteGetterOptions, state_vars::PrivateSet,
-    keys::getters::get_npk_m_hash,
+    keys::getters::get_npk_m_h,
 };
 use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
 
@@ -23,7 +23,7 @@ impl EasyPrivateUint {
     pub fn add(self, addend: u64, owner: AztecAddress) {
         assert(self.context.public.is_none(), "EasyPrivateUint::add can be called from private only.");
 
-        let owner_nullifier_public_key_hash = get_npk_m_hash(self.context.private.unwrap(), owner);
+        let owner_nullifier_public_key_hash = get_npk_m_h(self.context.private.unwrap(), owner);
 
         // Creates new note for the owner.
         let mut addend_note = ValueNote::new(addend as Field, owner_nullifier_public_key_hash);
@@ -38,7 +38,7 @@ impl EasyPrivateUint {
     pub fn sub(self, subtrahend: u64, owner: AztecAddress) {
         assert(self.context.public.is_none(), "EasyPrivateUint::sub can be called from private only.");
 
-        let owner_nullifier_public_key_hash = get_npk_m_hash(self.context.private.unwrap(), owner);
+        let owner_nullifier_public_key_hash = get_npk_m_h(self.context.private.unwrap(), owner);
 
         // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);

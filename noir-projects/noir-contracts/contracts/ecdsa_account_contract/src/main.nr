@@ -8,7 +8,7 @@ contract EcdsaAccount {
     use dep::aztec::protocol_types::abis::call_context::CallContext;
     use dep::std;
 
-    use dep::aztec::{context::{PublicContext, Context}, oracle::get_public_key::get_public_key, keys::getters::get_npk_m_hash};
+    use dep::aztec::{context::{PublicContext, Context}, oracle::get_public_key::get_public_key, keys::getters::get_npk_m_h};
     use dep::authwit::{
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
         auth_witness::get_auth_witness

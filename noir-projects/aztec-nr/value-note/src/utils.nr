@@ -2,7 +2,7 @@ use dep::aztec::{
     prelude::{AztecAddress, PrivateContext, PrivateSet, NoteGetterOptions},
     note::note_getter_options::SortOrder,
     oracle::get_public_key::get_public_key,
-    keys::getters::get_npk_m_hash,
+    keys::getters::get_npk_m_h,
 };
 use crate::{filter::filter_notes_min_sum, value_note::{ValueNote, VALUE_NOTE_LEN}};
 
@@ -16,7 +16,7 @@ pub fn create_note_getter_options_for_decreasing_balance(amount: Field) -> NoteG
 // Creates a new note for the recipient.
 // Inserts it to the recipient's set of notes.
 pub fn increment(mut context: PrivateContext, balance: PrivateSet<ValueNote>, amount: Field, recipient: AztecAddress) {
-    let recipient_nullifier_public_key_hash = get_npk_m_hash(&mut context, recipient);
+    let recipient_nullifier_public_key_hash = get_npk_m_h(&mut context, recipient);
 
     let mut note = ValueNote::new(amount, recipient_nullifier_public_key_hash);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
@@ -109,7 +109,7 @@ pub fn decrement_by_at_most_no_registry(
 pub fn destroy_note(mut context: PrivateContext, balance: PrivateSet<ValueNote>, owner: AztecAddress, note: ValueNote) -> Field {
     // Ensure the note is actually owned by the owner (to prevent user from generating a valid proof while
     // spending someone else's notes).
-    let owner_nullifying_public_key_hash = get_npk_m_hash(&mut context, owner);
+    let owner_nullifying_public_key_hash = get_npk_m_h(&mut context, owner);
 
     assert(note.owner_nullifying_public_key_hash.eq(owner_nullifying_public_key_hash));
 

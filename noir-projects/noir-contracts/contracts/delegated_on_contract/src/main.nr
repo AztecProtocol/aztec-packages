@@ -5,7 +5,7 @@ contract DelegatedOn {
         PrivateSet, PrivateContext
     };
     use dep::value_note::value_note::ValueNote;
-    use dep::aztec::keys::getters::get_npk_m_hash;
+    use dep::aztec::keys::getters::get_npk_m_h;
 
     #[aztec(storage)]
     struct Storage {
@@ -15,7 +15,7 @@ contract DelegatedOn {
 
     #[aztec(private)]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        let owner_nullifier_public_key_hash = get_npk_m_hash(&mut context, owner);
+        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, owner);
 
         let mut note = ValueNote::new(new_value, owner_nullifier_public_key_hash);
         storage.a_private_value.insert(&mut note, true);
@@ -30,7 +30,7 @@ contract DelegatedOn {
 
     #[aztec(private)]
     fn view_private_value(amount: Field, owner: AztecAddress) -> Field {
-        let owner_nullifier_public_key_hash = get_npk_m_hash(&mut context, owner);
+        let owner_nullifier_public_key_hash = get_npk_m_h(&mut context, owner);
 
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, amount, Option::none()).select(
