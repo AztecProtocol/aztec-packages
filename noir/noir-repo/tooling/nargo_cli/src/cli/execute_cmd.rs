@@ -16,7 +16,6 @@ use noirc_frontend::graph::CrateName;
 use super::compile_cmd::compile_workspace_full;
 use super::fs::{inputs::read_inputs_from_file, witness::save_witness_to_dir};
 use super::NargoConfig;
-use crate::backends::Backend;
 use crate::cli::fs::program::read_program_from_file;
 use crate::errors::CliError;
 
