@@ -115,11 +115,17 @@ async function startBareSpot(config: ActionConfig): Promise<string> {
   const instanceId = await requestAndWaitForSpot(config);
   if (config.command) {
     await ec2CommandOverSsh(ec2Client, instanceId, config.ec2Key, config.command);
+    await ec2CommandOverSsh(
+      ec2Client,
+      instanceId,
+      config.ec2Key,
+      'sudo shutdown now'
+    );
   }
   return instanceId;
 }
 
-async function startWithGithubRunners(config: ActionConfig): Promise<string> {
+async function startWithGithubRunners(config: ActionConfig) {
   if (config.subaction === "stop") {
     await terminate();
     return "";
@@ -151,6 +157,16 @@ async function startWithGithubRunners(config: ActionConfig): Promise<string> {
     core.info(
       `Runner already running. Continuing as we can target it with jobs.`
     );
+
+    if (config.command) {
+      await ec2CommandOverSsh(
+        ec2Client,
+        spotStatus, // the instance id in this case
+        config.ec2Key,
+        config.command
+      );
+      return spotStatus;
+    }
     return spotStatus;
   }
 
@@ -164,6 +180,14 @@ async function startWithGithubRunners(config: ActionConfig): Promise<string> {
   else {
     core.error("Instance failed to register with Github Actions");
     throw Error("Instance failed to register with Github Actions");
+  }
+  if (config.command) {
+    await ec2CommandOverSsh(
+      ec2Client,
+      instanceId,
+      config.ec2Key,
+      config.command
+    );
   }
   return instanceId;
 }
