@@ -61,7 +61,7 @@ fn on_profile_run_request_inner(
     // Since we filtered on crate name, this should be the only item in the iterator
     match workspace.into_iter().next() {
         Some(_package) => {
-            let expression_width = ExpressionWidth::Bounded { width: 3 };
+            let expression_width = ExpressionWidth::Bounded { width: 4 };
 
             let compiled_workspace = nargo::ops::compile_workspace(
                 &workspace_file_manager,
