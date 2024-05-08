@@ -41,6 +41,7 @@
     "merkle-tree",
     "builder",
     "noir-contracts.js",
+    "noir-protocol-circuits-janky-flamegraph",
     "noir-protocol-circuits-types",
     "p2p",
     "p2p-bootstrap",

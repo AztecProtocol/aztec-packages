@@ -34,7 +34,13 @@ impl MergeRollupInputs {
         components::assert_prev_rollups_follow_on_from_each_other(left, right);
 
         // compute calldata hash:
+        println("fg::in::rollup-lib/src/merge/merge_rollup_inputs.nr");
+        println("fg::start::compute_txs_effects_hash");
+        // fg::replace_with:
+        // let txs_effects_hash: Field = 1;
         let txs_effects_hash = components::compute_txs_effects_hash(self.previous_rollup_data);
+        println("fg::end::compute_txs_effects_hash");
+
         let out_hash = components::compute_out_hash(self.previous_rollup_data);
 
         let public_inputs = BaseOrMergeRollupPublicInputs {

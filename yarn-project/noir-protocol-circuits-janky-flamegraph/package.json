@@ -1,0 +1,7 @@
+{
+  "name": "protocol-circuits-janky-flamegraph",
+  "packageManager": "yarn@3.6.3",
+  "scripts": {
+    "start": "yarn node ./src/index.js"
+  }
+}

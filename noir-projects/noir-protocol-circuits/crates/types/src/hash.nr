@@ -116,7 +116,14 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
         }
     }
 
-    sha256_to_field(hash_input_flattened)
+    // compute calldata hash:
+    println("fg::in::types/src/hash.nr");
+    println("fg::start::sha256_to_field");
+    // fg::replace_with:
+    // let out = 1;
+    let out = sha256_to_field(hash_input_flattened);
+    println("fg::end::sha256_to_field");
+    out
 }
 
 // Computes the final logs hash for a tx.
