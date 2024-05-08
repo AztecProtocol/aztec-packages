@@ -5,6 +5,7 @@ import {
   MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MembershipWitness,
+  NESTED_RECURSIVE_PROOF_LENGTH,
   NoteHash,
   NoteHashContext,
   PrivateCallStackItem,
@@ -14,7 +15,8 @@ import {
   type TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
-  makeEmptyProof,
+  VerificationKeyAsFields,
+  makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeTxRequest } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
@@ -86,7 +88,8 @@ describe('Kernel Prover', () => {
     publicInputs.end.newNoteHashes = noteHashes;
     return {
       publicInputs,
-      proof: makeEmptyProof(),
+      proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
+      verificationKey: VerificationKeyAsFields.makeEmpty(),
     };
   };
 
@@ -100,7 +103,8 @@ describe('Kernel Prover', () => {
 
     return {
       publicInputs,
-      proof: makeEmptyProof(),
+      proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
+      verificationKey: VerificationKeyAsFields.makeEmpty(),
     };
   };
 

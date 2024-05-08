@@ -8,6 +8,7 @@ import {
   type PrivateKernelTailCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
+  type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type ACVMField } from '@aztec/simulator';
@@ -16,7 +17,7 @@ import { type ACVMField } from '@aztec/simulator';
  * Represents the output of the proof creation process for init and inner private kernel circuit.
  * Contains the public inputs required for the init and inner private kernel circuit and the generated proof.
  */
-export type ProofOutput<PublicInputsType> = {
+export type KernelProofOutput<PublicInputsType> = {
   /**
    * The public inputs required for the proof generation process.
    */
@@ -25,6 +26,21 @@ export type ProofOutput<PublicInputsType> = {
    * The zk-SNARK proof for the kernel execution.
    */
   proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
+
+  verificationKey: VerificationKeyAsFields;
+};
+
+/**
+ * Represents the output of the proof creation process for init and inner private kernel circuit.
+ * Contains the public inputs required for the init and inner private kernel circuit and the generated proof.
+ */
+export type AppCircuitProofOutput = {
+  /**
+   * The zk-SNARK proof for the kernel execution.
+   */
+  proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>;
+
+  verificationKey: VerificationKeyAsFields;
 };
 
 /**
@@ -48,7 +64,7 @@ export interface ProofCreator {
    */
   createProofInit(
     privateKernelInputsInit: PrivateKernelInitCircuitPrivateInputs,
-  ): Promise<ProofOutput<PrivateKernelCircuitPublicInputs>>;
+  ): Promise<KernelProofOutput<PrivateKernelCircuitPublicInputs>>;
 
   /**
    * Creates a proof output for a given previous kernel data and private call data for an inner iteration.
@@ -58,7 +74,7 @@ export interface ProofCreator {
    */
   createProofInner(
     privateKernelInputsInner: PrivateKernelInnerCircuitPrivateInputs,
-  ): Promise<ProofOutput<PrivateKernelCircuitPublicInputs>>;
+  ): Promise<KernelProofOutput<PrivateKernelCircuitPublicInputs>>;
 
   /**
    * Creates a proof output based on the last inner kernel iteration kernel data for the final ordering iteration.
@@ -68,7 +84,7 @@ export interface ProofCreator {
    */
   createProofTail(
     privateKernelInputsTail: PrivateKernelTailCircuitPrivateInputs,
-  ): Promise<ProofOutput<PrivateKernelTailCircuitPublicInputs>>;
+  ): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>>;
 
   /**
    * Creates a proof for an app circuit.
@@ -77,8 +93,5 @@ export interface ProofCreator {
    * @param bytecode - The circuit bytecode in gzipped bincode format
    * @returns A Promise resolving to a Proof object
    */
-  createAppCircuitProof(
-    partialWitness: Map<number, ACVMField>,
-    bytecode: Buffer,
-  ): Promise<RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>>;
+  createAppCircuitProof(partialWitness: Map<number, ACVMField>, bytecode: Buffer): Promise<AppCircuitProofOutput>;
 }

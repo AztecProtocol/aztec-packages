@@ -11,7 +11,6 @@ import {
 import { CallRequest } from '../call_request.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { PrivateCallStackItem } from '../private_call_stack_item.js';
-import { Proof } from '../proof.js';
 import { RecursiveProof } from '../recursive_proof.js';
 import { VerificationKeyAsFields } from '../verification_key.js';
 
