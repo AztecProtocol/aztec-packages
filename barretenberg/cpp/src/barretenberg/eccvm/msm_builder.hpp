@@ -62,8 +62,8 @@ class ECCVMMSMMBuilder {
     {
         // To perform a scalar multiplication of a point P by a scalar x, we precompute a table of points
         //                           -15P, -13P, ..., -3P, -P, P, 3P, ..., 15P
-        // When we perform a scalar multiplication, x into four-bit scalars and conver them to wNAF form, then look
-        // these precomputed values up with. We record read counts in a table with the following structure:
+        // When we perform a scalar multiplication, we decompose x into base-16 wNAF digits then look these precomputed
+        // values up with digit-by-digit. We record read counts in a table with the following structure:
         //   1st write column = positive wNAF digits
         //   2nd write column = negative wNAF digits
         // the row number is a function of pc and wnaf digit:
@@ -95,7 +95,7 @@ class ECCVMMSMMBuilder {
 
         const auto update_read_count = [&point_table_read_counts](const size_t point_idx, const int slice) {
             /**
-             * The wNAF digits lie in the range -15, -13, ..., 13, 15.
+             * The wNAF digits for base 16 lie in the range -15, -13, ..., 13, 15.
              * The *point table* format is the following:
              * (for positive point table) T[0] =  P, T[1] =  3P, ..., T[7]  =  15P
              * (for negative point table) T[0] = -P, T[1] = -3P, ..., T[15] = -15P

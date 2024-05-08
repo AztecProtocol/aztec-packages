@@ -24,11 +24,11 @@ class ECCVMCircuitBuilder {
     using AffineElement = typename CycleGroup::affine_element;
 
     static constexpr size_t NUM_SCALAR_BITS = bb::eccvm::NUM_SCALAR_BITS;
-    static constexpr size_t WNAF_SLICE_BITS = bb::eccvm::WNAF_SLICE_BITS;
+    static constexpr size_t NUM_WNAF_DIGIT_BITS = bb::eccvm::NUM_WNAF_DIGIT_BITS;
     static constexpr size_t NUM_WNAF_DIGITS_PER_SCALAR = bb::eccvm::NUM_WNAF_DIGITS_PER_SCALAR;
     static constexpr uint64_t WNAF_MASK = bb::eccvm::WNAF_MASK;
     static constexpr size_t POINT_TABLE_SIZE = bb::eccvm::POINT_TABLE_SIZE;
-    static constexpr size_t WNAF_SLICES_PER_ROW = bb::eccvm::WNAF_SLICES_PER_ROW;
+    static constexpr size_t WNAF_DIGITS_PER_ROW = bb::eccvm::WNAF_DIGITS_PER_ROW;
     static constexpr size_t ADDITIONS_PER_ROW = bb::eccvm::ADDITIONS_PER_ROW;
 
     using MSM = bb::eccvm::MSM<CycleGroup>;
@@ -83,12 +83,11 @@ class ECCVMCircuitBuilder {
 
                 if (i == 0 && is_even) {
                     // if least significant slice is even, we add 1 to create an odd value && set 'skew' to true
-                    // WORKTODO: skew is set where?
                     wnaf_slice += 1;
                 } else if (is_even) {
                     // for other slices, if it's even, we add 1 to the slice value
                     // and subtract 16 from the previous slice to preserve the total scalar sum
-                    static constexpr int borrow_constant = static_cast<int>(1ULL << WNAF_SLICE_BITS);
+                    static constexpr int borrow_constant = static_cast<int>(1ULL << NUM_WNAF_DIGIT_BITS);
                     previous_slice -= borrow_constant;
                     wnaf_slice += 1;
                 }
@@ -100,7 +99,7 @@ class ECCVMCircuitBuilder {
                 previous_slice = wnaf_slice;
 
                 // downshift raw_slice by 4 bits
-                scalar = scalar >> WNAF_SLICE_BITS;
+                scalar = scalar >> NUM_WNAF_DIGIT_BITS;
             }
 
             ASSERT(scalar == 0);
@@ -139,7 +138,6 @@ class ECCVMCircuitBuilder {
             op_idx++;
         }
         // if last op is a mul we have not correctly computed the total number of msms
-        // WORKTODO: hm?
         if (raw_ops.back().mul) {
             msm_sizes.push_back(active_mul_count);
             msm_count++;

@@ -406,6 +406,8 @@ class ECCOpQueue {
   private:
     /**
      * @brief Update cached_active_msm_count or update other row counts and reset cached_active_msm_count.
+     * @details To the OpQueue, an MSM is a sequence of successive mul opcodes (note that mul might better be called
+     * mul_add--its effect on the accumulator is += scalar * point).
      *
      * @param op
      */
@@ -435,7 +437,7 @@ class ECCOpQueue {
     static uint32_t get_precompute_table_row_count_for_single_msm(const size_t msm_count)
     {
         constexpr size_t num_precompute_rows_per_scalar =
-            eccvm::NUM_WNAF_DIGITS_PER_SCALAR / eccvm::WNAF_SLICES_PER_ROW;
+            eccvm::NUM_WNAF_DIGITS_PER_SCALAR / eccvm::WNAF_DIGITS_PER_ROW;
         const size_t num_rows_for_precompute_table = msm_count * num_precompute_rows_per_scalar;
         return static_cast<uint32_t>(num_rows_for_precompute_table);
     }

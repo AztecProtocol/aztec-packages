@@ -549,7 +549,7 @@ class ECCVMFlavor {
                     precompute_s4lo[i] = point_table_rows[i].s8;
                     // If skew is active (i.e. we need to subtract a base point from the msm result),
                     // write `7` into rows.precompute_skew. `7`, in binary representation, equals `-1` when converted
-                    // into WNAF form // WORKTODO: hm?
+                    // into WNAF form
                     precompute_skew[i] = point_table_rows[i].skew ? 7 : 0;
                     precompute_dx[i] = point_table_rows[i].precompute_double.x;
                     precompute_dy[i] = point_table_rows[i].precompute_double.y;

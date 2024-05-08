@@ -12,8 +12,8 @@ class ECCVMPointTablePrecomputationBuilder {
     using AffineElement = typename CycleGroup::affine_element;
 
     static constexpr size_t NUM_WNAF_DIGITS_PER_SCALAR = bb::eccvm::NUM_WNAF_DIGITS_PER_SCALAR;
-    static constexpr size_t WNAF_SLICES_PER_ROW = bb::eccvm::WNAF_SLICES_PER_ROW;
-    static constexpr size_t WNAF_SLICE_BITS = bb::eccvm::WNAF_SLICE_BITS;
+    static constexpr size_t WNAF_DIGITS_PER_ROW = bb::eccvm::WNAF_DIGITS_PER_ROW;
+    static constexpr size_t NUM_WNAF_DIGIT_BITS = bb::eccvm::NUM_WNAF_DIGIT_BITS;
 
     struct PointTablePrecoputationRow {
         int s1 = 0;
@@ -36,7 +36,7 @@ class ECCVMPointTablePrecomputationBuilder {
     static std::vector<PointTablePrecoputationRow> compute_rows(
         const std::vector<bb::eccvm::ScalarMul<CycleGroup>>& ecc_muls)
     {
-        static constexpr size_t num_rows_per_scalar = NUM_WNAF_DIGITS_PER_SCALAR / WNAF_SLICES_PER_ROW;
+        static constexpr size_t num_rows_per_scalar = NUM_WNAF_DIGITS_PER_SCALAR / WNAF_DIGITS_PER_ROW;
         const size_t num_precompute_rows = num_rows_per_scalar * ecc_muls.size() + 1;
         std::vector<PointTablePrecoputationRow> precompute_state(num_precompute_rows);
 
@@ -44,7 +44,7 @@ class ECCVMPointTablePrecomputationBuilder {
         precompute_state[0] = PointTablePrecoputationRow{};
 
         // current impl doesn't work if not 4
-        static_assert(WNAF_SLICES_PER_ROW == 4);
+        static_assert(WNAF_DIGITS_PER_ROW == 4);
 
         run_loop_in_parallel(ecc_muls.size(), [&](size_t start, size_t end) {
             for (size_t j = start; j < end; j++) {
@@ -54,10 +54,10 @@ class ECCVMPointTablePrecomputationBuilder {
 
                 for (size_t i = 0; i < num_rows_per_scalar; ++i) {
                     PointTablePrecoputationRow row;
-                    const int slice0 = slices[i * WNAF_SLICES_PER_ROW];
-                    const int slice1 = slices[i * WNAF_SLICES_PER_ROW + 1];
-                    const int slice2 = slices[i * WNAF_SLICES_PER_ROW + 2];
-                    const int slice3 = slices[i * WNAF_SLICES_PER_ROW + 3];
+                    const int slice0 = slices[i * WNAF_DIGITS_PER_ROW];
+                    const int slice1 = slices[i * WNAF_DIGITS_PER_ROW + 1];
+                    const int slice2 = slices[i * WNAF_DIGITS_PER_ROW + 2];
+                    const int slice3 = slices[i * WNAF_DIGITS_PER_ROW + 3];
 
                     const int slice0base2 = (slice0 + 15) / 2;
                     const int slice1base2 = (slice1 + 15) / 2;
@@ -85,7 +85,7 @@ class ECCVMPointTablePrecomputationBuilder {
 
                     bool chunk_negative = row_chunk < 0;
 
-                    scalar_sum = scalar_sum << (WNAF_SLICE_BITS * WNAF_SLICES_PER_ROW);
+                    scalar_sum = scalar_sum << (NUM_WNAF_DIGIT_BITS * WNAF_DIGITS_PER_ROW);
                     if (chunk_negative) {
                         scalar_sum -= static_cast<uint64_t>(-row_chunk);
                     } else {

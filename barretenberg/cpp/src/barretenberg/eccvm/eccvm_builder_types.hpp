@@ -4,15 +4,14 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
 namespace bb::eccvm {
-static constexpr size_t NUM_SCALAR_BITS = 128;
-static constexpr size_t WNAF_SLICE_BITS = 4;
-static constexpr size_t NUM_WNAF_DIGITS_PER_SCALAR = NUM_SCALAR_BITS / WNAF_SLICE_BITS; // 32
-static constexpr uint64_t WNAF_MASK = static_cast<uint64_t>((1ULL << WNAF_SLICE_BITS) - 1ULL);
-static constexpr size_t POINT_TABLE_SIZE = 1ULL << (WNAF_SLICE_BITS);
-static constexpr size_t WNAF_SLICES_PER_ROW = 4;
+static constexpr size_t NUM_SCALAR_BITS = 128;   // The length of scalars handled by the ECCVVM
+static constexpr size_t NUM_WNAF_DIGIT_BITS = 4; // Scalars are decompose into base 16 in wNAF form
+static constexpr size_t NUM_WNAF_DIGITS_PER_SCALAR = NUM_SCALAR_BITS / NUM_WNAF_DIGIT_BITS; // 32
+static constexpr uint64_t WNAF_MASK = static_cast<uint64_t>((1ULL << NUM_WNAF_DIGIT_BITS) - 1ULL);
+static constexpr size_t POINT_TABLE_SIZE = 1ULL << (NUM_WNAF_DIGIT_BITS);
+static constexpr size_t WNAF_DIGITS_PER_ROW = 4;
 static constexpr size_t ADDITIONS_PER_ROW = 4;
 
-// WORKTODO: naming: raw ops? ECCVM op?
 template <typename CycleGroup> struct VMOperation {
     bool add = false;
     bool mul = false;
