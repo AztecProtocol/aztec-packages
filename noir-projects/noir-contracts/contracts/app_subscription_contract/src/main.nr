@@ -113,11 +113,7 @@ contract AppSubscription {
         AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).static_enqueue(&mut context);
         let subscriber_npk_m_h = get_npk_m_h(&mut context, subscriber_address);
 
-        let mut subscription_note = SubscriptionNote::new(
-            subscriber_npk_m_h,
-            expiry_block_number,
-            tx_count
-        );
+        let mut subscription_note = SubscriptionNote::new(subscriber_npk_m_h, expiry_block_number, tx_count);
         if (!is_initialized(subscriber_address)) {
             storage.subscriptions.at(subscriber_address).initialize(&mut subscription_note, true);
         } else {

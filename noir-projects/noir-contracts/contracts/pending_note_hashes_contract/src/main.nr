@@ -121,11 +121,7 @@ contract PendingNoteHashes {
     }
 
     #[aztec(private)]
-    fn insert_note_no_registry(
-        amount: Field,
-        owner: AztecAddress,
-        owner_npk_m_h: Field
-    ) {
+    fn insert_note_no_registry(amount: Field, owner: AztecAddress, owner_npk_m_h: Field) {
         let owner_balance = storage.balances.at(owner);
         let mut note = ValueNote::new(amount, owner_npk_m_h);
 

@@ -26,11 +26,7 @@ contract StatefulTest {
 
     #[aztec(private)]
     #[aztec(initializer)]
-    fn constructor_no_registry(
-        owner: AztecAddress,
-        owner_npk_m_h: Field,
-        value: Field
-    ) {
+    fn constructor_no_registry(owner: AztecAddress, owner_npk_m_h: Field, value: Field) {
         StatefulTest::at(context.this_address()).create_note_no_registry_no_init_check(owner, owner_npk_m_h, value).call(&mut context);
     }
 

@@ -29,11 +29,7 @@ contract EcdsaAccount {
     fn constructor(signing_pub_key_x: pub [u8; 32], signing_pub_key_y: pub [u8; 32]) {
         let this = context.this_address();
         let this_npk_m_h = get_npk_m_h(&mut context, this);
-        let mut pub_key_note = EcdsaPublicKeyNote::new(
-            signing_pub_key_x,
-            signing_pub_key_y,
-            this_npk_m_h
-        );
+        let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_npk_m_h);
         storage.public_key.initialize(&mut pub_key_note, true);
     }
 

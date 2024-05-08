@@ -31,9 +31,7 @@ contract Claim {
         );
 
         let owner_npk_m_h = get_npk_m_h(&mut context, context.msg_sender());
-        assert_eq(
-            proof_note.owner_npk_m_h, owner_npk_m_h, "Note does not belong to the sender"
-        );
+        assert_eq(proof_note.owner_npk_m_h, owner_npk_m_h, "Note does not belong to the sender");
 
         // 2) Prove that the note hash exists in the note hash tree
         prove_note_inclusion(proof_note, context);

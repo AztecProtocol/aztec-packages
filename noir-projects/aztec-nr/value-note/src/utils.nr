@@ -26,11 +26,7 @@ pub fn increment(
     balance.insert(&mut note, amount != 0);
 }
 
-pub fn increment_without_calling_registry(
-    balance: PrivateSet<ValueNote>,
-    amount: Field,
-    recipient_npk_m_h: Field
-) {
+pub fn increment_without_calling_registry(balance: PrivateSet<ValueNote>, amount: Field, recipient_npk_m_h: Field) {
     let mut note = ValueNote::new(amount, recipient_npk_m_h);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
     balance.insert(&mut note, amount != 0);
