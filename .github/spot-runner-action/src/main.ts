@@ -186,7 +186,9 @@ async function ec2CommandOverSsh(
   const maxAttempts = 60;
   while (attempts < maxAttempts) {
     try {
-      execSync(`ssh -F $SSH_CONFIG_PATH -o ConnectTimeout=1 ubuntu@${ip} true`);
+      execSync(
+        `ssh -o StrictHostKeyChecking=no -i ${tempKeyPath} -o ConnectTimeout=1 ubuntu@${ip} true`
+      );
       break;
     } catch {
       if (attempts >= maxAttempts - 1) {
