@@ -14,10 +14,11 @@ import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type PrivateCallStackItem,
   type PublicCallRequest,
+  type PublicKeys,
 } from '@aztec/circuits.js';
 import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr, type Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
 
 /** Nullifier keys which both correspond to the same master nullifier secret key. */
@@ -148,7 +149,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('popCapsule');
   }
 
-  getPublicKeysForAddress(_address: AztecAddress): Promise<Point[]> {
+  getPublicKeysForAddress(_address: AztecAddress): Promise<PublicKeys> {
     throw new OracleMethodNotAvailableError('getPublicKeysForAddress');
   }
 
