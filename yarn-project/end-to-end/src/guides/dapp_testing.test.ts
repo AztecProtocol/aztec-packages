@@ -28,8 +28,7 @@ describe('guides/dapp/testing', () => {
       // docs:start:create_pxe_client
       const pxe = createPXEClient(PXE_URL);
       await waitForPXE(pxe);
-      // docs:end:
-
+      // docs:end:create_pxe_client
     });
 
     describe('token contract', () => {
