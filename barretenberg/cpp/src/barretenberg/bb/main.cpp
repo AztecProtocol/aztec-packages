@@ -17,12 +17,10 @@
 #include <barretenberg/dsl/acir_proofs/acir_composer.hpp>
 #include <barretenberg/dsl/acir_proofs/goblin_acir_composer.hpp>
 #include <barretenberg/srs/global_crs.hpp>
-#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
 #include <stdexcept>
-// #include <stdio.h>
 #include <string>
 #include <vector>
 
