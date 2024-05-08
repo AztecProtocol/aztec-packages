@@ -266,6 +266,16 @@ impl DebugShow {
     /// Debug function for black_box_op
     pub(crate) fn black_box_op_instruction(&self, op: &BlackBoxOp) {
         match op {
+            BlackBoxOp::AES128Encrypt { inputs, iv, key, outputs } => {
+                debug_println!(
+                    self.enable_debug_trace,
+                    "  AES128 ENCRYPT {} {} {}  -> {}",
+                    inputs,
+                    iv,
+                    key,
+                    outputs
+                );
+            }
             BlackBoxOp::Keccak256 { message, output } => {
                 debug_println!(self.enable_debug_trace, "  KECCAK256 {} -> {}", message, output);
             }
@@ -312,30 +322,13 @@ impl DebugShow {
                     result
                 );
             }
-            BlackBoxOp::FixedBaseScalarMul { low, high, result } => {
+            BlackBoxOp::MultiScalarMul { points, scalars, outputs } => {
                 debug_println!(
                     self.enable_debug_trace,
-                    "  FIXED_BASE_SCALAR_MUL {} {} -> {}",
-                    low,
-                    high,
-                    result
-                );
-            }
-            BlackBoxOp::VariableBaseScalarMul {
-                point_x,
-                point_y,
-                scalar_low,
-                scalar_high,
-                result,
-            } => {
-                debug_println!(
-                    self.enable_debug_trace,
-                    "  VARIABLE_BASE_SCALAR_MUL ({} {}) ({} {}) -> {}",
-                    point_x,
-                    point_y,
-                    scalar_low,
-                    scalar_high,
-                    result
+                    "  MULTI_SCALAR_MUL {} {} -> {}",
+                    points,
+                    scalars,
+                    outputs
                 );
             }
             BlackBoxOp::EmbeddedCurveAdd { input1_x, input1_y, input2_x, input2_y, result } => {
