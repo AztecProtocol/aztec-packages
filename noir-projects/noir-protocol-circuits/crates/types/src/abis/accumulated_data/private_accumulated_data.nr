@@ -1,19 +1,20 @@
 use crate::{
     abis::{
-    call_request::CallRequest, gas::Gas, note_hash::NoteHashContext, nullifier::Nullifier,
+    call_request::CallRequest, gas::Gas, note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
     side_effect::SideEffect
-}, traits::Serialize
-};
-use crate::constants::{
+  }, traits::Serialize,
+    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+  constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
     MAX_UNENCRYPTED_LOGS_PER_TX, PRIVATE_ACCUMULATED_DATA_LENGTH
+  }
 };
 
 struct PrivateAccumulatedData {
-    new_note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
-    new_nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
-    new_l2_to_l1_msgs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
+    new_note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
+    new_nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
+    new_l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
 
     encrypted_logs_hashes: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX],
     unencrypted_logs_hashes: [SideEffect; MAX_UNENCRYPTED_LOGS_PER_TX],
