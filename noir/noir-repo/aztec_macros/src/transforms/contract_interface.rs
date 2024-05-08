@@ -127,6 +127,7 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
                 target_contract: self.target_contract,
                 selector: {},
                 args: args_acc,
+                gas_opts: dep::aztec::context::gas::GasOpts::default(),
             }}",
             args, is_void, is_static, fn_selector,
         );

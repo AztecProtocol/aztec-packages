@@ -50,4 +50,3 @@ trait PublicContextInterface {
     ) -> FunctionReturns<RETURNS_COUNT>;
     fn nullifier_exists(self, unsiloed_nullifier: Field, address: AztecAddress) -> bool;
 }
-
