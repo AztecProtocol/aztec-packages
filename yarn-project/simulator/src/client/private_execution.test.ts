@@ -209,7 +209,7 @@ describe('Private Execution test suite', () => {
       }
       throw new Error(`Unknown address ${accountAddress}`);
     });
-    oracle.getNullifierKeysWithMasterNullifierPublicKeyHash.mockImplementation(
+    oracle.getNullifierKeysWithNpkMH.mockImplementation(
       (masterNullifierPublicKeyHash: Fr, contractAddress: AztecAddress) => {
         if (masterNullifierPublicKeyHash.equals(poseidon2Hash(ownerMasterNullifierPublicKey.toFields()))) {
           return Promise.resolve({
@@ -313,7 +313,7 @@ describe('Private Execution test suite', () => {
         throw new Error(`Unknown address ${address}`);
       });
 
-      oracle.getCompleteAddressWithMasterNullifierPublicKey.mockImplementation((masterNullifierPublicKeyHash: Fr) => {
+      oracle.getCompleteAddressWithNpkMH.mockImplementation((masterNullifierPublicKeyHash: Fr) => {
         if (masterNullifierPublicKeyHash.equals(poseidon2Hash(ownerMasterNullifierPublicKey.toFields()))) {
           return Promise.resolve(ownerCompleteAddress);
         }
@@ -916,7 +916,7 @@ describe('Private Execution test suite', () => {
         }
         throw new Error(`Unknown address ${address}`);
       });
-      oracle.getCompleteAddressWithMasterNullifierPublicKey.mockImplementation((masterNullifierPublicKeyHash: Fr) => {
+      oracle.getCompleteAddressWithNpkMH.mockImplementation((masterNullifierPublicKeyHash: Fr) => {
         if (masterNullifierPublicKeyHash.equals(poseidon2Hash(ownerMasterNullifierPublicKey.toFields()))) {
           return Promise.resolve(ownerCompleteAddress);
         }
