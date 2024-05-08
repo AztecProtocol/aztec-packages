@@ -15,6 +15,7 @@ use dep::types::{
 
 struct DataSource {
     private_call_public_inputs: PrivateCircuitPublicInputs,
+    contract_address: AztecAddress,
     storage_contract_address: AztecAddress,
     note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
     private_call_requests: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
@@ -52,6 +53,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
 
         public_inputs.constants = previous_kernel_public_inputs.constants;
         public_inputs.min_revertible_side_effect_counter = previous_kernel_public_inputs.min_revertible_side_effect_counter;
+        public_inputs.fee_payer = previous_kernel_public_inputs.fee_payer;
+        public_inputs.public_teardown_call_request = previous_kernel_public_inputs.public_teardown_call_request;
 
         let start = previous_kernel_public_inputs.validation_requests;
         public_inputs.validation_requests.max_block_number = start.for_rollup.max_block_number;
@@ -71,8 +74,6 @@ impl PrivateKernelCircuitPublicInputsComposer {
         let _call_request = public_inputs.end.private_call_stack.pop();
         public_inputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
 
-        public_inputs.public_teardown_call_request = previous_kernel_public_inputs.public_teardown_call_request;
-
         PrivateKernelCircuitPublicInputsComposer { public_inputs }
     }
 
@@ -82,7 +83,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
         private_call_requests: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
         public_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-        public_teardown_call_request: CallRequest
+        public_teardown_call_request: CallRequest,
+        contract_address: AztecAddress
     ) -> Self {
         let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
         let source = DataSource {
@@ -91,7 +93,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
             note_hash_nullifier_counters,
             private_call_requests,
             public_call_requests,
-            public_teardown_call_request
+            public_teardown_call_request,
+            contract_address
         };
 
         self.propagate_max_block_number(source);
@@ -105,6 +108,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         self.propagate_private_call_requests(source);
         self.propagate_public_call_requests(source);
         self.propagate_public_teardown_call_request(source);
+        self.propagate_fee_payer(source);
 
         *self
     }
@@ -218,6 +222,13 @@ impl PrivateKernelCircuitPublicInputsComposer {
                 is_empty(self.public_inputs.public_teardown_call_request), "Public teardown call request already set"
             );
             self.public_inputs.public_teardown_call_request = call_request;
+        }
+    }
+
+    fn propagate_fee_payer(&mut self, source: DataSource) {
+        if (source.private_call_public_inputs.is_fee_payer) {
+            assert(self.public_inputs.fee_payer.is_zero(), "Cannot overwrite non-empty fee_payer");
+            self.public_inputs.fee_payer = source.private_call_public_inputs.call_context.storage_contract_address;
         }
     }
 }
