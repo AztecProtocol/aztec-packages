@@ -42,10 +42,8 @@ export class AztecDatastore implements Datastore {
   }
 
   async get(key: Key): Promise<Uint8Array> {
-    // console.log('getting data', key);
     const keyStr = key.toString();
     const memoryItem = this.#memoryDatastore.get(keyStr);
-    // console.log('res', memoryItem);
     if (memoryItem) {
       memoryItem.lastAccessedMs = Date.now();
       return memoryItem.data;
@@ -61,28 +59,6 @@ export class AztecDatastore implements Datastore {
     await this._put(key, dbItem, true);
 
     return dbItem;
-  }
-
-  private async _put(key: Key, val: Uint8Array, fromDb = false): Promise<Key> {
-    while (this.#memoryDatastore.size >= this.maxMemoryItems) {
-      await this.pruneMemoryDatastore();
-    }
-    const keyStr = key.toString();
-    const memoryItem = this.#memoryDatastore.get(keyStr);
-    if (memoryItem) {
-      // update existing
-      memoryItem.lastAccessedMs = Date.now();
-      memoryItem.data = val;
-    } else {
-      // new entry
-      this.#memoryDatastore.set(keyStr, { data: val, lastAccessedMs: Date.now() });
-    }
-
-    if (!fromDb) {
-      await this.addDirtyItem(keyStr);
-    }
-
-    return key;
   }
 
   put(key: Key, val: Uint8Array): Promise<Key> {
@@ -198,6 +174,28 @@ export class AztecDatastore implements Datastore {
     }
 
     return it;
+  }
+
+  private async _put(key: Key, val: Uint8Array, fromDb = false): Promise<Key> {
+    while (this.#memoryDatastore.size >= this.maxMemoryItems) {
+      await this.pruneMemoryDatastore();
+    }
+    const keyStr = key.toString();
+    const memoryItem = this.#memoryDatastore.get(keyStr);
+    if (memoryItem) {
+      // update existing
+      memoryItem.lastAccessedMs = Date.now();
+      memoryItem.data = val;
+    } else {
+      // new entry
+      this.#memoryDatastore.set(keyStr, { data: val, lastAccessedMs: Date.now() });
+    }
+
+    if (!fromDb) {
+      await this.addDirtyItem(keyStr);
+    }
+
+    return key;
   }
 
   private async *all(): AsyncIterable<Pair> {

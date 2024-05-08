@@ -82,6 +82,7 @@ describe('Discv5Service', () => {
   });
 
   // Test is flakey, so skipping for now.
+  // TODO: Investigate: #6246
   it.skip('should persist peers without bootnode', async () => {
     port++;
     const node1 = await createNode(port);

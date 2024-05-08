@@ -75,11 +75,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     });
 
     this.runningPromise = new RunningPromise(async () => {
-      if (process.env.FIND_NODE) {
-        await this.discv5.findNode(process.env.FIND_NODE);
-      } else {
-        await this.discv5.findRandomNode();
-      }
+      await this.discv5.findRandomNode();
     }, config.p2pPeerCheckIntervalMS);
   }
 
