@@ -37,7 +37,7 @@ unconstrained fn get_nullifier_keys_with_npk_m_h_internal(master_nullifier_publi
     NullifierKeys {
         account: AztecAddress::zero(),
         master_nullifier_public_key: GrumpkinPoint { x: result[0], y: result[1] },
-        app_nullifier_secret_key: result[2],
+        app_nullifier_secret_key: result[2]
     }
 }
 

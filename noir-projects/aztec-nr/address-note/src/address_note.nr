@@ -1,7 +1,10 @@
 use dep::aztec::{
     protocol_types::{address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER},
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
-    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_nsk_app_with_npk_m_h, get_public_key::get_public_key_with_npk_m_h},
+    oracle::{
+    unsafe_rand::unsafe_rand, nullifier_key::get_nsk_app_with_npk_m_h,
+    get_public_key::get_public_key_with_npk_m_h
+},
     context::PrivateContext, hash::poseidon2_hash
 };
 

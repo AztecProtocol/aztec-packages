@@ -1,7 +1,6 @@
 use dep::aztec::{
     protocol_types::address::AztecAddress, context::Context,
-    note::note_getter_options::NoteGetterOptions, state_vars::PrivateSet,
-    keys::getters::get_npk_m_h,
+    note::note_getter_options::NoteGetterOptions, state_vars::PrivateSet, keys::getters::get_npk_m_h
 };
 use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
 
@@ -49,7 +48,6 @@ impl EasyPrivateUint {
         for i in 0..maybe_notes.len() {
             if maybe_notes[i].is_some() {
                 let note = maybe_notes[i].unwrap_unchecked();
-
 
                 // Ensure the notes are actually owned by the owner (to prevent user from generating a valid proof while
                 // spending someone else's notes).
