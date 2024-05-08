@@ -111,7 +111,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(true);
-    expect(results.revertReason?.message).toEqual("Reverted with output: Nullifier doesn't exist!");
+    expect(results.revertReason?.message).toEqual("Assertion failed: Nullifier doesn't exist!");
     expect(results.output).toEqual([
       new Fr(0),
       ...[..."Nullifier doesn't exist!"].flatMap(c => new Fr(c.charCodeAt(0))),
@@ -197,6 +197,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     it('getFeePerDaGas', async () => {
       const fee = new Fr(1);
       await testEnvGetter('feePerDaGas', fee, 'get_fee_per_da_gas');
+    });
+
+    it('getTransactionFee', async () => {
+      const fee = new Fr(1);
+      await testEnvGetter('transactionFee', fee, 'get_transaction_fee');
     });
 
     it('chainId', async () => {

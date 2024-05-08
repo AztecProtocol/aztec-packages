@@ -1,18 +1,16 @@
-import { EncryptedFunctionL2Logs, Note, UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
+import { Note } from '@aztec/circuit-types';
 import {
   FunctionData,
   FunctionSelector,
   MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NOTE_HASHES_PER_TX,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MembershipWitness,
   NoteHash,
-  NoteHashContext,
-  NoteHashReadRequestMembershipWitness,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
+  ScopedNoteHash,
   type TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
@@ -26,8 +24,8 @@ import { type ExecutionResult, type NoteAndSlot } from '@aztec/simulator';
 
 import { mock } from 'jest-mock-extended';
 
+import { type ProofCreator } from './interface/proof_creator.js';
 import { KernelProver } from './kernel_prover.js';
-import { type ProofCreator } from './proof_creator.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
 
 describe('Kernel Prover', () => {
@@ -36,6 +34,8 @@ describe('Kernel Prover', () => {
   let proofCreator: ReturnType<typeof mock<ProofCreator>>;
   let prover: KernelProver;
   let dependencies: { [name: string]: string[] } = {};
+
+  const contractAddress = AztecAddress.fromBigInt(987654n);
 
   const notesAndSlots: NoteAndSlot[] = Array(10)
     .fill(null)
@@ -67,26 +67,25 @@ describe('Kernel Prover', () => {
       nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
       vk: VerificationKey.makeFake().toBuffer(),
       newNotes: newNoteIndices.map(idx => notesAndSlots[idx]),
-      nullifiedNoteHashCounters: [],
-      // TODO(dbanks12): should test kernel prover with non-transient reads.
-      // This will be necessary once kernel actually checks (attempts to match) transient reads.
-      noteHashReadRequestPartialWitnesses: Array.from({ length: MAX_NOTE_HASH_READ_REQUESTS_PER_CALL }, () =>
-        NoteHashReadRequestMembershipWitness.emptyTransient(),
-      ),
+      nullifiedNoteHashCounters: new Map(),
+      noteHashLeafIndexMap: new Map(),
       returnValues: [],
       acir: Buffer.alloc(0),
       partialWitness: new Map(),
       enqueuedPublicFunctionCalls: [],
-      encryptedLogs: EncryptedFunctionL2Logs.empty(),
-      unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
+      encryptedLogs: [],
+      unencryptedLogs: [],
     };
   };
 
   const createProofOutput = (newNoteIndices: number[]) => {
     const publicInputs = PrivateKernelCircuitPublicInputs.empty();
-    const noteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, NoteHashContext.empty);
+    const noteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash.empty);
     for (let i = 0; i < newNoteIndices.length; i++) {
-      noteHashes[i] = new NoteHashContext(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), 0, 0);
+      noteHashes[i] = new NoteHash(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), 0).scope(
+        0,
+        contractAddress,
+      );
     }
 
     publicInputs.end.newNoteHashes = noteHashes;

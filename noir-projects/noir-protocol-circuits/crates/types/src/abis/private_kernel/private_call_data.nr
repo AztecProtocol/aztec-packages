@@ -1,14 +1,9 @@
-use crate::abis::{
-    call_request::CallRequest, private_call_stack_item::PrivateCallStackItem,
-    membership_witness::{FunctionLeafMembershipWitness, NoteHashReadRequestMembershipWitness}
-};
+use crate::abis::{call_request::CallRequest, private_call_stack_item::PrivateCallStackItem};
 use crate::address::{SaltedInitializationHash, PublicKeysHash, EthAddress};
 use crate::contract_class_id::ContractClassId;
 use crate::mocked::{Proof, VerificationKey};
-use crate::constants::{
-    MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
-};
+use crate::constants::{MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, FUNCTION_TREE_HEIGHT};
+use crate::merkle_tree::membership::MembershipWitness;
 
 struct PrivateCallData {
     call_stack_item: PrivateCallStackItem,
@@ -23,9 +18,7 @@ struct PrivateCallData {
     public_keys_hash: PublicKeysHash,
     contract_class_artifact_hash: Field,
     contract_class_public_bytecode_commitment: Field,
-    function_leaf_membership_witness: FunctionLeafMembershipWitness,
+    function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
     
-    note_hash_read_request_membership_witnesses: [NoteHashReadRequestMembershipWitness; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-
     acir_hash: Field,
 }

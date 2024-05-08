@@ -1,10 +1,4 @@
-import {
-  type PublicKernelRequest,
-  PublicKernelType,
-  type Tx,
-  UnencryptedFunctionL2Logs,
-  type UnencryptedL2Log,
-} from '@aztec/circuit-types';
+import { type PublicKernelRequest, PublicKernelType, type Tx } from '@aztec/circuit-types';
 import {
   Fr,
   type GlobalVariables,
@@ -45,7 +39,11 @@ export class TailPhaseManager extends AbstractPhaseManager {
     super(db, publicExecutor, publicKernel, globalVariables, historicalHeader, phase);
   }
 
-  async handle(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs, previousPublicKernelProof: Proof) {
+  override async handle(
+    tx: Tx,
+    previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
+    previousPublicKernelProof: Proof,
+  ) {
     this.log.verbose(`Processing tx ${tx.getTxHash()}`);
     const [inputs, finalKernelOutput] = await this.runTailKernelCircuit(
       previousPublicKernelOutput,
@@ -57,8 +55,6 @@ export class TailPhaseManager extends AbstractPhaseManager {
         throw err;
       },
     );
-    // Temporary hack. Should sort them in the tail circuit.
-    this.patchLogsOrdering(tx, previousPublicKernelOutput);
     // commit the state updates from this transaction
     await this.publicStateDB.commit();
 
@@ -75,6 +71,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
       publicKernelProof: makeEmptyProof(),
       revertReason: undefined,
       returnValues: undefined,
+      gasUsed: undefined,
     };
   }
 
@@ -163,33 +160,9 @@ export class TailPhaseManager extends AbstractPhaseManager {
   }
 
   private sortLogsHashes<N extends number>(unencryptedLogsHashes: Tuple<SideEffect, N>): Tuple<SideEffect, N> {
+    // TODO(6052): logs here may have duplicate counters from nested calls
     return sortByCounter(
       unencryptedLogsHashes.map(n => ({ ...n, counter: n.counter.toNumber(), isEmpty: () => n.isEmpty() })),
     ).map(h => new SideEffect(h.value, new Fr(h.counter))) as Tuple<SideEffect, N>;
-  }
-
-  // As above, this is a hack for unencrypted logs ordering, now they are sorted. Since the public kernel
-  // cannot keep track of side effects that happen after or before a nested call, we override the gathered logs.
-  // As a sanity check, we at least verify that the elements are the same, so we are only tweaking their ordering.
-  // See same fn in pxe_service.ts
-  // Added as part of resolving #5017
-  private patchLogsOrdering(tx: Tx, publicInputs: PublicKernelCircuitPublicInputs) {
-    const unencLogs = tx.unencryptedLogs.unrollLogs();
-    const sortedUnencLogs = publicInputs.end.unencryptedLogsHashes;
-
-    const finalUnencLogs: UnencryptedL2Log[] = [];
-    sortedUnencLogs.forEach((sideEffect: SideEffect) => {
-      if (!sideEffect.isEmpty()) {
-        const isLog = (log: UnencryptedL2Log) => Fr.fromBuffer(log.hash()).equals(sideEffect.value);
-        const thisLogIndex = unencLogs.findIndex(isLog);
-        finalUnencLogs.push(unencLogs[thisLogIndex]);
-      }
-    });
-    const unencryptedLogs = new UnencryptedFunctionL2Logs(finalUnencLogs);
-
-    tx.unencryptedLogs.functionLogs[0] = unencryptedLogs;
-    for (let i = 1; i < tx.unencryptedLogs.functionLogs.length; i++) {
-      tx.unencryptedLogs.functionLogs[i] = UnencryptedFunctionL2Logs.empty();
-    }
   }
 }

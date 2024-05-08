@@ -10,16 +10,22 @@ contract Test {
 
     use dep::aztec::protocol_types::{
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Serialize
+        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, CANONICAL_KEY_REGISTRY_ADDRESS},
+        traits::{Serialize, ToField, FromField}, grumpkin_point::GrumpkinPoint,
+        grumpkin_private_key::GrumpkinPrivateKey
     };
+
+    use dep::aztec::encrypted_logs::header::EncryptedLogHeader;
+    use dep::aztec::encrypted_logs::body::EncryptedLogBody;
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
 
-    use dep::aztec::state_vars::shared_mutable::SharedMutablePrivateGetter;
+    use dep::aztec::state_vars::{shared_mutable::SharedMutablePrivateGetter, map::derive_storage_slot_in_map};
 
     use dep::aztec::{
+        keys::getters::get_npk_m,
         context::{Context, inputs::private_context_inputs::PrivateContextInputs},
-        hash::{pedersen_hash, compute_secret_hash, ArgsHasher},
+        hash::{pedersen_hash, poseidon2_hash, compute_secret_hash, ArgsHasher},
         note::{
         lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
         note_getter_options::NoteStatus
@@ -234,6 +240,24 @@ contract Test {
         context.emit_unencrypted_log(fields);
     }
 
+    #[aztec(private)]
+    fn emit_unencrypted_logs_nested(fields: [Field; 5]) {
+        Test::at(context.this_address()).emit_msg_sender().call(&mut context);
+        Test::at(context.this_address()).emit_array_as_unencrypted_log(fields).call(&mut context);
+        context.emit_unencrypted_log("test");
+    }
+
+    #[aztec(private)]
+    fn emit_encrypted_logs_nested(value: Field, owner: AztecAddress) {
+        let mut storage_slot = storage.example_constant.get_storage_slot() + 1;
+        Test::at(context.this_address()).call_create_note(value, owner, storage_slot).call(&mut context);
+        storage_slot += 1;
+        let mut note = ValueNote::new(value + 1, owner);
+        create_note(&mut context, storage_slot, &mut note, true);
+        storage_slot += 1;
+        Test::at(context.this_address()).call_create_note(value + 2, owner, storage_slot).call(&mut context);
+    }
+
     // docs:start:is-time-equal
     #[aztec(public)]
     fn is_time_equal(time: u64) -> u64 {
@@ -322,6 +346,23 @@ contract Test {
         aes128_encrypt(input, iv, key)
     }
 
+    #[aztec(private)]
+    fn compute_note_header_ciphertext(secret: GrumpkinPrivateKey, point: GrumpkinPoint) -> [u8; 32] {
+        EncryptedLogHeader::new(context.this_address()).compute_ciphertext(secret, point)
+    }
+
+    // 64 bytes + 32 * #fields = 96 bytes
+    #[aztec(private)]
+    fn compute_note_body_ciphertext(
+        secret: GrumpkinPrivateKey,
+        point: GrumpkinPoint,
+        storage_slot: Field,
+        value: Field
+    ) -> [u8; 96] {
+        let note = TestNote::new(value);
+        EncryptedLogBody::new(storage_slot, TestNote::get_note_type_id(), note).compute_ciphertext(secret, point)
+    }
+
     #[aztec(public)]
     fn assert_public_global_vars(
         chain_id: Field,
@@ -348,10 +389,11 @@ contract Test {
         assert(context.historical_header.hash() == header_hash, "Invalid header hash");
     }
 
-    #[aztec(public)]
-    fn assert_header_public(header_hash: Field) {
-        assert(context.historical_header.hash() == header_hash, "Invalid header hash");
-    }
+    // TODO(4840): add AVM opcodes for getting header (members)
+    //#[aztec(public)]
+    //fn assert_header_public(header_hash: Field) {
+    //    assert(context.historical_header.hash() == header_hash, "Invalid header hash");
+    //}
 
     #[aztec(private)]
     fn deploy_contract(target: AztecAddress) {
@@ -375,44 +417,46 @@ contract Test {
         constant.value
     }
 
+    // This function is used in the e2e_state_vars to test the SharedMutablePrivateGetter in isolation
     #[aztec(private)]
-    fn test_shared_mutable_private_getter_for_registry_contract(
-        contract_address_to_read: AztecAddress,
-        storage_slot_of_shared_mutable: Field,
-        address_to_get_in_registry: AztecAddress
-    ) {
-        // We have to derive this slot to get the location of the shared mutable inside the Map
-        let derived_slot = dep::aztec::hash::pedersen_hash(
-            [storage_slot_of_shared_mutable, address_to_get_in_registry.to_field()],
-            0
-        );
-        // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
-        let registry_private_getter: SharedMutablePrivateGetter<AztecAddress, 5> = SharedMutablePrivateGetter::new(context, contract_address_to_read, derived_slot);
-        let nullifier_public_key = registry_private_getter.get_current_value_in_private();
-
-        context.emit_unencrypted_log(nullifier_public_key);
-    }
-
-    #[aztec(private)]
-    fn test_shared_mutable_private_getter(
+    fn test_shared_mutable_private_getter<T>(
         contract_address_to_read: AztecAddress,
         storage_slot_of_shared_mutable: Field
-    ) {
+    ) -> Field where T: FromField, T: ToField {
         // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
-        let test: SharedMutablePrivateGetter<AztecAddress, 5> = SharedMutablePrivateGetter::new(
+        let test: SharedMutablePrivateGetter<T, 5> = SharedMutablePrivateGetter::new(
             context,
             contract_address_to_read,
             storage_slot_of_shared_mutable
         );
-        let authorized = test.get_current_value_in_private();
 
-        context.emit_unencrypted_log(authorized);
+        let ret = test.get_current_value_in_private();
+
+        ret.to_field()
     }
 
-    #[aztec(public)]
-    fn delay() {
-        // We use this as a util function to "mine a block"
-        context.emit_unencrypted_log("dummy");
+    // This function is used for testing the registry contract and fresh public key getters. If nothing exists in the registry, but we have added public
+    // keys to the pxe, this function will return nothing, but the public key getters will return the correct value
+    #[aztec(private)]
+    fn test_shared_mutable_private_getter_for_registry_contract(
+        storage_slot_of_shared_mutable: Field,
+        address_to_get_in_registry: AztecAddress
+    ) -> Field {
+        // We have to derive this slot to get the location of the shared mutable inside the Map
+        let derived_slot = derive_storage_slot_in_map(storage_slot_of_shared_mutable, address_to_get_in_registry);
+
+        // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
+        let registry_private_getter: SharedMutablePrivateGetter<Field, 5> = SharedMutablePrivateGetter::new(
+            context,
+            AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS),
+            derived_slot
+        );
+        registry_private_getter.get_current_value_in_private()
+    }
+
+    #[aztec(private)]
+    fn test_nullifier_key_freshness(address: AztecAddress, public_nullifying_key: GrumpkinPoint) {
+        assert_eq(get_npk_m(&mut context, address), public_nullifying_key);
     }
 
     // Purely exists for testing

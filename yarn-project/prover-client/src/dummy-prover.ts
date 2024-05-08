@@ -4,6 +4,7 @@ import {
   PROVING_STATUS,
   type ProcessedTx,
   type ProverClient,
+  type ProverConfig,
   type ProvingJob,
   type ProvingJobSource,
   type ProvingRequest,
@@ -63,11 +64,15 @@ export class DummyProver implements ProverClient {
   getProvingJobSource(): ProvingJobSource {
     return this.jobs;
   }
+
+  updateProverConfig(_config: Partial<ProverConfig>): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 class DummyProvingJobSource implements ProvingJobSource {
-  getProvingJob(): Promise<ProvingJob<ProvingRequest> | null> {
-    return Promise.resolve(null);
+  getProvingJob(): Promise<ProvingJob<ProvingRequest> | undefined> {
+    return Promise.resolve(undefined);
   }
 
   rejectProvingJob(): Promise<void> {

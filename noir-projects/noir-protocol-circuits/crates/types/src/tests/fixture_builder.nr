@@ -6,13 +6,13 @@ use crate::{
     global_variables::GlobalVariables, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
     kernel_data::{PrivateKernelData, PublicKernelData, KernelData}, max_block_number::MaxBlockNumber,
-    note_hash::NoteHashContext, nullifier::Nullifier,
-    nullifier_key_validation_request::NullifierKeyValidationRequestContext,
+    note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
+    nullifier_key_validation_request::ScopedNullifierKeyValidationRequest,
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-    read_request::ReadRequestContext, side_effect::SideEffect,
+    read_request::{ReadRequest, ScopedReadRequest}, side_effect::SideEffect,
     validation_requests::{ValidationRequests, ValidationRequestsBuilder}
 },
-    address::AztecAddress,
+    address::{AztecAddress, EthAddress},
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
     MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -21,9 +21,10 @@ use crate::{
     MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
     VK_TREE_HEIGHT, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    hash::silo_nullifier, header::Header, mocked::{AggregationObject, Proof, VerificationKey},
-    partial_state_reference::PartialStateReference, tests::fixtures, transaction::tx_context::TxContext,
-    traits::Empty
+    hash::silo_nullifier, header::Header,
+    messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
+    mocked::{AggregationObject, Proof, VerificationKey}, partial_state_reference::PartialStateReference,
+    tests::fixtures, transaction::tx_context::TxContext, traits::Empty
 };
 
 struct FixtureBuilder {
@@ -34,11 +35,12 @@ struct FixtureBuilder {
     historical_header: Header,
     tx_context: TxContext,
     global_variables: GlobalVariables,
+    public_teardown_call_request: CallRequest,
     
     // Accumulated data.
-    new_note_hashes: BoundedVec<NoteHashContext, MAX_NEW_NOTE_HASHES_PER_TX>,
-    new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_TX>,
-    new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
+    new_note_hashes: BoundedVec<ScopedNoteHash, MAX_NEW_NOTE_HASHES_PER_TX>,
+    new_nullifiers: BoundedVec<ScopedNullifier, MAX_NEW_NULLIFIERS_PER_TX>,
+    new_l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
     encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_TX>,
     unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_TX>,
     encrypted_logs_hash: Field,
@@ -53,10 +55,10 @@ struct FixtureBuilder {
 
     // Validation requests.
     max_block_number: MaxBlockNumber,
-    note_hash_read_requests: BoundedVec<SideEffect, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-    nullifier_read_requests: BoundedVec<ReadRequestContext, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-    nullifier_non_existent_read_requests: BoundedVec<ReadRequestContext, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
-    nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequestContext, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
+    note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+    nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+    nullifier_non_existent_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
+    nullifier_key_validation_requests: BoundedVec<ScopedNullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
     public_data_reads: BoundedVec<PublicDataRead, MAX_PUBLIC_DATA_READS_PER_TX>,
 
     // Proof.
@@ -81,7 +83,7 @@ impl FixtureBuilder {
         FixtureBuilder {
             contract_address: fixtures::contracts::parent_contract.address,
             storage_contract_address: fixtures::contracts::parent_contract.address,
-            historical_header: fixtures::HEADER,
+            historical_header: Header::empty(),
             tx_context,
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
@@ -111,7 +113,8 @@ impl FixtureBuilder {
             start_state: PartialStateReference::empty(),
             gas_used: Gas::empty(),
             non_revertible_gas_used: Gas::empty(),
-            global_variables: GlobalVariables::empty()
+            global_variables: GlobalVariables::empty(),
+            public_teardown_call_request: CallRequest::empty()
         }
     }
 
@@ -140,9 +143,9 @@ impl FixtureBuilder {
 
     pub fn to_public_accumulated_data(self) -> PublicAccumulatedData {
         PublicAccumulatedData {
-            new_note_hashes: self.new_note_hashes.storage.map(|n: NoteHashContext| n.to_note_hash()),
-            new_nullifiers: self.new_nullifiers.storage,
-            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
+            new_note_hashes: self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash),
+            new_nullifiers: self.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier),
+            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
@@ -155,9 +158,9 @@ impl FixtureBuilder {
 
     pub fn to_combined_accumulated_data(self) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
-            new_note_hashes: self.new_note_hashes.storage.map(|n: NoteHashContext| n.value),
-            new_nullifiers: self.new_nullifiers.storage.map(|n: Nullifier| n.value),
-            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
+            new_note_hashes: self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value),
+            new_nullifiers: self.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier.value),
+            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
             encrypted_logs_hash: self.encrypted_logs_hash,
             unencrypted_logs_hash: self.unencrypted_logs_hash,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
@@ -189,7 +192,8 @@ impl FixtureBuilder {
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             end,
             validation_requests,
-            constants
+            constants,
+            public_teardown_call_request: self.public_teardown_call_request
         }
     }
 
@@ -219,7 +223,8 @@ impl FixtureBuilder {
             end,
             validation_requests,
             constants,
-            revert_code: self.revert_code
+            revert_code: self.revert_code,
+            public_teardown_call_request: self.public_teardown_call_request
         }
     }
 
@@ -249,32 +254,54 @@ impl FixtureBuilder {
     }
 
     pub fn add_new_note_hash(&mut self, value: Field) {
-        self.new_note_hashes.push(NoteHashContext { value, counter: self.next_counter(), nullifier_counter: 0 });
+        self.new_note_hashes.push(NoteHash { value, counter: self.next_counter() }.scope(0, self.storage_contract_address));
     }
 
     pub fn append_new_note_hashes(&mut self, num_new_note_hashes: u64) {
-        let mocked_value_offset = self.new_note_hashes.len() + 1;
+        let index_offset = self.new_note_hashes.len();
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             if i < num_new_note_hashes {
-                // The empty value is its index + 1.
-                self.add_new_note_hash((i + mocked_value_offset) as Field);
+                let mocked_value = self.get_mocked_note_hash_value(index_offset + i);
+                self.add_new_note_hash(mocked_value);
             }
         }
     }
 
-    pub fn add_nullifier(&mut self, unsiloed_nullifier: Field) {
-        let value = silo_nullifier(self.storage_contract_address, unsiloed_nullifier);
-        self.new_nullifiers.push(Nullifier { value, note_hash: 0, counter: self.next_counter() });
+    pub fn add_nullifier(&mut self, value: Field) {
+        self.new_nullifiers.push(
+            Nullifier { value, counter: self.next_counter(), note_hash: 0 }.scope(self.storage_contract_address)
+        );
+    }
+
+    pub fn add_siloed_nullifier(&mut self, value: Field) {
+        let siloed_value = silo_nullifier(self.storage_contract_address, value);
+        self.add_nullifier(siloed_value);
     }
 
     pub fn append_new_nullifiers(&mut self, num_extra_nullifier: u64) {
         let index_offset = self.new_nullifiers.len();
         for i in 0..MAX_NEW_NULLIFIERS_PER_TX {
             if i < num_extra_nullifier {
-                let mock_value = self.get_mock_nullifier_value(index_offset + i);
-                self.add_nullifier(mock_value);
+                let mocked_value = self.get_mocked_nullifier_value(index_offset + i);
+                self.add_nullifier(mocked_value);
             }
         }
+    }
+
+    pub fn append_siloed_nullifiers(&mut self, num_extra_nullifier: u64) {
+        let index_offset = self.new_nullifiers.len();
+        for i in 0..MAX_NEW_NULLIFIERS_PER_TX {
+            if i < num_extra_nullifier {
+                let mocked_value = self.get_mocked_nullifier_value(index_offset + i);
+                self.add_siloed_nullifier(mocked_value);
+            }
+        }
+    }
+
+    pub fn add_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
+        self.new_l2_to_l1_msgs.push(
+            L2ToL1Message { recipient, content, counter: self.next_counter() }.scope(self.storage_contract_address)
+        );
     }
 
     pub fn add_public_data_update_request(&mut self, leaf_slot: Field, value: Field) {
@@ -312,31 +339,33 @@ impl FixtureBuilder {
     }
 
     pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u64) -> u64 {
-        let new_read_request_index = self.note_hash_read_requests.len();
-        let note_hash = self.new_note_hashes.get(note_hash_index);
-        let read_request = SideEffect { value: note_hash.value, counter: self.next_counter() };
+        let read_request_index = self.note_hash_read_requests.len();
+        let value = self.get_mocked_note_hash_value(note_hash_index);
+        let read_request = ReadRequest { value, counter: self.next_counter() }.scope(self.storage_contract_address);
         self.note_hash_read_requests.push(read_request);
-        new_read_request_index
+        read_request_index
+    }
+
+    pub fn append_note_hash_read_requests(&mut self, num_reads: u64) {
+        let value_offset = self.note_hash_read_requests.len();
+        for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_TX {
+            if i < num_reads {
+                let read_request = ReadRequest { value: (value_offset + i + 789) as Field, counter: self.next_counter() }.scope(self.storage_contract_address);
+                self.note_hash_read_requests.push(read_request);
+            }
+        }
     }
 
     pub fn add_read_request_for_pending_nullifier(&mut self, nullifier_index: u64) -> u64 {
         let read_request_index = self.nullifier_read_requests.len();
-        let unsiloed_nullifier = self.get_mock_nullifier_value(nullifier_index);
-        let read_request = ReadRequestContext {
-            value: unsiloed_nullifier,
-            counter: self.next_counter(),
-            contract_address: self.storage_contract_address
-        };
+        let nullifier = self.get_mocked_nullifier_value(nullifier_index);
+        let read_request = ReadRequest { value: nullifier, counter: self.next_counter() }.scope(self.storage_contract_address);
         self.nullifier_read_requests.push(read_request);
         read_request_index
     }
 
-    pub fn add_non_existent_read_request_for_nullifier(&mut self, unsiloed_nullifier: Field) {
-        let read_request = ReadRequestContext {
-            value: unsiloed_nullifier,
-            counter: self.next_counter(),
-            contract_address: self.storage_contract_address
-        };
+    pub fn add_non_existent_read_request_for_nullifier(&mut self, nullifier: Field) {
+        let read_request = ReadRequest { value: nullifier, counter: self.next_counter() }.scope(self.storage_contract_address);
         self.nullifier_non_existent_read_requests.push(read_request);
     }
 
@@ -406,12 +435,17 @@ impl FixtureBuilder {
         }
     }
 
-    fn get_mock_nullifier_value(_self: Self, nullifier_index: u64) -> Field {
+    fn get_mocked_note_hash_value(_self: Self, note_hash_index: u64) -> Field {
+        let value_offset = 212121;
+        value_offset + note_hash_index as Field
+    }
+
+    fn get_mocked_nullifier_value(_self: Self, nullifier_index: u64) -> Field {
         let value_offset = 5678;
         value_offset + nullifier_index as Field
     }
 
-    fn get_mock_nullifier_value_non_revertible(_self: Self, nullifier_index: u64) -> Field {
+    fn get_mocked_nullifier_value_non_revertible(_self: Self, nullifier_index: u64) -> Field {
         let value_offset = 987;
         value_offset + nullifier_index as Field
     }
@@ -459,6 +493,7 @@ impl Empty for FixtureBuilder {
             start_state: PartialStateReference::empty(),
             gas_used: Gas::empty(),
             non_revertible_gas_used: Gas::empty(),
+            public_teardown_call_request: CallRequest::empty()
         }
     }
 }

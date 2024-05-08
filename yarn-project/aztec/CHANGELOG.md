@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.38.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.37.0...aztec-package-v0.38.0) (2024-05-07)
+
+
+### Features
+
+* Proving benchmark ([#6051](https://github.com/AztecProtocol/aztec-packages/issues/6051)) ([644bd85](https://github.com/AztecProtocol/aztec-packages/commit/644bd8525f6de8b71d6cc299baf3fda94b68abbb))
+
+## [0.37.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.36.0...aztec-package-v0.37.0) (2024-05-02)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
 ## [0.36.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.35.1...aztec-package-v0.36.0) (2024-04-30)
 
 

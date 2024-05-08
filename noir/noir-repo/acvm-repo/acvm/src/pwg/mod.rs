@@ -5,8 +5,9 @@ use std::collections::HashMap;
 use acir::{
     brillig::ForeignCallResult,
     circuit::{
-        brillig::BrilligBytecode, opcodes::BlockId, AssertionPayload, ExpressionOrMemory, Opcode,
-        OpcodeLocation, ResolvedAssertionPayload, STRING_ERROR_SELECTOR,
+        brillig::BrilligBytecode, opcodes::BlockId, AssertionPayload, ErrorSelector,
+        ExpressionOrMemory, Opcode, OpcodeLocation, RawAssertionPayload, ResolvedAssertionPayload,
+        STRING_ERROR_SELECTOR,
     },
     native_types::{Expression, Witness, WitnessMap},
     BlackBoxFunc, FieldElement,
@@ -334,7 +335,7 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
                 &mut self.bigint_solver,
             ),
             Opcode::Directive(directive) => solve_directives(&mut self.witness_map, directive),
-            Opcode::MemoryInit { block_id, init } => {
+            Opcode::MemoryInit { block_id, init, .. } => {
                 let solver = self.block_solvers.entry(*block_id).or_default();
                 solver.init(init, &self.witness_map)
             }
@@ -425,8 +426,9 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
                         }
                     }
                 }
+                let error_selector = ErrorSelector::new(*error_selector);
 
-                Some(match *error_selector {
+                Some(match error_selector {
                     STRING_ERROR_SELECTOR => {
                         // If the error selector is 0, it means the error is a string
                         let string = fields
@@ -444,7 +446,10 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
                     }
                     _ => {
                         // If the error selector is not 0, it means the error is a custom error
-                        ResolvedAssertionPayload::Raw(*error_selector, fields)
+                        ResolvedAssertionPayload::Raw(RawAssertionPayload {
+                            selector: error_selector,
+                            data: fields,
+                        })
                     }
                 })
             }
