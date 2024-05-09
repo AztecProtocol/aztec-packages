@@ -651,7 +651,7 @@ namespace avm_alu(256);
     // Boolean if ia < ib ==> ic = 0;
     pol commit op_div_a_lt_b;
     op_div_a_lt_b * (1 - op_div_a_lt_b) = 0;
-    // To show this, we constrain ib - ia - 1 to be within 128-bits
+    // To show this, we constrain ib - ia - 1 to be within 128 bits.
     // Since we need a range check we use the existing a_lo column that is range checked over 128-bits
     op_div_a_lt_b * (a_lo - (ib - ia - 1)) = 0;
     op_div_a_lt_b * ic  = 0; // ic = 0
