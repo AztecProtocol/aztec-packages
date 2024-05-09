@@ -10,29 +10,7 @@ on:
       runner_label:
         required: true
         type: string
-      runner_concurrency:
-        required: true
-        type: number
-      # how much time to add to shutdown when a job finishes or starts
-      ec2_instance_ttl:
-        required: true
-        type: number
-      ec2_subnet_id:
-        default: subnet-4cfabd25
-        type: string
-      ec2_security_group_id:
-        default: sg-0ccd4e5df0dcca0c9
-        type: string
-      ec2_spot_instance_strategy:
-        default: None
-        type: string
-      aws_region:
-        default: "us-east-2"
-        type: string
-      ebs_cache_size_gb:
-        required: true
-        type: string
-      subaction:
+      runner_action:
         required: true
         type: string
     secrets:
@@ -86,7 +64,7 @@ jobs:
         uses: ./.github/ensure-builder
         with:
           runner_label: ${{ inputs.runner_label }}
-          runner_action: ${{ inputs.subaction }}
+          runner_action: ${{ inputs.runner_action }}
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           ec2_key: ${{ secrets.EC2_KEY }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
