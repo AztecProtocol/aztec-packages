@@ -1,5 +1,5 @@
 import { type AccountWallet, AztecAddress, Fr, type PXE } from '@aztec/aztec.js';
-import { CompleteAddress, type PartialAddress, Point, computeAddress, deriveKeys } from '@aztec/circuits.js';
+import { CompleteAddress, Point } from '@aztec/circuits.js';
 import { KeyRegistryContract, TestContract } from '@aztec/noir-contracts.js';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 
@@ -22,16 +22,7 @@ describe('Key Registry', () => {
 
   let teardown: () => Promise<void>;
 
-  // TODO(#5834): use AztecAddress.compute or smt
-  const {
-    masterNullifierPublicKey,
-    masterIncomingViewingPublicKey,
-    masterOutgoingViewingPublicKey,
-    masterTaggingPublicKey,
-    publicKeysHash,
-  } = deriveKeys(Fr.random());
-  const partialAddress: PartialAddress = Fr.random();
-  let account: AztecAddress;
+  const account = CompleteAddress.random();
 
   beforeAll(async () => {
     ({ teardown, pxe, wallets } = await setup(3));
@@ -40,8 +31,6 @@ describe('Key Registry', () => {
     testContract = await TestContract.deploy(wallets[0]).send().deployed();
 
     await publicDeployAccounts(wallets[0], wallets.slice(0, 2));
-
-    account = computeAddress(publicKeysHash, partialAddress);
   });
 
   const crossDelay = async () => {
@@ -56,10 +45,10 @@ describe('Key Registry', () => {
   describe('failure cases', () => {
     it('throws when address preimage check fails', async () => {
       const keys = [
-        masterNullifierPublicKey,
-        masterIncomingViewingPublicKey,
-        masterOutgoingViewingPublicKey,
-        masterTaggingPublicKey,
+        account.masterNullifierPublicKey,
+        account.masterIncomingViewingPublicKey,
+        account.masterOutgoingViewingPublicKey,
+        account.masterTaggingPublicKey,
       ];
 
       // We randomly invalidate some of the keys
@@ -68,7 +57,7 @@ describe('Key Registry', () => {
       await expect(
         keyRegistry
           .withWallet(wallets[0])
-          .methods.register(AztecAddress.fromField(account), partialAddress, keys[0], keys[1], keys[2], keys[3])
+          .methods.register(account, account.partialAddress, keys[0], keys[1], keys[2], keys[3])
           .send()
           .wait(),
       ).rejects.toThrow('Computed address does not match supplied address');
@@ -92,7 +81,7 @@ describe('Key Registry', () => {
 
       await expect(
         testContract.methods.test_nullifier_key_freshness(randomAddress, randomMasterNullifierPublicKey).send().wait(),
-      ).rejects.toThrow(`Cannot satisfy constraint 'computed_address.eq(address)'`);
+      ).rejects.toThrow(/No public key registered for address/);
     });
   });
 
@@ -116,11 +105,11 @@ describe('Key Registry', () => {
         .withWallet(wallets[0])
         .methods.register(
           account,
-          partialAddress,
-          masterNullifierPublicKey,
-          masterIncomingViewingPublicKey,
-          masterOutgoingViewingPublicKey,
-          masterTaggingPublicKey,
+          account.partialAddress,
+          account.masterNullifierPublicKey,
+          account.masterIncomingViewingPublicKey,
+          account.masterOutgoingViewingPublicKey,
+          account.masterTaggingPublicKey,
         )
         .send()
         .wait();
@@ -140,13 +129,13 @@ describe('Key Registry', () => {
         .test_shared_mutable_private_getter_for_registry_contract(1, account)
         .simulate();
 
-      expect(new Fr(nullifierPublicKeyX)).toEqual(masterNullifierPublicKey.x);
+      expect(new Fr(nullifierPublicKeyX)).toEqual(account.masterNullifierPublicKey.x);
     });
 
     // Note: This test case is dependent on state from the previous one
     it('key lib succeeds for registered account', async () => {
       // Should succeed as the account is registered in key registry from tests before
-      await testContract.methods.test_nullifier_key_freshness(account, masterNullifierPublicKey).send().wait();
+      await testContract.methods.test_nullifier_key_freshness(account, account.masterNullifierPublicKey).send().wait();
     });
   });
 
