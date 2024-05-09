@@ -1,13 +1,5 @@
 import { type AccountWallet, AztecAddress, Fr, type PXE } from '@aztec/aztec.js';
-import {
-  CompleteAddress,
-  GeneratorIndex,
-  type PartialAddress,
-  Point,
-  computeAddress,
-  deriveKeys,
-} from '@aztec/circuits.js';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { CompleteAddress, type PartialAddress, Point, computeAddress, deriveKeys } from '@aztec/circuits.js';
 import { KeyRegistryContract, TestContract } from '@aztec/noir-contracts.js';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 
@@ -105,28 +97,15 @@ describe('Key Registry', () => {
   });
 
   it('fresh key lib succeeds for non-registered account available in PXE', async () => {
-    // TODO(#5834): Make this not disgusting
-    const newAccountKeys = deriveKeys(Fr.random());
-    const newAccountPartialAddress = Fr.random();
-    const newAccount = AztecAddress.fromField(
-      poseidon2Hash([newAccountKeys.publicKeysHash, newAccountPartialAddress, GeneratorIndex.CONTRACT_ADDRESS_V1]),
-    );
-    const newAccountCompleteAddress = CompleteAddress.create(
-      newAccount,
-      newAccountKeys.masterIncomingViewingPublicKey,
-      newAccountPartialAddress,
-    );
-
-    await pxe.registerRecipient(newAccountCompleteAddress, [
-      newAccountKeys.masterNullifierPublicKey,
-      newAccountKeys.masterIncomingViewingPublicKey,
-      newAccountKeys.masterOutgoingViewingPublicKey,
-      newAccountKeys.masterTaggingPublicKey,
-    ]);
+    const newAccountCompleteAddress = CompleteAddress.random();
+    await pxe.registerRecipient(newAccountCompleteAddress);
 
     // Should succeed as the account is now registered as a recipient in PXE
     await testContract.methods
-      .test_nullifier_key_freshness(newAccount, newAccountKeys.masterNullifierPublicKey)
+      .test_nullifier_key_freshness(
+        newAccountCompleteAddress.address,
+        newAccountCompleteAddress.masterNullifierPublicKey,
+      )
       .send()
       .wait();
   });

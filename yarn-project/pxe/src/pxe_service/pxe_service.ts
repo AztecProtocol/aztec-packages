@@ -1,25 +1,25 @@
 import {
-  EncryptedTxL2Logs,
-  ExtendedNote,
-  MerkleTreeId,
-  SimulatedTx,
-  SimulationError,
-  Tx,
-  UnencryptedTxL2Logs,
-  isNoirCallStackUnresolved,
   type AuthWitness,
   type AztecNode,
+  EncryptedTxL2Logs,
+  ExtendedNote,
   type FunctionCall,
   type GetUnencryptedLogsResponse,
   type KeyStore,
   type L2Block,
   type LogFilter,
+  MerkleTreeId,
   type NoteFilter,
   type PXE,
+  SimulatedTx,
+  SimulationError,
+  Tx,
   type TxEffect,
   type TxExecutionRequest,
   type TxHash,
   type TxReceipt,
+  UnencryptedTxL2Logs,
+  isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
 import { type TxPXEProcessingStats } from '@aztec/circuit-types/stats';
 import {
@@ -31,29 +31,27 @@ import {
   type PublicCallRequest,
   computeContractClassId,
   getContractClassFromArtifact,
-  type PartialAddress,
-  type PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type ContractArtifact, type DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
-import { createDebugLogger, type DebugLogger } from '@aztec/foundation/log';
+import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
+  type AcirSimulator,
+  type ExecutionResult,
   collectEnqueuedPublicFunctionCalls,
   collectPublicTeardownFunctionCall,
   collectSortedEncryptedLogs,
   collectSortedUnencryptedLogs,
   resolveOpcodeLocations,
-  type AcirSimulator,
-  type ExecutionResult,
 } from '@aztec/simulator';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
 
-import { getPackageInfo, type PXEServiceConfig } from '../config/index.js';
+import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
@@ -175,7 +173,9 @@ export class PXEService implements PXE {
       this.log.info(`Account:\n "${accountCompleteAddress.address.toString()}"\n already registered.`);
       return accountCompleteAddress;
     } else {
-      const masterIncomingViewingPublicKey = await this.keyStore.getMasterIncomingViewingPublicKey(account);
+      const masterIncomingViewingPublicKey = await this.keyStore.getMasterIncomingViewingPublicKey(
+        accountCompleteAddress.address,
+      );
       this.synchronizer.addAccount(masterIncomingViewingPublicKey, this.keyStore, this.config.l2StartingBlock);
       this.log.info(`Registered account ${accountCompleteAddress.address.toString()}`);
       this.log.debug(`Registered account\n ${accountCompleteAddress.toReadableString()}`);
@@ -290,7 +290,7 @@ export class PXEService implements PXE {
       let owner = filter.owner;
       if (owner === undefined) {
         const completeAddresses = (await this.db.getCompleteAddresses()).find(address =>
-          address.publicKey.equals(dao.publicKey),
+          address.masterIncomingViewingPublicKey.equals(dao.publicKey),
         );
         if (completeAddresses === undefined) {
           throw new Error(`Cannot find complete address for public key ${dao.publicKey.toString()}`);
@@ -303,8 +303,8 @@ export class PXEService implements PXE {
   }
 
   public async addNote(note: ExtendedNote) {
-    const { publicKey } = (await this.db.getCompleteAddress(note.owner)) ?? {};
-    if (!publicKey) {
+    const { masterIncomingViewingPublicKey } = (await this.db.getCompleteAddress(note.owner)) ?? {};
+    if (!masterIncomingViewingPublicKey) {
       throw new Error('Unknown account.');
     }
 
@@ -344,7 +344,7 @@ export class PXEService implements PXE {
           innerNoteHash,
           siloedNullifier,
           index,
-          publicKey,
+          masterIncomingViewingPublicKey,
         ),
       );
     }
