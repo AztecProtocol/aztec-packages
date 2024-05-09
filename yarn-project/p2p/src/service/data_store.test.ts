@@ -1,4 +1,5 @@
 import { randomBytes } from '@aztec/foundation/crypto';
+import { all } from '@aztec/foundation/iterable';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 
 import {
@@ -10,12 +11,10 @@ import {
   type QueryFilter,
   type QueryOrder,
 } from 'interface-datastore';
-import all from 'it-all';
 import drain from 'it-drain';
 import length from 'it-length';
 import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string';
 
-// Adjust import based on actual package
 import { AztecDatastore } from './data_store.js';
 
 describe('AztecDatastore with AztecLmdbStore', () => {
@@ -78,7 +77,7 @@ describe('AztecDatastore with AztecLmdbStore', () => {
   it('query data by prefix', async () => {
     await datastore.put(new Key('/prefix/123'), new Uint8Array([1, 2, 3]));
     await datastore.put(new Key('/prefix/456'), new Uint8Array([4, 5, 6]));
-    await datastore.put(new Key('/otherprefix/789'), new Uint8Array([7, 8, 9]));
+    await datastore.put(new Key('/foobar/789'), new Uint8Array([7, 8, 9]));
 
     const query = {
       prefix: '/prefix',
@@ -155,12 +154,12 @@ describe('AztecDatastore with AztecLmdbStore', () => {
   });
 });
 
-export interface InterfacDatastoreTest<D extends Datastore = Datastore> {
+export interface InterfaceDatastoreTest<D extends Datastore = Datastore> {
   setup(): D | Promise<D>;
   teardown(store: D): void | Promise<void>;
 }
 
-export function interfaceDatastoreTests<D extends Datastore = Datastore>(test: InterfacDatastoreTest<D>): void {
+export function interfaceDatastoreTests<D extends Datastore = Datastore>(test: InterfaceDatastoreTest<D>): void {
   const cleanup = async (store: D): Promise<void> => {
     await test.teardown(store);
   };

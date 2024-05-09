@@ -1,11 +1,8 @@
+import { filter, map, sort, take } from '@aztec/foundation/iterable';
 import type { AztecKVStore, AztecMap } from '@aztec/kv-store';
 
 import { type Batch, type Datastore, Key, type KeyQuery, type Pair, type Query } from 'interface-datastore';
 import type { AwaitIterable } from 'interface-store';
-import filter from 'it-filter';
-import map from 'it-map';
-import sort from 'it-sort';
-import take from 'it-take';
 
 type MemoryItem = {
   lastAccessedMs: number;
