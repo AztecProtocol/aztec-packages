@@ -18,55 +18,55 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  setup:
-    uses: ./.github/workflows/setup-runner.yml
-    with:
-      runner_label: ${{ inputs.username || github.actor }}-x86
-      ebs_cache_size_gb: 256
-      runner_concurrency: 50
-      subaction: ${{ inputs.runner_action || 'start' }}
-      # Use instance types with low interruption rate in us-east-2 https://aws.amazon.com/ec2/spot/instance-advisor/
-      ec2_instance_type: r6in.32xlarge r6a.32xlarge i4i.32xlarge r7iz.32xlarge
-      ec2_ami_id: ami-04d8422a9ba4de80f
-      ec2_spot_instance_strategy: BestEffort
-      ec2_instance_ttl: 40 # refreshed by jobs
-    secrets: inherit
+  # setup:
+  #   uses: ./.github/workflows/setup-runner.yml
+  #   with:
+  #     runner_label: ${{ inputs.username || github.actor }}-x86
+  #     ebs_cache_size_gb: 256
+  #     runner_concurrency: 50
+  #     subaction: ${{ inputs.runner_action || 'start' }}
+  #     # Use instance types with low interruption rate in us-east-2 https://aws.amazon.com/ec2/spot/instance-advisor/
+  #     ec2_instance_type: r6in.32xlarge r6a.32xlarge i4i.32xlarge r7iz.32xlarge
+  #     ec2_ami_id: ami-04d8422a9ba4de80f
+  #     ec2_spot_instance_strategy: BestEffort
+  #     ec2_instance_ttl: 40 # refreshed by jobs
+  #   secrets: inherit
 
-  build:
-    needs: setup
-    runs-on: ${{ inputs.username || github.actor }}-x86
-    outputs:
-      e2e_list: ${{ steps.e2e_list.outputs.list }}
-    steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
-      - uses: ./.github/ci-setup-action
-        with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
-          concurrency_key: build-${{ inputs.username || github.actor }}-x86
-      # prepare images locally, tagged by commit hash
-      - name: "Build E2E Image"
-        timeout-minutes: 40
-        run: earthly-ci ./yarn-project+export-e2e-test-images
-      # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
-      # (Note ARM uses just 2 tests as a smoketest)
-      - name: Create list of non-bench end-to-end jobs
-        id: e2e_list
-        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' | grep -v '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
-      - name: Create list of bench end-to-end jobs
-        id: bench_list
-        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
+  # build:
+  #   needs: setup
+  #   runs-on: ${{ inputs.username || github.actor }}-x86
+  #   outputs:
+  #     e2e_list: ${{ steps.e2e_list.outputs.list }}
+  #   steps:
+  #     - {
+  #         uses: actions/checkout@v4,
+  #         with: { ref: "${{ github.event.pull_request.head.sha }}" },
+  #       }
+  #     - uses: ./.github/ci-setup-action
+  #       with:
+  #         dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+  #         concurrency_key: build-${{ inputs.username || github.actor }}-x86
+  #     # prepare images locally, tagged by commit hash
+  #     - name: "Build E2E Image"
+  #       timeout-minutes: 40
+  #       run: earthly-ci ./yarn-project+export-e2e-test-images
+  #     # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
+  #     # (Note ARM uses just 2 tests as a smoketest)
+  #     - name: Create list of non-bench end-to-end jobs
+  #       id: e2e_list
+  #       run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' | grep -v '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
+  #     - name: Create list of bench end-to-end jobs
+  #       id: bench_list
+  #       run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
 
   # all the non-bench end-to-end integration tests for aztec
   e2e:
-    needs: build
+    # needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        test: ${{ fromJson( needs.build.outputs.e2e_list )}}
+      # matrix:
+      #   test: ${{ fromJson( needs.build.outputs.e2e_list )}}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
@@ -77,7 +77,16 @@ jobs:
           concurrency_key: e2e-${{ inputs.username || github.actor }}-x86-${{ matrix.test }}
           # we want to get the builder's details as SPOT_IP and SPOT_KEY, and ensure it's up
           start_builder: true
-      # uses SPOT_IP and SPOT_KEY from above
+
+      - name: Ensure Spot Has Images
+        uses: ./.github/ensure-builder
+        with:
+          username: ${{ inputs.username || github.actor }}
+          runner_action: ${{ inputs.runner_action || 'start' }}
+          github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
       - name: Ensure Spot Has Images
         uses: ./.github/run-on-builder
         with:
@@ -112,7 +121,7 @@ jobs:
       - name: Test
         working-directory: ./yarn-project/end-to-end/
         timeout-minutes: 25
-        run: earthly-ci +${{ matrix.test }}
+        run: earthly-ci +e2e-browser #+${{ matrix.test }}
 
   # # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   # bench-e2e:

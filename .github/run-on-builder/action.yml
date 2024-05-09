@@ -1,0 +1,17 @@
+name: Run on Builder
+description: "Target builder with actions"
+
+inputs:
+  run:
+    required: true
+  run_id:
+    required: true
+runs:
+  # define an action, runs in OS of caller
+  using: composite
+  steps:
+    # Assumes ensure-builder has ran and SPOT_IP/SPOT_KEY are defined
+    # Since we use multiple runners, dont want them clashing
+    - name: Run On Spot
+      shell: bash
+      run: scripts/run_on_builder "cd ~/run-${{ inputs.run_id }} ; ${{ inputs.run }}"

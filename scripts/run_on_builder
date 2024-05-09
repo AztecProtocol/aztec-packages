@@ -2,4 +2,4 @@
 set -eu
 # Enter repo root.
 cd $(dirname $0)/..
-ssh -t -o StrictHostKeychecking=no -i $SPOT_KEY ubuntu@$SPOT_IP "$@"
+exec ssh -t -o StrictHostKeychecking=no -i $SPOT_KEY ubuntu@$SPOT_IP "$@"

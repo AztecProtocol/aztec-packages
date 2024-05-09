@@ -1,0 +1,88 @@
+# Reusable setup workflow for CI tasks
+name: Setup Workflow
+description: "Reusable setup steps"
+
+inputs:
+  username:
+    required: true
+  runner_action:
+    required: true
+  github_token:
+    required: true
+  aws_access_key_id:
+    required: true
+  aws_secret_access_key:
+    required: true
+  run_id:
+    required: true
+runs:
+  # define an action, runs in OS of caller
+  using: composite
+  steps:
+    - name: Start Builder
+      uses: ./.github/spot-runner-action
+      with:
+        # inputs:
+        runner_label: ${{ inputs.username }}-x86
+        subaction: ${{ inputs.runner_action }}
+        github_token: ${{ inputs.github_token }}
+        aws_access_key_id: ${{ inputs.aws_access_key_id }}
+        aws_secret_access_key: ${{ inputs.aws_secret_access_key }}
+        # constants:
+        ebs_cache_size_gb: 256
+        runner_concurrency: 50
+        # Use instance types with low interruption rate in us-east-2 https://aws.amazon.com/ec2/spot/instance-advisor/
+        ec2_instance_type: r6in.32xlarge r6a.32xlarge i4i.32xlarge r7iz.32xlarge
+        ec2_ami_id: ami-04d8422a9ba4de80f
+        ec2_spot_instance_strategy: BestEffort
+        ec2_instance_ttl: 40 # refreshed by jobs
+        aws_region: us-east-2
+        ec2_subnet_id: subnet-4cfabd25
+        ec2_security_group_id: sg-0ccd4e5df0dcca0c9
+        ec2_spot_instance_strategy: BestEffort
+        ec2_key_name: "build-instance"
+        ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
+
+    # Set up a context for this run
+    - name: Copy Repo to Spot
+      run: |
+        # detect our run folder
+        if scripts/run_on_builder "[ -d ~/run/${{ inputs.run_id }} ]" ; then
+          echo "> Copying local repo to spot"
+          tar czf - .git | scripts/run_on_builder \
+            "mkdir /home/ubuntu/run-${{ inputs.run_id }}.git && cd ~/run-${{ inputs.run_id }}-git && tar xzf -"
+          scripts/run_on_builder "
+            echo "> Unpacking repo"
+            git clone ~/run-${{ inputs.run_id }}-git/.git ~/run-${{ inputs.run_id }}-git
+          "
+        fi
+
+    - name: Attach EBS Cache Disk
+      uses: ./.github/run-on-builder
+      with:
+        run: |
+          export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+          export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # attach 256gb cache disk
+          ./scripts/attach_ebs_cache.sh ${{ inputs.username }}-x86 256
+
+    - name: Setup
+      uses: ./.github/run-on-builder
+      with:
+        run: |
+          # One-time config
+          if ! [ -f /etc/docker/daemon.json ] ; then
+            echo '{"default-address-pools":[{"base":"172.17.0.0/12","size":20}, {"base":"10.99.0.0/12","size":20}, {"base":"192.168.0.0/16","size":24}]}' > /etc/docker/daemon.json
+            sudo service docker restart
+            # helps to not overuse space
+            docker system prune -f -a || true
+            echo "Configured docker daemon for making many networks."
+            # Run maybe_exit_spot.sh every minute
+            cp scripts/ci/spot_runner_graceful_exit.sh /run/spot_runner_graceful_exit.sh
+            cp scripts/ci/maybe_exit_spot.sh /run/maybe_exit_spot.sh
+            chmod +x /run/spot_runner_graceful_exit.sh
+            chmod +x /run/maybe_exit_spot.sh
+            echo "* * * * * /run/maybe_exit_spot.sh" | crontab -
+          else
+            echo "Docker daemon already configured."
+          fi
