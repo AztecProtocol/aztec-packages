@@ -1,5 +1,5 @@
 use super::{
-    brillig::{Brillig, BrilligInputs, BrilligOutputs},
+    brillig::{BrilligInputs, BrilligOutputs},
     directives::Directive,
 };
 use crate::native_types::{Expression, Witness};
@@ -11,6 +11,13 @@ mod memory_operation;
 pub use black_box_function_call::{BlackBoxFuncCall, FunctionInput};
 pub use memory_operation::{BlockId, MemOp};
 
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BlockType {
+    Memory,
+    CallData,
+    ReturnData,
+}
+
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Opcode {
@@ -20,7 +27,6 @@ pub enum Opcode {
     /// Often used for exposing more efficient implementations of SNARK-unfriendly computations.  
     BlackBoxFuncCall(BlackBoxFuncCall),
     Directive(Directive),
-    Brillig(Brillig),
     /// Atomic operation on a block of memory
     MemoryOp {
         block_id: BlockId,
@@ -31,6 +37,7 @@ pub enum Opcode {
     MemoryInit {
         block_id: BlockId,
         init: Vec<Witness>,
+        block_type: BlockType,
     },
     /// Calls to unconstrained functions
     BrilligCall {
@@ -88,12 +95,6 @@ impl std::fmt::Display for Opcode {
                     b.last().unwrap().witness_index(),
                 )
             }
-            Opcode::Brillig(brillig) => {
-                write!(f, "BRILLIG: ")?;
-                writeln!(f, "inputs: {:?}", brillig.inputs)?;
-                writeln!(f, "outputs: {:?}", brillig.outputs)?;
-                writeln!(f, "{:?}", brillig.bytecode)
-            }
             Opcode::MemoryOp { block_id, op, predicate } => {
                 write!(f, "MEM ")?;
                 if let Some(pred) = predicate {
@@ -110,8 +111,12 @@ impl std::fmt::Display for Opcode {
                     write!(f, "(id: {}, op {} at: {}) ", block_id.0, op.operation, op.index)
                 }
             }
-            Opcode::MemoryInit { block_id, init } => {
-                write!(f, "INIT ")?;
+            Opcode::MemoryInit { block_id, init, block_type: databus } => {
+                match databus {
+                    BlockType::Memory => write!(f, "INIT ")?,
+                    BlockType::CallData => write!(f, "INIT CALLDATA ")?,
+                    BlockType::ReturnData => write!(f, "INIT RETURNDATA ")?,
+                }
                 write!(f, "(id: {}, len: {}) ", block_id.0, init.len())
             }
             // We keep the display for a BrilligCall and circuit Call separate as they

@@ -41,9 +41,9 @@ enum class OpCode : uint8_t {
     ADDRESS,
     STORAGEADDRESS,
     SENDER,
-    FEEPERL1GAS,
     FEEPERL2GAS,
     FEEPERDAGAS,
+    TRANSACTIONFEE,
     CONTRACTCALLDEPTH,
     // Execution Environment - Globals
     CHAINID,
@@ -51,7 +51,6 @@ enum class OpCode : uint8_t {
     BLOCKNUMBER,
     TIMESTAMP,
     COINBASE,
-    BLOCKL1GASLIMIT,
     BLOCKL2GASLIMIT,
     BLOCKDAGASLIMIT,
     // Execution Environment - Calldata
@@ -59,7 +58,6 @@ enum class OpCode : uint8_t {
 
     // Machine State
     // Machine State - Gas
-    L1GASLEFT,
     L2GASLEFT,
     DAGASLEFT,
     // Machine State - Internal Control Flow

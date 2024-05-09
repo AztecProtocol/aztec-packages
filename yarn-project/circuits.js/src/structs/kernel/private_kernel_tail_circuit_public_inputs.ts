@@ -1,8 +1,8 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { MAX_NEW_NULLIFIERS_PER_TX } from '../../constants.gen.js';
 import { countAccumulatedItems, mergeAccumulatedData } from '../../utils/index.js';
 import { AggregationObject } from '../aggregation_object.js';
+import { CallRequest } from '../call_request.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { RevertCode } from '../revert_code.js';
 import { RollupValidationRequests } from '../rollup_validation_requests.js';
@@ -27,6 +27,10 @@ export class PartialPrivateTailPublicInputsForPublic {
      * Data accumulated from both public and private circuits.
      */
     public end: PublicAccumulatedData,
+    /**
+     * Call request for the public teardown function.
+     */
+    public publicTeardownCallRequest: CallRequest,
   ) {}
 
   get needsSetup() {
@@ -47,11 +51,17 @@ export class PartialPrivateTailPublicInputsForPublic {
       reader.readObject(ValidationRequests),
       reader.readObject(PublicAccumulatedData),
       reader.readObject(PublicAccumulatedData),
+      reader.readObject(CallRequest),
     );
   }
 
   toBuffer() {
-    return serializeToBuffer(this.validationRequests, this.endNonRevertibleData, this.end);
+    return serializeToBuffer(
+      this.validationRequests,
+      this.endNonRevertibleData,
+      this.end,
+      this.publicTeardownCallRequest,
+    );
   }
 
   static empty() {
@@ -59,6 +69,7 @@ export class PartialPrivateTailPublicInputsForPublic {
       ValidationRequests.empty(),
       PublicAccumulatedData.empty(),
       PublicAccumulatedData.empty(),
+      CallRequest.empty(),
     );
   }
 }
@@ -113,6 +124,10 @@ export class PrivateKernelTailCircuitPublicInputs {
     }
   }
 
+  get publicInputs(): PartialPrivateTailPublicInputsForPublic | PartialPrivateTailPublicInputsForRollup {
+    return (this.forPublic ?? this.forRollup)!;
+  }
+
   toPublicKernelCircuitPublicInputs() {
     if (!this.forPublic) {
       throw new Error('Private tail public inputs is not for public circuit.');
@@ -124,6 +139,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       this.forPublic.end,
       this.constants,
       this.revertCode,
+      this.forPublic.publicTeardownCallRequest,
     );
   }
 
@@ -150,22 +166,18 @@ export class PrivateKernelTailCircuitPublicInputs {
 
   getNonEmptyNoteHashes() {
     const noteHashes = this.forPublic
-      ? mergeAccumulatedData(
-          MAX_NEW_NULLIFIERS_PER_TX,
-          this.forPublic.endNonRevertibleData.newNoteHashes,
-          this.forPublic.end.newNoteHashes,
-        ).map(n => n.value)
+      ? mergeAccumulatedData(this.forPublic.endNonRevertibleData.newNoteHashes, this.forPublic.end.newNoteHashes).map(
+          n => n.value,
+        )
       : this.forRollup!.end.newNoteHashes;
     return noteHashes.filter(n => !n.isZero());
   }
 
   getNonEmptyNullifiers() {
     const nullifiers = this.forPublic
-      ? mergeAccumulatedData(
-          MAX_NEW_NULLIFIERS_PER_TX,
-          this.forPublic.endNonRevertibleData.newNullifiers,
-          this.forPublic.end.newNullifiers,
-        ).map(n => n.value)
+      ? mergeAccumulatedData(this.forPublic.endNonRevertibleData.newNullifiers, this.forPublic.end.newNullifiers).map(
+          n => n.value,
+        )
       : this.forRollup!.end.newNullifiers;
     return nullifiers.filter(n => !n.isZero());
   }

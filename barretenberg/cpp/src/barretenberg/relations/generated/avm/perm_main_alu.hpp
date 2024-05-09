@@ -12,7 +12,7 @@ namespace bb {
 class perm_main_alu_permutation_settings {
   public:
     // This constant defines how many columns are bundled together to form each set.
-    constexpr static size_t COLUMNS_PER_SET = 13;
+    constexpr static size_t COLUMNS_PER_SET = 16;
 
     /**
      * @brief If this method returns true on a row of values, then the inverse polynomial at this index. Otherwise the
@@ -57,11 +57,14 @@ class perm_main_alu_permutation_settings {
                                      in.avm_main_sel_op_add,
                                      in.avm_main_sel_op_sub,
                                      in.avm_main_sel_op_mul,
+                                     in.avm_main_sel_op_div,
                                      in.avm_main_sel_op_eq,
                                      in.avm_main_sel_op_not,
                                      in.avm_main_sel_op_cast,
                                      in.avm_main_sel_op_lt,
                                      in.avm_main_sel_op_lte,
+                                     in.avm_main_sel_op_shr,
+                                     in.avm_main_sel_op_shl,
                                      in.avm_main_alu_in_tag,
                                      in.avm_alu_clk,
                                      in.avm_alu_ia,
@@ -70,11 +73,14 @@ class perm_main_alu_permutation_settings {
                                      in.avm_alu_op_add,
                                      in.avm_alu_op_sub,
                                      in.avm_alu_op_mul,
+                                     in.avm_alu_op_div,
                                      in.avm_alu_op_eq,
                                      in.avm_alu_op_not,
                                      in.avm_alu_op_cast,
                                      in.avm_alu_op_lt,
                                      in.avm_alu_op_lte,
+                                     in.avm_alu_op_shr,
+                                     in.avm_alu_op_shl,
                                      in.avm_alu_in_tag);
     }
 
@@ -109,11 +115,14 @@ class perm_main_alu_permutation_settings {
                                      in.avm_main_sel_op_add,
                                      in.avm_main_sel_op_sub,
                                      in.avm_main_sel_op_mul,
+                                     in.avm_main_sel_op_div,
                                      in.avm_main_sel_op_eq,
                                      in.avm_main_sel_op_not,
                                      in.avm_main_sel_op_cast,
                                      in.avm_main_sel_op_lt,
                                      in.avm_main_sel_op_lte,
+                                     in.avm_main_sel_op_shr,
+                                     in.avm_main_sel_op_shl,
                                      in.avm_main_alu_in_tag,
                                      in.avm_alu_clk,
                                      in.avm_alu_ia,
@@ -122,11 +131,14 @@ class perm_main_alu_permutation_settings {
                                      in.avm_alu_op_add,
                                      in.avm_alu_op_sub,
                                      in.avm_alu_op_mul,
+                                     in.avm_alu_op_div,
                                      in.avm_alu_op_eq,
                                      in.avm_alu_op_not,
                                      in.avm_alu_op_cast,
                                      in.avm_alu_op_lt,
                                      in.avm_alu_op_lte,
+                                     in.avm_alu_op_shr,
+                                     in.avm_alu_op_shl,
                                      in.avm_alu_in_tag);
     }
 };

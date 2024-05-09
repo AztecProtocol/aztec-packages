@@ -50,6 +50,12 @@ template <typename FF_> class AuxiliaryRelationImpl {
     };
 
     /**
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
+     *
+     */
+    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_aux.is_zero(); }
+
+    /**
      * @brief Expression for the generalized permutation sort gate.
      * @details The following explanation is reproduced from the Plonk analog 'plookup_auxiliary_widget':
      * Adds contributions for identities associated with several custom gates:
@@ -89,7 +95,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
                                   const Parameters& params,
                                   const FF& scaling_factor)
     {
-
+        BB_OP_COUNT_TIME_NAME("Auxiliary::accumulate");
         // All subrelations have the same length so we use the same length view for all calculations
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;

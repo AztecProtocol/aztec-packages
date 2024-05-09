@@ -22,21 +22,19 @@ pub enum AvmOpcode {
     ADDRESS,
     STORAGEADDRESS,
     SENDER,
-    FEEPERL1GAS,
     FEEPERL2GAS,
     FEEPERDAGAS,
+    TRANSACTIONFEE,
     CONTRACTCALLDEPTH,
     CHAINID,
     VERSION,
     BLOCKNUMBER,
     TIMESTAMP,
     COINBASE,
-    BLOCKL1GASLIMIT,
     BLOCKL2GASLIMIT,
     BLOCKDAGASLIMIT,
     CALLDATACOPY,
     // Gas
-    L1GASLEFT,
     L2GASLEFT,
     DAGASLEFT,
     // Control flow
@@ -101,9 +99,9 @@ impl AvmOpcode {
             AvmOpcode::ADDRESS => "ADDRESS",
             AvmOpcode::STORAGEADDRESS => "STORAGEADDRESS",
             AvmOpcode::SENDER => "SENDER",
-            AvmOpcode::FEEPERL1GAS => "FEEPERL1GAS",
             AvmOpcode::FEEPERL2GAS => "FEEPERL2GAS",
             AvmOpcode::FEEPERDAGAS => "FEEPERDAGAS",
+            AvmOpcode::TRANSACTIONFEE => "TRANSACTIONFEE",
             AvmOpcode::CONTRACTCALLDEPTH => "CONTRACTCALLDEPTH",
             // Execution Environment - Globals
             AvmOpcode::CHAINID => "CHAINID",
@@ -111,7 +109,6 @@ impl AvmOpcode {
             AvmOpcode::BLOCKNUMBER => "BLOCKNUMBER",
             AvmOpcode::TIMESTAMP => "TIMESTAMP",
             AvmOpcode::COINBASE => "COINBASE",
-            AvmOpcode::BLOCKL1GASLIMIT => "BLOCKL1GASLIMIT",
             AvmOpcode::BLOCKL2GASLIMIT => "BLOCKL2GASLIMIT",
             AvmOpcode::BLOCKDAGASLIMIT => "BLOCKDAGASLIMIT",
             // Execution Environment - Calldata
@@ -119,7 +116,6 @@ impl AvmOpcode {
 
             // Machine State
             // Machine State - Gas
-            AvmOpcode::L1GASLEFT => "L1GASLEFT",
             AvmOpcode::L2GASLEFT => "L2GASLEFT",
             AvmOpcode::DAGASLEFT => "DAGASLEFT",
             // Machine State - Internal Control Flow

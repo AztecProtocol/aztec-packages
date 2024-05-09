@@ -4,12 +4,13 @@ import {
   type ContractStorageUpdateRequest,
   type Fr,
   type L2ToL1Message,
+  type NoteHash,
+  type Nullifier,
   type PublicCallRequest,
   PublicDataRead,
   PublicDataUpdateRequest,
   type ReadRequest,
   type SideEffect,
-  type SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, computePublicDataTreeValue } from '@aztec/circuits.js/hash';
 
@@ -24,7 +25,7 @@ export interface PublicExecutionResult {
   /** The return values of the function. */
   returnValues: Fr[];
   /** The new note hashes to be inserted into the note hashes tree. */
-  newNoteHashes: SideEffect[];
+  newNoteHashes: NoteHash[];
   /** The new l2 to l1 messages generated in this call. */
   newL2ToL1Messages: L2ToL1Message[];
   /** The side effect counter at the start of the function call. */
@@ -32,7 +33,7 @@ export interface PublicExecutionResult {
   /** The side effect counter after executing this function call */
   endSideEffectCounter: Fr;
   /** The new nullifiers to be inserted into the nullifier tree. */
-  newNullifiers: SideEffectLinkedToNoteHash[];
+  newNullifiers: Nullifier[];
   /** The nullifier read requests emitted in this call. */
   nullifierReadRequests: ReadRequest[];
   /** The nullifier non existent read requests emitted in this call. */
@@ -54,6 +55,15 @@ export interface PublicExecutionResult {
    */
   unencryptedLogs: UnencryptedFunctionL2Logs;
   /**
+   * Length of the unencrypted log preimages emitted in this function call.
+   */
+  unencryptedLogPreimagesLength: Fr;
+  /**
+   * Unencrypted logs emitted during this call AND any nested calls.
+   * Useful for maintaining correct ordering in ts.
+   */
+  allUnencryptedLogs: UnencryptedFunctionL2Logs;
+  /**
    * Whether the execution reverted.
    */
   reverted: boolean;
@@ -61,8 +71,12 @@ export interface PublicExecutionResult {
    * The revert reason if the execution reverted.
    */
   revertReason: SimulationError | undefined;
+  /** How much gas was available for this public execution. */
+  startGasLeft: Gas;
   /** How much gas was left after this public execution. */
-  gasLeft: Gas; // TODO(palla/gas): Check this field
+  endGasLeft: Gas;
+  /** Transaction fee set for this tx. */
+  transactionFee: Fr;
 }
 
 /**
@@ -153,8 +167,8 @@ function contractStorageUpdateRequestToPublicDataUpdateRequest(
  */
 
 export function checkValidStaticCall(
-  newNoteHashes: SideEffect[],
-  newNullifiers: SideEffectLinkedToNoteHash[],
+  newNoteHashes: NoteHash[],
+  newNullifiers: Nullifier[],
   contractStorageUpdateRequests: ContractStorageUpdateRequest[],
   newL2ToL1Messages: L2ToL1Message[],
   unencryptedLogs: UnencryptedFunctionL2Logs,

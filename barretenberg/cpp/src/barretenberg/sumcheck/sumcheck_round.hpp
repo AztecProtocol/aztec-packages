@@ -293,8 +293,21 @@ template <typename Flavor> class SumcheckProverRound {
                                          const FF& scaling_factor)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
-        Relation::accumulate(
-            std::get<relation_idx>(univariate_accumulators), extended_edges, relation_parameters, scaling_factor);
+
+        // Check if the relation is skippable to speed up accumulation
+        if constexpr (!isSkippable<Relation, decltype(extended_edges)>) {
+            // If not, accumulate normally
+            Relation::accumulate(
+                std::get<relation_idx>(univariate_accumulators), extended_edges, relation_parameters, scaling_factor);
+        } else {
+            // If so, only compute the contribution if the relation is active
+            if (!Relation::skip(extended_edges)) {
+                Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
+                                     extended_edges,
+                                     relation_parameters,
+                                     scaling_factor);
+            }
+        }
 
         // Repeat for the next relation.
         if constexpr (relation_idx + 1 < NUM_RELATIONS) {
@@ -400,7 +413,8 @@ template <typename Flavor> class SumcheckVerifierRound {
                                                   const bb::PowPolynomial<FF>& pow_polynomial,
                                                   const RelationSeparator alpha)
     {
-        Utils::template accumulate_relation_evaluations<>(
+        // The verifier should never skip computation of contributions from any relation
+        Utils::template accumulate_relation_evaluations_without_skipping<>(
             purported_evaluations, relation_evaluations, relation_parameters, pow_polynomial.partial_evaluation_result);
 
         auto running_challenge = FF(1);

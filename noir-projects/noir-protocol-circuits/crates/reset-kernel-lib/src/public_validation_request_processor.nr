@@ -9,9 +9,8 @@ use crate::{
 };
 use dep::types::{
     abis::{
-    kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-    public_data_update_request::PublicDataUpdateRequest, side_effect::SideEffectLinkedToNoteHash,
-    validation_requests::ValidationRequests
+    kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, nullifier::Nullifier,
+    public_data_update_request::PublicDataUpdateRequest, validation_requests::ValidationRequests
 },
     constants::{MAX_NEW_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX},
     hash::silo_nullifier, traits::is_empty,
@@ -20,7 +19,7 @@ use dep::types::{
 
 struct PublicValidationRequestProcessor<N> {
     validation_requests: ValidationRequests,
-    pending_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
+    pending_nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
     pending_public_data_writes: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     nullifier_read_request_hints: NullifierReadRequestHints,
     nullifier_non_existent_read_request_hints: NullifierNonExistentReadRequestHints,
@@ -89,7 +88,7 @@ impl<N> PublicValidationRequestProcessor<N> {
         for i in 0..read_requests.len() {
             let read_request = read_requests[i];
             if !is_empty(read_request) {
-                read_requests[i].value = silo_nullifier(read_request.contract_address, read_request.value);
+                read_requests[i].read_request.value = silo_nullifier(read_request.contract_address, read_request.value());
             }
         }
 
@@ -99,7 +98,7 @@ impl<N> PublicValidationRequestProcessor<N> {
             self.pending_nullifiers,
             hints.sorted_pending_values,
             hints.sorted_pending_value_index_hints,
-            |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.value.lt(b.value)
+            |a: Nullifier, b: Nullifier| a.value.lt(b.value)
         );
         let sorted_pending_nullifiers = array_to_bounded_vec(hints.sorted_pending_values);
 

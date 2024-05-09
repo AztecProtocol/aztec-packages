@@ -1,116 +1,86 @@
 contract KeyRegistry {
-  use dep::authwit::auth::assert_current_call_valid_authwit_public;
+    use dep::authwit::auth::assert_current_call_valid_authwit_public;
 
-  use dep::aztec::{
-    context::gas::GasOpts,
-    state_vars::{
-      SharedMutable,
-      Map
-    }, 
-    protocol_types::{
-      abis::function_selector::FunctionSelector,
-      contract_class_id::ContractClassId,
-      address::{
-        AztecAddress,
-        EthAddress,
-        PublicKeysHash,
-        PartialAddress,
-      },
-      constants::{
-        GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
-        GENERATOR_INDEX__PUBLIC_KEYS_HASH
-      },
-      hash::poseidon2_hash,
-      traits::{
-        Serialize,
-        Deserialize,
-      }
-    },
-  };
+    use dep::aztec::{
+        state_vars::{SharedMutable, Map},
+        protocol_types::{grumpkin_point::GrumpkinPoint, address::{AztecAddress, PartialAddress}}
+    };
 
-  global KEY_ROTATION_DELAY = 5;
+    global KEY_ROTATION_DELAY = 5;
 
-  #[aztec(storage)]
+    #[aztec(storage)]
   struct Storage {
-    // We are not supporting rotating / changing keys other than the nullifier public in the registry at the moment, but will in the future.
-    // Uncomment lines below to enable that functionality
-    nullifier_public_key_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
-    // incoming_public_key_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
-    // outgoing_public_key_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
-    // tagging_public_key_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+    // The following stores a hash of individual master public keys
+    // If you change slots of vars below, you must update the slots in `SharedMutablePrivateGetter` in aztec-nr/keys.
+    // We store x and y coordinates in individual shared mutables as shared mutable currently supports only 1 field
+    npk_m_x_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+    npk_m_y_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+
+    ivpk_m_x_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+    ivpk_m_y_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+    
+    ovpk_m_x_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+    ovpk_m_y_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+    
+    tpk_m_x_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+    tpk_m_y_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
   }
 
-  #[aztec(public)]
+    #[aztec(public)]
   fn rotate_nullifier_public_key(
-    address: AztecAddress,
-    new_nullifier_public_key: Field,
-  ) {
-    assert(
-      new_nullifier_public_key != 0,
-      "New nullifier public key must be non-zero"
-    );
+        address: AztecAddress,
+        new_nullifier_public_key: GrumpkinPoint,
+        nonce: Field
+    ) {
+        // TODO: (#6137)
+        if (!address.eq(context.msg_sender())) {
+            assert_current_call_valid_authwit_public(&mut context, address);
+        } else {
+            assert(nonce == 0, "invalid nonce");
+        }
 
-    if (!address.eq(context.msg_sender())) {
-      assert_current_call_valid_authwit_public(&mut context, address);
+        let npk_m_x_registry = storage.npk_m_x_registry.at(address);
+        let npk_m_y_registry = storage.npk_m_y_registry.at(address);
+        npk_m_x_registry.schedule_value_change(new_nullifier_public_key.x);
+        npk_m_y_registry.schedule_value_change(new_nullifier_public_key.y);
     }
 
-    let nullifier_key_registry = storage.nullifier_public_key_registry.at(address);
-
-    nullifier_key_registry.schedule_value_change(new_nullifier_public_key);
-  }
-
-  #[aztec(public)]
+    #[aztec(public)]
   fn register(
-    address: AztecAddress,
-    partial_address: PartialAddress,
-    nullifier_public_key: Field,
-    incoming_public_key: Field,
-    outgoing_public_key: Field,
-    tagging_public_key: Field,
-  ) {
-    assert(
-      (nullifier_public_key != 0) &
-      (incoming_public_key != 0) &
-      (outgoing_public_key != 0) &
-      (tagging_public_key != 0),
-       "All public keys must be non-zero"
-    );
+        address: AztecAddress,
+        partial_address: PartialAddress,
+        nullifier_public_key: GrumpkinPoint,
+        incoming_public_key: GrumpkinPoint,
+        outgoing_public_key: GrumpkinPoint,
+        tagging_public_key: GrumpkinPoint
+    ) {
+        let computed_address = AztecAddress::compute_from_public_keys_and_partial_address(
+            nullifier_public_key,
+            incoming_public_key,
+            outgoing_public_key,
+            tagging_public_key,
+            partial_address
+        );
 
-    // TODO (ek): Do it below after refactoring all public_keys_hash_elemtns
-    // let public_keys_hash = PublicKeysHash::compute(nullifier_public_key, tagging_public_key, incoming_public_key, outgoing_public_key);
-    // let address = AztecAddress::compute(public_keys_hash, partial_address);
-    // We could also pass in original_public_keys_hash instead of computing it here, if all we need the original one is for being able to prove ownership of address
-    let public_keys_hash = poseidon2_hash([
-        nullifier_public_key,
-        incoming_public_key,
-        outgoing_public_key,
-        tagging_public_key,
-        GENERATOR_INDEX__PUBLIC_KEYS_HASH,
-      ]
-    );
+        assert(computed_address.eq(address), "Computed address does not match supplied address");
 
-    let computed_address = AztecAddress::from_field(
-      poseidon2_hash([
-          partial_address.to_field(),
-          public_keys_hash.to_field(),
-          GENERATOR_INDEX__CONTRACT_ADDRESS_V1 as Field,
-        ]
-      )
-    );
+        let npk_m_x_registry = storage.npk_m_x_registry.at(address);
+        let npk_m_y_registry = storage.npk_m_y_registry.at(address);
+        let ivpk_m_x_registry = storage.ivpk_m_x_registry.at(address);
+        let ivpk_m_y_registry = storage.ivpk_m_y_registry.at(address);
+        // let ovpk_m_x_registry = storage.ovpk_m_x_registry.at(address);
+        // let ovpk_m_y_registry = storage.ovpk_m_y_registry.at(address);
+        // let tpk_m_x_registry = storage.tpk_m_x_registry.at(address);
+        // let tpk_m_y_registry = storage.tpk_m_y_registry.at(address);
 
-    assert(computed_address.eq(address), "Computed address does not match supplied address");
-
-    let nullifier_key_registry = storage.nullifier_public_key_registry.at(address);
-    // We are not supporting rotating / changing keys other than the nullifier public in the registry at the moment, but will in the future.
-    // Uncomment lines below to enable that functionality
-    // let incoming_key_registry = storage.incoming_public_key_registry.at(address);
-    // let outgoing_key_registry = storage.outgoing_public_key_registry.at(address);
-    // let tagging_key_registry = storage.taggin_public_key_registry.at(address);
-
-    nullifier_key_registry.schedule_value_change(nullifier_public_key);
-    // We are not supporting rotating / changing keys other than the nullifier public in the registry at the moment, but will in the future.
-    // Uncomment lines below to enable that functionality    // incoming_key_registry.schedule_value_change(new_incoming_public_key);
-    // outgoing_key_registry.schedule_value_change(new_outgoing_public_key);
-    // tagging_key_registry.schedule_value_change(new_tagging_public_key);
-  }
+        npk_m_x_registry.schedule_value_change(nullifier_public_key.x);
+        npk_m_y_registry.schedule_value_change(nullifier_public_key.y);
+        ivpk_m_x_registry.schedule_value_change(incoming_public_key.x);
+        ivpk_m_y_registry.schedule_value_change(incoming_public_key.y);
+        // Commented out as we hit the max enqueued public calls limit when not done so
+        // ovpk_m_x_registry.schedule_value_change(outgoing_public_key.x);
+        // ovpk_m_y_registry.schedule_value_change(outgoing_public_key.y);
+        // tpk_m_x_registry.schedule_value_change(tagging_public_key.x);
+        // tpk_m_y_registry.schedule_value_change(tagging_public_key.y);
+    }
 }

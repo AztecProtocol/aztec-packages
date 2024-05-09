@@ -50,7 +50,7 @@ describe('AVM simulator: injected bytecode', () => {
 
     expect(results.reverted).toBe(false);
     expect(results.output).toEqual([new Fr(3)]);
-    expect(context.machineState.l2GasLeft).toEqual(initialL2GasLeft - 680);
+    expect(context.machineState.l2GasLeft).toEqual(initialL2GasLeft - 670);
   });
 
   it('Should halt if runs out of gas', async () => {
@@ -64,7 +64,6 @@ describe('AVM simulator: injected bytecode', () => {
     expect(results.output).toEqual([]);
     expect(results.revertReason?.name).toEqual('OutOfGasError');
     expect(context.machineState.l2GasLeft).toEqual(0);
-    expect(context.machineState.l1GasLeft).toEqual(0);
     expect(context.machineState.daGasLeft).toEqual(0);
   });
 });
@@ -86,22 +85,40 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(isAvmBytecode(bytecode));
   });
 
-  it('U128 addition', async () => {
-    const calldata: Fr[] = [
-      // First U128
-      new Fr(1),
-      new Fr(2),
-      // Second U128
-      new Fr(3),
-      new Fr(4),
-    ];
-    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+  describe('U128 addition and overflows', () => {
+    it('U128 addition', async () => {
+      const calldata: Fr[] = [
+        // First U128
+        new Fr(1),
+        new Fr(2),
+        // Second U128
+        new Fr(3),
+        new Fr(4),
+      ];
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
-    const bytecode = getAvmTestContractBytecode('add_u128');
-    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+      const bytecode = getAvmTestContractBytecode('add_u128');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
-    expect(results.reverted).toBe(false);
-    expect(results.output).toEqual([new Fr(4), new Fr(6)]);
+      expect(results.reverted).toBe(false);
+      expect(results.output).toEqual([new Fr(4), new Fr(6)]);
+    });
+
+    it('Expect failure on U128::add() overflow', async () => {
+      const bytecode = getAvmTestContractBytecode('u128_addition_overflow');
+      const results = await new AvmSimulator(initContext()).executeBytecode(bytecode);
+      expect(results.reverted).toBe(true);
+      expect(results.revertReason?.message).toEqual('Assertion failed: attempt to add with overflow');
+    });
+
+    it('Expect failure on U128::from_integer() overflow', async () => {
+      const bytecode = getAvmTestContractBytecode('u128_from_integer_overflow');
+      const results = await new AvmSimulator(initContext()).executeBytecode(bytecode);
+      expect(results.reverted).toBe(true);
+      expect(results.revertReason?.message).toEqual('Assertion failed.');
+      // Note: compiler intrinsic messages (like below) are not known to the AVM
+      //expect(results.revertReason?.message).toEqual("Assertion failed: call to assert_max_bit_size 'self.__assert_max_bit_size(bit_size)'");
+    });
   });
 
   it('Assertion message', async () => {
@@ -112,8 +129,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(true);
-    expect(results.revertReason?.message).toEqual("Reverted with output: Nullifier doesn't exist!");
-    expect(results.output).toEqual([..."Nullifier doesn't exist!"].flatMap(c => new Fr(c.charCodeAt(0))));
+    expect(results.revertReason?.message).toEqual("Assertion failed: Nullifier doesn't exist!");
+    expect(results.output).toEqual([
+      new Fr(0),
+      ...[..."Nullifier doesn't exist!"].flatMap(c => new Fr(c.charCodeAt(0))),
+    ]);
   });
 
   describe.each([
@@ -187,11 +207,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       await testEnvGetter('sender', sender, 'get_sender');
     });
 
-    it('getFeePerL1Gas', async () => {
-      const fee = new Fr(1);
-      await testEnvGetter('feePerL1Gas', fee, 'get_fee_per_l1_gas');
-    });
-
     it('getFeePerL2Gas', async () => {
       const fee = new Fr(1);
       await testEnvGetter('feePerL2Gas', fee, 'get_fee_per_l2_gas');
@@ -200,6 +215,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     it('getFeePerDaGas', async () => {
       const fee = new Fr(1);
       await testEnvGetter('feePerDaGas', fee, 'get_fee_per_da_gas');
+    });
+
+    it('getTransactionFee', async () => {
+      const fee = new Fr(1);
+      await testEnvGetter('transactionFee', fee, 'get_transaction_fee');
     });
 
     it('chainId', async () => {
@@ -840,7 +860,23 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(callBytecode);
 
       expect(results.reverted).toBe(true); // The outer call should revert.
-      expect(results.revertReason?.message).toMatch(/Nested static call failed/);
+      expect(results.revertReason?.message).toEqual('Static calls cannot alter storage');
+    });
+
+    it(`Nested calls rethrow exceptions`, async () => {
+      const calldata: Fr[] = [new Fr(1), new Fr(2)];
+      const callBytecode = getAvmNestedCallsTestContractBytecode('nested_call_to_add');
+      // We actually don't pass the function ADD, but it's ok because the signature is the same.
+      const nestedBytecode = getAvmNestedCallsTestContractBytecode('assert_same');
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+      jest
+        .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+        .mockReturnValue(Promise.resolve(nestedBytecode));
+
+      const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+      expect(results.reverted).toBe(true); // The outer call should revert.
+      expect(results.revertReason?.message).toEqual('Assertion failed: Values are not equal');
     });
   });
 });

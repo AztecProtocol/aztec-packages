@@ -19,6 +19,9 @@
       "path": "../aztec.js"
     },
     {
+      "path": "../builder"
+    },
+    {
       "path": "../circuit-types"
     },
     {
@@ -40,9 +43,6 @@
       "path": "../l1-artifacts"
     },
     {
-      "path": "../noir-compiler"
-    },
-    {
       "path": "../noir-contracts.js"
     },
     {
@@ -50,6 +50,9 @@
     },
     {
       "path": "../protocol-contracts"
+    },
+    {
+      "path": "../prover-client"
     },
     {
       "path": "../pxe"

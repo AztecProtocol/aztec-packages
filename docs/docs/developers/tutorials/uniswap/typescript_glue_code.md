@@ -1,5 +1,6 @@
 ---
 title: Deploy & Call Contracts with Typescript
+draft: true
 ---
 
 In this step, we We will now write a Typescript to interact with the sandbox and see our Solidity and Aztec.nr contracts in action.
@@ -36,7 +37,7 @@ aztec-nargo compile
 And then generate the typescript interface:
 
 ```bash
-aztec-cli codegen ./target/ -o ../../../src/test/fixtures uniswap
+aztec-builder ./target/ -o ../../../src/test/fixtures uniswap
 ```
 
 This will create a TS interface in our `src/test` folder that will help us write our test.

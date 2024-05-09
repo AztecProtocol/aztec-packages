@@ -1,4 +1,5 @@
 #pragma once
+#include "aes128_constraint.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "bigint_constraint.hpp"
@@ -8,9 +9,9 @@
 #include "ec_operations.hpp"
 #include "ecdsa_secp256k1.hpp"
 #include "ecdsa_secp256r1.hpp"
-#include "fixed_base_scalar_mul.hpp"
 #include "keccak_constraint.hpp"
 #include "logic_constraint.hpp"
+#include "multi_scalar_mul.hpp"
 #include "pedersen.hpp"
 #include "poseidon2_constraint.hpp"
 #include "range_constraint.hpp"
@@ -31,10 +32,13 @@ struct AcirFormat {
     // to be able to verify SNARKs on Ethereum.
     bool recursive;
 
+    uint32_t num_acir_opcodes;
+
     std::vector<uint32_t> public_inputs;
 
     std::vector<LogicConstraint> logic_constraints;
     std::vector<RangeConstraint> range_constraints;
+    std::vector<AES128Constraint> aes128_constraints;
     std::vector<Sha256Constraint> sha256_constraints;
     std::vector<Sha256Compression> sha256_compression;
     std::vector<SchnorrConstraint> schnorr_constraints;
@@ -47,7 +51,7 @@ struct AcirFormat {
     std::vector<PedersenConstraint> pedersen_constraints;
     std::vector<PedersenHashConstraint> pedersen_hash_constraints;
     std::vector<Poseidon2Constraint> poseidon2_constraints;
-    std::vector<FixedBaseScalarMul> fixed_base_scalar_mul_constraints;
+    std::vector<MultiScalarMul> multi_scalar_mul_constraints;
     std::vector<EcAdd> ec_add_constraints;
     std::vector<RecursionConstraint> recursion_constraints;
     std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
@@ -69,6 +73,7 @@ struct AcirFormat {
                    public_inputs,
                    logic_constraints,
                    range_constraints,
+                   aes128_constraints,
                    sha256_constraints,
                    sha256_compression,
                    schnorr_constraints,
@@ -81,7 +86,7 @@ struct AcirFormat {
                    pedersen_constraints,
                    pedersen_hash_constraints,
                    poseidon2_constraints,
-                   fixed_base_scalar_mul_constraints,
+                   multi_scalar_mul_constraints,
                    ec_add_constraints,
                    recursion_constraints,
                    poly_triple_constraints,

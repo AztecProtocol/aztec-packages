@@ -2,7 +2,7 @@ mod lib;
 
 contract GasToken {
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}};
-    use dep::aztec::{hash::compute_secret_hash, state_vars::{SharedImmutable, PublicMutable, Map}};
+    use dep::aztec::state_vars::{SharedImmutable, PublicMutable, Map};
 
     use crate::lib::{calculate_fee, get_bridge_gas_msg_hash};
 
@@ -54,7 +54,12 @@ contract GasToken {
     #[aztec(public)]
     fn pay_fee(fee_limit: Field) -> Field {
         let fee_limit_u128 = U128::from_integer(fee_limit);
-        let fee = calculate_fee(context);
+        let fee = U128::from_integer(calculate_fee(context));
+        // TODO(6252): implement debug logging in AVM
+        //dep::aztec::oracle::debug_log::debug_log_format(
+        //    "Gas token: paying fee {0} (limit {1})",
+        //    [fee.to_field(), fee_limit]
+        //);
         assert(fee <= fee_limit_u128, "Fee too high");
 
         let sender_new_balance = storage.balances.at(context.msg_sender()).read() - fee;

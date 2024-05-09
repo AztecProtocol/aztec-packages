@@ -57,8 +57,8 @@ template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_relation_chec
  * */
 template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_zeromorph_rounds()
 {
-    ZeroMorph::prove(instance->prover_polynomials.get_unshifted(),
-                     instance->prover_polynomials.get_to_be_shifted(),
+    ZeroMorph::prove(instance->proving_key.polynomials.get_unshifted(),
+                     instance->proving_key.polynomials.get_to_be_shifted(),
                      sumcheck_output.claimed_evaluations.get_unshifted(),
                      sumcheck_output.claimed_evaluations.get_shifted(),
                      sumcheck_output.challenge,
@@ -77,9 +77,9 @@ template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::construct_proof
     OinkProver<Flavor> oink_prover(instance->proving_key, transcript);
     auto [proving_key, relation_params, alphas] = oink_prover.prove();
     instance->proving_key = std::move(proving_key);
+
     instance->relation_parameters = std::move(relation_params);
     instance->alphas = alphas;
-    instance->prover_polynomials = ProverPolynomials(instance->proving_key);
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.

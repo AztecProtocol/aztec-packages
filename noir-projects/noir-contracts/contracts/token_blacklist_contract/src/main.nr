@@ -10,22 +10,17 @@ mod types;
 
 contract TokenBlacklist {
     // Libs
-
-    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
     use dep::aztec::{
-        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader},
         hash::compute_secret_hash,
-        state_vars::{Map, PublicMutable, PrivateSet, SharedMutable, SharedImmutable}
+        prelude::{AztecAddress, FunctionSelector, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable}
     };
-
-    use dep::field_note::field_note::FieldNote;
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
 
     use crate::types::{transparent_note::TransparentNote, token_note::TokenNote, balances_map::BalancesMap, roles::UserFlags};
 
     // Changing an address' roles has a certain block delay before it goes into effect.
-    global CHANGE_ROLES_DELAY_BLOCKS = 5;
+    global CHANGE_ROLES_DELAY_BLOCKS = 2;
 
     #[aztec(storage)]
     struct Storage {
