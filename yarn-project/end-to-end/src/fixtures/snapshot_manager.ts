@@ -267,14 +267,14 @@ async function setupFromFresh(statePath: string | undefined, logger: Logger): Pr
   pxeConfig.dataDirectory = statePath;
   const pxe = await createPXEService(aztecNode, pxeConfig);
 
-  if (statePath) {
-    writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig));
-  }
-
   logger.verbose('Deploying key registry...');
   await deployCanonicalKeyRegistry(
     new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.chainId, aztecNodeConfig.version)),
   );
+
+  if (statePath) {
+    writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig));
+  }
 
   return {
     aztecNodeConfig,
