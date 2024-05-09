@@ -15,7 +15,7 @@ if [ -f ~/.ebs-cache-mounted ] ; then
   elapsed_time=0
   # Check for existing mount, assume we can continue if existing
 
-  while ! mount | grep -q "/var/lib/docker type ext4"; do
+  while ! sudo mount | grep -q "/var/lib/docker type ext4"; do
     echo "Someone already marked as mounting, terminating any stopped instances and waiting..."
     # Identify and terminate instances in 'STOPPED' state that are using this volume
     STOPPED_INSTANCES=$(aws ec2 describe-instances \
@@ -44,14 +44,14 @@ fi
 touch ~/.ebs-cache-mounted
 
 # Check for existing mount, assume we can continue if existing
-if mount | grep -q "/var/lib/docker/volumes type ext4"; then
+if sudo mount | grep -q "/var/lib/docker/volumes type ext4"; then
   echo "Detected mount existing on /var/lib/docker/volumes. This is our old mount."
   echo "Run the stop spot workflow https://github.com/AztecProtocol/aztec-packages/actions/workflows/stop-spot.yml and rerun all steps in this workflow."
   exit 0
 fi
 
 # Check for existing mount, assume we can continue if existing
-if mount | grep -q "/var/lib/docker type ext4"; then
+if sudo mount | grep -q "/var/lib/docker type ext4"; then
   echo "Detected mount existing on /var/lib/docker already"
   echo "Continuing..."
   exit 0
@@ -123,12 +123,12 @@ done
 # We are expecting the device to come up as /dev/nvme1n1, but include generic code from
 # https://github.com/slavivanov/ec2-spotter/blob/master/ec2spotter-remount-root
 while true; do
-    if lsblk /dev/nvme1n1; then
+    if sudo lsblk /dev/nvme1n1; then
         BLKDEVICE=/dev/nvme1n1
         # DEVICE=/dev/nvme1n1p1
         break
     fi
-    if lsblk /dev/xvdb; then
+    if sudo lsblk /dev/xvdb; then
         BLKDEVICE=/dev/xvdb
         # DEVICE=/dev/xvdb1
         break
@@ -139,9 +139,9 @@ done
 
 # Create a file system if it does not exist
 if ! file -s $BLKDEVICE | grep -q ext4; then
-  mkfs -t ext4 $BLKDEVICE
+  sudo mkfs -t ext4 $BLKDEVICE
 fi
 
 # Create a mount point and mount the volume
 mkdir -p /var/lib/docker
-mount $BLKDEVICE /var/lib/docker
+sudo mount $BLKDEVICE /var/lib/docker

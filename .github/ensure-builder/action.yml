@@ -69,7 +69,7 @@ runs:
           export AWS_ACCESS_KEY_ID=${{ inputs.aws_access_key_id }}
           export AWS_SECRET_ACCESS_KEY=${{ inputs.aws_secret_access_key }}
           # attach 256gb cache disk
-          sudo ./scripts/ci/attach_ebs_cache.sh ${{ inputs.username }}-x86 256
+          ./scripts/ci/attach_ebs_cache.sh ${{ inputs.username }}-x86 256
 
     - name: Setup
       uses: ./.github/run-on-builder
