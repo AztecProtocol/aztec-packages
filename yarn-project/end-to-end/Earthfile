@@ -133,6 +133,10 @@ e2e-note-getter:
   FROM ../+end-to-end
   RUN yarn test ./src/e2e_note_getter.test.ts
 
+client-prover-integration:
+  FROM ../+end-to-end
+  RUN yarn test ./src/client_prover_integration/client_prover_integration.test.ts
+
 e2e-ordering:
   FROM ../+end-to-end
   RUN yarn test ./src/e2e_ordering.test.ts
