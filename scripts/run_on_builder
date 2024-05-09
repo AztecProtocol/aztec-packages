@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eu
+set -eux
 
 # Enter the repo root
 cd "$(dirname "$0")/.."
@@ -13,7 +13,7 @@ tmpfile=$(mktemp)
 
 while true; do
   # Execute the SSH command and redirect stderr to a temp file
-  if ssh -o StrictHostKeyChecking=no -i "$SPOT_KEY" ubuntu@"$SPOT_IP" "$@" 2>"$tmpfile"; then
+  if ssh -o StrictHostKeyChecking=no -i "$SPOT_KEY" ubuntu@"$SPOT_IP" "$@" 2>"$tmpfile" ; then
     break # SSH was successful, exit loop
   else
     # Read the error from the temp file
@@ -21,7 +21,7 @@ while true; do
 
     # Check for the specific error message
     if [[ "$error_msg" == *"kex_exchange_identification: read: Connection reset by peer"* ]]; then
-      ((count++)) # Increment retry counter
+      ((count++)) || true # Increment retry counter
 
       # Check retry limit
       if [ "$count" -eq "$max_retries" ]; then
