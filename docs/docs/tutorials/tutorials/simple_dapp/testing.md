@@ -4,7 +4,7 @@ title: Testing
 
 To wrap up this tutorial, we'll set up a simple automated test for our dapp contracts. We will be using [jest](https://jestjs.io/), but any nodejs test runner works fine.
 
-Here we'll only test the happy path for a `transfer` on our private token contract, but in a real application you should be testing both happy and unhappy paths, as well as both your contracts and application logic. Refer to the full [testing guide](/tutorials/tutorials/contract_tutorials/advanced/simple_dapp/testing.md) for more info on testing and assertions.
+Here we'll only test the happy path for a `transfer` on our private token contract, but in a real application you should be testing both happy and unhappy paths, as well as both your contracts and application logic. Refer to the full [testing guide](/tutorials/tutorials/simple_dapp/testing.md) for more info on testing and assertions.
 
 ## Dependencies
 
@@ -46,7 +46,7 @@ Let's set up our test suite. We'll make sure the Sandbox is running, create two 
 #include_code setup yarn-project/end-to-end/src/sample-dapp/index.test.mjs javascript
 
 :::tip
-Instead of creating new accounts in our test suite, we can use the ones already initialized by the Sandbox upon startup. This can provide a speed boost to your tests setup. However, bear in mind that you may accidentally introduce an interdependency across test suites by reusing the same accounts. Read more [here](/tutorials/tutorials/contract_tutorials/advanced/simple_dapp/testing.md#using-sandbox-initial-accounts).
+Instead of creating new accounts in our test suite, we can use the ones already initialized by the Sandbox upon startup. This can provide a speed boost to your tests setup. However, bear in mind that you may accidentally introduce an interdependency across test suites by reusing the same accounts. Read more [here](/tutorials/tutorials/simple_dapp/testing.md#using-sandbox-initial-accounts).
 :::
 
 ## Writing our test
@@ -55,7 +55,7 @@ Now that we have a working test environment, we can write our first test for exe
 
 #include_code test yarn-project/end-to-end/src/sample-dapp/index.test.mjs javascript
 
-In this example, we assert that the `recipient`'s balance is increased by the amount transferred. We could also test that the `owner`'s funds are decremented by the same amount, or that a transaction that attempts to send more funds than those available would fail. Check out the [testing guide](/tutorials/tutorials/contract_tutorials/advanced/simple_dapp/testing.md) for more ideas.
+In this example, we assert that the `recipient`'s balance is increased by the amount transferred. We could also test that the `owner`'s funds are decremented by the same amount, or that a transaction that attempts to send more funds than those available would fail. Check out the [testing guide](/tutorials/tutorials/simple_dapp/testing.md) for more ideas.
 
 ## Running our tests
 

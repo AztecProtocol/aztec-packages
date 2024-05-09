@@ -1,6 +1,6 @@
 ---
 title: "Private voting contract"
-sidebar_position: 1
+sidebar_position: 0
 ---
 
 import Image from '@theme/IdealImage';
