@@ -23,7 +23,7 @@ on:
         required: true
       GH_SELF_HOSTED_RUNNER_TOKEN:
         required: true
-      EC2_KEY:
+      BUILD_INSTANCE_SSH_KEY:
         required: true
       DOCKERHUB_PASSWORD:
         required: true
@@ -71,6 +71,6 @@ jobs:
           runner_type: ${{ inputs.runner_type }}
           run_id: ${{ github.run_id }}
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
-          ec2_key: ${{ secrets.EC2_KEY }}
+          ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
