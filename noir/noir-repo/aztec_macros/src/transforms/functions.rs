@@ -1,10 +1,10 @@
 use convert_case::{Case, Casing};
 use noirc_errors::Span;
-use noirc_frontend::ast;
+use noirc_frontend::ast::{self, FunctionKind};
 use noirc_frontend::ast::{
     BlockExpression, ConstrainKind, ConstrainStatement, Expression, ExpressionKind,
-    ForLoopStatement, ForRange, FunctionKind, FunctionReturnType, Ident, Literal, NoirFunction,
-    NoirStruct, Param, PathKind, Pattern, Signedness, Statement, StatementKind, UnresolvedType,
+    ForLoopStatement, ForRange, FunctionReturnType, Ident, Literal, NoirFunction, NoirStruct,
+    Param, PathKind, Pattern, Signedness, Statement, StatementKind, UnresolvedType,
     UnresolvedTypeData, Visibility,
 };
 
@@ -102,6 +102,8 @@ pub fn transform_function(
     if !is_avm {
         let return_type = create_return_type(&return_type_name);
         func.def.return_type = return_type;
+        func.def.return_visibility = Visibility::Public;
+    } else {
         func.def.return_visibility = Visibility::Public;
     }
 

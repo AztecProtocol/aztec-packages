@@ -9,6 +9,7 @@ export const acvmInfoJson = {
     'and',
     'xor',
     'range',
+    'aes128_encrypt',
     'sha256',
     'blake2s',
     'keccak256',
@@ -17,7 +18,7 @@ export const acvmInfoJson = {
     'pedersen_hash',
     'ecdsa_secp256k1',
     'ecdsa_secp256r1',
-    'fixed_base_scalar_mul',
+    'multi_scalar_mul',
     'recursive_aggregation',
   ],
 };

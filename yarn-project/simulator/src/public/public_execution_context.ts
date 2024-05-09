@@ -7,6 +7,7 @@ import {
   type GasSettings,
   type GlobalVariables,
   type Header,
+  type Nullifier,
   PublicContextInputs,
 } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
@@ -37,13 +38,15 @@ export class PublicExecutionContext extends TypedOracle {
     public readonly header: Header,
     public readonly globalVariables: GlobalVariables,
     private readonly packedValuesCache: PackedValuesCache,
-    private readonly sideEffectCounter: SideEffectCounter,
+    // TRANSITIONAL: once AVM-ACVM interoperability is removed (fully functional AVM), sideEffectCounter can be made private
+    public readonly sideEffectCounter: SideEffectCounter,
     public readonly stateDb: PublicStateDB,
     public readonly contractsDb: PublicContractsDB,
     public readonly commitmentsDb: CommitmentsDB,
     public readonly availableGas: Gas,
     public readonly transactionFee: Fr,
     public readonly gasSettings: GasSettings,
+    public readonly pendingNullifiers: Nullifier[],
     // Unencrypted logs emitted during this call AND any nested calls
     // Useful for maintaining correct ordering in ts
     private allUnencryptedLogs: UnencryptedL2Log[] = [],
@@ -238,6 +241,7 @@ export class PublicExecutionContext extends TypedOracle {
       this.availableGas,
       this.transactionFee,
       this.gasSettings,
+      /*pendingNullifiers=*/ [],
       this.allUnencryptedLogs,
       this.log,
     );

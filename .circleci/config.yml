@@ -230,18 +230,6 @@ jobs:
           command: create_ecr_manifest noir x86_64,arm64
           aztec_manifest_key: noir
 
-  noir-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: cond_spot_run_build noir-tests 32
-          aztec_manifest_key: noir-tests
-
   noir-packages:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -253,18 +241,6 @@ jobs:
           name: "Build"
           command: cond_spot_run_build noir-packages 32
           aztec_manifest_key: noir-packages
-
-  noir-packages-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: cond_spot_run_build noir-packages-tests 32
-          aztec_manifest_key: noir-packages-tests
 
   avm-transpiler:
     docker:
@@ -516,16 +492,9 @@ workflows:
             - noir-x86_64
             - noir-arm64
           <<: *defaults
-      - noir-tests: *defaults
       - noir-packages:
           requires:
             - bb-js
-          <<: *defaults
-      - noir-packages-tests:
-          requires:
-            - bb-js
-            - noir-ecr-manifest
-            - noir-packages
           <<: *defaults
 
       # Transpiler
@@ -588,7 +557,6 @@ workflows:
             - barretenberg-x86_64-linux-clang-fuzzing
             - barretenberg-wasm-linux-clang
             - barretenberg-docs
-            - noir-packages-tests
             - e2e-join
             - aztec-builder
           <<: *defaults

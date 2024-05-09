@@ -29,13 +29,14 @@ export class WorldStateAccessTrace {
 
   constructor(parentTrace?: WorldStateAccessTrace) {
     this.accessCounter = parentTrace ? parentTrace.accessCounter : 0;
+    // TODO(4805): consider tracking the parent's trace vector lengths so we can enforce limits
   }
 
   public getAccessCounter() {
     return this.accessCounter;
   }
 
-  public tracePublicStorageRead(storageAddress: Fr, slot: Fr, value: Fr, exists: boolean) {
+  public tracePublicStorageRead(storageAddress: Fr, slot: Fr, value: Fr, exists: boolean, cached: boolean) {
     // TODO(4805): check if some threshold is reached for max storage reads
     // (need access to parent length, or trace needs to be initialized with parent's contents)
     const traced: TracedPublicStorageRead = {
@@ -44,6 +45,7 @@ export class WorldStateAccessTrace {
       slot,
       value,
       exists,
+      cached,
       counter: new Fr(this.accessCounter),
       //  endLifetime: Fr.ZERO,
     };
@@ -150,9 +152,6 @@ export class WorldStateAccessTrace {
 
   /**
    * Merges another trace into this one
-   *
-   * - Public state journals (r/w logs), with the accessing being appended in chronological order
-   * - Utxo objects are concatenated
    *
    * @param incomingTrace - the incoming trace to merge into this instance
    */

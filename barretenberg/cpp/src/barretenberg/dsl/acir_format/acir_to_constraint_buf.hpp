@@ -2,6 +2,7 @@
 #include "acir_format.hpp"
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/dsl/acir_format/aes128_constraint.hpp"
 #include "barretenberg/dsl/acir_format/bigint_constraint.hpp"
 #include "barretenberg/dsl/acir_format/blake2s_constraint.hpp"
 #include "barretenberg/dsl/acir_format/blake3_constraint.hpp"
@@ -222,6 +223,31 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg, Aci
                     .witness = arg.input.witness.value,
                     .num_bits = arg.input.num_bits,
                 });
+            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::AES128Encrypt>) {
+                af.aes128_constraints.push_back(AES128Constraint{
+                    .inputs = map(arg.inputs,
+                                  [](auto& e) {
+                                      return AES128Input{
+                                          .witness = e.witness.value,
+                                          .num_bits = e.num_bits,
+                                      };
+                                  }),
+                    .iv = map(arg.iv,
+                              [](auto& e) {
+                                  return AES128Input{
+                                      .witness = e.witness.value,
+                                      .num_bits = e.num_bits,
+                                  };
+                              }),
+                    .key = map(arg.key,
+                               [](auto& e) {
+                                   return AES128Input{
+                                       .witness = e.witness.value,
+                                       .num_bits = e.num_bits,
+                                   };
+                               }),
+                    .outputs = map(arg.outputs, [](auto& e) { return e.value; }),
+                });
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::SHA256>) {
                 af.sha256_constraints.push_back(Sha256Constraint{
                     .inputs = map(arg.inputs,
@@ -310,19 +336,10 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg, Aci
                     .result = arg.output.value,
                     .signature = map(arg.signature, [](auto& e) { return e.witness.value; }),
                 });
-            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::FixedBaseScalarMul>) {
-                af.fixed_base_scalar_mul_constraints.push_back(FixedBaseScalarMul{
-                    .low = arg.low.witness.value,
-                    .high = arg.high.witness.value,
-                    .pub_key_x = arg.outputs[0].value,
-                    .pub_key_y = arg.outputs[1].value,
-                });
-            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::VariableBaseScalarMul>) {
-                af.variable_base_scalar_mul_constraints.push_back(VariableBaseScalarMul{
-                    .point_x = arg.point_x.witness.value,
-                    .point_y = arg.point_y.witness.value,
-                    .scalar_low = arg.scalar_low.witness.value,
-                    .scalar_high = arg.scalar_high.witness.value,
+            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::MultiScalarMul>) {
+                af.multi_scalar_mul_constraints.push_back(MultiScalarMul{
+                    .points = map(arg.points, [](auto& e) { return e.witness.value; }),
+                    .scalars = map(arg.scalars, [](auto& e) { return e.witness.value; }),
                     .out_point_x = arg.outputs[0].value,
                     .out_point_y = arg.outputs[1].value,
                 });

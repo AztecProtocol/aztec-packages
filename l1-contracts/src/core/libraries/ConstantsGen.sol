@@ -89,7 +89,7 @@ library Constants {
   uint256 internal constant DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE =
     0x85864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631;
   uint256 internal constant DEPLOYER_CONTRACT_ADDRESS =
-    0x0097949bb96834550868230a1b6cc242d1f662f7c52946245e4e73da1b8b2165;
+    0x2e9c386f07e22a1d24e677ab70407b2dd0adbc7cafb9c822bf249685d6a2e4cc;
   uint256 internal constant DEFAULT_GAS_LIMIT = 1_000_000_000;
   uint256 internal constant DEFAULT_TEARDOWN_GAS_LIMIT = 100_000_000;
   uint256 internal constant DEFAULT_MAX_FEE_PER_GAS = 10;
@@ -115,15 +115,18 @@ library Constants {
   uint256 internal constant GLOBAL_VARIABLES_LENGTH = 6 + GAS_FEES_LENGTH;
   uint256 internal constant APPEND_ONLY_TREE_SNAPSHOT_LENGTH = 2;
   uint256 internal constant L1_TO_L2_MESSAGE_LENGTH = 6;
-  uint256 internal constant L2_TO_L1_MESSAGE_LENGTH = 2;
+  uint256 internal constant L2_TO_L1_MESSAGE_LENGTH = 3;
+  uint256 internal constant SCOPED_L2_TO_L1_MESSAGE_LENGTH = L2_TO_L1_MESSAGE_LENGTH + 1;
   uint256 internal constant MAX_BLOCK_NUMBER_LENGTH = 2;
   uint256 internal constant NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH = 3;
-  uint256 internal constant NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH = 4;
+  uint256 internal constant SCOPED_NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH =
+    NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH + 1;
   uint256 internal constant PARTIAL_STATE_REFERENCE_LENGTH = 6;
   uint256 internal constant READ_REQUEST_LENGTH = 2;
   uint256 internal constant NOTE_HASH_LENGTH = 2;
-  uint256 internal constant NOTE_HASH_CONTEXT_LENGTH = 3;
+  uint256 internal constant SCOPED_NOTE_HASH_LENGTH = NOTE_HASH_LENGTH + 2;
   uint256 internal constant NULLIFIER_LENGTH = 3;
+  uint256 internal constant SCOPED_NULLIFIER_LENGTH = NULLIFIER_LENGTH + 1;
   uint256 internal constant SIDE_EFFECT_LENGTH = 2;
   uint256 internal constant STATE_REFERENCE_LENGTH =
     APPEND_ONLY_TREE_SNAPSHOT_LENGTH + PARTIAL_STATE_REFERENCE_LENGTH;

@@ -11,7 +11,7 @@ namespace bb {
 void ClientIVC::initialize(ClientCircuit& circuit)
 {
     goblin.merge(circuit); // Construct new merge proof
-    prover_fold_output.accumulator = std::make_shared<ProverInstance>(circuit);
+    prover_fold_output.accumulator = std::make_shared<ProverInstance>(circuit, structured_flag);
 }
 
 /**
@@ -24,7 +24,7 @@ void ClientIVC::initialize(ClientCircuit& circuit)
 ClientIVC::FoldProof ClientIVC::accumulate(ClientCircuit& circuit)
 {
     goblin.merge(circuit); // Add recursive merge verifier and construct new merge proof
-    prover_instance = std::make_shared<ProverInstance>(circuit);
+    prover_instance = std::make_shared<ProverInstance>(circuit, structured_flag);
     FoldingProver folding_prover({ prover_fold_output.accumulator, prover_instance });
     prover_fold_output = folding_prover.fold_instances();
     return prover_fold_output.folding_data;
@@ -53,7 +53,7 @@ bool ClientIVC::verify(Proof& proof, const std::vector<VerifierAccumulator>& ver
 
     // Decider verification
     ClientIVC::FoldingVerifier folding_verifier({ verifier_instances[0], verifier_instances[1] });
-    auto verifier_accumulator = folding_verifier.verify_folding_proof(proof.fold_proof);
+    auto verifier_accumulator = folding_verifier.verify_folding_proof(proof.folding_proof);
 
     ClientIVC::DeciderVerifier decider_verifier(verifier_accumulator);
     bool decision = decider_verifier.verify_proof(proof.decider_proof);

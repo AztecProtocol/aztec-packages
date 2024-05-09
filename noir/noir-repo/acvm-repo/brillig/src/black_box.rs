@@ -5,6 +5,13 @@ use serde::{Deserialize, Serialize};
 /// They are implemented as native functions in the VM.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BlackBoxOp {
+    /// Encrypts a message using AES128.
+    AES128Encrypt {
+        inputs: HeapVector,
+        iv: HeapArray,
+        key: HeapArray,
+        outputs: HeapVector,
+    },
     /// Calculates the SHA256 hash of the inputs.
     Sha256 {
         message: HeapVector,
@@ -66,19 +73,11 @@ pub enum BlackBoxOp {
         domain_separator: MemoryAddress,
         output: MemoryAddress,
     },
-    /// Performs scalar multiplication over the embedded curve.
-    FixedBaseScalarMul {
-        low: MemoryAddress,
-        high: MemoryAddress,
-        result: HeapArray,
-    },
-    /// Performs scalar multiplication over the embedded curve with variable base point.
-    VariableBaseScalarMul {
-        point_x: MemoryAddress,
-        point_y: MemoryAddress,
-        scalar_low: MemoryAddress,
-        scalar_high: MemoryAddress,
-        result: HeapArray,
+    /// Performs multi scalar multiplication over the embedded curve.
+    MultiScalarMul {
+        points: HeapVector,
+        scalars: HeapVector,
+        outputs: HeapArray,
     },
     /// Performs addition over the embedded curve.
     EmbeddedCurveAdd {

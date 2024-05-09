@@ -1,14 +1,14 @@
 // This will be moved to a separate Read Request Reset Circuit.
 use crate::reset::read_request::{PendingReadHint, ReadRequestStatus, ReadValueHint, SettledReadHint};
 use dep::types::{
-    abis::{membership_witness::NoteHashMembershipWitness, note_hash_leaf_preimage::NoteHashLeafPreimage},
+    abis::{note_hash_leaf_preimage::NoteHashLeafPreimage},
     constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_TX, NOTE_HASH_TREE_HEIGHT},
     merkle_tree::MembershipWitness
 };
 
 struct NoteHashSettledReadHint {
     read_request_index: u64,
-    membership_witness: NoteHashMembershipWitness, // Should be MembershipWitness<NOTE_HASH_TREE_HEIGHT> when we can handle generics when converting to ts types.
+    membership_witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT>,
     leaf_preimage: NoteHashLeafPreimage,
 }
 
@@ -20,7 +20,7 @@ impl ReadValueHint for NoteHashSettledReadHint {
 
 impl SettledReadHint<NOTE_HASH_TREE_HEIGHT, NoteHashLeafPreimage> for NoteHashSettledReadHint {
     fn membership_witness(self) -> MembershipWitness<NOTE_HASH_TREE_HEIGHT> {
-        MembershipWitness { leaf_index: self.membership_witness.leaf_index, sibling_path: self.membership_witness.sibling_path }
+        self.membership_witness
     }
 
     fn leaf_preimage(self) -> NoteHashLeafPreimage {
@@ -30,7 +30,7 @@ impl SettledReadHint<NOTE_HASH_TREE_HEIGHT, NoteHashLeafPreimage> for NoteHashSe
     fn nada(read_request_len: u64) -> Self {
         NoteHashSettledReadHint {
             read_request_index: read_request_len,
-            membership_witness: NoteHashMembershipWitness::empty(),
+            membership_witness: MembershipWitness::empty(),
             leaf_preimage: NoteHashLeafPreimage::empty()
         }
     }
@@ -46,11 +46,8 @@ mod tests {
     use crate::note_hash_read_request_reset::NoteHashSettledReadHint;
     use crate::reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus, reset_read_requests};
     use dep::types::{
-        address::AztecAddress,
-        abis::{
-        membership_witness::NoteHashMembershipWitness, note_hash::NoteHashContext,
-        note_hash_leaf_preimage::NoteHashLeafPreimage, read_request::ReadRequestContext
-    },
+        address::AztecAddress, merkle_tree::MembershipWitness,
+        abis::{note_hash::NoteHash, note_hash_leaf_preimage::NoteHashLeafPreimage, read_request::ReadRequest},
         constants::NOTE_HASH_TREE_HEIGHT, hash::silo_note_hash,
         tests::merkle_tree_utils::NonEmptyMerkleTree
     };
@@ -64,15 +61,17 @@ mod tests {
     // Create 5 read requests. 0 and 3 are reading settled note hashes. 1, 2 and 4 are reading pending note hashes.
     // TODO(#2847): Read request values for settled note hashes shouldn't have been siloed by apps.
     global read_requests = [
-        ReadRequestContext { value: note_hashes[1], counter: 11, contract_address }, // settled
-        ReadRequestContext { value: inner_note_hashes[3], counter: 13, contract_address }, // pending
-        ReadRequestContext { value: inner_note_hashes[2], counter: 39, contract_address }, // pending
-        ReadRequestContext { value: note_hashes[0], counter: 46, contract_address }, // settled
-        ReadRequestContext { value: inner_note_hashes[3], counter: 78, contract_address }, // pending
+        ReadRequest { value: note_hashes[1], counter: 11 }.scope(contract_address), // settled
+        ReadRequest { value: inner_note_hashes[3], counter: 13 }.scope(contract_address), // pending
+        ReadRequest { value: inner_note_hashes[2], counter: 39 }.scope(contract_address), // pending
+        ReadRequest { value: note_hashes[0], counter: 46 }.scope(contract_address), // settled
+        ReadRequest { value: inner_note_hashes[3], counter: 78 }.scope(contract_address), // pending
     ];
 
-    // TODO(#6122): Pending values shouldn't have been siloed at this point.
-    global pending_values = [NoteHashContext { value: note_hashes[2], counter: 2, nullifier_counter: 0 }, NoteHashContext { value: note_hashes[3], counter: 8, nullifier_counter: 0 }];
+    global pending_values = [
+        NoteHash { value: inner_note_hashes[2], counter: 2, }.scope(0, contract_address),
+        NoteHash { value: inner_note_hashes[3], counter: 8,  }.scope(0, contract_address),
+    ];
     global pending_read_hints = [
         PendingReadHint { read_request_index: 1, pending_value_index: 1 },
         PendingReadHint { read_request_index: 2, pending_value_index: 0 },
@@ -108,12 +107,12 @@ mod tests {
         let hints = [
             NoteHashSettledReadHint {
                 read_request_index: 0,
-                membership_witness: NoteHashMembershipWitness { leaf_index: 1, sibling_path: tree.get_sibling_path(1) },
+                membership_witness: MembershipWitness { leaf_index: 1, sibling_path: tree.get_sibling_path(1) },
                 leaf_preimage: leaf_preimages[1]
             },
             NoteHashSettledReadHint {
                 read_request_index: 3,
-                membership_witness: NoteHashMembershipWitness { leaf_index: 0, sibling_path: tree.get_sibling_path(0) },
+                membership_witness: MembershipWitness { leaf_index: 0, sibling_path: tree.get_sibling_path(0) },
                 leaf_preimage: leaf_preimages[0]
             }
         ];
@@ -159,7 +158,7 @@ mod tests {
     fn test_reset_note_hash_read_requests_wrong_hinted_value() {
         let mut tainted_pending_values = pending_values;
         // Tweak the value to be something different.
-        tainted_pending_values[0].value += 1;
+        tainted_pending_values[0].note_hash.value += 1;
 
         let (settled_read_hints, tree_root) = get_settled_read_hints();
         let _ = reset_read_requests(
@@ -178,7 +177,7 @@ mod tests {
         let pending_read = read_requests[hint.read_request_index];
         let mut tainted_pending_values = pending_values;
         // Tweak the counter of the value to be greater than the read request.
-        tainted_pending_values[hint.pending_value_index].counter = pending_read.counter + 1;
+        tainted_pending_values[hint.pending_value_index].note_hash.counter = pending_read.counter() + 1;
 
         let (settled_read_hints, tree_root) = get_settled_read_hints();
         let _ = reset_read_requests(
@@ -197,7 +196,7 @@ mod tests {
         let pending_read = read_requests[hint.read_request_index];
         let mut tainted_pending_values = pending_values;
         // Tweak the nullifier counter to be less than the read request.
-        tainted_pending_values[hint.pending_value_index].nullifier_counter = pending_read.counter - 1;
+        tainted_pending_values[hint.pending_value_index].nullifier_counter = pending_read.counter() - 1;
 
         let (settled_read_hints, tree_root) = get_settled_read_hints();
         let _ = reset_read_requests(
@@ -217,7 +216,7 @@ mod tests {
         let mut tained_read_requests = read_requests;
         let hint = settled_read_hints[0];
         // Tweak the value of the first settled read to be something different.
-        tained_read_requests[hint.read_request_index].value += 1;
+        tained_read_requests[hint.read_request_index].read_request.value += 1;
 
         let _ = reset_read_requests(
             tained_read_requests,
