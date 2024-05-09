@@ -14,7 +14,7 @@ struct AddressNote {
     address: AztecAddress,
     // The nullifying public key hash of the person who owns the note. 
     // This is used with the app_nullifier_secret_key to ensure that the note can be privately spent.
-    owner_npk_m_h: Field,
+    npk_m_hash: Field,
     randomness: Field,
 }
 
