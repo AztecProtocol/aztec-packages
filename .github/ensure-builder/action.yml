@@ -57,6 +57,7 @@ runs:
             "mkdir -p ~/run-$RUN_ID-git && cd ~/run-$RUN_ID-git && tar xzf -"
           scripts/run_on_builder "
             echo "> Unpacking repo"
+            git config --global advice.detachedHead false
             git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID
           "
         fi
