@@ -73,7 +73,7 @@ impl PrivateCallDataBuilder {
     }
 
     pub fn build_tx_request(self) -> TxRequest {
-        let tx_context = self.build_tx_context();
+        let tx_context = self.public_inputs.build_tx_context();
         TxRequest {
             origin: self.contract_address,
             args_hash: self.public_inputs.args_hash,
@@ -82,8 +82,24 @@ impl PrivateCallDataBuilder {
         }
     }
 
-    pub fn build_tx_context(self) -> TxContext {
-        self.public_inputs.build_tx_context()
+    pub fn build_call_request(self) -> CallRequest {
+        let hash = self.build_call_stack_item().hash();
+        let is_delegate_call = self.public_inputs.call_context.is_delegate_call;
+        let caller_context = if is_delegate_call {
+            CallerContext {
+                msg_sender: fixtures::MSG_SENDER,
+                storage_contract_address: self.public_inputs.call_context.storage_contract_address
+            }
+        } else {
+            CallerContext::empty()
+        };
+        CallRequest {
+            hash,
+            caller_contract_address: self.public_inputs.call_context.msg_sender,
+            caller_context,
+            start_side_effect_counter: 0,
+            end_side_effect_counter: 0
+        }
     }
 
     pub fn append_private_call_requests(&mut self, num_requests: u64, is_delegate_call: bool) {
