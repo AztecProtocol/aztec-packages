@@ -182,40 +182,28 @@ async function startWithGithubRunners(config: ActionConfig) {
     }
     await terminate();
   }
+  let instanceId = "";
   if (spotStatus !== "none") {
     core.info(
       `Runner already running. Continuing as we can target it with jobs.`
     );
-
-    const ip = await ec2Client.getPublicIpFromInstanceId(spotStatus);
-    // Export to github environment
-    const tempKeyPath = installSshKey(config.ec2Key);
-    core.info("Logging SPOT_IP and SPOT_KEY to GITHUB_ENV for later step use.");
-    await standardSpawn("bash", ["-c", `echo SPOT_IP=${ip} >> $GITHUB_ENV`]);
-    await standardSpawn("bash", ["-c", `echo SPOT_KEY=${tempKeyPath} >> $GITHUB_ENV`]);
-    if (config.command) {
-      await ec2CommandOverSsh(
-        ip,
-        config.ec2Key,
-        config.command
-      );
+    instanceId = spotStatus;
+  } else {
+    instanceId = await requestAndWaitForSpot(config);
+    if (instanceId) await ec2Client.waitForInstanceRunningStatus(instanceId);
+    else {
+      core.error("Failed to get ID of running instance");
+      throw Error("Failed to get ID of running instance");
     }
-    return;
+    if (instanceId) await ghClient.pollForRunnerCreation([config.githubJobId]);
+    else {
+      core.error("Instance failed to register with Github Actions");
+      throw Error("Instance failed to register with Github Actions");
+    }
   }
 
-  const instanceId = await requestAndWaitForSpot(config);
-  if (instanceId) await ec2Client.waitForInstanceRunningStatus(instanceId);
-  else {
-    core.error("Failed to get ID of running instance");
-    throw Error("Failed to get ID of running instance");
-  }
-  if (instanceId) await ghClient.pollForRunnerCreation([config.githubJobId]);
-  else {
-    core.error("Instance failed to register with Github Actions");
-    throw Error("Instance failed to register with Github Actions");
-  }
 
-  const ip = await ec2Client.getPublicIpFromInstanceId(spotStatus);
+  const ip = await ec2Client.getPublicIpFromInstanceId(instanceId);
   // Export to github environment
   const tempKeyPath = installSshKey(config.ec2Key);
   core.info("Logging SPOT_IP and SPOT_KEY to GITHUB_ENV for later step use.");
