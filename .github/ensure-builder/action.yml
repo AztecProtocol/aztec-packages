@@ -31,22 +31,22 @@ runs:
         TYPE=${{ inputs.runner_type }}
         if [[ $TYPE == builder-x86 ]]; then
           # 128-core x86 instance types with least evictions
-          echo "::set-output name=instance_type::r6in.32xlarge r6a.32xlarge i4i.32xlarge r7iz.32xlarge"
-          echo "::set-output name=ami_id::ami-04d8422a9ba4de80f"
-          echo "::set-output name=ebs_cache_size::256"
-          echo "::set-output name=runner_concurrency::50"
+          echo "instance_type=r6in.32xlarge r6a.32xlarge i4i.32xlarge r7iz.32xlarge" >> $GITHUB_OUTPUT
+          echo "ami_id=ami-04d8422a9ba4de80f" >> $GITHUB_OUTPUT
+          echo "ebs_cache_size=256" >> $GITHUB_OUTPUT
+          echo "runner_concurrency=50" >> $GITHUB_OUTPUT
         elif [[ $TYPE == builder-arm ]]; then
           # 64-core ARM instance type
-          echo "::set-output name=instance_type::r6g.16xlarge"
-          echo "::set-output name=ami_id::ami-0d8a9b0419ddb331a"
-          echo "::set-output name=ebs_cache_size::256"
-          echo "::set-output name=runner_concurrency::8"
+          echo "instance_type=r6g.16xlarge" >> $GITHUB_OUTPUT
+          echo "ami_id=ami-0d8a9b0419ddb331a" >> $GITHUB_OUTPUT
+          echo "ebs_cache_size=256" >> $GITHUB_OUTPUT
+          echo "runner_concurrency=8" >> $GITHUB_OUTPUT
         elif [[ $TYPE == bb-bench-x86 ]]; then
           # 16-core x86 instance type
-          echo "::set-output name=instance_type::m6a.4xlarge"
-          echo "::set-output name=ami_id::ami-04d8422a9ba4de80f"
-          echo "::set-output name=ebs_cache_size::64"
-          echo "::set-output name=runner_concurrency::1"
+          echo "instance_type=m6a.4xlarge" >> $GITHUB_OUTPUT
+          echo "ami_id=ami-04d8422a9ba4de80f" >> $GITHUB_OUTPUT
+          echo "ebs_cache_size=64" >> $GITHUB_OUTPUT
+          echo "runner_concurrency=1" >> $GITHUB_OUTPUT
         fi
 
     - name: Start Builder

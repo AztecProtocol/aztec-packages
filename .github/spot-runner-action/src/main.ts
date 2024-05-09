@@ -200,8 +200,8 @@ async function startWithGithubRunners(config: ActionConfig) {
       core.error("Instance failed to register with Github Actions");
       throw Error("Instance failed to register with Github Actions");
     }
+    core.info("Done setting up runner.")
   }
-
 
   const ip = await ec2Client.getPublicIpFromInstanceId(instanceId);
   // Export to github environment
