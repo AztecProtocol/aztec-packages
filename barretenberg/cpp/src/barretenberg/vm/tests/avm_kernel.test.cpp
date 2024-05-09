@@ -478,7 +478,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaVersion)
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_version(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
         std::vector<Row>::const_iterator sender_row =
-            std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_chain_id == FF(1); });
+            std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_version == FF(1); });
         EXPECT_TRUE(sender_row != trace.end());
 
         expect_row(
@@ -500,8 +500,8 @@ TEST_F(AvmKernelNegativeTests, incorrectIaBlockNumber)
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_block_number(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        std::vector<Row>::const_iterator sender_row =
-            std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_chain_id == FF(1); });
+        std::vector<Row>::const_iterator sender_row = std::ranges::find_if(
+            trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_block_number == FF(1); });
         EXPECT_TRUE(sender_row != trace.end());
 
         expect_row(
@@ -523,8 +523,8 @@ TEST_F(AvmKernelNegativeTests, incorrectIaTimestamp)
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_timestamp(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        std::vector<Row>::const_iterator sender_row =
-            std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_chain_id == FF(1); });
+        std::vector<Row>::const_iterator sender_row = std::ranges::find_if(
+            trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_timestamp == FF(1); });
         EXPECT_TRUE(sender_row != trace.end());
 
         expect_row(
