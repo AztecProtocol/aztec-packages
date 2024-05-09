@@ -610,7 +610,7 @@ export async function deployCanonicalGasToken(deployer: Wallet) {
   await expect(deployer.isContractPubliclyDeployed(gasToken.address)).resolves.toBe(true);
 }
 
-async function deployCanonicalKeyRegistry(deployer: Wallet) {
+export async function deployCanonicalKeyRegistry(deployer: Wallet) {
   const canonicalKeyRegistry = getCanonicalKeyRegistry();
 
   // We check to see if there exists a contract at the canonical Key Registry address with the same contract class id as we expect. This means that
