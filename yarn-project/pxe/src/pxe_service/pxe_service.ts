@@ -1,59 +1,59 @@
 import {
-  type AuthWitness,
-  type AztecNode,
   EncryptedTxL2Logs,
   ExtendedNote,
+  MerkleTreeId,
+  SimulatedTx,
+  SimulationError,
+  Tx,
+  UnencryptedTxL2Logs,
+  isNoirCallStackUnresolved,
+  type AuthWitness,
+  type AztecNode,
   type FunctionCall,
   type GetUnencryptedLogsResponse,
   type KeyStore,
   type L2Block,
   type LogFilter,
-  MerkleTreeId,
   type NoteFilter,
   type PXE,
-  SimulatedTx,
-  SimulationError,
-  Tx,
   type TxEffect,
   type TxExecutionRequest,
   type TxHash,
   type TxReceipt,
-  UnencryptedTxL2Logs,
-  isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
 import { type TxPXEProcessingStats } from '@aztec/circuit-types/stats';
 import {
   AztecAddress,
   CallRequest,
-  CompleteAddress,
+  type CompleteAddress,
   FunctionData,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  type PartialAddress,
-  type PrivateKernelTailCircuitPublicInputs,
   type PublicCallRequest,
   computeContractClassId,
   getContractClassFromArtifact,
+  type PartialAddress,
+  type PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type ContractArtifact, type DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
-import { Fr, type Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { createDebugLogger, type DebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  type AcirSimulator,
-  type ExecutionResult,
   collectEnqueuedPublicFunctionCalls,
   collectPublicTeardownFunctionCall,
   collectSortedEncryptedLogs,
   collectSortedUnencryptedLogs,
   resolveOpcodeLocations,
+  type AcirSimulator,
+  type ExecutionResult,
 } from '@aztec/simulator';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
 
-import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
+import { getPackageInfo, type PXEServiceConfig } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
@@ -115,12 +115,12 @@ export class PXEService implements PXE {
 
     let count = 0;
     for (const address of registeredAddresses) {
-      if (!publicKeysSet.has(address.publicKey.toString())) {
+      if (!publicKeysSet.has(address.masterIncomingViewingPublicKey.toString())) {
         continue;
       }
 
       count++;
-      this.synchronizer.addAccount(address.publicKey, this.keyStore, this.config.l2StartingBlock);
+      this.synchronizer.addAccount(address.masterIncomingViewingPublicKey, this.keyStore, this.config.l2StartingBlock);
     }
 
     if (count > 0) {
@@ -170,24 +170,19 @@ export class PXEService implements PXE {
 
   public async registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     const accounts = await this.keyStore.getAccounts();
-    const account = await this.keyStore.addAccount(secretKey, partialAddress);
-    const completeAddress = new CompleteAddress(
-      account,
-      await this.keyStore.getMasterIncomingViewingPublicKey(account),
-      partialAddress,
-    );
-    if (accounts.includes(account)) {
-      this.log.info(`Account:\n "${completeAddress.address.toString()}"\n already registered.`);
-      return completeAddress;
+    const accountCompleteAddress = await this.keyStore.addAccount(secretKey, partialAddress);
+    if (accounts.includes(accountCompleteAddress.address)) {
+      this.log.info(`Account:\n "${accountCompleteAddress.address.toString()}"\n already registered.`);
+      return accountCompleteAddress;
     } else {
       const masterIncomingViewingPublicKey = await this.keyStore.getMasterIncomingViewingPublicKey(account);
       this.synchronizer.addAccount(masterIncomingViewingPublicKey, this.keyStore, this.config.l2StartingBlock);
-      this.log.info(`Registered account ${completeAddress.address.toString()}`);
-      this.log.debug(`Registered account\n ${completeAddress.toReadableString()}`);
+      this.log.info(`Registered account ${accountCompleteAddress.address.toString()}`);
+      this.log.debug(`Registered account\n ${accountCompleteAddress.toReadableString()}`);
     }
 
-    await this.db.addCompleteAddress(completeAddress);
-    return completeAddress;
+    await this.db.addCompleteAddress(accountCompleteAddress);
+    return accountCompleteAddress;
   }
 
   public async getRegisteredAccounts(): Promise<CompleteAddress[]> {
@@ -214,19 +209,8 @@ export class PXEService implements PXE {
     return this.keyStore.getPublicKeysHash(address);
   }
 
-  public async registerRecipient(recipient: CompleteAddress, publicKeys: Point[] = []): Promise<void> {
+  public async registerRecipient(recipient: CompleteAddress): Promise<void> {
     const wasAdded = await this.db.addCompleteAddress(recipient);
-
-    // TODO #5834: This should be refactored to be okay with only adding complete address
-    if (publicKeys.length !== 0) {
-      await this.keyStore.addPublicKeysForAccount(
-        recipient.address,
-        publicKeys[0],
-        publicKeys[1],
-        publicKeys[2],
-        publicKeys[3],
-      );
-    }
 
     if (wasAdded) {
       this.log.info(`Added recipient:\n ${recipient.toReadableString()}`);

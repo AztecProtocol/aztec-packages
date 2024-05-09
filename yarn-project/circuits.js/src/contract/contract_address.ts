@@ -10,6 +10,8 @@ import { deriveKeys } from '../keys/index.js';
 
 // TODO(@spalladino): Review all generator indices in this file
 
+// TODO(benesjan): NUKE?
+
 /**
  * Returns the deployment address for a given contract instance as defined on the [Protocol Specs](../../../../docs/docs/protocol-specs/addresses-and-keys/specification.md).
  * ```

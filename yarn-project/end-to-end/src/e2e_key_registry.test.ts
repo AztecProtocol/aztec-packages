@@ -1,5 +1,12 @@
 import { type AccountWallet, AztecAddress, Fr, type PXE } from '@aztec/aztec.js';
-import { CompleteAddress, GeneratorIndex, type PartialAddress, Point, deriveKeys } from '@aztec/circuits.js';
+import {
+  CompleteAddress,
+  GeneratorIndex,
+  type PartialAddress,
+  Point,
+  computeAddress,
+  deriveKeys,
+} from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { KeyRegistryContract, TestContract } from '@aztec/noir-contracts.js';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
@@ -42,10 +49,7 @@ describe('Key Registry', () => {
 
     await publicDeployAccounts(wallets[0], wallets.slice(0, 2));
 
-    // TODO(#5834): use AztecAddress.compute or smt
-    account = AztecAddress.fromField(
-      poseidon2Hash([publicKeysHash, partialAddress, GeneratorIndex.CONTRACT_ADDRESS_V1]),
-    );
+    account = computeAddress(publicKeysHash, partialAddress);
   });
 
   const crossDelay = async () => {
