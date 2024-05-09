@@ -41,6 +41,7 @@ impl NoteInterface<SUBSCRIPTION_NOTE_LEN> for SubscriptionNote {
 
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
+        // TODO (#5901): This will be refactored completely when we update the encryped log format
         let encryption_pub_key = get_public_key_with_npk_m_h(self.owner_npk_m_h);
         context.emit_encrypted_log(
             (*context).this_address(),

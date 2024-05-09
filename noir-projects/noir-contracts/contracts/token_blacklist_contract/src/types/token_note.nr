@@ -49,18 +49,18 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
 
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
-      // We only bother inserting the note if non-empty to save funds on gas.
-      // TODO: (#5901) This will be changed a lot, as it should use the updated encrypted log format
-      if !(self.amount == U128::from_integer(0)) {
-          let encryption_pub_key = get_public_key_with_npk_m_h(self.owner_npk_m_h);
-          context.emit_encrypted_log(
-              (*context).this_address(),
-              slot,
-              Self::get_note_type_id(),
-              encryption_pub_key,
-              self.serialize_content(),
-          );
-      }
+        // We only bother inserting the note if non-empty to save funds on gas.
+        if !(self.amount == U128::from_integer(0)) {
+            // TODO (#5901): This will be refactored completely when we update the encryped log format
+            let encryption_pub_key = get_public_key_with_npk_m_h(self.owner_npk_m_h);
+            context.emit_encrypted_log(
+                (*context).this_address(),
+                slot,
+                Self::get_note_type_id(),
+                encryption_pub_key,
+                self.serialize_content(),
+            );
+        }
     }
 }
 
