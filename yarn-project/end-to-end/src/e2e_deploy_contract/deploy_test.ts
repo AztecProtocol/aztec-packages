@@ -3,7 +3,6 @@ import {
   type AccountWallet,
   type AztecAddress,
   type AztecNode,
-  CompleteAddress,
   type ContractArtifact,
   type ContractBase,
   type DebugLogger,
