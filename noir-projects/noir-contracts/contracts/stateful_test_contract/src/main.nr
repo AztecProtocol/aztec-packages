@@ -3,7 +3,7 @@ contract StatefulTest {
     use dep::aztec::prelude::{PrivateContext, NoteHeader, Map, PublicMutable, PrivateSet, AztecAddress, FunctionSelector};
     use dep::value_note::{
         balance_utils,
-        utils::{increment, increment_without_calling_registry, decrement, decrement_without_calling_registry},
+        utils::{increment, decrement},
         value_note::{VALUE_NOTE_LEN, ValueNote}
     };
     use dep::aztec::{
@@ -22,12 +22,6 @@ contract StatefulTest {
     #[aztec(initializer)]
     fn constructor(owner: AztecAddress, value: Field) {
         StatefulTest::at(context.this_address()).create_note_no_init_check(owner, value).call(&mut context);
-    }
-
-    #[aztec(private)]
-    #[aztec(initializer)]
-    fn constructor_no_registry(owner: AztecAddress, owner_npk_m_h: Field, value: Field) {
-        StatefulTest::at(context.this_address()).create_note_no_registry_no_init_check(owner, owner_npk_m_h, value).call(&mut context);
     }
 
     #[aztec(private)]
@@ -61,19 +55,6 @@ contract StatefulTest {
     }
 
     #[aztec(private)]
-    #[aztec(noinitcheck)]
-    fn create_note_no_registry_no_init_check(
-        owner: AztecAddress,
-        owner_npk_m_h: Field,
-        value: Field
-    ) {
-        if (value != 0) {
-            let loc = storage.notes.at(owner);
-            increment_without_calling_registry(loc, value, owner_npk_m_h);
-        }
-    }
-
-    #[aztec(private)]
     fn destroy_and_create(recipient: AztecAddress, amount: Field) {
         assert_is_initialized_private(&mut context);
         let sender = context.msg_sender();
@@ -95,21 +76,6 @@ contract StatefulTest {
 
         let recipient_notes = storage.notes.at(recipient);
         increment(context, recipient_notes, amount, recipient);
-    }
-
-    #[aztec(private)]
-    #[aztec(noinitcheck)]
-    fn destroy_and_create_no_registry_no_init_check(
-        sender_npk_m_h: Field,
-        recipient: AztecAddress,
-        recipient_npk_m_h: Field,
-        amount: Field
-    ) {
-        let sender_notes = storage.notes.at(context.msg_sender());
-        decrement_without_calling_registry(sender_notes, amount, sender_npk_m_h);
-
-        let recipient_notes = storage.notes.at(recipient);
-        increment_without_calling_registry(recipient_notes, amount, recipient_npk_m_h);
     }
 
     #[aztec(public)]
