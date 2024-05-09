@@ -10,7 +10,7 @@ inline std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
         // Assume file is a raw ACIR program
         std::string command = "gunzip -c \"" + bytecodePath + "\"";
         return exec_pipe(command);
-    } catch () {
+    } catch (...) {
         // Try reading it as if it were a Nargo build artifact
         std::string command = "jq -r '.bytecode' \"" + bytecodePath + "\" | base64 -d | gunzip -c";
         return exec_pipe(command);
