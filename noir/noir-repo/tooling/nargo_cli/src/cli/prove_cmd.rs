@@ -89,7 +89,7 @@ pub(crate) fn run(
     Ok(())
 }
 
-#[warn(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)]
 fn prove_package(
     backend: &Backend,
     package: &Package,
