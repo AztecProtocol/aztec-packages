@@ -40,7 +40,6 @@ const main = async () => {
     programs,
     false, // Don't embed artifacts
     true, // Use fixed length arrays
-    false, // Don't codegen the interface as a function
   );
   await fs.writeFile('./src/types/index.ts', code);
 };

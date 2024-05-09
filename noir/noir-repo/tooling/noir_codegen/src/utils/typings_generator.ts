@@ -95,7 +95,6 @@ export class TypingsGenerator {
   constructor(
     circuits: { abi: Abi; circuitName: string; artifact?: CompiledCircuit }[],
     private useFixedLengthArrays: boolean,
-    private codegenInterfaceAsFunction: boolean,
   ) {
     // Map all the types used in the ABIs to the demonomorphized types
     for (const { abi, circuitName, artifact } of circuits) {
@@ -285,9 +284,7 @@ ${interfacesCode}`;
         resultCode += `export type ${circuitName}ReturnType = ${this.codegenType(returnType, new Map())};\n`;
       }
 
-      if (this.codegenInterfaceAsFunction) {
-        resultCode += codegenFunction(circuitName, functionSignature, artifact);
-      }
+      resultCode += codegenFunction(circuitName, functionSignature, artifact);
     }
     return resultCode;
   }
