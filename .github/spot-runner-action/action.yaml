@@ -22,7 +22,7 @@ inputs:
     required: false
   runner_label:
     description: 'Key for when to recreate spot, use as runs-on'
-    required: false
+    required: true
   runner_concurrency:
     description: 'How many runners to create'
     type: number

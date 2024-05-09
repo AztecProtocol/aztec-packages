@@ -6,6 +6,7 @@ import { Ec2Instance } from "./ec2";
 import { GithubClient } from "./github";
 import { assertIsError } from "./utils";
 import { spawn } from "child_process";
+require("aws-sdk/lib/maintenance_mode_message").suppress = true;
 
 async function pollSpotStatus(
   config: ActionConfig,
@@ -109,35 +110,47 @@ async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
 
 async function startBareSpot(config: ActionConfig) {
   if (config.subaction !== "start") {
-    throw new Error("Unexpected subaction for bare spot, only 'start' is allowed: " + config.subaction);
-  }
-  if (!config.command) {
-    throw new Error("Error: Running bare spot without 'command'. Since this spot will go down immediately, bailing out.");
+    throw new Error(
+      "Unexpected subaction for bare spot, only 'start' is allowed: " +
+        config.subaction
+    );
   }
   const ec2Client = new Ec2Instance(config);
   const instanceId = await requestAndWaitForSpot(config);
   const ip = await ec2Client.getPublicIpFromInstanceId(instanceId);
+
+  if (!config.command) {
+    const tempKeyPath = installSshKey(config.ec2Key);
+    core.info("Logging SPOT_IP and SPOT_KEY to GITHUB_ENV for later step use.");
+    await standardSpawn("bash", ["-c", `echo SPOT_IP=${ip} >> $GITHUB_ENV`]);
+    await standardSpawn("bash", [
+      "-c",
+      `echo SPOT_KEY=${tempKeyPath} >> $GITHUB_ENV`,
+    ]);
+  }
   await establishSshContact(ip, config.ec2Key);
   try {
     if (config.localCommand) {
       const tempKeyPath = installSshKey(config.ec2Key);
       await standardSpawn("bash", [
         "-c",
-        `export SPOT_IP=${ip}\nexport SPOT_KEY=${tempKeyPath}\n` + config.localCommand,
+        `export SPOT_IP=${ip}\nexport SPOT_KEY=${tempKeyPath}\n` +
+          config.localCommand,
       ]);
     }
-    await ec2CommandOverSsh(ip, config.ec2Key, config.command);
+    if (config.command) {
+      await ec2CommandOverSsh(ip, config.ec2Key, config.command);
+    }
   } finally {
     try {
-      await ec2CommandOverSsh(
-        ip,
-        config.ec2Key,
-        'sudo shutdown now'
-      );
+      // Keep a persistent spot if we don't pass command
+      if (config.command) {
+        await ec2CommandOverSsh(ip, config.ec2Key, "sudo shutdown now");
+        core.info(`Shut down ${ip}.`);
+      }
     } catch (err) {
       // ignore, thhis always fail
     }
-    core.info(`Shut down ${ip}.`);
   }
 }
 
@@ -174,8 +187,13 @@ async function startWithGithubRunners(config: ActionConfig) {
       `Runner already running. Continuing as we can target it with jobs.`
     );
 
+    const ip = await ec2Client.getPublicIpFromInstanceId(spotStatus);
+    // Export to github environment
+    const tempKeyPath = installSshKey(config.ec2Key);
+    core.info("Logging SPOT_IP and SPOT_KEY to GITHUB_ENV for later step use.");
+    await standardSpawn("bash", ["-c", `echo SPOT_IP=${ip} >> $GITHUB_ENV`]);
+    await standardSpawn("bash", ["-c", `echo SPOT_KEY=${tempKeyPath} >> $GITHUB_ENV`]);
     if (config.command) {
-      const ip = await ec2Client.getPublicIpFromInstanceId(spotStatus);
       await ec2CommandOverSsh(
         ip,
         config.ec2Key,
@@ -208,17 +226,7 @@ async function startWithGithubRunners(config: ActionConfig) {
 function standardSpawn(command: string, args: string[]): Promise<string> {
   // Wrap the process execution in a Promise to handle asynchronous execution and output streaming
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args);
-
-    // Handle standard output
-    child.stdout.on("data", (data) => {
-      console.log(data.toString());
-    });
-
-    // Handle standard error
-    child.stderr.on("data", (data) => {
-      console.error(data.toString());
-    });
+    const child = spawn(command, args, {stdio: 'inherit'});
 
     // Handle close event
     child.on("close", (code) => {
@@ -278,6 +286,7 @@ async function ec2CommandOverSsh(
 ): Promise<string> {
   const tempKeyPath = installSshKey(encodedSshKey);
   return await standardSpawn("ssh", [
+    "-t",
     "-o",
     "StrictHostKeyChecking=no",
     "-i",

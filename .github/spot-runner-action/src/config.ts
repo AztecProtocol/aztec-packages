@@ -68,7 +68,7 @@ export class ActionConfig implements ConfigInterface {
 
     // Github params
     this.githubToken = core.getInput("github_token");
-    this.githubJobId = core.getInput("runner_label") || "spot";
+    this.githubJobId = core.getInput("runner_label");
     this.githubRef = github.context.ref;
     this.githubRepo = github.context.repo.repo;
     this.githubActionRunnerVersion = core.getInput(

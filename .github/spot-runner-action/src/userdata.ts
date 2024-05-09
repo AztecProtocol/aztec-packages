@@ -12,7 +12,11 @@ export class UserData {
   async getUserDataForBareSpot(): Promise<string> {
     const cmds = [
       "#!/bin/bash",
-      `shutdown -P +${this.config.ec2InstanceTtl}`,];
+      `shutdown -P +${this.config.ec2InstanceTtl}`,
+      "sudo wget -q https://github.com/earthly/earthly/releases/latest/download/earthly-linux-$(dpkg --print-architecture) -O /usr/local/bin/earthly",
+      "sudo chmod +x /usr/local/bin/earthly",
+      "earthly bootstrap"
+    ];
     console.log(
       "Sending: ",
       cmds.filter((x) => !x.startsWith("TOKENS")).join("\n")
@@ -42,6 +46,9 @@ export class UserData {
       "#!/bin/bash",
       `exec 1>/run/log.out 2>&1`, // Log to /run/log.out
       `shutdown -P +${this.config.ec2InstanceTtl}`,
+      "sudo wget -q https://github.com/earthly/earthly/releases/latest/download/earthly-linux-$(dpkg --print-architecture) -O /usr/local/bin/earthly",
+      "sudo chmod +x /usr/local/bin/earthly",
+      "earthly bootstrap",
       "cd /run",
       `mkdir -p shutdown-refcount`,
       // Shutdown rules:

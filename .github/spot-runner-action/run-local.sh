@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -eu
 export GITHUB_REPOSITORY=aztecprotocol/aztec-packages
 export INPUT_AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
 export INPUT_AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
@@ -13,21 +14,27 @@ export INPUT_EC2_INSTANCE_TTL=20
 export INPUT_EC2_KEY_NAME="build-instance"
 export INPUT_EC2_KEY=$(cat ~/.ssh/build_instance_key | base64)
 export INPUT_EC2_INSTANCE_TAGS="[]"
-export INPUT_LOCAL_COMMAND='
-set -x
-# scp -q instead of -v?
-scp -v -o StrictHostKeychecking=no -i $SPOT_KEY -r ap/.git ubuntu@$SPOT_IP:/home/ubuntu/aztec-packages.git
-'
-export INPUT_COMMAND='
-echo "> Cloning repo"
-git clone ~/aztec-packages.git ~/aztec-packages
-cd ~/aztec-packages
-echo "> Getting earthly"
-sudo /bin/sh -c 'wget -q https://github.com/earthly/earthly/releases/latest/download/earthly-linux-$(dpkg --print-architecture) -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly && /usr/local/bin/earthly bootstrap --with-autocomplete'
-set -x
-earthly +build
-'
+export INPUT_RUNNER_LABEL=""
+# export INPUT_LOCAL_COMMAND='
+# set -eu
+# echo "> Copying local repo to spot"
+# tar czf - ap/.git | ssh -q -o StrictHostKeychecking=no -i $SPOT_KEY ubuntu@$SPOT_IP \
+#   "mkdir /home/ubuntu/aztec-packages.git && cd /home/ubuntu/aztec-packages.git && tar xzf -"
+# '
+# export INPUT_COMMAND='
+# set -eu
+# echo "> Unpacking repo"
+# git clone ~/aztec-packages.git/ap/.git ~/aztec-packages
+# cd ~/aztec-packages
+# echo "> Getting earthly"
+# sudo wget -q https://github.com/earthly/earthly/releases/latest/download/earthly-linux-$(dpkg --print-architecture) -O /usr/local/bin/earthly
+# sudo chmod +x /usr/local/bin/earthly
+# earthly bootstrap
+# set -x
+# earthly +build
+# '
+export GITHUB_ENV=.github-env-mock
 export GITHUB_REF=$(git rev-parse HEAD)
 cd $(git rev-parse --show-toplevel)
-# npm -C .github/spot-runner-action run build
+npm -C .github/spot-runner-action run build
 node .github/spot-runner-action/dist/index.js

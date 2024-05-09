@@ -85,10 +85,14 @@ jobs:
           ec2_ami_id: ${{ inputs.ec2_ami_id }}
           subaction: start
           ec2_instance_ttl: 20
+          runner_label: spot-${{ github.actor }}-x86
           ec2_key_name: "build-instance"
           ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           local_command:
-            ${{ inputs.local_command }}
+            set -eu
+            echo "> Copying local repo to spot"
+            tar czf - ap/.git | ssh -q -o StrictHostKeychecking=no -i $SPOT_KEY ubuntu@$SPOT_IP \
+              "mkdir /home/ubuntu/aztec-packages.git && cd /home/ubuntu/aztec-packages.git && tar xzf -"
           command: |
             ${{ inputs.command }}
           ec2_instance_tags: "[]"
