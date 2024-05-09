@@ -5,7 +5,6 @@ EBS_CACHE_TAG=$1
 SIZE=$2
 REGION="us-east-2"
 AVAILABILITY_ZONE="us-east-2a"
-VOLUME_TYPE="gp2"
 INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
 
 # Check if someone else is doing this
@@ -72,9 +71,9 @@ if [ "$EXISTING_VOLUME" == "None" ]; then
     --region $REGION \
     --availability-zone $AVAILABILITY_ZONE \
     --size $SIZE \
-    --volume-type $VOLUME_TYPE \
     --volume-type gp3 \
     --throughput 1000 \
+    --iops 5000 \
     --tag-specifications "ResourceType=volume,Tags=[{Key=username,Value=$EBS_CACHE_TAG-$SIZE-gp3}]" \
     --query "VolumeId" \
     --output text)
