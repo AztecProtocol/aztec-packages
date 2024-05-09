@@ -77,17 +77,16 @@ runs:
       run: |
         export RUN_ID=${{ inputs.run_id }}
         echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
-        # detect our run folder
-        if ! scripts/run_on_builder "[ -f ~/.started-$RUN_ID ]" ; then
-          touch ~/.started-$RUN_ID
+        # detect run folder
+        if ! scripts/run_on_builder "[ -d ~/run-$RUN_ID ]" ; then
           echo "> Copying local repo to spot"
           tar czf - .git | scripts/run_on_builder \
-            "mkdir -p ~/run-$RUN_ID-git && cd ~/run-$RUN_ID-git && tar xzf -"
+            "mkdir -p ~/run-$RUN_ID-git && cd ~/run-$RUN_ID-git && tar xzf -" || true
           scripts/run_on_builder "
             echo "> Unpacking repo"
             git config --global advice.detachedHead false
             git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID
-          "
+          " || true
         fi
 
     - name: Attach EBS Cache Disk
@@ -96,7 +95,7 @@ runs:
         run: |
           export AWS_ACCESS_KEY_ID=${{ inputs.aws_access_key_id }}
           export AWS_SECRET_ACCESS_KEY=${{ inputs.aws_secret_access_key }}
-          # attach 256gb cache disk
+          # attach {ebs_cache_size}-gb cache disk
           ./scripts/ci/attach_ebs_cache.sh ${{ inputs.runner_label }} ${{ steps.select_instance.outputs.ebs_cache_size }}
 
     - name: Setup
