@@ -500,7 +500,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::array<FF, KERN
     commitments.lookup_u16_13 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_13);
     commitments.lookup_u16_14 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_14);
 
-    info("sumcheck verify start");
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
