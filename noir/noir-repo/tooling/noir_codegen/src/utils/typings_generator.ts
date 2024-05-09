@@ -191,7 +191,7 @@ ${interfacesCode}`;
           .join(', ')}>`
       : '';
 
-    let resultCode = `export interface ${name}${generics} {\n`;
+    let resultCode = `export type ${name}${generics} = {\n`;
 
     for (const field of structType.fields) {
       resultCode += `  ${field.name}: ${this.codegenType(field.type, genericsNameMap)};\n`;
@@ -210,14 +210,14 @@ ${interfacesCode}`;
       case 'boolean':
         return 'boolean';
       case 'integer': {
-        let tsIntType = '';
-        if (type.sign === 'signed') {
-          tsIntType = `i${type.width}`;
-        } else {
-          tsIntType = `u${type.width}`;
-        }
-        this.addIfUnique({ aliasName: tsIntType, tsType: 'string' });
-        return tsIntType;
+        const typeName = type.sign === 'signed' ? `i${type.width}` : `u${type.width}`;
+        // Javascript cannot safely represent the full range of Noir's integer types as numbers.
+        // `Number.MAX_SAFE_INTEGER == 2**53 - 1` so we disallow passing numbers to types which may exceed this.
+        // 52 has been chosen as the cutoff rather than 53 for safety.
+        const tsType = type.width <= 52 ? `string | number` : `string`;
+
+        this.addIfUnique({ aliasName: typeName, tsType });
+        return typeName;
       }
       case 'binding':
         return genericsNameMap.get(type.id.id) ?? 'unknown';
@@ -237,8 +237,10 @@ ${interfacesCode}`;
         } else {
           return `${this.codegenType(type.type, genericsNameMap)}[]`;
         }
-      case 'tuple':
-        throw new Error('Unimplemented');
+      case 'tuple': {
+        const fieldTypes = type.fields.map((field) => this.codegenType(field, genericsNameMap));
+        return `[${fieldTypes.join(', ')}]`;
+      }
       case 'struct': {
         const name = this.getStructName(type.structType);
         if (type.args.length) {

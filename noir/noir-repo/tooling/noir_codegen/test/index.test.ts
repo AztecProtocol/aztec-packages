@@ -4,7 +4,7 @@ import { expect } from 'chai';
 import { exported_function_foo, MyStruct, u64, ForeignCallHandler } from './codegen/index.js';
 
 it('codegens a callable function', async () => {
-  const my_struct = { foo: true, bar: ['12345', '12345', '12345'], baz: '0x00' };
+  const my_struct = { foo: true, bar: ['123', '123', '123', '123'], baz: '0x00' };
 
   const [sum, constant, struct]: [u64, u64, MyStruct] = await exported_function_foo(
     '2',
@@ -12,7 +12,7 @@ it('codegens a callable function', async () => {
     [0, 0, 0, 0, 0],
     {
       foo: my_struct,
-      bar: [my_struct, my_struct, my_struct],
+      bar: [my_struct, my_struct],
       baz: '64',
     },
     '12345',
@@ -35,7 +35,7 @@ it('allows passing a custom foreign call handler', async () => {
     return [];
   };
 
-  const my_struct = { foo: true, bar: ['12345', '12345', '12345'], baz: '0x00' };
+  const my_struct = { foo: true, bar: ['123', '123', '123', '123'], baz: '0x00' };
 
   const [sum, constant, struct]: [u64, u64, MyStruct] = await exported_function_foo(
     '2',
@@ -43,7 +43,7 @@ it('allows passing a custom foreign call handler', async () => {
     [0, 0, 0, 0, 0],
     {
       foo: my_struct,
-      bar: [my_struct, my_struct, my_struct],
+      bar: [my_struct, my_struct],
       baz: '64',
     },
     '12345',
