@@ -93,10 +93,6 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getNullifierKeys');
   }
 
-  getPublicKeyAndPartialAddress(_address: AztecAddress): Promise<Fr[] | undefined> {
-    throw new OracleMethodNotAvailableError('getPublicKeyAndPartialAddress');
-  }
-
   getContractInstance(_address: AztecAddress): Promise<ContractInstance> {
     throw new OracleMethodNotAvailableError('getContractInstance');
   }
