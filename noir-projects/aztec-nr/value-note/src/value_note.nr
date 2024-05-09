@@ -26,7 +26,7 @@ impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
 
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_nsk_app_with_npk_m_h(self.owner_npk_m_h);
+        let secret = context.request_nsk_app(self.owner_npk_m_h);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,

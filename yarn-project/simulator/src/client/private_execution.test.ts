@@ -228,7 +228,7 @@ describe('Private Execution test suite', () => {
       }
       throw new Error(`Unknown address ${accountAddress}`);
     });
-    oracle.getNullifierKeysWithNpkMH.mockImplementation(
+    oracle.getNullifierKeys.mockImplementation(
       (masterNullifierPublicKeyHash: Fr, contractAddress: AztecAddress) => {
         if (masterNullifierPublicKeyHash.equals(poseidon2Hash(ownerMasterNullifierPublicKey.toFields()))) {
           return Promise.resolve({

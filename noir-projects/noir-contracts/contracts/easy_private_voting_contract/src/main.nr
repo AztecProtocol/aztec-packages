@@ -4,6 +4,7 @@ contract EasyPrivateVoting {
         AztecAddress, FunctionSelector, NoteHeader, NoteInterface, NoteGetterOptions, PrivateContext,
         Map, PublicMutable
     };
+    use dep::aztec::keys::getters::get_npk_m_h;
     use dep::aztec::context::Context;
     // docs:end:imports
     // docs:start:storage_struct
@@ -27,7 +28,8 @@ contract EasyPrivateVoting {
     // docs:start:cast_vote
     #[aztec(private)] // annotation to mark function as private and expose private context
     fn cast_vote(candidate: Field) {
-        let secret = context.request_app_nullifier_secret_key(context.msg_sender()); // get secret key of caller of function
+        let sender_npk_m_h = get_npk_m_h(&mut context, context.msg_sender());
+        let secret = context.request_nsk_app(sender_npk_m_h); // get secret key of caller of function
         let nullifier = dep::std::hash::pedersen_hash([context.msg_sender().to_field(), secret]); // derive nullifier from sender and secret
         context.push_new_nullifier(nullifier, 0); // push nullifier
         EasyPrivateVoting::at(context.this_address()).add_to_tally_public(candidate).enqueue(&mut context);

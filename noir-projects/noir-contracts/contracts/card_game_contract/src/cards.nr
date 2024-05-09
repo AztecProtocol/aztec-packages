@@ -172,8 +172,10 @@ pub fn get_pack_cards(
     owner: AztecAddress,
     context: &mut PrivateContext
 ) -> [Card; PACK_CARDS] {
+    let owner_npk_m_h = get_npk_m_h(context, owner);
+
     // generate pseudo randomness deterministically from 'seed' and user secret
-    let secret = context.request_app_nullifier_secret_key(owner);
+    let secret = context.request_nsk_app(owner_npk_m_h);
     let mix = secret + seed;
     let mix_bytes: [u8; 32] = mix.to_le_bytes(32).as_array();
     let random_bytes = std::hash::sha256(mix_bytes);
