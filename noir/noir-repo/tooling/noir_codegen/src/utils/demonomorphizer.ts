@@ -19,7 +19,7 @@ export interface DemonomorphizerConfig {
 /**
  * Demonomorphizes a list of ABI types adding generics to structs.
  * Since monomorphization of the generics destroys information, this process is not guaranteed to return the original structure.
- * However, it should succesfully unify all struct types that share the same name and field names.
+ * However, it should successfully unify all struct types that share the same name and field names.
  */
 export class Demonomorphizer {
   private variantsMap: Map<string, Struct[]>;
