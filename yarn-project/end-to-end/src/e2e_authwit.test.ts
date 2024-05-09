@@ -3,6 +3,7 @@ import { SchnorrAccountContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
+import { DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
 import { publicDeployAccounts, setup } from './fixtures/utils.js';
 
 const TIMEOUT = 90_000;

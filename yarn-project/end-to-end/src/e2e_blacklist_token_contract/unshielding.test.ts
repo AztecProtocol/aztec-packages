@@ -1,5 +1,6 @@
 import { Fr, computeAuthWitMessageHash } from '@aztec/aztec.js';
 
+import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
 describe('e2e_blacklist_token_contract unshielding', () => {
