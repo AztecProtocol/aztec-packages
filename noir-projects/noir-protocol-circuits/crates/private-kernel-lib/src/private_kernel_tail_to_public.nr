@@ -10,7 +10,7 @@ use dep::types::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    grumpkin_private_key::GrumpkinPrivateKey, utils::arrays::array_length
+    grumpkin_private_key::GrumpkinPrivateKey, utils::arrays::array_length, traits::is_empty
 };
 
 // Can just be PublicKernelCircuitPublicInputs.
@@ -44,8 +44,10 @@ struct PrivateKernelTailToPublicCircuitPrivateInputs {
 impl PrivateKernelTailToPublicCircuitPrivateInputs {
     pub fn execute(self) -> PublicKernelCircuitPublicInputs {
         let previous_public_inputs = self.previous_kernel.public_inputs;
+        let mut total_public_calls = array_length(previous_public_inputs.end.public_call_stack);
+        total_public_calls += if is_empty(self.previous_kernel.public_inputs.public_teardown_call_request) {0} else {1};
         assert(
-            array_length(previous_public_inputs.end.public_call_stack) != 0, "Public call stack must not be empty when exporting public kernel data from the tail circuit"
+            total_public_calls != 0, "Must have public calls when exporting public kernel data from the tail circuit"
         );
 
         // verify/aggregate the previous kernel
@@ -107,7 +109,7 @@ mod tests {
         side_effect::SideEffect
     },
         grumpkin_private_key::GrumpkinPrivateKey,
-        hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash, silo_note_hash, silo_nullifier},
+        hash::{compute_note_hash_nonce, compute_unique_note_hash, silo_note_hash, silo_nullifier},
         tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
         utils::{arrays::{array_eq, array_length}}, traits::is_empty_array
     };
@@ -141,19 +143,19 @@ mod tests {
         // note_hashes for the given note_hashes.
         pub fn compute_output_note_hashes<N>(self, note_hashes: [ScopedNoteHash; N]) -> [NoteHash; N] {
             let first_nullifier = self.previous_kernel.new_nullifiers.get_unchecked(0).value();
-            let mut unique_siloed_note_hashes = [NoteHash::empty(); N];
+            let mut output = [NoteHash::empty(); N];
             for i in 0..N {
                 let note_hash = note_hashes[i];
                 if note_hash.value() != 0 {
-                    let siloed = silo_note_hash(note_hash.contract_address, note_hash.value());
                     let nonce = compute_note_hash_nonce(first_nullifier, i);
-                    unique_siloed_note_hashes[i] = NoteHash {
-                        value: compute_unique_siloed_note_hash(nonce, siloed),
+                    let unique_note_hash = compute_unique_note_hash(nonce, note_hash.value());
+                    output[i] = NoteHash {
+                        value: silo_note_hash(note_hash.contract_address, unique_note_hash),
                         counter: 0, // Counter is cleared so it's not exposed to the public.
                     };
                 }
             }
-            unique_siloed_note_hashes
+            output
         }
 
         pub fn compute_output_nullifiers<N>(
@@ -465,11 +467,20 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Public call stack must not be empty when exporting public kernel data from the tail circuit")]
-    unconstrained fn empty_public_call_stack_should_fail() {
+    #[test(should_fail_with="Must have public calls when exporting public kernel data from the tail circuit")]
+    unconstrained fn no_public_calls_should_fail() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.public_call_stack = BoundedVec::new();
         builder.failed();
+    }
+
+    #[test]
+    unconstrained fn can_run_with_only_teardown() {
+        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+        builder.previous_kernel.public_call_stack = BoundedVec::new();
+        builder.previous_kernel.set_public_teardown_call_request(1, false);
+
+        builder.succeeded();
     }
 
     #[test(should_fail_with="The 0th nullifier in the accumulated nullifier array is zero")]
