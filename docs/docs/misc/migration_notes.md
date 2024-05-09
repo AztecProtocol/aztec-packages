@@ -13,6 +13,7 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 i.e.
 
 struct TokenNote {
+    amount: U128,
     ```diff
     - owner: AztecAddress,
     + owner_npk_m_h: Field,
