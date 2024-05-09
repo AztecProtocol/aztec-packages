@@ -18,52 +18,51 @@ type BatchOp = {
   value?: Uint8Array;
 };
 
+class KeyNotFoundError extends Error {
+  code: string;
+  constructor(message: string) {
+    super(message);
+    this.code = 'ERR_NOT_FOUND';
+  }
+}
+
 export class AztecDatastore implements Datastore {
   #memoryDatastore: Map<string, MemoryItem>;
   #dbDatastore: AztecMap<string, Uint8Array>;
-  #dirtyItems = new Set<string>();
 
   #batchOps: BatchOp[] = [];
 
-  // private dirtyItems = new Set<string>();
-  private threshold: number;
   private maxMemoryItems: number;
 
-  constructor(db: AztecKVStore, { maxMemoryItems, threshold } = { maxMemoryItems: 50, threshold: 5 }) {
+  constructor(db: AztecKVStore, { maxMemoryItems } = { maxMemoryItems: 50 }) {
     this.#memoryDatastore = new Map();
     this.#dbDatastore = db.openMap('p2p_datastore');
 
     this.maxMemoryItems = maxMemoryItems;
-    this.threshold = threshold;
   }
 
   has(key: Key): boolean {
     return this.#memoryDatastore.has(key.toString()) || this.#dbDatastore.has(key.toString());
   }
 
-  async get(key: Key): Promise<Uint8Array> {
+  get(key: Key): Uint8Array {
     const keyStr = key.toString();
     const memoryItem = this.#memoryDatastore.get(keyStr);
     if (memoryItem) {
       memoryItem.lastAccessedMs = Date.now();
       return memoryItem.data;
     }
-    const dbItem = this.#dbDatastore.get(key.toString());
+    const dbItem = this.#dbDatastore.get(keyStr);
 
     if (!dbItem) {
-      throw new Error(`Key not found: ${key.toString()}`);
+      throw new KeyNotFoundError(`Key not found`);
     }
 
-    // don't call this._memoryDatastore.set directly
-    // we want to get through prune() logic with fromDb as true
-    await this._put(key, dbItem, true);
-
-    return dbItem;
+    return Uint8Array.from(dbItem);
   }
 
   put(key: Key, val: Uint8Array): Promise<Key> {
-    console.log('putting: ', key, val);
-    return this._put(key, val, false);
+    return this._put(key, val);
   }
 
   async *putMany(source: AwaitIterable<Pair>): AwaitIterable<Key> {
@@ -77,7 +76,7 @@ export class AztecDatastore implements Datastore {
     for await (const key of source) {
       yield {
         key,
-        value: await this.get(key),
+        value: this.get(key),
       };
     }
   }
@@ -127,7 +126,7 @@ export class AztecDatastore implements Datastore {
     const { prefix, filters, orders, offset, limit } = q;
 
     if (prefix != null) {
-      it = filter(it, e => e.key.toString().startsWith(`/${prefix}`));
+      it = filter(it, e => e.key.toString().startsWith(`${prefix}`));
     }
 
     if (Array.isArray(filters)) {
@@ -154,7 +153,7 @@ export class AztecDatastore implements Datastore {
     let it = map(this.all(), ({ key }) => key);
     const { prefix, filters, orders, offset, limit } = q;
     if (prefix != null) {
-      it = filter(it, e => e.toString().startsWith(`/${prefix}`));
+      it = filter(it, e => e.toString().startsWith(`${prefix}`));
     }
 
     if (Array.isArray(filters)) {
@@ -177,11 +176,11 @@ export class AztecDatastore implements Datastore {
     return it;
   }
 
-  private async _put(key: Key, val: Uint8Array, fromDb = false): Promise<Key> {
-    while (this.#memoryDatastore.size >= this.maxMemoryItems) {
-      await this.pruneMemoryDatastore();
-    }
+  private async _put(key: Key, val: Uint8Array): Promise<Key> {
     const keyStr = key.toString();
+    while (this.#memoryDatastore.size >= this.maxMemoryItems) {
+      this.pruneMemoryDatastore();
+    }
     const memoryItem = this.#memoryDatastore.get(keyStr);
     if (memoryItem) {
       // update existing
@@ -192,9 +191,8 @@ export class AztecDatastore implements Datastore {
       this.#memoryDatastore.set(keyStr, { data: val, lastAccessedMs: Date.now() });
     }
 
-    if (!fromDb) {
-      await this.addDirtyItem(keyStr);
-    }
+    // Always add to DB
+    await this.#dbDatastore.set(keyStr, val);
 
     return key;
   }
@@ -208,36 +206,19 @@ export class AztecDatastore implements Datastore {
     }
 
     for (const [key, value] of this.#dbDatastore.entries()) {
-      yield {
-        key: new Key(key),
-        value,
-      };
-    }
-  }
-
-  private async addDirtyItem(key: string): Promise<void> {
-    this.#dirtyItems.add(key);
-
-    if (this.#dirtyItems.size >= this.threshold) {
-      await this.commitDirtyItems();
-    }
-  }
-
-  private async commitDirtyItems(): Promise<void> {
-    for (const key of this.#dirtyItems) {
-      const memoryItem = this.#memoryDatastore.get(key);
-      if (memoryItem) {
-        await this.#dbDatastore.set(key, memoryItem.data);
+      if (!this.#memoryDatastore.has(key)) {
+        yield {
+          key: new Key(key),
+          value,
+        };
       }
     }
-
-    this.#dirtyItems.clear();
   }
 
   /**
    * Prune from memory and move to db
    */
-  private async pruneMemoryDatastore(): Promise<void> {
+  private pruneMemoryDatastore(): void {
     let oldestAccessedMs = Date.now() + 1000;
     let oldestKey: string | undefined = undefined;
     let oldestValue: Uint8Array | undefined = undefined;
@@ -251,7 +232,6 @@ export class AztecDatastore implements Datastore {
     }
 
     if (oldestKey && oldestValue) {
-      await this.#dbDatastore.set(new Key(oldestKey).toString(), oldestValue);
       this.#memoryDatastore.delete(oldestKey);
     }
   }

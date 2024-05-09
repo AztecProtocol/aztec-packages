@@ -643,6 +643,7 @@ __metadata:
     it-all: ^3.0.4
     it-drain: ^3.0.5
     it-filter: ^3.0.4
+    it-length: ^3.0.6
     it-map: ^3.1.0
     it-pipe: ^3.0.1
     it-sort: ^3.0.4
@@ -655,6 +656,7 @@ __metadata:
     ts-node: ^10.9.1
     tslib: ^2.4.0
     typescript: ^5.0.4
+    uint8arrays: ^5.0.3
   languageName: unknown
   linkType: soft
 
@@ -8704,7 +8706,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"it-length@npm:^3.0.1":
+"it-length@npm:^3.0.1, it-length@npm:^3.0.6":
   version: 3.0.6
   resolution: "it-length@npm:3.0.6"
   checksum: 3d18197d040029c30ff3aadcbe499c6e2355e342dc40cd9359c494fbd1fccb01ce4638bd76f37d099e49aef2e26df97a1934a27488988804c9f12ced604a736c

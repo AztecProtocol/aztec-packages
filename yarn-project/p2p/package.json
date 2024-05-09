@@ -68,7 +68,6 @@
     "@libp2p/tcp": "9.0.24",
     "@multiformats/multiaddr": "12.1.14",
     "interface-datastore": "^8.2.11",
-    "interface-datastore-tests": "^5.1.8",
     "interface-store": "^5.1.8",
     "it-all": "^3.0.4",
     "it-drain": "^3.0.5",

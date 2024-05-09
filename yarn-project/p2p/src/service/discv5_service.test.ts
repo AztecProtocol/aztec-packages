@@ -28,7 +28,7 @@ describe('Discv5Service', () => {
 
   let bootNode: BootstrapNode;
   let bootNodePeerId: PeerId;
-  let port = 1234;
+  let port = 7890;
   const baseConfig = {
     announceHostname: '/ip4/127.0.0.1',
     announcePort: port,
