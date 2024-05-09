@@ -26,6 +26,7 @@ runs:
   steps:
     - name: Select Instance Type and AMI
       id: select_instance
+      shell: bash
       run: |
         TYPE=${{ inputs.runner_type }}
         if [[ $TYPE == builder-x86 ]]; then
