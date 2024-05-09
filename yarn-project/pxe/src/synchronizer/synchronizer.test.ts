@@ -130,12 +130,9 @@ describe('Synchronizer', () => {
     const addAddress = async (startingBlockNum: number) => {
       const secretKey = Fr.random();
       const partialAddress = Fr.random();
-      const accountAddress = await keyStore.addAccount(secretKey, partialAddress);
-      const masterIncomingViewingPublicKey = await keyStore.getMasterIncomingViewingPublicKey(accountAddress);
-
-      const completeAddress = new CompleteAddress(accountAddress, masterIncomingViewingPublicKey, partialAddress);
+      const completeAddress = await keyStore.addAccount(secretKey, partialAddress);
       await database.addCompleteAddress(completeAddress);
-      synchronizer.addAccount(completeAddress.publicKey, keyStore, startingBlockNum);
+      synchronizer.addAccount(completeAddress.masterIncomingViewingPublicKey, keyStore, startingBlockNum);
       return completeAddress;
     };
 
