@@ -17,4 +17,4 @@ echo "EARTHLY_CONFIG=$(git rev-parse --show-toplevel)/.github/earthly-ci-config.
 echo ECR_REGION=us-east-2 >> $GITHUB_ENV
 echo AWS_ACCOUNT=278380418400 >> $GITHUB_ENV
 echo ECR_URL=278380418400.dkr.ecr.us-east-2.amazonaws.com >> $GITHUB_ENV
-echo ECR_DEPLOY_REGION=eu-west-2 >> $BGITHUB_ENVASH_ENV
+echo ECR_DEPLOY_REGION=eu-west-2 >> $GITHUB_ENV
