@@ -49,7 +49,7 @@ runs:
       shell: bash
       run: |
         # detect our run folder
-        if scripts/run_on_builder "[ -d ~/run/${{ inputs.run_id }} ]" ; then
+        if ! scripts/run_on_builder "[ -d ~/run/${{ inputs.run_id }} ]" ; then
           echo "> Copying local repo to spot"
           tar czf - .git | scripts/run_on_builder \
             "mkdir /home/ubuntu/run-${{ inputs.run_id }}.git && cd ~/run-${{ inputs.run_id }}-git && tar xzf -"
