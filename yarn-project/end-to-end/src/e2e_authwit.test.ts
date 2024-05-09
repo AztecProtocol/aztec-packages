@@ -19,7 +19,7 @@ describe('e2e_authwit_tests', () => {
     ({ wallets } = await setup(2));
     // docs:start:public_deploy_accounts
     await publicDeployAccounts(wallets[0], wallets.slice(0, 2));
-    // docs:start:public_deploy_accounts
+    // docs:end:public_deploy_accounts
 
     const nodeInfo = await wallets[0].getNodeInfo();
     chainId = new Fr(nodeInfo.chainId);

@@ -11,7 +11,11 @@ For an introduction to authentication witnesses on Aztec, [read this explainer](
 These are all the libraries you will need for the various ways of using authwits in Aztec.js:
 
 ```typescript
-import { computeAuthWitMessageHash, computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/aztec.js';
+import {
+  computeAuthWitMessageHash,
+  computeInnerAuthWitHash,
+  computeOuterAuthWitHash,
+} from "@aztec/aztec.js";
 ```
 
 You may not need all of these.
@@ -33,7 +37,7 @@ Here is an example implementation:
 
 You would then call this like so:
 
-#include_code public_deploy_accounts yarn-project/end-to-end/src/e2e_authwit_test.ts typescript
+#include_code public_deploy_accounts yarn-project/end-to-end/src/e2e_authwit.test.ts typescript
 
 ## Define the action
 
@@ -46,10 +50,11 @@ You can define the action like this:
 #include_code authwit_computeAuthWitMessageHash yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts typescript
 
 In this example,
-* `asset` refers to a token contract
-* `withWallet(wallets[1])` is specifying the authwit receiver (`wallets[1]`) will do this action
-* `.methods.transfer()` is specifying that the action is calling the `transfer` method on the token contract
-* `(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);` are the args of this method - it will send the `amount` from `wallets[0]` to `wallets[1]`
+
+- `asset` refers to a token contract
+- `withWallet(wallets[1])` is specifying the authwit receiver (`wallets[1]`) will do this action
+- `.methods.transfer()` is specifying that the action is calling the `transfer` method on the token contract
+- `(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);` are the args of this method - it will send the `amount` from `wallets[0]` to `wallets[1]`
 
 ### Arbitrary message
 
@@ -63,7 +68,7 @@ Then create the outer hash by hashing the inner hash with the authwit receiver a
 
 ## Create the authwit
 
-These are slightly different interfaces depending on whether your contract is checking the authwit in private or public. As public authwits are stored in the account contract and batched with the authwit action call, it is done with one transaction. Private execution uses oracles, so the authwit needs to be created by the authwit giver and then added to the receiver's wallet. 
+These are slightly different interfaces depending on whether your contract is checking the authwit in private or public. As public authwits are stored in the account contract and batched with the authwit action call, it is done with one transaction. Private execution uses oracles, so the authwit needs to be created by the authwit giver and then added to the receiver's wallet.
 
 ### Private
 
@@ -74,9 +79,10 @@ Create a private authwit like this:
 #include_code create_authwit yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts typescript
 
 In this example,
-* `wallets[0]` is the authwit giver
-* `wallets[1]` is the authwit reciever and caller of the function
-* `action` was [defined previously](#define-the-action)
+
+- `wallets[0]` is the authwit giver
+- `wallets[1]` is the authwit reciever and caller of the function
+- `action` was [defined previously](#define-the-action)
 
 If you created an artbitrary message, you can create the authwit by replacing these params with the outer hash:
 
@@ -95,10 +101,11 @@ Set a public authwit like this:
 #include_code set_public_authwit yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_public.test.ts typescript
 
 Remember it is a transaction and calls a method in the account contract. In this example,
-* `wallets[0]` is the authwit giver
-* `wallets[1]` is the authwit reciever and caller of the function
-* `action` was [defined previously](#define-the-action)
-* `true` sets the `authorized` boolean (`false` would revoke this authwit)
+
+- `wallets[0]` is the authwit giver
+- `wallets[1]` is the authwit reciever and caller of the function
+- `action` was [defined previously](#define-the-action)
+- `true` sets the `authorized` boolean (`false` would revoke this authwit)
 
 If you created an arbitrary message, you would replace the first param struct with the outer hash:
 
@@ -106,5 +113,5 @@ If you created an arbitrary message, you would replace the first param struct wi
 
 # Further reading
 
-* [An explainer of authentication witnesses](../../../learn/concepts/accounts/authwit.md)
-* [Authwits in Aztec.nr](../../contracts/writing_contracts/accounts/how_to_authwit.md)
+- [An explainer of authentication witnesses](../../../learn/concepts/accounts/authwit.md)
+- [Authwits in Aztec.nr](../../contracts/writing_contracts/accounts/how_to_authwit.md)
