@@ -17,7 +17,7 @@ fn exported_function_foo(
     array: [u8; 5],
     my_struct: NestedStruct<2,3,4, Field>,
     string: str<5>
-) -> (u64, u64, MyStruct<3, 4>) {
+) -> (u64, u32, MyStruct<3, 4>) {
     assert(array.len() == 5);
     assert(my_struct.foo.foo);
     assert(string == "12345");

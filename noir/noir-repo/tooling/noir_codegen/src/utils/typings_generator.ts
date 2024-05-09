@@ -95,6 +95,7 @@ export class TypingsGenerator {
   constructor(
     circuits: { abi: Abi; circuitName: string; artifact?: CompiledCircuit }[],
     private useFixedLengthArrays: boolean,
+    private codegenInterfaceAsFunction: boolean,
   ) {
     // Map all the types used in the ABIs to the demonomorphized types
     for (const { abi, circuitName, artifact } of circuits) {
@@ -211,12 +212,9 @@ ${interfacesCode}`;
         return 'boolean';
       case 'integer': {
         const typeName = type.sign === 'signed' ? `i${type.width}` : `u${type.width}`;
-        // Javascript cannot safely represent the full range of Noir's integer types as numbers.
-        // `Number.MAX_SAFE_INTEGER == 2**53 - 1` so we disallow passing numbers to types which may exceed this.
-        // 52 has been chosen as the cutoff rather than 53 for safety.
-        const tsType = type.width <= 52 ? `string | number` : `string`;
-
-        this.addIfUnique({ aliasName: typeName, tsType });
+        // Even though noir accepts numbers or strings for integers, it always returns strings
+        // So we must use string as the type here.
+        this.addIfUnique({ aliasName: typeName, tsType: 'string' });
         return typeName;
       }
       case 'binding':
@@ -277,8 +275,19 @@ ${interfacesCode}`;
         inputs: params.map((param): [string, string] => [param.name, this.codegenType(param.type, new Map())]),
         returnValue: returnType ? this.codegenType(returnType, new Map()) : null,
       };
+      resultCode += this.codegenStructType({
+        path: `${circuitName}InputType`,
+        fields: params,
+        generics: [],
+      });
 
-      resultCode += codegenFunction(circuitName, functionSignature, artifact);
+      if (returnType) {
+        resultCode += `export type ${circuitName}ReturnType = ${this.codegenType(returnType, new Map())};\n`;
+      }
+
+      if (this.codegenInterfaceAsFunction) {
+        resultCode += codegenFunction(circuitName, functionSignature, artifact);
+      }
     }
     return resultCode;
   }

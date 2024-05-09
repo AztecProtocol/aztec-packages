@@ -5,6 +5,7 @@ export const codegen = (
   programs: [string, CompiledCircuit][],
   embedArtifact: boolean,
   useFixedLengthArrays: boolean,
+  codegenInterfaceAsFunction = true,
 ): string => {
   return new TypingsGenerator(
     programs.map((program) => ({
@@ -13,5 +14,6 @@ export const codegen = (
       abi: structuredClone(program[1].abi), // We'll mutate the ABI types when doing typescript codegen, so we clone it to avoid mutating the artifact.
     })),
     useFixedLengthArrays,
+    codegenInterfaceAsFunction,
   ).codegen();
 };
