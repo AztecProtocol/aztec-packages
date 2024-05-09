@@ -455,7 +455,6 @@ dependencies = [
 name = "backend-interface"
 version = "0.29.0"
 dependencies = [
- "acvm",
  "bb_abstraction_leaks",
  "build-target",
  "const_format",
@@ -2858,7 +2857,6 @@ dependencies = [
  "dap",
  "dirs",
  "fm",
- "hex",
  "iai",
  "iter-extended",
  "nargo",

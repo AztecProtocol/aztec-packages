@@ -1,20 +1,10 @@
 // Reference: https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/cpp/src/barretenberg/bb/main.cpp
 
 mod gates;
-mod proof_as_fields;
-mod prove;
-mod verify;
 mod version;
-mod vk_as_fields;
-mod write_vk;
 
 pub(crate) use gates::GatesCommand;
-pub(crate) use proof_as_fields::ProofAsFieldsCommand;
-pub(crate) use prove::ProveCommand;
-pub(crate) use verify::VerifyCommand;
 pub(crate) use version::VersionCommand;
-pub(crate) use vk_as_fields::VkAsFieldsCommand;
-pub(crate) use write_vk::WriteVkCommand;
 
 pub(crate) use gates::CircuitReport;
 
