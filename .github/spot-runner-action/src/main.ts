@@ -111,23 +111,33 @@ async function startBareSpot(config: ActionConfig) {
   if (config.subaction !== "start") {
     throw new Error("Unexpected subaction for bare spot, only 'start' is allowed: " + config.subaction);
   }
+  if (!config.command) {
+    throw new Error("Error: Running bare spot without 'command'. Since this spot will go down immediately, bailing out.");
+  }
   const ec2Client = new Ec2Instance(config);
   const instanceId = await requestAndWaitForSpot(config);
   const ip = await ec2Client.getPublicIpFromInstanceId(instanceId);
-  if (config.localCommand) {
-    const tempKeyPath = installSshKey(config.ec2Key);
-    await standardSpawn("bash", [
-      "-c",
-      `export SPOT_IP=${ip}\nexport SPOT_KEY=${tempKeyPath}\n` + config.localCommand,
-    ]);
-  }
-  if (config.command) {
+  await establishSshContact(ip, config.ec2Key);
+  try {
+    if (config.localCommand) {
+      const tempKeyPath = installSshKey(config.ec2Key);
+      await standardSpawn("bash", [
+        "-c",
+        `export SPOT_IP=${ip}\nexport SPOT_KEY=${tempKeyPath}\n` + config.localCommand,
+      ]);
+    }
     await ec2CommandOverSsh(ip, config.ec2Key, config.command);
-    await ec2CommandOverSsh(
-      ip,
-      config.ec2Key,
-      'sudo shutdown now'
-    );
+  } finally {
+    try {
+      await ec2CommandOverSsh(
+        ip,
+        config.ec2Key,
+        'sudo shutdown now'
+      );
+    } catch (err) {
+      // ignore, thhis always fail
+    }
+    core.info(`Shut down ${ip}.`);
   }
 }
 
@@ -231,13 +241,10 @@ function installSshKey(encodedSshKey: string) {
   fs.writeFileSync(tempKeyPath, decodedKey, { mode: 0o600 });
   return tempKeyPath;
 }
-async function ec2CommandOverSsh(
+async function establishSshContact(
   ip: String,
   encodedSshKey: string,
-  command: string
-): Promise<string> {
-  core.info(`Attempting SSH into EC2 instance with IP ${ip}`);
-
+) {
   const tempKeyPath = installSshKey(encodedSshKey);
   // Improved SSH connection retry logic
   let attempts = 0;
@@ -245,7 +252,7 @@ async function ec2CommandOverSsh(
   while (attempts < maxAttempts) {
     try {
       execSync(
-        `ssh -o StrictHostKeyChecking=no -i ${tempKeyPath} -o ConnectTimeout=1 ubuntu@${ip} true`
+        `ssh -q -o StrictHostKeyChecking=no -i ${tempKeyPath} -o ConnectTimeout=1 ubuntu@${ip} true`
       );
       break;
     } catch {
@@ -261,7 +268,15 @@ async function ec2CommandOverSsh(
       attempts++;
     }
   }
-  core.info(`SSH connection established with ${ip}`);
+  core.info(`SSH connection with spot at ${ip} established`)
+}
+
+async function ec2CommandOverSsh(
+  ip: String,
+  encodedSshKey: string,
+  command: string
+): Promise<string> {
+  const tempKeyPath = installSshKey(encodedSshKey);
   return await standardSpawn("ssh", [
     "-o",
     "StrictHostKeyChecking=no",

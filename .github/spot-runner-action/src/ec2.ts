@@ -203,6 +203,7 @@ export class Ec2Instance {
         ],
       },
     };
+    // core.info(JSON.stringify(launchTemplateParams, null, 2));
     core.info("Creating launch template: " + launchTemplateName);
     try {
       await client.createLaunchTemplate(launchTemplateParams).promise();
@@ -247,6 +248,9 @@ export class Ec2Instance {
     };
     const client = await this.getEc2Client();
     const fleet = await client.createFleet(createFleetRequest).promise();
+    if (fleet.Errors) {
+      core.error(JSON.stringify(fleet.Errors, null, 2));
+    }
     const instances: CreateFleetInstance = (fleet?.Instances || [])[0] || {};
     // cleanup
     await client.deleteLaunchTemplate({

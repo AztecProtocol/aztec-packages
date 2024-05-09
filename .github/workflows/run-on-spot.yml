@@ -42,9 +42,6 @@ on:
 jobs:
   start-builder:
     runs-on: ubuntu-latest
-    # we want to avoid race conditions when making spot across multiple PRs as we only use one runner
-    concurrency:
-      group: start-builder-${{ inputs.runner_label }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
