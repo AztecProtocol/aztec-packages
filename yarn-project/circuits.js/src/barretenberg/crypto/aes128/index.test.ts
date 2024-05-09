@@ -20,6 +20,8 @@ describe('aes128', () => {
 
   // PKCS#7 padding removal
   const removePadding = (paddedBuffer: Buffer): Buffer => {
+    // We get padding length from the last byte - in PKCS#7 all the padded bytes contain padding length
+    // and there is always some padding.
     const paddingToRemove = paddedBuffer[paddedBuffer.length - 1];
     return paddedBuffer.subarray(0, paddedBuffer.length - paddingToRemove);
   };
