@@ -46,6 +46,7 @@ import {
   type AcirSimulator,
   type ExecutionResult,
   collectEnqueuedPublicFunctionCalls,
+  collectPublicTeardownFunctionCall,
   collectSortedEncryptedLogs,
   collectSortedUnencryptedLogs,
   resolveOpcodeLocations,
@@ -692,7 +693,7 @@ export class PXEService implements PXE {
     const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(executionResult)]);
     const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(executionResult)]);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
-    const teardownPublicFunction = PublicCallRequest.empty();
+    const teardownPublicFunction = collectPublicTeardownFunctionCall(executionResult);
 
     // HACK(#1639): Manually patches the ordering of the public call stack
     // TODO(#757): Enforce proper ordering of enqueued public calls
