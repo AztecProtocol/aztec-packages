@@ -1,6 +1,6 @@
 import { all, take } from './index.js';
 
-describe('it-take', () => {
+describe('take from iterable', () => {
   it('should limit the number of values returned from an iterable', () => {
     const values = [0, 1, 2, 3, 4];
 

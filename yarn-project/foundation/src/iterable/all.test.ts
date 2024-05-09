@@ -1,6 +1,6 @@
 import { all } from './index.js';
 
-describe('it-all', () => {
+describe('all iterable', () => {
   it('should collect all entries of an iterator as an array', () => {
     const values = [0, 1, 2, 3, 4];
 

@@ -641,7 +641,6 @@ __metadata:
     "@types/node": ^18.14.6
     interface-datastore: ^8.2.11
     interface-store: ^5.1.8
-    it-all: ^3.0.4
     it-drain: ^3.0.5
     it-length: ^3.0.6
     it-pipe: ^3.0.1
@@ -2842,7 +2841,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/types": 0.29.0
+    "@noir-lang/types": 0.28.0
   languageName: node
   linkType: soft
 

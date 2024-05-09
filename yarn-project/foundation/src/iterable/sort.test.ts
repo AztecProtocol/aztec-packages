@@ -1,7 +1,7 @@
 import { all } from './index.js';
 import { type CompareFunction, sort } from './index.js';
 
-describe('it-sort', () => {
+describe('sort iterable', () => {
   it('should sort all entries of an iterator', () => {
     const values = ['foo', 'bar'];
     const sorter: CompareFunction<string> = (a, b) => {
