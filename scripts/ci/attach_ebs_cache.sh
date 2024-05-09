@@ -7,6 +7,15 @@ REGION="us-east-2"
 AVAILABILITY_ZONE="us-east-2a"
 INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
 
+# Check for existing volume
+# we don't filter by available - we want to just error if it's attached already
+# this means we are in a weird state (two spot instances running etc)
+EXISTING_VOLUME=$(aws ec2 describe-volumes \
+  --region $REGION \
+  --filters "Name=tag:username,Values=$EBS_CACHE_TAG-$SIZE-gp3" \
+  --query "Volumes[0].VolumeId" \
+  --output text)
+
 # Check if someone else is doing this
 if [ -f ~/.ebs-cache-mounted ] ; then
   MAX_WAIT_TIME=300 # Maximum wait time in seconds
@@ -19,7 +28,7 @@ if [ -f ~/.ebs-cache-mounted ] ; then
     # Identify and terminate instances in 'STOPPED' state that are using this volume
     STOPPED_INSTANCES=$(aws ec2 describe-instances \
       --region $REGION \
-      --filters "Name=instance-state-name,Values=stopped" "Name=block-device-mapping.volume-id,Values=$VOLUME_ID" \
+      --filters "Name=instance-state-name,Values=stopped" "Name=block-device-mapping.volume-id,Values=$EXISTING_VOLUME" \
       --query "Reservations[*].Instances[*].InstanceId" \
       --output text)
 
@@ -55,15 +64,6 @@ if sudo mount | grep -q "/var/lib/docker type ext4"; then
   echo "Continuing..."
   exit 0
 fi
-
-# Check for existing volume
-# we don't filter by available - we want to just error if it's attached already
-# this means we are in a weird state (two spot instances running etc)
-EXISTING_VOLUME=$(aws ec2 describe-volumes \
-  --region $REGION \
-  --filters "Name=tag:username,Values=$EBS_CACHE_TAG-$SIZE-gp3" \
-  --query "Volumes[0].VolumeId" \
-  --output text)
 
 # If no existing volume, create one
 if [ "$EXISTING_VOLUME" == "None" ]; then
