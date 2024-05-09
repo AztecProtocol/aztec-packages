@@ -296,7 +296,7 @@ describe('Private Execution test suite', () => {
     const mockFirstNullifier = new Fr(1111);
     let currentNoteIndex = 0n;
 
-    const buildNote = (amount: bigint, ownerMasterNullifierPublicKeyHash: Fr, storageSlot: Fr, noteTypeId: Fr) => {
+    const buildNote = (amount: bigint, ownerNpkMH: Fr, storageSlot: Fr, noteTypeId: Fr) => {
       // WARNING: this is not actually how nonces are computed!
       // For the purpose of this test we use a mocked firstNullifier and and a random number
       // to compute the nonce. Proper nonces are only enforced later by the kernel/later circuits
@@ -307,7 +307,7 @@ describe('Private Execution test suite', () => {
       // `hash(firstNullifier, noteHashIndex)`
       const noteHashIndex = randomInt(1); // mock index in TX's final newNoteHashes array
       const nonce = computeCommitmentNonce(mockFirstNullifier, noteHashIndex);
-      const note = new Note([new Fr(amount), ownerMasterNullifierPublicKeyHash, Fr.random()]);
+      const note = new Note([new Fr(amount), ownerNpkMH, Fr.random()]);
       const innerNoteHash = pedersenHash(note.items);
       return {
         contractAddress,
