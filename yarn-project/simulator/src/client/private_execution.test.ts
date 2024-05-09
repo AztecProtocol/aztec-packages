@@ -4,8 +4,8 @@ import {
   type L1ToL2Message,
   Note,
   PackedValues,
-  TxExecutionRequest,
   PublicDataWitness,
+  TxExecutionRequest,
 } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
@@ -18,18 +18,18 @@ import {
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
   PublicCallRequest,
+  PublicDataTreeLeafPreimage,
   type PublicKey,
+  type PublicKeys,
   StateReference,
   TxContext,
   computeAppNullifierSecretKey,
   deriveKeys,
   getContractInstanceFromDeployParams,
   getNonEmptyItems,
-  PUBLIC_DATA_TREE_HEIGHT,
-  PublicDataTreeLeafPreimage,
-  type PublicKeys,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, computeSecretHash, computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
@@ -374,15 +374,10 @@ describe('Private Execution test suite', () => {
       oracle.getPublicDataTreeWitness.mockImplementation(async () => {
         return Promise.resolve(
           new PublicDataWitness(
-            0n, 
-            new PublicDataTreeLeafPreimage(
-              Fr.ZERO,
-              Fr.ZERO,
-              Fr.ZERO,
-              0n
-            ),
+            0n,
+            new PublicDataTreeLeafPreimage(Fr.ZERO, Fr.ZERO, Fr.ZERO, 0n),
             await tree.getSiblingPath(0n, true),
-          )
+          ),
         );
       });
 
@@ -464,10 +459,7 @@ describe('Private Execution test suite', () => {
 
     it('should run the destroy_and_create function', async () => {
       const amountToTransfer = 100n;
-      const artifact = getFunctionArtifact(
-        StatefulTestContractArtifact,
-        'destroy_and_create_no_init_check',
-      );
+      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create_no_init_check');
 
       const storageSlot = computeSlotForMapping(StatefulTestContractArtifact.storageLayout['notes'].slot, owner);
       const recipientStorageSlot = computeSlotForMapping(
@@ -537,10 +529,7 @@ describe('Private Execution test suite', () => {
     it('should be able to destroy_and_create with dummy notes', async () => {
       const amountToTransfer = 100n;
       const balance = 160n;
-      const artifact = getFunctionArtifact(
-        StatefulTestContractArtifact,
-        'destroy_and_create_no_init_check',
-      );
+      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create_no_init_check');
 
       const storageSlot = computeSlotForMapping(new Fr(1n), owner);
       const noteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
@@ -555,10 +544,7 @@ describe('Private Execution test suite', () => {
       );
       await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
 
-      const args = [
-        recipient,
-        amountToTransfer,
-      ];
+      const args = [recipient, amountToTransfer];
       const result = await runSimulator({ args, artifact, msgSender: owner });
 
       const newNullifiers = getNonEmptyItems(result.callStackItem.publicInputs.newNullifiers).map(n => n.value);
@@ -1013,15 +999,10 @@ describe('Private Execution test suite', () => {
       oracle.getPublicDataTreeWitness.mockImplementation(async () => {
         return Promise.resolve(
           new PublicDataWitness(
-            0n, 
-            new PublicDataTreeLeafPreimage(
-              Fr.ZERO,
-              Fr.ZERO,
-              Fr.ZERO,
-              0n
-            ),
+            0n,
+            new PublicDataTreeLeafPreimage(Fr.ZERO, Fr.ZERO, Fr.ZERO, 0n),
             await tree.getSiblingPath(0n, true),
-          )
+          ),
         );
       });
 
@@ -1111,12 +1092,7 @@ describe('Private Execution test suite', () => {
         getThenNullifyArtifact.parameters,
       );
 
-      const args = [
-        amountToTransfer,
-        owner,
-        insertFnSelector.toField(),
-        getThenNullifyFnSelector.toField(),
-      ];
+      const args = [amountToTransfer, owner, insertFnSelector.toField(), getThenNullifyFnSelector.toField()];
       const result = await runSimulator({
         args: args,
         artifact: artifact,
@@ -1182,10 +1158,7 @@ describe('Private Execution test suite', () => {
 
       const contractAddress = AztecAddress.random();
 
-      const artifact = getFunctionArtifact(
-        PendingNoteHashesContractArtifact,
-        'test_bad_get_then_insert_flat',
-      );
+      const artifact = getFunctionArtifact(PendingNoteHashesContractArtifact, 'test_bad_get_then_insert_flat');
 
       const args = [amountToTransfer, owner, poseidon2Hash(ownerMasterNullifierPublicKey.toFields())];
       await expect(() =>
