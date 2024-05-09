@@ -51,7 +51,7 @@ impl EasyPrivateUint {
 
                 // Ensure the notes are actually owned by the owner (to prevent user from generating a valid proof while
                 // spending someone else's notes).
-                assert(note.owner_npk_m_hash.eq(owner_npk_m_hash));
+                assert(note.npk_m_hash.eq(owner_npk_m_hash));
 
                 // Removes the note from the owner's set of notes.
                 // docs:start:remove

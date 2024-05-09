@@ -65,7 +65,7 @@ contract InclusionProofs {
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
         options = options.select(
-            ValueNote::properties().owner_npk_m_hash,
+            ValueNote::properties().npk_m_hash,
             owner_npk_m_hash,
             Option::none()
         ).set_limit(1);
@@ -119,7 +119,7 @@ contract InclusionProofs {
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
         options = options.select(
-            ValueNote::properties().owner_npk_m_hash,
+            ValueNote::properties().npk_m_hash,
             owner_npk_m_hash,
             Option::none()
         ).set_limit(1);
@@ -152,7 +152,7 @@ contract InclusionProofs {
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
         options = options.select(
-            ValueNote::properties().owner_npk_m_hash,
+            ValueNote::properties().npk_m_hash,
             owner_npk_m_hash,
             Option::none()
         ).set_limit(1);
@@ -180,7 +180,7 @@ contract InclusionProofs {
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
         options = options.select(
-            ValueNote::properties().owner_npk_m_hash,
+            ValueNote::properties().npk_m_hash,
             owner_npk_m_hash,
             Option::none()
         ).set_limit(1);
