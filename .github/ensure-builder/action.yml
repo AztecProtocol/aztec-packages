@@ -6,6 +6,9 @@ inputs:
   runner_label:
     required: true
   runner_action:
+    default: start
+    required: false
+  runner_type:
     required: true
   github_token:
     required: true
@@ -21,6 +24,30 @@ runs:
   # define an action, runs in OS of caller
   using: composite
   steps:
+    - name: Select Instance Type and AMI
+      id: select_instance
+      run: |
+        TYPE=${{ inputs.runner_type }}
+        if [[ $TYPE == builder-x86 ]]; then
+          # 128-core x86 instance types with least evictions
+          echo "::set-output name=instance_type::r6in.32xlarge r6a.32xlarge i4i.32xlarge r7iz.32xlarge"
+          echo "::set-output name=ami_id::ami-04d8422a9ba4de80f"
+          echo "::set-output name=ebs_cache_size::256"
+          echo "::set-output name=runner_concurrency::50"
+        elif [[ $TYPE == builder-arm ]]; then
+          # 64-core ARM instance type
+          echo "::set-output name=instance_type::r6g.16xlarge"
+          echo "::set-output name=ami_id::ami-0d8a9b0419ddb331a"
+          echo "::set-output name=ebs_cache_size::256"
+          echo "::set-output name=runner_concurrency::8"
+        elif [[ $TYPE == bb-bench-x86 ]]; then
+          # 16-core x86 instance type
+          echo "::set-output name=instance_type::m6a.4xlarge"
+          echo "::set-output name=ami_id::ami-04d8422a9ba4de80f"
+          echo "::set-output name=ebs_cache_size::64"
+          echo "::set-output name=runner_concurrency::1"
+        fi
+
     - name: Start Builder
       uses: ./.github/spot-runner-action
       with:
@@ -32,10 +59,9 @@ runs:
         aws_secret_access_key: ${{ inputs.aws_secret_access_key }}
         ec2_key: ${{ inputs.ec2_key }}
         # constants:
-        runner_concurrency: 50
-        # Use instance types with low interruption rate in us-east-2 https://aws.amazon.com/ec2/spot/instance-advisor/
-        ec2_instance_type: r6in.32xlarge r6a.32xlarge i4i.32xlarge r7iz.32xlarge
-        ec2_ami_id: ami-04d8422a9ba4de80f
+        runner_concurrency: ${{ steps.select_instance.outputs.runner_concurrency }}
+        ec2_instance_type: ${{ steps.select_instance.outputs.instance_type }}
+        ec2_ami_id: ${{ steps.select_instance.outputs.ami_id }}
         ec2_spot_instance_strategy: None
         ec2_instance_ttl: 40 # refreshed by jobs
         aws_region: us-east-2
@@ -69,7 +95,7 @@ runs:
           export AWS_ACCESS_KEY_ID=${{ inputs.aws_access_key_id }}
           export AWS_SECRET_ACCESS_KEY=${{ inputs.aws_secret_access_key }}
           # attach 256gb cache disk
-          ./scripts/ci/attach_ebs_cache.sh ${{ inputs.username }}-x86 256
+          ./scripts/ci/attach_ebs_cache.sh ${{ inputs.runner_label }} ${{ steps.select_instance.outputs.ebs_cache_size }}
 
     - name: Setup
       uses: ./.github/run-on-builder

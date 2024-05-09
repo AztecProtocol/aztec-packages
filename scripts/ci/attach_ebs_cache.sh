@@ -62,7 +62,7 @@ fi
 # this means we are in a weird state (two spot instances running etc)
 EXISTING_VOLUME=$(aws ec2 describe-volumes \
   --region $REGION \
-  --filters "Name=tag:username,Values=$EBS_CACHE_TAG-$SIZE" \
+  --filters "Name=tag:username,Values=$EBS_CACHE_TAG-$SIZE-gp3" \
   --query "Volumes[0].VolumeId" \
   --output text)
 
@@ -73,7 +73,9 @@ if [ "$EXISTING_VOLUME" == "None" ]; then
     --availability-zone $AVAILABILITY_ZONE \
     --size $SIZE \
     --volume-type $VOLUME_TYPE \
-    --tag-specifications "ResourceType=volume,Tags=[{Key=username,Value=$EBS_CACHE_TAG-$SIZE}]" \
+    --volume-type gp3 \
+    --throughput 1000 \
+    --tag-specifications "ResourceType=volume,Tags=[{Key=username,Value=$EBS_CACHE_TAG-$SIZE-gp3}]" \
     --query "VolumeId" \
     --output text)
 else

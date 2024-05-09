@@ -8,9 +8,6 @@ on:
       username:
         description: "Defaults to GitHub Actor"
         required: false
-      runner_action:
-        description: "The action to take with the self-hosted runner (start, stop, restart)."
-        required: false
 
 concurrency:
   # force parallelism in master
@@ -22,7 +19,7 @@ jobs:
     uses: ./.github/workflows/setup-runner.yml
     with:
       runner_label: ${{ inputs.username || github.actor }}-x86
-      runner_action: ${{ inputs.runner_action || 'start' }}
+      runner_type: builder-x86
     secrets: inherit
 
   build:
@@ -30,6 +27,7 @@ jobs:
     runs-on: ${{ inputs.username || github.actor }}-x86
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
+      bench_list: ${{ steps.bench_list.outputs.list }}
     steps:
       - {
           uses: actions/checkout@v4,
@@ -73,8 +71,8 @@ jobs:
         uses: ./.github/ensure-builder
         with:
           run_id: ${{ github.run_id }}
-          username: ${{ inputs.username || github.actor }}
-          runner_action: ${{ inputs.runner_action || 'start' }}
+          runner_label: ${{ inputs.username || github.actor }}-x86
+          runner_type: builder-x86
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -462,12 +460,7 @@ jobs:
     needs: bb-bench-binaries
     with:
       runner_label: ${{ inputs.username || github.actor }}-bench-x86
-      ebs_cache_size_gb: 64
-      runner_concurrency: 1
-      subaction: ${{ inputs.runner_action || 'start' }}
-      ec2_instance_type: m6a.4xlarge
-      ec2_ami_id: ami-04d8422a9ba4de80f
-      ec2_instance_ttl: 15 # refreshed by jobs
+      runner_type: bb-bench-x86
     secrets: inherit
 
   bb-bench:

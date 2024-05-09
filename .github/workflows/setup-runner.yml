@@ -11,6 +11,9 @@ on:
         required: true
         type: string
       runner_action:
+        default: start
+        type: string
+      runner_type:
         required: true
         type: string
     secrets:
@@ -65,6 +68,8 @@ jobs:
         with:
           runner_label: ${{ inputs.runner_label }}
           runner_action: ${{ inputs.runner_action }}
+          runner_type: ${{ inputs.runner_type }}
+          run_id: ${{ github.run_id }}
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           ec2_key: ${{ secrets.EC2_KEY }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
