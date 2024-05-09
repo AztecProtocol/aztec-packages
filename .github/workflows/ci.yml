@@ -23,11 +23,10 @@ jobs:
     with:
       runner_label: ${{ inputs.username || github.actor }}-x86
       ebs_cache_size_gb: 256
-      runner_concurrency: 20
+      runner_concurrency: 50
       subaction: ${{ inputs.runner_action || 'start' }}
-      # This instance list has a spot placement score of 9/10. Note we used to just use m6a.32xlarge, which had a score of 1!
-      # https://us-east-2.console.aws.amazon.com/ec2/home?region=us-east-2#SpotPlacementScore:
-      ec2_instance_type: i4i.32xlarge m6a.32xlarge m6i.32xlarge m6id.32xlarge m6idn.32xlarge m6in.32xlarge m7a.32xlarge r6a.32xlarge r6i.32xlarge r6id.32xlarge
+      # Use instance types with low interruption rate in us-east-2 https://aws.amazon.com/ec2/spot/instance-advisor/
+      ec2_instance_type: r6in.32xlarge r6a.32xlarge i4i.32xlarge r7iz.32xlarge
       ec2_ami_id: ami-04d8422a9ba4de80f
       ec2_spot_instance_strategy: BestEffort
       ec2_instance_ttl: 40 # refreshed by jobs
@@ -53,11 +52,14 @@ jobs:
         run: earthly-ci ./yarn-project+export-e2e-test-images
       # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
       # (Note ARM uses just 2 tests as a smoketest)
-      - name: Create list of end-to-end jobs
+      - name: Create list of non-bench end-to-end jobs
         id: e2e_list
-        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
+        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' | grep -v '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
+      - name: Create list of bench end-to-end jobs
+        id: bench_list
+        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
 
-  # all the end-to-end integration tests for aztec
+  # all the non-bench end-to-end integration tests for aztec
   e2e:
     needs: build
     runs-on: ${{ inputs.username || github.actor }}-x86
@@ -76,7 +78,36 @@ jobs:
       - name: Test
         working-directory: ./yarn-project/end-to-end/
         timeout-minutes: 25
-        run: earthly-ci -P --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} --no-output +${{ matrix.test }}
+        run: earthly-ci -P \
+          --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+          --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+          --no-output \
+          +${{ matrix.test }} --skip_build=true
+
+  # all the benchmarking end-to-end integration tests for aztec (not required to merge)
+  bench-e2e:
+    needs: build
+    runs-on: ${{ inputs.username || github.actor }}-x86
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ${{ fromJson( needs.build.outputs.bench_list )}}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          # must be globally unique for build x runner
+          concurrency_key: e2e-${{ inputs.username || github.actor }}-x86-${{ matrix.test }}
+      - name: Test
+        working-directory: ./yarn-project/end-to-end/
+        timeout-minutes: 25
+        run: earthly-ci -P \
+          --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+          --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+          --no-output \
+          +${{ matrix.test }} --skip_build=true
 
   # bench-summary:
   #   needs: e2e
@@ -105,6 +136,27 @@ jobs:
   #       if: ${{ github.event_name == 'pull_request' }}
   #       working-directory: ./yarn-project/scripts
   #       run: earthly-ci -P --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} +bench-comment
+
+  noir-format:
+    needs: setup
+    runs-on: ${{ inputs.username || github.actor }}-x86
+    steps:
+      - {
+          uses: actions/checkout@v4,
+          with: { ref: "${{ github.event.pull_request.head.sha }}" },
+        }
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_key: noir-format-${{ inputs.username || github.actor }}-x86
+      - name: "Format Noir"
+        working-directory: ./noir/
+        timeout-minutes: 25
+        run: earthly-ci --no-output ./+format
+      - name: "Format noir-projects"
+        working-directory: ./noir-projects/
+        timeout-minutes: 25
+        run: earthly-ci --no-output ./+format
 
   # barretenberg (prover) native and AVM (public VM) tests
   # only ran on x86 for resource reasons (memory intensive)
@@ -144,6 +196,36 @@ jobs:
         working-directory: ./barretenberg/ts/
         timeout-minutes: 25
         run: earthly-ci --no-output ./+test
+
+  noir-test:
+    needs: setup
+    runs-on: ${{ inputs.username || github.actor }}-x86
+    steps:
+      - {
+          uses: actions/checkout@v4,
+          with: { ref: "${{ github.event.pull_request.head.sha }}" },
+        }
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_key: noir-${{ inputs.username || github.actor }}-x86
+      - name: "Test Noir JS packages"
+        run: earthly-ci --no-output ./noir+test
+
+  noir-packages-test:
+    needs: setup
+    runs-on: ${{ inputs.username || github.actor }}-x86
+    steps:
+      - {
+          uses: actions/checkout@v4,
+          with: { ref: "${{ github.event.pull_request.head.sha }}" },
+        }
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_key: noir-${{ inputs.username || github.actor }}-x86
+      - name: "Test Noir JS packages"
+        run: earthly-ci --no-output ./noir+packages-test
 
   noir-projects:
     needs: setup
@@ -210,6 +292,22 @@ jobs:
       - name: "Prover Client Tests"
         timeout-minutes: 25
         run: earthly-ci --no-output ./yarn-project/+prover-client-test
+
+  client-proof-tests:
+    needs: build
+    runs-on: ${{ github.actor }}-x86
+    steps:
+      - {
+          uses: actions/checkout@v4,
+          with: { ref: "${{ github.event.pull_request.head.sha }}" },
+        }
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_key: client-proof-tests-${{ github.actor }}-x86
+      - name: "Client Proof Tests"
+        timeout-minutes: 25
+        run: earthly-ci --no-output ./yarn-project/+run-e2e --test=client_prover_integration/client_prover_integration.test.ts
 
   build-acir-tests:
     needs: build
@@ -297,7 +395,7 @@ jobs:
 
   # push benchmarking binaries to dockerhub registry
   bb-bench-binaries:
-    needs: setup
+    needs: build
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
       - {
@@ -348,7 +446,7 @@ jobs:
         working-directory: ./barretenberg/cpp/
         timeout-minutes: 15
         run: earthly-ci --no-output +bench-ultra-honk --bench_mode=cache
-  
+
   protocol-circuits-gates-report:
     needs: setup
     runs-on: ${{ inputs.username || github.actor }}-x86
@@ -387,28 +485,6 @@ jobs:
   merge-check:
     runs-on: ubuntu-latest
     needs:
-      - e2e
-      - bb-native-tests
-      - bb-bench
-      - yarn-project-formatting
-      - yarn-project-test
-      - prover-client-test
-    if: always()
-    steps:
-      - run: |
-          echo "e2e status: ${{ needs.e2e.result }}"
-          echo "bb-native-tests status: ${{ needs.bb-native-tests.result }}"
-          echo "bb-bench status: ${{ needs.bb-bench.result }}"
-          echo "yarn-project-formatting status: ${{ needs.yarn-project-formatting.result }}"
-          echo "yarn-project-test status: ${{ needs.yarn-project-test.result }}"
-          if [[ "${{ needs.e2e.result }}" != 'success' || "${{ needs.bb-native-tests.result }}" != 'success' || "${{ needs.bb-bench.result }}" != 'success' || "${{ needs.yarn-project-formatting.result }}" != 'success' || "${{ needs.yarn-project-test.result }}" != 'success' ]]; then
-            echo "Pull request merging not allowed due to failures."
-            exit 1
-          fi
-          echo "Pull request merging now allowed."
-
-  notify:
-    needs:
       [
         e2e,
         bb-native-tests,
@@ -416,7 +492,28 @@ jobs:
         yarn-project-formatting,
         yarn-project-test,
         prover-client-test,
+        bb-js-test,
+        barretenberg-acir-tests-bb-js,
+        barretenberg-acir-tests-bb,
+        barretenberg-acir-tests-sol,
+        noir-test,
+        noir-packages-test,
+        client-proof-tests,
       ]
+    if: always()
+    steps:
+      - run: |
+          failed=${{ contains(needs.*.result, 'failure') }}
+          if $failed
+          then
+            echo "At least one job failed, merging not allowed."
+            exit 1
+          fi
+          echo "All jobs succeeded, merge allowed."
+
+  notify:
+    needs:
+      - merge-check
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/master' && failure() }}
     steps:
