@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
+echo "Running with ENVIRONMENT set to: $ENVIRONMENT"
+ENV=$ENVIRONMENT
+
 # Helper function for building packages in yarn project
 build_package() {
   local package_name="$1"
@@ -48,4 +51,5 @@ echo Building docsite...
 echo "Generating Aztec.nr reference docs..."
 node ./src/preprocess/generate_aztecnr_reference.js
 echo "Generated Aztec.nr reference docs"
+
 yarn preprocess && yarn typedoc && yarn docusaurus build
