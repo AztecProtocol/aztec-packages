@@ -214,6 +214,19 @@ async function startWithGithubRunners(config: ActionConfig) {
     core.error("Instance failed to register with Github Actions");
     throw Error("Instance failed to register with Github Actions");
   }
+
+  const ip = await ec2Client.getPublicIpFromInstanceId(spotStatus);
+  // Export to github environment
+  const tempKeyPath = installSshKey(config.ec2Key);
+  core.info("Logging SPOT_IP and SPOT_KEY to GITHUB_ENV for later step use.");
+  await standardSpawn("bash", ["-c", `echo SPOT_IP=${ip} >> $GITHUB_ENV`]);
+  await standardSpawn("bash", [
+    "-c",
+    `echo SPOT_KEY=${tempKeyPath} >> $GITHUB_ENV`,
+  ]);
+  if (config.command) {
+    await ec2CommandOverSsh(ip, config.ec2Key, config.command);
+  }
   if (config.command) {
     await ec2CommandOverSsh(
       await ec2Client.getPublicIpFromInstanceId(instanceId),
