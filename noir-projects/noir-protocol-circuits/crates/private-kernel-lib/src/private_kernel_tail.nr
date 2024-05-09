@@ -47,7 +47,9 @@ impl PrivateKernelTailCircuitPrivateInputs {
         assert_eq(
             array_length(previous_public_inputs.end.public_call_stack), 0, "Public call stack must be empty when executing the tail circuit"
         );
-        assert(is_empty(previous_public_inputs.public_teardown_call_request) == true, "Public teardown call request must be empty when executing the tail circuit");
+        assert(
+            is_empty(previous_public_inputs.public_teardown_call_request) == true, "Public teardown call request must be empty when executing the tail circuit"
+        );
 
         // verify/aggregate the previous kernel
         verify_previous_kernel_proof(self.previous_kernel);
