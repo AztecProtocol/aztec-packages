@@ -85,7 +85,7 @@ jobs:
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          ec2_key: ${{ secrets.BUILD_INSTANCE_KEY }}
+          ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
 
       - name: Ensure Spot Has Images
         uses: ./.github/run-on-builder
