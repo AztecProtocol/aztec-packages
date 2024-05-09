@@ -15,7 +15,6 @@ MAX_ATTEMPTS=3
 ATTEMPT_COUNT=0
 
 # earthly settings
-export EARTHLY_NO_OUTPUT=1
 export EARTHLY_ALLOW_PRIVILEGED=1
 export EARTHLY_USE_INLINE_CACHE=true
 if [ "$GITHUB_REF_NAME" == "master" ]; then

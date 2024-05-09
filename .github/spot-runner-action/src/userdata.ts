@@ -13,9 +13,11 @@ export class UserData {
     const cmds = [
       "#!/bin/bash",
       `shutdown -P +${this.config.ec2InstanceTtl}`,
+      `echo '{"default-address-pools":[{"base":"172.17.0.0/12","size":20}, {"base":"10.99.0.0/12","size":20}, {"base":"192.168.0.0/16","size":24}]}' > /etc/docker/daemon.json`,
+      `service docker restart`,
       "sudo wget -q https://github.com/earthly/earthly/releases/latest/download/earthly-linux-$(dpkg --print-architecture) -O /usr/local/bin/earthly",
       "sudo chmod +x /usr/local/bin/earthly",
-      "earthly bootstrap"
+      "earthly bootstrap",
     ];
     console.log(
       "Sending: ",
@@ -46,6 +48,8 @@ export class UserData {
       "#!/bin/bash",
       `exec 1>/run/log.out 2>&1`, // Log to /run/log.out
       `shutdown -P +${this.config.ec2InstanceTtl}`,
+      `echo '{"default-address-pools":[{"base":"172.17.0.0/12","size":20}, {"base":"10.99.0.0/12","size":20}, {"base":"192.168.0.0/16","size":24}]}' > /etc/docker/daemon.json`,
+      `service docker restart`,
       "sudo wget -q https://github.com/earthly/earthly/releases/latest/download/earthly-linux-$(dpkg --print-architecture) -O /usr/local/bin/earthly",
       "sudo chmod +x /usr/local/bin/earthly",
       "earthly bootstrap",

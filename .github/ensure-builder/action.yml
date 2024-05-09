@@ -76,10 +76,7 @@ runs:
       with:
         run: |
           # One-time config
-          if ! [ -f /etc/docker/daemon.json ] ; then
-            echo '{"default-address-pools":[{"base":"172.17.0.0/12","size":20}, {"base":"10.99.0.0/12","size":20}, {"base":"192.168.0.0/16","size":24}]}' > .daemon.json
-            sudo cp .daemon.json /etc/docker/daemon.json
-            sudo service docker restart
+          if ! [ -f ~/maybe_exit_spot.sh ] ; then
             # helps to not overuse space
             docker system prune -f -a || true
             echo "Configured docker daemon for making many networks."

@@ -35,6 +35,8 @@ build:
     BUILD ../noir/+nargo
     BUILD ../noir-projects/+build
     BUILD ../l1-contracts/+build
+    BUILD ../barretenberg/ts/+build
+    BUILD ../noir/+packages
     FROM +deps
     SAVE IMAGE aztecprotocol/build-src
 
@@ -132,7 +134,6 @@ export-end-to-end:
     SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
 
 export-e2e-test-images:
-    BUILD +build # trigger save image
     BUILD +export-aztec
     BUILD +export-end-to-end
 
