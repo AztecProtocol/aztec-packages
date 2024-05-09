@@ -2,7 +2,10 @@
 contract Escrow {
     use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, NoteHeader, PrivateContext, PrivateImmutable};
 
-    use dep::aztec::{context::{PublicContext, Context}, oracle::get_public_key::get_public_key, keys::getters::get_npk_m_hash};
+    use dep::aztec::{
+        context::{PublicContext, Context}, oracle::get_public_key::get_public_key,
+        keys::getters::get_npk_m_hash
+    };
 
     use dep::address_note::address_note::AddressNote;
 

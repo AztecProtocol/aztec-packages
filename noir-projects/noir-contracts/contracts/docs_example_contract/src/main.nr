@@ -18,7 +18,10 @@ contract DocsExample {
         PrivateContext, Map, PublicMutable, PublicImmutable, PrivateMutable, PrivateImmutable,
         PrivateSet, SharedImmutable, Deserialize
     };
-    use dep::aztec::{note::note_getter_options::Comparator, context::{PublicContext, Context}, keys::getters::get_npk_m_hash};
+    use dep::aztec::{
+        note::note_getter_options::Comparator, context::{PublicContext, Context},
+        keys::getters::get_npk_m_hash
+    };
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
     use crate::types::{card_note::{CardNote, CARD_NOTE_LEN}, leader::Leader};
