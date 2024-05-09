@@ -52,7 +52,7 @@ runs:
         if ! scripts/run_on_builder "[ -d ~/run/${{ inputs.run_id }} ]" ; then
           echo "> Copying local repo to spot"
           tar czf - .git | scripts/run_on_builder \
-            "mkdir /home/ubuntu/run-${{ inputs.run_id }}.git && cd ~/run-${{ inputs.run_id }}-git && tar xzf -"
+            "mkdir ~/run-${{ inputs.run_id }-git && cd ~/run-${{ inputs.run_id }}-git && tar xzf -"
           scripts/run_on_builder "
             echo "> Unpacking repo"
             git clone ~/run-${{ inputs.run_id }}-git/.git ~/run-${{ inputs.run_id }}-git
