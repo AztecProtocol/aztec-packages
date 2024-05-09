@@ -73,8 +73,6 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
-          # must be globally unique for build x runner
-          concurrency_key: e2e-${{ inputs.username || github.actor }}-x86-${{ matrix.test }}
           # we want to get the builder's details as SPOT_IP and SPOT_KEY, and ensure it's up
           start_builder: true
 
