@@ -19,7 +19,7 @@ struct TokenNote {
     amount: U128,
     // The nullifying public key hash of the person who owns the note. 
     // This is used with the app_nullifier_secret_key to ensure that the note can be privately spent.
-    owner_npk_m_hash: Field,
+    npk_m_hash: Field,
     // Randomness of the note to hide its contents
     randomness: Field,
 }
@@ -28,7 +28,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
     // docs:start:nullifier
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_nsk_app(self.owner_npk_m_hash);
+        let secret = context.request_nsk_app(self.npk_m_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -39,7 +39,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nsk_app(self.owner_npk_m_hash);
+        let secret = get_nsk_app(self.npk_m_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -52,7 +52,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
         // We only bother inserting the note if non-empty to save funds on gas.
         if !(self.amount == U128::from_integer(0)) {
             // TODO (#5901): This will be refactored completely when we update the encryped log format
-            let encryption_pub_key = get_public_key_with_npk_m_hash(self.owner_npk_m_hash);
+            let encryption_pub_key = get_public_key_with_npk_m_hash(self.npk_m_hash);
             context.emit_encrypted_log(
                 (*context).this_address(),
                 slot,
@@ -68,7 +68,7 @@ impl OwnedNote for TokenNote {
     fn new(amount: U128, owner_npk_m_hash: Field) -> Self {
         Self {
             amount,
-            owner_npk_m_hash,
+            npk_m_hash: owner_npk_m_hash,
             randomness: unsafe_rand(),
             header: NoteHeader::empty(),
         }
@@ -79,6 +79,6 @@ impl OwnedNote for TokenNote {
     }
 
     fn get_owner_npk_m_hash(self) -> Field {
-        self.owner_npk_m_hash
+        self.npk_m_hash
     }
 }

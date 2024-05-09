@@ -13,7 +13,7 @@ struct ValueNote {
     value: Field,
     // The nullifying public key hash of the person who owns the note. 
     // This is used with the app_nullifier_secret_key to ensure that the note can be privately spent.
-    owner_npk_m_hash: Field,
+    npk_m_hash: Field,
     randomness: Field,
 }
 // docs:end:value-note-def
@@ -23,7 +23,7 @@ impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
 
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_nsk_app(self.owner_npk_m_hash);
+        let secret = context.request_nsk_app(self.npk_m_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -35,7 +35,7 @@ impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nsk_app(self.owner_npk_m_hash);
+        let secret = get_nsk_app(self.npk_m_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -46,7 +46,7 @@ impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
         // TODO (#5901): This will be refactored completely when we update the encryped log format
-        let encryption_pub_key = get_public_key_with_npk_m_hash(self.owner_npk_m_hash);
+        let encryption_pub_key = get_public_key_with_npk_m_hash(self.npk_m_hash);
         context.emit_encrypted_log(
             (*context).this_address(),
             slot,
@@ -58,10 +58,10 @@ impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
 }
 
 impl ValueNote {
-    pub fn new(value: Field, owner_npk_m_hash: Field) -> Self {
+    pub fn new(value: Field, npk_m_hash: Field) -> Self {
         let randomness = unsafe_rand();
         let header = NoteHeader::empty();
-        ValueNote { value, owner_npk_m_hash, randomness, header }
+        ValueNote { value, npk_m_hash, randomness, header }
     }
 }
 
@@ -69,6 +69,6 @@ impl Serialize<7> for ValueNote {
     fn serialize(self) -> [Field; 7] {
         let header = self.header.serialize();
 
-        [self.value, self.owner_npk_m_hash.to_field(), self.randomness, header[0], header[1], header[2], header[3]]
+        [self.value, self.npk_m_hash.to_field(), self.randomness, header[0], header[1], header[2], header[3]]
     }
 }

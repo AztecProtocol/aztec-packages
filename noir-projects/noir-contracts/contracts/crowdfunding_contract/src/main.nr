@@ -81,10 +81,10 @@ contract Crowdfunding {
         ).call(&mut context);
         // docs:end:do-transfer
 
-        let owner_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
+        let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
-        let mut note = ValueNote::new(amount as Field, owner_npk_m_hash);
+        let mut note = ValueNote::new(amount as Field, msg_sender_npk_m_hash);
         storage.donation_receipts.insert(&mut note, true);
     }
     // docs:end:donate

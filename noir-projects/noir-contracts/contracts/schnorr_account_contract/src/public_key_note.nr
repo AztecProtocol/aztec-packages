@@ -13,14 +13,14 @@ global PUBLIC_KEY_NOTE_LEN: Field = 3;
 struct PublicKeyNote {
     x: Field,
     y: Field,
-    // We store the owner_npk_m_hash only to get the secret key to compute the nullifier
-    owner_npk_m_hash: Field,
+    // We store the npk_m_hash only to get the secret key to compute the nullifier
+    npk_m_hash: Field,
 }
 
 impl NoteInterface<PUBLIC_KEY_NOTE_LEN> for PublicKeyNote {
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_nsk_app(self.owner_npk_m_hash);
+        let secret = context.request_nsk_app(self.npk_m_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -30,7 +30,7 @@ impl NoteInterface<PUBLIC_KEY_NOTE_LEN> for PublicKeyNote {
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nsk_app(self.owner_npk_m_hash);
+        let secret = get_nsk_app(self.npk_m_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -41,7 +41,7 @@ impl NoteInterface<PUBLIC_KEY_NOTE_LEN> for PublicKeyNote {
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
         // TODO (#5901): This will be refactored completely when we update the encryped log format
-        let encryption_pub_key = get_public_key_with_npk_m_hash(self.owner_npk_m_hash);
+        let encryption_pub_key = get_public_key_with_npk_m_hash(self.npk_m_hash);
         context.emit_encrypted_log(
             (*context).this_address(),
             slot,
@@ -53,7 +53,7 @@ impl NoteInterface<PUBLIC_KEY_NOTE_LEN> for PublicKeyNote {
 }
 
 impl PublicKeyNote {
-    pub fn new(x: Field, y: Field, owner_npk_m_hash: Field) -> Self {
-        PublicKeyNote { x, y, owner_npk_m_hash, header: NoteHeader::empty() }
+    pub fn new(x: Field, y: Field, npk_m_hash: Field) -> Self {
+        PublicKeyNote { x, y, npk_m_hash, header: NoteHeader::empty() }
     }
 }

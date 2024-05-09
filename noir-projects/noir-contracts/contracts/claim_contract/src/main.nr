@@ -30,8 +30,8 @@ contract Claim {
             target_address == proof_note.header.contract_address, "Note does not correspond to the target contract"
         );
 
-        let owner_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
-        assert_eq(proof_note.owner_npk_m_hash, owner_npk_m_hash, "Note does not belong to the sender");
+        let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
+        assert_eq(proof_note.npk_m_hash, msg_sender_npk_m_hash, "Note does not belong to the sender");
 
         // 2) Prove that the note hash exists in the note hash tree
         prove_note_inclusion(proof_note, context);

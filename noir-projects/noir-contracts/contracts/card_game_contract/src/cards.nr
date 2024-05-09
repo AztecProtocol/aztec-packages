@@ -125,7 +125,7 @@ impl Deck {
                 let card_note = CardNote::from_note(maybe_notes[i].unwrap_unchecked());
                 // Ensure the notes are actually owned by the owner (to prevent user from generating a valid proof while
                 // spending someone else's notes).
-                assert(card_note.note.owner_npk_m_hash.eq(owner_npk_m_hash));
+                assert(card_note.note.npk_m_hash.eq(owner_npk_m_hash));
 
                 for j in 0..cards.len() {
                     if found_cards[j].is_none()
