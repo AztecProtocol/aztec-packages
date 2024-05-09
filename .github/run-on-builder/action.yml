@@ -14,4 +14,4 @@ runs:
     # Since we use multiple runners, dont want them clashing
     - name: Run On Spot
       shell: bash
-      run: scripts/run_on_builder "cd ~/run-${{ inputs.run_id }} ; ${{ inputs.run }}"
+      run: scripts/run_on_builder "cd ~/run-$RUN_ID ; ${{ inputs.run }}"

@@ -48,21 +48,22 @@ runs:
     - name: Copy Repo to Spot
       shell: bash
       run: |
+        export RUN_ID=${{ inputs.run_id }}
+        echo "RUN_ID=$RUN_ID" >>
         # detect our run folder
-        if ! scripts/run_on_builder "[ -d ~/run/${{ inputs.run_id }} ]" ; then
+        if ! scripts/run_on_builder "[ -d ~/run/$RUN_ID ]" ; then
           echo "> Copying local repo to spot"
           tar czf - .git | scripts/run_on_builder \
-            "mkdir ~/run-${{ inputs.run_id }-git && cd ~/run-${{ inputs.run_id }}-git && tar xzf -"
+            "mkdir ~/run-$RUN_ID-git && cd ~/run-$RUN_ID}-git && tar xzf -"
           scripts/run_on_builder "
             echo "> Unpacking repo"
-            git clone ~/run-${{ inputs.run_id }}-git/.git ~/run-${{ inputs.run_id }}-git
+            git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID-git
           "
         fi
 
     - name: Attach EBS Cache Disk
       uses: ./.github/run-on-builder
       with:
-        run_id: ${{ inputs.run_id }}
         run: |
           export AWS_ACCESS_KEY_ID=${{ inputs.aws_access_key_id }}
           export AWS_SECRET_ACCESS_KEY=${{ inputs.aws_secret_access_key }}
@@ -72,7 +73,6 @@ runs:
     - name: Setup
       uses: ./.github/run-on-builder
       with:
-        run_id: ${{ inputs.run_id }}
         run: |
           # One-time config
           if ! [ -f /etc/docker/daemon.json ] ; then
