@@ -5,14 +5,15 @@ use crate::{
     accumulated_data::{CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder, PublicAccumulatedData},
     global_variables::GlobalVariables, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
-    kernel_data::{PrivateKernelData, PublicKernelData, KernelData}, max_block_number::MaxBlockNumber,
-    note_hash::NoteHashContext, nullifier::Nullifier,
-    nullifier_key_validation_request::NullifierKeyValidationRequestContext,
+    kernel_data::{PublicKernelData, KernelData}, max_block_number::MaxBlockNumber,
+    private_kernel_data::PrivateKernelData, note_hash::{NoteHash, ScopedNoteHash},
+    nullifier::{Nullifier, ScopedNullifier},
+    nullifier_key_validation_request::ScopedNullifierKeyValidationRequest,
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-    read_request::ReadRequestContext, side_effect::SideEffect,
+    read_request::{ReadRequest, ScopedReadRequest}, side_effect::SideEffect,
     validation_requests::{ValidationRequests, ValidationRequestsBuilder}
 },
-    address::AztecAddress,
+    address::{AztecAddress, EthAddress},
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
     MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -21,9 +22,10 @@ use crate::{
     MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
     VK_TREE_HEIGHT, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    hash::{silo_note_hash, silo_nullifier}, header::Header,
-    mocked::{AggregationObject, Proof, VerificationKey}, partial_state_reference::PartialStateReference,
-    tests::fixtures, transaction::tx_context::TxContext, traits::Empty
+    hash::silo_nullifier, header::Header,
+    messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
+    partial_state_reference::PartialStateReference, tests::fixtures, transaction::tx_context::TxContext,
+    traits::Empty, recursion::{verification_key::VerificationKey, proof::NestedRecursiveProof}
 };
 
 struct FixtureBuilder {
@@ -37,9 +39,9 @@ struct FixtureBuilder {
     public_teardown_call_request: CallRequest,
     
     // Accumulated data.
-    new_note_hashes: BoundedVec<NoteHashContext, MAX_NEW_NOTE_HASHES_PER_TX>,
-    new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_TX>,
-    new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
+    new_note_hashes: BoundedVec<ScopedNoteHash, MAX_NEW_NOTE_HASHES_PER_TX>,
+    new_nullifiers: BoundedVec<ScopedNullifier, MAX_NEW_NULLIFIERS_PER_TX>,
+    new_l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
     encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_TX>,
     unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_TX>,
     encrypted_logs_hash: Field,
@@ -54,14 +56,14 @@ struct FixtureBuilder {
 
     // Validation requests.
     max_block_number: MaxBlockNumber,
-    note_hash_read_requests: BoundedVec<ReadRequestContext, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-    nullifier_read_requests: BoundedVec<ReadRequestContext, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-    nullifier_non_existent_read_requests: BoundedVec<ReadRequestContext, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
-    nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequestContext, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
+    note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+    nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+    nullifier_non_existent_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
+    nullifier_key_validation_requests: BoundedVec<ScopedNullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
     public_data_reads: BoundedVec<PublicDataRead, MAX_PUBLIC_DATA_READS_PER_TX>,
 
     // Proof.
-    proof: Proof,
+    proof: NestedRecursiveProof,
     vk: VerificationKey,
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
@@ -102,8 +104,8 @@ impl FixtureBuilder {
             nullifier_non_existent_read_requests: BoundedVec::new(),
             nullifier_key_validation_requests: BoundedVec::new(),
             public_data_reads: BoundedVec::new(),
-            proof: Proof {},
-            vk: VerificationKey {},
+            proof: NestedRecursiveProof::empty(),
+            vk: VerificationKey::empty(),
             vk_index: 0,
             vk_path: [0; VK_TREE_HEIGHT],
             revert_code: 0,
@@ -142,9 +144,9 @@ impl FixtureBuilder {
 
     pub fn to_public_accumulated_data(self) -> PublicAccumulatedData {
         PublicAccumulatedData {
-            new_note_hashes: self.new_note_hashes.storage.map(|n: NoteHashContext| n.to_note_hash()),
-            new_nullifiers: self.new_nullifiers.storage,
-            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
+            new_note_hashes: self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash),
+            new_nullifiers: self.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier),
+            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
@@ -157,9 +159,9 @@ impl FixtureBuilder {
 
     pub fn to_combined_accumulated_data(self) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
-            new_note_hashes: self.new_note_hashes.storage.map(|n: NoteHashContext| n.value),
-            new_nullifiers: self.new_nullifiers.storage.map(|n: Nullifier| n.value),
-            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
+            new_note_hashes: self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value),
+            new_nullifiers: self.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier.value),
+            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
             encrypted_logs_hash: self.encrypted_logs_hash,
             unencrypted_logs_hash: self.unencrypted_logs_hash,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
@@ -187,7 +189,6 @@ impl FixtureBuilder {
         let constants = self.to_constant_data();
 
         PrivateKernelCircuitPublicInputs {
-            aggregation_object: AggregationObject {},
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             end,
             validation_requests,
@@ -217,7 +218,6 @@ impl FixtureBuilder {
         let constants = self.to_constant_data();
 
         PublicKernelCircuitPublicInputs {
-            aggregation_object: AggregationObject {},
             end_non_revertible,
             end,
             validation_requests,
@@ -229,7 +229,13 @@ impl FixtureBuilder {
 
     pub fn to_public_kernel_data(self, revertible: bool) -> PublicKernelData {
         let public_inputs = self.to_public_kernel_circuit_public_inputs(revertible);
-        PublicKernelData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
+        PublicKernelData {
+            public_inputs,
+            proof: crate::mocked::Proof::empty(),
+            vk: crate::mocked::VerificationKey::empty(),
+            vk_index: self.vk_index,
+            vk_path: self.vk_path
+        }
     }
 
     pub fn to_kernel_circuit_public_inputs(self) -> KernelCircuitPublicInputs {
@@ -237,23 +243,22 @@ impl FixtureBuilder {
         let end = self.to_combined_accumulated_data();
         let constants = self.to_constant_data();
 
-        KernelCircuitPublicInputs {
-            aggregation_object: AggregationObject {},
-            rollup_validation_requests,
-            end,
-            constants,
-            start_state: self.start_state,
-            revert_code: self.revert_code
-        }
+        KernelCircuitPublicInputs { rollup_validation_requests, end, constants, start_state: self.start_state, revert_code: self.revert_code }
     }
 
     pub fn to_kernel_data(self) -> KernelData {
         let public_inputs = self.to_kernel_circuit_public_inputs();
-        KernelData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
+        KernelData {
+            public_inputs,
+            proof: crate::mocked::Proof::empty(),
+            vk: crate::mocked::VerificationKey::empty(),
+            vk_index: self.vk_index,
+            vk_path: self.vk_path
+        }
     }
 
     pub fn add_new_note_hash(&mut self, value: Field) {
-        self.new_note_hashes.push(NoteHashContext { value, counter: self.next_counter(), nullifier_counter: 0 });
+        self.new_note_hashes.push(NoteHash { value, counter: self.next_counter() }.scope(0, self.storage_contract_address));
     }
 
     pub fn append_new_note_hashes(&mut self, num_new_note_hashes: u64) {
@@ -261,15 +266,20 @@ impl FixtureBuilder {
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             if i < num_new_note_hashes {
                 let mocked_value = self.get_mocked_note_hash_value(index_offset + i);
-                let value = silo_note_hash(self.storage_contract_address, mocked_value);
-                self.add_new_note_hash(value);
+                self.add_new_note_hash(mocked_value);
             }
         }
     }
 
-    pub fn add_nullifier(&mut self, unsiloed_nullifier: Field) {
-        let value = silo_nullifier(self.storage_contract_address, unsiloed_nullifier);
-        self.new_nullifiers.push(Nullifier { value, note_hash: 0, counter: self.next_counter() });
+    pub fn add_nullifier(&mut self, value: Field) {
+        self.new_nullifiers.push(
+            Nullifier { value, counter: self.next_counter(), note_hash: 0 }.scope(self.storage_contract_address)
+        );
+    }
+
+    pub fn add_siloed_nullifier(&mut self, value: Field) {
+        let siloed_value = silo_nullifier(self.storage_contract_address, value);
+        self.add_nullifier(siloed_value);
     }
 
     pub fn append_new_nullifiers(&mut self, num_extra_nullifier: u64) {
@@ -280,6 +290,22 @@ impl FixtureBuilder {
                 self.add_nullifier(mocked_value);
             }
         }
+    }
+
+    pub fn append_siloed_nullifiers(&mut self, num_extra_nullifier: u64) {
+        let index_offset = self.new_nullifiers.len();
+        for i in 0..MAX_NEW_NULLIFIERS_PER_TX {
+            if i < num_extra_nullifier {
+                let mocked_value = self.get_mocked_nullifier_value(index_offset + i);
+                self.add_siloed_nullifier(mocked_value);
+            }
+        }
+    }
+
+    pub fn add_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
+        self.new_l2_to_l1_msgs.push(
+            L2ToL1Message { recipient, content, counter: self.next_counter() }.scope(self.storage_contract_address)
+        );
     }
 
     pub fn add_public_data_update_request(&mut self, leaf_slot: Field, value: Field) {
@@ -319,7 +345,7 @@ impl FixtureBuilder {
     pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u64) -> u64 {
         let read_request_index = self.note_hash_read_requests.len();
         let value = self.get_mocked_note_hash_value(note_hash_index);
-        let read_request = ReadRequestContext { value, counter: self.next_counter(), contract_address: self.storage_contract_address };
+        let read_request = ReadRequest { value, counter: self.next_counter() }.scope(self.storage_contract_address);
         self.note_hash_read_requests.push(read_request);
         read_request_index
     }
@@ -328,11 +354,7 @@ impl FixtureBuilder {
         let value_offset = self.note_hash_read_requests.len();
         for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_TX {
             if i < num_reads {
-                let read_request = ReadRequestContext {
-                    value: (value_offset + i + 789) as Field,
-                    counter: self.next_counter(),
-                    contract_address: self.storage_contract_address
-                };
+                let read_request = ReadRequest { value: (value_offset + i + 789) as Field, counter: self.next_counter() }.scope(self.storage_contract_address);
                 self.note_hash_read_requests.push(read_request);
             }
         }
@@ -340,22 +362,14 @@ impl FixtureBuilder {
 
     pub fn add_read_request_for_pending_nullifier(&mut self, nullifier_index: u64) -> u64 {
         let read_request_index = self.nullifier_read_requests.len();
-        let unsiloed_nullifier = self.get_mocked_nullifier_value(nullifier_index);
-        let read_request = ReadRequestContext {
-            value: unsiloed_nullifier,
-            counter: self.next_counter(),
-            contract_address: self.storage_contract_address
-        };
+        let nullifier = self.get_mocked_nullifier_value(nullifier_index);
+        let read_request = ReadRequest { value: nullifier, counter: self.next_counter() }.scope(self.storage_contract_address);
         self.nullifier_read_requests.push(read_request);
         read_request_index
     }
 
-    pub fn add_non_existent_read_request_for_nullifier(&mut self, unsiloed_nullifier: Field) {
-        let read_request = ReadRequestContext {
-            value: unsiloed_nullifier,
-            counter: self.next_counter(),
-            contract_address: self.storage_contract_address
-        };
+    pub fn add_non_existent_read_request_for_nullifier(&mut self, nullifier: Field) {
+        let read_request = ReadRequest { value: nullifier, counter: self.next_counter() }.scope(self.storage_contract_address);
         self.nullifier_non_existent_read_requests.push(read_request);
     }
 
@@ -473,7 +487,7 @@ impl Empty for FixtureBuilder {
             nullifier_non_existent_read_requests: BoundedVec::new(),
             nullifier_key_validation_requests: BoundedVec::new(),
             public_data_reads: BoundedVec::new(),
-            proof: Proof::empty(),
+            proof: NestedRecursiveProof::empty(),
             vk: VerificationKey::empty(),
             vk_index: 0,
             vk_path: [0; VK_TREE_HEIGHT],

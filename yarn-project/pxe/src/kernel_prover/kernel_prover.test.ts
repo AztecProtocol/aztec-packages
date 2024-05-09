@@ -5,16 +5,19 @@ import {
   MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MembershipWitness,
+  NESTED_RECURSIVE_PROOF_LENGTH,
   NoteHash,
-  NoteHashContext,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
+  RECURSIVE_PROOF_LENGTH,
+  ScopedNoteHash,
   type TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
-  makeEmptyProof,
+  VerificationKeyAsFields,
+  makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeTxRequest } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
@@ -34,6 +37,8 @@ describe('Kernel Prover', () => {
   let proofCreator: ReturnType<typeof mock<ProofCreator>>;
   let prover: KernelProver;
   let dependencies: { [name: string]: string[] } = {};
+
+  const contractAddress = AztecAddress.fromBigInt(987654n);
 
   const notesAndSlots: NoteAndSlot[] = Array(10)
     .fill(null)
@@ -78,15 +83,19 @@ describe('Kernel Prover', () => {
 
   const createProofOutput = (newNoteIndices: number[]) => {
     const publicInputs = PrivateKernelCircuitPublicInputs.empty();
-    const noteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, NoteHashContext.empty);
+    const noteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash.empty);
     for (let i = 0; i < newNoteIndices.length; i++) {
-      noteHashes[i] = new NoteHashContext(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), 0, 0);
+      noteHashes[i] = new NoteHash(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), 0).scope(
+        0,
+        contractAddress,
+      );
     }
 
     publicInputs.end.newNoteHashes = noteHashes;
     return {
       publicInputs,
-      proof: makeEmptyProof(),
+      proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
+      verificationKey: VerificationKeyAsFields.makeEmpty(),
     };
   };
 
@@ -100,7 +109,15 @@ describe('Kernel Prover', () => {
 
     return {
       publicInputs,
-      proof: makeEmptyProof(),
+      proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
+      verificationKey: VerificationKeyAsFields.makeEmpty(),
+    };
+  };
+
+  const createAppCircuitProofOutput = () => {
+    return {
+      proof: makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH),
+      verificationKey: VerificationKeyAsFields.makeEmpty(),
     };
   };
 
@@ -146,6 +163,7 @@ describe('Kernel Prover', () => {
     proofCreator.createProofInit.mockResolvedValue(createProofOutput([]));
     proofCreator.createProofInner.mockResolvedValue(createProofOutput([]));
     proofCreator.createProofTail.mockResolvedValue(createProofOutputFinal([]));
+    proofCreator.createAppCircuitProof.mockResolvedValue(createAppCircuitProofOutput());
 
     prover = new KernelProver(oracle, proofCreator);
   });
