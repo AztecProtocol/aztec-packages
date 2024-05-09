@@ -1,4 +1,5 @@
 #include "avm_common.test.hpp"
+#include "barretenberg/vm/avm_trace/constants.hpp"
 #include "barretenberg/vm/generated/avm_flavor.hpp"
 
 namespace tests_avm {
@@ -31,11 +32,7 @@ void validate_trace(std::vector<Row>&& trace, std::array<FF, KERNEL_INPUTS_LENGT
 
         auto verifier = composer.create_verifier(circuit_builder);
 
-        // TODO: hacky copy for now, maybe change the verify proof type?
-        std::vector<FF> pub_inputs;
-        std::copy(public_inputs.begin(), public_inputs.end(), pub_inputs.data());
-
-        bool verified = verifier.verify_proof(proof, pub_inputs);
+        bool verified = verifier.verify_proof(proof, public_inputs);
 
         EXPECT_TRUE(verified);
     }

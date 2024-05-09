@@ -55,8 +55,8 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
     // crs_factory_);
     // output_state.pcs_verification_key = std::move(pcs_verification_key);
 
-    // TODO: pass in above
-    std::vector<FF> public_inputs = {};
+    // TODO: We hardcode public inputs for now
+    std::array<FF, KERNEL_INPUTS_LENGTH> public_inputs = {};
     return verifier.verify_proof(proof, public_inputs);
 }
 

@@ -725,11 +725,6 @@ class AvmCircuitBuilder {
             return true;
         };
 
-        // Evaluate check circuit closures as futures
-#ifndef __wasm__
-        std::vector<std::future<bool>> relation_futures;
-#endif
-
         auto avm_alu = [=]() {
             return evaluate_relation.template operator()<Avm_vm::avm_alu<FF>>("avm_alu",
                                                                               Avm_vm::get_relation_label_avm_alu);
@@ -898,6 +893,9 @@ class AvmCircuitBuilder {
         };
 
 #ifndef __wasm__
+        // Evaluate check circuit closures as futures
+        std::vector<std::future<bool>> relation_futures;
+
         relation_futures.emplace_back(std::async(std::launch::async, avm_alu));
         relation_futures.emplace_back(std::async(std::launch::async, avm_binary));
         relation_futures.emplace_back(std::async(std::launch::async, avm_main));
