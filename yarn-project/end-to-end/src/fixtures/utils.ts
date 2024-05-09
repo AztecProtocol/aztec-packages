@@ -221,14 +221,6 @@ async function setupWithRemoteEnvironment(
   logger.verbose('JSON RPC client connected to PXE');
   logger.verbose(`Retrieving contract addresses from ${PXE_URL}`);
   const l1Contracts = (await pxeClient.getNodeInfo()).l1ContractAddresses;
-  logger.verbose('PXE created, constructing available wallets from already registered accounts...');
-  const wallets = await getDeployedTestAccountsWallets(pxeClient);
-
-  if (wallets.length < numberOfAccounts) {
-    const numNewAccounts = numberOfAccounts - wallets.length;
-    logger.verbose(`Deploying ${numNewAccounts} accounts...`);
-    wallets.push(...(await createAccounts(pxeClient, numNewAccounts)));
-  }
 
   const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
     account,
@@ -258,6 +250,15 @@ async function setupWithRemoteEnvironment(
     await deployCanonicalGasToken(
       new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(chainId, protocolVersion)),
     );
+  }
+
+  logger.verbose('Constructing available wallets from already registered accounts...');
+  const wallets = await getDeployedTestAccountsWallets(pxeClient);
+
+  if (wallets.length < numberOfAccounts) {
+    const numNewAccounts = numberOfAccounts - wallets.length;
+    logger.verbose(`Deploying ${numNewAccounts} accounts...`);
+    wallets.push(...(await createAccounts(pxeClient, numNewAccounts)));
   }
 
   return {
