@@ -49,12 +49,12 @@ runs:
       shell: bash
       run: |
         export RUN_ID=${{ inputs.run_id }}
-        echo "RUN_ID=$RUN_ID" >>
+        echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
         # detect our run folder
         if ! scripts/run_on_builder "[ -d ~/run/$RUN_ID ]" ; then
           echo "> Copying local repo to spot"
           tar czf - .git | scripts/run_on_builder \
-            "mkdir ~/run-$RUN_ID-git && cd ~/run-$RUN_ID}-git && tar xzf -"
+            "mkdir ~/run-$RUN_ID-git && cd ~/run-$RUN_ID-git && tar xzf -"
           scripts/run_on_builder "
             echo "> Unpacking repo"
             git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID-git

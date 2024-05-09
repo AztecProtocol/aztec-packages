@@ -90,7 +90,6 @@ jobs:
       - name: Ensure Spot Has Images
         uses: ./.github/run-on-builder
         with:
-          run_id: ${{ github.run_id }}
           run: |
             # in case of inconvenient prune, re-export
             if !docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/aztec:${{ github.event.pull_request.head.sha }}" ||
