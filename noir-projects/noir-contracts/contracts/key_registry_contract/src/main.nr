@@ -3,7 +3,7 @@ contract KeyRegistry {
 
     use dep::aztec::{
         state_vars::{SharedMutable, Map},
-        protocol_types::{grumpkin_point::GrumpkinPoint, address::{AztecAddress, PartialAddress}}
+        protocol_types::{grumpkin_point::GrumpkinPoint, address::{AztecAddress, PartialAddress, PublicKeysHash}}
     };
 
     global KEY_ROTATION_DELAY = 5;
@@ -54,11 +54,14 @@ contract KeyRegistry {
         outgoing_public_key: GrumpkinPoint,
         tagging_public_key: GrumpkinPoint
     ) {
-        let computed_address = AztecAddress::compute_from_public_keys_and_partial_address(
+        let public_keys_hash = PublicKeysHash::compute(
             nullifier_public_key,
             incoming_public_key,
             outgoing_public_key,
-            tagging_public_key,
+            tagging_public_key
+        );
+        let computed_address = AztecAddress::compute(
+            public_keys_hash,
             partial_address
         );
 

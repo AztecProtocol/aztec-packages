@@ -1,4 +1,4 @@
-use dep::protocol_types::{address::{AztecAddress, PartialAddress, PublicKeysHash}, grumpkin_point::GrumpkinPoint};
+use dep::protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint};
 use crate::oracle::keys::get_public_keys_and_partial_address;
 
 // To be nuked in my next PR: https://github.com/AztecProtocol/aztec-packages/pull/6219
