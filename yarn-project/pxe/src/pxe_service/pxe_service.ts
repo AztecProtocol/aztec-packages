@@ -685,7 +685,7 @@ export class PXEService implements PXE {
 
     const tx = new Tx(
       publicInputs,
-      proof,
+      proof.binaryProof,
       encryptedLogs,
       unencryptedLogs,
       enqueuedPublicFunctions,
