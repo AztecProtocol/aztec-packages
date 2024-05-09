@@ -308,7 +308,7 @@ export function interfaceDatastoreTests<D extends Datastore = Datastore>(test: I
 
     afterEach(async () => {
       await cleanup(store);
-    });
+    }, 10_000);
 
     it('simple', async () => {
       const k = new Key('/z/one');
