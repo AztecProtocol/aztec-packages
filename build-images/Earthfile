@@ -315,7 +315,7 @@ devbox-manifest:
   END
   LOCALLY
 	RUN docker push aztecprotocol/devbox:$VERSION-$TARGETARCH
-	RUN docker manifest rm aztecprotocol/devbox:$VERSION
+	RUN docker manifest rm aztecprotocol/devbox:$VERSION || true
 	RUN docker manifest create aztecprotocol/devbox:$VERSION \
 		--amend aztecprotocol/devbox:$VERSION-amd64 \
 		--amend aztecprotocol/devbox:$VERSION-arm64
