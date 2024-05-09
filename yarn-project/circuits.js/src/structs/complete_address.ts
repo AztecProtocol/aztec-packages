@@ -58,30 +58,7 @@ export class CompleteAddress {
   }
 
   static random(): CompleteAddress {
-    // TODO: the following should be cleaned up
-    const secretKey = Fr.random();
-    const partialAddress = Fr.random();
-    const address = computeContractAddressFromPartial({ secretKey, partialAddress });
-    const {
-      masterNullifierPublicKey,
-      masterIncomingViewingPublicKey,
-      masterOutgoingViewingPublicKey,
-      masterTaggingPublicKey,
-    } = deriveKeys(secretKey);
-    return new CompleteAddress(
-      address,
-      masterNullifierPublicKey,
-      masterIncomingViewingPublicKey,
-      masterOutgoingViewingPublicKey,
-      masterTaggingPublicKey,
-      partialAddress,
-    );
-  }
-
-  static fromRandomSecretKey() {
-    const secretKey = Fr.random();
-    const partialAddress = Fr.random();
-    return { secretKey, completeAddress: CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, partialAddress) };
+    return this.fromSecretKeyAndPartialAddress(Fr.random(), Fr.random());
   }
 
   static fromSecretKeyAndPartialAddress(secretKey: Fr, partialAddress: Fr): CompleteAddress {
@@ -107,21 +84,7 @@ export class CompleteAddress {
     instance: Parameters<typeof computePartialAddress>[0],
   ): CompleteAddress {
     const partialAddress = computePartialAddress(instance);
-    const address = computeContractAddressFromPartial({ secretKey, partialAddress });
-    const {
-      masterNullifierPublicKey,
-      masterIncomingViewingPublicKey,
-      masterOutgoingViewingPublicKey,
-      masterTaggingPublicKey,
-    } = deriveKeys(secretKey);
-    return new CompleteAddress(
-      address,
-      masterNullifierPublicKey,
-      masterIncomingViewingPublicKey,
-      masterOutgoingViewingPublicKey,
-      masterTaggingPublicKey,
-      partialAddress,
-    );
+    return CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, partialAddress);
   }
 
   /** Throws if the address is not correctly derived from the public key and partial address.*/
