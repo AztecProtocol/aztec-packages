@@ -7,10 +7,10 @@ struct NullifierKeys {
 }
 
 #[oracle(getNullifierKeys)]
-fn get_nullifier_keys_oracle(_master_nullifier_public_key_hash: Field) -> [Field; 3] {}
+fn get_nullifier_keys_oracle(_npk_m_hash: Field) -> [Field; 3] {}
 
-unconstrained fn get_nullifier_keys_internal(master_nullifier_public_key_hash: Field) -> NullifierKeys {
-    let result = get_nullifier_keys_oracle(master_nullifier_public_key_hash);
+unconstrained fn get_nullifier_keys_internal(npk_m_hash: Field) -> NullifierKeys {
+    let result = get_nullifier_keys_oracle(npk_m_hash);
     NullifierKeys {
         master_nullifier_public_key: GrumpkinPoint { x: result[0], y: result[1] },
         app_nullifier_secret_key: result[2]
@@ -18,11 +18,11 @@ unconstrained fn get_nullifier_keys_internal(master_nullifier_public_key_hash: F
 }
 
 // We get the full struct Nullifier Keys here
-pub fn get_nullifier_keys(master_nullifier_public_key_hash: Field) -> NullifierKeys {
-    get_nullifier_keys_internal(master_nullifier_public_key_hash)
+pub fn get_nullifier_keys(npk_m_hash: Field) -> NullifierKeys {
+    get_nullifier_keys_internal(npk_m_hash)
 }
 
 // We are only getting the app_nullifier_secret_key here
-pub fn get_nsk_app(master_nullifier_public_key_hash: Field) -> Field {
-    get_nullifier_keys_internal(master_nullifier_public_key_hash).app_nullifier_secret_key
+pub fn get_nsk_app(npk_m_hash: Field) -> Field {
+    get_nullifier_keys_internal(npk_m_hash).app_nullifier_secret_key
 }
