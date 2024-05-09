@@ -60,10 +60,7 @@ contract KeyRegistry {
             outgoing_public_key,
             tagging_public_key
         );
-        let computed_address = AztecAddress::compute(
-            public_keys_hash,
-            partial_address
-        );
+        let computed_address = AztecAddress::compute(public_keys_hash, partial_address);
 
         assert(computed_address.eq(address), "Computed address does not match supplied address");
 

@@ -7,7 +7,7 @@ import {
   type ContractArtifact,
   type ContractBase,
   type DebugLogger,
-  type Fr,
+  Fr,
   type PXE,
   type Wallet,
   createDebugLogger,
@@ -81,10 +81,8 @@ export class DeployTest {
   }
 
   async registerRandomAccount(): Promise<AztecAddress> {
-    const pxe = this.pxe;
-    const { completeAddress: owner, secretKey } = CompleteAddress.fromRandomSecretKey();
-    await pxe.registerAccount(secretKey, owner.partialAddress);
-    return owner.address;
+    const completeAddress = await this.pxe.registerAccount(Fr.random(), Fr.random());
+    return completeAddress.address;
   }
 }
 
