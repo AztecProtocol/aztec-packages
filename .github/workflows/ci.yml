@@ -79,15 +79,18 @@ jobs:
       - name: Ensure Spot Has Images
         uses: ./.github/ensure-builder
         with:
+          run_id: ${{ github.run_id }}
           username: ${{ inputs.username || github.actor }}
           runner_action: ${{ inputs.runner_action || 'start' }}
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ec2_key: ${{ secrets.BUILD_INSTANCE_KEY }}
 
       - name: Ensure Spot Has Images
         uses: ./.github/run-on-builder
         with:
+          run_id: ${{ github.run_id }}
           run: |
             # in case of inconvenient prune, re-export
             if !docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/aztec:${{ github.event.pull_request.head.sha }}" ||
