@@ -23,6 +23,13 @@ struct TokenNote {
 
 Computing the nullifier similarly changes to use this master nullifying public key hash.
 
+## 0.39.0
+
+### [Aztec.nr] Mutable delays in `SharedMutable`
+
+The type signature for `SharedMutable` changed from `SharedMutable<T, DELAY>` to `SharedMutable<T, INITIAL_DELAY>`. The behavior is the same as before, except the delay can now be changed after deployment by calling `schedule_delay_change`.
+
+
 ## 0.38.0
 
 ### [Aztec.nr] Emmiting encrypted logs
