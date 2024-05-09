@@ -191,7 +191,7 @@ size_t common_validate_div(std::vector<Row> const& trace,
     common_validate_arithmetic_op(*row, *alu_row, a, b, c, addr_a, addr_b, addr_c, tag);
     EXPECT_EQ(row->avm_main_w_in_tag, FF(static_cast<uint32_t>(tag)));
 
-    // Check that multiplication selector is set.
+    // Check that division selector is set.
     EXPECT_EQ(alu_row->avm_alu_op_div, FF(1));
 
     return static_cast<size_t>(alu_row - trace.begin());
@@ -612,7 +612,7 @@ INSTANTIATE_TEST_SUITE_P(AvmArithmeticTestsDiv,
                          AvmArithmeticTestsDiv,
                          testing::ValuesIn(gen_three_op_params(positive_op_div_test_values, uint_mem_tags)));
 
-// Test on division by zero over finite field type.
+// Test on division by zero over U128.
 // We check that the operator error flag is raised.
 TEST_F(AvmArithmeticTests, DivisionByZeroError)
 {
@@ -806,23 +806,6 @@ TEST_F(AvmArithmeticTestsU8, nonEquality)
     EXPECT_EQ(alu_row.avm_alu_u8_tag, FF(1));
     EXPECT_EQ(alu_row.avm_alu_op_eq_diff_inv, FF(-116).invert());
     validate_trace(std::move(trace));
-}
-
-// Test correct division of U8 elements using faster method
-TEST_F(AvmArithmeticTestsU8, fastDivision)
-{
-    auto trace_builder = avm_trace::AvmTraceBuilder();
-    trace_builder.op_set(0, 153, 0, AvmMemoryTag::U8);
-    trace_builder.op_set(0, 2, 1, AvmMemoryTag::U8);
-    trace_builder.op_div(0, 0, 1, 2, AvmMemoryTag::U8);
-    trace_builder.return_op(0, 0, 0);
-    auto trace = trace_builder.finalize();
-
-    auto alu_row_index = common_validate_div(trace, 153, 2, 76, 0, 1, 2, AvmMemoryTag::U8);
-    auto alu_row = trace.at(alu_row_index);
-
-    EXPECT_EQ(alu_row.avm_alu_u8_tag, FF(1));
-    validate_trace_check_circuit(std::move(trace));
 }
 
 /******************************************************************************

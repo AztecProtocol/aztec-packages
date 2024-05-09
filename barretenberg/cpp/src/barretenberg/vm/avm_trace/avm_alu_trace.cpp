@@ -530,12 +530,12 @@ std::tuple<uint256_t, uint256_t> decompose(uint256_t const& a, uint8_t const b)
 // This is useful when we want to enforce in certain checks that a must be greater than b
 std::tuple<uint256_t, uint256_t, bool> gt_witness(uint256_t const& a, uint256_t const& b)
 {
-    uint256_t two_pow_126 = uint256_t(1) << uint256_t(128);
+    uint256_t two_pow_128 = uint256_t(1) << uint256_t(128);
     auto [a_lo, a_hi] = decompose(a, 128);
     auto [b_lo, b_hi] = decompose(b, 128);
     bool borrow = a_lo <= b_lo;
     auto borrow_u256 = uint256_t(static_cast<uint64_t>(borrow));
-    uint256_t r_lo = a_lo - b_lo - 1 + borrow_u256 * two_pow_126;
+    uint256_t r_lo = a_lo - b_lo - 1 + borrow_u256 * two_pow_128;
     uint256_t r_hi = a_hi - b_hi - borrow_u256;
     return std::make_tuple(r_lo, r_hi, borrow);
 }
@@ -983,7 +983,6 @@ FF AvmAluTraceBuilder::op_div(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
         alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry({
             .alu_clk = clk,
             .alu_op_div = true,
-            .alu_ff_tag = in_tag == AvmMemoryTag::FF,
             .alu_u8_tag = in_tag == AvmMemoryTag::U8,
             .alu_u16_tag = in_tag == AvmMemoryTag::U16,
             .alu_u32_tag = in_tag == AvmMemoryTag::U32,
@@ -1036,7 +1035,6 @@ FF AvmAluTraceBuilder::op_div(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
     AvmAluTraceBuilder::AluTraceEntry row{
         .alu_clk = clk,
         .alu_op_div = true,
-        .alu_ff_tag = in_tag == AvmMemoryTag::FF,
         .alu_u8_tag = in_tag == AvmMemoryTag::U8,
         .alu_u16_tag = in_tag == AvmMemoryTag::U16,
         .alu_u32_tag = in_tag == AvmMemoryTag::U32,
@@ -1058,11 +1056,10 @@ FF AvmAluTraceBuilder::op_div(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
     };
     // We perform the range checks here
     std::vector<AvmAluTraceBuilder::AluTraceEntry> rows = cmp_range_check_helper(row, hi_lo_limbs);
+    // Add the range checks for the quotient limbs in the row after the division operation
+    rows.at(1).div_u64_range_chk = div_u64_rng_chk_shifted;
+    rows.at(1).div_u64_range_chk_sel = true;
     alu_trace.insert(alu_trace.end(), rows.begin(), rows.end());
-    // Add the range checks for the quotient limbs in the next row
-    alu_trace.at(1).div_u64_range_chk = div_u64_rng_chk_shifted;
-    alu_trace.at(1).div_u64_range_chk_sel = true;
-
     return c_u256;
 }
 } // namespace bb::avm_trace
