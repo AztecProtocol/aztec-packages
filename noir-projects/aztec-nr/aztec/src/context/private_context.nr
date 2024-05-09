@@ -201,7 +201,7 @@ impl PrivateContext {
         self.nullifier_read_requests.push(request);
     }
 
-    pub fn request_nsk_app(&mut self, master_public_nullifying_key_hash: Field) -> Field {
+    pub fn request_nsk_app(&mut self, npk_m_hash: Field) -> Field {
         let keys = if self.nullifier_key.is_none() {
             let keys = get_nullifier_keys(master_public_nullifying_key_hash);
             let request = NullifierKeyValidationRequest {
