@@ -28,16 +28,17 @@ AvmVerifier& AvmVerifier::operator=(AvmVerifier&& other) noexcept
 using FF = AvmFlavor::FF;
 
 // Evaluate the given public input column over the multivariate challenge points
-[[maybe_unused]] FF evaluate_public_input_column(std::vector<FF> points,
-                                                 const size_t circuit_size,
-                                                 std::vector<FF> challenges)
+[[maybe_unused]] inline FF evaluate_public_input_column(std::vector<FF> points,
+                                                        const size_t circuit_size,
+                                                        std::vector<FF> challenges)
 {
+
     // TODO: we pad the points to the circuit size in order to get the correct evaluation
     // This is not efficient, and will not be valid in production
     std::vector<FF> new_points(circuit_size, 0);
     std::copy(points.begin(), points.end(), new_points.data());
 
-    Polynomial<FF> polynomial(points);
+    Polynomial<FF> polynomial(new_points);
     return polynomial.evaluate_mle(challenges);
 }
 
