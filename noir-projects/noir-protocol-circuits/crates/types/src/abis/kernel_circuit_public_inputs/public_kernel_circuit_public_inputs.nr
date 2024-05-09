@@ -15,20 +15,19 @@ struct PublicKernelCircuitPublicInputs {
 
 impl PublicKernelCircuitPublicInputs {
     pub fn needs_setup(self) -> bool {
-        // By definition, the final non-revertible enqueued call is for teardown.
-        // since this is a stack, the teardown call would be the 0th element.
-        // So if we have more than one element, we need setup.
+        // public calls for setup are deposited in the non-revertible public call stack.
+        // if an element is present, we need to run setup
         !self.end_non_revertible.public_call_stack[0].is_empty()
     }
 
     pub fn needs_app_logic(self) -> bool {
-        // if we have any enqueued revertible public calls, we need to run the public app logic circuit.
+        // public calls for app logic are deposited in the revertible public call stack.
+        // if an element is present, we need to run app logic
         !self.end.public_call_stack[0].is_empty()
     }
 
     pub fn needs_teardown(self) -> bool {
-        // By definition, the final non-revertible enqueued call is for teardown.
-        // since this is a stack, the teardown call would be the 0th element.
+        // the public call specified for teardown, if any, is placed in the teardown call stack
         !self.public_teardown_call_stack[0].is_empty()
     }
 }
