@@ -78,7 +78,8 @@ runs:
         export RUN_ID=${{ inputs.run_id }}
         echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
         # detect our run folder
-        if ! scripts/run_on_builder "[ -d ~/run/$RUN_ID ]" ; then
+        if ! scripts/run_on_builder "[ -f ~/.started-$RUN_ID ]" ; then
+          touch ~/.started-$RUN_ID
           echo "> Copying local repo to spot"
           tar czf - .git | scripts/run_on_builder \
             "mkdir -p ~/run-$RUN_ID-git && cd ~/run-$RUN_ID-git && tar xzf -"

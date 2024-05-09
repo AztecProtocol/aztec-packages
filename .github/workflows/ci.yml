@@ -120,8 +120,8 @@ jobs:
         uses: ./.github/ensure-builder
         with:
           run_id: ${{ github.run_id }}
-          username: ${{ inputs.username || github.actor }}
-          runner_action: ${{ inputs.runner_action || 'start' }}
+          runner_label: ${{ inputs.username || github.actor }}-x86
+          runner_type: builder-x86
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -141,8 +141,8 @@ jobs:
       - name: Copy Over Build Images
         run: |
           scripts/run_on_builder "
-            docker save aztecprotocol/aztec:${{ github.event.pull_request.head.sha }} aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }} | gzip
-          " | docker load
+            docker save aztecprotocol/aztec:${{ github.event.pull_request.head.sha }} aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }} | brotli -2
+          " | brotli --decompress | docker load
 
       - name: Test
         working-directory: ./yarn-project/end-to-end/
