@@ -1,10 +1,9 @@
 import {
-  type CompleteAddress,
   type AztecAddress,
+  type CompleteAddress,
   type Fr,
   type GrumpkinPrivateKey,
   type PartialAddress,
-  type Point,
   type PublicKey,
 } from '@aztec/circuits.js';
 
