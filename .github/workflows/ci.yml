@@ -77,35 +77,42 @@ jobs:
           concurrency_key: e2e-${{ inputs.username || github.actor }}-x86-${{ matrix.test }}
           # we want to get the builder's details as SPOT_IP and SPOT_KEY, and ensure it's up
           start_builder: true
-      - name: Copy Over Build Images
-        run: |
-          scripts/run_on_builder '
+      # uses SPOT_IP and SPOT_KEY from above
+      - name: Ensure Spot Has Images
+        uses: ./.github/run-on-builder
+        with:
+          run: |
             # in case of inconvenient prune, re-export
             if !docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/aztec:${{ github.event.pull_request.head.sha }}" ||
-              !docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }} ; then
-                cd $(mktemp -d)
-                # TODO make a script
-                git init
-                git remote add origin ${{ github.server_url }}/${{ github.repository }}
-                # Only download metadata when fetching.
-                git config remote.origin.promisor true
-                git config remote.origin.partialclonefilter blob:none
-                git fetch --depth 1 origin ${{ github.event.pull_request.head.sha }}
-                git checkout FETCH_HEAD
-                scripts/earthly-ci ./yarn-project+export-e2e-test-images
+               !docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }}" ; then
+              export FORCE_COLOR=1
+              set -eux
+              cd $(mktemp -d)
+              # TODO make a script
+              git config --global init.defaultBranch master
+              git config --global advice.detachedHead false
+              git init
+              git remote add origin https://github.com/AztecProtocol/aztec-packages
+              # Only download metadata when fetching.
+              git config remote.origin.promisor true
+              git config remote.origin.partialclonefilter blob:none
+              git fetch --depth 1 origin c65b20f370845ac7c2917736090b02ebdebc35e3
+              git checkout FETCH_HEAD
+              # for l1-contracts etc files
+              git submodule update --init --recursive --recommend-shallow
+              scripts/earthly-ci ./yarn-project+export-e2e-test-images
+              # cleanup
+              rm -rf .
             fi
-          '
+      - name: Copy Over Build Images
+        run: |
           scripts/run_on_builder "
-            docker save myimage:latest | gzip
+            docker save aztecprotocol/aztec:${{ github.event.pull_request.head.sha }} aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }} | gzip
           " | docker load
       - name: Test
         working-directory: ./yarn-project/end-to-end/
         timeout-minutes: 25
-        run: earthly-ci -P \
-          --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-          --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-          --no-output \
-          +${{ matrix.test }} --skip_build=true
+        run: earthly-ci +${{ matrix.test }}
 
   # # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   # bench-e2e:

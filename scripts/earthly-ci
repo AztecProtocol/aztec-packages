@@ -14,6 +14,10 @@ INCONSISTENT_GRAPH_STATE_COUNT=0  # Counter for 'inconsistent graph state' error
 MAX_ATTEMPTS=3
 ATTEMPT_COUNT=0
 
+# earthly settings
+export EARTHLY_NO_OUTPUT=1
+export EARTHLY_ALLOW_PRIVILEGED=1
+
 # Handle earthly commands and retries
 while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
   if earthly $@ 2>&1 | tee $OUTPUT_FILE >&2 ; then
