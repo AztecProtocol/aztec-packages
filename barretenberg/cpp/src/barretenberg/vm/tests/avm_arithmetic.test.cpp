@@ -377,7 +377,7 @@ TEST_F(AvmArithmeticTestsFF, addition)
     EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
     EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0));
 
-    validate_trace(std::move(trace), true);
+    validate_trace(std::move(trace), {}, true);
 }
 
 // Test on basic subtraction over finite field type.

@@ -38,13 +38,17 @@ void validate_trace(std::vector<Row>&& trace, std::array<FF, KERNEL_INPUTS_LENGT
 
     if (with_proof) {
         info("With proof");
-        auto composer = AvmComposer();
-        auto prover = composer.create_prover(circuit_builder);
-        auto proof = prover.construct_proof();
+        AvmComposer composer = AvmComposer();
+        AvmProver prover = composer.create_prover(circuit_builder);
+        HonkProof proof = prover.construct_proof();
 
-        auto verifier = composer.create_verifier(circuit_builder);
+        AvmVerifier verifier = composer.create_verifier(circuit_builder);
 
-        bool verified = verifier.verify_proof(proof, public_inputs);
+        // We convert to a vector as the pil generated verifier is generic and unaware of the KERNEL_INPUTS_LENGTH
+        std::vector<FF> public_inputs_as_vec(KERNEL_INPUTS_LENGTH);
+        std::copy(public_inputs.begin(), public_inputs.end(), public_inputs_as_vec.data());
+
+        bool verified = verifier.verify_proof(proof, public_inputs_as_vec);
 
         EXPECT_TRUE(verified);
     }

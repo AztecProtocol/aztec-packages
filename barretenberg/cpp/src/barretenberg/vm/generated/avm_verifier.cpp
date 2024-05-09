@@ -5,7 +5,6 @@
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/vm/avm_trace/constants.hpp"
 
 namespace bb {
 
@@ -29,7 +28,7 @@ AvmVerifier& AvmVerifier::operator=(AvmVerifier&& other) noexcept
 using FF = AvmFlavor::FF;
 
 // Evaluate the given public input column over the multivariate challenge points
-[[maybe_unused]] FF evaluate_public_input_column(std::array<FF, KERNEL_INPUTS_LENGTH> points,
+[[maybe_unused]] FF evaluate_public_input_column(std::vector<FF> points,
                                                  const size_t circuit_size,
                                                  std::vector<FF> challenges)
 {
@@ -38,7 +37,7 @@ using FF = AvmFlavor::FF;
     std::vector<FF> new_points(circuit_size, 0);
     std::copy(points.begin(), points.end(), new_points.data());
 
-    Polynomial<FF> polynomial(new_points);
+    Polynomial<FF> polynomial(points);
     return polynomial.evaluate_mle(challenges);
 }
 
@@ -46,7 +45,7 @@ using FF = AvmFlavor::FF;
  * @brief This function verifies an Avm Honk proof for given program settings.
  *
  */
-bool AvmVerifier::verify_proof(const HonkProof& proof, const std::array<FF, KERNEL_INPUTS_LENGTH>& public_inputs)
+bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<FF>& public_inputs)
 {
     using Flavor = AvmFlavor;
     using FF = Flavor::FF;
@@ -584,13 +583,11 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::array<FF, KERN
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
-        info("sumcheck failed");
         return false;
     }
 
     FF public_column_evaluation = evaluate_public_input_column(public_inputs, circuit_size, multivariate_challenge);
     if (public_column_evaluation != claimed_evaluations.avm_kernel_kernel_inputs__is_public) {
-        info("public inputs column evaluation failed");
         return false;
     }
 
