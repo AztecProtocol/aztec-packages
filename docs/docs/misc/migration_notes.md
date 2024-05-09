@@ -6,6 +6,22 @@ keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### [Aztec.nr] Keys: Token note now stores an owner master nullifying public key hash instead of an owner address.
+
+i.e.
+
+struct TokenNote {
+    ```diff
+    - owner: AztecAddress,
+    + owner_npk_m_h: Field,
+    ```
+    randomness: Field,
+}
+
+Computing the nullifier similarly changes to use this master nullifying public key hash.
+
 ## 0.38.0
 
 ### [Aztec.nr] Emmiting encrypted logs
