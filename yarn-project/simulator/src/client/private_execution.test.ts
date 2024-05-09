@@ -31,7 +31,7 @@ import {
   getContractInstanceFromDeployParams,
   getNonEmptyItems,
 } from '@aztec/circuits.js';
-import { computeCommitmentNonce, computeSecretHash, computeVarArgsHash } from '@aztec/circuits.js/hash';
+import { computeNoteHashNonce, computeSecretHash, computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { type FunctionArtifact, FunctionSelector, encodeArguments, getFunctionArtifact } from '@aztec/foundation/abi';
 import { asyncMap } from '@aztec/foundation/async-map';
@@ -521,7 +521,7 @@ describe('Private Execution test suite', () => {
 
       const readRequests = getNonEmptyItems(result.callStackItem.publicInputs.noteHashReadRequests).map(r => r.value);
       expect(readRequests).toHaveLength(consumedNotes.length);
-      expect(readRequests).toEqual(expect.arrayContaining(consumedNotes.map(n => n.uniqueSiloedNoteHash)));
+      expect(readRequests).toEqual(expect.arrayContaining(consumedNotes.map(n => n.siloedNoteHash)));
     });
 
     it('should be able to destroy_and_create with dummy notes', async () => {
