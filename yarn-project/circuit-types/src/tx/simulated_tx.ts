@@ -2,41 +2,47 @@ import { CombinedAccumulatedData, CombinedConstantData, Fr, Gas } from '@aztec/c
 import { mapValues } from '@aztec/foundation/collection';
 
 import { EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../logs/index.js';
-import { type ProcessedTx, PublicKernelType } from './processed_tx.js';
+import { type SimulationError } from '../simulation_error.js';
+import { PublicKernelType } from './processed_tx.js';
 import { Tx } from './tx.js';
 
 /** Return values of simulating a circuit. */
 export type ProcessReturnValues = Fr[] | undefined;
 
-/**
- * Outputs of processing the public component of a transaction.
- * REFACTOR: Rename.
- */
-export type ProcessOutput = Pick<ProcessedTx, 'encryptedLogs' | 'unencryptedLogs' | 'revertReason' | 'gasUsed'> &
-  Pick<ProcessedTx['data'], 'constants' | 'end'> & { publicReturnValues: ProcessReturnValues };
+export class ProcessOutput {
+  constructor(
+    public encryptedLogs: EncryptedTxL2Logs,
+    public unencryptedLogs: UnencryptedTxL2Logs,
+    public revertReason: SimulationError | undefined,
+    public constants: CombinedConstantData,
+    public end: CombinedAccumulatedData,
+    public publicReturnValues: ProcessReturnValues,
+    public gasUsed: Partial<Record<PublicKernelType, Gas>>,
+  ) {}
 
-function processOutputToJSON(output: ProcessOutput) {
-  return {
-    encryptedLogs: output.encryptedLogs.toJSON(),
-    unencryptedLogs: output.unencryptedLogs.toJSON(),
-    revertReason: output.revertReason,
-    constants: output.constants.toBuffer().toString('hex'),
-    end: output.end.toBuffer().toString('hex'),
-    publicReturnValues: output.publicReturnValues?.map(fr => fr.toString()),
-    gasUsed: mapValues(output.gasUsed, gas => gas?.toJSON()),
-  };
-}
+  toJSON() {
+    return {
+      encryptedLogs: this.encryptedLogs.toJSON(),
+      unencryptedLogs: this.unencryptedLogs.toJSON(),
+      revertReason: this.revertReason,
+      constants: this.constants.toBuffer().toString('hex'),
+      end: this.end.toBuffer().toString('hex'),
+      publicReturnValues: this.publicReturnValues?.map(fr => fr.toString()),
+      gasUsed: mapValues(this.gasUsed, gas => gas?.toJSON()),
+    };
+  }
 
-function processOutputFromJSON(json: any): ProcessOutput {
-  return {
-    encryptedLogs: EncryptedTxL2Logs.fromJSON(json.encryptedLogs),
-    unencryptedLogs: UnencryptedTxL2Logs.fromJSON(json.unencryptedLogs),
-    revertReason: json.revertReason,
-    constants: CombinedConstantData.fromBuffer(Buffer.from(json.constants, 'hex')),
-    end: CombinedAccumulatedData.fromBuffer(Buffer.from(json.end, 'hex')),
-    publicReturnValues: json.publicReturnValues?.map(Fr.fromString),
-    gasUsed: mapValues(json.gasUsed, gas => (gas ? Gas.fromJSON(gas) : undefined)),
-  };
+  static fromJSON(json: any): ProcessOutput {
+    return new ProcessOutput(
+      EncryptedTxL2Logs.fromJSON(json.encryptedLogs),
+      UnencryptedTxL2Logs.fromJSON(json.unencryptedLogs),
+      json.revertReason,
+      CombinedConstantData.fromBuffer(Buffer.from(json.constants, 'hex')),
+      CombinedAccumulatedData.fromBuffer(Buffer.from(json.end, 'hex')),
+      json.publicReturnValues?.map(Fr.fromString),
+      mapValues(json.gasUsed, gas => (gas ? Gas.fromJSON(gas) : undefined)),
+    );
+  }
 }
 
 // REFACTOR: Review what we need to expose to the user when running a simulation.
@@ -79,7 +85,7 @@ export class SimulatedTx {
     return {
       tx: this.tx.toJSON(),
       privateReturnValues: this.privateReturnValues?.map(fr => fr.toString()),
-      publicOutput: this.publicOutput && processOutputToJSON(this.publicOutput),
+      publicOutput: this.publicOutput && this.publicOutput.toJSON(),
     };
   }
 
@@ -90,7 +96,7 @@ export class SimulatedTx {
    */
   public static fromJSON(obj: any) {
     const tx = Tx.fromJSON(obj.tx);
-    const publicOutput = obj.publicOutput ? processOutputFromJSON(obj.publicOutput) : undefined;
+    const publicOutput = obj.publicOutput ? ProcessOutput.fromJSON(obj.publicOutput) : undefined;
     const privateReturnValues = obj.privateReturnValues?.map(Fr.fromString);
 
     return new SimulatedTx(tx, privateReturnValues, publicOutput);

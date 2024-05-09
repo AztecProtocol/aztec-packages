@@ -13,7 +13,7 @@ import {
   LogType,
   MerkleTreeId,
   NullifierMembershipWitness,
-  type ProcessOutput,
+  ProcessOutput,
   type ProverClient,
   type ProverConfig,
   PublicDataWitness,
@@ -674,15 +674,15 @@ export class AztecNodeService implements AztecNode {
     }
     this.log.debug(`Simulated tx ${tx.getTxHash()} succeeds`);
     const [processedTx] = processedTxs;
-    return {
-      constants: processedTx.data.constants,
-      encryptedLogs: processedTx.encryptedLogs,
-      unencryptedLogs: processedTx.unencryptedLogs,
-      end: processedTx.data.end,
-      revertReason: processedTx.revertReason,
-      publicReturnValues: returns[0],
-      gasUsed: processedTx.gasUsed,
-    };
+    return new ProcessOutput(
+      processedTx.encryptedLogs,
+      processedTx.unencryptedLogs,
+      processedTx.revertReason,
+      processedTx.data.constants,
+      processedTx.data.end,
+      returns[0],
+      processedTx.gasUsed,
+    );
   }
 
   public async setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {
