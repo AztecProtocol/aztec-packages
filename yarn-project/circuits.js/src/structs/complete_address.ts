@@ -230,4 +230,13 @@ export class CompleteAddress {
   toString(): string {
     return `0x${this.toBuffer().toString('hex')}`;
   }
+
+  get publicKeysHash(): Fr {
+    return computePublicKeysHash(
+      this.masterNullifierPublicKey,
+      this.masterIncomingViewingPublicKey,
+      this.masterOutgoingViewingPublicKey,
+      this.masterTaggingPublicKey,
+    );
+  }
 }

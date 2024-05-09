@@ -92,7 +92,10 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         [() => ({ txHash: notes[0].txHash }), () => [notes[0]]],
         [() => ({ txHash: randomTxHash() }), () => []],
 
-        [() => ({ owner: owners[0].address }), () => notes.filter(note => note.publicKey.equals(owners[0].masterIncomingViewingPublicKey))],
+        [
+          () => ({ owner: owners[0].address }),
+          () => notes.filter(note => note.publicKey.equals(owners[0].masterIncomingViewingPublicKey)),
+        ],
 
         [
           () => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[0] }),
@@ -144,7 +147,9 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         for (const owner of owners) {
           const notesToNullify = notes.filter(note => note.publicKey.equals(owner.masterIncomingViewingPublicKey));
           const nullifiers = notesToNullify.map(note => note.siloedNullifier);
-          await expect(database.removeNullifiedNotes(nullifiers, owner.masterIncomingViewingPublicKey)).resolves.toEqual(notesToNullify);
+          await expect(
+            database.removeNullifiedNotes(nullifiers, owner.masterIncomingViewingPublicKey),
+          ).resolves.toEqual(notesToNullify);
         }
 
         await expect(database.getNotes({ ...getFilter(), status: NoteStatus.ACTIVE_OR_NULLIFIED })).resolves.toEqual(
@@ -215,7 +220,14 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
 
       it.skip('refuses to overwrite an address with a different public key', async () => {
         const address = CompleteAddress.random();
-        const otherAddress = new CompleteAddress(address.address, Point.random(), Point.random(), Point.random(), Point.random(),address.partialAddress);
+        const otherAddress = new CompleteAddress(
+          address.address,
+          Point.random(),
+          Point.random(),
+          Point.random(),
+          Point.random(),
+          address.partialAddress,
+        );
 
         await database.addCompleteAddress(address);
         await expect(database.addCompleteAddress(otherAddress)).rejects.toThrow();

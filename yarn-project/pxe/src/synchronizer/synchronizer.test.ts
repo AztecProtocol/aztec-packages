@@ -1,5 +1,5 @@
 import { type AztecNode, L2Block } from '@aztec/circuit-types';
-import { CompleteAddress, Fr, type Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
+import { Fr, type Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { randomInt } from '@aztec/foundation/crypto';
 import { SerialQueue } from '@aztec/foundation/fifo';
