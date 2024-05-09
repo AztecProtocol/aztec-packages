@@ -182,10 +182,9 @@ template <typename FF_> class avm_mainImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 94> SUBRELATION_PARTIAL_LENGTHS{
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 5, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
+    static constexpr std::array<size_t, 69> SUBRELATION_PARTIAL_LENGTHS{
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 5, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 4, 4, 3, 3, 3, 3, 3, 4, 3, 3, 3, 2,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -503,7 +502,8 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(38);
 
-            auto tmp = (avm_main_mem_op_c * (-avm_main_mem_op_c + FF(1)));
+            auto tmp = ((avm_main_sel_op_fdiv + avm_main_sel_op_div) *
+                        (((avm_main_ib * avm_main_inv) - FF(1)) + avm_main_op_err));
             tmp *= scaling_factor;
             std::get<38>(evals) += tmp;
         }
@@ -511,7 +511,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(39);
 
-            auto tmp = (avm_main_mem_op_d * (-avm_main_mem_op_d + FF(1)));
+            auto tmp = (((avm_main_sel_op_fdiv + avm_main_sel_op_div) * avm_main_op_err) * (-avm_main_inv + FF(1)));
             tmp *= scaling_factor;
             std::get<39>(evals) += tmp;
         }
@@ -535,7 +535,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(42);
 
-            auto tmp = (avm_main_rwc * (-avm_main_rwc + FF(1)));
+            auto tmp = (avm_main_op_err * ((avm_main_sel_op_fdiv + avm_main_sel_op_div) - FF(1)));
             tmp *= scaling_factor;
             std::get<42>(evals) += tmp;
         }
@@ -854,15 +854,16 @@ template <typename FF_> class avm_mainImpl {
 
             auto tmp =
                 (avm_main_alu_sel -
-                 (((((((((((avm_main_sel_op_add + avm_main_sel_op_sub) + avm_main_sel_op_mul) + avm_main_sel_op_div) +
-                         avm_main_sel_op_not) +
-                        avm_main_sel_op_eq) +
-                       avm_main_sel_op_lt) +
-                      avm_main_sel_op_lte) +
-                     avm_main_sel_op_shr) +
-                    avm_main_sel_op_shl) +
-                   avm_main_sel_op_cast) *
-                  (-avm_main_tag_err + FF(1))));
+                 ((((((((((((avm_main_sel_op_add + avm_main_sel_op_sub) + avm_main_sel_op_mul) + avm_main_sel_op_div) +
+                          avm_main_sel_op_not) +
+                         avm_main_sel_op_eq) +
+                        avm_main_sel_op_lt) +
+                       avm_main_sel_op_lte) +
+                      avm_main_sel_op_shr) +
+                     avm_main_sel_op_shl) +
+                    avm_main_sel_op_cast) *
+                   (-avm_main_tag_err + FF(1))) *
+                  (-avm_main_op_err + FF(1))));
             tmp *= scaling_factor;
             std::get<77>(evals) += tmp;
         }

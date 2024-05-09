@@ -1,8 +1,19 @@
+#include "barretenberg/vm/tests/helpers.test.hpp"
 #include "avm_common.test.hpp"
 #include "barretenberg/vm/avm_trace/constants.hpp"
 #include "barretenberg/vm/generated/avm_flavor.hpp"
 
 namespace tests_avm {
+
+std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<ThreeOpParam> operands,
+                                                 std::vector<bb::avm_trace::AvmMemoryTag> mem_tags)
+{
+    std::vector<ThreeOpParamRow> params;
+    for (size_t i = 0; i < 5; i++) {
+        params.emplace_back(operands[i], mem_tags[i]);
+    }
+    return params;
+}
 /**
  * @brief Helper routine checking the circuit constraints without proving
  *
@@ -26,6 +37,7 @@ void validate_trace(std::vector<Row>&& trace, std::array<FF, KERNEL_INPUTS_LENGT
     EXPECT_TRUE(circuit_builder.check_circuit());
 
     if (with_proof) {
+        info("With proof");
         auto composer = AvmComposer();
         auto prover = composer.create_prover(circuit_builder);
         auto proof = prover.construct_proof();
