@@ -9,6 +9,11 @@ import { peek } from './peek.js';
  * @returns A generator of the mapped items.
  */
 function map<I, O>(
+  source: Iterable<I>,
+  func: (val: I, index: number) => Promise<O>,
+): AsyncGenerator<O, void, undefined>;
+function map<I, O>(source: Iterable<I>, func: (val: I, index: number) => O): Generator<O, void, undefined>;
+function map<I, O>(
   source: AsyncIterable<I> | Iterable<I>,
   func: (val: I, index: number) => O | Promise<O>,
 ): AsyncGenerator<O, void, undefined>;
