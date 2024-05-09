@@ -1,7 +1,7 @@
 use dep::aztec::{
     prelude::{AztecAddress, PrivateContext, PrivateSet, NoteGetterOptions},
     note::note_getter_options::SortOrder, oracle::get_public_key::get_public_key,
-    keys::getters::get_npk_m_h
+    keys::getters::get_npk_m_hash
 };
 use crate::{filter::filter_notes_min_sum, value_note::{ValueNote, VALUE_NOTE_LEN}};
 
@@ -19,9 +19,9 @@ pub fn increment(
     amount: Field,
     recipient: AztecAddress
 ) {
-    let recipient_npk_m_h = get_npk_m_h(&mut context, recipient);
+    let recipient_npk_m_hash = get_npk_m_hash(&mut context, recipient);
 
-    let mut note = ValueNote::new(amount, recipient_npk_m_h);
+    let mut note = ValueNote::new(amount, recipient_npk_m_hash);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
     balance.insert(&mut note, amount != 0);
 }
@@ -85,9 +85,9 @@ pub fn destroy_note(
 ) -> Field {
     // Ensure the note is actually owned by the owner (to prevent user from generating a valid proof while
     // spending someone else's notes).
-    let owner_npk_m_h = get_npk_m_h(&mut context, owner);
+    let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
 
-    assert(note.owner_npk_m_h.eq(owner_npk_m_h));
+    assert(note.owner_npk_m_hash.eq(owner_npk_m_hash));
 
     balance.remove(note);
 

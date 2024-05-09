@@ -6,7 +6,7 @@ contract Child {
         context::{PublicContext, Context, gas::GasOpts},
         protocol_types::{abis::{call_context::CallContext}},
         note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader},
-        keys::getters::get_npk_m_h
+        keys::getters::get_npk_m_hash
     };
     use dep::value_note::value_note::ValueNote;
 
@@ -52,21 +52,21 @@ contract Child {
 
     #[aztec(private)]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        let owner_npk_m_h = get_npk_m_h(&mut context, owner);
+        let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
 
-        let mut note = ValueNote::new(new_value, owner_npk_m_h);
+        let mut note = ValueNote::new(new_value, owner_npk_m_hash);
         storage.a_private_value.insert(&mut note, true);
         new_value
     }
 
     #[aztec(private)]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
-        let owner_npk_m_h = get_npk_m_h(&mut context, owner);
+        let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
 
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, amount, Option::none()).select(
-            ValueNote::properties().owner_npk_m_h,
-            owner_npk_m_h,
+            ValueNote::properties().owner_npk_m_hash,
+            owner_npk_m_hash,
             Option::none()
         ).set_limit(1);
         let notes = storage.a_private_value.get_notes(options);

@@ -203,7 +203,7 @@ impl PrivateContext {
 
     pub fn request_nsk_app(&mut self, npk_m_hash: Field) -> Field {
         let keys = if self.nullifier_key.is_none() {
-            let keys = get_nullifier_keys(master_public_nullifying_key_hash);
+            let keys = get_nullifier_keys(npk_m_hash);
             let request = NullifierKeyValidationRequest {
                 master_nullifier_public_key: keys.master_nullifier_public_key,
                 app_nullifier_secret_key: keys.app_nullifier_secret_key
@@ -220,7 +220,7 @@ impl PrivateContext {
 
         // We have to check if the key that was requested or cached corresponds to the one we request for
         assert_eq(
-            poseidon2_hash(keys.master_nullifier_public_key.serialize()), master_public_nullifying_key_hash
+            poseidon2_hash(keys.master_nullifier_public_key.serialize()), npk_m_hash
         );
         keys.app_nullifier_secret_key
     }

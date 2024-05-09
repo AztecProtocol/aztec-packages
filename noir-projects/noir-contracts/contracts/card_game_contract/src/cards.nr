@@ -2,7 +2,7 @@ use dep::aztec::prelude::{AztecAddress, FunctionSelector, PrivateContext, NoteHe
 
 use dep::aztec::{
     protocol_types::{traits::{ToField, Serialize, FromField}, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
-    keys::getters::get_npk_m_h, context::{PublicContext, Context}, note::note_getter::view_notes,
+    keys::getters::get_npk_m_hash, context::{PublicContext, Context}, note::note_getter::view_notes,
     state_vars::PrivateSet, note::constants::MAX_NOTES_PER_PAGE
 };
 use dep::std;
@@ -49,13 +49,13 @@ struct CardNote {
 }
 
 impl CardNote {
-    fn new(strength: u32, points: u32, owner_npk_m_h: Field) -> Self {
+    fn new(strength: u32, points: u32, owner_npk_m_hash: Field) -> Self {
         let card = Card { strength, points };
-        CardNote::from_card(card, owner_npk_m_h)
+        CardNote::from_card(card, owner_npk_m_hash)
     }
 
-    pub fn from_card(card: Card, owner_npk_m_h: Field) -> CardNote {
-        CardNote { card, note: ValueNote::new(card.to_field(), owner_npk_m_h) }
+    pub fn from_card(card: Card, owner_npk_m_hash: Field) -> CardNote {
+        CardNote { card, note: ValueNote::new(card.to_field(), owner_npk_m_hash) }
     }
 
     pub fn from_note(note: ValueNote) -> CardNote {
@@ -102,11 +102,11 @@ impl Deck {
     pub fn add_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
         let _context = self.set.context.private.unwrap();
 
-        let owner_npk_m_h = get_npk_m_h(self.set.context.private.unwrap(), owner);
+        let owner_npk_m_hash = get_npk_m_hash(self.set.context.private.unwrap(), owner);
 
         let mut inserted_cards = &[];
         for card in cards {
-            let mut card_note = CardNote::from_card(card, owner_npk_m_h);
+            let mut card_note = CardNote::from_card(card, owner_npk_m_hash);
             self.set.insert(&mut card_note.note, true);
             inserted_cards = inserted_cards.push_back(card_note);
         }
@@ -118,14 +118,14 @@ impl Deck {
         let options = NoteGetterOptions::with_filter(filter_cards, cards);
         let maybe_notes = self.set.get_notes(options);
         let mut found_cards = [Option::none(); N];
+        let owner_npk_m_hash = get_npk_m_hash(self.set.context.private.unwrap(), owner);
+
         for i in 0..maybe_notes.len() {
             if maybe_notes[i].is_some() {
                 let card_note = CardNote::from_note(maybe_notes[i].unwrap_unchecked());
                 // Ensure the notes are actually owned by the owner (to prevent user from generating a valid proof while
                 // spending someone else's notes).
-                let owner_npk_m_h = get_npk_m_h(self.set.context.private.unwrap(), owner);
-
-                assert(card_note.note.owner_npk_m_h.eq(owner_npk_m_h));
+                assert(card_note.note.owner_npk_m_hash.eq(owner_npk_m_hash));
 
                 for j in 0..cards.len() {
                     if found_cards[j].is_none()
@@ -172,10 +172,10 @@ pub fn get_pack_cards(
     owner: AztecAddress,
     context: &mut PrivateContext
 ) -> [Card; PACK_CARDS] {
-    let owner_npk_m_h = get_npk_m_h(context, owner);
+    let owner_npk_m_hash = get_npk_m_hash(context, owner);
 
     // generate pseudo randomness deterministically from 'seed' and user secret
-    let secret = context.request_nsk_app(owner_npk_m_h);
+    let secret = context.request_nsk_app(owner_npk_m_hash);
     let mix = secret + seed;
     let mix_bytes: [u8; 32] = mix.to_le_bytes(32).as_array();
     let random_bytes = std::hash::sha256(mix_bytes);

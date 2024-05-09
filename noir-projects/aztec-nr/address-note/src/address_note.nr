@@ -12,7 +12,7 @@ global ADDRESS_NOTE_LEN: Field = 3;
 #[aztec(note)]
 struct AddressNote {
     address: AztecAddress,
-    // The nullifying public key hash of the person who owns the note. 
+    // The nullifying public key hash of the person who can spend the note. 
     // This is used with the app_nullifier_secret_key to ensure that the note can be privately spent.
     npk_m_hash: Field,
     randomness: Field,
@@ -21,7 +21,7 @@ struct AddressNote {
 impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_nsk_app(self.owner_npk_m_h);
+        let secret = context.request_nsk_app(self.npk_m_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -31,7 +31,7 @@ impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nsk_app(self.owner_npk_m_h);
+        let secret = get_nsk_app(self.npk_m_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -42,7 +42,7 @@ impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
         // TODO (#5901): This will be refactored completely when we update the encryped log format
-        let encryption_pub_key = get_public_key_with_npk_m_h(self.owner_npk_m_h);
+        let encryption_pub_key = get_public_key_with_npk_m_h(self.npk_m_hash);
         // docs:start:encrypted
         context.emit_encrypted_log(
             (*context).this_address(),
@@ -56,9 +56,9 @@ impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
 }
 
 impl AddressNote {
-    pub fn new(address: AztecAddress, owner_npk_m_h: Field) -> Self {
+    pub fn new(address: AztecAddress, npk_m_hash: Field) -> Self {
         let randomness = unsafe_rand();
-        AddressNote { address, owner_npk_m_h, randomness, header: NoteHeader::empty() }
+        AddressNote { address, npk_m_hash, randomness, header: NoteHeader::empty() }
     }
     // docs:end:address_note_def
 }

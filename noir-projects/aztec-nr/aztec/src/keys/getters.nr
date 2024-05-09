@@ -25,7 +25,7 @@ pub fn get_npk_m(context: &mut PrivateContext, address: AztecAddress) -> Grumpki
     get_master_key(context, address, NULLIFIER_INDEX)
 }
 
-pub fn get_npk_m_h(context: &mut PrivateContext, address: AztecAddress) -> Field {
+pub fn get_npk_m_hash(context: &mut PrivateContext, address: AztecAddress) -> Field {
     poseidon2_hash(get_master_key(context, address, NULLIFIER_INDEX).serialize())
 }
 

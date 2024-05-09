@@ -1,7 +1,7 @@
 use dep::aztec::{
     protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}, constants::GENERATOR_INDEX__NOTE_NULLIFIER},
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
-    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_nsk_app, get_public_key::get_public_key_with_npk_m_h},
+    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_nsk_app, get_public_key::get_public_key_with_npk_m_hash},
     hash::poseidon2_hash, context::PrivateContext
 };
 
@@ -13,7 +13,7 @@ struct ValueNote {
     value: Field,
     // The nullifying public key hash of the person who owns the note. 
     // This is used with the app_nullifier_secret_key to ensure that the note can be privately spent.
-    owner_npk_m_h: Field,
+    owner_npk_m_hash: Field,
     randomness: Field,
 }
 // docs:end:value-note-def
@@ -23,7 +23,7 @@ impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
 
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_nsk_app(self.owner_npk_m_h);
+        let secret = context.request_nsk_app(self.owner_npk_m_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -35,7 +35,7 @@ impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nsk_app(self.owner_npk_m_h);
+        let secret = get_nsk_app(self.owner_npk_m_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -46,7 +46,7 @@ impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
         // TODO (#5901): This will be refactored completely when we update the encryped log format
-        let encryption_pub_key = get_public_key_with_npk_m_h(self.owner_npk_m_h);
+        let encryption_pub_key = get_public_key_with_npk_m_hash(self.owner_npk_m_hash);
         context.emit_encrypted_log(
             (*context).this_address(),
             slot,
@@ -58,10 +58,10 @@ impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
 }
 
 impl ValueNote {
-    pub fn new(value: Field, owner_npk_m_h: Field) -> Self {
+    pub fn new(value: Field, owner_npk_m_hash: Field) -> Self {
         let randomness = unsafe_rand();
         let header = NoteHeader::empty();
-        ValueNote { value, owner_npk_m_h, randomness, header }
+        ValueNote { value, owner_npk_m_hash, randomness, header }
     }
 }
 
@@ -69,6 +69,6 @@ impl Serialize<7> for ValueNote {
     fn serialize(self) -> [Field; 7] {
         let header = self.header.serialize();
 
-        [self.value, self.owner_npk_m_h.to_field(), self.randomness, header[0], header[1], header[2], header[3]]
+        [self.value, self.owner_npk_m_hash.to_field(), self.randomness, header[0], header[1], header[2], header[3]]
     }
 }

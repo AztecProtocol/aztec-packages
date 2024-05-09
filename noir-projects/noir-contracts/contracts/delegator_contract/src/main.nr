@@ -4,7 +4,7 @@ contract Delegator {
         AztecAddress, FunctionSelector, NoteHeader, NoteViewerOptions, NoteGetterOptions, PublicMutable,
         PrivateSet, Deserialize
     };
-    use dep::aztec::keys::getters::get_npk_m_h;
+    use dep::aztec::keys::getters::get_npk_m_hash;
     use dep::value_note::value_note::ValueNote;
     use dep::delegated_on::DelegatedOn;
 
@@ -36,12 +36,12 @@ contract Delegator {
 
     #[aztec(private)]
     fn view_private_value(amount: Field, owner: AztecAddress) -> Field {
-        let owner_npk_m_h = get_npk_m_h(&mut context, owner);
+        let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
 
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, amount, Option::none()).select(
-            ValueNote::properties().owner_npk_m_h,
-            owner_npk_m_h,
+            ValueNote::properties().owner_npk_m_hash,
+            owner_npk_m_hash,
             Option::none()
         ).set_limit(1);
         let notes = storage.a_private_value.get_notes(options);

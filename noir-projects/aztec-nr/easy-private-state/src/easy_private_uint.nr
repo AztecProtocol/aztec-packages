@@ -1,6 +1,6 @@
 use dep::aztec::{
     protocol_types::address::AztecAddress, context::Context,
-    note::note_getter_options::NoteGetterOptions, state_vars::PrivateSet, keys::getters::get_npk_m_h
+    note::note_getter_options::NoteGetterOptions, state_vars::PrivateSet, keys::getters::get_npk_m_hash
 };
 use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
 
@@ -22,10 +22,10 @@ impl EasyPrivateUint {
     pub fn add(self, addend: u64, owner: AztecAddress) {
         assert(self.context.public.is_none(), "EasyPrivateUint::add can be called from private only.");
 
-        let owner_npk_m_h = get_npk_m_h(self.context.private.unwrap(), owner);
+        let owner_npk_m_hash = get_npk_m_hash(self.context.private.unwrap(), owner);
 
         // Creates new note for the owner.
-        let mut addend_note = ValueNote::new(addend as Field, owner_npk_m_h);
+        let mut addend_note = ValueNote::new(addend as Field, owner_npk_m_hash);
 
         // Insert the new note to the owner's set of notes.
         // docs:start:insert
@@ -37,7 +37,7 @@ impl EasyPrivateUint {
     pub fn sub(self, subtrahend: u64, owner: AztecAddress) {
         assert(self.context.public.is_none(), "EasyPrivateUint::sub can be called from private only.");
 
-        let owner_npk_m_h = get_npk_m_h(self.context.private.unwrap(), owner);
+        let owner_npk_m_hash = get_npk_m_hash(self.context.private.unwrap(), owner);
 
         // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
@@ -51,7 +51,7 @@ impl EasyPrivateUint {
 
                 // Ensure the notes are actually owned by the owner (to prevent user from generating a valid proof while
                 // spending someone else's notes).
-                assert(note.owner_npk_m_h.eq(owner_npk_m_h));
+                assert(note.owner_npk_m_hash.eq(owner_npk_m_hash));
 
                 // Removes the note from the owner's set of notes.
                 // docs:start:remove
@@ -66,7 +66,7 @@ impl EasyPrivateUint {
 
         // Creates change note for the owner.
         let result_value = minuend - subtrahend;
-        let mut result_note = ValueNote::new(result_value as Field, owner_npk_m_h);
+        let mut result_note = ValueNote::new(result_value as Field, owner_npk_m_hash);
         self.set.insert(&mut result_note, result_value != 0);
     }
 }

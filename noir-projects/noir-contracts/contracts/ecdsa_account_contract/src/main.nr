@@ -8,7 +8,7 @@ contract EcdsaAccount {
     use dep::aztec::protocol_types::abis::call_context::CallContext;
     use dep::std;
 
-    use dep::aztec::{context::{PublicContext, Context}, oracle::get_public_key::get_public_key, keys::getters::get_npk_m_h};
+    use dep::aztec::{context::{PublicContext, Context}, oracle::get_public_key::get_public_key, keys::getters::get_npk_m_hash};
     use dep::authwit::{
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
         auth_witness::get_auth_witness
@@ -28,8 +28,8 @@ contract EcdsaAccount {
     #[aztec(initializer)]
     fn constructor(signing_pub_key_x: pub [u8; 32], signing_pub_key_y: pub [u8; 32]) {
         let this = context.this_address();
-        let this_npk_m_h = get_npk_m_h(&mut context, this);
-        let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_npk_m_h);
+        let this_npk_m_hash = get_npk_m_hash(&mut context, this);
+        let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_npk_m_hash);
         storage.public_key.initialize(&mut pub_key_note, true);
     }
 

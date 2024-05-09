@@ -23,7 +23,7 @@ contract Test {
     use dep::aztec::state_vars::{shared_mutable::SharedMutablePrivateGetter, map::derive_storage_slot_in_map};
 
     use dep::aztec::{
-        keys::getters::{get_npk_m, get_npk_m_h},
+        keys::getters::{get_npk_m, get_npk_m_hash},
         context::{Context, inputs::private_context_inputs::PrivateContextInputs},
         hash::{pedersen_hash, poseidon2_hash, compute_secret_hash, ArgsHasher},
         note::{
@@ -84,8 +84,8 @@ contract Test {
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
         );
 
-        let owner_npk_m_h = get_npk_m_h(&mut context, owner);
-        let mut note = ValueNote::new(value, owner_npk_m_h);
+        let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
+        let mut note = ValueNote::new(value, owner_npk_m_hash);
         create_note(&mut context, storage_slot, &mut note, true);
     }
 
@@ -254,8 +254,8 @@ contract Test {
         Test::at(context.this_address()).call_create_note(value, owner, storage_slot).call(&mut context);
         storage_slot += 1;
 
-        let owner_npk_m_h = get_npk_m_h(&mut context, owner);
-        let mut note = ValueNote::new(value + 1, owner_npk_m_h);
+        let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
+        let mut note = ValueNote::new(value + 1, owner_npk_m_hash);
         create_note(&mut context, storage_slot, &mut note, true);
         storage_slot += 1;
         Test::at(context.this_address()).call_create_note(value + 2, owner, storage_slot).call(&mut context);

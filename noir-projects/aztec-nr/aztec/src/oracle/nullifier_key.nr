@@ -1,6 +1,6 @@
 use dep::protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint, grumpkin_private_key::GrumpkinPrivateKey};
 
-// Nullifier keys pertaining to a specific npk_m_h
+// Nullifier keys pertaining to a specific npk_m_hash
 struct NullifierKeys {
     master_nullifier_public_key: GrumpkinPoint,
     app_nullifier_secret_key: Field,
