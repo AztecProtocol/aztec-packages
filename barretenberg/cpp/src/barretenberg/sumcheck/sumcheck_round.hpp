@@ -20,7 +20,7 @@ implementation consists of the following sub-methods:
  - \ref bb::SumcheckProverRound::accumulate_relation_univariates "Accumulate per-relation contributions" of the extended
 polynomials to \f$ T^i(X_i)\f$
  - \ref bb::SumcheckProverRound::extend_and_batch_univariates "Extend and batch the subrelation contibutions"
- multiplying by the constants \f$c_i\f$ and the evaluations of \f$ ( (1−X_i) + X_i\cdot \zeta_i ) \f$.
+ multiplying by the constants \f$c_i\f$ and the evaluations of \f$ ( (1−X_i) + X_i\cdot \beta_i ) \f$.
 
  Note: This class uses recursive function calls with template parameters. This is a common trick that is used to force
  the compiler to unroll loops. The idea is that a function that is only called once will always be inlined, and since

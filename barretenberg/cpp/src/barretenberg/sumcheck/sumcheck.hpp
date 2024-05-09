@@ -7,20 +7,21 @@
 
 namespace bb {
 
-/*! \brief The implementation of the sum-check Prover for the statements of the form \f$\sum_{\vec \ell \in \{0,1\}^d}
-pow_{\beta}(\vec \ell) \cdot F \left(P_1(\vec \ell),\ldots, P_N(\vec \ell) \right)  = 0 \f$ for multi-linear polynomials
+/*! \brief The implementation of the sumcheck Prover for statements of the form \f$\sum_{\vec \ell \in \{0,1\}^d}
+pow_{\beta}(\vec \ell) \cdot F \left(P_1(\vec \ell),\ldots, P_N(\vec \ell) \right)  = 0 \f$ for multilinear polynomials
 \f$P_1, \ldots, P_N \f$.
 
    \details
  ## Notation and Setup
 
  ### Obtaining Prover/Honk Polynomials
- The Sumcheck is applied to a \p Flavor that in its turn specifies the information about the multi-variate polynomials
-\f$P_1, \ldots, P_N\f$. Namely, \ref prove "prove method" obtains \p full_polynomials by reference from \p Flavor 's
-\ref ProverPolynomials "prover polynomials". In particular, their number \f$N\f$ is specified by the \p Flavor.
+ The Sumcheck is applied to  multi-variate polynomials
+\f$P_1, \ldots, P_N\f$ that are specidied by \p Flavor. Namely, \ref prove "prove method" obtains \p full_polynomials by
+reference from \p Flavor 's \ref ProverPolynomials "prover polynomials". In particular, their number \f$N\f$ is
+specified by the \p Flavor.
 
  ### Sumcheck Relation
- Given multi-linear polynomials \f$ P_1,\ldots, P_N \in \mathbb{F}[X_0,\ldots, X_{d-1}] \f$ and a relation \f$ F \f$
+ Given multilinear polynomials \f$ P_1,\ldots, P_N \in \mathbb{F}[X_0,\ldots, X_{d-1}] \f$ and a relation \f$ F \f$
 which is a polynomial in \f$ N \f$ variables, we use Sumcheck over the polynomial
  * \f{align}{
     \tilde{F}
@@ -35,7 +36,7 @@ bb::SumcheckProverRound "Sumcheck Round Prover".
 
  ## Input and Parameters
  The following constants are used:
- - \f$ d \f$ \ref multivariate_d "the number of variables"
+ - \f$ d \f$ \ref multivariate_d "the number of variables" in the multilinear polynomials
  - \f$ n \f$ \ref multivariate_n "the size of the hypercube", i.e. \f$ 2^d\f$.
  - \f$ D = \f$  \ref bb::SumcheckProverRound< Flavor >::BATCHED_RELATION_PARTIAL_LENGTH "the maximum partial degree of"
 \f$\tilde{F}\f$.
@@ -92,7 +93,7 @@ is computed as follows. First, we introduce notation
  As explained in \ref bb::PowPolynomial "PowPolynomial",
  \f{align}{
     \tilde{S}^{i}(X_i) =  \sum_{ \ell = 0} ^{2^{d-i-1}-1}   pow^i_\beta ( X_i, \ell_{i+1}, \ldots, \ell_{d-1} ) \cdot
-S^i_{\ell}( X_i ) = c_i\cdot ( (1−X_i) + X_i\cdot \zeta_i ) \cdot \sum_{\ell = 0}^{2^{d-i-1}-1} \beta_{i+1}^{\ell_{i+1}}
+S^i_{\ell}( X_i ) = c_i\cdot ( (1−X_i) + X_i\cdot \beta_i ) \cdot \sum_{\ell = 0}^{2^{d-i-1}-1} \beta_{i+1}^{\ell_{i+1}}
 \cdot \ldots \cdot \beta_{d-1}^{\ell_{d-1}} \cdot S^{i}_{\ell}( X_i ). \f}
  *
 ### Computing Round Univariates
@@ -105,7 +106,7 @@ polynomials \f$ P_j(u_0,\ldots, u_{i-1}, X_i, \vec \ell) \f$ to the domain \f$0,
  - \ref bb::SumcheckProverRound::accumulate_relation_univariates "Accumulate per-relation contributions" of the extended
 polynomials to \f$ T^i(X_i)\f$
  - \ref bb::SumcheckProverRound::extend_and_batch_univariates "Extend and batch the subrelation contibutions"
-multiplying by the constants \f$c_i\f$ and the evaluations of \f$ ( (1−X_i) + X_i\cdot \zeta_i ) \f$.
+multiplying by the constants \f$c_i\f$ and the evaluations of \f$ ( (1−X_i) + X_i\cdot \beta_i ) \f$.
 ## Transcript Operations
 After computing Round univariates and adding them to the transcript, the prover generates round challenge by hashing the
 transcript. These operations are taken care of by \ref bb::BaseTranscript "Transcript Class" methods.
@@ -283,8 +284,8 @@ template <typename Flavor> class SumcheckProver {
         });
     };
 };
-/*! \brief Implementation of the sum-check Verifier for the statements of the form \f$\sum_{\vec \ell \in \{0,1\}^d}
- pow_{\beta}(\vec \ell) \cdot F \left(P_1(\vec \ell),\ldots, P_N(\vec \ell) \right)  = 0 \f$ for multi-linear
+/*! \brief Implementation of the sumcheck Verifier for statements of the form \f$\sum_{\vec \ell \in \{0,1\}^d}
+ pow_{\beta}(\vec \ell) \cdot F \left(P_1(\vec \ell),\ldots, P_N(\vec \ell) \right)  = 0 \f$ for multilinear
  polynomials \f$P_1, \ldots, P_N \f$.
  *
   \class SumcheckVerifier

@@ -133,22 +133,23 @@ defined by the formula
  *where \f$(\ell_0,\ldots, \ell_{d-1})\f$ is the binary representation of \f$\ell \f$.
  *
  *
-  ## Pow-contributions to Round Univariates in Sumcheck
+  ## Pow-contributions to Round Univariates in Sumcheck {#PowContributions}
  * For a fixed \f$ \vec \beta \in \mathbb{F}^d\f$, the map \f$ \ell \mapsto pow_{\ell} (\vec \beta)\f$ defines a
-multi-linear polynomial \f{align}{ pow_{\beta} (X_0,\ldots, X_{d-1}) = \prod_{k=0}^{d-1} (1- X_k + X_k \cdot \beta_k)
+ polynomial \f{align}{ pow_{\beta} (X_0,\ldots, X_{d-1}) = \prod_{k=0}^{d-1} (1- X_k + X_k \cdot \beta_k)
  \f}
 such that \f$ pow_{\beta} (\vec \ell) = pow_{\ell} (\vec \beta) \f$ for any \f$0\leq \ell \leq 2^d-1 \f$ and any vector
 \f$(\beta_0,\ldots, \beta_{d-1})  \in \mathbb{F} ^d\f$.
 
  * Let \f$ i \f$ be the current Sumcheck round, \f$ i \in \{0, …, d-1\}\f$ and \f$ u_{0}, ..., u_{i-1} \f$ be the
-challenges computed in Rounds \f$ 0 \f$ to \f$ i-1\f$.
+challenges generated in Rounds \f$ 0 \f$ to \f$ i-1\f$.
  *
  * In Round \f$ i \f$, we iterate over the points \f$ (\ell_{i+1}, \ldots, \ell_{d-1}) \in
-\{0,1\}^{d-1-i}\f$. Define the edge univariate for the \f$ pow_\beta \f$ polynomial as \f$ pow^{i}_{\beta} (X_i, \vec
-\ell )\f$ and it can be represented as:
- *   \f{align}{  pow_{\beta}^i =   pow_{\beta} ( u_{0}, ..., u_{i-1}, X_i, \ell_{i+1}, \ldots, \ell_{d-1})            =
-c_i \cdot ( (1−X_i) + X_i \cdot \beta_i ) \cdot \beta_{i+1}^{\ell_{i+1}}\cdot \cdots \cdot \beta_{d-1}^{\ell_{d-1}}, \f}
- where \f$ c_i = \prod_{k=0}^{i-1} (1- u_k + u_k \cdot \beta_k) \f$.
+\{0,1\}^{d-1-i}\f$.
+Define a univariate polynomial \f$pow_{\beta}^i(X_i, \vec \ell) \f$  as follows
+ *   \f{align}{  pow_{\beta}^i(X_i, \vec \ell) =   pow_{\beta} ( u_{0}, ..., u_{i-1}, X_i, \ell_{i+1}, \ldots,
+\ell_{d-1})            = c_i \cdot ( (1−X_i) + X_i \cdot \beta_i ) \cdot \beta_{i+1}^{\ell_{i+1}}\cdot \cdots \cdot
+\beta_{d-1}^{\ell_{d-1}}, \f} where \f$ c_i = \prod_{k=0}^{i-1} (1- u_k + u_k \cdot \beta_k) \f$. It will be used below
+to simplify the computation of Sumcheck round univariates.
 
  ### Computing Sumcheck Round Univariates
  * We identify \f$ \vec \ell = (\ell_{i+1}, \ldots, \ell_{d-1}) \in \{0,1\}^{d-1 - i}\f$ with the binary representation
@@ -158,7 +159,7 @@ of the integer \f$ \ell \in \{0,\ldots, 2^{d-1-i}-1 \}\f$.
   \f{align}{S^i_{\ell}( X_i ) = F( u_{0}, ..., u_{i-1}, X_{i},  \vec \ell ), \f}
  * i.e. \f$ S^{i}_{\ell}( X_i ) \f$  is the univariate of the full relation \f$ F \f$ defined by its partial evaluation
 at \f$(u_0,\ldots,u_{i-1},  \ell_{i+1},\ldots, \ell_{d-1}) \f$
- * which  is an alpha-linear-combination of the sub-relations evaluated at this point.
+ * which  is an alpha-linear-combination of the subrelations evaluated at this point.
  *
  * In Round \f$i\f$, the prover \ref bb::SumcheckProverRound< Flavor >::compute_univariate "computes the univariate
 polynomial" for the relation defined by \f$ \tilde{F} (X_0,\ldots, X_{d-1}) = pow_{\beta}(X_0,\ldots, X_{d-1}) \cdot
