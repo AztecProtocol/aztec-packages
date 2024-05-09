@@ -635,7 +635,7 @@ namespace avm_alu(256);
     // (2) Given ib and ic are restricted to U128, at most ib * ic will produce a 256-bit number.
     // (3) We use the primality check from cmp to check that this product has not overflowed the field.
     //     The Primality check takes a field element as input and ouputs two 128-bit limbs.
-    //     i.e. it checks that the field element, represented over 256 bits, is between [0, p).
+    //     i.e. it checks that the field element, represented with two 128-bit limbs lies in [0, p).
     //      (a) Given x, PC(x) -> [x_lo, x_hi], where x_lo < 2**128 && x_hi < 2**128 && x == x_lo + x_hi * 2**128
     //      (b) Additionally produces a witness that the x < (p - 1)
     //          p_sub_x_lo = p_lo - x_lo + borrow * 2**128  < 2**128
