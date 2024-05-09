@@ -15,8 +15,9 @@ MAX_ATTEMPTS=3
 ATTEMPT_COUNT=0
 
 # earthly settings
-export EARTHLY_ALLOW_PRIVILEGED=1
+export EARTHLY_ALLOW_PRIVILEGED=true
 export EARTHLY_USE_INLINE_CACHE=true
+export EARTHLY_NO_BUILDKIT_UPDATE=true
 # TODO(AD) to be investigated
 #if [ "$GITHUB_REF_NAME" == "master" ]; then
 #  export EARTHLY_SAVE_INLINE_CACHE=true
