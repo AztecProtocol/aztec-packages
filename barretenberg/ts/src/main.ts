@@ -21,8 +21,8 @@ const MAX_CIRCUIT_SIZE = 2 ** 19;
 const threads = +process.env.HARDWARE_CONCURRENCY! || undefined;
 
 function getBytecode(bytecodePath: string) {
-  const encodedCircuit = readFileSync(bytecodePath);
-  const decompressed = gunzipSync(encodedCircuit);
+  const encodedCircuit = JSON.parse(readFileSync(bytecodePath));
+  const decompressed = gunzipSync(Buffer.from(encodedCircuit.bytecode, "base64"));
   return decompressed;
 }
 
