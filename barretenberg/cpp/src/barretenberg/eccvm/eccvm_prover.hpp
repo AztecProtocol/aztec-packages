@@ -21,11 +21,11 @@ class ECCVMProver {
     using Polynomial = typename Flavor::Polynomial;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Transcript = typename Flavor::Transcript;
-    using TranslationEvaluations = bb::TranslationEvaluations;
     using ZeroMorph = ZeroMorphProver_<PCS>;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
 
   public:
+    using TranslationEvaluations = bb::TranslationEvaluations_<FF>;
     explicit ECCVMProver(CircuitBuilder& builder,
                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 

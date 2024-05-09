@@ -97,7 +97,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     // define the container for storing the univariate contribution from each relation in Sumcheck
-    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
+    using SumcheckTupleOfTuplesOfUnivariates =
+        decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>()); // WORKTODO: hm?
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
   private:

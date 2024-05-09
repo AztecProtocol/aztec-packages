@@ -73,151 +73,11 @@ bool GoblinTranslatorVerifier::verify_proof(const HonkProof& proof)
         return false;
     }
 
-    // Get all the values of wires
-    const auto receive_commitment = [&](const std::string& label) {
-        return transcript->template receive_from_prover<Commitment>(label);
-    };
-
-    commitments.op = receive_commitment(commitment_labels.op);
-    commitments.x_lo_y_hi = receive_commitment(commitment_labels.x_lo_y_hi);
-    commitments.x_hi_z_1 = receive_commitment(commitment_labels.x_hi_z_1);
-    commitments.y_lo_z_2 = receive_commitment(commitment_labels.y_lo_z_2);
-    commitments.p_x_low_limbs = receive_commitment(commitment_labels.p_x_low_limbs);
-    commitments.p_x_low_limbs_range_constraint_0 =
-        receive_commitment(commitment_labels.p_x_low_limbs_range_constraint_0);
-    commitments.p_x_low_limbs_range_constraint_1 =
-        receive_commitment(commitment_labels.p_x_low_limbs_range_constraint_1);
-    commitments.p_x_low_limbs_range_constraint_2 =
-        receive_commitment(commitment_labels.p_x_low_limbs_range_constraint_2);
-    commitments.p_x_low_limbs_range_constraint_3 =
-        receive_commitment(commitment_labels.p_x_low_limbs_range_constraint_3);
-    commitments.p_x_low_limbs_range_constraint_4 =
-        receive_commitment(commitment_labels.p_x_low_limbs_range_constraint_4);
-    commitments.p_x_low_limbs_range_constraint_tail =
-        receive_commitment(commitment_labels.p_x_low_limbs_range_constraint_tail);
-    commitments.p_x_high_limbs = receive_commitment(commitment_labels.p_x_high_limbs);
-    commitments.p_x_high_limbs_range_constraint_0 =
-        receive_commitment(commitment_labels.p_x_high_limbs_range_constraint_0);
-    commitments.p_x_high_limbs_range_constraint_1 =
-        receive_commitment(commitment_labels.p_x_high_limbs_range_constraint_1);
-    commitments.p_x_high_limbs_range_constraint_2 =
-        receive_commitment(commitment_labels.p_x_high_limbs_range_constraint_2);
-    commitments.p_x_high_limbs_range_constraint_3 =
-        receive_commitment(commitment_labels.p_x_high_limbs_range_constraint_3);
-    commitments.p_x_high_limbs_range_constraint_4 =
-        receive_commitment(commitment_labels.p_x_high_limbs_range_constraint_4);
-    commitments.p_x_high_limbs_range_constraint_tail =
-        receive_commitment(commitment_labels.p_x_high_limbs_range_constraint_tail);
-    commitments.p_y_low_limbs = receive_commitment(commitment_labels.p_y_low_limbs);
-    commitments.p_y_low_limbs_range_constraint_0 =
-        receive_commitment(commitment_labels.p_y_low_limbs_range_constraint_0);
-    commitments.p_y_low_limbs_range_constraint_1 =
-        receive_commitment(commitment_labels.p_y_low_limbs_range_constraint_1);
-    commitments.p_y_low_limbs_range_constraint_2 =
-        receive_commitment(commitment_labels.p_y_low_limbs_range_constraint_2);
-    commitments.p_y_low_limbs_range_constraint_3 =
-        receive_commitment(commitment_labels.p_y_low_limbs_range_constraint_3);
-    commitments.p_y_low_limbs_range_constraint_4 =
-        receive_commitment(commitment_labels.p_y_low_limbs_range_constraint_4);
-    commitments.p_y_low_limbs_range_constraint_tail =
-        receive_commitment(commitment_labels.p_y_low_limbs_range_constraint_tail);
-    commitments.p_y_high_limbs = receive_commitment(commitment_labels.p_y_high_limbs);
-    commitments.p_y_high_limbs_range_constraint_0 =
-        receive_commitment(commitment_labels.p_y_high_limbs_range_constraint_0);
-    commitments.p_y_high_limbs_range_constraint_1 =
-        receive_commitment(commitment_labels.p_y_high_limbs_range_constraint_1);
-    commitments.p_y_high_limbs_range_constraint_2 =
-        receive_commitment(commitment_labels.p_y_high_limbs_range_constraint_2);
-    commitments.p_y_high_limbs_range_constraint_3 =
-        receive_commitment(commitment_labels.p_y_high_limbs_range_constraint_3);
-    commitments.p_y_high_limbs_range_constraint_4 =
-        receive_commitment(commitment_labels.p_y_high_limbs_range_constraint_4);
-    commitments.p_y_high_limbs_range_constraint_tail =
-        receive_commitment(commitment_labels.p_y_high_limbs_range_constraint_tail);
-    commitments.z_low_limbs = receive_commitment(commitment_labels.z_low_limbs);
-    commitments.z_low_limbs_range_constraint_0 = receive_commitment(commitment_labels.z_low_limbs_range_constraint_0);
-    commitments.z_low_limbs_range_constraint_1 = receive_commitment(commitment_labels.z_low_limbs_range_constraint_1);
-    commitments.z_low_limbs_range_constraint_2 = receive_commitment(commitment_labels.z_low_limbs_range_constraint_2);
-    commitments.z_low_limbs_range_constraint_3 = receive_commitment(commitment_labels.z_low_limbs_range_constraint_3);
-    commitments.z_low_limbs_range_constraint_4 = receive_commitment(commitment_labels.z_low_limbs_range_constraint_4);
-    commitments.z_low_limbs_range_constraint_tail =
-        receive_commitment(commitment_labels.z_low_limbs_range_constraint_tail);
-    commitments.z_high_limbs = receive_commitment(commitment_labels.z_high_limbs);
-    commitments.z_high_limbs_range_constraint_0 = receive_commitment(commitment_labels.z_high_limbs_range_constraint_0);
-    commitments.z_high_limbs_range_constraint_1 = receive_commitment(commitment_labels.z_high_limbs_range_constraint_1);
-    commitments.z_high_limbs_range_constraint_2 = receive_commitment(commitment_labels.z_high_limbs_range_constraint_2);
-    commitments.z_high_limbs_range_constraint_3 = receive_commitment(commitment_labels.z_high_limbs_range_constraint_3);
-    commitments.z_high_limbs_range_constraint_4 = receive_commitment(commitment_labels.z_high_limbs_range_constraint_4);
-    commitments.z_high_limbs_range_constraint_tail =
-        receive_commitment(commitment_labels.z_high_limbs_range_constraint_tail);
-    commitments.accumulators_binary_limbs_0 = receive_commitment(commitment_labels.accumulators_binary_limbs_0);
-    commitments.accumulators_binary_limbs_1 = receive_commitment(commitment_labels.accumulators_binary_limbs_1);
-    commitments.accumulators_binary_limbs_2 = receive_commitment(commitment_labels.accumulators_binary_limbs_2);
-    commitments.accumulators_binary_limbs_3 = receive_commitment(commitment_labels.accumulators_binary_limbs_3);
-    commitments.accumulator_low_limbs_range_constraint_0 =
-        receive_commitment(commitment_labels.accumulator_low_limbs_range_constraint_0);
-    commitments.accumulator_low_limbs_range_constraint_1 =
-        receive_commitment(commitment_labels.accumulator_low_limbs_range_constraint_1);
-    commitments.accumulator_low_limbs_range_constraint_2 =
-        receive_commitment(commitment_labels.accumulator_low_limbs_range_constraint_2);
-    commitments.accumulator_low_limbs_range_constraint_3 =
-        receive_commitment(commitment_labels.accumulator_low_limbs_range_constraint_3);
-    commitments.accumulator_low_limbs_range_constraint_4 =
-        receive_commitment(commitment_labels.accumulator_low_limbs_range_constraint_4);
-    commitments.accumulator_low_limbs_range_constraint_tail =
-        receive_commitment(commitment_labels.accumulator_low_limbs_range_constraint_tail);
-    commitments.accumulator_high_limbs_range_constraint_0 =
-        receive_commitment(commitment_labels.accumulator_high_limbs_range_constraint_0);
-    commitments.accumulator_high_limbs_range_constraint_1 =
-        receive_commitment(commitment_labels.accumulator_high_limbs_range_constraint_1);
-    commitments.accumulator_high_limbs_range_constraint_2 =
-        receive_commitment(commitment_labels.accumulator_high_limbs_range_constraint_2);
-    commitments.accumulator_high_limbs_range_constraint_3 =
-        receive_commitment(commitment_labels.accumulator_high_limbs_range_constraint_3);
-    commitments.accumulator_high_limbs_range_constraint_4 =
-        receive_commitment(commitment_labels.accumulator_high_limbs_range_constraint_4);
-    commitments.accumulator_high_limbs_range_constraint_tail =
-        receive_commitment(commitment_labels.accumulator_high_limbs_range_constraint_tail);
-    commitments.quotient_low_binary_limbs = receive_commitment(commitment_labels.quotient_low_binary_limbs);
-    commitments.quotient_high_binary_limbs = receive_commitment(commitment_labels.quotient_high_binary_limbs);
-    commitments.quotient_low_limbs_range_constraint_0 =
-        receive_commitment(commitment_labels.quotient_low_limbs_range_constraint_0);
-    commitments.quotient_low_limbs_range_constraint_1 =
-        receive_commitment(commitment_labels.quotient_low_limbs_range_constraint_1);
-    commitments.quotient_low_limbs_range_constraint_2 =
-        receive_commitment(commitment_labels.quotient_low_limbs_range_constraint_2);
-    commitments.quotient_low_limbs_range_constraint_3 =
-        receive_commitment(commitment_labels.quotient_low_limbs_range_constraint_3);
-    commitments.quotient_low_limbs_range_constraint_4 =
-        receive_commitment(commitment_labels.quotient_low_limbs_range_constraint_4);
-    commitments.quotient_low_limbs_range_constraint_tail =
-        receive_commitment(commitment_labels.quotient_low_limbs_range_constraint_tail);
-    commitments.quotient_high_limbs_range_constraint_0 =
-        receive_commitment(commitment_labels.quotient_high_limbs_range_constraint_0);
-    commitments.quotient_high_limbs_range_constraint_1 =
-        receive_commitment(commitment_labels.quotient_high_limbs_range_constraint_1);
-    commitments.quotient_high_limbs_range_constraint_2 =
-        receive_commitment(commitment_labels.quotient_high_limbs_range_constraint_2);
-    commitments.quotient_high_limbs_range_constraint_3 =
-        receive_commitment(commitment_labels.quotient_high_limbs_range_constraint_3);
-    commitments.quotient_high_limbs_range_constraint_4 =
-        receive_commitment(commitment_labels.quotient_high_limbs_range_constraint_4);
-    commitments.quotient_high_limbs_range_constraint_tail =
-        receive_commitment(commitment_labels.quotient_high_limbs_range_constraint_tail);
-    commitments.relation_wide_limbs = receive_commitment(commitment_labels.relation_wide_limbs);
-    commitments.relation_wide_limbs_range_constraint_0 =
-        receive_commitment(commitment_labels.relation_wide_limbs_range_constraint_0);
-    commitments.relation_wide_limbs_range_constraint_1 =
-        receive_commitment(commitment_labels.relation_wide_limbs_range_constraint_1);
-    commitments.relation_wide_limbs_range_constraint_2 =
-        receive_commitment(commitment_labels.relation_wide_limbs_range_constraint_2);
-    commitments.relation_wide_limbs_range_constraint_3 =
-        receive_commitment(commitment_labels.relation_wide_limbs_range_constraint_3);
-    commitments.ordered_range_constraints_0 = receive_commitment(commitment_labels.ordered_range_constraints_0);
-    commitments.ordered_range_constraints_1 = receive_commitment(commitment_labels.ordered_range_constraints_1);
-    commitments.ordered_range_constraints_2 = receive_commitment(commitment_labels.ordered_range_constraints_2);
-    commitments.ordered_range_constraints_3 = receive_commitment(commitment_labels.ordered_range_constraints_3);
-    commitments.ordered_range_constraints_4 = receive_commitment(commitment_labels.ordered_range_constraints_4);
+    // Get commitments to wires and the ordered range constraints that do not require additional challenges
+    for (auto [comm, label] : zip_view(commitments.get_wires_and_ordered_range_constraints(),
+                                       commitment_labels.get_wires_and_ordered_range_constraints())) {
+        comm = transcript->template receive_from_prover<Commitment>(label);
+    }
 
     // Get permutation challenges
     FF gamma = transcript->template get_challenge<FF>("gamma");
@@ -228,7 +88,7 @@ bool GoblinTranslatorVerifier::verify_proof(const HonkProof& proof)
     relation_parameters.lookup_grand_product_delta = 0;
 
     // Get commitment to permutation and lookup grand products
-    commitments.z_perm = receive_commitment(commitment_labels.z_perm);
+    commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);

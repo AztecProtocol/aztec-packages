@@ -32,6 +32,7 @@ class Goblin {
     using ECCVMFlavor = bb::ECCVMFlavor;
     using ECCVMBuilder = bb::ECCVMCircuitBuilder;
     using ECCVMProver = bb::ECCVMProver;
+    using TranslationEvaluations = ECCVMProver::TranslationEvaluations;
     using TranslatorBuilder = bb::GoblinTranslatorCircuitBuilder;
     using TranslatorProver = bb::GoblinTranslatorProver;
     using RecursiveMergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;

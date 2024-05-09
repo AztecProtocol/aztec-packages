@@ -108,7 +108,6 @@ class GoblinTranslatorFlavor {
         typename GoblinTranslatorNonNativeFieldRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations>;
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
-  private:
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
@@ -552,6 +551,8 @@ class GoblinTranslatorFlavor {
                               ordered_range_constraints_4_shift,                  // column 84
                               z_perm_shift)                                       // column 85
     };
+    // TODO refine this
+  public:
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
      * sumcheck) in this Honk variant along with particular subsets of interest
@@ -692,6 +693,11 @@ class GoblinTranslatorFlavor {
         }
         // get_to_be_shifted is inherited
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+
+        auto get_wires_and_ordered_range_constraints()
+        {
+            return WitnessEntities<DataType>::get_wires_and_ordered_range_constraints();
+        };
 
         /**
          * @brief Polynomials/commitments, that can be constructed only after the r challenge has been received from
@@ -845,13 +851,10 @@ class GoblinTranslatorFlavor {
      */
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        std::vector<FF> public_inputs;
-
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)
         {}
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
-            : public_inputs(proving_key->public_inputs)
         {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
             this->circuit_size = proving_key->circuit_size;
@@ -1010,9 +1013,10 @@ class GoblinTranslatorFlavor {
         };
     };
 
-    class VerifierCommitments : public AllEntities<Commitment> {
+    template <typename Commitment, typename VerificationKey>
+    class VerifierCommitments_ : public AllEntities<Commitment> {
       public:
-        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key)
+        VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key)
         {
             this->lagrange_first = verification_key->lagrange_first;
             this->lagrange_last = verification_key->lagrange_last;
@@ -1024,6 +1028,7 @@ class GoblinTranslatorFlavor {
                 verification_key->ordered_extra_range_constraints_numerator;
         }
     };
+    using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 
     using Transcript = NativeTranscript;
 };
