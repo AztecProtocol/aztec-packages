@@ -190,11 +190,6 @@ async function startWithGithubRunners(config: ActionConfig) {
     instanceId = spotStatus;
   } else {
     instanceId = await requestAndWaitForSpot(config);
-    if (instanceId) await ec2Client.waitForInstanceRunningStatus(instanceId);
-    else {
-      core.error("Failed to get ID of running instance");
-      throw Error("Failed to get ID of running instance");
-    }
     if (instanceId) await ghClient.pollForRunnerCreation([config.githubJobId]);
     else {
       core.error("Instance failed to register with Github Actions");
