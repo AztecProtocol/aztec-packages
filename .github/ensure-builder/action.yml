@@ -87,5 +87,5 @@ runs:
             chmod +x ~/maybe_exit_spot.sh
             echo "* * * * * ~/maybe_exit_spot.sh" | crontab -
           else
-            echo "Docker daemon already configured."
+            echo "Docker daemon already configured."A
           fi
