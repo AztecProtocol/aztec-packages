@@ -119,6 +119,8 @@ class ECCVMCircuitBuilder {
         size_t op_idx = 0;
         // populate opqueue and mul indices
         for (const auto& op : raw_ops) {
+            info("op index: ", op_idx);
+            op.print();
             if (op.mul) {
                 if (op.z1 != 0 || op.z2 != 0) {
                     msm_opqueue_index.push_back(op_idx);
@@ -148,38 +150,36 @@ class ECCVMCircuitBuilder {
             msm.resize(msm_sizes[i]);
         }
 
-        run_loop_in_parallel(msm_opqueue_index.size(), [&](size_t start, size_t end) {
-            for (size_t i = start; i < end; i++) {
-                const auto& op = raw_ops[msm_opqueue_index[i]];
-                auto [msm_index, mul_index] = msm_mul_index[i];
-                if (op.z1 != 0) {
-                    ASSERT(result.size() > msm_index);
-                    ASSERT(result[msm_index].size() > mul_index);
-                    result[msm_index][mul_index] = (ScalarMul{
-                        .pc = 0,
-                        .scalar = op.z1,
-                        .base_point = op.base_point,
-                        .wnaf_digits = compute_wnaf_digits(op.z1),
-                        .wnaf_skew = (op.z1 & 1) == 0,
-                        .precomputed_table = compute_precomputed_table(op.base_point),
-                    });
-                    mul_index++;
-                }
-                if (op.z2 != 0) {
-                    ASSERT(result.size() > msm_index);
-                    ASSERT(result[msm_index].size() > mul_index);
-                    auto endo_point = AffineElement{ op.base_point.x * FF::cube_root_of_unity(), -op.base_point.y };
-                    result[msm_index][mul_index] = (ScalarMul{
-                        .pc = 0,
-                        .scalar = op.z2,
-                        .base_point = endo_point,
-                        .wnaf_digits = compute_wnaf_digits(op.z2),
-                        .wnaf_skew = (op.z2 & 1) == 0,
-                        .precomputed_table = compute_precomputed_table(endo_point),
-                    });
-                }
+        for (size_t i = 0; i < msm_opqueue_index.size(); i++) {
+            const auto& op = raw_ops[msm_opqueue_index[i]];
+            auto [msm_index, mul_index] = msm_mul_index[i];
+            if (op.z1 != 0) {
+                ASSERT(result.size() > msm_index);
+                ASSERT(result[msm_index].size() > mul_index);
+                result[msm_index][mul_index] = (ScalarMul{
+                    .pc = 0,
+                    .scalar = op.z1,
+                    .base_point = op.base_point,
+                    .wnaf_digits = compute_wnaf_digits(op.z1),
+                    .wnaf_skew = (op.z1 & 1) == 0,
+                    .precomputed_table = compute_precomputed_table(op.base_point),
+                });
+                mul_index++;
             }
-        });
+            if (op.z2 != 0) {
+                ASSERT(result.size() > msm_index);
+                ASSERT(result[msm_index].size() > mul_index);
+                auto endo_point = AffineElement{ op.base_point.x * FF::cube_root_of_unity(), -op.base_point.y };
+                result[msm_index][mul_index] = (ScalarMul{
+                    .pc = 0,
+                    .scalar = op.z2,
+                    .base_point = endo_point,
+                    .wnaf_digits = compute_wnaf_digits(op.z2),
+                    .wnaf_skew = (op.z2 & 1) == 0,
+                    .precomputed_table = compute_precomputed_table(endo_point),
+                });
+            }
+        };
 
         // update pc. easier to do this serially but in theory could be optimised out
         // We start pc at `num_muls` and decrement for each mul processed.
@@ -190,6 +190,7 @@ class ECCVMCircuitBuilder {
         // sumcheck relations that involve pc (if we did the other way around, starting at 1 and ending at num_muls,
         // we create a discontinuity in pc values between the last transcript row and the following empty row)
         uint32_t pc = num_muls;
+        // index of bad sm is [38], [0]
         for (auto& msm : result) {
             for (auto& mul : msm) {
                 mul.pc = pc;

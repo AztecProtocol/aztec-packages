@@ -33,6 +33,17 @@ template <typename CycleGroup> struct VMOperation {
         return res;
     }
     bool operator==(const VMOperation<CycleGroup>& other) const = default;
+    void print() const
+    {
+        info("add            : ", add);
+        info("mul            : ", mul);
+        info("eq             : ", eq);
+        info("reset          : ", reset);
+        info("base_point     : ", base_point);
+        info("z1             : ", z1);
+        info("z2             : ", z2);
+        info("mul_scalar_full: ", mul_scalar_full);
+    }
 };
 template <typename CycleGroup> struct ScalarMul {
     uint32_t pc;

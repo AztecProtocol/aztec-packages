@@ -23,7 +23,6 @@
     RelationImpl<Flavor::FF>::MethodName<bb::Relation<RelationImpl<Flavor::FF>>::AccumulatorType, EdgeType(Flavor)>(   \
         EdgeType(Flavor) const&, RelationParameters<Flavor::FF> const&);
 
-#define SUMCHECK_RELATION_CLASS(...) _SUMCHECK_RELATION_CLASS(__VA_ARGS__)
 #define DEFINE_SUMCHECK_RELATION_CLASS(RelationImpl, Flavor)                                                           \
     ACCUMULATE(RelationImpl, Flavor, SumcheckTupleOfUnivariatesOverSubrelations, ExtendedEdge)                         \
     ACCUMULATE(RelationImpl, Flavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge)                            \

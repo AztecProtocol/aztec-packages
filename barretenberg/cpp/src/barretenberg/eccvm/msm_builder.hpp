@@ -36,6 +36,14 @@ class ECCVMMSMMBuilder {
             AffineElement point{ 0, 0 };
             FF lambda = 0;
             FF collision_inverse = 0;
+            void print() const
+            {
+                info("  add               :", add);
+                info("  slice             :", slice);
+                info("  point             :", point);
+                info("  lambda            :", lambda);
+                info("  collision_inverse :", collision_inverse);
+            }
         };
         std::array<AddState, 4> add_state{ AddState{ false, 0, { 0, 0 }, 0, 0 },
                                            AddState{ false, 0, { 0, 0 }, 0, 0 },
@@ -43,6 +51,23 @@ class ECCVMMSMMBuilder {
                                            AddState{ false, 0, { 0, 0 }, 0, 0 } };
         FF accumulator_x = 0;
         FF accumulator_y = 0;
+
+        void print() const
+        {
+            info("pc             : ", pc);
+            info("msm_size       : ", msm_size);
+            info("msm_count      : ", msm_count);
+            info("msm_round      : ", msm_round);
+            info("msm_transition : ", msm_transition);
+            info("q_add          : ", q_add);
+            info("q_double       : ", q_double);
+            info("q_skew         : ", q_skew);
+            for (const auto& state : add_state) {
+                state.print();
+            }
+            info("accumulator_x  : ", accumulator_x);
+            info("accumulator_y  : ", accumulator_y);
+        };
     };
 
     /**
@@ -468,6 +493,9 @@ class ECCVMMSMMBuilder {
                                 typename MSMRow::AddState{ false, 0, AffineElement{ 0, 0 }, 0, 0 },
                                 typename MSMRow::AddState{ false, 0, AffineElement{ 0, 0 }, 0, 0 },
                                 typename MSMRow::AddState{ false, 0, AffineElement{ 0, 0 }, 0, 0 } };
+
+        msm_rows[2697].print();
+        info("printed the failing row");
 
         return { msm_rows, point_table_read_counts };
     }

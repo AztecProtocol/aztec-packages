@@ -82,13 +82,13 @@ class Goblin {
     // on the first call to accumulate there is no merge proof to verify
     bool merge_proof_exists{ false };
 
-  private:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/798) unique_ptr use is a hack
     std::unique_ptr<ECCVMBuilder> eccvm_builder;
     std::unique_ptr<TranslatorBuilder> translator_builder;
     std::unique_ptr<TranslatorProver> translator_prover;
     std::unique_ptr<ECCVMProver> eccvm_prover;
 
+  private:
     AccumulationOutput accumulator; // Used only for ACIR methods for now
 
   public:
@@ -191,6 +191,10 @@ class Goblin {
         goblin_proof.merge_proof = std::move(merge_proof);
         prove_eccvm();
         prove_translator();
+        info("proof exported: ");
+        for (auto& elt : goblin_proof.to_buffer()) {
+            info(elt);
+        }
         return goblin_proof;
     };
 

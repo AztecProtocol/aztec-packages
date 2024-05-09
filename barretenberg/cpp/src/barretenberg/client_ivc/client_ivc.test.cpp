@@ -1,4 +1,5 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/eccvm/eccvm_trace_checker.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/goblin_ultra_circuit_builder.hpp"
@@ -160,11 +161,12 @@ TEST_F(ClientIVCTests, Full)
 
         // Constuct four proofs: merge, eccvm, translator, decider
         auto proof = ivc.prove();
+        EXPECT_TRUE(ECCVMTraceChecker::check(*(ivc.goblin.eccvm_builder), &engine));
         auto inst = std::make_shared<VerifierInstance>(kernel_vk);
         // Verify all four proofs
         EXPECT_TRUE(ivc.verify(proof, { foo_verifier_instance, inst }));
     };
-    for (size_t idx = 192; idx < 256; idx++) {
+    for (size_t idx = 84; idx < 256; idx++) {
         numeric::get_debug_randomness(true, idx);
         info("run ", idx);
         run_test();
