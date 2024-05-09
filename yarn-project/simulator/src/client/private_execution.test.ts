@@ -228,23 +228,21 @@ describe('Private Execution test suite', () => {
       }
       throw new Error(`Unknown address ${accountAddress}`);
     });
-    oracle.getNullifierKeys.mockImplementation(
-      (masterNullifierPublicKeyHash: Fr, contractAddress: AztecAddress) => {
-        if (masterNullifierPublicKeyHash.equals(poseidon2Hash(ownerMasterNullifierPublicKey.toFields()))) {
-          return Promise.resolve({
-            masterNullifierPublicKey: ownerMasterNullifierPublicKey,
-            appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
-          });
-        }
-        if (masterNullifierPublicKeyHash.equals(poseidon2Hash(recipientMasterNullifierPublicKey.toFields()))) {
-          return Promise.resolve({
-            masterNullifierPublicKey: recipientMasterNullifierPublicKey,
-            appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
-          });
-        }
-        throw new Error(`Unknown master nullifier public key hash: ${masterNullifierPublicKeyHash}`);
-      },
-    );
+    oracle.getNullifierKeys.mockImplementation((masterNullifierPublicKeyHash: Fr, contractAddress: AztecAddress) => {
+      if (masterNullifierPublicKeyHash.equals(poseidon2Hash(ownerMasterNullifierPublicKey.toFields()))) {
+        return Promise.resolve({
+          masterNullifierPublicKey: ownerMasterNullifierPublicKey,
+          appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
+        });
+      }
+      if (masterNullifierPublicKeyHash.equals(poseidon2Hash(recipientMasterNullifierPublicKey.toFields()))) {
+        return Promise.resolve({
+          masterNullifierPublicKey: recipientMasterNullifierPublicKey,
+          appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
+        });
+      }
+      throw new Error(`Unknown master nullifier public key hash: ${masterNullifierPublicKeyHash}`);
+    });
     oracle.getHeader.mockResolvedValue(header);
 
     acirSimulator = new AcirSimulator(oracle, node);
