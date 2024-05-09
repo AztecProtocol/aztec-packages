@@ -18,14 +18,13 @@ describe('encrypt log header', () => {
     const ephPubKey = grumpkin.mul(Grumpkin.generator, ephSecretKey);
     const viewingPubKey = grumpkin.mul(Grumpkin.generator, viewingSecretKey);
 
-    const addr = AztecAddress.random();
-    const header = new EncryptedLogHeader(addr);
+    const header = new EncryptedLogHeader(AztecAddress.random());
 
     const encrypted = header.computeCiphertext(ephSecretKey, viewingPubKey);
 
     const recreated = EncryptedLogHeader.fromCiphertext(encrypted, viewingSecretKey, ephPubKey);
 
-    expect(recreated.toBuffer()).toEqual(addr.toBuffer());
+    expect(recreated.toBuffer()).toEqual(header.toBuffer());
   });
 
   it('encrypt a log header, generate input for noir test', () => {
@@ -39,8 +38,7 @@ describe('encrypt log header', () => {
 
     const viewingPubKey = grumpkin.mul(Grumpkin.generator, viewingSecretKey);
 
-    const addr = AztecAddress.fromBigInt(BigInt('0xdeadbeef'));
-    const header = new EncryptedLogHeader(addr);
+    const header = new EncryptedLogHeader(AztecAddress.fromBigInt(BigInt('0xdeadbeef')));
 
     const encrypted = header.computeCiphertext(ephSecretKey, viewingPubKey);
 

@@ -85,22 +85,40 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(isAvmBytecode(bytecode));
   });
 
-  it('U128 addition', async () => {
-    const calldata: Fr[] = [
-      // First U128
-      new Fr(1),
-      new Fr(2),
-      // Second U128
-      new Fr(3),
-      new Fr(4),
-    ];
-    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+  describe('U128 addition and overflows', () => {
+    it('U128 addition', async () => {
+      const calldata: Fr[] = [
+        // First U128
+        new Fr(1),
+        new Fr(2),
+        // Second U128
+        new Fr(3),
+        new Fr(4),
+      ];
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
-    const bytecode = getAvmTestContractBytecode('add_u128');
-    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+      const bytecode = getAvmTestContractBytecode('add_u128');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
-    expect(results.reverted).toBe(false);
-    expect(results.output).toEqual([new Fr(4), new Fr(6)]);
+      expect(results.reverted).toBe(false);
+      expect(results.output).toEqual([new Fr(4), new Fr(6)]);
+    });
+
+    it('Expect failure on U128::add() overflow', async () => {
+      const bytecode = getAvmTestContractBytecode('u128_addition_overflow');
+      const results = await new AvmSimulator(initContext()).executeBytecode(bytecode);
+      expect(results.reverted).toBe(true);
+      expect(results.revertReason?.message).toEqual('Reverted with output: attempt to add with overflow');
+    });
+
+    it('Expect failure on U128::from_integer() overflow', async () => {
+      const bytecode = getAvmTestContractBytecode('u128_from_integer_overflow');
+      const results = await new AvmSimulator(initContext()).executeBytecode(bytecode);
+      expect(results.reverted).toBe(true);
+      expect(results.revertReason?.message).toEqual(undefined);
+      // Note: compiler intrinsic messages (like below) are not known to the AVM
+      //expect(results.revertReason?.message).toEqual("Reverted with output: call to assert_max_bit_size 'self.__assert_max_bit_size(bit_size)'");
+    });
   });
 
   it('Assertion message', async () => {
@@ -111,7 +129,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(true);
-    expect(results.revertReason?.message).toEqual("Reverted with output: Nullifier doesn't exist!");
+    expect(results.revertReason?.message).toEqual("Assertion failed: Nullifier doesn't exist!");
     expect(results.output).toEqual([
       new Fr(0),
       ...[..."Nullifier doesn't exist!"].flatMap(c => new Fr(c.charCodeAt(0))),
@@ -842,7 +860,23 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(callBytecode);
 
       expect(results.reverted).toBe(true); // The outer call should revert.
-      expect(results.revertReason?.message).toMatch(/Nested static call failed/);
+      expect(results.revertReason?.message).toEqual('Static calls cannot alter storage');
+    });
+
+    it(`Nested calls rethrow exceptions`, async () => {
+      const calldata: Fr[] = [new Fr(1), new Fr(2)];
+      const callBytecode = getAvmNestedCallsTestContractBytecode('nested_call_to_add');
+      // We actually don't pass the function ADD, but it's ok because the signature is the same.
+      const nestedBytecode = getAvmNestedCallsTestContractBytecode('assert_same');
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+      jest
+        .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+        .mockReturnValue(Promise.resolve(nestedBytecode));
+
+      const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+      expect(results.reverted).toBe(true); // The outer call should revert.
+      expect(results.revertReason?.message).toEqual('Assertion failed: Values are not equal');
     });
   });
 });
