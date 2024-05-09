@@ -67,7 +67,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
       .withWallet(wallets[1])
       .methods.shield(wallets[0].getAddress(), amount, secretHash, nonce)
       .send();
-    await expect(txReplay.wait()).rejects.toThrow('Transaction ');
+    await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
 
     // Redeem it
     await t.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);

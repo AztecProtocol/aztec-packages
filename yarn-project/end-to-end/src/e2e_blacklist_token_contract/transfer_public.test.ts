@@ -66,7 +66,7 @@ describe('e2e_blacklist_token_contract transfer public', () => {
       .withWallet(wallets[1])
       .methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce)
       .send();
-    await expect(txReplay.wait()).rejects.toThrow('Transaction ');
+    await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
   });
 
   describe('failure cases', () => {
