@@ -1065,8 +1065,6 @@ Row AvmTraceBuilder::create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t s
     AvmMemoryTag r_tag = AvmMemoryTag::U0;
     mem_trace_builder.write_into_memory(clk, IntermRegister::IA, dst_offset, value, r_tag, w_tag);
 
-    // TODO: must i constrain r in tag to be the type of the write operation in pil?
-    // .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
     return Row{
         .avm_main_clk = clk,
         .avm_kernel_kernel_sel = selector,

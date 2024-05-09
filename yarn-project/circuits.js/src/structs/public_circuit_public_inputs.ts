@@ -42,7 +42,6 @@ import { SideEffect } from './side_effects.js';
 /**
  * Public inputs to a public circuit.
  */
-// UH: SideEffect and ReadRequest are the same type?
 export class PublicCircuitPublicInputs {
   constructor(
     /**
