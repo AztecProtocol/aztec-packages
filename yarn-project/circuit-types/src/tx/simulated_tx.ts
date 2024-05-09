@@ -1,49 +1,8 @@
-import { CombinedAccumulatedData, CombinedConstantData, Fr, Gas } from '@aztec/circuits.js';
-import { mapValues } from '@aztec/foundation/collection';
+import { Fr, Gas } from '@aztec/circuits.js';
 
-import { EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../logs/index.js';
-import { type SimulationError } from '../simulation_error.js';
 import { PublicKernelType } from './processed_tx.js';
+import { type ProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
-
-/** Return values of simulating a circuit. */
-export type ProcessReturnValues = Fr[] | undefined;
-
-export class ProcessOutput {
-  constructor(
-    public encryptedLogs: EncryptedTxL2Logs,
-    public unencryptedLogs: UnencryptedTxL2Logs,
-    public revertReason: SimulationError | undefined,
-    public constants: CombinedConstantData,
-    public end: CombinedAccumulatedData,
-    public publicReturnValues: ProcessReturnValues,
-    public gasUsed: Partial<Record<PublicKernelType, Gas>>,
-  ) {}
-
-  toJSON() {
-    return {
-      encryptedLogs: this.encryptedLogs.toJSON(),
-      unencryptedLogs: this.unencryptedLogs.toJSON(),
-      revertReason: this.revertReason,
-      constants: this.constants.toBuffer().toString('hex'),
-      end: this.end.toBuffer().toString('hex'),
-      publicReturnValues: this.publicReturnValues?.map(fr => fr.toString()),
-      gasUsed: mapValues(this.gasUsed, gas => gas?.toJSON()),
-    };
-  }
-
-  static fromJSON(json: any): ProcessOutput {
-    return new ProcessOutput(
-      EncryptedTxL2Logs.fromJSON(json.encryptedLogs),
-      UnencryptedTxL2Logs.fromJSON(json.unencryptedLogs),
-      json.revertReason,
-      CombinedConstantData.fromBuffer(Buffer.from(json.constants, 'hex')),
-      CombinedAccumulatedData.fromBuffer(Buffer.from(json.end, 'hex')),
-      json.publicReturnValues?.map(Fr.fromString),
-      mapValues(json.gasUsed, gas => (gas ? Gas.fromJSON(gas) : undefined)),
-    );
-  }
-}
 
 // REFACTOR: Review what we need to expose to the user when running a simulation.
 // Eg tx already has encrypted and unencrypted logs, but those cover only the ones
@@ -52,7 +11,11 @@ export class ProcessOutput {
 // the public side of things. This also points at this class needing to be split into
 // two: one with just private simulation, and one that also includes public simulation.
 export class SimulatedTx {
-  constructor(public tx: Tx, public privateReturnValues?: ProcessReturnValues, public publicOutput?: ProcessOutput) {}
+  constructor(
+    public tx: Tx,
+    public privateReturnValues?: ProcessReturnValues,
+    public publicOutput?: PublicSimulationOutput,
+  ) {}
 
   /**
    * Returns suggested total and teardown gas limits for the simulated tx.
@@ -96,7 +59,7 @@ export class SimulatedTx {
    */
   public static fromJSON(obj: any) {
     const tx = Tx.fromJSON(obj.tx);
-    const publicOutput = obj.publicOutput ? ProcessOutput.fromJSON(obj.publicOutput) : undefined;
+    const publicOutput = obj.publicOutput ? PublicSimulationOutput.fromJSON(obj.publicOutput) : undefined;
     const privateReturnValues = obj.privateReturnValues?.map(Fr.fromString);
 
     return new SimulatedTx(tx, privateReturnValues, publicOutput);

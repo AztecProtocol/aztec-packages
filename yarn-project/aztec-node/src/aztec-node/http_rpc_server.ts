@@ -5,8 +5,8 @@ import {
   L2Block,
   LogId,
   NullifierMembershipWitness,
-  ProcessOutput,
   PublicDataWitness,
+  PublicSimulationOutput,
   SiblingPath,
   Tx,
   TxEffect,
@@ -42,7 +42,14 @@ export function createAztecNodeRpcServer(node: AztecNode) {
       PublicDataWitness,
       SiblingPath,
     },
-    { ProcessOutput, Tx, TxReceipt, EncryptedL2BlockL2Logs, UnencryptedL2BlockL2Logs, NullifierMembershipWitness },
+    {
+      PublicSimulationOutput,
+      Tx,
+      TxReceipt,
+      EncryptedL2BlockL2Logs,
+      UnencryptedL2BlockL2Logs,
+      NullifierMembershipWitness,
+    },
     // disable methods not part of the AztecNode interface
     ['start', 'stop'],
   );

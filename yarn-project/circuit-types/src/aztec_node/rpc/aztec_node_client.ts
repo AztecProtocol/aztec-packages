@@ -11,7 +11,7 @@ import { L2Block } from '../../l2_block.js';
 import { EncryptedL2BlockL2Logs, ExtendedUnencryptedL2Log, LogId, UnencryptedL2BlockL2Logs } from '../../logs/index.js';
 import { PublicDataWitness } from '../../public_data_witness.js';
 import { SiblingPath } from '../../sibling_path/index.js';
-import { ProcessOutput, Tx, TxHash, TxReceipt } from '../../tx/index.js';
+import { PublicSimulationOutput, Tx, TxHash, TxReceipt } from '../../tx/index.js';
 import { TxEffect } from '../../tx_effect.js';
 
 /**
@@ -38,7 +38,14 @@ export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecN
       PublicDataWitness,
       SiblingPath,
     },
-    { ProcessOutput, Tx, TxReceipt, EncryptedL2BlockL2Logs, UnencryptedL2BlockL2Logs, NullifierMembershipWitness },
+    {
+      PublicSimulationOutput,
+      Tx,
+      TxReceipt,
+      EncryptedL2BlockL2Logs,
+      UnencryptedL2BlockL2Logs,
+      NullifierMembershipWitness,
+    },
     false,
     'node',
     fetch,
