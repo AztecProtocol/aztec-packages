@@ -23,6 +23,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { type ForeignCallInput, type ForeignCallOutput } from '@noir-lang/acvm_js';
+import { CompiledCircuit } from '@noir-lang/noir_js';
 import { type Abi, abiDecode, abiEncode } from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';
 
@@ -197,7 +198,7 @@ export async function executeInit(
 ): Promise<PrivateKernelCircuitPublicInputs> {
   const returnType = await executePrivateKernelInitWithACVM(
     mapPrivateKernelInitCircuitPrivateInputsToNoir(privateKernelInitCircuitPrivateInputs),
-    PrivateKernelInitSimulatedJson,
+    PrivateKernelInitSimulatedJson as CompiledCircuit,
     foreignCallHandler,
   );
 
@@ -214,7 +215,7 @@ export async function executeInner(
 ): Promise<PrivateKernelCircuitPublicInputs> {
   const returnType = await executePrivateKernelInnerWithACVM(
     mapPrivateKernelInnerCircuitPrivateInputsToNoir(privateKernelInnerCircuitPrivateInputs),
-    PrivateKernelInnerSimulatedJson,
+    PrivateKernelInnerSimulatedJson as CompiledCircuit,
     foreignCallHandler,
   );
 
@@ -231,7 +232,7 @@ export async function executeTail(
 ): Promise<PrivateKernelTailCircuitPublicInputs> {
   const returnType = await executePrivateKernelTailWithACVM(
     mapPrivateKernelTailCircuitPrivateInputsToNoir(privateInputs),
-    PrivateKernelTailSimulatedJson,
+    PrivateKernelTailSimulatedJson as CompiledCircuit,
     foreignCallHandler,
   );
 
@@ -248,7 +249,7 @@ export async function executeTailForPublic(
 ): Promise<PrivateKernelTailCircuitPublicInputs> {
   const returnType = await executePrivateKernelTailToPublicWithACVM(
     mapPrivateKernelTailToPublicCircuitPrivateInputsToNoir(privateInputs),
-    PrivateKernelTailToPublicSimulatedJson,
+    PrivateKernelTailToPublicSimulatedJson as CompiledCircuit,
     foreignCallHandler,
   );
 
