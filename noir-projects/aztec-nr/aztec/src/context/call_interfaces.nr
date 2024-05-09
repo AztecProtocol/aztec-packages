@@ -6,6 +6,8 @@ use crate::context::avm_context::AvmContext;
 use crate::context::gas::GasOpts;
 use crate::context::public_context::FunctionReturns;
 
+use crate::hash::hash_args;
+
 struct PrivateCallInterface<T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
@@ -181,6 +183,21 @@ impl<T> AvmCallInterface<T> {
         let returns = context.delegate_call_public_function(self.target_contract, self.selector, self.args);
         returns.deserialize_into()
     }
+
+    pub fn enqueue(self, context: &mut PrivateContext) {
+        let args_hash = hash_args(self.args);
+        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, false, false)
+    }
+
+    pub fn static_enqueue(self, context: &mut PrivateContext) {
+        let args_hash = hash_args(self.args);
+        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, true, false)
+    }
+
+    pub fn delegate_enqueue(self, context: &mut PrivateContext) {
+        let args_hash = hash_args(self.args);
+        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, false, true)
+    }
 }
 
 struct AvmVoidCallInterface {
@@ -209,5 +226,20 @@ impl AvmVoidCallInterface {
     pub fn delegate_call<N>(self, context: &mut AvmContext) {
         let returns = context.delegate_call_public_function(self.target_contract, self.selector, self.args);
         returns.assert_empty()
+    }
+
+    pub fn enqueue(self, context: &mut PrivateContext) {
+        let args_hash = hash_args(self.args);
+        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, false, false)
+    }
+
+    pub fn static_enqueue(self, context: &mut PrivateContext) {
+        let args_hash = hash_args(self.args);
+        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, true, false)
+    }
+
+    pub fn delegate_enqueue(self, context: &mut PrivateContext) {
+        let args_hash = hash_args(self.args);
+        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, false, true)
     }
 }
