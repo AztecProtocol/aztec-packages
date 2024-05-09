@@ -1,4 +1,5 @@
-/build-images/ @charlielye
+/build-system/ @charlielye
+/build_manifest.yml @charlielye
 
 # Notify the AVM team of any changes to public oracle.
 /yarn-project/simulator/src/public/public_execution_context.ts @Maddiaa0 @fcarreiro @dbanks12
