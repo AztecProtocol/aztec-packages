@@ -79,13 +79,13 @@ runs:
           if ! [ -f ~/maybe_exit_spot.sh ] ; then
             # helps to not overuse space
             docker system prune -f -a || true
-            echo "Configured docker daemon for making many networks."
             # Run maybe_exit_spot.sh every minute
             cp scripts/ci/spot_runner_graceful_exit.sh ~/spot_runner_graceful_exit.sh
             cp scripts/ci/maybe_exit_spot.sh ~/maybe_exit_spot.sh
             chmod +x ~/spot_runner_graceful_exit.sh
             chmod +x ~/maybe_exit_spot.sh
             echo "* * * * * ~/maybe_exit_spot.sh" | crontab -
+            echo "Pruned docker, configured graceful exit."
           else
             echo "Docker daemon already configured."A
           fi
