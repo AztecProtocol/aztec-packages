@@ -1,12 +1,12 @@
 use crate::{common, private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer};
 use dep::types::{
     abis::{
-    kernel_data::PrivateKernelData, private_kernel::private_call_data::PrivateCallData,
+    private_kernel_data::{PrivateKernelData, verify_previous_kernel_proof},
+    private_kernel::private_call_data::{PrivateCallData, verify_private_call},
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
     side_effect::SideEffect
 },
-    constants::MAX_NEW_NOTE_HASHES_PER_CALL, mocked::verify_previous_kernel_state,
-    utils::arrays::array_length
+    constants::MAX_NEW_NOTE_HASHES_PER_CALL, utils::arrays::array_length
 };
 
 struct PrivateKernelInnerHints {
@@ -30,6 +30,12 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         let private_call_public_inputs = self.private_call.call_stack_item.public_inputs;
         let previous_kernel_public_inputs = self.previous_kernel.public_inputs;
 
+        // verify/aggregate the private call proof
+        verify_private_call(self.private_call);
+
+        // verify/aggregate the previous kernel
+        verify_previous_kernel_proof(self.previous_kernel);
+
         common::validate_previous_kernel_values(previous_kernel_public_inputs.end);
 
         self.validate_inputs();
@@ -41,12 +47,6 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         let private_call_stack_size = array_length(private_call_stack);
         let call_request = private_call_stack[private_call_stack_size - 1];
         common::validate_call_against_request(self.private_call, call_request);
-
-        let (is_previous_state_valid, _updated_aggregation_object) = verify_previous_kernel_state(
-            previous_kernel_public_inputs.aggregation_object,
-            self.private_call.proof
-        );
-        assert(is_previous_state_valid);
 
         PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(self.previous_kernel.public_inputs).compose(
             private_call_public_inputs,
@@ -451,7 +451,7 @@ mod tests {
         builder.private_call.public_inputs.new_l2_to_l1_msgs.extend_from_array(
             [
             L2ToL1Message::empty(),
-            L2ToL1Message { recipient: EthAddress::from_field(6), content: 888 }
+            L2ToL1Message { recipient: EthAddress::from_field(6), content: 888, counter: 0 }
         ]
         );
 
@@ -504,7 +504,7 @@ mod tests {
         assert_eq(public_inputs.end.new_note_hashes[2].nullifier_counter, 20);
     }
 
-    #[test(should_fail_with="invalid nullifier counter")]
+    #[test(should_fail_with="Invalid nullifier counter")]
     fn propagate_note_hashes_with_incorrect_nullifier_counters_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
         builder.private_call.public_inputs.new_note_hashes.push(NoteHash { value: 12, counter: 3 });
@@ -571,15 +571,13 @@ mod tests {
         assert_eq(end_note_hash_read_requests[0], prev_requests.storage[0]);
         assert_eq(end_note_hash_read_requests[1], prev_requests.storage[1]);
 
-        let request_context = end_note_hash_read_requests[2];
-        assert_eq(request_context.value, cur_requests[0].value);
-        assert_eq(request_context.counter, cur_requests[0].counter);
-        assert_eq(request_context.contract_address, cur_storage_contract_address);
+        let request = end_note_hash_read_requests[2];
+        assert_eq(request.read_request, cur_requests[0]);
+        assert_eq(request.contract_address, cur_storage_contract_address);
 
-        let request_context = end_note_hash_read_requests[3];
-        assert_eq(request_context.value, cur_requests[1].value);
-        assert_eq(request_context.counter, cur_requests[1].counter);
-        assert_eq(request_context.contract_address, cur_storage_contract_address);
+        let request = end_note_hash_read_requests[3];
+        assert_eq(request.read_request, cur_requests[1]);
+        assert_eq(request.contract_address, cur_storage_contract_address);
     }
 
     #[test]

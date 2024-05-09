@@ -33,9 +33,11 @@ TEST_F(Sha256Tests, TestSha256Compression)
 
     AcirFormat constraint_system{ .varnum = 34,
                                   .recursive = false,
+                                  .num_acir_opcodes = 1,
                                   .public_inputs = {},
                                   .logic_constraints = {},
                                   .range_constraints = {},
+                                  .aes128_constraints = {},
                                   .sha256_constraints = {},
                                   .sha256_compression = { sha256_compression },
                                   .schnorr_constraints = {},
