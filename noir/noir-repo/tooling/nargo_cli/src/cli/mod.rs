@@ -12,7 +12,6 @@ mod fs;
 
 mod backend_cmd;
 mod check_cmd;
-mod codegen_verifier_cmd;
 mod compile_cmd;
 mod dap_cmd;
 mod debug_cmd;
@@ -63,7 +62,6 @@ enum NargoCommand {
     Backend(backend_cmd::BackendCommand),
     Check(check_cmd::CheckCommand),
     Fmt(fmt_cmd::FormatCommand),
-    CodegenVerifier(codegen_verifier_cmd::CodegenVerifierCommand),
     #[command(alias = "build")]
     Compile(compile_cmd::CompileCommand),
     New(new_cmd::NewCommand),
@@ -118,7 +116,6 @@ pub(crate) fn start_cli() -> eyre::Result<()> {
         NargoCommand::Verify(args) => verify_cmd::run(&backend, args, config),
         NargoCommand::Test(args) => test_cmd::run(args, config),
         NargoCommand::Info(args) => info_cmd::run(&backend, args, config),
-        NargoCommand::CodegenVerifier(args) => codegen_verifier_cmd::run(&backend, args, config),
         NargoCommand::Backend(args) => backend_cmd::run(args),
         NargoCommand::Lsp(args) => lsp_cmd::run(args, config),
         NargoCommand::Dap(args) => dap_cmd::run(args, config),

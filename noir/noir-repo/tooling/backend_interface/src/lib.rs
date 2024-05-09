@@ -6,7 +6,6 @@ use std::path::PathBuf;
 mod cli;
 mod download;
 mod proof_system;
-mod smart_contract;
 
 pub use bb_abstraction_leaks::ACVM_BACKEND_BARRETENBERG;
 use bb_abstraction_leaks::BB_VERSION;
