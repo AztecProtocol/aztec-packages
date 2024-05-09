@@ -9,7 +9,7 @@ E2E_COMPOSE_TEST:
   LOCALLY
   ENV TEST=$test
   ENV DEBUG=$debug
-  LET project_name=$(echo $test | sed 's/\./_/g' | sed 's/\//_/g'))
+  LET project_name=$(echo $test | sed 's/\./_/g' | sed 's/\//_/g')
   IF docker compose > /dev/null 2>&1
     LET CMD="docker compose"
   ELSE
