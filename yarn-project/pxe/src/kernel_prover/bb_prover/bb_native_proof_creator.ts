@@ -139,7 +139,6 @@ export async function generateProof(
 
   // The bytecode is written to e.g. /workingDirectory/BaseParityArtifact-bytecode
   const bytecodePath = `${workingDirectory}/${circuitName}-bytecode`;
-  const bytecodeBase64 = `{ "bytecode": "${bytecode.toString('base64')}" }`;
 
   // The proof is written to e.g. /workingDirectory/proof
   const outputPath = `${workingDirectory}`;
@@ -154,7 +153,7 @@ export async function generateProof(
 
   try {
     // Write the bytecode to the working directory
-    await fs.writeFile(bytecodePath, bytecodeBase64);
+    await fs.writeFile(bytecodePath, bytecode);
     const args = ['-o', outputPath, '-b', bytecodePath, '-w', inputWitnessFile, '-v'];
     const timer = new Timer();
     const logFunction = (message: string) => {

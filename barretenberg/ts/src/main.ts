@@ -21,9 +21,15 @@ const MAX_CIRCUIT_SIZE = 2 ** 19;
 const threads = +process.env.HARDWARE_CONCURRENCY! || undefined;
 
 function getBytecode(bytecodePath: string) {
-  const encodedCircuit = JSON.parse(readFileSync(bytecodePath, 'utf8'));
-  const decompressed = gunzipSync(Buffer.from(encodedCircuit.bytecode, 'base64'));
-  return decompressed;
+  try {
+    const encodedCircuit = JSON.parse(readFileSync(bytecodePath, 'utf8'));
+    const decompressed = gunzipSync(Buffer.from(encodedCircuit.bytecode, 'base64'));
+    return decompressed;
+  } catch {
+    const encodedCircuit = readFileSync(bytecodePath);
+    const decompressed = gunzipSync(encodedCircuit);
+    return decompressed;
+  }
 }
 
 async function getGates(bytecodePath: string, api: Barretenberg) {

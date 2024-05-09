@@ -207,7 +207,7 @@ export async function generateProof(
 
   // The bytecode is written to e.g. /workingDirectory/BaseParityArtifact-bytecode
   const bytecodePath = `${workingDirectory}/${circuitName}-bytecode`;
-  const bytecode = `{ "bytecode": "${compiledCircuit.bytecode}" }`;
+  const bytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
 
   // The proof is written to e.g. /workingDirectory/proof
   const outputPath = `${workingDirectory}`;
