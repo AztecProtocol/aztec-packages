@@ -35,7 +35,7 @@ contract Delegator {
     }
 
     #[aztec(private)]
-    fn view_private_value(amount: Field, owner: AztecAddress) -> Field {
+    fn get_private_value(amount: Field, owner: AztecAddress) -> Field {
         let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
 
         let mut options = NoteGetterOptions::new();

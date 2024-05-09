@@ -14,8 +14,7 @@ global CARD_NOTE_LEN: Field = 3;
 struct CardNote {
     points: u8,
     randomness: Field,
-    // The nullifying public key hash of the person who owns the note. 
-    // This is used with the app_nullifier_secret_key to ensure that the note can be privately spent.
+    // The nullifying public key hash is used with the app_nullifier_secret_key to ensure that the note can be privately spent.
     npk_m_hash: Field,
 }
 // docs:end:state_vars-CardNote
