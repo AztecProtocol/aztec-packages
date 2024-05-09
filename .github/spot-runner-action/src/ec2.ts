@@ -248,7 +248,7 @@ export class Ec2Instance {
     };
     const client = await this.getEc2Client();
     const fleet = await client.createFleet(createFleetRequest).promise();
-    if (fleet.Errors) {
+    if (fleet.Errors && fleet.Errors.length > 0) {
       core.error(JSON.stringify(fleet.Errors, null, 2));
     }
     const instances: CreateFleetInstance = (fleet?.Instances || [])[0] || {};
