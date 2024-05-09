@@ -1,11 +1,7 @@
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract StatefulTest {
     use dep::aztec::prelude::{PrivateContext, NoteHeader, Map, PublicMutable, PrivateSet, AztecAddress, FunctionSelector};
-    use dep::value_note::{
-        balance_utils,
-        utils::{increment, decrement},
-        value_note::{VALUE_NOTE_LEN, ValueNote}
-    };
+    use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::{VALUE_NOTE_LEN, ValueNote}};
     use dep::aztec::{
         deploy::deploy_contract as aztec_deploy_contract,
         context::{PublicContext, Context, gas::GasOpts},
