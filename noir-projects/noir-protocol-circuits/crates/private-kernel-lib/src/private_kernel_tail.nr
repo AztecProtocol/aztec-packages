@@ -1,14 +1,15 @@
 use crate::kernel_circuit_public_inputs_composer::KernelCircuitPublicInputsComposer;
 use dep::reset_kernel_lib::{NoteHashReadRequestHints, NullifierReadRequestHints, PrivateValidationRequestProcessor};
 use dep::types::{
-      abis::{
-      private_kernel_data::{PrivateKernelData, verify_previous_kernel_proof}, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-      note_hash::ScopedNoteHash, nullifier::ScopedNullifier, side_effect::SideEffect
-  },
-      constants::{
-      MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-      MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
-  },
+    abis::{
+    private_kernel_data::{PrivateKernelData, verify_previous_kernel_proof},
+    kernel_circuit_public_inputs::KernelCircuitPublicInputs, note_hash::ScopedNoteHash,
+    nullifier::ScopedNullifier, side_effect::SideEffect
+},
+    constants::{
+    MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+    MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
+},
     grumpkin_private_key::GrumpkinPrivateKey, utils::arrays::array_length
 };
 
