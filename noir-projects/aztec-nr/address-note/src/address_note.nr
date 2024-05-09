@@ -2,7 +2,7 @@ use dep::aztec::{
     protocol_types::{address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER},
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
     oracle::{
-    unsafe_rand::unsafe_rand, nullifier_key::get_nsk_app_with_npk_m_h,
+    unsafe_rand::unsafe_rand, nullifier_key::get_nsk_app,
     get_public_key::get_public_key_with_npk_m_h
 },
     context::PrivateContext, hash::poseidon2_hash
@@ -34,7 +34,7 @@ impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nsk_app_with_npk_m_h(self.owner_npk_m_h);
+        let secret = get_nsk_app(self.owner_npk_m_h);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,

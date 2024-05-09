@@ -2,7 +2,7 @@ use dep::aztec::prelude::{AztecAddress, PrivateContext, NoteHeader, NoteInterfac
 use dep::aztec::{
     protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER,
     note::utils::compute_note_hash_for_consumption, hash::poseidon2_hash,
-    oracle::{nullifier_key::get_nsk_app_with_npk_m_h, get_public_key::get_public_key_with_npk_m_h}
+    oracle::{nullifier_key::get_nsk_app, get_public_key::get_public_key_with_npk_m_h}
 };
 
 global SUBSCRIPTION_NOTE_LEN: Field = 3;
@@ -31,7 +31,7 @@ impl NoteInterface<SUBSCRIPTION_NOTE_LEN> for SubscriptionNote {
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nsk_app_with_npk_m_h(self.owner_npk_m_h);
+        let secret = get_nsk_app(self.owner_npk_m_h);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,

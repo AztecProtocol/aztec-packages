@@ -23,6 +23,6 @@ pub fn get_nullifier_keys(master_nullifier_public_key_hash: Field) -> NullifierK
 }
 
 // We are only getting the app_nullifier_secret_key here
-pub fn get_nsk_app_with_npk_m_h(master_nullifier_public_key_hash: Field) -> Field {
+pub fn get_nsk_app(master_nullifier_public_key_hash: Field) -> Field {
     get_nullifier_keys_internal(master_nullifier_public_key_hash).app_nullifier_secret_key
 }
