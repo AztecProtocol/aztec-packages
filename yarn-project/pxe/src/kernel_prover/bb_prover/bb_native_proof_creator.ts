@@ -509,7 +509,7 @@ export class BBNativeProofCreator implements ProofCreator {
    * @param circuitType - The type of circuit whose proof is to be verified
    * @param proof - The proof to be verified
    */
-  public async verifyProof(circuitType: ClientProtocolArtifact, proof: Proof) {
+  public async verifyProofForProtocolCircuit(circuitType: ClientProtocolArtifact, proof: Proof) {
     const verificationKey = await this.getVerificationKeyDataForCircuit(circuitType);
 
     this.log.debug(`Verifying with key: ${verificationKey.hash.toString()}`);
@@ -543,11 +543,11 @@ export class BBNativeProofCreator implements ProofCreator {
     await fs.writeFile(proofFileName, proof.buffer);
     await fs.writeFile(verificationKeyPath, verificationKey);
 
-    const result = await verifyProof(this.bbBinaryPath, proofFileName, verificationKeyPath!, logFunction);
-
-    await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
-
-    return result;
+    try {
+      return await verifyProof(this.bbBinaryPath, proofFileName, verificationKeyPath!, logFunction);
+    } finally {
+      await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
+    }
   }
 
   /**

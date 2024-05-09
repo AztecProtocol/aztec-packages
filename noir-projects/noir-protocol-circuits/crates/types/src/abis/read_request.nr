@@ -1,10 +1,9 @@
 use crate::{
-    traits::{Empty, Serialize, Deserialize}, address::AztecAddress, constants::READ_REQUEST_LENGTH,
+    traits::{Empty, Serialize, Deserialize}, address::AztecAddress,
+    constants::{READ_REQUEST_LENGTH, SCOPED_READ_REQUEST_LEN},
     utils::{arrays::array_concat, reader::Reader}
 };
 use dep::std::cmp::Eq;
-
-global SCOPED_READ_REQUEST_SERIALIZED_LEN = READ_REQUEST_LENGTH + 1;
 
 struct ReadRequest {
     value: Field,
