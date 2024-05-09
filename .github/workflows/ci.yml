@@ -97,12 +97,12 @@ jobs:
       - name: Test
         working-directory: ./yarn-project/end-to-end/
         timeout-minutes: 25
-        run: earthly-ci +e2e-browser #+${{ matrix.test }}
+        run: earthly-ci +${{ matrix.test }}
 
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
     needs: build
-    runs-on: ${{ inputs.username || github.actor }}-x86
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:

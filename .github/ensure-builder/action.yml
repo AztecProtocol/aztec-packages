@@ -114,5 +114,5 @@ runs:
             echo "* * * * * ~/maybe_exit_spot.sh" | crontab -
             echo "Pruned docker, configured graceful exit."
           else
-            echo "Docker daemon already configured."A
+            echo "Chron jobs already configured."
           fi
