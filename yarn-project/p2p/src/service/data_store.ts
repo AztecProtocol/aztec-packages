@@ -213,7 +213,7 @@ export class AztecDatastore implements Datastore {
   }
 
   /**
-   * Prune from memory and move to db
+   * Prune memory store
    */
   private pruneMemoryDatastore(): void {
     let oldestAccessedMs = Date.now() + 1000;
