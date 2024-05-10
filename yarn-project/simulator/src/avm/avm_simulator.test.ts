@@ -879,6 +879,19 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(results.revertReason?.message).toEqual('Assertion failed: Values are not equal');
     });
   });
+  it('conversions', async () => {
+    const calldata: Fr[] = [new Fr(0b1011101010100)];
+    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+    const bytecode = getAvmTestContractBytecode('to_radix_le');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+    expect(results.reverted).toBe(false);
+    const expectedResults = '1011101010100'.split('').reverse().slice(0, 10).map(Number);
+    for (let i = 0; i < 10; i++) {
+      expect(results.output[i]).toEqual(new Fr(expectedResults[i]));
+    }
+  });
 });
 
 function getAvmTestContractBytecode(functionName: string): Buffer {

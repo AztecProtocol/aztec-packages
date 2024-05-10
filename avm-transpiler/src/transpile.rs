@@ -981,7 +981,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::TORADIXLE,
                 indirect: Some(FIRST_OPERAND_INDIRECT),
-                tag: Some(AvmTypeTag::FIELD),
+                tag: None,
                 operands: vec![
                     AvmOperand::U32 {
                         value: input_offset as u32,
