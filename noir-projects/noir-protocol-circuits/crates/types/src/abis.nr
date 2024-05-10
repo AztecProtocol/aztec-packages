@@ -6,9 +6,7 @@ mod function_selector;
 mod function_data;
 
 mod global_variables;
-
-mod membership_witness;
-
+mod note_hash_leaf_preimage;
 mod nullifier_leaf_preimage;
 
 mod combined_constant_data;
@@ -29,6 +27,7 @@ mod max_block_number;
 mod private_kernel;
 mod kernel_circuit_public_inputs;
 mod kernel_data;
+mod private_kernel_data;
 
 mod call_request;
 mod private_call_stack_item;

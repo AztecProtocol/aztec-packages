@@ -1,4 +1,5 @@
 import { DAGasLeft, L2GasLeft } from '../opcodes/context_getters.js';
+import { ToRadixLE } from '../opcodes/conversion.js';
 import { Keccak, Pedersen, Poseidon2, Sha256 } from '../opcodes/hashing.js';
 import type { Instruction } from '../opcodes/index.js';
 import {
@@ -46,6 +47,7 @@ import {
   StorageAddress,
   Sub,
   Timestamp,
+  TransactionFee,
   Version,
   Xor,
 } from '../opcodes/index.js';
@@ -82,6 +84,7 @@ const INSTRUCTION_SET = () =>
     [Sender.opcode, Sender],
     [FeePerL2Gas.opcode, FeePerL2Gas],
     [FeePerDAGas.opcode, FeePerDAGas],
+    [TransactionFee.opcode, TransactionFee],
     //[Contractcalldepth.opcode, Contractcalldepth],
     // Execution Environment - Globals
     [ChainId.opcode, ChainId],
@@ -134,6 +137,8 @@ const INSTRUCTION_SET = () =>
     [Poseidon2.opcode, Poseidon2],
     [Sha256.opcode, Sha256],
     [Pedersen.opcode, Pedersen],
+    // Conversions
+    [ToRadixLE.opcode, ToRadixLE],
   ]);
 
 interface Serializable {

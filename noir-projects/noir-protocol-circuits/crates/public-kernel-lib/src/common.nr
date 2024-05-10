@@ -4,7 +4,7 @@ use dep::types::{
     kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder, kernel_data::PublicKernelData,
     note_hash::NoteHash, nullifier::Nullifier, public_call_data::PublicCallData,
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-    read_request::ReadRequestContext, side_effect::SideEffect, global_variables::GlobalVariables,
+    side_effect::SideEffect, global_variables::GlobalVariables,
     combined_constant_data::CombinedConstantData
 },
     address::AztecAddress,
@@ -132,6 +132,8 @@ pub fn initialize_end_values(
     let start_non_revertible = previous_kernel.public_inputs.end_non_revertible;
     circuit_outputs.end_non_revertible.public_call_stack = array_to_bounded_vec(start_non_revertible.public_call_stack);
 
+    circuit_outputs.public_teardown_call_stack = array_to_bounded_vec(previous_kernel.public_inputs.public_teardown_call_stack);
+
     let start = previous_kernel.public_inputs.validation_requests;
     circuit_outputs.validation_requests.max_block_number = previous_kernel.public_inputs.validation_requests.for_rollup.max_block_number;
     circuit_outputs.validation_requests.nullifier_read_requests = array_to_bounded_vec(start.nullifier_read_requests);
@@ -173,6 +175,34 @@ fn is_valid_caller(request: CallRequest, public_call: PublicCallData) -> bool {
 
     request.caller_contract_address.eq(public_call.call_stack_item.contract_address)
         & (request.caller_context.is_empty() | valid_caller_context)
+}
+
+pub fn update_end_non_revertible_call_stack(
+    public_call: PublicCallData,
+    circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder
+) {
+    let requests = validate_public_call_stack(public_call);
+    circuit_outputs.end_non_revertible.public_call_stack.extend_from_bounded_vec(requests);
+}
+
+pub fn update_end_call_stack(
+    public_call: PublicCallData,
+    circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder
+) {
+    let requests = validate_public_call_stack(public_call);
+    circuit_outputs.end.public_call_stack.extend_from_bounded_vec(requests);
+}
+
+pub fn update_teardown_call_stack(public_call: PublicCallData, circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder) {
+    let requests = validate_public_call_stack(public_call);
+    circuit_outputs.public_teardown_call_stack.extend_from_bounded_vec(requests);
+}
+
+fn validate_public_call_stack(public_call: PublicCallData) -> BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> {
+    let public_call_requests = array_to_bounded_vec(public_call.public_call_stack);
+    let hashes = public_call.call_stack_item.public_inputs.public_call_stack_hashes;
+    validate_call_requests(public_call_requests, hashes, public_call);
+    public_call_requests
 }
 
 fn validate_call_requests<N>(
@@ -232,7 +262,7 @@ pub fn update_non_revertible_gas_used(public_call: PublicCallData, circuit_outpu
     let accum_end_gas_used = circuit_outputs.end.gas_used;
 
     // dep::types::debug_log::debug_log_format(
-    //     "Updating non-revertible gas: limit.da={0} limit.l1={1} limit.l2={2} left.da={3} left.l1={4} left.l2={5} used.da={6} used.l1={7} used.l2={8}",
+    //     "Updating non-revertible gas: limit.da={0} limit.l2={1} left.da={2} left.l2={3} used.da={4} used.l2={5}",
     //     [
     //     tx_gas_limits.da_gas as Field,
     //     tx_gas_limits.l2_gas as Field,
@@ -243,10 +273,6 @@ pub fn update_non_revertible_gas_used(public_call: PublicCallData, circuit_outpu
     // ]
     // );
 
-    // println(
-    //     f"Updating non-revertible gas: tx_gas_limits={tx_gas_limits} call_gas_left={call_gas_left} accum_end_gas_used={accum_end_gas_used}"
-    // );
-
     circuit_outputs.end_non_revertible.gas_used = tx_gas_limits
         .sub(call_gas_left)
         .sub(accum_end_gas_used);
@@ -254,12 +280,19 @@ pub fn update_non_revertible_gas_used(public_call: PublicCallData, circuit_outpu
 
 // Validates that the start gas injected into the app circuit matches the remaining gas
 pub fn validate_start_gas(public_call: PublicCallData, previous_kernel: PublicKernelData) {
-    let public_call_start_gas = public_call.call_stack_item.public_inputs.start_gas_left;
-    let tx_gas_limits = previous_kernel.public_inputs.constants.tx_context.gas_settings.gas_limits;
-    let computed_start_gas = tx_gas_limits.sub(previous_kernel.public_inputs.end.gas_used).sub(previous_kernel.public_inputs.end_non_revertible.gas_used);
-    assert(
-        public_call_start_gas == computed_start_gas, "Start gas for public phase does not match transaction gas left"
-    );
+    // If this is a nested call (not an execution request), the start gas is correct as long as the
+    // call being processed by this kernel iteration matches the call at the top of the callstack
+    // as per the previous kernel's outputs.
+    // An execution request's start gas is the remaining gas left in the transaction after the previous kernel.
+    // A nested call's start gas is the gas allocated to it by its caller and placed in the callstack.
+    if (public_call.call_stack_item.is_execution_request) {
+        let public_call_start_gas = public_call.call_stack_item.public_inputs.start_gas_left;
+        let tx_gas_limits = previous_kernel.public_inputs.constants.tx_context.gas_settings.gas_limits;
+        let computed_start_gas = tx_gas_limits.sub(previous_kernel.public_inputs.end.gas_used).sub(previous_kernel.public_inputs.end_non_revertible.gas_used);
+        assert(
+            public_call_start_gas == computed_start_gas, "Start gas for public phase does not match transaction gas left"
+        );
+    }
 }
 
 // Validates the transaction fee injected into the app circuit is zero for non-teardown phases
@@ -272,16 +305,10 @@ pub fn update_public_end_non_revertible_values(
     public_call: PublicCallData,
     circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder
 ) {
-    // Updates the circuit outputs with new state changes, call stack etc
+    // Updates the circuit outputs with new state changes
 
     // If this call is a static call, certain operations are disallowed, such as creating new state.
     perform_static_call_checks(public_call);
-
-    // Update public call stack.
-    let public_call_requests = array_to_bounded_vec(public_call.public_call_stack);
-    let hashes = public_call.call_stack_item.public_inputs.public_call_stack_hashes;
-    validate_call_requests(public_call_requests, hashes, public_call);
-    circuit_outputs.end_non_revertible.public_call_stack.extend_from_bounded_vec(public_call_requests);
 
     propagate_new_nullifiers_non_revertible(public_call, circuit_outputs);
     propagate_new_note_hashes_non_revertible(public_call, circuit_outputs);
@@ -291,20 +318,13 @@ pub fn update_public_end_non_revertible_values(
 }
 
 pub fn update_public_end_values(public_call: PublicCallData, circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder) {
-    // Updates the circuit outputs with new state changes, call stack etc
+    // Updates the circuit outputs with new state changes
 
     // If this call is a static call, certain operations are disallowed, such as creating new state.
     perform_static_call_checks(public_call);
 
-    // Update public call stack.
-    let public_call_requests = array_to_bounded_vec(public_call.public_call_stack);
-    let hashes = public_call.call_stack_item.public_inputs.public_call_stack_hashes;
-    validate_call_requests(public_call_requests, hashes, public_call);
-    circuit_outputs.end.public_call_stack.extend_from_bounded_vec(public_call_requests);
-
     propagate_new_nullifiers(public_call, circuit_outputs);
     propagate_new_note_hashes(public_call, circuit_outputs);
-
     propagate_new_l2_to_l1_messages(public_call, circuit_outputs);
     propagate_new_unencrypted_logs(public_call, circuit_outputs);
     propagate_valid_public_data_update_requests(public_call, circuit_outputs);
@@ -321,7 +341,7 @@ fn propagate_nullifier_read_requests<T>(
     for i in 0..MAX_NULLIFIER_READ_REQUESTS_PER_CALL {
         let request = nullifier_read_requests[i];
         if !is_empty(request) {
-            circuit_outputs.validation_requests.nullifier_read_requests.push(request.to_context(storage_contract_address));
+            circuit_outputs.validation_requests.nullifier_read_requests.push(request.scope(storage_contract_address));
         }
     }
 }
@@ -337,7 +357,7 @@ fn propagate_nullifier_non_existent_read_requests<T>(
     for i in 0..MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL {
         let request = nullifier_non_existent_read_requests[i];
         if !is_empty(request) {
-            circuit_outputs.validation_requests.nullifier_non_existent_read_requests.push(request.to_context(storage_contract_address));
+            circuit_outputs.validation_requests.nullifier_non_existent_read_requests.push(request.scope(storage_contract_address));
         }
     }
 }

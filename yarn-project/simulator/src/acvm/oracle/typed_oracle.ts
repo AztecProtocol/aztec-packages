@@ -93,10 +93,6 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getNullifierKeys');
   }
 
-  getPublicKeyAndPartialAddress(_address: AztecAddress): Promise<Fr[] | undefined> {
-    throw new OracleMethodNotAvailableError('getPublicKeyAndPartialAddress');
-  }
-
   getContractInstance(_address: AztecAddress): Promise<ContractInstance> {
     throw new OracleMethodNotAvailableError('getContractInstance');
   }
@@ -193,12 +189,17 @@ export abstract class TypedOracle {
     _noteTypeId: Fr,
     _publicKey: PublicKey,
     _log: Fr[],
-  ): Fr {
+    _counter: number,
+  ): Buffer {
     throw new OracleMethodNotAvailableError('emitEncryptedLog');
   }
 
-  emitUnencryptedLog(_log: UnencryptedL2Log): Fr {
+  emitUnencryptedLog(_log: UnencryptedL2Log, _counter: number): void {
     throw new OracleMethodNotAvailableError('emitUnencryptedLog');
+  }
+
+  emitContractClassUnencryptedLog(_log: UnencryptedL2Log, _counter: number): Fr {
+    throw new OracleMethodNotAvailableError('emitContractClassUnencryptedLog');
   }
 
   callPrivateFunction(
@@ -232,6 +233,17 @@ export abstract class TypedOracle {
     _isDelegateCall: boolean,
   ): Promise<PublicCallRequest> {
     throw new OracleMethodNotAvailableError('enqueuePublicFunctionCall');
+  }
+
+  setPublicTeardownFunctionCall(
+    _targetContractAddress: AztecAddress,
+    _functionSelector: FunctionSelector,
+    _argsHash: Fr,
+    _sideEffectCounter: number,
+    _isStaticCall: boolean,
+    _isDelegateCall: boolean,
+  ): Promise<PublicCallRequest> {
+    throw new OracleMethodNotAvailableError('setPublicTeardownFunctionCall');
   }
 
   aes128Encrypt(_input: Buffer, _initializationVector: Buffer, _key: Buffer): Buffer {

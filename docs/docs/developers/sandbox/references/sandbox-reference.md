@@ -2,19 +2,30 @@
 title: Sandbox Reference
 ---
 
-Here you will find a reference to everything available within the Sandbox.
+:::tip
 
-## Installation
+For a quick start, follow the [guide](../../getting_started/quickstart.md) to install the sandbox.
 
-You can run the Sandbox using Docker. See the [Quickstart](../../getting_started/quickstart.md#install-docker) for instructions on installing Docker.
+:::
 
-### With Docker
+## Manual Install
+
+You can manually install the sandbox via the underlying script used in the [Aztec Boxes](../../getting_started/quickstart.md#run-the-npx-script).
+
+### Prerequisites
+
+- Node.js >= v18 (recommend installing with [nvm](https://github.com/nvm-sh/nvm))
+- Docker (visit [this page of the Docker docs](https://docs.docker.com/get-docker/) on how to install it)
+
+### Install the sandbox
+
+To install the latest Sandbox version, run:
 
 ```bash
 bash -i <(curl -s install.aztec.network)
 ```
 
-This will install the following:
+This will install the following tools:
 
 - **aztec** - launches various infrastructure subsystems (sequencer, prover, pxe, etc).
 - **aztec-nargo** - aztec's build of nargo, the noir compiler toolchain.
@@ -28,31 +39,25 @@ Once these have been installed, to start the sandbox, run:
 aztec-sandbox
 ```
 
-This will attempt to run the Sandbox with the PXE listening on ` localhost:8080`. You can change the port defined in `./.aztec/docker-compose.yml` or by setting the `PXE_PORT` environment variable. Running the install command again will overwrite any changes made to the `docker-compose.yml`.
+### Have fun!
 
-See the full list of configurable environment variables [here](#environment-variables).
+**Congratulations, you have just installed and run the Aztec Sandbox!**
 
-If you have previously installed the CLI via a node package manager, you will need to uninstall it and remove it from your project dependencies and install it via Docker.
+```bash                
+     /\        | |
+    /  \    ___| |_ ___  ___
+   / /\ \  |_  / __/ _ \/ __|
+  / ____ \  / /| ||  __/ (__
+ /_/___ \_\/___|\__\___|\___|
 
-To install a specific version of the sandbox, you can set the environment variable `SANDBOX_VERSION`
-
-```bash
-VERSION=<version> bash -i <(curl -s install.aztec.network)
 ```
 
-## Running
+In the terminal, you will see some logs:
+1. Sandbox version
+2. Contract addresses of rollup contracts
+3. PXE (private execution environment) setup logs
+4. Initial accounts that are shipped with the sandbox and can be used in tests
 
-Once the installed, you can run the sandbox with:
-
-```bash
-aztec-sandbox
-```
-
-Alternatively, you can run like so:
-
-```bash
-cd ~/.aztec && docker-compose up
-```
 
 ## Running Aztec PXE / Node / P2P-Bootstrap node
 
@@ -62,35 +67,25 @@ If you wish to run components of the Aztec network stack separately, you can use
 aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] --prover [proverOptions] ----p2p-bootstrap [p2pOptions]
 ```
 
-Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node. If you want to e.g. run a PXE separately to a node, you can:
-Start a node:
-
-```bash
-aztec start --node [node] --archiver [archiverOptions]
-```
-
-Then start a PXE on a separate terminal that connects to that node:
-
-```bash
-aztec start --pxe nodeUrl=http://localhost:8080
-```
+Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node.Eg if you want to run a PXE separately to a node, you can [read this guide](../guides/run_more_than_one_pxe_sandbox.md)/
 
 ## Environment Variables
 
 There are various environment variables you can use when running the whole sandbox or when running on of the available modes.
 
+To change them, you can open `~/.aztec/docker-compose.yml` and edit them directly.
+
 **Sandbox**
 
 ```sh
 DEBUG=aztec:* # The level of debugging logs to be displayed. using "aztec:*" will log everything.
-ETHEREUM_HOST=http://ethereum:8545 # The Ethereum JSON RPC URL. We use an anvil instance that runs in parallel to the sandbox on docker by default.
 HOST_WORKDIR='${PWD}' # The location to store log outpus. Will use ~/.aztec where the docker-compose.yml file is stored by default.
+ETHEREUM_HOST=http://ethereum:8545 # The Ethereum JSON RPC URL. We use an anvil instance that runs in parallel to the sandbox on docker by default.
 CHAIN_ID=31337 # The Chain ID that the Ethereum host is using.
 TEST_ACCOUNTS='true' # Option to deploy 3 test account when sandbox starts. (default: true)
-DEPLOY_AZTEC_CONTRACTS='true' # Option to deploy the Aztec contracts when sandbox starts. (default: true)
 MODE='sandbox' # Option to start the sandbox or a standalone part of the system. (default: sandbox)
-AZTEC_NODE_PORT=8079 # The port that the Aztec node wil be listening to (default: 8079)
 PXE_PORT=8080 # The port that the PXE will be listening to (default: 8080)
+AZTEC_NODE_PORT=8080 # The port that Aztec Node will be listening to (default: 8080)
 
 # Ethereum Forking (Optional: not enabled by default) #
 FORK_BLOCK_NUMBER=0 # The block number to fork from
@@ -143,7 +138,6 @@ SEQ_MIN_TX_PER_BLOCK=1 # Minimum txs to go on a block. (default: 1)
 **PXE**
 
 Variables like `TEST_ACCOUNTS` & `PXE_PORT` are valid here as described above.
-`DEPLOY_AZTEC_CONTRACTS` cannot be used here as the PXE does not control an Ethereum account.
 
 ```sh
 AZTEC_NODE_URL='http://localhost:8079' # The address of an Aztec Node URL that the PXE will connect to (default: http://localhost:8079)
@@ -178,24 +172,37 @@ You can find the cheat code reference [here](../../sandbox/references/cheat_code
 We have shipped a number of example contracts in the `@aztec/noir-contracts.js` [npm package](https://www.npmjs.com/package/@aztec/noir-contracts.js). This is included with the sandbox by default so you are able to use these contracts to test with. 
 
 ```bash
+AppSubscriptionContractArtifact
+AuthContractArtifact
 BenchmarkingContractArtifact
 CardGameContractArtifact
 ChildContractArtifact
+ClaimContractArtifact
+ContractClassRegistererContractArtifact
+ContractInstanceDeployerContractArtifact
 CounterContractArtifact
+CrowdfundingContractArtifact
+DelegatedOnContractArtifact
+DelegatorContractArtifact
 DocsExampleContractArtifact
 EasyPrivateTokenContractArtifact
 EasyPrivateVotingContractArtifact
 EcdsaAccountContractArtifact
 EscrowContractArtifact
+FPCContractArtifact
+GasTokenContractArtifact
 ImportTestContractArtifact
 InclusionProofsContractArtifact
 LendingContractArtifact
+MultiCallEntrypointContractArtifact
 ParentContractArtifact
 PendingNoteHashesContractArtifact
 PriceFeedContractArtifact
+ReaderContractArtifact
 SchnorrAccountContractArtifact
 SchnorrHardcodedAccountContractArtifact
 SchnorrSingleKeyAccountContractArtifact
+SlowTreeContractArtifact
 StatefulTestContractArtifact
 TestContractArtifact
 TokenBlacklistContractArtifact

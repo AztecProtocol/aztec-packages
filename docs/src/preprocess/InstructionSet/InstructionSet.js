@@ -428,6 +428,7 @@ const INSTRUCTION_SET_RAW = [
       {
         name: "bOffset",
         description: "memory offset of the operation's right input",
+        type: "u8",
       },
       {
         name: "dstOffset",
@@ -438,7 +439,7 @@ const INSTRUCTION_SET_RAW = [
     Expression: "`M[dstOffset] = M[aOffset] << M[bOffset]`",
     Summary: "Bitwise leftward shift (a << b)",
     Details: "",
-    "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
+    "Tag checks": "`T[aOffset] == inTag`, `T[bOffset] == u8`",
     "Tag updates": "`T[dstOffset] = inTag`",
   },
   {
@@ -457,6 +458,7 @@ const INSTRUCTION_SET_RAW = [
       {
         name: "bOffset",
         description: "memory offset of the operation's right input",
+        type: "u8",
       },
       {
         name: "dstOffset",
@@ -467,7 +469,7 @@ const INSTRUCTION_SET_RAW = [
     Expression: "`M[dstOffset] = M[aOffset] >> M[bOffset]`",
     Summary: "Bitwise rightward shift (a >> b)",
     Details: "",
-    "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
+    "Tag checks": "`T[aOffset] == inTag`, `T[bOffset] == u8`",
     "Tag updates": "`T[dstOffset] = inTag`",
   },
   {
@@ -581,6 +583,25 @@ const INSTRUCTION_SET_RAW = [
     Expression: "`M[dstOffset] = context.environment.feePerDaGas`",
     Summary:
       'Get the fee to be paid per "DA gas" - constant for entire transaction',
+    Details: "",
+    "Tag checks": "",
+    "Tag updates": "`T[dstOffset] = u32`",
+  },
+  {
+    id: "transactionfee",
+    Name: "`TRANSACTIONFEE`",
+    Category: "Execution Environment",
+    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
+    Args: [
+      {
+        name: "dstOffset",
+        description:
+          "memory offset specifying where to store operation's result",
+      },
+    ],
+    Expression: "`M[dstOffset] = context.environment.transactionFee`",
+    Summary:
+      "Get the computed transaction fee during teardown phase, zero otherwise",
     Details: "",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset] = u32`",
@@ -1516,6 +1537,39 @@ halt
     "Tag checks": "",
     "Tag updates": "",
   },
+  {
+    id: "to_radix_le",
+    Name: "`TORADIXLE`",
+    Category: "Conversions",
+    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
+    Args: [
+      {
+        name: "srcOffset",
+        description: "memory offset of word to convert.",
+      },
+      {
+        name: "dstOffset",
+        description: "memory offset specifying where the first limb of the radix-conversion result is stored.",
+      },
+      {
+        name: "radix",
+        description: "the maximum bit-size of each limb.",
+        mode: "immediate",
+        type: "u32",
+      },
+      {
+        name: "numLimbs",
+        description: "the number of limbs the word will be converted into.",
+        type: "u32",
+        mode: "immediate",
+      }
+    ],
+
+    Expression: `TBD: Storage of limbs and if T[dstOffset] is constrained to U8`,
+    Summary: "Convert a word to an array of limbs in little-endian radix form",
+    Details: "The limbs will be stored in a contiguous memory block starting at `dstOffset`.",
+    "Tag checks": "`T[srcOffset] == field`",
+  }
 ];
 const INSTRUCTION_SET = INSTRUCTION_SET_RAW.map((instr) => {
   instr["Bit-size"] = instructionSize(instr);

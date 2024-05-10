@@ -1,8 +1,11 @@
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { makeTuple } from '@aztec/foundation/array';
+import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
+import { MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX } from '../../constants.gen.js';
 import { AggregationObject } from '../aggregation_object.js';
+import { CallRequest } from '../call_request.js';
 import { RevertCode } from '../revert_code.js';
 import { ValidationRequests } from '../validation_requests.js';
 import { CombinedConstantData } from './combined_constant_data.js';
@@ -38,6 +41,10 @@ export class PublicKernelCircuitPublicInputs {
      * Indicates whether execution of the public circuit reverted.
      */
     public revertCode: RevertCode,
+    /**
+     * The call request for the public teardown function
+     */
+    public publicTeardownCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
   ) {}
 
   toBuffer() {
@@ -48,6 +55,7 @@ export class PublicKernelCircuitPublicInputs {
       this.end,
       this.constants,
       this.revertCode,
+      this.publicTeardownCallStack,
     );
   }
 
@@ -60,7 +68,7 @@ export class PublicKernelCircuitPublicInputs {
   }
 
   get needsSetup() {
-    return !this.endNonRevertibleData.publicCallStack[1].isEmpty();
+    return !this.endNonRevertibleData.publicCallStack[0].isEmpty();
   }
 
   get needsAppLogic() {
@@ -68,7 +76,7 @@ export class PublicKernelCircuitPublicInputs {
   }
 
   get needsTeardown() {
-    return !this.endNonRevertibleData.publicCallStack[0].isEmpty();
+    return !this.publicTeardownCallStack[0].isEmpty();
   }
 
   /**
@@ -85,6 +93,7 @@ export class PublicKernelCircuitPublicInputs {
       reader.readObject(PublicAccumulatedData),
       reader.readObject(CombinedConstantData),
       reader.readObject(RevertCode),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
     );
   }
 
@@ -96,6 +105,7 @@ export class PublicKernelCircuitPublicInputs {
       PublicAccumulatedData.empty(),
       CombinedConstantData.empty(),
       RevertCode.OK,
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
     );
   }
 
@@ -105,8 +115,9 @@ export class PublicKernelCircuitPublicInputs {
       validationRequests: ${inspect(this.validationRequests)},
       endNonRevertibleData: ${inspect(this.endNonRevertibleData)},
       end: ${inspect(this.end)},
-      constants: ${this.constants},
-      revertCode: ${this.revertCode}
+      constants: ${inspect(this.constants)},
+      revertCode: ${this.revertCode},
+      publicTeardownCallStack: ${inspect(this.publicTeardownCallStack)}
       }`;
   }
 }

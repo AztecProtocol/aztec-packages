@@ -29,6 +29,7 @@ export enum Opcode {
   SENDER,
   FEEPERL2GAS,
   FEEPERDAGAS,
+  TRANSACTIONFEE,
   CONTRACTCALLDEPTH,
   CHAINID,
   VERSION,
@@ -73,6 +74,8 @@ export enum Opcode {
   POSEIDON2,
   SHA256, // temp - may be removed, but alot of contracts rely on it
   PEDERSEN, // temp - may be removed, but alot of contracts rely on it
+  // Conversion
+  TORADIXLE,
 }
 
 // Possible types for an instruction's operand in its wire format. (Keep in sync with CPP code.

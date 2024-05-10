@@ -2,7 +2,7 @@ import { type AztecNode, type FunctionCall, type Note, type TxExecutionRequest }
 import { CallContext, FunctionData } from '@aztec/circuits.js';
 import {
   type ArrayType,
-  type FunctionArtifactWithDebugMetadata,
+  type FunctionArtifact,
   FunctionSelector,
   FunctionType,
   encodeArguments,
@@ -19,6 +19,7 @@ import { ClientExecutionContext } from './client_execution_context.js';
 import { type DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { type ExecutionResult } from './execution_result.js';
+import { LogsCache } from './logs_cache.js';
 import { executePrivateFunction } from './private_execution.js';
 import { executeUnconstrainedFunction } from './unconstrained_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -64,7 +65,7 @@ export class AcirSimulator {
    */
   public async run(
     request: TxExecutionRequest,
-    entryPointArtifact: FunctionArtifactWithDebugMetadata,
+    entryPointArtifact: FunctionArtifact,
     contractAddress: AztecAddress,
     msgSender = AztecAddress.ZERO,
   ): Promise<ExecutionResult> {
@@ -100,6 +101,7 @@ export class AcirSimulator {
       request.authWitnesses,
       PackedValuesCache.create(request.argsOfCalls),
       new ExecutionNoteCache(),
+      new LogsCache(),
       this.db,
       this.node,
       startSideEffectCounter,
@@ -127,7 +129,7 @@ export class AcirSimulator {
    */
   public async runUnconstrained(
     request: FunctionCall,
-    entryPointArtifact: FunctionArtifactWithDebugMetadata,
+    entryPointArtifact: FunctionArtifact,
     contractAddress: AztecAddress,
   ) {
     if (entryPointArtifact.functionType !== FunctionType.UNCONSTRAINED) {
@@ -165,7 +167,7 @@ export class AcirSimulator {
     noteTypeId: Fr,
     note: Note,
   ) {
-    const artifact: FunctionArtifactWithDebugMetadata | undefined = await this.db.getFunctionArtifactByName(
+    const artifact: FunctionArtifact | undefined = await this.db.getFunctionArtifactByName(
       contractAddress,
       'compute_note_hash_and_nullifier',
     );
@@ -198,7 +200,7 @@ export class AcirSimulator {
       args: encodeArguments(artifact, [contractAddress, nonce, storageSlot, noteTypeId, extendedNoteItems]),
     };
 
-    const [innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier] = (await this.runUnconstrained(
+    const [innerNoteHash, uniqueNoteHash, siloedNoteHash, innerNullifier] = (await this.runUnconstrained(
       execRequest,
       artifact,
       contractAddress,
@@ -206,8 +208,8 @@ export class AcirSimulator {
 
     return {
       innerNoteHash: new Fr(innerNoteHash),
+      uniqueNoteHash: new Fr(uniqueNoteHash),
       siloedNoteHash: new Fr(siloedNoteHash),
-      uniqueSiloedNoteHash: new Fr(uniqueSiloedNoteHash),
       innerNullifier: new Fr(innerNullifier),
     };
   }
@@ -229,83 +231,5 @@ export class AcirSimulator {
       note,
     );
     return innerNoteHash;
-  }
-
-  /**
-   * Computes the unique note hash of a note.
-   * @param contractAddress - The address of the contract.
-   * @param nonce - The nonce of the note hash.
-   * @param storageSlot - The storage slot.
-   * @param noteTypeId - The note type identifier.
-   * @param note - The note.
-   * @returns The note hash.
-   */
-  public async computeUniqueSiloedNoteHash(
-    contractAddress: AztecAddress,
-    nonce: Fr,
-    storageSlot: Fr,
-    noteTypeId: Fr,
-    note: Note,
-  ) {
-    const { uniqueSiloedNoteHash } = await this.computeNoteHashAndNullifier(
-      contractAddress,
-      nonce,
-      storageSlot,
-      noteTypeId,
-      note,
-    );
-    return uniqueSiloedNoteHash;
-  }
-
-  /**
-   * Computes the siloed note hash of a note.
-   * @param contractAddress - The address of the contract.
-   * @param nonce - The nonce of the note hash.
-   * @param storageSlot - The storage slot.
-   * @param noteTypeId - The note type identifier.
-   * @param note - The note.
-   * @returns The note hash.
-   */
-  public async computeSiloedNoteHash(
-    contractAddress: AztecAddress,
-    nonce: Fr,
-    storageSlot: Fr,
-    noteTypeId: Fr,
-    note: Note,
-  ) {
-    const { siloedNoteHash } = await this.computeNoteHashAndNullifier(
-      contractAddress,
-      nonce,
-      storageSlot,
-      noteTypeId,
-      note,
-    );
-    return siloedNoteHash;
-  }
-
-  /**
-   * Computes the inner note hash of a note, which contains storage slot and the custom note hash.
-   * @param contractAddress - The address of the contract.
-   * @param nonce - The nonce of the unique note hash.
-   * @param storageSlot - The storage slot.
-   * @param noteTypeId - The note type identifier.
-   * @param note - The note.
-   * @returns The note hash.
-   */
-  public async computeInnerNullifier(
-    contractAddress: AztecAddress,
-    nonce: Fr,
-    storageSlot: Fr,
-    noteTypeId: Fr,
-    note: Note,
-  ) {
-    const { innerNullifier } = await this.computeNoteHashAndNullifier(
-      contractAddress,
-      nonce,
-      storageSlot,
-      noteTypeId,
-      note,
-    );
-    return innerNullifier;
   }
 }

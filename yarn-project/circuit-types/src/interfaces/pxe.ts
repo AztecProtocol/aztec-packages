@@ -91,15 +91,6 @@ export interface PXE {
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
-   * Retrieves the public keys hash of the account corresponding to the provided aztec address.
-   *
-   * @param address - The address of account.
-   * @returns The public keys hash of the requested account if found.
-   * TODO(#5834): refactor complete address and merge with getRegisteredAccount?
-   */
-  getRegisteredAccountPublicKeysHash(address: AztecAddress): Promise<Fr | undefined>;
-
-  /**
    * Retrieves the recipients added to this PXE Service.
    * @returns An array of recipients registered on this PXE Service.
    */

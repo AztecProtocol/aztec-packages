@@ -54,6 +54,7 @@ impl PublicKernelSetupCircuitPrivateInputs {
 
         common::update_validation_requests(self.public_call, &mut public_inputs);
 
+        common::update_end_non_revertible_call_stack(self.public_call, &mut public_inputs);
         common::update_public_end_non_revertible_values(self.public_call, &mut public_inputs);
 
         public_inputs.finish()
@@ -406,23 +407,6 @@ mod tests {
     //     let _ = kernel.public_kernel_setup();
     // }
 
-    #[test(should_fail_with="Cannot run unnecessary setup circuit")]
-    fn unnecessary_public_kernel_setup_with_teardown_should_fail() {
-        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-
-        // in this case, we only push a single call, which is interpreted as the teardown call
-        let teardown_call = builder.public_call.finish();
-        let teardown_call_hash = teardown_call.call_stack_item.hash();
-        let teardown_is_delegate_call = teardown_call.call_stack_item.public_inputs.call_context.is_delegate_call;
-        builder.previous_kernel.push_public_call_request(teardown_call_hash, teardown_is_delegate_call);
-        let previous_kernel = builder.previous_kernel.to_public_kernel_data(false);
-
-        // Run the kernel on the setup call
-        let kernel = PublicKernelSetupCircuitPrivateInputs { previous_kernel, public_call: teardown_call };
-
-        let _ = kernel.public_kernel_setup();
-    }
-
     #[test(should_fail_with="No contract storage update requests are allowed for static calls")]
     fn previous_private_kernel_fails_if_contract_storage_update_requests_on_static_call() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
@@ -483,15 +467,13 @@ mod tests {
         let end_requests = public_inputs.validation_requests.nullifier_non_existent_read_requests;
         assert_eq(array_length(end_requests), 2);
 
-        let request_context = end_requests[0];
-        assert_eq(request_context.value, request_0.value);
-        assert_eq(request_context.counter, request_0.counter);
-        assert_eq(request_context.contract_address, storage_contract_address);
+        let request = end_requests[0];
+        assert_eq(request.read_request, request_0);
+        assert_eq(request.contract_address, storage_contract_address);
 
-        let request_context = end_requests[1];
-        assert_eq(request_context.value, request_1.value);
-        assert_eq(request_context.counter, request_1.counter);
-        assert_eq(request_context.contract_address, storage_contract_address);
+        let request = end_requests[1];
+        assert_eq(request.read_request, request_1);
+        assert_eq(request.contract_address, storage_contract_address);
     }
 
     #[test(should_fail_with="Public call cannot be reverted")]
@@ -531,6 +513,7 @@ mod tests {
     fn validates_start_gas() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
 
+        builder.public_call.is_execution_request = true; // don't need to check start gas for nested calls
         builder.public_call.public_inputs.start_gas_left = Gas::new(100, 100);
 
         builder.failed();

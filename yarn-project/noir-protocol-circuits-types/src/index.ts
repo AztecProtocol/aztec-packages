@@ -2,7 +2,6 @@ import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
-  Fr,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type ParityPublicInputs,
@@ -25,6 +24,7 @@ import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import {
   type ForeignCallInput,
+  type ForeignCallOutput,
   type WasmBlackBoxFunctionSolver,
   createBlackBoxSolver,
   executeCircuitWithBlackBoxSolver,
@@ -71,26 +71,22 @@ import {
   mapRootRollupInputsToNoir,
   mapRootRollupPublicInputsFromNoir,
 } from './type_conversion.js';
-import { type ReturnType as BaseParityReturnType } from './types/parity_base_types.js';
-import { type ReturnType as RootParityReturnType } from './types/parity_root_types.js';
 import {
-  type InputType as InitInputType,
-  type ReturnType as InitReturnType,
-} from './types/private_kernel_init_types.js';
-import {
-  type InputType as InnerInputType,
-  type ReturnType as InnerReturnType,
-} from './types/private_kernel_inner_types.js';
-import { type InputType as TailToPublicInputType } from './types/private_kernel_tail_to_public_types.js';
-import {
-  type InputType as TailInputType,
-  type ReturnType as TailReturnType,
-} from './types/private_kernel_tail_types.js';
-import { type ReturnType as PublicPublicPreviousReturnType } from './types/public_kernel_app_logic_types.js';
-import { type ReturnType as PublicSetupReturnType } from './types/public_kernel_setup_types.js';
-import { type ReturnType as BaseRollupReturnType } from './types/rollup_base_types.js';
-import { type ReturnType as MergeRollupReturnType } from './types/rollup_merge_types.js';
-import { type ReturnType as RootRollupReturnType } from './types/rollup_root_types.js';
+  type ParityBaseReturnType as BaseParityReturnType,
+  type RollupBaseReturnType as BaseRollupReturnType,
+  type PrivateKernelInitInputType as InitInputType,
+  type PrivateKernelInitReturnType as InitReturnType,
+  type PrivateKernelInnerInputType as InnerInputType,
+  type PrivateKernelInnerReturnType as InnerReturnType,
+  type RollupMergeReturnType as MergeRollupReturnType,
+  type PublicKernelAppLogicReturnType as PublicPublicPreviousReturnType,
+  type PublicKernelSetupReturnType as PublicSetupReturnType,
+  type ParityRootReturnType as RootParityReturnType,
+  type RollupRootReturnType as RootRollupReturnType,
+  type PrivateKernelTailInputType as TailInputType,
+  type PrivateKernelTailReturnType as TailReturnType,
+  type PrivateKernelTailToPublicInputType as TailToPublicInputType,
+} from './types/index.js';
 
 // TODO(Tom): This should be exported from noirc_abi
 /**
@@ -114,6 +110,14 @@ export const PrivateKernelInnerArtifact = PrivateKernelInnerJson as NoirCompiled
 export const PrivateKernelTailArtifact = PrivateKernelTailJson as NoirCompiledCircuit;
 
 export const PrivateKernelTailToPublicArtifact = PrivateKernelTailToPublicJson as NoirCompiledCircuit;
+
+export const SimulatedPublicKernelSetupArtifact = PublicKernelSetupSimulatedJson as NoirCompiledCircuit;
+
+export const SimulatedPublicKernelAppLogicArtifact = PublicKernelAppLogicSimulatedJson as NoirCompiledCircuit;
+
+export const SimulatedPublicKernelTeardownArtifact = PublicKernelTeardownSimulatedJson as NoirCompiledCircuit;
+
+export const SimulatedPublicKernelTailArtifact = PublicKernelTailSimulatedJson as NoirCompiledCircuit;
 
 export const PublicKernelSetupArtifact = PublicKernelSetupSimulatedJson as NoirCompiledCircuit;
 
@@ -149,7 +153,8 @@ export type ServerProtocolArtifact =
 export type ClientProtocolArtifact =
   | 'PrivateKernelInitArtifact'
   | 'PrivateKernelInnerArtifact'
-  | 'PrivateKernelTailArtifact';
+  | 'PrivateKernelTailArtifact'
+  | 'PrivateKernelTailToPublicArtifact';
 
 export type ProtocolArtifact = ServerProtocolArtifact | ClientProtocolArtifact;
 
@@ -169,12 +174,14 @@ export const ClientCircuitArtifacts: Record<ClientProtocolArtifact, NoirCompiled
   PrivateKernelInitArtifact: PrivateKernelInitArtifact,
   PrivateKernelInnerArtifact: PrivateKernelInnerArtifact,
   PrivateKernelTailArtifact: PrivateKernelTailArtifact,
+  PrivateKernelTailToPublicArtifact: PrivateKernelTailToPublicArtifact,
 };
 
 export const ProtocolCircuitArtifacts: Record<ProtocolArtifact, NoirCompiledCircuit> = {
   PrivateKernelInitArtifact: PrivateKernelInitArtifact,
   PrivateKernelInnerArtifact: PrivateKernelInnerArtifact,
   PrivateKernelTailArtifact: PrivateKernelTailArtifact,
+  PrivateKernelTailToPublicArtifact: PrivateKernelTailToPublicArtifact,
   PublicKernelSetupArtifact: PublicKernelSetupArtifact,
   PublicKernelAppLogicArtifact: PublicKernelAppLogicArtifact,
   PublicKernelTeardownArtifact: PublicKernelTeardownArtifact,
@@ -243,7 +250,6 @@ export async function executeTail(
   const params: TailInputType = {
     input: mapPrivateKernelTailCircuitPrivateInputsToNoir(privateInputs),
   };
-
   const returnType = await executePrivateKernelTailWithACVM(params);
 
   return mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir(returnType);
@@ -262,6 +268,122 @@ export async function executeTailForPublic(
   };
 
   const returnType = await executePrivateKernelTailToPublicWithACVM(params);
+
+  return mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir(returnType);
+}
+
+/**
+ * Converts the inputs of the private kernel init circuit into a witness map
+ * @param inputs - The private kernel inputs.
+ * @returns The witness map
+ */
+export function convertPrivateKernelInitInputsToWitnessMap(
+  privateKernelInitCircuitPrivateInputs: PrivateKernelInitCircuitPrivateInputs,
+): WitnessMap {
+  const mapped = mapPrivateKernelInitCircuitPrivateInputsToNoir(privateKernelInitCircuitPrivateInputs);
+  const initialWitnessMap = abiEncode(PrivateKernelInitArtifact.abi as Abi, { input: mapped as any });
+  return initialWitnessMap;
+}
+
+/**
+ * Converts the inputs of the private kernel inner circuit into a witness map
+ * @param inputs - The private kernel inputs.
+ * @returns The witness map
+ */
+export function convertPrivateKernelInnerInputsToWitnessMap(
+  privateKernelInnerCircuitPrivateInputs: PrivateKernelInnerCircuitPrivateInputs,
+): WitnessMap {
+  const mapped = mapPrivateKernelInnerCircuitPrivateInputsToNoir(privateKernelInnerCircuitPrivateInputs);
+  const initialWitnessMap = abiEncode(PrivateKernelInnerArtifact.abi as Abi, { input: mapped as any });
+  return initialWitnessMap;
+}
+
+/**
+ * Converts the inputs of the private kernel tail circuit into a witness map
+ * @param inputs - The private kernel inputs.
+ * @returns The witness map
+ */
+export function convertPrivateKernelTailInputsToWitnessMap(
+  privateKernelTailCircuitPrivateInputs: PrivateKernelTailCircuitPrivateInputs,
+): WitnessMap {
+  const mapped = mapPrivateKernelTailCircuitPrivateInputsToNoir(privateKernelTailCircuitPrivateInputs);
+  const initialWitnessMap = abiEncode(PrivateKernelTailArtifact.abi as Abi, { input: mapped as any });
+  return initialWitnessMap;
+}
+
+/**
+ * Converts the inputs of the private kernel tail to public circuit into a witness map
+ * @param inputs - The private kernel inputs.
+ * @returns The witness map
+ */
+export function convertPrivateKernelTailToPublicInputsToWitnessMap(
+  privateKernelTailToPublicCircuitPrivateInputs: PrivateKernelTailCircuitPrivateInputs,
+): WitnessMap {
+  const mapped = mapPrivateKernelTailToPublicCircuitPrivateInputsToNoir(privateKernelTailToPublicCircuitPrivateInputs);
+  const initialWitnessMap = abiEncode(PrivateKernelTailToPublicArtifact.abi as Abi, { input: mapped as any });
+  return initialWitnessMap;
+}
+
+/**
+ * Converts the outputs of the private kernel init circuit from a witness map.
+ * @param outputs - The private kernel outputs as a witness map.
+ * @returns The public inputs.
+ */
+export function convertPrivateKernelInitOutputsFromWitnessMap(outputs: WitnessMap): PrivateKernelCircuitPublicInputs {
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(PrivateKernelInitArtifact.abi as Abi, outputs);
+
+  // Cast the inputs as the return type
+  const returnType = decodedInputs.return_value as InitReturnType;
+
+  return mapPrivateKernelCircuitPublicInputsFromNoir(returnType);
+}
+
+/**
+ * Converts the outputs of the private kernel inner circuit from a witness map.
+ * @param outputs - The private kernel outputs as a witness map.
+ * @returns The public inputs.
+ */
+export function convertPrivateKernelInnerOutputsFromWitnessMap(outputs: WitnessMap): PrivateKernelCircuitPublicInputs {
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(PrivateKernelInnerArtifact.abi as Abi, outputs);
+
+  // Cast the inputs as the return type
+  const returnType = decodedInputs.return_value as InnerReturnType;
+
+  return mapPrivateKernelCircuitPublicInputsFromNoir(returnType);
+}
+
+/**
+ * Converts the outputs of the private kernel tail circuit from a witness map.
+ * @param outputs - The private kernel outputs as a witness map.
+ * @returns The public inputs.
+ */
+export function convertPrivateKernelTailOutputsFromWitnessMap(
+  outputs: WitnessMap,
+): PrivateKernelTailCircuitPublicInputs {
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(PrivateKernelTailArtifact.abi as Abi, outputs);
+
+  // Cast the inputs as the return type
+  const returnType = decodedInputs.return_value as TailReturnType;
+
+  return mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir(returnType);
+}
+
+/**
+ * Converts the outputs of the private kernel tail for public circuit from a witness map.
+ * @param outputs - The private kernel outputs as a witness map.
+ * @returns The public inputs.
+ */
+export function convertPrivateKernelTailForPublicOutputsFromWitnessMap(
+  outputs: WitnessMap,
+): PrivateKernelTailCircuitPublicInputs {
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(PrivateKernelTailToPublicArtifact.abi as Abi, outputs);
+
+  // Cast the inputs as the return type
+  const returnType = decodedInputs.return_value as PublicPublicPreviousReturnType;
 
   return mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir(returnType);
 }
@@ -629,7 +751,7 @@ async function executePrivateKernelTailToPublicWithACVM(
   return decodedInputs.return_value as PublicPublicPreviousReturnType;
 }
 
-export const foreignCallHandler = (name: string, args: ForeignCallInput[]) => {
+export function foreignCallHandler(name: string, args: ForeignCallInput[]): Promise<ForeignCallOutput[]> {
   const log = createDebugLogger('aztec:noir-protocol-circuits:oracle');
 
   if (name === 'debugLog') {
@@ -640,5 +762,5 @@ export const foreignCallHandler = (name: string, args: ForeignCallInput[]) => {
     throw Error(`unexpected oracle during execution: ${name}`);
   }
 
-  return Promise.resolve([`0x${Buffer.alloc(Fr.SIZE_IN_BYTES).toString('hex')}`]);
-};
+  return Promise.resolve([]);
+}

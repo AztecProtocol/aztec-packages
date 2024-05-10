@@ -22,13 +22,25 @@ contract FPC {
     fn fee_entrypoint_private(amount: Field, asset: AztecAddress, secret_hash: Field, nonce: Field) {
         assert(asset == storage.other_asset.read_private());
         Token::at(asset).unshield(context.msg_sender(), context.this_address(), amount, nonce).call(&mut context);
-        FPC::at(context.this_address()).pay_fee_with_shielded_rebate(amount, asset, secret_hash).enqueue(&mut context);
+        // Would like to get back to
+        // FPC::at(context.this_address()).pay_fee_with_shielded_rebate(amount, asset, secret_hash).set_public_teardown_function(&mut context);
+        context.set_public_teardown_function(
+            context.this_address(),
+            FunctionSelector::from_signature("pay_fee_with_shielded_rebate(Field,(Field),Field)"),
+            [amount, asset.to_field(), secret_hash]
+        );
     }
 
     #[aztec(private)]
     fn fee_entrypoint_public(amount: Field, asset: AztecAddress, nonce: Field) {
         FPC::at(context.this_address()).prepare_fee(context.msg_sender(), amount, asset, nonce).enqueue(&mut context);
-        FPC::at(context.this_address()).pay_fee(context.msg_sender(), amount, asset).enqueue(&mut context);
+        // TODO(#6277) for improving interface:
+        // FPC::at(context.this_address()).pay_fee(context.msg_sender(), amount, asset).set_public_teardown_function(&mut context);
+        context.set_public_teardown_function(
+            context.this_address(),
+            FunctionSelector::from_signature("pay_fee((Field),Field,(Field))"),
+            [context.msg_sender().to_field(), amount, asset.to_field()]
+        );
     }
 
     #[aztec(public)]
@@ -40,7 +52,9 @@ contract FPC {
     #[aztec(public)]
     #[aztec(internal)]
     fn pay_fee(refund_address: AztecAddress, amount: Field, asset: AztecAddress) {
+        // docs:start:public_call
         let refund = GasToken::at(storage.gas_token_address.read_public()).pay_fee(amount).call(&mut context);
+        // docs:end:public_call
         // Just do public refunds for the present
         Token::at(asset).transfer_public(context.this_address(), refund_address, refund, 0).call(&mut context);
     }

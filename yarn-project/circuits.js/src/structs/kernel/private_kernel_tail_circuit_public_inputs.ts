@@ -1,7 +1,10 @@
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { makeTuple } from '@aztec/foundation/array';
+import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX } from '../../constants.gen.js';
 import { countAccumulatedItems, mergeAccumulatedData } from '../../utils/index.js';
 import { AggregationObject } from '../aggregation_object.js';
+import { CallRequest } from '../call_request.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { RevertCode } from '../revert_code.js';
 import { RollupValidationRequests } from '../rollup_validation_requests.js';
@@ -26,10 +29,14 @@ export class PartialPrivateTailPublicInputsForPublic {
      * Data accumulated from both public and private circuits.
      */
     public end: PublicAccumulatedData,
+    /**
+     * Call request for the public teardown function.
+     */
+    public publicTeardownCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
   ) {}
 
   get needsSetup() {
-    return !this.endNonRevertibleData.publicCallStack[1].isEmpty();
+    return !this.endNonRevertibleData.publicCallStack[0].isEmpty();
   }
 
   get needsAppLogic() {
@@ -37,7 +44,7 @@ export class PartialPrivateTailPublicInputsForPublic {
   }
 
   get needsTeardown() {
-    return !this.endNonRevertibleData.publicCallStack[0].isEmpty();
+    return !this.publicTeardownCallStack[0].isEmpty();
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PartialPrivateTailPublicInputsForPublic {
@@ -46,11 +53,17 @@ export class PartialPrivateTailPublicInputsForPublic {
       reader.readObject(ValidationRequests),
       reader.readObject(PublicAccumulatedData),
       reader.readObject(PublicAccumulatedData),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
     );
   }
 
   toBuffer() {
-    return serializeToBuffer(this.validationRequests, this.endNonRevertibleData, this.end);
+    return serializeToBuffer(
+      this.validationRequests,
+      this.endNonRevertibleData,
+      this.end,
+      this.publicTeardownCallStack,
+    );
   }
 
   static empty() {
@@ -58,6 +71,7 @@ export class PartialPrivateTailPublicInputsForPublic {
       ValidationRequests.empty(),
       PublicAccumulatedData.empty(),
       PublicAccumulatedData.empty(),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
     );
   }
 }
@@ -112,6 +126,10 @@ export class PrivateKernelTailCircuitPublicInputs {
     }
   }
 
+  get publicInputs(): PartialPrivateTailPublicInputsForPublic | PartialPrivateTailPublicInputsForRollup {
+    return (this.forPublic ?? this.forRollup)!;
+  }
+
   toPublicKernelCircuitPublicInputs() {
     if (!this.forPublic) {
       throw new Error('Private tail public inputs is not for public circuit.');
@@ -123,6 +141,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       this.forPublic.end,
       this.constants,
       this.revertCode,
+      this.forPublic.publicTeardownCallStack,
     );
   }
 

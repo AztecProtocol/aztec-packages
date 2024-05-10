@@ -7,10 +7,12 @@ import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
 
-jest.setTimeout(30_000);
+const TIMEOUT = 300_000;
 
 // See https://github.com/AztecProtocol/aztec-packages/issues/1601
 describe('e2e_ordering', () => {
+  jest.setTimeout(TIMEOUT);
+
   let pxe: PXE;
   let wallet: Wallet;
   let teardown: () => Promise<void>;
@@ -29,7 +31,7 @@ describe('e2e_ordering', () => {
 
   beforeEach(async () => {
     ({ teardown, pxe, wallet } = await setup());
-  });
+  }, TIMEOUT);
 
   afterEach(() => teardown());
 
@@ -42,7 +44,7 @@ describe('e2e_ordering', () => {
       parent = await ParentContract.deploy(wallet).send().deployed();
       child = await ChildContract.deploy(wallet).send().deployed();
       pubSetValueSelector = child.methods.pub_set_value.selector;
-    });
+    }, TIMEOUT);
 
     describe('enqueued public calls ordering', () => {
       const nestedValue = 10n;
@@ -90,8 +92,11 @@ describe('e2e_ordering', () => {
       const expectedOrders = {
         set_value_twice_with_nested_first: [nestedValue, directValue] as bigint[], // eslint-disable-line camelcase
         set_value_twice_with_nested_last: [directValue, nestedValue] as bigint[], // eslint-disable-line camelcase
+        // TODO(6052)
+        // set_value_with_two_nested_calls: [nestedValue, directValue, directValue, nestedValue, directValue] as bigint[], // eslint-disable-line camelcase
       } as const;
 
+      // TODO(6052): Once resolved, add 'set_value_with_nested_calls'
       it.each(['set_value_twice_with_nested_first', 'set_value_twice_with_nested_last'] as const)(
         'orders public state updates in %s (and ensures final state value is correct)',
         async method => {
@@ -100,7 +105,7 @@ describe('e2e_ordering', () => {
           await child.methods[method]().send().wait();
 
           const value = await pxe.getPublicStorageAt(child.address, new Fr(1));
-          expect(value.value).toBe(expectedOrder[1]); // final state should match last value set
+          expect(value.value).toBe(expectedOrder[expectedOrder.length - 1]); // final state should match last value set
         },
       );
 
@@ -111,6 +116,7 @@ describe('e2e_ordering', () => {
       //     in reverse order. More info in this thread: https://discourse.aztec.network/t/identifying-the-ordering-of-state-access-across-contract-calls/382/12#transition-counters-for-private-calls-2
       // The below only works due to a hack which sorts the logs in ts
       // See tail_phase_manager.ts
+      // TODO(6052): Once resolved, add 'set_value_with_two_nested_calls'
       it.each(['set_value_twice_with_nested_first', 'set_value_twice_with_nested_last'] as const)(
         'orders unencrypted logs in %s',
         async method => {

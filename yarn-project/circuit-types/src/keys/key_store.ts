@@ -1,5 +1,6 @@
 import {
   type AztecAddress,
+  type CompleteAddress,
   type Fr,
   type GrumpkinPrivateKey,
   type PartialAddress,
@@ -12,17 +13,17 @@ import {
 export interface KeyStore {
   /**
    * Creates a new account from a randomly generated secret key.
-   * @returns A promise that resolves to the newly created account's AztecAddress.
+   * @returns A promise that resolves to the newly created account's CompleteAddress.
    */
-  createAccount(): Promise<AztecAddress>;
+  createAccount(): Promise<CompleteAddress>;
 
   /**
    * Adds an account to the key store from the provided secret key.
    * @param sk - The secret key of the account.
    * @param partialAddress - The partial address of the account.
-   * @returns The account's address.
+   * @returns The account's complete address.
    */
-  addAccount(sk: Fr, partialAddress: PartialAddress): Promise<AztecAddress>;
+  addAccount(sk: Fr, partialAddress: PartialAddress): Promise<CompleteAddress>;
 
   /**
    * Retrieves addresses of accounts stored in the key store.
