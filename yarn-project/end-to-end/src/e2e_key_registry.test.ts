@@ -57,7 +57,14 @@ describe('Key Registry', () => {
       await expect(
         keyRegistry
           .withWallet(wallets[0])
-          .methods.register(account, account.partialAddress, keys[0], keys[1], keys[2], keys[3])
+          .methods.register(account, account.partialAddress,
+            {
+              npk_m: { x: keys[0].x, y: keys[0].y},
+              ivpk_m: { x: keys[1].x, y: keys[1].y},
+              ovpk_m: { x: keys[2].x, y: keys[2].y},
+              tpk_m: { x: keys[3].x, y: keys[3].y},
+            }
+          )
           .send()
           .wait(),
       ).rejects.toThrow('Computed address does not match supplied address');
@@ -106,10 +113,12 @@ describe('Key Registry', () => {
         .methods.register(
           account,
           account.partialAddress,
-          account.masterNullifierPublicKey,
-          account.masterIncomingViewingPublicKey,
-          account.masterOutgoingViewingPublicKey,
-          account.masterTaggingPublicKey,
+          {
+            npk_m: { x: account.masterNullifierPublicKey.x, y: account.masterNullifierPublicKey.y},
+            ivpk_m: { x: account.masterIncomingViewingPublicKey.x, y: account.masterIncomingViewingPublicKey.y},
+            ovpk_m: { x: account.masterOutgoingViewingPublicKey.x, y: account.masterOutgoingViewingPublicKey.y},
+            tpk_m: { x: account.masterTaggingPublicKey.x, y: account.masterTaggingPublicKey.y},
+          }
         )
         .send()
         .wait();
