@@ -239,7 +239,7 @@ export class Ec2Instance {
     const createFleetRequest: CreateFleetRequest = {
       Type: "instant",
       LaunchTemplateConfigs: [fleetLaunchConfig],
-      ClientToken: "",
+      ClientToken: this.config.clientToken,
       TargetCapacitySpecification: {
         TotalTargetCapacity: 1,
         OnDemandTargetCapacity: useOnDemand ? 1 : 0,

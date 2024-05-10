@@ -20,6 +20,9 @@ inputs:
   github_token:
     description: 'GitHub token'
     required: false
+  client_token:
+    description: 'Client token for idempotency of requests, prevents multiple spots'
+    required: false
   runner_label:
     description: 'Key for when to recreate spot, use as runs-on'
     required: true
