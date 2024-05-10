@@ -49,7 +49,11 @@ contract AppSubscription {
         storage.subscriptions.at(user_address).replace(&mut note, true);
 
         let gas_limit = storage.gas_token_limit_per_tx.read_private();
-        GasToken::at(storage.gas_token_address.read_private()).pay_fee(gas_limit).enqueue(&mut context);
+        context.set_public_teardown_function(
+            storage.gas_token_address.read_private(),
+            FunctionSelector::from_signature("pay_fee(Field)"),
+            [gas_limit]
+        );
 
         context.end_setup();
 

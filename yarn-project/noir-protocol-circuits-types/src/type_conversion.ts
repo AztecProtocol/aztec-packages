@@ -786,8 +786,9 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
     call_stack_item: mapPrivateCallStackItemToNoir(privateCallData.callStackItem),
     private_call_stack: mapTuple(privateCallData.privateCallStack, mapCallRequestToNoir),
     public_call_stack: mapTuple(privateCallData.publicCallStack, mapCallRequestToNoir),
-    proof: {},
-    vk: {},
+    public_teardown_call_request: mapCallRequestToNoir(privateCallData.publicTeardownCallRequest),
+    proof: mapRecursiveProofToNoir(privateCallData.proof),
+    vk: mapVerificationKeyToNoir(privateCallData.vk),
     function_leaf_membership_witness: mapMembershipWitnessToNoir(privateCallData.functionLeafMembershipWitness),
     contract_class_artifact_hash: mapFieldToNoir(privateCallData.contractClassArtifactHash),
     contract_class_public_bytecode_commitment: mapFieldToNoir(privateCallData.contractClassPublicBytecodeCommitment),
@@ -1235,13 +1236,12 @@ export function mapPublicKernelCircuitPublicInputsToNoir(
   inputs: PublicKernelCircuitPublicInputs,
 ): PublicKernelCircuitPublicInputsNoir {
   return {
-    aggregation_object: {},
     constants: mapCombinedConstantDataToNoir(inputs.constants),
     validation_requests: mapValidationRequestsToNoir(inputs.validationRequests),
     end: mapPublicAccumulatedDataToNoir(inputs.end),
     end_non_revertible: mapPublicAccumulatedDataToNoir(inputs.endNonRevertibleData),
     revert_code: mapRevertCodeToNoir(inputs.revertCode),
-    public_teardown_call_request: mapCallRequestToNoir(inputs.publicTeardownCallRequest),
+    public_teardown_call_stack: mapTuple(inputs.publicTeardownCallStack, mapCallRequestToNoir),
   };
 }
 
@@ -1258,7 +1258,6 @@ export function mapKernelCircuitPublicInputsFromNoir(inputs: KernelCircuitPublic
 
 export function mapKernelCircuitPublicInputsToNoir(inputs: KernelCircuitPublicInputs): KernelCircuitPublicInputsNoir {
   return {
-    aggregation_object: {},
     rollup_validation_requests: mapRollupValidationRequestsToNoir(inputs.rollupValidationRequests),
     constants: mapCombinedConstantDataToNoir(inputs.constants),
     end: mapCombinedAccumulatedDataToNoir(inputs.end),
@@ -1316,7 +1315,6 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
   inputs: PrivateKernelCircuitPublicInputs,
 ): PrivateKernelCircuitPublicInputsNoir {
   return {
-    aggregation_object: {},
     constants: mapCombinedConstantDataToNoir(inputs.constants),
     validation_requests: mapValidationRequestsToNoir(inputs.validationRequests),
     end: mapPrivateAccumulatedDataToNoir(inputs.end),
@@ -1333,8 +1331,8 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
 export function mapPrivateKernelDataToNoir(privateKernelInnerData: PrivateKernelData): PrivateKernelDataNoir {
   return {
     public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(privateKernelInnerData.publicInputs),
-    proof: {},
-    vk: {},
+    proof: mapRecursiveProofToNoir(privateKernelInnerData.proof),
+    vk: mapVerificationKeyToNoir(privateKernelInnerData.vk),
     vk_index: mapFieldToNoir(new Fr(privateKernelInnerData.vkIndex)),
     vk_path: mapTuple(privateKernelInnerData.vkPath, mapFieldToNoir),
   };
@@ -1363,7 +1361,7 @@ export function mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir(
     mapValidationRequestsFromNoir(inputs.validation_requests),
     mapPublicAccumulatedDataFromNoir(inputs.end_non_revertible),
     mapPublicAccumulatedDataFromNoir(inputs.end),
-    mapCallRequestFromNoir(inputs.public_teardown_call_request),
+    mapTupleFromNoir(inputs.public_teardown_call_stack, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, mapCallRequestFromNoir),
   );
   return new PrivateKernelTailCircuitPublicInputs(
     AggregationObject.makeFake(),
@@ -1481,7 +1479,7 @@ export function mapPublicKernelCircuitPublicInputsFromNoir(
     mapPublicAccumulatedDataFromNoir(inputs.end),
     mapCombinedConstantDataFromNoir(inputs.constants),
     mapRevertCodeFromNoir(inputs.revert_code),
-    mapCallRequestFromNoir(inputs.public_teardown_call_request),
+    mapTupleFromNoir(inputs.public_teardown_call_stack, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, mapCallRequestFromNoir),
   );
 }
 
@@ -1733,17 +1731,11 @@ export function mapAppendOnlyTreeSnapshotToNoir(snapshot: AppendOnlyTreeSnapshot
   };
 }
 
-export function mapRootRollupRecursiveProofToNoir(proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>) {
-  return {
-    fields: mapTuple(proof.proof, mapFieldToNoir),
-  };
-}
-
 export function mapRootRollupParityInputToNoir(
   rootParityInput: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
 ): RootRollupParityInputNoir {
   return {
-    proof: mapRootRollupRecursiveProofToNoir(rootParityInput.proof),
+    proof: mapRecursiveProofToNoir(rootParityInput.proof),
     verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey),
     public_inputs: mapParityPublicInputsToNoir(rootParityInput.publicInputs),
   };
@@ -1771,7 +1763,7 @@ export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): R
   };
 }
 
-export function mapRecursiveProofToNoir(proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>) {
+export function mapRecursiveProofToNoir<PROOF_LENGTH extends number>(proof: RecursiveProof<PROOF_LENGTH>) {
   return {
     fields: mapTuple(proof.proof, mapFieldToNoir),
   };

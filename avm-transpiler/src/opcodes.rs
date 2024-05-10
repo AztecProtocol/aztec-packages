@@ -69,6 +69,8 @@ pub enum AvmOpcode {
     POSEIDON2,
     SHA256COMPRESSION,
     PEDERSEN, // temp - may be removed, but alot of contracts rely on it
+    // Conversions
+    TORADIXLE,
 }
 
 impl AvmOpcode {
@@ -155,6 +157,8 @@ impl AvmOpcode {
             AvmOpcode::POSEIDON2 => "POSEIDON2",
             AvmOpcode::SHA256COMPRESSION => "SHA256COMPRESSION",
             AvmOpcode::PEDERSEN => "PEDERSEN",
+            // Conversions
+            AvmOpcode::TORADIXLE => "TORADIXLE",
         }
     }
 }

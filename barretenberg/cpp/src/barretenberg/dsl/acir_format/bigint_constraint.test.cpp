@@ -169,6 +169,7 @@ TEST_F(BigIntTests, TestBigIntConstraintMultiple)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(witness.size() + 1),
         .recursive = false,
+        .num_acir_opcodes = 5,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
@@ -237,6 +238,7 @@ TEST_F(BigIntTests, TestBigIntConstraintSimple)
     AcirFormat constraint_system{
         .varnum = 5,
         .recursive = false,
+        .num_acir_opcodes = 3,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
@@ -290,6 +292,7 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(witness.size() + 1),
         .recursive = false,
+        .num_acir_opcodes = 5,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
@@ -347,6 +350,7 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse2)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(witness.size() + 1),
         .recursive = false,
+        .num_acir_opcodes = 5,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
@@ -425,6 +429,7 @@ TEST_F(BigIntTests, TestBigIntDIV)
     AcirFormat constraint_system{
         .varnum = 5,
         .recursive = false,
+        .num_acir_opcodes = 4,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
