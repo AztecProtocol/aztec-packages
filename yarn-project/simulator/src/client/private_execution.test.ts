@@ -565,15 +565,6 @@ describe('Private Execution test suite', () => {
   describe('consuming messages', () => {
     const contractAddress = defaultContractAddress;
 
-    beforeEach(() => {
-      oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
-        if (address.equals(recipient)) {
-          return Promise.resolve(recipientCompleteAddress);
-        }
-        throw new Error(`Unknown address ${address}`);
-      });
-    });
-
     describe('L1 to L2', () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'consume_mint_private_message');
       let bridgedAmount = 100n;
@@ -876,15 +867,6 @@ describe('Private Execution test suite', () => {
 
   describe('pending note hashes contract', () => {
     beforeEach(() => {
-      oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
-        if (address.equals(owner)) {
-          return Promise.resolve(ownerCompleteAddress);
-        }
-        throw new Error(`Unknown address ${address}`);
-      });
-    });
-
-    beforeEach(() => {
       oracle.getFunctionArtifact.mockImplementation((_, selector) =>
         Promise.resolve(getFunctionArtifact(PendingNoteHashesContractArtifact, selector)),
       );
@@ -1065,6 +1047,7 @@ describe('Private Execution test suite', () => {
       const args = [completeAddress.address];
       const pubKey = completeAddress.masterIncomingViewingPublicKey;
 
+      oracle.getCompleteAddress.mockResolvedValue(completeAddress);
       const result = await runSimulator({ artifact, args });
       expect(result.returnValues).toEqual([pubKey.x, pubKey.y]);
     });
