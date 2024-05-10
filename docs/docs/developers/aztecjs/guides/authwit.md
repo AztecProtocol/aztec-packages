@@ -8,7 +8,7 @@ For an introduction to authentication witnesses on Aztec, [read this explainer](
 
 ## Import libraries
 
-These are all the libraries you will need for the various ways of using authwits in Aztec.js:
+These are all the libraries you might need for using authwits in Aztec.js:
 
 ```typescript
 import {
@@ -111,7 +111,7 @@ If you created an arbitrary message, you would replace the first param struct wi
 
 #include_code set_public_authwit yarn-project/end-to-end/src/e2e_authwit.test.ts typescript
 
-# Further reading
+## Further reading
 
 - [An explainer of authentication witnesses](../../../learn/concepts/accounts/authwit.md)
 - [Authwits in Aztec.nr](../../contracts/writing_contracts/accounts/how_to_authwit.md)
