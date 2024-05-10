@@ -17,7 +17,9 @@ inputs:
   aws_secret_access_key:
     required: true
   run_id:
-    required: true
+    required: false
+    # build instances need a folder per workflow run, testers can use default
+    default: "project"
   run_attempt:
     required: true
   ec2_key:

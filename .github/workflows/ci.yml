@@ -71,6 +71,7 @@ jobs:
         uses: ./.github/ensure-builder
         with:
           run_id: ${{ github.run_id }}
+          run_attempt: ${{ github.run_attempt }}
           runner_label: ${{ inputs.username || github.actor }}-x86
           runner_type: builder-x86
           concurrency_github_token: "${{ secrets.AZTEC_GITHUB_TOKEN }}"
@@ -94,7 +95,6 @@ jobs:
       - name: Ensure Tester is Up
         uses: ./.github/ensure-builder
         with:
-          run_id: ${{ github.run_id }}
           runner_type: 4core-tester-x86
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
