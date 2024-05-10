@@ -35,19 +35,24 @@ fn is_valid_caller(request: CallRequest, caller_address: AztecAddress, caller_co
         & (request.caller_context.is_empty() | valid_caller_context)
 }
 
-fn validate_call_requests<N>(call_requests: [CallRequest; N], hashes: [Field; N], caller: PrivateCallStackItem) {
-    let caller_address = caller.contract_address;
-    let caller_context = caller.public_inputs.call_context;
+fn validate_call_request(request: CallRequest, hash: Field, caller: PrivateCallStackItem) {
+    if hash != 0 {
+        assert_eq(request.hash, hash, "call stack hash does not match call request hash");
+        assert(
+            is_valid_caller(
+                request,
+                caller.contract_address,
+                caller.public_inputs.call_context
+            ), "invalid caller"
+        );
+    } else {
+        assert(is_empty(request), "call requests length does not match the expected length");
+    }
+}
 
+fn validate_call_requests<N>(call_requests: [CallRequest; N], hashes: [Field; N], caller: PrivateCallStackItem) {
     for i in 0..N {
-        let hash = hashes[i];
-        let request = call_requests[i];
-        if hash != 0 {
-            assert_eq(request.hash, hash, "call stack hash does not match call request hash");
-            assert(is_valid_caller(request, caller_address, caller_context), "invalid caller");
-        } else {
-            assert(is_empty(request), "call requests length does not match the expected length");
-        }
+        validate_call_request(call_requests[i], hashes[i], caller);
     }
 }
 
@@ -80,6 +85,7 @@ impl PrivateCallDataValidator {
         self.validate_call();
         self.validate_private_call_requests();
         self.validate_public_call_requests();
+        self.validate_teardown_call_request();
     }
 
     // Confirm that the TxRequest (user's intent) matches the private call being executed.
@@ -205,6 +211,14 @@ impl PrivateCallDataValidator {
         validate_call_requests(
             self.data.public_call_stack,
             self.data.call_stack_item.public_inputs.public_call_stack_hashes,
+            self.data.call_stack_item
+        );
+    }
+
+    fn validate_teardown_call_request(self) {
+        validate_call_request(
+            self.data.public_teardown_call_request,
+            self.data.call_stack_item.public_inputs.public_teardown_function_hash,
             self.data.call_stack_item
         );
     }

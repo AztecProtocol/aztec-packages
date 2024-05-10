@@ -22,6 +22,7 @@ struct PrivateCallDataBuilder {
     // The rest of the values of PrivateCallData.
     private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    public_teardown_call_request: CallRequest,
     proof: RecursiveProof,
     vk: VerificationKey,
     salted_initialization_hash: SaltedInitializationHash,
@@ -48,6 +49,7 @@ impl PrivateCallDataBuilder {
             function_data,
             private_call_stack: BoundedVec::new(),
             public_call_stack: BoundedVec::new(),
+            public_teardown_call_request: CallRequest::empty(),
             proof: RecursiveProof::empty(),
             vk: VerificationKey::empty(),
             function_leaf_membership_witness: contract_function.membership_witness,
@@ -114,6 +116,12 @@ impl PrivateCallDataBuilder {
         self.public_call_stack.extend_from_bounded_vec(call_requests);
     }
 
+    pub fn add_teaddown_call_request(&mut self, is_delegate_call: bool) {
+        let hash = 99887654;
+        self.public_inputs.public_teardown_function_hash = hash;
+        self.public_teardown_call_request = self.generate_call_request(hash, is_delegate_call);
+    }
+
     fn generate_call_requests<N>(
         self,
         requests: BoundedVec<CallRequest, N>,
@@ -121,12 +129,6 @@ impl PrivateCallDataBuilder {
         is_delegate_call: bool
     ) -> (BoundedVec<Field, N>, BoundedVec<CallRequest, N>) {
         let value_offset = requests.len();
-        let mut caller_context = CallerContext::empty();
-        if is_delegate_call {
-            let call_context = self.public_inputs.call_context;
-            caller_context.msg_sender = call_context.msg_sender;
-            caller_context.storage_contract_address = call_context.storage_contract_address;
-        }
         let mut call_requests: BoundedVec<CallRequest, N> = BoundedVec::new();
         let mut hashes: BoundedVec<Field, N> = BoundedVec::new();
         let mut exceeded_len = false;
@@ -135,19 +137,29 @@ impl PrivateCallDataBuilder {
             if !exceeded_len {
                 // The default hash is its index + 7788.
                 let hash = (value_offset + 7788) as Field;
-                let request = CallRequest {
-                    hash,
-                    caller_contract_address: self.contract_address,
-                    caller_context,
-                    // TODO: populate these
-                    start_side_effect_counter: 0,
-                    end_side_effect_counter: 0
-                };
+                let request = self.generate_call_request(hash, is_delegate_call);
                 hashes.push(hash);
                 call_requests.push(request);
             }
         }
         (hashes, call_requests)
+    }
+
+    fn generate_call_request(self, hash: Field, is_delegate_call: bool) -> CallRequest {
+        let mut caller_context = CallerContext::empty();
+        if is_delegate_call {
+            let call_context = self.public_inputs.call_context;
+            caller_context.msg_sender = call_context.msg_sender;
+            caller_context.storage_contract_address = call_context.storage_contract_address;
+        }
+        CallRequest {
+            hash,
+            caller_contract_address: self.contract_address,
+            caller_context,
+            // TODO: populate these
+            start_side_effect_counter: 0,
+            end_side_effect_counter: 0
+        }
     }
 
     pub fn set_tx_max_block_number(&mut self, max_block_number: u32) {
@@ -185,6 +197,7 @@ impl PrivateCallDataBuilder {
             call_stack_item: self.build_call_stack_item(),
             private_call_stack: self.private_call_stack.storage,
             public_call_stack: self.public_call_stack.storage,
+            public_teardown_call_request: self.public_teardown_call_request,
             proof: self.proof,
             vk: self.vk,
             function_leaf_membership_witness: self.function_leaf_membership_witness,
