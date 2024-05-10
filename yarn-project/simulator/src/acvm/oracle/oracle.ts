@@ -53,8 +53,8 @@ export class Oracle {
     ];
   }
 
-  async getNullifierKeysWithNpkMH([masterNullifierPublicKeyHash]: ACVMField[]): Promise<ACVMField[]> {
-    const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeysWithNpkMH(
+  async getNullifierKeysWithNpkMHash([masterNullifierPublicKeyHash]: ACVMField[]): Promise<ACVMField[]> {
+    const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeysWithNpkMHash(
       fromACVMField(masterNullifierPublicKeyHash),
     );
     return [
@@ -204,7 +204,7 @@ export class Oracle {
       masterOutgoingViewingPublicKey,
       masterTaggingPublicKey,
       partialAddress,
-    } = await this.typedOracle.getCompleteAddressWithNpkMH(parsedNpkMH);
+    } = await this.typedOracle.getCompleteAddressWithNpkMHash(parsedNpkMH);
 
     return [
       ...masterNullifierPublicKey.toFields(),

@@ -45,13 +45,13 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
-   * Retrieve nullifier keys associated with a specific masterNullifierPublicKeyHash and app/contract address.
-   * @param masterNullifierPublicKeyHash - The master nullifer public key hash.
-   * @returns A Promise that resolves to nullifier keys of a requested account and contract.
-   * @throws An error if the account is not registered in the database.
+   * Retrieve nullifier keys associated with a specific master nullifier public key hash and app/contract address.
+   * @param npkMHash - The master nullifer public key hash.
+   * @returns The nullifier keys of an account (specified by a master nullifier public key hash) and contract.
+   * @throws if the aster nullifier public key hash / account is not registered in the database.
    */
-  public override getNullifierKeysWithNpkMH(masterNullifierPublicKeyHash: Fr): Promise<NullifierKeys> {
-    return this.db.getNullifierKeysWithNpkMH(masterNullifierPublicKeyHash, this.contractAddress);
+  public override getNullifierKeysWithNpkMHash(npkMHash: Fr): Promise<NullifierKeys> {
+    return this.db.getNullifierKeysWithNpkMHash(npkMHash, this.contractAddress);
   }
 
   /**
@@ -147,11 +147,12 @@ export class ViewDataOracle extends TypedOracle {
 
   /**
    * Retrieve the complete address associated to a given master nullifier public key hash.
-   * @param masterNullifierPublicKeyHash - Master nullifier public key hash to fetch the complete address for.
+   * @param npkMHash - The master nullifer public key hash.
    * @returns A complete address associated with the input master nullifier public key hash.
+   * @throws if the aster nullifier public key hash / account is not registered in the database.
    */
-  public override getCompleteAddressWithNpkMH(masterNullifierPublicKeyHash: Fr): Promise<CompleteAddress> {
-    return this.db.getCompleteAddressWithNpkMH(masterNullifierPublicKeyHash);
+  public override getCompleteAddressWithNpkMHash(npkMHash: Fr): Promise<CompleteAddress> {
+    return this.db.getCompleteAddressWithNpkMHash(npkMHash);
   }
 
   /**
