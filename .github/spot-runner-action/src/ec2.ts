@@ -198,6 +198,9 @@ export class Ec2Instance {
             DeviceName: "/dev/sda1",
             Ebs: {
               VolumeSize: 32,
+              VolumeType: 'gp3',
+              Throughput: 1000,
+              Iops: 5000
             },
           },
         ],
