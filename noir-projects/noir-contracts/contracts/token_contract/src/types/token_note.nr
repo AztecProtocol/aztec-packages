@@ -1,5 +1,6 @@
 use dep::aztec::{
-    keys::getters::get_ivpk_m_with_npk_m_hash, prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext},
+    keys::getters::get_ivpk_m_with_npk_m_hash,
+    prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext},
     protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER,
     note::utils::compute_note_hash_for_consumption, hash::poseidon2_hash,
     oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_nsk_app_with_npk_m_hash}
