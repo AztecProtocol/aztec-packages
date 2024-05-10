@@ -18,10 +18,12 @@
 
 #include "barretenberg/relations/generated/avm/avm_alu.hpp"
 #include "barretenberg/relations/generated/avm/avm_binary.hpp"
+#include "barretenberg/relations/generated/avm/avm_kernel.hpp"
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
 #include "barretenberg/relations/generated/avm/avm_mem.hpp"
 #include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/incl_mem_tag_err.hpp"
+#include "barretenberg/relations/generated/avm/kernel_output_lookup.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_lengths.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_operations.hpp"
 #include "barretenberg/relations/generated/avm/lookup_div_u16_0.hpp"
@@ -174,9 +176,23 @@ template <typename FF> struct AvmFullRow {
     FF avm_byte_lookup_table_input_b{};
     FF avm_byte_lookup_table_op_id{};
     FF avm_byte_lookup_table_output{};
+    FF avm_kernel_emit_note_hash_write_offset{};
+    FF avm_kernel_emit_nullifier_write_offset{};
+    FF avm_kernel_emit_unencrypted_log_write_offset{};
     FF avm_kernel_kernel_inputs__is_public{};
+    FF avm_kernel_kernel_metadata_out__is_public{};
+    FF avm_kernel_kernel_out_sel{};
     FF avm_kernel_kernel_sel{};
+    FF avm_kernel_kernel_side_effect_out__is_public{};
+    FF avm_kernel_kernel_value_out__is_public{};
+    FF avm_kernel_l1_to_l2_msg_write_offset{};
+    FF avm_kernel_note_hash_exist_write_offset{};
+    FF avm_kernel_nullifier_exists_write_offset{};
     FF avm_kernel_q_public_input_kernel_add_to_table{};
+    FF avm_kernel_q_public_input_kernel_out_add_to_table{};
+    FF avm_kernel_side_effect_counter{};
+    FF avm_kernel_sload_write_offset{};
+    FF avm_kernel_sstore_write_offset{};
     FF avm_main_alu_in_tag{};
     FF avm_main_alu_sel{};
     FF avm_main_bin_op_id{};
@@ -208,6 +224,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_op_err{};
     FF avm_main_pc{};
     FF avm_main_q_kernel_lookup{};
+    FF avm_main_q_kernel_output_lookup{};
     FF avm_main_r_in_tag{};
     FF avm_main_rwa{};
     FF avm_main_rwb{};
@@ -229,19 +246,28 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_op_chain_id{};
     FF avm_main_sel_op_coinbase{};
     FF avm_main_sel_op_div{};
+    FF avm_main_sel_op_emit_note_hash{};
+    FF avm_main_sel_op_emit_nullifier{};
+    FF avm_main_sel_op_emit_unencrypted_log{};
     FF avm_main_sel_op_eq{};
     FF avm_main_sel_op_fdiv{};
     FF avm_main_sel_op_fee_per_da_gas{};
     FF avm_main_sel_op_fee_per_l2_gas{};
+    FF avm_main_sel_op_l1_to_l2_msg_exists{};
     FF avm_main_sel_op_lt{};
     FF avm_main_sel_op_lte{};
     FF avm_main_sel_op_mul{};
     FF avm_main_sel_op_not{};
+    FF avm_main_sel_op_note_hash_exists{};
+    FF avm_main_sel_op_nullifier_exists{};
     FF avm_main_sel_op_or{};
     FF avm_main_sel_op_portal{};
+    FF avm_main_sel_op_send_l2_to_l1_msg{};
     FF avm_main_sel_op_sender{};
     FF avm_main_sel_op_shl{};
     FF avm_main_sel_op_shr{};
+    FF avm_main_sel_op_sload{};
+    FF avm_main_sel_op_sstore{};
     FF avm_main_sel_op_sub{};
     FF avm_main_sel_op_timestamp{};
     FF avm_main_sel_op_transaction_fee{};
@@ -293,6 +319,7 @@ template <typename FF> struct AvmFullRow {
     FF lookup_byte_lengths{};
     FF lookup_byte_operations{};
     FF lookup_into_kernel{};
+    FF kernel_output_lookup{};
     FF incl_main_tag_err{};
     FF incl_mem_tag_err{};
     FF lookup_mem_rng_chk_lo{};
@@ -327,6 +354,7 @@ template <typename FF> struct AvmFullRow {
     FF lookup_byte_lengths_counts{};
     FF lookup_byte_operations_counts{};
     FF lookup_into_kernel_counts{};
+    FF kernel_output_lookup_counts{};
     FF incl_main_tag_err_counts{};
     FF incl_mem_tag_err_counts{};
     FF lookup_mem_rng_chk_lo_counts{};
@@ -402,6 +430,14 @@ template <typename FF> struct AvmFullRow {
     FF avm_binary_acc_ic_shift{};
     FF avm_binary_mem_tag_ctr_shift{};
     FF avm_binary_op_id_shift{};
+    FF avm_kernel_emit_note_hash_write_offset_shift{};
+    FF avm_kernel_emit_nullifier_write_offset_shift{};
+    FF avm_kernel_emit_unencrypted_log_write_offset_shift{};
+    FF avm_kernel_l1_to_l2_msg_write_offset_shift{};
+    FF avm_kernel_note_hash_exist_write_offset_shift{};
+    FF avm_kernel_nullifier_exists_write_offset_shift{};
+    FF avm_kernel_sload_write_offset_shift{};
+    FF avm_kernel_sstore_write_offset_shift{};
     FF avm_main_internal_return_ptr_shift{};
     FF avm_main_pc_shift{};
     FF avm_mem_addr_shift{};
@@ -422,8 +458,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 341;
-    static constexpr size_t num_polys = 289;
+    static constexpr size_t num_fixed_columns = 375;
+    static constexpr size_t num_polys = 315;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -544,10 +580,27 @@ class AvmCircuitBuilder {
             polys.avm_byte_lookup_table_input_b[i] = rows[i].avm_byte_lookup_table_input_b;
             polys.avm_byte_lookup_table_op_id[i] = rows[i].avm_byte_lookup_table_op_id;
             polys.avm_byte_lookup_table_output[i] = rows[i].avm_byte_lookup_table_output;
+            polys.avm_kernel_emit_note_hash_write_offset[i] = rows[i].avm_kernel_emit_note_hash_write_offset;
+            polys.avm_kernel_emit_nullifier_write_offset[i] = rows[i].avm_kernel_emit_nullifier_write_offset;
+            polys.avm_kernel_emit_unencrypted_log_write_offset[i] =
+                rows[i].avm_kernel_emit_unencrypted_log_write_offset;
             polys.avm_kernel_kernel_inputs__is_public[i] = rows[i].avm_kernel_kernel_inputs__is_public;
+            polys.avm_kernel_kernel_metadata_out__is_public[i] = rows[i].avm_kernel_kernel_metadata_out__is_public;
+            polys.avm_kernel_kernel_out_sel[i] = rows[i].avm_kernel_kernel_out_sel;
             polys.avm_kernel_kernel_sel[i] = rows[i].avm_kernel_kernel_sel;
+            polys.avm_kernel_kernel_side_effect_out__is_public[i] =
+                rows[i].avm_kernel_kernel_side_effect_out__is_public;
+            polys.avm_kernel_kernel_value_out__is_public[i] = rows[i].avm_kernel_kernel_value_out__is_public;
+            polys.avm_kernel_l1_to_l2_msg_write_offset[i] = rows[i].avm_kernel_l1_to_l2_msg_write_offset;
+            polys.avm_kernel_note_hash_exist_write_offset[i] = rows[i].avm_kernel_note_hash_exist_write_offset;
+            polys.avm_kernel_nullifier_exists_write_offset[i] = rows[i].avm_kernel_nullifier_exists_write_offset;
             polys.avm_kernel_q_public_input_kernel_add_to_table[i] =
                 rows[i].avm_kernel_q_public_input_kernel_add_to_table;
+            polys.avm_kernel_q_public_input_kernel_out_add_to_table[i] =
+                rows[i].avm_kernel_q_public_input_kernel_out_add_to_table;
+            polys.avm_kernel_side_effect_counter[i] = rows[i].avm_kernel_side_effect_counter;
+            polys.avm_kernel_sload_write_offset[i] = rows[i].avm_kernel_sload_write_offset;
+            polys.avm_kernel_sstore_write_offset[i] = rows[i].avm_kernel_sstore_write_offset;
             polys.avm_main_alu_in_tag[i] = rows[i].avm_main_alu_in_tag;
             polys.avm_main_alu_sel[i] = rows[i].avm_main_alu_sel;
             polys.avm_main_bin_op_id[i] = rows[i].avm_main_bin_op_id;
@@ -579,6 +632,7 @@ class AvmCircuitBuilder {
             polys.avm_main_op_err[i] = rows[i].avm_main_op_err;
             polys.avm_main_pc[i] = rows[i].avm_main_pc;
             polys.avm_main_q_kernel_lookup[i] = rows[i].avm_main_q_kernel_lookup;
+            polys.avm_main_q_kernel_output_lookup[i] = rows[i].avm_main_q_kernel_output_lookup;
             polys.avm_main_r_in_tag[i] = rows[i].avm_main_r_in_tag;
             polys.avm_main_rwa[i] = rows[i].avm_main_rwa;
             polys.avm_main_rwb[i] = rows[i].avm_main_rwb;
@@ -600,19 +654,28 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_op_chain_id[i] = rows[i].avm_main_sel_op_chain_id;
             polys.avm_main_sel_op_coinbase[i] = rows[i].avm_main_sel_op_coinbase;
             polys.avm_main_sel_op_div[i] = rows[i].avm_main_sel_op_div;
+            polys.avm_main_sel_op_emit_note_hash[i] = rows[i].avm_main_sel_op_emit_note_hash;
+            polys.avm_main_sel_op_emit_nullifier[i] = rows[i].avm_main_sel_op_emit_nullifier;
+            polys.avm_main_sel_op_emit_unencrypted_log[i] = rows[i].avm_main_sel_op_emit_unencrypted_log;
             polys.avm_main_sel_op_eq[i] = rows[i].avm_main_sel_op_eq;
             polys.avm_main_sel_op_fdiv[i] = rows[i].avm_main_sel_op_fdiv;
             polys.avm_main_sel_op_fee_per_da_gas[i] = rows[i].avm_main_sel_op_fee_per_da_gas;
             polys.avm_main_sel_op_fee_per_l2_gas[i] = rows[i].avm_main_sel_op_fee_per_l2_gas;
+            polys.avm_main_sel_op_l1_to_l2_msg_exists[i] = rows[i].avm_main_sel_op_l1_to_l2_msg_exists;
             polys.avm_main_sel_op_lt[i] = rows[i].avm_main_sel_op_lt;
             polys.avm_main_sel_op_lte[i] = rows[i].avm_main_sel_op_lte;
             polys.avm_main_sel_op_mul[i] = rows[i].avm_main_sel_op_mul;
             polys.avm_main_sel_op_not[i] = rows[i].avm_main_sel_op_not;
+            polys.avm_main_sel_op_note_hash_exists[i] = rows[i].avm_main_sel_op_note_hash_exists;
+            polys.avm_main_sel_op_nullifier_exists[i] = rows[i].avm_main_sel_op_nullifier_exists;
             polys.avm_main_sel_op_or[i] = rows[i].avm_main_sel_op_or;
             polys.avm_main_sel_op_portal[i] = rows[i].avm_main_sel_op_portal;
+            polys.avm_main_sel_op_send_l2_to_l1_msg[i] = rows[i].avm_main_sel_op_send_l2_to_l1_msg;
             polys.avm_main_sel_op_sender[i] = rows[i].avm_main_sel_op_sender;
             polys.avm_main_sel_op_shl[i] = rows[i].avm_main_sel_op_shl;
             polys.avm_main_sel_op_shr[i] = rows[i].avm_main_sel_op_shr;
+            polys.avm_main_sel_op_sload[i] = rows[i].avm_main_sel_op_sload;
+            polys.avm_main_sel_op_sstore[i] = rows[i].avm_main_sel_op_sstore;
             polys.avm_main_sel_op_sub[i] = rows[i].avm_main_sel_op_sub;
             polys.avm_main_sel_op_timestamp[i] = rows[i].avm_main_sel_op_timestamp;
             polys.avm_main_sel_op_transaction_fee[i] = rows[i].avm_main_sel_op_transaction_fee;
@@ -654,6 +717,7 @@ class AvmCircuitBuilder {
             polys.lookup_byte_lengths_counts[i] = rows[i].lookup_byte_lengths_counts;
             polys.lookup_byte_operations_counts[i] = rows[i].lookup_byte_operations_counts;
             polys.lookup_into_kernel_counts[i] = rows[i].lookup_into_kernel_counts;
+            polys.kernel_output_lookup_counts[i] = rows[i].kernel_output_lookup_counts;
             polys.incl_main_tag_err_counts[i] = rows[i].incl_main_tag_err_counts;
             polys.incl_mem_tag_err_counts[i] = rows[i].incl_mem_tag_err_counts;
             polys.lookup_mem_rng_chk_lo_counts[i] = rows[i].lookup_mem_rng_chk_lo_counts;
@@ -731,6 +795,20 @@ class AvmCircuitBuilder {
         polys.avm_binary_acc_ic_shift = Polynomial(polys.avm_binary_acc_ic.shifted());
         polys.avm_binary_mem_tag_ctr_shift = Polynomial(polys.avm_binary_mem_tag_ctr.shifted());
         polys.avm_binary_op_id_shift = Polynomial(polys.avm_binary_op_id.shifted());
+        polys.avm_kernel_emit_note_hash_write_offset_shift =
+            Polynomial(polys.avm_kernel_emit_note_hash_write_offset.shifted());
+        polys.avm_kernel_emit_nullifier_write_offset_shift =
+            Polynomial(polys.avm_kernel_emit_nullifier_write_offset.shifted());
+        polys.avm_kernel_emit_unencrypted_log_write_offset_shift =
+            Polynomial(polys.avm_kernel_emit_unencrypted_log_write_offset.shifted());
+        polys.avm_kernel_l1_to_l2_msg_write_offset_shift =
+            Polynomial(polys.avm_kernel_l1_to_l2_msg_write_offset.shifted());
+        polys.avm_kernel_note_hash_exist_write_offset_shift =
+            Polynomial(polys.avm_kernel_note_hash_exist_write_offset.shifted());
+        polys.avm_kernel_nullifier_exists_write_offset_shift =
+            Polynomial(polys.avm_kernel_nullifier_exists_write_offset.shifted());
+        polys.avm_kernel_sload_write_offset_shift = Polynomial(polys.avm_kernel_sload_write_offset.shifted());
+        polys.avm_kernel_sstore_write_offset_shift = Polynomial(polys.avm_kernel_sstore_write_offset.shifted());
         polys.avm_main_internal_return_ptr_shift = Polynomial(polys.avm_main_internal_return_ptr.shifted());
         polys.avm_main_pc_shift = Polynomial(polys.avm_main_pc.shifted());
         polys.avm_mem_addr_shift = Polynomial(polys.avm_mem_addr.shifted());
@@ -820,6 +898,11 @@ class AvmCircuitBuilder {
                                                                                  Avm_vm::get_relation_label_avm_binary);
         };
 
+        auto avm_kernel = [=]() {
+            return evaluate_relation.template operator()<Avm_vm::avm_kernel<FF>>("avm_kernel",
+                                                                                 Avm_vm::get_relation_label_avm_kernel);
+        };
+
         auto avm_main = [=]() {
             return evaluate_relation.template operator()<Avm_vm::avm_main<FF>>("avm_main",
                                                                                Avm_vm::get_relation_label_avm_main);
@@ -881,6 +964,11 @@ class AvmCircuitBuilder {
 
         auto lookup_into_kernel = [=]() {
             return evaluate_logderivative.template operator()<lookup_into_kernel_relation<FF>>("LOOKUP_INTO_KERNEL");
+        };
+
+        auto kernel_output_lookup = [=]() {
+            return evaluate_logderivative.template operator()<kernel_output_lookup_relation<FF>>(
+                "KERNEL_OUTPUT_LOOKUP");
         };
 
         auto incl_main_tag_err = [=]() {
@@ -1018,6 +1106,8 @@ class AvmCircuitBuilder {
 
         relation_futures.emplace_back(std::async(std::launch::async, avm_binary));
 
+        relation_futures.emplace_back(std::async(std::launch::async, avm_kernel));
+
         relation_futures.emplace_back(std::async(std::launch::async, avm_main));
 
         relation_futures.emplace_back(std::async(std::launch::async, avm_mem));
@@ -1047,6 +1137,8 @@ class AvmCircuitBuilder {
         relation_futures.emplace_back(std::async(std::launch::async, lookup_byte_operations));
 
         relation_futures.emplace_back(std::async(std::launch::async, lookup_into_kernel));
+
+        relation_futures.emplace_back(std::async(std::launch::async, kernel_output_lookup));
 
         relation_futures.emplace_back(std::async(std::launch::async, incl_main_tag_err));
 
@@ -1123,6 +1215,8 @@ class AvmCircuitBuilder {
 
         avm_binary();
 
+        avm_kernel();
+
         avm_main();
 
         avm_mem();
@@ -1152,6 +1246,8 @@ class AvmCircuitBuilder {
         lookup_byte_operations();
 
         lookup_into_kernel();
+
+        kernel_output_lookup();
 
         incl_main_tag_err();
 
