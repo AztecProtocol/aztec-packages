@@ -222,7 +222,7 @@ impl PrivateContext {
     }
 
     // TODO: (#6176) Replace request_app_nullifier_secret_key above with this once we no longer get app nullifier secret key with address
-    pub fn request_nsk_app_with_npk_m_h(&mut self, master_public_nullifying_key_hash: Field) -> Field {
+    pub fn request_nsk_app_with_npk_m_hash(&mut self, master_public_nullifying_key_hash: Field) -> Field {
         let keys = if self.nullifier_key.is_none() {
             let keys = get_nullifier_keys_with_npk_m_h(master_public_nullifying_key_hash);
             let request = NullifierKeyValidationRequest {

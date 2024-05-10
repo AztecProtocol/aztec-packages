@@ -98,16 +98,6 @@ export interface PXE {
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
-   * Retrieves the public keys of the account corresponding to the provided aztec address.
-   *
-   * @param address - The address of account.
-   * @returns The public keys of the requested account if found.
-   * TODO(#5834): refactor complete address and merge with getRegisteredAccount?
-   * This will change after the re enabling separation of keystore and pxe. We shouldn't need both this function and the above one
-   */
-  getRegisteredAccountPublicKeys(address: AztecAddress): Promise<PublicKeys | undefined>;
-
-  /**
    * Retrieves the recipients added to this PXE Service.
    * @returns An array of recipients registered on this PXE Service.
    */

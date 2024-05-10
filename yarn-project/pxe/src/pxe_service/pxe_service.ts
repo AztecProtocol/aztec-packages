@@ -204,20 +204,6 @@ export class PXEService implements PXE {
     return Promise.resolve(account);
   }
 
-  public async getRegisteredAccountPublicKeys(address: AztecAddress): Promise<PublicKeys | undefined> {
-    const accounts = await this.keyStore.getAccounts();
-    if (!accounts.some(account => account.equals(address))) {
-      return undefined;
-    }
-
-    return {
-      masterNullifierPublicKey: await this.keyStore.getMasterNullifierPublicKey(address),
-      masterIncomingViewingPublicKey: await this.keyStore.getMasterIncomingViewingPublicKey(address),
-      masterOutgoingViewingPublicKey: await this.keyStore.getMasterOutgoingViewingPublicKey(address),
-      masterTaggingPublicKey: await this.keyStore.getMasterTaggingPublicKey(address),
-    };
-  }
-
   public async registerRecipient(recipient: CompleteAddress): Promise<void> {
     const wasAdded = await this.db.addCompleteAddress(recipient);
 

@@ -2,16 +2,14 @@ use dep::aztec::{
     prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext},
     protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER,
     note::utils::compute_note_hash_for_consumption, hash::poseidon2_hash,
-    oracle::{
-    unsafe_rand::unsafe_rand, nullifier_key::get_nsk_app_with_npk_m_h,
-    get_public_key::get_public_key_with_npk_m_h
-}
+    keys::getters::get_ivpk_m_with_npk_m_hash,
+    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_nsk_app_with_npk_m_hash}
 };
 
 trait OwnedNote {
-    fn new(amount: U128, owner_npk_m_h: Field) -> Self;
+    fn new(amount: U128, owner_npk_m_hash: Field) -> Self;
     fn get_amount(self) -> U128;
-    fn get_owner_npk_m_h(self) -> Field;
+    fn get_owner_npk_m_hash(self) -> Field;
 }
 
 global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
@@ -22,7 +20,7 @@ struct TokenNote {
     amount: U128,
     // The nullifying public key hash of the person who owns the note. 
     // This is used with the app_nullifier_secret_key to ensure that the note can be privately spent.
-    owner_npk_m_h: Field,
+    npk_m_hash: Field,
     // Randomness of the note to hide its contents
     randomness: Field,
 }
@@ -31,7 +29,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
     // docs:start:nullifier
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_nsk_app_with_npk_m_h(self.owner_npk_m_h);
+        let secret = context.request_nsk_app_with_npk_m_hash(self.npk_m_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -42,7 +40,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nsk_app_with_npk_m_h(self.owner_npk_m_h);
+        let secret = get_nsk_app_with_npk_m_hash(self.npk_m_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -55,7 +53,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
       // We only bother inserting the note if non-empty to save funds on gas.
       // TODO: (#5901) This will be changed a lot, as it should use the updated encrypted log format
       if !(self.amount == U128::from_integer(0)) {
-          let encryption_pub_key = get_public_key_with_npk_m_h(self.owner_npk_m_h);
+          let encryption_pub_key = get_ivpk_m_with_npk_m_hash(self.npk_m_hash);
           context.emit_encrypted_log(
               (*context).this_address(),
               slot,
@@ -68,10 +66,10 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
 }
 
 impl OwnedNote for TokenNote {
-    fn new(amount: U128, owner_npk_m_h: Field) -> Self {
+    fn new(amount: U128, owner_npk_m_hash: Field) -> Self {
         Self {
             amount,
-            owner_npk_m_h,
+            npk_m_hash: owner_npk_m_hash,
             randomness: unsafe_rand(),
             header: NoteHeader::empty(),
         }
@@ -81,7 +79,7 @@ impl OwnedNote for TokenNote {
         self.amount
     }
 
-    fn get_owner_npk_m_h(self) -> Field {
-        self.owner_npk_m_h
+    fn get_owner_npk_m_hash(self) -> Field {
+        self.npk_m_hash
     }
 }

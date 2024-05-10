@@ -64,14 +64,6 @@ export class Oracle {
     ];
   }
 
-  // TODO: #5834 Nuke this
-  async getPublicKeyAndPartialAddressWithNpkMH([masterNullifierPublicKeyHash]: ACVMField[]) {
-    const { publicKey, partialAddress } = await this.typedOracle.getCompleteAddressWithNpkMH(
-      fromACVMField(masterNullifierPublicKeyHash),
-    );
-    return [publicKey.x, publicKey.y, partialAddress].map(toACVMField);
-  }
-
   async getContractInstance([address]: ACVMField[]) {
     const instance = await this.typedOracle.getContractInstance(AztecAddress.fromField(fromACVMField(address)));
 
@@ -192,6 +184,27 @@ export class Oracle {
       masterTaggingPublicKey,
       partialAddress,
     } = await this.typedOracle.getCompleteAddress(parsedAddress);
+
+    return [
+      ...masterNullifierPublicKey.toFields(),
+      ...masterIncomingViewingPublicKey.toFields(),
+      ...masterOutgoingViewingPublicKey.toFields(),
+      ...masterTaggingPublicKey.toFields(),
+      partialAddress,
+    ].map(toACVMField);
+  }
+
+  // TODO: #5834
+  async getPublicKeysAndPartialAddressWithNpkMH([masterNullifierPublicKeyHash]: ACVMField[]) {
+    const parsedNpkMH = fromACVMField(masterNullifierPublicKeyHash);
+
+    const {
+      masterNullifierPublicKey,
+      masterIncomingViewingPublicKey,
+      masterOutgoingViewingPublicKey,
+      masterTaggingPublicKey,
+      partialAddress,
+    } = await this.typedOracle.getCompleteAddressWithNpkMH(parsedNpkMH);
 
     return [
       ...masterNullifierPublicKey.toFields(),

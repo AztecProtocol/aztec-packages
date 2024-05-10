@@ -16,7 +16,7 @@ struct TokenNote {
     amount: U128,
     ```diff
     - owner: AztecAddress,
-    + owner_npk_m_h: Field,
+    + npk_m_hash: Field,
     ```
     randomness: Field,
 }
