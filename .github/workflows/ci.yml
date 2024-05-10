@@ -84,6 +84,7 @@ jobs:
         with:
           run: |
             # in case of inconvenient prune, re-export
+            set -eux
             if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/aztec:${{ github.event.pull_request.head.sha }}" ||
                ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }}" ; then
               export FORCE_COLOR=1
@@ -102,6 +103,7 @@ jobs:
         uses: ./.github/run-on-tester
         with:
           run: |
+            set -eux
             export BUILDER_SPOT_IP=${{ env.BUILDER_SPOT_IP }}
             export BUILDER_SPOT_KEY=~/.ssh/build_instance_key
             scripts/run_on_builder "
@@ -112,6 +114,7 @@ jobs:
         timeout-minutes: 25
         with:
           run: |
+            set -eux
             cd ./yarn-project/end-to-end/
             export FORCE_COLOR=1
             earthly-ci +${{ matrix.test }}
