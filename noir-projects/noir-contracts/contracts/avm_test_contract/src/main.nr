@@ -342,8 +342,8 @@ contract AvmTest {
     }
 
     #[aztec(public-vm)]
-    fn to_radix_le(input: Field ) -> [u8; 10] {
-        let result: [u8] =input.to_le_radix(2, 10);
+    fn to_radix_le(input: Field) -> [u8; 10] {
+        let result: [u8] = input.to_le_radix(/*base=*/ 2, /*limbs=*/ 10);
         result.as_array()
     }
 }
