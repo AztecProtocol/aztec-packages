@@ -190,4 +190,4 @@ runs:
       uses: gacts/run-and-post-run@v1
       if: ${{ contains(inputs.runner_type, 'tester') }}
       with:
-        post: scripts/run_on_tester "sudo shutdown now"
+        post: scripts/run_on_tester "sudo shutdown now || true"
