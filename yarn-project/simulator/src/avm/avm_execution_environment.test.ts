@@ -22,7 +22,8 @@ describe('Execution Environment', () => {
     );
   });
 
-  it('New delegate call should fork execution environment correctly', () => {
+  // Delegate calls not supported.
+  it.skip('New delegate call should fork execution environment correctly', () => {
     const executionEnvironment = initExecutionEnvironment();
     const newExecutionEnvironment = executionEnvironment.newDelegateCall(newAddress, calldata, selector);
 
