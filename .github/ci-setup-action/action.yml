@@ -47,7 +47,7 @@ runs:
       with:
         # permission issue with spot runners, simpler to leave out
         use-cache: false
-        version: "v0.8.5"
+        version: "v0.8.9"
 
     - name: Setup Env
       shell: bash

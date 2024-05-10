@@ -161,7 +161,7 @@ export class Ec2Instance {
     const userData = await new UserData(
       this.config
     );
-    const userDataScript = this.config.githubToken ? await userData.getUserDataForGithubRunners() : await userData.getUserDataForBareSpot();
+    const userDataScript = this.config.githubActionRunnerConcurrency !== 0 ? await userData.getUserDataForGithubRunners() : await userData.getUserDataForBareSpot();
     const ec2InstanceTypeHash = this.getHashOfStringArray(
       this.config.ec2InstanceType.concat([
         userDataScript,

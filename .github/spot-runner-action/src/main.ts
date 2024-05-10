@@ -321,7 +321,7 @@ async function terminate(instanceStatus?: string, cleanupRunners = true) {
 (async function () {
   try {
     const config = new ActionConfig();
-    if (config.githubToken) {
+    if (config.githubActionRunnerConcurrency !== 0) {
       startWithGithubRunners(config);
     } else {
       startBareSpot(config);

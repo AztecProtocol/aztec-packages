@@ -89,6 +89,16 @@ jobs:
               git submodule update --init --recursive --recommend-shallow
               scripts/earthly-ci ./yarn-project+export-e2e-test-images
             fi
+      - name: Ensure Builder is Up
+        uses: ./.github/ensure-builder
+        with:
+          run_id: ${{ github.run_id }}
+          runner_label: ${{ inputs.username || github.actor }}-x86
+          runner_type: builder-x86
+          github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
       - name: Copy Over Build Images
         run: |
           scripts/run_on_builder "
