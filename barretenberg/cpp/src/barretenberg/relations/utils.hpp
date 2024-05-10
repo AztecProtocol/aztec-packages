@@ -2,9 +2,6 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/pow.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-
 namespace bb {
 
 template <typename Flavor> class RelationUtils {
@@ -25,7 +22,7 @@ template <typename Flavor> class RelationUtils {
      * @brief General purpose method for applying an operation to a tuple of tuples of Univariates
      *
      * @tparam Operation Any operation valid on Univariates
-     * @tparam outer_idx Index into the outer tuple
+     * @tparam outer_idx Index into the outer tuplex
      * @tparam inner_idx Index into the inner tuple
      * @param tuple A Tuple of tuples of Univariates
      * @param operation Operation to apply to Univariates

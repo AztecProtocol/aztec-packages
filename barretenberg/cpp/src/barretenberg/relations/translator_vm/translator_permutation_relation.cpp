@@ -1,5 +1,6 @@
 #include "barretenberg/relations/translator_vm/translator_permutation_relation.hpp"
 #include "barretenberg/translator_vm/goblin_translator_flavor.hpp"
+#include "barretenberg/translator_vm/goblin_translator_recursive_flavor.hpp"
 
 namespace bb {
 
@@ -35,10 +36,10 @@ void GoblinTranslatorPermutationRelationImpl<FF>::accumulate(ContainerOverSubrel
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
 
-        auto z_perm = View(in.z_perm);
-        auto z_perm_shift = View(in.z_perm_shift);
-        auto lagrange_first = View(in.lagrange_first);
-        auto lagrange_last = View(in.lagrange_last);
+        const auto z_perm = View(in.z_perm);
+        const auto z_perm_shift = View(in.z_perm_shift);
+        const auto lagrange_first = View(in.lagrange_first);
+        const auto lagrange_last = View(in.lagrange_last);
 
         // Contribution (1)
         std::get<0>(accumulators) +=
@@ -51,8 +52,8 @@ void GoblinTranslatorPermutationRelationImpl<FF>::accumulate(ContainerOverSubrel
         using Accumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
 
-        auto z_perm_shift = View(in.z_perm_shift);
-        auto lagrange_last = View(in.lagrange_last);
+        const auto z_perm_shift = View(in.z_perm_shift);
+        const auto lagrange_last = View(in.lagrange_last);
 
         // Contribution (2)
         std::get<1>(accumulators) += (lagrange_last * z_perm_shift) * scaling_factor;
@@ -61,5 +62,9 @@ void GoblinTranslatorPermutationRelationImpl<FF>::accumulate(ContainerOverSubrel
 
 template class GoblinTranslatorPermutationRelationImpl<bb::fr>;
 DEFINE_SUMCHECK_RELATION_CLASS(GoblinTranslatorPermutationRelationImpl, GoblinTranslatorFlavor);
+
+template class GoblinTranslatorPermutationRelationImpl<bb::stdlib::bn254<UltraCircuitBuilder>::ScalarField>;
+DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(GoblinTranslatorPermutationRelationImpl,
+                                        GoblinTranslatorRecursiveFlavor_<UltraCircuitBuilder>);
 
 } // namespace bb

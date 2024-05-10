@@ -278,6 +278,7 @@ void GoblinTranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSub
 };
 
 template class GoblinTranslatorNonNativeFieldRelationImpl<bb::fr>;
+template class GoblinTranslatorNonNativeFieldRelationImpl<bb::stdlib::bn254<UltraCircuitBuilder>::ScalarField>;
 DEFINE_SUMCHECK_RELATION_CLASS(GoblinTranslatorNonNativeFieldRelationImpl, GoblinTranslatorFlavor);
 
 } // namespace bb

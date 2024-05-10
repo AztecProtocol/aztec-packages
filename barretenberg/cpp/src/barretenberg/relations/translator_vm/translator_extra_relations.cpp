@@ -1,5 +1,5 @@
 #include "barretenberg/relations/translator_vm/translator_extra_relations.hpp"
-#include "barretenberg/translator_vm/goblin_translator_flavor.hpp"
+#include "barretenberg/translator_vm/goblin_translator_recursive_flavor.hpp"
 
 namespace bb {
 
@@ -148,6 +148,8 @@ void GoblinTranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOv
 
 template class GoblinTranslatorOpcodeConstraintRelationImpl<bb::fr>;
 template class GoblinTranslatorAccumulatorTransferRelationImpl<bb::fr>;
+template class GoblinTranslatorOpcodeConstraintRelationImpl<bb::stdlib::bn254<UltraCircuitBuilder>::ScalarField>;
+template class GoblinTranslatorAccumulatorTransferRelationImpl<bb::stdlib::bn254<UltraCircuitBuilder>::ScalarField>;
 
 DEFINE_SUMCHECK_RELATION_CLASS(GoblinTranslatorOpcodeConstraintRelationImpl, GoblinTranslatorFlavor);
 DEFINE_SUMCHECK_RELATION_CLASS(GoblinTranslatorAccumulatorTransferRelationImpl, GoblinTranslatorFlavor);

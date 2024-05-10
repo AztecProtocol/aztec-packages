@@ -127,6 +127,7 @@ void GoblinTranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerO
 };
 
 template class GoblinTranslatorDeltaRangeConstraintRelationImpl<bb::fr>;
+template class GoblinTranslatorDeltaRangeConstraintRelationImpl<bb::stdlib::bn254<UltraCircuitBuilder>::ScalarField>;
 DEFINE_SUMCHECK_RELATION_CLASS(GoblinTranslatorDeltaRangeConstraintRelationImpl, GoblinTranslatorFlavor);
 
 } // namespace bb

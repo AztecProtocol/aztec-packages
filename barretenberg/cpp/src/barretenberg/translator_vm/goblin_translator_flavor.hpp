@@ -81,12 +81,14 @@ class GoblinTranslatorFlavor {
 
     using GrandProductRelations = std::tuple<GoblinTranslatorPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
-    using Relations = std::tuple<GoblinTranslatorPermutationRelation<FF>,
-                                 GoblinTranslatorDeltaRangeConstraintRelation<FF>,
-                                 GoblinTranslatorOpcodeConstraintRelation<FF>,
-                                 GoblinTranslatorAccumulatorTransferRelation<FF>,
-                                 GoblinTranslatorDecompositionRelation<FF>,
-                                 GoblinTranslatorNonNativeFieldRelation<FF>>;
+    template <typename FF>
+    using Relations_ = std::tuple<GoblinTranslatorPermutationRelation<FF>,
+                                  GoblinTranslatorDeltaRangeConstraintRelation<FF>,
+                                  GoblinTranslatorOpcodeConstraintRelation<FF>,
+                                  GoblinTranslatorAccumulatorTransferRelation<FF>,
+                                  GoblinTranslatorDecompositionRelation<FF>,
+                                  GoblinTranslatorNonNativeFieldRelation<FF>>;
+    using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();

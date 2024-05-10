@@ -310,6 +310,7 @@ namespace bb {
 class UltraFlavor;
 class ECCVMFlavor;
 class GoblinUltraFlavor;
+class GoblinTranslatorFlavor;
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class GoblinUltraRecursiveFlavor_;
 template <typename BuilderType> class GoblinTranslatorRecursiveFlavor_;

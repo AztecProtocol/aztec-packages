@@ -617,6 +617,7 @@ void GoblinTranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubr
 };
 
 template class GoblinTranslatorDecompositionRelationImpl<bb::fr>;
+template class GoblinTranslatorDecompositionRelationImpl<bb::stdlib::field_t<UltraCircuitBuilder>>;
 DEFINE_SUMCHECK_RELATION_CLASS(GoblinTranslatorDecompositionRelationImpl, GoblinTranslatorFlavor);
 
 } // namespace bb
