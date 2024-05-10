@@ -11,8 +11,8 @@ use tempfile::tempdir;
 use tracing::warn;
 
 use crate::cli::{
-    GatesCommand, ProofAsFieldsCommand, ProveCommand, VerifyCommand, VkAsFieldsCommand,
-    WriteVkCommand,
+    CircuitReport, GatesCommand, ProofAsFieldsCommand, ProveCommand, VerifyCommand,
+    VkAsFieldsCommand, WriteVkCommand,
 };
 use crate::{Backend, BackendError};
 
