@@ -35,7 +35,8 @@ while true; do
     else
       # Different error or no error, break loop
       cat "$tmpfile" >&2 # Output other errors to stderr
-      break
+      rm -f "$tmpfile"
+      exit 1
     fi
   fi
 done
