@@ -16,7 +16,7 @@ This creates a codespace with a prebuilt image containing one of the "Aztec Boxe
 
 The above method uses Aztec boxes to install the sandbox and clone the repo. You can use it too to get started on your own machine and use your own IDE.
 
-You can also [install the sandbox manually](../sandbox/references/sandbox-reference.md).
+You can also [install the sandbox manually](/reference/reference/sandbox_reference).
 
 ### Prerequisites
 

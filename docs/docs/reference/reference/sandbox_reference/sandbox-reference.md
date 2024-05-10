@@ -10,7 +10,7 @@ For a quick start, follow the [guide](/getting_started/getting_started) to insta
 
 ## Manual Install
 
-You can manually install the sandbox via the underlying script used in the [Aztec Boxes](../../getting_started/quickstart.md#run-the-npx-script).
+You can manually install the sandbox via the underlying script used in the [Aztec Boxes](/getting_started/getting_started/index.md#run-the-npx-script).
 
 ### Prerequisites
 

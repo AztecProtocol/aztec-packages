@@ -15,7 +15,7 @@ You will learn:
 
 Writing your own account contract allows you to define the rules by which user transactions are authorized and paid for, as well as how user keys are managed (including key rotation and recovery). In other words, writing an account contract lets you make the most out of [account abstraction](/aztec/aztec/concepts/index.md#what-is-account-abstraction) in the Aztec network.
 
-It is highly recommended that you understand how an [account](/aztec/aztec/concepts/index.md) is defined in Aztec, as well as the differences between privacy and authentication [keys](/aztec/aztec/concepts/accounts/keys.md). You will also need to know how to write a [contract in Noir](../layout.md), as well as some basic [Typescript](https://www.typescriptlang.org/).
+It is highly recommended that you understand how an [account](/aztec/aztec/concepts/index.md) is defined in Aztec, as well as the differences between privacy and authentication [keys](/aztec/aztec/concepts/accounts/keys.md). You will also need to know how to write a contract in Noir, as well as some basic [Typescript](https://www.typescriptlang.org/).
 
 For this tutorial, we will write an account contract that uses Schnorr signatures for authenticating transaction requests.
 
@@ -29,7 +29,7 @@ Let's start with the account contract itself in Aztec.nr. Create a new Aztec.nr 
 
 #include_code contract noir-projects/noir-contracts/contracts/schnorr_hardcoded_account_contract/src/main.nr rust
 
-The important part of this contract is the `entrypoint` function, which will be the first function executed in any transaction originated from this account. This function has two main responsibilities: authenticating the transaction and executing calls. It receives a `payload` with the list of function calls to execute, and requests a corresponding [authentication witness](../../../../learn/concepts/accounts/authwit.md) from an oracle to validate it. Authentication witnesses are used for authorizing actions for an account, whether it is just checking a signature, like in this case, or granting authorization for another account to act on an accounts behalf (e.g. token approvals). You will find this logic implemented in the `AccountActions` module, which use the `AppPayload` and `FeePayload` structs:
+The important part of this contract is the `entrypoint` function, which will be the first function executed in any transaction originated from this account. This function has two main responsibilities: authenticating the transaction and executing calls. It receives a `payload` with the list of function calls to execute, and requests a corresponding [authentication witness](/aztec/aztec/concepts/accounts/authwit.md) from an oracle to validate it. Authentication witnesses are used for authorizing actions for an account, whether it is just checking a signature, like in this case, or granting authorization for another account to act on an accounts behalf (e.g. token approvals). You will find this logic implemented in the `AccountActions` module, which use the `AppPayload` and `FeePayload` structs:
 
 #include_code entrypoint noir-projects/aztec-nr/authwit/src/account.nr rust
 
@@ -49,7 +49,7 @@ For our account contract, we will take the hash of the action to authorize, requ
 
 ### Fee Abstraction
 
-The `FeePayload`, being distinct from the `AppPayload`, allows for fee abstraction, meaning the account paying the fee for the transaction can be different than the account that is initiating the transaction. This is also useful for maintaining privacy, as fee payments on the network must be public. For example, Alice could pay a relayer transaction fees in private, and the relayer could pay the transaction fee in public. This also allows for accounts without a fee paying asset to use a non-fee paying asset to pay for fees, provided they can find a relayer willing to accept a non-fee paying asset as payment (or do it for free). You can read more about that works in the protocol specification on fees [here](../../../../protocol-specs/gas-and-fees/tx-setup-and-teardown.md).
+The `FeePayload`, being distinct from the `AppPayload`, allows for fee abstraction, meaning the account paying the fee for the transaction can be different than the account that is initiating the transaction. This is also useful for maintaining privacy, as fee payments on the network must be public. For example, Alice could pay a relayer transaction fees in private, and the relayer could pay the transaction fee in public. This also allows for accounts without a fee paying asset to use a non-fee paying asset to pay for fees, provided they can find a relayer willing to accept a non-fee paying asset as payment (or do it for free). You can read more about that works in the protocol specification on fees [here](/protocol-specs/gas-and-fees/tx-setup-and-teardown.md).
 
 ### Nonce Abstraction
 

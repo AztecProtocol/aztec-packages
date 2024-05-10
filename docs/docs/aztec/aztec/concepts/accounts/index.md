@@ -144,4 +144,4 @@ In order to be considered valid, an account must prove that it has locked enough
 
 However, there is one major consideration around public execution reverts. In the current design, if one of the public function executions enqueued in a transaction fails, then the entire transaction is reverted. But reverting the whole transaction would also revert the fee payment, and leave the sequencer with their hands empty after running the public execution. This means we will need to enshrine an initial verification and fee payment phase that is _not_ reverted if public execution fails.
 
-You can read the latest information about fees in the [protocol specs](../../../protocol-specs/gas-and-fees/index.md).
+You can read the latest information about fees in the [protocol specs](/protocol-specs/gas-and-fees/index.md).

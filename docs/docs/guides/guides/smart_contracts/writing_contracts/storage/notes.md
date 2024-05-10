@@ -69,7 +69,7 @@ To update a value, its previous note hash(es) are nullified. The new note value 
 
 ## Supplementary components
 Some optional background resources on notes can be found here:
-- [High level network architecture](/aztec/aztec/what_is_aztec/core_components.md#high-level-network-architecture), specifically the Private Execution Environment
+- [High level network architecture](/aztec/aztec/core_components.md#high-level-network-architecture), specifically the Private Execution Environment
 - [Transaction lifecycle (simple diagram)](/aztec/aztec/concepts/transactions.md#simple-example-of-the-private-transaction-lifecycle)
 - [Public and Private state](/aztec/aztec/concepts/state_model)
 

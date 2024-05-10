@@ -53,7 +53,7 @@ That's right, the Sandbox doesn't actually generate or verify any zk-SNARKs yet!
 
 The main goal of the Sandbox is to enable developers to experiment with building apps, and hopefully to provide feedback. We want the developer experience to be as fast as possible, much like how Ethereum developers use Ganache or Anvil to get super-fast block times, instead of the slow-but-realistic 12-second block times that they'll encounter in production. A fast Sandbox enables fast testing, which enables developers to iterate quickly.
 
-That's not to say a super-fast proving system isn't being worked on [as we speak](/aztec/aztec/what_is_aztec/roadmap/cryptography_roadmap.md).
+That's not to say a super-fast proving system isn't being worked on [as we speak](/aztec/aztec/roadmap/cryptography_roadmap.md).
 
 #### What are the consequences?
 
@@ -172,11 +172,11 @@ This will be patched in the near future, but unfortunately, app developers might
 
 ### New Privacy Standards are required
 
-There are many [patterns](/aztec/aztec/what_is_aztec/privacy_considerations.md) which can leak privacy, even on Aztec. Standards haven't been developed yet, to encourage best practices when designing private smart contracts.
+There are many [patterns](/reference/reference/privacy_considerations.md) which can leak privacy, even on Aztec. Standards haven't been developed yet, to encourage best practices when designing private smart contracts.
 
 #### What are the consequences?
 
-For example, until community standards are developed to reduce the uniqueness of ['Tx Fingerprints'](/aztec/aztec/what_is_aztec/privacy_considerations.md#function-fingerprints-and-tx-fingerprints) app developers might accidentally forfeit some function privacy.
+For example, until community standards are developed to reduce the uniqueness of ['Tx Fingerprints'](/reference/reference/privacy_considerations.md#function-fingerprints-and-tx-fingerprints) app developers might accidentally forfeit some function privacy.
 
 ## Circuit limitations
 

@@ -19,7 +19,7 @@ emit_encrypted_log_oracle(_contract_address, _storage_slot, _note_type_id, _encr
 ### emit_encrypted_log
 
 ```rust
-emit_encrypted_log(contract_address, storage_slot, note_type_id, encryption_pub_key, preimage, counter);
+emit_encrypted_log(contract_address, storage_slot, note_type_id, ivpk_m, preimage, counter);
 ```
 
 #### Parameters
@@ -28,7 +28,7 @@ emit_encrypted_log(contract_address, storage_slot, note_type_id, encryption_pub_
 | contract_address | AztecAddress |
 | storage_slot | Field |
 | note_type_id | Field |
-| encryption_pub_key | GrumpkinPoint |
+| ivpk_m | GrumpkinPoint |
 | preimage | [Field; N] |
 | counter | u32 |
 
