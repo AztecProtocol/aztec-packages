@@ -137,7 +137,7 @@ runs:
         # detect run folder
         if ! scripts/run_on_tester "[ -d ~/run-$RUN_ID ]" ; then
           echo "> Copying local repo to spot"
-          tar czf - .git | scripts/run_on_builder \
+          tar czf - .git | scripts/run_on_tester \
             "mkdir -p ~/run-$RUN_ID-git && cd ~/run-$RUN_ID-git && tar xzf -" || true
           scripts/run_on_tester "
             echo "> Unpacking repo"
