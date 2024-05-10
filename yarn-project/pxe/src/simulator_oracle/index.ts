@@ -37,39 +37,17 @@ export class SimulatorOracle implements DBOracle {
     private log = createDebugLogger('aztec:pxe:simulator_oracle'),
   ) {}
 
-  async getNullifierKeys(accountAddress: AztecAddress, contractAddress: AztecAddress): Promise<NullifierKeys> {
-    const masterNullifierPublicKey = await this.keyStore.getMasterNullifierPublicKey(accountAddress);
-    const appNullifierSecretKey = await this.keyStore.getAppNullifierSecretKey(accountAddress, contractAddress);
+  async getNullifierKeys(args: { account: AztecAddress } | { npkMHash: Fr }, contractAddress: AztecAddress): Promise<NullifierKeys> {
+    const masterNullifierPublicKey = await this.keyStore.getMasterNullifierPublicKey(args);
+    const appNullifierSecretKey = await this.keyStore.getAppNullifierSecretKey(args, contractAddress);
     return { masterNullifierPublicKey, appNullifierSecretKey };
   }
 
-  async getNullifierKeysWithNpkMHash(
-    masterNullifierPublicKeyHash: AztecAddress,
-    contractAddress: AztecAddress,
-  ): Promise<NullifierKeys> {
-    const masterNullifierPublicKey = await this.keyStore.getMasterNullifierPublicKey(masterNullifierPublicKeyHash);
-    const appNullifierSecretKey = await this.keyStore.getAppNullifierSecretKey(
-      masterNullifierPublicKeyHash,
-      contractAddress,
-    );
-    return { masterNullifierPublicKey, appNullifierSecretKey };
-  }
-
-  async getCompleteAddress(address: AztecAddress): Promise<CompleteAddress> {
-    const completeAddress = await this.db.getCompleteAddress(address);
+  async getCompleteAddress(args: { account: AztecAddress } | { npkMHash: Fr }): Promise<CompleteAddress> {
+    const completeAddress = await this.db.getCompleteAddress(args);
     if (!completeAddress) {
       throw new Error(
-        `No public key registered for address ${address.toString()}. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/developers/debugging/aztecnr-errors#simulation-error-No-public-key-registered-for-address-0x0-Register-it-by-calling-pxeregisterRecipient-or-pxeregisterAccount`,
-      );
-    }
-    return completeAddress;
-  }
-
-  async getCompleteAddressWithNpkMHash(masterNullifierPublicKeyHash: Fr): Promise<CompleteAddress> {
-    const completeAddress = await this.db.getCompleteAddressByNpkMHash(masterNullifierPublicKeyHash);
-    if (!completeAddress) {
-      throw new Error(
-        `No public key registered for master nullifier public key hash ${masterNullifierPublicKeyHash.toString()}. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/developers/debugging/aztecnr-errors#simulation-error-No-public-key-registered-for-address-0x0-Register-it-by-calling-pxeregisterRecipient-or-pxeregisterAccount`,
+        `No public key registered for ${'account' in args ? `address ${args.account}` : `master nullifier public key hash ${args.npkMHash}`}. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/developers/debugging/aztecnr-errors#simulation-error-No-public-key-registered-for-address-0x0-Register-it-by-calling-pxeregisterRecipient-or-pxeregisterAccount`,
       );
     }
     return completeAddress;

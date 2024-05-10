@@ -43,9 +43,9 @@ export class Oracle {
   }
 
   async getNullifierKeys([accountAddress]: ACVMField[]): Promise<ACVMField[]> {
-    const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeys(
-      fromACVMField(accountAddress),
-    );
+    const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeys({
+      account: fromACVMField(accountAddress),
+    });
     return [
       toACVMField(masterNullifierPublicKey.x),
       toACVMField(masterNullifierPublicKey.y),
@@ -53,10 +53,12 @@ export class Oracle {
     ];
   }
 
+  // Keeping this oracle separate from above because I don't want an implicit overload in noir code
   async getNullifierKeysWithNpkMHash([masterNullifierPublicKeyHash]: ACVMField[]): Promise<ACVMField[]> {
-    const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeysWithNpkMHash(
-      fromACVMField(masterNullifierPublicKeyHash),
-    );
+    const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeys({
+      npkMHash: fromACVMField(masterNullifierPublicKeyHash)
+    });
+
     return [
       toACVMField(masterNullifierPublicKey.x),
       toACVMField(masterNullifierPublicKey.y),
@@ -183,7 +185,9 @@ export class Oracle {
       masterOutgoingViewingPublicKey,
       masterTaggingPublicKey,
       partialAddress,
-    } = await this.typedOracle.getCompleteAddress(parsedAddress);
+    } = await this.typedOracle.getCompleteAddress({
+      account: parsedAddress,
+    });
 
     return [
       ...masterNullifierPublicKey.toFields(),
@@ -194,8 +198,9 @@ export class Oracle {
     ].map(toACVMField);
   }
 
+  // Keeping this oracle separate from above because I don't want an implicit overload in noir code
   async getPublicKeysAndPartialAddressWithNpkMHash([masterNullifierPublicKeyHash]: ACVMField[]) {
-    const parsedNpkMH = fromACVMField(masterNullifierPublicKeyHash);
+    const parsedNpkMHash = fromACVMField(masterNullifierPublicKeyHash);
 
     const {
       masterNullifierPublicKey,
@@ -203,7 +208,9 @@ export class Oracle {
       masterOutgoingViewingPublicKey,
       masterTaggingPublicKey,
       partialAddress,
-    } = await this.typedOracle.getCompleteAddressWithNpkMHash(parsedNpkMH);
+    } = await this.typedOracle.getCompleteAddress({
+      npkMHash: parsedNpkMHash,
+    });
 
     return [
       ...masterNullifierPublicKey.toFields(),

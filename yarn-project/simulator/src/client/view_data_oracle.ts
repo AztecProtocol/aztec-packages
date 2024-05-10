@@ -40,18 +40,8 @@ export class ViewDataOracle extends TypedOracle {
    * @returns A Promise that resolves to nullifier keys of a requested account and contract.
    * @throws An error if the account is not registered in the database.
    */
-  public override getNullifierKeys(account: AztecAddress): Promise<NullifierKeys> {
-    return this.db.getNullifierKeys(account, this.contractAddress);
-  }
-
-  /**
-   * Retrieve nullifier keys associated with a specific master nullifier public key hash and app/contract address.
-   * @param npkMHash - The master nullifer public key hash.
-   * @returns The nullifier keys of an account (specified by a master nullifier public key hash) and contract.
-   * @throws if the master nullifier public key hash / account is not registered in the database.
-   */
-  public override getNullifierKeysWithNpkMHash(npkMHash: Fr): Promise<NullifierKeys> {
-    return this.db.getNullifierKeysWithNpkMHash(npkMHash, this.contractAddress);
+  public override getNullifierKeys(args: { account: AztecAddress } | { npkMHash: Fr }): Promise<NullifierKeys> {
+    return this.db.getNullifierKeys(args, this.contractAddress);
   }
 
   /**
@@ -141,18 +131,8 @@ export class ViewDataOracle extends TypedOracle {
    * @param address - Address to fetch the complete address for.
    * @returns A complete address associated with the input address.
    */
-  public override getCompleteAddress(address: AztecAddress): Promise<CompleteAddress> {
-    return this.db.getCompleteAddress(address);
-  }
-
-  /**
-   * Retrieve the complete address associated to a given master nullifier public key hash.
-   * @param npkMHash - The master nullifer public key hash.
-   * @returns The complete address associated with the input master nullifier public key hash.
-   * @throws if the master nullifier public key hash / account is not registered in the database.
-   */
-  public override getCompleteAddressWithNpkMHash(npkMHash: Fr): Promise<CompleteAddress> {
-    return this.db.getCompleteAddressWithNpkMHash(npkMHash);
+  public override getCompleteAddress(args: { account: AztecAddress } | { npkMHash: Fr }): Promise<CompleteAddress> {
+    return this.db.getCompleteAddress(args);
   }
 
   /**

@@ -48,15 +48,7 @@ export interface DBOracle extends CommitmentsDB {
    * @param address - Address to fetch the pubkey for.
    * @returns A complete address associated with the input address.
    */
-  getCompleteAddress(address: AztecAddress): Promise<CompleteAddress>;
-
-  /**
-   * Retrieve the complete address associated to a given master nullifier public key hash.
-   * @param npkMHash - The master nullifer public key hash.
-   * @returns The complete address associated with the input master nullifier public key hash.
-   * @throws if the master nullifier public key hash / account is not registered in the database.
-   */
-  getCompleteAddressWithNpkMHash(masterNullifierPublicKeyHash: Fr): Promise<CompleteAddress>;
+  getCompleteAddress(args: { account: AztecAddress } | { npkMHash: Fr }): Promise<CompleteAddress>;
 
   /**
    * Retrieve the auth witness for a given message hash.
@@ -80,16 +72,7 @@ export interface DBOracle extends CommitmentsDB {
    * @returns A Promise that resolves to nullifier keys of a requested account and contract.
    * @throws An error if the account is not registered in the database.
    */
-  getNullifierKeys(accountAddress: AztecAddress, contractAddress: AztecAddress): Promise<NullifierKeys>;
-
-  /**
-   * Retrieve nullifier keys associated with a specific master nullifier public key hash and app/contract address.
-   * @param npkMHash - The master nullifer public key hash.
-   * @param contractAddress - The contract address.
-   * @returns The nullifier keys of an account (specified by a master nullifier public key hash) and contract.
-   * @throws if the master nullifier public key hash / account is not registered in the database.
-   */
-  getNullifierKeysWithNpkMHash(masterNullifierPublicKeyHash: Fr, contractAddress: AztecAddress): Promise<NullifierKeys>;
+  getNullifierKeys(args: { account: AztecAddress } | { npkMHash: Fr }, contractAddress: AztecAddress): Promise<NullifierKeys>;
 
   /**
    * Retrieves a set of notes stored in the database for a given contract address and storage slot.

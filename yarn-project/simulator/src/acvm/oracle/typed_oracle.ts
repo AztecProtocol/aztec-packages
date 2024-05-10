@@ -89,12 +89,8 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('unpackReturns');
   }
 
-  getNullifierKeys(_accountAddress: AztecAddress): Promise<NullifierKeys> {
+  getNullifierKeys(_args: { account: AztecAddress } | { npkMHash: Fr }): Promise<NullifierKeys> {
     throw new OracleMethodNotAvailableError('getNullifierKeys');
-  }
-
-  getNullifierKeysWithNpkMHash(_masterNullifierPublicKeyHash: Fr): Promise<NullifierKeys> {
-    throw new OracleMethodNotAvailableError('getNullifierKeysWithNpkMHash');
   }
 
   getContractInstance(_address: AztecAddress): Promise<ContractInstance> {
@@ -128,12 +124,8 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getHeader');
   }
 
-  getCompleteAddress(_address: AztecAddress): Promise<CompleteAddress> {
+  getCompleteAddress(_args: { account: AztecAddress } | { npkMHash: Fr }): Promise<CompleteAddress> {
     throw new OracleMethodNotAvailableError('getCompleteAddress');
-  }
-
-  getCompleteAddressWithNpkMHash(_masterNullifierPublicKeyHash: Fr): Promise<CompleteAddress> {
-    throw new OracleMethodNotAvailableError('getCompleteAddressWithNpkMHash');
   }
 
   getAuthWitness(_messageHash: Fr): Promise<Fr[] | undefined> {

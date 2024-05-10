@@ -386,11 +386,11 @@ export class KVPxeDatabase implements PxeDatabase {
     return value ? CompleteAddress.fromBuffer(value) : undefined;
   }
 
-  getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    return Promise.resolve(this.#getCompleteAddress(address));
+  getCompleteAddress(args: { account: AztecAddress } | { npkMHash: Fr }): Promise<CompleteAddress | undefined> {
+    return Promise.resolve('account' in args ? this.#getCompleteAddress(args.account) : this.#getCompleteAddressWithNpkMHash(args.npkMHash));
   }
 
-  getCompleteAddressByNpkMHash(npkMHash: Fr): Promise<CompleteAddress | undefined> {
+  #getCompleteAddressWithNpkMHash(npkMHash: Fr): Promise<CompleteAddress | undefined> {
     const completeAddresses = this.#getCompleteAddresses();
 
     const completeAddress = completeAddresses.find(completeAddress =>
