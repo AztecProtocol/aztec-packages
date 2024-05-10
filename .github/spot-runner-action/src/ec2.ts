@@ -242,7 +242,7 @@ export class Ec2Instance {
     const createFleetRequest: CreateFleetRequest = {
       Type: "instant",
       LaunchTemplateConfigs: [fleetLaunchConfig],
-      ClientToken: this.config.clientToken,
+      ClientToken: this.config.clientToken || undefined,
       TargetCapacitySpecification: {
         TotalTargetCapacity: 1,
         OnDemandTargetCapacity: useOnDemand ? 1 : 0,
@@ -344,18 +344,15 @@ export class Ec2Instance {
 
   async waitForInstanceRunningStatus(instanceId: string) {
     const client = await this.getEc2Client();
-    // we've had this fail - but why?
-    for (let i = 0; i < 3; i++) {
-      try {
-        await client
-          .waitFor("instanceRunning", { InstanceIds: [instanceId] })
-          .promise();
-        core.info(`AWS EC2 instance ${instanceId} is up and running`);
-        return;
-      } catch (error) {
-        core.error(`AWS EC2 instance ${instanceId} init error`);
-        throw error;
-      }
+    try {
+      await client
+        .waitFor("instanceRunning", { InstanceIds: [instanceId] })
+        .promise();
+      core.info(`AWS EC2 instance ${instanceId} is up and running`);
+      return;
+    } catch (error) {
+      core.error(`AWS EC2 instance ${instanceId} init error`);
+      throw error;
     }
   }
 
