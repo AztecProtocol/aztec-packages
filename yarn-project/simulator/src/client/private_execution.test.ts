@@ -304,7 +304,7 @@ describe('Private Execution test suite', () => {
       // array index at the output of the final kernel/ordering circuit are used to derive nonce via:
       // `hash(firstNullifier, noteHashIndex)`
       const noteHashIndex = randomInt(1); // mock index in TX's final newNoteHashes array
-      const nonce = computeCommitmentNonce(mockFirstNullifier, noteHashIndex);
+      const nonce = computeNoteHashNonce(mockFirstNullifier, noteHashIndex);
       const note = new Note([new Fr(amount), ownerNpkMH, Fr.random()]);
       const innerNoteHash = pedersenHash(note.items);
       return {
