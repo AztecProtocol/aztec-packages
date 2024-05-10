@@ -7,6 +7,9 @@
   },
   "references": [
     {
+      "path": "../bb-prover"
+    },
+    {
       "path": "../builder"
     },
     {
@@ -41,9 +44,6 @@
     },
     {
       "path": "../noir-contracts.js"
-    },
-    {
-      "path": "../bb-prover"
     }
   ],
   "include": ["src"]

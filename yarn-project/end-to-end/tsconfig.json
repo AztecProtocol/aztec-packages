@@ -19,6 +19,9 @@
       "path": "../aztec.js"
     },
     {
+      "path": "../bb-prover"
+    },
+    {
       "path": "../circuit-types"
     },
     {
@@ -68,9 +71,6 @@
     },
     {
       "path": "../world-state"
-    },
-    {
-      "path": "../bb-prover"
     }
   ],
   "include": ["src"]
