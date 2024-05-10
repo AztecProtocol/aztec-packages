@@ -5,6 +5,12 @@ include "avm_binary.pil";
 include "avm_kernel.pil";
 
 namespace avm_main(256);
+    //===== CONSTANT POLYNOMIALS ==================================================
+    pol constant clk(i) { i };
+    pol constant first = [1] + [0]*; // Used mostly to toggle off the first row consisting
+                                     // only in first element of shifted polynomials.
+
+    //===== KERNEL INPUTS =========================================================
     // Kernel lookup selector opcodes
     pol commit q_kernel_lookup;
 
@@ -25,10 +31,16 @@ namespace avm_main(256);
     pol commit sel_op_coinbase;
     pol commit sel_op_timestamp;
 
-    //===== CONSTANT POLYNOMIALS ==================================================
-    pol constant clk(i) { i };
-    pol constant first = [1] + [0]*; // Used mostly to toggle off the first row consisting
-                                     // only in first element of shifted polynomials.
+    //===== KERNEL OUTPUTS ========================================================
+    pol commit q_kernel_output_lookup;
+
+    pol commit sel_op_note_hash_exists;
+    pol commit sel_op_emit_note_hash;
+    pol commit sel_op_nullifier_exists;
+    pol commit sel_op_emit_nullifier;
+    pol commit sel_op_l1_to_l2_msg_exists;
+    pol commit sel_op_emit_unencrypted_log;
+    pol commit sel_op_send_l2_to_l1_msg;
 
     //===== Fix Range Checks Selectors=============================================
     // We re-use the clk column for the lookup values of 8-bit resp. 16-bit range check.
@@ -167,6 +179,14 @@ namespace avm_main(256);
     sel_op_fee_per_da_gas * (1 - sel_op_fee_per_da_gas) = 0;
     sel_op_transaction_fee * (1 - sel_op_transaction_fee) = 0;
 
+    sel_op_note_hash_exists * (1 - sel_op_note_hash_exists) = 0;
+    sel_op_emit_note_hash * (1 - sel_op_emit_note_hash) = 0;
+    sel_op_nullifier_exists * (1 - sel_op_nullifier_exists) = 0;
+    sel_op_emit_nullifier * (1 - sel_op_emit_nullifier) = 0;
+    sel_op_l1_to_l2_msg_exists * (1 - sel_op_l1_to_l2_msg_exists) = 0;
+    sel_op_emit_unencrypted_log * (1 - sel_op_emit_unencrypted_log) = 0;
+    sel_op_send_l2_to_l1_msg * (1 - sel_op_send_l2_to_l1_msg) = 0;
+
     sel_op_add * (1 - sel_op_add) = 0;
     sel_op_sub * (1 - sel_op_sub) = 0;
     sel_op_mul * (1 - sel_op_mul) = 0;
@@ -269,13 +289,20 @@ namespace avm_main(256);
     // Drawback is the need to paralllelize the latter.
     
     //===== KERNEL LOOKUPS =======================================================
-    pol KERNEL_SELECTORS = (
-        sel_op_sender + sel_op_address + sel_op_portal + sel_op_chain_id + sel_op_version + sel_op_block_number + 
-        sel_op_coinbase + sel_op_timestamp + sel_op_fee_per_l2_gas + sel_op_fee_per_da_gas + sel_op_transaction_fee
+    pol KERNEL_INPUT_SELECTORS = (
+        sel_op_sender + sel_op_address + sel_op_portal + sel_op_chain_id + sel_op_version + sel_op_block_number + sel_op_coinbase + 
+        sel_op_timestamp + sel_op_fee_per_l2_gas + sel_op_fee_per_da_gas + sel_op_transaction_fee
     );
     // Ensure that only one kernel lookup is active when the kernel_sel is active
-    #[KERNEL_ACTIVE_CHECK]
-    KERNEL_SELECTORS * (1 - q_kernel_lookup) = 0;
+    #[KERNEL_INPUT_ACTIVE_CHECK]
+    KERNEL_INPUT_SELECTORS * (1 - q_kernel_lookup) = 0;
+
+    pol KERNEL_OUTPUT_SELECTORS = (
+        sel_op_note_hash_exists + sel_op_emit_note_hash + sel_op_nullifier_exists + sel_op_emit_nullifier + sel_op_l1_to_l2_msg_exists +
+        sel_op_emit_unencrypted_log + sel_op_send_l2_to_l1_msg
+    );
+    #[KERNEL_OUTPUT_ACTIVE_CHECK]
+    KERNEL_OUTPUT_SELECTORS * (1 - q_kernel_output_lookup) = 0;
 
     //===== CONTROL FLOW =======================================================
     //===== JUMP ===============================================================
