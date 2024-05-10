@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eux
+set -eu
 
 # Enter the repo root
 cd "$(dirname "$0")/.."
