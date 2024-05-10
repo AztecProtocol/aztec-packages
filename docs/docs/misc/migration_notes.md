@@ -29,7 +29,6 @@ Computing the nullifier similarly changes to use this master nullifying public k
 
 The type signature for `SharedMutable` changed from `SharedMutable<T, DELAY>` to `SharedMutable<T, INITIAL_DELAY>`. The behavior is the same as before, except the delay can now be changed after deployment by calling `schedule_delay_change`.
 
-
 ### [Aztec.nr] get_public_key oracle replaced with get_ivpk_m
 
 When implementing changes according to a [new key scheme](https://yp-aztec.netlify.app/docs/addresses-and-keys/keys) we had to change oracles.
