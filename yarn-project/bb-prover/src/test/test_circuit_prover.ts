@@ -3,6 +3,7 @@ import {
   type PublicKernelNonTailRequest,
   type PublicKernelTailRequest,
   PublicKernelType,
+  type ServerCircuitProver,
   makePublicInputsAndProof,
 } from '@aztec/circuit-types';
 import {
@@ -46,10 +47,10 @@ import {
   convertSimulatedBaseRollupInputsToWitnessMap,
   convertSimulatedBaseRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
-import { type SimulationProvider, WASMSimulator } from '@aztec/simulator';
+import { type SimulationProvider, WASMSimulator, emitCircuitSimulationStats } from '@aztec/simulator';
 
-import { emitCircuitSimulationStats, mapPublicKernelToCircuitName } from '../stats.js';
-import { type CircuitProver, KernelArtifactMapping } from './interface.js';
+import { KernelArtifactMapping } from '../mappings/mappings.js';
+import { mapPublicKernelToCircuitName } from '../stats.js';
 
 const VERIFICATION_KEYS: Record<ServerProtocolArtifact, VerificationKeyAsFields> = {
   BaseParityArtifact: VerificationKeyAsFields.makeFake(),
@@ -67,7 +68,7 @@ const VERIFICATION_KEYS: Record<ServerProtocolArtifact, VerificationKeyAsFields>
  * A class for use in testing situations (e2e, unit test etc)
  * Simulates circuits using the most efficient method and performs no proving
  */
-export class TestCircuitProver implements CircuitProver {
+export class TestCircuitProver implements ServerCircuitProver {
   private wasmSimulator = new WASMSimulator();
 
   constructor(

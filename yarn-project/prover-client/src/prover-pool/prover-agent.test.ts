@@ -8,7 +8,7 @@ import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type CircuitProver } from '../prover/interface.js';
+import { type CircuitProver } from '../test/interface.js';
 import { MemoryProvingQueue } from './memory-proving-queue.js';
 import { ProverAgent } from './prover-agent.js';
 

@@ -14,7 +14,7 @@ import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { makeEmptyProcessedTestTx } from '../mocks/fixtures.js';
-import { type CircuitProver } from '../prover/index.js';
+import { type CircuitProver } from '../test/index.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
 describe('prover/orchestrator', () => {

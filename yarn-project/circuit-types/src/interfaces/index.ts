@@ -7,3 +7,4 @@ export * from './nullifier_tree.js';
 export * from './prover-client.js';
 export * from './proving-job.js';
 export * from './block-prover.js';
+export * from './server_circuit_prover.js';

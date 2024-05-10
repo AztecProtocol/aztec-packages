@@ -43,7 +43,7 @@ import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 
-import { type CircuitProver } from '../prover/interface.js';
+import { type CircuitProver } from '../test/interface.js';
 import {
   buildBaseRollupInput,
   createMergeRollupInputs,

@@ -9,6 +9,9 @@
     },
     {
       "path": "../circuit-types/tsconfig.dest.json"
+    },
+    {
+      "path": "../protocol-contracts/tsconfig.dest.json"
     }
   ],
   "exclude": ["src/**/*.test.ts"]

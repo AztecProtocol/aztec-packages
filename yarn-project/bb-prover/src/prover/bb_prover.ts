@@ -4,6 +4,7 @@ import {
   type PublicKernelNonTailRequest,
   type PublicKernelTailRequest,
   PublicKernelType,
+  type ServerCircuitProver,
   makePublicInputsAndProof,
 } from '@aztec/circuit-types';
 import {
@@ -63,8 +64,8 @@ import {
   generateProof,
   verifyProof,
 } from '../bb/execute.js';
+import { KernelArtifactMapping } from '../mappings/mappings.js';
 import { circuitTypeToCircuitName, emitCircuitProvingStats, emitCircuitWitnessGenerationStats } from '../stats.js';
-import { type CircuitProver, KernelArtifactMapping } from './interface.js';
 
 const logger = createDebugLogger('aztec:bb-prover');
 
@@ -95,7 +96,7 @@ type VerificationKeyData = {
 /**
  * Prover implementation that uses barretenberg native proving
  */
-export class BBNativeRollupProver implements CircuitProver {
+export class BBNativeRollupProver implements ServerCircuitProver {
   private verificationKeys: Map<ServerProtocolArtifact, Promise<VerificationKeyData>> = new Map<
     ServerProtocolArtifact,
     Promise<VerificationKeyData>

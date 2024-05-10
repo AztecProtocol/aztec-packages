@@ -1,3 +1,4 @@
+import { BBNativeRollupProver } from '@aztec/bb-prover';
 import { PROVING_STATUS, makeEmptyProcessedTx, mockTx } from '@aztec/circuit-types';
 import { Fr, Header, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
@@ -5,7 +6,6 @@ import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
-import { BBNativeRollupProver } from './bb_prover.js';
 
 const logger = createDebugLogger('aztec:bb-prover-full-rollup');
 

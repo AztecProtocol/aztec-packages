@@ -12,10 +12,10 @@ import { sleep } from '@aztec/foundation/sleep';
 
 import { jest } from '@jest/globals';
 
+import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
 import { makeBloatedProcessedTx, makeEmptyProcessedTestTx, makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
-import { type CircuitProver } from '../prover/interface.js';
-import { TestCircuitProver } from '../prover/test_circuit_prover.js';
+import { type CircuitProver } from '../test/interface.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
 const logger = createDebugLogger('aztec:orchestrator-lifecycle');

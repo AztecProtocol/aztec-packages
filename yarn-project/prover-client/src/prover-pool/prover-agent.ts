@@ -10,7 +10,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { elapsed } from '@aztec/foundation/timer';
 
-import { type CircuitProver } from '../prover/interface.js';
+import { type CircuitProver } from '../test/interface.js';
 import { ProvingError } from './proving-error.js';
 
 export class ProverAgent {

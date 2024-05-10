@@ -28,7 +28,7 @@ import { MemoryFifo } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 
-import { type CircuitProver } from '../prover/interface.js';
+import { type CircuitProver } from '../test/interface.js';
 
 type ProvingJobWithResolvers<T extends ProvingRequest = ProvingRequest> = {
   id: string;

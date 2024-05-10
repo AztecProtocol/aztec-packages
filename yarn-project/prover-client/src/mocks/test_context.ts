@@ -20,13 +20,13 @@ import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import * as fs from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
 import { MemoryProvingQueue } from '../prover-pool/memory-proving-queue.js';
 import { ProverAgent } from '../prover-pool/prover-agent.js';
 import { ProverPool } from '../prover-pool/prover-pool.js';
-import { type BBProverConfig } from '../prover/bb_prover.js';
-import { type CircuitProver } from '../prover/interface.js';
-import { TestCircuitProver } from '../prover/test_circuit_prover.js';
+import { type BBProverConfig } from '../test/bb_prover.js';
+import { type CircuitProver } from '../test/interface.js';
 import { getEnvironmentConfig, getSimulationProvider, makeGlobals } from './fixtures.js';
 
 export class TestContext {

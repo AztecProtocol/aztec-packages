@@ -1,9 +1,9 @@
+import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { makeBloatedProcessedTx } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 import { buildBaseRollupInput } from '../orchestrator/block-building-helpers.js';
-import { BBNativeRollupProver, type BBProverConfig } from './bb_prover.js';
 
 const logger = createDebugLogger('aztec:bb-prover-base-rollup');
 

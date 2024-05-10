@@ -5,8 +5,6 @@ import { type SimulationProvider } from '@aztec/simulator';
 import { mkdtemp } from 'fs/promises';
 import { join } from 'path';
 
-import { BBNativeRollupProver, type BBProverConfig } from '../prover/bb_prover.js';
-import { TestCircuitProver } from '../prover/test_circuit_prover.js';
 import { ProverAgent } from './prover-agent.js';
 
 /**

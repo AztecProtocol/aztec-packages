@@ -1,3 +1,4 @@
+import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import { PublicKernelType, mockTx } from '@aztec/circuit-types';
 import { type Proof, makeEmptyProof } from '@aztec/circuits.js';
 import { makePublicCallRequest } from '@aztec/circuits.js/testing';
@@ -5,7 +6,6 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { type ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
 
 import { TestContext } from '../mocks/test_context.js';
-import { BBNativeRollupProver, type BBProverConfig } from './bb_prover.js';
 
 const logger = createDebugLogger('aztec:bb-prover-public-kernel');
 
