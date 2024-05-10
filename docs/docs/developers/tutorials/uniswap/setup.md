@@ -7,8 +7,6 @@ This tutorial builds on top of the project created in the previous tutorial. It 
 
 :::warning
 Note: This document does not appear in the sidebar.
-Also note that the code linked in the dev-rel repo is not as up to date as the aztec-packages monorepo.
-If you don’t have this, you can find the code for it [in our dev-rels repo](https://github.com/AztecProtocol/dev-rel/tree/main/tutorials/token-bridge-e2e).
 :::warning
 
 # Uniswap contract
