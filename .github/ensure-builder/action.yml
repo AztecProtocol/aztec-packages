@@ -26,6 +26,9 @@ inputs:
     required: true
   concurrency_github_token:
     required: true
+  run:
+    # command to run once builder/tester available
+    required: false
 runs:
   # define an action, runs in OS of caller
   using: composite
@@ -198,3 +201,9 @@ runs:
       if: ${{ contains(inputs.runner_type, 'tester') }}
       with:
         post: scripts/run_on_tester "sudo shutdown now" || true
+
+    - name: Ensure Builder has Images
+      if: ${{ inputs.run }}
+      uses: ./.github/run-on-builder
+      with:
+        run: ${{ inputs.run }}

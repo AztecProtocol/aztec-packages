@@ -18,6 +18,7 @@ ATTEMPT_COUNT=0
 export EARTHLY_ALLOW_PRIVILEGED=true
 export EARTHLY_USE_INLINE_CACHE=true
 export EARTHLY_NO_BUILDKIT_UPDATE=true
+export FORCE_COLOR=1
 export EARTHLY_CONFIG=$(git rev-parse --show-toplevel)/.github/earthly-ci-config.yml
 # TODO(AD) to be investigated
 #if [ "$GITHUB_REF_NAME" == "master" ]; then

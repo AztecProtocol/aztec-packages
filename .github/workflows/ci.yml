@@ -67,9 +67,10 @@ jobs:
           # we want to get the builder's details as SPOT_IP and SPOT_KEY, and ensure it's up
           start_builder: true
 
-      - name: Ensure Builder is Up
+      - name: Ensure Builder has Images
         uses: ./.github/ensure-builder
         with:
+          # TODO write and read these from github state
           run_id: ${{ github.run_id }}
           run_attempt: ${{ github.run_attempt }}
           runner_label: ${{ inputs.username || github.actor }}-x86
@@ -79,10 +80,6 @@ jobs:
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-
-      - name: Ensure Builder has Images
-        uses: ./.github/run-on-builder
-        with:
           run: |
             # in case of inconvenient prune, re-export
             set -eux
@@ -92,16 +89,14 @@ jobs:
               git submodule update --init --recursive --recommend-shallow
               scripts/earthly-ci ./yarn-project+export-e2e-test-images
             fi
-      - name: Ensure Tester is Up
+
+      - name: Copy Docker Images to Tester
         uses: ./.github/ensure-builder
         with:
           runner_type: 4core-tester-x86
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-      - name: Copy Over Build Images
-        uses: ./.github/run-on-tester
-        with:
           run: |
             set -eux
             export BUILDER_SPOT_IP=${{ env.BUILDER_SPOT_IP }}
@@ -109,6 +104,7 @@ jobs:
             scripts/run_on_builder "
               docker save aztecprotocol/aztec:${{ github.event.pull_request.head.sha }} aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }} | brotli -2
             " | brotli --decompress | docker load
+
       - name: Test
         uses: ./.github/run-on-tester
         timeout-minutes: 25
@@ -136,9 +132,11 @@ jobs:
           # we want to get the builder's details as SPOT_IP and SPOT_KEY, and ensure it's up
           start_builder: true
 
-      - name: Ensure Builder is Up
+      - name: Ensure Builder has Images
+        # needed to use run-on-builder
         uses: ./.github/ensure-builder
         with:
+          # TODO write and read these from github state
           run_id: ${{ github.run_id }}
           run_attempt: ${{ github.run_attempt }}
           runner_label: ${{ inputs.username || github.actor }}-x86
@@ -148,10 +146,6 @@ jobs:
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-
-      - name: Ensure Builder has Images
-        uses: ./.github/run-on-builder
-        with:
           run: |
             # in case of inconvenient prune, re-export
             set -eux
@@ -161,16 +155,15 @@ jobs:
               git submodule update --init --recursive --recommend-shallow
               scripts/earthly-ci ./yarn-project+export-e2e-test-images
             fi
-      - name: Ensure Tester is Up
+
+      - name: Copy Docker Images to Tester
+        # needed to use run-on-tester
         uses: ./.github/ensure-builder
         with:
           runner_type: 16core-tester-x86
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-      - name: Copy Over Build Images
-        uses: ./.github/run-on-tester
-        with:
           run: |
             set -eux
             export BUILDER_SPOT_IP=${{ env.BUILDER_SPOT_IP }}
@@ -178,6 +171,7 @@ jobs:
             scripts/run_on_builder "
               docker save aztecprotocol/aztec:${{ github.event.pull_request.head.sha }} aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }} | brotli -2
             " | brotli --decompress | docker load
+
       - name: Test
         uses: ./.github/run-on-tester
         timeout-minutes: 25
@@ -460,58 +454,55 @@ jobs:
         timeout-minutes: 30
         run: earthly --no-output ./docs/+deploy-preview --PR=${{ github.event.number }} --AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
 
-  # push benchmarking binaries to dockerhub registry
-  bb-bench-binaries:
-    needs: build
-    runs-on: ${{ inputs.username || github.actor }}-x86
-    steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
-      - uses: ./.github/ci-setup-action
-        with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
-          concurrency_key: bb-bench-binaries-${{ inputs.username || github.actor }}-x86
-      - name: Build and Push Binaries
-        timeout-minutes: 15
-        working-directory: ./barretenberg/cpp/
-        run: earthly-ci --push +bench-binaries
-
-  setup-bench:
-    uses: ./.github/workflows/setup-runner.yml
-    needs: bb-bench-binaries
-    with:
-      runner_label: ${{ inputs.username || github.actor }}-bench-x86
-      runner_type: bb-bench-x86
-    secrets: inherit
 
   bb-bench:
     runs-on: ${{ inputs.username || github.actor }}-bench-x86
-    needs: setup-bench
+    needs: setup
     steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
-          concurrency_key: bb-bench-${{ inputs.username || github.actor }}-bench-x86
-      # Use bench_mode=cache to read the pushed build above
-      - name: Client IVC Bench
-        working-directory: ./barretenberg/cpp/
-        timeout-minutes: 15
-        run: earthly-ci --no-output +bench-client-ivc --bench_mode=cache
-
-      - name: Ultrahonk Bench
-        working-directory: ./barretenberg/cpp/
-        timeout-minutes: 15
-        run: earthly-ci --no-output +bench-ultra-honk --bench_mode=cache
+          # we want to get the builder's details as SPOT_IP and SPOT_KEY, and ensure it's up
+          start_builder: true
+      - name: Build Bench Binaries
+        uses: ./.github/ensure-builder
+        with:
+          run_id: ${{ github.run_id }}
+          run_attempt: ${{ github.run_attempt }}
+          runner_label: ${{ inputs.username || github.actor }}-x86
+          runner_type: builder-x86
+          concurrency_github_token: "${{ secrets.AZTEC_GITHUB_TOKEN }}"
+          github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          run: |
+            # in case of inconvenient prune, re-export
+            set -eux
+            if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/aztec:${{ github.event.pull_request.head.sha }}" ||
+               ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }}" ; then
+              export FORCE_COLOR=1
+              git submodule update --init --recursive --recommend-shallow
+              scripts/earthly-ci ./yarn-project+export-e2e-test-images
+            fi
+      - name: Run Bench
+        uses: ./.github/ensure-builder
+        with:
+          runner_type: 16core-tester-x86
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          run:
+            scripts/earthly-ci --no-output ./barretenberg/cpp/+bench-client-ivc --bench_mode=cache
+            scripts/earthly-ci --no-output ./barretenberg/cpp/+bench-ultra-honk --bench_mode=cache
 
   protocol-circuits-gates-report:
     needs: setup
     runs-on: ${{ inputs.username || github.actor }}-x86
+    permissions:
+      pull-requests: write
     steps:
       - {
           uses: actions/checkout@v4,
@@ -531,7 +522,7 @@ jobs:
 
       - name: Compare gates reports
         id: gates_diff
-        uses: vezenovm/noir-gates-diff@acf12797860f237117e15c0d6e08d64253af52b6
+        uses: vezenovm/noir-gates-diAff@acf12797860f237117e15c0d6e08d64253af52b6
         with:
           report: protocol_circuits_report.json
           summaryQuantile: 0 # Display any diff in gate count
