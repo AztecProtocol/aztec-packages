@@ -1,5 +1,5 @@
 ---
-title: How to write an accounts contract
+title: Writing an Account Contract
 ---
 
 This tutorial will take you through the process of writing your own account contract in Aztec.nr, along with the Typescript glue code required for using it within a wallet.
@@ -23,13 +23,13 @@ Every time a transaction payload is passed to this account contract's `entrypoin
 
 For the sake of simplicity, we will hardcode the signing public key into the contract, but you could store it [in a private note](../../../../learn/concepts/accounts/keys.md#using-a-private-note), [in an immutable note](../../../../learn/concepts/accounts/keys.md#using-an-immutable-private-note), or [on a separate keystore](../../../../learn/concepts/accounts/keys.md#using-a-separate-keystore), to mention a few examples.
 
-## The account contract
+## Contract
 
 Let's start with the account contract itself in Aztec.nr. Create [a new Aztec.nr contract project](../../main.md) that will contain a file with the code for the account contract, with a hardcoded public key:
 
 #include_code contract noir-projects/noir-contracts/contracts/schnorr_hardcoded_account_contract/src/main.nr rust
 
-The important part of this contract is the `entrypoint` function, which will be the first function executed in any transaction originated from this account. This function has two main responsibilities: authenticating the transaction and executing calls. It receives a `payload` with the list of function calls to execute, and requests a corresponding auth witness from an oracle to validate it. You will find this logic implemented in the `AccountActions` module, which use the `AppPayload` and `FeePayload` structs:
+The important part of this contract is the `entrypoint` function, which will be the first function executed in any transaction originated from this account. This function has two main responsibilities: authenticating the transaction and executing calls. It receives a `payload` with the list of function calls to execute, and requests a corresponding [authentication witness](../../../../learn/concepts/accounts/authwit.md), for authorizing actions, from an oracle to validate it. You will find this logic implemented in the `AccountActions` module, which use the `AppPayload` and `FeePayload` structs:
 
 #include_code entrypoint noir-projects/aztec-nr/authwit/src/account.nr rust
 
@@ -47,7 +47,7 @@ The `AccountActions` module provides default implementations for most of the acc
 
 For our account contract, we will take the hash of the action to authorize, request the corresponding auth witness from the oracle, and validate it against our hardcoded public key. If the signature is correct, we authorize the action.
 
-## The typescript side of things
+## Typescript
 
 Now that we have a valid account contract, we need to write the typescript glue code that will take care of formatting and authenticating transactions so they can be processed by our contract, as well as deploying the contract during account setup. This takes the form of implementing the `AccountContract` interface from `@aztec/aztec.js`:
 
