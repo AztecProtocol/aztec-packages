@@ -19,7 +19,6 @@ import {
   type RootRollupInputs,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
-import { type ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
 
 /**
  * Generates proofs for parity and rollup circuits.
@@ -87,11 +86,6 @@ export interface ServerCircuitProver {
     kernelRequest: PublicKernelTailRequest,
     signal?: AbortSignal,
   ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>>;
-
-  /**
-   * Verifies a circuit proof
-   */
-  verifyProof(artifact: ServerProtocolArtifact, proof: Proof, signal?: AbortSignal): Promise<void>;
 }
 
 /**
