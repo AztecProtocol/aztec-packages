@@ -98,7 +98,7 @@ export class CompleteAddress {
     const expectedAddress = computeAddress(publicKeysHash, this.partialAddress);
     if (!expectedAddress.equals(this.address)) {
       throw new Error(
-        `Address cannot be derived from pubkey and partial address (received ${this.address.toString()}, derived ${expectedAddress.toString()})`,
+        `Address cannot be derived from public keys and partial address (received ${this.address.toString()}, derived ${expectedAddress.toString()})`,
       );
     }
   }
