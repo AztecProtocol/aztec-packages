@@ -78,7 +78,7 @@ runs:
     - name: Prevert Multiple Builders From Starting
       if: ${{ !contains(inputs.runner_type, 'tester') }}
       uses: ben-z/gh-action-mutex@v1.0.0-alpha.9
-       with:
+      with:
         repo-token: ${{ inputs.concurrency_github_token }}
         repository: AztecProtocol/git-metadata
         branch: gh-actions-mutex-${{ inputs.runner_label }}
