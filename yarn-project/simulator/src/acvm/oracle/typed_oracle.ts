@@ -14,7 +14,6 @@ import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type PrivateCallStackItem,
   type PublicCallRequest,
-  type PublicKeys,
 } from '@aztec/circuits.js';
 import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';

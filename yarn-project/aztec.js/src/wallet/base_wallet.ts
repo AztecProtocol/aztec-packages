@@ -20,7 +20,6 @@ import {
   type CompleteAddress,
   type Fr,
   type PartialAddress,
-  type PublicKeys,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';

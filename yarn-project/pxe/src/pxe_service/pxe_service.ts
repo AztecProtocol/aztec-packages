@@ -31,7 +31,6 @@ import {
   type PartialAddress,
   type PrivateKernelTailCircuitPublicInputs,
   type PublicCallRequest,
-  type PublicKeys,
   computeContractClassId,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
