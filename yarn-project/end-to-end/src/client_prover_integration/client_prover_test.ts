@@ -131,7 +131,6 @@ export class ClientProverTest {
 
     this.logger.debug(`Main setup completed, initializing full prover PXE...`);
     ({ pxe: this.fullProverPXE, teardown: this.provenPXETeardown } = await setupPXEService(
-      0,
       this.aztecNode,
       {
         proverEnabled: false,
