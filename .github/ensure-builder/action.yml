@@ -186,3 +186,8 @@ runs:
           else
             echo "Chron jobs already configured."
           fi
+    - name: Ensure Tester Cleanup
+      uses: gacts/run-and-post-run@v1
+      if: ${{ contains(inputs.runner_type, 'tester') }}
+      with:
+        post: scripts/run_on_tester "sudo shutdown now"
