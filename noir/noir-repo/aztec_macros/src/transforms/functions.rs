@@ -41,10 +41,10 @@ pub fn transform_function(
     let is_avm = ty == "Avm";
     let is_private = ty == "Private";
 
-    // Add check that the context is set as static
+    // Force a static context if the function is static
     if is_static {
-        let is_static_check = create_static_check(func.name());
-        func.def.body.statements.insert(0, is_static_check);
+        let force_static = force_static_context();
+        func.def.body.statements.insert(0, force_static);
     }
 
     // Add check that msg sender equals this address and flag function as internal
@@ -282,23 +282,16 @@ fn create_mark_as_initialized(ty: &str) -> Statement {
     )))
 }
 
-/// Creates a check for static functions ensuring that the context is correctly set to avoid state modifications
+/// Forces a static context for a function, ensuring that no state modifications are allowed
 ///
 /// ```noir
-/// assert(context.inputs.call_context.is_static == true, "Function can only be called from a static context");
+/// context.inputs.call_context.is_static = true;
 /// ```
-fn create_static_check(fname: &str) -> Statement {
-    make_statement(StatementKind::Constrain(ConstrainStatement(
-        make_eq(
-            variable_path(chained_dep!("context", "inputs", "call_context", "is_static_call")),
-            expression(ExpressionKind::Literal(Literal::Bool(true))),
-        ),
-        Some(expression(ExpressionKind::Literal(Literal::Str(format!(
-            "Function {} can only be called internally",
-            fname
-        ))))),
-        ConstrainKind::Assert,
-    )))
+fn force_static_context() -> Statement {
+    assignment(
+        &chained_path!("context", "inputs", "call_context", "is_static_call").to_string(),
+        expression(ExpressionKind::Literal(Literal::Bool(true))),
+    )
 }
 
 /// Creates a check for internal functions ensuring that the caller is self.

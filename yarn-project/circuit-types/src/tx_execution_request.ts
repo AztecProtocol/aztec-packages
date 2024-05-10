@@ -29,6 +29,10 @@ export class TxExecutionRequest {
      */
     public txContext: TxContext,
     /**
+     * Whether the execution can modify state or not.
+     */
+    public isStatic: boolean,
+    /**
      * An unordered array of packed arguments for each call in the transaction.
      * @dev These arguments are accessed in Noir via oracle and constrained against the args hash. The length of
      * the array is equal to the number of function calls in the transaction (1 args per 1 call).
@@ -51,6 +55,7 @@ export class TxExecutionRequest {
       fields.functionData,
       fields.firstCallArgsHash,
       fields.txContext,
+      fields.isStatic,
       fields.argsOfCalls,
       fields.authWitnesses,
     ] as const;
@@ -70,6 +75,7 @@ export class TxExecutionRequest {
       this.functionData,
       this.firstCallArgsHash,
       this.txContext,
+      this.isStatic,
       new Vector(this.argsOfCalls),
       new Vector(this.authWitnesses),
     );
@@ -95,6 +101,7 @@ export class TxExecutionRequest {
       reader.readObject(FunctionData),
       Fr.fromBuffer(reader),
       reader.readObject(TxContext),
+      reader.readBoolean(),
       reader.readVector(PackedValues),
       reader.readVector(AuthWitness),
     );

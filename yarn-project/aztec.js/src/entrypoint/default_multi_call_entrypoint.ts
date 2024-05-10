@@ -26,6 +26,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
       origin: this.address,
       functionData: FunctionData.fromAbi(abi),
       txContext: new TxContext(this.chainId, this.version, gasSettings),
+      isStatic: executions.isStatic ?? false,
       argsOfCalls: [...payload.packedArguments, ...packedArguments, entrypointPackedArgs],
       authWitnesses,
     });
@@ -39,6 +40,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
       isInitializer: false,
       functionType: 'secret',
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'app_payload',
@@ -73,6 +75,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
                         },
                       },
                       { name: 'is_public', type: { kind: 'boolean' } },
+                      { name: 'is_static', type: { kind: 'boolean' } },
                     ],
                   },
                 },

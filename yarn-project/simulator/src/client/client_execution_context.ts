@@ -403,7 +403,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param argsHash - The packed arguments to pass to the function.
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
-   * @param isStaticCall - Whether the call is a delegate call.
+   * @param isDelegateCall - Whether the call is a delegate call.
    * @returns The execution result.
    */
   override async callPrivateFunction(

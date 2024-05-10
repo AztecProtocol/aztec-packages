@@ -17,6 +17,8 @@ export type ExecutionRequestInit = {
   packedArguments?: PackedValues[];
   /** How the fee is going to be payed */
   fee?: FeeOptions;
+  /** Whether the execution can modify state or not. */
+  isStatic?: boolean;
 };
 
 /** Creates transaction execution requests out of a set of function calls. */

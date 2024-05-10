@@ -4,9 +4,9 @@ use dep::aztec::protocol_types::{constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD, 
 use dep::authwit::entrypoint::function_call::{FunctionCall, FUNCTION_CALL_SIZE_IN_BYTES};
 
 // FUNCTION_CALL_SIZE * DAPP_MAX_CALLS + 1
-global DAPP_PAYLOAD_SIZE: u64 = 5;
+global DAPP_PAYLOAD_SIZE: u64 = 6;
 // FUNCTION_CALL_SIZE_IN_BYTES * DAPP_MAX_CALLS + 32
-global DAPP_PAYLOAD_SIZE_IN_BYTES: u64 = 129;
+global DAPP_PAYLOAD_SIZE_IN_BYTES: u64 = 130;
 
 global DAPP_MAX_CALLS: u64 = 1;
 
@@ -63,7 +63,7 @@ impl DAppPayload {
                     call.target_address,
                     call.function_selector,
                     call.args_hash,
-                    false,
+                    call.is_static,
                     false
                 );
             } else {
@@ -71,7 +71,7 @@ impl DAppPayload {
                     call.target_address,
                     call.function_selector,
                     call.args_hash,
-                    false,
+                    call.is_static,
                     false
                 );
             }

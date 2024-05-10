@@ -15,21 +15,16 @@ contract StaticChild {
         a_private_value: PrivateSet<ValueNote>,
     }
 
-    // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.
+    // Returns a sum of the input and the chain id and version of the contract.
     #[aztec(private)]
+    #[aztec(view)]
     fn value(input: Field) -> Field {
-        input + context.chain_id() + context.version()
-    }
-    // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values. 
-    // Can only be called from this contract.
-    #[aztec(private)]
-    #[aztec(internal)]
-    fn value_internal(input: Field) -> Field {
         input + context.chain_id() + context.version()
     }
 
     // Returns base_value + chain_id + version + block_number + timestamp
     #[aztec(public)]
+    #[aztec(view)]
     fn pub_get_value(base_value: Field) -> Field {
         let return_value = base_value
             + context.chain_id()
@@ -50,6 +45,15 @@ contract StaticChild {
     }
 
     #[aztec(private)]
+    #[aztec(view)]
+    fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
+        context.inputs.call_context.is_static_call = true;
+        let mut note = ValueNote::new(new_value, owner);
+        storage.a_private_value.insert(&mut note, true);
+        new_value
+    }
+
+    #[aztec(private)]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let mut note = ValueNote::new(new_value, owner);
         storage.a_private_value.insert(&mut note, true);
@@ -57,7 +61,9 @@ contract StaticChild {
     }
 
     #[aztec(private)]
+    #[aztec(view)]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
+        context.inputs.call_context.is_static_call = true;
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, amount, Option::none()).select(
             ValueNote::properties().owner,
@@ -76,40 +82,5 @@ contract StaticChild {
         context.emit_unencrypted_log(new_value);
 
         new_value
-    }
-
-    // Increments `current_value` by `new_value`. Can only be called from this contract.
-    #[aztec(public)] 
-    #[aztec(internal)]
-    fn pub_inc_value_internal(new_value: Field) -> Field {
-        let old_value = storage.current_value.read();
-        storage.current_value.write(old_value + new_value);
-        context.emit_unencrypted_log(new_value);
-
-        new_value
-    }
-
-    #[aztec(public)]
-    fn set_value_twice_with_nested_first() {
-        let _result = StaticChild::at(context.this_address()).pub_set_value(10).call(&mut context);
-        storage.current_value.write(20);
-        context.emit_unencrypted_log(20);
-    }
-
-    #[aztec(public)]
-    fn set_value_twice_with_nested_last() {
-        storage.current_value.write(20);
-        context.emit_unencrypted_log(20);
-        let _result = StaticChild::at(context.this_address()).pub_set_value(10).call(&mut context);
-    }
-
-    #[aztec(public)]
-    // TODO(6052): The logs emitted are currently in the wrong order as we don't update
-    // counters for nested public calls
-    fn set_value_with_two_nested_calls() {
-        StaticChild::at(context.this_address()).set_value_twice_with_nested_first().call(&mut context);
-        StaticChild::at(context.this_address()).set_value_twice_with_nested_last().call(&mut context);
-        storage.current_value.write(20);
-        context.emit_unencrypted_log(20);
     }
 }

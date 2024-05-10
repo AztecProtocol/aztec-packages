@@ -10,8 +10,10 @@ mod gas;
 
 use interface::ContextInterface;
 use call_interfaces::{
-    PrivateCallInterface, PublicCallInterface, PrivateVoidCallInterface, PublicVoidCallInterface,
-    AvmCallInterface, AvmVoidCallInterface
+    PrivateCallInterface, PrivateStaticCallInterface, PublicCallInterface, PublicStaticCallInterface,
+    PrivateVoidCallInterface, PrivateStaticVoidCallInterface, PublicVoidCallInterface,
+    PublicStaticVoidCallInterface, AvmCallInterface, AvmStaticCallInterface, AvmVoidCallInterface,
+    AvmStaticVoidCallInterface
 };
 use private_context::PrivateContext;
 use private_context::PackedReturns;

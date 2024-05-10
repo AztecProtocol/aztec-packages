@@ -45,6 +45,7 @@ describe('Contract Class', () => {
         isInitializer: false,
         functionType: FunctionType.SECRET,
         isInternal: false,
+        isStatic: false,
         debugSymbols: '',
         parameters: [
           {
@@ -68,6 +69,7 @@ describe('Contract Class', () => {
       {
         name: 'baz',
         isInitializer: false,
+        isStatic: false,
         functionType: FunctionType.OPEN,
         isInternal: false,
         parameters: [],
@@ -78,6 +80,7 @@ describe('Contract Class', () => {
       {
         name: 'qux',
         isInitializer: false,
+        isStatic: false,
         functionType: FunctionType.UNCONSTRAINED,
         isInternal: false,
         parameters: [

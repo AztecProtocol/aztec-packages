@@ -20,6 +20,18 @@ describe('e2e_static_calls', () => {
 
   afterAll(() => teardown());
 
+  describe('direct view calls to child', () => {
+    it('performs legal private static calls', async () => {
+      await childContract.methods.private_get_value(42n, wallet.getCompleteAddress().address).send().wait();
+    });
+
+    it('fails when performing non-static calls to poorly written static functions', async () => {
+      await expect(
+        childContract.methods.private_illegal_set_value(42n, wallet.getCompleteAddress().address).send().wait(),
+      ).rejects.toThrow("Cannot satisfy constraint 'item.public_inputs.call_context.is_static_call == is_static_call'");
+    });
+  });
+
   describe('parent calls child', () => {
     it('performs legal private to private static calls', async () => {
       await parentContract.methods
@@ -83,6 +95,18 @@ describe('e2e_static_calls', () => {
           .send()
           .wait(),
       ).rejects.toThrow('Static call cannot create new notes, emit L2->L1 messages or generate logs');
+    });
+
+    it('fails when performing non-static calls to poorly written static functions', async () => {
+      await expect(
+        parentContract.methods
+          .private_call(childContract.address, childContract.methods.private_illegal_set_value.selector, [
+            42n,
+            wallet.getCompleteAddress().address,
+          ])
+          .send()
+          .wait(),
+      ).rejects.toThrow("Cannot satisfy constraint 'item.public_inputs.call_context.is_static_call == is_static_call'");
     });
 
     it('fails when performing illegal (nested) private to private static calls', async () => {

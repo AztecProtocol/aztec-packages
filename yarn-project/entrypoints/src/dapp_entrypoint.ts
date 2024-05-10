@@ -48,6 +48,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
       origin: this.dappEntrypointAddress,
       functionData,
       txContext: new TxContext(this.chainId, this.version, gasSettings),
+      isStatic: exec.isStatic ?? false,
       argsOfCalls: [...payload.packedArguments, entrypointPackedArgs],
       authWitnesses: [authWitness],
     });
@@ -61,6 +62,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
       isInitializer: false,
       functionType: 'secret',
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'payload',
@@ -95,6 +97,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
                         },
                       },
                       { name: 'is_public', type: { kind: 'boolean' } },
+                      { name: 'is_static', type: { kind: 'boolean' } },
                     ],
                   },
                 },
