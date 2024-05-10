@@ -1,3 +1,4 @@
+import { BBNativeRollupProver, type BBProverConfig, TestCircuitProver } from '@aztec/bb-prover';
 import { type ProvingJobSource } from '@aztec/circuit-types';
 import { sleep } from '@aztec/foundation/sleep';
 import { type SimulationProvider } from '@aztec/simulator';

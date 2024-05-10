@@ -1,4 +1,11 @@
-import { type BlockProver, type ProcessedTx, type Tx, type TxValidator } from '@aztec/circuit-types';
+import { type BBProverConfig } from '@aztec/bb-prover';
+import {
+  type BlockProver,
+  type ProcessedTx,
+  type ServerCircuitProver,
+  type Tx,
+  type TxValidator,
+} from '@aztec/circuit-types';
 import { type Gas, GlobalVariables, Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
@@ -25,8 +32,6 @@ import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
 import { MemoryProvingQueue } from '../prover-pool/memory-proving-queue.js';
 import { ProverAgent } from '../prover-pool/prover-agent.js';
 import { ProverPool } from '../prover-pool/prover-pool.js';
-import { type BBProverConfig } from '../test/bb_prover.js';
-import { type CircuitProver } from '../test/interface.js';
 import { getEnvironmentConfig, getSimulationProvider, makeGlobals } from './fixtures.js';
 
 export class TestContext {
@@ -38,7 +43,7 @@ export class TestContext {
     public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
     public actualDb: MerkleTreeOperations,
-    public prover: CircuitProver,
+    public prover: ServerCircuitProver,
     public proverPool: ProverPool,
     public orchestrator: ProvingOrchestrator,
     public blockNumber: number,
@@ -49,7 +54,7 @@ export class TestContext {
   static async new(
     logger: DebugLogger,
     proverCount = 4,
-    createProver: (bbConfig: BBProverConfig) => Promise<CircuitProver> = _ =>
+    createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = _ =>
       Promise.resolve(new TestCircuitProver(new WASMSimulator())),
     blockNumber = 3,
   ) {
@@ -70,7 +75,7 @@ export class TestContext {
       publicWorldStateDB,
     );
 
-    let localProver: CircuitProver;
+    let localProver: ServerCircuitProver;
     const config = await getEnvironmentConfig(logger);
     const simulationProvider = await getSimulationProvider({
       acvmWorkingDirectory: config?.acvmWorkingDirectory,

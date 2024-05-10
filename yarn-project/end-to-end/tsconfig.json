@@ -68,6 +68,9 @@
     },
     {
       "path": "../world-state"
+    },
+    {
+      "path": "../bb-prover"
     }
   ],
   "include": ["src"]

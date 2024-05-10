@@ -20,7 +20,7 @@ export type PublicKernelProvingOps = {
 
 export type KernelTypeToArtifact = Record<PublicKernelType, PublicKernelProvingOps | undefined>;
 
-export const KernelArtifactMapping: KernelTypeToArtifact = {
+export const PublicKernelArtifactMapping: KernelTypeToArtifact = {
   [PublicKernelType.NON_PUBLIC]: undefined,
   [PublicKernelType.APP_LOGIC]: {
     artifact: 'PublicKernelAppLogicArtifact',

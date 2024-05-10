@@ -1,3 +1,4 @@
+import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import {
   BaseParityInputs,
   Fr,
@@ -16,7 +17,6 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 import { TestContext } from '../mocks/test_context.js';
-import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 
 const logger = createDebugLogger('aztec:bb-prover-parity');
 

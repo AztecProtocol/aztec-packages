@@ -49,7 +49,7 @@ import {
 } from '@aztec/noir-protocol-circuits-types';
 import { type SimulationProvider, WASMSimulator, emitCircuitSimulationStats } from '@aztec/simulator';
 
-import { KernelArtifactMapping } from '../mappings/mappings.js';
+import { PublicKernelArtifactMapping } from '../mappings/mappings.js';
 import { mapPublicKernelToCircuitName } from '../stats.js';
 
 const VERIFICATION_KEYS: Record<ServerProtocolArtifact, VerificationKeyAsFields> = {
@@ -218,7 +218,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     kernelRequest: PublicKernelNonTailRequest,
   ): Promise<PublicInputsAndProof<PublicKernelCircuitPublicInputs>> {
     const timer = new Timer();
-    const kernelOps = KernelArtifactMapping[kernelRequest.type];
+    const kernelOps = PublicKernelArtifactMapping[kernelRequest.type];
     if (kernelOps === undefined) {
       throw new Error(`Unable to prove for kernel type ${PublicKernelType[kernelRequest.type]}`);
     }

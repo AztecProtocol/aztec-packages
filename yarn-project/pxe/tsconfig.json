@@ -41,6 +41,9 @@
     },
     {
       "path": "../noir-contracts.js"
+    },
+    {
+      "path": "../bb-prover"
     }
   ],
   "include": ["src"]

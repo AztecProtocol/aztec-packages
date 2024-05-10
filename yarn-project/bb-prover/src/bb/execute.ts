@@ -185,7 +185,7 @@ export async function generateKeyForNoirCircuit(
  * @param pathToBB - The full path to the bb binary
  * @param workingDirectory - A working directory for use by bb
  * @param circuitName - An identifier for the circuit
- * @param compiledCircuit - The compiled circuit
+ * @param bytecode - The compiled circuit bytecode
  * @param inputWitnessFile - The circuit input witness
  * @param log - A logging function
  * @returns An object containing a result indication, the location of the proof and the duration taken
@@ -194,7 +194,7 @@ export async function generateProof(
   pathToBB: string,
   workingDirectory: string,
   circuitName: string,
-  compiledCircuit: NoirCompiledCircuit,
+  bytecode: Buffer,
   inputWitnessFile: string,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
@@ -207,7 +207,6 @@ export async function generateProof(
 
   // The bytecode is written to e.g. /workingDirectory/BaseParityArtifact-bytecode
   const bytecodePath = `${workingDirectory}/${circuitName}-bytecode`;
-  const bytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
 
   // The proof is written to e.g. /workingDirectory/proof
   const outputPath = `${workingDirectory}`;

@@ -232,6 +232,7 @@ __metadata:
     "@aztec/simulator": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.5.0
+    "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi"
     "@noir-lang/types": "portal:../../noir/packages/types"
     "@types/jest": ^29.5.0
     "@types/memdown": ^3.0.0
@@ -742,6 +743,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/pxe@workspace:pxe"
   dependencies:
+    "@aztec/bb-prover": "workspace:^"
     "@aztec/bb.js": "portal:../../barretenberg/ts"
     "@aztec/builder": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
