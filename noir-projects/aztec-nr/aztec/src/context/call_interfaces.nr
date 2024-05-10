@@ -7,6 +7,7 @@ use crate::context::gas::GasOpts;
 use crate::context::public_context::FunctionReturns;
 
 use crate::hash::hash_args;
+use crate::oracle::arguments;
 
 struct PrivateCallInterface<T> {
     target_contract: AztecAddress,
@@ -96,7 +97,6 @@ struct PublicCallInterface<T> {
 }
 
 impl<T> PublicCallInterface<T> {
-
     pub fn call<N>(self, context: &mut PublicContext) -> T where T: Deserialize<N> {
         let returns = context.call_public_function_with_packed_args(
             self.target_contract,
@@ -243,18 +243,39 @@ impl<T> AvmCallInterface<T> {
     }
 
     pub fn enqueue(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, false, false)
+        // This packing is only here because PrivateContext's call_public* functions do not accept a slice for the args.
+        let args_hash = arguments::pack_arguments(self.args);
+        context.call_public_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            args_hash,
+            /*static=*/ false,
+            /*delegate=*/ false
+        )
     }
 
     pub fn static_enqueue(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, true, false)
+        // This packing is only here because PrivateContext's call_public* functions do not accept a slice for the args.
+        let args_hash = arguments::pack_arguments(self.args);
+        context.call_public_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            args_hash,
+            /*static=*/ true,
+            /*delegate=*/ false
+        )
     }
 
     pub fn delegate_enqueue(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, false, true)
+        // This packing is only here because PrivateContext's call_public* functions do not accept a slice for the args.
+        let args_hash = arguments::pack_arguments(self.args);
+        context.call_public_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            args_hash,
+            /*static=*/ false,
+            /*delegate=*/ true
+        )
     }
 }
 
@@ -287,18 +308,39 @@ impl AvmVoidCallInterface {
     }
 
     pub fn enqueue(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, false, false)
+        // This packing is only here because PrivateContext's call_public* functions do not accept a slice for the args.
+        let args_hash = arguments::pack_arguments(self.args);
+        context.call_public_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            args_hash,
+            /*static=*/ false,
+            /*delegate=*/ false
+        )
     }
 
     pub fn static_enqueue(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, true, false)
+        // This packing is only here because PrivateContext's call_public* functions do not accept a slice for the args.
+        let args_hash = arguments::pack_arguments(self.args);
+        context.call_public_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            args_hash,
+            /*static=*/ true,
+            /*delegate=*/ false
+        )
     }
 
     pub fn delegate_enqueue(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, false, true)
+        // This packing is only here because PrivateContext's call_public* functions do not accept a slice for the args.
+        let args_hash = arguments::pack_arguments(self.args);
+        context.call_public_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            args_hash,
+            /*static=*/ false,
+            /*delegate=*/ true
+        )
     }
 }
 

@@ -32,7 +32,6 @@ import {
   MembershipWitness,
   NoteHash,
   Nullifier,
-  type PrivateKernelTailCircuitPublicInputs,
   type Proof,
   PublicCallData,
   type PublicCallRequest,
@@ -146,11 +145,8 @@ export abstract class AbstractPhaseManager {
     gasUsed: Gas | undefined;
   }>;
 
-  public static extractEnqueuedPublicCallsByPhase(
-    publicInputs: PrivateKernelTailCircuitPublicInputs,
-    enqueuedPublicFunctionCalls: PublicCallRequest[],
-  ): Record<PublicKernelPhase, PublicCallRequest[]> {
-    const data = publicInputs.forPublic;
+  public static extractEnqueuedPublicCallsByPhase(tx: Tx): Record<PublicKernelPhase, PublicCallRequest[]> {
+    const data = tx.data.forPublic;
     if (!data) {
       return {
         [PublicKernelPhase.SETUP]: [],
@@ -159,7 +155,7 @@ export abstract class AbstractPhaseManager {
         [PublicKernelPhase.TAIL]: [],
       };
     }
-    const publicCallsStack = enqueuedPublicFunctionCalls.slice().reverse();
+    const publicCallsStack = tx.enqueuedPublicFunctionCalls.slice().reverse();
     const nonRevertibleCallStack = data.endNonRevertibleData.publicCallStack.filter(i => !i.isEmpty());
     const revertibleCallStack = data.end.publicCallStack.filter(i => !i.isEmpty());
 
@@ -186,35 +182,35 @@ export abstract class AbstractPhaseManager {
       c => revertibleCallStack.findIndex(p => p.equals(c)) !== -1,
     );
 
+    const teardownCallStack = tx.publicTeardownFunctionCall.isEmpty() ? [] : [tx.publicTeardownFunctionCall];
+
     if (firstRevertibleCallIndex === 0) {
       return {
         [PublicKernelPhase.SETUP]: [],
         [PublicKernelPhase.APP_LOGIC]: publicCallsStack,
-        [PublicKernelPhase.TEARDOWN]: [],
+        [PublicKernelPhase.TEARDOWN]: teardownCallStack,
         [PublicKernelPhase.TAIL]: [],
       };
     } else if (firstRevertibleCallIndex === -1) {
       // there's no app logic, split the functions between setup (many) and teardown (just one function call)
       return {
-        [PublicKernelPhase.SETUP]: publicCallsStack.slice(0, -1),
+        [PublicKernelPhase.SETUP]: publicCallsStack,
         [PublicKernelPhase.APP_LOGIC]: [],
-        [PublicKernelPhase.TEARDOWN]: [publicCallsStack[publicCallsStack.length - 1]],
+        [PublicKernelPhase.TEARDOWN]: teardownCallStack,
         [PublicKernelPhase.TAIL]: [],
       };
     } else {
       return {
-        [PublicKernelPhase.SETUP]: publicCallsStack.slice(0, firstRevertibleCallIndex - 1),
+        [PublicKernelPhase.SETUP]: publicCallsStack.slice(0, firstRevertibleCallIndex),
         [PublicKernelPhase.APP_LOGIC]: publicCallsStack.slice(firstRevertibleCallIndex),
-        [PublicKernelPhase.TEARDOWN]: [publicCallsStack[firstRevertibleCallIndex - 1]],
+        [PublicKernelPhase.TEARDOWN]: teardownCallStack,
         [PublicKernelPhase.TAIL]: [],
       };
     }
   }
 
   protected extractEnqueuedPublicCalls(tx: Tx): PublicCallRequest[] {
-    const calls = AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx.data, tx.enqueuedPublicFunctionCalls)[
-      this.phase
-    ];
+    const calls = AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx)[this.phase];
 
     return calls;
   }
@@ -283,10 +279,18 @@ export abstract class AbstractPhaseManager {
             )
           : current;
 
+        // Sanity check for a current upstream assumption.
+        // Consumers of the result seem to expect "reverted <=> revertReason !== undefined".
+        const functionSelector = result.execution.functionData.selector.toString();
+        if (result.reverted && !result.revertReason) {
+          throw new Error(
+            `Simulation of ${result.execution.contractAddress.toString()}:${functionSelector} reverted with no reason.`,
+          );
+        }
+
         // Accumulate gas used in this execution
         gasUsed = gasUsed.add(Gas.from(result.startGasLeft).sub(Gas.from(result.endGasLeft)));
 
-        const functionSelector = result.execution.functionData.selector.toString();
         if (result.reverted && !PhaseIsRevertible[this.phase]) {
           this.log.debug(
             `Simulation error on ${result.execution.contractAddress.toString()}:${functionSelector} with reason: ${
