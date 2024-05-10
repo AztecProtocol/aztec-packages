@@ -140,8 +140,8 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
-   * Retrieves the complete address corresponding to the provided aztec address.
-   * @param address - The aztec address of the complete address contract.
+   * Retrieves the complete address corresponding to the provided master nullifier public key hash.
+   * @param npkMHash - The master nullifier public key hash of the account.
    * @returns A promise that resolves to a CompleteAddress instance if the address is found, or undefined if not found.
    */
   getCompleteAddressByNpkMHash(npkMHash: Fr): Promise<CompleteAddress | undefined>;
