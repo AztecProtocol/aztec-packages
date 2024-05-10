@@ -110,7 +110,7 @@ runs:
             echo "> Unpacking repo"
             git config --global advice.detachedHead false
             git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID
-            echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
+            echo ${{ inputs.ec2_key }} | base64 --decode > ~/.ssh/build_instance_key
             chmod 600 ~/.ssh/build_instance_key
           " || true
         fi
