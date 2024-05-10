@@ -8,6 +8,22 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## 0.39.0
 
+### [Aztec.nr] `PrivateSet.get_notes()` now also deletes them, `remove()` has been removed
+
+To prevent accidental errors in which notes are read from a set but not validated to be current (by emitting a nullifier), `get_notes()` now also nullifies the read notes. Most applications deleted notes immediately by calling `remove()`, which no longer exists - this is now taken care of automatically.
+
+```diff
+let maybe_notes = storage.set.get_notes(options);
+- for i in 0..maybe_notes.len() {
+-     if maybe_notes[i].is_some() {
+-         let note = maybe_notes[i].unwrap_unchecked();
+-         storage.set.remove(note);
+-     }
+}
+```
+
+`get_notes()` will soon be renamed to `pop_notes()` to make this new behavior more obvious to the reader.
+
 ### [Aztec.nr] Mutable delays in `SharedMutable`
 
 The type signature for `SharedMutable` changed from `SharedMutable<T, DELAY>` to `SharedMutable<T, INITIAL_DELAY>`. The behavior is the same as before, except the delay can now be changed after deployment by calling `schedule_delay_change`.
@@ -27,7 +43,7 @@ What used to be called encryption public key is now master incoming viewing publ
 
 ## 0.38.0
 
-### [Aztec.nr] Emitting encrypted logs
+### [Aztec.nr] Emmiting encrypted logs
 
 The `emit_encrypted_log` function is now a context method.
 
