@@ -194,7 +194,6 @@ export class Oracle {
     ].map(toACVMField);
   }
 
-  // TODO: #5834
   async getPublicKeysAndPartialAddressWithNpkMH([masterNullifierPublicKeyHash]: ACVMField[]) {
     const parsedNpkMH = fromACVMField(masterNullifierPublicKeyHash);
 
