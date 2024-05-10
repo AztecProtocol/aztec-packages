@@ -89,5 +89,3 @@ contract EcdsaAccount {
     }
 }
 
-  
-    
