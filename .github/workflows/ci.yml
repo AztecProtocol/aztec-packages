@@ -496,7 +496,7 @@ jobs:
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          run:
+          run: |
             scripts/earthly-ci --no-output ./barretenberg/cpp/+bench-client-ivc --bench_mode=cache
             scripts/earthly-ci --no-output ./barretenberg/cpp/+bench-ultra-honk --bench_mode=cache
 
