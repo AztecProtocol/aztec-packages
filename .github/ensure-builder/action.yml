@@ -101,7 +101,7 @@ runs:
 
     - name: Attach EBS Cache Disk
       uses: ./.github/run-on-builder
-      if: ! contains(inputs.runner_type, 'no-cache')
+      if: ${{ !contains(inputs.runner_type, 'no-cache') }}
       with:
         run: |
           export AWS_ACCESS_KEY_ID=${{ inputs.aws_access_key_id }}
