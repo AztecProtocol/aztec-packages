@@ -52,7 +52,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
       // We only bother inserting the note if non-empty to save funds on gas.
       // TODO: (#5901) This will be changed a lot, as it should use the updated encrypted log format
       if !(self.amount == U128::from_integer(0)) {
-          let ivpk_m = get_ivpk_m_with_npk_m_hash(context, self.owner);
+          let ivpk_m = get_ivpk_m_with_npk_m_hash(self.owner);
           context.emit_encrypted_log(
               (*context).this_address(),
               slot,
