@@ -21,7 +21,7 @@ runs:
     - name: Generate Unique Home Directory
       shell: bash
       run: |
-        RUN_HOME=~/run-$RANDOM-$(date +%s)
+        RUN_HOME=/home/ubuntu/run-$RANDOM-$(date +%s)
         echo HOME=$RUN_HOME >> $GITHUB_ENV
         mkdir -p $RUN_HOME
 
@@ -65,19 +65,19 @@ runs:
       if: ${{ inputs.concurrency_key }}
       with:
         run: |
-          while [ -f "~/${{ inputs.concurrency_key }}.lock" ]; do sleep 1 ; echo "Lock is currently held by $(cat '~/${{ inputs.concurrency_key }}.lock'), waiting..." ; done
-          echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > "~/${{ inputs.concurrency_key }}.lock"
-          echo "~/${{ inputs.concurrency_key }}.lock acquired."
+          while [ -f "/home/ubuntu/${{ inputs.concurrency_key }}.lock" ]; do sleep 1 ; echo "Lock is currently held by $(cat '/home/ubuntu/${{ inputs.concurrency_key }}.lock'), waiting..." ; done
+          echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > "/home/ubuntu/${{ inputs.concurrency_key }}.lock"
+          echo "/home/ubuntu/${{ inputs.concurrency_key }}.lock acquired."
         post: |
-          rm "~/${{ inputs.concurrency_key }}.lock" || true
-          echo "~/${{ inputs.concurrency_key }}.lock removed."
+          rm "/home/ubuntu/${{ inputs.concurrency_key }}.lock" || true
+          echo "/home/ubuntu/${{ inputs.concurrency_key }}.lock removed."
 
     - name: Wait for runner completion
       shell: bash
       run: |
         for i in {1..60} ; do
           # HACK: detecting bare spot. TODO Find better solution
-          [ ! -f ~/delay_shutdown.sh ] && break
+          [ ! -f /home/ubuntu/delay_shutdown.sh ] && break
           [ -f /home/ubuntu/.setup-complete ] && break
           sleep 1
         done
