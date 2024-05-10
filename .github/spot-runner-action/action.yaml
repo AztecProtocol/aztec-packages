@@ -28,7 +28,7 @@ inputs:
     type: number
     required: false
   subaction:
-    description: 'One of: start (default), stop, restart'
+    description: 'One of: start (default), stop, restart, check'
     required: false
     default: 'start'
   github_action_runner_version:
