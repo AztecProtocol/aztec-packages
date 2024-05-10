@@ -26,7 +26,6 @@ export class DefaultEntrypoint implements EntrypointInterface {
         call.functionData,
         entrypointPackedValues.hash,
         txContext,
-        exec.isStatic ?? false,
         [...packedArguments, entrypointPackedValues],
         authWitnesses,
       ),

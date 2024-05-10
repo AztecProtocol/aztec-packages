@@ -65,7 +65,11 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
       this.wallet.getVersion(),
       {
         args: [this.wallet.getCompleteAddress().address, this.paymentContract, maxFee, nonce],
-        functionData: new FunctionData(FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)'), true),
+        functionData: new FunctionData(
+          FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)'),
+          true,
+          false,
+        ),
         to: this.asset,
       },
     );
@@ -79,6 +83,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
         functionData: new FunctionData(
           FunctionSelector.fromSignature('fee_entrypoint_private(Field,(Field),Field,Field)'),
           true,
+          false,
         ),
         args: [maxFee, this.asset, secretHashForRebate, nonce],
       },

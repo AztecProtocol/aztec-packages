@@ -128,7 +128,6 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
         firstCallArgsHash: new Fr(0),
         functionData,
         txContext: TxContext.empty(),
-        isStatic: false,
         argsOfCalls: [],
         authWitnesses: [],
       });

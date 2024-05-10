@@ -35,7 +35,6 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
       origin: this.address,
       functionData: FunctionData.fromAbi(abi),
       txContext: new TxContext(this.chainId, this.version, gasSettings),
-      isStatic: exec.isStatic ?? false,
       argsOfCalls: [...appPayload.packedArguments, ...feePayload.packedArguments, entrypointPackedArgs],
       authWitnesses: [appAuthWitness, feeAuthWitness],
     });

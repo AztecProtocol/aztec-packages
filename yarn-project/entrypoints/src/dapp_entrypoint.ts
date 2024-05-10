@@ -48,7 +48,6 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
       origin: this.dappEntrypointAddress,
       functionData,
       txContext: new TxContext(this.chainId, this.version, gasSettings),
-      isStatic: exec.isStatic ?? false,
       argsOfCalls: [...payload.packedArguments, entrypointPackedArgs],
       authWitnesses: [authWitness],
     });

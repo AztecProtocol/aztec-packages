@@ -116,7 +116,6 @@ describe('Private Execution test suite', () => {
       firstCallArgsHash: packedArguments.hash,
       functionData,
       txContext: TxContext.from({ ...txContextFields, ...txContext }),
-      isStatic: artifact.isStatic,
       argsOfCalls: [packedArguments],
       authWitnesses: [],
     });

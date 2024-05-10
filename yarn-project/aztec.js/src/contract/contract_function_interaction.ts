@@ -50,7 +50,6 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       this.txRequest = await this.wallet.createTxExecutionRequest({
         calls: [this.request()],
         fee: opts?.fee,
-        isStatic: this.functionDao.isStatic,
       });
     }
     return this.txRequest;
@@ -96,7 +95,6 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
         origin: this.contractAddress,
         functionData: FunctionData.fromAbi(this.functionDao),
         txContext: new TxContext(nodeInfo.chainId, nodeInfo.protocolVersion, gasSettings),
-        isStatic: this.functionDao.isStatic,
         argsOfCalls: [packedArgs],
         authWitnesses: [],
       });
