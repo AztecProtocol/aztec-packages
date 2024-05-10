@@ -31,7 +31,7 @@ check_cpu_idle() {
         # Get idle time from vmstat, field $15 is the idle time percentage
         local current_idle=$(vmstat 1 2 | tail -1 | awk '{print $15}')
         echo "Free CPU: $current_idle%, $idle_time/300 seconds before shutdown"
-        if [ "$current_idle" -ge 95 ]; then
+        if [ "$current_idle" -ge 99 ]; then
             # Increase idle time counter by 1 second
             ((idle_time++)) || true
         else
