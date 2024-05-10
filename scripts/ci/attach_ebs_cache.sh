@@ -139,7 +139,7 @@ while true; do
 done
 
 # Create a file system if it does not exist
-if ! file -s $BLKDEVICE | grep -q ext4; then
+if ! sudo file -s $BLKDEVICE | grep -q ext4; then
   sudo mkfs -t ext4 $BLKDEVICE
 fi
 
