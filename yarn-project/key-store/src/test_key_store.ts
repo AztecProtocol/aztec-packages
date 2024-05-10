@@ -1,12 +1,14 @@
 import { type KeyStore, type PublicKey } from '@aztec/circuit-types';
 import {
   AztecAddress,
+  CompleteAddress,
   Fr,
   GeneratorIndex,
   type GrumpkinPrivateKey,
   GrumpkinScalar,
   type PartialAddress,
   Point,
+  computeAddress,
   computeAppNullifierSecretKey,
   deriveKeys,
 } from '@aztec/circuits.js';
@@ -26,9 +28,9 @@ export class TestKeyStore implements KeyStore {
 
   /**
    * Creates a new account from a randomly generated secret key.
-   * @returns A promise that resolves to the newly created account's AztecAddress.
+   * @returns A promise that resolves to the newly created account's CompleteAddress.
    */
-  public createAccount(): Promise<AztecAddress> {
+  public createAccount(): Promise<CompleteAddress> {
     const sk = Fr.random();
     const partialAddress = Fr.random();
     return this.addAccount(sk, partialAddress);
@@ -38,9 +40,9 @@ export class TestKeyStore implements KeyStore {
    * Adds an account to the key store from the provided secret key.
    * @param sk - The secret key of the account.
    * @param partialAddress - The partial address of the account.
-   * @returns The account's address.
+   * @returns The account's complete address.
    */
-  public async addAccount(sk: Fr, partialAddress: PartialAddress): Promise<AztecAddress> {
+  public async addAccount(sk: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     const {
       publicKeysHash,
       masterNullifierSecretKey,
@@ -53,10 +55,7 @@ export class TestKeyStore implements KeyStore {
       masterTaggingPublicKey,
     } = deriveKeys(sk);
 
-    // We hash the partial address and the public keys hash to get the account address
-    // TODO(#5726): Move the following line to AztecAddress class?
-    const accountAddressFr = poseidon2Hash([publicKeysHash, partialAddress, GeneratorIndex.CONTRACT_ADDRESS_V1]);
-    const accountAddress = AztecAddress.fromField(accountAddressFr);
+    const accountAddress = computeAddress(publicKeysHash, partialAddress);
 
     // We save the keys to db associated with the account address
     await this.#keys.set(`${accountAddress.toString()}-public_keys_hash`, publicKeysHash.toBuffer());
@@ -73,7 +72,16 @@ export class TestKeyStore implements KeyStore {
     await this.#keys.set(`${accountAddress.toString()}-tpk_m`, masterTaggingPublicKey.toBuffer());
 
     // At last, we return the newly derived account address
-    return Promise.resolve(accountAddress);
+    return Promise.resolve(
+      CompleteAddress.create(
+        accountAddress,
+        masterNullifierPublicKey,
+        masterIncomingViewingPublicKey,
+        masterOutgoingViewingPublicKey,
+        masterTaggingPublicKey,
+        partialAddress,
+      ),
+    );
   }
 
   /**
@@ -324,29 +332,6 @@ export class TestKeyStore implements KeyStore {
       throw new Error(`Master nullifier public key hash ${masterNullifierPublicKeyHash.toString()} does not exist.`);
     }
     return account;
-  }
-
-  /**
-   * This is used to register a recipient / for storing public keys of an address
-   * @param accountAddress - The account address to store keys for.
-   * @param masterNullifierPublicKey - The stored master nullifier public key
-   * @param masterIncomingViewingPublicKey - The stored incoming viewing public key
-   * @param masterOutgoingViewingPublicKey - The stored outgoing viewing public key
-   * @param masterTaggingPublicKey - The stored master tagging public key
-   * @remarks This also adds the master nullifier public key hash to the store for the recipient
-   */
-  // TODO(#5834): Re-add separation between recipients and accounts in keystore.
-  public async addPublicKeysForAccount(
-    accountAddress: AztecAddress,
-    masterNullifierPublicKey: Point,
-    masterIncomingViewingPublicKey: Point,
-    masterOutgoingViewingPublicKey: Point,
-    masterTaggingPublicKey: Point,
-  ): Promise<void> {
-    await this.#keys.set(`${accountAddress.toString()}-npk_m`, masterNullifierPublicKey.toBuffer());
-    await this.#keys.set(`${accountAddress.toString()}-ivpk_m`, masterIncomingViewingPublicKey.toBuffer());
-    await this.#keys.set(`${accountAddress.toString()}-ovpk_m`, masterOutgoingViewingPublicKey.toBuffer());
-    await this.#keys.set(`${accountAddress.toString()}-tpk_m`, masterTaggingPublicKey.toBuffer());
   }
 
   getAccountAddressForMasterNullifierPublicKeyHashInternal(masterNullifierPublicKeyHash: Fr): AztecAddress | undefined {

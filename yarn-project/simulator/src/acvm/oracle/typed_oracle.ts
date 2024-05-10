@@ -98,10 +98,6 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getNullifierKeysWithNpkMH');
   }
 
-  getPublicKeyAndPartialAddress(_address: AztecAddress): Promise<Fr[] | undefined> {
-    throw new OracleMethodNotAvailableError('getPublicKeyAndPartialAddress');
-  }
-
   getContractInstance(_address: AztecAddress): Promise<ContractInstance> {
     throw new OracleMethodNotAvailableError('getContractInstance');
   }
@@ -147,10 +143,6 @@ export abstract class TypedOracle {
 
   popCapsule(): Promise<Fr[]> {
     throw new OracleMethodNotAvailableError('popCapsule');
-  }
-
-  getPublicKeysForAddress(_address: AztecAddress): Promise<PublicKeys> {
-    throw new OracleMethodNotAvailableError('getPublicKeysForAddress');
   }
 
   getNotes(

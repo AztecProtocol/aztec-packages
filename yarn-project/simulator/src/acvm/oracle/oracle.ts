@@ -1,10 +1,5 @@
 import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
-import {
-  type PartialAddress,
-  type PublicKeys,
-  acvmFieldMessageToString,
-  oracleDebugCallToFormattedStr,
-} from '@aztec/circuits.js';
+import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from '@aztec/circuits.js';
 import { EventSelector, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
@@ -67,14 +62,6 @@ export class Oracle {
       toACVMField(masterNullifierPublicKey.y),
       toACVMField(appNullifierSecretKey),
     ];
-  }
-
-  // TODO: #5834 Nuke this
-  async getPublicKeyAndPartialAddress([address]: ACVMField[]) {
-    const { publicKey, partialAddress } = await this.typedOracle.getCompleteAddress(
-      AztecAddress.fromField(fromACVMField(address)),
-    );
-    return [publicKey.x, publicKey.y, partialAddress].map(toACVMField);
   }
 
   // TODO: #5834 Nuke this
@@ -197,35 +184,22 @@ export class Oracle {
   }
 
   async getPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<ACVMField[]> {
-    let publicKeys: PublicKeys;
-    let partialAddress: PartialAddress;
+    const parsedAddress = AztecAddress.fromField(fromACVMField(address));
+    const {
+      masterNullifierPublicKey,
+      masterIncomingViewingPublicKey,
+      masterOutgoingViewingPublicKey,
+      masterTaggingPublicKey,
+      partialAddress,
+    } = await this.typedOracle.getCompleteAddress(parsedAddress);
 
-    // TODO #5834: This should be reworked to return the public keys as well
-    try {
-      ({ partialAddress } = await this.typedOracle.getCompleteAddress(AztecAddress.fromField(fromACVMField(address))));
-    } catch (err) {
-      partialAddress = Fr.ZERO;
-    }
-
-    try {
-      publicKeys = await this.typedOracle.getPublicKeysForAddress(AztecAddress.fromField(fromACVMField(address)));
-    } catch (err) {
-      publicKeys = {
-        masterNullifierPublicKey: Point.ZERO,
-        masterIncomingViewingPublicKey: Point.ZERO,
-        masterOutgoingViewingPublicKey: Point.ZERO,
-        masterTaggingPublicKey: Point.ZERO,
-      };
-    }
-
-    const acvmPublicKeys = [
-      publicKeys.masterNullifierPublicKey.toFields(),
-      publicKeys.masterIncomingViewingPublicKey.toFields(),
-      publicKeys.masterOutgoingViewingPublicKey.toFields(),
-      publicKeys.masterTaggingPublicKey.toFields(),
-    ].flat();
-
-    return [...acvmPublicKeys, partialAddress].map(toACVMField);
+    return [
+      ...masterNullifierPublicKey.toFields(),
+      ...masterIncomingViewingPublicKey.toFields(),
+      ...masterOutgoingViewingPublicKey.toFields(),
+      ...masterTaggingPublicKey.toFields(),
+      partialAddress,
+    ].map(toACVMField);
   }
 
   async getNotes(
