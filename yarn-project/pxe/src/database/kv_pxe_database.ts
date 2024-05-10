@@ -2,6 +2,7 @@ import { MerkleTreeId, type NoteFilter, NoteStatus, type PublicKey } from '@azte
 import { AztecAddress, CompleteAddress, Header } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import {
   type AztecArray,
@@ -16,7 +17,6 @@ import { type ContractInstanceWithAddress, SerializableContractInstance } from '
 import { DeferredNoteDao } from './deferred_note_dao.js';
 import { NoteDao } from './note_dao.js';
 import { type PxeDatabase } from './pxe_database.js';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
 
 /**
  * A PXE database backed by LMDB.
@@ -393,7 +393,9 @@ export class KVPxeDatabase implements PxeDatabase {
   getCompleteAddressByNpkMHash(npkMHash: Fr): Promise<CompleteAddress | undefined> {
     const completeAddresses = this.#getCompleteAddresses();
 
-    const completeAddress = completeAddresses.find((completeAddress) => poseidon2Hash(completeAddress.masterNullifierPublicKey.toFields()).equals(npkMHash));
+    const completeAddress = completeAddresses.find(completeAddress =>
+      poseidon2Hash(completeAddress.masterNullifierPublicKey.toFields()).equals(npkMHash),
+    );
     return Promise.resolve(completeAddress);
   }
 
