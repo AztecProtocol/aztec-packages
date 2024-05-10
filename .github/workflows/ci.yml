@@ -103,7 +103,10 @@ jobs:
             export BUILDER_SPOT_IP=${{ env.BUILDER_SPOT_IP }}
             export BUILDER_SPOT_KEY=~/.ssh/build_instance_key
             scripts/run_on_builder "
-              docker save aztecprotocol/aztec:${{ github.event.pull_request.head.sha }} aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }} | brotli -2
+              [ -f .copied ] && ! [ -f image.brotli ] && sleep 25
+              touch .copied
+              ! [ -f image.brotli ] && docker save aztecprotocol/aztec:${{ github.event.pull_request.head.sha }} aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }} | brotli -2 > image.brotli
+              cat image.brotli
             " | brotli --decompress | docker load
 
       - name: Test
@@ -480,14 +483,8 @@ jobs:
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           run: |
-            # in case of inconvenient prune, re-export
             set -eux
-            if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/aztec:${{ github.event.pull_request.head.sha }}" ||
-               ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }}" ; then
-              export FORCE_COLOR=1
-              git submodule update --init --recursive --recommend-shallow
-              scripts/earthly-ci ./yarn-project+export-e2e-test-images
-            fi
+            scripts/earthly-ci --push ./barretenberg/cpp/+bench-binaries
       - name: Run Bench
         uses: ./.github/ensure-builder
         with:
