@@ -78,6 +78,6 @@ runs:
         for i in {1..60} ; do
           # HACK: detecting bare spot. TODO Find better solution
           [ ! -f /run/delay_shutdown.sh ] && break
-          [ -f ~/.setup-complete ] && break
+          [ -f /home/ubuntu/.setup-complete ] && break
           sleep 1
         done
