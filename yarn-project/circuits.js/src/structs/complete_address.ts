@@ -1,6 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { BufferReader, Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
 
 import { computePartialAddress } from '../contract/contract_address.js';
 import { computeAddress, computePublicKeysHash, deriveKeys } from '../keys/index.js';
@@ -205,8 +205,6 @@ export class CompleteAddress {
   }
 
   get publicKeysHash(): Fr {
-    return computePublicKeysHash(
-      ...this.publicKeys
-    );
+    return computePublicKeysHash(...this.publicKeys);
   }
 }
