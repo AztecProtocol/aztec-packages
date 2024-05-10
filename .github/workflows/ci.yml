@@ -57,7 +57,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test: [e2e-browser] #${{ fromJson( needs.build.outputs.e2e_list )}}
+        test: ${{ fromJson( needs.build.outputs.e2e_list )}}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
@@ -93,6 +93,7 @@ jobs:
       - name: Copy Docker Images to Tester
         uses: ./.github/ensure-builder
         with:
+          run_id: ${{ github.run_id }}
           runner_type: 4core-tester-x86
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -160,6 +161,7 @@ jobs:
         # needed to use run-on-tester
         uses: ./.github/ensure-builder
         with:
+          run_id: ${{ github.run_id }}
           runner_type: 16core-tester-x86
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -489,6 +491,7 @@ jobs:
       - name: Run Bench
         uses: ./.github/ensure-builder
         with:
+          run_id: ${{ github.run_id }}
           runner_type: 16core-tester-x86
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
