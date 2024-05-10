@@ -167,7 +167,6 @@
     [[maybe_unused]] auto avm_main_sel_op_fdiv = View(new_term.avm_main_sel_op_fdiv);                                  \
     [[maybe_unused]] auto avm_main_sel_op_fee_per_da_gas = View(new_term.avm_main_sel_op_fee_per_da_gas);              \
     [[maybe_unused]] auto avm_main_sel_op_fee_per_l2_gas = View(new_term.avm_main_sel_op_fee_per_l2_gas);              \
-    [[maybe_unused]] auto avm_main_sel_op_function_selector = View(new_term.avm_main_sel_op_function_selector);        \
     [[maybe_unused]] auto avm_main_sel_op_lt = View(new_term.avm_main_sel_op_lt);                                      \
     [[maybe_unused]] auto avm_main_sel_op_lte = View(new_term.avm_main_sel_op_lte);                                    \
     [[maybe_unused]] auto avm_main_sel_op_mul = View(new_term.avm_main_sel_op_mul);                                    \

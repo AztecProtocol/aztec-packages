@@ -12,7 +12,6 @@ namespace avm_main(256);
     pol commit sel_op_sender;
     pol commit sel_op_address;
     pol commit sel_op_portal;
-    pol commit sel_op_function_selector;
 
     // FEES
     pol commit sel_op_fee_per_l2_gas;
@@ -159,7 +158,6 @@ namespace avm_main(256);
     sel_op_sender * (1 - sel_op_sender) = 0;
     sel_op_address * (1 - sel_op_address) = 0;
     sel_op_portal * (1 - sel_op_portal) = 0;
-    sel_op_function_selector * (1 - sel_op_function_selector) = 0;
     sel_op_chain_id * (1 - sel_op_chain_id) = 0;
     sel_op_version * (1 - sel_op_version) = 0;
     sel_op_block_number * (1 - sel_op_block_number) = 0;
@@ -272,8 +270,8 @@ namespace avm_main(256);
     
     //===== KERNEL LOOKUPS =======================================================
     pol KERNEL_SELECTORS = (
-        sel_op_sender + sel_op_address + sel_op_portal + sel_op_function_selector + sel_op_chain_id + sel_op_version + 
-        sel_op_block_number + sel_op_coinbase + sel_op_timestamp + sel_op_fee_per_l2_gas + sel_op_fee_per_da_gas + sel_op_transaction_fee
+        sel_op_sender + sel_op_address + sel_op_portal + sel_op_chain_id + sel_op_version + sel_op_block_number + 
+        sel_op_coinbase + sel_op_timestamp + sel_op_fee_per_l2_gas + sel_op_fee_per_da_gas + sel_op_transaction_fee
     );
     // Ensure that only one kernel lookup is active when the kernel_sel is active
     #[KERNEL_ACTIVE_CHECK]
@@ -389,9 +387,6 @@ namespace avm_main(256);
     #[PORTAL_KERNEL]
     sel_op_portal * (avm_kernel.kernel_sel - constants.PORTAL_SELECTOR) = 0;
 
-    #[FUNCTION_KERNEL]
-    sel_op_function_selector * (avm_kernel.kernel_sel - constants.FUNCTION_SELECTOR) = 0;
-
     // FEES
     #[FEE_DA_GAS_KERNEL]
     sel_op_fee_per_da_gas  * (avm_kernel.kernel_sel - constants.FEE_PER_DA_GAS_SELECTOR) = 0;
@@ -409,13 +404,13 @@ namespace avm_main(256);
     #[VERSION_KERNEL]
     sel_op_version * (avm_kernel.kernel_sel - constants.VERSION_SELECTOR) = 0;
 
-    #[CHAIN_ID_KERNEL]
+    #[BLOCK_NUMBER_KERNEL]
     sel_op_block_number * (avm_kernel.kernel_sel - constants.BLOCK_NUMBER_SELECTOR) = 0;
 
-    #[CHAIN_ID_KERNEL]
+    #[COINBASE_KERNEL]
     sel_op_coinbase * (avm_kernel.kernel_sel - constants.COINBASE_SELECTOR) = 0;
 
-    #[CHAIN_ID_KERNEL]
+    #[TIMESTAMP_KERNEL]
     sel_op_timestamp * (avm_kernel.kernel_sel - constants.TIMESTAMP_SELECTOR) = 0;
 
     #[LOOKUP_INTO_KERNEL]

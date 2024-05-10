@@ -233,7 +233,6 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_op_fdiv{};
     FF avm_main_sel_op_fee_per_da_gas{};
     FF avm_main_sel_op_fee_per_l2_gas{};
-    FF avm_main_sel_op_function_selector{};
     FF avm_main_sel_op_lt{};
     FF avm_main_sel_op_lte{};
     FF avm_main_sel_op_mul{};
@@ -423,8 +422,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 342;
-    static constexpr size_t num_polys = 290;
+    static constexpr size_t num_fixed_columns = 341;
+    static constexpr size_t num_polys = 289;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -605,7 +604,6 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_op_fdiv[i] = rows[i].avm_main_sel_op_fdiv;
             polys.avm_main_sel_op_fee_per_da_gas[i] = rows[i].avm_main_sel_op_fee_per_da_gas;
             polys.avm_main_sel_op_fee_per_l2_gas[i] = rows[i].avm_main_sel_op_fee_per_l2_gas;
-            polys.avm_main_sel_op_function_selector[i] = rows[i].avm_main_sel_op_function_selector;
             polys.avm_main_sel_op_lt[i] = rows[i].avm_main_sel_op_lt;
             polys.avm_main_sel_op_lte[i] = rows[i].avm_main_sel_op_lte;
             polys.avm_main_sel_op_mul[i] = rows[i].avm_main_sel_op_mul;

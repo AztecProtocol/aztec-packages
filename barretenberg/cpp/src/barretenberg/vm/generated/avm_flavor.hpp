@@ -82,11 +82,11 @@ class AvmFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 288;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 287;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 342;
+    static constexpr size_t NUM_ALL_ENTITIES = 341;
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
@@ -376,7 +376,6 @@ class AvmFlavor {
                               avm_main_sel_op_fdiv,
                               avm_main_sel_op_fee_per_da_gas,
                               avm_main_sel_op_fee_per_l2_gas,
-                              avm_main_sel_op_function_selector,
                               avm_main_sel_op_lt,
                               avm_main_sel_op_lte,
                               avm_main_sel_op_mul,
@@ -667,7 +666,6 @@ class AvmFlavor {
                      avm_main_sel_op_fdiv,
                      avm_main_sel_op_fee_per_da_gas,
                      avm_main_sel_op_fee_per_l2_gas,
-                     avm_main_sel_op_function_selector,
                      avm_main_sel_op_lt,
                      avm_main_sel_op_lte,
                      avm_main_sel_op_mul,
@@ -963,7 +961,6 @@ class AvmFlavor {
                               avm_main_sel_op_fdiv,
                               avm_main_sel_op_fee_per_da_gas,
                               avm_main_sel_op_fee_per_l2_gas,
-                              avm_main_sel_op_function_selector,
                               avm_main_sel_op_lt,
                               avm_main_sel_op_lte,
                               avm_main_sel_op_mul,
@@ -1308,7 +1305,6 @@ class AvmFlavor {
                      avm_main_sel_op_fdiv,
                      avm_main_sel_op_fee_per_da_gas,
                      avm_main_sel_op_fee_per_l2_gas,
-                     avm_main_sel_op_function_selector,
                      avm_main_sel_op_lt,
                      avm_main_sel_op_lte,
                      avm_main_sel_op_mul,
@@ -1653,7 +1649,6 @@ class AvmFlavor {
                      avm_main_sel_op_fdiv,
                      avm_main_sel_op_fee_per_da_gas,
                      avm_main_sel_op_fee_per_l2_gas,
-                     avm_main_sel_op_function_selector,
                      avm_main_sel_op_lt,
                      avm_main_sel_op_lte,
                      avm_main_sel_op_mul,
@@ -2312,7 +2307,6 @@ class AvmFlavor {
             Base::avm_main_sel_op_fdiv = "AVM_MAIN_SEL_OP_FDIV";
             Base::avm_main_sel_op_fee_per_da_gas = "AVM_MAIN_SEL_OP_FEE_PER_DA_GAS";
             Base::avm_main_sel_op_fee_per_l2_gas = "AVM_MAIN_SEL_OP_FEE_PER_L2_GAS";
-            Base::avm_main_sel_op_function_selector = "AVM_MAIN_SEL_OP_FUNCTION_SELECTOR";
             Base::avm_main_sel_op_lt = "AVM_MAIN_SEL_OP_LT";
             Base::avm_main_sel_op_lte = "AVM_MAIN_SEL_OP_LTE";
             Base::avm_main_sel_op_mul = "AVM_MAIN_SEL_OP_MUL";
@@ -2619,7 +2613,6 @@ class AvmFlavor {
         Commitment avm_main_sel_op_fdiv;
         Commitment avm_main_sel_op_fee_per_da_gas;
         Commitment avm_main_sel_op_fee_per_l2_gas;
-        Commitment avm_main_sel_op_function_selector;
         Commitment avm_main_sel_op_lt;
         Commitment avm_main_sel_op_lte;
         Commitment avm_main_sel_op_mul;
@@ -2929,8 +2922,6 @@ class AvmFlavor {
             avm_main_sel_op_fdiv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_fee_per_da_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_fee_per_l2_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_main_sel_op_function_selector =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_lt = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_lte = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_mul = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3241,7 +3232,6 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_sel_op_fdiv, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_fee_per_da_gas, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_fee_per_l2_gas, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_main_sel_op_function_selector, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_lt, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_lte, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_mul, Transcript::proof_data);

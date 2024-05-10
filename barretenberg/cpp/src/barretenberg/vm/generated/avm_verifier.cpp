@@ -341,8 +341,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<FF>& pu
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_fee_per_da_gas);
     commitments.avm_main_sel_op_fee_per_l2_gas =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_fee_per_l2_gas);
-    commitments.avm_main_sel_op_function_selector =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_function_selector);
     commitments.avm_main_sel_op_lt =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_lt);
     commitments.avm_main_sel_op_lte =
