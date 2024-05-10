@@ -98,3 +98,10 @@ To make sure that we are actually validating the provided signature in our accou
 #include_code account-contract-fails yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts typescript
 
 Lo and behold, we get `Error: Assertion failed: 'verification == true'` when running the snippet above, pointing to the line in our account contract where we verify the Schnorr signature.
+
+## Resources
+
+Account contracts source code:
+
+- [ECDSA signer account contract](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/ecdsa_account_contract/src/main.nr)
+- [Schnorr signer account contract](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/schnorr_account_contract)
