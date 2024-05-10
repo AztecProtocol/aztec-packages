@@ -103,6 +103,11 @@ impl PrivateCallDataValidator {
         assert_eq(
             tx_request.tx_context, call_stack_item.public_inputs.tx_context, "tx_context in tx_request must match tx_context in call_stack_item"
         );
+
+        // If checking against TxRequest, it must be the first call, which has the following restrictions.
+        let call_context = call_stack_item.public_inputs.call_context;
+        assert(call_context.is_delegate_call == false, "Users cannot make a delegatecall");
+        assert(call_context.is_static_call == false, "Users cannot make a static call");
     }
 
     pub fn validate_against_call_request(self, request: CallRequest) {

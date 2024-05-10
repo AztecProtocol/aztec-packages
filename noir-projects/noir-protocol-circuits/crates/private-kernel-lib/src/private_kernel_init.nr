@@ -23,17 +23,9 @@ struct PrivateKernelInitCircuitPrivateInputs {
 }
 
 impl PrivateKernelInitCircuitPrivateInputs {
-    fn validate_inputs(self) {
-        let call_context = self.private_call.call_stack_item.public_inputs.call_context;
-        assert(call_context.is_delegate_call == false, "Users cannot make a delegatecall");
-        assert(call_context.is_static_call == false, "Users cannot make a static call");
-    }
-
     pub fn native_private_kernel_circuit_initial(self) -> PrivateKernelCircuitPublicInputs {
         // verify/aggregate the private call proof
         verify_private_call(self.private_call);
-
-        self.validate_inputs();
 
         let privateCallDataValidator = PrivateCallDataValidator::new(self.private_call);
         privateCallDataValidator.validate();
@@ -128,26 +120,6 @@ mod tests {
         assert_eq(public_inputs.end.unencrypted_logs_hashes[0].value, unencrypted_logs_hashes[0]);
         assert_eq(public_inputs.end.encrypted_logs_hashes[1].value, encrypted_logs_hashes[1]);
         assert_eq(public_inputs.end.unencrypted_logs_hashes[1].value, unencrypted_logs_hashes[1]);
-    }
-
-    #[test(should_fail_with="Users cannot make a static call")]
-    fn private_function_static_call_fails() {
-        let mut builder = PrivateKernelInitInputsBuilder::new();
-
-        // Set is_static_call to true.
-        builder.private_call.public_inputs.call_context.is_static_call = true;
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with="Users cannot make a delegatecall")]
-    fn private_function_delegate_call_fails() {
-        let mut builder = PrivateKernelInitInputsBuilder::new();
-
-        // Set is_delegate_call to true.
-        builder.private_call.public_inputs.call_context.is_delegate_call = true;
-
-        builder.failed();
     }
 
     #[test]
