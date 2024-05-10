@@ -118,7 +118,7 @@ jobs:
             set -eux
             cd ./yarn-project/end-to-end/
             export FORCE_COLOR=1
-            scripts/earthly-ci +${{ matrix.test }}
+            ../../scripts/earthly-ci +${{ matrix.test }}
 
   # # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   # bench-e2e:
