@@ -71,3 +71,11 @@ runs:
         post: |
           rm "/run/${{ inputs.concurrency_key }}.lock" || true
           echo "/run/${{ inputs.concurrency_key }}.lock removed."
+
+    - name: Wait for runner completion
+      shell: bash
+      run: |
+        for i in {1..60} ; do
+          [ -f ~/.setup-complete ] && break
+          sleep 1
+        done

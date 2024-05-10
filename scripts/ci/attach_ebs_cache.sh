@@ -149,3 +149,4 @@ sudo mount $BLKDEVICE /var/lib/docker
 sudo service docker restart
 # important: everything (except earthly ls) should go through earthly-ci
 scripts/earthly-ci bootstrap
+touch ~/.setup-complete
