@@ -201,6 +201,9 @@ async function startWithGithubRunners(config: ActionConfig) {
   const ip = await ec2Client.getPublicIpFromInstanceId(instanceId);
   // Export to github environment
   const tempKeyPath = installSshKey(config.ec2Key);
+  if (!await establishSshContact(ip, config.ec2Key)) {
+    return false;
+  }
   core.info("Logging BUILDER_SPOT_IP and BUILDER_SPOT_KEY to GITHUB_ENV for later step use.");
   await standardSpawn("bash", ["-c", `echo BUILDER_SPOT_IP=${ip} >> $GITHUB_ENV`]);
   await standardSpawn("bash", [
@@ -217,6 +220,7 @@ async function startWithGithubRunners(config: ActionConfig) {
       config.command
     );
   }
+  return true;
 }
 
 function standardSpawn(command: string, args: string[]): Promise<string> {
@@ -258,7 +262,8 @@ async function establishSshContact(
       execSync(
         `ssh -q -o StrictHostKeyChecking=no -i ${tempKeyPath} -o ConnectTimeout=1 ubuntu@${ip} true`
       );
-      break;
+      core.info(`SSH connection with spot at ${ip} established`);
+      return true;
     } catch {
       if (attempts >= maxAttempts - 1) {
         core.error(
@@ -272,7 +277,7 @@ async function establishSshContact(
       attempts++;
     }
   }
-  core.info(`SSH connection with spot at ${ip} established`)
+  return false;
 }
 
 async function ec2CommandOverSsh(
@@ -322,7 +327,12 @@ async function terminate(instanceStatus?: string, cleanupRunners = true) {
   try {
     const config = new ActionConfig();
     if (config.githubActionRunnerConcurrency !== 0) {
-      startWithGithubRunners(config);
+      for (let i = 0; i < 3; i++) {
+        // retry in a loop in case we can't ssh connect after a minute
+        if (await startWithGithubRunners(config)) {
+          break;
+        }
+      }
     } else {
       startBareSpot(config);
     }
