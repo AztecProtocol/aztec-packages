@@ -109,6 +109,10 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     commitments.transcript_add_y_equal = receive_commitment(commitment_labels.transcript_add_y_equal);
     commitments.transcript_y_collision_check = receive_commitment(commitment_labels.transcript_y_collision_check);
     commitments.transcript_add_lambda = receive_commitment(commitment_labels.transcript_add_lambda);
+    commitments.transcript_msm_intermediate_x = receive_commitment(commitment_labels.transcript_msm_intermediate_x);
+    commitments.transcript_msm_intermediate_y = receive_commitment(commitment_labels.transcript_msm_intermediate_y);
+    commitments.transcript_msm_infinity = receive_commitment(commitment_labels.transcript_msm_infinity);
+    commitments.transcript_msm_x_inverse = receive_commitment(commitment_labels.transcript_msm_x_inverse);
 
     // Get challenge for sorted list batching and wire four memory records
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");

@@ -123,6 +123,10 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "TRANSCRIPT_ADD_Y_EQUAL", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_Y_COLLISION_CHECK", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_ADD_LAMBDA", frs_per_G);
+        manifest_expected.add_entry(round, "TRANSCRIPT_MSM_INTERMEDIATE_X", frs_per_G);
+        manifest_expected.add_entry(round, "TRANSCRIPT_MSM_INTERMEDIATE_Y", frs_per_G);
+        manifest_expected.add_entry(round, "TRANSCRIPT_MSM_INFINITY", frs_per_G);
+        manifest_expected.add_entry(round, "TRANSCRIPT_MSM_X_INVERSE", frs_per_G);
         manifest_expected.add_challenge(round, "beta", "gamma");
 
         round++;

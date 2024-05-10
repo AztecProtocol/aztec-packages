@@ -39,6 +39,16 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;
 
+    static const auto offset_generator = [&]() {
+        static constexpr auto offset_generator_base = bb::g1::derive_generators("ECCVM_OFFSET_GENERATOR", 1)[0];
+        static bb::g1::affine_element result =
+            bb::g1::affine_element(bb::g1::element(offset_generator_base) * grumpkin::fq(uint256_t(1) << 124));
+        static const FF qx = result.x;
+        static const FF qy = result.y;
+        static const Accumulator ox(qx);
+        static const Accumulator oy(qy);
+        return std::array<Accumulator, 2>{ ox, oy };
+    };
     auto z1 = View(in.transcript_z1);
     auto z2 = View(in.transcript_z2);
     auto z1_zero = View(in.transcript_z1zero);
@@ -57,8 +67,8 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     auto transcript_accumulator_y_shift = View(in.transcript_accumulator_y_shift);
     auto transcript_accumulator_x = View(in.transcript_accumulator_x);
     auto transcript_accumulator_y = View(in.transcript_accumulator_y);
-    auto transcript_msm_x = View(in.transcript_msm_x);
-    auto transcript_msm_y = View(in.transcript_msm_y);
+    auto transcript_msm_x = View(in.transcript_msm_intermediate_x);
+    auto transcript_msm_y = View(in.transcript_msm_intermediate_y);
     auto transcript_Px = View(in.transcript_Px);
     auto transcript_Py = View(in.transcript_Py);
     auto is_accumulator_empty = View(in.transcript_accumulator_empty);
@@ -73,6 +83,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     auto transcript_add_x_equal = View(in.transcript_add_x_equal);
     auto transcript_add_y_equal = View(in.transcript_add_y_equal);
     auto transcript_add_lambda = View(in.transcript_add_lambda);
+    auto transcript_msm_infinity = View(in.transcript_msm_infinity);
 
     auto is_not_first_row = (-lagrange_first + 1);
     auto is_not_first_or_last_row = (-lagrange_first + -lagrange_last + 1);
@@ -218,7 +229,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     // Are the lhs/rhs points at infinity?
     // MSM output CANNOT be point at infinity without triggering unsatisfiable constraints in msm_relation
     // lhs can only be at infinity if q_add is active
-    auto lhs_infinity = transcript_Pinfinity * q_add;
+    auto lhs_infinity = transcript_Pinfinity * q_add + transcript_msm_infinity * msm_transition;
     auto rhs_infinity = is_accumulator_empty;
     // Determine where the group operation output is sourced from
     // | lhs_infinity | rhs_infinity | lhs_x == rhs_x && lhs_y != rhs_y | output    |
@@ -320,6 +331,47 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     std::get<30>(accumulator) += transcript_add_x_equal * (transcript_add_x_equal - 1) * scaling_factor;
     std::get<31>(accumulator) += transcript_add_y_equal * (transcript_add_y_equal - 1) * scaling_factor;
     std::get<32>(accumulator) += transcript_Pinfinity * (transcript_Pinfinity - 1) * scaling_factor;
+
+    // step 1: subtract offset generator from msm_accumulator
+    // this might produce a point at infinity
+    {
+        const auto offset = offset_generator();
+        const auto x1 = offset[0];
+        const auto y1 = -offset[1];
+        const auto x2 = View(in.transcript_msm_x);
+        const auto y2 = View(in.transcript_msm_y);
+        const auto x3 = View(in.transcript_msm_intermediate_x);
+        const auto y3 = View(in.transcript_msm_intermediate_y);
+        const auto transcript_msm_infinity = View(in.transcript_msm_infinity);
+        // cases:
+        // x2 == x1, y2 == y1
+        // x2 != x1
+        // (x2 - x1)
+        const auto x_term = (x3 + x2 + x1) * (x2 - x1) * (x2 - x1) - (y2 - y1) * (y2 - y1);
+        const auto y_term = (x1 - x3) * (y2 - y1) - (x2 - x1) * (y1 + y3);
+        // IF msm_infinity = false, transcript_msm_intermediate_x/y is either the result of subtracting offset generator
+        // from msm_x/y IF msm_infinity = true, transcript_msm_intermediate_x/y is 0
+        const auto transcript_offset_generator_subtract_x =
+            x_term * (-transcript_msm_infinity + 1) + transcript_msm_infinity * x3;
+        const auto transcript_offset_generator_subtract_y =
+            y_term * (-transcript_msm_infinity + 1) + transcript_msm_infinity * y3;
+        std::get<33>(accumulator) += msm_transition * transcript_offset_generator_subtract_x * scaling_factor;
+        std::get<34>(accumulator) += msm_transition * transcript_offset_generator_subtract_y * scaling_factor;
+
+        // validate transcript_msm_infinity is correct
+        // if transcript_msm_infinity = 1, (x2 == x1) and (y2 + y1 == 0)
+        const auto x_diff = x2 - x1;
+        const auto y_sum = y2 + y1;
+        std::get<35>(accumulator) += msm_transition * transcript_msm_infinity * x_diff * scaling_factor;
+        std::get<36>(accumulator) += msm_transition * transcript_msm_infinity * y_sum * scaling_factor;
+        // if transcript_msm_infinity = 1, then x_diff must have an inverse
+        const auto transcript_msm_x_inverse = View(in.transcript_msm_x_inverse);
+        const auto inverse_term = (-transcript_msm_infinity + 1) * (x_diff * transcript_msm_x_inverse - 1);
+        std::get<37>(accumulator) += msm_transition * inverse_term * scaling_factor;
+    }
+
+    // Validate correctness of
+    {}
 }
 
 template class ECCVMTranscriptRelationImpl<grumpkin::fr>;

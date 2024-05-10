@@ -204,14 +204,15 @@ class ECCVMMSMMBuilder {
         // accumulator_trace tracks the value of the ECCVM accumulator for each row
         std::span<Element> accumulator_trace(&point_trace[num_point_adds_and_doubles * 3], num_accumulators);
 
-        // we start the accumulator at the point at infinity
-        accumulator_trace[0] = (CycleGroup::affine_point_at_infinity);
+        // we start the accumulator at the offset generator point. This ensures we can support an MSM that produces a
+        constexpr auto offset_generator = bb::g1::derive_generators("ECCVM_OFFSET_GENERATOR", 1)[0];
+        accumulator_trace[0] = offset_generator;
 
         // populate point trace data, and the components of the MSM execution trace that do not relate to affine point
         // operations
         run_loop_in_parallel(msms.size(), [&](size_t start, size_t end) {
             for (size_t i = start; i < end; i++) {
-                Element accumulator = CycleGroup::affine_point_at_infinity;
+                Element accumulator = offset_generator;
                 const auto& msm = msms[i];
                 size_t msm_row_index = msm_row_indices[i];
                 const size_t msm_size = msm.size();
@@ -247,20 +248,9 @@ class ECCVMMSMMBuilder {
                                                   ? msm[idx + m].precomputed_table[static_cast<size_t>(add_state.slice)]
                                                   : AffineElement{ 0, 0 };
 
-                            // predicate logic:
-                            // add_predicate should normally equal add_state.add
-                            // However! if j == 0 AND k == 0 AND m == 0 this implies we are examing the 1st point
-                            // addition of a new MSM In this case, we do NOT add the 1st point into the accumulator,
-                            // instead we SET the accumulator to equal the 1st point. add_predicate is used to
-                            // determine whether we add the output of a point addition into the accumulator,
-                            // therefore if j == 0 AND k == 0 AND m == 0, add_predicate = 0 even if add_state.add =
-                            // true
-                            bool add_predicate = (m == 0 ? (j != 0 || k != 0) : add_state.add);
-
-                            Element p1 = (m == 0) ? Element(add_state.point) : accumulator;
-                            Element p2 = (m == 0) ? accumulator : Element(add_state.point);
-
-                            accumulator = add_predicate ? (accumulator + add_state.point) : Element(p1);
+                            Element p1 = accumulator;
+                            Element p2 = Element(add_state.point);
+                            accumulator = add_state.add ? (accumulator + add_state.point) : Element(p1);
                             p1_trace[trace_index] = p1;
                             p2_trace[trace_index] = p2;
                             p3_trace[trace_index] = accumulator;
@@ -385,20 +375,16 @@ class ECCVMMSMMBuilder {
                     for (size_t k = 0; k < rows_per_round; ++k) {
                         auto& row = msm_state[msm_row_index];
                         const Element& normalized_accumulator = accumulator_trace[accumulator_index];
-                        const FF& acc_x = normalized_accumulator.is_point_at_infinity() ? 0 : normalized_accumulator.x;
-                        const FF& acc_y = normalized_accumulator.is_point_at_infinity() ? 0 : normalized_accumulator.y;
-                        row.accumulator_x = acc_x;
-                        row.accumulator_y = acc_y;
-
+                        ASSERT(normalized_accumulator.is_point_at_infinity() == 0);
+                        row.accumulator_x = normalized_accumulator.x;
+                        row.accumulator_y = normalized_accumulator.y;
                         for (size_t m = 0; m < ADDITIONS_PER_ROW; ++m) {
                             auto& add_state = row.add_state[m];
-                            bool add_predicate = (m == 0 ? (j != 0 || k != 0) : add_state.add);
-
                             const auto& inverse = inverse_trace[trace_index];
                             const auto& p1 = p1_trace[trace_index];
                             const auto& p2 = p2_trace[trace_index];
-                            add_state.collision_inverse = add_predicate ? inverse : 0;
-                            add_state.lambda = add_predicate ? (p2.y - p1.y) * inverse : 0;
+                            add_state.collision_inverse = add_state.add ? inverse : 0;
+                            add_state.lambda = add_state.add ? (p2.y - p1.y) * inverse : 0;
                             trace_index++;
                         }
                         accumulator_index++;
@@ -427,15 +413,10 @@ class ECCVMMSMMBuilder {
                         for (size_t k = 0; k < rows_per_round; ++k) {
                             MSMState& row = msm_state[msm_row_index];
                             const Element& normalized_accumulator = accumulator_trace[accumulator_index];
-
+                            ASSERT(normalized_accumulator.is_point_at_infinity() == 0);
                             const size_t idx = k * ADDITIONS_PER_ROW;
-
-                            const FF& acc_x =
-                                normalized_accumulator.is_point_at_infinity() ? 0 : normalized_accumulator.x;
-                            const FF& acc_y =
-                                normalized_accumulator.is_point_at_infinity() ? 0 : normalized_accumulator.y;
-                            row.accumulator_x = acc_x;
-                            row.accumulator_y = acc_y;
+                            row.accumulator_x = normalized_accumulator.x;
+                            row.accumulator_y = normalized_accumulator.y;
 
                             for (size_t m = 0; m < ADDITIONS_PER_ROW; ++m) {
                                 auto& add_state = row.add_state[m];
