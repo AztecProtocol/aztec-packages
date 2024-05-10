@@ -4,6 +4,7 @@ import {
   Gas,
   type GlobalVariables,
   type Header,
+  type Nullifier,
   PublicCircuitPublicInputs,
   type TxContext,
 } from '@aztec/circuits.js';
@@ -46,7 +47,7 @@ export async function executePublicFunction(
   }
 
   if (isAvmBytecode(bytecode)) {
-    return await executeTopLevelPublicFunctionAvm(context);
+    return await executeTopLevelPublicFunctionAvm(context, bytecode);
   } else {
     return await executePublicFunctionAcvm(context, bytecode, nested);
   }
@@ -58,6 +59,7 @@ export async function executePublicFunction(
  */
 async function executeTopLevelPublicFunctionAvm(
   executionContext: PublicExecutionContext,
+  bytecode: Buffer,
 ): Promise<PublicExecutionResult> {
   const address = executionContext.execution.contractAddress;
   const selector = executionContext.execution.functionData.selector;
@@ -77,6 +79,9 @@ async function executeTopLevelPublicFunctionAvm(
   // or modify the PersistableStateManager to manage rollbacks across enqueued-calls and transactions.
   const worldStateJournal = new AvmPersistableStateManager(hostStorage);
   const startSideEffectCounter = executionContext.execution.callContext.sideEffectCounter;
+  for (const nullifier of executionContext.pendingNullifiers) {
+    worldStateJournal.nullifiers.cache.appendSiloed(nullifier.value);
+  }
   worldStateJournal.trace.accessCounter = startSideEffectCounter;
 
   const executionEnv = createAvmExecutionEnvironment(
@@ -91,7 +96,12 @@ async function executeTopLevelPublicFunctionAvm(
   const avmContext = new AvmContext(worldStateJournal, executionEnv, machineState);
   const simulator = new AvmSimulator(avmContext);
 
-  const avmResult = await simulator.execute();
+  const avmResult = await simulator.executeBytecode(bytecode);
+
+  // Commit the journals state to the DBs since this is a top-level execution.
+  // Observe that this will write all the state changes to the DBs, not only the latest for each slot.
+  // However, the underlying DB keep a cache and will only write the latest state to disk.
+  await avmContext.persistableState.publicStorage.commitToDB();
 
   log.verbose(
     `[AVM] ${address.toString()}:${selector} returned, reverted: ${avmResult.reverted}, reason: ${
@@ -99,8 +109,12 @@ async function executeTopLevelPublicFunctionAvm(
     }.`,
   );
 
-  return Promise.resolve(
-    convertAvmResultsToPxResult(avmResult, startSideEffectCounter, executionContext.execution, startGas, avmContext),
+  return convertAvmResultsToPxResult(
+    avmResult,
+    startSideEffectCounter,
+    executionContext.execution,
+    startGas,
+    avmContext,
   );
 }
 
@@ -154,10 +168,6 @@ async function executePublicFunctionAcvm(
   })();
 
   if (reverted) {
-    if (!revertReason) {
-      throw new Error('Reverted but no revert reason');
-    }
-
     return {
       execution,
       returnValues: [],
@@ -279,6 +289,7 @@ export class PublicExecutor {
     globalVariables: GlobalVariables,
     availableGas: Gas,
     txContext: TxContext,
+    pendingNullifiers: Nullifier[],
     transactionFee: Fr = Fr.ZERO,
     sideEffectCounter: number = 0,
   ): Promise<PublicExecutionResult> {
@@ -298,6 +309,7 @@ export class PublicExecutor {
       availableGas,
       transactionFee,
       txContext.gasSettings,
+      pendingNullifiers,
     );
 
     const executionResult = await executePublicFunction(context, /*nested=*/ false);

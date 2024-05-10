@@ -1,5 +1,5 @@
 import { type BlockProver, type ProcessedTx, type Tx, type TxValidator } from '@aztec/circuit-types';
-import { type Gas, GlobalVariables, Header, type TxContext } from '@aztec/circuits.js';
+import { type Gas, GlobalVariables, Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -129,18 +129,21 @@ export class TestContext {
       _globalVariables: GlobalVariables,
       availableGas: Gas,
       _txContext: TxContext,
+      _pendingNullifiers: Nullifier[],
       transactionFee?: Fr,
       _sideEffectCounter?: number,
     ) => {
       for (const tx of txs) {
-        for (const request of tx.enqueuedPublicFunctionCalls) {
+        const allCalls = tx.publicTeardownFunctionCall.isEmpty()
+          ? tx.enqueuedPublicFunctionCalls
+          : [...tx.enqueuedPublicFunctionCalls, tx.publicTeardownFunctionCall];
+        for (const request of allCalls) {
           if (execution.contractAddress.equals(request.contractAddress)) {
             const result = PublicExecutionResultBuilder.fromPublicCallRequest({ request }).build({
               startGasLeft: availableGas,
               endGasLeft: availableGas,
               transactionFee,
             });
-            // result.unencryptedLogs = tx.unencryptedLogs.functionLogs[0];
             return Promise.resolve(result);
           }
         }
@@ -166,6 +169,7 @@ export class TestContext {
       globalVariables: GlobalVariables,
       availableGas: Gas,
       txContext: TxContext,
+      pendingNullifiers: Nullifier[],
       transactionFee?: Fr,
       sideEffectCounter?: number,
     ) => Promise<PublicExecutionResult>,

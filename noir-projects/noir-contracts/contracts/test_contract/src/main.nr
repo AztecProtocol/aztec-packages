@@ -10,9 +10,13 @@ contract Test {
 
     use dep::aztec::protocol_types::{
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, CANONICAL_KEY_REGISTRY_ADDRESS}, traits::{Serialize, ToField, FromField},
-        grumpkin_point::GrumpkinPoint
+        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, CANONICAL_KEY_REGISTRY_ADDRESS},
+        traits::{Serialize, ToField, FromField}, grumpkin_point::GrumpkinPoint,
+        grumpkin_private_key::GrumpkinPrivateKey
     };
+
+    use dep::aztec::encrypted_logs::header::EncryptedLogHeader;
+    use dep::aztec::encrypted_logs::body::EncryptedLogBody;
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
 
@@ -187,6 +191,15 @@ contract Test {
         args.hash()
     }
 
+    #[aztec(private)]
+    fn test_setting_teardown() {
+        context.set_public_teardown_function(
+            context.this_address(),
+            FunctionSelector::from_signature("dummy_public_call()"),
+            []
+        );
+    }
+
     // Purely exists for testing
     #[aztec(public)]
     fn create_l2_to_l1_message_public(amount: Field, secret_hash: Field, portal_address: EthAddress) {
@@ -333,13 +346,30 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn encrypt(input: [u8; 64], iv: [u8; 16], key: [u8; 16]) -> [u8; 64] {
+    fn encrypt(input: [u8; 64], iv: [u8; 16], key: [u8; 16]) -> [u8; 80] {
         aes128_encrypt(input, iv, key)
     }
 
     #[aztec(private)]
     fn encrypt_with_padding(input: [u8; 65], iv: [u8; 16], key: [u8; 16]) -> [u8; 80] {
         aes128_encrypt(input, iv, key)
+    }
+
+    #[aztec(private)]
+    fn compute_note_header_ciphertext(secret: GrumpkinPrivateKey, point: GrumpkinPoint) -> [u8; 48] {
+        EncryptedLogHeader::new(context.this_address()).compute_ciphertext(secret, point)
+    }
+
+    // 64 bytes + 32 * #fields + 16 = 112 bytes
+    #[aztec(private)]
+    fn compute_note_body_ciphertext(
+        secret: GrumpkinPrivateKey,
+        point: GrumpkinPoint,
+        storage_slot: Field,
+        value: Field
+    ) -> [u8; 112] {
+        let note = TestNote::new(value);
+        EncryptedLogBody::new(storage_slot, TestNote::get_note_type_id(), note).compute_ciphertext(secret, point).as_array()
     }
 
     #[aztec(public)]
@@ -368,10 +398,11 @@ contract Test {
         assert(context.historical_header.hash() == header_hash, "Invalid header hash");
     }
 
-    #[aztec(public)]
-    fn assert_header_public(header_hash: Field) {
-        assert(context.historical_header.hash() == header_hash, "Invalid header hash");
-    }
+    // TODO(4840): add AVM opcodes for getting header (members)
+    //#[aztec(public)]
+    //fn assert_header_public(header_hash: Field) {
+    //    assert(context.historical_header.hash() == header_hash, "Invalid header hash");
+    //}
 
     #[aztec(private)]
     fn deploy_contract(target: AztecAddress) {
@@ -424,15 +455,16 @@ contract Test {
         let derived_slot = derive_storage_slot_in_map(storage_slot_of_shared_mutable, address_to_get_in_registry);
 
         // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
-        let registry_private_getter: SharedMutablePrivateGetter<Field, 5> = SharedMutablePrivateGetter::new(context, AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS), derived_slot);
+        let registry_private_getter: SharedMutablePrivateGetter<Field, 5> = SharedMutablePrivateGetter::new(
+            context,
+            AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS),
+            derived_slot
+        );
         registry_private_getter.get_current_value_in_private()
     }
 
     #[aztec(private)]
-    fn test_nullifier_key_freshness(
-        address: AztecAddress,
-        public_nullifying_key: GrumpkinPoint,
-    ) {
+    fn test_nullifier_key_freshness(address: AztecAddress, public_nullifying_key: GrumpkinPoint) {
         assert_eq(get_npk_m(&mut context, address), public_nullifying_key);
     }
 
