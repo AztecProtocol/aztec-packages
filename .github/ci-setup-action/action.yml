@@ -66,11 +66,11 @@ runs:
       with:
         run: |
           while [ -f "${{ inputs.concurrency_key }}.lock" ]; do sleep 1 ; echo "Lock is currently held by $(cat '${{ inputs.concurrency_key }}.lock'), waiting..." ; done
-          echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > "${{ inputs.concurrency_key }}.lock"
-          echo "${{ inputs.concurrency_key }}.lock acquired."
+          echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > "/home/ubuntu/${{ inputs.concurrency_key }}.lock"
+          echo "/home/ubuntu/${{ inputs.concurrency_key }}.lock acquired."
         post: |
-          rm "${{ inputs.concurrency_key }}.lock" || true
-          echo "${{ inputs.concurrency_key }}.lock removed."
+          rm "/home/ubuntu/${{ inputs.concurrency_key }}.lock" || true
+          echo "/home/ubuntu/${{ inputs.concurrency_key }}.lock removed."
 
     - name: Wait for runner completion
       shell: bash

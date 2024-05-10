@@ -5,7 +5,7 @@ MAX_WAIT_TIME=300 # Maximum wait time in seconds
 WAIT_INTERVAL=10  # Interval between checks in seconds
 elapsed_time=0
 
-exec &> >(tee -a /run/.maybe-exit-log)
+exec &> >(tee -a ~/.maybe-exit-log)
 
 # we have this in a minutely crontab for simplicity, but we only want one to run
 if [ -f ~/.maybe-exit-spot-lock ] ; then
