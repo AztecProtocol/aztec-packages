@@ -174,7 +174,7 @@ runs:
               echo "Used space is greater than 128GB. Running 'docker system prune'."
               docker system prune -f -a || true
               echo "Pruned docker images."
-            else
+            fi
             # Run maybe_exit_spot.sh every minute
             chmod +x ~/spot_runner_graceful_exit.sh
             chmod +x ~/maybe_exit_spot.sh
