@@ -46,10 +46,9 @@ function processConstantsCpp(constants: { [key: string]: string }): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
     // We exclude large numbers
-    if (!(value.startsWith("0x") || value.includes("0_0")) ) {
+    if (!(value.startsWith('0x') || value.includes('0_0'))) {
       code.push(`const size_t ${key} = ${value};`);
-    };
-
+    }
   });
   return code.join('\n');
 }
@@ -116,7 +115,6 @@ ${processConstantsCpp(constants)}
 
   fs.writeFileSync(targetPath, resultCpp);
 }
-
 
 /**
  * Generate the constants file in Solidity.
@@ -192,7 +190,7 @@ function main(): void {
 
   // Cpp
   const cppTargetPath = join(__dirname, CPP_AZTEC_CONSTANTS_FILE);
-  generateCppConstants(parsedContent, cppTargetPath)
+  generateCppConstants(parsedContent, cppTargetPath);
 
   // Solidity
   const solidityTargetPath = join(__dirname, SOLIDITY_CONSTANTS_FILE);
