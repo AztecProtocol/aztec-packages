@@ -5,7 +5,7 @@ use crate::{
     oracle::{
     arguments, returns, call_private_function::call_private_function_internal, header::get_header_at,
     logs::emit_encrypted_log, logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog},
-    nullifier_key::{get_nullifier_keys, get_nullifier_keys_with_npk_m_h, NullifierKeys},
+    nullifier_key::{get_nullifier_keys, get_nullifier_keys_with_npk_m_hash, NullifierKeys},
     enqueue_public_function_call::{
     enqueue_public_function_call_internal, set_public_teardown_function_call_internal,
     parse_public_call_stack_item_from_oracle
@@ -224,7 +224,7 @@ impl PrivateContext {
     // TODO: (#6176) Replace request_app_nullifier_secret_key above with this once we no longer get app nullifier secret key with address
     pub fn request_nsk_app_with_npk_m_hash(&mut self, npk_m_hash: Field) -> Field {
         let keys = if self.nullifier_key.is_none() {
-            let keys = get_nullifier_keys_with_npk_m_h(npk_m_hash);
+            let keys = get_nullifier_keys_with_npk_m_hash(npk_m_hash);
             let request = NullifierKeyValidationRequest {
                 master_nullifier_public_key: keys.master_nullifier_public_key,
                 app_nullifier_secret_key: keys.app_nullifier_secret_key
