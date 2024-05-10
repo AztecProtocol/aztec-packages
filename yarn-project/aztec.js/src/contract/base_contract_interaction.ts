@@ -3,6 +3,7 @@ import { GasSettings } from '@aztec/circuits.js';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit, type FeeOptions } from '../entrypoint/entrypoint.js';
+import { getGasLimits } from './get_gas_limits.js';
 import { SentTx } from './sent_tx.js';
 
 /**
@@ -71,7 +72,7 @@ export abstract class BaseContractInteraction {
    */
   protected async estimateGas(txRequest: TxExecutionRequest) {
     const simulationResult = await this.wallet.simulateTx(txRequest, true);
-    const { totalGas: gasLimits, teardownGas: teardownGasLimits } = simulationResult.getGasLimits();
+    const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(simulationResult);
     return GasSettings.default({ gasLimits, teardownGasLimits });
   }
 
@@ -84,8 +85,7 @@ export abstract class BaseContractInteraction {
     const fee = request.fee;
     if (fee) {
       const txRequest = await this.wallet.createTxExecutionRequest(request);
-      const simulationResult = await this.wallet.simulateTx(txRequest, true);
-      const { totalGas: gasLimits, teardownGas: teardownGasLimits } = simulationResult.getGasLimits();
+      const { gasLimits, teardownGasLimits } = await this.estimateGas(txRequest);
       const gasSettings = GasSettings.default({ ...fee.gasSettings, gasLimits, teardownGasLimits });
       return { ...fee, gasSettings };
     }
