@@ -70,7 +70,7 @@ jobs:
           runner_action: ${{ inputs.runner_action }}
           runner_type: ${{ inputs.runner_type }}
           run_id: ${{ github.run_id }}
-          concurrency_github_oken: "${{ secrets.AZTEC_GITHUB_TOKEN }}"
+          concurrency_github_token: "${{ secrets.AZTEC_GITHUB_TOKEN }}"
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
