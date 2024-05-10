@@ -10,7 +10,9 @@ contract InclusionProofs {
 
     use dep::aztec::protocol_types::{grumpkin_point::GrumpkinPoint, contract_class_id::ContractClassId};
     // docs:start:imports
-    use dep::aztec::history::{
+    use dep::aztec::{
+        note::{constants::MAX_NOTES_PER_PAGE, note_getter::view_notes},
+        history::{
         contract_inclusion::{
         prove_contract_deployment_at, prove_contract_non_deployment_at,
         prove_contract_initialization_at, prove_contract_non_initialization_at
@@ -23,6 +25,7 @@ contract InclusionProofs {
     },
         nullifier_non_inclusion::{prove_note_not_nullified, prove_note_not_nullified_at},
         public_storage::{public_storage_historical_read, public_storage_historical_read_at}
+    }
     };
     // docs:end:imports
     // docs:start:value_note_imports
@@ -70,7 +73,7 @@ contract InclusionProofs {
         if (nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
-        let maybe_notes = private_values.view_notes(options);
+        let maybe_notes: [Option<ValueNote>; MAX_NOTES_PER_PAGE] = view_notes(private_values.storage_slot, options);
         let note = maybe_notes[0].unwrap();
 
         assert(note.get_header().contract_address == context.this_address());
@@ -126,7 +129,7 @@ contract InclusionProofs {
         if (fail_case) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
-        let maybe_notes = private_values.view_notes(options);
+        let maybe_notes: [Option<ValueNote>; MAX_NOTES_PER_PAGE] = view_notes(private_values.storage_slot, options);
         let note = maybe_notes[0].unwrap();
 
         assert(note.get_header().contract_address == context.this_address());
@@ -161,7 +164,7 @@ contract InclusionProofs {
         if (nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
-        let maybe_notes = private_values.view_notes(options);
+        let maybe_notes: [Option<ValueNote>; MAX_NOTES_PER_PAGE] = view_notes(private_values.storage_slot, options);
         let note = maybe_notes[0].unwrap();
 
         assert(note.get_header().contract_address == context.this_address());
