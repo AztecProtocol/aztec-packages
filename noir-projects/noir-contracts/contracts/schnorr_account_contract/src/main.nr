@@ -7,7 +7,7 @@ contract SchnorrAccount {
 
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, PrivateContext, PrivateImmutable};
     use dep::aztec::state_vars::{Map, PublicMutable};
-    use dep::aztec::{context::Context, oracle::get_public_key::get_public_key};
+    use dep::aztec::context::Context;
     use dep::authwit::{
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
         auth_witness::get_auth_witness
@@ -39,7 +39,7 @@ contract SchnorrAccount {
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts file
     #[aztec(private)]
     #[aztec(noinitcheck)]
-    fn entrypoint(app_payload: pub AppPayload, fee_payload: pub FeePayload) {
+    fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload) {
         let actions = AccountActions::private(
             &mut context,
             storage.approved_actions.storage_slot,

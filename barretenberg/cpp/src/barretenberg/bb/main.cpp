@@ -296,19 +296,43 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
  * @brief Computes the number of Barretenberg specific gates needed to create a proof for the specific ACIR circuit
  *
  * Communication:
- * - stdout: The number of gates is written to stdout
+ * - stdout: A JSON string of the number of ACIR opcodes and final backend circuit size
  *
  * @param bytecodePath Path to the file containing the serialized circuit
  */
 void gateCount(const std::string& bytecodePath)
 {
-    auto constraint_system = get_constraint_system(bytecodePath);
-    acir_proofs::AcirComposer acir_composer(0, verbose);
-    acir_composer.create_circuit(constraint_system);
-    auto gate_count = acir_composer.get_total_circuit_size();
+    // All circuit reports will be built into the string below
+    std::string functions_string = "{\"functions\": [\n  ";
+    auto constraint_systems = get_constraint_systems(bytecodePath);
+    size_t i = 0;
+    for (auto constraint_system : constraint_systems) {
+        acir_proofs::AcirComposer acir_composer(0, verbose);
+        acir_composer.create_circuit(constraint_system);
+        auto circuit_size = acir_composer.get_total_circuit_size();
 
-    writeUint64AsRawBytesToStdout(static_cast<uint64_t>(gate_count));
-    vinfo("gate count: ", gate_count);
+        // Build individual circuit report
+        auto result_string = format("{\n        \"acir_opcodes\": ",
+                                    constraint_system.num_acir_opcodes,
+                                    ",\n        \"circuit_size\": ",
+                                    circuit_size,
+                                    "\n  }");
+
+        // Attach a comma if we still circuit reports to generate
+        if (i != (constraint_systems.size() - 1)) {
+            result_string = format(result_string, ",");
+        }
+
+        functions_string = format(functions_string, result_string);
+
+        i++;
+    }
+    functions_string = format(functions_string, "\n]}");
+
+    const char* jsonData = functions_string.c_str();
+    size_t length = strlen(jsonData);
+    std::vector<uint8_t> data(jsonData, jsonData + length);
+    writeRawBytesToStdout(data);
 }
 
 /**
@@ -481,37 +505,6 @@ void vk_as_fields(const std::string& vk_path, const std::string& output_path)
     } else {
         write_file(output_path, { json.begin(), json.end() });
         vinfo("vk as fields written to: ", output_path);
-    }
-}
-
-/**
- * @brief Returns ACVM related backend information
- *
- * Communication:
- * - stdout: The json string is written to stdout
- * - Filesystem: The json string is written to the path specified
- *
- * @param output_path Path to write the information to
- */
-void acvm_info(const std::string& output_path)
-{
-
-    const char* jsonData = R"({
-    "language": {
-        "name" : "PLONK-CSAT",
-        "width" : 4
-    }
-    })";
-
-    size_t length = strlen(jsonData);
-    std::vector<uint8_t> data(jsonData, jsonData + length);
-
-    if (output_path == "-") {
-        writeRawBytesToStdout(data);
-        vinfo("info written to stdout");
-    } else {
-        write_file(output_path, data);
-        vinfo("info written to: ", output_path);
     }
 }
 
@@ -761,7 +754,7 @@ int main(int argc, char* argv[])
 
         std::string command = args[0];
 
-        std::string bytecode_path = get_option(args, "-b", "./target/acir.gz");
+        std::string bytecode_path = get_option(args, "-b", "./target/program.json");
         std::string witness_path = get_option(args, "-w", "./target/witness.gz");
         std::string proof_path = get_option(args, "-p", "./proofs/proof");
         std::string vk_path = get_option(args, "-k", "./target/vk");
@@ -771,11 +764,6 @@ int main(int argc, char* argv[])
         // Skip CRS initialization for any command which doesn't require the CRS.
         if (command == "--version") {
             writeStringToStdout(BB_VERSION);
-            return 0;
-        }
-        if (command == "info") {
-            std::string output_path = get_option(args, "-o", "info.json");
-            acvm_info(output_path);
             return 0;
         }
         if (command == "prove_and_verify") {
