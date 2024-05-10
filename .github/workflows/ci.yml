@@ -112,6 +112,7 @@ jobs:
         with:
           run: |
             cd ./yarn-project/end-to-end/
+            export FORCE_COLOR=1
             earthly-ci +${{ matrix.test }}
 
   # # all the benchmarking end-to-end integration tests for aztec (not required to merge)

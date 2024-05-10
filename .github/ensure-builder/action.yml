@@ -96,8 +96,9 @@ runs:
         ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
 
     # Set up a context for this run
-    - name: Copy Repo to Spot
+    - name: Copy Repo to Builder
       shell: bash
+      if: ${{ !contains(inputs.runner_type, 'tester') }}
       run: |
         export RUN_ID=${{ inputs.run_id }}
         echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
@@ -107,6 +108,28 @@ runs:
           tar czf - .git | scripts/run_on_builder \
             "mkdir -p ~/run-$RUN_ID-git && cd ~/run-$RUN_ID-git && tar xzf -" || true
           scripts/run_on_builder "
+            echo "> Unpacking repo"
+            git config --global advice.detachedHead false
+            git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID
+            echo ${{ inputs.ec2_key }} | base64 --decode > ~/.ssh/build_instance_key
+            chmod 600 ~/.ssh/build_instance_key
+          " || true
+        fi
+
+    # Set up a context for this run
+    # TODO deduplicate
+    - name: Copy Repo to Tester
+      shell: bash
+      if: ${{ contains(inputs.runner_type, 'tester') }}
+      run: |
+        export RUN_ID=${{ inputs.run_id }}
+        echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+        # detect run folder
+        if ! scripts/run_on_tester "[ -d ~/run-$RUN_ID ]" ; then
+          echo "> Copying local repo to spot"
+          tar czf - .git | scripts/run_on_builder \
+            "mkdir -p ~/run-$RUN_ID-git && cd ~/run-$RUN_ID-git && tar xzf -" || true
+          scripts/run_on_tester "
             echo "> Unpacking repo"
             git config --global advice.detachedHead false
             git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID
