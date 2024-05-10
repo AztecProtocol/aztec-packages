@@ -6,3 +6,4 @@ compiler_version = ">=0.28.0"
 
 [dependencies]
 aztec = { path = "../../../aztec-nr/aztec" }
+static_child_contract = { path = "../static_child_contract"}

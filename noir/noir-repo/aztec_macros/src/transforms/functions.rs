@@ -10,6 +10,7 @@ use noirc_frontend::ast::{
 
 use noirc_frontend::{macros_api::FieldElement, parse_program};
 
+use crate::utils::ast_utils::member_access;
 use crate::{
     chained_dep, chained_path,
     utils::{
@@ -43,8 +44,8 @@ pub fn transform_function(
 
     // Force a static context if the function is static
     if is_static {
-        let force_static = force_static_context();
-        func.def.body.statements.insert(0, force_static);
+        let is_static_check = create_static_check(func.name());
+        func.def.body.statements.insert(0, is_static_check);
     }
 
     // Add check that msg sender equals this address and flag function as internal
@@ -285,13 +286,22 @@ fn create_mark_as_initialized(ty: &str) -> Statement {
 /// Forces a static context for a function, ensuring that no state modifications are allowed
 ///
 /// ```noir
-/// context.inputs.call_context.is_static = true;
+/// assert(context.inputs.call_context.is_static_call == true,  "Function can only be called statically")
 /// ```
-fn force_static_context() -> Statement {
-    assignment(
-        &chained_path!("context", "inputs", "call_context", "is_static_call").to_string(),
-        expression(ExpressionKind::Literal(Literal::Bool(true))),
-    )
+fn create_static_check(fname: &str) -> Statement {
+    make_statement(StatementKind::Constrain(ConstrainStatement(
+        make_eq(
+            ["inputs", "call_context", "is_static_call"]
+                .iter()
+                .fold(variable("context"), |acc, member| member_access(acc, member)),
+            expression(ExpressionKind::Literal(Literal::Bool(true))),
+        ),
+        Some(expression(ExpressionKind::Literal(Literal::Str(format!(
+            "Function {} can only be called statically",
+            fname
+        ))))),
+        ConstrainKind::Assert,
+    )))
 }
 
 /// Creates a check for internal functions ensuring that the caller is self.

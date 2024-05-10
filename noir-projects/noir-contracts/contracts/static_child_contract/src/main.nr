@@ -1,4 +1,4 @@
-// A contract used along with `Parent` contract to test nested calls.
+// A contract used along with `StaticParent` contract to test static calls.
 contract StaticChild {
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, PublicMutable, PrivateSet, PrivateContext, Deserialize};
 
@@ -15,14 +15,7 @@ contract StaticChild {
         a_private_value: PrivateSet<ValueNote>,
     }
 
-    // Returns a sum of the input and the chain id and version of the contract.
-    #[aztec(private)]
-    #[aztec(view)]
-    fn value(input: Field) -> Field {
-        input + context.chain_id() + context.version()
-    }
-
-    // Returns base_value + chain_id + version + block_number + timestamp
+    // Returns base_value + chain_id + version + block_number + timestamp statically
     #[aztec(public)]
     #[aztec(view)]
     fn pub_get_value(base_value: Field) -> Field {
@@ -44,15 +37,16 @@ contract StaticChild {
         new_value
     }
 
+    // View function that attempts to modify state. Should always fail regardless how it's called.
     #[aztec(private)]
     #[aztec(view)]
     fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        context.inputs.call_context.is_static_call = true;
         let mut note = ValueNote::new(new_value, owner);
         storage.a_private_value.insert(&mut note, true);
         new_value
     }
 
+    // Modify a note
     #[aztec(private)]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let mut note = ValueNote::new(new_value, owner);
@@ -60,10 +54,10 @@ contract StaticChild {
         new_value
     }
 
+    // Retrieve note value statically
     #[aztec(private)]
     #[aztec(view)]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
-        context.inputs.call_context.is_static_call = true;
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, amount, Option::none()).select(
             ValueNote::properties().owner,
@@ -77,6 +71,17 @@ contract StaticChild {
     // Increments `current_value` by `new_value`
     #[aztec(public)]
     fn pub_inc_value(new_value: Field) -> Field {
+        let old_value = storage.current_value.read();
+        storage.current_value.write(old_value + new_value);
+        context.emit_unencrypted_log(new_value);
+
+        new_value
+    }
+
+    // View function that attempts to modify state. Should always fail regardless how it's called.
+    #[aztec(public)]
+    #[aztec(view)]
+    fn pub_illegal_inc_value(new_value: Field) -> Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
         context.emit_unencrypted_log(new_value);

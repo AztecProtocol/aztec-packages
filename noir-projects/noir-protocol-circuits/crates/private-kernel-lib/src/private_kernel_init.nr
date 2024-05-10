@@ -58,7 +58,6 @@ impl PrivateKernelInitCircuitPrivateInputs {
 
         let call_context = call_stack_item.public_inputs.call_context;
         assert(call_context.is_delegate_call == false, "Users cannot make a delegatecall");
-        assert(call_context.is_static_call == false, "Users cannot make a static call");
         // The below also prevents delegatecall/staticcall in the base case
         assert(
             call_context.storage_contract_address.eq(call_stack_item.contract_address), "Storage contract address must be that of the called contract"
@@ -261,16 +260,6 @@ mod tests {
 
         // Set is_private in function data to false.
         builder.private_call.function_data.is_private = false;
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with="Users cannot make a static call")]
-    fn private_function_static_call_fails() {
-        let mut builder = PrivateKernelInitInputsBuilder::new();
-
-        // Set is_static_call to true.
-        builder.private_call.public_inputs.call_context.is_static_call = true;
 
         builder.failed();
     }

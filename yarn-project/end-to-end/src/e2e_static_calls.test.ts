@@ -25,20 +25,37 @@ describe('e2e_static_calls', () => {
       await childContract.methods.private_get_value(42n, wallet.getCompleteAddress().address).send().wait();
     });
 
-    it('fails when performing non-static calls to poorly written static functions', async () => {
+    it('fails when performing non-static calls to poorly written static private functions', async () => {
       await expect(
         childContract.methods.private_illegal_set_value(42n, wallet.getCompleteAddress().address).send().wait(),
-      ).rejects.toThrow("Cannot satisfy constraint 'item.public_inputs.call_context.is_static_call == is_static_call'");
+      ).rejects.toThrow('Static call cannot update the state, emit L2->L1 messages or generate logs');
+    });
+
+    it('performs legal public static calls', async () => {
+      await childContract.methods.pub_get_value(42n).send().wait();
+    });
+
+    it('fails when performing non-static calls to poorly written static public functions', async () => {
+      await expect(childContract.methods.pub_illegal_inc_value(42n).send().wait()).rejects.toThrow(
+        'Static call cannot update the state, emit L2->L1 messages or generate logs',
+      );
     });
   });
 
   describe('parent calls child', () => {
     it('performs legal private to private static calls', async () => {
+      // Using low level calls
       await parentContract.methods
         .private_static_call(childContract.address, childContract.methods.private_get_value.selector, [
           42n,
           wallet.getCompleteAddress().address,
         ])
+        .send()
+        .wait();
+
+      // Using the contract interface
+      await parentContract.methods
+        .private_get_value_from_child(childContract.address, 42n, wallet.getCompleteAddress().address)
         .send()
         .wait();
     });
@@ -54,10 +71,14 @@ describe('e2e_static_calls', () => {
     });
 
     it('performs legal public to public static calls', async () => {
+      // Using low level calls
       await parentContract.methods
         .public_static_call(childContract.address, childContract.methods.pub_get_value.selector, [42n])
         .send()
         .wait();
+
+      // Using contract interface
+      await parentContract.methods.public_get_value_from_child(childContract.address, 42n).send().wait();
     });
 
     it('performs legal (nested) public to public static calls', async () => {
@@ -68,10 +89,14 @@ describe('e2e_static_calls', () => {
     });
 
     it('performs legal enqueued public static calls', async () => {
+      // Using low level calls
       await parentContract.methods
         .enqueue_static_call_to_pub_function(childContract.address, childContract.methods.pub_get_value.selector, [42n])
         .send()
         .wait();
+
+      // Using contract interface
+      await parentContract.methods.enqueue_public_get_value_from_child(childContract.address, 42).send().wait();
     });
 
     it('performs legal (nested) enqueued public static calls', async () => {
@@ -94,10 +119,10 @@ describe('e2e_static_calls', () => {
           ])
           .send()
           .wait(),
-      ).rejects.toThrow('Static call cannot create new notes, emit L2->L1 messages or generate logs');
+      ).rejects.toThrow('Static call cannot update the state, emit L2->L1 messages or generate logs');
     });
 
-    it('fails when performing non-static calls to poorly written static functions', async () => {
+    it('fails when performing non-static calls to poorly written private static functions', async () => {
       await expect(
         parentContract.methods
           .private_call(childContract.address, childContract.methods.private_illegal_set_value.selector, [
@@ -106,7 +131,7 @@ describe('e2e_static_calls', () => {
           ])
           .send()
           .wait(),
-      ).rejects.toThrow("Cannot satisfy constraint 'item.public_inputs.call_context.is_static_call == is_static_call'");
+      ).rejects.toThrow("Assertion failed: Function private_illegal_set_value can only be called statically ''");
     });
 
     it('fails when performing illegal (nested) private to private static calls', async () => {
@@ -118,7 +143,7 @@ describe('e2e_static_calls', () => {
           ])
           .send()
           .wait(),
-      ).rejects.toThrow('Static call cannot create new notes, emit L2->L1 messages or generate logs');
+      ).rejects.toThrow('Static call cannot update the state, emit L2->L1 messages or generate logs');
     });
 
     it('fails when performing illegal public to public static calls', async () => {
@@ -161,6 +186,18 @@ describe('e2e_static_calls', () => {
           .send()
           .wait(),
       ).rejects.toThrow('Static call cannot update the state, emit L2->L1 messages or generate logs');
+    });
+
+    it('fails when performing non-static enqueue calls to poorly written public static functions', async () => {
+      await expect(
+        parentContract.methods
+          .enqueue_call(childContract.address, childContract.methods.pub_illegal_inc_value.selector, [
+            42n,
+            wallet.getCompleteAddress().address,
+          ])
+          .send()
+          .wait(),
+      ).rejects.toThrow("Assertion failed: Function pub_illegal_inc_value can only be called statically ''");
     });
   });
 });

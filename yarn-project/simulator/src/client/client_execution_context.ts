@@ -400,7 +400,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       !childExecutionResult.callStackItem.publicInputs.encryptedLogPreimagesLength.equals(new Fr(4)) ||
       !childExecutionResult.callStackItem.publicInputs.unencryptedLogPreimagesLength.equals(new Fr(4))
     ) {
-      throw new Error(`Static call cannot create new notes, emit L2->L1 messages or generate logs`);
+      throw new Error(`Static call cannot update the state, emit L2->L1 messages or generate logs`);
     }
   }
 
