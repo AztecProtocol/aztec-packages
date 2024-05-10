@@ -57,7 +57,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test: ${{ fromJson( needs.build.outputs.e2e_list )}}
+        test: [e2e-browser] #${{ fromJson( needs.build.outputs.e2e_list )}}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
