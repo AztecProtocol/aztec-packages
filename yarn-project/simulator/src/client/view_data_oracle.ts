@@ -48,7 +48,7 @@ export class ViewDataOracle extends TypedOracle {
    * Retrieve nullifier keys associated with a specific master nullifier public key hash and app/contract address.
    * @param npkMHash - The master nullifer public key hash.
    * @returns The nullifier keys of an account (specified by a master nullifier public key hash) and contract.
-   * @throws if the aster nullifier public key hash / account is not registered in the database.
+   * @throws if the master nullifier public key hash / account is not registered in the database.
    */
   public override getNullifierKeysWithNpkMHash(npkMHash: Fr): Promise<NullifierKeys> {
     return this.db.getNullifierKeysWithNpkMHash(npkMHash, this.contractAddress);
@@ -149,7 +149,7 @@ export class ViewDataOracle extends TypedOracle {
    * Retrieve the complete address associated to a given master nullifier public key hash.
    * @param npkMHash - The master nullifer public key hash.
    * @returns The complete address associated with the input master nullifier public key hash.
-   * @throws if the aster nullifier public key hash / account is not registered in the database.
+   * @throws if the master nullifier public key hash / account is not registered in the database.
    */
   public override getCompleteAddressWithNpkMHash(npkMHash: Fr): Promise<CompleteAddress> {
     return this.db.getCompleteAddressWithNpkMHash(npkMHash);
