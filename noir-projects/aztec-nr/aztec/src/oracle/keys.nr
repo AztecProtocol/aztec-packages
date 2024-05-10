@@ -19,7 +19,7 @@ fn get_public_keys_and_partial_address(address: AztecAddress) -> ([GrumpkinPoint
     ([nullifier_pub_key, incoming_pub_key, outgoing_pub_key, tagging_pub_key], partial_address)
 }
 
-#[oracle(getPublicKeysAndPartialAddressWithNpkMH)]
+#[oracle(getPublicKeysAndPartialAddressWithNpkMHash)]
 fn get_public_keys_and_partial_address_with_npk_m_hash_oracle(_npk_m_hash: Field) -> [Field; 9] {}
 
 unconstrained fn get_public_keys_and_partial_address_with_npk_m_hash_oracle_wrapper(npk_m_hash: Field) -> [Field; 9] {
