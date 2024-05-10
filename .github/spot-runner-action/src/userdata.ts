@@ -16,6 +16,7 @@ export class UserData {
       `echo '{"default-address-pools":[{"base":"172.17.0.0/12","size":20}, {"base":"10.99.0.0/12","size":20}, {"base":"192.168.0.0/16","size":24}]}' > /etc/docker/daemon.json`,
       `service docker restart`,
       "sudo apt install -y brotli",
+      // NOTE also update versions below and in .github/ci-setup-action/action.yml
       "sudo wget -q https://github.com/earthly/earthly/releases/v0.8.9/download/earthly-linux-$(dpkg --print-architecture) -O /usr/local/bin/earthly",
       "sudo chmod +x /usr/local/bin/earthly",
     ];
@@ -54,7 +55,8 @@ export class UserData {
       "sudo chmod +x /usr/local/bin/earthly",
       "cd /run",
       "sudo apt install -y brotli",
-      `mkdir -p shutdown-refcount`,
+      'echo "MaxStartups 1000" >> /etc/sshd_config',
+      "sudo service sshd restart",
       // Shutdown rules:
       // - github actions job starts and ends always bump +ec2InstanceTtl minutes
       // - when the amount of started jobs (start_run_* files) equal the amount of finished jobs (end_run_* files), we shutdown in 5 minutes (with a reaper script installed later)
