@@ -87,7 +87,7 @@ runs:
       uses: ./.github/spot-runner-action
       with:
         # inputs:
-        runner_label: ${{ inputs.runner_label }}
+        runner_label: ${{ inputs.runner_label || inputs.runner_type }}
         subaction: ${{ inputs.runner_action }}
         github_token: ${{ inputs.github_token }}
         aws_access_key_id: ${{ inputs.aws_access_key_id }}
