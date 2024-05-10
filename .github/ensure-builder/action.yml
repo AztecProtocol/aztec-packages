@@ -77,6 +77,7 @@ runs:
 
     - name: Check For Builder
       uses: ./.github/spot-runner-action
+      if: ${{ !env.BUILDER_SPOT_IP }}
       with:
         # TODO reduce duplication with below
         # inputs:
@@ -108,7 +109,7 @@ runs:
 
     - name: Start Builder
       uses: ./.github/spot-runner-action
-      if: ${{ !env.BUILDER_SPOT_IP }}
+      if: ${{ !contains(inputs.runner_type, 'tester') }}
       with:
         # inputs:
         runner_label: ${{ inputs.runner_label || inputs.runner_type }}
