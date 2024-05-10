@@ -42,7 +42,7 @@ export class UserData {
     const runnerNameBase = `${this.config.githubJobId}-ec2`;
     // space-separated registration tokens
     const tokensSpaceSep = tokens.map((t) => t.token).join(" ");
-    const bumpShutdown = `shutdown -c ; shutdown -P +${this.config.ec2InstanceTtl}`;
+    const bumpShutdown = `sudo shutdown -c ; sudo shutdown -P +${this.config.ec2InstanceTtl}`;
     // Note, we dont make the runner ephemeral as we start fresh runners as needed
     // and delay shutdowns whenever jobs start
     // TODO could deregister runners right before shutdown starts
