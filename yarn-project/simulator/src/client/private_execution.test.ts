@@ -15,6 +15,7 @@ import {
   FunctionData,
   GasSettings,
   GeneratorIndex,
+  type GrumpkinPrivateKey,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
@@ -81,9 +82,8 @@ describe('Private Execution test suite', () => {
   let ownerCompleteAddress: CompleteAddress;
   let recipientCompleteAddress: CompleteAddress;
 
-  // TODO(#5834): Nuke the following once complete address is refactored
-  let allOwnerKeys: any;
-  let allRecipientKeys: any;
+  let ownerMasterNullifierSecretKey: GrumpkinPrivateKey;
+  let recipientMasterNullifierSecretKey: GrumpkinPrivateKey;
 
   const treeHeights: { [name: string]: number } = {
     noteHash: NOTE_HASH_TREE_HEIGHT,
@@ -177,11 +177,11 @@ describe('Private Execution test suite', () => {
 
     const ownerPartialAddress = Fr.random();
     ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
-    allOwnerKeys = deriveKeys(ownerSk);
+    ownerMasterNullifierSecretKey = deriveKeys(ownerSk).masterNullifierSecretKey;
 
     const recipientPartialAddress = Fr.random();
     recipientCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(recipientSk, recipientPartialAddress);
-    allRecipientKeys = deriveKeys(recipientSk);
+    recipientMasterNullifierSecretKey = deriveKeys(recipientSk).masterNullifierSecretKey;
 
     owner = ownerCompleteAddress.address;
     recipient = recipientCompleteAddress.address;
@@ -193,17 +193,14 @@ describe('Private Execution test suite', () => {
     oracle.getNullifierKeys.mockImplementation((accountAddress: AztecAddress, contractAddress: AztecAddress) => {
       if (accountAddress.equals(ownerCompleteAddress.address)) {
         return Promise.resolve({
-          masterNullifierPublicKey: allOwnerKeys.masterNullifierPublicKey,
-          appNullifierSecretKey: computeAppNullifierSecretKey(allOwnerKeys.masterNullifierSecretKey, contractAddress),
+          masterNullifierPublicKey: ownerCompleteAddress.masterNullifierPublicKey,
+          appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
         });
       }
       if (accountAddress.equals(recipientCompleteAddress.address)) {
         return Promise.resolve({
-          masterNullifierPublicKey: allRecipientKeys.masterNullifierPublicKey,
-          appNullifierSecretKey: computeAppNullifierSecretKey(
-            allRecipientKeys.masterNullifierSecretKey,
-            contractAddress,
-          ),
+          masterNullifierPublicKey: recipientCompleteAddress.masterNullifierPublicKey,
+          appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
         });
       }
       throw new Error(`Unknown address ${accountAddress}`);
@@ -220,26 +217,6 @@ describe('Private Execution test suite', () => {
       }
       if (address.equals(recipient)) {
         return Promise.resolve(recipientCompleteAddress);
-      }
-      throw new Error(`Unknown address ${address}`);
-    });
-    // TODO(#5834): The following oracle should be unnecessary
-    oracle.getPublicKeysForAddress.mockImplementation((address: AztecAddress) => {
-      if (address.equals(owner)) {
-        return Promise.resolve([
-          allOwnerKeys.masterNullifierPublicKey,
-          allOwnerKeys.masterIncomingViewingPublicKey,
-          allOwnerKeys.masterOutgoingViewingPublicKey,
-          allOwnerKeys.masterTaggingPublicKey,
-        ]);
-      }
-      if (address.equals(recipient)) {
-        return Promise.resolve([
-          allRecipientKeys.masterNullifierPublicKey,
-          allRecipientKeys.masterIncomingViewingPublicKey,
-          allRecipientKeys.masterOutgoingViewingPublicKey,
-          allRecipientKeys.masterTaggingPublicKey,
-        ]);
       }
       throw new Error(`Unknown address ${address}`);
     });
@@ -973,7 +950,7 @@ describe('Private Execution test suite', () => {
       const nullifier = result.callStackItem.publicInputs.newNullifiers[0];
       const expectedNullifier = poseidon2Hash([
         innerNoteHash,
-        computeAppNullifierSecretKey(allOwnerKeys.masterNullifierSecretKey, contractAddress),
+        computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
         GeneratorIndex.NOTE_NULLIFIER,
       ]);
       expect(nullifier.value).toEqual(expectedNullifier);
@@ -1052,7 +1029,7 @@ describe('Private Execution test suite', () => {
       const nullifier = execGetThenNullify.callStackItem.publicInputs.newNullifiers[0];
       const expectedNullifier = poseidon2Hash([
         innerNoteHash,
-        computeAppNullifierSecretKey(allOwnerKeys.masterNullifierSecretKey, contractAddress),
+        computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
         GeneratorIndex.NOTE_NULLIFIER,
       ]);
       expect(nullifier.value).toEqual(expectedNullifier);
