@@ -17,8 +17,7 @@ export class UserData {
       `service docker restart`,
       "sudo apt install -y brotli",
       "sudo wget -q https://github.com/earthly/earthly/releases/latest/download/earthly-linux-$(dpkg --print-architecture) -O /usr/local/bin/earthly",
-      "sudo chmod +x /usr/local/bin/earthly",
-      "earthly bootstrap",
+      "sudo chmod +x /usr/local/bin/earthly"
     ];
     console.log(
       "Sending: ",
@@ -53,7 +52,6 @@ export class UserData {
       `service docker restart`,
       "sudo wget -q https://github.com/earthly/earthly/releases/latest/download/earthly-linux-$(dpkg --print-architecture) -O /usr/local/bin/earthly",
       "sudo chmod +x /usr/local/bin/earthly",
-      "earthly bootstrap",
       "cd /run",
       "sudo apt install -y brotli",
       `mkdir -p shutdown-refcount`,

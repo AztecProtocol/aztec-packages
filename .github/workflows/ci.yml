@@ -267,7 +267,7 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
-          concurrency_key: noir-${{ inputs.username || github.actor }}-x86
+          concurrency_key: noir-packages-${{ inputs.username || github.actor }}-x86
       - name: "Test Noir JS packages"
         run: earthly-ci --no-output ./noir+packages-test
 

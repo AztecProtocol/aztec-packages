@@ -146,3 +146,5 @@ fi
 # Create a mount point and mount the volume
 mkdir -p /var/lib/docker
 sudo mount $BLKDEVICE /var/lib/docker
+sudo service docker restart
+earthly bootstrap
