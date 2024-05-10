@@ -1,0 +1,5 @@
+#include "barretenberg/relations/translator_vm/translator_decomposition_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_delta_range_constraint_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_extra_relations_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_non_native_field_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_permutation_relation_impl.hpp"
