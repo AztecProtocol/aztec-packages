@@ -608,6 +608,9 @@ template <typename PCS> class ZeroMorphVerifier_ {
         }
 
         if constexpr (Curve::is_stdlib_type) {
+            for (size_t idx = 0; idx < 5; idx++) {
+                info(commitments[idx].get_value());
+            }
             return Commitment::batch_mul(commitments, scalars);
         } else {
             return batch_mul_native(commitments, scalars);

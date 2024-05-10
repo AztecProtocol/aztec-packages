@@ -23,7 +23,7 @@ TEST_F(GoblinTranslatorTests, Recursive)
     using Flavor = bb::GoblinTranslatorFlavor;
     using Transcript = GoblinTranslatorFlavor::Transcript;
     using RecursiveVerifer =
-        GoblinTranslatorRecursiveVerifier_<GoblinTranslatorRecursiveFlavor_<bb::GoblinUltraCircuitBuilder>>;
+        GoblinTranslatorRecursiveVerifier_<GoblinTranslatorRecursiveFlavor_<bb::UltraCircuitBuilder>>;
 
     auto P1 = G1::random_element();
     auto P2 = G1::random_element();
@@ -53,7 +53,7 @@ TEST_F(GoblinTranslatorTests, Recursive)
     proof.insert(proof.begin(), fake_inital_proof.begin(), fake_inital_proof.end());
 
     auto verification_key = std::make_shared<Flavor::VerificationKey>(prover.key);
-    GoblinUltraCircuitBuilder verifier_circuit;
+    UltraCircuitBuilder verifier_circuit;
     RecursiveVerifer verifier{ &verifier_circuit, verification_key };
     verifier.verify_proof(proof);
     info("Recursive Verifier: num gates = ", verifier_circuit.num_gates);

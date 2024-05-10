@@ -4,6 +4,11 @@
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
+#include "barretenberg/relations/translator_vm/translator_decomposition_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_delta_range_constraint_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_extra_relations_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_non_native_field_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_permutation_relation_impl.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {

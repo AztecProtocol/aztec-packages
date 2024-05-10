@@ -561,6 +561,7 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
 {
     if (get_value() == bb::fr(0)) {
         context->failure(msg);
+        info("tracking how many times this happens");
         // We don't return; we continue with the function, for debugging purposes.
     }
 
