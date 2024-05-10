@@ -25,7 +25,7 @@ You can also [install the sandbox manually](../sandbox/references/sandbox-refere
 
 ### Run the `npx` script
 
-With the node installation, you now should have `npm` and be able to run `npx` scripts. You can do that running:
+With the node installation, you now should have `npm` and be able to run `npx` scripts. You can do that by running:
 
 ```bash
 npx create-aztec-app
