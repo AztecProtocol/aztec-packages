@@ -7,7 +7,7 @@ use crate::{
 },
     merkle_tree::membership::MembershipWitness,
     address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash},
-    mocked::{Proof, VerificationKey},
+    recursion::{proof::RecursiveProof, verification_key::VerificationKey},
     tests::{fixtures, private_circuit_public_inputs_builder::PrivateCircuitPublicInputsBuilder},
     transaction::{tx_request::TxRequest, tx_context::TxContext}
 };
@@ -22,7 +22,8 @@ struct PrivateCallDataBuilder {
     // The rest of the values of PrivateCallData.
     private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
-    proof: Proof,
+    public_teardown_call_request: CallRequest,
+    proof: RecursiveProof,
     vk: VerificationKey,
     salted_initialization_hash: SaltedInitializationHash,
     public_keys_hash: PublicKeysHash,
@@ -48,8 +49,9 @@ impl PrivateCallDataBuilder {
             function_data,
             private_call_stack: BoundedVec::new(),
             public_call_stack: BoundedVec::new(),
-            proof: Proof {},
-            vk: VerificationKey {},
+            public_teardown_call_request: CallRequest::empty(),
+            proof: RecursiveProof::empty(),
+            vk: VerificationKey::empty(),
             function_leaf_membership_witness: contract_function.membership_witness,
             salted_initialization_hash: contract_data.salted_initialization_hash,
             public_keys_hash: contract_data.public_keys_hash,
@@ -169,6 +171,7 @@ impl PrivateCallDataBuilder {
             call_stack_item: self.build_call_stack_item(),
             private_call_stack: self.private_call_stack.storage,
             public_call_stack: self.public_call_stack.storage,
+            public_teardown_call_request: self.public_teardown_call_request,
             proof: self.proof,
             vk: self.vk,
             function_leaf_membership_witness: self.function_leaf_membership_witness,

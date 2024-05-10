@@ -104,11 +104,13 @@ contract Lending {
     ) {
         let on_behalf_of = compute_identifier(secret, on_behalf_of, context.msg_sender().to_field());
         let _res = Token::at(collateral_asset).unshield(from, context.this_address(), amount, nonce).call(&mut context);
+        // docs:start:enqueue_public
         Lending::at(context.this_address())._deposit(
             AztecAddress::from_field(on_behalf_of),
             amount,
             collateral_asset
         ).enqueue(&mut context);
+        // docs:end:enqueue_public
     }
 
     #[aztec(public)]
@@ -236,7 +238,9 @@ contract Lending {
         stable_coin: AztecAddress
     ) {
         let on_behalf_of = compute_identifier(secret, on_behalf_of, context.msg_sender().to_field());
+        // docs:start:private_call
         let _ = Token::at(stable_coin).burn(from, amount, nonce).call(&mut context);
+        // docs:end:private_call
         let _ = Lending::at(context.this_address())._repay(AztecAddress::from_field(on_behalf_of), amount, stable_coin).enqueue(&mut context);
     }
 
