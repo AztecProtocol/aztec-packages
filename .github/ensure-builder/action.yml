@@ -105,15 +105,6 @@ runs:
         ec2_key_name: "build-instance"
         ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
 
-    - name: Prevent Multiple Builders From Starting (Lock)
-      if: always() && ${{ !contains(inputs.runner_type, 'tester') }}
-      uses: ./.github/gh-action-mutex
-      with:
-        repo-token: ${{ inputs.concurrency_github_token }}
-        unlock: true
-        repository: AztecProtocol/git-metadata
-        branch: gh-actions-mutex-${{ inputs.runner_label }}
-
     # Set up a context for this run
     - name: Copy Repo to Builder
       shell: bash
@@ -134,15 +125,6 @@ runs:
             chmod 600 ~/.ssh/build_instance_key
           " || true
         fi
-
-    - name: Prevent Multiple Builders From Starting (Unlock)
-      if: ${{ !contains(inputs.runner_type, 'tester') }}
-      uses: ./.github/gh-action-mutex
-      with:
-        repo-token: ${{ inputs.concurrency_github_token }}
-        repository: AztecProtocol/git-metadata
-        branch: gh-actions-mutex-${{ inputs.runner_label }}
-        unlock: true # early unlock, hacked into our local action
 
     # Set up a context for this run
     # TODO deduplicate
@@ -204,6 +186,16 @@ runs:
           else
             echo "Chron jobs already configured."
           fi
+
+    - name: Prevent Multiple Builders From Starting (Lock)
+      if: always() && ${{ !contains(inputs.runner_type, 'tester') }}
+      uses: ./.github/gh-action-mutex
+      with:
+        repo-token: ${{ inputs.concurrency_github_token }}
+        unlock: true
+        repository: AztecProtocol/git-metadata
+        branch: gh-actions-mutex-${{ inputs.runner_label }}
+
     - name: Ensure Tester Cleanup
       uses: gacts/run-and-post-run@v1
       if: ${{ contains(inputs.runner_type, 'tester') }}
