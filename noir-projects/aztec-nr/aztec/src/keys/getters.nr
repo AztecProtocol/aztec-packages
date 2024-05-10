@@ -3,7 +3,7 @@ use dep::protocol_types::{
     hash::poseidon2_hash
 };
 use crate::{
-    context::PrivateContext, oracle::keys::get_public_keys_and_partial_address,
+    context::PrivateContext, oracle::{keys::get_public_keys_and_partial_address, nullifier_key::{NullifierKeys, get_nullifier_keys as get_nullifier_keys_oracle}},
     state_vars::{
     map::derive_storage_slot_in_map,
     shared_mutable::shared_mutable_private_getter::SharedMutablePrivateGetter
@@ -103,4 +103,10 @@ fn fetch_and_constrain_keys(address: AztecAddress) -> [GrumpkinPoint; 4] {
     assert(computed_address.eq(address));
 
     [nullifier_pub_key, incoming_pub_key, outgoing_pub_key, tagging_pub_key]
+}
+
+pub fn get_nullifier_keys(npk_m_hash: Field) -> NullifierKeys {
+    let keys = get_nullifier_keys_oracle(npk_m_hash);
+    assert_eq(poseidon2_hash(keys.master_nullifier_public_key.serialize()), npk_m_hash);
+    keys
 }

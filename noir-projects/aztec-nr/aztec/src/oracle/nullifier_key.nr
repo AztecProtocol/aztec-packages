@@ -1,9 +1,18 @@
-use dep::protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint, grumpkin_private_key::GrumpkinPrivateKey};
+use dep::protocol_types::{traits::Empty, address::AztecAddress, grumpkin_point::GrumpkinPoint, grumpkin_private_key::GrumpkinPrivateKey};
 
 // Nullifier keys pertaining to a specific npk_m_hash
 struct NullifierKeys {
     master_nullifier_public_key: GrumpkinPoint,
     app_nullifier_secret_key: Field,
+}
+
+impl Empty for NullifierKeys {
+    fn empty() -> Self {
+        NullifierKeys {
+            master_nullifier_public_key: GrumpkinPoint::zero(),
+            app_nullifier_secret_key: 0
+        }
+    }
 }
 
 #[oracle(getNullifierKeys)]
