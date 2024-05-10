@@ -1,0 +1,63 @@
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - 'main'
+  workflow_dispatch:
+
+jobs:
+  simple_test:
+    runs-on: ubuntu-latest
+    name: Simple mutex test
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up mutex
+        uses: ./
+      - run: |
+          echo "I am protected!"
+          sleep 5
+
+  two_clients_test_client_1:
+    runs-on: ubuntu-latest
+    name: Two clients test (client 1)
+    needs: [simple_test]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up mutex
+        uses: ./
+        with:
+          branch: gh-mutex-two-clients-test
+      - run: |
+          echo "I am protected! (Client 1)"
+          sleep 20
+
+  two_clients_test_client_2:
+    runs-on: ubuntu-latest
+    name: Two clients test (client 2)
+    needs: [simple_test]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up mutex
+        uses: ./
+        with:
+          branch: gh-mutex-two-clients-test
+      - run: |
+          echo "I am protected! (Client 2)"
+          sleep 20
+
+  debug_test:
+    runs-on: ubuntu-latest
+    name: Test the debug flag
+    needs: [two_clients_test_client_1,two_clients_test_client_2]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up mutex
+        uses: ./
+        with:
+          debug: "true"
+      - run: |
+          echo "I am protected!"
+          sleep 5
+
