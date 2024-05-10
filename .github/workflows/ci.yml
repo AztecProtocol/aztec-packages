@@ -106,6 +106,7 @@ jobs:
             set -eux
             export BUILDER_SPOT_IP=${{ env.BUILDER_SPOT_IP }}
             export BUILDER_SPOT_KEY=~/.ssh/build_instance_key
+            sudo apt install -y brotli # TODO why is this needed?
             scripts/run_on_builder "
               docker save aztecprotocol/aztec:${{ github.event.pull_request.head.sha }} aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }} | brotli -2
             " | brotli --decompress | docker load

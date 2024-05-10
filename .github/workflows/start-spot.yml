@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       username:
-        description: 'Defaults to GitHub Actor'
+        description: 'Username (optional)'
         required: false
       action:
-        description: 'Can also be stop or restart, defaults to start'
+        description: "Defaults to 'start', can be 'stop', 'restart'"
         required: false
         default: 'start'
 jobs:

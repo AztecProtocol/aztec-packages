@@ -4,8 +4,6 @@ description: "Target builder with actions"
 inputs:
   run:
     required: true
-  run_id:
-    required: true
 runs:
   # define an action, runs in OS of caller
   using: composite
