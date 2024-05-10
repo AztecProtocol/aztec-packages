@@ -12,7 +12,7 @@ Boxes include the sandbox installation script and its start command. By choosing
 
 Because of the CI/CD nature of the monorepo, every box is tested against every merge on master. This drastically reduces their maintenance cost. Thus, some scripting is needed to make sure the user gets a working repository after "unboxing".
 
-Most of the logic is in the `bin.js` file, where `commander` commands stuff. Here's a brief description on what the script exactly does:
+Most of the logic is in the `bin.js` file, where `commander` commands stuff. The script does the following:
 
 - Prompts the user for options and commands
 - Inits some global variables such as a logger, a getter for the github repositories, the latest stable versions and tags, etc
