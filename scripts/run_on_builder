@@ -4,42 +4,4 @@ set -eu
 # Enter the repo root
 cd "$(dirname "$0")/.."
 
-# Max number of retries
-max_retries=5
-count=0
-
-# Temporary file for error capture
-tmpfile=$(mktemp)
-
-while true; do
-  # Execute the SSH command and redirect stderr to a temp file
-  if ssh -o StrictHostKeyChecking=no -i "$SPOT_KEY" ubuntu@"$SPOT_IP" "$@" 2>"$tmpfile" ; then
-    break # SSH was successful, exit loop
-  else
-    # Read the error from the temp file
-    error_msg=$(<"$tmpfile")
-
-    # Check for the specific error message
-    if [[ "$error_msg" == *"kex_exchange_identification: read: Connection reset by peer"* ]]; then
-      ((count++)) || true # Increment retry counter
-
-      # Check retry limit
-      if [ "$count" -eq "$max_retries" ]; then
-        echo "Reached maximum number of retries, exiting."
-        exit 1
-      fi
-
-      # Retry message and wait
-      echo "Detected SSH error to retry, retrying in 5 seconds..."
-      sleep 5
-    else
-      # Different error or no error, break loop
-      cat "$tmpfile" >&2 # Output other errors to stderr
-      rm -f "$tmpfile"
-      exit 1
-    fi
-  fi
-done
-
-# Clean up: Remove the temporary file
-rm -f "$tmpfile"
+exec ssh -o StrictHostKeyChecking=no -i "$BUILDER_SPOT_KEY" ubuntu@"$BUILDER_SPOT_IP" "$@"

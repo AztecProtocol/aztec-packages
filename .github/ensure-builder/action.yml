@@ -50,13 +50,27 @@ runs:
           echo "ebs_cache_size=64" >> $GITHUB_OUTPUT
           echo "runner_concurrency=1" >> $GITHUB_OUTPUT
           echo "ttl=40" >> $GITHUB_OUTPUT
-        elif [[ $TYPE == 4core-no-cache-x86 ]]; then
-          # 4-core x86 instance type
-          echo "instance_type=m6a.large" >> $GITHUB_OUTPUT
-          echo "ami_id=ami-04d8422a9ba4de80f" >> $GITHUB_OUTPUT
-          # no github runners, 'bare spot' in action code
-          echo "runner_concurrency=0" >> $GITHUB_OUTPUT
-          echo "ttl=20" >> $GITHUB_OUTPUT
+        else
+          if [[ $TYPE == *tester-x86* ]]; then
+            echo "ami_id=ami-04d8422a9ba4de80f" >> $GITHUB_OUTPUT
+            # no github runners, 'bare spot' in action code
+            echo "runner_concurrency=0" >> $GITHUB_OUTPUT
+            echo "ttl=20" >> $GITHUB_OUTPUT
+          fi
+          # TODO deduplicate
+          if [[ $TYPE == 4core-* ]]; then
+            echo "instance_type=m6a.2xlarge" >> $GITHUB_OUTPUT
+          elif [[ $TYPE == 8core-* ]]; then
+            echo "instance_type=m6a.4xlarge" >> $GITHUB_OUTPUT
+          elif [[ $TYPE == 16core-* ]]; then
+            echo "instance_type=m6a.8xlarge" >> $GITHUB_OUTPUT
+          elif [[ $TYPE == 32core-* ]]; then
+            echo "instance_type=m6a.16xlarge" >> $GITHUB_OUTPUT
+          elif [[ $TYPE == 64core-* ]]; then
+            echo "instance_type=m6a.32xlarge" >> $GITHUB_OUTPUT
+          elif [[ $TYPE == 128core-* ]]; then
+            echo "instance_type=m6a.64xlarge" >> $GITHUB_OUTPUT
+          fi
         fi
 
     - name: Start Builder
@@ -96,12 +110,14 @@ runs:
             echo "> Unpacking repo"
             git config --global advice.detachedHead false
             git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID
+            echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
+            chmod 600 ~/.ssh/build_instance_key
           " || true
         fi
 
     - name: Attach EBS Cache Disk
       uses: ./.github/run-on-builder
-      if: ${{ !contains(inputs.runner_type, 'no-cache') }}
+      if: ${{ !contains(inputs.runner_type, 'tester') }}
       with:
         run: |
           export AWS_ACCESS_KEY_ID=${{ inputs.aws_access_key_id }}
@@ -109,8 +125,9 @@ runs:
           # attach {ebs_cache_size}-gb cache disk
           ./scripts/ci/attach_ebs_cache.sh ${{ inputs.runner_label }} ${{ steps.select_instance.outputs.ebs_cache_size }}
 
-    - name: Setup
+    - name: Setup Graceful Exit
       uses: ./.github/run-on-builder
+      if: ${{ !contains(inputs.runner_type, 'tester') }}
       with:
         run: |
           # One-time config
