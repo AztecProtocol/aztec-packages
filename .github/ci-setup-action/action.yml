@@ -65,19 +65,19 @@ runs:
       if: ${{ inputs.concurrency_key }}
       with:
         run: |
-          while [ -f "/run/${{ inputs.concurrency_key }}.lock" ]; do sleep 1 ; echo "Lock is currently held by $(cat '/run/${{ inputs.concurrency_key }}.lock'), waiting..." ; done
-          echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > "/run/${{ inputs.concurrency_key }}.lock"
-          echo "/run/${{ inputs.concurrency_key }}.lock acquired."
+          while [ -f "~/${{ inputs.concurrency_key }}.lock" ]; do sleep 1 ; echo "Lock is currently held by $(cat '~/${{ inputs.concurrency_key }}.lock'), waiting..." ; done
+          echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > "~/${{ inputs.concurrency_key }}.lock"
+          echo "~/${{ inputs.concurrency_key }}.lock acquired."
         post: |
-          rm "/run/${{ inputs.concurrency_key }}.lock" || true
-          echo "/run/${{ inputs.concurrency_key }}.lock removed."
+          rm "~/${{ inputs.concurrency_key }}.lock" || true
+          echo "~/${{ inputs.concurrency_key }}.lock removed."
 
     - name: Wait for runner completion
       shell: bash
       run: |
         for i in {1..60} ; do
           # HACK: detecting bare spot. TODO Find better solution
-          [ ! -f /run/delay_shutdown.sh ] && break
+          [ ! -f ~/delay_shutdown.sh ] && break
           [ -f /home/ubuntu/.setup-complete ] && break
           sleep 1
         done
