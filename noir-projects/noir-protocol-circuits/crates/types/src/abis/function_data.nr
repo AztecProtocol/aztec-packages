@@ -7,7 +7,7 @@ use crate::{
 struct FunctionData {
     selector : FunctionSelector,
     is_private : bool,
-    is_static: bool,
+    is_static : bool,
 }
 
 impl Eq for FunctionData {
@@ -55,6 +55,7 @@ impl Empty for FunctionData {
             is_static: false
         }
     }
+
 }
 
 #[test]
