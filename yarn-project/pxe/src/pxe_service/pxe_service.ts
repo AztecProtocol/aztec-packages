@@ -297,7 +297,7 @@ export class PXEService implements PXE {
   }
 
   public async addNote(note: ExtendedNote) {
-    const { masterIncomingViewingPublicKey } = (await this.db.getCompleteAddress(note.owner)) ?? {};
+    const { masterIncomingViewingPublicKey } = (await this.db.getCompleteAddress({ account: note.owner })) ?? {};
     if (!masterIncomingViewingPublicKey) {
       throw new Error('Unknown account.');
     }

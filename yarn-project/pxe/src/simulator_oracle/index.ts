@@ -37,7 +37,10 @@ export class SimulatorOracle implements DBOracle {
     private log = createDebugLogger('aztec:pxe:simulator_oracle'),
   ) {}
 
-  async getNullifierKeys(args: { account: AztecAddress } | { npkMHash: Fr }, contractAddress: AztecAddress): Promise<NullifierKeys> {
+  async getNullifierKeys(
+    args: { account: AztecAddress } | { npkMHash: Fr },
+    contractAddress: AztecAddress,
+  ): Promise<NullifierKeys> {
     const masterNullifierPublicKey = await this.keyStore.getMasterNullifierPublicKey(args);
     const appNullifierSecretKey = await this.keyStore.getAppNullifierSecretKey(args, contractAddress);
     return { masterNullifierPublicKey, appNullifierSecretKey };
@@ -47,7 +50,9 @@ export class SimulatorOracle implements DBOracle {
     const completeAddress = await this.db.getCompleteAddress(args);
     if (!completeAddress) {
       throw new Error(
-        `No public key registered for ${'account' in args ? `address ${args.account}` : `master nullifier public key hash ${args.npkMHash}`}. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/developers/debugging/aztecnr-errors#simulation-error-No-public-key-registered-for-address-0x0-Register-it-by-calling-pxeregisterRecipient-or-pxeregisterAccount`,
+        `No public key registered for ${
+          'account' in args ? `address ${args.account}` : `master nullifier public key hash ${args.npkMHash}`
+        }. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/developers/debugging/aztecnr-errors#simulation-error-No-public-key-registered-for-address-0x0-Register-it-by-calling-pxeregisterRecipient-or-pxeregisterAccount`,
       );
     }
     return completeAddress;

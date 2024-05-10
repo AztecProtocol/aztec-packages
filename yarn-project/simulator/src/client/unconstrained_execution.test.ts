@@ -33,11 +33,11 @@ describe('Unconstrained Execution test suite', () => {
       const ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSecretKey, Fr.random());
       owner = ownerCompleteAddress.address;
 
-      oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
-        if (address.equals(owner)) {
+      oracle.getCompleteAddress.mockImplementation((args: { account: AztecAddress } | { npkMHash: Fr }) => {
+        if ('account' in args && args.account.equals(owner)) {
           return Promise.resolve(ownerCompleteAddress);
         }
-        throw new Error(`Unknown address ${address}`);
+        throw new Error(`Unknown ${'account' in args ? 'address' : 'npkMHash'}`);
       });
     });
 

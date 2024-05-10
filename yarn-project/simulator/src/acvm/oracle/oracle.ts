@@ -56,7 +56,7 @@ export class Oracle {
   // Keeping this oracle separate from above because I don't want an implicit overload in noir code
   async getNullifierKeysWithNpkMHash([masterNullifierPublicKeyHash]: ACVMField[]): Promise<ACVMField[]> {
     const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeys({
-      npkMHash: fromACVMField(masterNullifierPublicKeyHash)
+      npkMHash: fromACVMField(masterNullifierPublicKeyHash),
     });
 
     return [
