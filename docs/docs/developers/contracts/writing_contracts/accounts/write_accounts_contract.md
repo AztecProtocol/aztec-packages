@@ -29,7 +29,7 @@ Let's start with the account contract itself in Aztec.nr. Create [a new Aztec.nr
 
 #include_code contract noir-projects/noir-contracts/contracts/schnorr_hardcoded_account_contract/src/main.nr rust
 
-The important part of this contract is the `entrypoint` function, which will be the first function executed in any transaction originated from this account. This function has two main responsibilities: authenticating the transaction and executing calls. It receives a `payload` with the list of function calls to execute, and requests a corresponding [authentication witness](../../../../learn/concepts/accounts/authwit.md), for authorizing actions, from an oracle to validate it. You will find this logic implemented in the `AccountActions` module, which use the `AppPayload` and `FeePayload` structs:
+The important part of this contract is the `entrypoint` function, which will be the first function executed in any transaction originated from this account. This function has two main responsibilities: authenticating the transaction and executing calls. It receives a `payload` with the list of function calls to execute, and requests a corresponding [authentication witness](../../../../learn/concepts/accounts/authwit.md) from an oracle to validate it. Authentication witnesses are used for authorizing actions for an account, whether it is just checking a signature, like in this case, or granting authorization for another account to act on an accounts behalf (e.g. token approvals). You will find this logic implemented in the `AccountActions` module, which use the `AppPayload` and `FeePayload` structs:
 
 #include_code entrypoint noir-projects/aztec-nr/authwit/src/account.nr rust
 
@@ -46,6 +46,16 @@ The `AccountActions` module provides default implementations for most of the acc
 #include_code is-valid noir-projects/noir-contracts/contracts/schnorr_hardcoded_account_contract/src/main.nr rust
 
 For our account contract, we will take the hash of the action to authorize, request the corresponding auth witness from the oracle, and validate it against our hardcoded public key. If the signature is correct, we authorize the action.
+
+### Fee Abstraction
+
+The `FeePayload`, being distinct from the `AppPayload`, allows for fee abstraction, meaning the account paying the fee for the transaction can be different than the account that is initiating the transaction. This is also useful for maintaining privacy, as fee payments on the network must be public. For example, Alice could pay a relayer transaction fees in private, and the relayer could pay the transaction fee in public. This also allows for accounts without a fee paying asset to use a non-fee paying asset to pay for fees, provided they can find a relayer willing to accept a non-fee paying asset as payment (or do it for free). You can read more about that works in the protocol specification on fees [here](../../../../protocol-specs/gas-and-fees/tx-setup-and-teardown.md).
+
+### Nonce Abstraction
+
+The protocol enforces uniqueness of transactions by checking that the transaction hash is unique. Transactions with the same transaction hash will be rejected. Handling transaction ordering via nonces is left to the account contract implementation. Account contracts can require incremental nonces, or have no requirements at all and not enforce transaction ordering.
+
+A side-effect of not having nonces at the protocol level is that it is not possible to cancel pending transactions by submitting a new transaction with higher fees and the same nonce.
 
 ## Typescript
 
