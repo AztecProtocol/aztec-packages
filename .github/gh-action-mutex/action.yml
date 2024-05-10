@@ -43,6 +43,7 @@ runs:
     ARG_REPOSITORY: ${{ inputs.repository }}
     ARG_REPO_TOKEN: ${{ inputs.repo-token }}
     ARG_DEBUG: ${{ inputs.debug }}
+    ARG_UNLOCK: ${{ inputs.unlock }}
   entrypoint: '/scripts/lock.sh'
   post-entrypoint: '/scripts/unlock.sh'
 
