@@ -20,6 +20,8 @@ inputs:
     required: true
   ec2_key:
     required: true
+  concurrency_github_token:
+    required: true
 runs:
   # define an action, runs in OS of caller
   using: composite
@@ -72,6 +74,14 @@ runs:
             echo "instance_type=m6a.64xlarge" >> $GITHUB_OUTPUT
           fi
         fi
+
+    - name: Prevert Multiple Builders From Starting
+      if: ${{ !contains(inputs.runner_type, 'tester') }}
+      uses: ben-z/gh-action-mutex@v1.0.0-alpha.9
+       with:
+        repo-token: ${{ inputs.concurrency_github_token }}
+        repository: AztecProtocol/git-metadata
+        branch: gh-actions-mutex-${{ inputs.runner_label }}
 
     - name: Start Builder
       uses: ./.github/spot-runner-action
