@@ -269,15 +269,12 @@ async function establishSshContact(
         core.error(
           `Timeout: SSH could not connect to ${ip} within 60 seconds.`
         );
-        throw new Error(
-          `Timeout: SSH could not connect to ${ip} within 60 seconds.`
-        );
+        return false;
       }
       await new Promise((resolve) => setTimeout(resolve, 1000)); // Retry every second
       attempts++;
     }
   }
-  return false;
 }
 
 async function ec2CommandOverSsh(
