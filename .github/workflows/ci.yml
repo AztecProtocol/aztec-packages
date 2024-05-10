@@ -103,9 +103,11 @@ jobs:
             export BUILDER_SPOT_IP=${{ env.BUILDER_SPOT_IP }}
             export BUILDER_SPOT_KEY=~/.ssh/build_instance_key
             scripts/run_on_builder "
-              [ -f .copied ] && ! [ -f image.brotli ] && sleep 25
+              # if someone took the lock, wait for image serialize
+              for i in {1..20} ; do [ -f .copied ] && ! [ -f .finished ] && sleep 5 || break ; done
               touch .copied
               ! [ -f image.brotli ] && docker save aztecprotocol/aztec:${{ github.event.pull_request.head.sha }} aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }} | brotli -2 > image.brotli
+              touch .finished
               cat image.brotli
             " | brotli --decompress | docker load
 
