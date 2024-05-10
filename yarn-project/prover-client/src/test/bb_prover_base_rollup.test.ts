@@ -9,11 +9,12 @@ const logger = createDebugLogger('aztec:bb-prover-base-rollup');
 
 describe('prover/bb_prover/base-rollup', () => {
   let context: TestContext;
+  let prover: BBNativeRollupProver;
 
   beforeAll(async () => {
-    const buildProver = (bbConfig: BBProverConfig) => {
-      bbConfig.circuitFilter = ['BaseRollupArtifact'];
-      return BBNativeRollupProver.new(bbConfig);
+    const buildProver = async (bbConfig: BBProverConfig) => {
+      prover = await BBNativeRollupProver.new(bbConfig);
+      return prover;
     };
     context = await TestContext.new(logger, 1, buildProver);
   });
@@ -30,6 +31,6 @@ describe('prover/bb_prover/base-rollup', () => {
     logger.verbose('Proving base rollups');
     const proofOutputs = await context.prover.getBaseRollupProof(baseRollupInputs);
     logger.verbose('Verifying base rollups');
-    await expect(context.prover.verifyProof('BaseRollupArtifact', proofOutputs.proof)).resolves.not.toThrow();
+    await expect(prover.verifyProof('BaseRollupArtifact', proofOutputs.proof)).resolves.not.toThrow();
   });
 });
