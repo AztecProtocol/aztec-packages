@@ -1,7 +1,7 @@
 import { Fr, Point } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing';
 
-import { computePublicKeysHash } from './index.js';
+import { computeAddress, computePublicKeysHash } from './index.js';
 
 describe('🔑', () => {
   it('computing public keys hash matches Noir', () => {
@@ -25,6 +25,20 @@ describe('🔑', () => {
       'noir-projects/noir-protocol-circuits/crates/types/src/address/public_keys_hash.nr',
       'expected_public_keys_hash',
       expected.toString(),
+    );
+  });
+
+  it('Address from partial matches Noir', () => {
+    const publicKeysHash = new Fr(1n);
+    const partialAddress = new Fr(2n);
+    const address = computeAddress(publicKeysHash, partialAddress).toString();
+    expect(address).toMatchSnapshot();
+
+    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/types/src/address/aztec_address.nr',
+      'expected_computed_address_from_partial_and_pubkey',
+      address.toString(),
     );
   });
 });

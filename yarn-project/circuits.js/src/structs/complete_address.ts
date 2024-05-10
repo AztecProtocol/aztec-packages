@@ -2,7 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
-import { computeContractAddressFromPartial, computePartialAddress } from '../contract/contract_address.js';
+import { computePartialAddress } from '../contract/contract_address.js';
 import { computeAddress, computePublicKeysHash, deriveKeys } from '../keys/index.js';
 import { type PartialAddress } from '../types/partial_address.js';
 import { type PublicKey } from '../types/public_key.js';
@@ -62,13 +62,14 @@ export class CompleteAddress {
   }
 
   static fromSecretKeyAndPartialAddress(secretKey: Fr, partialAddress: Fr): CompleteAddress {
-    const address = computeContractAddressFromPartial({ secretKey, partialAddress });
     const {
       masterNullifierPublicKey,
       masterIncomingViewingPublicKey,
       masterOutgoingViewingPublicKey,
       masterTaggingPublicKey,
+      publicKeysHash,
     } = deriveKeys(secretKey);
+    const address = computeAddress(publicKeysHash, partialAddress);
     return new CompleteAddress(
       address,
       masterNullifierPublicKey,
