@@ -107,7 +107,7 @@ export class TestKeyStore implements KeyStore {
     const masterNullifierPublicKeyBuffer =
       this.#keys.get(`${accountOrMasterNullifierPublicKeyHash.toString()}-npk_m`) ??
       this.#keys.get(
-        `${this.getAccountAddressForMasterNullifierPublicKeyHashInternal(
+        `${this.#getAccountAddressForMasterNullifierPublicKeyHash(
           accountOrMasterNullifierPublicKeyHash,
         )?.toString()}-npk_m`,
       );
@@ -181,7 +181,7 @@ export class TestKeyStore implements KeyStore {
     const masterNullifierSecretKeyBuffer =
       this.#keys.get(`${accountOrMasterNullifierPublicKeyHash.toString()}-nsk_m`) ??
       this.#keys.get(
-        `${this.getAccountAddressForMasterNullifierPublicKeyHashInternal(
+        `${this.#getAccountAddressForMasterNullifierPublicKeyHash(
           accountOrMasterNullifierPublicKeyHash,
         )?.toString()}-nsk_m`,
       );
@@ -319,22 +319,7 @@ export class TestKeyStore implements KeyStore {
     return Promise.resolve(Fr.fromBuffer(publicKeysHashBuffer));
   }
 
-  /**
-   * Gets the account address for a given master nullifier public key hash.
-   * @throws If the master nullifier public key hash does not exist in the key store.
-   * @param masterNullifierPublicKeyHash - The master nullifier public key hash for which to retrieve the address.
-   * @returns The address for the account.
-   */
-  // TODO(#5834): Re-add separation between recipients and accounts in keystore. Refactor this utilizing getAccounts.
-  public getAccountAddressForMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr) {
-    const account = this.getAccountAddressForMasterNullifierPublicKeyHashInternal(masterNullifierPublicKeyHash);
-    if (!account) {
-      throw new Error(`Master nullifier public key hash ${masterNullifierPublicKeyHash.toString()} does not exist.`);
-    }
-    return account;
-  }
-
-  getAccountAddressForMasterNullifierPublicKeyHashInternal(masterNullifierPublicKeyHash: Fr): AztecAddress | undefined {
+  #getAccountAddressForMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr): AztecAddress | undefined {
     for (const [key, value] of this.#keys.entries()) {
       if (key.endsWith('-npk_m')) {
         const computedMasterNullifierPublicKeyHash = poseidon2Hash(Point.fromBuffer(value).toFields());

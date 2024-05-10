@@ -389,8 +389,19 @@ export class KVPxeDatabase implements PxeDatabase {
     return Promise.resolve(this.#getCompleteAddress(address));
   }
 
+  getCompleteAddressByNpkMHash(npkMHash: Fr): Promise<CompleteAddress | undefined> {
+    const completeAddresses = this.#getCompleteAddresses();
+
+    const completeAddress = completeAddresses.find((completeAddress) => poseidon2Hash(completeAddress.masterNullifierPublicKey.toFields()).equals(npkMHash));
+    return Promise.resolve(completeAddress);
+  }
+
+  #getCompleteAddresses(): CompleteAddress[] {
+    return Array.from(this.#addresses).map(v => CompleteAddress.fromBuffer(v));
+  }
+
   getCompleteAddresses(): Promise<CompleteAddress[]> {
-    return Promise.resolve(Array.from(this.#addresses).map(v => CompleteAddress.fromBuffer(v)));
+    return Promise.resolve(this.#getCompleteAddresses());
   }
 
   getSynchedBlockNumberForPublicKey(publicKey: Point): number | undefined {

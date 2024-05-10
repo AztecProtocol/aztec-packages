@@ -73,7 +73,6 @@ export interface PXE {
    * in order to be able to encrypt data for this recipient.
    *
    * @param recipient - The complete address of the recipient
-   * @param publicKeys - The public keys of the recipient (see #5834)
    * @remarks Called recipient because we can only send notes to this account and not receive them via this PXE Service.
    * This is because we don't have the associated private key and for this reason we can't decrypt
    * the recipient's notes. We can send notes to this account because we can encrypt them with the recipient's

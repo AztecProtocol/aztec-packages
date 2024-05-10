@@ -65,10 +65,14 @@ export class SimulatorOracle implements DBOracle {
     return completeAddress;
   }
 
-  // TODO: #5834
   getCompleteAddressWithNpkMHash(masterNullifierPublicKeyHash: Fr): Promise<CompleteAddress> {
-    const address = this.keyStore.getAccountAddressForMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash);
-    return this.getCompleteAddress(address);
+    const completeAddress = this.db.getCompleteAddressByNpkMHash(masterNullifierPublicKeyHash);
+    if (!completeAddress) {
+      throw new Error(
+        `No public key registered for master nullifier public key hash ${masterNullifierPublicKeyHash.toString()}. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/developers/debugging/aztecnr-errors#simulation-error-No-public-key-registered-for-address-0x0-Register-it-by-calling-pxeregisterRecipient-or-pxeregisterAccount`,
+      );
+    }
+    return completeAddress;
   }
 
   async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
