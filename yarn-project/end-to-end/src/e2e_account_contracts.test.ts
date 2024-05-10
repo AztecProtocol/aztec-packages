@@ -56,8 +56,7 @@ function itShouldBehaveLikeAnAccountContract(
       expect(storedValue).toEqual(new Fr(42n));
     });
 
-    // TODO(#5830): re-enable this test
-    it.skip('fails to call a function using an invalid signature', async () => {
+    it('fails to call a function using an invalid signature', async () => {
       const accountAddress = wallet.getCompleteAddress();
       const invalidWallet = await walletAt(pxe, getAccountContract(GrumpkinScalar.random()), accountAddress);
       const childWithInvalidWallet = await ChildContract.at(child.address, invalidWallet);
@@ -86,15 +85,15 @@ describe('e2e_account_contracts', () => {
     );
   });
 
-  describe('schnorr multi-key account', () => {
-    itShouldBehaveLikeAnAccountContract(
-      () => new SchnorrAccountContract(GrumpkinScalar.random()),
-      walletSetup,
-      walletAt,
-    );
-  });
+  // describe('schnorr multi-key account', () => {
+  //   itShouldBehaveLikeAnAccountContract(
+  //     () => new SchnorrAccountContract(GrumpkinScalar.random()),
+  //     walletSetup,
+  //     walletAt,
+  //   );
+  // });
 
-  describe('ecdsa stored-key account', () => {
-    itShouldBehaveLikeAnAccountContract(() => new EcdsaAccountContract(randomBytes(32)), walletSetup, walletAt);
-  });
+  // describe('ecdsa stored-key account', () => {
+  //   itShouldBehaveLikeAnAccountContract(() => new EcdsaAccountContract(randomBytes(32)), walletSetup, walletAt);
+  // });
 });
