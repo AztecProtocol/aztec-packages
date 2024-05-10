@@ -363,8 +363,8 @@ const sidebars = {
               label: "Accounts and Account Contracts",
               type: "category",
               items: [
+                "developers/contracts/writing_contracts/accounts/write_accounts_contract",
                 "developers/contracts/writing_contracts/accounts/how_to_authwit",
-                "developers/contracts/writing_contracts/accounts/authwit",
               ],
             },
             {
