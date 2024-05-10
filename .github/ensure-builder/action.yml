@@ -134,8 +134,9 @@ runs:
       run: |
         export RUN_ID=${{ inputs.run_id }}
         echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+        set -x
         # detect run folder
-        if ! scripts/run_on_tester "[ -d ~/run-$RUN_ID ]" ; then
+        if ! scripts/run_on_tester "[ -d ~/run-$RUN_ID-git ]" ; then
           echo "> Copying local repo to spot"
           tar czf - .git | scripts/run_on_tester \
             "mkdir -p ~/run-$RUN_ID-git && cd ~/run-$RUN_ID-git && tar xzf -" || true
@@ -155,6 +156,11 @@ runs:
         run: |
           export AWS_ACCESS_KEY_ID=${{ inputs.aws_access_key_id }}
           export AWS_SECRET_ACCESS_KEY=${{ inputs.aws_secret_access_key }}
+          # give time in case another instance started the clone first
+          for i in {1..30} ; do
+            [ -f ./scripts/ci/attach_ebs_cache.sh ] && break
+            sleep 1
+          done
           # attach {ebs_cache_size}-gb cache disk
           ./scripts/ci/attach_ebs_cache.sh ${{ inputs.runner_label }} ${{ steps.select_instance.outputs.ebs_cache_size }}
 
