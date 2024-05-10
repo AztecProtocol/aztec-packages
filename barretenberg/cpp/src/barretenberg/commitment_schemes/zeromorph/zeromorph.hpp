@@ -624,6 +624,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
         for (size_t idx = 1; idx < scalars.size(); ++idx) {
             result = result + points[idx] * scalars[idx];
         }
+        // info(points.size());
         return result;
     }
 

@@ -6,11 +6,8 @@ namespace bb {
 
 template <typename Flavor>
 GoblinTranslatorRecursiveVerifier_<Flavor>::GoblinTranslatorRecursiveVerifier_(
-    Builder* builder,
-    const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
-    const NativeBF& translation_batching_challenge)
-    : batching_challenge_v(BF::from_witness(builder, translation_batching_challenge))
-    , key(std::make_shared<VerificationKey>(builder, native_verifier_key))
+    Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_verifier_key)
+    : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
     , builder(builder)
 {}
 
@@ -36,6 +33,7 @@ void GoblinTranslatorRecursiveVerifier_<Flavor>::put_translation_data_in_relatio
     };
 
     relation_parameters.evaluation_input_x = compute_five_limbs(evaluation_input_x);
+
     BF batching_challenge_v_power = batching_challenge_v;
     for (size_t i = 0; i < 4; i++) {
         relation_parameters.batching_challenge_v[i] = compute_five_limbs(batching_challenge_v_power);
@@ -62,13 +60,14 @@ std::array<typename Flavor::GroupElement, 2> GoblinTranslatorRecursiveVerifier_<
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
     transcript = std::make_shared<Transcript>(stdlib_proof);
 
+    transcript->template receive_from_prover<BF>("init");
+    batching_challenge_v = transcript->template get_challenge<BF>("Translation:batching_challenge");
+
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
     // ? BF
     const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
-    info(circuit_size.get_value());
-    info(key->circuit_size);
     ASSERT(static_cast<uint32_t>(circuit_size.get_value()) == key->circuit_size);
     evaluation_input_x = transcript->template receive_from_prover<BF>("evaluation_input_x");
 
@@ -97,7 +96,7 @@ std::array<typename Flavor::GroupElement, 2> GoblinTranslatorRecursiveVerifier_<
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
     auto sumcheck = Sumcheck(log_circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(static_cast<size_t>(numeric::get_msb(key->circuit_size)));
+    std::vector<FF> gate_challenges(log_circuit_size);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
@@ -108,7 +107,6 @@ std::array<typename Flavor::GroupElement, 2> GoblinTranslatorRecursiveVerifier_<
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description ofthe
     // unrolled protocol.
     auto pairing_points = ZeroMorph::verify(commitments.get_unshifted_without_concatenated(),
-
                                             commitments.get_to_be_shifted(),
                                             claimed_evaluations.get_unshifted_without_concatenated(),
                                             claimed_evaluations.get_shifted(),
@@ -120,17 +118,12 @@ std::array<typename Flavor::GroupElement, 2> GoblinTranslatorRecursiveVerifier_<
     return pairing_points;
 }
 
+// this we verify outside translator
 template <typename Flavor>
 bool GoblinTranslatorRecursiveVerifier_<Flavor>::verify_translation(
     const TranslationEvaluations_<typename Flavor::BF>& translation_evaluations)
 {
     const auto reconstruct_from_array = [&](const auto& arr) {
-        // const BF elt_0 = (static_cast<uint256_t>(arr[0]));
-        // const BF elt_1 = (static_cast<uint256_t>(arr[1]) << 68);
-        // const BF elt_2 = (static_cast<uint256_t>(arr[2]) << 136);
-        // const BF elt_3 = (static_cast<uint256_t>(arr[3]) << 204);
-        // const BF reconstructed = elt_0 + elt_1 + elt_2 + elt_3;
-        // do I need to constrain this?? i think it's constrained inside bigfield
         const BF reconstructed = BF(arr[0], arr[1], arr[2], arr[3]);
         return reconstructed;
     };

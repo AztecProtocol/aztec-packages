@@ -56,6 +56,8 @@ void GoblinTranslatorVerifier::put_translation_data_in_relation_parameters(const
 bool GoblinTranslatorVerifier::verify_proof(const HonkProof& proof)
 {
     batching_challenge_v = transcript->template get_challenge<BF>("Translation:batching_challenge");
+
+    // Load the actual proof produced by the translator proof
     transcript->load_proof(proof);
 
     Flavor::VerifierCommitments commitments{ key };
@@ -77,6 +79,7 @@ bool GoblinTranslatorVerifier::verify_proof(const HonkProof& proof)
     for (auto [comm, label] : zip_view(commitments.get_wires_and_ordered_range_constraints(),
                                        commitment_labels.get_wires_and_ordered_range_constraints())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
+        // info(comm, label);
     }
 
     // Get permutation challenges
@@ -84,6 +87,7 @@ bool GoblinTranslatorVerifier::verify_proof(const HonkProof& proof)
 
     relation_parameters.beta = 0;
     relation_parameters.gamma = gamma;
+    info("native gamma", gamma);
     relation_parameters.public_input_delta = 0;
     relation_parameters.lookup_grand_product_delta = 0;
 

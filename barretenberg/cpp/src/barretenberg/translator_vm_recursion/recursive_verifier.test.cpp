@@ -23,7 +23,7 @@ TEST_F(GoblinTranslatorTests, Recursive)
     using Flavor = bb::GoblinTranslatorFlavor;
     using Transcript = GoblinTranslatorFlavor::Transcript;
     using RecursiveVerifer =
-        GoblinTranslatorRecursiveVerifier_<GoblinTranslatorRecursiveFlavor_<bb::UltraCircuitBuilder>>;
+        GoblinTranslatorRecursiveVerifier_<GoblinTranslatorRecursiveFlavor_<bb::GoblinUltraCircuitBuilder>>;
 
     auto P1 = G1::random_element();
     auto P2 = G1::random_element();
@@ -40,7 +40,7 @@ TEST_F(GoblinTranslatorTests, Recursive)
 
     auto prover_transcript = std::make_shared<Transcript>();
     prover_transcript->send_to_verifier("init", Fq::random_element());
-    prover_transcript->export_proof();
+    auto fake_inital_proof = prover_transcript->export_proof();
     Fq translation_batching_challenge = prover_transcript->template get_challenge<Fq>("Translation:batching_challenge");
     Fq translation_evaluation_challenge = Fq::random_element();
 
@@ -50,22 +50,27 @@ TEST_F(GoblinTranslatorTests, Recursive)
     GoblinTranslatorProver prover{ circuit_builder, prover_transcript };
     auto proof = prover.construct_proof();
 
-    auto verifier_transcript = std::make_shared<Transcript>(prover_transcript->proof_data);
-    verifier_transcript->template receive_from_prover<Fq>("init");
-    auto native_batching_challenge_v =
-        verifier_transcript->template get_challenge<Fq>("Translation:batching_challenge");
-    info(prover.key->circuit_size);
+    proof.insert(proof.begin(), fake_inital_proof.begin(), fake_inital_proof.end());
+
     auto verification_key = std::make_shared<Flavor::VerificationKey>(prover.key);
-    UltraCircuitBuilder verifier_circuit;
-    RecursiveVerifer verifier{ &verifier_circuit, verification_key, native_batching_challenge_v };
+    GoblinUltraCircuitBuilder verifier_circuit;
+    RecursiveVerifer verifier{ &verifier_circuit, verification_key };
     verifier.verify_proof(proof);
     info("Recursive Verifier: num gates = ", verifier_circuit.num_gates);
 
     // Check for a failure flag in the recursive verifier circuit
     EXPECT_EQ(verifier_circuit.failed(), false) << verifier_circuit.err();
 
-    // GoblinTranslatorVerifier verifier(prover.key, verifier_transcript);
-    // bool verified = verifier.verify_proof(proof);
-    // EXPECT_TRUE(verified);
+    auto native_verifier_transcript = std::make_shared<Transcript>(prover_transcript->proof_data);
+    native_verifier_transcript->template receive_from_prover<Fq>("init");
+    GoblinTranslatorVerifier native_verifier(prover.key, native_verifier_transcript);
+    bool verified = native_verifier.verify_proof(proof);
+    EXPECT_TRUE(verified);
+
+    auto recursive_manifest = verifier.transcript->get_manifest();
+    auto native_manifest = native_verifier.transcript->get_manifest();
+    for (size_t i = 0; i < recursive_manifest.size(); ++i) {
+        EXPECT_EQ(recursive_manifest[i], native_manifest[i]);
+    }
 }
 } // namespace bb

@@ -36,16 +36,15 @@ template <typename Flavor> class GoblinTranslatorRecursiveVerifier_ {
     RelationParams relation_parameters;
 
     GoblinTranslatorRecursiveVerifier_(Builder* builder,
-                                       const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
-                                       const NativeBF& translation_batching_challenge);
+                                       const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
 
     void put_translation_data_in_relation_parameters(const BF& evaluation_input_x,
                                                      const BF& batching_challenge_v,
                                                      const BF& accumulated_result);
-    // ?? is this the reasonable way to do this? we shall see...
+
     PairingPoints verify_proof(const HonkProof& proof);
 
-    // ???
+    // verified somewhere else, need to be careful
     bool verify_translation(const TranslationEvaluations& translation_evaluations);
 };
 } // namespace bb
