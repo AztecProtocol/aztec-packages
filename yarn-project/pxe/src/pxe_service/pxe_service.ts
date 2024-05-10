@@ -46,6 +46,7 @@ import {
   type ExecutionResult,
   collectEnqueuedPublicFunctionCalls,
   collectSortedEncryptedLogs,
+  collectSortedNoteEncryptedLogs,
   collectSortedUnencryptedLogs,
   resolveOpcodeLocations,
 } from '@aztec/simulator';
@@ -667,6 +668,7 @@ export class PXEService implements PXE {
     this.log.debug(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
 
+    const noteEncryptedLogs = new EncryptedTxL2Logs([collectSortedNoteEncryptedLogs(executionResult)]);
     const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(executionResult)]);
     const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(executionResult)]);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
@@ -679,6 +681,7 @@ export class PXEService implements PXE {
     const tx = new Tx(
       publicInputs,
       proof,
+      noteEncryptedLogs,
       encryptedLogs,
       unencryptedLogs,
       enqueuedPublicFunctions,

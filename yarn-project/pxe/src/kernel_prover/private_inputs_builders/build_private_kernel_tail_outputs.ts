@@ -1,6 +1,8 @@
 import {
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+  NoteLogHash,
   PrivateKernelTailOutputs,
   ScopedNoteHash,
   ScopedNullifier,
@@ -11,6 +13,7 @@ import { type Tuple } from '@aztec/foundation/serialize';
 export function buildPrivateKernelTailOutputs(
   prevNoteHashes: Tuple<ScopedNoteHash, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
   prevNullifiers: Tuple<ScopedNullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+  prevLogs: Tuple<NoteLogHash, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
 ) {
   // Propagate note hashes that are not linked to a nullifier.
   // Note that note hashes can't link to the first nullifier (counter == 0).
@@ -26,5 +29,13 @@ export function buildPrivateKernelTailOutputs(
     MAX_NEW_NULLIFIERS_PER_TX,
   );
 
-  return new PrivateKernelTailOutputs(noteHashes, nullifiers);
+  const filteredNulls = prevNullifiers.filter(n => !n.isEmpty()).map(n => n.nullifiedNoteHash.toBigInt());
+
+  const logs = padArrayEnd(
+    prevLogs.filter(l => !l.isEmpty() && !filteredNulls.includes(l.noteHash.toBigInt())),
+    NoteLogHash.empty(),
+    MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+  );
+
+  return new PrivateKernelTailOutputs(noteHashes, nullifiers, logs);
 }

@@ -1,5 +1,5 @@
 use crate::{
-    hash::compute_tx_logs_hash,
+    hash::{compute_tx_logs_hash, compute_tx_note_logs_hash},
     abis::{
     accumulated_data::public_accumulated_data::PublicAccumulatedData, note_hash::NoteHash,
     nullifier::Nullifier, public_data_update_request::PublicDataUpdateRequest, side_effect::SideEffect,
@@ -17,6 +17,7 @@ struct CombinedAccumulatedData {
     new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_TX],
     new_l2_to_l1_msgs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
 
+    note_encrypted_logs_hash: Field,
     encrypted_logs_hash: Field,
     unencrypted_logs_hash: Field,
 
@@ -33,6 +34,12 @@ struct CombinedAccumulatedData {
 impl CombinedAccumulatedData {
     pub fn combine(non_revertible: PublicAccumulatedData, revertible: PublicAccumulatedData) -> Self {
         // TODO(Miranda): Hash here or elsewhere?
+        let note_encrypted_logs_hash = compute_tx_note_logs_hash(
+            array_merge(
+                non_revertible.note_encrypted_logs_hashes,
+                revertible.note_encrypted_logs_hashes
+            )
+        );
         let encrypted_logs_hash = compute_tx_logs_hash(
             array_merge(
                 non_revertible.encrypted_logs_hashes,
@@ -52,6 +59,7 @@ impl CombinedAccumulatedData {
                 non_revertible.new_l2_to_l1_msgs,
                 revertible.new_l2_to_l1_msgs
             ),
+            note_encrypted_logs_hash,
             encrypted_logs_hash,
             unencrypted_logs_hash,
             encrypted_log_preimages_length: non_revertible.encrypted_log_preimages_length
@@ -73,6 +81,7 @@ impl Empty for CombinedAccumulatedData {
             new_note_hashes: [0; MAX_NEW_NOTE_HASHES_PER_TX],
             new_nullifiers: [0; MAX_NEW_NULLIFIERS_PER_TX],
             new_l2_to_l1_msgs: [0; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
+            note_encrypted_logs_hash: 0,
             encrypted_logs_hash: 0,
             unencrypted_logs_hash: 0,
             encrypted_log_preimages_length: 0,

@@ -17,6 +17,7 @@ import {
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_CALL,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
@@ -29,7 +30,7 @@ import { Header } from '../structs/header.js';
 import { isEmptyArray } from '../utils/index.js';
 import { CallContext } from './call_context.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
-import { LogHash } from './log_hash.js';
+import { LogHash, NoteLogHash } from './log_hash.js';
 import { MaxBlockNumber } from './max_block_number.js';
 import { NoteHash } from './note_hash.js';
 import { Nullifier } from './nullifier.js';
@@ -111,6 +112,11 @@ export class PrivateCircuitPublicInputs {
      */
     public endSideEffectCounter: Fr,
     /**
+     * Hash of the encrypted note logs emitted in this function call.
+     * Note: Truncated to 31 bytes to fit in Fr.
+     */
+    public noteEncryptedLogsHashes: Tuple<NoteLogHash, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_CALL>,
+    /**
      * Hash of the encrypted logs emitted in this function call.
      * Note: Truncated to 31 bytes to fit in Fr.
      */
@@ -177,6 +183,7 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readObject(Fr),
       reader.readObject(Fr),
+      reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, NoteLogHash),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_CALL, LogHash),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash),
       reader.readObject(Fr),
@@ -205,6 +212,7 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readField(),
       reader.readField(),
+      reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, NoteLogHash),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_CALL, LogHash),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash),
       reader.readField(),
@@ -236,6 +244,7 @@ export class PrivateCircuitPublicInputs {
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
       Fr.ZERO,
       Fr.ZERO,
+      makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, NoteLogHash.empty),
       makeTuple(MAX_ENCRYPTED_LOGS_PER_CALL, LogHash.empty),
       makeTuple(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash.empty),
       Fr.ZERO,
@@ -262,6 +271,7 @@ export class PrivateCircuitPublicInputs {
       isZeroArray(this.publicCallStackHashes) &&
       this.publicTeardownFunctionHash.isZero() &&
       isEmptyArray(this.newL2ToL1Msgs) &&
+      isEmptyArray(this.noteEncryptedLogsHashes) &&
       isEmptyArray(this.encryptedLogsHashes) &&
       isEmptyArray(this.unencryptedLogsHashes) &&
       this.encryptedLogPreimagesLength.isZero() &&
@@ -294,6 +304,7 @@ export class PrivateCircuitPublicInputs {
       fields.newL2ToL1Msgs,
       fields.startSideEffectCounter,
       fields.endSideEffectCounter,
+      fields.noteEncryptedLogsHashes,
       fields.encryptedLogsHashes,
       fields.unencryptedLogsHashes,
       fields.encryptedLogPreimagesLength,

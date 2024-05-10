@@ -186,7 +186,7 @@ mod tests {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         let contract_address = builder.public_call.contract_address;
         // Setup 2 new note hashes on the previous kernel.
-        builder.previous_kernel.append_new_note_hashes(2);
+        builder.previous_kernel.append_new_note_hashes(2, false);
         let previous = builder.previous_kernel.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash);
         // Setup 2 new note hashes on the current public inputs.
         let current = [

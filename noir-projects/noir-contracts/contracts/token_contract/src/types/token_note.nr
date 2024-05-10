@@ -53,12 +53,12 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
       // We only bother inserting the note if non-empty to save funds on gas.
       if !(self.amount == U128::from_integer(0)) {
           let encryption_pub_key = get_public_key(self.owner);
-          context.emit_encrypted_log(
+          context.emit_note_encrypted_log(
               (*context).this_address(),
               slot,
               Self::get_note_type_id(),
               encryption_pub_key,
-              self.serialize_content(),
+              self,
           );
       }
     }

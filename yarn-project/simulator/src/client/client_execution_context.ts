@@ -1,14 +1,13 @@
 import {
   type AuthWitness,
   type AztecNode,
-  EncryptedFunctionL2Logs,
   EncryptedL2Log,
   L1NotePayload,
   Note,
   type NoteStatus,
   TaggedNote,
-  UnencryptedFunctionL2Logs,
   type UnencryptedL2Log,
+  encryptBuffer,
 } from '@aztec/circuit-types';
 import {
   CallContext,
@@ -20,18 +19,24 @@ import {
   type TxContext,
 } from '@aztec/circuits.js';
 import { Aes128 } from '@aztec/circuits.js/barretenberg';
-import { computePublicDataTreeLeafSlot, computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
+import {
+  computeInnerNoteHash,
+  computeNoteContentHash,
+  computePublicDataTreeLeafSlot,
+  computeUniqueNoteHash,
+  siloNoteHash,
+} from '@aztec/circuits.js/hash';
 import { type FunctionAbi, type FunctionArtifact, countArgumentsSize } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr, type Point } from '@aztec/foundation/fields';
+import { Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { type NoteData, toACVMWitness } from '../acvm/index.js';
 import { type PackedValuesCache } from '../common/packed_values_cache.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionNoteCache } from './execution_note_cache.js';
 import { CountedLog, type ExecutionResult, type NoteAndSlot } from './execution_result.js';
-import { type LogsCache } from './logs_cache.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -59,6 +64,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   private noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
   private nullifiedNoteHashCounters: Map<number, number> = new Map();
+  private noteEncryptedLogs: CountedLog<EncryptedL2Log>[] = [];
   private encryptedLogs: CountedLog<EncryptedL2Log>[] = [];
   private unencryptedLogs: CountedLog<UnencryptedL2Log>[] = [];
   private nestedExecutions: ExecutionResult[] = [];
@@ -75,7 +81,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     authWitnesses: AuthWitness[],
     private readonly packedValuesCache: PackedValuesCache,
     private readonly noteCache: ExecutionNoteCache,
-    private readonly logsCache: LogsCache,
     db: DBOracle,
     private node: AztecNode,
     protected sideEffectCounter: number = 0,
@@ -132,6 +137,38 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
+   * Return the note encrypted logs emitted during this execution.
+   */
+  public getNoteEncryptedLogs() {
+    // Do not return logs that have been chopped in the cache
+    const filteredLogs = this.noteEncryptedLogs.filter(l => this.noteCache.getLogs().includes(l));
+    return filteredLogs;
+  }
+
+  /**
+   * Sometimes notes can be chopped after a nested execution is complete.
+   * This means finished nested executions still hold transient logs. This method removes them.
+   * TODO(Miranda): is there a cleaner solution?
+   */
+  public chopNoteEncryptedLogsFromNested() {
+    // Do not return logs that have been chopped in the cache
+    const allNoteLogs = this.noteCache.getLogs();
+    this.nestedExecutions.forEach(result => {
+      if (!result.noteEncryptedLogs[0]?.isEmpty()) {
+        // The execution has note logs
+        result.noteEncryptedLogs = result.noteEncryptedLogs.filter(l => allNoteLogs.includes(l));
+      }
+    });
+  }
+
+  /**
+   * Return the note encrypted logs emitted during this execution.
+   */
+  public getAllNoteEncryptedLogs() {
+    return this.noteCache.getLogs();
+  }
+
+  /**
    * Return the encrypted logs emitted during this execution.
    */
   public getEncryptedLogs() {
@@ -139,24 +176,10 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * Return the encrypted logs emitted during this execution and nested executions.
-   */
-  public getAllEncryptedLogs() {
-    return new EncryptedFunctionL2Logs(this.logsCache.getEncryptedLogs());
-  }
-
-  /**
    * Return the encrypted logs emitted during this execution.
    */
   public getUnencryptedLogs() {
     return this.unencryptedLogs;
-  }
-
-  /**
-   * Return the unencrypted logs emitted during this execution and nested executions.
-   */
-  public getAllUnencryptedLogs() {
-    return new UnencryptedFunctionL2Logs(this.logsCache.getUnencryptedLogs());
   }
 
   /**
@@ -344,14 +367,29 @@ export class ClientExecutionContext extends ViewDataOracle {
     log: Fr[],
     counter: number,
   ) {
+    // TODO(Miranda): This is a temporary solution until we encrypt logs in the circuit
+    // Then we require a new oracle that deals only with notes
     const note = new Note(log);
-    const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
-    const taggedNote = new TaggedNote(l1NotePayload);
-    const encryptedNote = taggedNote.toEncryptedBuffer(publicKey);
-    const encryptedLog = new EncryptedL2Log(encryptedNote);
-    this.encryptedLogs.push(new CountedLog(encryptedLog, counter));
-    this.logsCache.addEncryptedLog(encryptedLog);
-    return encryptedNote;
+    const innerNoteHash = computeInnerNoteHash(storageSlot, computeNoteContentHash(log));
+    const noteExists = this.noteCache.checkNoteExists(contractAddress, innerNoteHash);
+    if (noteExists) {
+      // Log linked to note
+      const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
+      const taggedNote = new TaggedNote(l1NotePayload);
+      const encryptedNote = taggedNote.toEncryptedBuffer(publicKey);
+      const encryptedLog = new CountedLog(new EncryptedL2Log(encryptedNote), counter);
+      this.noteEncryptedLogs.push(encryptedLog);
+      this.noteCache.addNewLog(encryptedLog, innerNoteHash);
+      return encryptedNote;
+    } else {
+      // Generic non-note log
+      // We assume only the log and address are required
+      const preimage = Buffer.concat([contractAddress.toBuffer(), serializeToBuffer(log)]);
+      const encryptedMsg = encryptBuffer(preimage, GrumpkinScalar.random(), publicKey);
+      const encryptedLog = new EncryptedL2Log(encryptedMsg);
+      this.encryptedLogs.push(new CountedLog(encryptedLog, counter));
+      return encryptedMsg;
+    }
   }
 
   /**
@@ -360,7 +398,6 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   public override emitUnencryptedLog(log: UnencryptedL2Log, counter: number) {
     this.unencryptedLogs.push(new CountedLog(log, counter));
-    this.logsCache.addUnencryptedLog(log);
     const text = log.toHumanReadable();
     this.log.verbose(`Emitted unencrypted log: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`);
   }
@@ -374,7 +411,6 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   public override emitContractClassUnencryptedLog(log: UnencryptedL2Log, counter: number) {
     this.unencryptedLogs.push(new CountedLog(log, counter));
-    this.logsCache.addUnencryptedLog(log);
     const text = log.toHumanReadable();
     this.log.verbose(
       `Emitted unencrypted log from ContractClassRegisterer: "${
@@ -442,7 +478,6 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.authWitnesses,
       this.packedValuesCache,
       this.noteCache,
-      this.logsCache,
       this.db,
       this.node,
       sideEffectCounter,

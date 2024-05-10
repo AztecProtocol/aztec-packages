@@ -310,8 +310,9 @@ export class AvmPersistableStateManager {
     );
     // Duplicates computation performed in public_context.nr::emit_unencrypted_log
     // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4).
-    // Note that ulog.length includes all the above bytes
-    this.transitionalExecutionResult.unencryptedLogPreimagesLength = new Fr(ulog.length).add(
+    // Note that ulog.length includes all the above bytes apart from processed log len
+    // Processed log len is added to replicate conversion to function_l2_logs at the end of exec.
+    this.transitionalExecutionResult.unencryptedLogPreimagesLength = new Fr(ulog.length + 4).add(
       this.transitionalExecutionResult.unencryptedLogPreimagesLength,
     );
     // TODO(6206): likely need to track this here and not just in the transitional logic.

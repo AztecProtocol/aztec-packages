@@ -18,6 +18,7 @@ function emptyExecutionResult(): ExecutionResult {
     returnValues: [],
     nestedExecutions: [],
     enqueuedPublicFunctionCalls: [],
+    noteEncryptedLogs: [],
     encryptedLogs: [],
     unencryptedLogs: [],
   };

@@ -4,6 +4,7 @@ import {
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   type MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
@@ -100,6 +101,11 @@ export async function buildPrivateKernelTailHints(
     MAX_NEW_NULLIFIERS_PER_TX,
   );
 
+  const [sortedNoteEncryptedLogHashes, sortedNoteEncryptedLogHashesIndexes] = sortByCounterGetSortedHints(
+    publicInputs.end.noteEncryptedLogsHashes,
+    MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+  );
+
   const [sortedEncryptedLogHashes, sortedEncryptedLogHashesIndexes] = sortByCounterGetSortedHints(
     publicInputs.end.encryptedLogsHashes,
     MAX_ENCRYPTED_LOGS_PER_TX,
@@ -110,16 +116,23 @@ export async function buildPrivateKernelTailHints(
     MAX_UNENCRYPTED_LOGS_PER_TX,
   );
 
-  const [transientNullifierIndexesForNoteHashes, transientNoteHashIndexesForNullifiers] = buildTransientDataHints(
+  const [
+    transientNullifierIndexesForNoteHashes,
+    transientNoteHashIndexesForNullifiers,
+    transientNoteHashIndexesForLogs,
+  ] = buildTransientDataHints(
     sortedNoteHashes,
     sortedNullifiers,
+    sortedNoteEncryptedLogHashes,
     MAX_NEW_NOTE_HASHES_PER_TX,
     MAX_NEW_NULLIFIERS_PER_TX,
+    MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   );
 
   return new PrivateKernelTailHints(
     transientNullifierIndexesForNoteHashes,
     transientNoteHashIndexesForNullifiers,
+    transientNoteHashIndexesForLogs,
     noteHashReadRequestHints,
     nullifierReadRequestHints,
     masterNullifierSecretKeys,
@@ -127,6 +140,8 @@ export async function buildPrivateKernelTailHints(
     sortedNoteHashesIndexes,
     sortedNullifiers,
     sortedNullifiersIndexes,
+    sortedNoteEncryptedLogHashes,
+    sortedNoteEncryptedLogHashesIndexes,
     sortedEncryptedLogHashes,
     sortedEncryptedLogHashesIndexes,
     sortedUnencryptedLogHashes,

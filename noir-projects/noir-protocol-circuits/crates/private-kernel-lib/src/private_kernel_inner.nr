@@ -63,7 +63,7 @@ mod tests {
         abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         max_block_number::MaxBlockNumber, note_hash::NoteHash, nullifier::Nullifier,
-        read_request::ReadRequest, log_hash::LogHash
+        read_request::ReadRequest, log_hash::{LogHash, NoteLogHash}
     },
         address::{AztecAddress, EthAddress}, constants::MAX_NEW_NOTE_HASHES_PER_CALL,
         messaging::l2_to_l1_message::L2ToL1Message, utils::{arrays::array_length},
@@ -471,6 +471,33 @@ mod tests {
         builder.failed();
     }
 
+    #[test(should_fail_with = "invalid array")]
+    fn input_validation_malformed_arrays_note_logs() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new();
+
+        builder.private_call.public_inputs.note_encrypted_logs_hashes.extend_from_array(
+            [
+            NoteLogHash { value: 0, counter: 0, length: 0, note_hash: 0 },
+            NoteLogHash { value: 9123, counter: 1, length: 2, note_hash: 1 }
+        ]
+        );
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with = "Could not find note hash linked to note log.")]
+    fn input_validation_note_log_not_linked() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new();
+
+        builder.private_call.public_inputs.note_encrypted_logs_hashes.extend_from_array(
+            [
+            NoteLogHash { value: 9123, counter: 1, length: 2, note_hash: 1 }
+        ]
+        );
+
+        builder.failed();
+    }
+
     #[test(should_fail_with = "push out of bounds")]
     fn private_kernel_should_fail_if_aggregating_too_many_note_hashes() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
@@ -479,7 +506,7 @@ mod tests {
         builder.private_call.public_inputs.new_note_hashes.push(NoteHash { value: 4321, counter: 0 });
 
         // Mock the previous new note hashes to be full, therefore no more note_hashes can be added.
-        builder.previous_kernel.append_new_note_hashes(MAX_NEW_NOTE_HASHES_PER_TX);
+        builder.previous_kernel.append_new_note_hashes(MAX_NEW_NOTE_HASHES_PER_TX, false);
 
         builder.failed();
     }
@@ -503,6 +530,8 @@ mod tests {
         assert_eq(public_inputs.end.new_note_hashes[2].nullifier_counter, 20);
     }
 
+    // TODO: add test
+    
     #[test(should_fail_with="Invalid nullifier counter")]
     fn propagate_note_hashes_with_incorrect_nullifier_counters_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();

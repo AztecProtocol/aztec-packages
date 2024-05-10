@@ -5,12 +5,13 @@ import {
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { type GrumpkinPrivateKey } from '../../types/grumpkin_private_key.js';
 import { countAccumulatedItems } from '../../utils/index.js';
-import { LogHash } from '../log_hash.js';
+import { LogHash, NoteLogHash } from '../log_hash.js';
 import { ScopedNoteHash } from '../note_hash.js';
 import { ScopedNullifier } from '../nullifier.js';
 import {
@@ -25,10 +26,11 @@ export class PrivateKernelTailOutputs {
   constructor(
     public noteHashes: Tuple<ScopedNoteHash, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     public nullifiers: Tuple<ScopedNullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public noteEncryptedLogHashes: Tuple<NoteLogHash, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.noteHashes, this.nullifiers);
+    return serializeToBuffer(this.noteHashes, this.nullifiers, this.noteEncryptedLogHashes);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
@@ -36,6 +38,7 @@ export class PrivateKernelTailOutputs {
     return new PrivateKernelTailOutputs(
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, ScopedNullifier),
+      reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, NoteLogHash),
     );
   }
 }
@@ -50,6 +53,10 @@ export class PrivateKernelTailHints {
      * Contains hints for the transient nullifiers to locate corresponding note hashes.
      */
     public transientNoteHashIndexesForNullifiers: Tuple<number, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    /**
+     * Contains hints for the transient logs to locate corresponding note hashes.
+     */
+    public transientNoteHashIndexesForLogs: Tuple<number, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
     /**
      * Contains hints for the transient read requests to localize corresponding commitments.
      */
@@ -80,6 +87,14 @@ export class PrivateKernelTailHints {
      */
     public sortedNewNullifiersIndexes: Tuple<number, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
+     * The sorted encrypted note log hashes.
+     */
+    public sortedNoteEncryptedLogHashes: Tuple<NoteLogHash, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
+    /**
+     * The sorted encrypted note log hashes indexes. Maps original to sorted.
+     */
+    public sortedNoteEncryptedLogHashesIndexes: Tuple<number, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
+    /**
      * The sorted encrypted log hashes.
      */
     public sortedEncryptedLogHashes: Tuple<LogHash, typeof MAX_ENCRYPTED_LOGS_PER_TX>,
@@ -101,6 +116,7 @@ export class PrivateKernelTailHints {
     return serializeToBuffer(
       this.transientNullifierIndexesForNoteHashes,
       this.transientNoteHashIndexesForNullifiers,
+      this.transientNoteHashIndexesForLogs,
       this.noteHashReadRequestHints,
       this.nullifierReadRequestHints,
       this.masterNullifierSecretKeys,
@@ -108,6 +124,8 @@ export class PrivateKernelTailHints {
       this.sortedNewNoteHashesIndexes,
       this.sortedNewNullifiers,
       this.sortedNewNullifiersIndexes,
+      this.sortedNoteEncryptedLogHashes,
+      this.sortedNoteEncryptedLogHashesIndexes,
       this.sortedEncryptedLogHashes,
       this.sortedEncryptedLogHashesIndexes,
       this.sortedUnencryptedLogHashes,
@@ -125,6 +143,7 @@ export class PrivateKernelTailHints {
     return new PrivateKernelTailHints(
       reader.readNumbers(MAX_NEW_NOTE_HASHES_PER_TX),
       reader.readNumbers(MAX_NEW_NULLIFIERS_PER_TX),
+      reader.readNumbers(MAX_NOTE_ENCRYPTED_LOGS_PER_TX),
       reader.readObject({ fromBuffer: noteHashReadRequestHintsFromBuffer }),
       reader.readObject({ fromBuffer: nullifierReadRequestHintsFromBuffer }),
       reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar),
@@ -132,6 +151,8 @@ export class PrivateKernelTailHints {
       reader.readNumbers(MAX_NEW_NOTE_HASHES_PER_TX),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, ScopedNullifier),
       reader.readNumbers(MAX_NEW_NULLIFIERS_PER_TX),
+      reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, NoteLogHash),
+      reader.readNumbers(MAX_NOTE_ENCRYPTED_LOGS_PER_TX),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, LogHash),
       reader.readNumbers(MAX_ENCRYPTED_LOGS_PER_TX),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, LogHash),

@@ -73,6 +73,7 @@ describe('Kernel Prover', () => {
       acir: Buffer.alloc(0),
       partialWitness: new Map(),
       enqueuedPublicFunctionCalls: [],
+      noteEncryptedLogs: [],
       encryptedLogs: [],
       unencryptedLogs: [],
     };

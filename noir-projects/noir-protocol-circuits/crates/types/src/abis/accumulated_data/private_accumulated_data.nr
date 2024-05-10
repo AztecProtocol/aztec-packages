@@ -1,14 +1,14 @@
 use crate::{
     abis::{
     call_request::CallRequest, gas::Gas, note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
-    log_hash::LogHash
+    log_hash::{LogHash, NoteLogHash}
 },
     messaging::l2_to_l1_message::ScopedL2ToL1Message
 };
 use crate::constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
-    MAX_UNENCRYPTED_LOGS_PER_TX
+    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 };
 
 struct PrivateAccumulatedData {
@@ -16,6 +16,7 @@ struct PrivateAccumulatedData {
     new_nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
     new_l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
 
+    note_encrypted_logs_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
     encrypted_logs_hashes: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX],
     unencrypted_logs_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
 

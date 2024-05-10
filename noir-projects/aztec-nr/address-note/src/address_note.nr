@@ -42,12 +42,12 @@ impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
         let encryption_pub_key = get_public_key(self.owner);
         // docs:start:encrypted
-        context.emit_encrypted_log(
+        context.emit_note_encrypted_log(
             (*context).this_address(),
             slot,
             Self::get_note_type_id(),
             encryption_pub_key,
-            self.serialize_content(),
+            self,
         );
         // docs:end:encrypted
     }

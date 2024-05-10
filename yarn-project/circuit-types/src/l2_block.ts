@@ -203,6 +203,14 @@ export class L2Block {
    */
   getStats() {
     const logsStats = {
+      noteEncryptedLogLength: this.body.txEffects.reduce(
+        (logCount, txEffect) => logCount + txEffect.noteEncryptedLogs.getSerializedLength(),
+        0,
+      ),
+      noteEncryptedLogCount: this.body.txEffects.reduce(
+        (logCount, txEffect) => logCount + txEffect.noteEncryptedLogs.getTotalLogCount(),
+        0,
+      ),
       encryptedLogLength: this.body.txEffects.reduce(
         (logCount, txEffect) => logCount + txEffect.encryptedLogs.getSerializedLength(),
         0,

@@ -26,6 +26,7 @@ library Constants {
   uint256 internal constant MAX_NULLIFIER_READ_REQUESTS_PER_CALL = 2;
   uint256 internal constant MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL = 2;
   uint256 internal constant MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL = 1;
+  uint256 internal constant MAX_NOTE_ENCRYPTED_LOGS_PER_CALL = 4;
   uint256 internal constant MAX_ENCRYPTED_LOGS_PER_CALL = 4;
   uint256 internal constant MAX_UNENCRYPTED_LOGS_PER_CALL = 4;
   uint256 internal constant MAX_NEW_NOTE_HASHES_PER_TX = 64;
@@ -39,6 +40,7 @@ library Constants {
   uint256 internal constant MAX_NULLIFIER_READ_REQUESTS_PER_TX = 8;
   uint256 internal constant MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX = 8;
   uint256 internal constant MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX = 4;
+  uint256 internal constant MAX_NOTE_ENCRYPTED_LOGS_PER_TX = 8;
   uint256 internal constant MAX_ENCRYPTED_LOGS_PER_TX = 8;
   uint256 internal constant MAX_UNENCRYPTED_LOGS_PER_TX = 8;
   uint256 internal constant NUM_ENCRYPTED_LOGS_HASHES_PER_TX = 1;
@@ -124,6 +126,7 @@ library Constants {
   uint256 internal constant PARTIAL_STATE_REFERENCE_LENGTH = 6;
   uint256 internal constant READ_REQUEST_LENGTH = 2;
   uint256 internal constant LOG_HASH_LENGTH = 3;
+  uint256 internal constant NOTE_LOG_HASH_LENGTH = 4;
   uint256 internal constant NOTE_HASH_LENGTH = 2;
   uint256 internal constant SCOPED_NOTE_HASH_LENGTH = NOTE_HASH_LENGTH + 2;
   uint256 internal constant NULLIFIER_LENGTH = 3;
@@ -143,6 +146,7 @@ library Constants {
     + (NULLIFIER_LENGTH * MAX_NEW_NULLIFIERS_PER_CALL) + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL
     + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL + 1
     + (L2_TO_L1_MESSAGE_LENGTH * MAX_NEW_L2_TO_L1_MSGS_PER_CALL) + 2
+    + (NOTE_LOG_HASH_LENGTH * MAX_NOTE_ENCRYPTED_LOGS_PER_CALL)
     + (LOG_HASH_LENGTH * MAX_ENCRYPTED_LOGS_PER_CALL)
     + (LOG_HASH_LENGTH * MAX_UNENCRYPTED_LOGS_PER_CALL) + 2 + HEADER_LENGTH + TX_CONTEXT_LENGTH;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = CALL_CONTEXT_LENGTH + 2

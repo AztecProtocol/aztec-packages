@@ -3,11 +3,11 @@ use dep::types::{
     abis::{
     kernel_data::PrivateKernelData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder, PublicKernelCircuitPublicInputs},
-    note_hash::ScopedNoteHash, nullifier::ScopedNullifier, side_effect::Ordered, log_hash::LogHash, gas::Gas
+    note_hash::ScopedNoteHash, nullifier::ScopedNullifier, side_effect::Ordered, log_hash::{LogHash, NoteLogHash}, gas::Gas
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
-    MAX_UNENCRYPTED_LOGS_PER_TX
+    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 },
     hash::{
     compute_l2_to_l1_hash, compute_note_hash_nonce, compute_unique_siloed_note_hash, silo_note_hash,
@@ -29,13 +29,17 @@ struct KernelCircuitPublicInputsComposer {
     // Final data
     note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
     nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
+    note_encrypted_log_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
     // Hints
     transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
     transient_note_hash_indexes_for_nullifiers: [u64; MAX_NEW_NULLIFIERS_PER_TX],
+    transient_note_hash_indexes_for_logs: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
     sorted_note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
+    sorted_note_encrypted_log_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
+    sorted_note_encrypted_log_hashes_indexes: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
     sorted_encrypted_log_hashes: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_unencrypted_log_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
@@ -47,12 +51,16 @@ impl KernelCircuitPublicInputsComposer {
         previous_kernel: PrivateKernelData,
         note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
         nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
+        note_encrypted_log_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
         transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
         transient_note_hash_indexes_for_nullifiers: [u64; MAX_NEW_NULLIFIERS_PER_TX],
+        transient_note_hash_indexes_for_logs: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
         sorted_note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
         sorted_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
         sorted_nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
         sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
+        sorted_note_encrypted_log_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
+        sorted_note_encrypted_log_hashes_indexes: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
         sorted_encrypted_log_hashes: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX],
         sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
         sorted_unencrypted_log_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
@@ -65,12 +73,16 @@ impl KernelCircuitPublicInputsComposer {
             previous_kernel,
             note_hashes,
             nullifiers,
+            note_encrypted_log_hashes,
             transient_nullifier_indexes_for_note_hashes,
             transient_note_hash_indexes_for_nullifiers,
+            transient_note_hash_indexes_for_logs,
             sorted_note_hashes,
             sorted_note_hashes_indexes,
             sorted_nullifiers,
             sorted_nullifiers_indexes,
+            sorted_note_encrypted_log_hashes,
+            sorted_note_encrypted_log_hashes_indexes,
             sorted_encrypted_log_hashes,
             sorted_encrypted_log_hashes_indexes,
             sorted_unencrypted_log_hashes,
@@ -127,6 +139,7 @@ impl KernelCircuitPublicInputsComposer {
         self.silo_note_hashes();
         self.silo_nullifiers();
         self.silo_l2_to_l1_messages();
+        // TODO(Miranda): Silo logs here
     }
 
     fn silo_note_hashes(&mut self) {
@@ -201,6 +214,14 @@ impl KernelCircuitPublicInputsComposer {
         self.public_inputs.end.new_nullifiers = array_to_bounded_vec(self.sorted_nullifiers);
 
         assert_sorted_array(
+            accumulated_data.note_encrypted_logs_hashes,
+            self.sorted_note_encrypted_log_hashes,
+            self.sorted_note_encrypted_log_hashes_indexes,
+            asc_sort_by_counters
+        );
+        self.public_inputs.end.note_encrypted_logs_hashes = array_to_bounded_vec(self.sorted_note_encrypted_log_hashes);
+
+        assert_sorted_array(
             accumulated_data.encrypted_logs_hashes,
             self.sorted_encrypted_log_hashes,
             self.sorted_encrypted_log_hashes_indexes,
@@ -227,13 +248,16 @@ impl KernelCircuitPublicInputsComposer {
     }
 
     fn squash_transient_data(&mut self) {
-        verify_squashed_transient_note_hashes_and_nullifiers(
+        let removed_logs_len = verify_squashed_transient_note_hashes_and_nullifiers(
             self.public_inputs.end.new_note_hashes.storage,
             self.public_inputs.end.new_nullifiers.storage,
+            self.public_inputs.end.note_encrypted_logs_hashes.storage,
             self.note_hashes,
             self.nullifiers,
+            self.note_encrypted_log_hashes,
             self.transient_nullifier_indexes_for_note_hashes,
-            self.transient_note_hash_indexes_for_nullifiers
+            self.transient_note_hash_indexes_for_nullifiers,
+            self.transient_note_hash_indexes_for_logs
         );
 
         // Currently all the transient note hashes and nullifiers must be cleared in the tail circuits.
@@ -244,8 +268,14 @@ impl KernelCircuitPublicInputsComposer {
         for i in 0..self.nullifiers.len() {
             assert(self.nullifiers[i].nullified_note_hash() == 0, "Unresolved transient nullifier");
         }
+        // Below check required?
+        // for i in 0..self.note_encrypted_log_hashes.len() {
+        //     assert(self.note_encrypted_log_hashes[i].note_hash == 0, "Unresolved transient log");
+        // }
 
         self.public_inputs.end.new_note_hashes = array_to_bounded_vec(self.note_hashes);
         self.public_inputs.end.new_nullifiers = array_to_bounded_vec(self.nullifiers);
+        self.public_inputs.end.note_encrypted_logs_hashes = array_to_bounded_vec(self.note_encrypted_log_hashes);
+        self.public_inputs.end.encrypted_log_preimages_length -= removed_logs_len;
     }
 }

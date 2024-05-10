@@ -1,12 +1,12 @@
 use crate::{
     abis::{
     call_request::CallRequest, public_data_update_request::PublicDataUpdateRequest, gas::Gas,
-    note_hash::NoteHash, nullifier::Nullifier, log_hash::LogHash
+    note_hash::NoteHash, nullifier::Nullifier, log_hash::{LogHash, NoteLogHash}
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     MAX_NEW_L2_TO_L1_MSGS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
-    MAX_UNENCRYPTED_LOGS_PER_TX
+    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 },
     traits::Empty
 };
@@ -16,6 +16,7 @@ struct PublicAccumulatedData {
     new_nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
     new_l2_to_l1_msgs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
 
+    note_encrypted_logs_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
     encrypted_logs_hashes: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX],
     unencrypted_logs_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
 
@@ -37,6 +38,7 @@ impl Empty for PublicAccumulatedData {
             new_note_hashes: [NoteHash::empty(); MAX_NEW_NOTE_HASHES_PER_TX],
             new_nullifiers: [Nullifier::empty(); MAX_NEW_NULLIFIERS_PER_TX],
             new_l2_to_l1_msgs: [0; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
+            note_encrypted_logs_hashes: [NoteLogHash::empty(); MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
             encrypted_logs_hashes: [LogHash::empty(); MAX_ENCRYPTED_LOGS_PER_TX],
             unencrypted_logs_hashes: [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
             encrypted_log_preimages_length: 0,

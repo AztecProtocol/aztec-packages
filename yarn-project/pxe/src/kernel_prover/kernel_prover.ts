@@ -129,7 +129,11 @@ export class KernelProver {
 
     const hints = await buildPrivateKernelTailHints(output.publicInputs, noteHashLeafIndexMap, this.oracle);
 
-    const expectedOutputs = buildPrivateKernelTailOutputs(hints.sortedNewNoteHashes, hints.sortedNewNullifiers);
+    const expectedOutputs = buildPrivateKernelTailOutputs(
+      hints.sortedNewNoteHashes,
+      hints.sortedNewNullifiers,
+      hints.sortedNoteEncryptedLogHashes,
+    );
 
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData, expectedOutputs, hints);
 

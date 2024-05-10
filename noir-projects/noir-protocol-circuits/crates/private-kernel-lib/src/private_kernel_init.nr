@@ -92,7 +92,7 @@ mod tests {
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::NoteHash,
         nullifier_key_validation_request::NullifierKeyValidationRequest,
         private_kernel::private_call_data::PrivateCallData, read_request::ReadRequest,
-        nullifier::Nullifier, log_hash::LogHash
+        nullifier::Nullifier, log_hash::{LogHash, NoteLogHash}
     },
         address::{AztecAddress, EthAddress}, constants::MAX_NEW_NOTE_HASHES_PER_CALL,
         grumpkin_point::GrumpkinPoint, messaging::l2_to_l1_message::L2ToL1Message,
@@ -247,6 +247,33 @@ mod tests {
             [
             LogHash { value: 0, counter: 0, length: 0 },
             LogHash { value: 9123, counter: 1, length: 2 }
+        ]
+        );
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with = "invalid array")]
+    fn input_validation_malformed_arrays_note_logs() {
+        let mut builder = PrivateKernelInitInputsBuilder::new();
+
+        builder.private_call.public_inputs.note_encrypted_logs_hashes.extend_from_array(
+            [
+            NoteLogHash { value: 0, counter: 0, length: 0, note_hash: 0 },
+            NoteLogHash { value: 9123, counter: 1, length: 2, note_hash: 1 }
+        ]
+        );
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with = "Could not find note hash linked to note log.")]
+    fn input_validation_note_log_not_linked() {
+        let mut builder = PrivateKernelInitInputsBuilder::new();
+
+        builder.private_call.public_inputs.note_encrypted_logs_hashes.extend_from_array(
+            [
+            NoteLogHash { value: 9123, counter: 1, length: 2, note_hash: 1 }
         ]
         );
 

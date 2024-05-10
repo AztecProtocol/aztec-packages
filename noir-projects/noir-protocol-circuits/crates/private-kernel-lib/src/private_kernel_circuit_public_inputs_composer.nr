@@ -2,7 +2,7 @@ use dep::types::{
     abis::{
     call_request::CallRequest, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
-    max_block_number::MaxBlockNumber, nullifier::Nullifier,
+    max_block_number::MaxBlockNumber, nullifier::Nullifier, note_hash::ScopedNoteHash,
     private_circuit_public_inputs::PrivateCircuitPublicInputs
 },
     address::AztecAddress,
@@ -62,6 +62,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         public_inputs.end.new_note_hashes = array_to_bounded_vec(start.new_note_hashes);
         public_inputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
         public_inputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
+        public_inputs.end.note_encrypted_logs_hashes = array_to_bounded_vec(start.note_encrypted_logs_hashes);
         public_inputs.end.encrypted_logs_hashes = array_to_bounded_vec(start.encrypted_logs_hashes);
         public_inputs.end.unencrypted_logs_hashes = array_to_bounded_vec(start.unencrypted_logs_hashes);
         public_inputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
@@ -179,6 +180,16 @@ impl PrivateKernelCircuitPublicInputsComposer {
     fn propagate_logs(&mut self, source: DataSource) {
         self.public_inputs.end.encrypted_logs_hashes.extend_from_bounded_vec(array_to_bounded_vec(source.private_call_public_inputs.encrypted_logs_hashes));
         self.public_inputs.end.unencrypted_logs_hashes.extend_from_bounded_vec(array_to_bounded_vec(source.private_call_public_inputs.unencrypted_logs_hashes));
+        let note_logs = source.private_call_public_inputs.note_encrypted_logs_hashes;
+        for i in 0..note_logs.len() {
+            if !is_empty(note_logs[i]) {
+                assert(
+                    self.public_inputs.end.new_note_hashes.any(|n: ScopedNoteHash| n.value() == note_logs[i].note_hash),
+                    "Could not find note hash linked to note log."
+                );
+                self.public_inputs.end.note_encrypted_logs_hashes.push(note_logs[i]);
+            }
+        }
 
         // Add log preimages lengths from current iteration to accumulated lengths.
         self.public_inputs.end.encrypted_log_preimages_length += source.private_call_public_inputs.encrypted_log_preimages_length;
