@@ -67,7 +67,7 @@ describe('Key Registry', () => {
       await expect(
         keyRegistry
           .withWallet(wallets[0])
-          .methods.rotate_nullifier_public_key(wallets[1].getAddress(), Point.random(), Fr.ZERO)
+          .methods.rotate_npk_m(wallets[1].getAddress(), Point.random(), Fr.ZERO)
           .send()
           .wait(),
       ).rejects.toThrow('Assertion failed: Message not authorized by account');
@@ -146,7 +146,7 @@ describe('Key Registry', () => {
     it('rotates npk_m', async () => {
       await keyRegistry
         .withWallet(wallets[0])
-        .methods.rotate_nullifier_public_key(wallets[0].getAddress(), firstNewMasterNullifierPublicKey, Fr.ZERO)
+        .methods.rotate_npk_m(wallets[0].getAddress(), firstNewMasterNullifierPublicKey, Fr.ZERO)
         .send()
         .wait();
 
@@ -171,7 +171,7 @@ describe('Key Registry', () => {
     it(`rotates npk_m with authwit`, async () => {
       const action = keyRegistry
         .withWallet(wallets[1])
-        .methods.rotate_nullifier_public_key(wallets[0].getAddress(), secondNewMasterNullifierPublicKey, Fr.ZERO);
+        .methods.rotate_npk_m(wallets[0].getAddress(), secondNewMasterNullifierPublicKey, Fr.ZERO);
 
       await wallets[0]
         .setPublicAuthWit({ caller: wallets[1].getCompleteAddress().address, action }, true)
