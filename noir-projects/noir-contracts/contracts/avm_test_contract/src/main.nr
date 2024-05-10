@@ -140,6 +140,25 @@ contract AvmTest {
         a + b
     }
 
+    #[aztec(public-vm)]
+    fn u128_addition_overflow() -> U128 {
+        let max_u128: U128 = U128::from_hex("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
+        let one: U128 = U128::from_integer(1);
+        max_u128 + one
+    }
+
+    #[aztec(public-vm)]
+    fn u128_from_integer_overflow() -> U128 {
+        let should_overflow: Field = 2.pow_32(128); // U128::max() + 1;
+        U128::from_integer(should_overflow)
+    }
+
+    #[aztec(private)]
+    fn enqueue_public_from_private() {
+        AvmTest::at(context.this_address()).set_opcode_u8().static_enqueue(&mut context);
+        AvmTest::at(context.this_address()).set_read_storage_single(5).enqueue(&mut context);
+    }
+
     /************************************************************************
      * Hashing functions
      ************************************************************************/
