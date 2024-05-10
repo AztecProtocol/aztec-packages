@@ -16,6 +16,7 @@ import { type ContractInstanceWithAddress, SerializableContractInstance } from '
 import { DeferredNoteDao } from './deferred_note_dao.js';
 import { NoteDao } from './note_dao.js';
 import { type PxeDatabase } from './pxe_database.js';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 
 /**
  * A PXE database backed by LMDB.
