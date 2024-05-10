@@ -50,6 +50,7 @@ export class UserData {
       // Shutdown rules:
       // - github actions job starts and ends always bump +ec2InstanceTtl minutes
       // - when the amount of started jobs (start_run_* files) equal the amount of finished jobs (end_run_* files), we shutdown in 5 minutes (with a reaper script installed later)
+      `cd ~`,
       `echo "${bumpShutdown}" > ~/delay_shutdown.sh`,
       "chmod +x ~/delay_shutdown.sh",
       "export ACTIONS_RUNNER_HOOK_JOB_STARTED=~/delay_shutdown.sh",
@@ -64,8 +65,7 @@ export class UserData {
       "mv externals ..", // we share the big binaries between all the runner folders, symlink instead of copy them
       // Note sharing bin doesn't work due to using it as a folder, and we don't bother splitting up sharing bin
       "rm ./actions-runner-linux-${RUNNER_ARCH}-${GH_RUNNER_VERSION}.tar.gz", // cleanup as we will copy our runner folder
-      '[ -n "$(command -v yum)" ] && yum install libicu -y',
-      `TOKENS=(${tokensSpaceSep}) ; echo ${tokensSpaceSep} > ~/github-runner-tokens`, // for debugging failed attempts
+      `TOKENS=(${tokensSpaceSep})`,
       `for i in {0..${this.config.githubActionRunnerConcurrency - 1}}; do`,
       `  ( cp -r . ../${runnerNameBase}-$i && ln -s $(pwd)/../externals ../${runnerNameBase}-$i && cd ../${runnerNameBase}-$i && echo \${TOKENS[i]} > .runner-token && ./config.sh --unattended --url https://github.com/${github.context.repo.owner}/${github.context.repo.repo} --token \${TOKENS[i]} --labels ${this.config.githubActionRunnerLabel} --replace --name ${runnerNameBase}-$i ; ./run.sh ) &`,
       "done",
@@ -84,11 +84,12 @@ export class UserData {
       "sudo apt install -y brotli",
       'echo "MaxStartups 1000" >> /etc/ssh/sshd_config',
       "sudo service sshd restart",
-      `echo ${runners} | base64 --decode > /run/setup-runners.sh && sudo -u ubuntu bash /run/setup-runners.sh`,
+      `echo ${runners} | base64 --decode > /run/setup-runners.sh`,
+      `sudo -u ubuntu bash /run/setup-runners.sh`,
     ];
     console.log(
       "Sending: ",
-      cmds.filter((x) => !x.startsWith("TOKENS")).join("\n")
+      cmds.filter((x) => !x.includes(runners)).join("\n")
     );
     return Buffer.from(cmds.join("\n")).toString("base64");
   }
