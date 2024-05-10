@@ -106,7 +106,7 @@ runs:
         ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
 
     - name: Prevent Multiple Builders From Starting (Lock)
-      if: ${{ !contains(inputs.runner_type, 'tester') }}
+      if: always() && ${{ !contains(inputs.runner_type, 'tester') }}
       uses: ./.github/gh-action-mutex
       with:
         repo-token: ${{ inputs.concurrency_github_token }}

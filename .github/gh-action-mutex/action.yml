@@ -45,5 +45,4 @@ runs:
     ARG_DEBUG: ${{ inputs.debug }}
     ARG_UNLOCK: ${{ inputs.unlock }}
   entrypoint: '/scripts/lock.sh'
-  post-entrypoint: '/scripts/unlock.sh'
 
