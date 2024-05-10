@@ -110,6 +110,7 @@ runs:
       uses: ./.github/gh-action-mutex
       with:
         repo-token: ${{ inputs.concurrency_github_token }}
+        unlock: true
         repository: AztecProtocol/git-metadata
         branch: gh-actions-mutex-${{ inputs.runner_label }}
 
