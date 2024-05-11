@@ -177,7 +177,7 @@ export function interfaceDatastoreTests<D extends Datastore = Datastore>(test: I
 
     afterEach(async () => {
       await cleanup(store);
-    }, 15_000);
+    });
 
     it('simple', async () => {
       const k = new Key('/z/key');
@@ -390,7 +390,7 @@ export function interfaceDatastoreTests<D extends Datastore = Datastore>(test: I
 
     afterEach(async () => {
       await cleanup(store);
-    });
+    }, 15_000);
 
     it('simple', async () => {
       const b = store.batch();
