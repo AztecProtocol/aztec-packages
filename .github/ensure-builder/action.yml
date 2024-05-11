@@ -69,17 +69,17 @@ runs:
             echo "ttl=20" >> $GITHUB_OUTPUT
           fi
           if [[ $TYPE == 4core-* ]]; then
-            echo "instance_type=m6a.2xlarge" >> $GITHUB_OUTPUT
+            echo "instance_type=m6a.large" >> $GITHUB_OUTPUT
           elif [[ $TYPE == 8core-* ]]; then
-            echo "instance_type=m6a.4xlarge" >> $GITHUB_OUTPUT
+            echo "instance_type=m6a.2xlarge" >> $GITHUB_OUTPUT
           elif [[ $TYPE == 16core-* ]]; then
-            echo "instance_type=m6a.8xlarge" >> $GITHUB_OUTPUT
+            echo "instance_type=m6a.4xlarge" >> $GITHUB_OUTPUT
           elif [[ $TYPE == 32core-* ]]; then
-            echo "instance_type=m6a.16xlarge" >> $GITHUB_OUTPUT
+            echo "instance_type=m6a.8xlarge" >> $GITHUB_OUTPUT
           elif [[ $TYPE == 64core-* ]]; then
-            echo "instance_type=m6a.32xlarge" >> $GITHUB_OUTPUT
+            echo "instance_type=m6a.16xlarge" >> $GITHUB_OUTPUT
           elif [[ $TYPE == 128core-* ]]; then
-            echo "instance_type=m6a.64xlarge" >> $GITHUB_OUTPUT
+            echo "instance_type=m6a.32xlarge" >> $GITHUB_OUTPUT
           fi
         fi
 
