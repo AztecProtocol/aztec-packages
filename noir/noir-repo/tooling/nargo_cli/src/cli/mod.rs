@@ -6,11 +6,8 @@ use std::path::PathBuf;
 
 use color_eyre::eyre;
 
-use crate::backends::get_active_backend;
-
 mod fs;
 
-mod backend_cmd;
 mod check_cmd;
 mod compile_cmd;
 mod dap_cmd;
@@ -57,7 +54,6 @@ pub(crate) struct NargoConfig {
 #[non_exhaustive]
 #[derive(Subcommand, Clone, Debug)]
 enum NargoCommand {
-    Backend(backend_cmd::BackendCommand),
     Check(check_cmd::CheckCommand),
     Fmt(fmt_cmd::FormatCommand),
     #[command(alias = "build")]
@@ -88,17 +84,10 @@ pub(crate) fn start_cli() -> eyre::Result<()> {
     // Search through parent directories to find package root if necessary.
     if !matches!(
         command,
-        NargoCommand::New(_)
-            | NargoCommand::Init(_)
-            | NargoCommand::Lsp(_)
-            | NargoCommand::Backend(_)
-            | NargoCommand::Dap(_)
+        NargoCommand::New(_) | NargoCommand::Init(_) | NargoCommand::Lsp(_) | NargoCommand::Dap(_)
     ) {
         config.program_dir = find_package_root(&config.program_dir)?;
     }
-
-    let active_backend = get_active_backend();
-    let backend = crate::backends::Backend::new(active_backend);
 
     match command {
         NargoCommand::New(args) => new_cmd::run(args, config),
@@ -109,8 +98,7 @@ pub(crate) fn start_cli() -> eyre::Result<()> {
         NargoCommand::Execute(args) => execute_cmd::run(args, config),
         NargoCommand::Export(args) => export_cmd::run(args, config),
         NargoCommand::Test(args) => test_cmd::run(args, config),
-        NargoCommand::Info(args) => info_cmd::run(&backend, args, config),
-        NargoCommand::Backend(args) => backend_cmd::run(args),
+        NargoCommand::Info(args) => info_cmd::run(args, config),
         NargoCommand::Lsp(args) => lsp_cmd::run(args, config),
         NargoCommand::Dap(args) => dap_cmd::run(args, config),
         NargoCommand::Fmt(args) => fmt_cmd::run(args, config),
