@@ -23,7 +23,7 @@ if [ -f ~/.ebs-cache-mounted ] ; then
   elapsed_time=0
   # Check for existing mount, assume we can continue if existing
 
-  while ! sudo mount | grep -q "/var/lib/docker type ext4"; do
+  while ! mount | grep -q "/var/lib/docker type ext4"; do
     echo "Someone already marked as mounting, terminating any stopped instances and waiting..."
     # Identify and terminate instances in 'STOPPED' state that are using this volume
     STOPPED_INSTANCES=$(aws ec2 describe-instances \
@@ -52,14 +52,14 @@ fi
 touch ~/.ebs-cache-mounted
 
 # Check for existing mount, assume we can continue if existing
-if sudo mount | grep -q "/var/lib/docker/volumes type ext4"; then
+if mount | grep -q "/var/lib/docker/volumes type ext4"; then
   echo "Detected mount existing on /var/lib/docker/volumes. This is our old mount."
   echo "Run the stop spot workflow https://github.com/AztecProtocol/aztec-packages/actions/workflows/stop-spot.yml and rerun all steps in this workflow."
   exit 0
 fi
 
 # Check for existing mount, assume we can continue if existing
-if sudo mount | grep -q "/var/lib/docker type ext4"; then
+if mount | grep -q "/var/lib/docker type ext4"; then
   echo "Detected mount existing on /var/lib/docker already"
   echo "Continuing..."
   exit 0
@@ -124,12 +124,12 @@ done
 # We are expecting the device to come up as /dev/nvme1n1, but include generic code from
 # https://github.com/slavivanov/ec2-spotter/blob/master/ec2spotter-remount-root
 while true; do
-    if sudo lsblk /dev/nvme1n1; then
+    if lsblk /dev/nvme1n1; then
         BLKDEVICE=/dev/nvme1n1
         # DEVICE=/dev/nvme1n1p1
         break
     fi
-    if sudo lsblk /dev/xvdb; then
+    if lsblk /dev/xvdb; then
         BLKDEVICE=/dev/xvdb
         # DEVICE=/dev/xvdb1
         break
@@ -139,14 +139,14 @@ while true; do
 done
 
 # Create a file system if it does not exist
-if ! sudo file -s $BLKDEVICE | grep -q ext4; then
-  sudo mkfs -t ext4 $BLKDEVICE
+if ! file -s $BLKDEVICE | grep -q ext4; then
+  mkfs -t ext4 $BLKDEVICE
 fi
 
 # Create a mount point and mount the volume
 mkdir -p /var/lib/docker
-sudo mount $BLKDEVICE /var/lib/docker
-sudo service docker restart
+mount $BLKDEVICE /var/lib/docker
+service docker restart
 # important: everything (except earthly ls) should go through earthly-ci
 scripts/earthly-ci bootstrap
 touch /home/ubuntu/.setup-complete
