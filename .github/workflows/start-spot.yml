@@ -16,6 +16,7 @@ jobs:
     with:
       runner_label: ${{ inputs.username || github.actor }}-x86
       runner_type: builder-x86
+      runner_action: ${{ inputs.action }}
     secrets: inherit
 
   start-bench:
@@ -23,4 +24,5 @@ jobs:
     with:
       runner_label: ${{ inputs.username || github.actor }}-bench-x86
       runner_type: bb-bench-x86
+      runner_action: ${{ inputs.action }}
     secrets: inherit

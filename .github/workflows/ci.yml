@@ -14,12 +14,22 @@ concurrency:
   group: ci-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
   cancel-in-progress: true
 
+env:
+  DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
+  RUN_ID: ${{ github.run_id }}
+  RUN_ATTEMPT: ${{ github.run_attempt }}
+  USERNAME: ${{ inputs.username || github.actor }}-x86
+  GH_SELF_HOSTED_RUNNER_TOKEN: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+
 jobs:
   setup:
     uses: ./.github/workflows/setup-runner.yml
     with:
       runner_label: ${{ inputs.username || github.actor }}-x86
-    runner_type: builder-x86
+      runner_type: builder-x86
     secrets: inherit
 
   build:
@@ -35,7 +45,6 @@ jobs:
         }
       - uses: ./.github/ci-setup-action
         with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: build-${{ inputs.username || github.actor }}-x86
       # prepare images locally, tagged by commit hash
       - name: "Build E2E Image"
@@ -62,24 +71,10 @@ jobs:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
-        with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
-          # we want to get the builder's details as SPOT_IP and SPOT_KEY, and ensure it's up
-          start_builder: true
-
       - name: Ensure Builder has Images
         uses: ./.github/ensure-builder
         with:
-          # TODO write and read these from github state
-          run_id: ${{ github.run_id }}
-          run_attempt: ${{ github.run_attempt }}
-          runner_label: ${{ inputs.username || github.actor }}-x86
           runner_type: builder-x86
-          concurrency_github_token: "${{ secrets.AZTEC_GITHUB_TOKEN }}"
-          github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           run: |
             # in case of inconvenient prune, re-export
             set -eux
@@ -93,11 +88,7 @@ jobs:
       - name: Copy Docker Images to Tester
         uses: ./.github/ensure-builder
         with:
-          run_id: ${{ github.run_id }}
           runner_type: ${{ matrix.test == 'client-prover-integration' && '16core-tester-x86' || '4core-tester-x86' }}
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           run: |
             set -eux
             export BUILDER_SPOT_IP=${{ env.BUILDER_SPOT_IP }}
@@ -133,25 +124,12 @@ jobs:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
-        with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
-          # we want to get the builder's details as SPOT_IP and SPOT_KEY, and ensure it's up
-          start_builder: true
-
       - name: Ensure Builder has Images
         # needed to use run-on-builder
         uses: ./.github/ensure-builder
         with:
           # TODO write and read these from github state
-          run_id: ${{ github.run_id }}
-          run_attempt: ${{ github.run_attempt }}
-          runner_label: ${{ inputs.username || github.actor }}-x86
           runner_type: builder-x86
-          concurrency_github_token: "${{ secrets.AZTEC_GITHUB_TOKEN }}"
-          github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           run: |
             # in case of inconvenient prune, re-export
             set -eux
@@ -166,11 +144,7 @@ jobs:
         # needed to use run-on-tester
         uses: ./.github/ensure-builder
         with:
-          run_id: ${{ github.run_id }}
           runner_type: 16core-tester-x86
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           run: |
             set -eux
             export BUILDER_SPOT_IP=${{ env.BUILDER_SPOT_IP }}
@@ -203,7 +177,6 @@ jobs:
   # #         ref: "${{ github.event.pull_request.head.sha }}"
   # #     - uses: ./.github/ci-setup-action
   # #       with:
-  # #         dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
   # #         concurrency_key: build-${{ inputs.username || github.actor }}-x86
   # #     - name: "Build and upload bench aggregate file"
   # #       working-directory: ./yarn-project/scripts
@@ -231,7 +204,6 @@ jobs:
         }
       - uses: ./.github/ci-setup-action
         with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: noir-format-${{ inputs.username || github.actor }}-x86
       - name: "Format Noir"
         working-directory: ./noir/
@@ -255,7 +227,6 @@ jobs:
       # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
         with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           # must be globally unique for build x runner
           concurrency_key: bb-native-tests-${{ inputs.username || github.actor }}-x86
       - name: "Native Prover Tests"
@@ -274,7 +245,6 @@ jobs:
         }
       - uses: ./.github/ci-setup-action
         with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: bb-js-test-${{ github.actor }}-x86
       - name: "bb.js Tests"
         working-directory: ./barretenberg/ts/
@@ -291,7 +261,6 @@ jobs:
         }
       - uses: ./.github/ci-setup-action
         with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: noir-${{ inputs.username || github.actor }}-x86
       - name: "Test Noir JS packages"
         run: earthly-ci --no-output ./noir+test
@@ -306,7 +275,6 @@ jobs:
         }
       - uses: ./.github/ci-setup-action
         with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: noir-packages-${{ inputs.username || github.actor }}-x86
       - name: "Test Noir JS packages"
         run: earthly-ci --no-output ./noir+packages-test
@@ -321,7 +289,6 @@ jobs:
         }
       - uses: ./.github/ci-setup-action
         with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: noir-projects-${{ inputs.username || github.actor }}-x86
       - name: "Noir Projects"
         timeout-minutes: 25
@@ -338,7 +305,6 @@ jobs:
       # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
         with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: yarn-project-formatting-${{ github.actor }}-x86
       - name: "Yarn Project Tests"
         timeout-minutes: 25
@@ -355,7 +321,6 @@ jobs:
       # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
         with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: yarn-project-test-${{ github.actor }}-x86
       - name: "Yarn Project Tests"
         timeout-minutes: 30
@@ -371,7 +336,6 @@ jobs:
         }
       - uses: ./.github/ci-setup-action
         with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: prover-client-test-${{ github.actor }}-x86
       - name: "Prover Client Tests"
         timeout-minutes: 25
@@ -387,7 +351,6 @@ jobs:
         }
       - uses: ./.github/ci-setup-action
         with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: build-acir-tests-${{ github.actor }}-x86
       - name: "Build Acir Tests"
         timeout-minutes: 25
@@ -403,7 +366,6 @@ jobs:
         }
       - uses: ./.github/ci-setup-action
         with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: barretenberg-acir-tests-bb-${{ github.actor }}-x86
       - name: "BB Native Acir Tests"
         working-directory: ./noir/
@@ -420,7 +382,6 @@ jobs:
         }
       - uses: ./.github/ci-setup-action
         with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: barretenberg-acir-tests-sol-${{ github.actor }}-x86
       - name: "BB Solidity Acir Tests"
         working-directory: ./noir/
@@ -437,7 +398,6 @@ jobs:
         }
       - uses: ./.github/ci-setup-action
         with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: barretenberg-acir-tests-bb-js-${{ github.actor }}-x86
       - name: "BB JS Acir Tests"
         working-directory: ./noir/
@@ -455,7 +415,6 @@ jobs:
         }
       - uses: ./.github/ci-setup-action
         with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: docs-preview-${{ inputs.username || github.actor }}-x86
       - name: "Docs Preview"
         timeout-minutes: 30
@@ -469,21 +428,10 @@ jobs:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
-        with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
-          # we want to get the builder's details as SPOT_IP and SPOT_KEY, and ensure it's up
-          start_builder: true
       - name: Build Bench Binaries
         uses: ./.github/ensure-builder
         with:
-          run_id: ${{ github.run_id }}
-          run_attempt: ${{ github.run_attempt }}
-          runner_label: ${{ inputs.username || github.actor }}-x86
           runner_type: builder-x86
-          github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           run: |
             set -eux
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
@@ -491,11 +439,7 @@ jobs:
       - name: Run Bench
         uses: ./.github/ensure-builder
         with:
-          run_id: ${{ github.run_id }}
           runner_type: 16core-tester-x86
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           run: |
             scripts/earthly-ci --no-output ./barretenberg/cpp/+bench-client-ivc --bench_mode=cache
             scripts/earthly-ci --no-output ./barretenberg/cpp/+bench-ultra-honk --bench_mode=cache
@@ -513,7 +457,6 @@ jobs:
       # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
         with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: protocol-circuits-gates-report-${{ inputs.username || github.actor }}-x86
       - name: "Noir Protocol Circuits Report"
         working-directory: ./noir-projects/

@@ -40,12 +40,14 @@ runs:
         TYPE=${{ inputs.runner_type }}
         # Try to use spot for every runner type for now
         echo "spot_strategy=BestEffort" >> $GITHUB_OUTPUT
+        echo "runner_label=$runnner_type" >> $GITHUB_OUTPUT
         if [[ $TYPE == builder-x86 ]]; then
           # 128-core x86 instance types with least evictions
           echo "instance_type=r6in.32xlarge r6a.32xlarge i4i.32xlarge r7iz.32xlarge" >> $GITHUB_OUTPUT
           echo "ami_id=ami-04d8422a9ba4de80f" >> $GITHUB_OUTPUT
           echo "ebs_cache_size=256" >> $GITHUB_OUTPUT
           echo "runner_concurrency=50" >> $GITHUB_OUTPUT
+          echo "runner_label=$USERNAME-x86" >> $GITHUB_OUTPUT
           echo "ttl=40" >> $GITHUB_OUTPUT
         elif [[ $TYPE == builder-arm ]]; then
           # 64-core ARM instance type
@@ -53,6 +55,7 @@ runs:
           echo "ami_id=ami-0d8a9b0419ddb331a" >> $GITHUB_OUTPUT
           echo "ebs_cache_size=256" >> $GITHUB_OUTPUT
           echo "runner_concurrency=8" >> $GITHUB_OUTPUT
+          echo "runner_label=$USERNAME-arm" >> $GITHUB_OUTPUT
           echo "ttl=40" >> $GITHUB_OUTPUT
         elif [[ $TYPE == bb-bench-x86 ]]; then
           # 16-core x86 instance type
@@ -87,7 +90,7 @@ runs:
       uses: ./.github/spot-runner-action
       with:
         # inputs:
-        runner_label: ${{ inputs.runner_label || inputs.runner_type }}
+        runner_label: ${{ steps.select_instance.outputs.runner_label }}
         subaction: ${{ inputs.runner_action }}
         github_token: ${{ inputs.github_token }}
         aws_access_key_id: ${{ inputs.aws_access_key_id }}

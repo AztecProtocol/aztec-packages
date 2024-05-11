@@ -3,15 +3,9 @@ name: Setup Workflow
 description: "Reusable setup steps"
 
 inputs:
-  dockerhub_password:
-    required: true
-    description: "DockerHub Password"
   concurrency_key:
     required: false
     description: "Concurrency key for locking jobs"
-  start_builder:
-    required: false
-    description: "Should we start the builder, spitting out its connection details as SPOT_IP and SPOT_KEY?"
 
 runs:
   # define an action, runs in OS of caller
@@ -52,7 +46,7 @@ runs:
 
     - name: Setup Env
       shell: bash
-      run: ./scripts/setup_env.sh ${{ inputs.dockerhub_password }}
+      run: ./scripts/setup_env.sh ${{ env.DOCKERHUB_PASSWORD }}
       env:
         PULL_REQUEST: "${{ github.event.pull_request.number }}"
         BRANCH: "${{ github.ref_name }}"
