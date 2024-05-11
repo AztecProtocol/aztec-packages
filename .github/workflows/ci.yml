@@ -39,10 +39,8 @@ jobs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
       bench_list: ${{ steps.bench_list.outputs.list }}
     steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: build-${{ inputs.username || github.actor }}-x86
@@ -198,10 +196,8 @@ jobs:
     needs: setup
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: noir-format-${{ inputs.username || github.actor }}-x86
@@ -220,10 +216,8 @@ jobs:
     needs: setup
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
       # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
         with:
@@ -239,10 +233,8 @@ jobs:
     needs: setup
     runs-on: ${{ github.actor }}-x86
     steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: bb-js-test-${{ github.actor }}-x86
@@ -255,10 +247,8 @@ jobs:
     needs: setup
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: noir-${{ inputs.username || github.actor }}-x86
@@ -269,10 +259,8 @@ jobs:
     needs: setup
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: noir-packages-${{ inputs.username || github.actor }}-x86
@@ -283,10 +271,8 @@ jobs:
     needs: setup
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: noir-projects-${{ inputs.username || github.actor }}-x86
@@ -298,10 +284,8 @@ jobs:
     needs: noir-projects
     runs-on: ${{ github.actor }}-x86
     steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
       # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
         with:
@@ -314,10 +298,8 @@ jobs:
     needs: noir-projects
     runs-on: ${{ github.actor }}-x86
     steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
       # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
         with:
@@ -330,10 +312,8 @@ jobs:
     needs: noir-projects
     runs-on: ${{ github.actor }}-x86
     steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: prover-client-test-${{ github.actor }}-x86
@@ -345,10 +325,8 @@ jobs:
     needs: build
     runs-on: ${{ github.actor }}-x86
     steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: build-acir-tests-${{ github.actor }}-x86
@@ -360,10 +338,8 @@ jobs:
     needs: build-acir-tests
     runs-on: ${{ github.actor }}-x86
     steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: barretenberg-acir-tests-bb-${{ github.actor }}-x86
@@ -376,10 +352,8 @@ jobs:
     needs: build-acir-tests
     runs-on: ${{ github.actor }}-x86
     steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: barretenberg-acir-tests-sol-${{ github.actor }}-x86
@@ -392,10 +366,8 @@ jobs:
     needs: build-acir-tests
     runs-on: ${{ github.actor }}-x86
     steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: barretenberg-acir-tests-bb-js-${{ github.actor }}-x86
@@ -409,10 +381,8 @@ jobs:
     runs-on: ${{ inputs.username || github.actor }}-x86
     if: github.event.number
     steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: docs-preview-${{ inputs.username || github.actor }}-x86
@@ -450,10 +420,8 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
       # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
         with:
