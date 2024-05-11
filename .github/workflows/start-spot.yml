@@ -14,7 +14,7 @@ jobs:
   start-build:
     uses: ./.github/workflows/setup-runner.yml
     with:
-      runner_label: ${{ inputs.username || github.actor }}-x86
+      username: ${{ inputs.username || github.actor }}
       runner_type: builder-x86
       runner_action: ${{ inputs.action }}
     secrets: inherit
@@ -22,7 +22,7 @@ jobs:
   start-bench:
     uses: ./.github/workflows/setup-runner.yml
     with:
-      runner_label: ${{ inputs.username || github.actor }}-bench-x86
+      username: ${{ inputs.username || github.actor }}
       runner_type: bb-bench-x86
       runner_action: ${{ inputs.action }}
     secrets: inherit

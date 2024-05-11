@@ -7,7 +7,7 @@ name: Setup Runner and CI
 on:
   workflow_call:
     inputs:
-      runner_label:
+      username:
         required: true
         type: string
       runner_action:
@@ -27,6 +27,18 @@ on:
         required: true
       DOCKERHUB_PASSWORD:
         required: true
+
+env:
+  DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
+  RUN_ID: ${{ github.run_id }}
+  RUN_ATTEMPT: ${{ github.run_attempt }}
+  USERNAME: ${{ inputs.username }}
+  GITHUB_TOKEN: ${{ github.token }}
+  GH_SELF_HOSTED_RUNNER_TOKEN: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+
 jobs:
   start-builder:
     runs-on: ubuntu-latest
@@ -66,13 +78,5 @@ jobs:
       - name: Start EC2 runner
         uses: ./.github/ensure-builder
         with:
-          runner_label: ${{ inputs.runner_label }}
           runner_action: ${{ inputs.runner_action }}
           runner_type: ${{ inputs.runner_type }}
-          run_id: ${{ github.run_id }}
-          run_attempt: ${{ github.run_attempt }}
-          concurrency_github_token: "${{ secrets.AZTEC_GITHUB_TOKEN }}"
-          github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
-          ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

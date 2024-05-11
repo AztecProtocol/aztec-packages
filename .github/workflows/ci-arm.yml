@@ -12,9 +12,8 @@ jobs:
   setup:
     uses: ./.github/workflows/setup-runner.yml
     with:
-      runner_label: master-arm
+      username: master
       runner_type: builder-arm
-      runner_concurrency: 8
     secrets: inherit
 
   build:

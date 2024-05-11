@@ -3,28 +3,10 @@ name: Setup Workflow
 description: "Reusable setup steps"
 
 inputs:
-  runner_label:
-    required: true
   runner_action:
     default: start
     required: false
   runner_type:
-    required: true
-  github_token:
-    required: true
-  aws_access_key_id:
-    required: true
-  aws_secret_access_key:
-    required: true
-  run_id:
-    required: false
-    # build instances need a folder per workflow run, testers can use default
-    default: "project"
-  run_attempt:
-    required: true
-  ec2_key:
-    required: true
-  concurrency_github_token:
     required: true
   run:
     # command to run once builder/tester available

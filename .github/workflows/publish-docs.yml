@@ -10,7 +10,7 @@ jobs:
   setup:
     uses: ./.github/workflows/setup-runner.yml
     with:
-      runner_label: master
+      username: master
       runner_type: builder-x86
     secrets: inherit
 
