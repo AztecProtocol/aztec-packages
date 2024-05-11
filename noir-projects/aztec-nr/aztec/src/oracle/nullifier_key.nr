@@ -1,4 +1,4 @@
-use dep::protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint, grumpkin_private_key::GrumpkinPrivateKey};
+use dep::protocol_types::{address::AztecAddress, traits::Empty, grumpkin_point::GrumpkinPoint, grumpkin_private_key::GrumpkinPrivateKey};
 
 // Nullifier keys pertaining to a specific account
 struct NullifierKeys {
@@ -17,6 +17,16 @@ unconstrained fn get_nullifier_keys_internal(account: AztecAddress) -> Nullifier
         account,
         master_nullifier_public_key: GrumpkinPoint { x: result[0], y: result[1] },
         app_nullifier_secret_key: result[2]
+    }
+}
+
+impl Empty for NullifierKeys {
+    fn empty() -> Self {
+        NullifierKeys {
+            account: AztecAddress::zero(),
+            master_nullifier_public_key: GrumpkinPoint::zero(),
+            app_nullifier_secret_key: 0
+        }
     }
 }
 

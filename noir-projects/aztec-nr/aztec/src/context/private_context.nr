@@ -223,7 +223,11 @@ impl PrivateContext {
 
     // TODO: (#6176) Replace request_app_nullifier_secret_key above with this once we no longer get app nullifier secret key with address
     pub fn request_nsk_app_with_npk_m_hash(&mut self, npk_m_hash: Field) -> Field {
-        let keys = if self.nullifier_key.is_none() {
+        let previous_nullifier_key = self.nullifier_key.unwrap_or(NullifierKeys::empty());
+
+        let keys = if poseidon2_hash(previous_nullifier_key.master_nullifier_public_key.serialize()) == npk_m_hash {
+            previous_nullifier_key
+        } else {
             let keys = get_nullifier_keys_with_npk_m_hash(npk_m_hash);
             let request = NullifierKeyValidationRequest {
                 master_nullifier_public_key: keys.master_nullifier_public_key,
@@ -232,16 +236,34 @@ impl PrivateContext {
             self.nullifier_key_validation_requests.push(request);
             self.nullifier_key = Option::some(keys);
             keys
-        } else {
-            let keys = self.nullifier_key.unwrap_unchecked();
-            // If MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL is larger than 1, need to update the way the key pair is cached.
-            assert(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL == 1);
-            keys
         };
 
-        // We have to check if the key that was requested or cached corresponds to the one we request for
         assert_eq(poseidon2_hash(keys.master_nullifier_public_key.serialize()), npk_m_hash);
         keys.app_nullifier_secret_key
+
+        // if (self.nullfier_key.is_some()) {
+
+        // }
+        // if (self.nullifier_key.is_none() | )
+        // let keys = if self.nullifier_key.is_none() {
+        //     let keys = get_nullifier_keys(npk_m_hash);
+        //     let request = NullifierKeyValidationRequest {
+        //         master_nullifier_public_key: keys.master_nullifier_public_key,
+        //         app_nullifier_secret_key: keys.app_nullifier_secret_key
+        //     };
+        //     self.nullifier_key_validation_requests.push(request);
+        //     self.nullifier_key = Option::some(keys);
+        //     keys
+        // } else {
+        //     let keys = self.nullifier_key.unwrap_unchecked();
+        //     // If MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL is larger than 1, need to update the way the key pair is cached.
+        //     assert(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL == 1);
+        //     keys
+        // };
+
+        // // We have to check if the key that was requested or cached corresponds to the one we request for
+        // assert_eq(poseidon2_hash(keys.master_nullifier_public_key.serialize()), npk_m_hash);
+        // keys.app_nullifier_secret_key
     }
 
     // docs:start:context_message_portal
