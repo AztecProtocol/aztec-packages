@@ -202,8 +202,14 @@ runs:
       with:
         post: scripts/run_on_tester "sudo shutdown now" || true
 
-    - name: Ensure Builder has Images
-      if: ${{ inputs.run }}
+    - name: Run On Builder
+      if: ${{ inputs.run && !contains(inputs.runner_type, 'tester') }}
       uses: ./.github/run-on-builder
+      with:
+        run: ${{ inputs.run }}
+
+    - name: Run On Tester
+      if: ${{ inputs.run && contains(inputs.runner_type, 'tester') }}
+      uses: ./.github/run-on-tester
       with:
         run: ${{ inputs.run }}
