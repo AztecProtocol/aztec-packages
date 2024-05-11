@@ -19,7 +19,7 @@ jobs:
     uses: ./.github/workflows/setup-runner.yml
     with:
       runner_label: ${{ inputs.username || github.actor }}-x86
-      runner_type: builder-x86
+    runner_type: builder-x86
     secrets: inherit
 
   build:

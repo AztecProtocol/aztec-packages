@@ -136,7 +136,7 @@ async function startWithGithubRunners(config: ActionConfig) {
   } else if (config.subaction === "restart") {
     await terminate();
     // then we make a fresh instance
-  } else if (config.subaction !== "start" && config.subaction !== "check") {
+  } else if (config.subaction !== "start") {
     throw new Error("Unexpected subaction: " + config.subaction);
   }
   // subaction is 'start' or 'restart'estart'
@@ -161,11 +161,6 @@ async function startWithGithubRunners(config: ActionConfig) {
       `Runner already running. Continuing as we can target it with jobs.`
     );
     instanceId = spotStatus;
-  } else if (config.subaction === "check") {
-    core.info(
-      `Runner not running, check failed. Not logging BUILDER_SPOT_IP or BUILDER_SPOT_KEY.`
-    );
-    return true;
   } else {
     core.info(
       `Runner already running. Continuing as we can target it with jobs.`
