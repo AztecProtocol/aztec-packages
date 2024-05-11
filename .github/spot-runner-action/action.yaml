@@ -72,12 +72,6 @@ inputs:
   ec2_key:
     description: "base64-encoded ssh key"
     required: false
-  local_command:
-    description: 'Command to run on spot'
-    required: true
-  command:
-    description: 'Command to run on spot'
-    required: true
 runs:
   using: 'node20'
   main: 'dist/index.js'

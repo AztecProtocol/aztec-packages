@@ -119,39 +119,14 @@ async function startBareSpot(config: ActionConfig) {
   const instanceId = await requestAndWaitForSpot(config);
   const ip = await ec2Client.getPublicIpFromInstanceId(instanceId);
 
-  if (!config.command) {
-    const tempKeyPath = installSshKey(config.ec2Key);
-    core.info("Logging SPOT_IP and SPOT_KEY to GITHUB_ENV for later step use.");
-    await standardSpawn("bash", ["-c", `echo SPOT_IP=${ip} >> $GITHUB_ENV`]);
-    await standardSpawn("bash", [
-      "-c",
-      `echo SPOT_KEY=${tempKeyPath} >> $GITHUB_ENV`,
-    ]);
-  }
+  const tempKeyPath = installSshKey(config.ec2Key);
+  core.info("Logging SPOT_IP and SPOT_KEY to GITHUB_ENV for later step use.");
+  await standardSpawn("bash", ["-c", `echo SPOT_IP=${ip} >> $GITHUB_ENV`]);
+  await standardSpawn("bash", [
+    "-c",
+    `echo SPOT_KEY=${tempKeyPath} >> $GITHUB_ENV`,
+  ]);
   await establishSshContact(ip, config.ec2Key);
-  try {
-    if (config.localCommand) {
-      const tempKeyPath = installSshKey(config.ec2Key);
-      await standardSpawn("bash", [
-        "-c",
-        `export SPOT_IP=${ip}\nexport SPOT_KEY=${tempKeyPath}\n` +
-          config.localCommand,
-      ]);
-    }
-    if (config.command) {
-      await ec2CommandOverSsh(ip, config.ec2Key, config.command);
-    }
-  } finally {
-    try {
-      // Keep a persistent spot if we don't pass command
-      if (config.command) {
-        await ec2CommandOverSsh(ip, config.ec2Key, "sudo shutdown now");
-        core.info(`Shut down ${ip}.`);
-      }
-    } catch (err) {
-      // ignore, thhis always fail
-    }
-  }
 }
 
 async function startWithGithubRunners(config: ActionConfig) {
@@ -216,16 +191,6 @@ async function startWithGithubRunners(config: ActionConfig) {
     "-c",
     `echo BUILDER_SPOT_KEY=${tempKeyPath} >> $GITHUB_ENV`,
   ]);
-  if (config.command) {
-    await ec2CommandOverSsh(ip, config.ec2Key, config.command);
-  }
-  if (config.command) {
-    await ec2CommandOverSsh(
-      await ec2Client.getPublicIpFromInstanceId(instanceId),
-      config.ec2Key,
-      config.command
-    );
-  }
   return true;
 }
 

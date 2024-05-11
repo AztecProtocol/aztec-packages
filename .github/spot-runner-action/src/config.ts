@@ -27,8 +27,6 @@ export interface ConfigInterface {
   ec2KeyName: string;
   ec2SpotInstanceStrategy: string;
   ec2Key: string;
-  command: string;
-  localCommand: string;
 }
 
 export class ActionConfig implements ConfigInterface {
@@ -57,8 +55,6 @@ export class ActionConfig implements ConfigInterface {
   ec2KeyName: string;
   ec2SpotInstanceStrategy: string;
   ec2Key: string;
-  command: string;
-  localCommand: string;
 
   constructor() {
     // AWS account and credentials params
@@ -93,7 +89,5 @@ export class ActionConfig implements ConfigInterface {
       .getInput("ec2_spot_instance_strategy")
       .toLowerCase();
     this.ec2Key = core.getInput("ec2_key");
-    this.command = core.getInput("command");
-    this.localCommand = core.getInput("local_command");
   }
 }
