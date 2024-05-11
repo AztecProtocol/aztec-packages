@@ -167,7 +167,7 @@ async function startWithGithubRunners(config: ActionConfig) {
   // subaction is 'start' or 'restart'estart'
   const ec2Client = new Ec2Instance(config);
   const ghClient = new GithubClient(config);
-  const spotStatus = await pollSpotStatus(config, ec2Client, ghClient);
+  let spotStatus = await pollSpotStatus(config, ec2Client, ghClient);
   if (spotStatus === "unusable") {
     core.warning(
       "Taking down spot as it has no runners! If we were mistaken, this could impact existing jobs."
@@ -178,6 +178,7 @@ async function startWithGithubRunners(config: ActionConfig) {
       );
     }
     await terminate();
+    spotStatus = "none";
   }
   let instanceId = "";
   if (spotStatus !== "none") {
