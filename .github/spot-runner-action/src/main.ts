@@ -248,23 +248,6 @@ async function establishSshContact(
   }
 }
 
-async function ec2CommandOverSsh(
-  ip: String,
-  encodedSshKey: string,
-  command: string
-): Promise<string> {
-  const tempKeyPath = installSshKey(encodedSshKey);
-  return await standardSpawn("ssh", [
-    "-t",
-    "-o",
-    "StrictHostKeyChecking=no",
-    "-i",
-    tempKeyPath,
-    `ubuntu@${ip}`,
-    command,
-  ]);
-}
-
 async function terminate(instanceStatus?: string, cleanupRunners = true) {
   try {
     core.info("Starting instance cleanup");
