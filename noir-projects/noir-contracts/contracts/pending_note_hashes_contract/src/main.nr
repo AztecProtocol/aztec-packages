@@ -7,6 +7,7 @@ contract PendingNoteHashes {
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, PrivateContext, Map, PrivateSet};
     use dep::value_note::{balance_utils, filter::filter_notes_min_sum, value_note::{VALUE_NOTE_LEN, ValueNote}};
     use dep::aztec::context::{PublicContext, Context};
+    use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
 
     #[aztec(storage)]
     struct Storage {
@@ -25,7 +26,7 @@ contract PendingNoteHashes {
         let mut note = ValueNote::new(amount, owner);
 
         // Insert note
-        owner_balance.insert(&mut note, true);
+        owner_balance.insert(&mut note, true, GrumpkinPoint::zero());
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note inserted above
@@ -54,7 +55,7 @@ contract PendingNoteHashes {
 
         // Insert note
         let mut note = ValueNote::new(amount, owner);
-        owner_balance.insert(&mut note, true);
+        owner_balance.insert(&mut note, true, GrumpkinPoint::zero());
 
         0
     }
@@ -70,7 +71,7 @@ contract PendingNoteHashes {
         let mut note = ValueNote::new(amount, owner);
 
         // Insert note
-        owner_balance.insert(&mut note, true);
+        owner_balance.insert(&mut note, true, GrumpkinPoint::zero());
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value

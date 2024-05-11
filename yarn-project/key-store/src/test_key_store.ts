@@ -11,6 +11,8 @@ import {
   computeAddress,
   computeAppNullifierSecretKey,
   deriveKeys,
+  Fq,
+  derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
@@ -21,9 +23,11 @@ import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
  */
 export class TestKeyStore implements KeyStore {
   #keys: AztecMap<string, Buffer>;
+  #rotatedKeys: AztecMap<string, Buffer>;
 
   constructor(database: AztecKVStore) {
     this.#keys = database.openMap('key_store');
+    this.#rotatedKeys = database.openMap('key_store_rotated_keys');
   }
 
   /**
@@ -102,10 +106,14 @@ export class TestKeyStore implements KeyStore {
    * @returns The master nullifier public key for the account.
    */
   public async getMasterNullifierPublicKey(args: { account: AztecAddress } | { npkMHash: Fr }): Promise<PublicKey> {
-    const masterNullifierPublicKeyBuffer =
-      'account' in args
-        ? this.#keys.get(`${args.account.toString()}-npk_m`)
-        : this.#keys.get(`${this.#getAccountAddressForMasterNullifierPublicKeyHash(args.npkMHash)?.toString()}-npk_m`);
+    let masterNullifierPublicKeyBuffer;
+    if ('account' in args) {
+      // Get most recent rotated or non-rotated
+      masterNullifierPublicKeyBuffer = this.#rotatedKeys.get(`${args.account.toString()}-npk_m-${this.#rotatedNullifierKeyCount(args.account) - 1}`) ?? this.#keys.get(`${args.account}-npk_m`);
+    } else {
+      ({ value: masterNullifierPublicKeyBuffer } = this.#getMapMetadataForMasterNullifierPublicKeyHash(args.npkMHash));
+    }
+
     if (!masterNullifierPublicKeyBuffer) {
       throw new Error(
         `${
@@ -175,10 +183,19 @@ export class TestKeyStore implements KeyStore {
     args: { account: AztecAddress } | { npkMHash: Fr },
     app: AztecAddress,
   ): Promise<Fr> {
-    const masterNullifierSecretKeyBuffer =
-      'account' in args
-        ? this.#keys.get(`${args.account.toString()}-nsk_m`)
-        : this.#keys.get(`${this.#getAccountAddressForMasterNullifierPublicKeyHash(args.npkMHash)?.toString()}-nsk_m`);
+    let masterNullifierSecretKeyBuffer: Buffer | undefined;
+    if ('account' in args) {
+      // Get most recent rotated or non-rotated
+      masterNullifierSecretKeyBuffer = this.#rotatedKeys.get(`${args.account.toString()}-nsk_m-${this.#rotatedNullifierKeyCount(args.account) - 1}`) ?? this.#keys.get(`${args.account}-nsk_m`);
+    } else {
+      const { key } = this.#getMapMetadataForMasterNullifierPublicKeyHash(args.npkMHash);
+      const mapKeyForNullifierSecretKey = key.replace('npk_m', 'nsk_m');
+
+      // #rotatedKeys has a suffix of -${index}, thus there will never be a clash, i.e. using a key in rotated keys will always return undefined if trying to retrieve something in keys
+      // and using a key in #keys will always return undefined when searching in #rotatedKeys
+      masterNullifierSecretKeyBuffer = this.#keys.get(mapKeyForNullifierSecretKey) ?? this.#rotatedKeys.get(mapKeyForNullifierSecretKey);
+    }
+
     if (!masterNullifierSecretKeyBuffer) {
       throw new Error(
         `${
@@ -186,6 +203,7 @@ export class TestKeyStore implements KeyStore {
         } does not exist. Registered accounts: ${await this.getAccounts()}.`,
       );
     }
+
     const masterNullifierSecretKey = GrumpkinScalar.fromBuffer(masterNullifierSecretKeyBuffer);
     const appNullifierSecretKey = computeAppNullifierSecretKey(masterNullifierSecretKey, app);
     return Promise.resolve(appNullifierSecretKey);
@@ -253,14 +271,14 @@ export class TestKeyStore implements KeyStore {
    */
   public getMasterNullifierSecretKeyForPublicKey(masterNullifierPublicKey: PublicKey): Promise<GrumpkinPrivateKey> {
     // We iterate over the map keys to find the account address that corresponds to the provided public key
-    for (const [key, value] of this.#keys.entries()) {
-      if (value.equals(masterNullifierPublicKey.toBuffer()) && key.endsWith('-npk_m')) {
-        // We extract the account address from the map key
-        const accountAddress = key.split('-')[0];
-        // We fetch the secret key and return it
-        const masterNullifierSecretKeyBuffer = this.#keys.get(`${accountAddress.toString()}-nsk_m`);
+    for (const [key, value] of [...this.#keys.entries(), ...this.#rotatedKeys.entries()]) {
+      if (value.equals(masterNullifierPublicKey.toBuffer())) {
+        const mapKeyForNullifierSecretKey = key.replace('npk_m', 'nsk_m');
+
+        const masterNullifierSecretKeyBuffer = this.#keys.get(mapKeyForNullifierSecretKey) ?? this.#rotatedKeys.get(mapKeyForNullifierSecretKey);
+
         if (!masterNullifierSecretKeyBuffer) {
-          throw new Error(`Could not find master nullifier secret key for account ${accountAddress.toString()}`);
+          throw new Error(`Could not find master nullifier secret key for master nullifier public key ${masterNullifierPublicKey.toString()}`);
         }
         return Promise.resolve(GrumpkinScalar.fromBuffer(masterNullifierSecretKeyBuffer));
       }
@@ -315,18 +333,36 @@ export class TestKeyStore implements KeyStore {
     return Promise.resolve(Fr.fromBuffer(publicKeysHashBuffer));
   }
 
-  #getAccountAddressForMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr): AztecAddress | undefined {
-    for (const [key, value] of this.#keys.entries()) {
-      if (key.endsWith('-npk_m')) {
+  #getMapMetadataForMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr) {
+    for (const [key, value] of [...this.#keys.entries(), ...this.#rotatedKeys.entries()]) {
+      if (key.includes('-npk_m')) {
         const computedMasterNullifierPublicKeyHash = poseidon2Hash(Point.fromBuffer(value).toFields());
         if (computedMasterNullifierPublicKeyHash.equals(masterNullifierPublicKeyHash)) {
-          // We extract the account address from the map key
-          const accountAddress = key.split('-')[0];
-          return AztecAddress.fromString(accountAddress);
+          return { key, value }
         }
       }
     }
 
-    return undefined;
+    throw new Error(`Master nullifier public key hash ${masterNullifierPublicKeyHash} does not exist.`);
+  }
+
+  public async rotateMasterNullifierKey(account: AztecAddress, newSecretKey: Fq = Fq.random()) {
+    const storedAccounts = await this.getAccounts();
+
+    if (!storedAccounts.some(storedAccount => storedAccount.equals(account))) {
+      throw new Error('Account does not exist');
+    }
+
+    const newPublicKey = derivePublicKeyFromSecretKey(newSecretKey);
+
+    const previouslyRotatedNumber = this.#rotatedNullifierKeyCount(account);
+    await this.#rotatedKeys.set(`${account.toString()}-nsk_m-${previouslyRotatedNumber}`, newSecretKey.toBuffer());
+    await this.#rotatedKeys.set(`${account.toString()}-npk_m-${previouslyRotatedNumber}`, newPublicKey.toBuffer());
+  }
+
+  #rotatedNullifierKeyCount(account: AztecAddress): number {
+    const allRotatedMapKeys = Array.from(this.#rotatedKeys.keys());
+    const existingKeys = allRotatedMapKeys.filter(key => key.startsWith(`${account.toString()}-nsk_m`));
+    return existingKeys.length;
   }
 }

@@ -4,7 +4,7 @@ contract Child {
 
     use dep::aztec::{
         context::{PublicContext, Context, gas::GasOpts},
-        protocol_types::{abis::{call_context::CallContext}},
+        protocol_types::{abis::call_context::CallContext, grumpkin_point::GrumpkinPoint},
         note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader}
     };
     use dep::value_note::value_note::ValueNote;
@@ -52,7 +52,7 @@ contract Child {
     #[aztec(private)]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let mut note = ValueNote::new(new_value, owner);
-        storage.a_private_value.insert(&mut note, true);
+        storage.a_private_value.insert(&mut note, true, GrumpkinPoint::zero());
         new_value
     }
 

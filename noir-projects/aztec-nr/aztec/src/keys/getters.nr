@@ -4,7 +4,7 @@ use dep::protocol_types::{
 };
 use crate::{
     context::PrivateContext,
-    oracle::keys::{get_public_keys_and_partial_address, get_public_keys_and_partial_address_with_npk_m_hash},
+    oracle::keys::get_public_keys_and_partial_address,
     state_vars::{
     map::derive_storage_slot_in_map,
     shared_mutable::shared_mutable_private_getter::SharedMutablePrivateGetter
@@ -99,9 +99,4 @@ fn fetch_and_constrain_keys(address: AztecAddress) -> [GrumpkinPoint; 4] {
     assert(computed_address.eq(address));
 
     [npk_m, ivpk_m, ovpk_m, tpk_m]
-}
-
-pub fn get_ivpk_m_with_npk_m_hash(npk_m_hash: Field) -> GrumpkinPoint {
-    let result = get_public_keys_and_partial_address_with_npk_m_hash(npk_m_hash);
-    result.0[1]
 }

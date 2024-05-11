@@ -82,7 +82,7 @@ contract Test {
         );
 
         let mut note = ValueNote::new(value, owner);
-        create_note(&mut context, storage_slot, &mut note, true);
+        create_note(&mut context, storage_slot, &mut note, true, GrumpkinPoint::zero());
     }
 
     #[aztec(private)]
@@ -259,7 +259,7 @@ contract Test {
         Test::at(context.this_address()).call_create_note(value, owner, storage_slot).call(&mut context);
         storage_slot += 1;
         let mut note = ValueNote::new(value + 1, owner);
-        create_note(&mut context, storage_slot, &mut note, true);
+        create_note(&mut context, storage_slot, &mut note, true, GrumpkinPoint::zero());
         storage_slot += 1;
         Test::at(context.this_address()).call_create_note(value + 2, owner, storage_slot).call(&mut context);
     }

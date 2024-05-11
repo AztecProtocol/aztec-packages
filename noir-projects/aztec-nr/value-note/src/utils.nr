@@ -1,5 +1,6 @@
 use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateSet, NoteGetterOptions};
 use dep::aztec::note::note_getter_options::SortOrder;
+use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
 use crate::{filter::filter_notes_min_sum, value_note::{ValueNote, VALUE_NOTE_LEN}};
 
 // Sort the note values (0th field) in descending order.
@@ -13,7 +14,7 @@ pub fn create_note_getter_options_for_decreasing_balance(amount: Field) -> NoteG
 pub fn increment(balance: PrivateSet<ValueNote>, amount: Field, recipient: AztecAddress) {
     let mut note = ValueNote::new(amount, recipient);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
-    balance.insert(&mut note, amount != 0);
+    balance.insert(&mut note, amount != 0, GrumpkinPoint::zero());
 }
 
 // Find some of the `owner`'s notes whose values add up to the `amount`.

@@ -1,4 +1,5 @@
 import {
+  Fq,
   type AztecAddress,
   type CompleteAddress,
   type Fr,
@@ -117,4 +118,6 @@ export interface KeyStore {
    * @returns A Promise that resolves to the public keys hash.
    */
   getPublicKeysHash(account: AztecAddress): Promise<Fr>;
+
+  rotateMasterNullifierKey(account: AztecAddress, secretKey: Fq): Promise<void>;
 }

@@ -1,5 +1,5 @@
 use dep::aztec::{
-    protocol_types::address::AztecAddress, context::Context,
+    protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint}, context::Context,
     note::note_getter_options::NoteGetterOptions, state_vars::PrivateSet
 };
 use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
@@ -27,7 +27,7 @@ impl EasyPrivateUint {
 
         // Insert the new note to the owner's set of notes.
         // docs:start:insert
-        self.set.insert(&mut addend_note, true);
+        self.set.insert(&mut addend_note, true, GrumpkinPoint::zero());
         // docs:end:insert
     }
 
@@ -63,6 +63,6 @@ impl EasyPrivateUint {
         // Creates change note for the owner.
         let result_value = minuend - subtrahend;
         let mut result_note = ValueNote::new(result_value as Field, owner);
-        self.set.insert(&mut result_note, result_value != 0);
+        self.set.insert(&mut result_note, result_value != 0, GrumpkinPoint::zero());
     }
 }

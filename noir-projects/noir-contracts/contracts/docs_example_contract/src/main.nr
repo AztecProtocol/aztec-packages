@@ -19,6 +19,7 @@ contract DocsExample {
         PrivateSet, SharedImmutable, Deserialize
     };
     use dep::aztec::{note::note_getter_options::Comparator, context::{PublicContext, Context}};
+    use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
     use crate::types::{card_note::{CardNote, CARD_NOTE_LEN}, leader::Leader};
@@ -183,14 +184,14 @@ contract DocsExample {
     fn insert_notes(amounts: [u8; 3]) {
         for i in 0..amounts.len() {
             let mut note = CardNote::new(amounts[i], 1, context.msg_sender());
-            storage.set.insert(&mut note, true);
+            storage.set.insert(&mut note, true, GrumpkinPoint::zero());
         }
     }
 
     #[aztec(private)]
     fn insert_note(amount: u8, randomness: Field) {
         let mut note = CardNote::new(amount, randomness, context.msg_sender());
-        storage.set.insert(&mut note, true);
+        storage.set.insert(&mut note, true, GrumpkinPoint::zero());
     }
 
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir

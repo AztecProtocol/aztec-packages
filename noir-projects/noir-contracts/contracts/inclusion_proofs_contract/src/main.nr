@@ -45,7 +45,7 @@ contract InclusionProofs {
     fn create_note(owner: AztecAddress, value: Field) {
         let owner_private_values = storage.private_values.at(owner);
         let mut note = ValueNote::new(value, owner);
-        owner_private_values.insert(&mut note, true);
+        owner_private_values.insert(&mut note, true, GrumpkinPoint::zero());
     }
     // docs:end:create_note
 

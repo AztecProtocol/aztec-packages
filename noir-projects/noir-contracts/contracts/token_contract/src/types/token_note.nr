@@ -1,7 +1,6 @@
 use dep::aztec::{
-    keys::getters::get_ivpk_m_with_npk_m_hash,
     prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext},
-    protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_point::GrumpkinPoint},
     note::utils::compute_note_hash_for_consumption, hash::poseidon2_hash,
     oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_nsk_app_with_npk_m_hash}
 };
@@ -49,11 +48,10 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
     }
 
     // Broadcasts the note as an encrypted log on L1.
-    fn broadcast(self, context: &mut PrivateContext, slot: Field) {
+    fn broadcast(self, context: &mut PrivateContext, slot: Field, ivpk_m: GrumpkinPoint) {
       // We only bother inserting the note if non-empty to save funds on gas.
       // TODO: (#5901) This will be changed a lot, as it should use the updated encrypted log format
       if !(self.amount == U128::from_integer(0)) {
-          let ivpk_m = get_ivpk_m_with_npk_m_hash(self.npk_m_hash);
           context.emit_encrypted_log(
               (*context).this_address(),
               slot,

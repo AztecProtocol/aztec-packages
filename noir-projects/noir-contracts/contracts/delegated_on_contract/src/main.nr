@@ -4,6 +4,7 @@ contract DelegatedOn {
         AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions, PublicMutable,
         PrivateSet, PrivateContext
     };
+    use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
     use dep::value_note::value_note::ValueNote;
 
     #[aztec(storage)]
@@ -15,7 +16,7 @@ contract DelegatedOn {
     #[aztec(private)]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let mut note = ValueNote::new(new_value, owner);
-        storage.a_private_value.insert(&mut note, true);
+        storage.a_private_value.insert(&mut note, true, GrumpkinPoint::zero());
         new_value
     }
 

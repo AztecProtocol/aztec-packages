@@ -1,6 +1,6 @@
 use dep::aztec::prelude::{AztecAddress, NoteHeader, NoteInterface, NoteGetterOptions, NoteViewerOptions, PrivateSet, Map};
 use dep::aztec::{
-    context::Context, protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
+    context::Context, protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, grumpkin_point::GrumpkinPoint},
     note::{note_getter::view_notes, note_getter_options::SortOrder}
 };
 use crate::types::token_note::{TokenNote, OwnedNote};
@@ -59,7 +59,7 @@ impl<T> BalancesMap<T> {
         let mut addend_note = T::new(addend, owner);
 
         // docs:start:insert
-        self.map.at(owner).insert(&mut addend_note, true);
+        self.map.at(owner).insert(&mut addend_note, true, GrumpkinPoint::zero());
         // docs:end:insert
     }
 

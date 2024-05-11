@@ -1,4 +1,4 @@
-use dep::protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::pedersen_hash};
+use dep::protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, grumpkin_point::GrumpkinPoint, hash::pedersen_hash};
 
 use crate::context::{PrivateContext, PublicContext, Context};
 use crate::note::{
@@ -55,7 +55,7 @@ impl<Note> PrivateMutable<Note> {
         let nullifier = self.compute_initialization_nullifier();
         context.push_new_nullifier(nullifier, 0);
 
-        create_note(context, self.storage_slot, note, broadcast);
+        create_note(context, self.storage_slot, note, broadcast, GrumpkinPoint::zero());
     }
     // docs:end:initialize
 
@@ -68,7 +68,7 @@ impl<Note> PrivateMutable<Note> {
         destroy_note(context, prev_note);
 
         // Add replacement note.
-        create_note(context, self.storage_slot, new_note, broadcast);
+        create_note(context, self.storage_slot, new_note, broadcast, GrumpkinPoint::zero());
     }
     // docs:end:replace
 
@@ -82,7 +82,7 @@ impl<Note> PrivateMutable<Note> {
 
         // Add the same note again.
         // Because a nonce is added to every note in the kernel, its nullifier will be different.
-        create_note(context, self.storage_slot, &mut note, broadcast);
+        create_note(context, self.storage_slot, &mut note, broadcast, GrumpkinPoint::zero());
 
         note
     }

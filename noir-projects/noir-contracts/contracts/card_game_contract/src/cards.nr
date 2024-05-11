@@ -1,7 +1,7 @@
 use dep::aztec::prelude::{AztecAddress, FunctionSelector, PrivateContext, NoteHeader, NoteGetterOptions, NoteViewerOptions};
 
 use dep::aztec::{
-    protocol_types::{traits::{ToField, Serialize, FromField}, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
+    protocol_types::{traits::{ToField, Serialize, FromField}, grumpkin_point::GrumpkinPoint, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
     context::{PublicContext, Context}, note::note_getter::view_notes, state_vars::PrivateSet,
     note::constants::MAX_NOTES_PER_PAGE
 };
@@ -105,7 +105,7 @@ impl Deck {
         let mut inserted_cards = &[];
         for card in cards {
             let mut card_note = CardNote::from_card(card, owner);
-            self.set.insert(&mut card_note.note, true);
+            self.set.insert(&mut card_note.note, true, GrumpkinPoint::zero());
             inserted_cards = inserted_cards.push_back(card_note);
         }
 

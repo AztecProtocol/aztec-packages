@@ -4,7 +4,7 @@ contract Crowdfunding {
 
     // docs:start:all-deps
     use dep::aztec::{
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize},
+        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize, grumpkin_point::GrumpkinPoint},
         state_vars::{PrivateSet, PublicImmutable, SharedImmutable}
     };
     use dep::value_note::value_note::ValueNote;
@@ -84,7 +84,7 @@ contract Crowdfunding {
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
         let mut note = ValueNote::new(amount as Field, context.msg_sender());
-        storage.donation_receipts.insert(&mut note, true);
+        storage.donation_receipts.insert(&mut note, true, GrumpkinPoint::zero());
     }
     // docs:end:donate
 
