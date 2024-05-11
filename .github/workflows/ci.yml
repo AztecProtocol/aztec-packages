@@ -94,7 +94,7 @@ jobs:
         uses: ./.github/ensure-builder
         with:
           run_id: ${{ github.run_id }}
-          runner_type: 4core-tester-x86
+          runner_type: ${{ matrix.test == 'client-prover-integration' && '16core-tester-x86' || '4core-tester-x86' }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
