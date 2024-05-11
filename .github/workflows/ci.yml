@@ -486,6 +486,7 @@ jobs:
           ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           run: |
             set -eux
+            scripts/setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }}
             scripts/earthly-ci --push ./barretenberg/cpp/+bench-binaries
       - name: Run Bench
         uses: ./.github/ensure-builder
@@ -496,7 +497,7 @@ jobs:
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           ec2_key: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           run: |
-            scripts/earthly-ci --no-output ./barretenberg/cpp/+bench-client-ivc --bench_mode=cache ;
+            scripts/earthly-ci --no-output ./barretenberg/cpp/+bench-client-ivc --bench_mode=cache
             scripts/earthly-ci --no-output ./barretenberg/cpp/+bench-ultra-honk --bench_mode=cache
 
   protocol-circuits-gates-report:
