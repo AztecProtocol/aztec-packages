@@ -30,6 +30,7 @@ E2E_COMPOSE_TEST:
 E2E_TEST:
   FUNCTION
   ARG test
+  ARG allow_fail=false
   LOCALLY
   # Let docker compose know about the pushed tags above
   ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
@@ -40,7 +41,11 @@ E2E_TEST:
     END
   END
   # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
-  RUN docker run --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $test
+  IF $allow_fail
+    RUN docker run --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $test
+  ELSE
+    RUN docker run --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $test || true
+  END
 
 UPLOAD_LOGS:
   FUNCTION
@@ -156,7 +161,7 @@ e2e-token-contract:
   DO +E2E_TEST --test=./src/e2e_token_contract
 
 flakey-e2e-tests:
-  DO +E2E_TEST --test=./src/flakey || true
+  DO +E2E_TEST --test=./src/flakey --allow_fail=true
 
 e2e-sandbox-example:
   DO +E2E_COMPOSE_TEST --test=e2e_sandbox_example.test.ts
