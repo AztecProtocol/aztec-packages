@@ -77,7 +77,7 @@ runs:
       run: |
         for i in {1..60} ; do
           # HACK: detecting bare spot. TODO Find better solution
-          [ ! -f ~/delay_shutdown.sh ] && break
-          [ -f ~/.setup-complete ] && break
+          [ ! -f ~/delay_shutdown.sh ] && ( ! [ -f ~/.user-data-started ] || [ -f ~/.user-data-finished ] ) && break
+          [ -f ~/.setup-complete ] && ( ! [ -f ~/.user-data-started ] || [ -f ~/.user-data-finished ] ) && break
           sleep 1
         done
