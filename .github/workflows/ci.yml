@@ -249,7 +249,9 @@ jobs:
         run: earthly-ci --no-output ./yarn-project/+format-check
 
   yarn-project-test:
-    needs: noir-projects
+    # hacky workaround: making lots of deps to ensure runner running less
+    # TODO move to spot
+    needs: [build, noir-projects, bb-native-tests]
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -272,7 +274,7 @@ jobs:
         with:
           concurrency_key: prover-client-test-${{ github.actor }}-x86
       - name: "Prover Client Tests"
-        timeout-minutes: 25
+        timeout-minutes: 35
         run: earthly-ci --no-output ./yarn-project/+prover-client-test
 
   build-acir-tests:
