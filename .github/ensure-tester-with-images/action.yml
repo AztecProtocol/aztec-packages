@@ -11,6 +11,8 @@ inputs:
     required: true
   builder_command:
     required: true
+  run:
+    required: true
 runs:
   # define an action, runs in OS of caller
   using: composite
@@ -59,3 +61,8 @@ runs:
             flock ${{ env.RUN_ID }}.lock bash -c '! [ -f ${{ env.RUN_ID }}.brotli ] && docker save ${{ inputs.builder_images_to_copy }} | brotli -2 > ${{ env.RUN_ID }}.brotli'
             cat ${{ env.RUN_ID }}.brotli
           " | brotli --decompress | docker load
+
+      - name: Test
+        uses: ./.github/run-on-tester
+        with:
+          run: ${{ inputs.run }}
