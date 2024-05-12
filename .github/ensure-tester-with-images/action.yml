@@ -25,9 +25,9 @@ runs:
           # run builder_command if inputs don't exist
           set -eux
           for image in ${{ inputs.builder_images_to_copy }} ; do
-            if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "\$image" ; then
+            if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "$image" ; then
               export FORCE_COLOR=1
-              git submodule update --init --recursive --recommend-shallow
+              flock submodule.lock git submodule update --init --recursive --recommend-shallow
               ${{ inputs.builder_command }}
               break
             fi
