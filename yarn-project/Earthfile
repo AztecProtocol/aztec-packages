@@ -150,8 +150,14 @@ run-e2e:
     FROM +end-to-end
     RUN DEBUG=$debug yarn test $test
 
+export-prover-client-test:
+    ARG EARTHLY_GIT_HASH
+    FROM +end-to-end
+    ARG EARTHLY_GIT_HASH
+    FROM +aztec
+    SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH
+    ENTRYPOINT ["yarn", "test"]
+
 prover-client-test:
-    FROM +build
-    ARG test
-    ARG debug=""
+    FROM +export-prover-client-test
     RUN cd prover-client && DEBUG=$debug yarn test $test
