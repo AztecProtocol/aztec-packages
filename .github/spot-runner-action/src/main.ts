@@ -316,10 +316,10 @@ async function setupGithubRunners(ip: string, config: ActionConfig) {
     `  ln -s $(pwd)/../externals ../${runnerNameBase}-$i`,
     `  pushd ../${runnerNameBase}-$i`,
     `  echo \${TOKENS[i]} > .runner-token`,
-    `  (./config.sh --unattended --url https://github.com/${github.context.repo.owner}/${github.context.repo.repo} --token \${TOKENS[i]} --labels ${config.githubActionRunnerLabel} --replace --name ${runnerNameBase}-$i && ./run.sh )&`,
+    `  echo './config.sh $@ && ./run.sh' > config_and_run.sh`,
+    `  nohup bash ./config.sh --unattended --url https://github.com/${github.context.repo.owner}/${github.context.repo.repo} --token \${TOKENS[i]} --labels ${config.githubActionRunnerLabel} --replace --name ${runnerNameBase}-$i &`,
     `  popd`,
-    "done",
-    "wait"
+    "done"
   ];
   const tempKeyPath = installSshKey(config.ec2Key);
   await standardSpawn("ssh", ["-o", "StrictHostKeyChecking=no", "-i", tempKeyPath, "-o", "ConnectTimeout=1", `ubuntu@${ip}`, "bash", "-c", setupRunnerCmds.join("\n")]);
