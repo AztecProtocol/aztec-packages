@@ -25,7 +25,7 @@ runs:
           # run builder_command if inputs don't exist
           set -eux
           for image in ${{ inputs.builder_images_to_copy }} ; do
-            if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "$image" ; then
+            if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "\$image" ; then
               export FORCE_COLOR=1
               git submodule update --init --recursive --recommend-shallow
               ${{ inputs.builder_command }}
@@ -38,7 +38,7 @@ runs:
       run: |
         scripts/run_on_builder "
           for image in ${{ inputs.builder_images_to_copy }} ; do
-            docker images --no-trunc --quiet $image
+            docker images --no-trunc --quiet \$image
           done" > .success_key
         echo "${{ inputs.run }}" >> .success_key
         echo "SUCCESS_KEY=$(cat .success_key | md5sum)" >> $GITHUB_ENV
@@ -64,5 +64,6 @@ runs:
 
     - name: Test
       uses: ./.github/run-on-tester
+      if: ${{ env.CACHE_SUCCESS != 'true' }}
       with:
         run: ${{ inputs.run }}
