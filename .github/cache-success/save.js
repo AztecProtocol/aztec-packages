@@ -1,5 +1,4 @@
 const cache = require("@actions/cache");
-const github = require("@actions/github");
 const fs = require("fs");
 
 async function main() {
