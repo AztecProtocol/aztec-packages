@@ -60,4 +60,4 @@ runs:
           scripts/run_on_builder "
             flock $SHA.lock bash -c '! [ -f $SHA.brotli ] && docker save aztecprotocol/aztec:$SHA aztecprotocol/end-to-end:$SHA | brotli -2 > $SHA.brotli'
             cat $SHA.brotli
-          " | brotli --decompress | docker loa
+          " | brotli --decompress | docker load
