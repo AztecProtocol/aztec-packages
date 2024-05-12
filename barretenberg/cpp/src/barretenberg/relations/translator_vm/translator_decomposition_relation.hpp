@@ -62,6 +62,10 @@ template <typename FF_> class GoblinTranslatorDecompositionRelationImpl {
         3  // decomposition of z2 into 2 limbs subrelation
     };
 
+    /**
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
+     *
+     */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         return in.lagrange_odd_in_minicircuit.is_zero();
