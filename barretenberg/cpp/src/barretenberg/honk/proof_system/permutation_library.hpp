@@ -36,8 +36,8 @@ template <typename Flavor> void compute_concatenated_polynomials(typename Flavor
     const size_t MINI_CIRCUIT_SIZE = targets[0].size() / Flavor::CONCATENATION_GROUP_SIZE;
     ASSERT(MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_GROUP_SIZE == targets[0].size());
     // A function that produces 1 concatenated polynomial
-    // TODO(#756): This can be rewritten to use more cores. Currently uses at maximum the number of concatenated
-    // polynomials (4 in Goblin Translator)
+
+    // Uses the index of one of the polynomials in concatenation groups, which we copy in the concatenated polynomial
     auto ordering_function = [&](size_t index) {
         size_t i = index / concatenation_groups[0].size();
         size_t j = index % concatenation_groups[0].size();
