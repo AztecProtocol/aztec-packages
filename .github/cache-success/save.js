@@ -1,4 +1,5 @@
 const cache = require("@actions/cache");
+const core = require("@actions/core");
 const fs = require("fs");
 
 async function main() {
