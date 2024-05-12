@@ -8,6 +8,6 @@ inputs:
     required: false
 runs:
   using: 'node20'
-  main: restore.js
-  post: save.js
+  main: restore-dist/index.js
+  post: save-dist/index.js
   post-if: success()
