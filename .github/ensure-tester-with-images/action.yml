@@ -17,7 +17,6 @@ runs:
   steps:
     - name: Ensure Builder And Images
       uses: ./.github/ensure-builder
-      if: ${{ inputs.builder_images_to_copy }}
       with:
         runner_type: ${{ inputs.builder_type }}
         run: |
@@ -57,6 +56,6 @@ runs:
           export BUILDER_SPOT_IP=${{ env.BUILDER_SPOT_IP }}
           export BUILDER_SPOT_KEY=~/.ssh/build_instance_key
           scripts/run_on_builder "
-            flock $RUN_ID.lock bash -c '! [ -f $RUN_ID.brotli ] && docker save ${{ inputs.builder_images_to_copy }} | brotli -2 > $RUN_ID.brotli'
-            cat $RUN_ID.brotli
+            flock ${{ env.RUN_ID }}.lock bash -c '! [ -f ${{ env.RUN_ID }}.brotli ] && docker save ${{ inputs.builder_images_to_copy }} | brotli -2 > ${{ env.RUN_ID }}.brotli'
+            cat ${{ env.RUN_ID }}.brotli
           " | brotli --decompress | docker load
