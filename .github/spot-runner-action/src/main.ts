@@ -278,22 +278,13 @@ async function terminate(instanceStatus?: string, cleanupRunners = true) {
 async function setupGithubRunners(ip: string, config: ActionConfig) {
   const ghClient = new GithubClient(config);
   const githubActionRunnerVersion = await ghClient.getRunnerVersion();
-  // Retrieve runner registration tokens in parallel
-  const tokens = await Promise.all(
-    Array.from({ length: config.githubActionRunnerConcurrency }, () =>
-      ghClient.getRunnerRegistrationToken()
-    )
-  );
   const runnerNameBase = `${config.githubJobId}-ec2`;
-  // space-separated registration tokens
-  const tokensSpaceSep = tokens.map((t) => t.token).join(" ");
   const bumpShutdown = `sudo shutdown -c ; sudo shutdown -P +${config.ec2InstanceTtl}`;
   // TODO could deregister runners right before shutdown starts
   const setupRunnerCmds = [
     // Shutdown rules:
     // - github actions job starts and ends always bump +ec2InstanceTtl minutes
     // - when the amount of started jobs (start_run_* files) equal the amount of finished jobs (end_run_* files), we shutdown in 5 minutes (with a reaper script installed later)
-    "set -x",
     "sudo touch ~/.user-data-started",
     `cd ~`,
     `echo "${bumpShutdown}" > /home/ubuntu/delay_shutdown.sh`,
@@ -310,16 +301,20 @@ async function setupGithubRunners(ip: string, config: ActionConfig) {
     "mv externals ..", // we share the big binaries between all the runner folders, symlink instead of copy them
     // Note sharing bin doesn't work due to using it as a folder, and we don't bother splitting up sharing bin
     "rm ./actions-runner-linux-${RUNNER_ARCH}-${GH_RUNNER_VERSION}.tar.gz", // cleanup as we will copy our runner folder
-    `TOKENS=(${tokensSpaceSep})`,
     `for i in {0..${config.githubActionRunnerConcurrency - 1}}; do`,
     `  cp -r . ../${runnerNameBase}-$i`,
     `  ln -s $(pwd)/../externals ../${runnerNameBase}-$i`,
     `  pushd ../${runnerNameBase}-$i`,
-    `  echo \${TOKENS[i]} > .runner-token`,
-    `  (./config.sh --unattended --url https://github.com/${github.context.repo.owner}/${github.context.repo.repo} --token '\${TOKENS[i]}' --labels ${config.githubActionRunnerLabel} --replace --name ${runnerNameBase}-$i && ./run.sh )&`,
+    `  (./config.sh --unattended --url https://github.com/${
+      github.context.repo.owner
+    }/${
+      github.context.repo.repo
+    } --pat ${ghClient.getRunnerRegistrationToken()} --labels ${
+      config.githubActionRunnerLabel
+    } --replace --name ${runnerNameBase}-$i && ./run.sh )&`,
     `  popd`,
     "done",
-    "wait"
+    "wait",
   ];
   const tempKeyPath = installSshKey(config.ec2Key);
   await standardSpawn("ssh", ["-o", "StrictHostKeyChecking=no", "-i", tempKeyPath, "-o", "ConnectTimeout=1", `ubuntu@${ip}`, "bash", "-c", setupRunnerCmds.join("\n")]);
