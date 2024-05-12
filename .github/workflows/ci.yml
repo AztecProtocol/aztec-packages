@@ -249,7 +249,8 @@ jobs:
         run: earthly-ci --no-output ./yarn-project/+format-check
 
   yarn-project-test:
-    needs: noir-projects
+    # quiet machine
+    needs: [noir-projects, build, bb-native-tests]
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
