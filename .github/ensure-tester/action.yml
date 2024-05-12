@@ -1,6 +1,6 @@
 # Reusable setup workflow for CI tasks
-name: Setup Workflow
-description: "Reusable setup steps"
+name: Ensure Tester
+description: "Ensures a tester EC2 machine is available to connect to for this test"
 
 inputs:
   runner_type:
