@@ -3,11 +3,11 @@ const core = require("@actions/core");
 const fs = require("fs");
 
 async function main() {
-  const cacheKey = await cache.restoreCache(["success.txt"], process.env.INPUT_SUCCESS_KEY);
+  const cacheKey = await cache.restoreCache(["success.txt"], core.getInput("success_key"));
 
   if (cacheKey) {
     // Cache was found and restored
-    core.exportVariable("cache-success", "true");
+    core.exportVariable("CACHE_SUCCESS", "true");
     core.info("Cache hit occurred, file restored.");
 
     // Optionally, read and log the success file content
@@ -15,7 +15,7 @@ async function main() {
     core.info(`NOTE: Skipping due to success from this run: ${successData}`);
   } else {
     // No cache found
-    core.exportVariable("cache-success", "false");
+    core.exportVariable("CACHE_SUCCESS", "false");
     core.info("No cache hit occurred.");
   }
 }
