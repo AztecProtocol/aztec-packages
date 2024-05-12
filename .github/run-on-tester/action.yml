@@ -3,19 +3,12 @@ name: Setup Workflow
 description: "Reusable setup steps"
 
 inputs:
-  runner_action:
-    default: start
-    required: false
   runner_type:
     required: true
-  builder_type:
-    required: false
-  builder_images_to_copy:
-    required: false
   run_timeout_minutes:
     required: false
   run:
-    # command to run once builder/tester available
+    # command to run once tester available
     required: false
 runs:
   # define an action, runs in OS of caller
@@ -47,35 +40,12 @@ runs:
           echo "instance_type=m6a.32xlarge" >> $GITHUB_OUTPUT
         fi
 
-    - name: Ensure Builder And Images
-      uses: ./.github/ensure-builder
-      if: ${{ inputs.builder_images_to_copy }}
-      with:
-        runner_type: ${{ inputs.builder_type }}
-        run: |
-          # in case of inconvenient prune, re-export
-          set -eux
-          for image in ${{ inputs.builder_images_to_copy }} ; do
-            if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "$image" ; then
-              export FORCE_COLOR=1
-              git submodule update --init --recursive --recommend-shallow 1>&2
-              scripts/earthly-ci ./yarn-project+export-e2e-test-images
-            fi
-          done
-
-          docker images --no-trunc --quiet aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }}
-
-    - name: Compute Success Key
-      shell: bash
-      if: ${{ inputs.builder_images_to_copy }}
-      run: scripts/run_on_builder "$RUN_SCRIPT"
-
     - name: Start Tester
       uses: ./.github/spot-runner-action
       with:
         # inputs:
         runner_label: ${{ steps.select_instance.outputs.runner_label }}
-        subaction: ${{ inputs.runner_action }}
+        subaction: start
         github_token: ${{ env.GH_SELF_HOSTED_RUNNER_TOKEN }}
         aws_access_key_id: ${{ env.AWS_ACCESS_KEY_ID }}
         aws_secret_access_key: ${{ env.AWS_SECRET_ACCESS_KEY }}

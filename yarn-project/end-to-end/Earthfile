@@ -1,5 +1,4 @@
 VERSION 0.8
-ARG --global skip_build=false
 
 E2E_COMPOSE_TEST:
   FUNCTION

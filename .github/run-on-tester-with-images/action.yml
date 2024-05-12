@@ -1,0 +1,87 @@
+# Reusable setup workflow for CI tasks
+name: Setup Workflow
+description: "Reusable setup steps"
+
+inputs:
+  runner_type:
+    required: true
+  builder_type:
+    required: true
+  builder_images_to_copy:
+    required: true
+  builder_command:
+    required: true
+  run_timeout_minutes:
+    required: fakse
+  run:
+    # command to run once builder/tester available
+    required: false
+runs:
+  # define an action, runs in OS of caller
+  using: composite
+  steps:
+    - name: Select Instance Type and AMI
+      id: select_instance
+      shell: bash
+      run: |
+        TYPE=${{ inputs.runner_type }}
+        # Try to use spot for every runner type for now
+        echo "spot_strategy=BestEffort" >> $GITHUB_OUTPUT
+        echo "runner_label=$USERNAME-$runner_type" >> $GITHUB_OUTPUT
+        echo "ami_id=ami-04d8422a9ba4de80f" >> $GITHUB_OUTPUT
+        # no github runners, 'bare spot' in action code
+        echo "runner_concurrency=0" >> $GITHUB_OUTPUT
+        echo "ttl=30" >> $GITHUB_OUTPUT
+        if [[ $TYPE == 4core-* ]]; then
+          echo "instance_type=m6a.large" >> $GITHUB_OUTPUT
+        elif [[ $TYPE == 8core-* ]]; then
+          echo "instance_type=m6a.2xlarge" >> $GITHUB_OUTPUT
+        elif [[ $TYPE == 16core-* ]]; then
+          echo "instance_type=m6a.4xlarge" >> $GITHUB_OUTPUT
+        elif [[ $TYPE == 32core-* ]]; then
+          echo "instance_type=m6a.8xlarge" >> $GITHUB_OUTPUT
+        elif [[ $TYPE == 64core-* ]]; then
+          echo "instance_type=m6a.16xlarge" >> $GITHUB_OUTPUT
+        elif [[ $TYPE == 128core-* ]]; then
+          echo "instance_type=m6a.32xlarge" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Ensure Builder And Images
+      uses: ./.github/ensure-builder
+      if: ${{ inputs.builder_images_to_copy }}
+      with:
+        runner_type: ${{ inputs.builder_type }}
+        run: |
+          # in case we built this before, there might have been an inconvenient docker prune, still include builder_command and redo
+          set -eux
+          for image in ${{ inputs.builder_images_to_copy }} ; do
+            if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "$image" ; then
+              export FORCE_COLOR=1
+              git submodule update --init --recursive --recommend-shallow
+              ${{ inputs.builder_command }}
+              break
+            fi
+          done
+
+    - name: Compute Success Key
+      shell: bash
+      run: |
+        scripts/run_on_builder "
+          for image in ${{ inputs.builder_images_to_copy }} ; do
+            docker images --no-trunc --quiet $image
+          done" > .success_key
+        echo "${{ inputs.run }}" >> .success_key
+        echo "SUCCESS_KEY=$(cat .success_key | md5sum)" >> $GITHUB_ENV
+
+    - name: Start Tester
+      uses: ./.github/cache-success
+      with:
+        success_key: ${{ env.SUCCESS_KEY }}
+
+    - name: Test
+      uses: ./.github/run-on-tester
+      if: ${{ env.CACHE_SUCCESS != 'true' }}
+      with:
+        run: ${{ inputs.run }}
+        runner_type: ${{ inputs.runner_type}}
+        run_timeout: ${{ inputs.run_timeout }}
