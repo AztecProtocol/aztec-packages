@@ -61,11 +61,13 @@ template <typename FF_> class GoblinTranslatorAccumulatorTransferRelationImpl {
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
+     * @details This has a negligible chance of failing in sumcheck
+     *
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.lagrange_even_in_minicircuit.is_zero() && in.lagrange_second_to_last_in_minicircuit.is_zero() &&
-               in.lagrange_second.is_zero();
+        return (in.lagrange_even_in_minicircuit + in.lagrange_second_to_last_in_minicircuit + in.lagrange_second)
+            .is_zero();
     }
     /**
      * @brief Relation enforcing non-arithmetic transitions of accumulator (value that is tracking the batched

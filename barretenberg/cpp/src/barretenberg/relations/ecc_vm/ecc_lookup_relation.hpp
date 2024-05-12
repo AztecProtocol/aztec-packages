@@ -31,15 +31,6 @@ template <typename FF_> class ECCVMLookupRelationImpl {
     }
 
     /**
-     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
-     *
-     */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.precompute_select.is_zero() && in.msm_add.is_zero() && in.msm_skew.is_zero();
-    }
-
-    /**
      * @brief Get the inverse lookup polynomial
      *
      * @tparam AllEntities
