@@ -71,6 +71,7 @@ runs:
       shell: bash
       if: ${{ !contains(inputs.runner_type, 'tester') }}
       run: |
+        sudo shutdown -P ${{ steps.select_instance.outputs.ttl }}
         set -x
         # detect run folder
         if ! scripts/run_on_builder "[ -d ~/run-$RUN_ID ]" ; then
