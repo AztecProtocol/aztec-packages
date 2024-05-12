@@ -75,6 +75,8 @@ jobs:
         with:
           runner_type: ${{ matrix.test == 'client-prover-integration' && '32core-tester-x86' || '8core-tester-x86' }}
           builder_type: builder-x86
+          # these are copied to the tester and expected by the earthly command below
+          # if they fail to copy, it will try to build them on the tester and fail
           builder_images_to_copy: aztecprotocol/aztec:${{ github.event.pull_request.head.sha }} aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }}
           # command to produce the images in case they don't exist
           builder_command: cd yarn-project/end-to-end/ && ../../scripts/earthly-ci +${{ matrix.test }}
@@ -102,6 +104,8 @@ jobs:
         with:
           runner_type: 16core-tester-x86
           builder_type: builder-x86
+          # these are copied to the tester and expected by the earthly command below
+          # if they fail to copy, it will try to build them on the tester and fail
           builder_images_to_copy: aztecprotocol/aztec:${{ github.event.pull_request.head.sha }} aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }}
           # command to produce the images in case they don't exist
           builder_command: cd yarn-project/end-to-end/ && ../../scripts/earthly-ci +${{ matrix.test }}
