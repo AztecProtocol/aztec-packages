@@ -15,6 +15,10 @@ template <typename FF_> class GoblinTranslatorNonNativeFieldRelationImpl {
         3  // Prime subrelation (checks result in native field)
     };
 
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.lagrange_odd_in_minicircuit.is_zero();
+    }
     /**
      * @brief Expression for the computation of Goblin Translator accumulator in integers through 68-bit limbs and
      * native field (prime) limb

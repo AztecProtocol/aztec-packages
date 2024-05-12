@@ -12,7 +12,7 @@ template <typename FF_> class GoblinTranslatorOpcodeConstraintRelationImpl {
     static constexpr std::array<size_t, 1> SUBRELATION_PARTIAL_LENGTHS{
         7 // opcode constraint relation
     };
-
+    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.op.is_zero(); }
     /**
      * @brief Expression for enforcing the value of the Opcode to be {0,1,2,3,4,8}
      * @details This relation enforces the opcode to be one of described values. Since we don't care about even
@@ -52,7 +52,11 @@ template <typename FF_> class GoblinTranslatorAccumulatorTransferRelationImpl {
         3  // accumulator limb 3 is equal to given result at the end of accumulation subrelation
 
     };
-
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return (in.lagrange_even_in_minicircuit + in.lagrange_second_to_last_in_minicircuit + in.lagrange_second)
+            .is_zero();
+    }
     /**
      * @brief Relation enforcing non-arithmetic transitions of accumulator (value that is tracking the batched
      * evaluation of polynomials in non-native field)

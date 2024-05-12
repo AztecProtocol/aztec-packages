@@ -38,21 +38,20 @@ template <typename Flavor> void compute_concatenated_polynomials(typename Flavor
     // A function that produces 1 concatenated polynomial
     // TODO(#756): This can be rewritten to use more cores. Currently uses at maximum the number of concatenated
     // polynomials (4 in Goblin Translator)
-    auto ordering_function = [&](size_t i) {
+    auto ordering_function = [&](size_t index) {
+        size_t i = index / concatenation_groups[0].size();
+        size_t j = index % concatenation_groups[0].size();
         auto my_group = concatenation_groups[i];
         auto& current_target = targets[i];
 
-        // For each polynomial in group
-        for (size_t j = 0; j < my_group.size(); j++) {
-            auto starting_write_offset = current_target.begin();
-            auto finishing_read_offset = my_group[j].begin();
-            std::advance(starting_write_offset, j * MINI_CIRCUIT_SIZE);
-            std::advance(finishing_read_offset, MINI_CIRCUIT_SIZE);
-            // Copy into appropriate position in the concatenated polynomial
-            std::copy(my_group[j].begin(), finishing_read_offset, starting_write_offset);
-        }
+        auto starting_write_offset = current_target.begin();
+        auto finishing_read_offset = my_group[j].begin();
+        std::advance(starting_write_offset, j * MINI_CIRCUIT_SIZE);
+        std::advance(finishing_read_offset, MINI_CIRCUIT_SIZE);
+        // Copy into appropriate position in the concatenated polynomial
+        std::copy(my_group[j].begin(), finishing_read_offset, starting_write_offset);
     };
-    parallel_for(concatenation_groups.size(), ordering_function);
+    parallel_for(concatenation_groups.size() * concatenation_groups[0].size(), ordering_function);
 }
 
 /**

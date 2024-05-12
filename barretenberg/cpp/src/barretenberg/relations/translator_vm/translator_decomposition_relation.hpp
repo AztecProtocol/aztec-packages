@@ -62,6 +62,11 @@ template <typename FF_> class GoblinTranslatorDecompositionRelationImpl {
         3  // decomposition of z2 into 2 limbs subrelation
     };
 
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.lagrange_odd_in_minicircuit.is_zero();
+    }
+
     /**
      * @brief Expression for decomposition of various values into smaller limbs or microlimbs.
      * @details This relation enforces three types of subrelations:
