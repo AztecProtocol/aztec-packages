@@ -249,9 +249,8 @@ jobs:
         run: earthly-ci --no-output ./yarn-project/+format-check
 
   yarn-project-test:
-    # hacky workaround: making lots of deps to ensure runner running less
-    # TODO move to spot
-    needs: [build, noir-projects, bb-native-tests]
+    # quiet machine
+    needs: [noir-projects, build, bb-native-tests]
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -265,7 +264,7 @@ jobs:
         run: earthly-ci --no-output ./yarn-project/+test
 
   prover-client-test:
-    needs: noir-projects
+    needs: [build, bb-native-tests, noir-projects]
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4

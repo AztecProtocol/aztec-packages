@@ -45,6 +45,12 @@ if [ -f ~/.ebs-cache-mounted ] ; then
     elapsed_time=$((elapsed_time + WAIT_INTERVAL))
   done
   echo "Detected existing mount, continuing..."
+
+  for i in {1..60} ; do
+    [ -f ~/.setup-complete ] && break
+    sleep 1
+    echo "Waiting for other mount to finish."
+  done
   exit 0
 fi
 

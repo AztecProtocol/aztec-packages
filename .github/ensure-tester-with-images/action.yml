@@ -40,8 +40,9 @@ runs:
           for image in ${{ inputs.builder_images_to_copy }} ; do
             docker images --no-trunc --quiet \$image
           done" > .success_key
+        echo "IMAGE_KEY=$(cat .success_key | md5sum | awk '{print $1}')" >> $GITHUB_ENV
         echo "${{ inputs.run }}" >> .success_key
-        echo "SUCCESS_KEY=$(cat .success_key | md5sum)" >> $GITHUB_ENV
+        echo "SUCCESS_KEY=$(cat .success_key | md5sum | awk '{print $1}') " >> $GITHUB_ENV
 
     - name: Check Cached Success
       uses: ./.github/cache-success
@@ -58,8 +59,8 @@ runs:
           export BUILDER_SPOT_IP=${{ env.BUILDER_SPOT_IP }}
           export BUILDER_SPOT_KEY=~/.ssh/build_instance_key
           scripts/run_on_builder "
-            flock ${{ env.RUN_ID }}.lock bash -c '! [ -f ${{ env.RUN_ID }}.brotli ] && docker save ${{ inputs.builder_images_to_copy }} | brotli -2 > ${{ env.RUN_ID }}.brotli'
-            cat ${{ env.RUN_ID }}.brotli
+            flock ${{ env.IMAGE_KEY }}.lock bash -c '! [ -f ${{ env.IMAGE_KEY }}.brotli ] && docker save ${{ inputs.builder_images_to_copy }} | brotli -2 > ${{ env.IMAGE_KEY }}.brotli'
+            cat ${{ env.IMAGE_KEY }}.brotli
           " | brotli --decompress | docker load
 
     - name: Test
