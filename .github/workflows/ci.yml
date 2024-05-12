@@ -75,6 +75,7 @@ jobs:
           runner_type: ${{ matrix.test == 'client-prover-integration' && '32core-tester-x86' || '8core-tester-x86' }}
           builder_type: builder-x86
           builder_images_to_copy: aztecprotocol/aztec:${{ github.event.pull_request.head.sha }} aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }}
+          # command to produce the images in case they don't exist
           builder_command: cd yarn-project/end-to-end/ && ../../scripts/earthly-ci +${{ matrix.test }}
       - name: Test
         uses: ./.github/run-on-tester
@@ -108,6 +109,7 @@ jobs:
           runner_type: 16core-tester-x86
           builder_type: builder-x86
           builder_images_to_copy: aztecprotocol/aztec:${{ github.event.pull_request.head.sha }} aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }}
+          # command to produce the images in case they don't exist
           builder_command: cd yarn-project/end-to-end/ && ../../scripts/earthly-ci +${{ matrix.test }}
       - name: Test
         uses: ./.github/run-on-tester
@@ -365,9 +367,9 @@ jobs:
             scripts/earthly-ci --push ./barretenberg/cpp/+bench-binaries
       - name: Run Bench
         uses: ./.github/ensure-tester
+        timeout-minutes: 25
         with:
           runner_type: 16core-tester-x86
-          run_timeout: 25
           run: |
             scripts/earthly-ci --no-output ./barretenberg/cpp/+bench-client-ivc --bench_mode=cache
             scripts/earthly-ci --no-output ./barretenberg/cpp/+bench-ultra-honk --bench_mode=cache

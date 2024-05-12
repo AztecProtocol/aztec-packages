@@ -77,7 +77,6 @@ runs:
       uses: ./.github/ensure-tester
       if: ${{ env.CACHE_SUCCESS != 'true' }}
       with:
-        run: ${{ inputs.run }}
         runner_type: ${{ inputs.runner_type}}
         run: |
           set -eux
