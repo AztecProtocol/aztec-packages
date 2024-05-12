@@ -1,10 +1,9 @@
-const core = require("@actions/core");
 const cache = require("@actions/cache");
 const fs = require("fs");
 
 async function main() {
     try {
-      const cacheKey = await cache.restoreCache(["success.txt"], core.getInput("success-key"));
+      const cacheKey = await cache.restoreCache(["success.txt"], process.env.INPUT_SUCCESS_KEY);
 
       if (cacheKey) {
         // Cache was found and restored
