@@ -83,6 +83,7 @@ jobs:
           run: |
             set -eux
             cd ./yarn-project/end-to-end/
+            export FORCE_COLOR=1
             ../../scripts/earthly-ci -P --no-output +${{ matrix.test }}
 
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
@@ -111,6 +112,7 @@ jobs:
           run: |
             set -eux
             cd ./yarn-project/end-to-end/
+            export FORCE_COLOR=1
             ../../scripts/earthly-ci -P \
               --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
               --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
@@ -175,23 +177,8 @@ jobs:
         with:
           # must be globally unique for build x runner
           concurrency_key: bb-native-tests-${{ inputs.username || github.actor }}-x86
-      - name: Setup and Test
-        timeout-minutes: 40
-        uses: ./.github/ensure-tester-with-images
-        with:
-          runner_type: ${{ matrix.test == 'client-prover-integration' && '32core-tester-x86' || '8core-tester-x86' }}
-          builder_type: builder-x86
-          # these are copied to the tester and expected by the earthly command below
-          # if they fail to copy, it will try to build them on the tester and fail
-          builder_images_to_copy: aztecprotocol/aztec:${{ github.event.pull_request.head.sha }} aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }}
-          # command to produce the images in case they don't exist
-          builder_command: scripts/earthly-ci ./barretenberg/cpp/+export-e2e-test-images
-          run: |
-            set -eux
-            cd ./barretenberg/cpp/
-            ../../scripts/earthly-ci -P --no-output +${{ matrix.test }}
       - name: "Native Prover Tests"
-        working-directory:
+        working-directory: ./barretenberg/cpp/
         timeout-minutes: 25
         # limit our parallelism to half our cores
         run: earthly-ci --no-output +test --hardware_concurrency=64
