@@ -15,32 +15,6 @@ runs:
   # define an action, runs in OS of caller
   using: composite
   steps:
-    - name: Select Instance Type and AMI
-      id: select_instance
-      shell: bash
-      run: |
-        TYPE=${{ inputs.runner_type }}
-        # Try to use spot for every runner type for now
-        echo "spot_strategy=BestEffort" >> $GITHUB_OUTPUT
-        echo "runner_label=$USERNAME-$runner_type" >> $GITHUB_OUTPUT
-        echo "ami_id=ami-04d8422a9ba4de80f" >> $GITHUB_OUTPUT
-        # no github runners, 'bare spot' in action code
-        echo "runner_concurrency=0" >> $GITHUB_OUTPUT
-        echo "ttl=30" >> $GITHUB_OUTPUT
-        if [[ $TYPE == 4core-* ]]; then
-          echo "instance_type=m6a.large" >> $GITHUB_OUTPUT
-        elif [[ $TYPE == 8core-* ]]; then
-          echo "instance_type=m6a.2xlarge" >> $GITHUB_OUTPUT
-        elif [[ $TYPE == 16core-* ]]; then
-          echo "instance_type=m6a.4xlarge" >> $GITHUB_OUTPUT
-        elif [[ $TYPE == 32core-* ]]; then
-          echo "instance_type=m6a.8xlarge" >> $GITHUB_OUTPUT
-        elif [[ $TYPE == 64core-* ]]; then
-          echo "instance_type=m6a.16xlarge" >> $GITHUB_OUTPUT
-        elif [[ $TYPE == 128core-* ]]; then
-          echo "instance_type=m6a.32xlarge" >> $GITHUB_OUTPUT
-        fi
-
     - name: Ensure Builder And Images
       uses: ./.github/ensure-builder
       if: ${{ inputs.builder_images_to_copy }}
