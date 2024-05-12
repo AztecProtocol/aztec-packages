@@ -21,7 +21,7 @@ runs:
       with:
         runner_type: ${{ inputs.builder_type }}
         run: |
-          # in case we built this before, there might have been an inconvenient docker prune, still include builder_command and redo
+          # run builder_command if inputs don't exist
           set -eux
           for image in ${{ inputs.builder_images_to_copy }} ; do
             if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "$image" ; then
