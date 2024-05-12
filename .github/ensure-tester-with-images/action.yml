@@ -62,7 +62,7 @@ runs:
             cat ${{ env.RUN_ID }}.brotli
           " | brotli --decompress | docker load
 
-      - name: Test
-        uses: ./.github/run-on-tester
-        with:
-          run: ${{ inputs.run }}
+    - name: Test
+      uses: ./.github/run-on-tester
+      with:
+        run: ${{ inputs.run }}
