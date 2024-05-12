@@ -7,7 +7,9 @@ use transforms::{
         generate_contract_interface, stub_function, update_fn_signatures_in_contract_interface,
     },
     events::{generate_selector_impl, transform_events},
-    functions::{check_for_public_args, export_fn_abi, transform_function, transform_unconstrained},
+    functions::{
+        check_for_public_args, export_fn_abi, transform_function, transform_unconstrained,
+    },
     note_interface::{generate_note_interface_impl, inject_note_exports},
     storage::{
         assign_storage_slots, check_for_storage_definition, check_for_storage_implementation,
@@ -189,22 +191,24 @@ fn transform_module(
                     .secondary
                     .iter()
                     .any(|attr| is_custom_attribute(attr, "aztec(private)"))
-            }).collect();
+            })
+            .collect();
 
         let public_functions: Vec<_> = module
-        .functions
-        .iter()
-        .filter(|func| {
-            func.def
-                .attributes
-                .secondary
-                .iter()
-                .any(|attr| is_custom_attribute(attr, "aztec(public)"))
-        }).collect();
+            .functions
+            .iter()
+            .filter(|func| {
+                func.def
+                    .attributes
+                    .secondary
+                    .iter()
+                    .any(|attr| is_custom_attribute(attr, "aztec(public)"))
+            })
+            .collect();
 
         let private_function_count = private_functions.len();
 
-        check_for_public_args(&private_functions)?;          
+        check_for_public_args(&private_functions)?;
 
         check_for_public_args(&public_functions)?;
 
