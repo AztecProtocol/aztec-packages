@@ -56,8 +56,7 @@ runs:
           set -eux
           export BUILDER_SPOT_IP=${{ env.BUILDER_SPOT_IP }}
           export BUILDER_SPOT_KEY=~/.ssh/build_instance_key
-          SHA=${{ github.event.pull_request.head.sha }}
           scripts/run_on_builder "
-            flock $SHA.lock bash -c '! [ -f $SHA.brotli ] && docker save aztecprotocol/aztec:$SHA aztecprotocol/end-to-end:$SHA | brotli -2 > $SHA.brotli'
-            cat $SHA.brotli
+            flock $RUN_ID.lock bash -c '! [ -f $RUN_ID.brotli ] && docker save ${{ inputs.builder_images_to_copy }} | brotli -2 > $RUN_ID.brotli'
+            cat $RUN_ID.brotli
           " | brotli --decompress | docker load
