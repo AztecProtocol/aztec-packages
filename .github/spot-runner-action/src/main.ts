@@ -316,7 +316,7 @@ async function setupGithubRunners(ip: string, config: ActionConfig) {
     `  ln -s $(pwd)/../externals ../${runnerNameBase}-$i`,
     `  pushd ../${runnerNameBase}-$i`,
     `  echo \${TOKENS[i]} > .runner-token`,
-    `  screen -dm bash -c './config.sh --unattended --url https://github.com/${github.context.repo.owner}/${github.context.repo.repo} --token \${TOKENS[i]} --labels ${config.githubActionRunnerLabel} --replace --name ${runnerNameBase}-$i && ./run.sh'`,
+    `  screen -dm bash -c './config.sh --unattended --url https://github.com/${github.context.repo.owner}/${github.context.repo.repo} --token '\${TOKENS[i]}' --labels ${config.githubActionRunnerLabel} --replace --name ${runnerNameBase}-$i && ./run.sh'`,
     `  popd`,
     "done"
   ];
