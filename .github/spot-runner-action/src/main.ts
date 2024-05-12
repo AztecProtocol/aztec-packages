@@ -317,7 +317,7 @@ async function setupGithubRunners(ip: string, config: ActionConfig) {
     `  pushd ../${runnerNameBase}-$i`,
     `  echo \${TOKENS[i]} > .runner-token`,
     `  echo './config.sh $@ && ./run.sh' > config_and_run.sh`,
-    `  nohup bash ./config.sh --unattended --url https://github.com/${github.context.repo.owner}/${github.context.repo.repo} --token \${TOKENS[i]} --labels ${config.githubActionRunnerLabel} --replace --name ${runnerNameBase}-$i &`,
+    `  nohup bash ./config_and_run.sh --unattended --url https://github.com/${github.context.repo.owner}/${github.context.repo.repo} --token \${TOKENS[i]} --labels ${config.githubActionRunnerLabel} --replace --name ${runnerNameBase}-$i &`,
     `  popd`,
     "done"
   ];
