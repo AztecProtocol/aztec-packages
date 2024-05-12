@@ -18,11 +18,3 @@ jobs:
       runner_type: builder-x86
       runner_action: ${{ inputs.action }}
     secrets: inherit
-
-  start-bench:
-    uses: ./.github/workflows/setup-runner.yml
-    with:
-      username: ${{ inputs.username || github.actor }}
-      runner_type: bb-bench-x86
-      runner_action: ${{ inputs.action }}
-    secrets: inherit

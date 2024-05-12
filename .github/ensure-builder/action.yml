@@ -39,33 +39,6 @@ runs:
           echo "runner_concurrency=8" >> $GITHUB_OUTPUT
           echo "runner_label=$USERNAME-arm" >> $GITHUB_OUTPUT
           echo "ttl=40" >> $GITHUB_OUTPUT
-        elif [[ $TYPE == bb-bench-x86 ]]; then
-          # 16-core x86 instance type
-          echo "instance_type=m6a.4xlarge" >> $GITHUB_OUTPUT
-          echo "ami_id=ami-04d8422a9ba4de80f" >> $GITHUB_OUTPUT
-          echo "ebs_cache_size=64" >> $GITHUB_OUTPUT
-          echo "runner_concurrency=1" >> $GITHUB_OUTPUT
-          echo "ttl=40" >> $GITHUB_OUTPUT
-        else
-          if [[ $TYPE == *tester-x86* ]]; then
-            echo "ami_id=ami-04d8422a9ba4de80f" >> $GITHUB_OUTPUT
-            # no github runners, 'bare spot' in action code
-            echo "runner_concurrency=0" >> $GITHUB_OUTPUT
-            echo "ttl=30" >> $GITHUB_OUTPUT
-          fi
-          if [[ $TYPE == 4core-* ]]; then
-            echo "instance_type=m6a.large" >> $GITHUB_OUTPUT
-          elif [[ $TYPE == 8core-* ]]; then
-            echo "instance_type=m6a.2xlarge" >> $GITHUB_OUTPUT
-          elif [[ $TYPE == 16core-* ]]; then
-            echo "instance_type=m6a.4xlarge" >> $GITHUB_OUTPUT
-          elif [[ $TYPE == 32core-* ]]; then
-            echo "instance_type=m6a.8xlarge" >> $GITHUB_OUTPUT
-          elif [[ $TYPE == 64core-* ]]; then
-            echo "instance_type=m6a.16xlarge" >> $GITHUB_OUTPUT
-          elif [[ $TYPE == 128core-* ]]; then
-            echo "instance_type=m6a.32xlarge" >> $GITHUB_OUTPUT
-          fi
         fi
 
     - name: Start Builder
@@ -113,30 +86,8 @@ runs:
           " || true
         fi
 
-    # Set up a context for this run
-    # TODO deduplicate
-    - name: Copy Repo to Tester
-      shell: bash
-      if: ${{ contains(inputs.runner_type, 'tester') }}
-      run: |
-        set -x
-        # detect run folder
-        if ! scripts/run_on_tester "[ -d ~/run-$RUN_ID-git ]" ; then
-          echo "Copying local repo to spot"
-          tar czf - .git | scripts/run_on_tester \
-            "mkdir -p ~/run-$RUN_ID-git && cd ~/run-$RUN_ID-git && tar xzf -" || true
-          scripts/run_on_tester "
-            echo "Unpacking repo"
-            git config --global advice.detachedHead false
-            git clone ~/run-$RUN_ID-git/.git ~/run-$RUN_ID
-            echo ${{ env.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
-            chmod 600 ~/.ssh/build_instance_key
-          " || true
-        fi
-
     - name: Attach EBS Cache Disk
       uses: ./.github/run-on-builder
-      if: ${{ !contains(inputs.runner_type, 'tester') }}
       with:
         run: |
           # give time in case another instance started the clone first
@@ -151,7 +102,6 @@ runs:
 
     - name: Setup Graceful Exit
       uses: ./.github/run-on-builder
-      if: ${{ !contains(inputs.runner_type, 'tester') }}
       with:
         run: |
           # One-time config
@@ -161,8 +111,8 @@ runs:
             # Get the used space on /dev/nvme1n1 in bytes
             used_space=$(df /var/lib/docker | awk 'NR==2 {print $3}')
             # Compare and conditionally prune
-            if [[ "$used_space" -gt 128000000 ]] ; then
-              echo "Used space is greater than 128GB. Running 'docker system prune'."
+            if [[ "$used_space" -gt 192000000 ]] ; then
+              echo "Used space is greater than 192GB. Running 'docker system prune'."
               docker system prune -f -a || true
               echo "Pruned docker images."
             else
@@ -178,20 +128,7 @@ runs:
             echo "Chron jobs already configured."
           fi
 
-    - name: Ensure Tester Cleanup
-      uses: gacts/run-and-post-run@v1
-      if: ${{ contains(inputs.runner_type, 'tester') }}
-      with:
-        post: scripts/run_on_tester "sudo shutdown now" || true
-
     - name: Run On Builder
-      if: ${{ inputs.run && !contains(inputs.runner_type, 'tester') }}
       uses: ./.github/run-on-builder
-      with:
-        run: ${{ inputs.run }}
-
-    - name: Run On Tester
-      if: ${{ inputs.run && contains(inputs.runner_type, 'tester') }}
-      uses: ./.github/run-on-tester
       with:
         run: ${{ inputs.run }}

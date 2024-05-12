@@ -85,7 +85,7 @@ jobs:
             fi
 
       - name: Copy Docker Images to Tester
-        uses: ./.github/ensure-builder
+        uses: ./.github/ensure-tester
         with:
           runner_type: ${{ matrix.test == 'client-prover-integration' && '32core-tester-x86' || '8core-tester-x86' }}
           run: |
@@ -138,7 +138,7 @@ jobs:
 
       - name: Copy Docker Images to Tester
         # needed to use run-on-tester
-        uses: ./.github/ensure-builder
+        uses: ./.github/ensure-tester
         with:
           runner_type: 32core-tester-x86
           run: |
@@ -407,7 +407,7 @@ jobs:
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             scripts/earthly-ci --push ./barretenberg/cpp/+bench-binaries
       - name: Run Bench
-        uses: ./.github/ensure-builder
+        uses: ./.github/ensure-tester
         with:
           runner_type: 16core-tester-x86
           run: |
