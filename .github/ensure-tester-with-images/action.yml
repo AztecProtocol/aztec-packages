@@ -11,11 +11,6 @@ inputs:
     required: true
   builder_command:
     required: true
-  run_timeout_minutes:
-    required: fakse
-  run:
-    # command to run once builder/tester available
-    required: false
 runs:
   # define an action, runs in OS of caller
   using: composite
@@ -73,15 +68,23 @@ runs:
         echo "${{ inputs.run }}" >> .success_key
         echo "SUCCESS_KEY=$(cat .success_key | md5sum)" >> $GITHUB_ENV
 
-    - name: Start Tester
+    - name: Check Cached Success
       uses: ./.github/cache-success
       with:
         success_key: ${{ env.SUCCESS_KEY }}
 
-    - name: Test
-      uses: ./.github/run-on-tester
+    - name: Copy Docker Images To Tester
+      uses: ./.github/ensure-tester
       if: ${{ env.CACHE_SUCCESS != 'true' }}
       with:
         run: ${{ inputs.run }}
         runner_type: ${{ inputs.runner_type}}
-        run_timeout: ${{ inputs.run_timeout }}
+        run: |
+          set -eux
+          export BUILDER_SPOT_IP=${{ env.BUILDER_SPOT_IP }}
+          export BUILDER_SPOT_KEY=~/.ssh/build_instance_key
+          SHA=${{ github.event.pull_request.head.sha }}
+          scripts/run_on_builder "
+            flock $SHA.lock bash -c '! [ -f $SHA.brotli ] && docker save aztecprotocol/aztec:$SHA aztecprotocol/end-to-end:$SHA | brotli -2 > $SHA.brotli'
+            cat $SHA.brotli
+          " | brotli --decompress | docker loa

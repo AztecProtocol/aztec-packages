@@ -69,19 +69,26 @@ jobs:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
-      - name: Test
-        uses: ./.github/run-on-tester
+      - name: Setup Tester
+        uses: ./.github/ensure-tester-with-images
         with:
           runner_type: ${{ matrix.test == 'client-prover-integration' && '32core-tester-x86' || '8core-tester-x86' }}
           builder_type: builder-x86
           builder_images_to_copy: aztecprotocol/aztec:${{ github.event.pull_request.head.sha }} aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }}
           builder_command: cd yarn-project/end-to-end/ && ../../scripts/earthly-ci +${{ matrix.test }}
-          run_timeout_minutes: 25
+      - name: Test
+        uses: ./.github/run-on-tester
+        timeout-minutes: 25
+        with:
           run: |
             set -eux
             cd ./yarn-project/end-to-end/
             export FORCE_COLOR=1
-            ../../scripts/earthly-ci +${{ matrix.test }}
+            ../../scripts/earthly-ci -P \
+              --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+              --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+              --no-output \
+              +${{ matrix.test }}
 
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
@@ -95,14 +102,17 @@ jobs:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
-      - name: Test
-        uses: ./.github/run-on-tester
+      - name: Setup Tester
+        uses: ./.github/ensure-tester-with-images
         with:
-          runner_type: ${{ matrix.test == 'client-prover-integration' && '32core-tester-x86' || '8core-tester-x86' }}
+          runner_type: 16core-tester-x86
           builder_type: builder-x86
           builder_images_to_copy: aztecprotocol/aztec:${{ github.event.pull_request.head.sha }} aztecprotocol/end-to-end:${{ github.event.pull_request.head.sha }}
           builder_command: cd yarn-project/end-to-end/ && ../../scripts/earthly-ci +${{ matrix.test }}
-          run_timeout_minutes: 25
+      - name: Test
+        uses: ./.github/run-on-tester
+        timeout-minutes: 25
+        with:
           run: |
             set -eux
             cd ./yarn-project/end-to-end/
