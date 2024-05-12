@@ -208,7 +208,7 @@ PrivateContext::emit_contract_class_unencrypted_log(&mut self, log);
 ### emit_encrypted_log
 
 ```rust
-PrivateContext::emit_encrypted_log(&mut self, contract_address, storage_slot, note_type_id, ivpk_m, preimage);
+PrivateContext::emit_encrypted_log(&mut self, contract_address, storage_slot, note_type_id, encryption_pub_key, preimage);
 ```
 
 #### Parameters
@@ -218,7 +218,7 @@ PrivateContext::emit_encrypted_log(&mut self, contract_address, storage_slot, no
 | contract_address | AztecAddress |
 | storage_slot | Field |
 | note_type_id | Field |
-| ivpk_m | GrumpkinPoint |
+| encryption_pub_key | GrumpkinPoint |
 | preimage | [Field; N] |
 
 ### call_private_function

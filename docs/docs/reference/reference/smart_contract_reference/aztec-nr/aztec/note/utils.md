@@ -80,17 +80,6 @@ compute_note_hash_for_insertion(note);
 | --- | --- |
 | note | Note |
 
-### compute_note_hash_for_read_request
-
-```rust
-compute_note_hash_for_read_request(note);
-```
-
-#### Parameters
-| Name | Type |
-| --- | --- |
-| note | Note |
-
 ### compute_note_hash_for_consumption
 
 ```rust

@@ -46,7 +46,7 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       {
         docs: {
-          path: process.env.ENV === "dev" ? "docs" : "processed-docs",
+          path: process.env.HOT ? "processed-docs" : "docs",
           sidebarPath: "./sidebars.js",
           editUrl: (params) => {
             return (
@@ -168,6 +168,9 @@ const config = {
     ],
     // ["./src/plugins/plugin-embed-code", {}],
   ],
+  customFields: {
+    MATOMO_ENV: process.env.ENVIRONMENT || process.env.ENV,
+  },
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
