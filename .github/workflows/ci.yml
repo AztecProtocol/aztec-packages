@@ -30,7 +30,7 @@ env:
 
 jobs:
   setup:
-    uses: ./.github/workflows/setup-runner.ymlA
+    uses: ./.github/workflows/setup-runner.yml
     with:
       username: ${{ inputs.username || github.actor }}
       runner_type: builder-x86
