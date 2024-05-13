@@ -1,6 +1,5 @@
 use crate::{
-    abis::side_effect::{Ordered, OrderedValue},
-    constants::{LOG_HASH_LENGTH, NOTE_LOG_HASH_LENGTH},
+    abis::side_effect::{Ordered, OrderedValue}, constants::{LOG_HASH_LENGTH, NOTE_LOG_HASH_LENGTH},
     traits::{Empty, Serialize, Deserialize}
 };
 

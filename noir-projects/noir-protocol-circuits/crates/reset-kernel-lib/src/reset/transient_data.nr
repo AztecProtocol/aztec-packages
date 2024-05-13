@@ -1,4 +1,7 @@
-use dep::types::{abis::{note_hash::ScopedNoteHash, nullifier::ScopedNullifier, log_hash::NoteLogHash}, traits::is_empty};
+use dep::types::{
+    abis::{note_hash::ScopedNoteHash, nullifier::ScopedNullifier, log_hash::NoteLogHash},
+    traits::is_empty
+};
 
 pub fn verify_squashed_transient_note_hashes_and_nullifiers<NUM_NOTE_HASHES, NUM_NULLIFIERS, NUM_LOGS>(
     note_hashes: [ScopedNoteHash; NUM_NOTE_HASHES],
@@ -80,9 +83,7 @@ pub fn verify_squashed_transient_note_hashes_and_nullifiers<NUM_NOTE_HASHES, NUM
             // We may have many logs for each nullified note, so we do the below checks per log,
             // rather than per note
             let transient_nullifier_index = transient_nullifier_indexes_for_note_hashes[index_hint];
-            assert(
-                transient_nullifier_index != NUM_NULLIFIERS, "Hinted transient note log not nullified"
-            );
+            assert(transient_nullifier_index != NUM_NULLIFIERS, "Hinted transient note log not nullified");
 
             // Below check not required - It links logs to nullifiers, but we have already linked logs to note hashes,
             // and note hashes to nullifiers.
@@ -109,10 +110,8 @@ pub fn verify_squashed_transient_note_hashes_and_nullifiers<NUM_NOTE_HASHES, NUM
 mod tests {
     use crate::reset::transient_data::verify_squashed_transient_note_hashes_and_nullifiers;
     use dep::types::{
-        abis::{
-            note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
-            log_hash::NoteLogHash
-        }, address::AztecAddress
+        abis::{note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier}, log_hash::NoteLogHash},
+        address::AztecAddress
     };
 
     struct TestDataBuilder<NUM_NOTE_HASHES, NUM_NULLIFIERS, NUM_LOGS> {
@@ -193,7 +192,7 @@ mod tests {
                 NoteLogHash { value: 77, counter: 700, length: 70, note_hash: 11 },
                 NoteLogHash { value: 88, counter: 800, length: 80, note_hash: 33 },
                 NoteLogHash { value: 99, counter: 900, length: 90, note_hash: 22 },
-                NoteLogHash { value: 111, counter: 1000, length: 100, note_hash: 33 },
+                NoteLogHash { value: 111, counter: 1000, length: 100, note_hash: 33 }
             ];
 
             let expected_note_hashes = [ScopedNoteHash::empty(); 3];
@@ -447,11 +446,11 @@ mod tests {
     #[test]
     fn remove_correct_logs_len() {
         let mut builder = TestDataBuilder::default();
-        let expected_len_removed = builder.note_logs[0].length; 
+        let expected_len_removed = builder.note_logs[0].length;
         assert_eq(builder.verify_length(), expected_len_removed);
 
         let mut builder = TestDataBuilder::default_all_clear();
-        let expected_len_removed = builder.note_logs.fold(0, |a, b: NoteLogHash| a + b.length); 
+        let expected_len_removed = builder.note_logs.fold(0, |a, b: NoteLogHash| a + b.length);
         assert_eq(builder.verify_length(), expected_len_removed);
     }
 }

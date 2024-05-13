@@ -216,8 +216,16 @@ impl PrivateAccumulatedDataBuilder {
             }
         }
 
-        assert(revertible_builder.encrypted_log_preimages_length + non_revertible_builder.encrypted_log_preimages_length == self.encrypted_log_preimages_length, "encrypted logs length mismatch");
-        assert(revertible_builder.unencrypted_log_preimages_length + non_revertible_builder.unencrypted_log_preimages_length == self.unencrypted_log_preimages_length, "unencrypted logs length mismatch");
+        assert(
+            revertible_builder.encrypted_log_preimages_length
+            + non_revertible_builder.encrypted_log_preimages_length
+            == self.encrypted_log_preimages_length, "encrypted logs length mismatch"
+        );
+        assert(
+            revertible_builder.unencrypted_log_preimages_length
+            + non_revertible_builder.unencrypted_log_preimages_length
+            == self.unencrypted_log_preimages_length, "unencrypted logs length mismatch"
+        );
 
         revertible_builder.gas_used = Gas::new(revertible_da_gas_used, revertible_l2_gas_used);
         non_revertible_builder.gas_used = Gas::tx_overhead() + Gas::new(non_revertible_da_gas_used, non_revertible_l2_gas_used);
@@ -251,9 +259,7 @@ mod tests {
             NoteHash { value: 2, counter: 4 }.scope(5, contract_address)
         ];
 
-        let non_revertible_note_logs = [
-            NoteLogHash { value: 11, counter: 2, length: 2, note_hash: 1 }
-        ];
+        let non_revertible_note_logs = [NoteLogHash { value: 11, counter: 2, length: 2, note_hash: 1 }];
 
         let non_revertible_nullifiers = [
             Nullifier { value: 10, note_hash: 1, counter: 3 }.scope(contract_address),
@@ -283,12 +289,12 @@ mod tests {
 
         let non_revertible_enc_log_hashes = [
             LogHash { value: 11, counter: 9, length: 2 },
-            LogHash { value: 22, counter: 10, length: 2 },
+            LogHash { value: 22, counter: 10, length: 2 }
         ];
 
         let non_revertible_unenc_log_hashes = [
             LogHash { value: 33, counter: 11, length: 5 },
-            LogHash { value: 44, counter: 12, length: 5 },
+            LogHash { value: 44, counter: 12, length: 5 }
         ];
 
         // Revertible: counter >= 13
@@ -298,9 +304,7 @@ mod tests {
             NoteHash { value: 4, counter: 16 }.scope(0, contract_address)
         ];
 
-        let revertible_note_logs = [
-            NoteLogHash { value: 33, counter: 14, length: 2, note_hash: 3 }
-        ];
+        let revertible_note_logs = [NoteLogHash { value: 33, counter: 14, length: 2, note_hash: 3 }];
 
         let revertible_nullifiers = [
             Nullifier { value: 30, note_hash: 3, counter: 15 }.scope(contract_address),
@@ -323,12 +327,12 @@ mod tests {
 
         let revertible_enc_log_hashes = [
             LogHash { value: 55, counter: 20, length: 2 },
-            LogHash { value: 66, counter: 21, length: 2 },
+            LogHash { value: 66, counter: 21, length: 2 }
         ];
 
         let revertible_unenc_log_hashes = [
             LogHash { value: 77, counter: 22, length: 5 },
-            LogHash { value: 88, counter: 23, length: 5 },
+            LogHash { value: 88, counter: 23, length: 5 }
         ];
 
         builder.new_note_hashes.extend_from_array(non_revertible_note_hashes);
@@ -379,9 +383,24 @@ mod tests {
         );
         assert(array_eq(non_revertible.new_l2_to_l1_msgs, [333333]));
         assert(array_eq(non_revertible.public_call_stack, non_revertible_public_stack));
-        assert(array_eq(non_revertible.note_encrypted_logs_hashes, public_non_revertible_note_logs));
-        assert(array_eq(non_revertible.encrypted_logs_hashes, non_revertible_enc_log_hashes));
-        assert(array_eq(non_revertible.unencrypted_logs_hashes, non_revertible_unenc_log_hashes));
+        assert(
+            array_eq(
+                non_revertible.note_encrypted_logs_hashes,
+                public_non_revertible_note_logs
+            )
+        );
+        assert(
+            array_eq(
+                non_revertible.encrypted_logs_hashes,
+                non_revertible_enc_log_hashes
+            )
+        );
+        assert(
+            array_eq(
+                non_revertible.unencrypted_logs_hashes,
+                non_revertible_unenc_log_hashes
+            )
+        );
 
         assert(
             array_eq(
@@ -403,22 +422,40 @@ mod tests {
         );
         assert(array_eq(revertible.new_l2_to_l1_msgs, [444444]));
         assert(array_eq(revertible.public_call_stack, revertible_public_call_stack));
-        assert(array_eq(revertible.note_encrypted_logs_hashes, public_revertible_note_logs));
+        assert(
+            array_eq(
+                revertible.note_encrypted_logs_hashes,
+                public_revertible_note_logs
+            )
+        );
         assert(array_eq(revertible.encrypted_logs_hashes, revertible_enc_log_hashes));
-        assert(array_eq(revertible.unencrypted_logs_hashes, revertible_unenc_log_hashes));
-
-        assert_eq(
-            revertible.gas_used,
-            Gas::new(
-                ( 4 * DA_BYTES_PER_FIELD + revertible.encrypted_log_preimages_length as u32 + revertible.unencrypted_log_preimages_length as u32 ) * DA_GAS_PER_BYTE, 0
-            ) + Gas::new(42, 17)
+        assert(
+            array_eq(
+                revertible.unencrypted_logs_hashes,
+                revertible_unenc_log_hashes
+            )
         );
 
         assert_eq(
-            non_revertible.gas_used,
-            Gas::new(
-                ( 4 * DA_BYTES_PER_FIELD + non_revertible.encrypted_log_preimages_length as u32 + non_revertible.unencrypted_log_preimages_length as u32) * DA_GAS_PER_BYTE, 0
-            ) + Gas::tx_overhead()
+            revertible.gas_used, Gas::new(
+            (4 * DA_BYTES_PER_FIELD
+            + revertible.encrypted_log_preimages_length as u32
+            + revertible.unencrypted_log_preimages_length as u32)
+            * DA_GAS_PER_BYTE,
+            0
+        )
+            + Gas::new(42, 17)
+        );
+
+        assert_eq(
+            non_revertible.gas_used, Gas::new(
+            (4 * DA_BYTES_PER_FIELD
+            + non_revertible.encrypted_log_preimages_length as u32
+            + non_revertible.unencrypted_log_preimages_length as u32)
+            * DA_GAS_PER_BYTE,
+            0
+        )
+            + Gas::tx_overhead()
         );
     }
 }

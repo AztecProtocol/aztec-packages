@@ -8,8 +8,8 @@ use dep::types::{
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-    MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
-    MAX_NOTE_ENCRYPTED_LOGS_PER_TX
+    MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
+    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 },
     grumpkin_private_key::GrumpkinPrivateKey, utils::arrays::array_length, traits::is_empty
 };
@@ -113,7 +113,8 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
-        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier}, log_hash::{LogHash, NoteLogHash}, gas::Gas
+        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
+        log_hash::{LogHash, NoteLogHash}, gas::Gas
     },
         grumpkin_private_key::GrumpkinPrivateKey,
         hash::{compute_note_hash_nonce, compute_unique_note_hash, sha256_to_field, silo_note_hash, silo_nullifier},
@@ -199,9 +200,10 @@ mod tests {
             if self.previous_kernel.note_encrypted_logs_hashes.any(|l: NoteLogHash| l.note_hash == note_hash) {
                 for i in 0..self.previous_kernel.note_encrypted_logs_hashes.len() {
                     // we may have many, or no, logs per note hash, so we cycle rather than .find
-                    if self.previous_kernel.note_encrypted_logs_hashes.storage[i].note_hash == note_hash {
+                    if self.previous_kernel.note_encrypted_logs_hashes.storage[i].note_hash
+                        == note_hash {
                         self.transient_note_hash_indexes_for_logs[i] = note_hash_index;
-                    } 
+                    }
                 }
             }
         }
@@ -479,10 +481,7 @@ mod tests {
         assert(array_eq(public_inputs.end.new_nullifiers, expected_nullifiers));
 
         // The 0th note log is chopped
-        let hash_bytes: [u8; MAX_NOTE_ENCRYPTED_LOGS_PER_TX * 32] = new_note_logs[1].value
-            .to_be_bytes(32)
-            .append(&[0; MAX_ENCRYPTED_LOGS_PER_TX * 32 - 32])
-            .as_array();
+        let hash_bytes: [u8; MAX_NOTE_ENCRYPTED_LOGS_PER_TX * 32] = new_note_logs[1].value.to_be_bytes(32).append(&[0; MAX_ENCRYPTED_LOGS_PER_TX * 32 - 32]).as_array();
         let expected_note_logs_hash = sha256_to_field(hash_bytes);
         assert_eq(expected_note_logs_hash, public_inputs.end.note_encrypted_logs_hash);
     }

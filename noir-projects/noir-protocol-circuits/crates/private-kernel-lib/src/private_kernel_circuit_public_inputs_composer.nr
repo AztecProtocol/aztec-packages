@@ -190,8 +190,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..note_logs.len() {
             if !is_empty(note_logs[i]) {
                 assert(
-                    self.public_inputs.end.new_note_hashes.any(|n: ScopedNoteHash| n.value() == note_logs[i].note_hash),
-                    "Could not find note hash linked to note log."
+                    self.public_inputs.end.new_note_hashes.any(|n: ScopedNoteHash| n.value() == note_logs[i].note_hash), "Could not find note hash linked to note log."
                 );
                 self.public_inputs.end.note_encrypted_logs_hashes.push(note_logs[i]);
             }

@@ -8,8 +8,8 @@ use dep::types::{
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-    MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
-    MAX_NOTE_ENCRYPTED_LOGS_PER_TX
+    MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
+    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 },
     grumpkin_private_key::GrumpkinPrivateKey, utils::arrays::array_length, traits::is_empty
 };
@@ -181,16 +181,12 @@ mod tests {
             output
         }
 
-        pub fn compute_output_note_logs<N>(
-            _self: Self,
-            logs: [NoteLogHash; N]
-        ) -> [NoteLogHash; N] {
+        pub fn compute_output_note_logs<N>(_self: Self, logs: [NoteLogHash; N]) -> [NoteLogHash; N] {
             let mut output = [NoteLogHash::empty(); N];
             for i in 0..N {
                 if logs[i].value != 0 {
                     // TODO(Miranda): silo logs
                     output[i] = logs[i].expose_to_public(); // Counter is cleared so it's not exposed to the public.
-                    
                 }
             }
             output
@@ -222,10 +218,10 @@ mod tests {
             if self.previous_kernel.note_encrypted_logs_hashes.any(|l: NoteLogHash| l.note_hash == note_hash) {
                 for i in 0..self.previous_kernel.note_encrypted_logs_hashes.len() {
                     // we may have many, or no, logs per note hash, so we cycle rather than .find
-                    if self.previous_kernel.note_encrypted_logs_hashes.storage[i].note_hash == note_hash {
+                    if self.previous_kernel.note_encrypted_logs_hashes.storage[i].note_hash
+                        == note_hash {
                         self.transient_note_hash_indexes_for_logs[i] = note_hash_index;
                     }
-                    
                 }
             }
         }
@@ -594,7 +590,7 @@ mod tests {
         builder.previous_kernel.append_new_note_hashes(2, true);
 
         let new_note_hashes = builder.previous_kernel.new_note_hashes.storage;
-        let new_note_logs =  builder.previous_kernel.note_encrypted_logs_hashes.storage;
+        let new_note_logs = builder.previous_kernel.note_encrypted_logs_hashes.storage;
         let public_inputs = builder.execute();
 
         let siloed_note_hashes = builder.compute_output_note_hashes(new_note_hashes);
@@ -631,12 +627,23 @@ mod tests {
         let revertible_logs_len = (new_note_logs[2].length + new_note_logs[3].length) as u32;
         let non_revertible_logs_len = (new_note_logs[0].length + new_note_logs[1].length) as u32;
 
-        assert_eq(public_inputs.end.gas_used, Gas::new((2 * DA_BYTES_PER_FIELD + revertible_logs_len) * DA_GAS_PER_BYTE, 0));
+        assert_eq(
+            public_inputs.end.gas_used, Gas::new(
+                (2 * DA_BYTES_PER_FIELD + revertible_logs_len) * DA_GAS_PER_BYTE,
+                0
+            )
+        );
         assert_eq(public_inputs.end.encrypted_log_preimages_length as u32, revertible_logs_len);
         assert_eq(
-            public_inputs.end_non_revertible.gas_used, Gas::new((3 * DA_BYTES_PER_FIELD + non_revertible_logs_len) * DA_GAS_PER_BYTE, 0) + Gas::tx_overhead()
+            public_inputs.end_non_revertible.gas_used, Gas::new(
+            (3 * DA_BYTES_PER_FIELD + non_revertible_logs_len) * DA_GAS_PER_BYTE,
+            0
+        )
+            + Gas::tx_overhead()
         );
-        assert_eq(public_inputs.end_non_revertible.encrypted_log_preimages_length as u32, non_revertible_logs_len);
+        assert_eq(
+            public_inputs.end_non_revertible.encrypted_log_preimages_length as u32, non_revertible_logs_len
+        );
     }
 
     #[test]

@@ -3,7 +3,8 @@ use dep::types::{
     abis::{
     private_kernel_data::PrivateKernelData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder, PublicKernelCircuitPublicInputs},
-    note_hash::ScopedNoteHash, nullifier::ScopedNullifier, side_effect::Ordered, log_hash::{LogHash, NoteLogHash}, gas::Gas
+    note_hash::ScopedNoteHash, nullifier::ScopedNullifier, side_effect::Ordered,
+    log_hash::{LogHash, NoteLogHash}, gas::Gas
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,

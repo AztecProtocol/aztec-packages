@@ -30,7 +30,10 @@ pub fn squash_transient_nullifiers<N>(nullifiers: [ScopedNullifier; N]) -> [Scop
     final_nullifiers
 }
 
-pub fn squash_transient_logs<N, M>(logs: [NoteLogHash; N], nullifiers: [ScopedNullifier; M]) -> [NoteLogHash; N] {
+pub fn squash_transient_logs<N, M>(
+    logs: [NoteLogHash; N],
+    nullifiers: [ScopedNullifier; M]
+) -> [NoteLogHash; N] {
     let mut final_logs = [NoteLogHash::empty(); N];
 
     let mut num_logs = 0;

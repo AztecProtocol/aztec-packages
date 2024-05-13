@@ -209,11 +209,7 @@ mod tests {
     fn input_validation_note_log_not_linked() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        builder.private_call.public_inputs.note_encrypted_logs_hashes.extend_from_array(
-            [
-            NoteLogHash { value: 9123, counter: 1, length: 2, note_hash: 1 }
-        ]
-        );
+        builder.private_call.public_inputs.note_encrypted_logs_hashes.extend_from_array([NoteLogHash { value: 9123, counter: 1, length: 2, note_hash: 1 }]);
 
         builder.failed();
     }

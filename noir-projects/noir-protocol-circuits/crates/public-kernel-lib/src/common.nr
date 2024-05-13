@@ -4,8 +4,7 @@ use dep::types::{
     kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder, kernel_data::PublicKernelData,
     note_hash::NoteHash, nullifier::Nullifier, public_call_data::PublicCallData,
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-    log_hash::LogHash, global_variables::GlobalVariables,
-    combined_constant_data::CombinedConstantData
+    log_hash::LogHash, global_variables::GlobalVariables, combined_constant_data::CombinedConstantData
 },
     address::AztecAddress,
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
@@ -94,6 +93,7 @@ pub fn initialize_emitted_end_values(
         circuit_outputs.end.public_data_update_requests = array_to_bounded_vec(start.public_data_update_requests);
         circuit_outputs.end.unencrypted_logs_hashes = array_to_bounded_vec(start.unencrypted_logs_hashes);
         circuit_outputs.end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
+        circuit_outputs.end.note_encrypted_logs_hashes = array_to_bounded_vec(start.note_encrypted_logs_hashes);
         circuit_outputs.end.encrypted_logs_hashes = array_to_bounded_vec(start.encrypted_logs_hashes);
         circuit_outputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
     }
@@ -105,6 +105,7 @@ pub fn initialize_emitted_end_values(
     circuit_outputs.end_non_revertible.public_data_update_requests = array_to_bounded_vec(start_non_revertible.public_data_update_requests);
     circuit_outputs.end_non_revertible.unencrypted_logs_hashes = array_to_bounded_vec(start_non_revertible.unencrypted_logs_hashes);
     circuit_outputs.end_non_revertible.unencrypted_log_preimages_length = start_non_revertible.unencrypted_log_preimages_length;
+    circuit_outputs.end_non_revertible.note_encrypted_logs_hashes = array_to_bounded_vec(start_non_revertible.note_encrypted_logs_hashes);
     circuit_outputs.end_non_revertible.encrypted_logs_hashes = array_to_bounded_vec(start_non_revertible.encrypted_logs_hashes);
     circuit_outputs.end_non_revertible.encrypted_log_preimages_length = start_non_revertible.encrypted_log_preimages_length;
 

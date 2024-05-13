@@ -18,8 +18,8 @@ function emptyExecutionResult(): ExecutionResult {
     returnValues: [],
     nestedExecutions: [],
     enqueuedPublicFunctionCalls: [],
-    noteEncryptedLogs: [],
     publicTeardownFunctionCall: PublicCallRequest.empty(),
+    noteEncryptedLogs: [],
     encryptedLogs: [],
     unencryptedLogs: [],
   };

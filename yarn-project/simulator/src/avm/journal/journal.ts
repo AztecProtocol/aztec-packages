@@ -119,8 +119,7 @@ export class AvmPersistableStateManager {
       contractStorageUpdateRequests: [],
       unencryptedLogsHashes: [],
       unencryptedLogs: [],
-      // The length starts at 4 because it will always include the size.
-      unencryptedLogPreimagesLength: new Fr(4),
+      unencryptedLogPreimagesLength: Fr.ZERO,
       allUnencryptedLogs: [],
       nestedExecutions: [],
     };

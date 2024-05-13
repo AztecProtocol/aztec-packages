@@ -433,8 +433,8 @@ export class ClientExecutionContext extends ViewDataOracle {
       childExecutionResult.callStackItem.publicInputs.newNoteHashes.some(item => !item.isEmpty()) ||
       childExecutionResult.callStackItem.publicInputs.newNullifiers.some(item => !item.isEmpty()) ||
       childExecutionResult.callStackItem.publicInputs.newL2ToL1Msgs.some(item => !item.isEmpty()) ||
-      !childExecutionResult.callStackItem.publicInputs.encryptedLogPreimagesLength.equals(new Fr(4)) ||
-      !childExecutionResult.callStackItem.publicInputs.unencryptedLogPreimagesLength.equals(new Fr(4))
+      !childExecutionResult.callStackItem.publicInputs.encryptedLogPreimagesLength.equals(Fr.ZERO) ||
+      !childExecutionResult.callStackItem.publicInputs.unencryptedLogPreimagesLength.equals(Fr.ZERO)
     ) {
       throw new Error(`Static call cannot create new notes, emit L2->L1 messages or generate logs`);
     }
