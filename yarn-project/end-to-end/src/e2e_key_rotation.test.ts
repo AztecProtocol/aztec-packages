@@ -128,60 +128,6 @@ describe('e2e_2_pxes', () => {
     await contract.methods.redeem_shield(recipient, balance, secret).send().wait();
   };
 
-  // it('transfers funds from user A to B via PXE A followed by transfer from B to A via PXE B', async () => {
-  //   const initialBalance = 987n;
-  //   const transferAmount1 = 654n;
-  //   const transferAmount2 = 323n;
-
-  //   const tokenInstance = await deployTokenContract(initialBalance, walletA.getAddress(), pxeA);
-  //   const tokenAddress = tokenInstance.address;
-
-  //   // Add account B to wallet A
-  //   await pxeA.registerRecipient(walletB.getCompleteAddress());
-  //   // Add account A to wallet B
-  //   await pxeB.registerRecipient(walletA.getCompleteAddress());
-
-  //   // Add token to PXE B (PXE A already has it because it was deployed through it)
-  //   await pxeB.registerContract({
-  //     artifact: TokenContract.artifact,
-  //     instance: tokenInstance,
-  //   });
-
-  //   // Check initial balances and logs are as expected
-  //   await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance);
-  //   await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), 0n);
-  //   await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 1);
-
-  //   // Transfer funds from A to B via PXE A
-  //   const contractWithWalletA = await TokenContract.at(tokenAddress, walletA);
-  //   await contractWithWalletA.methods
-  //     .transfer(walletA.getAddress(), walletB.getAddress(), transferAmount1, 0)
-  //     .send()
-  //     .wait();
-
-  //   // Check balances and logs are as expected
-  //   await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance - transferAmount1);
-  //   await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), transferAmount1);
-  //   await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
-
-  //   // Transfer funds from B to A via PXE B
-  //   const contractWithWalletB = await TokenContract.at(tokenAddress, walletB);
-  //   await contractWithWalletB.methods
-  //     .transfer(walletB.getAddress(), walletA.getAddress(), transferAmount2, 0)
-  //     .send()
-  //     .wait({ interval: 0.1 });
-
-  //   // Check balances and logs are as expected
-  //   await expectTokenBalance(
-  //     walletA,
-  //     tokenAddress,
-  //     walletA.getAddress(),
-  //     initialBalance - transferAmount1 + transferAmount2,
-  //   );
-  //   await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), transferAmount1 - transferAmount2);
-  //   await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
-  // });
-
   it('rotates key', async () => {
     const initialBalance = 987n;
     const transferAmount1 = 654n;
@@ -242,14 +188,5 @@ describe('e2e_2_pxes', () => {
 
     await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance);
     await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), 0n);
-
-    // // Check balances and logs are as expected
-    // await expectTokenBalance(
-    //   walletA,
-    //   tokenAddress,
-    //   walletA.getAddress(),
-    //   initialBalance,
-    // );
-    // await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), 0n);
   }, 600_000);
 });
