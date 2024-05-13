@@ -191,13 +191,13 @@ pub fn generate_contract_interface(
         .enumerate()
         .map(|(i, (method, orig_span))| {
             if method.name() == "at" {
-                (method.clone(), orig_span.clone())
+                (method.clone(), *orig_span)
             } else {
-                let new_span = stubs[i].1.span.clone();
+                let (_, new_location) = stubs[i];
                 let mut modified_method = method.clone();
                 modified_method.def.name =
-                    Ident::new(modified_method.name().to_string(), new_span.clone());
-                (modified_method, orig_span.clone())
+                    Ident::new(modified_method.name().to_string(), new_location.span);
+                (modified_method, *orig_span)
             }
         })
         .collect();
