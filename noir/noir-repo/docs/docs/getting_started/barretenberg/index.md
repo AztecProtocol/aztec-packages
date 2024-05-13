@@ -27,9 +27,9 @@ Open a terminal on your machine, and write:
 mkdir -p $HOME/.barretenberg && \
 curl -o ./barretenberg-aarch64-apple-darwin.tar.gz -L https://github.com/AztecProtocol/aztec-packages/releases/download/aztec-packages-v0.38.0/barretenberg-aarch64-apple-darwin.tar.gz && \
 tar -xvf ./barretenberg-aarch64-apple-darwin.tar.gz -C $HOME/.barretenberg/ && \
-echo '\nexport PATH=$PATH:$HOME/.barretenberg/' >> ~/.zshrc && \
+echo 'export PATH=$PATH:$HOME/.barretenberg/' >> ~/.zshrc && \
 source ~/.zshrc
-```/.nargo/bin
+```
 
 ##### macOS (Intel)
 
@@ -37,7 +37,7 @@ source ~/.zshrc
 mkdir -p $HOME/.barretenberg && \
 curl -o ./barretenberg-x86_64-apple-darwin.tar.gz -L https://github.com/AztecProtocol/aztec-packages/releases/download/aztec-packages-v0.38.0/barretenberg-x86_64-apple-darwin.tar.gz && \
 tar -xvf ./barretenberg-x86_64-apple-darwin.tar.gz -C $HOME/.barretenberg/ && \
-echo '\nexport PATH=$PATH:$HOME/.barretenberg/' >> ~/.zshrc && \
+echo 'export PATH=$PATH:$HOME/.barretenberg/' >> ~/.zshrc && \
 source ~/.zshrc
 ```
 
@@ -47,7 +47,7 @@ source ~/.zshrc
 mkdir -p $HOME/.barretenberg && \
 curl -o ./barretenberg-x86_64-linux-gnu.tar.gz -L https://github.com/AztecProtocol/aztec-packages/releases/download/aztec-packages-v0.38.0/barretenberg-x86_64-linux-gnu.tar.gz && \
 tar -xvf ./barretenberg-x86_64-linux-gnu.tar.gz -C $HOME/.barretenberg/ && \
-echo -e '\nexport PATH=$PATH:$HOME/.barretenberg/' >> ~/.bashrc && \
+echo -e 'export PATH=$PATH:$HOME/.barretenberg/' >> ~/.bashrc && \
 source ~/.bashrc
 ```
 
