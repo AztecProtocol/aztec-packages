@@ -5,7 +5,7 @@ use crate::{
     accumulated_data::{CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder, PublicAccumulatedData},
     global_variables::GlobalVariables, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
-    kernel_data::{PublicKernelData, KernelData}, max_block_number::MaxBlockNumber,
+    kernel_data::KernelData, public_kernel_data::PublicKernelData, max_block_number::MaxBlockNumber,
     private_kernel_data::PrivateKernelData, note_hash::{NoteHash, ScopedNoteHash},
     nullifier::{Nullifier, ScopedNullifier},
     nullifier_key_validation_request::ScopedNullifierKeyValidationRequest,
@@ -233,8 +233,8 @@ impl FixtureBuilder {
         let public_inputs = self.to_public_kernel_circuit_public_inputs(revertible);
         PublicKernelData {
             public_inputs,
-            proof: crate::mocked::Proof::empty(),
-            vk: crate::mocked::VerificationKey::empty(),
+            proof: NestedRecursiveProof::empty(),
+            vk: VerificationKey::empty(),
             vk_index: self.vk_index,
             vk_path: self.vk_path
         }
