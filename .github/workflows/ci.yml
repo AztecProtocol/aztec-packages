@@ -30,7 +30,7 @@ env:
 
 jobs:
   setup:
-    uses: ./.github/workflows/setup-runner.yml
+    uses: ./.github/workflows/setup-runner.ymlA
     with:
       username: ${{ inputs.username || github.actor }}
       runner_type: builder-x86
@@ -43,7 +43,7 @@ jobs:
       bench_list: ${{ steps.bench_list.outputs.list }}
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GITHUB_COMMIT }}" }
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: build-${{ inputs.username || github.actor }}-x86
@@ -70,7 +70,7 @@ jobs:
         test: ${{ fromJson( needs.build.outputs.e2e_list )}}
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GITHUB_COMMIT }}" }
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
       - name: Setup and Test
         timeout-minutes: 40
@@ -80,7 +80,7 @@ jobs:
           builder_type: builder-x86
           # these are copied to the tester and expected by the earthly command below
           # if they fail to copy, it will try to build them on the tester and fail
-          builder_images_to_copy: aztecprotocol/aztec:${{ env.GITHUB_COMMIT }} aztecprotocol/end-to-end:${{ env.GITHUB_COMMIT }}
+          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           # command to produce the images in case they don't exist
           builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
           run: |
@@ -99,7 +99,7 @@ jobs:
         test: ${{ fromJson( needs.build.outputs.bench_list )}}
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GITHUB_COMMIT }}" }
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
       - name: Setup and Test
         uses: ./.github/ensure-tester-with-images
@@ -109,7 +109,7 @@ jobs:
           builder_type: builder-x86
           # these are copied to the tester and expected by the earthly command below
           # if they fail to copy, it will try to build them on the tester and fail
-          builder_images_to_copy: aztecprotocol/aztec:${{ env.GITHUB_COMMIT }} aztecprotocol/end-to-end:${{ env.GITHUB_COMMIT }}
+          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
           # command to produce the images in case they don't exist
           builder_command: cd yarn-project/end-to-end/ && ../../scripts/earthly-ci +${{ matrix.test }}
           run: |
@@ -129,7 +129,7 @@ jobs:
   # #     - uses: actions/checkout@v4
   # #       with:
   # #         fetch-depth: 100 # Downloading base benchmark from master requires access to history
-  # #         ref: "${{ env.GITHUB_COMMIT }}"
+  # #         ref: "${{ env.GIT_COMMIT }}"
   # #     - uses: ./.github/ci-setup-action
   # #       with:
   # #         concurrency_key: build-${{ inputs.username || github.actor }}-x86
@@ -154,7 +154,7 @@ jobs:
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GITHUB_COMMIT }}" }
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: noir-format-${{ inputs.username || github.actor }}-x86
@@ -174,7 +174,7 @@ jobs:
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GITHUB_COMMIT }}" }
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
         with:
@@ -191,7 +191,7 @@ jobs:
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GITHUB_COMMIT }}" }
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: bb-js-test-${{ github.actor }}-x86
@@ -205,7 +205,7 @@ jobs:
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GITHUB_COMMIT }}" }
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: noir-${{ inputs.username || github.actor }}-x86
@@ -217,7 +217,7 @@ jobs:
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GITHUB_COMMIT }}" }
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: noir-packages-${{ inputs.username || github.actor }}-x86
@@ -229,7 +229,7 @@ jobs:
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GITHUB_COMMIT }}" }
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: noir-projects-${{ inputs.username || github.actor }}-x86
@@ -242,7 +242,7 @@ jobs:
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GITHUB_COMMIT }}" }
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
         with:
@@ -257,7 +257,7 @@ jobs:
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GITHUB_COMMIT }}" }
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
         with:
@@ -271,7 +271,7 @@ jobs:
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GITHUB_COMMIT }}" }
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: prover-client-test-${{ github.actor }}-x86
@@ -284,7 +284,7 @@ jobs:
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GITHUB_COMMIT }}" }
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: build-acir-tests-${{ github.actor }}-x86
@@ -297,7 +297,7 @@ jobs:
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GITHUB_COMMIT }}" }
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: barretenberg-acir-tests-bb-${{ github.actor }}-x86
@@ -311,7 +311,7 @@ jobs:
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GITHUB_COMMIT }}" }
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: barretenberg-acir-tests-sol-${{ github.actor }}-x86
@@ -325,7 +325,7 @@ jobs:
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GITHUB_COMMIT }}" }
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: barretenberg-acir-tests-bb-js-${{ github.actor }}-x86
@@ -340,7 +340,7 @@ jobs:
     if: github.event.number
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GITHUB_COMMIT }}" }
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: docs-preview-${{ inputs.username || github.actor }}-x86
@@ -353,7 +353,7 @@ jobs:
     needs: setup
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GITHUB_COMMIT }}" }
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
       - name: Build Bench Binaries
         uses: ./.github/ensure-builder
@@ -379,7 +379,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GITHUB_COMMIT }}" }
+        with: { ref: "${{ env.GIT_COMMIT }}" }
       # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
         with:
