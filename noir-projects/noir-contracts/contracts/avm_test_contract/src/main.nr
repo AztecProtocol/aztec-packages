@@ -140,6 +140,10 @@ contract AvmTest {
         a + b
     }
 
+    /************************************************************************
+     * Misc 
+     ************************************************************************/
+
     #[aztec(public-vm)]
     fn u128_addition_overflow() -> U128 {
         let max_u128: U128 = U128::from_hex("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
@@ -151,6 +155,26 @@ contract AvmTest {
     fn u128_from_integer_overflow() -> U128 {
         let should_overflow: Field = 2.pow_32(128); // U128::max() + 1;
         U128::from_integer(should_overflow)
+    }
+
+    #[aztec(public-vm)]
+    fn to_radix_le(input: Field) -> [u8; 10] {
+        let result: [u8] = input.to_le_radix(/*base=*/ 2, /*limbs=*/ 10);
+        result.as_array()
+    }
+
+    // Helper functions to demonstrate an internal call stack in error messages
+    fn inner_helper_with_failed_assertion() {
+        let not_true = false;
+        assert(not_true == true, "This assertion should fail!");
+    }
+    fn helper_with_failed_assertion() {
+        inner_helper_with_failed_assertion();
+    }
+
+    #[aztec(public-vm)]
+    fn assertion_failure() {
+        helper_with_failed_assertion()
     }
 
     /************************************************************************
@@ -333,5 +357,14 @@ contract AvmTest {
     #[aztec(public-vm)]
     fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
         context.message_portal(recipient, content)
+    }
+
+    /**
+     * Enqueue a public call from private
+     */
+    #[aztec(private)]
+    fn enqueue_public_from_private() {
+        AvmTest::at(context.this_address()).set_opcode_u8().static_enqueue(&mut context);
+        AvmTest::at(context.this_address()).set_read_storage_single(5).enqueue(&mut context);
     }
 }

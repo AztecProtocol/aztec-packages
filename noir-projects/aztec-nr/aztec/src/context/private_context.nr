@@ -286,7 +286,7 @@ impl PrivateContext {
         contract_address: AztecAddress,
         storage_slot: Field,
         note_type_id: Field,
-        encryption_pub_key: GrumpkinPoint,
+        ivpk_m: GrumpkinPoint,
         preimage: [Field; N]
     ) where [Field; N]: LensForEncryptedLog<N, M, L> {
         // TODO(1139): perform encryption in the circuit
@@ -296,7 +296,7 @@ impl PrivateContext {
             contract_address,
             storage_slot,
             note_type_id,
-            encryption_pub_key,
+            ivpk_m,
             preimage,
             counter
         );
@@ -573,7 +573,6 @@ impl PrivateContext {
         assert(function_selector.eq(item.function_data.selector));
 
         assert_eq(item.public_inputs.call_context.side_effect_counter, self.side_effect_counter);
-        // We increment the sideffect counter by one, to account for the call itself being a side effect.
 
         assert(args_hash == item.public_inputs.args_hash);
 
