@@ -115,12 +115,16 @@ export class PXEService implements PXE {
 
     let count = 0;
     for (const address of registeredAddresses) {
-      if (!publicKeysSet.has(address.masterIncomingViewingPublicKey.toString())) {
+      if (!publicKeysSet.has(address.publicKeys.masterIncomingViewingPublicKey.toString())) {
         continue;
       }
 
       count++;
-      this.synchronizer.addAccount(address.masterIncomingViewingPublicKey, this.keyStore, this.config.l2StartingBlock);
+      this.synchronizer.addAccount(
+        address.publicKeys.masterIncomingViewingPublicKey,
+        this.keyStore,
+        this.config.l2StartingBlock,
+      );
     }
 
     if (count > 0) {
@@ -288,7 +292,7 @@ export class PXEService implements PXE {
       let owner = filter.owner;
       if (owner === undefined) {
         const completeAddresses = (await this.db.getCompleteAddresses()).find(address =>
-          address.masterIncomingViewingPublicKey.equals(dao.publicKey),
+          address.publicKeys.masterIncomingViewingPublicKey.equals(dao.publicKey),
         );
         if (completeAddresses === undefined) {
           throw new Error(`Cannot find complete address for public key ${dao.publicKey.toString()}`);
@@ -301,9 +305,9 @@ export class PXEService implements PXE {
   }
 
   public async addNote(note: ExtendedNote) {
-    const { masterIncomingViewingPublicKey } = (await this.db.getCompleteAddress({ account: note.owner })) ?? {};
-    if (!masterIncomingViewingPublicKey) {
-      throw new Error('Unknown account.');
+    const owner = await this.db.getCompleteAddress({ account: note.owner });
+    if (!owner) {
+      throw new Error(`Unknown account: ${note.owner.toString()}`);
     }
 
     const nonces = await this.getNoteNonces(note);
@@ -342,7 +346,7 @@ export class PXEService implements PXE {
           innerNoteHash,
           siloedNullifier,
           index,
-          masterIncomingViewingPublicKey,
+          owner.publicKeys.masterIncomingViewingPublicKey,
         ),
       );
     }

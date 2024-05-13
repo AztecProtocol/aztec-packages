@@ -5,11 +5,19 @@ EBS_CACHE_TAG=$1
 SIZE=$2
 REGION="us-east-2"
 AVAILABILITY_ZONE="us-east-2a"
-VOLUME_TYPE="gp2"
 INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
 
+# Check for existing volume
+# we don't filter by available - we want to just error if it's attached already
+# this means we are in a weird state (two spot instances running etc)
+EXISTING_VOLUME=$(aws ec2 describe-volumes \
+  --region $REGION \
+  --filters "Name=tag:username,Values=$EBS_CACHE_TAG-$SIZE-gp3" \
+  --query "Volumes[0].VolumeId" \
+  --output text)
+
 # Check if someone else is doing this
-if [ -f /run/.ebs-cache-mounted ] ; then
+if [ -f ~/.ebs-cache-mounted ] ; then
   MAX_WAIT_TIME=300 # Maximum wait time in seconds
   WAIT_INTERVAL=10  # Interval between checks in seconds
   elapsed_time=0
@@ -20,7 +28,7 @@ if [ -f /run/.ebs-cache-mounted ] ; then
     # Identify and terminate instances in 'STOPPED' state that are using this volume
     STOPPED_INSTANCES=$(aws ec2 describe-instances \
       --region $REGION \
-      --filters "Name=instance-state-name,Values=stopped" "Name=block-device-mapping.volume-id,Values=$VOLUME_ID" \
+      --filters "Name=instance-state-name,Values=stopped" "Name=block-device-mapping.volume-id,Values=$EXISTING_VOLUME" \
       --query "Reservations[*].Instances[*].InstanceId" \
       --output text)
 
@@ -37,11 +45,17 @@ if [ -f /run/.ebs-cache-mounted ] ; then
     elapsed_time=$((elapsed_time + WAIT_INTERVAL))
   done
   echo "Detected existing mount, continuing..."
+
+  for i in {1..60} ; do
+    [ -f ~/.setup-complete ] && break
+    sleep 1
+    echo "Waiting for other mount to finish."
+  done
   exit 0
 fi
 
 # Mark to prevent race conditions
-touch /run/.ebs-cache-mounted
+touch ~/.ebs-cache-mounted
 
 # Check for existing mount, assume we can continue if existing
 if mount | grep -q "/var/lib/docker/volumes type ext4"; then
@@ -57,23 +71,16 @@ if mount | grep -q "/var/lib/docker type ext4"; then
   exit 0
 fi
 
-# Check for existing volume
-# we don't filter by available - we want to just error if it's attached already
-# this means we are in a weird state (two spot instances running etc)
-EXISTING_VOLUME=$(aws ec2 describe-volumes \
-  --region $REGION \
-  --filters "Name=tag:username,Values=$EBS_CACHE_TAG-$SIZE" \
-  --query "Volumes[0].VolumeId" \
-  --output text)
-
 # If no existing volume, create one
 if [ "$EXISTING_VOLUME" == "None" ]; then
   VOLUME_ID=$(aws ec2 create-volume \
     --region $REGION \
     --availability-zone $AVAILABILITY_ZONE \
     --size $SIZE \
-    --volume-type $VOLUME_TYPE \
-    --tag-specifications "ResourceType=volume,Tags=[{Key=username,Value=$EBS_CACHE_TAG-$SIZE}]" \
+    --volume-type gp3 \
+    --throughput 1000 \
+    --iops 5000 \
+    --tag-specifications "ResourceType=volume,Tags=[{Key=username,Value=$EBS_CACHE_TAG-$SIZE-gp3}]" \
     --query "VolumeId" \
     --output text)
 else
@@ -145,3 +152,7 @@ fi
 # Create a mount point and mount the volume
 mkdir -p /var/lib/docker
 mount $BLKDEVICE /var/lib/docker
+service docker restart
+# important: everything (except earthly ls) should go through earthly-ci
+scripts/earthly-ci bootstrap
+touch /home/ubuntu/.setup-complete
