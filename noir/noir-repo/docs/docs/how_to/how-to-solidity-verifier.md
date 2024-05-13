@@ -43,11 +43,19 @@ Generating a Solidity Verifier contract is actually a one-command process. Howev
 This is by far the most straight-forward step. Just run:
 
 ```sh
-nargo codegen-verifier
+nargo compile
 ```
 
-A new `contract` folder would then be generated in your project directory, containing the Solidity
-file `plonk_vk.sol`. It can be deployed to any EVM blockchain acting as a verifier smart contract.
+This will compile your source code into a Noir build artifact to be stored in the `./target` directory, you can then generate the smart contract using the commands:
+
+```sh
+# Here we pass the path to the newly generated Noir artifact.
+bb write_vk -b ./target/<noir_artifact_name>.json
+bb contract
+```
+
+replacing `<noir_artifact_name>` with the name of your Noir project. A new `contract` folder would then be generated in your project directory, containing the Solidity
+file `contract.sol`. It can be deployed to any EVM blockchain acting as a verifier smart contract.
 
 :::info
 
