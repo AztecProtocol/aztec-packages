@@ -37,9 +37,14 @@ template <typename Flavor> void compute_concatenated_polynomials(typename Flavor
     ASSERT(MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_GROUP_SIZE == targets[0].size());
     // A function that produces 1 concatenated polynomial
 
-    // Uses the index of one of the polynomials in concatenation groups, which we copy in the concatenated polynomial
+    // Goblin Translator uses concatenated polynomials in the permutation argument. These polynomials contain the same
+    // coefficients as other shorter polynomials, but we don't have to commit to them due to reusing commitments of
+    // shorter polynomials and updating our PCS to open using them. But the prover still needs the concatenated
+    // polynomials. This function constructs a chunk of the polynomial.
     auto ordering_function = [&](size_t index) {
+        // Get the index of the concatenated polynomial
         size_t i = index / concatenation_groups[0].size();
+        // Get the index of the original polynomial
         size_t j = index % concatenation_groups[0].size();
         auto my_group = concatenation_groups[i];
         auto& current_target = targets[i];
