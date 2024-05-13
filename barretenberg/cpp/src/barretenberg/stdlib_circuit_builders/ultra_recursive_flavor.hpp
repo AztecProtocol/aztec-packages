@@ -317,6 +317,38 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
             this->lagrange_first = Commitment::from_witness(builder, native_key->lagrange_first);
             this->lagrange_last = Commitment::from_witness(builder, native_key->lagrange_last);
         };
+
+        /**
+         * @brief Deserialize a verification key from a vector of field elements
+         *
+         * @param builder
+         * @param elements
+         */
+        VerificationKey(CircuitBuilder* builder, std::vector<FF> elements)
+        {
+            // deserialize circuit size
+            size_t num_frs_read = 0;
+            size_t num_element_frs = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, uint64_t>();
+            this->circuit_size = bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, uint64_t>(
+                builder, elements.subspan(num_frs_read, num_frs_read + num_element_frs));
+            num_frs_read += num_element_frs;
+            num_element_frs = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, uint64_t>();
+            this->num_public_inputs = bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, uint64_t>(
+                builder, elements.subspan(num_frs_read, num_frs_read + num_element_frs));
+            num_frs_read += num_element_frs;
+
+            num_element_frs = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, uint64_t>();
+            this->pub_inputs_offset = bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, uint64_t>(
+                builder, elements.subspan(num_frs_read, num_frs_read + num_element_frs));
+            num_frs_read += num_element_frs;
+
+            for (Commitment& comm : this->get_all()) {
+                num_element_frs = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, Commitment>();
+                comm = bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, Commitment>(
+                    builder, elements.subspan(num_frs_read, num_frs_read + num_element_frs));
+                num_frs_read += num_element_frs;
+            }
+        }
     };
 
     /**
