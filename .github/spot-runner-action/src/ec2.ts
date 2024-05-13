@@ -245,6 +245,10 @@ export class Ec2Instance {
       Type: "instant",
       LaunchTemplateConfigs: [fleetLaunchConfig],
       ClientToken: this.config.clientToken || undefined,
+      OnDemandOptions: { AllocationStrategy: "price-capacity-optimized" },
+      SpotOptions: {
+        AllocationStrategy: "price-capacity-optimized",
+      },
       TargetCapacitySpecification: {
         TotalTargetCapacity: 1,
         OnDemandTargetCapacity: useOnDemand ? 1 : 0,
