@@ -5,7 +5,7 @@ The implementation consists of several components.
 - [Non-ZK Sumcheck:](#NonZKSumcheck) 
 	We sketch an implementation of the non-zero-knowledge Sumcheck, introduce the main abstractions and the components of the proof system. In [Witness Information Leakage](#NonZKSumcheckLeakage), we determine the sources allowing the verifier to learn the witness information during Sumcheck.
 	
-- [Masking Round Univariates witth Libra:](#LibraTechnique) 
+- [Masking Round Univariates with Libra:](#LibraTechnique) 
 	To prevent the witness values from leaking through the coefficients of Sumcheck round univariates, we apply a technique introduced in <a href=" https://eprint.iacr.org/2019/317">Libra: Succinct Zero-Knowledge Proofs with Optimal Prover Computation</a>. 
 	Being represented in Lagrange basis, Libra masking polynomials lead to very simple formulas for contributions to Sumcheck round univariates, see [the following section](#LibraRoundUnivariates). 
 	In section [Libra Costs](#LibraCosts), we assess the overhead caused by adding the Libra technique. 
@@ -15,7 +15,7 @@ The implementation consists of several components.
 	At the stage of proving their evaluations at the challenge point, the witness polynomials fed to Sumcheck must not reveal any private information. 
     We use a modification of Construction 3 described in <a href=" https://eprint.iacr.org/2019/317">Libra</a>  allowing the prover to open a new multilinear polynomial derived from the witnesses by adding a product of a random scalar and a public quadratic polynomial in the same number of variables.  
 
-- [Total Costs:](#ZKCosts) The effect of adding Libra technique and masking evaluations of multilinear witnesses on is assessed, and the theoretical upper bound on prover's work is compared to the implemenation costs. 
+- [Total Costs:](#ZKCosts) The effect of adding Libra technique and masking evaluations of multilinear witnesses is assessed, and the theoretical upper bound on prover's work is compared to the implemenation costs. 
 
 Non ZK-Sumcheck Outline {#NonZKSumcheck}
 ========
@@ -29,7 +29,7 @@ Non ZK-Sumcheck Outline {#NonZKSumcheck}
     pow_{\beta}(X_0,\ldots, X_{d-1}) \cdot F\left( P_1 (X_0,\ldots, X_{d-1}), \ldots, P_N (X_0,\ldots, X_{d-1}) \right)
     \f}
 to establish that \f$ F(P_1(\vec \ell),\ldots, P_N(\vec \ell) ) = 0 \f$, i.e. that \f$ F \f$ is satisfied at every
-point of \f$\{0,1\}^d\f$.
+point \f$\vec \ell \{0,1\}^d\f$.
 
  In the implementation, the relation polynomial \f$ F \f$ is specified by the Flavor.
 
@@ -41,7 +41,7 @@ The following constants are used in this exposition.
  --------------------|---------------|-----------|
  | \f$ d \f$         | \ref multivariate_d "number of variables" in multilinear  polynomials \f$ P_1,\ldots, P_N\f$        | \f$ 20 \f$  |
  | \f$ N \f$         | number of Prover Polynomials specified by <Flavor ::NUM_ALL_ENTITIES>                               | \f$ 60 \f$  | 
- | \f$ N_w \f$  	 | number of Witness Polynomials specified bt <Flavor ::NUM_WITNESS_ENTITIES>                          | \f$ 17 \f$  | 
+ | \f$ N_w \f$  	 | number of Witness Polynomials specified by <Flavor ::NUM_WITNESS_ENTITIES>                          | \f$ 17 \f$  | 
  | \f$ n \f$         | \ref multivariate_n "size of the hypercube", i.e. \f$ 2^d\f$.                                       | \f$ 2^{20} \f$ |
  | \f$ D \f$         | \ref bb::SumcheckProverRound< Flavor >::BATCHED_RELATION_PARTIAL_LENGTH "maximum partial degree of" \f$\tilde{F}\f$ | \f$ 12 \f$ |
  | \f$ D_w\f$        | maximum witness degree of \f$ F \f$ | \f$ 5 \f$ |
