@@ -22,7 +22,11 @@ export function createAccount(pxe: PXE): Promise<AccountWalletWithSecretKey> {
  * @param numberOfAccounts - How many accounts to create.
  * @returns The created account wallets.
  */
-export async function createAccounts(pxe: PXE, numberOfAccounts = 1, secrets: Fr[] = []): Promise<AccountWalletWithSecretKey[]> {
+export async function createAccounts(
+  pxe: PXE,
+  numberOfAccounts = 1,
+  secrets: Fr[] = [],
+): Promise<AccountWalletWithSecretKey[]> {
   const accounts = [];
 
   if (secrets.length == 0) {

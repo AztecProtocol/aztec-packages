@@ -1,5 +1,5 @@
-import { type AccountWallet, AztecAddress, Fr, type PXE, AztecNode, L2Block } from '@aztec/aztec.js';
-import { CompleteAddress, GeneratorIndex, INITIAL_L2_BLOCK_NUM, Point } from '@aztec/circuits.js';
+import { type AccountWallet, AztecAddress, Fr, type PXE, type AztecNode, type L2Block } from '@aztec/aztec.js';
+import { CompleteAddress, GeneratorIndex, INITIAL_L2_BLOCK_NUM, Point, computeAppNullifierSecretKey, deriveMasterNullifierSecretKey } from '@aztec/circuits.js';
 import { KeyRegistryContract, TestContract } from '@aztec/noir-contracts.js';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 
@@ -7,6 +7,7 @@ import { jest } from '@jest/globals';
 
 import { publicDeployAccounts, setup } from './fixtures/utils.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { createAccounts } from '@aztec/accounts/testing';
 
 const TIMEOUT = 120_000;
 
@@ -211,11 +212,15 @@ describe('Key Registry', () => {
     });
   });
 
-  it.only('nsk_app is enough to detect note nullification', async () => {
-    const nskApp = computeAppNullifierSecretKey(wallets[0].getPrivateKey(), testContract.address);
+  it('nsk_app is enough to detect note nullification', async () => {
+    const secret = Fr.random();
+    const [account] = await createAccounts(pxe, 1, [secret]);
+
+    const masterNullifierSecretKey = deriveMasterNullifierSecretKey(secret);
+    const nskApp = computeAppNullifierSecretKey(masterNullifierSecretKey, testContract.address);
 
     const noteValue = 5;
-    const noteOwner = wallets[0].getAddress();
+    const noteOwner = account.getAddress();
     const noteStorageSlot = 12;
 
     await testContract.methods
@@ -227,12 +232,16 @@ describe('Key Registry', () => {
       .send()
       .wait();
 
+    expect(await getNumNullifiedNotes(nskApp)).toEqual(0);
+
     await testContract.methods
       .call_destroy_note(
         noteStorageSlot,
       )
       .send()
       .wait();
+
+    expect(await getNumNullifiedNotes(nskApp)).toEqual(1);
   });
 
   const getNumNullifiedNotes = async (nskApp: Fr) => {
