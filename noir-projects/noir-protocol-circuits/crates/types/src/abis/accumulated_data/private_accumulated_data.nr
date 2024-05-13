@@ -45,6 +45,10 @@ impl Serialize<PRIVATE_ACCUMULATED_DATA_LENGTH> for PrivateAccumulatedData {
       fields.extend_from_array(self.new_l2_to_l1_msgs[i].serialize());
     }
 
+    for i in 0..MAX_NOTE_ENCRYPTED_LOGS_PER_TX {
+      fields.extend_from_array(self.note_encrypted_logs_hashes[i].serialize());
+    }
+
     for i in 0..MAX_ENCRYPTED_LOGS_PER_TX {
       fields.extend_from_array(self.encrypted_logs_hashes[i].serialize());
     }

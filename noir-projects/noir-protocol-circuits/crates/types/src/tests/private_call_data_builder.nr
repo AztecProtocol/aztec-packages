@@ -116,7 +116,7 @@ impl PrivateCallDataBuilder {
         self.public_call_stack.extend_from_bounded_vec(call_requests);
     }
 
-    pub fn add_teaddown_call_request(&mut self, is_delegate_call: bool) {
+    pub fn add_teardown_call_request(&mut self, is_delegate_call: bool) {
         let hash = 99887654;
         self.public_inputs.public_teardown_function_hash = hash;
         self.public_teardown_call_request = self.generate_call_request(hash, is_delegate_call);

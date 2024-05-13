@@ -99,6 +99,7 @@ impl Serialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
     fields.extend_from_array(self.new_note_hashes);
     fields.extend_from_array(self.new_nullifiers);
     fields.extend_from_array(self.new_l2_to_l1_msgs);
+    fields.push(self.note_encrypted_logs_hash);
     fields.push(self.encrypted_logs_hash);
     fields.push(self.unencrypted_logs_hash);
     fields.push(self.encrypted_log_preimages_length);

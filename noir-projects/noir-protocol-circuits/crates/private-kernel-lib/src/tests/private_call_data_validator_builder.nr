@@ -3,7 +3,7 @@ use dep::types::{
     abis::{
     call_request::CallRequest, caller_context::CallerContext, note_hash::NoteHash, nullifier::Nullifier,
     nullifier_key_validation_request::NullifierKeyValidationRequest, read_request::ReadRequest,
-    side_effect::SideEffect
+    log_hash::{LogHash, NoteLogHash}
 },
     address::{AztecAddress, EthAddress}, grumpkin_point::GrumpkinPoint,
     messaging::l2_to_l1_message::L2ToL1Message,
@@ -159,8 +159,8 @@ fn validate_arrays_malformed_encrypted_logs_hashes_fails() {
 
     builder.private_call.public_inputs.encrypted_logs_hashes.extend_from_array(
         [
-        SideEffect { value: 0, counter: 0 },
-        SideEffect { value: 9123, counter: 1 }
+        LogHash { value: 0, counter: 0, length: 0 },
+        LogHash { value: 9123, counter: 1, length: 2 }
     ]
     );
 
@@ -173,8 +173,22 @@ fn validate_arrays_malformed_unencrypted_logs_hashes_fails() {
 
     builder.private_call.public_inputs.unencrypted_logs_hashes.extend_from_array(
         [
-        SideEffect { value: 0, counter: 0 },
-        SideEffect { value: 9123, counter: 1 }
+        LogHash { value: 0, counter: 0, length: 0 },
+        LogHash { value: 9123, counter: 1, length: 2 }
+    ]
+    );
+
+    builder.validate();
+}
+
+#[test(should_fail_with="invalid array")]
+fn input_validation_malformed_arrays_note_logs() {
+    let mut builder = PrivateCallDataValidatorBuilder::new();
+
+    builder.private_call.public_inputs.note_encrypted_logs_hashes.extend_from_array(
+        [
+        NoteLogHash { value: 0, counter: 0, length: 0, note_hash: 0 },
+        NoteLogHash { value: 9123, counter: 1, length: 2, note_hash: 1 }
     ]
     );
 
@@ -328,7 +342,7 @@ fn validate_call_is_static_creating_l2_to_l1_msgs_fails() {
 fn validate_call_is_static_creating_encrypted_logs_hashes_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 
-    builder.private_call.public_inputs.encrypted_logs_hashes.push(SideEffect { value: 9123, counter: 1 });
+    builder.private_call.public_inputs.encrypted_logs_hashes.push(LogHash { value: 9123, counter: 1, length: 2 });
 
     builder.validate();
 }
@@ -337,7 +351,7 @@ fn validate_call_is_static_creating_encrypted_logs_hashes_fails() {
 fn validate_call_is_static_creating_unencrypted_logs_hashes_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 
-    builder.private_call.public_inputs.unencrypted_logs_hashes.push(SideEffect { value: 9123, counter: 1 });
+    builder.private_call.public_inputs.unencrypted_logs_hashes.push(LogHash { value: 9123, counter: 1, length: 2 });
 
     builder.validate();
 }
@@ -542,7 +556,7 @@ fn validate_public_call_requests_more_hashes_fails() {
 fn validate_teardown_call_request_succeeds() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
-    builder.private_call.add_teaddown_call_request(false);
+    builder.private_call.add_teardown_call_request(false);
 
     builder.validate();
 }
@@ -551,7 +565,7 @@ fn validate_teardown_call_request_succeeds() {
 fn validate_teardown_call_request_delegate_calls_succeeds() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
-    builder.private_call.add_teaddown_call_request(true);
+    builder.private_call.add_teardown_call_request(true);
 
     builder.validate();
 }
@@ -560,7 +574,7 @@ fn validate_teardown_call_request_delegate_calls_succeeds() {
 fn validate_teardown_call_request_incorrect_hash_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
-    builder.private_call.add_teaddown_call_request(true);
+    builder.private_call.add_teardown_call_request(true);
     // Change the hash to be a different value.
     builder.private_call.public_teardown_call_request.hash += 1;
 
@@ -571,7 +585,7 @@ fn validate_teardown_call_request_incorrect_hash_fails() {
 fn validate_teardown_call_request_incorrect_caller_address_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
-    builder.private_call.add_teaddown_call_request(true);
+    builder.private_call.add_teardown_call_request(true);
     // Change the caller contract address to be a different value.
     builder.private_call.public_teardown_call_request.caller_contract_address.inner += 1;
 
@@ -582,7 +596,7 @@ fn validate_teardown_call_request_incorrect_caller_address_fails() {
 fn validate_teardown_call_request_incorrect_caller_storage_contract_address_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
-    builder.private_call.add_teaddown_call_request(true);
+    builder.private_call.add_teardown_call_request(true);
     // Change the storage contract to be a different value.
     builder.private_call.public_teardown_call_request.caller_context.storage_contract_address.inner += 1;
 
@@ -593,7 +607,7 @@ fn validate_teardown_call_request_incorrect_caller_storage_contract_address_fail
 fn validate_teardown_call_request_incorrect_caller_msg_sender_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
-    builder.private_call.add_teaddown_call_request(true);
+    builder.private_call.add_teardown_call_request(true);
     // Change the msg_sender to be a different value.
     builder.private_call.public_teardown_call_request.caller_context.msg_sender.inner += 1;
 
@@ -604,7 +618,7 @@ fn validate_teardown_call_request_incorrect_caller_msg_sender_fails() {
 fn validate_teardown_call_request_fewer_hashes_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
-    builder.private_call.add_teaddown_call_request(true);
+    builder.private_call.add_teardown_call_request(true);
     // Remove the call stack item hash.
     builder.private_call.public_inputs.public_teardown_function_hash = 0;
 
@@ -615,7 +629,7 @@ fn validate_teardown_call_request_fewer_hashes_fails() {
 fn validate_teardown_call_request_more_hashes_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
-    builder.private_call.add_teaddown_call_request(true);
+    builder.private_call.add_teardown_call_request(true);
     // Remove the call request.
     builder.private_call.public_teardown_call_request = CallRequest::empty();
 
