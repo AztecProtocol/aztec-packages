@@ -58,6 +58,27 @@ jobs:
         id: bench_list
         run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
 
+  # runs after build, generate verification keys for real proving tests
+  build-vks:
+    needs: build
+    runs-on: ${{ inputs.username || github.actor }}-x86
+    steps:
+      - {
+          uses: actions/checkout@v4,
+          with: { ref: "${{ github.event.pull_request.head.sha }}" },
+        }
+      # Only allow one memory-hunger prover test to use this runner
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          # must be globally unique for build x runner
+          concurrency_key: build-vks-${{ inputs.username || github.actor }}-x86
+      - name: "Generate Verification Keys"
+        working-directory: ./yarn-project/
+        timeout-minutes: 25
+        # limit our parallelism to half our cores
+        run: earthly-ci --no-output +build-with-vks
+
   # all the non-bench end-to-end integration tests for aztec
   e2e:
     needs: build
@@ -85,7 +106,7 @@ jobs:
 
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
-    needs: build
+    needs: build-vks
     runs-on: ${{ inputs.username || github.actor }}-x86
     strategy:
       fail-fast: false

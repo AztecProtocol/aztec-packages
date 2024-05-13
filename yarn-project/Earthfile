@@ -51,6 +51,16 @@ build-dev:
     FROM +build
     SAVE ARTIFACT /usr/src /usr/src
 
+build-with-vks:
+    FROM +build
+    RUN mkdir /usr/vks
+    WORKDIR /usr/src/yarn-project/bb-prover
+    RUN yarn bb-cli write-vk -w /usr/vks -b /usr/src/barretenberg/cpp/build/bin/bb -c PrivateKernelTailArtifact
+    RUN yarn bb-cli write-vk -w /usr/vks -b /usr/src/barretenberg/cpp/build/bin/bb -c PrivateKernelTailToPublicArtifact
+    RUN yarn bb-cli write-vk -w /usr/vks -b /usr/src/barretenberg/cpp/build/bin/bb -c RootRollupArtifact
+    SAVE ARTIFACT /usr/vks /usr/vks
+
+
 aztec-prod:
     FROM +build
     RUN yarn workspaces focus @aztec/aztec @aztec/builder --production && yarn cache clean
