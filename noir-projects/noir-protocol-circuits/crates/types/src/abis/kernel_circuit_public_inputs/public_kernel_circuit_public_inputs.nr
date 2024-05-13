@@ -5,6 +5,7 @@ use crate::abis::{
 use crate::constants::{MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH};
 use crate::traits::{Empty, Serialize, Deserialize, Eq};
 use crate::utils::reader::Reader;
+use crate::address::AztecAddress;
 
 struct PublicKernelCircuitPublicInputs {
     validation_requests: ValidationRequests,
@@ -13,6 +14,7 @@ struct PublicKernelCircuitPublicInputs {
     constants: CombinedConstantData,
     revert_code: u8,
     public_teardown_call_stack: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+    fee_payer: AztecAddress
 }
 
 impl PublicKernelCircuitPublicInputs {
@@ -43,6 +45,7 @@ impl Empty for PublicKernelCircuitPublicInputs {
             constants: CombinedConstantData::empty(),
             revert_code: 0,
             public_teardown_call_stack: [CallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+            fee_payer: AztecAddress::empty()
         }
     }
 }
@@ -60,6 +63,8 @@ impl Serialize<PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicKernelCircu
     for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX {
       fields.extend_from_array(self.public_teardown_call_stack[i].serialize());
     }
+
+    fields.extend_from_array(self.fee_payer.serialize());
     
 
     assert_eq(fields.len(), PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
@@ -78,7 +83,8 @@ impl Deserialize<PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicKernelCir
         end: reader.read_struct(PublicAccumulatedData::deserialize),
         constants: reader.read_struct(CombinedConstantData::deserialize),
         revert_code: reader.read() as u8,
-        public_teardown_call_stack: reader.read_struct_array(CallRequest::deserialize, [CallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX])
+        public_teardown_call_stack: reader.read_struct_array(CallRequest::deserialize, [CallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX]),
+        fee_payer: reader.read_struct(AztecAddress::deserialize),
     };
     reader.finish();
     item

@@ -5,6 +5,7 @@ use crate::abis::{
 use crate::constants::PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 use crate::traits::{Serialize, Deserialize, Eq, Empty};
 use crate::utils::reader::Reader;
+use crate::address::AztecAddress;
 
 struct PrivateKernelCircuitPublicInputs {
     min_revertible_side_effect_counter: u32,
@@ -12,6 +13,7 @@ struct PrivateKernelCircuitPublicInputs {
     end: PrivateAccumulatedData,
     constants: CombinedConstantData,
     public_teardown_call_request: CallRequest,
+    fee_payer: AztecAddress
 }
 
 impl Serialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelCircuitPublicInputs {
@@ -23,6 +25,7 @@ impl Serialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelCir
     fields.extend_from_array(self.end.serialize());
     fields.extend_from_array(self.constants.serialize());
     fields.extend_from_array(self.public_teardown_call_request.serialize());
+    fields.extend_from_array(self.fee_payer.serialize());
 
     assert_eq(fields.len(), PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
@@ -39,6 +42,7 @@ impl Deserialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelC
         end: reader.read_struct(PrivateAccumulatedData::deserialize),
         constants: reader.read_struct(CombinedConstantData::deserialize),
         public_teardown_call_request: reader.read_struct(CallRequest::deserialize),
+        fee_payer: reader.read_struct(AztecAddress::deserialize),
     };
 
     reader.finish();
@@ -64,6 +68,7 @@ impl Empty for PrivateKernelCircuitPublicInputs {
       end: PrivateAccumulatedData::empty(),
       constants: CombinedConstantData::empty(),
       public_teardown_call_request: CallRequest::empty(),
+      fee_payer: AztecAddress::empty()
     }
   }
 }
