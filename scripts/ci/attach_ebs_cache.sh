@@ -153,7 +153,7 @@ fi
 mkdir -p /var/lib/docker
 mount $BLKDEVICE /var/lib/docker
 # clear our images temp folder
-rm -rf /var/lib/docker/tmp
+rm -rf /var/lib/docker/tmp-images
 systemctl restart docker
 # important: everything (except earthly ls) should go through earthly-ci
 scripts/earthly-ci bootstrap
