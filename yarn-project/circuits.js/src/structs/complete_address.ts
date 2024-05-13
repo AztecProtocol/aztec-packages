@@ -16,9 +16,6 @@ import { PublicKeys } from '../types/public_keys.js';
  *          https://github.com/AztecProtocol/aztec-packages/blob/master/docs/docs/concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys
  */
 export class CompleteAddress {
-  // TODO: This constructor should be private so that the check in create method is always enforced. However, this is
-  //       not possible now because we need the class to be compatible with `StringIOClass` to be able to pass it
-  //       through `JsonRpcServer`.
   public constructor(
     /** Contract address (typically of an account contract) */
     public address: AztecAddress,
