@@ -118,14 +118,15 @@ class GoblinTranslatorFlavor {
       public:
         using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              lagrange_first, // column 0
-                              lagrange_last,  // column 1
+
+                              ordered_extra_range_constraints_numerator, // column 0
+                              lagrange_first,                            // column 1
+                              lagrange_last,                             // column 2
                               // TODO(#758): Check if one of these can be replaced by shifts
-                              lagrange_odd_in_minicircuit,                // column 2
-                              lagrange_even_in_minicircuit,               // column 3
-                              lagrange_second,                            // column 4
-                              lagrange_second_to_last_in_minicircuit,     // column 5
-                              ordered_extra_range_constraints_numerator); // column 6
+                              lagrange_odd_in_minicircuit,             // column 3
+                              lagrange_even_in_minicircuit,            // column 4
+                              lagrange_second,                         // column 5
+                              lagrange_second_to_last_in_minicircuit); // column 6
         auto get_selectors() { return RefArray<DataType, 0>{}; };
         auto get_sigma_polynomials() { return RefArray<DataType, 0>{}; };
         auto get_id_polynomials() { return RefArray<DataType, 0>{}; };

@@ -92,7 +92,6 @@ bool GoblinTranslatorVerifier::verify_proof(const HonkProof& proof)
 
     relation_parameters.beta = 0;
     relation_parameters.gamma = gamma;
-    info("native gamma", gamma);
     relation_parameters.public_input_delta = 0;
     relation_parameters.lookup_grand_product_delta = 0;
 
