@@ -24,8 +24,8 @@ export class UserData {
       "sudo chmod +x /usr/local/bin/earthly",
       "sudo apt install -y brotli",
       'echo "MaxStartups 1000" >> /etc/ssh/sshd_config',
-      'echo "ClientAliveInterval=200" >> /etc/ssh/sshd_config',
-      'echo "ClientAliveCountMax=3" >> /etc/ssh/sshd_config',
+      'echo "ClientAliveInterval=30" >> /etc/ssh/sshd_config',
+      'echo "ClientAliveCountMax=20" >> /etc/ssh/sshd_config',
       "sudo service sshd restart",
       "touch /home/ubuntu/.user-data-finished",
     ];
