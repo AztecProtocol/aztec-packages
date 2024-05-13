@@ -153,6 +153,7 @@ fi
 mkdir -p /var/lib/docker
 mount $BLKDEVICE /var/lib/docker
 service docker restart
+rm -rf /var/lib/docker/images
 # important: everything (except earthly ls) should go through earthly-ci
 scripts/earthly-ci bootstrap
 touch /home/ubuntu/.setup-complete
