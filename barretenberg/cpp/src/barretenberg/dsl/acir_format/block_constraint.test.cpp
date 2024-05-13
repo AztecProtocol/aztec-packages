@@ -148,3 +148,50 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
     auto verifier = composer.create_verifier(builder);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
+
+TEST_F(UltraPlonkRAM, TestDatabus)
+{
+    BlockConstraint block;
+    WitnessVector witness_values;
+    size_t num_variables = generate_block_constraint(block, witness_values);
+    block.type = BlockType::CallData;
+
+    AcirFormat constraint_system{
+        .varnum = static_cast<uint32_t>(num_variables),
+        .recursive = false,
+        .public_inputs = {},
+        .logic_constraints = {},
+        .range_constraints = {},
+        .sha256_constraints = {},
+        .sha256_compression = {},
+        .schnorr_constraints = {},
+        .ecdsa_k1_constraints = {},
+        .ecdsa_r1_constraints = {},
+        .blake2s_constraints = {},
+        .blake3_constraints = {},
+        .keccak_constraints = {},
+        .keccak_permutations = {},
+        .pedersen_constraints = {},
+        .pedersen_hash_constraints = {},
+        .poseidon2_constraints = {},
+        .multi_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
+        .bigint_operations = {},
+        .poly_triple_constraints = {},
+        .quad_constraints = {},
+        .block_constraints = { block },
+    };
+
+    if (IsGoblinUltraBuilder<Builder>) {
+        auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
+        auto composer = Composer();
+        auto prover = composer.create_prover(builder);
+
+        auto proof = prover.construct_proof();
+        auto verifier = composer.create_verifier(builder);
+        EXPECT_EQ(verifier.verify_proof(proof), true);
+    }
+}

@@ -446,6 +446,12 @@ BlockConstraint handle_memory_init(Program::Opcode::MemoryInit const& mem_init)
             .q_c = 0,
         });
     }
+
+    if (std::holds_alternative<Program::BlockType::CallData>(mem_init.block_type.value)) {
+        block.type = BlockType::CallData;
+    } else if (std::holds_alternative<Program::BlockType::ReturnData>(mem_init.block_type.value)) {
+        block.type = BlockType::ReturnData;
+    }
     return block;
 }
 
@@ -463,6 +469,9 @@ void handle_memory_op(Program::Opcode::MemoryOp const& mem_op, BlockConstraint& 
     }
     if (block.type == BlockType::ROM && access_type == 1) {
         block.type = BlockType::RAM;
+    }
+    if (access_type == 1) {
+        ASSERT(block.type == BlockType::RAM);
     }
 
     MemOp acir_mem_op = MemOp{ .access_type = access_type,
