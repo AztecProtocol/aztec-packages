@@ -60,9 +60,9 @@ runs:
           export BUILDER_SPOT_IP=${{ env.BUILDER_SPOT_IP }}
           export BUILDER_SPOT_KEY=~/.ssh/build_instance_key
           scripts/run_on_builder "
-            sudo mkdir -p /var/lib/docker/images
-            sudo flock /var/lib/docker/images/${{ env.IMAGE_KEY }}.lock bash -c '! [ -f /var/lib/docker/images/${{ env.IMAGE_KEY }}.brotli ] && docker save ${{ inputs.builder_images_to_copy }} | brotli -2 > /var/lib/docker/images/${{ env.IMAGE_KEY }}.brotli.tmp && mv /var/lib/docker/images/${{ env.IMAGE_KEY }}.brotli'
-            sudo cat /var/lib/docker/images/${{ env.IMAGE_KEY }}.brotli
+            sudo mkdir -p /var/lib/docker/tmp
+            sudo flock /var/lib/docker/tmp/${{ env.IMAGE_KEY }}.lock bash -c '! [ -f /var/lib/docker/tmp/${{ env.IMAGE_KEY }}.brotli ] && docker save ${{ inputs.builder_images_to_copy }} | brotli -2 > /var/lib/docker/images/${{ env.IMAGE_KEY }}.brotli.tmp && mv /var/lib/docker/tmp/${{ env.IMAGE_KEY }}.brotli'
+            sudo cat /var/lib/docker/tmp/${{ env.IMAGE_KEY }}.brotli
           " | brotli --decompress | docker load
 
     - name: Test
