@@ -255,6 +255,7 @@ export class Ec2Instance {
     const client = await this.getEc2Client();
     const fleet = await client.createFleet(createFleetRequest).promise();
     if (fleet.Errors && fleet.Errors.length > 0) {
+      core.warning(JSON.stringify(fleet.Errors, null, 2));
       for (const error of fleet.Errors) {
         if (
           error.ErrorCode === "RequestLimitExceeded" ||
@@ -263,7 +264,6 @@ export class Ec2Instance {
           return error.ErrorCode;
         }
       }
-      core.error(JSON.stringify(fleet.Errors, null, 2));
     }
     const instances: CreateFleetInstance = (fleet?.Instances || [])[0] || {};
     return (instances.InstanceIds || [])[0] || "";
