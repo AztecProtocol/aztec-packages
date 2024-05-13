@@ -556,7 +556,6 @@ impl Empty for FixtureBuilder {
             gas_used: Gas::empty(),
             non_revertible_gas_used: Gas::empty(),
             public_teardown_call_request: CallRequest::empty(),
-            fee_payer: AztecAddress::empty(),
         }
     }
 }

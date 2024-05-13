@@ -8,6 +8,8 @@ contract GasToken {
 
     #[aztec(storage)]
     struct Storage {
+        // This map is accessed directly by protocol circuits to check balances for fee payment.
+        // Do not change this storage layout unless you also update the base rollup circuits.
         balances: Map<AztecAddress, PublicMutable<U128>>,
         portal_address: SharedImmutable<EthAddress>,
     }

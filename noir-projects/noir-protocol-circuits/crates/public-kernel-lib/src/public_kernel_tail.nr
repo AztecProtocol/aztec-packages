@@ -1,7 +1,7 @@
 use crate::common;
 use dep::reset_kernel_lib::{
     NullifierReadRequestHints, NullifierNonExistentReadRequestHints, PublicDataReadRequestHints,
-    PublicValidationRequestProcessor, PublicDataHint
+    PublicValidationRequestProcessor
 };
 use dep::types::{
     abis::{
@@ -9,9 +9,9 @@ use dep::types::{
     public_kernel_data::PublicKernelData
 },
     constants::{MAX_PUBLIC_DATA_HINTS, MAX_NULLIFIER_READ_REQUESTS_PER_TX},
+    data::public_data_hint::PublicDataHint,
     merkle_tree::{conditionally_assert_check_membership, MembershipWitness},
-    partial_state_reference::PartialStateReference, utils::{arrays::array_length},
-    address::AztecAddress,
+    partial_state_reference::PartialStateReference, utils::{arrays::array_length}, address::AztecAddress
 };
 
 struct PublicKernelTailCircuitPrivateInputs {
@@ -38,30 +38,9 @@ impl PublicKernelTailCircuitPrivateInputs {
     }
 
     fn validate_public_data_hints(self) {
-        let public_data_hints = self.public_data_hints;
         let public_data_tree_root = self.start_state.public_data_tree.root;
-        for i in 0..public_data_hints.len() {
-            let hint = public_data_hints[i];
-            // We only need to check leaf_slot to decide if a (non-)membership check is required.
-            // It will fail if a PublicDataHint with 0 leaf_slot is used to verify a non-empty public read or write.
-            if hint.leaf_slot != 0 {
-                let exists_in_tree = hint.leaf_slot == hint.leaf_preimage.slot;
-                if exists_in_tree {
-                    assert(
-                        hint.value == hint.leaf_preimage.value, "Hinted public data value does not match the value in leaf preimage"
-                    );
-                } else {
-                    assert(hint.value == 0, "Value must be 0 for non-existent public data");
-                }
-
-                conditionally_assert_check_membership(
-                    hint.leaf_slot,
-                    exists_in_tree,
-                    hint.leaf_preimage,
-                    hint.membership_witness,
-                    public_data_tree_root
-                );
-            }
+        for i in 0..self.public_data_hints.len() {
+            self.public_data_hints[i].validate(public_data_tree_root);
         }
     }
 
