@@ -608,9 +608,8 @@ template <typename PCS> class ZeroMorphVerifier_ {
         }
 
         if constexpr (Curve::is_stdlib_type) {
-            for (size_t idx = 0; idx < 5; idx++) {
-                info(commitments[idx].get_value());
-            }
+            auto builder = scalars[0].get_context();
+            info("num gates before:", builder->num_gates);
             return Commitment::batch_mul(commitments, scalars);
         } else {
             return batch_mul_native(commitments, scalars);
@@ -712,6 +711,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
         if constexpr (Curve::is_stdlib_type) {
             // Express operation as a batch_mul in order to use Goblinization if available
             auto builder = z_challenge.get_context();
+            info("num gates after:", builder->num_gates);
             std::vector<FF> scalars = { FF(builder, 1), z_challenge };
             std::vector<Commitment> points = { C_zeta_x, C_Z_x };
             C_zeta_Z = Commitment::batch_mul(points, scalars);
