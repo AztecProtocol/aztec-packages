@@ -179,13 +179,6 @@ export class Ec2Instance {
       LaunchTemplateData: {
         ImageId: this.config.ec2AmiId,
         InstanceInitiatedShutdownBehavior: "terminate",
-        InstanceRequirements: {
-          // We do not know what the instance types correspond to
-          // just let the user send a list of allowed instance types
-          VCpuCount: { Min: 0 },
-          MemoryMiB: { Min: 0 },
-          AllowedInstanceTypes: this.config.ec2InstanceType,
-        },
         SecurityGroupIds: [this.config.ec2SecurityGroupId],
         KeyName: this.config.ec2KeyName,
         UserData: userDataScript,
@@ -245,7 +238,6 @@ export class Ec2Instance {
       Type: "instant",
       LaunchTemplateConfigs: [fleetLaunchConfig],
       ClientToken: this.config.clientToken || undefined,
-      OnDemandOptions: { AllocationStrategy: "price-capacity-optimized" },
       SpotOptions: {
         AllocationStrategy: "price-capacity-optimized",
       },
