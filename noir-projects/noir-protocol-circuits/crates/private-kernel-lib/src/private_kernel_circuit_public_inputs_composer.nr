@@ -15,7 +15,6 @@ use dep::types::{
 
 struct DataSource {
     private_call_public_inputs: PrivateCircuitPublicInputs,
-    contract_address: AztecAddress,
     storage_contract_address: AztecAddress,
     note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
     private_call_requests: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
@@ -83,8 +82,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
         private_call_requests: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
         public_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-        public_teardown_call_request: CallRequest,
-        contract_address: AztecAddress
+        public_teardown_call_request: CallRequest
     ) -> Self {
         let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
         let source = DataSource {
@@ -93,8 +91,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
             note_hash_nullifier_counters,
             private_call_requests,
             public_call_requests,
-            public_teardown_call_request,
-            contract_address
+            public_teardown_call_request
         };
 
         self.propagate_max_block_number(source);
@@ -228,7 +225,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
     fn propagate_fee_payer(&mut self, source: DataSource) {
         if (source.private_call_public_inputs.is_fee_payer) {
             assert(self.public_inputs.fee_payer.is_zero(), "Cannot overwrite non-empty fee_payer");
-            self.public_inputs.fee_payer = source.contract_address;
+            self.public_inputs.fee_payer = source.storage_contract_address;
         }
     }
 }

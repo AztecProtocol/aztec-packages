@@ -43,8 +43,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
             self.hints.note_hash_nullifier_counters,
             self.private_call.private_call_stack,
             self.private_call.public_call_stack,
-            self.private_call.public_teardown_call_request,
-            self.private_call.call_stack_item.contract_address
+            self.private_call.public_teardown_call_request
         ).finish()
     }
 }
@@ -253,7 +252,7 @@ mod tests {
     #[test]
     unconstrained fn propagate_fee_payer() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
-        let fee_payer = builder.private_call.contract_address;
+        let fee_payer = builder.private_call.public_inputs.call_context.storage_contract_address;
         builder.private_call.public_inputs.is_fee_payer = true;
         let public_inputs = builder.execute();
         assert_eq(public_inputs.fee_payer, fee_payer);
