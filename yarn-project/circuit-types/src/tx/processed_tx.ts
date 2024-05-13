@@ -9,6 +9,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   Fr,
+  type Gas,
   type Header,
   KernelCircuitPublicInputs,
   type Proof,
@@ -68,6 +69,11 @@ export type ProcessedTx = Pick<Tx, 'proof' | 'noteEncryptedLogs' | 'encryptedLog
    * The collection of public kernel circuit inputs for simulation/proving
    */
   publicKernelRequests: PublicKernelRequest[];
+  /**
+   * Gas usage per public execution phase.
+   * Doesn't account for any base costs nor DA gas used in private execution.
+   */
+  gasUsed: Partial<Record<PublicKernelType, Gas>>;
 };
 
 export type RevertedTx = ProcessedTx & {
@@ -122,6 +128,7 @@ export function makeProcessedTx(
   proof: Proof,
   publicKernelRequests: PublicKernelRequest[],
   revertReason?: SimulationError,
+  gasUsed: ProcessedTx['gasUsed'] = {},
 ): ProcessedTx {
   return {
     hash: tx.getTxHash(),
@@ -134,6 +141,7 @@ export function makeProcessedTx(
     isEmpty: false,
     revertReason,
     publicKernelRequests,
+    gasUsed,
   };
 }
 
@@ -159,6 +167,7 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
     isEmpty: true,
     revertReason: undefined,
     publicKernelRequests: [],
+    gasUsed: {},
   };
 }
 

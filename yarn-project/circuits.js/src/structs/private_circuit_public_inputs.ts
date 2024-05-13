@@ -40,7 +40,6 @@ import { TxContext } from './tx_context.js';
 
 /**
  * Public inputs to a private circuit.
- * @see abis/private_circuit_public_inputs.hpp.
  */
 export class PrivateCircuitPublicInputs {
   constructor(

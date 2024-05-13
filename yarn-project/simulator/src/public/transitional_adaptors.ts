@@ -81,6 +81,7 @@ export function convertAvmResultsToPxResult(
 ): PublicExecutionResult {
   const endPersistableState = endAvmContext.persistableState;
   const endMachineState = endAvmContext.machineState;
+
   return {
     ...endPersistableState.transitionalExecutionResult, // includes nestedExecutions
     execution: fromPx,

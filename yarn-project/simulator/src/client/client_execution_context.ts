@@ -69,6 +69,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   private unencryptedLogs: CountedLog<UnencryptedL2Log>[] = [];
   private nestedExecutions: ExecutionResult[] = [];
   private enqueuedPublicFunctionCalls: PublicCallRequest[] = [];
+  private publicTeardownFunctionCall: PublicCallRequest = PublicCallRequest.empty();
 
   constructor(
     contractAddress: AztecAddress,
@@ -197,6 +198,13 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
+   * Return the public teardown function call set during this execution.
+   */
+  public getPublicTeardownFunctionCall() {
+    return this.publicTeardownFunctionCall;
+  }
+
+  /**
    * Pack the given array of arguments.
    * @param args - Arguments to pack
    */
@@ -285,11 +293,11 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     notes.forEach(n => {
       if (n.index !== undefined) {
-        const siloedNoteHash = siloNoteHash(n.contractAddress, n.innerNoteHash);
-        const uniqueSiloedNoteHash = computeUniqueNoteHash(n.nonce, siloedNoteHash);
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
-        // Should always be uniqueSiloedNoteHash when publicly created notes include nonces.
-        const noteHashForReadRequest = n.nonce.isZero() ? siloedNoteHash : uniqueSiloedNoteHash;
+        // Should always call computeUniqueNoteHash when publicly created notes include nonces.
+        const uniqueNoteHash = n.nonce.isZero() ? n.innerNoteHash : computeUniqueNoteHash(n.nonce, n.innerNoteHash);
+        const siloedNoteHash = siloNoteHash(n.contractAddress, uniqueNoteHash);
+        const noteHashForReadRequest = siloedNoteHash;
         this.noteHashLeafIndexMap.set(noteHashForReadRequest.toBigInt(), n.index);
       }
     });
@@ -500,9 +508,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * Creates a PublicCallStackItem object representing the request to call a public function. No function
-   * is actually called, since that must happen on the sequencer side. All the fields related to the result
-   * of the execution are empty.
+   * Creates a PublicCallStackItem object representing the request to call a public function.
    * @param targetContractAddress - The address of the contract to call.
    * @param functionSelector - The function selector of the function to call.
    * @param argsHash - The packed arguments to pass to the function.
@@ -510,7 +516,8 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param isStaticCall - Whether the call is a static call.
    * @returns The public call stack item with the request information.
    */
-  public override async enqueuePublicFunctionCall(
+  protected async createPublicCallRequest(
+    callType: 'enqueued' | 'teardown',
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     argsHash: Fr,
@@ -529,25 +536,90 @@ export class ClientExecutionContext extends ViewDataOracle {
       isStaticCall,
     );
     const args = this.packedValuesCache.unpack(argsHash);
-    const enqueuedRequest = PublicCallRequest.from({
-      args,
-      callContext: derivedCallContext,
-      parentCallContext: this.callContext,
-      functionData: FunctionData.fromAbi(targetArtifact),
-      contractAddress: targetContractAddress,
-    });
 
     // TODO($846): if enqueued public calls are associated with global
     // side-effect counter, that will leak info about how many other private
     // side-effects occurred in the TX. Ultimately the private kernel should
     // just output everything in the proper order without any counters.
     this.log.verbose(
-      `Enqueued call to public function (with side-effect counter #${sideEffectCounter}) ${targetContractAddress}:${functionSelector}(${targetArtifact.name})`,
+      `Created PublicCallRequest of type [${callType}], side-effect counter [${sideEffectCounter}] to ${targetContractAddress}:${functionSelector}(${targetArtifact.name})`,
+    );
+
+    return PublicCallRequest.from({
+      args,
+      callContext: derivedCallContext,
+      parentCallContext: this.callContext,
+      functionData: FunctionData.fromAbi(targetArtifact),
+      contractAddress: targetContractAddress,
+    });
+  }
+
+  /**
+   * Creates and enqueues a PublicCallStackItem object representing the request to call a public function. No function
+   * is actually called, since that must happen on the sequencer side. All the fields related to the result
+   * of the execution are empty.
+   * @param targetContractAddress - The address of the contract to call.
+   * @param functionSelector - The function selector of the function to call.
+   * @param argsHash - The packed arguments to pass to the function.
+   * @param sideEffectCounter - The side effect counter at the start of the call.
+   * @param isStaticCall - Whether the call is a static call.
+   * @returns The public call stack item with the request information.
+   */
+  public override async enqueuePublicFunctionCall(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    argsHash: Fr,
+    sideEffectCounter: number,
+    isStaticCall: boolean,
+    isDelegateCall: boolean,
+  ): Promise<PublicCallRequest> {
+    const enqueuedRequest = await this.createPublicCallRequest(
+      'enqueued',
+      targetContractAddress,
+      functionSelector,
+      argsHash,
+      sideEffectCounter,
+      isStaticCall,
+      isDelegateCall,
     );
 
     this.enqueuedPublicFunctionCalls.push(enqueuedRequest);
 
     return enqueuedRequest;
+  }
+
+  /**
+   * Creates a PublicCallStackItem and sets it as the public teardown function. No function
+   * is actually called, since that must happen on the sequencer side. All the fields related to the result
+   * of the execution are empty.
+   * @param targetContractAddress - The address of the contract to call.
+   * @param functionSelector - The function selector of the function to call.
+   * @param argsHash - The packed arguments to pass to the function.
+   * @param sideEffectCounter - The side effect counter at the start of the call.
+   * @param isStaticCall - Whether the call is a static call.
+   * @returns The public call stack item with the request information.
+   */
+  public override async setPublicTeardownFunctionCall(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    argsHash: Fr,
+    sideEffectCounter: number,
+    isStaticCall: boolean,
+    isDelegateCall: boolean,
+  ): Promise<PublicCallRequest> {
+    const publicTeardownFunctionCall = await this.createPublicCallRequest(
+      'teardown',
+      targetContractAddress,
+      functionSelector,
+      argsHash,
+      sideEffectCounter,
+      isStaticCall,
+      isDelegateCall,
+    );
+
+    this.publicTeardownFunctionCall = publicTeardownFunctionCall;
+
+    return publicTeardownFunctionCall;
   }
 
   /**
