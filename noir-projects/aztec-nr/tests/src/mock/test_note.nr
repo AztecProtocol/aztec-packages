@@ -1,5 +1,8 @@
 use dep::aztec::context::PrivateContext;
-use dep::aztec::{note::{note_header::NoteHeader, note_interface::NoteInterface}, protocol_types::grumpkin_point::GrumpkinPoint};
+use dep::aztec::{
+    note::{note_header::NoteHeader, note_interface::NoteInterface},
+    protocol_types::grumpkin_point::GrumpkinPoint
+};
 
 global TEST_NOTE_LENGTH = 1;
 
