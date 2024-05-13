@@ -12,6 +12,7 @@ import {
   FunctionData,
   INITIAL_L2_BLOCK_NUM,
   Point,
+  PublicKeys,
   TxContext,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
@@ -72,10 +73,7 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
       const recipient1 = CompleteAddress.random();
       const recipient2 = new CompleteAddress(
         recipient1.address,
-        Point.random(),
-        Point.random(),
-        Point.random(),
-        Point.random(),
+        new PublicKeys(Point.random(), Point.random(), Point.random(), Point.random()),
         Fr.random(),
       );
 

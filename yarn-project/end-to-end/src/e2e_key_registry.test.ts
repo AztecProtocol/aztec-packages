@@ -1,5 +1,5 @@
 import { type AccountWallet, AztecAddress, Fr, type PXE } from '@aztec/aztec.js';
-import { CompleteAddress, Point } from '@aztec/circuits.js';
+import { CompleteAddress, Point, PublicKeys } from '@aztec/circuits.js';
 import { KeyRegistryContract, TestContract } from '@aztec/noir-contracts.js';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 
@@ -44,28 +44,22 @@ describe('Key Registry', () => {
 
   describe('failure cases', () => {
     it('throws when address preimage check fails', async () => {
-      const keys = [
-        account.masterNullifierPublicKey,
-        account.masterIncomingViewingPublicKey,
-        account.masterOutgoingViewingPublicKey,
-        account.masterTaggingPublicKey,
-      ];
+      const publicKeysBuf = account.publicKeys.toBuffer();
+      // We randomly invalidate some of the keys by overwriting random byte
+      const byteIndex = Math.floor(Math.random() * publicKeysBuf.length);
+      publicKeysBuf[byteIndex] = (publicKeysBuf[byteIndex] + 2) % 256;
 
-      // We randomly invalidate some of the keys
-      keys[Math.floor(Math.random() * keys.length)] = Point.random();
+      const publicKeys = PublicKeys.fromBuffer(publicKeysBuf);
 
       await expect(
         keyRegistry
           .withWallet(wallets[0])
-          .methods.register(account, account.partialAddress, {
+          .methods.register(
+            account,
+            account.partialAddress,
             // TODO(#6337): Directly dump account.publicKeys here
-            /* eslint-disable camelcase */
-            npk_m: { x: keys[0].x, y: keys[0].y },
-            ivpk_m: { x: keys[1].x, y: keys[1].y },
-            ovpk_m: { x: keys[2].x, y: keys[2].y },
-            tpk_m: { x: keys[3].x, y: keys[3].y },
-            /* eslint-enable camelcase */
-          })
+            publicKeys.toNoirStruct(),
+          )
           .send()
           .wait(),
       ).rejects.toThrow('Computed address does not match supplied address');
@@ -101,7 +95,7 @@ describe('Key Registry', () => {
     await testContract.methods
       .test_nullifier_key_freshness(
         newAccountCompleteAddress.address,
-        newAccountCompleteAddress.masterNullifierPublicKey,
+        newAccountCompleteAddress.publicKeys.masterNullifierPublicKey,
       )
       .send()
       .wait();
@@ -111,15 +105,12 @@ describe('Key Registry', () => {
     it('registers', async () => {
       await keyRegistry
         .withWallet(wallets[0])
-        .methods.register(account, account.partialAddress, {
+        .methods.register(
+          account,
+          account.partialAddress,
           // TODO(#6337): Directly dump account.publicKeys here
-          /* eslint-disable camelcase */
-          npk_m: { x: account.masterNullifierPublicKey.x, y: account.masterNullifierPublicKey.y },
-          ivpk_m: { x: account.masterIncomingViewingPublicKey.x, y: account.masterIncomingViewingPublicKey.y },
-          ovpk_m: { x: account.masterOutgoingViewingPublicKey.x, y: account.masterOutgoingViewingPublicKey.y },
-          tpk_m: { x: account.masterTaggingPublicKey.x, y: account.masterTaggingPublicKey.y },
-          /* eslint-enable camelcase */
-        })
+          account.publicKeys.toNoirStruct(),
+        )
         .send()
         .wait();
 
@@ -138,13 +129,16 @@ describe('Key Registry', () => {
         .test_shared_mutable_private_getter_for_registry_contract(1, account)
         .simulate();
 
-      expect(new Fr(nullifierPublicKeyX)).toEqual(account.masterNullifierPublicKey.x);
+      expect(new Fr(nullifierPublicKeyX)).toEqual(account.publicKeys.masterNullifierPublicKey.x);
     });
 
     // Note: This test case is dependent on state from the previous one
     it('key lib succeeds for registered account', async () => {
       // Should succeed as the account is registered in key registry from tests before
-      await testContract.methods.test_nullifier_key_freshness(account, account.masterNullifierPublicKey).send().wait();
+      await testContract.methods
+        .test_nullifier_key_freshness(account, account.publicKeys.masterNullifierPublicKey)
+        .send()
+        .wait();
     });
   });
 

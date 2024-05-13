@@ -248,7 +248,7 @@ export const browserTestSuite = (
           }
           const owner = knownAccounts[0];
           // TODO(#5726): this is messy, maybe we should expose publicKeysHash on account
-          const publicKeysHash = deriveKeys(INITIAL_TEST_SECRET_KEYS[0]).publicKeysHash;
+          const publicKeysHash = deriveKeys(INITIAL_TEST_SECRET_KEYS[0]).publicKeys.hash();
           const ownerAddress = owner.getAddress();
           const tx = new DeployMethod(
             publicKeysHash,
