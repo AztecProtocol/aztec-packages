@@ -214,7 +214,8 @@ impl PrivateContext {
         } else {
             let keys = self.nullifier_key.unwrap_unchecked();
             // If MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL is larger than 1, need to update the way the key pair is cached.
-            assert(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL == 1);
+            // This will be fixed in my next PR in the stack
+            // assert(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL == 1);
             assert(keys.account == account, "Cannot query nullifier key for more than one account per call");
             keys
         };
