@@ -13,8 +13,8 @@ struct FunctionData {
 impl Eq for FunctionData {
     fn eq(self, other: Self) -> bool {
         self.selector.eq(other.selector) &
-        self.is_private == other.is_private &
-        self.is_static == other.is_static
+        (self.is_private == other.is_private) &
+        (self.is_static == other.is_static)
     }
 }
 
