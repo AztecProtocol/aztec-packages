@@ -17,8 +17,6 @@ import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string';
 
 import { AztecDatastore } from './data_store.js';
 
-const HOOK_TIMEOUT = 10000;
-
 describe('AztecDatastore with AztecLmdbStore', () => {
   let datastore: AztecDatastore;
   let aztecStore: AztecLmdbStore;
@@ -179,7 +177,7 @@ export function interfaceDatastoreTests<D extends Datastore = Datastore>(test: I
 
     afterEach(async () => {
       await cleanup(store);
-    }, HOOK_TIMEOUT);
+    });
 
     it('simple', async () => {
       const k = new Key('/z/key');
@@ -215,7 +213,7 @@ export function interfaceDatastoreTests<D extends Datastore = Datastore>(test: I
 
     afterEach(async () => {
       await cleanup(store);
-    }, HOOK_TIMEOUT);
+    });
 
     it('streaming', async () => {
       const data: Pair[] = [];
@@ -246,7 +244,7 @@ export function interfaceDatastoreTests<D extends Datastore = Datastore>(test: I
 
     afterEach(async () => {
       await cleanup(store);
-    }, HOOK_TIMEOUT);
+    });
 
     it('simple', async () => {
       const k = new Key('/z/one');
@@ -276,7 +274,7 @@ export function interfaceDatastoreTests<D extends Datastore = Datastore>(test: I
 
     afterEach(async () => {
       await cleanup(store);
-    }, HOOK_TIMEOUT);
+    });
 
     it('streaming', async () => {
       const k = new Key('/z/one');
@@ -356,7 +354,7 @@ export function interfaceDatastoreTests<D extends Datastore = Datastore>(test: I
 
     afterEach(async () => {
       await cleanup(store);
-    }, HOOK_TIMEOUT);
+    });
 
     it('streaming', async () => {
       const data = [];
@@ -392,7 +390,7 @@ export function interfaceDatastoreTests<D extends Datastore = Datastore>(test: I
 
     afterEach(async () => {
       await cleanup(store);
-    }, HOOK_TIMEOUT);
+    });
 
     it('simple', async () => {
       const b = store.batch();
@@ -483,7 +481,7 @@ export function interfaceDatastoreTests<D extends Datastore = Datastore>(test: I
 
     afterAll(async () => {
       await cleanup(store);
-    }, HOOK_TIMEOUT);
+    });
 
     tests.forEach(([name, query, expected]) =>
       it(name, async () => {
@@ -606,7 +604,7 @@ export function interfaceDatastoreTests<D extends Datastore = Datastore>(test: I
 
     afterAll(async () => {
       await cleanup(store);
-    }, HOOK_TIMEOUT);
+    });
 
     tests.forEach(([name, query, expected]) =>
       it(name, async () => {
