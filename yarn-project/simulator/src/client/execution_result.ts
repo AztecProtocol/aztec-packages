@@ -58,7 +58,7 @@ export interface ExecutionResult {
   enqueuedPublicFunctionCalls: PublicCallRequest[];
   /**
    * Encrypted note logs emitted during execution of this function call.
-   * Note: These are preimages to `encryptedLogsHashes`.
+   * Note: These are preimages to `noteEncryptedLogsHashes`.
    */
   noteEncryptedLogs: CountedLog<EncryptedL2Log>[];
   /**
