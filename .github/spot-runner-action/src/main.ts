@@ -74,8 +74,8 @@ async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
         );
       // let's exit, only loop on InsufficientInstanceCapacity
       if (
-        instanceIdOrError !== "RequestLimitExceeded" &&
-        instanceIdOrError !== "InsufficientInstanceCapacity"
+        instanceIdOrError === "RequestLimitExceeded" ||
+        instanceIdOrError === "InsufficientInstanceCapacity"
       ) {
         core.info(
           "Failed to create instance due to " +
