@@ -1,6 +1,9 @@
 use dep::aztec::{
     keys::getters::get_ivpk_m,
-    protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint, traits::{Deserialize, Serialize}, constants::GENERATOR_INDEX__NOTE_NULLIFIER},
+    protocol_types::{
+    address::AztecAddress, grumpkin_point::GrumpkinPoint, traits::{Deserialize, Serialize},
+    constants::GENERATOR_INDEX__NOTE_NULLIFIER
+},
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
     oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_app_nullifier_secret_key},
     hash::poseidon2_hash, context::PrivateContext

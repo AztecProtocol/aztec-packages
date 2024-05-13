@@ -1,7 +1,7 @@
 import {
-  Fq,
   type AztecAddress,
   type CompleteAddress,
+  type Fq,
   type Fr,
   type GrumpkinPrivateKey,
   type PartialAddress,

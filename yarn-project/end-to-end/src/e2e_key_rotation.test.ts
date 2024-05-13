@@ -1,25 +1,24 @@
-import { getUnsafeSchnorrAccount } from '@aztec/accounts/single_key';
 import { createAccounts } from '@aztec/accounts/testing';
 import {
   type AztecAddress,
   type AztecNode,
   type DebugLogger,
   ExtendedNote,
+  Fq,
   Fr,
   Note,
   type PXE,
   type Wallet,
   computeSecretHash,
   retryUntil,
-  Fq,
 } from '@aztec/aztec.js';
-import { ChildContract, KeyRegistryContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
+import { derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
+import { KeyRegistryContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
+import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 
 import { jest } from '@jest/globals';
 
 import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup, setupPXEService } from './fixtures/utils.js';
-import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
-import { derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
 
 const TIMEOUT = 120_000;
 
@@ -35,7 +34,6 @@ describe('e2e_2_pxes', () => {
   let teardownA: () => Promise<void>;
   let teardownB: () => Promise<void>;
 
-  let keyRegistryWithA: KeyRegistryContract;
   let keyRegistryWithB: KeyRegistryContract;
 
   let testContract: TestContract;
@@ -54,7 +52,6 @@ describe('e2e_2_pxes', () => {
     ({ pxe: pxeB, teardown: teardownB } = await setupPXEService(aztecNode!, {}, undefined, true));
 
     [walletB] = await createAccounts(pxeB, 1);
-    keyRegistryWithA = await KeyRegistryContract.at(getCanonicalKeyRegistryAddress(), walletA);
     keyRegistryWithB = await KeyRegistryContract.at(getCanonicalKeyRegistryAddress(), walletB);
 
     testContract = await TestContract.deploy(walletA).send().deployed();
@@ -78,7 +75,6 @@ describe('e2e_2_pxes', () => {
       await testContract.methods.emit_unencrypted(0).send().wait();
     }
   };
-
 
   const expectTokenBalance = async (
     wallet: Wallet,
@@ -231,10 +227,7 @@ describe('e2e_2_pxes', () => {
     await crossDelay();
 
     // Transfer funds from A to B via PXE A
-    await contractWithWalletA.methods
-      .transfer(walletA.getAddress(), walletB.getAddress(), 123, 0)
-      .send()
-      .wait();
+    await contractWithWalletA.methods.transfer(walletA.getAddress(), walletB.getAddress(), 123, 0).send().wait();
 
     await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance - transferAmount1 - 123n);
     await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), transferAmount1 + 123n);
@@ -249,7 +242,7 @@ describe('e2e_2_pxes', () => {
 
     await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance);
     await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), 0n);
-  
+
     // // Check balances and logs are as expected
     // await expectTokenBalance(
     //   walletA,
@@ -259,12 +252,4 @@ describe('e2e_2_pxes', () => {
     // );
     // await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), 0n);
   }, 600_000);
-
-
-  const awaitServerSynchronized = async (server: PXE) => {
-    const isServerSynchronized = async () => {
-      return await server.isGlobalStateSynchronized();
-    };
-    await retryUntil(isServerSynchronized, 'server sync', 10);
-  };
 });

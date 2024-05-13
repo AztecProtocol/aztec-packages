@@ -5,7 +5,8 @@ use dep::aztec::prelude::{
 use dep::aztec::{
     context::{PublicContext, Context}, hash::pedersen_hash,
     protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, hash::poseidon2_hash},
-    note::{note_getter::view_notes, note_getter_options::SortOrder}, keys::getters::{get_npk_m_hash, get_ivpk_m}
+    note::{note_getter::view_notes, note_getter_options::SortOrder},
+    keys::getters::{get_npk_m_hash, get_ivpk_m}
 };
 use crate::types::token_note::{TokenNote, OwnedNote};
 

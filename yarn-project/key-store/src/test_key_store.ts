@@ -2,6 +2,7 @@ import { type KeyStore, type PublicKey } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
+  Fq,
   Fr,
   GeneratorIndex,
   type GrumpkinPrivateKey,
@@ -11,7 +12,6 @@ import {
   computeAddress,
   computeAppNullifierSecretKey,
   deriveKeys,
-  Fq,
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
@@ -97,7 +97,9 @@ export class TestKeyStore implements KeyStore {
     let masterNullifierPublicKeyBuffer;
     if ('account' in args) {
       // Get most recent rotated or non-rotated
-      masterNullifierPublicKeyBuffer = this.#rotatedKeys.get(`${args.account.toString()}-npk_m-${this.#rotatedNullifierKeyCount(args.account) - 1}`) ?? this.#keys.get(`${args.account}-npk_m`);
+      masterNullifierPublicKeyBuffer =
+        this.#rotatedKeys.get(`${args.account.toString()}-npk_m-${this.#rotatedNullifierKeyCount(args.account) - 1}`) ??
+        this.#keys.get(`${args.account}-npk_m`);
     } else {
       ({ value: masterNullifierPublicKeyBuffer } = this.#getMapMetadataForMasterNullifierPublicKeyHash(args.npkMHash));
     }
@@ -174,14 +176,17 @@ export class TestKeyStore implements KeyStore {
     let masterNullifierSecretKeyBuffer: Buffer | undefined;
     if ('account' in args) {
       // Get most recent rotated or non-rotated
-      masterNullifierSecretKeyBuffer = this.#rotatedKeys.get(`${args.account.toString()}-nsk_m-${this.#rotatedNullifierKeyCount(args.account) - 1}`) ?? this.#keys.get(`${args.account}-nsk_m`);
+      masterNullifierSecretKeyBuffer =
+        this.#rotatedKeys.get(`${args.account.toString()}-nsk_m-${this.#rotatedNullifierKeyCount(args.account) - 1}`) ??
+        this.#keys.get(`${args.account}-nsk_m`);
     } else {
       const { key } = this.#getMapMetadataForMasterNullifierPublicKeyHash(args.npkMHash);
       const mapKeyForNullifierSecretKey = key.replace('npk_m', 'nsk_m');
 
       // #rotatedKeys has a suffix of -${index}, thus there will never be a clash, i.e. using a key in rotated keys will always return undefined if trying to retrieve something in keys
       // and using a key in #keys will always return undefined when searching in #rotatedKeys
-      masterNullifierSecretKeyBuffer = this.#keys.get(mapKeyForNullifierSecretKey) ?? this.#rotatedKeys.get(mapKeyForNullifierSecretKey);
+      masterNullifierSecretKeyBuffer =
+        this.#keys.get(mapKeyForNullifierSecretKey) ?? this.#rotatedKeys.get(mapKeyForNullifierSecretKey);
     }
 
     if (!masterNullifierSecretKeyBuffer) {
@@ -263,10 +268,13 @@ export class TestKeyStore implements KeyStore {
       if (value.equals(masterNullifierPublicKey.toBuffer())) {
         const mapKeyForNullifierSecretKey = key.replace('npk_m', 'nsk_m');
 
-        const masterNullifierSecretKeyBuffer = this.#keys.get(mapKeyForNullifierSecretKey) ?? this.#rotatedKeys.get(mapKeyForNullifierSecretKey);
+        const masterNullifierSecretKeyBuffer =
+          this.#keys.get(mapKeyForNullifierSecretKey) ?? this.#rotatedKeys.get(mapKeyForNullifierSecretKey);
 
         if (!masterNullifierSecretKeyBuffer) {
-          throw new Error(`Could not find master nullifier secret key for master nullifier public key ${masterNullifierPublicKey.toString()}`);
+          throw new Error(
+            `Could not find master nullifier secret key for master nullifier public key ${masterNullifierPublicKey.toString()}`,
+          );
         }
         return Promise.resolve(GrumpkinScalar.fromBuffer(masterNullifierSecretKeyBuffer));
       }
@@ -326,7 +334,7 @@ export class TestKeyStore implements KeyStore {
       if (key.includes('-npk_m')) {
         const computedMasterNullifierPublicKeyHash = poseidon2Hash(Point.fromBuffer(value).toFields());
         if (computedMasterNullifierPublicKeyHash.equals(masterNullifierPublicKeyHash)) {
-          return { key, value }
+          return { key, value };
         }
       }
     }

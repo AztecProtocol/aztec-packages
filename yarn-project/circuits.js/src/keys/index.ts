@@ -1,6 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2Hash, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
-import { Fq, type Fr, type GrumpkinScalar } from '@aztec/foundation/fields';
+import { type Fq, type Fr, type GrumpkinScalar } from '@aztec/foundation/fields';
 
 import { Grumpkin } from '../barretenberg/crypto/grumpkin/index.js';
 import { GeneratorIndex } from '../constants.gen.js';
@@ -54,7 +54,7 @@ export function deriveKeys(secretKey: Fr) {
   const masterTaggingPublicKey = derivePublicKeyFromSecretKey(masterTaggingSecretKey);
 
   // We hash the public keys to get the public keys hash
-  const publicKeysHash = computePublicKeysHash(
+  const publicKeys = new PublicKeys(
     masterNullifierPublicKey,
     masterIncomingViewingPublicKey,
     masterOutgoingViewingPublicKey,

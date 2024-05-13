@@ -4,7 +4,10 @@ contract Crowdfunding {
 
     // docs:start:all-deps
     use dep::aztec::{
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize, grumpkin_point::GrumpkinPoint},
+        protocol_types::{
+        abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize,
+        grumpkin_point::GrumpkinPoint
+    },
         state_vars::{PrivateSet, PublicImmutable, SharedImmutable}
     };
     use dep::value_note::value_note::ValueNote;

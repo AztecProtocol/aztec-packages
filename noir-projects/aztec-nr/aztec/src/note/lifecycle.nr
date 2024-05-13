@@ -11,7 +11,7 @@ pub fn create_note<Note, N>(
     storage_slot: Field,
     note: &mut Note,
     broadcast: bool,
-    ivpk_m: GrumpkinPoint,
+    ivpk_m: GrumpkinPoint
 ) where Note: NoteInterface<N> {
     let contract_address = (*context).this_address();
 
