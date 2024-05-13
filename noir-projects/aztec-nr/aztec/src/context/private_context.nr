@@ -19,9 +19,8 @@ use dep::protocol_types::{
     function_selector::FunctionSelector, max_block_number::MaxBlockNumber,
     nullifier_key_validation_request::NullifierKeyValidationRequest,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    public_call_stack_item::PublicCallStackItem,
-    read_request::ReadRequest, note_hash::NoteHash, nullifier::Nullifier,
-    log_hash::{LogHash, NoteLogHash}
+    public_call_stack_item::PublicCallStackItem, read_request::ReadRequest, note_hash::NoteHash,
+    nullifier::Nullifier, log_hash::{LogHash, NoteLogHash}
 },
     address::{AztecAddress, EthAddress},
     constants::{
@@ -32,7 +31,7 @@ use dep::protocol_types::{
     MAX_UNENCRYPTED_LOGS_PER_CALL, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL
 },
     grumpkin_point::GrumpkinPoint, header::Header, messaging::l2_to_l1_message::L2ToL1Message,
-    traits::{is_empty, Deserialize, Empty}, utils::arrays::array_eq,
+    traits::{is_empty, Deserialize, Empty}, utils::arrays::array_eq
 };
 
 // When finished, one can call .finish() to convert back to the abi
@@ -263,7 +262,7 @@ impl PrivateContext {
         let log_hash = compute_unencrypted_log_hash(contract_address, event_selector, log);
         // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4)
         let len = 44 + log_slice.len().to_field();
-        let side_effect = LogHash { value: log_hash, counter: counter, length: len };
+        let side_effect = LogHash { value: log_hash, counter, length: len };
         self.unencrypted_logs_hashes.push(side_effect);
         self.unencrypted_log_preimages_length += len;
         // call oracle
@@ -283,8 +282,8 @@ impl PrivateContext {
         let counter = self.next_counter();
         let log_hash = emit_contract_class_unencrypted_log_private_internal(contract_address, event_selector, log, counter);
         // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4)
-        let len = 44 + N*32;
-        let side_effect = LogHash { value: log_hash, counter: counter, length: len };
+        let len = 44 + N * 32;
+        let side_effect = LogHash { value: log_hash, counter, length: len };
         self.unencrypted_logs_hashes.push(side_effect);
         self.unencrypted_log_preimages_length += len;
     }
@@ -309,9 +308,9 @@ impl PrivateContext {
             counter
         );
         // = 32*all fields + bytes for encryption (112) + processed log len (4)
-        let len = 112 + 32*(N + 3) + 4;
+        let len = 112 + 32 * (N + 3) + 4;
         let log_hash = compute_encrypted_log_hash(encrypted_log);
-        let side_effect = LogHash { value: log_hash, counter: counter, length: len };
+        let side_effect = LogHash { value: log_hash, counter, length: len };
         self.encrypted_logs_hashes.push(side_effect);
         self.encrypted_log_preimages_length += len;
     }
@@ -322,7 +321,7 @@ impl PrivateContext {
         storage_slot: Field,
         note_type_id: Field,
         encryption_pub_key: GrumpkinPoint,
-        note: Note,
+        note: Note
     ) where Note: NoteInterface<N>, [Field; N]: LensForEncryptedLog<N, M, L> {
         let note_hash = compute_note_hash_for_insertion(note);
         let note_exists = self.new_note_hashes.any(|n: NoteHash| n.value == note_hash);
@@ -340,9 +339,9 @@ impl PrivateContext {
             counter
         );
         // = 32*all fields + bytes for encryption (112) + processed log len (4)
-        let len = 112 + 32*(preimage.len() as Field + 3) + 4;
+        let len = 112 + 32 * (preimage.len() as Field + 3) + 4;
         let log_hash = compute_encrypted_log_hash(encrypted_log);
-        let side_effect = NoteLogHash { value: log_hash, counter: counter, length: len, note_hash: note_hash };
+        let side_effect = NoteLogHash { value: log_hash, counter, length: len, note_hash };
         self.note_encrypted_logs_hashes.push(side_effect);
         self.encrypted_log_preimages_length += len;
     }

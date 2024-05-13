@@ -9,9 +9,8 @@ use crate::{
 };
 use dep::protocol_types::{
     abis::{
-    function_selector::FunctionSelector,
-    public_circuit_public_inputs::PublicCircuitPublicInputs, read_request::ReadRequest,
-    note_hash::NoteHash, nullifier::Nullifier, log_hash::LogHash
+    function_selector::FunctionSelector, public_circuit_public_inputs::PublicCircuitPublicInputs,
+    read_request::ReadRequest, note_hash::NoteHash, nullifier::Nullifier, log_hash::LogHash
 },
     hash::silo_nullifier, address::{AztecAddress, EthAddress},
     constants::{
