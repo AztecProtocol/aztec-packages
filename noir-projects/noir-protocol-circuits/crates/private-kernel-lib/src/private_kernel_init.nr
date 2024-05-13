@@ -92,13 +92,13 @@ mod tests {
         let encrypted_log_preimages_length = [100, 75];
         let unencrypted_logs_hashes = [26, 46];
         let unencrypted_log_preimages_length = [50, 25];
-        builder.private_call.set_encrypted_logs(encrypted_logs_hashes[0], encrypted_log_preimages_length[0]);
-        builder.private_call.set_unencrypted_logs(
+        builder.private_call.public_inputs.add_encrypted_log(encrypted_logs_hashes[0], encrypted_log_preimages_length[0]);
+        builder.private_call.public_inputs.add_unencrypted_log(
             unencrypted_logs_hashes[0],
             unencrypted_log_preimages_length[0]
         );
-        builder.private_call.set_encrypted_logs(encrypted_logs_hashes[1], encrypted_log_preimages_length[1]);
-        builder.private_call.set_unencrypted_logs(
+        builder.private_call.public_inputs.add_encrypted_log(encrypted_logs_hashes[1], encrypted_log_preimages_length[1]);
+        builder.private_call.public_inputs.add_unencrypted_log(
             unencrypted_logs_hashes[1],
             unencrypted_log_preimages_length[1]
         );
@@ -133,7 +133,7 @@ mod tests {
     #[test]
     fn propagate_max_block_number_request() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
-        builder.private_call.set_tx_max_block_number(42);
+        builder.private_call.public_inputs.set_tx_max_block_number(42);
         let public_inputs = builder.execute();
 
         assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 42);

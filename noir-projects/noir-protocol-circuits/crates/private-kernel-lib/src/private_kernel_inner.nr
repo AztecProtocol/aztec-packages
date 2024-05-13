@@ -165,7 +165,7 @@ mod tests {
     #[test]
     fn propagate_max_block_number_request() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
-        builder.private_call.set_tx_max_block_number(42);
+        builder.private_call.public_inputs.set_tx_max_block_number(42);
         let public_inputs = builder.execute();
 
         assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 42);
@@ -177,7 +177,7 @@ mod tests {
         builder.previous_kernel.max_block_number = MaxBlockNumber::new(13);
         // A private call requesting a larger max_block_number should not change the current one as that constraint is
         // already satisfied.
-        builder.private_call.set_tx_max_block_number(42);
+        builder.private_call.public_inputs.set_tx_max_block_number(42);
         let public_inputs = builder.execute();
 
         assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 13);
@@ -220,8 +220,8 @@ mod tests {
         let encrypted_log_preimages_length = 100;
         let unencrypted_logs_hash = 26;
         let unencrypted_log_preimages_length = 50;
-        builder.private_call.set_encrypted_logs(encrypted_logs_hash, encrypted_log_preimages_length);
-        builder.private_call.set_unencrypted_logs(unencrypted_logs_hash, unencrypted_log_preimages_length);
+        builder.private_call.public_inputs.add_encrypted_log(encrypted_logs_hash, encrypted_log_preimages_length);
+        builder.private_call.public_inputs.add_unencrypted_log(unencrypted_logs_hash, unencrypted_log_preimages_length);
 
         // Logs for the previous call stack.
         let prev_encrypted_logs_hash = 80;
