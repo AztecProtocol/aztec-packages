@@ -1,11 +1,12 @@
-import { type AccountWallet, AztecAddress, Fr, type PXE } from '@aztec/aztec.js';
-import { CompleteAddress, Point, PublicKeys } from '@aztec/circuits.js';
+import { type AccountWallet, AztecAddress, Fr, type PXE, AztecNode, L2Block } from '@aztec/aztec.js';
+import { CompleteAddress, GeneratorIndex, INITIAL_L2_BLOCK_NUM, Point } from '@aztec/circuits.js';
 import { KeyRegistryContract, TestContract } from '@aztec/noir-contracts.js';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 
 import { jest } from '@jest/globals';
 
 import { publicDeployAccounts, setup } from './fixtures/utils.js';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 
 const TIMEOUT = 120_000;
 
@@ -15,6 +16,7 @@ describe('Key Registry', () => {
   let keyRegistry: KeyRegistryContract;
 
   let pxe: PXE;
+  let aztecNode: AztecNode;
   let testContract: TestContract;
   jest.setTimeout(TIMEOUT);
 
@@ -25,7 +27,7 @@ describe('Key Registry', () => {
   const account = CompleteAddress.random();
 
   beforeAll(async () => {
-    ({ teardown, pxe, wallets } = await setup(3));
+    ({ aztecNode, teardown, pxe, wallets } = await setup(2));
     keyRegistry = await KeyRegistryContract.at(getCanonicalKeyRegistryAddress(), wallets[0]);
 
     testContract = await TestContract.deploy(wallets[0]).send().deployed();
@@ -208,4 +210,44 @@ describe('Key Registry', () => {
         .wait();
     });
   });
+
+  it.only('nsk_app is enough to detect note nullification', async () => {
+    const nskApp = computeAppNullifierSecretKey(wallets[0].getPrivateKey(), testContract.address);
+
+    const noteValue = 5;
+    const noteOwner = wallets[0].getAddress();
+    const noteStorageSlot = 12;
+
+    await testContract.methods
+      .call_create_note(
+        noteValue,
+        noteOwner,
+        noteStorageSlot,
+      )
+      .send()
+      .wait();
+
+    await testContract.methods
+      .call_destroy_note(
+        noteStorageSlot,
+      )
+      .send()
+      .wait();
+  });
+
+  const getNumNullifiedNotes = async (nskApp: Fr) => {
+    // 1. Get all note hashes
+    const blocks = await aztecNode.getBlocks(INITIAL_L2_BLOCK_NUM, 1000);
+    const noteHashes = blocks.flatMap((block: L2Block) => block.body.txEffects.flatMap((txEffect) => txEffect.noteHashes));
+    // 2. Get all seen nullifiers
+    const nullifiers = blocks.flatMap((block: L2Block) => block.body.txEffects.flatMap((txEffect) => txEffect.nullifiers));
+    // 3. Derive all the possible nullifiers using nskApp
+    const derivedNullifiers = noteHashes.map((noteHash) => poseidon2Hash([
+      noteHash,
+      nskApp,
+      GeneratorIndex.NOTE_NULLIFIER,
+    ]));
+    // 4. Count the number of nullifiers that are in the nullifiers list
+    return derivedNullifiers.filter((nullifier) => nullifiers.includes(nullifier)).length;
+  }
 });
