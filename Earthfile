@@ -31,6 +31,6 @@ release-meta:
     SAVE ARTIFACT /usr/src /usr/src
 
 scripts:
-    FROM ./build-images+build
+    FROM scratch
     COPY scripts /usr/src/scripts
     SAVE ARTIFACT /usr/src/scripts scripts
