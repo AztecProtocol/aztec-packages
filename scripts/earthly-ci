@@ -45,9 +45,7 @@ while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
       echo "Got 'inconsistent graph state' or 'failed to get state for index'. Sleeping for 30 seconds and retrying."
       sleep 30
     elif grep 'Error: pull ping error: pull ping response' $OUTPUT_FILE >/dev/null; then
-      echo "Got 'Error: pull ping error: pull ping response', intermittent failure when writing out images to docker. Continuing with EARTHLY_DISABLE_REMOTE_REGISTRY_PROXY=1"
-      export EARTHLY_DISABLE_REMOTEA_REGISTRY_PROXY=true
-      sleep 10
+      echo "Got 'Error: pull ping error: pull ping response', intermittent failure when writing out images to docker. If this persists, try 'systemctl restart docker' on the spot instance."
     elif grep '================================= System Info ==================================' $OUTPUT_FILE >/dev/null; then
       echo "Detected an Earthly daemon restart, possibly due to it (mis)detecting a cache setting change, trying again..."
     elif grep 'dial unix /run/buildkit/buildkitd.sock' $OUTPUT_FILE >/dev/null; then
