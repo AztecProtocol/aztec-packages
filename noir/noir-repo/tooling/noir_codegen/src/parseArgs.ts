@@ -32,7 +32,8 @@ export function parseArgs(): ParsedArgs {
       'external-artifact': {
         type: Boolean,
         defaultValue: false,
-        description: 'Embed the circuit artifact in the generated code.',
+        description:
+          'Requires passing the circuit artifact as an argument to the generated functions, instead of embedding it in the code.',
       },
       'fixed-length-arrays': {
         type: Boolean,
