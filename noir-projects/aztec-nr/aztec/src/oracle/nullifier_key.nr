@@ -1,4 +1,7 @@
-use dep::protocol_types::{address::AztecAddress, traits::Empty, grumpkin_point::GrumpkinPoint, grumpkin_private_key::GrumpkinPrivateKey};
+use dep::protocol_types::{
+    address::AztecAddress, traits::Empty, grumpkin_point::GrumpkinPoint,
+    grumpkin_private_key::GrumpkinPrivateKey
+};
 
 // Nullifier keys pertaining to a specific account
 struct NullifierKeys {
