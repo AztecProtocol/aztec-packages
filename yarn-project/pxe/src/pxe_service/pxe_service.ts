@@ -301,7 +301,7 @@ export class PXEService implements PXE {
   }
 
   public async addNote(note: ExtendedNote) {
-    const owner = await this.db.getCompleteAddress({ account: note.owner }) ?? {};
+    const owner = await this.db.getCompleteAddress({ account: note.owner });
     if (!owner) {
       throw new Error(`Unknown account: ${note.owner.toString()}`);
     }
