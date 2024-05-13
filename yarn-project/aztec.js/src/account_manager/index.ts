@@ -39,7 +39,7 @@ export class AccountManager {
 
   protected getPublicKeysHash() {
     if (!this.publicKeysHash) {
-      this.publicKeysHash = deriveKeys(this.secretKey).publicKeysHash;
+      this.publicKeysHash = deriveKeys(this.secretKey).publicKeys.hash();
     }
     return this.publicKeysHash;
   }
@@ -125,7 +125,6 @@ export class AccountManager {
         );
       }
       await this.#register();
-      const encryptionPublicKey = this.getPublicKeysHash();
       const { chainId, protocolVersion } = await this.pxe.getNodeInfo();
       const deployWallet = new SignerlessWallet(this.pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
 
@@ -135,7 +134,7 @@ export class AccountManager {
       const args = this.accountContract.getDeploymentArgs() ?? [];
       this.deployMethod = new DeployAccountMethod(
         this.accountContract.getAuthWitnessProvider(this.getCompleteAddress()),
-        encryptionPublicKey,
+        this.getPublicKeysHash(),
         deployWallet,
         this.accountContract.getContractArtifact(),
         args,
