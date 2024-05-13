@@ -210,7 +210,7 @@ export class KVPxeDatabase implements PxeDatabase {
 
   #getNotes(filter: NoteFilter): NoteDao[] {
     const publicKey: PublicKey | undefined = filter.owner
-      ? this.#getCompleteAddress(filter.owner)?.masterIncomingViewingPublicKey
+      ? this.#getCompleteAddress(filter.owner)?.publicKeys.masterIncomingViewingPublicKey
       : undefined;
 
     filter.status = filter.status ?? NoteStatus.ACTIVE;
@@ -396,7 +396,7 @@ export class KVPxeDatabase implements PxeDatabase {
     const completeAddresses = this.#getCompleteAddresses();
 
     const completeAddress = completeAddresses.find(completeAddress =>
-      poseidon2Hash(completeAddress.masterNullifierPublicKey.toFields()).equals(npkMHash),
+      poseidon2Hash(completeAddress.publicKeys.masterNullifierPublicKey.toFields()).equals(npkMHash),
     );
     return Promise.resolve(completeAddress);
   }

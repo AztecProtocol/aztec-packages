@@ -179,46 +179,21 @@ export class Oracle {
 
   async getPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<ACVMField[]> {
     const parsedAddress = AztecAddress.fromField(fromACVMField(address));
-    const {
-      masterNullifierPublicKey,
-      masterIncomingViewingPublicKey,
-      masterOutgoingViewingPublicKey,
-      masterTaggingPublicKey,
-      partialAddress,
-    } = await this.typedOracle.getCompleteAddress({
+    const { publicKeys, partialAddress } = await this.typedOracle.getCompleteAddress({
       account: parsedAddress,
     });
 
-    return [
-      ...masterNullifierPublicKey.toFields(),
-      ...masterIncomingViewingPublicKey.toFields(),
-      ...masterOutgoingViewingPublicKey.toFields(),
-      ...masterTaggingPublicKey.toFields(),
-      partialAddress,
-    ].map(toACVMField);
+    return [...publicKeys.toFields(), partialAddress].map(toACVMField);
   }
 
   // Keeping this oracle separate from above because I don't want an implicit overload in noir code
   async getPublicKeysAndPartialAddressWithNpkMHash([masterNullifierPublicKeyHash]: ACVMField[]) {
     const parsedNpkMHash = fromACVMField(masterNullifierPublicKeyHash);
-
-    const {
-      masterNullifierPublicKey,
-      masterIncomingViewingPublicKey,
-      masterOutgoingViewingPublicKey,
-      masterTaggingPublicKey,
-      partialAddress,
-    } = await this.typedOracle.getCompleteAddress({
+    const { publicKeys, partialAddress } = await this.typedOracle.getCompleteAddress({
       npkMHash: parsedNpkMHash,
     });
 
-    return [
-      ...masterNullifierPublicKey.toFields(),
-      ...masterIncomingViewingPublicKey.toFields(),
-      ...masterOutgoingViewingPublicKey.toFields(),
-      ...masterTaggingPublicKey.toFields(),
-      partialAddress,
-    ].map(toACVMField);
+    return [...publicKeys.toFields(), partialAddress].map(toACVMField);
   }
 
   async getNotes(
