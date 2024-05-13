@@ -117,7 +117,7 @@ mod tests {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
         // The current call stack has 1 note_hash;
-        builder.private_call.public_inputs.new_note_hashes.push(NoteHash { value: 4321, counter: 0 });
+        builder.private_call.public_inputs.append_new_note_hashes(1);
 
         // Mock the previous new note hashes to be full, therefore no more note_hashes can be added.
         builder.previous_kernel.append_new_note_hashes(MAX_NEW_NOTE_HASHES_PER_TX);
@@ -128,12 +128,7 @@ mod tests {
     #[test]
     fn propagate_note_hashes_with_nullifier_counters() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
-        let note_hashes = [
-            NoteHash { value: 12, counter: 3 },
-            NoteHash { value: 45, counter: 6 },
-            NoteHash { value: 78, counter: 9 }
-        ];
-        builder.private_call.public_inputs.new_note_hashes.extend_from_array(note_hashes);
+        builder.private_call.public_inputs.append_new_note_hashes(3);
         builder.hints.note_hash_nullifier_counters[0] = 10;
         builder.hints.note_hash_nullifier_counters[2] = 20;
 
@@ -147,8 +142,9 @@ mod tests {
     #[test(should_fail_with="Invalid nullifier counter")]
     fn propagate_note_hashes_with_incorrect_nullifier_counters_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
-        builder.private_call.public_inputs.new_note_hashes.push(NoteHash { value: 12, counter: 3 });
-        builder.hints.note_hash_nullifier_counters[0] = 2; // Less than the note hash's counter 3.
+        builder.private_call.public_inputs.append_new_note_hashes(2);
+        let note_hash_counter = builder.private_call.public_inputs.new_note_hashes.get(1).counter;
+        builder.hints.note_hash_nullifier_counters[1] = note_hash_counter - 1;
 
         builder.failed();
     }
@@ -188,10 +184,10 @@ mod tests {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
         builder.previous_kernel.append_note_hash_read_requests(2);
-        let prev_requests = builder.previous_kernel.note_hash_read_requests;
+        let prev_requests = builder.previous_kernel.note_hash_read_requests.storage;
 
-        let cur_requests = [ReadRequest { value: 123, counter: 4567 }, ReadRequest { value: 777888, counter: 90 }];
-        builder.private_call.public_inputs.note_hash_read_requests.extend_from_array(cur_requests);
+        builder.private_call.public_inputs.append_note_hash_read_requests(2);
+        let cur_requests = builder.private_call.public_inputs.note_hash_read_requests.storage;
         let cur_storage_contract_address = builder.private_call.public_inputs.call_context.storage_contract_address;
 
         let public_inputs = builder.execute();
@@ -199,8 +195,8 @@ mod tests {
         let end_note_hash_read_requests = public_inputs.validation_requests.note_hash_read_requests;
         assert_eq(array_length(end_note_hash_read_requests), 4);
 
-        assert_eq(end_note_hash_read_requests[0], prev_requests.storage[0]);
-        assert_eq(end_note_hash_read_requests[1], prev_requests.storage[1]);
+        assert_eq(end_note_hash_read_requests[0], prev_requests[0]);
+        assert_eq(end_note_hash_read_requests[1], prev_requests[1]);
 
         let request = end_note_hash_read_requests[2];
         assert_eq(request.read_request, cur_requests[0]);

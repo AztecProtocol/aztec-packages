@@ -113,6 +113,26 @@ impl PrivateCircuitPublicInputsBuilder {
         self.max_block_number = MaxBlockNumber::new(max_block_number);
     }
 
+    pub fn append_note_hash_read_requests(&mut self, num_reads: u64) {
+        let value_offset = self.note_hash_read_requests.len();
+        for i in 0..self.note_hash_read_requests.max_len() {
+            if i < num_reads {
+                let read_request = ReadRequest { value: (value_offset + i + 987) as Field, counter: self.next_counter() };
+                self.note_hash_read_requests.push(read_request);
+            }
+        }
+    }
+
+    pub fn append_nullifier_read_requests(&mut self, num_reads: u64) {
+        let value_offset = self.nullifier_read_requests.len();
+        for i in 0..self.nullifier_read_requests.max_len() {
+            if i < num_reads {
+                let read_request = ReadRequest { value: (value_offset + i + 3344) as Field, counter: self.next_counter() };
+                self.nullifier_read_requests.push(read_request);
+            }
+        }
+    }
+
     pub fn add_new_note_hash(&mut self, value: Field) {
         self.new_note_hashes.push(NoteHash { value, counter: self.next_counter() });
     }

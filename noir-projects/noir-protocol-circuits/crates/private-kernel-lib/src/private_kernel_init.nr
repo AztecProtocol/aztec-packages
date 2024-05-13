@@ -144,10 +144,8 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new();
         let storage_contract_address = builder.private_call.public_inputs.call_context.storage_contract_address;
 
-        let request_0 = ReadRequest { value: 123, counter: 4567 };
-        builder.private_call.public_inputs.note_hash_read_requests.push(request_0);
-        let request_1 = ReadRequest { value: 777888, counter: 90 };
-        builder.private_call.public_inputs.note_hash_read_requests.push(request_1);
+        builder.private_call.public_inputs.append_note_hash_read_requests(2);
+        let new_read_requests = builder.private_call.public_inputs.note_hash_read_requests.storage;
 
         let public_inputs = builder.execute();
 
@@ -155,11 +153,11 @@ mod tests {
         assert_eq(array_length(end_note_hash_read_requests), 2);
 
         let request = end_note_hash_read_requests[0];
-        assert_eq(request.read_request, request_0);
+        assert_eq(request.read_request, new_read_requests[0]);
         assert_eq(request.contract_address, storage_contract_address);
 
         let request = end_note_hash_read_requests[1];
-        assert_eq(request.read_request, request_1);
+        assert_eq(request.read_request, new_read_requests[1]);
         assert_eq(request.contract_address, storage_contract_address);
     }
 
@@ -168,10 +166,8 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new();
         let storage_contract_address = builder.private_call.public_inputs.call_context.storage_contract_address;
 
-        let request_0 = ReadRequest { value: 123, counter: 4567 };
-        builder.private_call.public_inputs.nullifier_read_requests.push(request_0);
-        let request_1 = ReadRequest { value: 777888, counter: 90 };
-        builder.private_call.public_inputs.nullifier_read_requests.push(request_1);
+        builder.private_call.public_inputs.append_nullifier_read_requests(2);
+        let requests = builder.private_call.public_inputs.nullifier_read_requests.storage;
 
         let public_inputs = builder.execute();
 
@@ -179,11 +175,11 @@ mod tests {
         assert_eq(array_length(end_nullifier_read_requests), 2);
 
         let request = end_nullifier_read_requests[0];
-        assert_eq(request.read_request, request_0);
+        assert_eq(request.read_request, requests[0]);
         assert_eq(request.contract_address, storage_contract_address);
 
         let request = end_nullifier_read_requests[1];
-        assert_eq(request.read_request, request_1);
+        assert_eq(request.read_request, requests[1]);
         assert_eq(request.contract_address, storage_contract_address);
     }
 
