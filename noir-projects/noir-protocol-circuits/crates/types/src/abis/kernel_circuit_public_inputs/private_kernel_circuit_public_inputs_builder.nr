@@ -53,6 +53,7 @@ impl PrivateKernelCircuitPublicInputsBuilder {
     ) -> PublicKernelCircuitPublicInputs {
         let (end_non_revertible, end) = self.end.split_to_public(min_revertible_side_effect_counter, teardown_gas);
         let mut public_teardown_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> = BoundedVec::new();
+
         if (!is_empty(self.public_teardown_call_request)) {
             public_teardown_call_stack.push(self.public_teardown_call_request);
         }
