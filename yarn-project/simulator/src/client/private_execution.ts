@@ -1,5 +1,5 @@
 import { type FunctionData, PrivateCallStackItem, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
-import { type FunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
+import { type FunctionArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -15,7 +15,7 @@ import { AcirSimulator } from './simulator.js';
  */
 export async function executePrivateFunction(
   context: ClientExecutionContext,
-  artifact: FunctionArtifactWithDebugMetadata,
+  artifact: FunctionArtifact,
   contractAddress: AztecAddress,
   functionData: FunctionData,
   log = createDebugLogger('aztec:simulator:secret_execution'),
@@ -54,6 +54,7 @@ export async function executePrivateFunction(
   const nullifiedNoteHashCounters = context.getNullifiedNoteHashCounters();
   const nestedExecutions = context.getNestedExecutions();
   const enqueuedPublicFunctionCalls = context.getEnqueuedPublicFunctionCalls();
+  const publicTeardownFunctionCall = context.getPublicTeardownFunctionCall();
 
   log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
 
@@ -68,6 +69,7 @@ export async function executePrivateFunction(
     vk: Buffer.from(artifact.verificationKey!, 'hex'),
     nestedExecutions,
     enqueuedPublicFunctionCalls,
+    publicTeardownFunctionCall,
     encryptedLogs,
     unencryptedLogs,
   };

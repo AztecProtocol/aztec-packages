@@ -3,12 +3,34 @@
 # The silver lining is if Earthly does crash, the cache can pick up the build.
 set -eu -o pipefail
 
+MAX_WAIT_TIME=300 # Maximum wait time in seconds
+WAIT_INTERVAL=10  # Interval between checks in seconds
+elapsed_time=0
+
+while ! [ -f  /run/.earthly-bootstrap ] ; do
+  echo "Did not detect .earthly-bootstrap. Waiting for runner to fully initialize..."
+  if [ $elapsed_time -ge $MAX_WAIT_TIME ]; then
+    echo "Earthly bootstrap did not become available within $MAX_WAIT_TIME seconds... did the runner start correctly?"
+    exit 1
+  fi
+
+  sleep $WAIT_INTERVAL
+  elapsed_time=$((elapsed_time + WAIT_INTERVAL))
+done
+
 OUTPUT_FILE=$(mktemp)
 INCONSISTENT_GRAPH_STATE_COUNT=0  # Counter for 'inconsistent graph state' errors
 
 # Maximum attempts
 MAX_ATTEMPTS=3
 ATTEMPT_COUNT=0
+
+export EARTHLY_USE_INLINE_CACHE=true
+# TODO(AD) to be investigated
+#if [ "$GITHUB_REF_NAME" == "master" ]; then
+#  export EARTHLY_SAVE_INLINE_CACHE=true
+#  export EARTHLY_PUSH=true
+#fi
 
 # Handle earthly commands and retries
 while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
@@ -20,16 +42,14 @@ while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
     echo "Attempt #$ATTEMPT_COUNT failed."
 
     # Check the output for specific errors
-    if grep 'failed to get edge: inconsistent graph state' $OUTPUT_FILE >/dev/null; then
+    if grep 'failed to get edge: inconsistent graph state' $OUTPUT_FILE >/dev/null || grep 'failed to get state for index' $OUTPUT_FILE >/dev/null ; then
       INCONSISTENT_GRAPH_STATE_COUNT=$((INCONSISTENT_GRAPH_STATE_COUNT + 1))
-      echo "Got 'inconsistent graph state'."
-      if [ "$INCONSISTENT_GRAPH_STATE_COUNT" -eq 2 ]; then
-        echo "Performing 'earthly prune' due to repeated 'inconsistent graph state' errors."
-        earthly prune
-        if earthly $@ 2>&1 | tee $OUTPUT_FILE >&2 ; then
-          exit 0 # Post-prune success
-        fi
+      if [ "$INCONSISTENT_GRAPH_STATE_COUNT" -eq 3 ]; then
+        echo "Unable to recover from 'inconsistent graph state' or 'failed to get state for index'. Connect to spot runner and run 'earthly prune'."
+        exit 1
       fi
+      echo "Got 'inconsistent graph state' or 'failed to get state for index'. Sleeping for 30 seconds and retrying."
+      sleep 30
     elif grep 'Error: pull ping error: pull ping response' $OUTPUT_FILE >/dev/null; then
       echo "Got 'Error: pull ping error: pull ping response', intermittent failure when writing out images to docker"
     elif grep '================================= System Info ==================================' $OUTPUT_FILE >/dev/null; then

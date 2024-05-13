@@ -3,16 +3,20 @@ import {
   Fr,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+  NESTED_RECURSIVE_PROOF_LENGTH,
   PrivateCallData,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelTailCircuitPrivateInputs,
+  type PrivateKernelTailCircuitPublicInputs,
+  type RECURSIVE_PROOF_LENGTH,
+  type RecursiveProof,
   type TxRequest,
   VK_TREE_HEIGHT,
-  VerificationKey,
-  makeEmptyProof,
+  VerificationKeyAsFields,
+  makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -20,12 +24,12 @@ import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { type ExecutionResult, collectNoteHashLeafIndexMap, collectNullifiedNoteHashCounters } from '@aztec/simulator';
 
+import { type KernelProofOutput, type ProofCreator } from './interface/proof_creator.js';
 import {
   buildPrivateKernelInnerHints,
   buildPrivateKernelTailHints,
   buildPrivateKernelTailOutputs,
 } from './private_inputs_builders/index.js';
-import { KernelProofCreator, type ProofCreator, type ProofOutput, type ProofOutputFinal } from './proof_creator.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
 
 /**
@@ -36,7 +40,8 @@ import { type ProvingDataOracle } from './proving_data_oracle.js';
  */
 export class KernelProver {
   private log = createDebugLogger('aztec:kernel-prover');
-  constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator = new KernelProofCreator()) {}
+
+  constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator) {}
 
   /**
    * Generate a proof for a given transaction request and execution result.
@@ -48,14 +53,17 @@ export class KernelProver {
    * @param executionResult - The execution result object containing nested executions and preimages.
    * @returns A Promise that resolves to a KernelProverOutput object containing proof, public inputs, and output notes.
    */
-  async prove(txRequest: TxRequest, executionResult: ExecutionResult): Promise<ProofOutputFinal> {
+  async prove(
+    txRequest: TxRequest,
+    executionResult: ExecutionResult,
+  ): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     const executionStack = [executionResult];
     let firstIteration = true;
-    let previousVerificationKey = VerificationKey.makeFake();
 
-    let output: ProofOutput = {
+    let output: KernelProofOutput<PrivateKernelCircuitPublicInputs> = {
       publicInputs: PrivateKernelCircuitPublicInputs.empty(),
-      proof: makeEmptyProof(),
+      proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
+      verificationKey: VerificationKeyAsFields.makeEmpty(),
     };
 
     const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
@@ -69,11 +77,22 @@ export class KernelProver {
         result.callStackItem.toCallRequest(currentExecution.callStackItem.publicInputs.callContext),
       );
       const publicCallRequests = currentExecution.enqueuedPublicFunctionCalls.map(result => result.toCallRequest());
+      const publicTeardownCallRequest = currentExecution.publicTeardownFunctionCall.isEmpty()
+        ? CallRequest.empty()
+        : currentExecution.publicTeardownFunctionCall.toCallRequest();
+
+      const proofOutput = await this.proofCreator.createAppCircuitProof(
+        currentExecution.partialWitness,
+        currentExecution.acir,
+      );
 
       const privateCallData = await this.createPrivateCallData(
         currentExecution,
         privateCallRequests,
         publicCallRequests,
+        publicTeardownCallRequest,
+        proofOutput.proof,
+        proofOutput.verificationKey,
       );
 
       const hints = buildPrivateKernelInnerHints(
@@ -86,11 +105,11 @@ export class KernelProver {
         pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.createProofInit(proofInput);
       } else {
-        const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
+        const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
         const previousKernelData = new PrivateKernelData(
           output.publicInputs,
           output.proof,
-          previousVerificationKey,
+          output.verificationKey,
           Number(previousVkMembershipWitness.leafIndex),
           assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
         );
@@ -99,14 +118,13 @@ export class KernelProver {
         output = await this.proofCreator.createProofInner(proofInput);
       }
       firstIteration = false;
-      previousVerificationKey = privateCallData.vk;
     }
 
-    const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
+    const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
     const previousKernelData = new PrivateKernelData(
       output.publicInputs,
       output.proof,
-      previousVerificationKey,
+      output.verificationKey,
       Number(previousVkMembershipWitness.leafIndex),
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
@@ -126,9 +144,12 @@ export class KernelProver {
   }
 
   private async createPrivateCallData(
-    { callStackItem, vk }: ExecutionResult,
+    { callStackItem }: ExecutionResult,
     privateCallRequests: CallRequest[],
     publicCallRequests: CallRequest[],
+    publicTeardownCallRequest: CallRequest,
+    proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>,
+    vk: VerificationKeyAsFields,
   ) {
     const { contractAddress, functionData } = callStackItem;
 
@@ -154,15 +175,13 @@ export class KernelProver {
     // const acirHash = keccak256(Buffer.from(bytecode, 'hex'));
     const acirHash = Fr.fromBuffer(Buffer.alloc(32, 0));
 
-    // TODO
-    const proof = makeEmptyProof();
-
     return PrivateCallData.from({
       callStackItem,
       privateCallStack,
       publicCallStack,
+      publicTeardownCallRequest,
       proof,
-      vk: VerificationKey.fromBuffer(vk),
+      vk,
       publicKeysHash,
       contractClassArtifactHash,
       contractClassPublicBytecodeCommitment,

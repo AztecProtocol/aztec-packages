@@ -33,7 +33,7 @@ describe('e2e_deploy_contract legacy', () => {
    */
   it('should deploy a test contract', async () => {
     const salt = Fr.random();
-    const publicKeysHash = wallet.getPublicKeysHash();
+    const publicKeysHash = wallet.getCompleteAddress().publicKeysHash;
     const deploymentData = getContractInstanceFromDeployParams(TestContractArtifact, {
       salt,
       publicKeysHash,
@@ -68,7 +68,7 @@ describe('e2e_deploy_contract legacy', () => {
       logger.info(`Deploying contract ${index + 1}...`);
       const receipt = await deployer.deploy().send({ contractAddressSalt: Fr.random() }).wait({ wallet });
       logger.info(`Sending TX to contract ${index + 1}...`);
-      await receipt.contract.methods.get_public_key(wallet.getAddress()).send().wait();
+      await receipt.contract.methods.get_master_incoming_viewing_public_key(wallet.getAddress()).send().wait();
     }
   });
 

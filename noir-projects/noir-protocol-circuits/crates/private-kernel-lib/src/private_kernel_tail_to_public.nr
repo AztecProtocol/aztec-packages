@@ -2,20 +2,21 @@ use crate::kernel_circuit_public_inputs_composer::KernelCircuitPublicInputsCompo
 use dep::reset_kernel_lib::{NoteHashReadRequestHints, NullifierReadRequestHints, PrivateValidationRequestProcessor};
 use dep::types::{
     abis::{
-    kernel_data::PrivateKernelData, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-    note_hash::NoteHashContext, nullifier::Nullifier, side_effect::SideEffect
+    private_kernel_data::{PrivateKernelData, verify_previous_kernel_proof},
+    kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, note_hash::ScopedNoteHash,
+    nullifier::ScopedNullifier, side_effect::SideEffect
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    grumpkin_private_key::GrumpkinPrivateKey, utils::arrays::array_length
+    grumpkin_private_key::GrumpkinPrivateKey, utils::arrays::array_length, traits::is_empty
 };
 
 // Can just be PublicKernelCircuitPublicInputs.
 struct PrivateKernelTailToPublicOutputs {
-    note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
-    nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
+    note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
+    nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
 }
 
 struct PrivateKernelTailToPublicHints {
@@ -24,9 +25,9 @@ struct PrivateKernelTailToPublicHints {
     note_hash_read_request_hints: NoteHashReadRequestHints,
     nullifier_read_request_hints: NullifierReadRequestHints,
     master_nullifier_secret_keys: [GrumpkinPrivateKey; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
-    sorted_new_note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
+    sorted_new_note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_new_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-    sorted_new_nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
+    sorted_new_nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_new_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_encrypted_log_hashes: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
@@ -43,13 +44,18 @@ struct PrivateKernelTailToPublicCircuitPrivateInputs {
 impl PrivateKernelTailToPublicCircuitPrivateInputs {
     pub fn execute(self) -> PublicKernelCircuitPublicInputs {
         let previous_public_inputs = self.previous_kernel.public_inputs;
+        let mut total_public_calls = array_length(previous_public_inputs.end.public_call_stack);
+        total_public_calls += if is_empty(self.previous_kernel.public_inputs.public_teardown_call_request) {0} else {1};
         assert(
-            array_length(previous_public_inputs.end.public_call_stack) != 0, "Public call stack must not be empty when exporting public kernel data from the tail circuit"
+            total_public_calls != 0, "Must have public calls when exporting public kernel data from the tail circuit"
         );
+
+        // verify/aggregate the previous kernel
+        verify_previous_kernel_proof(self.previous_kernel);
 
         let note_hash_tree_root = previous_public_inputs.constants.historical_header.state.partial.note_hash_tree.root;
         let nullifier_tree_root = previous_public_inputs.constants.historical_header.state.partial.nullifier_tree.root;
-        let request_processor = PrivateValidationRequestProcessor {
+        PrivateValidationRequestProcessor {
             validation_requests: previous_public_inputs.validation_requests,
             note_hash_read_request_hints: self.hints.note_hash_read_request_hints,
             pending_note_hashes: previous_public_inputs.end.new_note_hashes,
@@ -58,10 +64,9 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
             pending_nullifiers: previous_public_inputs.end.new_nullifiers,
             nullifier_tree_root,
             master_nullifier_secret_keys: self.hints.master_nullifier_secret_keys
-        };
-        request_processor.validate();
+        }.validate();
 
-        let mut composer = KernelCircuitPublicInputsComposer::new(
+        KernelCircuitPublicInputsComposer::new(
             self.previous_kernel,
             self.outputs.note_hashes,
             self.outputs.nullifiers,
@@ -75,8 +80,7 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
             self.hints.sorted_encrypted_log_hashes_indexes,
             self.hints.sorted_unencrypted_log_hashes,
             self.hints.sorted_unencrypted_log_hashes_indexes
-        );
-        composer.compose_public().finish_to_public()
+        ).compose_public().finish_to_public()
     }
 }
 
@@ -101,10 +105,11 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, gas::Gas,
-        note_hash::{NoteHash, NoteHashContext}, nullifier::Nullifier, side_effect::{SideEffect, Ordered}
+        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
+        side_effect::SideEffect
     },
         grumpkin_private_key::GrumpkinPrivateKey,
-        hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash},
+        hash::{compute_note_hash_nonce, compute_unique_note_hash, silo_note_hash, silo_nullifier},
         tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
         utils::{arrays::{array_eq, array_length}}, traits::is_empty_array
     };
@@ -136,22 +141,33 @@ mod tests {
 
         // A helper function that uses the first nullifer in the previous kernel to compute the unique siloed
         // note_hashes for the given note_hashes.
-        pub fn compute_unique_siloed_note_hashes<N>(
-            self,
-            note_hashes: [NoteHashContext; N]
-        ) -> [NoteHash; N] {
-            let first_nullifier = self.previous_kernel.new_nullifiers.get_unchecked(0);
-            let mut unique_siloed_note_hashes = [NoteHash::empty(); N];
+        pub fn compute_output_note_hashes<N>(self, note_hashes: [ScopedNoteHash; N]) -> [NoteHash; N] {
+            let first_nullifier = self.previous_kernel.new_nullifiers.get_unchecked(0).value();
+            let mut output = [NoteHash::empty(); N];
             for i in 0..N {
-                if note_hashes[i].value != 0 {
-                    let nonce = compute_note_hash_nonce(first_nullifier.value, i);
-                    unique_siloed_note_hashes[i] = NoteHash {
-                        value: compute_unique_siloed_note_hash(nonce, note_hashes[i].value),
+                let note_hash = note_hashes[i];
+                if note_hash.value() != 0 {
+                    let nonce = compute_note_hash_nonce(first_nullifier, i);
+                    let unique_note_hash = compute_unique_note_hash(nonce, note_hash.value());
+                    output[i] = NoteHash {
+                        value: silo_note_hash(note_hash.contract_address, unique_note_hash),
                         counter: 0, // Counter is cleared so it's not exposed to the public.
                     };
                 }
             }
-            unique_siloed_note_hashes
+            output
+        }
+
+        pub fn compute_output_nullifiers<N>(
+            _self: Self,
+            nullifiers: [ScopedNullifier; N]
+        ) -> [Nullifier; N] {
+            let mut output = [Nullifier::empty(); N];
+            output[0].value = nullifiers[0].value();
+            for i in 1..N {
+                output[i] = Nullifier { value: silo_nullifier(nullifiers[i].contract_address, nullifiers[i].value()), counter: 0, note_hash: 0 };
+            }
+            output
         }
 
         pub fn add_pending_note_hash_read_request(&mut self, note_hash_index: u64) {
@@ -172,8 +188,8 @@ mod tests {
         }
 
         pub fn nullify_pending_note_hash(&mut self, nullifier_index: u64, note_hash_index: u64) {
-            self.previous_kernel.new_note_hashes.storage[note_hash_index].nullifier_counter = self.previous_kernel.new_nullifiers.get(nullifier_index).counter;
-            self.previous_kernel.new_nullifiers.storage[nullifier_index].note_hash = self.previous_kernel.new_note_hashes.get(note_hash_index).value;
+            self.previous_kernel.new_note_hashes.storage[note_hash_index].nullifier_counter = self.previous_kernel.new_nullifiers.get(nullifier_index).counter();
+            self.previous_kernel.new_nullifiers.storage[nullifier_index].nullifier.note_hash = self.previous_kernel.new_note_hashes.get(note_hash_index).value();
             self.transient_nullifier_indexes_for_note_hashes[note_hash_index] = nullifier_index;
             self.transient_note_hash_indexes_for_nullifiers[nullifier_index] = note_hash_index;
         }
@@ -181,14 +197,14 @@ mod tests {
         pub fn execute(&mut self) -> PublicKernelCircuitPublicInputs {
             let sorted = sort_get_sorted_hints(
                 self.previous_kernel.new_note_hashes.storage,
-                |a: NoteHashContext, b: NoteHashContext| a.counter < b.counter
+                |a: ScopedNoteHash, b: ScopedNoteHash| a.counter() < b.counter()
             );
             let sorted_new_note_hashes = sorted.sorted_array;
             let sorted_new_note_hashes_indexes = sorted.sorted_index_hints;
 
             let sorted = sort_get_sorted_hints(
                 self.previous_kernel.new_nullifiers.storage,
-                |a: Nullifier, b: Nullifier| a.counter < b.counter
+                |a: ScopedNullifier, b: ScopedNullifier| a.counter() < b.counter()
             );
             let sorted_new_nullifiers = sorted.sorted_array;
             let sorted_new_nullifiers_indexes = sorted.sorted_index_hints;
@@ -326,7 +342,7 @@ mod tests {
         builder.add_pending_nullifier_read_request(1);
         let nullifier_being_read = builder.previous_kernel.new_nullifiers.storage[2];
         let mut read_request = builder.previous_kernel.nullifier_read_requests.pop();
-        read_request.counter = nullifier_being_read.counter - 1;
+        read_request.read_request.counter = nullifier_being_read.counter() - 1;
         builder.previous_kernel.nullifier_read_requests.push(read_request);
 
         builder.failed();
@@ -341,15 +357,12 @@ mod tests {
         builder.nullify_pending_note_hash(1, 0);
         let new_nullifiers = builder.previous_kernel.new_nullifiers.storage;
         let public_inputs = builder.execute();
+
         assert(is_empty_array(public_inputs.end.new_note_hashes));
 
         // The nullifier at index 1 is chopped.
-        assert(
-            array_eq(
-                public_inputs.end.new_nullifiers,
-                [new_nullifiers[0], new_nullifiers[2]]
-            )
-        );
+        let expected_nullifiers = builder.compute_output_nullifiers([new_nullifiers[0], new_nullifiers[2]]);
+        assert(array_eq(public_inputs.end.new_nullifiers, expected_nullifiers));
     }
 
     #[test]
@@ -360,23 +373,16 @@ mod tests {
         // The nullifier at index 1 is nullifying the hash at index 0;
         builder.nullify_pending_note_hash(1, 0);
         let new_note_hashes = builder.previous_kernel.new_note_hashes.storage;
-        // The 0th hash will be chopped.
-        let unique_siloed_note_hashes = builder.compute_unique_siloed_note_hashes([new_note_hashes[1]]);
         let new_nullifiers = builder.previous_kernel.new_nullifiers.storage;
         let public_inputs = builder.execute();
-        assert(
-            array_eq(
-                public_inputs.end.new_note_hashes,
-                [unique_siloed_note_hashes[0]]
-            )
-        );
+
+        // The 0th hash will be chopped.
+        let expected_note_hashes = builder.compute_output_note_hashes([new_note_hashes[1]]);
+        assert(array_eq(public_inputs.end.new_note_hashes, expected_note_hashes));
+
         // The nullifier at index 1 is chopped.
-        assert(
-            array_eq(
-                public_inputs.end.new_nullifiers,
-                [new_nullifiers[0], new_nullifiers[2]]
-            )
-        );
+        let expected_nullifiers = builder.compute_output_nullifiers([new_nullifiers[0], new_nullifiers[2]]);
+        assert(array_eq(public_inputs.end.new_nullifiers, expected_nullifiers));
     }
 
     #[test]
@@ -393,7 +399,8 @@ mod tests {
 
         // Only the first nullifier is left after squashing.
         assert(is_empty_array(public_inputs.end.new_note_hashes));
-        assert(array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[0]]));
+        let expected_nullifiers = builder.compute_output_nullifiers([new_nullifiers[0]]);
+        assert(array_eq(public_inputs.end.new_nullifiers, expected_nullifiers));
     }
 
     #[test]
@@ -406,8 +413,8 @@ mod tests {
         let sorted_note_hashes = builder.previous_kernel.new_note_hashes.storage;
         let sorted_nullifiers = builder.previous_kernel.new_nullifiers.storage;
 
-        let mut reversed_note_hashes = [NoteHashContext::empty(); 10];
-        let mut reversed_nullifiers = [Nullifier::empty(); 10];
+        let mut reversed_note_hashes = [ScopedNoteHash::empty(); 10];
+        let mut reversed_nullifiers = [ScopedNullifier::empty(); 10];
 
         for i in 0..10 {
             reversed_note_hashes[9 - i] = builder.previous_kernel.new_note_hashes.pop();
@@ -417,17 +424,17 @@ mod tests {
         builder.previous_kernel.new_note_hashes.extend_from_array(reversed_note_hashes);
         builder.previous_kernel.new_nullifiers.extend_from_array(reversed_nullifiers);
 
-        let sorted_unique_note_hashes = builder.compute_unique_siloed_note_hashes(sorted_note_hashes);
-
         let public_inputs = builder.execute();
 
+        let output_note_hashes = builder.compute_output_note_hashes(sorted_note_hashes);
+        let output_nullifiers = builder.compute_output_nullifiers(sorted_nullifiers);
         for i in 0..10 {
-            assert(public_inputs.end.new_note_hashes[i].eq(sorted_unique_note_hashes[i]));
-            assert(public_inputs.end.new_nullifiers[i].eq(sorted_nullifiers[i]));
+            assert(public_inputs.end.new_note_hashes[i].eq(output_note_hashes[i]));
+            assert(public_inputs.end.new_nullifiers[i].eq(output_nullifiers[i]));
         }
     }
 
-    #[test(should_fail_with="Hinted note hash does not match")]
+    #[test(should_fail_with="Value of the hinted transient note hash does not match")]
     unconstrained fn wrong_transient_nullifier_index_for_note_hash_fails() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.append_new_note_hashes(1);
@@ -460,18 +467,20 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Public call stack must not be empty when exporting public kernel data from the tail circuit")]
-    unconstrained fn empty_public_call_stack_should_fail() {
+    #[test(should_fail_with="Must have public calls when exporting public kernel data from the tail circuit")]
+    unconstrained fn no_public_calls_should_fail() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.public_call_stack = BoundedVec::new();
         builder.failed();
     }
 
-    #[test(should_fail_with="The 0th nullifier in the accumulated nullifier array is zero")]
-    unconstrained fn zero_0th_nullifier_fails() {
+    #[test]
+    unconstrained fn can_run_with_only_teardown() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.new_nullifiers = BoundedVec::new();
-        builder.failed();
+        builder.previous_kernel.public_call_stack = BoundedVec::new();
+        builder.previous_kernel.set_public_teardown_call_request(1, false);
+
+        builder.succeeded();
     }
 
     #[test]
@@ -487,17 +496,19 @@ mod tests {
         let new_nullifiers = builder.previous_kernel.new_nullifiers.storage;
         let public_inputs = builder.execute();
 
+        let output_nullifiers = builder.compute_output_nullifiers(new_nullifiers);
+
         assert(
             array_eq(
                 public_inputs.end_non_revertible.new_nullifiers,
-                [new_nullifiers[0], new_nullifiers[1], new_nullifiers[2]]
+                [output_nullifiers[0], output_nullifiers[1], output_nullifiers[2]]
             )
         );
 
         assert(
             array_eq(
                 public_inputs.end.new_nullifiers,
-                [new_nullifiers[3], new_nullifiers[4]]
+                [output_nullifiers[3], output_nullifiers[4]]
             )
         );
 
@@ -521,7 +532,7 @@ mod tests {
         let new_note_hashes = builder.previous_kernel.new_note_hashes.storage;
         let public_inputs = builder.execute();
 
-        let siloed_note_hashes = builder.compute_unique_siloed_note_hashes(new_note_hashes);
+        let siloed_note_hashes = builder.compute_output_note_hashes(new_note_hashes);
 
         assert(
             array_eq(

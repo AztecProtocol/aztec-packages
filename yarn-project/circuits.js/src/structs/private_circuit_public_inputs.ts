@@ -39,7 +39,6 @@ import { TxContext } from './tx_context.js';
 
 /**
  * Public inputs to a private circuit.
- * @see abis/private_circuit_public_inputs.hpp.
  */
 export class PrivateCircuitPublicInputs {
   constructor(
@@ -94,6 +93,10 @@ export class PrivateCircuitPublicInputs {
      * Public call stack at the current kernel iteration.
      */
     public publicCallStackHashes: Tuple<Fr, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    /**
+     * Hash of the public teardown function.
+     */
+    public publicTeardownFunctionHash: Fr,
     /**
      * New L2 to L1 messages created by the corresponding function call.
      */
@@ -169,6 +172,7 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr),
+      reader.readObject(Fr),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readObject(Fr),
       reader.readObject(Fr),
@@ -196,6 +200,7 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier),
       reader.readFieldArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
       reader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
+      reader.readField(),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readField(),
       reader.readField(),
@@ -226,6 +231,7 @@ export class PrivateCircuitPublicInputs {
       makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
+      Fr.ZERO,
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
       Fr.ZERO,
       Fr.ZERO,
@@ -253,6 +259,7 @@ export class PrivateCircuitPublicInputs {
       isEmptyArray(this.newNullifiers) &&
       isZeroArray(this.privateCallStackHashes) &&
       isZeroArray(this.publicCallStackHashes) &&
+      this.publicTeardownFunctionHash.isZero() &&
       isEmptyArray(this.newL2ToL1Msgs) &&
       isEmptyArray(this.encryptedLogsHashes) &&
       isEmptyArray(this.unencryptedLogsHashes) &&
@@ -282,6 +289,7 @@ export class PrivateCircuitPublicInputs {
       fields.newNullifiers,
       fields.privateCallStackHashes,
       fields.publicCallStackHashes,
+      fields.publicTeardownFunctionHash,
       fields.newL2ToL1Msgs,
       fields.startSideEffectCounter,
       fields.endSideEffectCounter,

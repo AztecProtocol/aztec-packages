@@ -1,16 +1,13 @@
-import { FunctionSelector } from '@aztec/circuits.js';
+import { FunctionSelector, Gas } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 
-import { executePublicFunction } from '../../public/executor.js';
-import {
-  convertPublicExecutionResult,
-  createPublicExecutionContext,
-  updateAvmContextFromPublicExecutionResult,
-} from '../../public/transitional_adaptors.js';
+import { convertAvmResultsToPxResult, createPublicExecution } from '../../public/transitional_adaptors.js';
 import type { AvmContext } from '../avm_context.js';
 import { gasLeftToGas, sumGas } from '../avm_gas.js';
 import { Field, Uint8 } from '../avm_memory_types.js';
 import { type AvmContractCallResults } from '../avm_message_call_result.js';
+import { AvmSimulator } from '../avm_simulator.js';
+import { RethrownError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -69,7 +66,7 @@ abstract class ExternalCall extends Instruction {
     const totalGas = sumGas(this.gasCost(memoryOperations), allocatedGas);
     context.machineState.consumeGas(totalGas);
 
-    // TRANSITIONAL: This should be removed once the AVM is fully operational and the public executor is gone.
+    // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
     const nestedContext = context.createNestedContractCallContext(
       callAddress.toFr(),
       calldata,
@@ -77,11 +74,21 @@ abstract class ExternalCall extends Instruction {
       this.type,
       FunctionSelector.fromField(functionSelector),
     );
-    const pxContext = createPublicExecutionContext(nestedContext, calldata);
-    const pxResults = await executePublicFunction(pxContext, /*nested=*/ true);
-    const nestedCallResults: AvmContractCallResults = convertPublicExecutionResult(pxResults);
-    updateAvmContextFromPublicExecutionResult(nestedContext, pxResults);
-    const nestedPersistableState = nestedContext.persistableState;
+    const startSideEffectCounter = nestedContext.persistableState.trace.accessCounter;
+
+    const oldStyleExecution = createPublicExecution(startSideEffectCounter, nestedContext.environment, calldata);
+    const nestedCallResults: AvmContractCallResults = await new AvmSimulator(nestedContext).execute();
+    const pxResults = convertAvmResultsToPxResult(
+      nestedCallResults,
+      startSideEffectCounter,
+      oldStyleExecution,
+      Gas.from(allocatedGas),
+      nestedContext,
+    );
+    // store the old PublicExecutionResult object to maintain a recursive data structure for the old kernel
+    context.persistableState.transitionalExecutionResult.nestedExecutions.push(pxResults);
+    // END TRANSITIONAL
+
     // const nestedContext = context.createNestedContractCallContext(
     //   callAddress.toFr(),
     //   calldata,
@@ -90,9 +97,18 @@ abstract class ExternalCall extends Instruction {
     //   FunctionSelector.fromField(functionSelector),
     // );
     // const nestedCallResults: AvmContractCallResults = await new AvmSimulator(nestedContext).execute();
-    // const nestedPersistableState = nestedContext.persistableState;
 
     const success = !nestedCallResults.reverted;
+
+    // TRANSITIONAL: We rethrow here so that the MESSAGE gets propagated.
+    //               This means that for now, the caller cannot recover from errors.
+    if (!success) {
+      if (!nestedCallResults.revertReason) {
+        throw new Error('A reverted nested call should be assigned a revert reason in the AVM execution loop');
+      }
+      // The nested call's revertReason will be used to track the stack of error causes down to the root.
+      throw new RethrownError(nestedCallResults.revertReason.message, nestedCallResults.revertReason);
+    }
 
     // We only take as much data as was specified in the return size and pad with zeroes if the return data is smaller
     // than the specified size in order to prevent that memory to be left with garbage
@@ -112,9 +128,9 @@ abstract class ExternalCall extends Instruction {
 
     // TODO: Should we merge the changes from a nested call in the case of a STATIC call?
     if (success) {
-      context.persistableState.acceptNestedCallState(nestedPersistableState);
+      context.persistableState.acceptNestedCallState(nestedContext.persistableState);
     } else {
-      context.persistableState.rejectNestedCallState(nestedPersistableState);
+      context.persistableState.rejectNestedCallState(nestedContext.persistableState);
     }
 
     memory.assert(memoryOperations);
