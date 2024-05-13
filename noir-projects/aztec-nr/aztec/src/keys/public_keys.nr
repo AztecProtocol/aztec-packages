@@ -41,7 +41,7 @@ impl PublicKeys {
     }
 
     pub fn get_key_by_index(self, index: Field) -> GrumpkinPoint {
-        assert(index as u8 <= 4, "Invalid key index");
+        assert(index as u8 < 4, "Invalid key index");
         if index == NULLIFIER_INDEX {
             self.npk_m
         } else if index == INCOMING_INDEX {
