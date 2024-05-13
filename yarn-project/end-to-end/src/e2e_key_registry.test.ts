@@ -1,13 +1,21 @@
-import { type AccountWallet, AztecAddress, Fr, type PXE, type AztecNode, type L2Block } from '@aztec/aztec.js';
-import { CompleteAddress, GeneratorIndex, INITIAL_L2_BLOCK_NUM, Point, computeAppNullifierSecretKey, deriveMasterNullifierSecretKey } from '@aztec/circuits.js';
+import { createAccounts } from '@aztec/accounts/testing';
+import { type AccountWallet, AztecAddress, type AztecNode, Fr, type L2Block, type PXE } from '@aztec/aztec.js';
+import {
+  CompleteAddress,
+  GeneratorIndex,
+  INITIAL_L2_BLOCK_NUM,
+  Point,
+  PublicKeys,
+  computeAppNullifierSecretKey,
+  deriveMasterNullifierSecretKey,
+} from '@aztec/circuits.js';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { KeyRegistryContract, TestContract } from '@aztec/noir-contracts.js';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 
 import { jest } from '@jest/globals';
 
 import { publicDeployAccounts, setup } from './fixtures/utils.js';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { createAccounts } from '@aztec/accounts/testing';
 
 const TIMEOUT = 120_000;
 
@@ -223,23 +231,11 @@ describe('Key Registry', () => {
     const noteOwner = account.getAddress();
     const noteStorageSlot = 12;
 
-    await testContract.methods
-      .call_create_note(
-        noteValue,
-        noteOwner,
-        noteStorageSlot,
-      )
-      .send()
-      .wait();
+    await testContract.methods.call_create_note(noteValue, noteOwner, noteStorageSlot).send().wait();
 
     expect(await getNumNullifiedNotes(nskApp)).toEqual(0);
 
-    await testContract.methods
-      .call_destroy_note(
-        noteStorageSlot,
-      )
-      .send()
-      .wait();
+    await testContract.methods.call_destroy_note(noteStorageSlot).send().wait();
 
     expect(await getNumNullifiedNotes(nskApp)).toEqual(1);
   });
@@ -247,16 +243,18 @@ describe('Key Registry', () => {
   const getNumNullifiedNotes = async (nskApp: Fr) => {
     // 1. Get all note hashes
     const blocks = await aztecNode.getBlocks(INITIAL_L2_BLOCK_NUM, 1000);
-    const noteHashes = blocks.flatMap((block: L2Block) => block.body.txEffects.flatMap((txEffect) => txEffect.noteHashes));
+    const noteHashes = blocks.flatMap((block: L2Block) =>
+      block.body.txEffects.flatMap(txEffect => txEffect.noteHashes),
+    );
     // 2. Get all seen nullifiers
-    const nullifiers = blocks.flatMap((block: L2Block) => block.body.txEffects.flatMap((txEffect) => txEffect.nullifiers));
+    const nullifiers = blocks.flatMap((block: L2Block) =>
+      block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
+    );
     // 3. Derive all the possible nullifiers using nskApp
-    const derivedNullifiers = noteHashes.map((noteHash) => poseidon2Hash([
-      noteHash,
-      nskApp,
-      GeneratorIndex.NOTE_NULLIFIER,
-    ]));
+    const derivedNullifiers = noteHashes.map(noteHash =>
+      poseidon2Hash([noteHash, nskApp, GeneratorIndex.NOTE_NULLIFIER]),
+    );
     // 4. Count the number of nullifiers that are in the nullifiers list
-    return derivedNullifiers.filter((nullifier) => nullifiers.includes(nullifier)).length;
-  }
+    return derivedNullifiers.filter(nullifier => nullifiers.includes(nullifier)).length;
+  };
 });
