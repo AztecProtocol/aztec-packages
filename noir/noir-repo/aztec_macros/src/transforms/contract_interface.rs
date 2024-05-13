@@ -1,4 +1,5 @@
-use noirc_frontend::ast::{NoirFunction, UnresolvedTypeData};
+use noirc_errors::Location;
+use noirc_frontend::ast::{Ident, NoirFunction, UnresolvedTypeData};
 use noirc_frontend::{
     graph::CrateId,
     macros_api::{FileId, HirContext, HirExpression, HirLiteral, HirStatement},
@@ -106,13 +107,13 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
                     selector: {},
                     args_hash,
                 }}",
-            args_hash, aztec_visibility, is_void, is_static, fn_selector,
+            args_hash, aztec_visibility, is_static, is_void, fn_selector,
         );
         format!(
             "pub fn {}(self, {}) -> dep::aztec::context::{}{}{}CallInterface{} {{
                     {}
                 }}",
-            fn_name, fn_parameters, aztec_visibility, is_void, is_static, return_type_hint, fn_body
+            fn_name, fn_parameters, aztec_visibility, is_static, is_void, return_type_hint, fn_body
         )
     } else {
         let args = format!(
@@ -129,13 +130,13 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
                 args: args_acc,
                 gas_opts: dep::aztec::context::gas::GasOpts::default(),
             }}",
-            args, is_void, is_static, fn_selector,
+            args, is_static, is_void, fn_selector,
         );
         format!(
             "pub fn {}(self, {}) -> dep::aztec::context::Avm{}{}CallInterface{} {{
                     {}
             }}",
-            fn_name, fn_parameters, is_void, is_static, return_type_hint, fn_body
+            fn_name, fn_parameters, is_static, is_void, return_type_hint, fn_body
         )
     }
 }
@@ -146,7 +147,7 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
 pub fn generate_contract_interface(
     module: &mut SortedModule,
     module_name: &str,
-    stubs: &[String],
+    stubs: &[(String, Location)],
 ) -> Result<(), AztecMacroError> {
     let contract_interface = format!(
         "
@@ -172,7 +173,7 @@ pub fn generate_contract_interface(
         }}
     ",
         module_name,
-        stubs.join("\n"),
+        stubs.iter().map(|(src, _)| src.to_owned()).collect::<Vec<String>>().join("\n"),
     );
 
     let (contract_interface_ast, errors) = parse_program(&contract_interface);
@@ -182,8 +183,27 @@ pub fn generate_contract_interface(
     }
 
     let mut contract_interface_ast = contract_interface_ast.into_sorted();
+    let mut impl_with_locations = contract_interface_ast.impls.pop().unwrap();
+
+    impl_with_locations.methods = impl_with_locations
+        .methods
+        .iter()
+        .enumerate()
+        .map(|(i, (method, orig_span))| {
+            if method.name() == "at" {
+                (method.clone(), orig_span.clone())
+            } else {
+                let new_span = stubs[i].1.span.clone();
+                let mut modified_method = method.clone();
+                modified_method.def.name =
+                    Ident::new(modified_method.name().to_string(), new_span.clone());
+                (modified_method, orig_span.clone())
+            }
+        })
+        .collect();
+
     module.types.push(contract_interface_ast.types.pop().unwrap());
-    module.impls.push(contract_interface_ast.impls.pop().unwrap());
+    module.impls.push(impl_with_locations);
     module.functions.push(contract_interface_ast.functions.pop().unwrap());
 
     Ok(())

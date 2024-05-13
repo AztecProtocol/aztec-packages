@@ -28,7 +28,7 @@ impl<T> PrivateCallInterface<T> {
         unpacked
     }
 
-    pub fn static_call<N>(self, context: &mut PrivateContext) -> T where T: Deserialize<N> {
+    pub fn view<N>(self, context: &mut PrivateContext) -> T where T: Deserialize<N> {
         let returns = context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false);
         returns.unpack_into()
     }
@@ -56,7 +56,7 @@ impl PrivateVoidCallInterface {
         ).assert_empty();
     }
 
-    pub fn static_call(self, context: &mut PrivateContext) {
+    pub fn view(self, context: &mut PrivateContext) {
         context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false).assert_empty();
     }
 
@@ -72,7 +72,7 @@ struct PrivateStaticCallInterface<T> {
 }
 
 impl<T> PrivateStaticCallInterface<T> {
-    pub fn static_call<N>(self, context: &mut PrivateContext) -> T where T: Deserialize<N> {
+    pub fn view<N>(self, context: &mut PrivateContext) -> T where T: Deserialize<N> {
         let returns = context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false);
         returns.unpack_into()
     }
@@ -85,7 +85,7 @@ struct PrivateStaticVoidCallInterface {
 }
 
 impl PrivateStaticVoidCallInterface {
-    pub fn static_call(self, context: &mut PrivateContext) {
+    pub fn view(self, context: &mut PrivateContext) {
         context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false).assert_empty();
     }
 }
@@ -108,7 +108,7 @@ impl<T> PublicCallInterface<T> {
         returns.deserialize_into()
     }
 
-    pub fn static_call<N>(self, context: &mut PublicContext) -> T where T: Deserialize<N> {
+    pub fn view<N>(self, context: &mut PublicContext) -> T where T: Deserialize<N> {
         let returns = context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false);
         returns.deserialize_into()
     }
@@ -128,7 +128,7 @@ impl<T> PublicCallInterface<T> {
         )
     }
 
-    pub fn static_enqueue(self, context: &mut PrivateContext) {
+    pub fn enqueue_view(self, context: &mut PrivateContext) {
         context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false)
     }
 
@@ -154,7 +154,7 @@ impl PublicVoidCallInterface {
         ).assert_empty()
     }
 
-    pub fn static_call(self, context: &mut PublicContext) {
+    pub fn view(self, context: &mut PublicContext) {
         context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false).assert_empty();
     }
 
@@ -172,7 +172,7 @@ impl PublicVoidCallInterface {
         )
     }
 
-    pub fn static_enqueue(self, context: &mut PrivateContext) {
+    pub fn enqueue_view(self, context: &mut PrivateContext) {
         context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false)
     }
 
@@ -188,12 +188,12 @@ struct PublicStaticCallInterface<T> {
 }
 
 impl<T> PublicStaticCallInterface<T> {
-    pub fn static_call<N>(self, context: &mut PublicContext) -> T where T: Deserialize<N> {
+    pub fn view<N>(self, context: &mut PublicContext) -> T where T: Deserialize<N> {
         let returns = context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false);
         returns.deserialize_into()
     }
 
-    pub fn static_enqueue(self, context: &mut PrivateContext) {
+    pub fn enqueue_view(self, context: &mut PrivateContext) {
         context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false)
     }
 }
@@ -205,11 +205,11 @@ struct PublicStaticVoidCallInterface {
 }
 
 impl PublicStaticVoidCallInterface {
-    pub fn static_call(self, context: &mut PublicContext) {
+    pub fn view(self, context: &mut PublicContext) {
         context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false).assert_empty();
     }
 
-    pub fn static_enqueue(self, context: &mut PrivateContext) {
+    pub fn enqueue_view(self, context: &mut PrivateContext) {
         context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false)
     }
 }
@@ -232,7 +232,7 @@ impl<T> AvmCallInterface<T> {
         returns.deserialize_into()
     }
 
-    pub fn static_call<N>(self, context: &mut AvmContext) -> T where T: Deserialize<N> {
+    pub fn view<N>(self, context: &mut AvmContext) -> T where T: Deserialize<N> {
         let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
         returns.deserialize_into()
     }
@@ -254,7 +254,7 @@ impl<T> AvmCallInterface<T> {
         )
     }
 
-    pub fn static_enqueue(self, context: &mut PrivateContext) {
+    pub fn enqueue_view(self, context: &mut PrivateContext) {
         // This packing is only here because PrivateContext's call_public* functions do not accept a slice for the args.
         let args_hash = arguments::pack_arguments(self.args);
         context.call_public_function_with_packed_args(
@@ -297,7 +297,7 @@ impl AvmVoidCallInterface {
         returns.assert_empty()
     }
 
-    pub fn static_call<N>(self, context: &mut AvmContext) {
+    pub fn view<N>(self, context: &mut AvmContext) {
         let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
         returns.assert_empty()
     }
@@ -319,7 +319,7 @@ impl AvmVoidCallInterface {
         )
     }
 
-    pub fn static_enqueue(self, context: &mut PrivateContext) {
+    pub fn enqueue_view(self, context: &mut PrivateContext) {
         // This packing is only here because PrivateContext's call_public* functions do not accept a slice for the args.
         let args_hash = arguments::pack_arguments(self.args);
         context.call_public_function_with_packed_args(
@@ -357,14 +357,21 @@ impl<T> AvmStaticCallInterface<T> {
         self
     }
 
-    pub fn static_call<N>(self, context: &mut AvmContext) -> T where T: Deserialize<N> {
+    pub fn view<N>(self, context: &mut AvmContext) -> T where T: Deserialize<N> {
         let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
         returns.deserialize_into()
     }
 
-    pub fn static_enqueue(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, true, false)
+    pub fn enqueue_view(self, context: &mut PrivateContext) {
+        // This packing is only here because PrivateContext's call_public* functions do not accept a slice for the args.
+        let args_hash = arguments::pack_arguments(self.args);
+        context.call_public_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            args_hash,
+            /*static=*/ true,
+            /*delegate=*/ false
+        )
     }
 }
 
@@ -381,13 +388,20 @@ impl AvmStaticVoidCallInterface {
         self
     }
 
-    pub fn static_call<N>(self, context: &mut AvmContext) {
+    pub fn view<N>(self, context: &mut AvmContext) {
         let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, self.gas_opts);
         returns.assert_empty()
     }
 
-    pub fn static_enqueue(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        context.call_public_function_with_packed_args(self.target_contract, self.selector, args_hash, true, false)
+    pub fn enqueue_view(self, context: &mut PrivateContext) {
+        // This packing is only here because PrivateContext's call_public* functions do not accept a slice for the args.
+        let args_hash = arguments::pack_arguments(self.args);
+        context.call_public_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            args_hash,
+            /*static=*/ true,
+            /*delegate=*/ false
+        )
     }
 }

@@ -44,7 +44,7 @@ pub fn transform_function(
 
     // Force a static context if the function is static
     if is_static {
-        let is_static_check = create_static_check(func.name());
+        let is_static_check = create_static_check(func.name(), is_avm);
         func.def.body.statements.insert(0, is_static_check);
     }
 
@@ -288,14 +288,18 @@ fn create_mark_as_initialized(ty: &str) -> Statement {
 /// ```noir
 /// assert(context.inputs.call_context.is_static_call == true,  "Function can only be called statically")
 /// ```
-fn create_static_check(fname: &str) -> Statement {
+fn create_static_check(fname: &str, is_avm: bool) -> Statement {
+    let is_static_call_expr = if !is_avm {
+        ["inputs", "call_context", "is_static_call"]
+            .iter()
+            .fold(variable("context"), |acc, member| member_access(acc, member))
+    } else {
+        ["inputs", "is_static_call"]
+            .iter()
+            .fold(variable("context"), |acc, member| member_access(acc, member))
+    };
     make_statement(StatementKind::Constrain(ConstrainStatement(
-        make_eq(
-            ["inputs", "call_context", "is_static_call"]
-                .iter()
-                .fold(variable("context"), |acc, member| member_access(acc, member)),
-            expression(ExpressionKind::Literal(Literal::Bool(true))),
-        ),
+        make_eq(is_static_call_expr, expression(ExpressionKind::Literal(Literal::Bool(true)))),
         Some(expression(ExpressionKind::Literal(Literal::Str(format!(
             "Function {} can only be called statically",
             fname

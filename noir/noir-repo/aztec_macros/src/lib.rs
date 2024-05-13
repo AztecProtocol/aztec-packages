@@ -1,6 +1,7 @@
 mod transforms;
 mod utils;
 
+use noirc_errors::Location;
 use transforms::{
     compute_note_hash_and_nullifier::inject_compute_note_hash_and_nullifier,
     contract_interface::{
@@ -64,6 +65,7 @@ fn transform(
     for submodule in ast.submodules.iter_mut().filter(|submodule| submodule.is_contract) {
         if transform_module(
             crate_id,
+            &file_id,
             context,
             &mut submodule.contents,
             submodule.name.0.contents.as_str(),
@@ -84,6 +86,7 @@ fn transform(
 /// Returns true if an annotated node is found, false otherwise
 fn transform_module(
     crate_id: &CrateId,
+    file_id: &FileId,
     context: &HirContext,
     module: &mut SortedModule,
     module_name: &str,
@@ -163,7 +166,8 @@ fn transform_module(
             } else {
                 "Public"
             };
-            stubs.push(stub_function(fn_type, func, is_static));
+            let stub_src = stub_function(fn_type, func, is_static);
+            stubs.push((stub_src, Location { file: *file_id, span: func.name_ident().span() }));
 
             export_fn_abi(&mut module.types, func)?;
             transform_function(

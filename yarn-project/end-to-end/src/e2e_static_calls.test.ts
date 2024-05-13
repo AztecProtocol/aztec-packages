@@ -200,4 +200,98 @@ describe('e2e_static_calls', () => {
       ).rejects.toThrow("Assertion failed: Function pub_illegal_inc_value can only be called statically ''");
     });
   });
+
+  describe('avm', () => {
+    describe('direct view calls to child', () => {
+      it('performs legal public static calls', async () => {
+        await childContract.methods.avm_get_value(42n).send().wait();
+      });
+
+      it('fails when performing non-static calls to poorly written static public functions', async () => {
+        await expect(childContract.methods.avm_illegal_inc_value(42n).send().wait()).rejects.toThrow(
+          "Static calls cannot alter storage 'storage_write(self.storage_slot, fields)'",
+        );
+      });
+    });
+
+    describe('parent calls child', () => {
+      it('performs legal public to public static calls', async () => {
+        // Using low level calls
+        await parentContract.methods
+          .avm_static_call(childContract.address, childContract.methods.avm_get_value.selector, [42n])
+          .send()
+          .wait();
+
+        // Using contract interface
+        await parentContract.methods.public_get_value_from_child(childContract.address, 42n).send().wait();
+      });
+
+      it('performs legal enqueued public static calls', async () => {
+        // Using low level calls
+        await parentContract.methods
+          .enqueue_static_call_to_pub_function(childContract.address, childContract.methods.avm_get_value.selector, [
+            42n,
+          ])
+          .send()
+          .wait();
+
+        // Using contract interface
+        await parentContract.methods.enqueue_avm_get_value_from_child(childContract.address, 42).send().wait();
+      });
+
+      it('performs legal (nested) public to public static calls', async () => {
+        await parentContract.methods
+          .avm_nested_static_call(childContract.address, childContract.methods.avm_get_value.selector, [42n])
+          .send()
+          .wait();
+      });
+
+      it('performs legal (nested) enqueued public static calls', async () => {
+        await parentContract.methods
+          .enqueue_static_nested_call_to_avm_function(
+            childContract.address,
+            childContract.methods.avm_get_value.selector,
+            [42n],
+          )
+          .send()
+          .wait();
+      });
+
+      it('fails when performing illegal enqueued public static calls', async () => {
+        await expect(
+          parentContract.methods
+            .enqueue_static_call_to_pub_function(childContract.address, childContract.methods.avm_set_value.selector, [
+              42n,
+            ])
+            .send()
+            .wait(),
+        ).rejects.toThrow("Static calls cannot alter storage 'storage_write(self.storage_slot, fields)'");
+      });
+
+      it('fails when performing illegal (nested) enqueued public static calls', async () => {
+        await expect(
+          parentContract.methods
+            .enqueue_static_nested_call_to_avm_function(
+              childContract.address,
+              childContract.methods.avm_set_value.selector,
+              [42n],
+            )
+            .send()
+            .wait(),
+        ).rejects.toThrow("Static calls cannot alter storage 'storage_write(self.storage_slot, fields)'");
+      });
+
+      it('fails when performing non-static enqueue calls to poorly written public static functions', async () => {
+        await expect(
+          parentContract.methods
+            .enqueue_call(childContract.address, childContract.methods.avm_illegal_inc_value.selector, [
+              42n,
+              wallet.getCompleteAddress().address,
+            ])
+            .send()
+            .wait(),
+        ).rejects.toThrow("Assertion failed: Function avm_illegal_inc_value can only be called statically ''");
+      });
+    });
+  });
 });

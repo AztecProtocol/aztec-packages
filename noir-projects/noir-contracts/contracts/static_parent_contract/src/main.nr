@@ -57,7 +57,7 @@ contract StaticParent {
         value: Field,
         owner: AztecAddress
     ) -> Field {
-        StaticChild::at(target_contract).private_get_value(value, owner).static_call(&mut context)
+        StaticChild::at(target_contract).private_get_value(value, owner).view(&mut context)
     }
 
     // Private function to set a static context and verify correct propagation for nested private calls
@@ -67,7 +67,7 @@ contract StaticParent {
         target_selector: FunctionSelector,
         args: [Field; 2]
     ) -> Field {
-        StaticParent::at(context.this_address()).private_call(target_contract, target_selector, args).static_call(&mut context)
+        StaticParent::at(context.this_address()).private_call(target_contract, target_selector, args).view(&mut context)
     }
 
     // Public function to statically call another public function to the target_contract using the selector and value provided
@@ -88,7 +88,7 @@ contract StaticParent {
     // Same as above but using a specific function from the interface
     #[aztec(public)]
     fn public_get_value_from_child(target_contract: AztecAddress, value: Field) -> Field {
-        StaticChild::at(target_contract).pub_get_value(value).static_call(&mut context)
+        StaticChild::at(target_contract).pub_get_value(value).view(&mut context)
     }
 
     // Public function to set a static context and verify correct propagation for nested public calls
@@ -99,7 +99,7 @@ contract StaticParent {
         args: [Field; 1]
     ) -> Field {
         // Call the target public function through the pub entrypoint statically
-        StaticParent::at(context.this_address()).public_call(target_contract, target_selector, args[0]).static_call(&mut context)
+        StaticParent::at(context.this_address()).public_call(target_contract, target_selector, args[0]).view(&mut context)
     }
 
     // Private function to enqueue a static call to a public function of another contract, passing the target arguments provided
@@ -115,7 +115,7 @@ contract StaticParent {
     // Same as above but using a specific function from the interface
     #[aztec(private)]
     fn enqueue_public_get_value_from_child(target_contract: AztecAddress, value: Field) {
-        StaticChild::at(target_contract).pub_get_value(value).static_enqueue(&mut context);
+        StaticChild::at(target_contract).pub_get_value(value).enqueue_view(&mut context);
     }
 
     // Private function to set a static context and verify correct propagation of nested enqueuing of public calls
@@ -126,6 +126,71 @@ contract StaticParent {
         args: [Field; 1]
     ) {
         // Call the target public function through the pub entrypoint statically
-        StaticParent::at(context.this_address()).public_call(target_contract, target_selector, args[0]).static_enqueue(&mut context)
+        StaticParent::at(context.this_address()).public_call(target_contract, target_selector, args[0]).enqueue_view(&mut context)
+    }
+
+    // AVM
+
+    #[aztec(public-vm)]
+    fn avm_call(
+        target_contract: AztecAddress,
+        target_selector: FunctionSelector,
+        arg: Field
+    ) -> Field {
+        context.call_public_function(
+            target_contract,
+            target_selector,
+            [arg].as_slice(),
+            GasOpts::default()
+        ).deserialize_into()
+    }
+
+    // Public function to statically call another public function to the target_contract using the selector and value provided
+    #[aztec(public-vm)]
+    fn avm_static_call(
+        target_contract: AztecAddress,
+        target_selector: FunctionSelector,
+        args: [Field; 1]
+    ) -> Field {
+        context.static_call_public_function(
+            target_contract,
+            target_selector,
+            args.as_slice(),
+            GasOpts::default()
+        ).deserialize_into()
+    }
+
+    // Same as above but using a specific function from the interface
+    #[aztec(public-vm)]
+    fn avm_get_value_from_child(target_contract: AztecAddress, value: Field) -> Field {
+        StaticChild::at(target_contract).avm_get_value(value).view(&mut context)
+    }
+
+    // Public function to set a static context and verify correct propagation for nested public calls
+    #[aztec(public-vm)]
+    fn avm_nested_static_call(
+        target_contract: AztecAddress,
+        target_selector: FunctionSelector,
+        args: [Field; 1]
+    ) -> Field {
+        // Call the target public function through the pub entrypoint statically
+        StaticParent::at(context.this_address()).avm_call(target_contract, target_selector, args[0]).view(&mut context)
+    }
+
+    // Same as above but using a specific function from the interface
+    #[aztec(private)]
+    fn enqueue_avm_get_value_from_child(target_contract: AztecAddress, value: Field) {
+        StaticChild::at(target_contract).avm_get_value(value).enqueue_view(&mut context);
+    }
+
+    // Private function to set a static context and verify correct propagation of nested enqueuing of public calls
+    #[aztec(private)]
+    fn enqueue_static_nested_call_to_avm_function(
+        target_contract: AztecAddress,
+        target_selector: FunctionSelector,
+        args: [Field; 1]
+    ) {
+        // Call the target public function through the pub entrypoint statically
+        StaticParent::at(context.this_address()).avm_call(target_contract, target_selector, args[0]).enqueue_view(&mut context)
     }
 }
