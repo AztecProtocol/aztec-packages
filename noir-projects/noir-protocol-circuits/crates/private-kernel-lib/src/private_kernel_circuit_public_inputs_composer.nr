@@ -228,7 +228,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
     fn propagate_fee_payer(&mut self, source: DataSource) {
         if (source.private_call_public_inputs.is_fee_payer) {
             assert(self.public_inputs.fee_payer.is_zero(), "Cannot overwrite non-empty fee_payer");
-            self.public_inputs.fee_payer = source.private_call_public_inputs.call_context.storage_contract_address;
+            self.public_inputs.fee_payer = source.contract_address;
         }
     }
 }
