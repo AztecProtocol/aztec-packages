@@ -19,6 +19,26 @@ However, since Aztec supports native [account abstraction](../accounts/main#what
 Instead it's up to the account contract developer to implement it.
 :::
 
+## Public key retrieval
+The keys can either be received from a key registry contract or from PXE.
+
+### Retrieval from key registry
+...
+
+## Scoped keys
+Even though all the keys above are derived from the same secret, all the keys above are scoped (also called app-siloed) to the contract that requests them.
+This means that the keys used for the same user in two different application contracts will be different.
+
+This allows per-application auditability.
+A user may choose to disclose their incoming and outgoing viewing keys for a given application to an auditor or regulator (or for 3rd party interfaces, e.g. giving access to a block explorer to display my activity), as a means to reveal all their activity within that context, while retaining privacy across all other applications in the network.
+
+In the case of nullifier keys, there is also a security reason involved.
+Since the nullifier secret is exposed in plain text to the application contract, the contract may accidentally or maliciously leak it.
+If that happens, only the nullifier secret for that application is compromised.
+
+## Protocol key types
+All the keys bellow are Grumpkin keys (public keys derived on a Grumpkin curve).
+
 ## Nullifier keys
 These keys are called a master nullifier secret key (`nsk_m`) and master nullifier public key(`Npk_m`).
 Typically, `Npk_m` is stored in a note and later on the note is nullified using app-siloed nullifier secret key (denoted `nsk_app`).
@@ -30,18 +50,13 @@ With our design `nsk_m` never touches app code.
 
 ## Incoming viewing keys
 Called master incoming viewing secret key (`ivsk_m`) and master incoming viewing public key (`Ivpk_m`).
-These keys are used during encryption and decryption of a note for a recipient.
-
-Similarly to nullifier keys, these keys are app-siloed with an app contract address.
-This is done for 2 reasons:
-1. To protect user from global key leaks.
-2. To allow users to expose their app activity to a 3rd party (useful for audit and accounting purposes or for 3rd party interfaces, e.g. giving access to a block explorer to display my activity).
+The app-siloed version of public key (denoted `Ivpk_app`) is used to encrypt a note for a recipient and the the corresponding secret key (`ivsk_app`) is used by recipient during decryption.
 
 ## Outgoing viewing keys
-Called master outgoing viewing secret key (`ovsk_m`) and master outgoing viewing public key (`Ovpk_m`).
-Used to encrypt a note for a note sender.
-This is necessary for a user to be able see their sent-notes activity history on newly synced devices.
-If these keys were not used and I would re-sync a new device I would have no "direct" information about notes I have created for other people.
+Called master outgoing viewing secret key (`ovsk_m`, app-siloed denoted `ovsk_app`) and master outgoing viewing public key (`Ovpk_m`, app-siloed denoted `Ovpk_app`).
+These keys are used to encrypt a note for a note sender which is necessary for reconstructing transaction history from on-chain data.
+For example, during a token transfer, the token contract may dictate that the sender encrypts the note with value with the recipient's `Ivpk_app`, but also records the transfer with its own `Ovpk_app` for bookkeeping purposes.
+If these keys were not used and a new device would be synched there would be no "direct" information available about notes that a user created for other people.
 
 ## Tagging keys
 Called master tagging secret key (`tsk_m`) and master tagging public key (`Tpk_m`).
@@ -53,9 +68,9 @@ Tagging note discovery scheme won't be present in our testnet so we are intentio
 
 ## Signing keys
 
-Signing keys allow their holder to act as their corresponding account in Aztec, similarly to the keys used for an Ethereum account. If a signing key is leaked, the user can potentially lose all their funds.
+As mentioned above signing keys are not defined in protocol because of [account abstraction](../accounts/main#what-is-account-abstraction) and instead the key scheme is defined by the account contract.
 
-Since Aztec implements full [signature abstraction](./index.md), signing keys depend on the account contract implementation for each user. Usually, an account contract will validate a signature of the incoming payload against a known public key.
+Usually, an account contract will validate a signature of the incoming payload against a known signing public key.
 
 This is a snippet of our Schnorr Account contract implementation, which uses Schnorr signatures for authentication:
 
@@ -65,33 +80,33 @@ Still, different accounts may use different signing schemes, may require multi-f
 
 Furthermore, and since signatures are fully abstracted, how the key is stored in the contract is abstracted as well and left to the developer of the account contract. Here are a few ideas on how to store them, each with their pros and cons.
 
-### Using a private note
+### Ways to store signing keys
+Below we described a few ways how an account contract could be architected to obtain signing keys.
+
+#### Using a private note
 
 Storing the signing public key in a private note makes it accessible from the entrypoint function, which is required to be a private function, and allows for rotating the key when needed. However, keep in mind that reading a private note requires nullifying it to ensure it is up to date, so each transaction you send will destroy and recreate the public key. This has the side effect of enforcing a strict ordering across all transactions, since each transaction will refer the instantiation of the private note from the previous one.
 
-### Using an immutable private note
+#### Using an immutable private note
 
 Similar to using a private note, but using an immutable private note removes the need to nullify the note on every read. This generates less nullifiers and commitments per transaction, and does not enforce an order across transactions. However, it does not allow the user to rotate their key should they lose it.
 
-### Using shared state
+#### Using shared state
 
 A compromise between the two solutions above is to use [shared state](/reference/reference/smart_contract_reference/storage/shared_state.md). This would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the mutable shared state, as well as imposing restrictions on how fast keys can be rotated due to minimum delays.
 
-### Reusing the privacy master key
+#### Reusing some of the in-protocol keys
 
-It is possible to use the privacy master key as the signing key also. Since this key is part of the address preimage (more on this on the privacy master key section), you can validate it against the account contract address rather than having to store it. However, this approach is not recommended since it reduces the security of the user's account.
+It is possible to use some of the key pairs defined in protocol (e.g. incoming viewing keys) as the signing key.
+Since this key is part of the address preimage (more on this on the privacy master key section), you it can be validated against the account contract address rather than having to store it.
+However, this approach is not recommended since it reduces the security of the user's account.
 
-### Using a separate keystore
+#### Using a separate keystore
 
 Since there are no restrictions on the actions that an account contract may execute for authenticating a transaction (as long as these are all private function executions), the signing public keys can be stored in a [separate keystore contract](https://vitalik.ca/general/2023/06/09/three_transitions.html) that is checked on every call. This will incur in a higher proving time for each transaction, but has no additional cost in terms of fees, and allows for easier key management in a centralized contract.
 
-## Privacy keys
 
-Each account is tied to a **privacy master key**. Unlike signing keys, privacy keys are enshrined at the protocol layer, are required to be Grumpkin keys, and are tied to their account address. These keys are used for deriving encryption and nullifying keys, scoped to each application, in a manner similar to BIP32.
 
-:::warning
-At the time of this writing, privacy master keys are used by applications without any derivation whatsoever. This means that the private key is used directly as a nullifier secret for all applications, and the public key is used as an encryption key for all purposes. This is highly insecure, and will change to match the specification below in an upcoming release.
-:::
 
 ### Addresses, partial addresses, and public keys
 
@@ -110,11 +125,10 @@ Contracts that are not meant to represent a user who handles private state, usua
 A side effect of enshrining and encoding privacy keys into the account address is that these keys cannot be rotated if they are leaked. Read more about this in the [account abstraction section](./index.md#encryption-and-nullifying-keys).
 :::
 
+
+
+
 ### Encryption keys
-
-The privacy master key is used to derive encryption keys. Encryption keys, as their name implies, are used for encrypting private notes for a recipient, where the public key is used for encryption and the corresponding private key used for decryption.
-
-In a future version, encryption keys will be differentiated between incoming and outgoing. When sending a note to another user, the sender will use the recipient's incoming encryption key for encrypting the data for them, and will optionally use their own outgoing encryption key for encrypting any data about the destination of that note. This is useful for reconstructing transaction history from on-chain data. For example, during a token transfer, the token contract may dictate that the sender encrypts the note with value with the recipient's incoming key, but also records the transfer with its own outgoing key for bookkeeping purposes.
 
 An application in Aztec.nr can access the encryption public key for a given address using the oracle call `get_public_key`, which you can then use for calls such as `emit_encrypted_log`:
 
@@ -133,17 +147,7 @@ An application in Aztec.nr can request a secret from the current user for comput
 
 #include_code nullifier /noir-projects/aztec-nr/value-note/src/value_note.nr rust
 
-### Scoped keys
 
-:::warning
-Keys are not yet scoped at the time of this writing. This will be implemented in a future release.
-:::
-
-Even though they are all derived from the same privacy master key, all encryption and nullifier keys are scoped to the contract that requests them. This means that the encryption key used for the same user in two different application contracts will be different. The same applies to nullifier secrets.
-
-This allows per-application auditability. A user may choose to disclose their inbound and outbound encryption keys for a given application to an auditor or regulator, as a means to reveal all their activity within that context, while retaining privacy across all other applications in the network.
-
-In the case of nullifier secrets, there is also a security reason involved. Since the nullifier secret is exposed in plain text to the application contract, the contract may accidentally or maliciously leak it. If that happens, only the nullifier secret for that application is compromised.
 
 ### Security considerations
 
