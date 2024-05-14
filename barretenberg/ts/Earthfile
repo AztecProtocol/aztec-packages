@@ -2,6 +2,7 @@ VERSION 0.8
 ARG --global module=barretenberg-ts
 
 source: #aztec-tag=cache
+    ARG EARTHLY_TARGET_NAME
     FROM ../../build-images+build
     WORKDIR /usr/src/barretenberg/ts-build
     # minimum files to download yarn packages

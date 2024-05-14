@@ -11,9 +11,6 @@ inputs:
   run:
     # command to run once builder/tester available
     required: false
-  label:
-    required: false
-
 runs:
   # define an action, runs in OS of caller
   using: composite
@@ -21,8 +18,6 @@ runs:
     - name: Select Instance Type and AMI
       id: select_instance
       shell: bash
-      env:
-        USERNAME: ${{ inputs.label || env.USERNAME }}
       run: |
         TYPE=${{ inputs.runner_type }}
         # Try to use spot for every runner type for now
@@ -58,7 +53,7 @@ runs:
         ec2_key: ${{ env.BUILD_INSTANCE_SSH_KEY }}
         # idempotency, see https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
         # makes e2e tests hitting the API at once not cause multiple spots
-        client_token: ${{ format('ci-yml-{0}-{1}', env.RUN_ID, env.RUN_ATTEMPT) }}
+        client_token: ${{ format('ci-yml-{0}-{1}-{2}', env.RUN_ID, env.RUN_ATTEMPT, env.USERNAME) }}
         # constants:
         runner_concurrency: ${{ steps.select_instance.outputs.runner_concurrency }}
         ec2_instance_type: ${{ steps.select_instance.outputs.instance_type }}
