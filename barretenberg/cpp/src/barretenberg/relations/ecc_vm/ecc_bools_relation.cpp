@@ -27,8 +27,6 @@ void ECCVMBoolsRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulat
     using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;
 
-    auto z1 = View(in.transcript_z1);
-    auto z2 = View(in.transcript_z2);
     auto z1_zero = View(in.transcript_z1zero);
     auto z2_zero = View(in.transcript_z2zero);
     auto msm_count_zero_at_transition = View(in.transcript_msm_count_zero_at_transition);
@@ -68,20 +66,6 @@ void ECCVMBoolsRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulat
     std::get<16>(accumulator) += msm_double * (msm_double - 1) * scaling_factor;
     std::get<17>(accumulator) += msm_skew * (msm_skew - 1) * scaling_factor;
     std::get<18>(accumulator) += precompute_select * (precompute_select - 1) * scaling_factor;
-
-    /**
-     * @brief Validate correctness of z1_zero, z2_zero.
-     * If z1_zero = 0 and operation is a MUL, we will write a scalar mul instruction into our multiplication table.
-     * If z1_zero = 1 and operation is a MUL, we will NOT write a scalar mul instruction.
-     * (same with z2_zero).
-     * z1_zero / z2_zero is user-defined.
-     * We constraint z1_zero such that if z1_zero == 1, we require z1 == 0. (same for z2_zero).
-     * We do *NOT* constrain z1 != 0 if z1_zero = 0. If the user sets z1_zero = 0 and z1 = 0,
-     * this will add a scalar mul instruction into the multiplication table, where the scalar multiplier is 0.
-     * This is inefficient but will still produce the correct output.
-     */
-    std::get<19>(accumulator) += (z1 * z1_zero) * scaling_factor; // if z1_zero = 1, z1 must be 0
-    std::get<20>(accumulator) += (z2 * z2_zero) * scaling_factor;
 }
 
 template class ECCVMBoolsRelationImpl<grumpkin::fr>;

@@ -17,8 +17,8 @@ template <typename FF_> class ECCVMBoolsRelationImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 21> SUBRELATION_PARTIAL_LENGTHS{
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+    static constexpr std::array<size_t, 19> SUBRELATION_PARTIAL_LENGTHS{
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>

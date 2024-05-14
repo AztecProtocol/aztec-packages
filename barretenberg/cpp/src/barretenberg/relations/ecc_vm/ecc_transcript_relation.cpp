@@ -100,8 +100,8 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * this will add a scalar mul instruction into the multiplication table, where the scalar multiplier is 0.
      * This is inefficient but will still produce the correct output.
      */
-    std::get<0>(accumulator) += (z1 * z1_zero) * scaling_factor; // if z1_zero = 1, z1 must be 0
-    std::get<1>(accumulator) += (z2 * z2_zero) * scaling_factor;
+    std::get<0>(accumulator) += (z1 * z1_zero) * scaling_factor; // if z1_zero = 1, z1 must be 0. degree 2
+    std::get<1>(accumulator) += (z2 * z2_zero) * scaling_factor; // degree 2
 
     /**
      * @brief Validate `op` opcode is well formed.
@@ -115,7 +115,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     tmp += q_eq;
     tmp += tmp;
     tmp += q_reset_accumulator;
-    std::get<2>(accumulator) += (tmp - op) * scaling_factor;
+    std::get<2>(accumulator) += (tmp - op) * scaling_factor; // degree 1
 
     /**
      * @brief Validate `pc` is updated correctly.
@@ -125,7 +125,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      */
     Accumulator pc_delta = pc - pc_shift;
     auto num_muls_in_row = ((-z1_zero + 1) + (-z2_zero + 1)) * (-transcript_Pinfinity + 1);
-    std::get<3>(accumulator) += is_not_first_row * (pc_delta - q_mul * num_muls_in_row) * scaling_factor;
+    std::get<3>(accumulator) += is_not_first_row * (pc_delta - q_mul * num_muls_in_row) * scaling_factor; // degree 4
 
     /**
      * @brief Validate `msm_transition` is well-formed.
@@ -134,7 +134,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * i.e. if q_mul == 1 and q_mul_shift == 0, msm_transition = 1, else is 0
      * We also require that `msm_count + [current msm number] > 0`
      */
-    auto msm_transition_check = q_mul * (-q_mul_shift + 1);
+    auto msm_transition_check = q_mul * (-q_mul_shift + 1); // degree 2
     // auto num_muls_total = msm_count + num_muls_in_row;
     auto msm_count_zero_at_transition = View(in.transcript_msm_count_zero_at_transition);
     auto msm_count_at_transition_inverse = View(in.transcript_msm_count_at_transition_inverse);
@@ -144,12 +144,12 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     auto msm_count_zero_at_transition_check = msm_count_zero_at_transition * msm_count_total;
     msm_count_zero_at_transition_check +=
         (msm_count_total * msm_count_at_transition_inverse - 1) * (-msm_count_zero_at_transition + 1);
-    std::get<4>(accumulator) += msm_transition_check * msm_count_zero_at_transition_check * scaling_factor;
+    std::get<4>(accumulator) += msm_transition_check * msm_count_zero_at_transition_check * scaling_factor; // degree 3
 
     // Validate msm_transition_msm_count is correct
     // ensure msm_transition is zero if count is zero
     std::get<5>(accumulator) +=
-        (msm_transition - msm_transition_check * (-msm_count_zero_at_transition + 1)) * scaling_factor;
+        (msm_transition - msm_transition_check * (-msm_count_zero_at_transition + 1)) * scaling_factor; // degree 3
 
     /**
      * @brief Validate `msm_count` resets when we end a multiscalar multiplication.
@@ -157,7 +157,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * (if no msm active, msm_count == 0)
      * If current row ends an MSM, `msm_count_shift = 0` (msm_count value at next row)
      */
-    std::get<6>(accumulator) += (msm_transition * msm_count_shift) * scaling_factor;
+    std::get<6>(accumulator) += (msm_transition * msm_count_shift) * scaling_factor; // degree 2
 
     /**
      * @brief Validate `msm_count` updates correctly for mul operations.
@@ -193,9 +193,8 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     auto eq_y_diff = transcript_Py - transcript_accumulator_y;
     auto eq_x_diff_relation = q_eq * (eq_x_diff * both_not_infinity + infinity_exclusion_check); // degree 4
     auto eq_y_diff_relation = q_eq * (eq_y_diff * both_not_infinity + infinity_exclusion_check); // degree 4
-    std::get<9>(accumulator) += eq_x_diff_relation * scaling_factor;
-
-    std::get<10>(accumulator) += eq_y_diff_relation * scaling_factor;
+    std::get<9>(accumulator) += eq_x_diff_relation * scaling_factor;                             // degree 4
+    std::get<10>(accumulator) += eq_y_diff_relation * scaling_factor;                            // degree 4
 
     /**
      * @brief Initial condition check on 1st row.
@@ -205,8 +204,8 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * note...actually second row? bleurgh
      * NOTE: we want pc = 0 at lagrange_last :o
      */
-    std::get<11>(accumulator) += lagrange_second * (-is_accumulator_empty + 1) * scaling_factor;
-    std::get<12>(accumulator) += lagrange_second * msm_count * scaling_factor;
+    std::get<11>(accumulator) += lagrange_second * (-is_accumulator_empty + 1) * scaling_factor; // degree 2
+    std::get<12>(accumulator) += lagrange_second * msm_count * scaling_factor;                   // degree 2
 
     /**
      * @brief On-curve validation checks.
