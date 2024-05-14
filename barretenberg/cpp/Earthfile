@@ -24,20 +24,26 @@ preset-darwin-arm64:
     RUN cmake --preset darwin-arm64 -Bbuild && cmake --build build --target bb
     SAVE ARTIFACT build/bin AS LOCAL build-darwin-arm64/bin
 
-preset-release:
+PRESET:
+    FUNCTION
+    ARG preset
+    ARG targets
     FROM +source
-    RUN cmake --preset clang16 -Bbuild && cmake --build build --target bb
+    # build and keep just binaries
+    RUN cmake --preset $preset -Bbuild && \
+        cmake --build build --target $targets \
+        bash -O extglob -c "rm -rf build/!(bin)"
+    SAVE IMAGE --push aztecprotocol/cache:barretenberg-preset-$preset
     SAVE ARTIFACT build/bin
+
+preset-release:
+    DO +PRESET --preset=clang16 --targets=bb
 
 preset-release-assert:
-    FROM +source
-    RUN cmake --preset clang16 -Bbuild && cmake --build build --target bb
-    SAVE ARTIFACT build/bin
+    DO +PRESET --preset=clang16-assert --targets=bb
 
 preset-debug:
-    FROM +source
-    RUN cmake --preset clang16-dbg -Bbuild && cmake --build build --target bb
-    SAVE ARTIFACT build/bin
+    DO +PRESET --preset=clang16-dbg --targets=bb
 
 preset-wasm:
     ARG TARGETARCH
@@ -50,13 +56,11 @@ preset-wasm:
         RUN cmake --preset wasm -Bbuild && cmake --build build --target barretenberg.wasm
         RUN /opt/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
         SAVE ARTIFACT build/bin
-        SAVE IMAGE --cache-hint
+        SAVE IMAGE --push aztecprotocol/cache:barretenberg-preset-wasm
     END
 
 preset-sol:
-    FROM +source
-    RUN cmake --preset clang16  && cmake --build --preset clang16 --target solidity_key_gen solidity_proof_gen
-    SAVE ARTIFACT build/bin
+    DO +PRESET --preset=clang16 --targets="solidity_key_gen solidity_proof_gen"
 
 preset-wasm-threads:
     FROM +source
@@ -64,13 +68,13 @@ preset-wasm-threads:
     # TODO(https://github.com/AztecProtocol/barretenberg/issues/941) We currently do not strip barretenberg threaded wasm, for stack traces.
     # RUN /opt/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
     SAVE ARTIFACT build/bin
+    SAVE IMAGE --push aztecprotocol/cache:barretenberg-preset-wasm-threads
 
 preset-gcc:
-    FROM +source
-    RUN cmake --preset gcc -Bbuild && cmake --build build
-    SAVE ARTIFACT build/bin
+    DO +PRESET --preset=gcc --targets="all"
 
 preset-fuzzing:
+    DO +PRESET --preset=fuzzing --targets="all"
     FROM +source
     RUN cmake --preset fuzzing -Bbuild && cmake --build build
     SAVE ARTIFACT build/bin

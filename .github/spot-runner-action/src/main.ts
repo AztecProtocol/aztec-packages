@@ -169,11 +169,14 @@ async function startWithGithubRunners(config: ActionConfig) {
     if (!(await establishSshContact(ip, config.ec2Key))) {
       return false;
     }
-    await setupGithubRunners(ip, config);
-    if (instanceId) await ghClient.pollForRunnerCreation([config.githubJobId]);
-    else {
-      core.error("Instance failed to register with Github Actions");
-      throw Error("Instance failed to register with Github Actions");
+    // hack, but will be main mode soon so living with it
+    if (process.env.NO_GITHUB_RUNNERS !== "true") {
+      await setupGithubRunners(ip, config);
+      if (instanceId) await ghClient.pollForRunnerCreation([config.githubJobId]);
+      else {
+        core.error("Instance failed to register with Github Actions");
+        throw Error("Instance failed to register with Github Actions");
+      }
     }
     core.info("Done setting up runner.")
   }

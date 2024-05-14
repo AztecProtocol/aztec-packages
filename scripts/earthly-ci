@@ -20,11 +20,6 @@ export EARTHLY_USE_INLINE_CACHE=true
 export EARTHLY_NO_BUILDKIT_UPDATE=true
 export FORCE_COLOR=1
 export EARTHLY_CONFIG=$(git rev-parse --show-toplevel)/.github/earthly-ci-config.yml
-# TODO(AD) to be investigated
-#if [ "$GITHUB_REF_NAME" == "master" ]; then
-#  export EARTHLY_SAVE_INLINE_CACHE=true
-#  export EARTHLY_PUSH=true
-#fi
 
 # Handle earthly commands and retries
 while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
