@@ -37,7 +37,7 @@ export interface KeyStore {
    * @param account or master nullifier public key hash - The account address or master nullifier public key hash for which to retrieve the master nullifier public key.
    * @returns The master nullifier public key for the account.
    */
-  getMasterNullifierPublicKey(args: { account: AztecAddress } | { npkMHash: Fr }): Promise<PublicKey>;
+  getMasterNullifierPublicKey(accountOrNpkMHash: AztecAddress | Fr): Promise<PublicKey>;
 
   /**
    * Gets the master incoming viewing public key for a given account.
@@ -70,7 +70,7 @@ export interface KeyStore {
    * @param app - The application address to retrieve the nullifier secret key for.
    * @returns A Promise that resolves to the application nullifier secret key.
    */
-  getAppNullifierSecretKey(args: { account: AztecAddress } | { npkMHash: Fr }, app: AztecAddress): Promise<Fr>;
+  getAppNullifierSecretKey(accountOrNpkMHash: AztecAddress | Fr, app: AztecAddress): Promise<Fr>;
 
   /**
    * Retrieves application incoming viewing secret key.

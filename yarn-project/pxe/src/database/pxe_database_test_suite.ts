@@ -215,7 +215,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       it('stores and retrieves addresses', async () => {
         const address = CompleteAddress.random();
         await expect(database.addCompleteAddress(address)).resolves.toBe(true);
-        await expect(database.getCompleteAddress({ account: address.address })).resolves.toEqual(address);
+        await expect(database.getCompleteAddress(address.address)).resolves.toEqual(address);
       });
 
       it('silently ignores an address it already knows about', async () => {
@@ -251,7 +251,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
 
       it("returns undefined if it doesn't have an address", async () => {
-        expect(await database.getCompleteAddress({ account: CompleteAddress.random().address })).toBeUndefined();
+        expect(await database.getCompleteAddress(CompleteAddress.random().address)).toBeUndefined();
       });
     });
 

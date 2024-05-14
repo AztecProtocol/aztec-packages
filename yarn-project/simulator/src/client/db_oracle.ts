@@ -45,11 +45,11 @@ export interface DBOracle extends CommitmentsDB {
 
   /**
    * Retrieve the complete address associated to a given address or master nullifier public key hash.
-   * @param args - contains account - the address or npkMHash - the master nullifier public key hash
+   * @param accountOrNpkMHash - account - the address or npkMHash - the master nullifier public key hash
    * @returns A complete address associated with the input address or master nullifier public key hash
    * @throws An error if the account is not registered in the database.
    */
-  getCompleteAddress(args: { account: AztecAddress } | { npkMHash: Fr }): Promise<CompleteAddress>;
+  getCompleteAddress(accountOrNpkMHash: AztecAddress | Fr): Promise<CompleteAddress>;
 
   /**
    * Retrieve the auth witness for a given message hash.
@@ -67,12 +67,12 @@ export interface DBOracle extends CommitmentsDB {
 
   /**
    * Retrieve nullifier keys associated with a (specific account or master nullifier key hash) and app/contract address.
-   * @param args - contains account - the address or npkMHash - the master nullifier public key hash
+   * @param accountOrNpkMHash - account - the address or npkMHash - the master nullifier public key hash
    * @returns A Promise that resolves to nullifier keys of a (requested account or master nullifier key hash) and contract.
    * @throws An error if the nullifier keys associated to account or master nullifier public key hash is not registered in the key store.
    */
   getNullifierKeys(
-    args: { account: AztecAddress } | { npkMHash: Fr },
+    accountOrNpkMHash: AztecAddress | Fr,
     contractAddress: AztecAddress,
   ): Promise<NullifierKeys>;
 

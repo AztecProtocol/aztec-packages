@@ -43,9 +43,7 @@ export class Oracle {
   }
 
   async getNullifierKeys([accountAddress]: ACVMField[]): Promise<ACVMField[]> {
-    const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeys({
-      account: fromACVMField(accountAddress),
-    });
+    const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeys(fromACVMField(accountAddress));
     return [
       toACVMField(masterNullifierPublicKey.x),
       toACVMField(masterNullifierPublicKey.y),
@@ -55,9 +53,7 @@ export class Oracle {
 
   // Keeping this oracle separate from above because I don't want an implicit overload in noir code
   async getNullifierKeysWithNpkMHash([masterNullifierPublicKeyHash]: ACVMField[]): Promise<ACVMField[]> {
-    const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeys({
-      npkMHash: fromACVMField(masterNullifierPublicKeyHash),
-    });
+    const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeys(fromACVMField(masterNullifierPublicKeyHash));
 
     return [
       toACVMField(masterNullifierPublicKey.x),
@@ -179,9 +175,7 @@ export class Oracle {
 
   async getPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<ACVMField[]> {
     const parsedAddress = AztecAddress.fromField(fromACVMField(address));
-    const { publicKeys, partialAddress } = await this.typedOracle.getCompleteAddress({
-      account: parsedAddress,
-    });
+    const { publicKeys, partialAddress } = await this.typedOracle.getCompleteAddress(parsedAddress);
 
     return [...publicKeys.toFields(), partialAddress].map(toACVMField);
   }
@@ -189,9 +183,7 @@ export class Oracle {
   // Keeping this oracle separate from above because I don't want an implicit overload in noir code
   async getPublicKeysAndPartialAddressWithNpkMHash([masterNullifierPublicKeyHash]: ACVMField[]) {
     const parsedNpkMHash = fromACVMField(masterNullifierPublicKeyHash);
-    const { publicKeys, partialAddress } = await this.typedOracle.getCompleteAddress({
-      npkMHash: parsedNpkMHash,
-    });
+    const { publicKeys, partialAddress } = await this.typedOracle.getCompleteAddress(parsedNpkMHash);
 
     return [...publicKeys.toFields(), partialAddress].map(toACVMField);
   }
