@@ -33,9 +33,11 @@ pub trait BlackBoxFunctionSolver {
         &self,
         input1_x: &FieldElement,
         input1_y: &FieldElement,
+        input1_infinite: &FieldElement,
         input2_x: &FieldElement,
         input2_y: &FieldElement,
-    ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError>;
+        input2_infinite: &FieldElement,
+    ) -> Result<(FieldElement, FieldElement, FieldElement), BlackBoxResolutionError>;
     fn poseidon2_permutation(
         &self,
         _inputs: &[FieldElement],
@@ -89,9 +91,11 @@ impl BlackBoxFunctionSolver for StubbedBlackBoxSolver {
         &self,
         _input1_x: &FieldElement,
         _input1_y: &FieldElement,
+        _input1_infinite: &FieldElement,
         _input2_x: &FieldElement,
         _input2_y: &FieldElement,
-    ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
+        _input2_infinite: &FieldElement,
+    ) -> Result<(FieldElement, FieldElement, FieldElement), BlackBoxResolutionError> {
         Err(Self::fail(BlackBoxFunc::EmbeddedCurveAdd))
     }
     fn poseidon2_permutation(

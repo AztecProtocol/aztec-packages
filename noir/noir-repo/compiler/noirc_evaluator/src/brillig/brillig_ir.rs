@@ -179,9 +179,11 @@ pub(crate) mod tests {
             &self,
             _input1_x: &FieldElement,
             _input1_y: &FieldElement,
+            _input1_infinite: &FieldElement,
             _input2_x: &FieldElement,
             _input2_y: &FieldElement,
-        ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
+            _input2_infinite: &FieldElement,
+        ) -> Result<(FieldElement, FieldElement, FieldElement), BlackBoxResolutionError> {
             panic!("Path not trodden by this test")
         }
 

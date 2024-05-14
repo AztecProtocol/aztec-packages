@@ -166,13 +166,33 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
             memory.write_slice(memory.read_ref(result.pointer), &[x.into(), y.into()]);
             Ok(())
         }
-        BlackBoxOp::EmbeddedCurveAdd { input1_x, input1_y, input2_x, input2_y, result } => {
+        BlackBoxOp::EmbeddedCurveAdd {
+            input1_x,
+            input1_y,
+            input2_x,
+            input2_y,
+            result,
+            input1_infinite,
+            input2_infinite,
+        } => {
             let input1_x = memory.read(*input1_x).try_into().unwrap();
             let input1_y = memory.read(*input1_y).try_into().unwrap();
+            let input1_infinite: bool = memory.read(*input1_infinite).try_into().unwrap();
             let input2_x = memory.read(*input2_x).try_into().unwrap();
             let input2_y = memory.read(*input2_y).try_into().unwrap();
-            let (x, y) = solver.ec_add(&input1_x, &input1_y, &input2_x, &input2_y)?;
-            memory.write_slice(memory.read_ref(result.pointer), &[x.into(), y.into()]);
+            let input2_infinite: bool = memory.read(*input2_infinite).try_into().unwrap();
+            let (x, y, infinite) = solver.ec_add(
+                &input1_x,
+                &input1_y,
+                &input1_infinite.into(),
+                &input2_x,
+                &input2_y,
+                &input2_infinite.into(),
+            )?;
+            memory.write_slice(
+                memory.read_ref(result.pointer),
+                &[x.into(), y.into(), infinite.into()],
+            );
             Ok(())
         }
         BlackBoxOp::PedersenCommitment { inputs, domain_separator, output } => {

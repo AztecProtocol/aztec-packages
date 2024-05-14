@@ -22,7 +22,7 @@ pub fn multi_scalar_mul(
     let mut output_point = grumpkin::SWAffine::zero();
 
     for i in (0..points.len()).step_by(2) {
-        let point = create_point(points[i], points[i + 1])
+        let point = create_point(points[i], points[i + 1], false)
             .map_err(|e| BlackBoxResolutionError::Failed(BlackBoxFunc::MultiScalarMul, e))?;
 
         let scalar_low: u128 = scalars[i].try_into_u128().ok_or_else(|| {
@@ -66,18 +66,22 @@ pub fn multi_scalar_mul(
 }
 
 pub fn embedded_curve_add(
-    input1_x: FieldElement,
-    input1_y: FieldElement,
-    input2_x: FieldElement,
-    input2_y: FieldElement,
-) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
-    let point1 = create_point(input1_x, input1_y)
+    input1: [FieldElement;3],
+    input2: [FieldElement;3],
+) -> Result<(FieldElement, FieldElement, FieldElement), BlackBoxResolutionError> {
+    let point1 = create_point(input1[0], input1[1], input1[2] == FieldElement::one())
         .map_err(|e| BlackBoxResolutionError::Failed(BlackBoxFunc::EmbeddedCurveAdd, e))?;
-    let point2 = create_point(input2_x, input2_y)
+    let point2 = create_point(input2[0], input2[1], input2[2] == FieldElement::one())
         .map_err(|e| BlackBoxResolutionError::Failed(BlackBoxFunc::EmbeddedCurveAdd, e))?;
     let res = grumpkin::SWAffine::from(point1 + point2);
     if let Some((res_x, res_y)) = res.xy() {
-        Ok((FieldElement::from_repr(*res_x), FieldElement::from_repr(*res_y)))
+        Ok((
+            FieldElement::from_repr(*res_x),
+            FieldElement::from_repr(*res_y),
+            FieldElement::from(res.is_zero() as u128),
+        ))
+    } else if res.is_zero() {
+        Ok((FieldElement::from(0_u128), FieldElement::from(0_u128), FieldElement::from(1_u128)))
     } else {
         Err(BlackBoxResolutionError::Failed(
             BlackBoxFunc::EmbeddedCurveAdd,
@@ -86,7 +90,14 @@ pub fn embedded_curve_add(
     }
 }
 
-fn create_point(x: FieldElement, y: FieldElement) -> Result<grumpkin::SWAffine, String> {
+fn create_point(
+    x: FieldElement,
+    y: FieldElement,
+    is_infinite: bool,
+) -> Result<grumpkin::SWAffine, String> {
+    if is_infinite {
+        return Ok(grumpkin::SWAffine::zero());
+    }
     let point = grumpkin::SWAffine::new_unchecked(x.into_repr(), y.into_repr());
     if !point.is_on_curve() {
         return Err(format!("Point ({}, {}) is not on curve", x.to_hex(), y.to_hex()));
@@ -215,7 +226,7 @@ mod tests {
         let x = FieldElement::from(1u128);
         let y = FieldElement::from(2u128);
 
-        let res = embedded_curve_add(x, y, x, y);
+        let res = embedded_curve_add([x, y, FieldElement::from(0u128)], [x, y , FieldElement::from(0u128)]);
 
         assert_eq!(
             res,
@@ -232,7 +243,7 @@ mod tests {
         let scalars = [FieldElement::from(2u128), FieldElement::zero()];
 
         let msm_res = multi_scalar_mul(&points, &scalars)?;
-        let add_res = embedded_curve_add(points[0], points[1], points[0], points[1])?;
+        let add_res = embedded_curve_add([points[0], points[1], FieldElement::from(0u128)],[points[0], points[1], FieldElement::from(0u128)])?;
 
         assert_eq!(msm_res.0, add_res.0);
         assert_eq!(msm_res.1, add_res.1);

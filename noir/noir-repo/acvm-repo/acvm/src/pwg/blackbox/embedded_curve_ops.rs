@@ -34,20 +34,21 @@ pub(super) fn multi_scalar_mul(
 pub(super) fn embedded_curve_add(
     backend: &impl BlackBoxFunctionSolver,
     initial_witness: &mut WitnessMap,
-    input1_x: FunctionInput,
-    input1_y: FunctionInput,
-    input2_x: FunctionInput,
-    input2_y: FunctionInput,
-    outputs: (Witness, Witness),
+    input1: [FunctionInput; 3],
+    input2: [FunctionInput; 3],
+    outputs: (Witness, Witness, Witness),
 ) -> Result<(), OpcodeResolutionError> {
-    let input1_x = witness_to_value(initial_witness, input1_x.witness)?;
-    let input1_y = witness_to_value(initial_witness, input1_y.witness)?;
-    let input2_x = witness_to_value(initial_witness, input2_x.witness)?;
-    let input2_y = witness_to_value(initial_witness, input2_y.witness)?;
-    let (res_x, res_y) = backend.ec_add(input1_x, input1_y, input2_x, input2_y)?;
+    let input1_x = witness_to_value(initial_witness, input1[0].witness)?;
+    let input1_y = witness_to_value(initial_witness, input1[1].witness)?;
+    let input1_infinite = witness_to_value(initial_witness, input1[2].witness)?;
+    let input2_x = witness_to_value(initial_witness, input2[0].witness)?;
+    let input2_y = witness_to_value(initial_witness, input2[1].witness)?;
+    let input2_infinite = witness_to_value(initial_witness, input2[2].witness)?;
+    let (res_x, res_y, res_infinite) =
+        backend.ec_add(input1_x, input1_y, input1_infinite, input2_x, input2_y, input2_infinite)?;
 
     insert_value(&outputs.0, res_x, initial_witness)?;
     insert_value(&outputs.1, res_y, initial_witness)?;
-
+    insert_value(&outputs.2, res_infinite, initial_witness)?;
     Ok(())
 }

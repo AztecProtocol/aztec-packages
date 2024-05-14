@@ -92,11 +92,9 @@ pub enum BlackBoxFuncCall {
         outputs: (Witness, Witness),
     },
     EmbeddedCurveAdd {
-        input1_x: FunctionInput,
-        input1_y: FunctionInput,
-        input2_x: FunctionInput,
-        input2_y: FunctionInput,
-        outputs: (Witness, Witness),
+        input1: Box<[FunctionInput; 3]>,
+        input2: Box<[FunctionInput; 3]>,
+        outputs: (Witness, Witness, Witness),
     },
     Keccak256 {
         inputs: Vec<FunctionInput>,
@@ -246,8 +244,8 @@ impl BlackBoxFuncCall {
                 inputs
             }
             BlackBoxFuncCall::EmbeddedCurveAdd {
-                input1_x, input1_y, input2_x, input2_y, ..
-            } => vec![*input1_x, *input1_y, *input2_x, *input2_y],
+                input1, input2, ..
+            } => vec![input1[0], input1[1], input2[0], input2[1]],
             BlackBoxFuncCall::RANGE { input } => vec![*input],
             BlackBoxFuncCall::SchnorrVerify {
                 public_key_x,
@@ -344,8 +342,10 @@ impl BlackBoxFuncCall {
             | BlackBoxFuncCall::PedersenHash { output, .. }
             | BlackBoxFuncCall::EcdsaSecp256r1 { output, .. } => vec![*output],
             BlackBoxFuncCall::MultiScalarMul { outputs, .. }
-            | BlackBoxFuncCall::PedersenCommitment { outputs, .. }
-            | BlackBoxFuncCall::EmbeddedCurveAdd { outputs, .. } => vec![outputs.0, outputs.1],
+            | BlackBoxFuncCall::PedersenCommitment { outputs, .. } => vec![outputs.0, outputs.1],
+            BlackBoxFuncCall::EmbeddedCurveAdd { outputs, .. } => {
+                vec![outputs.0, outputs.1, outputs.2]
+            }
             BlackBoxFuncCall::RANGE { .. }
             | BlackBoxFuncCall::RecursiveAggregation { .. }
             | BlackBoxFuncCall::BigIntFromLeBytes { .. }

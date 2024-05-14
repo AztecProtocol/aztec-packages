@@ -4,6 +4,7 @@ use crate::ops::arith::{Add, Sub, Neg};
 struct EmbeddedCurvePoint {
     x: Field,
     y: Field,
+    is_infinite: bool
 }
 
 impl EmbeddedCurvePoint {
@@ -28,7 +29,8 @@ impl Neg for EmbeddedCurvePoint {
     fn neg(self) -> EmbeddedCurvePoint { 
         EmbeddedCurvePoint {
             x: self.x,
-            y: -self.y
+            y: -self.y,
+            is_infinite: self.is_infinite
         }
     }
 }
@@ -42,7 +44,7 @@ impl Neg for EmbeddedCurvePoint {
 #[foreign(multi_scalar_mul)]
 // docs:start:multi_scalar_mul
 pub fn multi_scalar_mul<N>(
-    points: [Field; N], // points represented as x and y coordinates [x1, y1, x2, y2, ...]
+    points: [Field; N], // points represented as x and y coordinates [x1, y1, x2, y2,...]
     scalars: [Field; N] // scalars represented as low and high limbs [low1, high1, low2, high2, ...]
 ) -> [Field; 2]
 // docs:end:multi_scalar_mul
@@ -72,8 +74,8 @@ fn embedded_curve_add(
     let point_array = embedded_curve_add_array_return(point1, point2);
     let x = point_array[0];
     let y = point_array[1];
-    EmbeddedCurvePoint { x, y }
+    EmbeddedCurvePoint { x, y, is_infinite: point_array[2] == 1 }
 }
 
 #[foreign(embedded_curve_add)]
-fn embedded_curve_add_array_return(_point1: EmbeddedCurvePoint, _point2: EmbeddedCurvePoint) -> [Field; 2] {}
+fn embedded_curve_add_array_return(_point1: EmbeddedCurvePoint, _point2: EmbeddedCurvePoint) -> [Field; 3] {}

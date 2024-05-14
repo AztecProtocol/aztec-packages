@@ -101,10 +101,15 @@ impl BlackBoxFunctionSolver for Bn254BlackBoxSolver {
         &self,
         input1_x: &FieldElement,
         input1_y: &FieldElement,
+        input1_infinite: &FieldElement,
         input2_x: &FieldElement,
         input2_y: &FieldElement,
-    ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
-        embedded_curve_add(*input1_x, *input1_y, *input2_x, *input2_y)
+        input2_infinite: &FieldElement,
+    ) -> Result<(FieldElement, FieldElement, FieldElement), BlackBoxResolutionError> {
+        embedded_curve_add(
+            [*input1_x, *input1_y, *input1_infinite],
+            [*input2_x, *input2_y, *input2_infinite],
+        )
     }
 
     fn poseidon2_permutation(

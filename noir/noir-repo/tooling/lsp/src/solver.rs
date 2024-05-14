@@ -44,10 +44,15 @@ impl BlackBoxFunctionSolver for WrapperSolver {
         &self,
         input1_x: &acvm::FieldElement,
         input1_y: &acvm::FieldElement,
+        input1_infinite: &acvm::FieldElement,
         input2_x: &acvm::FieldElement,
         input2_y: &acvm::FieldElement,
-    ) -> Result<(acvm::FieldElement, acvm::FieldElement), acvm::BlackBoxResolutionError> {
-        self.0.ec_add(input1_x, input1_y, input2_x, input2_y)
+        input2_infinite: &acvm::FieldElement,
+    ) -> Result<
+        (acvm::FieldElement, acvm::FieldElement, acvm::FieldElement),
+        acvm::BlackBoxResolutionError,
+    > {
+        self.0.ec_add(input1_x, input1_y, input1_infinite, input2_x, input2_y, input2_infinite)
     }
 
     fn poseidon2_permutation(
