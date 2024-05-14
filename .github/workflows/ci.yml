@@ -134,7 +134,12 @@ jobs:
       - name: ACIR Proving Bench
         working-directory: ./noir/
         timeout-minutes: 15
-        run: earthly-ci -P --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} --no-output +barretenberg-acir-benches-bb
+        run: |
+         ../scripts/earthly-ci -P \
+              --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+              --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+              --no-output \
+              +barretenberg-acir-benches-bb
 
   bench-summary:
     needs: bench-e2e
