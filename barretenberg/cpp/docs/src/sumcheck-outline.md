@@ -12,8 +12,8 @@ The implementation consists of several components.
 	Although the contribution in field operations is almost negligible, it adds non-trivial expenses during the opening procedure.
 
 - [Masking Evaluations of Multilinear Witnesses:](#MaskingEvalsOfWitnesses) 
-	At the stage of proving their evaluations at the challenge point, the witness polynomials fed to Sumcheck must not reveal any private information. 
-    We use a modification of Construction 3 described in <a href=" https://eprint.iacr.org/2019/317">Libra</a>  allowing the prover to open a new multilinear polynomial derived from the witnesses by adding a product of a random scalar and a public quadratic polynomial in the same number of variables.  
+	At the stage of proving their evaluations at the challenge point, the multilinear witness polynomials fed to Sumcheck must not reveal any private information. 
+    We use a modification of Construction 3 described in <a href=" https://eprint.iacr.org/2019/317">Libra</a>  allowing the prover to open a new multilinear polynomial in \f$d\f$ variables, where \f$2^d\f$ is the circuit size, which is derived from the witnesses by adding a product of a random scalar and a public quadratic polynomial in \f$d\f$ variables
 
 - [Total Costs:](#ZKCosts) The effect of adding Libra technique and masking evaluations of multilinear witnesses is assessed, and the theoretical upper bound on prover's work is compared to the implemenation costs. 
 
@@ -32,6 +32,7 @@ to establish that \f$ F(P_1(\vec \ell),\ldots, P_N(\vec \ell) ) = 0 \f$, i.e. th
 point \f$\vec \ell \{0,1\}^d\f$.
 
  In the implementation, the relation polynomial \f$ F \f$ is specified by the Flavor.
+ \todo Docs for Flavors and Relations. 
 
  ### Main Parameters {#MainParameters}
 
@@ -40,18 +41,22 @@ The following constants are used in this exposition.
  |     Notation      |           | \f$ \sim \f$   Upper Bound |
  --------------------|---------------|-----------|
  | \f$ d \f$         | \ref multivariate_d "number of variables" in multilinear  polynomials \f$ P_1,\ldots, P_N\f$        | \f$ 20 \f$  |
- | \f$ N \f$         | number of Prover Polynomials specified by <Flavor ::NUM_ALL_ENTITIES>                               | \f$ 60 \f$  | 
- | \f$ N_w \f$  	 | number of Witness Polynomials specified by <Flavor ::NUM_WITNESS_ENTITIES>                          | \f$ 17 \f$  | 
+ | \f$ N \f$         | number of Prover Polynomials specified by Flavor's parameter \p NUM_ALL_ENTITIES                    | \f$ 60 \f$  | 
+ | \f$ N_w \f$  	 | number of Witness Polynomials specified by Flavor's parameter \p NUM_WITNESS_ENTITIES               | \f$ 17 \f$  | 
  | \f$ n \f$         | \ref multivariate_n "size of the hypercube", i.e. \f$ 2^d\f$.                                       | \f$ 2^{20} \f$ |
- | \f$ D \f$         | \ref bb::SumcheckProverRound< Flavor >::BATCHED_RELATION_PARTIAL_LENGTH "maximum partial degree of" \f$\tilde{F}\f$ | \f$ 12 \f$ |
- | \f$ D_w\f$        | maximum witness degree of \f$ F \f$ | \f$ 5 \f$ |
+ | \f$ D \f$         | \ref bb::SumcheckProverRound< Flavor >::BATCHED_RELATION_PARTIAL_LENGTH "total degree of" \f$\tilde{F}\f$ as a polynomial in \f$P_1,\ldots, P_N\f$ <b> incremented by </b> 1 | \f$ 12 \f$ |
+ | \f$ D_w\f$        | [maximum witness degree](#MaximumWitnessDegree) of \f$ F \f$ | \f$ 5 \f$ |
 
-#### Maximum Witness Degree 
+\todo Compute precise upper bounds.
+
+#### Maximum Witness Degree {#MaximumWitnessDegree}
 The significance of this parameter becomes apparent in Section [Masking Evaluations of Multilinear Witnesses](#MaskingEvalsOfWitnesses). It is formally defined as follows 
 \f{align}{
 	D_w = \deg_{P_1, \ldots, P_{N_w}} F(P_1,\ldots, P_{N})
 \f}
-where by \f$ \deg_{P_1, \ldots, P_{N_w}} \f$ we mean the <b> total degree </b> of relation polynomial \f$ F \f$ in the first \f$N_w\f$ variables. 
+where by \f$ \deg_{P_1, \ldots, P_{N_w}} \f$ we mean the <b> total degree </b> of the relation polynomial \f$ F \f$ in the witness polynomials \f$ P_1,\ldots, P_{N_w}\f$ considered as variables. 
+
+For example, given a polynomial \f$P_1 +  P_{N_w+1} \cdot P_{N_w + 2} \cdot P_{1}^2 \cdot P_{2}\f$ in prover polynomials, where \f$N_w>2\f$, its witness degree \f$ D_w \f$ is \f$3\f$, whereas its total degree \f$D\f$ is equal to \f$ 6 \f$.  
 
 ## Sumcheck Prover Algorithm {#NonZKSumcheckProver}
 - - -
@@ -69,17 +74,18 @@ Sumcheck Prover algorithm takes a reference to an object of this class.
 ####  Compute Round Univariates and add them to Transcript {#ComputeRoundUnivariates}
 The prover evaluates the round univariate 
 \f{align}{
-	\tilde{S}^i = \sum_{\vec \ell \in \{0,1\}^{d-1-i}} \tilde{F}\left(u_0,\ldots, u_{i-1}, X_i,\vec \ell\right)
+	\tilde{S}^i = \sum_{\vec \ell \in \{0,1\}^{d-1-i}} \tilde{F}\left(P_1(u_0,\ldots, u_{i-1}, X_i,\vec \ell), \ldots, P_N(u_0,\ldots, u_{i-1}, X_i,\vec \ell)\right)
 \f} 
-over the domain \f$ 0,\ldots, D \f$. 
-The evaluations are obtained using the method \ref bb::SumcheckProverRound< Flavor >::compute_univariate "compute univariate", whose implementation consists of the following sub-methods:
+over the domain \f$ 0,\ldots, D \f$. In fact, it is more efficient to perform this computation sub-relation-wise, because the degrees of individual subrelations as polynomials in \f$ P_1,\ldots, P_N\f$ are generally smaller than \f$D\f$ defined in [Main Parameters](#MainParameters). Taking this into account, for a given subrelation of \f$F\f$, we perform expensive subrelation evaluations at points \f$(u_0,\ldots, u_{i-1}, k, \vec \ell)\f$ for \f$\ell \in \{0,1\}^{d-1-i} \f$ and \f$k\f$ from \f$0\f$ <b>only up</b> to the degree of the subrelation as a polynomial in \f$P_1,\ldots,P_N\f$ incremented by \f$1\f$. 
+
+At the implementation level, the evaluations of \f$\tilde{S}^i\f$ are obtained using the method \ref bb::SumcheckProverRound< Flavor >::compute_univariate "compute univariate" consisting of the following sub-methods:
 
  - \ref bb::SumcheckProverRound::extend_edges "Extend evaluations" of linear univariate
-polynomials \f$ P_j(u_0,\ldots, u_{i-1}, X_i, \vec \ell) \f$ to the domain \f$0,\ldots, D\f$.
+polynomials \f$ P_j(u_0,\ldots, u_{i-1}, X_i, \vec \ell) \f$ to the domain \f$0,\ldots, D\f$. It is a cheap operation applied only once for every \f$\vec \ell \in \{0,1\}^d\f$ which allows to compute subrelations of \f$ F \f$ at such arguments. 
  - \ref bb::SumcheckProverRound::accumulate_relation_univariates "Accumulate per-relation contributions" of the extended
-polynomials to \f$ T^i(X_i)\f$
+polynomials to auxiliary univariates \f$ T^i(X_i)\f$ defined in \ref SumcheckProverContributionsofPow "this section"
  - \ref bb::SumcheckProverRound::extend_and_batch_univariates "Extend and batch the subrelation contributions"
-multiplying by the constants \f$c_i\f$ and the evaluations of \f$ ( (1−X_i) + X_i\cdot \beta_i ) \f$.
+multiplying by the constants \f$c_i\f$ and the evaluations of \f$ ( (1−X_i) + X_i\cdot \beta_i ) \f$ stemming from \f$F\f$ being multiplied by \f$pow_{\beta}\f$.
 
 #### Get Round Challenge {#GetRoundChallenge}
 
@@ -115,8 +121,7 @@ The verifier algorithm is implemented in the \ref bb::SumcheckVerifier< Flavor >
 The verifier's work reduces to the following. 
 
 For \f$ i = 0,\ldots, d-1\f$:
-  -  Using \ref bb::BaseTranscript::receive_from_prover "receive_from_prover" method from BaseTranscript Flavor,  
-  extract the evaluations of Round Univariate \f$ \tilde{S}^i(0),\ldots, \tilde{S}^i(D) \f$ from the transcript.
+  -  Using \ref bb::BaseTranscript::receive_from_prover "receive_from_prover" method from \ref bb::BaseTranscript< TranscriptParams > "Base Transcript Class", extract the evaluations of Round Univariate \f$ \tilde{S}^i(0),\ldots, \tilde{S}^i(D) \f$ from the transcript.
   - \ref bb::SumcheckVerifierRound< Flavor >::check_sum "Check target sum": \f$\quad \sigma_{
  i } \stackrel{?}{=}  \tilde{S}^i(0) + \tilde{S}^i(1)  \f$.
   - \ref bb::BaseTranscript::get_challenge "Get the next challenge"  \f$u_i\f$ by hashing the transcript.
@@ -148,7 +153,7 @@ As explained in Section 13.3 of <a href="https://people.cs.georgetown.edu/jthale
 - Evaluations of Round Univariates \f$ \tilde{S}^i\f$
 - Evaluations of witness polynomials \f$P_1,\ldots, P_{N_w}\f$ that the prover sends and proves at the last step of Sumcheck.
 
-These issues are resolved by enhancing Sumcheck with a technique that randomizes  \f$\tilde{D} \geq D \f$ evaluations of \f$\tilde{S}^{i} \f$ and a technique that randomizes evaluations of witness polynomials \f$ P_1,\ldots, P_{N_w} \f$ at a single challenge point \f$u_0,\ldots, u_{d-1}\f$.
+These issues are resolved by enhancing Sumcheck with a technique that randomizes any given number of evaluations of \f$\tilde{S}^{i} \f$ and a technique that randomizes evaluations of witness polynomials \f$ P_1,\ldots, P_{N_w} \f$ at the challenge point \f$(u_0,\ldots, u_{d-1})\f$ obtained in Sumcheck.
 
 -------
 
@@ -158,27 +163,40 @@ Masking Round Univariates with Libra {#LibraTechnique}
 
 ## Main Idea of Libra {#LibraMainIdea}
 
-Let \f$\tilde{D}\f$ be the number of evaluations of Sumcheck Round univariates that the prover aims to hide in each round.
-To prevent the witness information leakage through the evaluations of Round Univariates, the prover masks them using a <b>low-degree</b> multivariate polynomial
+To prevent the witness information leakage through the Round Univariates determined by their evaluations over the domain  \f$ \{0,\ldots, \tilde{D}\}\f$, where \f$\tilde{D} \geq D\f$, the Sumcheck Prover masks them using a <b>low-degree</b> multivariate polynomial
 \f{align}{
 	G \gets \sum_{i=0}^{d-1} g_{i}(X_i),
 \f}
 where
 \f{align}{
-	g_{i} = \sum_{j=0}^{\tilde{D}} g_{i,j} L_{j,\{0,\ldots, D\}}(X_i) \text{ for } (g_{i,j}) \gets_{\$} \mathbb{F}^{d(1+\tilde{D})}
+	g_{i} = \sum_{j=0}^{\tilde{D}} g_{i,j} \cdot L_{j,\{0,\ldots, D\}}(X_i) \quad  \text{for } (g_{i,j}) \gets_{\$} \mathbb{F}^{d\cdot (\tilde{D}+1)}
 \f}
-and \f$L_{j, \{0,\ldots, \tilde{D}\}}\f$ is the \f$j\f$th univariate Lagrange polynomial for the domain \f$\{0,\ldots, \tilde{D}\}\f$. 
+and \f$L_{j, \{0,\ldots, \tilde{D}\}}\f$ is the \f$j\f$th univariate Lagrange polynomial for the domain \f$\{0,\ldots, \tilde{D}\}\f$. Recall that \f$\deg_{X_i} \left(L_{j, \{0,\ldots, \tilde{D}\}} (X_i)\right) = \tilde{D}\f$.
 
 Set 
 \f{align}{
 	\gamma \gets \sum_{\vec \ell \in \{0,1\}^{d}} G(\vec \ell)
 \f}
 as the value that the honest prover sends to the verifier, and let \f$\rho\f$ be the verifier's challenge. 
-Then instead of proving that \f$\sum F(\vec \ell) =\sigma\f$ as in  [Non-ZK Sumcheck](\ref NonZKSumcheck), we run the protocol that establishes that 
+Then instead of proving that \f$\sum \tilde{F}\left(\vec \ell\right) =\sigma\f$ as in  [Non-ZK Sumcheck](\ref NonZKSumcheck), we run the protocol that establishes that 
 \f{align}{
-	\sum_{\vec \ell \in\{0,1\}^{d}} \left(F(P_1(\vec \ell), \ldots, P_N(\vec \ell)) + \rho \cdot G(\vec \ell)\right) = \sigma + \rho \cdot \gamma. 
+	\sum_{\vec \ell \in\{0,1\}^{d}} \left(\tilde{F}(P_1(\vec \ell), \ldots, P_N(\vec \ell)) + \rho \cdot G(\vec \ell)\right) = \sigma + \rho \cdot \gamma. 
 \f}
+### Properties of Libra Masking Polynomial {#PropertiesOfTheMaskingPolynomial}
 
+Observe that \f$ G \f$ has several important properties
+- For \f$ i = 0,\ldots, d-1\f$, the partial degrees \f$ \deg_{X_i} G = \tilde{D}\f$.
+- The coefficients of \f$ G \f$ are independent and uniformly distributed. 
+- Evaluations of \f$ G \f$ at \f$ \vec \ell \in \{0,1\}^d\f$ and related Sumcheck Round Univariates are efficiently computable.
+
+The first two properties imply that the evaluations over the domain \f$ \{0,\ldots, \tilde{D}\}\f$ defining <b>Libra Round Univariates </b>, i.e.  round univariates for \f$ G \f$,  are independent and uniformly distributed. 
+Moreover, since Round Univariates for \f$ \tilde{F} + \rho\cdot G\f$ are the sums of respective unvariates, the second property and the condition \f$ \tilde{D}\geq D \f$ ensure that the evaluations \f$ \tilde{S}^i(0),\ldots,\tilde{S}^i(\tilde D)\f$ defined in [Compute Round Univariates](#ComputeRoundUnivariates) are hidden by random scalars obtained as evaluations of Libra Round Univariates, which are described explicitly [below](#LibraRoundUnivariates).
+
+### Example {#LibraPolynomialExample}
+If in every round of Sumcheck, the prover aims to hide only \f$2\f$ evaluations the Round Univariate, i.e. if \f$\tilde{D} = 1\f$, the masking polynomial \f$ G \f$ has the following form 
+\f{align}{
+	G = \left( g_{0,0} (1- X_0) + g_{0,1} X_0 \right) + \ldots +  \left( g_{d-1,0} (1- X_{d-1}) + g_{d-1,1} X_{d-1} \right).
+\f}  
 ## Implementation {#LibraImplementation}
 
 ### Committing to Libra Masking Polynomial {#LibraCommitments}
@@ -188,10 +206,11 @@ To commit to multivariate polynomial \f$ G \f$, the prover commits to the tuple 
 ### Computing Target Sum {#LibraTargetSum} 
 Since \f$G\f$ is a polynomial of a very special form, the computation of \f$\gamma\f$ reduces to the following
 \f{align}{
-	\sum_{\vec \ell \in \{0,1\}^{d}} G(\vec \ell) = \sum_{i=0}^{d-1} \sum_{\vec \ell \in \{0,1\}^{d}} g_{i}(\vec \ell) = 2^{d-1} \sum_{i = 0}^{d-1} \left( g_i(0) + g_i(1) \right).
+	\sum_{\vec \ell \in \{0,1\}^{d}} G(\vec \ell) = \sum_{i=0}^{d-1} \sum_{\vec \ell \in \{0,1\}^{d}} g_{i}(\ell_i) = 2^{d-1} \sum_{i = 0}^{d-1} \left( g_i(0) + g_i(1) \right),
 \f}
+since the evaluations of \f$ g_i \f$ at \f$\vec \ell \in \{0,1\}^{d}\f$ depend only on \f$ \ell_i \f$, and therefore, there are \f$2^{d-1}\f$ summands \f$ g_i(0) \f$ corresponding to the points \f$\vec \ell\f$ with \f$\ell_i=0\f$ and \f$2^{d-1}\f$ summands \f$ g_i(1) \f$ corresponding to \f$\vec \ell\f$ with \f$\ell_i=1\f$. 
 
-We set 
+We set
 \f{align}{
 	\texttt{libra_total_sum} \gets 2^{d-1} \sum_{i = 0}^{d-1} \left( g_i(0) + g_i(1) \right)
 \f}
@@ -429,7 +448,7 @@ The total costs of ZK Sumcheck are obtained from [Libra Costs](#LibraCosts) and 
 ## Theoretic Field Operations vs. Implementation
 
 The table above sets a reasonable upper bound on the amount of prover's field operations. 
-However, in the implementation, the relation \f$ F \f$ is realized as a vector of subrelations, which allows us to decrease the costs of computing the round univariates. Namely, for a given subrelation \f$ F_j \f$, its maximum partial degree \f$D_j\f$ and  its witness degree \f$D_{w,j} \f$ are generally less than \f$ D\f$ and  \f$ D_w \f$, respectively. 
+However, in the implementation, the relation \f$ F \f$ is computed as a vector of its subrelations, which allows us to decrease the costs of computing the round univariates. Namely, for a given subrelation \f$ F_j \f$, its maximum partial degree \f$D_j\f$ and  its witness degree \f$D_{w,j} \f$ are generally less than \f$ D\f$ and  \f$ D_w \f$, respectively. 
 Therefore, we compute \f$ F_j \f$'s contribution to Sumcheck Round Univariates by evaluating the univariate polynomial
 \f{align}{
 	\sum_{\vec \ell\in \{0,1\}^{d-1-i}} pow_{\beta}(u_0,\ldots, u_{i-1}, X_i, \vec \ell) \cdot F_j(u_0,\ldots, u_{i-1}, X_i,\vec \ell)

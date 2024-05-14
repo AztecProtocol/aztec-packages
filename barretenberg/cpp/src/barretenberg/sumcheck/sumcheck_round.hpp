@@ -48,12 +48,14 @@ template <typename Flavor> class SumcheckProverRound {
      */
     static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
     /**
-     * @brief The partial algebraic degree of the Sumcheck relation \f$ F \f$.
+     * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
+     * \f$P_1,\ldots, P_N\f$.
      */
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::MAX_PARTIAL_RELATION_LENGTH;
     /**
-     * @brief The partial algebraic degree of the relation  \f$\tilde F = pow_{\beta} \cdot F \f$, i.e. \ref
-     * MAX_PARTIAL_RELATION_LENGTH "MAX_PARTIAL_RELATION_LENGTH + 1".
+     * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
+     * \f$P_1,\ldots, P_N\f$ <b> incremented by </b> 1, i.e. it is equal \ref MAX_PARTIAL_RELATION_LENGTH
+     * "MAX_PARTIAL_RELATION_LENGTH + 1".
      */
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
 
@@ -264,10 +266,8 @@ template <typename Flavor> class SumcheckProverRound {
      * @brief In Round \f$ i \f$, for a given point \f$ \vec \ell \in \{0,1\}^{d-1 - i}\f$, calculate the contribution
      * of each sub-relation to \f$ T^i(X_i) \f$.
      *
-     * @details In Round \f$ i \f$, this method computes the univariate \f$ T^i(X_i) \f$ which is a quotient of the full
-     * round univariate \f$ \tilde{S}^i(X_i)\f$, they are defined in
-     * section Round Univariates  of \ref bb::SumcheckProver< Flavor > "Sumcheck Prover detailed description" is
-     * computed  as follows:
+     * @details In Round \f$ i \f$, this method computes the univariate \f$ T^i(X_i) \f$ deined in \ref
+     *SumcheckProverContributionsofPow "this section". It is done  as follows:
      *   - Outer loop: iterate through the "edge" points \f$ (0,\vec \ell) \f$ on the boolean hypercube \f$\{0,1\}\times
      * \{0,1\}^{d-1 - i}\f$, i.e. skipping every other point. On each iteration, apply \ref extend_edges "extend edges".
      *   - Inner loop: iterate through the sub-relations, feeding each relation the "the group of edges", i.e. the

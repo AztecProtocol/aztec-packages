@@ -12,10 +12,10 @@ pow_{\beta}(\vec \ell) \cdot F \left(P_1(\vec \ell),\ldots, P_N(\vec \ell) \righ
 \f$P_1, \ldots, P_N \f$.
 
    \details
- ## Notation and Setup
+ \section SumcheckProverNotation Notation and Setup
 
- ### Obtaining Prover/Honk Polynomials
- The Sumcheck is applied to  multi-variate polynomials
+ \subsection SumcheckProverObtainingPolynomials Obtaining Prover/Honk Polynomials
+ The Sumcheck is applied to  multivariate polynomials
 \f$P_1, \ldots, P_N\f$ that are specidied by \p Flavor. Namely, \ref prove "prove method" obtains \p full_polynomials by
 reference from \p Flavor 's \ref ProverPolynomials "prover polynomials". In particular, their number \f$N\f$ is
 specified by the \p Flavor.
@@ -38,8 +38,8 @@ bb::SumcheckProverRound "Sumcheck Round Prover".
  The following constants are used:
  - \f$ d \f$ \ref multivariate_d "the number of variables" in the multilinear polynomials
  - \f$ n \f$ \ref multivariate_n "the size of the hypercube", i.e. \f$ 2^d\f$.
- - \f$ D = \f$  \ref bb::SumcheckProverRound< Flavor >::BATCHED_RELATION_PARTIAL_LENGTH "the maximum partial degree of"
-\f$\tilde{F}\f$.
+ - \f$ D = \f$  \ref bb::SumcheckProverRound< Flavor >::BATCHED_RELATION_PARTIAL_LENGTH "total degree of"
+\f$\tilde{F}\f$ as a polynomial in \f$P_1,\ldots, P_N\f$ <b> incremented by </b> 1.
 
 
  ## Honk Polynomials and Partially Evaluated Polynomials
@@ -49,9 +49,9 @@ in \f$ d \f$ variables.
 
 ### Round 0
 At initialization, \ref ProverPolynomials "Prover Polynomials"
-are submitted by reference into \p full_polynomials, which is a two-dimensional array defined by
-\f$\texttt{full_polynomials}_{i,j} = P_j(\vec i) \f$. Here, \f$ \vec i \in \{0,1\}^d \f$ is identified with the binary
-representation of the integer \f$ 0 \leq i \leq 2^d-1 \f$.
+are submitted by reference into \p full_polynomials, which is a two-dimensional array with \f$N\f$ columns and \f$2^d\f$
+rows, whose entries are defined as follows \f$\texttt{full_polynomials}_{i,j} = P_j(\vec i) \f$. Here, \f$ \vec i \in
+\{0,1\}^d \f$ is identified with the binary representation of the integer \f$ 0 \leq i \leq 2^d-1 \f$.
 
 When the first challenge \f$ u_0 \f$ is computed, the method \ref partially_evaluate "partially evaluate" takes as input
 \p full_polynomials and populates  \ref partially_evaluated_polynomials "a new book-keeping table" denoted by
@@ -78,9 +78,9 @@ to the transcript.
 
 ## Round Univariates
 
-### Contributions of PowPolynomial
- * For a vector of challenges \f$ \vec \beta = (\beta_0,\ldots, \beta_{d-1}) \in \mathbb{F} \f$ obtained as \ref
-bb::ProverInstance_< Flavor >::gate_challenges "gate challenges" using ProverInstance class.
+\subsubsection SumcheckProverContributionsofPow Contributions of PowPolynomial
+
+ * Let \f$ \vec \beta = (\beta_0,\ldots, \beta_{d-1}) \in \mathbb{F}\f$ be a vector of challenges.
  *
  * In Round \f$i\f$, a univariate polynomial \f$ \tilde S^{i}(X_{i}) \f$ for the relation defined by \f$ \tilde{F}(X)\f$
 is computed as follows. First, we introduce notation
@@ -297,7 +297,8 @@ template <typename Flavor> class SumcheckProver {
  *
  * For \f$ i = 0,\ldots, d-1\f$:
  * - Extract Round Univariate's \f$\tilde{F}\f$ evaluations at \f$0,\ldots, D \f$ from the transcript using \ref
- bb::BaseTranscript::receive_from_prover "receive_from_prover" method from BaseTranscript Flavor
+ bb::BaseTranscript::receive_from_prover "receive_from_prover" method from \ref bb::BaseTranscript< TranscriptParams >
+ "Base Transcript Class".
  * - \ref bb::SumcheckVerifierRound< Flavor >::check_sum "Check target sum": \f$\quad \sigma_{
  i } \stackrel{?}{=}  \tilde{S}^i(0) + \tilde{S}^i(1)  \f$
  * - Compute the challenge \f$u_i\f$ from the transcript using \ref bb::BaseTranscript::get_challenge "get_challenge"
@@ -336,7 +337,7 @@ template <typename Flavor> class SumcheckVerifier {
     using RelationSeparator = typename Flavor::RelationSeparator;
 
     /**
-     * @brief The partial algebraic degree of the relation  \f$\tilde F = pow_{\beta} \cdot F \f$, i.e. \ref
+     * @brief Maximum partial algebraic degree of the relation  \f$\tilde F = pow_{\beta} \cdot F \f$, i.e. \ref
      * MAX_PARTIAL_RELATION_LENGTH "MAX_PARTIAL_RELATION_LENGTH + 1".
      */
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;

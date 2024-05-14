@@ -124,6 +124,9 @@ template <typename FF> struct PowPolynomial {
  *
  * @details
  * ## PowPolynomial in Protogalaxy
+ *
+ * \todo Expand this while completing PG docs.
+ *
  * For \f$0\leq \ell \leq 2^d-1 \f$, the \f$pow_{\ell} \f$-polynomials used in Protogalaxy is a multilinear polynomial
 defined by the formula
  * \f{align} pow_{\ell}(X_0,\ldots, X_{d-1})
@@ -161,9 +164,9 @@ of the integer \f$ \ell \in \{0,\ldots, 2^{d-1-i}-1 \}\f$.
 at \f$(u_0,\ldots,u_{i-1},  \ell_{i+1},\ldots, \ell_{d-1}) \f$
  * which  is an alpha-linear-combination of the subrelations evaluated at this point.
  *
- * In Round \f$i\f$, the prover \ref bb::SumcheckProverRound< Flavor >::compute_univariate "computes the univariate
-polynomial" for the relation defined by \f$ \tilde{F} (X_0,\ldots, X_{d-1}) = pow_{\beta}(X_0,\ldots, X_{d-1}) \cdot
-F\f$, namely
+ * In Round \f$i\f$, the prover
+ * \ref bb::SumcheckProverRound< Flavor >::compute_univariate "computes the univariate polynomial" for the relation
+defined by \f$ \tilde{F} (X_0,\ldots, X_{d-1}) = pow_{\beta}(X_0,\ldots, X_{d-1}) \cdot F\f$, namely
  * \f{align}{
     \tilde{S}^{i}(X_i) = \sum_{ \ell = 0} ^{2^{d-i-1}-1}  pow^i_\beta ( X_i, \ell_{i+1}, \ldots, \ell_{d-1} )
 S^i_{\ell}( X_i )
@@ -173,8 +176,8 @@ S^i_{\ell}( X_i )
  * Define
  \f{align} T^{i}( X_i ) =  \sum_{\ell = 0}^{2^{d-i-1}-1} \beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot
 \beta_{d-1}^{\ell_{d-1}} \cdot S^{i}_{\ell}( X_i ) \f} then \f$ \deg_{X_i} (T^i) \leq \deg_{X_i} S^i \f$.
- ### Main Features of PowPolynomial Class:
- - The factor \f$ c_i \f$ is contained in #partial_evaluation_result and updated by \ref partially_evaluate.
+ ### Features of PowPolynomial used by Sumcheck Prover
+ - The factor \f$ c_i \f$ is the #partial_evaluation_result, it is updated by \ref partially_evaluate.
  - The challenges \f$(\beta_0,\ldots, \beta_{d-1}) \f$ are recorded in #betas.
  - The consecutive evaluations \f$ pow_{\ell}(\vec \beta) = pow_{\beta}(\vec \ell) \f$ for \f$\vec \ell\f$ identified
 with the integers \f$\ell = 0,\ldots, 2^d-1\f$ represented in binary are pre-computed by \ref compute_values and stored
