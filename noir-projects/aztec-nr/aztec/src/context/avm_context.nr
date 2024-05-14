@@ -365,3 +365,4 @@ fn call_static_opcode<RET_SIZE>(
     function_selector: Field
 ) -> ([Field; RET_SIZE], u8) {}
 //    ^ return data      ^ success
+

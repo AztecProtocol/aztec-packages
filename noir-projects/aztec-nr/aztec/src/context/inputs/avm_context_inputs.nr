@@ -15,3 +15,4 @@ impl Empty for AvmContextInputs {
         }
     }
 }
+
