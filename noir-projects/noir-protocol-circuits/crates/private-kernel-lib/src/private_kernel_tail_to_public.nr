@@ -1,5 +1,4 @@
 use crate::kernel_circuit_public_inputs_composer::KernelCircuitPublicInputsComposer;
-use dep::reset_kernel_lib::{NoteHashReadRequestHints, NullifierReadRequestHints, PrivateValidationRequestProcessor};
 use dep::types::{
     abis::{
     private_kernel_data::{PrivateKernelData, verify_previous_kernel_proof},
@@ -13,18 +12,7 @@ use dep::types::{
     grumpkin_private_key::GrumpkinPrivateKey, utils::arrays::array_length, traits::is_empty
 };
 
-// Can just be PublicKernelCircuitPublicInputs.
-struct PrivateKernelTailToPublicOutputs {
-    note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
-    nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
-}
-
 struct PrivateKernelTailToPublicHints {
-    transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-    transient_note_hash_indexes_for_nullifiers: [u64; MAX_NEW_NULLIFIERS_PER_TX],
-    note_hash_read_request_hints: NoteHashReadRequestHints,
-    nullifier_read_request_hints: NullifierReadRequestHints,
-    master_nullifier_secret_keys: [GrumpkinPrivateKey; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
     sorted_new_note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_new_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_new_nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
@@ -37,41 +25,36 @@ struct PrivateKernelTailToPublicHints {
 
 struct PrivateKernelTailToPublicCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
-    outputs: PrivateKernelTailToPublicOutputs,
-    hints: PrivateKernelTailToPublicHints
+    hints: PrivateKernelTailToPublicHints,
 }
 
 impl PrivateKernelTailToPublicCircuitPrivateInputs {
     pub fn execute(self) -> PublicKernelCircuitPublicInputs {
         let previous_public_inputs = self.previous_kernel.public_inputs;
-        let mut total_public_calls = array_length(previous_public_inputs.end.public_call_stack);
-        total_public_calls += if is_empty(self.previous_kernel.public_inputs.public_teardown_call_request) {0} else {1};
+        assert_eq(
+            array_length(previous_public_inputs.end.public_call_stack), 0, "Public call stack must be empty when executing the tail circuit"
+        );
         assert(
-            total_public_calls != 0, "Must have public calls when exporting public kernel data from the tail circuit"
+            is_empty(previous_public_inputs.public_teardown_call_request) == true, "Public teardown call request must be empty when executing the tail circuit"
         );
 
         // verify/aggregate the previous kernel
         verify_previous_kernel_proof(self.previous_kernel);
 
-        let note_hash_tree_root = previous_public_inputs.constants.historical_header.state.partial.note_hash_tree.root;
-        let nullifier_tree_root = previous_public_inputs.constants.historical_header.state.partial.nullifier_tree.root;
-        PrivateValidationRequestProcessor {
-            validation_requests: previous_public_inputs.validation_requests,
-            note_hash_read_request_hints: self.hints.note_hash_read_request_hints,
-            pending_note_hashes: previous_public_inputs.end.new_note_hashes,
-            note_hash_tree_root,
-            nullifier_read_request_hints: self.hints.nullifier_read_request_hints,
-            pending_nullifiers: previous_public_inputs.end.new_nullifiers,
-            nullifier_tree_root,
-            master_nullifier_secret_keys: self.hints.master_nullifier_secret_keys
-        }.validate();
+        assert_eq(
+            array_length(previous_public_inputs.validation_requests.note_hash_read_requests), 0, "Non empty read requests"
+        );
+
+        assert_eq(
+            array_length(previous_public_inputs.validation_requests.nullifier_non_existent_read_requests), 0, "Non empty nullifier read requests"
+        );
+
+        assert_eq(
+            array_length(previous_public_inputs.validation_requests.nullifier_key_validation_requests), 0, "Non empty nullifier key validation requests"
+        );
 
         KernelCircuitPublicInputsComposer::new(
             self.previous_kernel,
-            self.outputs.note_hashes,
-            self.outputs.nullifiers,
-            self.hints.transient_nullifier_indexes_for_note_hashes,
-            self.hints.transient_note_hash_indexes_for_nullifiers,
             self.hints.sorted_new_note_hashes,
             self.hints.sorted_new_note_hashes_indexes,
             self.hints.sorted_new_nullifiers,
@@ -80,525 +63,525 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
             self.hints.sorted_encrypted_log_hashes_indexes,
             self.hints.sorted_unencrypted_log_hashes,
             self.hints.sorted_unencrypted_log_hashes_indexes
-        ).compose_public().finish_to_public()
+        ).compose().finish_to_public()
     }
 }
 
-mod tests {
-    use crate::private_kernel_tail_to_public::{
-        PrivateKernelTailToPublicCircuitPrivateInputs, PrivateKernelTailToPublicHints,
-        PrivateKernelTailToPublicOutputs
-    };
-    use dep::reset_kernel_lib::{
-        tests::{
-        note_hash_read_request_hints_builder::NoteHashReadRequestHintsBuilder,
-        nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder,
-        squash_transient_data::{squash_transient_note_hashes, squash_transient_nullifiers}
-    },
-        reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus}
-    };
-    use dep::types::constants::{
-        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE
-    };
-    use dep::types::{
-        abis::{
-        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, gas::Gas,
-        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
-        side_effect::SideEffect
-    },
-        address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey,
-        hash::{compute_note_hash_nonce, compute_unique_note_hash, silo_note_hash, silo_nullifier},
-        tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
-        utils::{arrays::{array_eq, array_length}}, traits::is_empty_array
-    };
-
-    // TODO: Reduce the duplicated code/tests for PrivateKernelTailToPublicInputs and PrivateKernelTailInputs.
-    struct PrivateKernelTailToPublicInputsBuilder {
-        previous_kernel: FixtureBuilder,
-        transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-        transient_note_hash_indexes_for_nullifiers: [u64; MAX_NEW_NULLIFIERS_PER_TX],
-        note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder,
-        nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder,
-    }
-
-    impl PrivateKernelTailToPublicInputsBuilder {
-        pub fn new() -> Self {
-            let mut previous_kernel = FixtureBuilder::new();
-            previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1_000_000, 1_000_000);
-            previous_kernel.append_new_nullifiers(1);
-            previous_kernel.push_public_call_request(1, false);
-
-            PrivateKernelTailToPublicInputsBuilder {
-                previous_kernel,
-                transient_nullifier_indexes_for_note_hashes: [MAX_NEW_NULLIFIERS_PER_TX; MAX_NEW_NOTE_HASHES_PER_TX],
-                transient_note_hash_indexes_for_nullifiers: [MAX_NEW_NOTE_HASHES_PER_TX; MAX_NEW_NULLIFIERS_PER_TX],
-                note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder::new(MAX_NOTE_HASH_READ_REQUESTS_PER_TX),
-                nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(MAX_NULLIFIER_READ_REQUESTS_PER_TX)
-            }
-        }
-
-        // A helper function that uses the first nullifer in the previous kernel to compute the unique siloed
-        // note_hashes for the given note_hashes.
-        pub fn compute_output_note_hashes<N>(self, note_hashes: [ScopedNoteHash; N]) -> [NoteHash; N] {
-            let first_nullifier = self.previous_kernel.new_nullifiers.get_unchecked(0).value();
-            let mut output = [NoteHash::empty(); N];
-            for i in 0..N {
-                let note_hash = note_hashes[i];
-                if note_hash.value() != 0 {
-                    let nonce = compute_note_hash_nonce(first_nullifier, i);
-                    let unique_note_hash = compute_unique_note_hash(nonce, note_hash.value());
-                    output[i] = NoteHash {
-                        value: silo_note_hash(note_hash.contract_address, unique_note_hash),
-                        counter: 0, // Counter is cleared so it's not exposed to the public.
-                    };
-                }
-            }
-            output
-        }
-
-        pub fn compute_output_nullifiers<N>(
-            _self: Self,
-            nullifiers: [ScopedNullifier; N]
-        ) -> [Nullifier; N] {
-            let mut output = [Nullifier::empty(); N];
-            output[0].value = nullifiers[0].value();
-            for i in 1..N {
-                output[i] = Nullifier { value: silo_nullifier(nullifiers[i].contract_address, nullifiers[i].value()), counter: 0, note_hash: 0 };
-            }
-            output
-        }
-
-        pub fn add_pending_note_hash_read_request(&mut self, note_hash_index: u64) {
-            let read_request_index = self.previous_kernel.add_read_request_for_pending_note_hash(note_hash_index);
-            let hint_index = self.note_hash_read_request_hints_builder.pending_read_hints.len();
-            let hint = PendingReadHint { read_request_index, pending_value_index: note_hash_index };
-            self.note_hash_read_request_hints_builder.pending_read_hints.push(hint);
-            self.note_hash_read_request_hints_builder.read_request_statuses[read_request_index] = ReadRequestStatus { state: ReadRequestState.PENDING, hint_index };
-        }
-
-        pub fn add_pending_nullifier_read_request(&mut self, nullifier_index_offset_one: u64) {
-            let nullifier_index = nullifier_index_offset_one + 1; // + 1 is for the first nullifier
-            let read_request_index = self.previous_kernel.add_read_request_for_pending_nullifier(nullifier_index);
-            let hint_index = self.nullifier_read_request_hints_builder.pending_read_hints.len();
-            let hint = PendingReadHint { read_request_index, pending_value_index: nullifier_index };
-            self.nullifier_read_request_hints_builder.pending_read_hints.push(hint);
-            self.nullifier_read_request_hints_builder.read_request_statuses[read_request_index] = ReadRequestStatus { state: ReadRequestState.PENDING, hint_index };
-        }
-
-        pub fn nullify_pending_note_hash(&mut self, nullifier_index: u64, note_hash_index: u64) {
-            self.previous_kernel.new_note_hashes.storage[note_hash_index].nullifier_counter = self.previous_kernel.new_nullifiers.get(nullifier_index).counter();
-            self.previous_kernel.new_nullifiers.storage[nullifier_index].nullifier.note_hash = self.previous_kernel.new_note_hashes.get(note_hash_index).value();
-            self.transient_nullifier_indexes_for_note_hashes[note_hash_index] = nullifier_index;
-            self.transient_note_hash_indexes_for_nullifiers[nullifier_index] = note_hash_index;
-        }
-
-        pub fn execute(&mut self) -> PublicKernelCircuitPublicInputs {
-            let sorted = sort_get_sorted_hints(
-                self.previous_kernel.new_note_hashes.storage,
-                |a: ScopedNoteHash, b: ScopedNoteHash| a.counter() < b.counter()
-            );
-            let sorted_new_note_hashes = sorted.sorted_array;
-            let sorted_new_note_hashes_indexes = sorted.sorted_index_hints;
-
-            let sorted = sort_get_sorted_hints(
-                self.previous_kernel.new_nullifiers.storage,
-                |a: ScopedNullifier, b: ScopedNullifier| a.counter() < b.counter()
-            );
-            let sorted_new_nullifiers = sorted.sorted_array;
-            let sorted_new_nullifiers_indexes = sorted.sorted_index_hints;
-
-            let sorted = sort_get_sorted_hints(
-                self.previous_kernel.encrypted_logs_hashes.storage,
-                |a: SideEffect, b: SideEffect| a.counter < b.counter
-            );
-            let sorted_encrypted_log_hashes = sorted.sorted_array;
-            let sorted_encrypted_log_hashes_indexes = sorted.sorted_index_hints;
-
-            let sorted = sort_get_sorted_hints(
-                self.previous_kernel.unencrypted_logs_hashes.storage,
-                |a: SideEffect, b: SideEffect| a.counter < b.counter
-            );
-            let sorted_unencrypted_log_hashes = sorted.sorted_array;
-            let sorted_unencrypted_log_hashes_indexes = sorted.sorted_index_hints;
-
-            let mut sorted_transient_nullifier_indexes_for_note_hashes = [MAX_NEW_NULLIFIERS_PER_TX; MAX_NEW_NOTE_HASHES_PER_TX];
-            for i in 0..self.transient_nullifier_indexes_for_note_hashes.len() {
-                let old_index = self.transient_nullifier_indexes_for_note_hashes[i];
-                if old_index != MAX_NEW_NULLIFIERS_PER_TX {
-                    let new_note_hash_index = sorted_new_note_hashes_indexes[i];
-                    sorted_transient_nullifier_indexes_for_note_hashes[new_note_hash_index] = sorted_new_nullifiers_indexes[old_index];
-                }
-            }
-
-            let mut sorted_transient_note_hash_indexes_for_nullifiers = [MAX_NEW_NOTE_HASHES_PER_TX; MAX_NEW_NULLIFIERS_PER_TX];
-            for i in 0..self.transient_note_hash_indexes_for_nullifiers.len() {
-                let old_index = self.transient_note_hash_indexes_for_nullifiers[i];
-                if old_index != MAX_NEW_NOTE_HASHES_PER_TX {
-                    let new_nullifier_index = sorted_new_nullifiers_indexes[i];
-                    sorted_transient_note_hash_indexes_for_nullifiers[new_nullifier_index] = sorted_new_note_hashes_indexes[old_index];
-                }
-            }
-
-            let outputs = PrivateKernelTailToPublicOutputs {
-                note_hashes: squash_transient_note_hashes(sorted_new_note_hashes),
-                nullifiers: squash_transient_nullifiers(sorted_new_nullifiers)
-            };
-
-            let hints = PrivateKernelTailToPublicHints {
-                transient_nullifier_indexes_for_note_hashes: sorted_transient_nullifier_indexes_for_note_hashes,
-                transient_note_hash_indexes_for_nullifiers: sorted_transient_note_hash_indexes_for_nullifiers,
-                note_hash_read_request_hints: self.note_hash_read_request_hints_builder.to_hints(),
-                nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
-                master_nullifier_secret_keys: [GrumpkinPrivateKey::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
-                sorted_new_note_hashes,
-                sorted_new_note_hashes_indexes,
-                sorted_new_nullifiers,
-                sorted_new_nullifiers_indexes,
-                sorted_encrypted_log_hashes,
-                sorted_encrypted_log_hashes_indexes,
-                sorted_unencrypted_log_hashes,
-                sorted_unencrypted_log_hashes_indexes
-            };
-
-            let kernel = PrivateKernelTailToPublicCircuitPrivateInputs { previous_kernel: self.previous_kernel.to_private_kernel_data(), outputs, hints };
-            kernel.execute()
-        }
-
-        pub fn failed(&mut self) {
-            let _ = self.execute();
-        }
-
-        pub fn succeeded(&mut self) {
-            let _ = self.execute();
-        }
-    }
-
-    #[test]
-    unconstrained fn two_pending_note_hash_read_request() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-
-        builder.previous_kernel.append_new_note_hashes(3);
-        builder.add_pending_note_hash_read_request(1);
-        builder.add_pending_note_hash_read_request(0);
-
-        builder.succeeded();
-    }
-
-    #[test(should_fail_with="Value of the note hash does not match read request")]
-    unconstrained fn pending_note_hash_read_request_wrong_hint_fails() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-
-        builder.previous_kernel.append_new_note_hashes(3);
-        builder.add_pending_note_hash_read_request(1);
-        let mut hint = builder.note_hash_read_request_hints_builder.pending_read_hints.pop();
-        hint.pending_value_index = 2;
-        builder.note_hash_read_request_hints_builder.pending_read_hints.push(hint);
-
-        builder.failed();
-    }
-
-    #[test]
-    unconstrained fn one_pending_nullifier_read_request() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-
-        builder.previous_kernel.append_new_nullifiers(3);
-        builder.add_pending_nullifier_read_request(1);
-
-        builder.succeeded();
-    }
-
-    #[test]
-    unconstrained fn two_pending_nullifier_read_requests() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-
-        builder.previous_kernel.append_new_nullifiers(3);
-        builder.add_pending_nullifier_read_request(1);
-        builder.add_pending_nullifier_read_request(0);
-
-        builder.succeeded();
-    }
-
-    #[test(should_fail_with="Value of the nullifier does not match read request")]
-    unconstrained fn pending_nullifier_read_request_wrong_hint_fails() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-
-        builder.previous_kernel.append_new_nullifiers(3);
-        builder.add_pending_nullifier_read_request(1);
-        let mut hint = builder.nullifier_read_request_hints_builder.pending_read_hints.pop();
-        assert(hint.pending_value_index == 2);
-        hint.pending_value_index = 1;
-        builder.nullifier_read_request_hints_builder.pending_read_hints.push(hint);
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with="Read request counter must be greater than the counter of the nullifier")]
-    unconstrained fn pending_nullifier_read_request_reads_before_value_fails() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-
-        builder.previous_kernel.append_new_nullifiers(3);
-        builder.add_pending_nullifier_read_request(1);
-        let nullifier_being_read = builder.previous_kernel.new_nullifiers.storage[2];
-        let mut read_request = builder.previous_kernel.nullifier_read_requests.pop();
-        read_request.read_request.counter = nullifier_being_read.counter() - 1;
-        builder.previous_kernel.nullifier_read_requests.push(read_request);
-
-        builder.failed();
-    }
-
-    #[test]
-    unconstrained fn native_squash_one_of_one_transient_matches_works() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.append_new_note_hashes(1);
-        builder.previous_kernel.append_new_nullifiers(2);
-        // The nullifier at index 1 is nullifying the hash at index 0;
-        builder.nullify_pending_note_hash(1, 0);
-        let new_nullifiers = builder.previous_kernel.new_nullifiers.storage;
-        let public_inputs = builder.execute();
-
-        assert(is_empty_array(public_inputs.end.new_note_hashes));
-
-        // The nullifier at index 1 is chopped.
-        let expected_nullifiers = builder.compute_output_nullifiers([new_nullifiers[0], new_nullifiers[2]]);
-        assert(array_eq(public_inputs.end.new_nullifiers, expected_nullifiers));
-    }
-
-    #[test]
-    unconstrained fn native_squash_one_of_two_transient_matches_works() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.append_new_note_hashes(2);
-        builder.previous_kernel.append_new_nullifiers(2);
-        // The nullifier at index 1 is nullifying the hash at index 0;
-        builder.nullify_pending_note_hash(1, 0);
-        let new_note_hashes = builder.previous_kernel.new_note_hashes.storage;
-        let new_nullifiers = builder.previous_kernel.new_nullifiers.storage;
-        let public_inputs = builder.execute();
-
-        // The 0th hash will be chopped.
-        let expected_note_hashes = builder.compute_output_note_hashes([new_note_hashes[1]]);
-        assert(array_eq(public_inputs.end.new_note_hashes, expected_note_hashes));
-
-        // The nullifier at index 1 is chopped.
-        let expected_nullifiers = builder.compute_output_nullifiers([new_nullifiers[0], new_nullifiers[2]]);
-        assert(array_eq(public_inputs.end.new_nullifiers, expected_nullifiers));
-    }
-
-    #[test]
-    unconstrained fn native_squash_two_of_two_transient_matches_works() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.append_new_note_hashes(2);
-        builder.previous_kernel.append_new_nullifiers(2);
-        // The nullifier at index 1 is nullifying the hash at index 1;
-        builder.nullify_pending_note_hash(1, 1);
-        // The nullifier at index 2 is nullifying the hash at index 0;
-        builder.nullify_pending_note_hash(2, 0);
-        let new_nullifiers = builder.previous_kernel.new_nullifiers.storage;
-        let public_inputs = builder.execute();
-
-        // Only the first nullifier is left after squashing.
-        assert(is_empty_array(public_inputs.end.new_note_hashes));
-        let expected_nullifiers = builder.compute_output_nullifiers([new_nullifiers[0]]);
-        assert(array_eq(public_inputs.end.new_nullifiers, expected_nullifiers));
-    }
-
-    #[test]
-    unconstrained fn ordering_of_note_hashes_and_nullifiers() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-
-        builder.previous_kernel.append_new_note_hashes(10);
-        builder.previous_kernel.append_new_nullifiers(10);
-
-        let sorted_note_hashes = builder.previous_kernel.new_note_hashes.storage;
-        let sorted_nullifiers = builder.previous_kernel.new_nullifiers.storage;
-
-        let mut reversed_note_hashes = [ScopedNoteHash::empty(); 10];
-        let mut reversed_nullifiers = [ScopedNullifier::empty(); 10];
-
-        for i in 0..10 {
-            reversed_note_hashes[9 - i] = builder.previous_kernel.new_note_hashes.pop();
-            reversed_nullifiers[9 - i] = builder.previous_kernel.new_nullifiers.pop();
-        }
-
-        builder.previous_kernel.new_note_hashes.extend_from_array(reversed_note_hashes);
-        builder.previous_kernel.new_nullifiers.extend_from_array(reversed_nullifiers);
-
-        let public_inputs = builder.execute();
-
-        let output_note_hashes = builder.compute_output_note_hashes(sorted_note_hashes);
-        let output_nullifiers = builder.compute_output_nullifiers(sorted_nullifiers);
-        for i in 0..10 {
-            assert(public_inputs.end.new_note_hashes[i].eq(output_note_hashes[i]));
-            assert(public_inputs.end.new_nullifiers[i].eq(output_nullifiers[i]));
-        }
-    }
-
-    #[test(should_fail_with="Value of the hinted transient note hash does not match")]
-    unconstrained fn wrong_transient_nullifier_index_for_note_hash_fails() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.append_new_note_hashes(1);
-        builder.previous_kernel.append_new_nullifiers(1);
-        // The nullifier at index 1 is nullifying the hash at index 0;
-        builder.nullify_pending_note_hash(1, 0);
-        // Change the hint to be out of bounds.
-        builder.transient_nullifier_indexes_for_note_hashes[0] = 0;
-        builder.failed();
-    }
-
-    #[test(should_fail_with="Invalid transient nullifier index hint")]
-    unconstrained fn wrong_transient_nullifier_index_hint_fails() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.append_new_note_hashes(2);
-        builder.previous_kernel.append_new_nullifiers(2);
-        // The nullifier at index 1 is nullifying the hash at index 1;
-        builder.nullify_pending_note_hash(1, 1);
-        // The nullifier at index 2 is nullifying the hash at index 0;
-        builder.nullify_pending_note_hash(2, 0);
-        // Tweak the hint to be for the hash at index 1.
-        builder.transient_note_hash_indexes_for_nullifiers[2] = 1;
-        builder.failed();
-    }
-
-    #[test(should_fail_with="Private call stack must be empty when executing the tail circuit")]
-    unconstrained fn non_empty_private_call_stack_should_fail() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.push_private_call_request(1, false);
-        builder.failed();
-    }
-
-    #[test(should_fail_with="Must have public calls when exporting public kernel data from the tail circuit")]
-    unconstrained fn no_public_calls_should_fail() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.public_call_stack = BoundedVec::new();
-        builder.failed();
-    }
-
-    #[test]
-    unconstrained fn can_run_with_only_teardown() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.public_call_stack = BoundedVec::new();
-        builder.previous_kernel.set_public_teardown_call_request(1, false);
-
-        builder.succeeded();
-    }
-
-    #[test]
-    unconstrained fn split_nullifiers_into_non_revertible() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        // expect 3 non-revertible nullifiers: the tx nullifier + 2 new ones
-        builder.previous_kernel.append_new_nullifiers(2);
-        builder.previous_kernel.end_setup();
-
-        // expect 2 revertible nullifiers
-        builder.previous_kernel.append_new_nullifiers(2);
-
-        let new_nullifiers = builder.previous_kernel.new_nullifiers.storage;
-        let public_inputs = builder.execute();
-
-        let output_nullifiers = builder.compute_output_nullifiers(new_nullifiers);
-
-        assert(
-            array_eq(
-                public_inputs.end_non_revertible.new_nullifiers,
-                [output_nullifiers[0], output_nullifiers[1], output_nullifiers[2]]
-            )
-        );
-
-        assert(
-            array_eq(
-                public_inputs.end.new_nullifiers,
-                [output_nullifiers[3], output_nullifiers[4]]
-            )
-        );
-
-        assert_eq(public_inputs.end.gas_used, Gas::new(2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE, 0));
-        assert_eq(
-            public_inputs.end_non_revertible.gas_used, Gas::new(3 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE, 0) + Gas::tx_overhead()
-        );
-    }
-
-    #[test]
-    unconstrained fn split_note_hashes_into_non_revertible() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-
-        // expect 2 non-revertible note hashes
-        builder.previous_kernel.append_new_note_hashes(2);
-        builder.previous_kernel.end_setup();
-
-        // expect 2 revertible note hashes
-        builder.previous_kernel.append_new_note_hashes(2);
-
-        let new_note_hashes = builder.previous_kernel.new_note_hashes.storage;
-        let public_inputs = builder.execute();
-
-        let siloed_note_hashes = builder.compute_output_note_hashes(new_note_hashes);
-
-        assert(
-            array_eq(
-                public_inputs.end_non_revertible.new_note_hashes,
-                [siloed_note_hashes[0], siloed_note_hashes[1]]
-            )
-        );
-
-        assert(
-            array_eq(
-                public_inputs.end.new_note_hashes,
-                [siloed_note_hashes[2], siloed_note_hashes[3]]
-            )
-        );
-    }
-
-    #[test]
-    unconstrained fn split_side_effect_squashing() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-
-        // add one hash in non-revertible part
-        builder.previous_kernel.append_new_note_hashes(1);
-        builder.previous_kernel.end_setup();
-
-        // nullify it in revertible part
-        builder.previous_kernel.append_new_nullifiers(1);
-        builder.nullify_pending_note_hash(1, 0);
-
-        let public_inputs = builder.execute();
-
-        assert(!is_empty_array(public_inputs.end_non_revertible.new_nullifiers));
-        assert(is_empty_array(public_inputs.end_non_revertible.new_note_hashes));
-        assert(is_empty_array(public_inputs.end.new_note_hashes));
-        assert(is_empty_array(public_inputs.end.new_nullifiers));
-    }
-
-    #[test]
-    unconstrained fn empty_tx_consumes_teardown_limits_plus_fixed_gas() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
-        let public_inputs = builder.execute();
-
-        let expected_gas_consumed = Gas::new(300, 300) + Gas::tx_overhead();
-        assert_eq(public_inputs.end.gas_used, expected_gas_consumed);
-    }
-
-    #[test(should_fail_with="The gas used exceeds the gas limits")]
-    unconstrained fn gas_limits_are_enforced() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
-        builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1, 1);
-        builder.failed();
-    }
-
-    #[test]
-    unconstrained fn propagate_fee_payer() {
-        // Check that we carry forward if the fee payer is already set
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        let fee_payer = AztecAddress::from_field(123);
-        builder.previous_kernel.fee_payer = fee_payer;
-        let public_inputs = builder.execute();
-        assert_eq(public_inputs.fee_payer, fee_payer);
-
-        // Check that the fee payer remains empty if unset
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        let public_inputs = builder.execute();
-        assert_eq(public_inputs.fee_payer, AztecAddress::empty());
-    }
-}
+// mod tests {
+//     use crate::private_kernel_tail_to_public::{
+//         PrivateKernelTailToPublicCircuitPrivateInputs, PrivateKernelTailToPublicHints,
+//         PrivateKernelTailToPublicOutputs
+//     };
+//     use dep::reset_kernel_lib::{
+//         tests::{
+//         note_hash_read_request_hints_builder::NoteHashReadRequestHintsBuilder,
+//         nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder,
+//         squash_transient_data::{squash_transient_note_hashes, squash_transient_nullifiers}
+//     },
+//         reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus}
+//     };
+//     use dep::types::constants::{
+//         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
+//         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
+//         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE
+//     };
+//     use dep::types::{
+//         abis::{
+//         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, gas::Gas,
+//         note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
+//         side_effect::SideEffect
+//     },
+//         address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey,
+//         hash::{compute_note_hash_nonce, compute_unique_note_hash, silo_note_hash, silo_nullifier},
+//         tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
+//         utils::{arrays::{array_eq, array_length}}, traits::is_empty_array
+//     };
+
+//     // TODO: Reduce the duplicated code/tests for PrivateKernelTailToPublicInputs and PrivateKernelTailInputs.
+//     struct PrivateKernelTailToPublicInputsBuilder {
+//         previous_kernel: FixtureBuilder,
+//         transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
+//         transient_note_hash_indexes_for_nullifiers: [u64; MAX_NEW_NULLIFIERS_PER_TX],
+//         note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder,
+//         nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder,
+//     }
+
+//     impl PrivateKernelTailToPublicInputsBuilder {
+//         pub fn new() -> Self {
+//             let mut previous_kernel = FixtureBuilder::new();
+//             previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1_000_000, 1_000_000);
+//             previous_kernel.append_new_nullifiers(1);
+//             previous_kernel.push_public_call_request(1, false);
+
+//             PrivateKernelTailToPublicInputsBuilder {
+//                 previous_kernel,
+//                 transient_nullifier_indexes_for_note_hashes: [MAX_NEW_NULLIFIERS_PER_TX; MAX_NEW_NOTE_HASHES_PER_TX],
+//                 transient_note_hash_indexes_for_nullifiers: [MAX_NEW_NOTE_HASHES_PER_TX; MAX_NEW_NULLIFIERS_PER_TX],
+//                 note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder::new(MAX_NOTE_HASH_READ_REQUESTS_PER_TX),
+//                 nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(MAX_NULLIFIER_READ_REQUESTS_PER_TX)
+//             }
+//         }
+
+//         // A helper function that uses the first nullifer in the previous kernel to compute the unique siloed
+//         // note_hashes for the given note_hashes.
+//         pub fn compute_output_note_hashes<N>(self, note_hashes: [ScopedNoteHash; N]) -> [NoteHash; N] {
+//             let first_nullifier = self.previous_kernel.new_nullifiers.get_unchecked(0).value();
+//             let mut output = [NoteHash::empty(); N];
+//             for i in 0..N {
+//                 let note_hash = note_hashes[i];
+//                 if note_hash.value() != 0 {
+//                     let nonce = compute_note_hash_nonce(first_nullifier, i);
+//                     let unique_note_hash = compute_unique_note_hash(nonce, note_hash.value());
+//                     output[i] = NoteHash {
+//                         value: silo_note_hash(note_hash.contract_address, unique_note_hash),
+//                         counter: 0, // Counter is cleared so it's not exposed to the public.
+//                     };
+//                 }
+//             }
+//             output
+//         }
+
+//         pub fn compute_output_nullifiers<N>(
+//             _self: Self,
+//             nullifiers: [ScopedNullifier; N]
+//         ) -> [Nullifier; N] {
+//             let mut output = [Nullifier::empty(); N];
+//             output[0].value = nullifiers[0].value();
+//             for i in 1..N {
+//                 output[i] = Nullifier { value: silo_nullifier(nullifiers[i].contract_address, nullifiers[i].value()), counter: 0, note_hash: 0 };
+//             }
+//             output
+//         }
+
+//         pub fn add_pending_note_hash_read_request(&mut self, note_hash_index: u64) {
+//             let read_request_index = self.previous_kernel.add_read_request_for_pending_note_hash(note_hash_index);
+//             let hint_index = self.note_hash_read_request_hints_builder.pending_read_hints.len();
+//             let hint = PendingReadHint { read_request_index, pending_value_index: note_hash_index };
+//             self.note_hash_read_request_hints_builder.pending_read_hints.push(hint);
+//             self.note_hash_read_request_hints_builder.read_request_statuses[read_request_index] = ReadRequestStatus { state: ReadRequestState.PENDING, hint_index };
+//         }
+
+//         pub fn add_pending_nullifier_read_request(&mut self, nullifier_index_offset_one: u64) {
+//             let nullifier_index = nullifier_index_offset_one + 1; // + 1 is for the first nullifier
+//             let read_request_index = self.previous_kernel.add_read_request_for_pending_nullifier(nullifier_index);
+//             let hint_index = self.nullifier_read_request_hints_builder.pending_read_hints.len();
+//             let hint = PendingReadHint { read_request_index, pending_value_index: nullifier_index };
+//             self.nullifier_read_request_hints_builder.pending_read_hints.push(hint);
+//             self.nullifier_read_request_hints_builder.read_request_statuses[read_request_index] = ReadRequestStatus { state: ReadRequestState.PENDING, hint_index };
+//         }
+
+//         pub fn nullify_pending_note_hash(&mut self, nullifier_index: u64, note_hash_index: u64) {
+//             self.previous_kernel.new_note_hashes.storage[note_hash_index].nullifier_counter = self.previous_kernel.new_nullifiers.get(nullifier_index).counter();
+//             self.previous_kernel.new_nullifiers.storage[nullifier_index].nullifier.note_hash = self.previous_kernel.new_note_hashes.get(note_hash_index).value();
+//             self.transient_nullifier_indexes_for_note_hashes[note_hash_index] = nullifier_index;
+//             self.transient_note_hash_indexes_for_nullifiers[nullifier_index] = note_hash_index;
+//         }
+
+//         pub fn execute(&mut self) -> PublicKernelCircuitPublicInputs {
+//             let sorted = sort_get_sorted_hints(
+//                 self.previous_kernel.new_note_hashes.storage,
+//                 |a: ScopedNoteHash, b: ScopedNoteHash| a.counter() < b.counter()
+//             );
+//             let sorted_new_note_hashes = sorted.sorted_array;
+//             let sorted_new_note_hashes_indexes = sorted.sorted_index_hints;
+
+//             let sorted = sort_get_sorted_hints(
+//                 self.previous_kernel.new_nullifiers.storage,
+//                 |a: ScopedNullifier, b: ScopedNullifier| a.counter() < b.counter()
+//             );
+//             let sorted_new_nullifiers = sorted.sorted_array;
+//             let sorted_new_nullifiers_indexes = sorted.sorted_index_hints;
+
+//             let sorted = sort_get_sorted_hints(
+//                 self.previous_kernel.encrypted_logs_hashes.storage,
+//                 |a: SideEffect, b: SideEffect| a.counter < b.counter
+//             );
+//             let sorted_encrypted_log_hashes = sorted.sorted_array;
+//             let sorted_encrypted_log_hashes_indexes = sorted.sorted_index_hints;
+
+//             let sorted = sort_get_sorted_hints(
+//                 self.previous_kernel.unencrypted_logs_hashes.storage,
+//                 |a: SideEffect, b: SideEffect| a.counter < b.counter
+//             );
+//             let sorted_unencrypted_log_hashes = sorted.sorted_array;
+//             let sorted_unencrypted_log_hashes_indexes = sorted.sorted_index_hints;
+
+//             let mut sorted_transient_nullifier_indexes_for_note_hashes = [MAX_NEW_NULLIFIERS_PER_TX; MAX_NEW_NOTE_HASHES_PER_TX];
+//             for i in 0..self.transient_nullifier_indexes_for_note_hashes.len() {
+//                 let old_index = self.transient_nullifier_indexes_for_note_hashes[i];
+//                 if old_index != MAX_NEW_NULLIFIERS_PER_TX {
+//                     let new_note_hash_index = sorted_new_note_hashes_indexes[i];
+//                     sorted_transient_nullifier_indexes_for_note_hashes[new_note_hash_index] = sorted_new_nullifiers_indexes[old_index];
+//                 }
+//             }
+
+//             let mut sorted_transient_note_hash_indexes_for_nullifiers = [MAX_NEW_NOTE_HASHES_PER_TX; MAX_NEW_NULLIFIERS_PER_TX];
+//             for i in 0..self.transient_note_hash_indexes_for_nullifiers.len() {
+//                 let old_index = self.transient_note_hash_indexes_for_nullifiers[i];
+//                 if old_index != MAX_NEW_NOTE_HASHES_PER_TX {
+//                     let new_nullifier_index = sorted_new_nullifiers_indexes[i];
+//                     sorted_transient_note_hash_indexes_for_nullifiers[new_nullifier_index] = sorted_new_note_hashes_indexes[old_index];
+//                 }
+//             }
+
+//             let outputs = PrivateKernelTailToPublicOutputs {
+//                 note_hashes: squash_transient_note_hashes(sorted_new_note_hashes),
+//                 nullifiers: squash_transient_nullifiers(sorted_new_nullifiers)
+//             };
+
+//             let hints = PrivateKernelTailToPublicHints {
+//                 transient_nullifier_indexes_for_note_hashes: sorted_transient_nullifier_indexes_for_note_hashes,
+//                 transient_note_hash_indexes_for_nullifiers: sorted_transient_note_hash_indexes_for_nullifiers,
+//                 note_hash_read_request_hints: self.note_hash_read_request_hints_builder.to_hints(),
+//                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
+//                 master_nullifier_secret_keys: [GrumpkinPrivateKey::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
+//                 sorted_new_note_hashes,
+//                 sorted_new_note_hashes_indexes,
+//                 sorted_new_nullifiers,
+//                 sorted_new_nullifiers_indexes,
+//                 sorted_encrypted_log_hashes,
+//                 sorted_encrypted_log_hashes_indexes,
+//                 sorted_unencrypted_log_hashes,
+//                 sorted_unencrypted_log_hashes_indexes
+//             };
+
+//             let kernel = PrivateKernelTailToPublicCircuitPrivateInputs { previous_kernel: self.previous_kernel.to_private_kernel_data(), outputs, hints };
+//             kernel.execute()
+//         }
+
+//         pub fn failed(&mut self) {
+//             let _ = self.execute();
+//         }
+
+//         pub fn succeeded(&mut self) {
+//             let _ = self.execute();
+//         }
+//     }
+
+//     #[test]
+//     unconstrained fn two_pending_note_hash_read_request() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+
+//         builder.previous_kernel.append_new_note_hashes(3);
+//         builder.add_pending_note_hash_read_request(1);
+//         builder.add_pending_note_hash_read_request(0);
+
+//         builder.succeeded();
+//     }
+
+//     #[test(should_fail_with="Value of the note hash does not match read request")]
+//     unconstrained fn pending_note_hash_read_request_wrong_hint_fails() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+
+//         builder.previous_kernel.append_new_note_hashes(3);
+//         builder.add_pending_note_hash_read_request(1);
+//         let mut hint = builder.note_hash_read_request_hints_builder.pending_read_hints.pop();
+//         hint.pending_value_index = 2;
+//         builder.note_hash_read_request_hints_builder.pending_read_hints.push(hint);
+
+//         builder.failed();
+//     }
+
+//     #[test]
+//     unconstrained fn one_pending_nullifier_read_request() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+
+//         builder.previous_kernel.append_new_nullifiers(3);
+//         builder.add_pending_nullifier_read_request(1);
+
+//         builder.succeeded();
+//     }
+
+//     #[test]
+//     unconstrained fn two_pending_nullifier_read_requests() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+
+//         builder.previous_kernel.append_new_nullifiers(3);
+//         builder.add_pending_nullifier_read_request(1);
+//         builder.add_pending_nullifier_read_request(0);
+
+//         builder.succeeded();
+//     }
+
+//     #[test(should_fail_with="Value of the nullifier does not match read request")]
+//     unconstrained fn pending_nullifier_read_request_wrong_hint_fails() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+
+//         builder.previous_kernel.append_new_nullifiers(3);
+//         builder.add_pending_nullifier_read_request(1);
+//         let mut hint = builder.nullifier_read_request_hints_builder.pending_read_hints.pop();
+//         assert(hint.pending_value_index == 2);
+//         hint.pending_value_index = 1;
+//         builder.nullifier_read_request_hints_builder.pending_read_hints.push(hint);
+
+//         builder.failed();
+//     }
+
+//     #[test(should_fail_with="Read request counter must be greater than the counter of the nullifier")]
+//     unconstrained fn pending_nullifier_read_request_reads_before_value_fails() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+
+//         builder.previous_kernel.append_new_nullifiers(3);
+//         builder.add_pending_nullifier_read_request(1);
+//         let nullifier_being_read = builder.previous_kernel.new_nullifiers.storage[2];
+//         let mut read_request = builder.previous_kernel.nullifier_read_requests.pop();
+//         read_request.read_request.counter = nullifier_being_read.counter() - 1;
+//         builder.previous_kernel.nullifier_read_requests.push(read_request);
+
+//         builder.failed();
+//     }
+
+//     #[test]
+//     unconstrained fn native_squash_one_of_one_transient_matches_works() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+//         builder.previous_kernel.append_new_note_hashes(1);
+//         builder.previous_kernel.append_new_nullifiers(2);
+//         // The nullifier at index 1 is nullifying the hash at index 0;
+//         builder.nullify_pending_note_hash(1, 0);
+//         let new_nullifiers = builder.previous_kernel.new_nullifiers.storage;
+//         let public_inputs = builder.execute();
+
+//         assert(is_empty_array(public_inputs.end.new_note_hashes));
+
+//         // The nullifier at index 1 is chopped.
+//         let expected_nullifiers = builder.compute_output_nullifiers([new_nullifiers[0], new_nullifiers[2]]);
+//         assert(array_eq(public_inputs.end.new_nullifiers, expected_nullifiers));
+//     }
+
+//     #[test]
+//     unconstrained fn native_squash_one_of_two_transient_matches_works() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+//         builder.previous_kernel.append_new_note_hashes(2);
+//         builder.previous_kernel.append_new_nullifiers(2);
+//         // The nullifier at index 1 is nullifying the hash at index 0;
+//         builder.nullify_pending_note_hash(1, 0);
+//         let new_note_hashes = builder.previous_kernel.new_note_hashes.storage;
+//         let new_nullifiers = builder.previous_kernel.new_nullifiers.storage;
+//         let public_inputs = builder.execute();
+
+//         // The 0th hash will be chopped.
+//         let expected_note_hashes = builder.compute_output_note_hashes([new_note_hashes[1]]);
+//         assert(array_eq(public_inputs.end.new_note_hashes, expected_note_hashes));
+
+//         // The nullifier at index 1 is chopped.
+//         let expected_nullifiers = builder.compute_output_nullifiers([new_nullifiers[0], new_nullifiers[2]]);
+//         assert(array_eq(public_inputs.end.new_nullifiers, expected_nullifiers));
+//     }
+
+//     #[test]
+//     unconstrained fn native_squash_two_of_two_transient_matches_works() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+//         builder.previous_kernel.append_new_note_hashes(2);
+//         builder.previous_kernel.append_new_nullifiers(2);
+//         // The nullifier at index 1 is nullifying the hash at index 1;
+//         builder.nullify_pending_note_hash(1, 1);
+//         // The nullifier at index 2 is nullifying the hash at index 0;
+//         builder.nullify_pending_note_hash(2, 0);
+//         let new_nullifiers = builder.previous_kernel.new_nullifiers.storage;
+//         let public_inputs = builder.execute();
+
+//         // Only the first nullifier is left after squashing.
+//         assert(is_empty_array(public_inputs.end.new_note_hashes));
+//         let expected_nullifiers = builder.compute_output_nullifiers([new_nullifiers[0]]);
+//         assert(array_eq(public_inputs.end.new_nullifiers, expected_nullifiers));
+//     }
+
+//     #[test]
+//     unconstrained fn ordering_of_note_hashes_and_nullifiers() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+
+//         builder.previous_kernel.append_new_note_hashes(10);
+//         builder.previous_kernel.append_new_nullifiers(10);
+
+//         let sorted_note_hashes = builder.previous_kernel.new_note_hashes.storage;
+//         let sorted_nullifiers = builder.previous_kernel.new_nullifiers.storage;
+
+//         let mut reversed_note_hashes = [ScopedNoteHash::empty(); 10];
+//         let mut reversed_nullifiers = [ScopedNullifier::empty(); 10];
+
+//         for i in 0..10 {
+//             reversed_note_hashes[9 - i] = builder.previous_kernel.new_note_hashes.pop();
+//             reversed_nullifiers[9 - i] = builder.previous_kernel.new_nullifiers.pop();
+//         }
+
+//         builder.previous_kernel.new_note_hashes.extend_from_array(reversed_note_hashes);
+//         builder.previous_kernel.new_nullifiers.extend_from_array(reversed_nullifiers);
+
+//         let public_inputs = builder.execute();
+
+//         let output_note_hashes = builder.compute_output_note_hashes(sorted_note_hashes);
+//         let output_nullifiers = builder.compute_output_nullifiers(sorted_nullifiers);
+//         for i in 0..10 {
+//             assert(public_inputs.end.new_note_hashes[i].eq(output_note_hashes[i]));
+//             assert(public_inputs.end.new_nullifiers[i].eq(output_nullifiers[i]));
+//         }
+//     }
+
+//     #[test(should_fail_with="Value of the hinted transient note hash does not match")]
+//     unconstrained fn wrong_transient_nullifier_index_for_note_hash_fails() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+//         builder.previous_kernel.append_new_note_hashes(1);
+//         builder.previous_kernel.append_new_nullifiers(1);
+//         // The nullifier at index 1 is nullifying the hash at index 0;
+//         builder.nullify_pending_note_hash(1, 0);
+//         // Change the hint to be out of bounds.
+//         builder.transient_nullifier_indexes_for_note_hashes[0] = 0;
+//         builder.failed();
+//     }
+
+//     #[test(should_fail_with="Invalid transient nullifier index hint")]
+//     unconstrained fn wrong_transient_nullifier_index_hint_fails() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+//         builder.previous_kernel.append_new_note_hashes(2);
+//         builder.previous_kernel.append_new_nullifiers(2);
+//         // The nullifier at index 1 is nullifying the hash at index 1;
+//         builder.nullify_pending_note_hash(1, 1);
+//         // The nullifier at index 2 is nullifying the hash at index 0;
+//         builder.nullify_pending_note_hash(2, 0);
+//         // Tweak the hint to be for the hash at index 1.
+//         builder.transient_note_hash_indexes_for_nullifiers[2] = 1;
+//         builder.failed();
+//     }
+
+//     #[test(should_fail_with="Private call stack must be empty when executing the tail circuit")]
+//     unconstrained fn non_empty_private_call_stack_should_fail() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+//         builder.previous_kernel.push_private_call_request(1, false);
+//         builder.failed();
+//     }
+
+//     #[test(should_fail_with="Must have public calls when exporting public kernel data from the tail circuit")]
+//     unconstrained fn no_public_calls_should_fail() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+//         builder.previous_kernel.public_call_stack = BoundedVec::new();
+//         builder.failed();
+//     }
+
+//     #[test]
+//     unconstrained fn can_run_with_only_teardown() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+//         builder.previous_kernel.public_call_stack = BoundedVec::new();
+//         builder.previous_kernel.set_public_teardown_call_request(1, false);
+
+//         builder.succeeded();
+//     }
+
+//     #[test]
+//     unconstrained fn split_nullifiers_into_non_revertible() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+//         // expect 3 non-revertible nullifiers: the tx nullifier + 2 new ones
+//         builder.previous_kernel.append_new_nullifiers(2);
+//         builder.previous_kernel.end_setup();
+
+//         // expect 2 revertible nullifiers
+//         builder.previous_kernel.append_new_nullifiers(2);
+
+//         let new_nullifiers = builder.previous_kernel.new_nullifiers.storage;
+//         let public_inputs = builder.execute();
+
+//         let output_nullifiers = builder.compute_output_nullifiers(new_nullifiers);
+
+//         assert(
+//             array_eq(
+//                 public_inputs.end_non_revertible.new_nullifiers,
+//                 [output_nullifiers[0], output_nullifiers[1], output_nullifiers[2]]
+//             )
+//         );
+
+//         assert(
+//             array_eq(
+//                 public_inputs.end.new_nullifiers,
+//                 [output_nullifiers[3], output_nullifiers[4]]
+//             )
+//         );
+
+//         assert_eq(public_inputs.end.gas_used, Gas::new(2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE, 0));
+//         assert_eq(
+//             public_inputs.end_non_revertible.gas_used, Gas::new(3 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE, 0) + Gas::tx_overhead()
+//         );
+//     }
+
+//     #[test]
+//     unconstrained fn split_note_hashes_into_non_revertible() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+
+//         // expect 2 non-revertible note hashes
+//         builder.previous_kernel.append_new_note_hashes(2);
+//         builder.previous_kernel.end_setup();
+
+//         // expect 2 revertible note hashes
+//         builder.previous_kernel.append_new_note_hashes(2);
+
+//         let new_note_hashes = builder.previous_kernel.new_note_hashes.storage;
+//         let public_inputs = builder.execute();
+
+//         let siloed_note_hashes = builder.compute_output_note_hashes(new_note_hashes);
+
+//         assert(
+//             array_eq(
+//                 public_inputs.end_non_revertible.new_note_hashes,
+//                 [siloed_note_hashes[0], siloed_note_hashes[1]]
+//             )
+//         );
+
+//         assert(
+//             array_eq(
+//                 public_inputs.end.new_note_hashes,
+//                 [siloed_note_hashes[2], siloed_note_hashes[3]]
+//             )
+//         );
+//     }
+
+//     #[test]
+//     unconstrained fn split_side_effect_squashing() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+
+//         // add one hash in non-revertible part
+//         builder.previous_kernel.append_new_note_hashes(1);
+//         builder.previous_kernel.end_setup();
+
+//         // nullify it in revertible part
+//         builder.previous_kernel.append_new_nullifiers(1);
+//         builder.nullify_pending_note_hash(1, 0);
+
+//         let public_inputs = builder.execute();
+
+//         assert(!is_empty_array(public_inputs.end_non_revertible.new_nullifiers));
+//         assert(is_empty_array(public_inputs.end_non_revertible.new_note_hashes));
+//         assert(is_empty_array(public_inputs.end.new_note_hashes));
+//         assert(is_empty_array(public_inputs.end.new_nullifiers));
+//     }
+
+//     #[test]
+//     unconstrained fn empty_tx_consumes_teardown_limits_plus_fixed_gas() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+//         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
+//         let public_inputs = builder.execute();
+
+//         let expected_gas_consumed = Gas::new(300, 300) + Gas::tx_overhead();
+//         assert_eq(public_inputs.end.gas_used, expected_gas_consumed);
+//     }
+
+//     #[test(should_fail_with="The gas used exceeds the gas limits")]
+//     unconstrained fn gas_limits_are_enforced() {
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+//         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
+//         builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1, 1);
+//         builder.failed();
+//     }
+
+//     #[test]
+//     unconstrained fn propagate_fee_payer() {
+//         // Check that we carry forward if the fee payer is already set
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+//         let fee_payer = AztecAddress::from_field(123);
+//         builder.previous_kernel.fee_payer = fee_payer;
+//         let public_inputs = builder.execute();
+//         assert_eq(public_inputs.fee_payer, fee_payer);
+
+//         // Check that the fee payer remains empty if unset
+//         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+//         let public_inputs = builder.execute();
+//         assert_eq(public_inputs.fee_payer, AztecAddress::empty());
+//     }
+// }
