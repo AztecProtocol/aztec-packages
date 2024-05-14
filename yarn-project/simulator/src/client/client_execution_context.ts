@@ -154,16 +154,19 @@ export class ClientExecutionContext extends ViewDataOracle {
   public chopNoteEncryptedLogsFromNested() {
     // Do not return logs that have been chopped in the cache
     const allNoteLogs = this.noteCache.getLogs();
-    this.nestedExecutions.forEach(result => {
-      if (!result.noteEncryptedLogs[0]?.isEmpty()) {
-        // The execution has note logs
-        result.noteEncryptedLogs = result.noteEncryptedLogs.filter(l => allNoteLogs.includes(l));
-      }
-    });
+    const chop = (thing: any) =>
+      thing.nestedExecutions.forEach((result: ExecutionResult) => {
+        if (!result.noteEncryptedLogs[0]?.isEmpty()) {
+          // The execution has note logs
+          result.noteEncryptedLogs = result.noteEncryptedLogs.filter(l => allNoteLogs.includes(l));
+        }
+        chop(result);
+      });
+    chop(this);
   }
 
   /**
-   * Return the note encrypted logs emitted during this execution.
+   * Return the note encrypted logs emitted during this execution and nested executions.
    */
   public getAllNoteEncryptedLogs() {
     return this.noteCache.getLogs();

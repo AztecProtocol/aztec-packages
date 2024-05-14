@@ -213,7 +213,7 @@ mod tests {
 
         builder.failed();
     }
-    
+
     #[test]
     unconstrained fn propagate_fee_payer() {
         let mut builder = PrivateKernelInitInputsBuilder::new();

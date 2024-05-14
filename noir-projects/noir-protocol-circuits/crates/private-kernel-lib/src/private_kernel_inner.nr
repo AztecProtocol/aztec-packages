@@ -250,12 +250,13 @@ mod tests {
     }
 
     #[test(should_fail_with = "Could not find note hash linked to note log.")]
-    fn input_validation_note_log_not_linked() {
+    unconstrained fn input_validation_note_log_not_linked() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.private_call.public_inputs.note_encrypted_logs_hashes.extend_from_array([NoteLogHash { value: 9123, counter: 1, length: 2, note_hash: 1 }]);
+        builder.private_call.public_inputs.note_encrypted_logs_hashes.push(NoteLogHash { value: 9123, counter: 1, length: 2, note_hash: 1 });
+        builder.failed();
     }
-    
+
     #[test]
     unconstrained fn propagate_fee_payer() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
@@ -263,13 +264,19 @@ mod tests {
         builder.private_call.public_inputs.is_fee_payer = true;
         let public_inputs = builder.execute();
         assert_eq(public_inputs.fee_payer, fee_payer);
+    }
 
+    #[test]
+    unconstrained fn propagate_fee_payer_not_set() {
         // Check that the fee payer is not set if is_fee_payer is false
         let mut builder = PrivateKernelInnerInputsBuilder::new();
         assert_eq(builder.private_call.public_inputs.is_fee_payer, false);
         let public_inputs = builder.execute();
         assert_eq(public_inputs.fee_payer, AztecAddress::empty());
+    }
 
+    #[test]
+    unconstrained fn propagate_fee_payer_carry_forward() {
         // Check that we carry forward if the fee payer is already set
         let mut builder = PrivateKernelInnerInputsBuilder::new();
         let fee_payer = AztecAddress::from_field(123);

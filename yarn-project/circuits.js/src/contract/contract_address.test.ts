@@ -70,7 +70,9 @@ describe('ContractAddress', () => {
     expect(address).toMatchSnapshot();
   });
 
-  it('Public key hash matches Noir', () => {
+  // This test no longer exists in nr, the new test in 'noir-projects/aztec-nr/aztec/src/keys/public_keys.nr does not match the code here.
+  // That test is run in keys/index.test.ts -> 'computing public keys hash matches Noir'
+  it.skip('Public key hash matches Noir', () => {
     const secretKey = new Fr(2n);
     const hash = deriveKeys(secretKey).publicKeys.hash().toString();
     expect(hash).toMatchSnapshot();
