@@ -1,16 +1,12 @@
 import { type AccountWallet, type AztecAddress, type DebugLogger } from '@aztec/aztec.js';
 import { CounterContract } from '@aztec/noir-contracts.js/Counter';
 
-import { jest } from '@jest/globals';
-
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_counter_contract', () => {
   let wallet: AccountWallet;
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
-
-  jest.setTimeout(60_000);
 
   let counterContract: CounterContract;
   let owner: AztecAddress;

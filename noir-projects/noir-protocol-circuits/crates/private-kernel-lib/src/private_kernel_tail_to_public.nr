@@ -31,11 +31,10 @@ struct PrivateKernelTailToPublicCircuitPrivateInputs {
 impl PrivateKernelTailToPublicCircuitPrivateInputs {
     pub fn execute(self) -> PublicKernelCircuitPublicInputs {
         let previous_public_inputs = self.previous_kernel.public_inputs;
-        assert_eq(
-            array_length(previous_public_inputs.end.public_call_stack), 0, "Public call stack must be empty when executing the tail circuit"
-        );
+        let mut total_public_calls = array_length(previous_public_inputs.end.public_call_stack);
+        total_public_calls += if is_empty(self.previous_kernel.public_inputs.public_teardown_call_request) {0} else {1};
         assert(
-            is_empty(previous_public_inputs.public_teardown_call_request) == true, "Public teardown call request must be empty when executing the tail circuit"
+            total_public_calls != 0, "Must have public calls when exporting public kernel data from the tail circuit"
         );
 
         // verify/aggregate the previous kernel
