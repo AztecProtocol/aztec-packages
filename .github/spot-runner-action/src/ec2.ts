@@ -161,7 +161,7 @@ export class Ec2Instance {
     const userData = await new UserData(
       this.config
     );
-    const userDataScript = this.config.githubActionRunnerConcurrency !== 0 ? await userData.getUserDataForBuilder() : await userData.getUserDataForBareSpot();
+    const userDataScript = await userData.getUserData();
     const ec2InstanceTypeHash = this.getHashOfStringArray(
       this.config.ec2InstanceType.concat([
         userDataScript,
@@ -179,13 +179,6 @@ export class Ec2Instance {
       LaunchTemplateData: {
         ImageId: this.config.ec2AmiId,
         InstanceInitiatedShutdownBehavior: "terminate",
-        InstanceRequirements: {
-          // We do not know what the instance types correspond to
-          // just let the user send a list of allowed instance types
-          VCpuCount: { Min: 0 },
-          MemoryMiB: { Min: 0 },
-          AllowedInstanceTypes: this.config.ec2InstanceType,
-        },
         SecurityGroupIds: [this.config.ec2SecurityGroupId],
         KeyName: this.config.ec2KeyName,
         UserData: userDataScript,
@@ -225,7 +218,7 @@ export class Ec2Instance {
     return launchTemplateName;
   }
 
-  async requestMachine(useOnDemand: boolean): Promise<string | undefined> {
+  async requestMachine(useOnDemand: boolean): Promise<string> {
     // Note advice re max bid: "If you specify a maximum price, your instances will be interrupted more frequently than if you do not specify this parameter."
     const launchTemplateName = await this.getLaunchTemplate();
     // Launch template name already in use
@@ -237,14 +230,17 @@ export class Ec2Instance {
       },
       Overrides: this.config.ec2InstanceType.map((instanceType) => ({
         InstanceType: instanceType,
-        AvailabilityZone: availabilityZone,
-        SubnetId: this.config.ec2SubnetId,
+        AvailabilityZone: this.config.githubActionRunnerConcurrency > 0 ? availabilityZone : undefined,
+        SubnetId: this.config.githubActionRunnerConcurrency > 0 ? this.config.ec2SubnetId : undefined,
       })),
     };
     const createFleetRequest: CreateFleetRequest = {
       Type: "instant",
       LaunchTemplateConfigs: [fleetLaunchConfig],
       ClientToken: this.config.clientToken || undefined,
+      SpotOptions: {
+        AllocationStrategy: "price-capacity-optimized",
+      },
       TargetCapacitySpecification: {
         TotalTargetCapacity: 1,
         OnDemandTargetCapacity: useOnDemand ? 1 : 0,
@@ -255,10 +251,18 @@ export class Ec2Instance {
     const client = await this.getEc2Client();
     const fleet = await client.createFleet(createFleetRequest).promise();
     if (fleet.Errors && fleet.Errors.length > 0) {
-      core.error(JSON.stringify(fleet.Errors, null, 2));
+      core.warning(JSON.stringify(fleet.Errors, null, 2));
+      for (const error of fleet.Errors) {
+        if (
+          error.ErrorCode === "RequestLimitExceeded" ||
+          error.ErrorCode === "InsufficientInstanceCapacity"
+        ) {
+          return error.ErrorCode;
+        }
+      }
     }
     const instances: CreateFleetInstance = (fleet?.Instances || [])[0] || {};
-    return (instances.InstanceIds || [])[0];
+    return (instances.InstanceIds || [])[0] || "";
   }
 
   async getInstanceStatus(instanceId: string) {
