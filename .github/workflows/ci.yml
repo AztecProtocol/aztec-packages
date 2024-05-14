@@ -197,6 +197,24 @@ jobs:
         timeout-minutes: 25
         run: earthly-ci --no-output ./+test
 
+  noir-format:
+    needs: setup
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: noir-format-${{ github.event.pull_request.user.login || github.actor }}-x86
+      - name: "Format Noir"
+        working-directory: ./noir/
+        timeout-minutes: 25
+        run: earthly-ci --no-output ./+format
+      - name: "Format noir-projects"
+        working-directory: ./noir-projects/
+        timeout-minutes: 25
+        run: earthly-ci --no-output ./+format
+
   noir-test:
     needs: setup
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
