@@ -1,3 +1,4 @@
+import { type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
 import {
   CallRequest,
   Fr,
@@ -25,7 +26,6 @@ import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { type ExecutionResult, collectNoteHashLeafIndexMap, collectNullifiedNoteHashCounters } from '@aztec/simulator';
 
-import { type KernelProofOutput, type ProofCreator } from './interface/proof_creator.js';
 import {
   buildPrivateKernelInnerHints,
   buildPrivateKernelResetHints,

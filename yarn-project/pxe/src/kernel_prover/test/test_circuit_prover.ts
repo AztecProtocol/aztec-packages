@@ -1,3 +1,4 @@
+import { type AppCircuitProofOutput, type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
 import { type CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -22,8 +23,6 @@ import {
   executeTail,
   executeTailForPublic,
 } from '@aztec/noir-protocol-circuits-types';
-
-import { type AppCircuitProofOutput, type KernelProofOutput, type ProofCreator } from '../interface/proof_creator.js';
 
 /**
  * Test Proof Creator executes circuit simulations and provides fake proofs.
