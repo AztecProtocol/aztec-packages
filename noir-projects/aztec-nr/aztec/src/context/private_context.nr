@@ -40,6 +40,7 @@ struct PrivateContext {
     side_effect_counter: u32,
 
     min_revertible_side_effect_counter: u32,
+    is_fee_payer: bool,
 
     args_hash: Field,
     return_hash: Field,
@@ -115,6 +116,7 @@ impl PrivateContext {
             inputs,
             side_effect_counter,
             min_revertible_side_effect_counter,
+            is_fee_payer: false,
             args_hash,
             return_hash: 0,
             max_block_number: MaxBlockNumber::empty(),
@@ -159,6 +161,7 @@ impl PrivateContext {
             args_hash: self.args_hash,
             returns_hash: self.return_hash,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
+            is_fee_payer: self.is_fee_payer,
             max_block_number: self.max_block_number,
             note_hash_read_requests: self.note_hash_read_requests.storage,
             nullifier_read_requests: self.nullifier_read_requests.storage,
@@ -178,6 +181,10 @@ impl PrivateContext {
             historical_header: self.historical_header,
             tx_context: self.inputs.tx_context
         }
+    }
+
+    pub fn set_as_fee_payer(&mut self) {
+        self.is_fee_payer = true;
     }
 
     pub fn end_setup(&mut self) {
@@ -286,7 +293,7 @@ impl PrivateContext {
         contract_address: AztecAddress,
         storage_slot: Field,
         note_type_id: Field,
-        encryption_pub_key: GrumpkinPoint,
+        ivpk_m: GrumpkinPoint,
         preimage: [Field; N]
     ) where [Field; N]: LensForEncryptedLog<N, M, L> {
         // TODO(1139): perform encryption in the circuit
@@ -296,7 +303,7 @@ impl PrivateContext {
             contract_address,
             storage_slot,
             note_type_id,
-            encryption_pub_key,
+            ivpk_m,
             preimage,
             counter
         );
@@ -608,6 +615,7 @@ impl Empty for PrivateContext {
             inputs: PrivateContextInputs::empty(),
             side_effect_counter: 0 as u32,
             min_revertible_side_effect_counter: 0 as u32,
+            is_fee_payer: false,
             args_hash: 0,
             return_hash: 0,
             max_block_number: MaxBlockNumber::empty(),

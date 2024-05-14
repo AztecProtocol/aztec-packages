@@ -7,7 +7,7 @@ contract SchnorrAccount {
 
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, PrivateContext, PrivateImmutable};
     use dep::aztec::state_vars::{Map, PublicMutable};
-    use dep::aztec::{context::Context, oracle::get_public_key::get_public_key};
+    use dep::aztec::context::Context;
     use dep::authwit::{
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
         auth_witness::get_auth_witness
@@ -28,7 +28,7 @@ contract SchnorrAccount {
     // Constructs the contract
     #[aztec(private)]
     #[aztec(initializer)]
-    fn constructor(signing_pub_key_x: pub Field, signing_pub_key_y: pub Field) {
+    fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let this = context.this_address();
         // docs:start:initialize
         let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
