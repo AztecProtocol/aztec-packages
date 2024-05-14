@@ -33,7 +33,7 @@ describe('e2e_state_vars', () => {
       await contract.methods.match_shared_immutable(s.account, s.points).send().wait();
     });
 
-    it.only('private read of SharedImmutable', async () => {
+    it('private read of SharedImmutable', async () => {
       // Initializes the shared immutable and then reads the value using an unconstrained function
       // checking the return values with:
       // 1. A constrained private function that reads it directly
