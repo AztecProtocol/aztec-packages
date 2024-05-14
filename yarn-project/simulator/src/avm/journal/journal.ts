@@ -119,7 +119,8 @@ export class AvmPersistableStateManager {
       contractStorageUpdateRequests: [],
       unencryptedLogsHashes: [],
       unencryptedLogs: [],
-      unencryptedLogPreimagesLength: new Fr(0),
+      // The length starts at 4 because it will always include the size.
+      unencryptedLogPreimagesLength: new Fr(4),
       allUnencryptedLogs: [],
       nestedExecutions: [],
     };
@@ -285,7 +286,7 @@ export class AvmPersistableStateManager {
   public writeL1Message(recipient: EthAddress | Fr, content: Fr) {
     this.log.debug(`L1Messages(${recipient}) += ${content}.`);
     const recipientAddress = recipient instanceof EthAddress ? recipient : EthAddress.fromField(recipient);
-    const message = new L2ToL1Message(recipientAddress, content);
+    const message = new L2ToL1Message(recipientAddress, content, 0);
     this.newL1Messages.push(message);
 
     // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit

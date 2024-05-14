@@ -44,7 +44,9 @@ fn test_encrypted_log_header() {
 
     let ciphertext = header.compute_ciphertext(secret, point);
 
-    let expected_header_ciphertext = [131,119,105,129,244,32,151,205,12,99,93,62,10,180,72,21,179,36,250,95,56,167,171,16,195,164,223,57,75,5,24,119,198,34,99,189,193,183,227,43,79,204,214,89,221,153,246,64];
+    let expected_header_ciphertext = [
+        131, 119, 105, 129, 244, 32, 151, 205, 12, 99, 93, 62, 10, 180, 72, 21, 179, 36, 250, 95, 56, 167, 171, 16, 195, 164, 223, 57, 75, 5, 24, 119, 198, 34, 99, 189, 193, 183, 227, 43, 79, 204, 214, 89, 221, 153, 246, 64
+    ];
 
     assert_eq(ciphertext, expected_header_ciphertext);
 }

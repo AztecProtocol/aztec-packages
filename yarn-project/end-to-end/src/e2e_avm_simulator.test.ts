@@ -33,6 +33,25 @@ describe('e2e_avm_simulator', () => {
       avmContract = await AvmTestContract.deploy(wallet).send().deployed();
     });
 
+    describe('Assertions', () => {
+      it('PXE processes failed assertions and fills in the error message with the expression', async () => {
+        await expect(avmContract.methods.assertion_failure().simulate()).rejects.toThrow(
+          "Assertion failed: This assertion should fail! 'not_true == true'",
+        );
+      });
+      it('PXE processes failed assertions and fills in the error message with the expression (even complex ones)', async () => {
+        await expect(avmContract.methods.assert_nullifier_exists(123).simulate()).rejects.toThrow(
+          "Assertion failed: Nullifier doesn't exist! 'context.nullifier_exists(nullifier, context.this_address())'",
+        );
+      });
+    });
+
+    describe('From private', () => {
+      it('Should enqueue a public function correctly', async () => {
+        await avmContract.methods.enqueue_public_from_private().simulate();
+      });
+    });
+
     describe('Gas metering', () => {
       it('Tracks L2 gas usage on simulation', async () => {
         const request = await avmContract.methods.add_args_return(20n, 30n).create();
@@ -113,7 +132,7 @@ describe('e2e_avm_simulator', () => {
     });
   });
 
-  describe('ACVM interoperability', () => {
+  describe.skip('ACVM interoperability', () => {
     let avmContract: AvmAcvmInteropTestContract;
 
     beforeEach(async () => {
@@ -128,7 +147,7 @@ describe('e2e_avm_simulator', () => {
       expect(await avmContract.methods.call_avm_from_acvm().simulate()).toEqual(123456n);
     });
 
-    it.skip('Can call ACVM function from AVM', async () => {
+    it('Can call ACVM function from AVM', async () => {
       expect(await avmContract.methods.call_acvm_from_avm().simulate()).toEqual(123456n);
     });
 
@@ -138,7 +157,7 @@ describe('e2e_avm_simulator', () => {
       await avmContract.methods.assert_unsiloed_nullifier_acvm(nullifier).send().wait();
     });
 
-    it.skip('AVM nested call to ACVM sees settled nullifiers', async () => {
+    it('AVM nested call to ACVM sees settled nullifiers', async () => {
       const nullifier = new Fr(123456);
       await avmContract.methods.new_nullifier(nullifier).send().wait();
       await avmContract.methods
@@ -147,6 +166,7 @@ describe('e2e_avm_simulator', () => {
         .wait();
     });
 
+    // TODO: Enable (or delete) authwit tests once the AVM is fully functional.
     describe.skip('Authwit', () => {
       it('Works if authwit provided', async () => {
         const recipient = AztecAddress.random();

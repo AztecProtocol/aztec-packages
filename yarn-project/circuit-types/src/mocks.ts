@@ -27,7 +27,7 @@ import { type ContractInstanceWithAddress, SerializableContractInstance } from '
 import { EncryptedL2Log } from './logs/encrypted_l2_log.js';
 import { EncryptedFunctionL2Logs, EncryptedTxL2Logs, Note, UnencryptedTxL2Logs } from './logs/index.js';
 import { ExtendedNote } from './notes/index.js';
-import { type ProcessOutput, type ProcessReturnValues, SimulatedTx, Tx, TxHash } from './tx/index.js';
+import { type ProcessReturnValues, PublicSimulationOutput, SimulatedTx, Tx, TxHash } from './tx/index.js';
 
 /**
  * Testing utility to create empty logs composed from a single empty log.
@@ -47,12 +47,14 @@ export const mockTx = (
     numberOfRevertiblePublicCallRequests = MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX / 2,
     publicCallRequests = [],
     publicTeardownCallRequest = PublicCallRequest.empty(),
+    feePayer = AztecAddress.ZERO,
   }: {
     hasLogs?: boolean;
     numberOfNonRevertiblePublicCallRequests?: number;
     numberOfRevertiblePublicCallRequests?: number;
     publicCallRequests?: PublicCallRequest[];
     publicTeardownCallRequest?: PublicCallRequest;
+    feePayer?: AztecAddress;
   } = {},
 ) => {
   const totalPublicCallRequests =
@@ -69,6 +71,7 @@ export const mockTx = (
   const encryptedLogs = hasLogs ? EncryptedTxL2Logs.random(2, 3) : EncryptedTxL2Logs.empty(); // 2 priv function invocations creating 3 encrypted logs each
   const unencryptedLogs = hasLogs ? UnencryptedTxL2Logs.random(2, 1) : UnencryptedTxL2Logs.empty(); // 2 priv function invocations creating 1 unencrypted log each
   data.constants.txContext.gasSettings = GasSettings.default();
+  data.feePayer = feePayer;
 
   if (isForPublic) {
     data.forRollup = undefined;
@@ -89,7 +92,10 @@ export const mockTx = (
         : CallRequest.empty(),
     );
 
-    data.forPublic.publicTeardownCallRequest = publicTeardownCallRequest.toCallRequest();
+    data.forPublic.publicTeardownCallStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, () => CallRequest.empty());
+    data.forPublic.publicTeardownCallStack[0] = publicTeardownCallRequest.isEmpty()
+      ? CallRequest.empty()
+      : publicTeardownCallRequest.toCallRequest();
 
     if (hasLogs) {
       let i = 1; // 0 used in first nullifier
@@ -129,14 +135,15 @@ export const mockTxForRollup = (seed = 1, { hasLogs = false }: { hasLogs?: boole
 export const mockSimulatedTx = (seed = 1, hasLogs = true) => {
   const tx = mockTx(seed, { hasLogs });
   const dec: ProcessReturnValues = [new Fr(1n), new Fr(2n), new Fr(3n), new Fr(4n)];
-  const output: ProcessOutput = {
-    constants: makeCombinedConstantData(),
-    encryptedLogs: tx.encryptedLogs,
-    unencryptedLogs: tx.unencryptedLogs,
-    end: makeCombinedAccumulatedData(),
-    revertReason: undefined,
-    publicReturnValues: dec,
-  };
+  const output = new PublicSimulationOutput(
+    tx.encryptedLogs,
+    tx.unencryptedLogs,
+    undefined,
+    makeCombinedConstantData(),
+    makeCombinedAccumulatedData(),
+    dec,
+    {},
+  );
   return new SimulatedTx(tx, dec, output);
 };
 

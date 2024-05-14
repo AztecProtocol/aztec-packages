@@ -39,7 +39,6 @@ import { TxContext } from './tx_context.js';
 
 /**
  * Public inputs to a private circuit.
- * @see abis/private_circuit_public_inputs.hpp.
  */
 export class PrivateCircuitPublicInputs {
   constructor(
@@ -59,6 +58,10 @@ export class PrivateCircuitPublicInputs {
      * The side-effect counter under which all side effects are non-revertible.
      */
     public minRevertibleSideEffectCounter: Fr,
+    /**
+     * Whether the caller of the function is the fee payer.
+     */
+    public isFeePayer: boolean,
     /**
      * The maximum block number in which this transaction can be included and be valid.
      */
@@ -165,6 +168,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Fr),
+      reader.readBoolean(),
       reader.readObject(MaxBlockNumber),
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
@@ -193,6 +197,7 @@ export class PrivateCircuitPublicInputs {
       reader.readField(),
       reader.readField(),
       reader.readField(),
+      reader.readBoolean(),
       reader.readObject(MaxBlockNumber),
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
@@ -224,6 +229,7 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
+      false,
       MaxBlockNumber.empty(),
       makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest.empty),
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.empty),
@@ -252,6 +258,7 @@ export class PrivateCircuitPublicInputs {
       this.argsHash.isZero() &&
       this.returnsHash.isZero() &&
       this.minRevertibleSideEffectCounter.isZero() &&
+      !this.isFeePayer &&
       this.maxBlockNumber.isEmpty() &&
       isEmptyArray(this.noteHashReadRequests) &&
       isEmptyArray(this.nullifierReadRequests) &&
@@ -282,6 +289,7 @@ export class PrivateCircuitPublicInputs {
       fields.argsHash,
       fields.returnsHash,
       fields.minRevertibleSideEffectCounter,
+      fields.isFeePayer,
       fields.maxBlockNumber,
       fields.noteHashReadRequests,
       fields.nullifierReadRequests,

@@ -92,12 +92,12 @@ impl PublicKernelTailCircuitPrivateInputs {
         let end = self.propagate_accumulated_data();
 
         KernelCircuitPublicInputs {
-            aggregation_object: previous_public_inputs.aggregation_object,
             rollup_validation_requests: previous_public_inputs.validation_requests.for_rollup,
             end,
             constants: previous_public_inputs.constants,
             start_state: self.start_state,
-            revert_code: previous_public_inputs.revert_code
+            revert_code: previous_public_inputs.revert_code,
+            fee_payer: previous_public_inputs.fee_payer
         }
     }
 }
@@ -115,8 +115,9 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, kernel_data::PublicKernelData,
-        nullifier_leaf_preimage::NullifierLeafPreimage
+        nullifier::ScopedNullifier, nullifier_leaf_preimage::NullifierLeafPreimage
     },
+        address::AztecAddress,
         constants::{
         MAX_NEW_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_PUBLIC_DATA_HINTS,
         MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT,
@@ -127,7 +128,7 @@ mod tests {
         hash::{silo_nullifier, sha256_to_field},
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
         tests::{fixture_builder::FixtureBuilder, merkle_tree_utils::NonEmptyMerkleTree},
-        partial_state_reference::PartialStateReference, utils::arrays::array_merge,
+        traits::is_empty, partial_state_reference::PartialStateReference, utils::arrays::array_merge,
         merkle_tree::MembershipWitness
     };
 
@@ -209,19 +210,19 @@ mod tests {
         }
 
         pub fn add_nullifier(&mut self, unsiloed_nullifier: Field) {
-            self.previous_kernel.add_nullifier(unsiloed_nullifier);
+            self.previous_kernel.add_siloed_nullifier(unsiloed_nullifier);
             self.sync_counters();
             self.set_nullifiers_for_non_existent_read_request_hints();
         }
 
         pub fn append_nullifiers_revertible(&mut self, num_nullifiers: u64) {
-            self.previous_revertible.append_new_nullifiers(num_nullifiers);
+            self.previous_revertible.append_siloed_nullifiers(num_nullifiers);
             self.sync_counters();
             self.set_nullifiers_for_non_existent_read_request_hints();
         }
 
         pub fn append_nullifiers_non_revertible(&mut self, num_nullifiers: u64) {
-            self.previous_kernel.append_new_nullifiers(num_nullifiers);
+            self.previous_kernel.append_siloed_nullifiers(num_nullifiers);
             self.sync_counters();
             self.set_nullifiers_for_non_existent_read_request_hints();
         }
@@ -230,7 +231,7 @@ mod tests {
             let nullifiers = array_merge(
                 self.previous_kernel.new_nullifiers.storage,
                 self.previous_revertible.new_nullifiers.storage
-            );
+            ).map(|n: ScopedNullifier| n.nullifier);
             self.nullifier_non_existent_read_request_hints_builder.set_nullifiers(nullifiers);
         }
 
@@ -420,7 +421,7 @@ mod tests {
         builder.add_pending_revertible_nullifier_read_request(1);
         let nullifier_being_read = builder.previous_revertible.new_nullifiers.get(1);
         let mut read_request = builder.previous_kernel.nullifier_read_requests.pop();
-        read_request.counter = nullifier_being_read.counter - 1;
+        read_request.read_request.counter = nullifier_being_read.counter() - 1;
         builder.previous_kernel.nullifier_read_requests.push(read_request);
 
         builder.failed();
@@ -541,5 +542,20 @@ mod tests {
         builder.previous_kernel.public_data_update_requests.push(public_data_write);
 
         builder.failed();
+    }
+
+    #[test]
+    unconstrained fn propagate_fee_payer() {
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
+        let fee_payer = AztecAddress::from_field(123);
+        builder.previous_kernel.set_fee_payer(fee_payer);
+        let public_inputs = builder.execute();
+        assert_eq(public_inputs.fee_payer, fee_payer);
+
+        // Check that the fee payer is not set if is_fee_payer is false
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
+        assert_eq(is_empty(builder.previous_kernel.fee_payer), true);
+        let public_inputs = builder.execute();
+        assert_eq(public_inputs.fee_payer, AztecAddress::empty());
     }
 }

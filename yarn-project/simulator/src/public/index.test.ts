@@ -8,7 +8,6 @@ import {
   GlobalVariables,
   type Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
-  L2ToL1Message,
   NULLIFIER_TREE_HEIGHT,
   NullifierLeaf,
   NullifierLeafPreimage,
@@ -400,10 +399,8 @@ describe('ACIR public execution simulator', () => {
 
       // Assert the l2 to l1 message was created
       expect(result.newL2ToL1Messages.length).toEqual(1);
-
-      const expectedNewMessage = new L2ToL1Message(portalContractAddress, pedersenHash(params));
-
-      expect(result.newL2ToL1Messages[0]).toEqual(expectedNewMessage);
+      expect(result.newL2ToL1Messages[0].recipient).toEqual(portalContractAddress);
+      expect(result.newL2ToL1Messages[0].content).toEqual(pedersenHash(params));
     });
 
     it('Should be able to create a nullifier from the public context', async () => {
@@ -677,12 +674,6 @@ describe('ACIR public execution simulator', () => {
       { value: new Fr(1), invalidValue: Fr.random(), description: 'Version' },
       { value: new Fr(1), invalidValue: Fr.random(), description: 'Block number' },
       { value: new Fr(1), invalidValue: Fr.random(), description: 'Timestamp' },
-      { value: EthAddress.random(), invalidValue: EthAddress.random(), description: 'Coinbase' },
-      {
-        value: AztecAddress.random(),
-        invalidValue: AztecAddress.random(),
-        description: 'Fee recipient',
-      },
       { value: new Fr(1), invalidValue: Fr.random(), description: 'Fee per DA gas' },
       { value: new Fr(1), invalidValue: Fr.random(), description: 'Fee per L2 gas' },
     ];

@@ -10,8 +10,7 @@ use dep::types::{
     MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL
 },
-    hash::{compute_l2_to_l1_hash, silo_note_hash, silo_nullifier}, traits::is_empty,
-    transaction::tx_request::TxRequest, utils::arrays::array_to_bounded_vec
+    traits::is_empty, transaction::tx_request::TxRequest, utils::arrays::array_to_bounded_vec
 };
 
 struct DataSource {
@@ -20,6 +19,7 @@ struct DataSource {
     note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
     private_call_requests: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
     public_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+    public_teardown_call_request: CallRequest,
 }
 
 struct PrivateKernelCircuitPublicInputsComposer {
@@ -38,7 +38,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         public_inputs.min_revertible_side_effect_counter = private_call_public_inputs.min_revertible_side_effect_counter;
 
         // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
-        public_inputs.end.new_nullifiers.push(Nullifier { value: tx_request.hash(), note_hash: 0, counter: 0 });
+        public_inputs.end.new_nullifiers.push(Nullifier { value: tx_request.hash(), note_hash: 0, counter: 0 }.scope(AztecAddress::zero()));
         // Note that we do not need to nullify the transaction request nonce anymore.
         // Should an account want to additionally use nonces for replay protection or handling cancellations,
         // they will be able to do so in the account contract logic:
@@ -52,6 +52,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
 
         public_inputs.constants = previous_kernel_public_inputs.constants;
         public_inputs.min_revertible_side_effect_counter = previous_kernel_public_inputs.min_revertible_side_effect_counter;
+        public_inputs.fee_payer = previous_kernel_public_inputs.fee_payer;
+        public_inputs.public_teardown_call_request = previous_kernel_public_inputs.public_teardown_call_request;
 
         let start = previous_kernel_public_inputs.validation_requests;
         public_inputs.validation_requests.max_block_number = start.for_rollup.max_block_number;
@@ -79,7 +81,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         private_call_public_inputs: PrivateCircuitPublicInputs,
         note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
         private_call_requests: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
-        public_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL]
+        public_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+        public_teardown_call_request: CallRequest
     ) -> Self {
         let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
         let source = DataSource {
@@ -87,7 +90,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
             private_call_public_inputs,
             note_hash_nullifier_counters,
             private_call_requests,
-            public_call_requests
+            public_call_requests,
+            public_teardown_call_request
         };
 
         self.propagate_max_block_number(source);
@@ -100,6 +104,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         self.propagate_logs(source);
         self.propagate_private_call_requests(source);
         self.propagate_public_call_requests(source);
+        self.propagate_public_teardown_call_request(source);
+        self.propagate_fee_payer(source);
 
         *self
     }
@@ -118,7 +124,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..read_requests.len() {
             let request = read_requests[i];
             if !is_empty(request) {
-                self.public_inputs.validation_requests.note_hash_read_requests.push(request.to_context(source.storage_contract_address));
+                self.public_inputs.validation_requests.note_hash_read_requests.push(request.scope(source.storage_contract_address));
             }
         }
     }
@@ -128,7 +134,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..nullifier_read_requests.len() {
             let request = nullifier_read_requests[i];
             if !is_empty(request) {
-                self.public_inputs.validation_requests.nullifier_read_requests.push(request.to_context(source.storage_contract_address));
+                self.public_inputs.validation_requests.nullifier_read_requests.push(request.scope(source.storage_contract_address));
             }
         }
     }
@@ -138,7 +144,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..nullifier_key_validation_requests.len() {
             let request = nullifier_key_validation_requests[i];
             if !is_empty(request) {
-                self.public_inputs.validation_requests.nullifier_key_validation_requests.push(request.to_context(source.storage_contract_address));
+                self.public_inputs.validation_requests.nullifier_key_validation_requests.push(request.scope(source.storage_contract_address));
             }
         }
     }
@@ -150,12 +156,9 @@ impl PrivateKernelCircuitPublicInputsComposer {
             if note_hash.value != 0 {
                 let nullifier_counter = source.note_hash_nullifier_counters[i];
                 assert(
-                    (nullifier_counter == 0) | (nullifier_counter > note_hash.counter), "invalid nullifier counter"
+                    (nullifier_counter == 0) | (nullifier_counter > note_hash.counter), "Invalid nullifier counter"
                 );
-
-                // TODO: Silo values in the tail circuit.
-                note_hash.value = silo_note_hash(source.storage_contract_address, note_hash.value);
-                self.public_inputs.end.new_note_hashes.push(note_hash.to_context(nullifier_counter));
+                self.public_inputs.end.new_note_hashes.push(note_hash.scope(nullifier_counter, source.storage_contract_address));
             }
         }
     }
@@ -165,18 +168,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..nullifiers.len() {
             let nullifier = nullifiers[i];
             if nullifier.value != 0 {
-                let siloed_note_hash = if nullifier.note_hash == 0 {
-                    0
-                } else {
-                    silo_note_hash(source.storage_contract_address, nullifier.note_hash)
-                };
-                self.public_inputs.end.new_nullifiers.push(
-                    Nullifier {
-                    value: silo_nullifier(source.storage_contract_address, nullifier.value),
-                    counter: nullifier.counter,
-                    note_hash: siloed_note_hash
-                }
-                );
+                self.public_inputs.end.new_nullifiers.push(nullifier.scope(source.storage_contract_address));
             }
         }
     }
@@ -186,13 +178,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         for i in 0..l2_to_l1_msgs.len() {
             let msg = l2_to_l1_msgs[i];
             if !is_empty(msg) {
-                let hash = compute_l2_to_l1_hash(
-                    source.storage_contract_address,
-                    source.private_call_public_inputs.tx_context.version,
-                    source.private_call_public_inputs.tx_context.chain_id,
-                    msg
-                );
-                self.public_inputs.end.new_l2_to_l1_msgs.push(hash);
+                self.public_inputs.end.new_l2_to_l1_msgs.push(msg.scope(source.storage_contract_address));
             }
         }
     }
@@ -223,6 +209,23 @@ impl PrivateKernelCircuitPublicInputsComposer {
             if !is_empty(call_request) {
                 self.public_inputs.end.public_call_stack.push(call_request);
             }
+        }
+    }
+
+    fn propagate_public_teardown_call_request(&mut self, source: DataSource) {
+        let call_request = source.public_teardown_call_request;
+        if !is_empty(call_request) {
+            assert(
+                is_empty(self.public_inputs.public_teardown_call_request), "Public teardown call request already set"
+            );
+            self.public_inputs.public_teardown_call_request = call_request;
+        }
+    }
+
+    fn propagate_fee_payer(&mut self, source: DataSource) {
+        if (source.private_call_public_inputs.is_fee_payer) {
+            assert(self.public_inputs.fee_payer.is_zero(), "Cannot overwrite non-empty fee_payer");
+            self.public_inputs.fee_payer = source.storage_contract_address;
         }
     }
 }
