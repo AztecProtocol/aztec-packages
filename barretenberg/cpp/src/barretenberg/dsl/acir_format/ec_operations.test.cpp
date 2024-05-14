@@ -30,13 +30,18 @@ size_t generate_ec_add_constraint(EcAdd& ec_add_constraint, WitnessVector& witne
     witness_values.push_back(g1.y);
     witness_values.push_back(result.x.get_value());
     witness_values.push_back(result.y.get_value());
+    witness_values.push_back(0);
+    witness_values.push_back(0);
     ec_add_constraint = EcAdd{
         .input1_x = 1,
         .input1_y = 2,
+        .input1_infinite = 7,
         .input2_x = 3,
         .input2_y = 4,
+        .input2_infinite = 7,
         .result_x = 5,
         .result_y = 6,
+        .result_infinite = 8,
     };
     return witness_values.size();
 }

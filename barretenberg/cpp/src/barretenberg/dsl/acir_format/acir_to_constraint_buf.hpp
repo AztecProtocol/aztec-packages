@@ -353,6 +353,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg, Aci
                     .input2_infinite = arg.input2[2].witness.value,
                     .result_x = arg.outputs[0].value,
                     .result_y = arg.outputs[1].value,
+                    .result_infinite = arg.outputs[2].value,
                 });
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Keccak256>) {
                 af.keccak_constraints.push_back(KeccakConstraint{
