@@ -4,7 +4,7 @@ contract DelegatedOn {
         AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions, PublicMutable,
         PrivateSet, PrivateContext
     };
-    use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
+    use dep::aztec::{protocol_types::grumpkin_point::GrumpkinPoint, keys::getters::{get_npk_m_hash, get_ivpk_m}};
     use dep::value_note::value_note::ValueNote;
 
     #[aztec(storage)]
@@ -15,8 +15,11 @@ contract DelegatedOn {
 
     #[aztec(private)]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        let mut note = ValueNote::new(new_value, owner);
-        storage.a_private_value.insert(&mut note, true, GrumpkinPoint::zero());
+        let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
+        let owner_ivpk_m = get_ivpk_m(&mut context, owner);
+
+        let mut note = ValueNote::new(new_value, owner_npk_m_hash);
+        storage.a_private_value.insert(&mut note, true, owner_ivpk_m);
         new_value
     }
 
@@ -26,14 +29,17 @@ contract DelegatedOn {
         new_value
     }
 
-    unconstrained fn view_private_value(amount: Field, owner: AztecAddress) -> pub Field {
-        let mut options = NoteViewerOptions::new();
+    #[aztec(private)]
+    fn get_private_value(amount: Field, owner: AztecAddress) -> pub Field {
+        let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
+
+        let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, amount, Option::none()).select(
-            ValueNote::properties().owner,
-            owner.to_field(),
+            ValueNote::properties().npk_m_hash,
+            owner_npk_m_hash,
             Option::none()
         ).set_limit(1);
-        let notes = storage.a_private_value.view_notes(options);
+        let notes = storage.a_private_value.get_notes(options);
         notes[0].unwrap_unchecked().value
     }
 

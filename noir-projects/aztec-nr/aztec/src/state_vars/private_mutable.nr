@@ -51,7 +51,7 @@ impl<Note> PrivateMutable<Note> {
     // docs:end:is_initialized
 
     // docs:start:initialize
-    pub fn initialize<N>(self, note: &mut Note, broadcast: bool) where Note: NoteInterface<N> {
+    pub fn initialize<N>(self, note: &mut Note, broadcast: bool, ivpk_m: GrumpkinPoint) where Note: NoteInterface<N> {
         let context = self.context.unwrap();
 
         // Nullify the storage slot.
@@ -63,13 +63,13 @@ impl<Note> PrivateMutable<Note> {
             self.storage_slot,
             note,
             broadcast,
-            GrumpkinPoint::zero()
+            ivpk_m,
         );
     }
     // docs:end:initialize
 
     // docs:start:replace
-    pub fn replace<N>(self, new_note: &mut Note, broadcast: bool) where Note: NoteInterface<N> {
+    pub fn replace<N>(self, new_note: &mut Note, broadcast: bool, ivpk_m: GrumpkinPoint) where Note: NoteInterface<N> {
         let context = self.context.unwrap();
         let prev_note: Note = get_note(context, self.storage_slot);
 
@@ -82,13 +82,13 @@ impl<Note> PrivateMutable<Note> {
             self.storage_slot,
             new_note,
             broadcast,
-            GrumpkinPoint::zero()
+            ivpk_m,
         );
     }
     // docs:end:replace
 
     // docs:start:get_note
-    pub fn get_note<N>(self, broadcast: bool) -> Note where Note: NoteInterface<N> {
+    pub fn get_note<N>(self, broadcast: bool, ivpk_m: GrumpkinPoint) -> Note where Note: NoteInterface<N> {
         let context = self.context.unwrap();
         let mut note = get_note(context, self.storage_slot);
 
@@ -102,7 +102,7 @@ impl<Note> PrivateMutable<Note> {
             self.storage_slot,
             &mut note,
             broadcast,
-            GrumpkinPoint::zero()
+            ivpk_m,
         );
 
         note

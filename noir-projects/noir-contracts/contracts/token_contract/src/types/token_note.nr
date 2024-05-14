@@ -2,7 +2,7 @@ use dep::aztec::{
     prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext},
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_point::GrumpkinPoint},
     note::utils::compute_note_hash_for_consumption, hash::poseidon2_hash,
-    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_nsk_app_with_npk_m_hash}
+    oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app,
 };
 
 trait OwnedNote {
@@ -28,7 +28,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
     // docs:start:nullifier
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_nsk_app_with_npk_m_hash(self.npk_m_hash);
+        let secret = context.request_nsk_app(self.npk_m_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -39,7 +39,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nsk_app_with_npk_m_hash(self.npk_m_hash);
+        let secret = get_nsk_app(self.npk_m_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
