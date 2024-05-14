@@ -797,6 +797,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     historical_header: mapHeaderToNoir(privateCircuitPublicInputs.historicalHeader),
     tx_context: mapTxContextToNoir(privateCircuitPublicInputs.txContext),
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
+    is_fee_payer: privateCircuitPublicInputs.isFeePayer,
   };
 }
 
@@ -1289,6 +1290,7 @@ export function mapPublicKernelCircuitPublicInputsToNoir(
     end_non_revertible: mapPublicAccumulatedDataToNoir(inputs.endNonRevertibleData),
     revert_code: mapRevertCodeToNoir(inputs.revertCode),
     public_teardown_call_stack: mapTuple(inputs.publicTeardownCallStack, mapCallRequestToNoir),
+    fee_payer: mapAztecAddressToNoir(inputs.feePayer),
   };
 }
 
@@ -1300,6 +1302,7 @@ export function mapKernelCircuitPublicInputsFromNoir(inputs: KernelCircuitPublic
     mapCombinedConstantDataFromNoir(inputs.constants),
     mapPartialStateReferenceFromNoir(inputs.start_state),
     mapRevertCodeFromNoir(inputs.revert_code),
+    mapAztecAddressFromNoir(inputs.fee_payer),
   );
 }
 
@@ -1310,6 +1313,7 @@ export function mapKernelCircuitPublicInputsToNoir(inputs: KernelCircuitPublicIn
     end: mapCombinedAccumulatedDataToNoir(inputs.end),
     start_state: mapPartialStateReferenceToNoir(inputs.startState),
     revert_code: mapRevertCodeToNoir(inputs.revertCode),
+    fee_payer: mapAztecAddressToNoir(inputs.feePayer),
   };
 }
 
@@ -1355,6 +1359,7 @@ export function mapPrivateKernelCircuitPublicInputsFromNoir(
     mapPrivateAccumulatedDataFromNoir(inputs.end),
     mapCombinedConstantDataFromNoir(inputs.constants),
     mapCallRequestFromNoir(inputs.public_teardown_call_request),
+    mapAztecAddressFromNoir(inputs.fee_payer),
   );
 }
 
@@ -1367,6 +1372,7 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
     end: mapPrivateAccumulatedDataToNoir(inputs.end),
     min_revertible_side_effect_counter: mapFieldToNoir(inputs.minRevertibleSideEffectCounter),
     public_teardown_call_request: mapCallRequestToNoir(inputs.publicTeardownCallRequest),
+    fee_payer: mapAztecAddressToNoir(inputs.feePayer),
   };
 }
 
@@ -1396,6 +1402,7 @@ export function mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir(
     AggregationObject.makeFake(),
     mapCombinedConstantDataFromNoir(inputs.constants),
     mapRevertCodeFromNoir(inputs.revert_code),
+    mapAztecAddressFromNoir(inputs.fee_payer),
     undefined,
     forRollup,
   );
@@ -1414,6 +1421,7 @@ export function mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir(
     AggregationObject.makeFake(),
     mapCombinedConstantDataFromNoir(inputs.constants),
     mapRevertCodeFromNoir(inputs.revert_code),
+    mapAztecAddressFromNoir(inputs.fee_payer),
     forPublic,
   );
 }
@@ -1531,6 +1539,7 @@ export function mapPublicKernelCircuitPublicInputsFromNoir(
     mapCombinedConstantDataFromNoir(inputs.constants),
     mapRevertCodeFromNoir(inputs.revert_code),
     mapTupleFromNoir(inputs.public_teardown_call_stack, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, mapCallRequestFromNoir),
+    mapAztecAddressFromNoir(inputs.fee_payer),
   );
 }
 
