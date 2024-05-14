@@ -1,26 +1,40 @@
+import { getSchnorrAccount, getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { type AztecNodeService } from '@aztec/aztec-node';
-import { type AccountWallet, EthAddress, PublicFeePaymentMethod, TxStatus } from '@aztec/aztec.js';
-import { GasSettings } from '@aztec/circuits.js';
+import { EthAddress, PrivateFeePaymentMethod, PublicFeePaymentMethod, TxStatus } from '@aztec/aztec.js';
+import { type AccountWallet } from '@aztec/aztec.js/wallet';
+import { CompleteAddress, Fq, Fr, GasSettings } from '@aztec/circuits.js';
 import { FPCContract, GasTokenContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
 import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 import { ProverPool } from '@aztec/prover-client/prover-pool';
+import { type PXEService, createPXEService } from '@aztec/pxe';
 
 import { jest } from '@jest/globals';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
-import { type EndToEndContext, publicDeployAccounts, setup } from '../fixtures/utils.js';
+import { type EndToEndContext, setup } from '../fixtures/utils.js';
 
-jest.setTimeout(900_000);
+jest.setTimeout(1_200_000);
 
-const txTimeoutSec = 600;
+const txTimeoutSec = 1200;
 
 describe('benchmarks/proving', () => {
   let ctx: EndToEndContext;
-  let wallet: AccountWallet;
-  let testContract: TestContract;
-  let tokenContract: TokenContract;
-  let fpContract: FPCContract;
+
+  let schnorrWalletSalt: Fr;
+  let schnorrWalletEncKey: Fr;
+  let schnorrWalletSigningKey: Fq;
+  let schnorrWalletAddress: CompleteAddress;
+
+  let recipient: CompleteAddress;
+
+  let initialGasContract: GasTokenContract;
+  let initialTestContract: TestContract;
+  let initialTokenContract: TokenContract;
+  let initialFpContract: FPCContract;
+
+  let provingPxes: PXEService[];
+
   let acvmCleanup: () => Promise<void>;
   let bbCleanup: () => Promise<void>;
   let proverPool: ProverPool;
@@ -40,22 +54,51 @@ describe('benchmarks/proving', () => {
       true, // enable gas
     );
 
-    wallet = ctx.wallet;
+    schnorrWalletSalt = Fr.random();
+    schnorrWalletEncKey = Fr.random();
+    schnorrWalletSigningKey = Fq.random();
+    const initialSchnorrWallet = await getSchnorrAccount(
+      ctx.pxe,
+      schnorrWalletEncKey,
+      schnorrWalletSigningKey,
+      schnorrWalletSalt,
+    )
+      .deploy({
+        skipClassRegistration: false,
+        skipPublicDeployment: false,
+      })
+      .getWallet();
+    schnorrWalletAddress = initialSchnorrWallet.getCompleteAddress();
 
-    await publicDeployAccounts(wallet, ctx.wallets);
-
-    testContract = await TestContract.deploy(wallet).send().deployed();
-    tokenContract = await TokenContract.deploy(wallet, wallet.getAddress(), 'test', 't', 18).send().deployed();
-    const gas = await GasTokenContract.at(
+    initialTestContract = await TestContract.deploy(initialSchnorrWallet).send().deployed();
+    initialTokenContract = await TokenContract.deploy(
+      initialSchnorrWallet,
+      initialSchnorrWallet.getAddress(),
+      'test',
+      't',
+      18,
+    )
+      .send()
+      .deployed();
+    initialGasContract = await GasTokenContract.at(
       getCanonicalGasTokenAddress(ctx.deployL1ContractsValues.l1ContractAddresses.gasPortalAddress),
-      wallet,
+      initialSchnorrWallet,
     );
-    fpContract = await FPCContract.deploy(wallet, tokenContract.address, gas.address).send().deployed();
+    initialFpContract = await FPCContract.deploy(
+      initialSchnorrWallet,
+      initialTokenContract.address,
+      initialGasContract.address,
+    )
+      .send()
+      .deployed();
 
     await Promise.all([
-      gas.methods.mint_public(fpContract.address, 1e12).send().wait(),
-      tokenContract.methods.mint_public(wallet.getAddress(), 1e12).send().wait(),
+      initialGasContract.methods.mint_public(initialFpContract.address, 1e12).send().wait(),
+      initialTokenContract.methods.mint_public(initialSchnorrWallet.getAddress(), 1e12).send().wait(),
+      initialTokenContract.methods.privately_mint_private_note(1e12).send().wait(),
     ]);
+
+    recipient = CompleteAddress.random();
   });
 
   // remove the fake prover and setup the real one
@@ -87,9 +130,38 @@ describe('benchmarks/proving', () => {
 
     ctx.logger.info('Starting real provers');
     await proverPool.start((ctx.aztecNode as AztecNodeService).getProver().getProvingJobSource());
+
+    ctx.logger.info('Starting PXEs configured with real proofs');
+    provingPxes = [];
+    for (let i = 0; i < 4; i++) {
+      const pxe = await createPXEService(
+        ctx.aztecNode,
+        {
+          proverEnabled: true,
+          bbBinaryPath: bbConfig.bbBinaryPath,
+          bbWorkingDirectory: bbConfig.bbWorkingDirectory,
+          l2BlockPollingIntervalMS: 1000,
+          l2StartingBlock: 1,
+        },
+        `proving-pxe-${i}`,
+      );
+
+      await getSchnorrAccount(pxe, schnorrWalletEncKey, schnorrWalletSigningKey, schnorrWalletSalt).register();
+      await pxe.registerContract(initialTokenContract);
+      await pxe.registerContract(initialTestContract);
+      await pxe.registerContract(initialFpContract);
+      await pxe.registerContract(initialGasContract);
+
+      await pxe.registerRecipient(recipient);
+
+      provingPxes.push(pxe);
+    }
   });
 
   afterAll(async () => {
+    for (const pxe of provingPxes) {
+      await pxe.stop();
+    }
     await proverPool.stop();
     await ctx.teardown();
     await acvmCleanup();
@@ -99,26 +171,48 @@ describe('benchmarks/proving', () => {
   it('builds a full block', async () => {
     const txs = [
       // fully private tx
-      testContract.methods.emit_nullifier(42).send(),
+      (await getTestContractOnPXE(0)).methods.emit_nullifier(42).send(),
       // tx with setup, app, teardown
-      testContract.methods.emit_unencrypted(43).send({
+      (await getTestContractOnPXE(1)).methods.emit_unencrypted(43).send({
         fee: {
           gasSettings: GasSettings.default(),
-          paymentMethod: new PublicFeePaymentMethod(tokenContract.address, fpContract.address, wallet),
+          paymentMethod: new PublicFeePaymentMethod(
+            initialTokenContract.address,
+            initialFpContract.address,
+            await getWalletOnPxe(1),
+          ),
         },
       }),
       // tx with messages
-      testContract.methods.create_l2_to_l1_message_public(45, 46, EthAddress.random()).send(),
+      (await getTestContractOnPXE(2)).methods.create_l2_to_l1_message_public(45, 46, EthAddress.random()).send(),
       // tx with private and public exec
-      testContract.methods.set_tx_max_block_number(100, true).send({
+      (await getTokenContract(3)).methods.transfer(schnorrWalletAddress.address, recipient.address, 1000, 0).send({
         fee: {
           gasSettings: GasSettings.default(),
-          paymentMethod: new PublicFeePaymentMethod(tokenContract.address, fpContract.address, wallet),
+          paymentMethod: new PrivateFeePaymentMethod(
+            initialTokenContract.address,
+            initialFpContract.address,
+            await getWalletOnPxe(3),
+          ),
         },
       }),
     ];
 
     const receipts = await Promise.all(txs.map(tx => tx.wait({ timeout: txTimeoutSec })));
     expect(receipts.every(r => r.status === TxStatus.MINED)).toBe(true);
-  }, 1_200_000);
+  });
+
+  function getWalletOnPxe(idx: number): Promise<AccountWallet> {
+    return getSchnorrWallet(provingPxes[idx], schnorrWalletAddress.address, schnorrWalletSigningKey);
+  }
+
+  async function getTestContractOnPXE(idx: number): Promise<TestContract> {
+    const wallet = await getWalletOnPxe(idx);
+    return TestContract.at(initialTestContract.address, wallet);
+  }
+
+  async function getTokenContract(idx: number): Promise<TokenContract> {
+    const wallet = await getWalletOnPxe(idx);
+    return TokenContract.at(initialTokenContract.address, wallet);
+  }
 });
