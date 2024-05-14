@@ -13,7 +13,14 @@ import {
   validateProcessedTx,
 } from '@aztec/circuit-types';
 import { type TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
-import { type GlobalVariables, type Header, type KernelCircuitPublicInputs } from '@aztec/circuits.js';
+import {
+  type GlobalVariables,
+  type Header,
+  type KernelCircuitPublicInputs,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  RecursiveProof,
+  makeEmptyRecursiveProof,
+} from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { PublicExecutor, type PublicStateDB, type SimulationProvider } from '@aztec/simulator';
@@ -168,14 +175,13 @@ export class PublicProcessor {
       this.publicStateDB,
     );
     this.log.debug(`Beginning processing in phase ${phase?.phase} for tx ${tx.getTxHash()}`);
-    let proof = tx.proof;
     let publicKernelPublicInput = tx.data.toPublicKernelCircuitPublicInputs();
     let finalKernelOutput: KernelCircuitPublicInputs | undefined;
     let revertReason: SimulationError | undefined;
     const timer = new Timer();
     const gasUsed: ProcessedTx['gasUsed'] = {};
     while (phase) {
-      const output = await phase.handle(tx, publicKernelPublicInput, proof);
+      const output = await phase.handle(tx, publicKernelPublicInput);
       gasUsed[publicKernelPhaseToKernelType(phase.phase)] = output.gasUsed;
       if (phase.phase === PublicKernelPhase.APP_LOGIC) {
         returnValues = output.returnValues;
@@ -183,7 +189,6 @@ export class PublicProcessor {
       publicRequests.push(...output.kernelRequests);
       publicKernelPublicInput = output.publicKernelOutput;
       finalKernelOutput = output.finalKernelOutput;
-      proof = output.publicKernelProof;
       revertReason ??= output.revertReason;
       phase = PhaseManagerFactory.phaseFromOutput(
         publicKernelPublicInput,
@@ -202,7 +207,7 @@ export class PublicProcessor {
       throw new Error('Final public kernel was not executed.');
     }
 
-    const processedTx = makeProcessedTx(tx, finalKernelOutput, proof, publicRequests, revertReason, gasUsed);
+    const processedTx = makeProcessedTx(tx, finalKernelOutput, tx.proof, publicRequests, revertReason, gasUsed);
 
     this.log.debug(`Processed public part of ${tx.getTxHash()}`, {
       eventName: 'tx-sequencer-processing',

@@ -6,7 +6,7 @@ use dep::reset_kernel_lib::{
 use dep::types::{
     abis::{
     accumulated_data::CombinedAccumulatedData, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-    public_kernel_data::PublicKernelData
+    public_kernel_data::{PublicKernelData, verify_public_kernel}
 },
     constants::MAX_PUBLIC_DATA_HINTS,
     merkle_tree::{conditionally_assert_check_membership, MembershipWitness},
@@ -74,6 +74,9 @@ impl PublicKernelTailCircuitPrivateInputs {
     }
 
     pub fn public_kernel_tail(self) -> KernelCircuitPublicInputs {
+        // verify the previous kernel proof
+        verify_public_kernel(self.previous_kernel);
+
         self.validate_inputs();
 
         self.validate_public_data_hints();

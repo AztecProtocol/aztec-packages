@@ -1,5 +1,12 @@
 import { type MerkleTreeId, type ProcessedTx, type PublicKernelRequest, PublicKernelType } from '@aztec/circuit-types';
-import { type AppendOnlyTreeSnapshot, type BaseRollupInputs, type Proof } from '@aztec/circuits.js';
+import {
+  type AppendOnlyTreeSnapshot,
+  type BaseRollupInputs,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  type Proof,
+  type RecursiveProof,
+  makeEmptyRecursiveProof,
+} from '@aztec/circuits.js';
 
 export enum TX_PROVING_CODE {
   NOT_READY,
@@ -10,7 +17,7 @@ export enum TX_PROVING_CODE {
 export type PublicFunction = {
   vmProof: Proof | undefined;
   previousProofType: PublicKernelType;
-  previousKernelProof: Proof | undefined;
+  previousKernelProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined;
   publicKernelRequest: PublicKernelRequest;
 };
 
@@ -34,7 +41,9 @@ export class TxProvingState {
     public readonly baseRollupInputs: BaseRollupInputs,
     public readonly treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
   ) {
-    let previousKernelProof: Proof | undefined = processedTx.proof;
+    let previousKernelProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined =
+      makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
+    previousKernelProof.binaryProof = processedTx.proof;
     let previousProofType = PublicKernelType.NON_PUBLIC;
     for (const kernelRequest of processedTx.publicKernelRequests) {
       const publicFunction: PublicFunction = {
@@ -51,7 +60,10 @@ export class TxProvingState {
 
   // Updates the transaction's proving state after completion of a kernel proof
   // Returns an instruction as to the next stage of tx proving
-  public getNextPublicKernelFromKernelProof(provenIndex: number, proof: Proof): TxProvingInstruction {
+  public getNextPublicKernelFromKernelProof(
+    provenIndex: number,
+    proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+  ): TxProvingInstruction {
     const kernelRequest = this.getPublicFunctionState(provenIndex).publicKernelRequest;
     const nextKernelIndex = provenIndex + 1;
     if (nextKernelIndex >= this.publicFunctions.length) {

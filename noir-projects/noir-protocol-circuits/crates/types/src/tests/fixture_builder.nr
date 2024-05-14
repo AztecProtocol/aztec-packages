@@ -237,8 +237,8 @@ impl FixtureBuilder {
         let public_inputs = self.to_public_kernel_circuit_public_inputs(revertible);
         PublicKernelData {
             public_inputs,
-            proof: crate::mocked::Proof::empty(),
-            vk: crate::mocked::VerificationKey::empty(),
+            proof: NestedRecursiveProof::empty(),
+            vk: VerificationKey::empty(),
             vk_index: self.vk_index,
             vk_path: self.vk_path
         }
