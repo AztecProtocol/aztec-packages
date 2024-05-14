@@ -97,15 +97,15 @@ class AvmKernelTraceBuilder {
 
     // Outputs
     // Each returns the selector that was used
-    uint32_t op_note_hash_exists(uint32_t clk, FF note_hash);
+    void op_note_hash_exists(uint32_t clk, FF note_hash);
     void op_emit_note_hash(uint32_t clk, FF note_hash);
-    uint32_t op_nullifier_exists(FF nullifier);
-    uint32_t op_emit_nullifier(FF nullifier);
-    uint32_t op_emit_l2_to_l1_msg(FF message);
-    uint32_t op_emit_unencrypted_log(FF log_hash);
+    void op_nullifier_exists(uint32_t clk, FF nullifier);
+    void op_emit_nullifier(uint32_t clk, FF nullifier);
+    void op_emit_l2_to_l1_msg(uint32_t clk, FF message);
+    void op_emit_unencrypted_log(uint32_t clk, FF log_hash);
 
-    uint32_t op_sload(FF slot, FF value);
-    uint32_t op_sstore(FF slot, FF value);
+    void op_sload(uint32_t clk, FF slot, FF value);
+    void op_sstore(uint32_t clk, FF slot, FF value);
 
     // Getters for local counters
     uint32_t get_note_hash_exists_offset();

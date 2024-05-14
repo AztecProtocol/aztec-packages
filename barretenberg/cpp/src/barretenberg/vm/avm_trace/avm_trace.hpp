@@ -100,6 +100,10 @@ class AvmTraceBuilder {
     // Outputs
     void op_emit_note_hash(uint32_t note_hash_offset);
 
+    void op_emit_nullifier(uint32_t nullifier_offset);
+    void op_emit_l2_to_l1_msg(uint32_t msg_offset);
+    void op_emit_unencrypted_log(uint32_t log_offset);
+
     // Cast an element pointed by the address a_offset into type specified by dst_tag and
     // store the result in address given by dst_offset.
     void op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag dst_tag);
@@ -154,6 +158,8 @@ class AvmTraceBuilder {
     AvmKernelTraceBuilder kernel_trace_builder;
 
     Row create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t selector, FF value, AvmMemoryTag w_tag);
+    Row create_kernel_output_opcode(uint32_t clk, uint32_t data_offset, AvmMemoryTag r_tag);
+
     void finalise_mem_trace_lookup_counts();
 
     // kernel_output_lookup_opcode

@@ -1191,34 +1191,66 @@ void AvmTraceBuilder::op_timestamp(uint32_t dst_offset)
 
 // }
 
-void AvmTraceBuilder::op_emit_note_hash(uint32_t note_hash_offset)
+// Helper function to add kernel lookup operations into the main trace
+Row AvmTraceBuilder::create_kernel_output_opcode(uint32_t clk, uint32_t data_offset, AvmMemoryTag r_tag)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size());
+    AvmMemTraceBuilder::MemRead read_a =
+        mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, data_offset, r_tag, AvmMemoryTag::U0);
 
-    // AvmMemoryTag r_tag = AvmMemoryTag::;
-    // TODO: Check correct tag values for other read operations
-    AvmMemTraceBuilder::MemRead read_a = mem_trace_builder.read_and_load_from_memory(
-        clk, IntermRegister::IA, note_hash_offset, AvmMemoryTag::FF, AvmMemoryTag::U0);
-
-    // TODO: make getters for this on the kernel_trace_builder
-
-    // We write the value to memory and inc the counters maintained in the trace builder
-    // TODO: the separation of concerns here is NOT clean
-    kernel_trace_builder.op_emit_note_hash(clk, read_a.val);
-
-    Row row = {
+    return Row{
         .avm_main_clk = clk,
         .avm_main_ia = read_a.val,
         .avm_main_ind_a = 0,
         .avm_main_internal_return_ptr = internal_return_ptr,
-        .avm_main_mem_idx_a = note_hash_offset,
+        .avm_main_mem_idx_a = data_offset,
         .avm_main_mem_op_a = 1,
         .avm_main_pc = pc++,
-        .avm_main_q_kernel_output_lookup = 1,
-        .avm_main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
+        .avm_main_q_kernel_lookup = 1,
+        .avm_main_r_in_tag = static_cast<uint32_t>(r_tag),
         .avm_main_rwa = 0,
     };
+}
+
+void AvmTraceBuilder::op_emit_note_hash(uint32_t note_hash_offset)
+{
+    auto const clk = static_cast<uint32_t>(main_trace.size());
+
+    Row row = create_kernel_output_opcode(clk, note_hash_offset, AvmMemoryTag::FF);
+    kernel_trace_builder.op_emit_note_hash(clk, row.avm_main_ia);
     row.avm_main_sel_op_emit_note_hash = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_emit_nullifier(uint32_t nullifier_offset)
+{
+    auto const clk = static_cast<uint32_t>(main_trace.size());
+
+    Row row = create_kernel_output_opcode(clk, nullifier_offset, AvmMemoryTag::FF);
+    kernel_trace_builder.op_emit_nullifier(clk, row.avm_main_ia);
+    row.avm_main_sel_op_emit_nullifier = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint32_t msg_offset)
+{
+    auto const clk = static_cast<uint32_t>(main_trace.size());
+
+    Row row = create_kernel_output_opcode(clk, msg_offset, AvmMemoryTag::FF);
+    kernel_trace_builder.op_emit_l2_to_l1_msg(clk, row.avm_main_ia);
+    row.avm_main_sel_op_send_l2_to_l1_msg = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_emit_unencrypted_log(uint32_t log_offset)
+{
+    auto const clk = static_cast<uint32_t>(main_trace.size());
+
+    Row row = create_kernel_output_opcode(clk, log_offset, AvmMemoryTag::FF);
+    kernel_trace_builder.op_emit_unencrypted_log(clk, row.avm_main_ia);
+    row.avm_main_sel_op_emit_unencrypted_log = FF(1);
 
     main_trace.push_back(row);
 }
@@ -2188,11 +2220,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
             auto& dest = main_trace.at(i);
             dest.kernel_output_lookup_counts = FF(value->second);
             dest.avm_kernel_q_public_input_kernel_out_add_to_table = FF(1);
-
-            info("printing the values that have been looked up");
-            info(dest.avm_kernel_kernel_value_out__is_public);
-            info(dest.avm_kernel_kernel_side_effect_out__is_public);
-            info(dest.avm_kernel_kernel_metadata_out__is_public);
         }
     }
 
@@ -2276,7 +2303,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
         }
 
         kernel_padding_main_trace_bottom = clk + 1;
-        info("\nkernel padding main trace boTTom at end ", kernel_padding_main_trace_bottom);
     }
 
     // Pad out the main trace from the bottom of the main trace until the end

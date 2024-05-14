@@ -8,6 +8,8 @@
 // For the meantime, we do not fire around the public inputs as a vector or otherwise
 // Instead we fire them around as a fixed length array from the kernel, as that is how they will be
 
+// TODO: max offset checks for the offset selectors
+
 namespace bb::avm_trace {
 
 AvmKernelTraceBuilder::AvmKernelTraceBuilder(VM_PUBLIC_INPUTS public_inputs)
@@ -102,13 +104,12 @@ FF AvmKernelTraceBuilder::op_timestamp()
     return perform_kernel_input_lookup(TIMESTAMP_SELECTOR);
 }
 
-uint32_t AvmKernelTraceBuilder::op_note_hash_exists(uint32_t clk, FF note_hash)
+void AvmKernelTraceBuilder::op_note_hash_exists(uint32_t clk, FF note_hash)
 {
 
     uint32_t offset = START_NOTE_HASH_EXISTS_WRITE_OFFSET + note_hash_exists_offset;
     perform_kernel_output_lookup(offset, note_hash, FF(0));
     note_hash_exists_offset++;
-    // TODO: max offset check
 
     KernelTraceEntry entry = {
         .clk = clk,
@@ -117,8 +118,6 @@ uint32_t AvmKernelTraceBuilder::op_note_hash_exists(uint32_t clk, FF note_hash)
         .op_note_hash_exists = true,
     };
     kernel_trace.push_back(entry);
-
-    return offset;
 }
 
 void AvmKernelTraceBuilder::op_emit_note_hash(uint32_t clk, FF note_hash)
@@ -136,52 +135,95 @@ void AvmKernelTraceBuilder::op_emit_note_hash(uint32_t clk, FF note_hash)
     kernel_trace.push_back(entry);
 }
 
-uint32_t AvmKernelTraceBuilder::op_nullifier_exists(FF nullifier)
+void AvmKernelTraceBuilder::op_nullifier_exists(uint32_t clk, FF nullifier)
 {
     uint32_t offset = START_NULLIFIER_EXISTS_OFFSET + nullifier_exists_offset;
     perform_kernel_output_lookup(offset, nullifier, FF(0));
     nullifier_exists_offset++;
-    return offset;
+
+    KernelTraceEntry entry = {
+        .clk = clk,
+        .kernel_out_selector = offset,
+        .q_kernel_output_lookup = true,
+        .op_nullifier_exists = true,
+    };
+    kernel_trace.push_back(entry);
 }
 
-uint32_t AvmKernelTraceBuilder::op_emit_nullifier(FF nullifier)
+void AvmKernelTraceBuilder::op_emit_nullifier(uint32_t clk, FF nullifier)
 {
     uint32_t offset = START_EMIT_NULLIFIER_WRITE_OFFSET + emit_nullifier_offset;
+    info("write offset in builder: ", offset);
     perform_kernel_output_lookup(offset, nullifier, FF(0));
     emit_nullifier_offset++;
-    return offset;
+
+    KernelTraceEntry entry = {
+        .clk = clk,
+        .kernel_out_selector = offset,
+        .q_kernel_output_lookup = true,
+        .op_emit_nullifier = true,
+    };
+    kernel_trace.push_back(entry);
 }
 
-uint32_t AvmKernelTraceBuilder::op_emit_l2_to_l1_msg(FF l2_to_l1_msg)
+void AvmKernelTraceBuilder::op_emit_l2_to_l1_msg(uint32_t clk, FF l2_to_l1_msg)
 {
     uint32_t offset = START_L2_TO_L1_MSG_WRITE_OFFSET + l2_to_l1_msg_offset;
     perform_kernel_output_lookup(offset, l2_to_l1_msg, FF(0));
     l2_to_l1_msg_offset++;
-    return offset;
+
+    KernelTraceEntry entry = {
+        .clk = clk,
+        .kernel_out_selector = offset,
+        .q_kernel_output_lookup = true,
+        .op_emit_l2_to_l1_msg = true,
+    };
+    kernel_trace.push_back(entry);
 }
 
-uint32_t AvmKernelTraceBuilder::op_emit_unencrypted_log(FF log_hash)
+void AvmKernelTraceBuilder::op_emit_unencrypted_log(uint32_t clk, FF log_hash)
 {
     uint32_t offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET + emit_unencrypted_log_offset;
     perform_kernel_output_lookup(offset, log_hash, FF(0));
     emit_unencrypted_log_offset++;
-    return offset;
+
+    KernelTraceEntry entry = {
+        .clk = clk,
+        .kernel_out_selector = offset,
+        .q_kernel_output_lookup = true,
+        .op_emit_unencrypted_log = true,
+    };
+    kernel_trace.push_back(entry);
 }
 
-uint32_t AvmKernelTraceBuilder::op_sload(FF slot, FF value)
+void AvmKernelTraceBuilder::op_sload(uint32_t clk, FF slot, FF value)
 {
     uint32_t offset = START_SLOAD_WRITE_OFFSET + sload_write_offset;
     perform_kernel_output_lookup(offset, value, slot);
     sload_write_offset++;
-    return offset;
+
+    KernelTraceEntry entry = {
+        .clk = clk,
+        .kernel_out_selector = offset,
+        .q_kernel_output_lookup = true,
+        .op_sload = true,
+    };
+    kernel_trace.push_back(entry);
 }
 
-uint32_t AvmKernelTraceBuilder::op_sstore(FF slot, FF value)
+void AvmKernelTraceBuilder::op_sstore(uint32_t clk, FF slot, FF value)
 {
     uint32_t offset = START_SSTORE_WRITE_OFFSET + sstore_write_offset;
     perform_kernel_output_lookup(offset, value, slot);
     sstore_write_offset++;
-    return offset;
+
+    KernelTraceEntry entry = {
+        .clk = clk,
+        .kernel_out_selector = offset,
+        .q_kernel_output_lookup = true,
+        .op_sstore = true,
+    };
+    kernel_trace.push_back(entry);
 }
 
 // Getters
