@@ -124,7 +124,7 @@ impl Deserialize<SCOPED_NULLIFIER_LENGTH> for ScopedNullifier {
         let mut reader = Reader::new(values);
         let res = Self {
             nullifier: reader.read_struct(Nullifier::deserialize),
-            contract_address: AztecAddress::from_field(values[3]),
+            contract_address: reader.read_struct(AztecAddress::deserialize),
         };
         reader.finish();
         res
@@ -150,4 +150,20 @@ impl ScopedNullifier {
         // Hide the actual counter and note hash when exposing it to the public kernel.
         Nullifier { value: self.nullifier.value, counter: 0, note_hash: 0 }
     }
+}
+
+#[test]
+fn serialization_of_empty() {
+    let item = Nullifier::empty();
+    let serialized = item.serialize();
+    let deserialized = Nullifier::deserialize(serialized);
+    assert(item.eq(deserialized));
+}
+
+#[test]
+fn serialization_of_empty_scoped() {
+    let item = ScopedNullifier::empty();
+    let serialized = item.serialize();
+    let deserialized = ScopedNullifier::deserialize(serialized);
+    assert(item.eq(deserialized));
 }

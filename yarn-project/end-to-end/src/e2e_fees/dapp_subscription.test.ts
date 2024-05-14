@@ -44,7 +44,7 @@ describe('e2e_fees dapp_subscription', () => {
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
-    await t.applyFundAlice();
+    await t.applyFundAliceWithBananas();
     await t.applySetupSubscription();
 
     ({
@@ -208,6 +208,7 @@ describe('e2e_fees dapp_subscription', () => {
     const action = counterContract.methods.increment(bobAddress).request();
     const txExReq = await dappEntrypoint.createTxExecutionRequest({ calls: [action] });
     const tx = await pxe.proveTx(txExReq, true);
+    expect(tx.data.feePayer).toEqual(subscriptionContract.address);
     const sentTx = new SentTx(pxe, pxe.sendTx(tx));
     return sentTx.wait();
   }
