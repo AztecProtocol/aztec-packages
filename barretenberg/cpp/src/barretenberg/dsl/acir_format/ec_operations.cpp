@@ -19,22 +19,20 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
     auto y1 = field_ct::from_witness_index(&builder, input.input1_y);
     auto x2 = field_ct::from_witness_index(&builder, input.input2_x);
     auto y2 = field_ct::from_witness_index(&builder, input.input2_y);
-    auto infinite1 = bool_ct(input.input1_infinite);
-    auto infinite2 = bool_ct(input.input2_infinite);
+    auto infinite1 = bool_ct(field_ct::from_witness_index(&builder, input.input1_infinite));
+    auto infinite2 = bool_ct(field_ct::from_witness_index(&builder, input.input2_infinite));
     if (!has_valid_witness_assignments) {
         auto g1 = grumpkin::g1::affine_one;
         // We need to have correct values representing points on the curve
         builder.variables[input.input1_x] = g1.x;
         builder.variables[input.input1_y] = g1.y;
-        builder.variables[input.input1_infinite] = false;
+        builder.variables[input.input1_infinite] = fr(0);
         builder.variables[input.input2_x] = g1.x;
         builder.variables[input.input2_y] = g1.y;
-        builder.variables[input.input2_infinite] = false;
+        builder.variables[input.input2_infinite] = fr(0);
     }
-
     cycle_group_ct input1_point(x1, y1, infinite1);
     cycle_group_ct input2_point(x2, y2, infinite2);
-
     // Addition
     cycle_group_ct result = input1_point + input2_point;
 
