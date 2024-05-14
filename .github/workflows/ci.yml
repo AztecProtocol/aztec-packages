@@ -58,22 +58,22 @@ jobs:
   #       id: bench_list
   #       run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
 
-  # build-push-remote-cache:
-  #   needs: build
-  #   runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       if: ${{ github.ref_name == 'ad/inline-caching' }}
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #       if: ${{ github.ref_name == 'ad/inline-caching' }}
-  #       with:
-  #         concurrency_key: build-push-remote-cache
-  #     # push remote cache, giving ample time for first push
-  #     - name: "Build Push Remote Cache"
-  #       if: ${{ github.ref_name == 'ad/inline-caching' }}
-  #       timeout-minutes: 60
-  #       run: earthly-ci --save-inline-cache --push +remote-build-cache
+  build-push-remote-cache:
+    # needs: build
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        if: ${{ github.ref_name == 'ad/inline-caching' }}
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        if: ${{ github.ref_name == 'ad/inline-caching' }}
+        with:
+          concurrency_key: build-push-remote-cache
+      # push remote cache, giving ample time for first push
+      - name: "Build Push Remote Cache"
+        if: ${{ github.ref_name == 'ad/inline-caching' }}
+        timeout-minutes: 60
+        run: earthly-ci --save-inline-cache --push +remote-build-cache
 
   # # all the non-bench end-to-end integration tests for aztec
   # e2e:
