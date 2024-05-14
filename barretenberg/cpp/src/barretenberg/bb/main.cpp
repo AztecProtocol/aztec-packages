@@ -724,7 +724,7 @@ template <IsUltraFlavor Flavor> void vk_as_fields_honk(const std::string& vk_pat
 
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
     verification_key->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-    std::vector<bb::fr> data = verification_key->to_fields();
+    std::vector<bb::fr> data = verification_key->to_field_elements();
 
     auto json = vk_to_json(data);
     if (output_path == "-") {
@@ -889,6 +889,15 @@ int main(int argc, char* argv[])
         } else if (command == "write_vk_goblin_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
             write_vk_honk<GoblinUltraFlavor>(bytecode_path, output_path);
+        } else if (command == "proof_as_fields_honk") {
+            std::string output_path = get_option(args, "-o", proof_path + "_fields.json");
+            proof_as_fields_honk(proof_path, output_path);
+        } else if (command == "vk_as_fields_ultra_honk") {
+            std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
+            vk_as_fields_honk<UltraFlavor>(vk_path, output_path);
+        } else if (command == "vk_as_fields_goblin_ultra_honk") {
+            std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
+            vk_as_fields_honk<GoblinUltraFlavor>(vk_path, output_path);
         } else {
             std::cerr << "Unknown command: " << command << "\n";
             return 1;
