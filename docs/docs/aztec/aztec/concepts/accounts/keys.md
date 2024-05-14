@@ -1,4 +1,6 @@
 # Keys
+The goal of this section is to give app developer a good idea what keys there are used in the system.
+For a detailed description head over to [protocol specification](../../../protocol-specs/addresses-and-keys/keys#cheat-sheet).
 
 Each account in Aztec is backed by 4 key pairs keys:
 
@@ -8,7 +10,7 @@ Each account in Aztec is backed by 4 key pairs keys:
 - A **tagging key pair*** used to compute tags in a [tagging note discovery scheme](../../../protocol-specs/private-message-delivery/private-msg-delivery#note-tagging).
 
 :::info
-All these keys are derived from a secret using a ZCash inspired scheme defined in our [protocol specification](../../../protocol-specs/addresses-and-keys/keys#cheat-sheet).
+All these keys are derived from a secret using a ZCash inspired scheme defined in [protocol specification](../../../protocol-specs/addresses-and-keys/keys#cheat-sheet).
 :::
 
 :::note
@@ -18,12 +20,36 @@ Instead it's up to the account contract developer to implement it.
 :::
 
 ## Nullifier keys
-Upon account creation a nullifier key pair is derived from a seed.
 These keys are called a master nullifier secret key (`nsk_m`) and master nullifier public key(`Npk_m`).
 Typically, `Npk_m` is stored in a note and later on the note is nullified using app-siloed nullifier secret key (denoted `nsk_app`).
 `nsk_app` is derived by hashing `nsk_m` with the app contract address and it is necessary to present it to compute the nullifier.
 Validity of `nsk_app` is automatically verified by our [protocol kernel circuits](../../../protocol-specs/circuits/private-kernel-tail#verifying-and-splitting-ordered-data).
 
+It was necessary to use `nsk_app` instead of `nsk_m` to prevent a malicious app from leaking user's `nsk_m` (which would affect other apps as well).
+With our design `nsk_m` never touches app code.
+
+## Incoming viewing keys
+Called master incoming viewing secret key (`ivsk_m`) and master incoming viewing public key (`Ivpk_m`).
+These keys are used during encryption and decryption of a note for a recipient.
+
+Similarly to nullifier keys, these keys are app-siloed with an app contract address.
+This is done for 2 reasons:
+1. To protect user from global key leaks.
+2. To allow users to expose their app activity to a 3rd party (useful for audit and accounting purposes or for 3rd party interfaces, e.g. giving access to a block explorer to display my activity).
+
+## Outgoing viewing keys
+Called master outgoing viewing secret key (`ovsk_m`) and master outgoing viewing public key (`Ovpk_m`).
+Used to encrypt a note for a note sender.
+This is necessary for a user to be able see their sent-notes activity history on newly synced devices.
+If these keys were not used and I would re-sync a new device I would have no "direct" information about notes I have created for other people.
+
+## Tagging keys
+Called master tagging secret key (`tsk_m`) and master tagging public key (`Tpk_m`).
+Used to compute tags in a [tagging note discovery scheme](../../../protocol-specs/private-message-delivery/private-msg-delivery#note-tagging).
+
+:::note
+Tagging note discovery scheme won't be present in our testnet so we are intentionally not providing you with much info here at this point.
+:::
 
 ## Signing keys
 
