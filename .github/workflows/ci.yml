@@ -48,6 +48,7 @@ jobs:
       - name: "Build E2E Image"
         timeout-minutes: 40
         run: earthly-ci ./yarn-project+export-e2e-test-images
+
       # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
       # (Note ARM uses just 2 tests as a smoketest)
       - name: Create list of non-bench end-to-end jobs
@@ -56,6 +57,21 @@ jobs:
       - name: Create list of bench end-to-end jobs
         id: bench_list
         run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
+
+  build-push-remote-cache:
+    needs: build
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: build-push-remote-cache
+      # push remote cache, giving ample time for first push
+      - name: "Build Push Remote Cache"
+        if: ${{ github.ref_name == 'master' }}
+        timeout-minutes: 60
+        run: earthly-ci --save-inline-cache ./yarn-project+export-e2e-test-images
 
   # all the non-bench end-to-end integration tests for aztec
   e2e:
@@ -168,8 +184,9 @@ jobs:
   # barretenberg (prover) native and AVM (public VM) tests
   # only ran on x86 for resource reasons (memory intensive)
   bb-native-tests:
-    needs: setup
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }

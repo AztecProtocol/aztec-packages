@@ -234,7 +234,7 @@
       "name": "op-count",
       "displayName": "Release build with operation counts",
       "description": "Build with op counting",
-      "inherits": "clang16",
+      "inherits": "clang16-assert",
       "binaryDir": "build-op-count",
       "environment": {
         "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TRACK_ONLY"
