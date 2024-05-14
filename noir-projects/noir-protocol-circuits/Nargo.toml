@@ -10,6 +10,7 @@ members = [
     "crates/private-kernel-inner",
     "crates/private-kernel-inner-simulated",
     "crates/private-kernel-reset",
+    "crates/private-kernel-reset-simulated",
     "crates/private-kernel-tail",
     "crates/private-kernel-tail-simulated",
     "crates/private-kernel-tail-to-public",
