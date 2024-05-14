@@ -1,7 +1,6 @@
 import { type AccountWalletWithSecretKey } from '@aztec/aztec.js/wallet';
 import { type PXE } from '@aztec/circuit-types';
-import { Fr, GeneratorIndex, deriveSigningKey } from '@aztec/circuits.js';
-import { sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
+import { Fr, deriveSigningKey } from '@aztec/circuits.js';
 
 import { getSchnorrAccount } from '../schnorr/index.js';
 
@@ -12,7 +11,7 @@ import { getSchnorrAccount } from '../schnorr/index.js';
  */
 export function createAccount(pxe: PXE): Promise<AccountWalletWithSecretKey> {
   const secretKey = Fr.random();
-  const signingKey = sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
+  const signingKey = deriveSigningKey(secretKey);
   return getSchnorrAccount(pxe, secretKey, signingKey).waitSetup();
 }
 
@@ -20,6 +19,8 @@ export function createAccount(pxe: PXE): Promise<AccountWalletWithSecretKey> {
  * Creates a given number of random accounts using the Schnorr account wallet.
  * @param pxe - PXE.
  * @param numberOfAccounts - How many accounts to create.
+ * @param secrets - Optional array of secrets to use for the accounts. If empty, random secrets will be generated.
+ * @throws If the secrets array is not empty and does not have the same length as the number of accounts.
  * @returns The created account wallets.
  */
 export async function createAccounts(
