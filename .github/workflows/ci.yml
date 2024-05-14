@@ -58,7 +58,9 @@ jobs:
   #       id: bench_list
   #       run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
 
-  build-push-remote-cache:
+  # does not block merge
+  # pushes cache on master
+  build-cache:
     # needs: build
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     env:
@@ -71,9 +73,9 @@ jobs:
         with:
           concurrency_key: build-push-remote-cache
       # push remote cache, giving ample time for first push
-      - name: "Build Push Remote Cache"
+      - name: "Build Remote Cache"
         timeout-minutes: 60
-        run: earthly-ci --save-inline-cache --push +remote-build-cache
+        run: earthly-ci +remote-cache
 
   # # all the non-bench end-to-end integration tests for aztec
   # e2e:
