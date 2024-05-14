@@ -292,7 +292,7 @@ describe('e2e_fees_account_init', () => {
         // docs:start:register-recipient
         const signingPubKey = new Schnorr().computePublicKey(bobsPrivateSigningKey);
         const completeAddress = CompleteAddress.fromSecretKeyAndInstance(bobsSecretKey, instance);
-        
+
         // alice registers the keys in the PXE
         await pxe.registerRecipient(completeAddress);
         // docs:end:register-recipient
