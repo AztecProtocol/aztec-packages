@@ -89,7 +89,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('unpackReturns');
   }
 
-  getNullifierKeys(_args: { account: AztecAddress } | { npkMHash: Fr }): Promise<NullifierKeys> {
+  getNullifierKeys(_accountOrNpkMHash: AztecAddress | Fr): Promise<NullifierKeys> {
     throw new OracleMethodNotAvailableError('getNullifierKeys');
   }
 
@@ -124,7 +124,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getHeader');
   }
 
-  getCompleteAddress(_args: { account: AztecAddress } | { npkMHash: Fr }): Promise<CompleteAddress> {
+  getCompleteAddress(_accountOrNpkMHash: AztecAddress | Fr): Promise<CompleteAddress> {
     throw new OracleMethodNotAvailableError('getCompleteAddress');
   }
 

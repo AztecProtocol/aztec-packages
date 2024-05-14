@@ -191,20 +191,20 @@ describe('Private Execution test suite', () => {
     trees = {};
     oracle = mock<DBOracle>();
     oracle.getNullifierKeys.mockImplementation(
-      (args: { account: AztecAddress } | { npkMHash: Fr }, contractAddress: AztecAddress) => {
-        if ('account' in args && args.account.equals(ownerCompleteAddress.address)) {
+      (accountOrNpkMHash: AztecAddress | Fr, contractAddress: AztecAddress) => {
+        if (accountOrNpkMHash.equals(ownerCompleteAddress.address)) {
           return Promise.resolve({
             masterNullifierPublicKey: ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
             appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
           });
         }
-        if ('account' in args && args.account.equals(recipientCompleteAddress.address)) {
+        if (accountOrNpkMHash.equals(recipientCompleteAddress.address)) {
           return Promise.resolve({
             masterNullifierPublicKey: recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
             appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
           });
         }
-        throw new Error(`Unknown ${'account' in args ? 'address' : 'npkMHash'}`);
+        throw new Error(`Unknown address ${accountOrNpkMHash}`);
       },
     );
 
@@ -213,14 +213,14 @@ describe('Private Execution test suite', () => {
     await insertLeaves([], 'publicData');
     oracle.getHeader.mockResolvedValue(header);
 
-    oracle.getCompleteAddress.mockImplementation((args: { account: AztecAddress } | { npkMHash: Fr }) => {
-      if ('account' in args && args.account.equals(owner)) {
+    oracle.getCompleteAddress.mockImplementation((accountOrNpkMHash: AztecAddress | Fr) => {
+      if (accountOrNpkMHash.equals(owner)) {
         return Promise.resolve(ownerCompleteAddress);
       }
-      if ('account' in args && args.account.equals(recipient)) {
+      if (accountOrNpkMHash.equals(recipient)) {
         return Promise.resolve(recipientCompleteAddress);
       }
-      throw new Error(`Unknown ${'account' in args ? 'address' : 'npkMHash'}`);
+      throw new Error(`Unknown address ${accountOrNpkMHash}`);
     });
     // This oracle gets called when reading ivpk_m from key registry --> we return zero witness indicating that
     // the keys were not registered. This triggers non-registered keys flow in which getCompleteAddress oracle

@@ -23,7 +23,7 @@ async function pollSpotStatus(
     }
     try {
       core.info("Found ec2 instance, looking for runners.");
-      if (await ghClient.hasRunner([config.githubJobId])) {
+      if (process.env.WAIT_FOR_RUNNERS === "false" || await ghClient.hasRunner([config.githubJobId])) {
         // we have runners
         return instances[0].InstanceId!;
       }
@@ -61,40 +61,33 @@ async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
 
   let instanceId = "";
   for (const ec2Strategy of ec2SpotStrategies) {
+    let backoff = 0;
     core.info(`Starting instance with ${ec2Strategy} strategy`);
-    // 6 * 10000ms = 1 minute per strategy
-    // TODO make longer lived spot request?
-    for (let i = 0; i < 6; i++) {
-      try {
-        // Start instance
-        instanceId =
-          (await ec2Client.requestMachine(
-            // we fallback to on-demand
-            ec2Strategy.toLocaleLowerCase() === "none"
-          )) || "";
-        if (instanceId) {
-          break;
-        }
-        // let's exit, only loop on InsufficientInstanceCapacity
+    const MAX_ATTEMPTS = 3; // uses exponential backoff
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      // Start instance
+      const instanceIdOrError =
+        await ec2Client.requestMachine(
+          // we fallback to on-demand
+          ec2Strategy.toLocaleLowerCase() === "none"
+        );
+      // let's exit, only loop on InsufficientInstanceCapacity
+      if (
+        instanceIdOrError === "RequestLimitExceeded" ||
+        instanceIdOrError === "InsufficientInstanceCapacity"
+      ) {
+        core.info(
+          "Failed to create instance due to " +
+            instanceIdOrError +
+            ", waiting " + 5 * 2 ** backoff + " seconds and trying again."
+        );
+      } else {
+        instanceId = instanceIdOrError;
         break;
-      } catch (error) {
-        // TODO is this still the relevant error?
-        if (
-          error?.code &&
-          error.code === "InsufficientInstanceCapacity" &&
-          ec2SpotStrategies.length > 0 &&
-          ec2Strategy.toLocaleLowerCase() != "none"
-        ) {
-          core.info(
-            "Failed to create instance due to 'InsufficientInstanceCapacity', waiting 10 seconds and trying again."
-          );
-          // we loop after 10 seconds
-        } else {
-          throw error;
-        }
       }
       // wait 10 seconds
-      await new Promise((r) => setTimeout(r, 10000));
+      await new Promise((r) => setTimeout(r, 5000 * 2 ** backoff));
+      backoff += 1;
     }
     if (instanceId) {
       core.info("Successfully requested instance with ID " + instanceId);
