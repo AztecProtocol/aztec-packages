@@ -46,7 +46,9 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
     it('registers a recipient and returns it as a recipient only and not as an account', async () => {
       const completeAddress = CompleteAddress.random();
 
+      // docs:start:register-recipient
       await pxe.registerRecipient(completeAddress);
+      // docs:end:register-recipient
 
       // Check that the recipient is correctly registered using the getAccounts and getRecipients methods
       const accounts = await pxe.getRegisteredAccounts();
