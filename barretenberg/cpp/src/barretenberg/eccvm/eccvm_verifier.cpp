@@ -31,7 +31,6 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     commitments.transcript_add = receive_commitment(commitment_labels.transcript_add);
     commitments.transcript_mul = receive_commitment(commitment_labels.transcript_mul);
     commitments.transcript_eq = receive_commitment(commitment_labels.transcript_eq);
-    commitments.transcript_collision_check = receive_commitment(commitment_labels.transcript_collision_check);
     commitments.transcript_msm_transition = receive_commitment(commitment_labels.transcript_msm_transition);
     commitments.transcript_pc = receive_commitment(commitment_labels.transcript_pc);
     commitments.transcript_msm_count = receive_commitment(commitment_labels.transcript_msm_count);
@@ -107,7 +106,6 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     commitments.transcript_base_y_inverse = receive_commitment(commitment_labels.transcript_base_y_inverse);
     commitments.transcript_add_x_equal = receive_commitment(commitment_labels.transcript_add_x_equal);
     commitments.transcript_add_y_equal = receive_commitment(commitment_labels.transcript_add_y_equal);
-    commitments.transcript_y_collision_check = receive_commitment(commitment_labels.transcript_y_collision_check);
     commitments.transcript_add_lambda = receive_commitment(commitment_labels.transcript_add_lambda);
     commitments.transcript_msm_intermediate_x = receive_commitment(commitment_labels.transcript_msm_intermediate_x);
     commitments.transcript_msm_intermediate_y = receive_commitment(commitment_labels.transcript_msm_intermediate_y);

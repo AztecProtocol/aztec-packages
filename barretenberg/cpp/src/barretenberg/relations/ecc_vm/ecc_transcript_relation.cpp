@@ -86,9 +86,9 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     auto transcript_msm_infinity = View(in.transcript_msm_infinity);
 
     auto is_not_first_row = (-lagrange_first + 1);
+    auto is_not_last_row = (-lagrange_last + 1);
     auto is_not_first_or_last_row = (-lagrange_first + -lagrange_last + 1);
     auto is_not_infinity = (-transcript_Pinfinity + 1);
-
     /**
      * @brief Validate correctness of z1_zero, z2_zero.
      * If z1_zero = 0 and operation is a MUL, we will write a scalar mul instruction into our multiplication table.
@@ -144,11 +144,11 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     auto msm_count_zero_at_transition_check = msm_count_zero_at_transition * msm_count_total;
     msm_count_zero_at_transition_check +=
         (msm_count_total * msm_count_at_transition_inverse - 1) * (-msm_count_zero_at_transition + 1);
-    std::get<40>(accumulator) += msm_transition_check * msm_count_zero_at_transition_check * scaling_factor;
+    std::get<4>(accumulator) += msm_transition_check * msm_count_zero_at_transition_check * scaling_factor;
 
     // Validate msm_transition_msm_count is correct
     // ensure msm_transition is zero if count is zero
-    std::get<4>(accumulator) +=
+    std::get<5>(accumulator) +=
         (msm_transition - msm_transition_check * (-msm_count_zero_at_transition + 1)) * scaling_factor;
 
     /**
@@ -157,7 +157,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * (if no msm active, msm_count == 0)
      * If current row ends an MSM, `msm_count_shift = 0` (msm_count value at next row)
      */
-    std::get<5>(accumulator) += (msm_transition * msm_count_shift) * scaling_factor;
+    std::get<6>(accumulator) += (msm_transition * msm_count_shift) * scaling_factor;
 
     /**
      * @brief Validate `msm_count` updates correctly for mul operations.
@@ -166,26 +166,18 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      */
     auto msm_count_delta = msm_count_shift - msm_count; // degree 4
     auto num_counts = ((-z1_zero + 1) + (-z2_zero + 1)) * (-transcript_Pinfinity + 1);
-    std::get<6>(accumulator) +=
+    std::get<7>(accumulator) +=
         is_not_first_row * (-msm_transition + 1) * (msm_count_delta - q_mul * (num_counts)) * scaling_factor;
 
     /**
      * @brief Opcode exclusion tests. We have the following assertions:
      * 1. If q_mul = 1, (q_add, eq, reset) are zero
-     * 2. If q_reset = 1, is_accumulator_empty at next row = 1
-     * 3. If q_add = 1 OR msm_transition = 1, is_accumulator_empty at next row = 0
-     * 4. If q_add = 0 AND msm_transition = 0 AND q_reset_accumulator = 0, is_accumulator at next row = current row
-     * value
-     * @note point 3: both q_add = 1, msm_transition = 1 cannot occur because of point 1 (msm_transition only 1 when
-     * q_mul 1) we can use a slightly more efficient relation than a pure binary OR
+     * 2. If q_add = 1, (q_mul, eq, reset) are zero
+     * 3. If q_eq =  1, (q_add, q_mul) are zero (is established by previous 2 checks)
      */
-    std::get<7>(accumulator) += q_mul * (q_add + q_eq + q_reset_accumulator) * scaling_factor;
-    std::get<8>(accumulator) += q_add * (q_mul + q_eq + q_reset_accumulator) * scaling_factor;
-    std::get<9>(accumulator) += q_reset_accumulator * (-is_accumulator_empty_shift + 1) * scaling_factor;
-    // std::get<18>(accumulator) += (q_add + msm_transition) * is_accumulator_empty_shift * scaling_factor;
-    auto accumulator_state_not_modified = -(q_add + msm_transition + q_reset_accumulator) + 1;
-    std::get<10>(accumulator) += accumulator_state_not_modified * is_not_first_or_last_row *
-                                 (is_accumulator_empty_shift - is_accumulator_empty) * scaling_factor;
+    auto opcode_exclusion_relation = q_mul * (q_add + q_eq + q_reset_accumulator);
+    opcode_exclusion_relation += q_add * (q_mul + q_eq + q_reset_accumulator);
+    std::get<8>(accumulator) += opcode_exclusion_relation * scaling_factor; // degree 2
 
     /**
      * @brief `eq` opcode.
@@ -201,9 +193,9 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     auto eq_y_diff = transcript_Py - transcript_accumulator_y;
     auto eq_x_diff_relation = q_eq * (eq_x_diff * both_not_infinity + infinity_exclusion_check); // degree 4
     auto eq_y_diff_relation = q_eq * (eq_y_diff * both_not_infinity + infinity_exclusion_check); // degree 4
-    std::get<11>(accumulator) += eq_x_diff_relation * scaling_factor;
+    std::get<9>(accumulator) += eq_x_diff_relation * scaling_factor;
 
-    std::get<12>(accumulator) += eq_y_diff_relation * scaling_factor;
+    std::get<10>(accumulator) += eq_y_diff_relation * scaling_factor;
 
     /**
      * @brief Initial condition check on 1st row.
@@ -213,8 +205,8 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * note...actually second row? bleurgh
      * NOTE: we want pc = 0 at lagrange_last :o
      */
-    std::get<13>(accumulator) += lagrange_second * (-is_accumulator_empty + 1) * scaling_factor;
-    std::get<14>(accumulator) += lagrange_second * msm_count * scaling_factor;
+    std::get<11>(accumulator) += lagrange_second * (-is_accumulator_empty + 1) * scaling_factor;
+    std::get<12>(accumulator) += lagrange_second * msm_count * scaling_factor;
 
     /**
      * @brief On-curve validation checks.
@@ -224,174 +216,218 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     const auto validate_on_curve = q_mul + q_add + q_mul + q_eq;
     const auto on_curve_check =
         transcript_Py * transcript_Py - transcript_Px * transcript_Px * transcript_Px - get_curve_b();
-    std::get<15>(accumulator) += validate_on_curve * on_curve_check * is_not_infinity * scaling_factor; // degree 6
+    std::get<13>(accumulator) += validate_on_curve * on_curve_check * is_not_infinity * scaling_factor; // degree 6
 
     /**
-     * @brief Validate correctness of ECC Group Operation
-     * An ECC group operation is performed if q_add = 1 or msm_transition = 1.
-     * Because input points can be points at infinity, we must support COMPLETE addition and handle points at infinity
+     * @brief Validate relations from ECC Group Operations are well formed
+     *
      */
-    // define the lhs point: either transcript_Px/y or transcript_accumulator_x/y
-    auto lhs_x = transcript_Px * q_add + transcript_msm_x * msm_transition;
-    auto lhs_y = transcript_Py * q_add + transcript_msm_y * msm_transition;
-    // the rhs point will always be the accumulator point at the next row in the trace
-    auto rhs_x = transcript_accumulator_x;
-    auto rhs_y = transcript_accumulator_y;
-    // the group operation will be either an ADD or a DOUBLE depending on whether x/y coordinates of lhs/rhs match.
-    // If lhs_x == rhs_x, we evaluate a DOUBLE, otherwise an ADD
-    // (we will only activate this relation if lhs_y != rhs_y, but this is done later)
-    auto ecc_op_is_dbl = transcript_add_x_equal;
-    auto ecc_op_is_add = (-transcript_add_x_equal + 1);
-    // Are the lhs/rhs points at infinity?
-    // MSM output CANNOT be point at infinity without triggering unsatisfiable constraints in msm_relation
-    // lhs can only be at infinity if q_add is active
-    auto lhs_infinity = transcript_Pinfinity * q_add + transcript_msm_infinity * msm_transition;
-    auto rhs_infinity = is_accumulator_empty;
-    // Determine where the group operation output is sourced from
-    // | lhs_infinity | rhs_infinity | lhs_x == rhs_x && lhs_y != rhs_y | output    |
-    // | ------------ | ------------ | -------------------------------- | --------- |
-    // |            0 |            0 |                                0 | lhs + rhs |
-    // |            0 |            0 |                                1 | infinity  |
-    // |            0 |            1 |                              n/a | lhs       |
-    // |            1 |            0 |                              n/a | rhs       |
-    // |            1 |            1 |                              n/a | infinity  |
-    auto add_result_is_lhs = rhs_infinity * (-lhs_infinity + 1);                                        // degree 3
-    auto add_result_is_rhs = lhs_infinity * (-rhs_infinity + 1);                                        // degree 3
-    auto add_result_infinity_from_inputs = lhs_infinity * rhs_infinity;                                 // degree 2
-    auto add_result_infinity_from_operation = transcript_add_x_equal * (-transcript_add_y_equal + 1);   // degree 2
-    auto add_result_is_infinity = add_result_infinity_from_inputs + add_result_infinity_from_operation; // degree 2??
-
-    auto lambda_relation_valid = (-lhs_infinity + 1) * (-rhs_infinity + 1) * (-add_result_is_infinity + 1); // degree 4
-    // Determine the gradient `lambda` of the group operation
-    // If lhs_x == rhs_x, lambda = (3 * lhs_x * lhs_x) / (2 * lhs_y)
-    // Else, lambda = (rhs_y - lhs_y) / (rhs_x - lhs_x)
-    auto lhs_xx = lhs_x * lhs_x;
-    auto lambda_numerator = (rhs_y - lhs_y) * ecc_op_is_add + (lhs_xx + lhs_xx + lhs_xx) * ecc_op_is_dbl;
-    auto lambda_denominator = (rhs_x - lhs_x) * ecc_op_is_add + (lhs_y + lhs_y) * ecc_op_is_dbl; // degree 3
-    auto lambda_term = lambda_denominator * transcript_add_lambda - lambda_numerator;            // degree 4
-    // We only activate lambda relation if we don't have points at infinity - this is to avoid divide-by-zero problems
-    // N.B. check this is need
-    auto any_add_is_active = q_add + msm_transition;
-    auto lambda_relation_active = any_add_is_active * lambda_relation_valid; // degree 5
-    auto lambda_relation = lambda_term * lambda_relation_active;             // degree 9!
-    // if lambda relation is not active, assert lambda = 0
-    lambda_relation += (-lambda_relation_active + 1) * transcript_add_lambda;
-    std::get<16>(accumulator) += lambda_relation * scaling_factor; // degree 9
-
-    // Determine the x/y coordinates of the shifted accumulator
-    // add_x3/add_y3 = result of group operation computation
-    auto add_x3 = transcript_add_lambda * transcript_add_lambda - lhs_x - rhs_x; // degree 2
-    add_x3 += (lhs_x + lhs_x + rhs_x) * add_result_is_lhs;
-    add_x3 += (rhs_x + rhs_x + lhs_x) * add_result_is_rhs;
-    add_x3 += (lhs_x + rhs_x) * add_result_is_infinity;
-
-    auto add_y3 = transcript_add_lambda * (lhs_x - add_x3) - lhs_y; // degree 3
-    add_y3 += (lhs_y + lhs_y) * add_result_is_lhs;
-    add_y3 += (lhs_y + rhs_y) * add_result_is_rhs;
-    add_y3 += (lhs_y)*add_result_is_infinity;
-    auto propagate_transcript_accumulator = (-q_add - msm_transition - q_reset_accumulator + 1);
-    auto add_point_x_relation = (add_x3 - transcript_accumulator_x_shift) * any_add_is_active; // degree 7
-    add_point_x_relation += propagate_transcript_accumulator * (-lagrange_last + 1) *
-                            (transcript_accumulator_x_shift - transcript_accumulator_x);
-    auto add_point_y_relation = (add_y3 - transcript_accumulator_y_shift) * any_add_is_active; // degree 7
-    add_point_y_relation += propagate_transcript_accumulator * (-lagrange_last + 1) *
-                            (transcript_accumulator_y_shift - transcript_accumulator_y);
-    std::get<17>(accumulator) += add_point_x_relation * scaling_factor; // degree 7
-    std::get<18>(accumulator) += add_point_y_relation * scaling_factor; // degree 8
-
-    /**
-     * @brief Validate `is_accumulator_empty` is updated correctly
-     * An add operation can produce a point at infinity
-     * Resetting the accumulator produces a point at infinity
-     * If we are not adding, performing an msm or resetting the accumulator, is_accumulator_empty should not update
-     */
-    auto accumulator_infinity_preserve_flag = (-(q_add + msm_transition + q_reset_accumulator) + 1);
-    auto accumulator_infinity_preserve =
-        accumulator_infinity_preserve_flag * (is_accumulator_empty - is_accumulator_empty_shift) * (-lagrange_last + 1);
-    auto accumulator_infinity_q_reset = q_reset_accumulator * (-is_accumulator_empty_shift + 1);
-    auto accumulator_infinity_from_add = any_add_is_active * (add_result_is_infinity - is_accumulator_empty_shift);
-    auto accumulator_infinity_relation =
-        accumulator_infinity_preserve + accumulator_infinity_q_reset + accumulator_infinity_from_add;
-    std::get<19>(accumulator) += (accumulator_infinity_relation * is_not_first_row) * scaling_factor; // degree 5?
-
-    /**
-     * @brief Validate `transcript_add_x_equal` is well-formed
-     *        If lhs_x == rhs_x, transcript_add_x_equal = 1
-     *        If transcript_add_x_equal = 0, a valid inverse must exist for (lhs_x - rhs_x)
-     */
-    auto x_diff = lhs_x - rhs_x;
-    auto x_product = transcript_Px_inverse * (-transcript_add_x_equal + 1) + transcript_add_x_equal;
-    auto x_constant = transcript_add_x_equal - 1;
-    auto transcript_add_x_equal_check_relation = (x_diff * x_product + x_constant) * any_add_is_active;
-    std::get<20>(accumulator) += transcript_add_x_equal_check_relation * scaling_factor; // degree 6
-
-    // TODO: IF MUL PRODUCES 0 POINTS DUE TO Z1=0, Z2=0 OR POINTS AT INFINITY, ENSURE THAT MSM_OUTPUT IS ALWAYS POINT AT
-    // INFINITY
-    /**
-     * @brief Validate `transcript_add_y_equal` is well-formed
-     *        If lhs_y == rhs_y, transcript_add_y_equal = 1
-     *        If transcript_add_y_equal = 0, a valid inverse must exist for (lhs_y - rhs_y)
-     */
-    auto y_diff = lhs_y - rhs_y;
-    auto y_product = transcript_Py_inverse * (-transcript_add_y_equal + 1) + transcript_add_y_equal;
-    auto y_constant = transcript_add_y_equal - 1;
-    auto transcript_add_y_equal_check_relation = (y_diff * y_product + y_constant) * any_add_is_active;
-    std::get<21>(accumulator) += transcript_add_y_equal_check_relation * scaling_factor; // degree 6
-
-    // validate selectors are boolean (put somewhere else? these are low degree)
-    std::get<22>(accumulator) += q_eq * (q_eq - 1) * scaling_factor;
-    std::get<23>(accumulator) += q_add * (q_add - 1) * scaling_factor;
-    std::get<24>(accumulator) += q_mul * (q_mul - 1) * scaling_factor;
-    std::get<25>(accumulator) += q_reset_accumulator * (q_reset_accumulator - 1) * scaling_factor;
-    std::get<26>(accumulator) += msm_transition * (msm_transition - 1) * scaling_factor;
-    std::get<27>(accumulator) += is_accumulator_empty * (is_accumulator_empty - 1) * scaling_factor;
-    std::get<28>(accumulator) += z1_zero * (z1_zero - 1) * scaling_factor;
-    std::get<29>(accumulator) += z2_zero * (z2_zero - 1) * scaling_factor;
-    std::get<30>(accumulator) += transcript_add_x_equal * (transcript_add_x_equal - 1) * scaling_factor;
-    std::get<31>(accumulator) += transcript_add_y_equal * (transcript_add_y_equal - 1) * scaling_factor;
-    std::get<32>(accumulator) += transcript_Pinfinity * (transcript_Pinfinity - 1) * scaling_factor;
-    std::get<33>(accumulator) += transcript_msm_infinity * (transcript_msm_infinity - 1) * scaling_factor;
-    std::get<39>(accumulator) += msm_count_zero_at_transition * (msm_count_zero_at_transition - 1) * scaling_factor;
-    // step 1: subtract offset generator from msm_accumulator
-    // this might produce a point at infinity
     {
-        const auto offset = offset_generator();
-        const auto x1 = offset[0];
-        const auto y1 = -offset[1];
-        const auto x2 = View(in.transcript_msm_x);
-        const auto y2 = View(in.transcript_msm_y);
-        const auto x3 = View(in.transcript_msm_intermediate_x);
-        const auto y3 = View(in.transcript_msm_intermediate_y);
-        const auto transcript_msm_infinity = View(in.transcript_msm_infinity);
-        // cases:
-        // x2 == x1, y2 == y1
-        // x2 != x1
-        // (x2 - x1)
-        const auto x_term = (x3 + x2 + x1) * (x2 - x1) * (x2 - x1) - (y2 - y1) * (y2 - y1);
-        const auto y_term = (x1 - x3) * (y2 - y1) - (x2 - x1) * (y1 + y3);
-        // IF msm_infinity = false, transcript_msm_intermediate_x/y is either the result of subtracting offset generator
-        // from msm_x/y IF msm_infinity = true, transcript_msm_intermediate_x/y is 0
-        const auto transcript_offset_generator_subtract_x =
-            x_term * (-transcript_msm_infinity + 1) + transcript_msm_infinity * x3;
-        const auto transcript_offset_generator_subtract_y =
-            y_term * (-transcript_msm_infinity + 1) + transcript_msm_infinity * y3;
-        std::get<34>(accumulator) += msm_transition * transcript_offset_generator_subtract_x * scaling_factor;
-        std::get<35>(accumulator) += msm_transition * transcript_offset_generator_subtract_y * scaling_factor;
+        Accumulator transcript_lambda_relation(0);
+        auto is_double = transcript_add_x_equal * transcript_add_y_equal;
+        auto is_add = (-transcript_add_x_equal + 1);
+        auto add_result_is_infinity = transcript_add_x_equal * (-transcript_add_y_equal + 1); // degree 2
+        auto rhs_x = transcript_accumulator_x;
+        auto rhs_y = transcript_accumulator_y;
+        auto out_x = transcript_accumulator_x_shift;
+        auto out_y = transcript_accumulator_y_shift;
+        auto lambda = transcript_add_lambda;
+        auto lhs_x = transcript_Px * q_add + transcript_msm_x * msm_transition;
+        auto lhs_y = transcript_Py * q_add + transcript_msm_y * msm_transition;
+        auto lhs_infinity = transcript_Pinfinity * q_add + transcript_msm_infinity * msm_transition;
+        auto rhs_infinity = is_accumulator_empty;
+        auto result_is_lhs = rhs_infinity * (-lhs_infinity + 1);                                      // degree 2
+        auto result_is_rhs = (-rhs_infinity + 1) * lhs_infinity;                                      // degree 2
+        auto result_infinity_from_inputs = lhs_infinity * rhs_infinity;                               // degree 2
+        auto result_infinity_from_operation = transcript_add_x_equal * (-transcript_add_y_equal + 1); // degree 2
+        // infinity_from_inputs and infinity_from_operation mutually exclusive so we can perform an OR by adding
+        // (mutually exclusive because if result_infinity_from_inputs then transcript_add_y_equal = 1 (both y are 0)
+        auto result_is_infinity = result_infinity_from_inputs + result_infinity_from_operation; // degree 2
+        auto any_add_is_active = q_add + msm_transition;
 
-        // validate transcript_msm_infinity is correct
-        // if transcript_msm_infinity = 1, (x2 == x1) and (y2 + y1 == 0)
-        const auto x_diff = x2 - x1;
-        const auto y_sum = y2 + y1;
-        std::get<36>(accumulator) += msm_transition * transcript_msm_infinity * x_diff * scaling_factor;
-        std::get<37>(accumulator) += msm_transition * transcript_msm_infinity * y_sum * scaling_factor;
-        // if transcript_msm_infinity = 1, then x_diff must have an inverse
-        const auto transcript_msm_x_inverse = View(in.transcript_msm_x_inverse);
-        const auto inverse_term = (-transcript_msm_infinity + 1) * (x_diff * transcript_msm_x_inverse - 1);
-        std::get<38>(accumulator) += msm_transition * inverse_term * scaling_factor;
+        // Valdiate `transcript_add_lambda` is well formed if we are adding msm output into accumulator
+        {
+            Accumulator transcript_msm_lambda_relation(0);
+            auto msm_x = transcript_msm_x;
+            auto msm_y = transcript_msm_y;
+            // Group operation is point addition
+            {
+                auto lambda_denominator = (rhs_x - msm_x);
+                auto lambda_numerator = (rhs_y - msm_y);
+                auto lambda_relation = lambda * lambda_denominator - lambda_numerator; // degree 2
+                transcript_msm_lambda_relation += lambda_relation * is_add;            // degree 3
+            }
+            // Group operation is point doubling
+            {
+                auto lambda_denominator = msm_y + msm_y;
+                auto lambda_numerator = msm_x * msm_x * 3;
+                auto lambda_relation = lambda * lambda_denominator - lambda_numerator; // degree 2
+                transcript_msm_lambda_relation += lambda_relation * is_double;         // degree 4
+            }
+            auto transcript_add_or_dbl_from_msm_output_is_valid =
+                (-transcript_msm_infinity + 1) * (-is_accumulator_empty + 1);                 // degree 2
+            transcript_msm_lambda_relation *= transcript_add_or_dbl_from_msm_output_is_valid; // degree 6
+            // No group operation because of points at infinity
+            {
+                auto lambda_relation_invalid =
+                    (transcript_msm_infinity + is_accumulator_empty + add_result_is_infinity); // degree 2
+                auto lambda_relation = lambda * lambda_relation_invalid;                       // degree 4
+                transcript_msm_lambda_relation += lambda_relation;                             // (still degree 6)
+            }
+            transcript_lambda_relation = transcript_msm_lambda_relation * msm_transition; // degree 7
+        }
+        // Valdiate `transcript_add_lambda` is well formed if we are adding base point into accumulator
+        {
+            Accumulator transcript_add_lambda_relation(0);
+            auto add_x = transcript_Px;
+            auto add_y = transcript_Py;
+            // Group operation is point addition
+            {
+                auto lambda_denominator = (rhs_x - add_x);
+                auto lambda_numerator = (rhs_y - add_y);
+                auto lambda_relation = lambda * lambda_denominator - lambda_numerator; // degree 2
+                transcript_add_lambda_relation += lambda_relation * is_add;            // degree 3
+            }
+            // Group operation is point doubling
+            {
+                auto lambda_denominator = add_y + add_y;
+                auto lambda_numerator = add_x * add_x * 3;
+                auto lambda_relation = lambda * lambda_denominator - lambda_numerator; // degree 2
+                transcript_add_lambda_relation += lambda_relation * is_double;         // degree 4
+            }
+            auto transcript_add_or_dbl_from_add_output_is_valid =
+                (-transcript_Pinfinity + 1) * (-is_accumulator_empty + 1);                    // degree 2
+            transcript_add_lambda_relation *= transcript_add_or_dbl_from_add_output_is_valid; // degree 6
+            // No group operation because of points at infinity
+            {
+                auto lambda_relation_invalid =
+                    (transcript_Pinfinity + is_accumulator_empty + add_result_is_infinity); // degree 2
+                auto lambda_relation = lambda * lambda_relation_invalid;                    // degree 4
+                transcript_add_lambda_relation += lambda_relation;                          // (still degree 6)
+            }
+            transcript_lambda_relation += transcript_add_lambda_relation * q_add;
+            std::get<14>(accumulator) += transcript_lambda_relation * scaling_factor; // degree 7
+        }
+        /**
+         * @brief Validate transcript_accumulator_x_shift / transcript_accumulator_y_shift are well formed.
+         *        Conditions (one of the following):
+         *        1. The result of a group operation involving transcript_accumulator and msm_output (q_add = 1)
+         *        2. The result of a group operation involving transcript_accumulator and transcript_P (msm_transition =
+         * 1)
+         *        3. Is equal to transcript_accumulator (no group operation, no reset)
+         *        4. Is 0 (reset)
+         */
+        {
+            auto lambda_sqr = lambda * lambda;
+            // add relation that validates result_infinity_from_operation * result_is_infinity = 0
+
+            // N.B. these relations rely on the fact that `lambda = 0` if we are not evaluating add/double formula
+            // (i.e. one or both outputs are points at infinity, or produce a point at infinity)
+            // This should be validated by the lambda_relation
+            auto x3 = lambda_sqr - lhs_x - rhs_x;          // degree 2
+            x3 += result_is_lhs * (rhs_x + lhs_x + lhs_x); // degree 4
+            x3 += result_is_rhs * (lhs_x + rhs_x + rhs_x); // degree 4
+            x3 += result_is_infinity * (lhs_x + rhs_x);    // degree 4
+            auto y3 = lambda * (lhs_x - out_x) - lhs_y;    // degree 3
+            y3 += result_is_lhs * (lhs_y + lhs_y);         // degree 4
+            y3 += result_is_rhs * (lhs_y + rhs_y);         // degree 4
+            y3 += result_is_infinity * lhs_y;              // degree 4
+
+            auto propagate_transcript_accumulator = (-q_add - msm_transition - q_reset_accumulator + 1);
+            auto add_point_x_relation = (x3 - out_x) * any_add_is_active; // degree 5
+            add_point_x_relation +=
+                propagate_transcript_accumulator * is_not_last_row * (out_x - transcript_accumulator_x);
+            // validate out_x = 0 if q_reset_accumulator = 1
+            add_point_x_relation += (out_x * q_reset_accumulator);
+            auto add_point_y_relation = (y3 - out_y) * any_add_is_active; // degree 5
+            add_point_y_relation +=
+                propagate_transcript_accumulator * is_not_last_row * (out_y - transcript_accumulator_y);
+            // validate out_y = 0 if q_reset_accumulator = 1
+            add_point_y_relation += (out_y * q_reset_accumulator);
+            std::get<15>(accumulator) += add_point_x_relation * scaling_factor; // degree 5
+            std::get<16>(accumulator) += add_point_y_relation * scaling_factor; // degree 5
+        }
+
+        // step 1: subtract offset generator from msm_accumulator
+        // this might produce a point at infinity
+        {
+            const auto offset = offset_generator();
+            const auto x1 = offset[0];
+            const auto y1 = -offset[1];
+            const auto x2 = View(in.transcript_msm_x);
+            const auto y2 = View(in.transcript_msm_y);
+            const auto x3 = View(in.transcript_msm_intermediate_x);
+            const auto y3 = View(in.transcript_msm_intermediate_y);
+            const auto transcript_msm_infinity = View(in.transcript_msm_infinity);
+            // cases:
+            // x2 == x1, y2 == y1
+            // x2 != x1
+            // (x2 - x1)
+            const auto x_term = (x3 + x2 + x1) * (x2 - x1) * (x2 - x1) - (y2 - y1) * (y2 - y1); // degree 3
+            const auto y_term = (x1 - x3) * (y2 - y1) - (x2 - x1) * (y1 + y3);                  // degree 2
+            // IF msm_infinity = false, transcript_msm_intermediate_x/y is either the result of subtracting offset
+            // generator from msm_x/y IF msm_infinity = true, transcript_msm_intermediate_x/y is 0
+            const auto transcript_offset_generator_subtract_x =
+                x_term * (-transcript_msm_infinity + 1) + transcript_msm_infinity * x3; // degree 4
+            const auto transcript_offset_generator_subtract_y =
+                y_term * (-transcript_msm_infinity + 1) + transcript_msm_infinity * y3; // degree 3
+            std::get<17>(accumulator) +=
+                msm_transition * transcript_offset_generator_subtract_x * scaling_factor; // degree 5
+            std::get<18>(accumulator) +=
+                msm_transition * transcript_offset_generator_subtract_y * scaling_factor; // degree 5
+
+            // validate transcript_msm_infinity is correct
+            // if transcript_msm_infinity = 1, (x2 == x1) and (y2 + y1 == 0)
+            const auto x_diff = x2 - x1;
+            const auto y_sum = y2 + y1;
+            std::get<19>(accumulator) += msm_transition * transcript_msm_infinity * x_diff * scaling_factor; // degree 3
+            std::get<20>(accumulator) += msm_transition * transcript_msm_infinity * y_sum * scaling_factor;  // degree 3
+            // if transcript_msm_infinity = 1, then x_diff must have an inverse
+            const auto transcript_msm_x_inverse = View(in.transcript_msm_x_inverse);
+            const auto inverse_term = (-transcript_msm_infinity + 1) * (x_diff * transcript_msm_x_inverse - 1);
+            std::get<21>(accumulator) += msm_transition * inverse_term * scaling_factor; // degree 3
+        }
+
+        /**
+         * @brief Validate `is_accumulator_empty` is updated correctly
+         * An add operation can produce a point at infinity
+         * Resetting the accumulator produces a point at infinity
+         * If we are not adding, performing an msm or resetting the accumulator, is_accumulator_empty should not update
+         */
+        auto accumulator_infinity_preserve_flag = (-(q_add + msm_transition + q_reset_accumulator) + 1); // degree 1
+        auto accumulator_infinity_preserve = accumulator_infinity_preserve_flag *
+                                             (is_accumulator_empty - is_accumulator_empty_shift) *
+                                             is_not_first_or_last_row;                               // degree 3
+        auto accumulator_infinity_q_reset = q_reset_accumulator * (-is_accumulator_empty_shift + 1); // degree 2
+        auto accumulator_infinity_from_add =
+            any_add_is_active * (result_is_infinity - is_accumulator_empty_shift); // degree 3
+        auto accumulator_infinity_relation =
+            accumulator_infinity_preserve +
+            (accumulator_infinity_q_reset + accumulator_infinity_from_add) * is_not_first_row; // degree 4
+        std::get<22>(accumulator) += accumulator_infinity_relation * scaling_factor;           // degree 4
+
+        /**
+         * @brief Validate `transcript_add_x_equal` is well-formed
+         *        If lhs_x == rhs_x, transcript_add_x_equal = 1
+         *        If transcript_add_x_equal = 0, a valid inverse must exist for (lhs_x - rhs_x)
+         */
+        auto x_diff = lhs_x - rhs_x;                                                                        // degree 2
+        auto x_product = transcript_Px_inverse * (-transcript_add_x_equal + 1) + transcript_add_x_equal;    // degree 2
+        auto x_constant = transcript_add_x_equal - 1;                                                       // degree 1
+        auto transcript_add_x_equal_check_relation = (x_diff * x_product + x_constant) * any_add_is_active; // degree 5
+        std::get<23>(accumulator) += transcript_add_x_equal_check_relation * scaling_factor;                // degree 5
+
+        /**
+         * @brief Validate `transcript_add_y_equal` is well-formed
+         *        If lhs_y == rhs_y, transcript_add_y_equal = 1
+         *        If transcript_add_y_equal = 0, a valid inverse must exist for (lhs_y - rhs_y)
+         */
+        auto y_diff = lhs_y - rhs_y;
+        auto y_product = transcript_Py_inverse * (-transcript_add_y_equal + 1) + transcript_add_y_equal;
+        auto y_constant = transcript_add_y_equal - 1;
+        auto transcript_add_y_equal_check_relation = (y_diff * y_product + y_constant) * any_add_is_active;
+        std::get<24>(accumulator) += transcript_add_y_equal_check_relation * scaling_factor; // degree 5
     }
-
-    // Validate correctness of
-    {}
 }
 
 template class ECCVMTranscriptRelationImpl<grumpkin::fr>;

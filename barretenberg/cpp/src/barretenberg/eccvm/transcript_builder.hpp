@@ -31,13 +31,11 @@ class ECCVMTranscriptBuilder {
         FF accumulator_y = 0;
         FF msm_output_x = 0;
         FF msm_output_y = 0;
-        FF collision_check = 0;
         bool base_infinity = 0;
         FF base_x_inverse = 0;
         FF base_y_inverse = 0;
         bool transcript_add_x_equal = false;
         bool transcript_add_y_equal = false;
-        FF transcript_y_collision_check = 0;
         FF transcript_add_lambda = 0;
         FF transcript_msm_intermediate_x = 0;
         FF transcript_msm_intermediate_y = 0;
@@ -93,11 +91,11 @@ class ECCVMTranscriptBuilder {
         // We fill these vectors and then perform batch inversions to amortize the cost of FF inverts
         std::vector<FF> inverse_trace_x(num_vm_entries);
         std::vector<FF> inverse_trace_y(num_vm_entries);
-        std::vector<FF> transcript_y_collision_check(num_vm_entries);
         std::vector<FF> transcript_add_lambda(num_vm_entries);
         std::vector<FF> transcript_msm_x_inverse_trace(num_vm_entries);
         std::vector<FF> add_lambda_denominator(num_vm_entries);
         std::vector<FF> add_lambda_numerator(num_vm_entries);
+        std::vector<FF> msm_count_at_transition_inverse_trace(num_vm_entries);
         std::vector<Element> msm_accumulator_trace(num_vm_entries);
         std::vector<Element> accumulator_trace(num_vm_entries);
         std::vector<Element> intermediate_accumulator_trace(num_vm_entries);
@@ -153,7 +151,6 @@ class ECCVMTranscriptBuilder {
                 updated_state.msm_accumulator = R + P * entry.mul_scalar_full;
             }
 
-            // TODO IF FAKE TRANSITION FIGURE OUT WHAT TO DO WITH ACCUMULATORS BLAH BLAH BLAH
             if (msm_transition) {
                 if (state.is_accumulator_empty) {
                     updated_state.accumulator = updated_state.msm_accumulator - offset_generator();
@@ -182,8 +179,7 @@ class ECCVMTranscriptBuilder {
             row.pc = state.pc;
             row.msm_count = state.count;
             row.msm_count_zero_at_transition = ((state.count + num_muls) == 0) && (entry.mul && next_not_msm);
-            row.msm_count_at_transition_inverse =
-                ((state.count + num_muls) == 0) ? 0 : FF(state.count + num_muls).invert(); // TODO BATCH
+            msm_count_at_transition_inverse_trace[i] = ((state.count + num_muls) == 0) ? 0 : FF(state.count + num_muls);
             row.base_x = ((entry.add || entry.mul || entry.eq) && !base_point_infinity) ? entry.base_point.x : 0;
             row.base_y = ((entry.add || entry.mul || entry.eq) && !base_point_infinity) ? entry.base_point.y : 0;
             row.base_infinity = (entry.add || entry.mul || entry.eq) ? (base_point_infinity ? 1 : 0) : 0;
@@ -291,12 +287,13 @@ class ECCVMTranscriptBuilder {
         FF::batch_invert(&inverse_trace_y[0], num_vm_entries);
         FF::batch_invert(&transcript_msm_x_inverse_trace[0], num_vm_entries);
         FF::batch_invert(&add_lambda_denominator[0], num_vm_entries);
-
+        FF::batch_invert(&msm_count_at_transition_inverse_trace[0], num_vm_entries);
         for (size_t i = 0; i < num_vm_entries; ++i) {
             transcript_state[i + 1].base_x_inverse = inverse_trace_x[i];
             transcript_state[i + 1].base_y_inverse = inverse_trace_y[i];
             transcript_state[i + 1].transcript_msm_x_inverse = transcript_msm_x_inverse_trace[i];
             transcript_state[i + 1].transcript_add_lambda = add_lambda_numerator[i] * add_lambda_denominator[i];
+            transcript_state[i + 1].msm_count_at_transition_inverse = msm_count_at_transition_inverse_trace[i];
         }
         TranscriptState& final_row = transcript_state.back();
         final_row.pc = updated_state.pc;

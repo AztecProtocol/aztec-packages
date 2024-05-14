@@ -8,6 +8,7 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_bools_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_lookup_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_msm_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_point_table_relation.hpp"
@@ -35,17 +36,17 @@ class ECCVMFlavor {
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using RelationSeparator = FF;
 
-    static constexpr size_t NUM_WIRES = 87;
+    static constexpr size_t NUM_WIRES = 85;
 
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 118;
+    static constexpr size_t NUM_ALL_ENTITIES = 116;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 3;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 89;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 87;
 
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
@@ -54,7 +55,8 @@ class ECCVMFlavor {
                                  ECCVMWnafRelation<FF>,
                                  ECCVMMSMRelation<FF>,
                                  ECCVMSetRelation<FF>,
-                                 ECCVMLookupRelation<FF>>;
+                                 ECCVMLookupRelation<FF>,
+                                 ECCVMBoolsRelation<FF>>;
 
     using LookupRelation = ECCVMLookupRelation<FF>;
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
@@ -107,93 +109,91 @@ class ECCVMFlavor {
     template <typename DataType> class WireEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              transcript_add,                // column 0
-                              transcript_mul,                // column 1
-                              transcript_eq,                 // column 2
-                              transcript_collision_check,    // column 3
-                              transcript_msm_transition,     // column 4
-                              transcript_pc,                 // column 5
-                              transcript_msm_count,          // column 6
-                              transcript_Px,                 // column 7
-                              transcript_Py,                 // column 8
-                              transcript_z1,                 // column 9
-                              transcript_z2,                 // column 10
-                              transcript_z1zero,             // column 11
-                              transcript_z2zero,             // column 12
-                              transcript_op,                 // column 13
-                              transcript_accumulator_x,      // column 14
-                              transcript_accumulator_y,      // column 15
-                              transcript_msm_x,              // column 16
-                              transcript_msm_y,              // column 17
-                              precompute_pc,                 // column 18
-                              precompute_point_transition,   // column 19
-                              precompute_round,              // column 20
-                              precompute_scalar_sum,         // column 21
-                              precompute_s1hi,               // column 22
-                              precompute_s1lo,               // column 23
-                              precompute_s2hi,               // column 24
-                              precompute_s2lo,               // column 25
-                              precompute_s3hi,               // column 26
-                              precompute_s3lo,               // column 27
-                              precompute_s4hi,               // column 28
-                              precompute_s4lo,               // column 29
-                              precompute_skew,               // column 30
-                              precompute_dx,                 // column 31
-                              precompute_dy,                 // column 32
-                              precompute_tx,                 // column 33
-                              precompute_ty,                 // column 34
-                              msm_transition,                // column 35
-                              msm_add,                       // column 36
-                              msm_double,                    // column 37
-                              msm_skew,                      // column 38
-                              msm_accumulator_x,             // column 39
-                              msm_accumulator_y,             // column 40
-                              msm_pc,                        // column 41
-                              msm_size_of_msm,               // column 42
-                              msm_count,                     // column 43
-                              msm_round,                     // column 44
-                              msm_add1,                      // column 45
-                              msm_add2,                      // column 46
-                              msm_add3,                      // column 47
-                              msm_add4,                      // column 48
-                              msm_x1,                        // column 49
-                              msm_y1,                        // column 50
-                              msm_x2,                        // column 51
-                              msm_y2,                        // column 52
-                              msm_x3,                        // column 53
-                              msm_y3,                        // column 54
-                              msm_x4,                        // column 55
-                              msm_y4,                        // column 56
-                              msm_collision_x1,              // column 57
-                              msm_collision_x2,              // column 58
-                              msm_collision_x3,              // column 59
-                              msm_collision_x4,              // column 60
-                              msm_lambda1,                   // column 61
-                              msm_lambda2,                   // column 62
-                              msm_lambda3,                   // column 63
-                              msm_lambda4,                   // column 64
-                              msm_slice1,                    // column 65
-                              msm_slice2,                    // column 66
-                              msm_slice3,                    // column 67
-                              msm_slice4,                    // column 68
-                              transcript_accumulator_empty,  // column 69
-                              transcript_reset_accumulator,  // column 70
-                              precompute_select,             // column 71
-                              lookup_read_counts_0,          // column 72
-                              lookup_read_counts_1,          // column 73
-                              transcript_base_infinity,      // column 74
-                              transcript_base_x_inverse,     // column 75
-                              transcript_base_y_inverse,     // column 76
-                              transcript_add_x_equal,        // column 77
-                              transcript_add_y_equal,        // column 78
-                              transcript_y_collision_check,  // column 79
-                              transcript_add_lambda,         // column 80
-                              transcript_msm_intermediate_x, // column 81
-                              transcript_msm_intermediate_y, // column 82
-                              transcript_msm_infinity,       // column 83
-                              transcript_msm_x_inverse,
-                              transcript_msm_count_zero_at_transition,
-                              transcript_msm_count_at_transition_inverse); // column 86
+                              transcript_add,                              // column 0
+                              transcript_mul,                              // column 1
+                              transcript_eq,                               // column 2
+                              transcript_msm_transition,                   // column 3
+                              transcript_pc,                               // column 4
+                              transcript_msm_count,                        // column 5
+                              transcript_Px,                               // column 6
+                              transcript_Py,                               // column 7
+                              transcript_z1,                               // column 8
+                              transcript_z2,                               // column 9
+                              transcript_z1zero,                           // column 10
+                              transcript_z2zero,                           // column 11
+                              transcript_op,                               // column 12
+                              transcript_accumulator_x,                    // column 13
+                              transcript_accumulator_y,                    // column 14
+                              transcript_msm_x,                            // column 15
+                              transcript_msm_y,                            // column 16
+                              precompute_pc,                               // column 17
+                              precompute_point_transition,                 // column 18
+                              precompute_round,                            // column 19
+                              precompute_scalar_sum,                       // column 20
+                              precompute_s1hi,                             // column 21
+                              precompute_s1lo,                             // column 22
+                              precompute_s2hi,                             // column 23
+                              precompute_s2lo,                             // column 24
+                              precompute_s3hi,                             // column 25
+                              precompute_s3lo,                             // column 26
+                              precompute_s4hi,                             // column 27
+                              precompute_s4lo,                             // column 28
+                              precompute_skew,                             // column 29
+                              precompute_dx,                               // column 30
+                              precompute_dy,                               // column 31
+                              precompute_tx,                               // column 32
+                              precompute_ty,                               // column 33
+                              msm_transition,                              // column 34
+                              msm_add,                                     // column 35
+                              msm_double,                                  // column 36
+                              msm_skew,                                    // column 37
+                              msm_accumulator_x,                           // column 38
+                              msm_accumulator_y,                           // column 39
+                              msm_pc,                                      // column 40
+                              msm_size_of_msm,                             // column 41
+                              msm_count,                                   // column 42
+                              msm_round,                                   // column 43
+                              msm_add1,                                    // column 44
+                              msm_add2,                                    // column 45
+                              msm_add3,                                    // column 46
+                              msm_add4,                                    // column 47
+                              msm_x1,                                      // column 48
+                              msm_y1,                                      // column 49
+                              msm_x2,                                      // column 50
+                              msm_y2,                                      // column 51
+                              msm_x3,                                      // column 52
+                              msm_y3,                                      // column 53
+                              msm_x4,                                      // column 54
+                              msm_y4,                                      // column 55
+                              msm_collision_x1,                            // column 56
+                              msm_collision_x2,                            // column 57
+                              msm_collision_x3,                            // column 58
+                              msm_collision_x4,                            // column 59
+                              msm_lambda1,                                 // column 60
+                              msm_lambda2,                                 // column 61
+                              msm_lambda3,                                 // column 62
+                              msm_lambda4,                                 // column 63
+                              msm_slice1,                                  // column 64
+                              msm_slice2,                                  // column 65
+                              msm_slice3,                                  // column 66
+                              msm_slice4,                                  // column 67
+                              transcript_accumulator_empty,                // column 68
+                              transcript_reset_accumulator,                // column 69
+                              precompute_select,                           // column 70
+                              lookup_read_counts_0,                        // column 71
+                              lookup_read_counts_1,                        // column 72
+                              transcript_base_infinity,                    // column 73
+                              transcript_base_x_inverse,                   // column 74
+                              transcript_base_y_inverse,                   // column 75
+                              transcript_add_x_equal,                      // column 76
+                              transcript_add_y_equal,                      // column 77
+                              transcript_add_lambda,                       // column 78
+                              transcript_msm_intermediate_x,               // column 79
+                              transcript_msm_intermediate_y,               // column 80
+                              transcript_msm_infinity,                     // column 81
+                              transcript_msm_x_inverse,                    // column 82
+                              transcript_msm_count_zero_at_transition,     // column 83
+                              transcript_msm_count_at_transition_inverse); // column 84
     };
 
     /**
@@ -456,7 +456,6 @@ class ECCVMFlavor {
          *          lagrange_second: lagrange_second[1] = 1, 0 elsewhere
          *          lagrange_last: lagrange_last[lagrange_last.size() - 1] = 1, 0 elsewhere
          *          transcript_add/mul/eq/reset_accumulator: boolean selectors that toggle add/mul/eq/reset opcodes
-         *          transcript_collision_check: used to ensure any point being added into eccvm accumulator does not
          trigger
          * incomplete addition rules
          *          transcript_msm_transition: is current transcript row the final `mul` opcode of a multiscalar
@@ -584,13 +583,11 @@ class ECCVMFlavor {
                     transcript_accumulator_y[i] = transcript_state[i].accumulator_y;
                     transcript_msm_x[i] = transcript_state[i].msm_output_x;
                     transcript_msm_y[i] = transcript_state[i].msm_output_y;
-                    transcript_collision_check[i] = transcript_state[i].collision_check;
                     transcript_base_infinity[i] = transcript_state[i].base_infinity;
                     transcript_base_x_inverse[i] = transcript_state[i].base_x_inverse;
                     transcript_base_y_inverse[i] = transcript_state[i].base_y_inverse;
                     transcript_add_x_equal[i] = transcript_state[i].transcript_add_x_equal;
                     transcript_add_y_equal[i] = transcript_state[i].transcript_add_y_equal;
-                    transcript_y_collision_check[i] = transcript_state[i].transcript_y_collision_check;
                     transcript_add_lambda[i] = transcript_state[i].transcript_add_lambda;
                     transcript_msm_intermediate_x[i] = transcript_state[i].transcript_msm_intermediate_x;
                     transcript_msm_intermediate_y[i] = transcript_state[i].transcript_msm_intermediate_y;
@@ -730,7 +727,6 @@ class ECCVMFlavor {
             Base::transcript_add = "TRANSCRIPT_ADD";
             Base::transcript_mul = "TRANSCRIPT_MUL";
             Base::transcript_eq = "TRANSCRIPT_EQ";
-            Base::transcript_collision_check = "TRANSCRIPT_COLLISION_CHECK";
             Base::transcript_msm_transition = "TRANSCRIPT_MSM_TRANSITION";
             Base::transcript_pc = "TRANSCRIPT_PC";
             Base::transcript_msm_count = "TRANSCRIPT_MSM_COUNT";
@@ -806,7 +802,6 @@ class ECCVMFlavor {
             Base::transcript_base_y_inverse = "TRANSCRIPT_BASE_Y_INVERSE";
             Base::transcript_add_x_equal = "TRANSCRIPT_ADD_X_EQUAL";
             Base::transcript_add_y_equal = "TRANSCRIPT_ADD_Y_EQUAL";
-            Base::transcript_y_collision_check = "TRANSCRIPT_Y_COLLISION_CHECK";
             Base::transcript_add_lambda = "TRANSCRIPT_ADD_LAMBDA";
             Base::transcript_msm_intermediate_x = "TRANSCRIPT_MSM_INTERMEDIATE_X";
             Base::transcript_msm_intermediate_y = "TRANSCRIPT_MSM_INTERMEDIATE_Y";
@@ -843,7 +838,6 @@ class ECCVMFlavor {
         Commitment transcript_add_comm;
         Commitment transcript_mul_comm;
         Commitment transcript_eq_comm;
-        Commitment transcript_collision_check_comm;
         Commitment transcript_msm_transition_comm;
         Commitment transcript_pc_comm;
         Commitment transcript_msm_count_comm;
@@ -919,7 +913,6 @@ class ECCVMFlavor {
         Commitment transcript_base_y_inverse_comm;
         Commitment transcript_add_x_equal_comm;
         Commitment transcript_add_y_equal_comm;
-        Commitment transcript_y_collision_check_comm;
         Commitment transcript_add_lambda_comm;
         Commitment transcript_msm_intermediate_x_comm;
         Commitment transcript_msm_intermediate_y_comm;
@@ -967,8 +960,6 @@ class ECCVMFlavor {
             transcript_mul_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
             transcript_eq_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_collision_check_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
             transcript_msm_transition_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
@@ -1120,8 +1111,6 @@ class ECCVMFlavor {
                 NativeTranscript::proof_data, num_frs_read);
             transcript_add_y_equal_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
-            transcript_y_collision_check_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
             transcript_add_lambda_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
             transcript_msm_intermediate_x_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
@@ -1206,8 +1195,6 @@ class ECCVMFlavor {
             NativeTranscript::template serialize_to_buffer(transcript_add_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(transcript_mul_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(transcript_eq_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_collision_check_comm,
-                                                           NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(transcript_msm_transition_comm,
                                                            NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(transcript_pc_comm, NativeTranscript::proof_data);
@@ -1289,8 +1276,6 @@ class ECCVMFlavor {
                                                            NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(transcript_add_x_equal_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(transcript_add_y_equal_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_y_collision_check_comm,
-                                                           NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(transcript_add_lambda_comm, NativeTranscript::proof_data);
 
             NativeTranscript::template serialize_to_buffer(transcript_msm_intermediate_x_comm,

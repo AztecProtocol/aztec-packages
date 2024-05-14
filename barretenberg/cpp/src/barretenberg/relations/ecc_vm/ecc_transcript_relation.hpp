@@ -30,9 +30,8 @@ template <typename FF_> class ECCVMTranscriptRelationImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 41> SUBRELATION_PARTIAL_LENGTHS{
-        9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-        9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+    static constexpr std::array<size_t, 25> SUBRELATION_PARTIAL_LENGTHS{
+        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
@@ -41,7 +40,7 @@ template <typename FF_> class ECCVMTranscriptRelationImpl {
                            const Parameters& /* unused */,
                            const FF& scaling_factor);
 
-    // TODO(@zac-williamson #2609 find more generic way of doing this)
+    // TODO(@zac-williamson #2809 find more generic way of doing this)
     static constexpr FF get_curve_b()
     {
         if constexpr (FF::modulus == bb::fq::modulus) {

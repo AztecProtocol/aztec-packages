@@ -65,6 +65,7 @@ bool ECCVMTraceChecker::check(Builder& builder)
     result = result && evaluate_relation.template operator()<ECCVMWnafRelation<FF>>("ECCVMWnafRelation");
     result = result && evaluate_relation.template operator()<ECCVMMSMRelation<FF>>("ECCVMMSMRelation");
     result = result && evaluate_relation.template operator()<ECCVMSetRelation<FF>>("ECCVMSetRelation");
+    result = result && evaluate_relation.template operator()<ECCVMBoolsRelation<FF>>("ECCVMBoolsRelation");
 
     using LookupRelation = ECCVMLookupRelation<FF>;
     typename ECCVMLookupRelation<typename Flavor::FF>::SumcheckArrayOfValuesOverSubrelations lookup_result;
