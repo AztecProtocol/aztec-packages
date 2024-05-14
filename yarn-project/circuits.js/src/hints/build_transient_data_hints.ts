@@ -17,9 +17,9 @@ export function buildTransientDataHints<
   const nullifierIndexMap: Map<number, number> = new Map();
   nullifiers.forEach((n, i) => nullifierIndexMap.set(n.counter, i));
 
-  const logNoteHashMap: Map<bigint, number[]> = new Map();
+  const logNoteHashMap: Map<number, number[]> = new Map();
   noteLogs.forEach((n, i) => {
-    logNoteHashMap.set(n.noteHash.toBigInt(), (logNoteHashMap.get(n.noteHash.toBigInt()) || []).concat([i]));
+    logNoteHashMap.set(n.noteHashCounter, (logNoteHashMap.get(n.noteHashCounter) || []).concat([i]));
   });
 
   const nullifierIndexesForNoteHashes: Tuple<number, NOTE_HASHES_LEN> = makeTuple(
@@ -51,7 +51,7 @@ export function buildTransientDataHints<
         throw new Error('Contract address of hinted note hash does not match.');
       }
 
-      const logIndices = logNoteHashMap.get(noteHash.value.toBigInt());
+      const logIndices = logNoteHashMap.get(noteHash.counter);
       if (logIndices) {
         logIndices.forEach(logIndex => {
           noteHashIndexesForLogs[logIndex] = i;

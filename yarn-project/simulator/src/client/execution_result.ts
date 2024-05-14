@@ -93,7 +93,7 @@ export function collectNullifiedNoteHashCounters(execResult: ExecutionResult, ac
  * @returns All encrypted logs.
  */
 function collectNoteEncryptedLogs(execResult: ExecutionResult): CountedLog<EncryptedL2Log>[] {
-  return [execResult.noteEncryptedLogs, ...[...execResult.nestedExecutions].flatMap(collectNoteEncryptedLogs)].flat();
+  return [execResult.noteEncryptedLogs, ...execResult.nestedExecutions.flatMap(collectNoteEncryptedLogs)].flat();
 }
 
 /**
@@ -112,7 +112,7 @@ export function collectSortedNoteEncryptedLogs(execResult: ExecutionResult): Enc
  * @returns All encrypted logs.
  */
 function collectEncryptedLogs(execResult: ExecutionResult): CountedLog<EncryptedL2Log>[] {
-  return [execResult.encryptedLogs, ...[...execResult.nestedExecutions].flatMap(collectEncryptedLogs)].flat();
+  return [execResult.encryptedLogs, ...execResult.nestedExecutions.flatMap(collectEncryptedLogs)].flat();
 }
 
 /**
@@ -132,7 +132,7 @@ export function collectSortedEncryptedLogs(execResult: ExecutionResult): Encrypt
  * @returns All unencrypted logs.
  */
 function collectUnencryptedLogs(execResult: ExecutionResult): CountedLog<UnencryptedL2Log>[] {
-  return [execResult.unencryptedLogs, ...[...execResult.nestedExecutions].flatMap(collectUnencryptedLogs)].flat();
+  return [execResult.unencryptedLogs, ...execResult.nestedExecutions.flatMap(collectUnencryptedLogs)].flat();
 }
 
 /**

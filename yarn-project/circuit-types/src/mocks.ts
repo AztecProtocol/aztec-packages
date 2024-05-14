@@ -122,7 +122,7 @@ export const mockTx = (
     }
   } else {
     data.forRollup!.end.newNullifiers[0] = firstNullifier.value;
-    data.forRollup!.end.noteEncryptedLogsHash = Fr.fromBuffer(noteEncryptedLogs.hash());
+    data.forRollup!.end.noteEncryptedLogsHash = Fr.fromBuffer(noteEncryptedLogs.hash(0));
     data.forRollup!.end.encryptedLogsHash = Fr.fromBuffer(encryptedLogs.hash());
     data.forRollup!.end.unencryptedLogsHash = Fr.fromBuffer(unencryptedLogs.hash());
   }

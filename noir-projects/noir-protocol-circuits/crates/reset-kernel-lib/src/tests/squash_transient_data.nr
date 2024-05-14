@@ -32,14 +32,14 @@ pub fn squash_transient_nullifiers<N>(nullifiers: [ScopedNullifier; N]) -> [Scop
 
 pub fn squash_transient_logs<N, M>(
     logs: [NoteLogHash; N],
-    nullifiers: [ScopedNullifier; M]
+    note_hashes: [ScopedNoteHash; M]
 ) -> [NoteLogHash; N] {
     let mut final_logs = [NoteLogHash::empty(); N];
 
     let mut num_logs = 0;
     for i in 0..N {
         let mut log = logs[i];
-        let is_nullified = nullifiers.any(|n: ScopedNullifier| n.nullified_note_hash() == log.note_hash);
+        let is_nullified = note_hashes.any(|n: ScopedNoteHash| (n.counter() == log.note_hash_counter) & (n.nullifier_counter != 0));
         if !is_nullified {
             final_logs[num_logs] = log;
             num_logs += 1;

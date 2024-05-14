@@ -155,7 +155,7 @@ function makeLogHash(seed: number) {
 }
 
 function makeNoteLogHash(seed: number) {
-  return new NoteLogHash(fr(seed + 3), seed + 1, fr(seed + 2), fr(seed));
+  return new NoteLogHash(fr(seed + 3), seed + 1, fr(seed + 2), seed);
 }
 
 function makeNoteHash(seed: number) {

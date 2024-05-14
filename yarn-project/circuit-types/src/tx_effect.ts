@@ -148,7 +148,7 @@ export class TxEffect {
       PublicDataWrite.SIZE_IN_BYTES * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );
 
-    const noteEncryptedLogsHashKernel0 = this.noteEncryptedLogs.hash();
+    const noteEncryptedLogsHashKernel0 = this.noteEncryptedLogs.hash(0);
     const encryptedLogsHashKernel0 = this.encryptedLogs.hash();
     const unencryptedLogsHashKernel0 = this.unencryptedLogs.hash();
 

@@ -78,7 +78,7 @@ pub fn verify_squashed_transient_note_hashes_and_nullifiers<NUM_NOTE_HASHES, NUM
         } else {
             let transient_note_hash = note_hashes[index_hint];
             assert_eq(
-                log.note_hash, transient_note_hash.value(), "Value of the hinted transient note hash does not match log"
+                log.note_hash_counter, transient_note_hash.counter(), "Value of the hinted transient note hash does not match log"
             );
             // We may have many logs for each nullified note, so we do the below checks per log,
             // rather than per note
@@ -145,8 +145,8 @@ mod tests {
             ];
 
             let note_logs = [
-                NoteLogHash { value: 77, counter: 700, length: 70, note_hash: 11 },
-                NoteLogHash { value: 88, counter: 800, length: 80, note_hash: 22 }
+                NoteLogHash { value: 77, counter: 700, length: 70, note_hash_counter: 100 },
+                NoteLogHash { value: 88, counter: 800, length: 80, note_hash_counter: 200 }
             ];
 
             let expected_note_hashes = [note_hashes[1], ScopedNoteHash::empty(), ScopedNoteHash::empty()];
@@ -189,10 +189,10 @@ mod tests {
 
             // tests removing two logs for one note hash
             let note_logs = [
-                NoteLogHash { value: 77, counter: 700, length: 70, note_hash: 11 },
-                NoteLogHash { value: 88, counter: 800, length: 80, note_hash: 33 },
-                NoteLogHash { value: 99, counter: 900, length: 90, note_hash: 22 },
-                NoteLogHash { value: 111, counter: 1000, length: 100, note_hash: 33 }
+                NoteLogHash { value: 77, counter: 700, length: 70, note_hash_counter: 100 },
+                NoteLogHash { value: 88, counter: 800, length: 80, note_hash_counter: 300 },
+                NoteLogHash { value: 99, counter: 900, length: 90, note_hash_counter: 200 },
+                NoteLogHash { value: 111, counter: 1000, length: 100, note_hash_counter: 300 }
             ];
 
             let expected_note_hashes = [ScopedNoteHash::empty(); 3];
@@ -406,7 +406,7 @@ mod tests {
     fn wrong_log_note_hash() {
         let mut builder = TestDataBuilder::default();
 
-        builder.note_logs[0].note_hash += 1;
+        builder.note_logs[0].note_hash_counter += 1;
 
         builder.verify();
     }
@@ -437,7 +437,7 @@ mod tests {
     fn remove_too_many_logs() {
         let mut builder = TestDataBuilder::default();
         // Remove the log at index 1, but don't remove from expected_logs
-        builder.note_logs[1].note_hash = 33;
+        builder.note_logs[1].note_hash_counter = 300;
         builder.transient_note_hash_indexes_for_logs[1] = 2;
 
         builder.verify();

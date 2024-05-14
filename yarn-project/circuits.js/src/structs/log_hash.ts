@@ -38,35 +38,35 @@ export class LogHash implements Ordered {
 }
 
 export class NoteLogHash implements Ordered {
-  constructor(public value: Fr, public counter: number, public length: Fr, public noteHash: Fr) {}
+  constructor(public value: Fr, public counter: number, public length: Fr, public noteHashCounter: number) {}
 
   toFields(): Fr[] {
-    return [this.value, new Fr(this.counter), this.length, this.noteHash];
+    return [this.value, new Fr(this.counter), this.length, new Fr(this.noteHashCounter)];
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return new NoteLogHash(reader.readField(), reader.readU32(), reader.readField(), reader.readField());
+    return new NoteLogHash(reader.readField(), reader.readU32(), reader.readField(), reader.readU32());
   }
 
   isEmpty() {
-    return this.value.isZero() && this.length.isZero() && !this.counter && this.noteHash.isZero();
+    return this.value.isZero() && this.length.isZero() && !this.counter && !this.noteHashCounter;
   }
 
   static empty() {
-    return new NoteLogHash(Fr.zero(), 0, Fr.zero(), Fr.zero());
+    return new NoteLogHash(Fr.zero(), 0, Fr.zero(), 0);
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer(this.value, this.counter, this.length, this.noteHash);
+    return serializeToBuffer(this.value, this.counter, this.length, this.noteHashCounter);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new NoteLogHash(Fr.fromBuffer(reader), reader.readNumber(), Fr.fromBuffer(reader), Fr.fromBuffer(reader));
+    return new NoteLogHash(Fr.fromBuffer(reader), reader.readNumber(), Fr.fromBuffer(reader), reader.readNumber());
   }
 
   toString(): string {
-    return `value=${this.value} counter=${this.counter} length=${this.length} noteHash=${this.noteHash}`;
+    return `value=${this.value} counter=${this.counter} length=${this.length} noteHashCounter=${this.noteHashCounter}`;
   }
 }

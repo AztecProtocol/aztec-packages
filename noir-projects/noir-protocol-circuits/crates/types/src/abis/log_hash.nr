@@ -62,14 +62,14 @@ struct NoteLogHash {
     value: Field,
     counter: u32,
     length: Field,
-    note_hash: Field,
+    note_hash_counter: u32,
 }
 
 impl NoteLogHash {
     pub fn expose_to_public(self) -> NoteLogHash {
-        // Hide the actual counter and note hash when exposing it to the public kernel.
+        // Hide the actual counter and note hash counter when exposing it to the public kernel.
         // The counter is usually note_hash.counter + 1, so it can be revealing.
-        NoteLogHash { value: self.value, counter: 0, length: self.length, note_hash: 0 }
+        NoteLogHash { value: self.value, counter: 0, length: self.length, note_hash_counter: 0 }
     }
 }
 
@@ -93,7 +93,7 @@ impl Eq for NoteLogHash {
         (self.value == other.value)
             & (self.counter == other.counter)
             & (self.length == other.length) 
-            & (self.note_hash == other.note_hash) 
+            & (self.note_hash_counter == other.note_hash_counter) 
     }
 }
 
@@ -103,14 +103,14 @@ impl Empty for NoteLogHash {
             value: 0,
             counter: 0,
             length: 0,
-            note_hash: 0,
+            note_hash_counter: 0,
         }
     }
 }
 
 impl Serialize<NOTE_LOG_HASH_LENGTH> for NoteLogHash {
     fn serialize(self) -> [Field; NOTE_LOG_HASH_LENGTH] {
-        [self.value, self.counter as Field, self.length, self.note_hash]
+        [self.value, self.counter as Field, self.length, self.note_hash_counter as Field]
     }
 }
 
@@ -120,7 +120,7 @@ impl Deserialize<NOTE_LOG_HASH_LENGTH> for NoteLogHash {
             value: values[0],
             counter: values[1] as u32,
             length: values[2],
-            note_hash: values[3],
+            note_hash_counter: values[3] as u32,
         }
     }
 }

@@ -623,7 +623,7 @@ export function mapNoteLogHashToNoir(noteLogHash: NoteLogHash): NoteLogHashNoir 
     value: mapFieldToNoir(noteLogHash.value),
     counter: mapNumberToNoir(noteLogHash.counter),
     length: mapFieldToNoir(noteLogHash.length),
-    note_hash: mapFieldToNoir(noteLogHash.noteHash),
+    note_hash_counter: mapNumberToNoir(noteLogHash.noteHashCounter),
   };
 }
 
@@ -637,7 +637,7 @@ export function mapNoteLogHashFromNoir(noteLogHash: NoteLogHashNoir): NoteLogHas
     mapFieldFromNoir(noteLogHash.value),
     mapNumberFromNoir(noteLogHash.counter),
     mapFieldFromNoir(noteLogHash.length),
-    mapFieldFromNoir(noteLogHash.note_hash),
+    mapNumberFromNoir(noteLogHash.note_hash_counter),
   );
 }
 

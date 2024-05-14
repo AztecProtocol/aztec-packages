@@ -259,7 +259,7 @@ mod tests {
             NoteHash { value: 2, counter: 4 }.scope(5, contract_address)
         ];
 
-        let non_revertible_note_logs = [NoteLogHash { value: 11, counter: 2, length: 2, note_hash: 1 }];
+        let non_revertible_note_logs = [NoteLogHash { value: 11, counter: 2, length: 2, note_hash_counter: 1 }];
 
         let non_revertible_nullifiers = [
             Nullifier { value: 10, note_hash: 1, counter: 3 }.scope(contract_address),
@@ -304,7 +304,7 @@ mod tests {
             NoteHash { value: 4, counter: 16 }.scope(0, contract_address)
         ];
 
-        let revertible_note_logs = [NoteLogHash { value: 33, counter: 14, length: 2, note_hash: 3 }];
+        let revertible_note_logs = [NoteLogHash { value: 33, counter: 14, length: 2, note_hash_counter: 13 }];
 
         let revertible_nullifiers = [
             Nullifier { value: 30, note_hash: 3, counter: 15 }.scope(contract_address),

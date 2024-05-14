@@ -3,7 +3,7 @@ use dep::types::{
     call_request::CallRequest, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
     max_block_number::MaxBlockNumber, nullifier::Nullifier, note_hash::ScopedNoteHash,
-    private_circuit_public_inputs::PrivateCircuitPublicInputs
+    log_hash::NoteLogHash, private_circuit_public_inputs::PrivateCircuitPublicInputs
 },
     address::AztecAddress,
     constants::{
@@ -190,9 +190,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         let note_logs = source.private_call_public_inputs.note_encrypted_logs_hashes;
         for i in 0..note_logs.len() {
             if !is_empty(note_logs[i]) {
-                assert(
-                    self.public_inputs.end.new_note_hashes.any(|n: ScopedNoteHash| n.value() == note_logs[i].note_hash), "Could not find note hash linked to note log."
-                );
+                assert(self.match_log_to_note(note_logs[i]), "Could not find note hash linked to note log.");
                 self.public_inputs.end.note_encrypted_logs_hashes.push(note_logs[i]);
             }
         }
@@ -200,6 +198,10 @@ impl PrivateKernelCircuitPublicInputsComposer {
         // Add log preimages lengths from current iteration to accumulated lengths.
         self.public_inputs.end.encrypted_log_preimages_length += source.private_call_public_inputs.encrypted_log_preimages_length;
         self.public_inputs.end.unencrypted_log_preimages_length += source.private_call_public_inputs.unencrypted_log_preimages_length;
+    }
+
+    unconstrained fn match_log_to_note(self, note_log: NoteLogHash) -> bool {
+        self.public_inputs.end.new_note_hashes.any(|n: ScopedNoteHash| n.counter() == note_log.note_hash_counter)
     }
 
     fn propagate_private_call_requests(&mut self, source: DataSource) {

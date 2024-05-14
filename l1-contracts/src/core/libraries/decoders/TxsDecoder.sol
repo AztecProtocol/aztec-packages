@@ -148,9 +148,9 @@ library TxsDecoder {
          * Compute encrypted and unencrypted logs hashes corresponding to the current leaf.
          * Note: will advance offsets by the number of bytes processed.
          */
-        (vars.noteEncryptedLogsHash, offset) = computeKernelLogsHash(offset, _body);
-        (vars.encryptedLogsHash, offset) = computeKernelLogsHash(offset, _body);
-        (vars.unencryptedLogsHash, offset) = computeKernelLogsHash(offset, _body);
+        (vars.noteEncryptedLogsHash, offset) = computeKernelLogsHash(offset, _body, true);
+        (vars.encryptedLogsHash, offset) = computeKernelLogsHash(offset, _body, false);
+        (vars.unencryptedLogsHash, offset) = computeKernelLogsHash(offset, _body, false);
 
         // Insertions are split into multiple `bytes.concat` to work around stack too deep.
         vars.baseLeaf = bytes.concat(
@@ -233,7 +233,7 @@ library TxsDecoder {
    * @dev Link to a relevant discussion:
    *      https://discourse.aztec.network/t/proposal-forcing-the-sequencer-to-actually-submit-data-to-l1/426/9
    */
-  function computeKernelLogsHash(uint256 _offsetInBlock, bytes calldata _body)
+  function computeKernelLogsHash(uint256 _offsetInBlock, bytes calldata _body, bool noteLogs)
     internal
     pure
     returns (bytes32, uint256)
@@ -273,10 +273,14 @@ library TxsDecoder {
 
     // padded to MAX_LOGS * 32 bytes
     // NB: this assumes MAX_ENCRYPTED_LOGS_PER_TX == MAX_UNENCRYPTED_LOGS_PER_TX
-    flattenedLogHashes = bytes.concat(
-      flattenedLogHashes,
-      new bytes(Constants.MAX_ENCRYPTED_LOGS_PER_TX * 32 - flattenedLogHashes.length)
-    );
+    uint256 len;
+    if (noteLogs) {
+      len = Constants.MAX_NOTE_ENCRYPTED_LOGS_PER_TX * 32;
+    } else {
+      len = Constants.MAX_ENCRYPTED_LOGS_PER_TX * 32;
+    }
+    flattenedLogHashes =
+      bytes.concat(flattenedLogHashes, new bytes(len - flattenedLogHashes.length));
 
     bytes32 kernelPublicInputsLogsHash = Hash.sha256ToField(flattenedLogHashes);
 

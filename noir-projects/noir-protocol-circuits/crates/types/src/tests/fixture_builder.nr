@@ -284,7 +284,9 @@ impl FixtureBuilder {
 
     pub fn add_broadcast_new_note_hash(&mut self, value: Field) {
         self.new_note_hashes.push(NoteHash { value, counter: self.next_counter() }.scope(0, self.storage_contract_address));
-        self.note_encrypted_logs_hashes.push(NoteLogHash { value: value + 1, counter: self.next_counter(), length: 64, note_hash: value });
+        self.note_encrypted_logs_hashes.push(
+            NoteLogHash { value: value + 1, counter: self.next_counter(), length: 64, note_hash_counter: self.counter - 2 }
+        );
         self.encrypted_log_preimages_length += 64;
     }
 

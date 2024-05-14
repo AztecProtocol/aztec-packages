@@ -187,8 +187,8 @@ fn input_validation_malformed_arrays_note_logs() {
 
     builder.private_call.public_inputs.note_encrypted_logs_hashes.extend_from_array(
         [
-        NoteLogHash { value: 0, counter: 0, length: 0, note_hash: 0 },
-        NoteLogHash { value: 9123, counter: 1, length: 2, note_hash: 1 }
+        NoteLogHash { value: 0, counter: 0, length: 0, note_hash_counter: 0 },
+        NoteLogHash { value: 9123, counter: 2, length: 2, note_hash_counter: 1 }
     ]
     );
 

@@ -192,18 +192,16 @@ mod tests {
         }
 
         pub fn nullify_pending_note_hash(&mut self, nullifier_index: u64, note_hash_index: u64) {
-            let note_hash = self.previous_kernel.new_note_hashes.get(note_hash_index).note_hash.value;
+            let note_hash = self.previous_kernel.new_note_hashes.get(note_hash_index).note_hash;
             self.previous_kernel.new_note_hashes.storage[note_hash_index].nullifier_counter = self.previous_kernel.new_nullifiers.get(nullifier_index).counter();
-            self.previous_kernel.new_nullifiers.storage[nullifier_index].nullifier.note_hash = note_hash;
+            self.previous_kernel.new_nullifiers.storage[nullifier_index].nullifier.note_hash = note_hash.value;
             self.transient_nullifier_indexes_for_note_hashes[note_hash_index] = nullifier_index;
             self.transient_note_hash_indexes_for_nullifiers[nullifier_index] = note_hash_index;
-            if self.previous_kernel.note_encrypted_logs_hashes.any(|l: NoteLogHash| l.note_hash == note_hash) {
-                for i in 0..self.previous_kernel.note_encrypted_logs_hashes.len() {
-                    // we may have many, or no, logs per note hash, so we cycle rather than .find
-                    if self.previous_kernel.note_encrypted_logs_hashes.storage[i].note_hash
-                        == note_hash {
-                        self.transient_note_hash_indexes_for_logs[i] = note_hash_index;
-                    }
+            for i in 0..self.previous_kernel.note_encrypted_logs_hashes.len() {
+                // we may have many, or no, logs per note hash, so we cycle rather than .find
+                if self.previous_kernel.note_encrypted_logs_hashes.storage[i].note_hash_counter
+                    == note_hash.counter {
+                    self.transient_note_hash_indexes_for_logs[i] = note_hash_index;
                 }
             }
         }
@@ -274,7 +272,7 @@ mod tests {
             let outputs = PrivateKernelTailOutputs {
                 note_hashes: squash_transient_note_hashes(sorted_new_note_hashes),
                 nullifiers: squash_transient_nullifiers(sorted_new_nullifiers),
-                note_encrypted_log_hashes: squash_transient_logs(sorted_note_encrypted_log_hashes, sorted_new_nullifiers)
+                note_encrypted_log_hashes: squash_transient_logs(sorted_note_encrypted_log_hashes, sorted_new_note_hashes)
             };
 
             let hints = PrivateKernelTailHints {
@@ -481,7 +479,7 @@ mod tests {
         assert(array_eq(public_inputs.end.new_nullifiers, expected_nullifiers));
 
         // The 0th note log is chopped
-        let hash_bytes: [u8; MAX_NOTE_ENCRYPTED_LOGS_PER_TX * 32] = new_note_logs[1].value.to_be_bytes(32).append(&[0; MAX_ENCRYPTED_LOGS_PER_TX * 32 - 32]).as_array();
+        let hash_bytes: [u8; MAX_NOTE_ENCRYPTED_LOGS_PER_TX * 32] = new_note_logs[1].value.to_be_bytes(32).append(&[0; MAX_NOTE_ENCRYPTED_LOGS_PER_TX * 32 - 32]).as_array();
         let expected_note_logs_hash = sha256_to_field(hash_bytes);
         assert_eq(expected_note_logs_hash, public_inputs.end.note_encrypted_logs_hash);
     }

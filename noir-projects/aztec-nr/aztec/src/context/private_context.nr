@@ -31,7 +31,7 @@ use dep::protocol_types::{
     MAX_UNENCRYPTED_LOGS_PER_CALL, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL
 },
     grumpkin_point::GrumpkinPoint, header::Header, messaging::l2_to_l1_message::L2ToL1Message,
-    traits::{is_empty, Deserialize, Empty}, utils::arrays::array_eq
+    traits::{is_empty, Deserialize, Empty}, utils::arrays::find_index
 };
 
 // When finished, one can call .finish() to convert back to the abi
@@ -331,8 +331,14 @@ impl PrivateContext {
         note: Note
     ) where Note: NoteInterface<N>, [Field; N]: LensForEncryptedLog<N, M, L> {
         let note_hash = compute_note_hash_for_insertion(note);
-        let note_exists = self.new_note_hashes.any(|n: NoteHash| n.value == note_hash);
-        assert(note_exists, "Can only emit a note log for an existing note.");
+        let note_exists_index = find_index(
+            self.new_note_hashes.storage,
+            |n: NoteHash| n.value == note_hash
+        );
+        assert(
+            note_exists_index != MAX_NEW_NOTE_HASHES_PER_CALL, "Can only emit a note log for an existing note."
+        );
+        let note_hash_counter = self.new_note_hashes.storage[note_exists_index].counter;
         let preimage = note.serialize_content();
         let counter = self.next_counter();
         // TODO(1139): perform encryption in the circuit
@@ -348,7 +354,7 @@ impl PrivateContext {
         // = 32*all fields + bytes for encryption (112) + processed log len (4)
         let len = 112 + 32 * (preimage.len() as Field + 3) + 4;
         let log_hash = compute_encrypted_log_hash(encrypted_log);
-        let side_effect = NoteLogHash { value: log_hash, counter, length: len, note_hash };
+        let side_effect = NoteLogHash { value: log_hash, counter, length: len, note_hash_counter };
         self.note_encrypted_logs_hashes.push(side_effect);
         self.encrypted_log_preimages_length += len;
     }

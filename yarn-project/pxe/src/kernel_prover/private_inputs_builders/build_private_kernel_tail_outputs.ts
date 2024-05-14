@@ -29,10 +29,10 @@ export function buildPrivateKernelTailOutputs(
     MAX_NEW_NULLIFIERS_PER_TX,
   );
 
-  const filteredNulls = prevNullifiers.filter(n => !n.isEmpty()).map(n => n.nullifiedNoteHash.toBigInt());
+  const nullifiedNotes = prevNoteHashes.filter(n => !n.isEmpty() && n.nullifierCounter).map(n => n.counter);
 
   const logs = padArrayEnd(
-    prevLogs.filter(l => !l.isEmpty() && !filteredNulls.includes(l.noteHash.toBigInt())),
+    prevLogs.filter(l => !l.isEmpty() && !nullifiedNotes.includes(l.noteHashCounter)),
     NoteLogHash.empty(),
     MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   );

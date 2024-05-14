@@ -30,10 +30,10 @@ describe('buildTransientDataHints', () => {
       new Nullifier(new Fr(77), 700, new Fr(11)).scope(contractAddress),
     ];
     logs = [
-      new NoteLogHash(new Fr(88), 350, new Fr(64), new Fr(33)),
-      new NoteLogHash(new Fr(99), 375, new Fr(64), new Fr(33)),
-      new NoteLogHash(new Fr(111), 150, new Fr(64), new Fr(11)),
-      new NoteLogHash(new Fr(122), 250, new Fr(64), new Fr(22)),
+      new NoteLogHash(new Fr(88), 350, new Fr(64), 300),
+      new NoteLogHash(new Fr(99), 375, new Fr(64), 300),
+      new NoteLogHash(new Fr(111), 150, new Fr(64), 100),
+      new NoteLogHash(new Fr(122), 250, new Fr(64), 200),
     ];
   });
 

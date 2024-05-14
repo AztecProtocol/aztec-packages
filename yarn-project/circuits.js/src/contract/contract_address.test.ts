@@ -1,6 +1,6 @@
 import { ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
-import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
+import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
 import { AztecAddress, deriveKeys } from '../index.js';
 import {
@@ -68,20 +68,5 @@ describe('ContractAddress', () => {
     }).toString();
 
     expect(address).toMatchSnapshot();
-  });
-
-  // This test no longer exists in nr, the new test in 'noir-projects/aztec-nr/aztec/src/keys/public_keys.nr does not match the code here.
-  // That test is run in keys/index.test.ts -> 'computing public keys hash matches Noir'
-  it.skip('Public key hash matches Noir', () => {
-    const secretKey = new Fr(2n);
-    const hash = deriveKeys(secretKey).publicKeys.hash().toString();
-    expect(hash).toMatchSnapshot();
-
-    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
-    updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/address/public_keys_hash.nr',
-      'expected_public_keys_hash',
-      hash.toString(),
-    );
   });
 });
