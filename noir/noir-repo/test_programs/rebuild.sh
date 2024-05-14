@@ -30,7 +30,7 @@ process_dir() {
 
 export -f process_dir
 
-excluded_dirs=("workspace" "workspace_default_member")
+excluded_dirs=("workspace" "workspace_default_member" "brillig_scalar_mul" "fixed_base_scalar_mul" "variable_base_scalar_mul")
 current_dir=$(pwd)
 base_path="$current_dir/execution_success"
 
@@ -46,23 +46,34 @@ for dir in $base_path/*; do
     dirs_to_process+=("$dir")
 done
 
-# Process each directory in parallel
-pids=()
+
+pids=() # Array to hold PIDs of background processes
+dirs_map=() # Array to map PIDs to directories
+
 if [ -z $NO_PARALLEL ]; then
-for dir in "${dirs_to_process[@]}"; do
-    process_dir "$dir" "$current_dir" &
-    pids+=($!)
-done
+    # Process directories in parallel
+    for dir in "${dirs_to_process[@]}"; do
+        process_dir "$dir" "$current_dir" &  # Run process_dir in the background
+        pid=$!  # Get PID of the last background command
+        pids+=($pid)  # Add PID to the pids array
+        dirs_map[$pid]=$dir  # Map PID to the directory being processed
+    done
 else
-for dir in "${dirs_to_process[@]}"; do
-    process_dir "$dir" "$current_dir"
-    pids+=($!)
-done
+    # Process directories sequentially
+    for dir in "${dirs_to_process[@]}"; do
+        process_dir "$dir" "$current_dir"  # Run process_dir in the foreground
+        pid=$!  # Get PID of the last command
+        pids+=($pid)  # Add PID to the pids array
+        dirs_map[$pid]=$dir  # Map PID to the directory being processed
+    done
 fi
 
-# Check the exit status of each background job.
+# Check the exit status of each background job
 for pid in "${pids[@]}"; do
-    wait $pid || exit_status=$?
+    if ! wait $pid; then  # Wait for the process to complete, check if it failed
+        echo "Processing failed for directory: ${dirs_map[$pid]}"  # Print failed directory
+        exit_status=$?  # Capture the failed exit status
+    fi
 done
 
 # Exit with a failure status if any job failed.
