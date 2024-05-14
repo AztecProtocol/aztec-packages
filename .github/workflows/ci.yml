@@ -121,7 +121,7 @@ jobs:
 
   acir-bench:
     runs-on: ${{ inputs.username || github.actor }}-bench-x86
-    needs: setup-bench
+    needs: build
     steps:
       - {
           uses: actions/checkout@v4,
