@@ -1,9 +1,14 @@
+use std::collections::BTreeMap;
+
 use acvm::acir::brillig::Opcode as BrilligOpcode;
 
+use acvm::acir::circuit::OpcodeLocation;
 use acvm::brillig_vm::brillig::{
     BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, HeapVector, MemoryAddress, ValueOrArray,
 };
 use acvm::FieldElement;
+use noirc_errors::debug_info::DebugInfo;
+use noirc_errors::Location;
 
 use crate::instructions::{
     AvmInstruction, AvmOperand, AvmTypeTag, ALL_DIRECT, FIRST_OPERAND_INDIRECT,
@@ -13,14 +18,13 @@ use crate::opcodes::AvmOpcode;
 use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program};
 
 /// Transpile a Brillig program to AVM bytecode
-pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode]) -> Vec<u8> {
+pub fn brillig_to_avm(
+    brillig_bytecode: &[BrilligOpcode],
+    brillig_pcs_to_avm_pcs: &Vec<usize>,
+) -> Vec<u8> {
     dbg_print_brillig_program(brillig_bytecode);
 
     let mut avm_instrs: Vec<AvmInstruction> = Vec::new();
-
-    // Map Brillig pcs to AVM pcs
-    // (some Brillig instructions map to >1 AVM instruction)
-    let brillig_pcs_to_avm_pcs = map_brillig_pcs_to_avm_pcs(avm_instrs.len(), brillig_bytecode);
 
     // Transpile a Brillig instruction to one or more AVM instructions
     for brillig_instr in brillig_bytecode {
@@ -355,6 +359,7 @@ fn handle_foreign_call(
         }
         "storageRead" => handle_storage_read(avm_instrs, destinations, inputs),
         "storageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
+        "debugLog" => handle_debug_log(avm_instrs, destinations, inputs),
         // Getters.
         _ if inputs.is_empty() && destinations.len() == 1 => {
             handle_getter_instruction(avm_instrs, function, destinations, inputs)
@@ -427,12 +432,14 @@ fn handle_external_call(
         opcode: opcode,
         // (left to right)
         //   * selector direct
+        //   * success offset direct
+        //   * (n/a) ret size is an immeadiate
         //   * ret offset INDIRECT
         //   * arg size offset direct
         //   * args offset INDIRECT
         //   * address offset direct
         //   * gas offset INDIRECT
-        indirect: Some(0b010101),
+        indirect: Some(0b00010101),
         operands: vec![
             AvmOperand::U32 { value: gas_offset },
             AvmOperand::U32 {
@@ -999,6 +1006,57 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
         _ => panic!("Transpiler doesn't know how to process {:?}", operation),
     }
 }
+
+fn handle_debug_log(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
+    if !destinations.is_empty() || inputs.len() != 3 {
+        panic!(
+            "Transpiler expects ForeignCall::DEBUGLOG to have 0 destinations and 3 inputs, got {} and {}",
+            destinations.len(),
+            inputs.len()
+        );
+    }
+    let (message_offset, message_size) = match &inputs[0] {
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0 as u32, *size as u32),
+        _ => panic!("Message for ForeignCall::DEBUGLOG should be a HeapArray."),
+    };
+    // The fields are a slice, and this is represented as a (length: Field, slice: HeapVector).
+    // The length field is redundant and we skipt it.
+    let (fields_offset_ptr, fields_size_ptr) = match &inputs[2] {
+        ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer.0 as u32, size.0 as u32),
+        _ => panic!("List of fields for ForeignCall::DEBUGLOG should be a HeapVector (slice)."),
+    };
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::DEBUGLOG,
+        // (left to right)
+        //  * fields_size_ptr direct
+        //  * fields_offset_ptr INDIRECT
+        //  * (N/A) message_size is an immediate
+        //  * message_offset direct
+        indirect: Some(0b011),
+        operands: vec![
+            AvmOperand::U32 {
+                value: message_offset,
+            },
+            AvmOperand::U32 {
+                value: message_size,
+            },
+            // indirect
+            AvmOperand::U32 {
+                value: fields_offset_ptr,
+            },
+            // indirect
+            AvmOperand::U32 {
+                value: fields_size_ptr,
+            },
+        ],
+        ..Default::default()
+    });
+}
+
 /// Emit a storage write opcode
 /// The current implementation writes an array of values into storage ( contiguous slots in memory )
 fn handle_storage_write(
@@ -1116,6 +1174,39 @@ fn handle_storage_read(
     })
 }
 
+/// Patch a Noir function's debug info with updated PCs since transpilation injects extra
+/// instructions in some cases.
+pub fn patch_debug_info_pcs(
+    debug_infos: &Vec<DebugInfo>,
+    brillig_pcs_to_avm_pcs: &Vec<usize>,
+) -> Vec<DebugInfo> {
+    let mut patched_debug_infos = debug_infos.clone();
+
+    for patched_debug_info in patched_debug_infos.iter_mut() {
+        // create a new map with all of its keys (OpcodeLocations) patched
+        let mut patched_locations: BTreeMap<OpcodeLocation, Vec<Location>> = BTreeMap::new();
+        for (original_opcode_location, source_locations) in patched_debug_info.locations.iter() {
+            match original_opcode_location {
+                OpcodeLocation::Brillig {
+                    acir_index,
+                    brillig_index,
+                } => {
+                    let avm_opcode_location = OpcodeLocation::Brillig {
+                        acir_index: *acir_index,
+                        // patch the PC
+                        brillig_index: brillig_pcs_to_avm_pcs[*brillig_index],
+                    };
+                    patched_locations.insert(avm_opcode_location, source_locations.clone());
+                }
+                OpcodeLocation::Acir(_) => (),
+            }
+        }
+        // patch debug_info entry
+        patched_debug_info.locations = patched_locations
+    }
+    patched_debug_infos
+}
+
 /// Compute an array that maps each Brillig pc to an AVM pc.
 /// This must be done before transpiling to properly transpile jump destinations.
 /// This is necessary for two reasons:
@@ -1126,13 +1217,10 @@ fn handle_storage_read(
 ///     brillig: the Brillig program
 /// returns: an array where each index is a Brillig pc,
 ///     and each value is the corresponding AVM pc.
-fn map_brillig_pcs_to_avm_pcs(
-    initial_offset: usize,
-    brillig_bytecode: &[BrilligOpcode],
-) -> Vec<usize> {
+pub fn map_brillig_pcs_to_avm_pcs(brillig_bytecode: &[BrilligOpcode]) -> Vec<usize> {
     let mut pc_map = vec![0; brillig_bytecode.len()];
 
-    pc_map[0] = initial_offset;
+    pc_map[0] = 0; // first PC is always 0 as there are no instructions inserted by AVM at start
     for i in 0..brillig_bytecode.len() - 1 {
         let num_avm_instrs_for_this_brillig_instr = match &brillig_bytecode[i] {
             BrilligOpcode::Const { bit_size: 254, .. } => 2,
