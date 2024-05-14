@@ -1,9 +1,29 @@
 # Keys
 
-Typically, each account in Aztec is backed by two separate keys:
+Each account in Aztec is backed by 4 key pairs keys:
 
-- A **signing key** used for authenticating the owner of the account.
-- A **privacy master key** used for deriving encryption and nullifying keys for managing private state.
+- A **nullifier key pair*** used for note nullifier computation.
+- A **incoming viewing key pair*** used to encrypt a note for note recipient.
+- A **outgoing viewing key pair*** used to encrypt a note for note sender.
+- A **tagging key pair*** used to compute tags in a [tagging note discovery scheme](../../../protocol-specs/private-message-delivery/private-msg-delivery#note-tagging).
+
+:::info
+All these keys are derived from a secret using a ZCash inspired scheme defined in our [protocol specification](../../../protocol-specs/addresses-and-keys/keys#cheat-sheet).
+:::
+
+:::note
+Additionally, there is typically a signing key pair which is used for for authenticating the owner of the account.
+However, since Aztec supports native [account abstraction](../accounts/main#what-is-account-abstraction) this is not defined in protocol.
+Instead it's up to the account contract developer to implement it.
+:::
+
+## Nullifier keys
+Upon account creation a nullifier key pair is derived from a seed.
+These keys are called a master nullifier secret key (`nsk_m`) and master nullifier public key(`Npk_m`).
+Typically, `Npk_m` is stored in a note and later on the note is nullified using app-siloed nullifier secret key (denoted `nsk_app`).
+`nsk_app` is derived by hashing `nsk_m` with the app contract address and it is necessary to present it to compute the nullifier.
+Validity of `nsk_app` is automatically verified by our [protocol kernel circuits](../../../protocol-specs/circuits/private-kernel-tail#verifying-and-splitting-ordered-data).
+
 
 ## Signing keys
 
