@@ -72,7 +72,9 @@ class ECCVMFlavor {
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
-  private:
+// WORKTODO make the specifiers good
+
+  public:
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
@@ -308,12 +310,6 @@ class ECCVMFlavor {
         using Base = AllEntities<FF>;
         using Base::Base;
     };
-
-    /**
-     * @brief A container for polynomials produced after the first round of sumcheck.
-     * @todo TODO(#394) Use polynomial classes for guaranteed memory alignment.
-     */
-    using RowPolynomials = AllEntities<FF>;
 
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
