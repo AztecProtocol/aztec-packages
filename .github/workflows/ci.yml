@@ -61,17 +61,17 @@ jobs:
   build-push-remote-cache:
     # needs: build
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    env:
+      EARTHLY_PUSH: ${{ github.ref_name == 'ad/inline-caching' && 'true' || 'false'}}
+      EARTHLY_SAVE_INLINE_CACHE: ${{ github.ref_name == 'ad/inline-caching' && 'true' || 'false'}}
     steps:
       - uses: actions/checkout@v4
-        if: ${{ github.ref_name == 'ad/inline-caching' }}
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
-        if: ${{ github.ref_name == 'ad/inline-caching' }}
         with:
           concurrency_key: build-push-remote-cache
       # push remote cache, giving ample time for first push
       - name: "Build Push Remote Cache"
-        if: ${{ github.ref_name == 'ad/inline-caching' }}
         timeout-minutes: 60
         run: earthly-ci --save-inline-cache --push +remote-build-cache
 
