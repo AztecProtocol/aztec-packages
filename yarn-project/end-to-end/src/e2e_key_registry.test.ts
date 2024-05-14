@@ -9,6 +9,7 @@ import {
   computeAppNullifierSecretKey,
   deriveMasterNullifierSecretKey,
 } from '@aztec/circuits.js';
+import { siloNullifier } from '@aztec/circuits.js/hash';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { KeyRegistryContract, TestContract } from '@aztec/noir-contracts.js';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
@@ -220,41 +221,52 @@ describe('Key Registry', () => {
     });
   });
 
-  it('nsk_app is enough to detect note nullification', async () => {
-    const secret = Fr.random();
-    const [account] = await createAccounts(pxe, 1, [secret]);
+  describe('using nsk_app to detect nullification', () => {
+    // This test checks that it possible to detect that a note has been nullified just by using nsk_app. Note that this
+    // only works for non-transient note as transient notes never emit a note hash which makes it impossible to brute
+    // force their nullifier. This makes this scheme a bit useless in practice.
+    it('nsk_app and contract address are enough to detect note nullification', async () => {
+      const secret = Fr.random();
+      const [account] = await createAccounts(pxe, 1, [secret]);
 
-    const masterNullifierSecretKey = deriveMasterNullifierSecretKey(secret);
-    const nskApp = computeAppNullifierSecretKey(masterNullifierSecretKey, testContract.address);
+      const masterNullifierSecretKey = deriveMasterNullifierSecretKey(secret);
+      const nskApp = computeAppNullifierSecretKey(masterNullifierSecretKey, testContract.address);
 
-    const noteValue = 5;
-    const noteOwner = account.getAddress();
-    const noteStorageSlot = 12;
+      const noteValue = 5;
+      const noteOwner = account.getAddress();
+      const noteStorageSlot = 12;
 
-    await testContract.methods.call_create_note(noteValue, noteOwner, noteStorageSlot).send().wait();
+      await testContract.methods.call_create_note(noteValue, noteOwner, noteStorageSlot).send().wait();
 
-    expect(await getNumNullifiedNotes(nskApp)).toEqual(0);
+      expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(0);
 
-    await testContract.methods.call_destroy_note(noteStorageSlot).send().wait();
+      await testContract.methods.call_destroy_note(noteStorageSlot).send().wait();
 
-    expect(await getNumNullifiedNotes(nskApp)).toEqual(1);
+      expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(1);
+    });
+
+    const getNumNullifiedNotes = async (nskApp: Fr, contractAddress: AztecAddress) => {
+      // 1. Get all the note hashes
+      const blocks = await aztecNode.getBlocks(INITIAL_L2_BLOCK_NUM, 1000);
+      const noteHashes = blocks.flatMap((block: L2Block) =>
+        block.body.txEffects.flatMap(txEffect => txEffect.noteHashes),
+      );
+      // 2. Get all the seen nullifiers
+      const nullifiers = blocks.flatMap((block: L2Block) =>
+        block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
+      );
+      // 3. Derive all the possible nullifiers using nskApp
+      const derivedNullifiers = noteHashes.map(noteHash => {
+        const innerNullifier = poseidon2Hash([noteHash, nskApp, GeneratorIndex.NOTE_NULLIFIER]);
+        return siloNullifier(contractAddress, innerNullifier);
+      });
+      // 4. Count the number of derived nullifiers that are in the nullifiers array
+      return derivedNullifiers.reduce((count, derived) => {
+        if (nullifiers.some(nullifier => nullifier.equals(derived))) {
+          count++;
+        }
+        return count;
+      }, 0);
+    };
   });
-
-  const getNumNullifiedNotes = async (nskApp: Fr) => {
-    // 1. Get all note hashes
-    const blocks = await aztecNode.getBlocks(INITIAL_L2_BLOCK_NUM, 1000);
-    const noteHashes = blocks.flatMap((block: L2Block) =>
-      block.body.txEffects.flatMap(txEffect => txEffect.noteHashes),
-    );
-    // 2. Get all seen nullifiers
-    const nullifiers = blocks.flatMap((block: L2Block) =>
-      block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
-    );
-    // 3. Derive all the possible nullifiers using nskApp
-    const derivedNullifiers = noteHashes.map(noteHash =>
-      poseidon2Hash([noteHash, nskApp, GeneratorIndex.NOTE_NULLIFIER]),
-    );
-    // 4. Count the number of nullifiers that are in the nullifiers list
-    return derivedNullifiers.filter(nullifier => nullifiers.includes(nullifier)).length;
-  };
 });
