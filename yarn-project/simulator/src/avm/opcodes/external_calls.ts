@@ -60,6 +60,7 @@ abstract class ExternalCall extends Instruction {
     const l2Gas = memory.get(gasOffset).toNumber();
     const daGas = memory.getAs<Field>(gasOffset + 1).toNumber();
     const functionSelector = memory.getAs<Field>(this.temporaryFunctionSelectorOffset).toFr();
+    // If we are already in a static call, we propagate the environment.
     const callType = context.environment.isStaticCall ? 'STATICCALL' : this.type;
     const allocatedGas = { l2Gas, daGas };
     const memoryOperations = { reads: calldataSize + 5, writes: 1 + this.retSize, indirect: this.indirect };

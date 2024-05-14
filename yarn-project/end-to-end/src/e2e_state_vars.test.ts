@@ -43,12 +43,12 @@ describe('e2e_state_vars', () => {
       await contract.methods.initialize_shared_immutable(1).send().wait();
 
       const a = await contract.methods.get_shared_immutable_constrained_private().simulate();
-      // const b = await contract.methods.get_shared_immutable_constrained_private_indirect().simulate();
-      // const c = await contract.methods.get_shared_immutable().simulate();
+      const b = await contract.methods.get_shared_immutable_constrained_private_indirect().simulate();
+      const c = await contract.methods.get_shared_immutable().simulate();
 
-      // expect(a).toEqual(c);
-      // expect(b).toEqual({ account: c.account, points: c.points + 1n });
-      //await contract.methods.match_shared_immutable(c.account, c.points).send().wait();
+      expect(a).toEqual(c);
+      expect(b).toEqual({ account: c.account, points: c.points + 1n });
+      await contract.methods.match_shared_immutable(c.account, c.points).send().wait();
     });
 
     it('public read of SharedImmutable', async () => {
