@@ -1,18 +1,31 @@
-#include "./eccvm_verifier.hpp"
+#include "./eccvm_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
+
+template <typename Flavor>
+ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
+    Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_verifier_key)
+    : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
+    , builder(builder)
+{}
 
 /**
  * @brief This function verifies an ECCVM Honk proof for given program settings.
  */
-bool ECCVMVerifier::verify_proof(const HonkProof& proof)
+template <typename Flavor>
+std::array<typename Flavor::GroupElement, 2> ECCVMRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
+
     using ZeroMorph = ZeroMorphVerifier_<PCS>;
 
     RelationParameters<FF> relation_parameters;
-    transcript = std::make_shared<Transcript>(proof);
+
+    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
+    transcript = std::make_shared<Transcript>(stdlib_proof);
+
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
@@ -28,6 +41,7 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
 
     // there is an issue somewhere to simplify this :-?
     auto beta_sqr = beta * beta;
+
     relation_parameters.gamma = gamma;
     relation_parameters.beta = beta;
     relation_parameters.beta_sqr = beta * beta;
@@ -111,4 +125,7 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
 
     return sumcheck_verified.value() && multivariate_opening_verified && univariate_opening_verified;
 }
+
+template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
+// template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
 } // namespace bb

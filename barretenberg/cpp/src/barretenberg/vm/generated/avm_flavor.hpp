@@ -2094,8 +2094,6 @@ class AvmFlavor {
         }
     };
 
-    using RowPolynomials = AllEntities<FF>;
-
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
       public:
         PartiallyEvaluatedMultivariates() = default;
