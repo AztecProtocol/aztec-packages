@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.40.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.40.0...barretenberg.js-v0.40.1) (2024-05-14)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.40.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.39.0...barretenberg.js-v0.40.0) (2024-05-14)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.39.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.38.0...barretenberg.js-v0.39.0) (2024-05-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* switch `bb` over to read ACIR from nargo artifacts ([#6283](https://github.com/AztecProtocol/aztec-packages/issues/6283))
+
+### Features
+
+* Switch `bb` over to read ACIR from nargo artifacts ([#6283](https://github.com/AztecProtocol/aztec-packages/issues/6283)) ([78adcc0](https://github.com/AztecProtocol/aztec-packages/commit/78adcc0f6bd74d7ead6de58099dda1a3f88eefb0))
+
 ## [0.38.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.37.0...barretenberg.js-v0.38.0) (2024-05-07)
 
 
