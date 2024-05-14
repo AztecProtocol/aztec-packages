@@ -103,15 +103,17 @@ describe('e2e_fees private_payment', () => {
      * this is expected to squash notes and nullifiers
      */
     const transferAmount = 5n;
-    const tx = await bananaCoin.methods
-      .transfer(aliceAddress, bobAddress, transferAmount, 0n)
-      .send({
-        fee: {
-          gasSettings,
-          paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, refundSecret),
-        },
-      })
-      .wait();
+    const interaction = bananaCoin.methods.transfer(aliceAddress, bobAddress, transferAmount, 0n);
+
+    const localTx = await interaction.prove({
+      fee: {
+        gasSettings,
+        paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, refundSecret),
+      },
+    });
+    expect(localTx.data.feePayer).toEqual(bananaFPC.address);
+
+    const tx = await interaction.send().wait();
 
     /**
      * at present the user is paying DA gas for:
@@ -147,7 +149,7 @@ describe('e2e_fees private_payment', () => {
     await expectMapping(
       t.gasBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAliceGas, InitialFPCGas - feeAmount, InitialSequencerGas + feeAmount],
+      [InitialAliceGas, InitialFPCGas - feeAmount, InitialSequencerGas],
     );
 
     await expect(
@@ -207,7 +209,7 @@ describe('e2e_fees private_payment', () => {
     await expectMapping(
       t.gasBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAliceGas, InitialFPCGas - feeAmount, InitialSequencerGas + feeAmount],
+      [InitialAliceGas, InitialFPCGas - feeAmount, InitialSequencerGas],
     );
 
     await expect(
@@ -270,7 +272,7 @@ describe('e2e_fees private_payment', () => {
     await expectMapping(
       t.gasBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAliceGas, InitialFPCGas - feeAmount, InitialSequencerGas + feeAmount],
+      [InitialAliceGas, InitialFPCGas - feeAmount, InitialSequencerGas],
     );
 
     await expect(
@@ -346,7 +348,7 @@ describe('e2e_fees private_payment', () => {
     await expectMapping(
       t.gasBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [InitialAliceGas, InitialFPCGas - feeAmount, InitialSequencerGas + feeAmount],
+      [InitialAliceGas, InitialFPCGas - feeAmount, InitialSequencerGas],
     );
 
     await expect(

@@ -1,11 +1,11 @@
 use dep::types::{
     abis::{
     call_request::CallRequest, public_call_stack_item::PublicCallStackItem,
-    kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder, kernel_data::PublicKernelData,
-    note_hash::NoteHash, nullifier::Nullifier, public_call_data::PublicCallData,
-    public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-    side_effect::SideEffect, global_variables::GlobalVariables,
-    combined_constant_data::CombinedConstantData
+    kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder,
+    public_kernel_data::PublicKernelData, note_hash::NoteHash, nullifier::Nullifier,
+    public_call_data::PublicCallData, public_data_read::PublicDataRead,
+    public_data_update_request::PublicDataUpdateRequest, side_effect::SideEffect,
+    global_variables::GlobalVariables, combined_constant_data::CombinedConstantData
 },
     address::AztecAddress,
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
@@ -85,6 +85,7 @@ pub fn initialize_emitted_end_values(
     circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder
 ) {
     circuit_outputs.constants = previous_kernel.public_inputs.constants;
+    circuit_outputs.fee_payer = previous_kernel.public_inputs.fee_payer;
 
     if circuit_outputs.revert_code == 0 {
         let start = previous_kernel.public_inputs.end;
