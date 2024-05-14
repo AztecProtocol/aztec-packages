@@ -35,7 +35,7 @@ To retrieve them a developer can use one of the getters in aztec_nr:
 If the keys are registered in the key registry these methods can be called without any setup.
 If they are not there, it is necessary to first register the user as a recipient in our PXE by passing in the recipient's [complete address](#complete-address) as an argument:
 
-#include_code key-getters /noir-projects/aztec-nr/aztec/src/keys/getters.nr rust
+#include_code register-recipient yarn-project/end-to-end/src/flakey_e2e_account_init_fees.test.ts rust
 
 Simulator will then retrieve these keys via an oracle call from PXE during private function execution.
 
