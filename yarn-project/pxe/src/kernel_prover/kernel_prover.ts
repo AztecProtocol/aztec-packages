@@ -1,3 +1,4 @@
+import { type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
 import {
   CallRequest,
   Fr,
@@ -24,7 +25,6 @@ import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { type ExecutionResult, collectNoteHashLeafIndexMap, collectNullifiedNoteHashCounters } from '@aztec/simulator';
 
-import { type KernelProofOutput, type ProofCreator } from './interface/proof_creator.js';
 import {
   buildPrivateKernelInnerHints,
   buildPrivateKernelTailHints,
@@ -77,6 +77,9 @@ export class KernelProver {
         result.callStackItem.toCallRequest(currentExecution.callStackItem.publicInputs.callContext),
       );
       const publicCallRequests = currentExecution.enqueuedPublicFunctionCalls.map(result => result.toCallRequest());
+      const publicTeardownCallRequest = currentExecution.publicTeardownFunctionCall.isEmpty()
+        ? CallRequest.empty()
+        : currentExecution.publicTeardownFunctionCall.toCallRequest();
 
       const proofOutput = await this.proofCreator.createAppCircuitProof(
         currentExecution.partialWitness,
@@ -87,6 +90,7 @@ export class KernelProver {
         currentExecution,
         privateCallRequests,
         publicCallRequests,
+        publicTeardownCallRequest,
         proofOutput.proof,
         proofOutput.verificationKey,
       );
@@ -143,6 +147,7 @@ export class KernelProver {
     { callStackItem }: ExecutionResult,
     privateCallRequests: CallRequest[],
     publicCallRequests: CallRequest[],
+    publicTeardownCallRequest: CallRequest,
     proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>,
     vk: VerificationKeyAsFields,
   ) {
@@ -174,6 +179,7 @@ export class KernelProver {
       callStackItem,
       privateCallStack,
       publicCallStack,
+      publicTeardownCallRequest,
       proof,
       vk,
       publicKeysHash,

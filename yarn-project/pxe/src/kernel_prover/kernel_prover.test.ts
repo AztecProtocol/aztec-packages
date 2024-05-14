@@ -1,4 +1,4 @@
-import { Note } from '@aztec/circuit-types';
+import { Note, type ProofCreator } from '@aztec/circuit-types';
 import {
   FunctionData,
   FunctionSelector,
@@ -11,6 +11,7 @@ import {
   PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
+  PublicCallRequest,
   RECURSIVE_PROOF_LENGTH,
   ScopedNoteHash,
   type TxRequest,
@@ -27,7 +28,6 @@ import { type ExecutionResult, type NoteAndSlot } from '@aztec/simulator';
 
 import { mock } from 'jest-mock-extended';
 
-import { type ProofCreator } from './interface/proof_creator.js';
 import { KernelProver } from './kernel_prover.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
 
@@ -76,6 +76,7 @@ describe('Kernel Prover', () => {
       acir: Buffer.alloc(0),
       partialWitness: new Map(),
       enqueuedPublicFunctionCalls: [],
+      publicTeardownFunctionCall: PublicCallRequest.empty(),
       encryptedLogs: [],
       unencryptedLogs: [],
     };

@@ -5,7 +5,7 @@ use crate::{
     accumulated_data::{CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder, PublicAccumulatedData},
     global_variables::GlobalVariables, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
-    kernel_data::{PublicKernelData, KernelData}, max_block_number::MaxBlockNumber,
+    kernel_data::KernelData, public_kernel_data::PublicKernelData, max_block_number::MaxBlockNumber,
     private_kernel_data::PrivateKernelData, note_hash::{NoteHash, ScopedNoteHash},
     nullifier::{Nullifier, ScopedNullifier},
     nullifier_key_validation_request::ScopedNullifierKeyValidationRequest,
@@ -31,12 +31,13 @@ use crate::{
 struct FixtureBuilder {
     contract_address: AztecAddress,
     storage_contract_address: AztecAddress,
+    fee_payer: AztecAddress,
+    public_teardown_call_request: CallRequest,
 
     // Constant data.
     historical_header: Header,
     tx_context: TxContext,
     global_variables: GlobalVariables,
-    public_teardown_call_request: CallRequest,
     
     // Accumulated data.
     new_note_hashes: BoundedVec<ScopedNoteHash, MAX_NEW_NOTE_HASHES_PER_TX>,
@@ -84,6 +85,7 @@ impl FixtureBuilder {
         FixtureBuilder {
             contract_address: fixtures::contracts::parent_contract.address,
             storage_contract_address: fixtures::contracts::parent_contract.address,
+            fee_payer: AztecAddress::empty(),
             historical_header: Header::empty(),
             tx_context,
             new_note_hashes: BoundedVec::new(),
@@ -193,7 +195,8 @@ impl FixtureBuilder {
             end,
             validation_requests,
             constants,
-            public_teardown_call_request: self.public_teardown_call_request
+            public_teardown_call_request: self.public_teardown_call_request,
+            fee_payer: self.fee_payer
         }
     }
 
@@ -216,6 +219,8 @@ impl FixtureBuilder {
         };
         let validation_requests = self.to_validation_requests();
         let constants = self.to_constant_data();
+        let mut public_teardown_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> = BoundedVec::new();
+        public_teardown_call_stack.push(self.public_teardown_call_request);
 
         PublicKernelCircuitPublicInputs {
             end_non_revertible,
@@ -223,7 +228,8 @@ impl FixtureBuilder {
             validation_requests,
             constants,
             revert_code: self.revert_code,
-            public_teardown_call_request: self.public_teardown_call_request
+            public_teardown_call_stack: public_teardown_call_stack.storage,
+            fee_payer: self.fee_payer
         }
     }
 
@@ -243,7 +249,14 @@ impl FixtureBuilder {
         let end = self.to_combined_accumulated_data();
         let constants = self.to_constant_data();
 
-        KernelCircuitPublicInputs { rollup_validation_requests, end, constants, start_state: self.start_state, revert_code: self.revert_code }
+        KernelCircuitPublicInputs {
+            rollup_validation_requests,
+            end,
+            constants,
+            start_state: self.start_state,
+            revert_code: self.revert_code,
+            fee_payer: self.fee_payer
+        }
     }
 
     pub fn to_kernel_data(self) -> KernelData {
@@ -413,6 +426,14 @@ impl FixtureBuilder {
         self.public_call_stack.push(call_stack_item);
     }
 
+    pub fn set_fee_payer(&mut self, fee_payer: AztecAddress) {
+        self.fee_payer = fee_payer;
+    }
+
+    pub fn set_public_teardown_call_request(&mut self, hash: Field, is_delegate_call: bool) {
+        self.public_teardown_call_request = self.generate_call_request(hash, is_delegate_call);
+    }
+
     pub fn end_setup(&mut self) {
         self.min_revertible_side_effect_counter = self.counter;
     }
@@ -466,6 +487,7 @@ impl Empty for FixtureBuilder {
         FixtureBuilder {
             contract_address: AztecAddress::zero(),
             storage_contract_address: AztecAddress::zero(),
+            fee_payer: AztecAddress::zero(),
             historical_header: Header::empty(),
             tx_context: TxContext::empty(),
             global_variables: GlobalVariables::empty(),

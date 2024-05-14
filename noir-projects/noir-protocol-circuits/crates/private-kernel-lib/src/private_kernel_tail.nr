@@ -10,7 +10,7 @@ use dep::types::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    grumpkin_private_key::GrumpkinPrivateKey, utils::arrays::array_length
+    grumpkin_private_key::GrumpkinPrivateKey, utils::arrays::array_length, traits::is_empty
 };
 
 // Can just be KernelCircuitPublicInputs.
@@ -46,6 +46,9 @@ impl PrivateKernelTailCircuitPrivateInputs {
         let previous_public_inputs = self.previous_kernel.public_inputs;
         assert_eq(
             array_length(previous_public_inputs.end.public_call_stack), 0, "Public call stack must be empty when executing the tail circuit"
+        );
+        assert(
+            is_empty(previous_public_inputs.public_teardown_call_request) == true, "Public teardown call request must be empty when executing the tail circuit"
         );
 
         // verify/aggregate the previous kernel
@@ -103,7 +106,7 @@ mod tests {
         note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
         side_effect::SideEffect, gas::Gas
     },
-        grumpkin_private_key::GrumpkinPrivateKey,
+        address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey,
         hash::{compute_note_hash_nonce, compute_unique_note_hash, sha256_to_field, silo_note_hash, silo_nullifier},
         tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
         utils::{arrays::{array_eq, array_length}}, traits::{Empty, is_empty, is_empty_array}
@@ -273,7 +276,7 @@ mod tests {
     }
 
     #[test]
-    fn propagate_previous_kernel_max_block_number() {
+    unconstrained fn propagate_previous_kernel_max_block_number() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.max_block_number = MaxBlockNumber::new(13);
         let public_inputs = builder.execute();
@@ -282,7 +285,7 @@ mod tests {
     }
 
     #[test]
-    fn logs_are_handled_as_expected() {
+    unconstrained fn logs_are_handled_as_expected() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         // Logs for the previous call stack.
         let prev_encrypted_logs_hash = 80;
@@ -571,10 +574,10 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="The 0th nullifier in the accumulated nullifier array is zero")]
-    unconstrained fn zero_0th_nullifier_fails() {
+    #[test(should_fail_with="Public teardown call request must be empty when executing the tail circuit")]
+    unconstrained fn non_empty_public_teardown_call_request_should_fail() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel.new_nullifiers = BoundedVec::new();
+        builder.previous_kernel.set_public_teardown_call_request(1, false);
         builder.failed();
     }
 
@@ -584,9 +587,13 @@ mod tests {
         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
         let public_inputs = builder.execute();
 
-        let expected_gas_consumed = Gas::new(300, 300) // teardown gas
-            + Gas::tx_overhead() // tx overhead
-            + Gas::new(DA_GAS_PER_BYTE * DA_BYTES_PER_FIELD * 1, 0); // tx nullifier
+        // addition follows the form:
+        // teardown gas
+        // tx overhead
+        // tx nullifier
+        let expected_gas_consumed = Gas::new(300, 300)
+            + Gas::tx_overhead()
+            + Gas::new(DA_GAS_PER_BYTE * DA_BYTES_PER_FIELD * 1, 0);
         assert_eq(public_inputs.end.gas_used, expected_gas_consumed);
     }
 
@@ -596,5 +603,20 @@ mod tests {
         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
         builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1, 1);
         builder.failed();
+    }
+
+    #[test]
+    unconstrained fn propagate_fee_payer() {
+        // Check that we carry forward if the fee payer is already set
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        let fee_payer = AztecAddress::from_field(123);
+        builder.previous_kernel.fee_payer = fee_payer;
+        let public_inputs = builder.execute();
+        assert_eq(public_inputs.fee_payer, fee_payer);
+
+        // Check that the fee payer remains empty if unset
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        let public_inputs = builder.execute();
+        assert_eq(public_inputs.fee_payer, AztecAddress::empty());
     }
 }

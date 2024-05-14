@@ -62,7 +62,7 @@ describe('AVM simulator: injected bytecode', () => {
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
     expect(results.reverted).toBe(true);
     expect(results.output).toEqual([]);
-    expect(results.revertReason?.name).toEqual('OutOfGasError');
+    expect(results.revertReason?.message).toEqual('Not enough L2GAS gas left');
     expect(context.machineState.l2GasLeft).toEqual(0);
     expect(context.machineState.daGasLeft).toEqual(0);
   });
@@ -878,6 +878,20 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(results.reverted).toBe(true); // The outer call should revert.
       expect(results.revertReason?.message).toEqual('Assertion failed: Values are not equal');
     });
+  });
+
+  it('conversions', async () => {
+    const calldata: Fr[] = [new Fr(0b1011101010100)];
+    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+    const bytecode = getAvmTestContractBytecode('to_radix_le');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+    expect(results.reverted).toBe(false);
+    const expectedResults = Buffer.concat('0010101011'.split('').map(c => new Fr(Number(c)).toBuffer()));
+    const resultBuffer = Buffer.concat(results.output.map(f => f.toBuffer()));
+
+    expect(resultBuffer.equals(expectedResults)).toBe(true);
   });
 });
 
