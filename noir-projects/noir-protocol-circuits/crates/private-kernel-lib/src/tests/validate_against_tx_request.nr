@@ -63,17 +63,3 @@ fn validate_against_tx_request_mismatch_version_fails() {
 
     builder.validate_against_tx_request(request);
 }
-
-#[test(should_fail_with="Users cannot make a static call")]
-fn validate_against_tx_request_static_call_fails() {
-    let builder = PrivateCallDataValidatorBuilder::new().is_static_call();
-    let request = builder.private_call.build_tx_request();
-    builder.validate_against_tx_request(request);
-}
-
-#[test(should_fail_with="Users cannot make a delegatecall")]
-fn validate_against_tx_request_delegate_call_fails() {
-    let builder = PrivateCallDataValidatorBuilder::new().is_delegate_call();
-    let request = builder.private_call.build_tx_request();
-    builder.validate_against_tx_request(request);
-}

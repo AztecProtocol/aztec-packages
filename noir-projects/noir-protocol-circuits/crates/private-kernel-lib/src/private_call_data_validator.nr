@@ -97,6 +97,27 @@ fn validate_incrementing_counter_ranges_within_range<N>(
     );
 }
 
+fn validate_split_call_requests<N>(
+    min_revertible_side_effect_counter: u32,
+    first_revertible_call_request_index: u64,
+    call_requests: [CallRequest; N],
+    num_call_requests: u64
+) {
+    if first_revertible_call_request_index != 0 {
+        let last_non_revertible_call_request_index = first_revertible_call_request_index - 1;
+        let call_request = call_requests[last_non_revertible_call_request_index];
+        assert(
+            min_revertible_side_effect_counter > call_request.end_side_effect_counter, "min_revertible_side_effect_counter must be greater than the end counter of the last non revertible call"
+        );
+    }
+    if first_revertible_call_request_index != num_call_requests {
+        let call_request = call_requests[first_revertible_call_request_index];
+        assert(
+            min_revertible_side_effect_counter < call_request.start_side_effect_counter, "min_revertible_side_effect_counter must be less than the start counter of the first revertible call"
+        );
+    }
+}
+
 struct ArrayLengths {
     note_hash_read_requests: u64,
     nullifier_read_requests: u64,
@@ -130,6 +151,33 @@ impl PrivateCallDataValidator {
         self.validate_counters();
     }
 
+    pub fn validate_as_first_call(
+        self,
+        first_revertible_private_call_request_index: u64,
+        first_revertible_public_call_request_index: u64
+    ) {
+        let public_inputs = self.data.call_stack_item.public_inputs;
+        let call_context = public_inputs.call_context;
+        assert(call_context.is_delegate_call == false, "Users cannot make a delegatecall");
+        assert(call_context.is_static_call == false, "Users cannot make a static call");
+
+        let min_revertible_side_effect_counter = public_inputs.min_revertible_side_effect_counter;
+        // Don't have to limit that the min_revertible_side_effect_counter has to fall in the counter range of the private call.
+        // It is valid as long as it does not fall in the middle of a call.
+        validate_split_call_requests(
+            min_revertible_side_effect_counter,
+            first_revertible_private_call_request_index,
+            self.data.private_call_stack,
+            self.array_lengths.private_call_stack_hashes
+        );
+        validate_split_call_requests(
+            min_revertible_side_effect_counter,
+            first_revertible_public_call_request_index,
+            self.data.public_call_stack,
+            self.array_lengths.public_call_stack_hashes
+        );
+    }
+
     // Confirm that the TxRequest (user's intent) matches the private call being executed.
     pub fn validate_against_tx_request(self, tx_request: TxRequest) {
         let call_stack_item = self.data.call_stack_item;
@@ -145,11 +193,6 @@ impl PrivateCallDataValidator {
         assert_eq(
             tx_request.tx_context, call_stack_item.public_inputs.tx_context, "tx_context in tx_request must match tx_context in call_stack_item"
         );
-
-        // If checking against TxRequest, it must be the first call, which has the following restrictions.
-        let call_context = call_stack_item.public_inputs.call_context;
-        assert(call_context.is_delegate_call == false, "Users cannot make a delegatecall");
-        assert(call_context.is_static_call == false, "Users cannot make a static call");
     }
 
     pub fn validate_against_call_request(self, request: CallRequest) {

@@ -13,6 +13,8 @@ use dep::types::{
 
 struct PrivateKernelInitHints {
     note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
+    first_revertible_private_call_request_index: u64,
+    first_revertible_public_call_request_index: u64
 }
 
 // Initialization struct for private inputs to the private kernel
@@ -29,6 +31,10 @@ impl PrivateKernelInitCircuitPrivateInputs {
 
         let privateCallDataValidator = PrivateCallDataValidator::new(self.private_call);
         privateCallDataValidator.validate();
+        privateCallDataValidator.validate_as_first_call(
+            self.hints.first_revertible_private_call_request_index,
+            self.hints.first_revertible_public_call_request_index
+        );
         privateCallDataValidator.validate_against_tx_request(self.tx_request);
 
         let private_call_public_inputs = self.private_call.call_stack_item.public_inputs;
@@ -67,7 +73,11 @@ mod tests {
         pub fn new() -> Self {
             let private_call = PrivateCallDataBuilder::new();
             let tx_request = private_call.build_tx_request();
-            let hints = PrivateKernelInitHints { note_hash_nullifier_counters: [0; MAX_NEW_NOTE_HASHES_PER_CALL] };
+            let hints = PrivateKernelInitHints {
+                note_hash_nullifier_counters: [0; MAX_NEW_NOTE_HASHES_PER_CALL],
+                first_revertible_private_call_request_index: 0,
+                first_revertible_public_call_request_index: 0
+            };
 
             PrivateKernelInitInputsBuilder { tx_request, private_call, hints }
         }

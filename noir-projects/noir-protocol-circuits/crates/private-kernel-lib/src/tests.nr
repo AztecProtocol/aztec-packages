@@ -2,6 +2,7 @@ mod private_call_data_validator_builder;
 mod validate_against_call_request;
 mod validate_against_tx_request;
 mod validate_arrays;
+mod validate_as_first_call;
 mod validate_call;
 mod validate_call_requests;
 mod validate_contract_address;

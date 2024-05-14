@@ -109,6 +109,11 @@ impl PrivateCircuitPublicInputsBuilder {
         TxContext::new(self.chain_id, self.version, self.gas_settings)
     }
 
+    pub fn end_setup(&mut self) {
+        let counter = self.next_counter();
+        self.min_revertible_side_effect_counter = counter;
+    }
+
     pub fn set_tx_max_block_number(&mut self, max_block_number: u32) {
         self.max_block_number = MaxBlockNumber::new(max_block_number);
     }
@@ -219,7 +224,7 @@ impl PrivateCircuitPublicInputsBuilder {
         }
     }
 
-    pub fn next_counter(&mut self) -> u32 {
+    fn next_counter(&mut self) -> u32 {
         let counter = self.counter_end;
         self.counter_end += 1;
         counter

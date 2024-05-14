@@ -26,6 +26,7 @@ import { type ExecutionResult, collectNoteHashLeafIndexMap, collectNullifiedNote
 
 import { type KernelProofOutput, type ProofCreator } from './interface/proof_creator.js';
 import {
+  buildPrivateKernelInitHints,
   buildPrivateKernelInnerHints,
   buildPrivateKernelTailHints,
   buildPrivateKernelTailOutputs,
@@ -95,16 +96,21 @@ export class KernelProver {
         proofOutput.verificationKey,
       );
 
-      const hints = buildPrivateKernelInnerHints(
-        currentExecution.callStackItem.publicInputs,
-        noteHashNullifierCounterMap,
-      );
-
       if (firstIteration) {
+        const hints = buildPrivateKernelInitHints(
+          currentExecution.callStackItem.publicInputs,
+          noteHashNullifierCounterMap,
+          privateCallRequests,
+          publicCallRequests,
+        );
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(txRequest, privateCallData, hints);
         pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.createProofInit(proofInput);
       } else {
+        const hints = buildPrivateKernelInnerHints(
+          currentExecution.callStackItem.publicInputs,
+          noteHashNullifierCounterMap,
+        );
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
         const previousKernelData = new PrivateKernelData(
           output.publicInputs,
