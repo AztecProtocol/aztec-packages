@@ -23,6 +23,7 @@ template <typename FF> struct Avm_kernelRow {
     FF avm_kernel_sload_write_offset_shift{};
     FF avm_kernel_sstore_write_offset{};
     FF avm_kernel_sstore_write_offset_shift{};
+    FF avm_main_last{};
     FF avm_main_sel_op_emit_note_hash{};
     FF avm_main_sel_op_emit_nullifier{};
     FF avm_main_sel_op_emit_unencrypted_log{};
@@ -35,7 +36,31 @@ template <typename FF> struct Avm_kernelRow {
 
 inline std::string get_relation_label_avm_kernel(int index)
 {
-    switch (index) {}
+    switch (index) {
+    case 0:
+        return "NOTE_HASH_EXISTS_INC_CONSISTENCY_CHECK";
+
+    case 1:
+        return "EMIT_NOTE_HASH_INC_CONSISTENCY_CHECK";
+
+    case 2:
+        return "NULLIFIER_EXISTS_INC_CONSISTENCY_CHECK";
+
+    case 3:
+        return "EMIT_NULLIFIER_INC_CONSISTENCY_CHECK";
+
+    case 4:
+        return "L1_TO_L2_MSG_INC_CONSISTENCY_CHECK";
+
+    case 5:
+        return "EMIT_UNENCRYPTED_LOG_INC_CONSISTENCY_CHECK";
+
+    case 6:
+        return "SLOAD_INC_CONSISTENCY_CHECK";
+
+    case 7:
+        return "SSTORE_INC_CONSISTENCY_CHECK";
+    }
     return std::to_string(index);
 }
 
@@ -44,7 +69,7 @@ template <typename FF_> class avm_kernelImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS{
-        2, 2, 2, 2, 2, 2, 2, 2,
+        3, 3, 3, 3, 3, 3, 3, 3,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -58,8 +83,9 @@ template <typename FF_> class avm_kernelImpl {
         {
             Avm_DECLARE_VIEWS(0);
 
-            auto tmp = (avm_kernel_note_hash_exist_write_offset_shift -
-                        (avm_kernel_note_hash_exist_write_offset + avm_main_sel_op_note_hash_exists));
+            auto tmp = ((-avm_main_last + FF(1)) *
+                        (avm_kernel_note_hash_exist_write_offset_shift -
+                         (avm_kernel_note_hash_exist_write_offset + avm_main_sel_op_note_hash_exists)));
             tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
         }
@@ -67,8 +93,9 @@ template <typename FF_> class avm_kernelImpl {
         {
             Avm_DECLARE_VIEWS(1);
 
-            auto tmp = (avm_kernel_emit_note_hash_write_offset_shift -
-                        (avm_kernel_emit_note_hash_write_offset + avm_main_sel_op_emit_note_hash));
+            auto tmp = ((-avm_main_last + FF(1)) *
+                        (avm_kernel_emit_note_hash_write_offset_shift -
+                         (avm_kernel_emit_note_hash_write_offset + avm_main_sel_op_emit_note_hash)));
             tmp *= scaling_factor;
             std::get<1>(evals) += tmp;
         }
@@ -76,8 +103,9 @@ template <typename FF_> class avm_kernelImpl {
         {
             Avm_DECLARE_VIEWS(2);
 
-            auto tmp = (avm_kernel_nullifier_exists_write_offset_shift -
-                        (avm_kernel_nullifier_exists_write_offset + avm_main_sel_op_nullifier_exists));
+            auto tmp = ((-avm_main_last + FF(1)) *
+                        (avm_kernel_nullifier_exists_write_offset_shift -
+                         (avm_kernel_nullifier_exists_write_offset + avm_main_sel_op_nullifier_exists)));
             tmp *= scaling_factor;
             std::get<2>(evals) += tmp;
         }
@@ -85,8 +113,9 @@ template <typename FF_> class avm_kernelImpl {
         {
             Avm_DECLARE_VIEWS(3);
 
-            auto tmp = (avm_kernel_emit_nullifier_write_offset_shift -
-                        (avm_kernel_emit_nullifier_write_offset + avm_main_sel_op_emit_nullifier));
+            auto tmp = ((-avm_main_last + FF(1)) *
+                        (avm_kernel_emit_nullifier_write_offset_shift -
+                         (avm_kernel_emit_nullifier_write_offset + avm_main_sel_op_emit_nullifier)));
             tmp *= scaling_factor;
             std::get<3>(evals) += tmp;
         }
@@ -94,8 +123,9 @@ template <typename FF_> class avm_kernelImpl {
         {
             Avm_DECLARE_VIEWS(4);
 
-            auto tmp = (avm_kernel_l1_to_l2_msg_write_offset_shift -
-                        (avm_kernel_l1_to_l2_msg_write_offset + avm_main_sel_op_l1_to_l2_msg_exists));
+            auto tmp = ((-avm_main_last + FF(1)) *
+                        (avm_kernel_l1_to_l2_msg_write_offset_shift -
+                         (avm_kernel_l1_to_l2_msg_write_offset + avm_main_sel_op_l1_to_l2_msg_exists)));
             tmp *= scaling_factor;
             std::get<4>(evals) += tmp;
         }
@@ -103,8 +133,9 @@ template <typename FF_> class avm_kernelImpl {
         {
             Avm_DECLARE_VIEWS(5);
 
-            auto tmp = (avm_kernel_emit_unencrypted_log_write_offset_shift -
-                        (avm_kernel_emit_unencrypted_log_write_offset + avm_main_sel_op_emit_unencrypted_log));
+            auto tmp = ((-avm_main_last + FF(1)) *
+                        (avm_kernel_emit_unencrypted_log_write_offset_shift -
+                         (avm_kernel_emit_unencrypted_log_write_offset + avm_main_sel_op_emit_unencrypted_log)));
             tmp *= scaling_factor;
             std::get<5>(evals) += tmp;
         }
@@ -112,7 +143,8 @@ template <typename FF_> class avm_kernelImpl {
         {
             Avm_DECLARE_VIEWS(6);
 
-            auto tmp = (avm_kernel_sload_write_offset_shift - (avm_kernel_sload_write_offset + avm_main_sel_op_sload));
+            auto tmp = ((-avm_main_last + FF(1)) * (avm_kernel_sload_write_offset_shift -
+                                                    (avm_kernel_sload_write_offset + avm_main_sel_op_sload)));
             tmp *= scaling_factor;
             std::get<6>(evals) += tmp;
         }
@@ -120,8 +152,8 @@ template <typename FF_> class avm_kernelImpl {
         {
             Avm_DECLARE_VIEWS(7);
 
-            auto tmp =
-                (avm_kernel_sstore_write_offset_shift - (avm_kernel_sstore_write_offset + avm_main_sel_op_sstore));
+            auto tmp = ((-avm_main_last + FF(1)) * (avm_kernel_sstore_write_offset_shift -
+                                                    (avm_kernel_sstore_write_offset + avm_main_sel_op_sstore)));
             tmp *= scaling_factor;
             std::get<7>(evals) += tmp;
         }

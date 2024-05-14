@@ -16,6 +16,7 @@
 #include "avm_trace.hpp"
 #include "barretenberg/vm/avm_trace/avm_kernel_trace.hpp"
 #include "barretenberg/vm/avm_trace/aztec_constants.hpp"
+#include "barretenberg/vm/avm_trace/constants.hpp"
 
 namespace bb::avm_trace {
 
@@ -23,9 +24,9 @@ namespace bb::avm_trace {
  * @brief Constructor of a trace builder of AVM. Only serves to set the capacity of the
  *        underlying traces.
  */
-AvmTraceBuilder::AvmTraceBuilder(std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs)
+AvmTraceBuilder::AvmTraceBuilder(VM_PUBLIC_INPUTS public_inputs)
     // NOTE: we initialise the environment builder here as it requires public inputs
-    : kernel_trace_builder(kernel_inputs)
+    : kernel_trace_builder(public_inputs)
 {
     main_trace.reserve(AVM_TRACE_SIZE);
 }
@@ -122,7 +123,9 @@ void AvmTraceBuilder::op_add(
     mem_trace_builder.write_into_memory(clk, IntermRegister::IC, res.direct_c_offset, c, in_tag, in_tag);
 
     main_trace.push_back(Row{
+
         .avm_main_clk = clk,
+
         .avm_main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_ia = a,
         .avm_main_ib = b,
@@ -1179,6 +1182,47 @@ void AvmTraceBuilder::op_timestamp(uint32_t dst_offset)
     main_trace.push_back(row);
 }
 
+// Row AvmTraceBuilder::create_kernel_lookup__output_opcode(uint32_t dst_offset,
+//                                                          uint32_t selector,
+//                                                          FF value,
+//                                                          AvmMemoryTag w_tag)
+// {
+//     auto const clk = static_cast<uint32_t>(main_trace.size());
+
+// }
+
+void AvmTraceBuilder::op_emit_note_hash(uint32_t note_hash_offset)
+{
+    auto const clk = static_cast<uint32_t>(main_trace.size());
+
+    // AvmMemoryTag r_tag = AvmMemoryTag::;
+    // TODO: Check correct tag values for other read operations
+    AvmMemTraceBuilder::MemRead read_a = mem_trace_builder.read_and_load_from_memory(
+        clk, IntermRegister::IA, note_hash_offset, AvmMemoryTag::FF, AvmMemoryTag::U0);
+
+    // TODO: make getters for this on the kernel_trace_builder
+
+    // We write the value to memory and inc the counters maintained in the trace builder
+    // TODO: the separation of concerns here is NOT clean
+    kernel_trace_builder.op_emit_note_hash(clk, read_a.val);
+
+    Row row = {
+        .avm_main_clk = clk,
+        .avm_main_ia = read_a.val,
+        .avm_main_ind_a = 0,
+        .avm_main_internal_return_ptr = internal_return_ptr,
+        .avm_main_mem_idx_a = note_hash_offset,
+        .avm_main_mem_op_a = 1,
+        .avm_main_pc = pc++,
+        .avm_main_q_kernel_output_lookup = 1,
+        .avm_main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
+        .avm_main_rwa = 0,
+    };
+    row.avm_main_sel_op_emit_note_hash = FF(1);
+
+    main_trace.push_back(row);
+}
+
 /**
  * @brief Cast an element pointed by the address a_offset into type specified by dst_tag and
           store the result in address given by dst_offset.
@@ -1733,7 +1777,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
     size_t const lookup_table_size = bin_trace_size > 0 ? 3 * (1 << 16) : 0;
     size_t const range_check_size = range_check_required ? UINT16_MAX + 1 : 0;
     std::vector<size_t> trace_sizes = { mem_trace_size,    main_trace_size,  alu_trace_size,
-                                        lookup_table_size, range_check_size, KERNEL_INPUTS_LENGTH };
+                                        lookup_table_size, range_check_size, KERNEL_OUTPUTS_LENGTH };
     auto trace_size = std::max_element(trace_sizes.begin(), trace_sizes.end());
 
     // We only need to pad with zeroes to the size to the largest trace here, pow_2 padding is handled in the
@@ -2111,13 +2155,163 @@ std::vector<Row> AvmTraceBuilder::finalize()
     for (uint32_t selector_index : KERNEL_INPUTS_SELECTORS) {
         auto& dest = main_trace.at(selector_index);
         dest.lookup_into_kernel_counts =
-            FF(kernel_trace_builder.kernel_selector_counter[static_cast<uint32_t>(selector_index)]);
+            FF(kernel_trace_builder.kernel_input_selector_counter[static_cast<uint32_t>(selector_index)]);
         dest.avm_kernel_q_public_input_kernel_add_to_table = FF(1);
     }
 
+    // Copy the kernel input public inputs
     for (size_t i = 0; i < KERNEL_INPUTS_LENGTH; i++) {
-        main_trace.at(i).avm_kernel_kernel_inputs__is_public = kernel_trace_builder.kernel_inputs.at(i);
+        // TODO: Maybe keep public inputs in this class? - rather than the tuple syntax here!
+        main_trace.at(i).avm_kernel_kernel_inputs__is_public =
+            std::get<KERNEL_INPUTS>(kernel_trace_builder.public_inputs).at(i);
     }
+
+    // Copy the kernel outputs counts into the main trace,
+    // TODO: move away from hardcoded 4 in this case
+
+    // Copy the kernel outputs into the public inputs
+    for (size_t i = 0; i < KERNEL_OUTPUTS_LENGTH; i++) {
+        main_trace.at(i).avm_kernel_kernel_value_out__is_public =
+            std::get<KERNEL_OUTPUTS_VALUE>(kernel_trace_builder.public_inputs).at(i);
+
+        main_trace.at(i).avm_kernel_kernel_side_effect_out__is_public =
+            std::get<KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER>(kernel_trace_builder.public_inputs).at(i);
+
+        main_trace.at(i).avm_kernel_kernel_metadata_out__is_public =
+            std::get<KERNEL_OUTPUTS_METADATA>(kernel_trace_builder.public_inputs).at(i);
+    }
+
+    // Write lookup counts for outputs
+    for (uint32_t i = 0; i < KERNEL_OUTPUTS_LENGTH; i++) {
+        auto value = kernel_trace_builder.kernel_output_selector_counter.find(i);
+        if (value != kernel_trace_builder.kernel_output_selector_counter.end()) {
+            auto& dest = main_trace.at(i);
+            dest.kernel_output_lookup_counts = FF(value->second);
+            dest.avm_kernel_q_public_input_kernel_out_add_to_table = FF(1);
+
+            info("printing the values that have been looked up");
+            info(dest.avm_kernel_kernel_value_out__is_public);
+            info(dest.avm_kernel_kernel_side_effect_out__is_public);
+            info(dest.avm_kernel_kernel_metadata_out__is_public);
+        }
+    }
+
+    // ============= WORK IN PROGRESS =============================
+
+    // 0. Assert that the indexes are 0 on the first row w/ some boundary condition check
+    // 1. Get access to the avm main trace, work out how to keep the incrementing array indexes constant
+
+    // move
+    std::vector<AvmKernelTraceBuilder::KernelTraceEntry> kernel_trace = kernel_trace_builder.finalize();
+    // TODO: DOES THIS BREAK WITH A LOG EMIT AS THE FIRST INSTRUCTION?
+    size_t kernel_padding_main_trace_bottom = 1;
+    for (size_t i = 0; i < kernel_trace.size(); i++) {
+        auto const& src = kernel_trace.at(i);
+        // check the clock and iterate through the main trace until we hit the clock
+        auto clk = src.clk;
+
+        // Until the next kernel changing instruction is encountered we set all of the values of the offset arrays
+        // to be the same as the previous row This satisfies the `offset' - (offset + operation_selector) = 0`
+        // constraints
+        for (size_t j = kernel_padding_main_trace_bottom; j < clk; j++) {
+            auto const& prev = main_trace.at(j - 1);
+            auto& dest = main_trace.at(j);
+
+            dest.avm_kernel_note_hash_exist_write_offset = prev.avm_kernel_note_hash_exist_write_offset;
+            dest.avm_kernel_emit_note_hash_write_offset = prev.avm_kernel_emit_note_hash_write_offset;
+            dest.avm_kernel_nullifier_exists_write_offset = prev.avm_kernel_nullifier_exists_write_offset;
+            dest.avm_kernel_emit_nullifier_write_offset = prev.avm_kernel_emit_nullifier_write_offset;
+            dest.avm_kernel_l1_to_l2_msg_write_offset = prev.avm_kernel_l1_to_l2_msg_write_offset;
+            dest.avm_kernel_emit_unencrypted_log_write_offset = prev.avm_kernel_emit_unencrypted_log_write_offset;
+            dest.avm_kernel_sload_write_offset = prev.avm_kernel_sload_write_offset;
+            dest.avm_kernel_sstore_write_offset = prev.avm_kernel_sstore_write_offset;
+            dest.avm_kernel_side_effect_counter = prev.avm_kernel_side_effect_counter;
+        }
+
+        Row& curr = main_trace.at(clk);
+
+        // Read in values from kernel trace
+        // Lookup values
+        curr.avm_kernel_kernel_sel = src.kernel_selector;
+        curr.avm_kernel_kernel_out_sel = src.kernel_out_selector;
+        curr.avm_main_q_kernel_lookup = static_cast<uint32_t>(src.q_kernel_lookup);
+        curr.avm_main_q_kernel_output_lookup = static_cast<uint32_t>(src.q_kernel_output_lookup);
+
+        // Operation selectors
+        curr.avm_main_sel_op_note_hash_exists = static_cast<uint32_t>(src.op_note_hash_exists);
+        curr.avm_main_sel_op_emit_note_hash = static_cast<uint32_t>(src.op_emit_note_hash);
+        curr.avm_main_sel_op_nullifier_exists = static_cast<uint32_t>(src.op_nullifier_exists);
+        curr.avm_main_sel_op_emit_nullifier = static_cast<uint32_t>(src.op_emit_nullifier);
+        curr.avm_main_sel_op_send_l2_to_l1_msg = static_cast<uint32_t>(src.op_emit_l2_to_l1_msg);
+        curr.avm_main_sel_op_emit_unencrypted_log = static_cast<uint32_t>(src.op_emit_unencrypted_log);
+        curr.avm_main_sel_op_sload = static_cast<uint32_t>(src.op_sload);
+        curr.avm_main_sel_op_sstore = static_cast<uint32_t>(src.op_sstore);
+
+        // Hack? - we just need to know the values in the row before so we can increment
+        if (clk < main_trace_size) {
+            Row& next = main_trace.at(clk + 1);
+
+            // Increment the write offset counter for the following row
+            if (src.op_note_hash_exists) {
+                next.avm_kernel_note_hash_exist_write_offset = curr.avm_kernel_note_hash_exist_write_offset + 1;
+            } else if (src.op_emit_note_hash) {
+                next.avm_kernel_emit_note_hash_write_offset = curr.avm_kernel_emit_note_hash_write_offset + 1;
+            } else if (src.op_emit_nullifier) {
+                next.avm_kernel_emit_nullifier_write_offset = curr.avm_kernel_emit_nullifier_write_offset + 1;
+            } else if (src.op_nullifier_exists) {
+                next.avm_kernel_nullifier_exists_write_offset = curr.avm_kernel_nullifier_exists_write_offset + 1;
+            } else if (src.op_emit_l2_to_l1_msg) {
+                next.avm_kernel_l1_to_l2_msg_write_offset = curr.avm_kernel_l1_to_l2_msg_write_offset + 1;
+            } else if (src.op_emit_unencrypted_log) {
+                next.avm_kernel_emit_unencrypted_log_write_offset =
+                    curr.avm_kernel_emit_unencrypted_log_write_offset + 1;
+            } else if (src.op_sload) {
+                next.avm_kernel_sload_write_offset = curr.avm_kernel_sload_write_offset + 1;
+            } else if (src.op_sstore) {
+                next.avm_kernel_sstore_write_offset = curr.avm_kernel_sstore_write_offset + 1;
+            }
+
+            // The side effect counter will increment regardless of the offset value
+            next.avm_kernel_side_effect_counter = curr.avm_kernel_side_effect_counter + 1;
+        }
+
+        kernel_padding_main_trace_bottom = clk + 1;
+        info("\nkernel padding main trace boTTom at end ", kernel_padding_main_trace_bottom);
+    }
+
+    // Pad out the main trace from the bottom of the main trace until the end
+    for (size_t i = kernel_padding_main_trace_bottom + 1; i < main_trace_size; ++i) {
+
+        // TODO: Start from plus 1 and prev is i - 1? SWAP THIS AROUND?
+        Row const& prev = main_trace.at(i - 1);
+        Row& dest = main_trace.at(i);
+
+        // TODO: is there a better way to do this? - this now just sets to 0 on the last row
+        // Setting all of the counters to 0 after the IS_LAST check so we can satisfy the constraints until the end
+        if (i == main_trace_size) {
+            dest.avm_kernel_note_hash_exist_write_offset = 0;
+            dest.avm_kernel_emit_note_hash_write_offset = 0;
+            dest.avm_kernel_nullifier_exists_write_offset = 0;
+            dest.avm_kernel_emit_nullifier_write_offset = 0;
+            dest.avm_kernel_l1_to_l2_msg_write_offset = 0;
+            dest.avm_kernel_emit_unencrypted_log_write_offset = 0;
+            dest.avm_kernel_sload_write_offset = 0;
+            dest.avm_kernel_sstore_write_offset = 0;
+            dest.avm_kernel_side_effect_counter = 0;
+        } else {
+            dest.avm_kernel_note_hash_exist_write_offset = prev.avm_kernel_note_hash_exist_write_offset;
+            dest.avm_kernel_emit_note_hash_write_offset = prev.avm_kernel_emit_note_hash_write_offset;
+            dest.avm_kernel_nullifier_exists_write_offset = prev.avm_kernel_nullifier_exists_write_offset;
+            dest.avm_kernel_emit_nullifier_write_offset = prev.avm_kernel_emit_nullifier_write_offset;
+            dest.avm_kernel_l1_to_l2_msg_write_offset = prev.avm_kernel_l1_to_l2_msg_write_offset;
+            dest.avm_kernel_emit_unencrypted_log_write_offset = prev.avm_kernel_emit_unencrypted_log_write_offset;
+            dest.avm_kernel_sload_write_offset = prev.avm_kernel_sload_write_offset;
+            dest.avm_kernel_sstore_write_offset = prev.avm_kernel_sstore_write_offset;
+            dest.avm_kernel_side_effect_counter = prev.avm_kernel_side_effect_counter;
+        }
+    }
+
+    // ============= WORK IN PROGRESS =============================
 
     // Adding extra row for the shifted values at the top of the execution trace.
     Row first_row = Row{ .avm_main_first = FF(1), .avm_mem_lastAccess = FF(1) };

@@ -15,6 +15,8 @@ template <typename FF> struct Avm_mainRow {
     FF avm_kernel_l1_to_l2_msg_write_offset{};
     FF avm_kernel_note_hash_exist_write_offset{};
     FF avm_kernel_nullifier_exists_write_offset{};
+    FF avm_kernel_side_effect_counter{};
+    FF avm_kernel_side_effect_counter_shift{};
     FF avm_kernel_sload_write_offset{};
     FF avm_kernel_sstore_write_offset{};
     FF avm_main_alu_in_tag{};
@@ -211,10 +213,10 @@ inline std::string get_relation_label_avm_main(int index)
     case 107:
         return "SSTORE_KERNEL_OUTPUT";
 
-    case 108:
+    case 109:
         return "BIN_SEL_1";
 
-    case 109:
+    case 110:
         return "BIN_SEL_2";
     }
     return std::to_string(index);
@@ -224,10 +226,10 @@ template <typename FF_> class avm_mainImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 110> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr std::array<size_t, 111> SUBRELATION_PARTIAL_LENGTHS{
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 5, 3, 4, 4, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
+        3, 3, 3, 5, 3, 4, 4, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -1183,7 +1185,15 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(108);
 
-            auto tmp = (avm_main_bin_op_id - (avm_main_sel_op_or + (avm_main_sel_op_xor * FF(2))));
+            auto tmp = (((((((((avm_main_sel_op_note_hash_exists + avm_main_sel_op_emit_note_hash) +
+                               avm_main_sel_op_nullifier_exists) +
+                              avm_main_sel_op_emit_nullifier) +
+                             avm_main_sel_op_l1_to_l2_msg_exists) +
+                            avm_main_sel_op_emit_unencrypted_log) +
+                           avm_main_sel_op_send_l2_to_l1_msg) +
+                          avm_main_sel_op_sload) +
+                         avm_main_sel_op_sstore) *
+                        (avm_kernel_side_effect_counter_shift - (avm_kernel_side_effect_counter + FF(1))));
             tmp *= scaling_factor;
             std::get<108>(evals) += tmp;
         }
@@ -1191,9 +1201,17 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(109);
 
-            auto tmp = (avm_main_bin_sel - ((avm_main_sel_op_and + avm_main_sel_op_or) + avm_main_sel_op_xor));
+            auto tmp = (avm_main_bin_op_id - (avm_main_sel_op_or + (avm_main_sel_op_xor * FF(2))));
             tmp *= scaling_factor;
             std::get<109>(evals) += tmp;
+        }
+        // Contribution 110
+        {
+            Avm_DECLARE_VIEWS(110);
+
+            auto tmp = (avm_main_bin_sel - ((avm_main_sel_op_and + avm_main_sel_op_or) + avm_main_sel_op_xor));
+            tmp *= scaling_factor;
+            std::get<110>(evals) += tmp;
         }
     }
 };

@@ -3,6 +3,7 @@
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_kernel_trace.hpp"
 #include "barretenberg/vm/avm_trace/constants.hpp"
+#include "barretenberg/vm/tests/helpers.test.hpp"
 
 namespace tests_avm {
 using namespace bb::avm_trace;
@@ -18,21 +19,30 @@ class AvmKernelPositiveTests : public ::testing::Test {};
 class AvmKernelNegativeTests : public ::testing::Test {};
 
 using KernelInputs = std::array<FF, KERNEL_INPUTS_LENGTH>;
-KernelInputs get_kernel_inputs()
+
+VM_PUBLIC_INPUTS get_public_inputs()
 {
+    VM_PUBLIC_INPUTS public_inputs = {};
+
     std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs;
     for (size_t i = 0; i < KERNEL_INPUTS_LENGTH; i++) {
         kernel_inputs[i] = FF(i + 1);
     }
-    return kernel_inputs;
+
+    // Copy the kernel inputs into the public inputs object
+    std::get<0>(public_inputs) = kernel_inputs;
+
+    return public_inputs;
 }
 
 // Template helper function to apply boilerplate around the kernel lookup tests
 template <typename OpcodesFunc, typename CheckFunc>
 void test_kernel_lookup(OpcodesFunc apply_opcodes, CheckFunc check_trace)
 {
-    KernelInputs kernel_inputs = get_kernel_inputs();
-    AvmTraceBuilder trace_builder(kernel_inputs);
+    VM_PUBLIC_INPUTS public_inputs = get_public_inputs();
+
+    // TODO: update the trace builder to take in the full VM_PUBLIC_INPUTS
+    AvmTraceBuilder trace_builder(public_inputs);
 
     // We should return a value of 1 for the sender, as it exists at index 0
     apply_opcodes(trace_builder);
@@ -43,7 +53,25 @@ void test_kernel_lookup(OpcodesFunc apply_opcodes, CheckFunc check_trace)
 
     check_trace(trace);
 
-    validate_trace(std::move(trace), kernel_inputs);
+    validate_trace(std::move(trace), public_inputs);
+}
+
+template <typename OpcodesFunc, typename CheckFunc>
+void test_kernel_output_lookup(VM_PUBLIC_INPUTS public_inputs, OpcodesFunc apply_opcodes, CheckFunc check_trace)
+{
+    // TODO: update the trace builder to take in the full VM_PUBLIC_INPUTS
+    AvmTraceBuilder trace_builder(public_inputs);
+
+    // We should return a value of 1 for the sender, as it exists at index 0
+    apply_opcodes(trace_builder);
+
+    trace_builder.halt();
+
+    auto trace = trace_builder.finalize();
+
+    check_trace(trace);
+
+    validate_trace(std::move(trace), public_inputs);
 }
 
 /*
@@ -71,11 +99,11 @@ TEST_F(AvmKernelPositiveTests, kernelSender)
     // We test that the sender opcode is included at index 0 in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_sender(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        std::vector<Row>::const_iterator sender_row =
+        std::vector<Row>::const_iterator row =
             std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sender == FF(1); });
-        EXPECT_TRUE(sender_row != trace.end());
+        EXPECT_TRUE(row != trace.end());
 
-        expect_row(sender_row,
+        expect_row(row,
                    /*kernel_sel=*/SENDER_SELECTOR,
                    /*ia=*/SENDER_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
@@ -287,8 +315,8 @@ void negative_test_incorrect_ia_kernel_lookup(OpcodesFunc apply_opcodes,
                                               FF incorrect_ia,
                                               auto expected_message)
 {
-    KernelInputs kernel_inputs = get_kernel_inputs();
-    AvmTraceBuilder trace_builder(kernel_inputs);
+    VM_PUBLIC_INPUTS public_inputs = get_public_inputs();
+    AvmTraceBuilder trace_builder(public_inputs);
 
     // We should return a value of 1 for the sender, as it exists at index 0
     apply_opcodes(trace_builder);
@@ -305,7 +333,7 @@ void negative_test_incorrect_ia_kernel_lookup(OpcodesFunc apply_opcodes,
 
     check_trace(trace);
 
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace), kernel_inputs), expected_message);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace), public_inputs), expected_message);
 }
 
 TEST_F(AvmKernelNegativeTests, incorrectIaSender)
@@ -316,12 +344,12 @@ TEST_F(AvmKernelNegativeTests, incorrectIaSender)
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_sender(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        std::vector<Row>::const_iterator sender_row =
+        std::vector<Row>::const_iterator row =
             std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sender == FF(1); });
-        EXPECT_TRUE(sender_row != trace.end());
+        EXPECT_TRUE(row != trace.end());
 
         expect_row(
-            sender_row,
+            row,
             /*kernel_sel=*/SENDER_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
@@ -339,12 +367,12 @@ TEST_F(AvmKernelNegativeTests, incorrectIaAddress)
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_address(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        std::vector<Row>::const_iterator sender_row =
+        std::vector<Row>::const_iterator row =
             std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_address == FF(1); });
-        EXPECT_TRUE(sender_row != trace.end());
+        EXPECT_TRUE(row != trace.end());
 
         expect_row(
-            sender_row,
+            row,
             /*kernel_sel=*/ADDRESS_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
@@ -362,12 +390,12 @@ TEST_F(AvmKernelNegativeTests, incorrectIaPortal)
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_portal(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        std::vector<Row>::const_iterator sender_row =
+        std::vector<Row>::const_iterator row =
             std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_portal == FF(1); });
-        EXPECT_TRUE(sender_row != trace.end());
+        EXPECT_TRUE(row != trace.end());
 
         expect_row(
-            sender_row,
+            row,
             /*kernel_sel=*/PORTAL_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
@@ -385,12 +413,12 @@ TEST_F(AvmKernelNegativeTests, incorrectIaDaGas)
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_fee_per_da_gas(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        std::vector<Row>::const_iterator sender_row = std::ranges::find_if(
+        std::vector<Row>::const_iterator row = std::ranges::find_if(
             trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fee_per_da_gas == FF(1); });
-        EXPECT_TRUE(sender_row != trace.end());
+        EXPECT_TRUE(row != trace.end());
 
         expect_row(
-            sender_row,
+            row,
             /*kernel_sel=*/FEE_PER_DA_GAS_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
@@ -408,12 +436,12 @@ TEST_F(AvmKernelNegativeTests, incorrectIal2Gas)
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_fee_per_l2_gas(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        std::vector<Row>::const_iterator sender_row = std::ranges::find_if(
+        std::vector<Row>::const_iterator row = std::ranges::find_if(
             trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fee_per_l2_gas == FF(1); });
-        EXPECT_TRUE(sender_row != trace.end());
+        EXPECT_TRUE(row != trace.end());
 
         expect_row(
-            sender_row,
+            row,
             /*kernel_sel=*/FEE_PER_L2_GAS_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
@@ -431,12 +459,12 @@ TEST_F(AvmKernelNegativeTests, incorrectIaTransactionFee)
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_transaction_fee(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        std::vector<Row>::const_iterator sender_row = std::ranges::find_if(
+        std::vector<Row>::const_iterator row = std::ranges::find_if(
             trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_transaction_fee == FF(1); });
-        EXPECT_TRUE(sender_row != trace.end());
+        EXPECT_TRUE(row != trace.end());
 
         expect_row(
-            sender_row,
+            row,
             /*kernel_sel=*/TRANSACTION_FEE_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
@@ -454,12 +482,12 @@ TEST_F(AvmKernelNegativeTests, incorrectIaChainId)
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_chain_id(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        std::vector<Row>::const_iterator sender_row =
+        std::vector<Row>::const_iterator row =
             std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_chain_id == FF(1); });
-        EXPECT_TRUE(sender_row != trace.end());
+        EXPECT_TRUE(row != trace.end());
 
         expect_row(
-            sender_row,
+            row,
             /*kernel_sel=*/CHAIN_ID_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
@@ -477,12 +505,12 @@ TEST_F(AvmKernelNegativeTests, incorrectIaVersion)
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_version(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        std::vector<Row>::const_iterator sender_row =
+        std::vector<Row>::const_iterator row =
             std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_version == FF(1); });
-        EXPECT_TRUE(sender_row != trace.end());
+        EXPECT_TRUE(row != trace.end());
 
         expect_row(
-            sender_row,
+            row,
             /*kernel_sel=*/VERSION_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
@@ -500,12 +528,12 @@ TEST_F(AvmKernelNegativeTests, incorrectIaBlockNumber)
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_block_number(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        std::vector<Row>::const_iterator sender_row = std::ranges::find_if(
+        std::vector<Row>::const_iterator row = std::ranges::find_if(
             trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_block_number == FF(1); });
-        EXPECT_TRUE(sender_row != trace.end());
+        EXPECT_TRUE(row != trace.end());
 
         expect_row(
-            sender_row,
+            row,
             /*kernel_sel=*/BLOCK_NUMBER_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
@@ -523,12 +551,12 @@ TEST_F(AvmKernelNegativeTests, incorrectIaTimestamp)
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_timestamp(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        std::vector<Row>::const_iterator sender_row = std::ranges::find_if(
+        std::vector<Row>::const_iterator row = std::ranges::find_if(
             trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_timestamp == FF(1); });
-        EXPECT_TRUE(sender_row != trace.end());
+        EXPECT_TRUE(row != trace.end());
 
         expect_row(
-            sender_row,
+            row,
             /*kernel_sel=*/TIMESTAMP_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a*/ dst_offset,
@@ -546,12 +574,12 @@ TEST_F(AvmKernelNegativeTests, incorrectIaCoinbase)
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_coinbase(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        std::vector<Row>::const_iterator sender_row =
+        std::vector<Row>::const_iterator row =
             std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_coinbase == FF(1); });
-        EXPECT_TRUE(sender_row != trace.end());
+        EXPECT_TRUE(row != trace.end());
 
         expect_row(
-            sender_row,
+            row,
             /*kernel_sel=*/COINBASE_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
@@ -559,6 +587,59 @@ TEST_F(AvmKernelNegativeTests, incorrectIaCoinbase)
     };
 
     negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, "PERM_MAIN_MEM_A");
+}
+
+// KERNEL OUTPUTS
+class AvmKernelOutputPositiveTests : public ::testing::Test {};
+class AvmKernelOutputNegativeTests : public ::testing::Test {};
+
+TEST_F(AvmKernelOutputPositiveTests, kernelEmitNoteHash)
+{
+    // We write the note hash offset into the public inputs
+    VM_PUBLIC_INPUTS public_inputs{};
+
+    // TODO: right now we write into the public inputs inside the builder itself
+    // size_t offset = AvmKernelTraceBuilder::START_EMIT_NOTE_HASH_WRITE_OFFSET;
+    // std::get<KERNEL_OUTPUTS_VALUE>(public_inputs)[offset] = 1234;
+    // std::get<KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER>(public_inputs)[offset] = 0;
+    // std::get<KERNEL_OUTPUTS_METADATA>(public_inputs)[offset] = 0;
+
+    uint32_t note_hash_offset = 42;
+    // We write the note hash into memoru
+    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
+        trace_builder.op_set(0, 1234, note_hash_offset, AvmMemoryTag::FF);
+        trace_builder.op_emit_note_hash(note_hash_offset);
+    };
+    auto checks = [=](const std::vector<Row>& trace) {
+        std::vector<Row>::const_iterator row = std::ranges::find_if(
+            trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_emit_note_hash == FF(1); });
+        EXPECT_TRUE(row != trace.end());
+
+        info("Checking row for emit note hash");
+        info("clk: ", row->avm_main_clk);
+        // Checks dependent on the opcode
+        info("emit note hash sel: ", row->avm_main_sel_op_emit_note_hash);
+        info("ia: ", row->avm_main_ia);
+        info("mem idx a: ", row->avm_main_mem_idx_a);
+        info("total offset ", row->avm_kernel_kernel_out_sel);
+        info("note hash offset ", row->avm_kernel_emit_note_hash_write_offset);
+
+        for (size_t i = 0; i < 4; ++i) {
+            const auto& row = trace.at(i);
+
+            info("clk: ", row.avm_main_clk);
+            // Checks dependent on the opcode
+            info("emit note hash sel: ", row.avm_main_sel_op_emit_note_hash);
+            info("ia: ", row.avm_main_ia);
+            info("mem idx a: ", row.avm_main_mem_idx_a);
+            info("total offset ", row.avm_kernel_kernel_out_sel);
+            info("note hash offset ", row.avm_kernel_emit_note_hash_write_offset);
+            info("side effect counterk ", row.avm_kernel_side_effect_counter);
+            info("");
+        }
+    };
+
+    test_kernel_output_lookup(public_inputs, apply_opcodes, checks);
 }
 
 } // namespace tests_avm

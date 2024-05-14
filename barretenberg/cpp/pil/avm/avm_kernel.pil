@@ -3,11 +3,19 @@ include "constants.pil";
 
 namespace avm_kernel(256);
     pol public kernel_inputs;
+
+    pol public kernel_value_out;
+    pol public kernel_side_effect_out;
+    pol public kernel_metadata_out;
+
+    // TODO: just use one col for both of these
     pol commit kernel_sel;
+    pol commit kernel_out_sel;
 
     // Note: in the future, with some codegen adjustments, this column will not be needed
     // as we can just add every entry in the public kernel_inputs to the lookup table
     pol commit q_public_input_kernel_add_to_table;
+    pol commit q_public_input_kernel_out_add_to_table;
 
 
     // Kernel Outputs
@@ -17,4 +25,53 @@ namespace avm_kernel(256);
     
     // Global side effect counter -> should always increment when a side effect is created
     pol commit side_effect_counter;
+
+    // TODO: INCREMENT SIDE EFFECT COUNTER
+    // TODO: CONSTRAIN START AND MAX VALUES FOR OFFSET COUNTERS -> 16 length etc
+    // All 16 bit range checks will be required
+    // OR CONSTRAIN VALUE - MAX in clk therefore is positive
+
+    // FIXED INDEXES -> CONSTANTS - TEMP for the meantime to test with
+    pol START_NOTE_HASH_EXISTS_WRITE_OFFSET = 0;
+    pol START_EMIT_NOTE_HASH_WRITE_OFFSET = 4;
+    pol START_NULLIFIER_EXISTS_OFFSET = 8;
+    pol START_EMIT_NULLIFIER_WRITE_OFFSET = 12;
+    pol START_L1_TO_L2_MSG_WRITE_OFFSET = 16;
+    pol START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 20;
+
+    pol START_SLOAD_WRITE_OFFSET = 24;
+    pol START_SSTORE_WRITE_OFFSET = 28;
+
+    // Current write offsets for each opcode
+    pol commit note_hash_exist_write_offset;
+    pol commit emit_note_hash_write_offset;
+    pol commit nullifier_exists_write_offset;
+    pol commit emit_nullifier_write_offset;
+    pol commit l1_to_l2_msg_write_offset;
+    pol commit emit_unencrypted_log_write_offset;
+
+    pol commit sload_write_offset;
+    pol commit sstore_write_offset;
+
+    pol NOT_LAST = (1 - avm_main.last);
+
+    // Constraints to increase the offsets when the opcodes are found
+    #[NOTE_HASH_EXISTS_INC_CONSISTENCY_CHECK]
+    NOT_LAST * (note_hash_exist_write_offset' - (note_hash_exist_write_offset + avm_main.sel_op_note_hash_exists)) = 0;
+    #[EMIT_NOTE_HASH_INC_CONSISTENCY_CHECK]
+    NOT_LAST * (emit_note_hash_write_offset' - (emit_note_hash_write_offset + avm_main.sel_op_emit_note_hash)) = 0;
+    #[NULLIFIER_EXISTS_INC_CONSISTENCY_CHECK]
+    NOT_LAST * (nullifier_exists_write_offset' - (nullifier_exists_write_offset + avm_main.sel_op_nullifier_exists)) = 0;
+    #[EMIT_NULLIFIER_INC_CONSISTENCY_CHECK]
+    NOT_LAST * (emit_nullifier_write_offset' - (emit_nullifier_write_offset + avm_main.sel_op_emit_nullifier)) = 0;
+    #[L1_TO_L2_MSG_INC_CONSISTENCY_CHECK]
+    NOT_LAST * (l1_to_l2_msg_write_offset' - (l1_to_l2_msg_write_offset + avm_main.sel_op_l1_to_l2_msg_exists)) = 0;
+    #[EMIT_UNENCRYPTED_LOG_INC_CONSISTENCY_CHECK]
+    NOT_LAST * (emit_unencrypted_log_write_offset' - (emit_unencrypted_log_write_offset + avm_main.sel_op_emit_unencrypted_log)) = 0;
+
+    #[SLOAD_INC_CONSISTENCY_CHECK]
+    NOT_LAST * (sload_write_offset' - (sload_write_offset + avm_main.sel_op_sload)) = 0;
+    #[SSTORE_INC_CONSISTENCY_CHECK]
+    NOT_LAST * (sstore_write_offset' - (sstore_write_offset + avm_main.sel_op_sstore)) = 0;
+
     

@@ -24,7 +24,7 @@ class AvmTraceBuilder {
   public:
     static const size_t CALLSTACK_OFFSET = 896; // TODO(md): Temporary reserved area 896 - 1024
 
-    AvmTraceBuilder(std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs = {});
+    AvmTraceBuilder(VM_PUBLIC_INPUTS public_inputs = {});
 
     std::vector<Row> finalize();
     void reset();
@@ -97,6 +97,9 @@ class AvmTraceBuilder {
     void op_coinbase(uint32_t dst_offset);
     void op_timestamp(uint32_t dst_offset);
 
+    // Outputs
+    void op_emit_note_hash(uint32_t note_hash_offset);
+
     // Cast an element pointed by the address a_offset into type specified by dst_tag and
     // store the result in address given by dst_offset.
     void op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag dst_tag);
@@ -152,6 +155,11 @@ class AvmTraceBuilder {
 
     Row create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t selector, FF value, AvmMemoryTag w_tag);
     void finalise_mem_trace_lookup_counts();
+
+    // kernel_output_lookup_opcode
+    // uint32_t value_read_offset,
+    //                                     uint32_t metadata_read_offset,
+    //                                     AvmMemoryTag w_tag);
 
     IndirectThreeResolution resolve_ind_three(
         uint32_t clk, uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t c_offset);

@@ -88,7 +88,7 @@ class AvmFlavor {
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 375;
+    static constexpr size_t NUM_ALL_ENTITIES = 376;
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
@@ -1219,6 +1219,7 @@ class AvmFlavor {
                               avm_kernel_l1_to_l2_msg_write_offset_shift,
                               avm_kernel_note_hash_exist_write_offset_shift,
                               avm_kernel_nullifier_exists_write_offset_shift,
+                              avm_kernel_side_effect_counter_shift,
                               avm_kernel_sload_write_offset_shift,
                               avm_kernel_sstore_write_offset_shift,
                               avm_main_internal_return_ptr_shift,
@@ -1597,6 +1598,7 @@ class AvmFlavor {
                      avm_kernel_l1_to_l2_msg_write_offset_shift,
                      avm_kernel_note_hash_exist_write_offset_shift,
                      avm_kernel_nullifier_exists_write_offset_shift,
+                     avm_kernel_side_effect_counter_shift,
                      avm_kernel_sload_write_offset_shift,
                      avm_kernel_sstore_write_offset_shift,
                      avm_main_internal_return_ptr_shift,
@@ -1978,6 +1980,7 @@ class AvmFlavor {
                      avm_kernel_l1_to_l2_msg_write_offset,
                      avm_kernel_note_hash_exist_write_offset,
                      avm_kernel_nullifier_exists_write_offset,
+                     avm_kernel_side_effect_counter,
                      avm_kernel_sload_write_offset,
                      avm_kernel_sstore_write_offset,
                      avm_main_internal_return_ptr,
@@ -2041,6 +2044,7 @@ class AvmFlavor {
                      avm_kernel_l1_to_l2_msg_write_offset_shift,
                      avm_kernel_note_hash_exist_write_offset_shift,
                      avm_kernel_nullifier_exists_write_offset_shift,
+                     avm_kernel_side_effect_counter_shift,
                      avm_kernel_sload_write_offset_shift,
                      avm_kernel_sstore_write_offset_shift,
                      avm_main_internal_return_ptr_shift,
@@ -2114,6 +2118,7 @@ class AvmFlavor {
                      avm_kernel_l1_to_l2_msg_write_offset,
                      avm_kernel_note_hash_exist_write_offset,
                      avm_kernel_nullifier_exists_write_offset,
+                     avm_kernel_side_effect_counter,
                      avm_kernel_sload_write_offset,
                      avm_kernel_sstore_write_offset,
                      avm_main_internal_return_ptr,

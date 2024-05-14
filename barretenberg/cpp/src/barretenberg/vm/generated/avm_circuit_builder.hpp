@@ -436,6 +436,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_kernel_l1_to_l2_msg_write_offset_shift{};
     FF avm_kernel_note_hash_exist_write_offset_shift{};
     FF avm_kernel_nullifier_exists_write_offset_shift{};
+    FF avm_kernel_side_effect_counter_shift{};
     FF avm_kernel_sload_write_offset_shift{};
     FF avm_kernel_sstore_write_offset_shift{};
     FF avm_main_internal_return_ptr_shift{};
@@ -458,7 +459,7 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 375;
+    static constexpr size_t num_fixed_columns = 376;
     static constexpr size_t num_polys = 315;
     std::vector<Row> rows;
 
@@ -807,6 +808,7 @@ class AvmCircuitBuilder {
             Polynomial(polys.avm_kernel_note_hash_exist_write_offset.shifted());
         polys.avm_kernel_nullifier_exists_write_offset_shift =
             Polynomial(polys.avm_kernel_nullifier_exists_write_offset.shifted());
+        polys.avm_kernel_side_effect_counter_shift = Polynomial(polys.avm_kernel_side_effect_counter.shifted());
         polys.avm_kernel_sload_write_offset_shift = Polynomial(polys.avm_kernel_sload_write_offset.shifted());
         polys.avm_kernel_sstore_write_offset_shift = Polynomial(polys.avm_kernel_sstore_write_offset.shifted());
         polys.avm_main_internal_return_ptr_shift = Polynomial(polys.avm_main_internal_return_ptr.shifted());

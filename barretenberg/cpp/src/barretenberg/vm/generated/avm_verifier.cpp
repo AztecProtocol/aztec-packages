@@ -46,7 +46,7 @@ using FF = AvmFlavor::FF;
  * @brief This function verifies an Avm Honk proof for given program settings.
  *
  */
-bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<FF>& public_inputs)
+bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::vector<FF>>& public_inputs)
 {
     using Flavor = AvmFlavor;
     using FF = Flavor::FF;
@@ -638,8 +638,27 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<FF>& pu
         return false;
     }
 
-    FF public_column_evaluation = evaluate_public_input_column(public_inputs, circuit_size, multivariate_challenge);
-    if (public_column_evaluation != claimed_evaluations.avm_kernel_kernel_inputs__is_public) {
+    // PUBLIC INPUT COLUMN EVALUATION CHECKS
+    FF kernel_inputs_evaluation = evaluate_public_input_column(public_inputs[0], circuit_size, multivariate_challenge);
+    if (kernel_inputs_evaluation != claimed_evaluations.avm_kernel_kernel_inputs__is_public) {
+        return false;
+    }
+
+    FF kernel_output_value_evaluation =
+        evaluate_public_input_column(public_inputs[1], circuit_size, multivariate_challenge);
+    if (kernel_output_value_evaluation != claimed_evaluations.avm_kernel_kernel_value_out__is_public) {
+        return false;
+    }
+
+    FF kernel_side_effect_out_evaluation =
+        evaluate_public_input_column(public_inputs[2], circuit_size, multivariate_challenge);
+    if (kernel_side_effect_out_evaluation != claimed_evaluations.avm_kernel_kernel_side_effect_out__is_public) {
+        return false;
+    }
+
+    FF kernel_metadata_out_evaluation =
+        evaluate_public_input_column(public_inputs[3], circuit_size, multivariate_challenge);
+    if (kernel_metadata_out_evaluation != claimed_evaluations.avm_kernel_kernel_metadata_out__is_public) {
         return false;
     }
 

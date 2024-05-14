@@ -2,6 +2,7 @@
 #include "avm_common.test.hpp"
 #include "barretenberg/vm/avm_trace/constants.hpp"
 #include "barretenberg/vm/generated/avm_flavor.hpp"
+#include <bits/utility.h>
 
 namespace tests_avm {
 
@@ -19,10 +20,40 @@ std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<ThreeOpParam> opera
  *
  * @param trace The execution trace
  */
-void validate_trace_check_circuit(std::vector<Row>&& trace, std::array<FF, KERNEL_INPUTS_LENGTH> public_inputs)
+void validate_trace_check_circuit(std::vector<Row>&& trace, VM_PUBLIC_INPUTS public_inputs)
 {
     validate_trace(std::move(trace), public_inputs, false);
 };
+
+// TODO:
+std::vector<std::vector<FF>> copy_public_inputs_columns(VM_PUBLIC_INPUTS public_inputs)
+{
+    // We convert to a vector as the pil generated verifier is generic and unaware of the KERNEL_INPUTS_LENGTH
+    // For each of the public input vectors
+    std::vector<FF> public_inputs_kernel_inputs(KERNEL_INPUTS_LENGTH);
+    std::vector<FF> public_inputs_kernel_value_outputs(KERNEL_OUTPUTS_LENGTH);
+    std::vector<FF> public_inputs_kernel_side_effect_outputs(KERNEL_OUTPUTS_LENGTH);
+    std::vector<FF> public_inputs_kernel_metadata_outputs(KERNEL_OUTPUTS_LENGTH);
+
+    std::copy(std::get<0>(public_inputs).begin(), std::get<0>(public_inputs).end(), public_inputs_kernel_inputs.data());
+    std::copy(std::get<1>(public_inputs).begin(),
+              std::get<1>(public_inputs).end(),
+              public_inputs_kernel_value_outputs.data());
+    std::copy(std::get<2>(public_inputs).begin(),
+              std::get<2>(public_inputs).end(),
+              public_inputs_kernel_side_effect_outputs.data());
+    std::copy(std::get<3>(public_inputs).begin(),
+              std::get<3>(public_inputs).end(),
+              public_inputs_kernel_metadata_outputs.data());
+
+    std::vector<std::vector<FF>> public_inputs_as_vec(4);
+    public_inputs_as_vec[0] = public_inputs_kernel_inputs;
+    public_inputs_as_vec[1] = public_inputs_kernel_value_outputs;
+    public_inputs_as_vec[2] = public_inputs_kernel_side_effect_outputs;
+    public_inputs_as_vec[3] = public_inputs_kernel_metadata_outputs;
+
+    return public_inputs_as_vec;
+}
 
 /**
  * @brief Helper routine which checks the circuit constraints and depending on
@@ -30,7 +61,7 @@ void validate_trace_check_circuit(std::vector<Row>&& trace, std::array<FF, KERNE
  *
  * @param trace The execution trace
  */
-void validate_trace(std::vector<Row>&& trace, std::array<FF, KERNEL_INPUTS_LENGTH> public_inputs, bool with_proof)
+void validate_trace(std::vector<Row>&& trace, VM_PUBLIC_INPUTS public_inputs, bool with_proof)
 {
     auto circuit_builder = AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
@@ -44,9 +75,7 @@ void validate_trace(std::vector<Row>&& trace, std::array<FF, KERNEL_INPUTS_LENGT
 
         AvmVerifier verifier = composer.create_verifier(circuit_builder);
 
-        // We convert to a vector as the pil generated verifier is generic and unaware of the KERNEL_INPUTS_LENGTH
-        std::vector<FF> public_inputs_as_vec(KERNEL_INPUTS_LENGTH);
-        std::copy(public_inputs.begin(), public_inputs.end(), public_inputs_as_vec.data());
+        std::vector<std::vector<FF>> public_inputs_as_vec = copy_public_inputs_columns(public_inputs);
 
         bool verified = verifier.verify_proof(proof, public_inputs_as_vec);
 
