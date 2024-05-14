@@ -60,8 +60,8 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
         args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
         functionData: new FunctionData(
           FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
-          false,
-          false,
+          /*isPrivate=*/ false,
+          /*isStatic=*/ false,
         ),
         to: this.asset,
       },
@@ -73,8 +73,8 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
         to: this.getPaymentContract(),
         functionData: new FunctionData(
           FunctionSelector.fromSignature('fee_entrypoint_public(Field,(Field),Field)'),
-          true,
-          false,
+          /*isPrivate=*/ true,
+          /*isStatic=*/ false,
         ),
         args: [maxFee, this.asset, nonce],
       },

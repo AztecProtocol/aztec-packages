@@ -67,8 +67,8 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
         args: [this.wallet.getCompleteAddress().address, this.paymentContract, maxFee, nonce],
         functionData: new FunctionData(
           FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)'),
-          true,
-          false,
+          /*isPrivate=*/ true,
+          /*isStatic=*/ false,
         ),
         to: this.asset,
       },
@@ -82,8 +82,8 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
         to: this.getPaymentContract(),
         functionData: new FunctionData(
           FunctionSelector.fromSignature('fee_entrypoint_private(Field,(Field),Field,Field)'),
-          true,
-          false,
+          /*isPrivate=*/ true,
+          /*isStatic=*/ false,
         ),
         args: [maxFee, this.asset, secretHashForRebate, nonce],
       },

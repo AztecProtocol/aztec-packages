@@ -54,7 +54,11 @@ export class NativeFeePaymentMethod implements FeePaymentMethod {
     return Promise.resolve([
       {
         to: this.#gasTokenAddress,
-        functionData: new FunctionData(FunctionSelector.fromSignature('pay_fee(Field)'), false, false),
+        functionData: new FunctionData(
+          FunctionSelector.fromSignature('pay_fee(Field)'),
+          /*isPrivate=*/ false,
+          /*isStatic=*/ false,
+        ),
         args: [gasSettings.getFeeLimit()],
       },
     ]);

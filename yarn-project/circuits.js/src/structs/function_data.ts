@@ -72,7 +72,11 @@ export class FunctionData {
    */
   static fromBuffer(buffer: Buffer | BufferReader): FunctionData {
     const reader = BufferReader.asReader(buffer);
-    return new FunctionData(reader.readObject(FunctionSelector), reader.readBoolean(), reader.readBoolean());
+    return new FunctionData(
+      reader.readObject(FunctionSelector),
+      /*isPrivate=*/ reader.readBoolean(),
+      /*isStatic=*/ reader.readBoolean(),
+    );
   }
 
   static fromFields(fields: Fr[] | FieldReader): FunctionData {
