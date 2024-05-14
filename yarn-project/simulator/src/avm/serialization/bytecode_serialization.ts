@@ -12,6 +12,7 @@ import {
   CalldataCopy,
   Cast,
   ChainId,
+  DebugLog,
   Div,
   EmitNoteHash,
   EmitNullifier,
@@ -47,6 +48,7 @@ import {
   StorageAddress,
   Sub,
   Timestamp,
+  ToRadixLE,
   TransactionFee,
   Version,
   Xor,
@@ -131,6 +133,9 @@ const INSTRUCTION_SET = () =>
     //[DelegateCall.opcode, DelegateCall],
     [Return.opcode, Return],
     [Revert.opcode, Revert],
+
+    // Misc
+    [DebugLog.opcode, DebugLog],
 
     // //// Gadgets
     [Keccak.opcode, Keccak],
