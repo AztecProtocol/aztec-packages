@@ -1,7 +1,9 @@
 VERSION 0.8
 IMPORT ../noir AS noir
+ARG --global module=avm-transpiler
 
-source:
+source: #aztec-tag=cache
+  ARG EARTHLY_TARGET_NAME
   # we rely on noir source, which this image has
   FROM noir+nargo
 
@@ -14,10 +16,13 @@ source:
 
   # for debugging rebuilds
   RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
+  SAVE IMAGE --push aztecprotocol/cache:$module-$EARTHLY_TARGET_NAME
 
-build:
+build: #aztec-tag=cache
+    ARG EARTHLY_TARGET_NAME
     FROM +source
     RUN ./scripts/bootstrap_native.sh
+    SAVE IMAGE --push aztecprotocol/cache:$module-$EARTHLY_TARGET_NAME
     SAVE ARTIFACT target/release/avm-transpiler avm-transpiler
 
 run:

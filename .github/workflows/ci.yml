@@ -63,15 +63,17 @@ jobs:
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
+        if: ${{ github.ref_name == 'ad/inline-caching' }}
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
+        if: ${{ github.ref_name == 'ad/inline-caching' }}
         with:
           concurrency_key: build-push-remote-cache
       # push remote cache, giving ample time for first push
       - name: "Build Push Remote Cache"
-        if: ${{ github.ref_name == 'master' }}
+        if: ${{ github.ref_name == 'ad/inline-caching' }}
         timeout-minutes: 60
-        run: earthly-ci --save-inline-cache ./yarn-project+export-e2e-test-images
+        run: earthly-ci --save-inline-cache --push +remote-build-cache
 
   # all the non-bench end-to-end integration tests for aztec
   e2e:

@@ -34,3 +34,17 @@ scripts:
     FROM scratch
     COPY scripts /usr/src/scripts
     SAVE ARTIFACT /usr/src/scripts scripts
+
+# Push all our targets that are set up for inline caching
+# We use a custom #aztec-tag=cache syntax to clearly mark which SAVE IMAGE commands we want to take.
+# Unfortunately, Earthly does not trigger SAVE IMAGE just from our natural dependency usage.
+# We grep for lines with the tag and BUILD them dynamically this keeps a clutter of bug-prone redundant BUILD statements away.
+# See https://docs.earthly.dev/docs/caching/caching-via-registry#inline-cache for inline caching details
+remote-build-cache:
+    LOCALLY
+    FOR module IN noir barretenberg/cpp barretenberg/ts l1-contracts avm-transpiler
+        FOR target IN $(cat $module/Earthfile | grep '#aztec-tag=cache' | cut -d':' -f1)
+            BUILD ./$module/+$target
+        END
+    END
+

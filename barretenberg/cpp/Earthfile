@@ -1,4 +1,5 @@
 VERSION 0.8
+ARG --global module=barretenberg-cpp
 
 wasmtime:
     FROM ubuntu:noble
@@ -6,7 +7,7 @@ wasmtime:
     RUN curl https://wasmtime.dev/install.sh -sSf | bash
     SAVE ARTIFACT /root/.wasmtime/bin/wasmtime
 
-source:
+source: #aztec-tag=cache
     FROM ../../build-images+build
     WORKDIR /usr/src/barretenberg
     # cpp source
@@ -21,31 +22,32 @@ preset-darwin-arm64:
     LET OSX_SDK="MacOSX14.0.sdk"
     LET OSX_SDK_URL="https://github.com/joseluisq/macosx-sdks/releases/download/14.0/${OSX_SDK}.tar.xz"
     RUN curl -sSL "$OSX_SDK_URL" | tar -xJ -C /opt/osxcross/SDK && rm -rf /opt/osxcross/SDK/$OSX_SDK/System
-    RUN cmake --preset darwin-arm64 -Bbuild && cmake --build build --target bb
+    RUN cmake --preset darwin-arm64 -Bbuild && cmake --build build --target bb && bash -O extglob -c "rm -rf build/!(bin)"
     SAVE ARTIFACT build/bin AS LOCAL build-darwin-arm64/bin
 
 PRESET:
     FUNCTION
     ARG preset
     ARG targets
+    ARG targets_tag=$(echo $targets | tr ' ' '-')
     FROM +source
     # build and keep just binaries
     RUN cmake --preset $preset -Bbuild && \
         cmake --build build --target $targets && \
         bash -O extglob -c "rm -rf build/!(bin)"
-    SAVE IMAGE --push aztecprotocol/cache:barretenberg-preset-$preset
+    SAVE IMAGE --push aztecprotocol/cache:barretenberg-preset-$preset-$targets_tag
     SAVE ARTIFACT build/bin
 
-preset-release:
+preset-release: #aztec-tag=cache
     DO +PRESET --preset=clang16 --targets=bb
 
-preset-release-assert:
+preset-release-assert: #aztec-tag=cache
     DO +PRESET --preset=clang16-assert --targets=bb
 
-preset-debug:
+preset-debug: #aztec-tag=cache
     DO +PRESET --preset=clang16-dbg --targets=bb
 
-preset-wasm:
+preset-wasm: #aztec-tag=cache
     ARG TARGETARCH
     FROM +source
     IF [ $TARGETARCH = arm64 ]
@@ -53,54 +55,55 @@ preset-wasm:
         FROM +preset-wasm-threads
         SAVE ARTIFACT build/bin
     ELSE
-        RUN cmake --preset wasm -Bbuild && cmake --build build --target barretenberg.wasm
+        RUN cmake --preset wasm -Bbuild && cmake --build build --target barretenberg.wasm && bash -O extglob -c "rm -rf build/!(bin)"
         RUN /opt/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
         SAVE ARTIFACT build/bin
         SAVE IMAGE --push aztecprotocol/cache:barretenberg-preset-wasm
     END
 
-preset-sol:
+preset-sol: #aztec-tag=cache
     DO +PRESET --preset=clang16 --targets="solidity_key_gen solidity_proof_gen"
 
-preset-wasm-threads:
+preset-wasm-threads: #aztec-tag=cache
     FROM +source
-    RUN cmake --preset wasm-threads -Bbuild && cmake --build build --target barretenberg.wasm
+    RUN cmake --preset wasm-threads -Bbuild && cmake --build build --target barretenberg.wasm && bash -O extglob -c "rm -rf build/!(bin)"
     # TODO(https://github.com/AztecProtocol/barretenberg/issues/941) We currently do not strip barretenberg threaded wasm, for stack traces.
     # RUN /opt/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
     SAVE ARTIFACT build/bin
     SAVE IMAGE --push aztecprotocol/cache:barretenberg-preset-wasm-threads
 
-preset-gcc:
+preset-gcc: #aztec-tag=cache
     DO +PRESET --preset=gcc --targets="all"
 
-preset-fuzzing:
+preset-fuzzing: #aztec-tag=cache
     DO +PRESET --preset=fuzzing --targets="all"
 
-preset-clang-assert:
+preset-clang-assert: #aztec-tag=cache
     DO +PRESET --preset=clang16-assert --targets="all"
 
 # benchmarking images
 # these are either fresh builds just for benching (op-count and op-count-time)
 # or build the binaries we need for benchmarking
-preset-op-count-bench:
+preset-op-count-bench: #aztec-tag=cache
     DO +PRESET --preset=op-count --targets="ultra_honk_bench client_ivc_bench"
 
-preset-op-count-time-bench:
+preset-op-count-time-bench: #aztec-tag=cache
     DO +PRESET --preset=op-count-time --targets="ultra_honk_bench client_ivc_bench"
 
-preset-release-bench:
+preset-release-bench: #aztec-tag=cache
     DO +PRESET --preset=preset-release --targets="ultra_honk_bench client_ivc_bench"
 
-preset-wasm-bench:
+preset-wasm-bench: #aztec-tag=cache
     DO +PRESET --preset=preset-wasm-threads --targets="ultra_honk_bench client_ivc_bench"
 
 # test images
-preset-release-assert-test:
-    DO +PRESET --preset=preset-release-assert --targets="ultra_honk_bench client_ivc_bench"
+preset-release-assert-test: #aztec-tag=cache
+    DO +PRESET --preset=preset-release-assert --targets="all"
 
 # Sent to the bench runner using a earthly --push +bench-binaries
 # then we can run earthly +bench-ultra-honk --bench_mode=cache
-bench-binaries:
+bench-binaries: #aztec-tag=cache
+    ARG EARTHLY_TARGET_NAME
     ARG EARTHLY_GIT_HASH
     ARG TARGETARCH
     ARG bench_mode=build
@@ -158,13 +161,16 @@ test-binaries:
         COPY +preset-release-assert-test/bin/*_tests build/bin/
         SAVE ARTIFACT build
         SAVE IMAGE --push aztecprotocol/bb-test-binaries:$TARGETARCH-$EARTHLY_GIT_HASH
+        SAVE IMAGE --push aztecprotocol/cache:$module-$EARTHLY_TARGET_NAME
     END
 
-test-clang-format:
+test-clang-format: #aztec-tag=cache
+    ARG EARTHLY_TARGET_NAME
     FROM +source
     COPY .clang-format .
     COPY format.sh .
     RUN ./format.sh check
+    SAVE IMAGE --push aztecprotocol/cache:$module-$EARTHLY_TARGET_NAME
 
 test:
     ARG hardware_concurrency=""

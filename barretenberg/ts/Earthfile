@@ -1,40 +1,54 @@
 VERSION 0.8
+ARG --global module=barretenberg-ts
 
-FROM ../../build-images+build
-WORKDIR /usr/src/barretenberg/ts-build
+source: #aztec-tag=cache
+    FROM ../../build-images+build
+    WORKDIR /usr/src/barretenberg/ts-build
+    # minimum files to download yarn packages
+    # keep timestamps for incremental builds
+    COPY --dir .yarn package.json yarn.lock .yarnrc.yml .
+    RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
+    RUN yarn --immutable
 
-# minimum files to download yarn packages
-# keep timestamps for incremental builds
-COPY --dir .yarn package.json yarn.lock .yarnrc.yml .
-RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
-RUN yarn --immutable
+    # other source files
+    COPY --dir src *.json *.js *.cjs .
 
-# other source files
-COPY --dir src *.json *.js *.cjs .
+    # copy over wasm builds from cpp folder
+    COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg-threads.wasm
+    COPY ../cpp/+preset-wasm/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg.wasm
+    COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm dest/node/barretenberg_wasm/barretenberg-threads.wasm
+    COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm
+    SAVE IMAGE --push aztecprotocol/cache:$module-$EARTHLY_TARGET_NAME
 
-# copy over wasm builds from cpp folder
-COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg-threads.wasm
-COPY ../cpp/+preset-wasm/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg.wasm
-COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm dest/node/barretenberg_wasm/barretenberg-threads.wasm
-COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm
-
-esm:
+esm: #aztec-tag=cache
+    ARG EARTHLY_TARGET_NAME
+    FROM +source
     RUN yarn build:esm
     SAVE ARTIFACT /usr/src/barretenberg/ts-build build
+    SAVE IMAGE --push aztecprotocol/cache:$module-$EARTHLY_TARGET_NAME
 
-cjs:
+cjs: #aztec-tag=cache
+    ARG EARTHLY_TARGET_NAME
+    FROM +source
     COPY scripts/cjs_postprocess.sh scripts/
     RUN yarn build:cjs
     SAVE ARTIFACT /usr/src/barretenberg/ts-build build
+    SAVE IMAGE --push aztecprotocol/cache:$module-$EARTHLY_TARGET_NAME
 
-browser:
+browser: #aztec-tag=cache
+    ARG EARTHLY_TARGET_NAME
+    FROM +source
     RUN yarn build:browser
     SAVE ARTIFACT /usr/src/barretenberg/ts-build build
+    SAVE IMAGE --push aztecprotocol/cache:$module-$EARTHLY_TARGET_NAME
 
 test-prettier-format:
+    FROM +source
     RUN yarn formatting
 
-build:
+build: #aztec-tag=cache
+    ARG EARTHLY_TARGET_NAME
+    FROM +source
     # collect all our build types
     COPY +esm/build /usr/src/barretenberg/ts-build
     COPY +cjs/build /usr/src/barretenberg/ts-build
@@ -42,6 +56,7 @@ build:
     # We want to create a pure package, as would be published to npm, for consuming projects.
     RUN yarn pack && tar zxf package.tgz && rm package.tgz && mv package ../ts
     SAVE ARTIFACT /usr/src/barretenberg/ts build
+    SAVE IMAGE --push aztecprotocol/cache:$module-$EARTHLY_TARGET_NAME
 
 test:
     BUILD +test-prettier-format

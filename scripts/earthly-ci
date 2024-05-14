@@ -17,6 +17,8 @@ ATTEMPT_COUNT=0
 # earthly settings
 export EARTHLY_ALLOW_PRIVILEGED=true
 export EARTHLY_USE_INLINE_CACHE=true
+# avoid git branch overriding EARTHLY_TARGET_NAME
+export EARTHLY_GIT_BRANCH_OVERRIDE=""
 export EARTHLY_NO_BUILDKIT_UPDATE=true
 export FORCE_COLOR=1
 export EARTHLY_CONFIG=$(git rev-parse --show-toplevel)/.github/earthly-ci-config.yml
