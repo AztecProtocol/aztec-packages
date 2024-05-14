@@ -10,7 +10,7 @@ fn main(priv_key: Field, pub_x: pub Field, pub_y: pub Field) {
     assert(res[1] == pub_y);
 
     // Test that double function calling embedded_curve_add works as expected
-    let pub_point = std::embedded_curve_ops::EmbeddedCurvePoint { x: pub_x, y: pub_y, is_infinite: false};
+    let pub_point = std::embedded_curve_ops::EmbeddedCurvePoint { x: pub_x, y: pub_y, is_infinite: false };
     let res = pub_point.double();
     let double = g1.add(g1);
 
