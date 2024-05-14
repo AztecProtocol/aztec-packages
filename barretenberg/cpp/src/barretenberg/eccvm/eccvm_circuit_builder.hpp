@@ -148,42 +148,40 @@ class ECCVMCircuitBuilder {
             msm.resize(msm_sizes[i]);
         }
 
-        //  run_loop_in_parallel(msm_opqueue_index.size(), [&](size_t start, size_t end) {
-        size_t start = 0;
-        size_t end = msm_opqueue_index.size();
-        for (size_t i = start; i < end; i++) {
-            const size_t opqueue_index = msm_opqueue_index[i];
-            const auto& op = raw_ops[opqueue_index];
-            auto [msm_index, mul_index] = msm_mul_index[i];
-            if (op.z1 != 0 && !op.base_point.is_point_at_infinity()) {
+        run_loop_in_parallel(msm_opqueue_index.size(), [&](size_t start, size_t end) {
+            for (size_t i = start; i < end; i++) {
+                const size_t opqueue_index = msm_opqueue_index[i];
+                const auto& op = raw_ops[opqueue_index];
+                auto [msm_index, mul_index] = msm_mul_index[i];
+                if (op.z1 != 0 && !op.base_point.is_point_at_infinity()) {
 
-                ASSERT(msms_test.size() > msm_index);
-                ASSERT(msms_test[msm_index].size() > mul_index);
-                msms_test[msm_index][mul_index] = (ScalarMul{
-                    .pc = 0,
-                    .scalar = op.z1,
-                    .base_point = op.base_point,
-                    .wnaf_slices = compute_wnaf_slices(op.z1),
-                    .wnaf_skew = (op.z1 & 1) == 0,
-                    .precomputed_table = compute_precomputed_table(op.base_point),
-                });
-                mul_index++;
+                    ASSERT(msms_test.size() > msm_index);
+                    ASSERT(msms_test[msm_index].size() > mul_index);
+                    msms_test[msm_index][mul_index] = (ScalarMul{
+                        .pc = 0,
+                        .scalar = op.z1,
+                        .base_point = op.base_point,
+                        .wnaf_slices = compute_wnaf_slices(op.z1),
+                        .wnaf_skew = (op.z1 & 1) == 0,
+                        .precomputed_table = compute_precomputed_table(op.base_point),
+                    });
+                    mul_index++;
+                }
+                if (op.z2 != 0 && !op.base_point.is_point_at_infinity()) {
+                    ASSERT(msms_test.size() > msm_index);
+                    ASSERT(msms_test[msm_index].size() > mul_index);
+                    auto endo_point = AffineElement{ op.base_point.x * FF::cube_root_of_unity(), -op.base_point.y };
+                    msms_test[msm_index][mul_index] = (ScalarMul{
+                        .pc = 0,
+                        .scalar = op.z2,
+                        .base_point = endo_point,
+                        .wnaf_slices = compute_wnaf_slices(op.z2),
+                        .wnaf_skew = (op.z2 & 1) == 0,
+                        .precomputed_table = compute_precomputed_table(endo_point),
+                    });
+                }
             }
-            if (op.z2 != 0 && !op.base_point.is_point_at_infinity()) {
-                ASSERT(msms_test.size() > msm_index);
-                ASSERT(msms_test[msm_index].size() > mul_index);
-                auto endo_point = AffineElement{ op.base_point.x * FF::cube_root_of_unity(), -op.base_point.y };
-                msms_test[msm_index][mul_index] = (ScalarMul{
-                    .pc = 0,
-                    .scalar = op.z2,
-                    .base_point = endo_point,
-                    .wnaf_slices = compute_wnaf_slices(op.z2),
-                    .wnaf_skew = (op.z2 & 1) == 0,
-                    .precomputed_table = compute_precomputed_table(endo_point),
-                });
-            }
-        }
-        //  });
+        });
 
         // update pc. easier to do this serially but in theory could be optimised out
         // We start pc at `num_muls` and decrement for each mul processed.

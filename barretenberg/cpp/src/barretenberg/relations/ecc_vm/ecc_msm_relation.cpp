@@ -232,7 +232,6 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     Accumulator x4_collision_relation(0);
     // If msm_transition = 1, we have started a new MSM. We need to treat the current value of [Acc] as the point at
     // infinity!
-    // auto add_into_accumulator = -msm_transition + 1;
     auto [x_t1, y_t1] = first_add(acc_x, acc_y, x1, y1, lambda1, msm_transition, add_relation, x1_collision_relation);
     auto [x_t2, y_t2] = add(x2, y2, x_t1, y_t1, lambda2, add2, add_relation, x2_collision_relation);
     auto [x_t3, y_t3] = add(x3, y3, x_t2, y_t2, lambda3, add3, add_relation, x3_collision_relation);
