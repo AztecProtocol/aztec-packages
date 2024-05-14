@@ -59,7 +59,7 @@ export const parseModuleOptions = (options: string): Record<string, string> => {
   if (!options?.length) {
     return {};
   }
-  const optionsArray = options.split(',');
+  const optionsArray = options.split(/,(?=\w+=)/);
   return optionsArray.reduce((acc, option) => {
     const [key, value] = option.split('=');
     return { ...acc, [key]: value };
@@ -126,7 +126,18 @@ export async function createAccountLogs(
       accountLogStrings.push(` Address: ${completeAddress.address.toString()}\n`);
       accountLogStrings.push(` Partial Address: ${completeAddress.partialAddress.toString()}\n`);
       accountLogStrings.push(` Secret Key: ${account.secretKey.toString()}\n`);
-      accountLogStrings.push(` Public Key: ${completeAddress.publicKey.toString()}\n\n`);
+      accountLogStrings.push(
+        ` Master nullifier public key: ${completeAddress.publicKeys.masterNullifierPublicKey.toString()}\n`,
+      );
+      accountLogStrings.push(
+        ` Master incoming viewing public key: ${completeAddress.publicKeys.masterIncomingViewingPublicKey.toString()}\n\n`,
+      );
+      accountLogStrings.push(
+        ` Master outgoing viewing public key: ${completeAddress.publicKeys.masterOutgoingViewingPublicKey.toString()}\n\n`,
+      );
+      accountLogStrings.push(
+        ` Master tagging public key: ${completeAddress.publicKeys.masterTaggingPublicKey.toString()}\n\n`,
+      );
     }
   }
   return accountLogStrings;

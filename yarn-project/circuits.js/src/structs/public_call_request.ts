@@ -3,6 +3,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import { inspect } from 'util';
+
 import { computeVarArgsHash } from '../hash/hash.js';
 import { CallContext } from './call_context.js';
 import { CallRequest, CallerContext } from './call_request.js';
@@ -131,5 +133,28 @@ export class PublicCallRequest {
    */
   getArgsHash() {
     return computeVarArgsHash(this.args);
+  }
+
+  static empty() {
+    return new PublicCallRequest(AztecAddress.ZERO, FunctionData.empty(), CallContext.empty(), CallContext.empty(), []);
+  }
+
+  isEmpty(): boolean {
+    return (
+      this.contractAddress.isZero() &&
+      this.functionData.isEmpty() &&
+      this.callContext.isEmpty() &&
+      this.parentCallContext.isEmpty() &&
+      this.args.length === 0
+    );
+  }
+
+  [inspect.custom]() {
+    return `PublicCallRequest {
+      contractAddress: ${this.contractAddress}
+      functionData: ${this.functionData}
+      callContext: ${this.callContext}
+      parentCallContext: ${this.parentCallContext}
+      args: ${this.args} }`;
   }
 }

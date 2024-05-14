@@ -123,7 +123,7 @@ describe('Note Processor', () => {
     const allOwnerKeys = deriveKeys(ownerSk);
 
     ownerMasterIncomingViewingSecretKey = allOwnerKeys.masterIncomingViewingSecretKey;
-    ownerMasterIncomingViewingPublicKey = allOwnerKeys.masterIncomingViewingPublicKey;
+    ownerMasterIncomingViewingPublicKey = allOwnerKeys.publicKeys.masterIncomingViewingPublicKey;
   });
 
   beforeEach(() => {
@@ -146,8 +146,8 @@ describe('Note Processor', () => {
     simulator.computeNoteHashAndNullifier.mockImplementation((...args) =>
       Promise.resolve({
         innerNoteHash: Fr.random(),
-        siloedNoteHash: Fr.random(),
-        uniqueSiloedNoteHash: pedersenHash(args[4].items), // args[4] is note
+        uniqueNoteHash: Fr.random(),
+        siloedNoteHash: pedersenHash(args[4].items), // args[4] is note
         innerNullifier: Fr.random(),
       }),
     );

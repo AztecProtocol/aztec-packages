@@ -40,7 +40,7 @@ const TOKEN_SYMBOL = 'BC';
 const TOKEN_DECIMALS = 18n;
 const BRIDGED_FPC_GAS = BigInt(10e12);
 
-jest.setTimeout(1000_000);
+jest.setTimeout(1_000_000);
 
 describe('e2e_fees_account_init', () => {
   let ctx: EndToEndContext;
@@ -295,7 +295,7 @@ describe('e2e_fees_account_init', () => {
         await ctx.pxe.registerRecipient(completeAddress);
 
         // and deploys bob's account, paying the fee from her balance
-        const publicKeysHash = deriveKeys(bobsSecretKey).publicKeysHash;
+        const publicKeysHash = deriveKeys(bobsSecretKey).publicKeys.hash();
         const tx = await SchnorrAccountContract.deployWithPublicKeysHash(
           publicKeysHash,
           alice,

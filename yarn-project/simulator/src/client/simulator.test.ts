@@ -6,11 +6,7 @@ import {
   computeUniqueNoteHash,
   siloNoteHash,
 } from '@aztec/circuits.js/hash';
-import {
-  ABIParameterVisibility,
-  type FunctionArtifactWithDebugMetadata,
-  getFunctionArtifact,
-} from '@aztec/foundation/abi';
+import { ABIParameterVisibility, type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -34,7 +30,7 @@ describe('Simulator', () => {
     const ownerSk = Fr.fromString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
     const allOwnerKeys = deriveKeys(ownerSk);
 
-    const ownerMasterNullifierPublicKey = allOwnerKeys.masterNullifierPublicKey;
+    const ownerMasterNullifierPublicKey = allOwnerKeys.publicKeys.masterNullifierPublicKey;
     const ownerMasterNullifierSecretKey = allOwnerKeys.masterNullifierSecretKey;
 
     contractAddress = AztecAddress.random();
@@ -70,20 +66,16 @@ describe('Simulator', () => {
       const note = createNote();
       const tokenNoteHash = computeNoteContentHash(note.items);
       const innerNoteHash = computeInnerNoteHash(storageSlot, tokenNoteHash);
-      const siloedNoteHash = siloNoteHash(contractAddress, innerNoteHash);
-      const uniqueSiloedNoteHash = computeUniqueNoteHash(nonce, siloedNoteHash);
-      const innerNullifier = poseidon2Hash([
-        uniqueSiloedNoteHash,
-        appNullifierSecretKey,
-        GeneratorIndex.NOTE_NULLIFIER,
-      ]);
+      const uniqueNoteHash = computeUniqueNoteHash(nonce, innerNoteHash);
+      const siloedNoteHash = siloNoteHash(contractAddress, uniqueNoteHash);
+      const innerNullifier = poseidon2Hash([siloedNoteHash, appNullifierSecretKey, GeneratorIndex.NOTE_NULLIFIER]);
 
       const result = await simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note);
 
       expect(result).toEqual({
         innerNoteHash,
+        uniqueNoteHash,
         siloedNoteHash,
-        uniqueSiloedNoteHash,
         innerNullifier,
       });
     });
@@ -100,7 +92,7 @@ describe('Simulator', () => {
     it('throw if "compute_note_hash_and_nullifier" has the wrong number of parameters', async () => {
       const note = createNote();
 
-      const modifiedArtifact: FunctionArtifactWithDebugMetadata = {
+      const modifiedArtifact: FunctionArtifact = {
         ...artifact,
         parameters: artifact.parameters.slice(1),
       };
@@ -119,7 +111,7 @@ describe('Simulator', () => {
       const note = createNote();
       const wrongPreimageLength = note.length - 1;
 
-      const modifiedArtifact: FunctionArtifactWithDebugMetadata = {
+      const modifiedArtifact: FunctionArtifact = {
         ...artifact,
         parameters: [
           ...artifact.parameters.slice(0, -1),

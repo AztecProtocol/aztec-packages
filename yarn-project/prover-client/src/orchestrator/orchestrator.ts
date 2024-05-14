@@ -13,6 +13,7 @@ import {
   type ProvingResult,
   type ProvingTicket,
   type PublicInputsAndProof,
+  type ServerCircuitProver,
 } from '@aztec/circuit-types/interfaces';
 import {
   type BaseOrMergeRollupPublicInputs,
@@ -43,7 +44,6 @@ import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 
-import { type CircuitProver } from '../prover/interface.js';
 import {
   buildBaseRollupInput,
   createMergeRollupInputs,
@@ -82,7 +82,7 @@ export class ProvingOrchestrator {
   private provingState: ProvingState | undefined = undefined;
   private pendingProvingJobs: AbortController[] = [];
 
-  constructor(private db: MerkleTreeOperations, private prover: CircuitProver) {}
+  constructor(private db: MerkleTreeOperations, private prover: ServerCircuitProver) {}
 
   /**
    * Starts off a new block
@@ -197,7 +197,7 @@ export class ProvingOrchestrator {
     }
 
     // we need to pad the rollup with empty transactions
-    logger.info(
+    logger.debug(
       `Padding rollup with ${
         this.provingState.totalNumTxs - this.provingState.transactionsReceived
       } empty transactions`,

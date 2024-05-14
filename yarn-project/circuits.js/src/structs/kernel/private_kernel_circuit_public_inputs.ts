@@ -1,7 +1,9 @@
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AggregationObject } from '../aggregation_object.js';
+import { CallRequest } from '../call_request.js';
 import { ValidationRequests } from '../validation_requests.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 import { PrivateAccumulatedData } from './private_accumulated_data.js';
@@ -31,6 +33,14 @@ export class PrivateKernelCircuitPublicInputs {
      * Data which is not modified by the circuits.
      */
     public constants: CombinedConstantData,
+    /**
+     * The call request for the public teardown function
+     */
+    public publicTeardownCallRequest: CallRequest,
+    /**
+     * The address of the fee payer for the transaction
+     */
+    public feePayer: AztecAddress,
   ) {}
 
   toBuffer() {
@@ -40,6 +50,8 @@ export class PrivateKernelCircuitPublicInputs {
       this.validationRequests,
       this.end,
       this.constants,
+      this.publicTeardownCallRequest,
+      this.feePayer,
     );
   }
 
@@ -56,6 +68,8 @@ export class PrivateKernelCircuitPublicInputs {
       reader.readObject(ValidationRequests),
       reader.readObject(PrivateAccumulatedData),
       reader.readObject(CombinedConstantData),
+      reader.readObject(CallRequest),
+      reader.readObject(AztecAddress),
     );
   }
 
@@ -66,6 +80,8 @@ export class PrivateKernelCircuitPublicInputs {
       ValidationRequests.empty(),
       PrivateAccumulatedData.empty(),
       CombinedConstantData.empty(),
+      CallRequest.empty(),
+      AztecAddress.ZERO,
     );
   }
 }

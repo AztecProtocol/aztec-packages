@@ -5,22 +5,26 @@ import {
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { type GrumpkinPrivateKey } from '../../types/grumpkin_private_key.js';
 import { countAccumulatedItems } from '../../utils/index.js';
-import { NoteHashContext } from '../note_hash.js';
-import { Nullifier } from '../nullifier.js';
-import { type NullifierReadRequestHints, nullifierReadRequestHintsFromBuffer } from '../read_request_hints.js';
+import { ScopedNoteHash } from '../note_hash.js';
+import { ScopedNullifier } from '../nullifier.js';
+import {
+  type NoteHashReadRequestHints,
+  type NullifierReadRequestHints,
+  noteHashReadRequestHintsFromBuffer,
+  nullifierReadRequestHintsFromBuffer,
+} from '../read_request_hints/index.js';
 import { SideEffect } from '../side_effects.js';
 import { PrivateKernelData } from './private_kernel_data.js';
 
 export class PrivateKernelTailOutputs {
   constructor(
-    public noteHashes: Tuple<NoteHashContext, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
-    public nullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public noteHashes: Tuple<ScopedNoteHash, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
+    public nullifiers: Tuple<ScopedNullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
   ) {}
 
   toBuffer() {
@@ -30,8 +34,8 @@ export class PrivateKernelTailOutputs {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new PrivateKernelTailOutputs(
-      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, NoteHashContext),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Nullifier),
+      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, ScopedNullifier),
     );
   }
 }
@@ -49,7 +53,7 @@ export class PrivateKernelTailHints {
     /**
      * Contains hints for the transient read requests to localize corresponding commitments.
      */
-    public noteHashReadRequestHints: Tuple<number, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+    public noteHashReadRequestHints: NoteHashReadRequestHints,
     /**
      * Contains hints for the nullifier read requests to locate corresponding pending or settled nullifiers.
      */
@@ -62,7 +66,7 @@ export class PrivateKernelTailHints {
     /*
      * The sorted new note hashes.
      */
-    public sortedNewNoteHashes: Tuple<NoteHashContext, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
+    public sortedNewNoteHashes: Tuple<ScopedNoteHash, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     /**
      * The sorted new note hashes indexes. Maps original to sorted.
      */
@@ -70,7 +74,7 @@ export class PrivateKernelTailHints {
     /**
      * The sorted new nullifiers. Maps original to sorted.
      */
-    public sortedNewNullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public sortedNewNullifiers: Tuple<ScopedNullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
      * The sorted new nullifiers indexes.
      */
@@ -121,12 +125,12 @@ export class PrivateKernelTailHints {
     return new PrivateKernelTailHints(
       reader.readNumbers(MAX_NEW_NOTE_HASHES_PER_TX),
       reader.readNumbers(MAX_NEW_NULLIFIERS_PER_TX),
-      reader.readNumbers(MAX_NOTE_HASH_READ_REQUESTS_PER_TX),
+      reader.readObject({ fromBuffer: noteHashReadRequestHintsFromBuffer }),
       reader.readObject({ fromBuffer: nullifierReadRequestHintsFromBuffer }),
       reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar),
-      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, NoteHashContext),
+      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash),
       reader.readNumbers(MAX_NEW_NOTE_HASHES_PER_TX),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Nullifier),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, ScopedNullifier),
       reader.readNumbers(MAX_NEW_NULLIFIERS_PER_TX),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, SideEffect),
       reader.readNumbers(MAX_ENCRYPTED_LOGS_PER_TX),

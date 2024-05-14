@@ -35,7 +35,7 @@ export BIN CRS_PATH VERBOSE BRANCH
 cd acir_tests
 
 # Convert them to array
-SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member witness_compression)
+SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member)
 
 function test() {
   cd $1
@@ -73,7 +73,7 @@ else
       continue
     fi
 
-    if [[ ! -f ./$TEST_NAME/target/acir.gz || ! -f ./$TEST_NAME/target/witness.gz ]]; then
+    if [[ ! -f ./$TEST_NAME/target/program.json || ! -f ./$TEST_NAME/target/witness.gz ]]; then
       echo -e "\033[33mSKIPPED\033[0m (uncompiled)"
       continue
     fi

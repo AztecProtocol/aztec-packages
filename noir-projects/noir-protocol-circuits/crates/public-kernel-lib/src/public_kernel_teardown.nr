@@ -1,7 +1,7 @@
 use crate::common;
 use dep::types::abis::{
     kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder},
-    kernel_data::PublicKernelData, public_call_data::PublicCallData, gas_fees::GasFees
+    public_kernel_data::PublicKernelData, public_call_data::PublicCallData, gas_fees::GasFees
 };
 
 struct PublicKernelTeardownCircuitPrivateInputs {
@@ -14,8 +14,8 @@ impl PublicKernelTeardownCircuitPrivateInputs {
         // Currently the nested calls will be pushed to the public call stack and need_setup will return true.
         // This should not be the case when nested calls are handled in avm.
         // But we should also consider merging this and the setup circuit and have one circuit that deals with non-revertibles.
-        // let needs_setup = self.previous_kernel.public_inputs.needs_setup();
-        // assert(needs_setup == false, "Cannot run teardown circuit before setup circuit");
+        let needs_setup = self.previous_kernel.public_inputs.needs_setup();
+        assert(needs_setup == false, "Cannot run teardown circuit before setup circuit");
         let needs_app_logic = self.previous_kernel.public_inputs.needs_app_logic();
         assert(needs_app_logic == false, "Cannot run teardown circuit before app logic circuit");
         let needs_teardown = self.previous_kernel.public_inputs.needs_teardown();
@@ -24,27 +24,37 @@ impl PublicKernelTeardownCircuitPrivateInputs {
 
     // Validates that the start gas injected into the app circuit matches the teardown gas limits set by the user
     fn validate_start_gas(self) {
-        let public_call_start_gas = self.public_call.call_stack_item.public_inputs.start_gas_left;
-        let teardown_gas_limit = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.teardown_gas_limits;
-        assert(
-            public_call_start_gas == teardown_gas_limit, "Start gas for teardown phase does not match teardown gas allocation"
-        );
+        // If this is a nested call (not an execution request), the start gas is correct as long as the
+        // call being processed by this kernel iteration matches the call at the top of the callstack
+        // as per the previous kernel's outputs.
+        // An execution request's start gas is the remaining gas left in the transaction after the previous kernel.
+        // A nested call's start gas is the gas allocated to it by its caller and placed in the callstack.
+        if (self.public_call.call_stack_item.is_execution_request) {
+            let public_call_start_gas = self.public_call.call_stack_item.public_inputs.start_gas_left;
+            let teardown_gas_limit = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.teardown_gas_limits;
+            assert(
+                public_call_start_gas == teardown_gas_limit, "Start gas for teardown phase does not match teardown gas allocation"
+            );
+        }
     }
 
     // Validates the transaction fee injected into the app circuit is properly computed from gas_used and block gas_fees
     fn validate_transaction_fee(self, public_inputs: PublicKernelCircuitPublicInputsBuilder) {
         let transaction_fee = self.public_call.call_stack_item.public_inputs.transaction_fee;
         // Note that teardown_gas is already included in end.gas_used as it was injected by the private kernel
-        let total_gas_used = self.previous_kernel.public_inputs.end.gas_used.add(self.previous_kernel.public_inputs.end_non_revertible.gas_used);
+        let total_gas_used = self.previous_kernel.public_inputs.end.gas_used
+            + self.previous_kernel.public_inputs.end_non_revertible.gas_used;
         let block_gas_fees = public_inputs.constants.global_variables.gas_fees;
         let inclusion_fee = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.inclusion_fee;
         let computed_transaction_fee = total_gas_used.compute_fee(block_gas_fees) + inclusion_fee;
 
         // dep::types::debug_log::debug_log_format(
-        //     "Validating tx fee: total_gas_used.da={0} total_gas_used.l1={1} total_gas_used.l2={2} block_fee_per_gas.da={3} block_fee_per_gas.l1={4} block_fee_per_gas.l2={5} inclusion_fee={6} computed={7} actual={8}",
+        //     "Validating tx fee: end.gas_used.da={0} end.gas_used.l2={1} non_revertible.gas_used.da={2} non_revertible.gas_used.l2={3} block_fee_per_gas.da={4}  block_fee_per_gas.l2={5} inclusion_fee={6} computed={7} actual={8}",
         //     [
-        //     total_gas_used.da_gas as Field,
-        //     total_gas_used.l2_gas as Field,
+        //     self.previous_kernel.public_inputs.end.gas_used.da_gas as Field,
+        //     self.previous_kernel.public_inputs.end.gas_used.l2_gas as Field,
+        //     self.previous_kernel.public_inputs.end_non_revertible.gas_used.da_gas as Field,
+        //     self.previous_kernel.public_inputs.end_non_revertible.gas_used.l2_gas as Field,
         //     block_gas_fees.fee_per_da_gas as Field,
         //     block_gas_fees.fee_per_l2_gas as Field,
         //     inclusion_fee,
@@ -78,7 +88,7 @@ impl PublicKernelTeardownCircuitPrivateInputs {
         self.validate_inputs();
 
         // Pops the item from the call stack and validates it against the current execution.
-        let call_request = public_inputs.end_non_revertible.public_call_stack.pop();
+        let call_request = public_inputs.public_teardown_call_stack.pop();
         common::validate_call_against_request(self.public_call, call_request);
 
         self.validate_start_gas();
@@ -86,6 +96,7 @@ impl PublicKernelTeardownCircuitPrivateInputs {
 
         common::update_validation_requests(self.public_call, &mut public_inputs);
 
+        common::update_teardown_call_stack(self.public_call, &mut public_inputs);
         common::update_public_end_non_revertible_values(self.public_call, &mut public_inputs);
 
         public_inputs.finish()
@@ -109,7 +120,7 @@ mod tests {
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
         contrakt::storage_read::StorageRead,
         tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
-        utils::{arrays::{array_eq, array_length}}
+        utils::{arrays::{array_eq, array_length}}, traits::is_empty
     };
     use dep::types::constants::{
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
@@ -153,7 +164,7 @@ mod tests {
             // Adjust the call stack item hash for the current call in the previous iteration.
             let hash = public_call.call_stack_item.hash();
             let is_delegate_call = public_call.call_stack_item.public_inputs.call_context.is_delegate_call;
-            self.previous_kernel.push_public_call_request(hash, is_delegate_call);
+            self.previous_kernel.set_public_teardown_call_request(hash, is_delegate_call);
             let mut previous_kernel = self.previous_kernel.to_public_kernel_data(false);
             previous_kernel.public_inputs.end = self.previous_revertible.to_public_accumulated_data();
 
@@ -210,7 +221,7 @@ mod tests {
 
         let hash = public_call.call_stack_item.hash();
         // Tweak the call stack item hash.
-        builder.previous_kernel.push_public_call_request(hash + 1, false);
+        builder.previous_kernel.set_public_teardown_call_request(hash + 1, false);
         let previous_kernel = builder.previous_kernel.to_public_kernel_data(false);
 
         let kernel = PublicKernelTeardownCircuitPrivateInputs { previous_kernel, public_call };
@@ -252,7 +263,7 @@ mod tests {
         let hash = public_call.call_stack_item.hash();
         // Caller context is empty for regular calls.
         let is_delegate_call = false;
-        builder.previous_kernel.push_public_call_request(hash, is_delegate_call);
+        builder.previous_kernel.set_public_teardown_call_request(hash, is_delegate_call);
         let previous_kernel = builder.previous_kernel.to_public_kernel_data(false);
 
         let kernel = PublicKernelTeardownCircuitPrivateInputs { previous_kernel, public_call };
@@ -413,6 +424,8 @@ mod tests {
     #[test(should_fail_with="Start gas for teardown phase does not match teardown gas allocation")]
     fn validates_start_gas() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
+
+        builder.public_call.is_execution_request = true; // don't need to check start gas for nested calls
         builder.public_call.public_inputs.start_gas_left = Gas::new(10, 30);
 
         builder.failed();
@@ -445,5 +458,20 @@ mod tests {
         builder.public_call.public_inputs.global_variables.block_number = 11;
 
         builder.failed();
+    }
+
+    #[test]
+    unconstrained fn propagate_fee_payer() {
+        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
+        let fee_payer = AztecAddress::from_field(123);
+        builder.previous_kernel.set_fee_payer(fee_payer);
+        let public_inputs = builder.execute();
+        assert_eq(public_inputs.fee_payer, fee_payer);
+
+        // Check that the fee payer is not set if is_fee_payer is false
+        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
+        assert_eq(is_empty(builder.previous_kernel.fee_payer), true);
+        let public_inputs = builder.execute();
+        assert_eq(public_inputs.fee_payer, AztecAddress::empty());
     }
 }

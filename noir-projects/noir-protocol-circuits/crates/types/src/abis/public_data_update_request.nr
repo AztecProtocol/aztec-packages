@@ -1,6 +1,6 @@
-use crate::constants::GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST;
+use crate::constants::{PUBLIC_DATA_UPDATE_REQUEST_LENGTH, GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST};
 use dep::std::cmp::Eq;
-use crate::traits::{Empty, Hash};
+use crate::traits::{Empty, Hash, Serialize, Deserialize};
 
 struct PublicDataUpdateRequest {
     leaf_slot : Field,
@@ -36,4 +36,27 @@ impl PublicDataUpdateRequest {
     pub fn is_empty(self) -> bool {
         (self.leaf_slot == 0) & (self.new_value == 0)
     }
+}
+
+impl Serialize<PUBLIC_DATA_UPDATE_REQUEST_LENGTH> for PublicDataUpdateRequest {
+  fn serialize(self) -> [Field; PUBLIC_DATA_UPDATE_REQUEST_LENGTH] {
+    [self.leaf_slot, self.new_value]
+  }
+}
+
+impl Deserialize<PUBLIC_DATA_UPDATE_REQUEST_LENGTH> for PublicDataUpdateRequest {
+  fn deserialize(fields: [Field; PUBLIC_DATA_UPDATE_REQUEST_LENGTH]) -> PublicDataUpdateRequest {
+    PublicDataUpdateRequest {
+      leaf_slot: fields[0],
+      new_value: fields[1],
+    }
+  }
+}
+
+#[test]
+fn serialization_of_empty() {
+    let item = PublicDataUpdateRequest::empty();
+    let serialized = item.serialize();
+    let deserialized = PublicDataUpdateRequest::deserialize(serialized);
+    assert(item.eq(deserialized));
 }

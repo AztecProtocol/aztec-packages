@@ -5,13 +5,7 @@ import {
   UnencryptedFunctionL2Logs,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import {
-  type IsEmpty,
-  type NoteHashReadRequestMembershipWitness,
-  type PrivateCallStackItem,
-  type PublicCallRequest,
-  sortByCounter,
-} from '@aztec/circuits.js';
+import { type IsEmpty, type PrivateCallStackItem, PublicCallRequest, sortByCounter } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type ACVMField } from '../acvm/index.js';
@@ -36,11 +30,6 @@ export class CountedLog<TLog extends UnencryptedL2Log | EncryptedL2Log> implemen
   }
 }
 
-export interface NullifiedNoteHashCounter {
-  noteHashCounter: number;
-  nullifierCounter: number;
-}
-
 /**
  * The result of executing a private function.
  */
@@ -55,17 +44,20 @@ export interface ExecutionResult {
   // Needed for the verifier (kernel)
   /** The call stack item. */
   callStackItem: PrivateCallStackItem;
-  /** The partially filled-in read request membership witnesses for commitments being read. */
-  noteHashReadRequestPartialWitnesses: NoteHashReadRequestMembershipWitness[];
+  /** Mapping of note hash to its index in the note hash tree. Used for building hints for note hash read requests. */
+  noteHashLeafIndexMap: Map<bigint, bigint>;
   /** The notes created in the executed function. */
   newNotes: NoteAndSlot[];
-  nullifiedNoteHashCounters: NullifiedNoteHashCounter[];
+  /** Mapping of note hash counter to the counter of its nullifier. */
+  nullifiedNoteHashCounters: Map<number, number>;
   /** The raw return values of the executed function. */
   returnValues: Fr[];
   /** The nested executions. */
   nestedExecutions: this[];
   /** Enqueued public function execution requests to be picked up by the sequencer. */
   enqueuedPublicFunctionCalls: PublicCallRequest[];
+  /** Public function execution requested for teardown */
+  publicTeardownFunctionCall: PublicCallRequest;
   /**
    * Encrypted logs emitted during execution of this function call.
    * Note: These are preimages to `encryptedLogsHashes`.
@@ -78,11 +70,16 @@ export interface ExecutionResult {
   unencryptedLogs: CountedLog<UnencryptedL2Log>[];
 }
 
-export function collectNullifiedNoteHashCounters(execResult: ExecutionResult): NullifiedNoteHashCounter[] {
-  return [
-    execResult.nullifiedNoteHashCounters,
-    ...execResult.nestedExecutions.flatMap(collectNullifiedNoteHashCounters),
-  ].flat();
+export function collectNoteHashLeafIndexMap(execResult: ExecutionResult, accum: Map<bigint, bigint> = new Map()) {
+  execResult.noteHashLeafIndexMap.forEach((value, key) => accum.set(key, value));
+  execResult.nestedExecutions.forEach(nested => collectNoteHashLeafIndexMap(nested, accum));
+  return accum;
+}
+
+export function collectNullifiedNoteHashCounters(execResult: ExecutionResult, accum: Map<number, number> = new Map()) {
+  execResult.nullifiedNoteHashCounters.forEach((value, key) => accum.set(key, value));
+  execResult.nestedExecutions.forEach(nested => collectNullifiedNoteHashCounters(nested, accum));
+  return accum;
 }
 
 /**
@@ -135,6 +132,23 @@ export function collectEnqueuedPublicFunctionCalls(execResult: ExecutionResult):
   // as the kernel processes it like a stack, popping items off and pushing them to output
   return [
     ...execResult.enqueuedPublicFunctionCalls,
-    ...[...execResult.nestedExecutions].flatMap(collectEnqueuedPublicFunctionCalls),
+    ...execResult.nestedExecutions.flatMap(collectEnqueuedPublicFunctionCalls),
   ].sort((a, b) => b.callContext.sideEffectCounter - a.callContext.sideEffectCounter);
+}
+
+export function collectPublicTeardownFunctionCall(execResult: ExecutionResult): PublicCallRequest {
+  const teardownCalls = [
+    execResult.publicTeardownFunctionCall,
+    ...execResult.nestedExecutions.flatMap(collectPublicTeardownFunctionCall),
+  ].filter(call => !call.isEmpty());
+
+  if (teardownCalls.length === 1) {
+    return teardownCalls[0];
+  }
+
+  if (teardownCalls.length > 1) {
+    throw new Error('Multiple public teardown calls detected');
+  }
+
+  return PublicCallRequest.empty();
 }

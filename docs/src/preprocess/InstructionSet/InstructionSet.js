@@ -511,7 +511,7 @@ const INSTRUCTION_SET_RAW = [
     Summary: "Get the address of the currently executing l2 contract",
     Details: "",
     "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = u32`",
+    "Tag updates": "`T[dstOffset] = field`",
   },
   {
     id: "storageaddress",
@@ -529,7 +529,7 @@ const INSTRUCTION_SET_RAW = [
     Summary: "Get the _storage_ address of the currently executing context",
     Details: "The storage address is used for public storage accesses.",
     "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = u32`",
+    "Tag updates": "`T[dstOffset] = field`",
   },
   {
     id: "sender",
@@ -547,7 +547,7 @@ const INSTRUCTION_SET_RAW = [
     Summary: "Get the address of the sender (caller of the current context)",
     Details: "",
     "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = u32`",
+    "Tag updates": "`T[dstOffset] = field`",
   },
   {
     id: "feeperl2gas",
@@ -566,7 +566,7 @@ const INSTRUCTION_SET_RAW = [
       'Get the fee to be paid per "L2 gas" - constant for entire transaction',
     Details: "",
     "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = u32`",
+    "Tag updates": "`T[dstOffset] = field`",
   },
   {
     id: "feeperdagas",
@@ -585,7 +585,26 @@ const INSTRUCTION_SET_RAW = [
       'Get the fee to be paid per "DA gas" - constant for entire transaction',
     Details: "",
     "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = u32`",
+    "Tag updates": "`T[dstOffset] = field`",
+  },
+  {
+    id: "transactionfee",
+    Name: "`TRANSACTIONFEE`",
+    Category: "Execution Environment",
+    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
+    Args: [
+      {
+        name: "dstOffset",
+        description:
+          "memory offset specifying where to store operation's result",
+      },
+    ],
+    Expression: "`M[dstOffset] = context.environment.transactionFee`",
+    Summary:
+      "Get the computed transaction fee during teardown phase, zero otherwise",
+    Details: "",
+    "Tag checks": "",
+    "Tag updates": "`T[dstOffset] = field`",
   },
   {
     id: "contractcalldepth",
@@ -604,7 +623,7 @@ const INSTRUCTION_SET_RAW = [
     Details:
       "Note: security issues with EVM's tx.origin can be resolved by asserting `calldepth == 0`.",
     "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = u8`",
+    "Tag updates": "`T[dstOffset] = field`",
   },
   {
     id: "chainid",
@@ -622,7 +641,7 @@ const INSTRUCTION_SET_RAW = [
     Summary: "Get this rollup's L1 chain ID",
     Details: "",
     "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = u32`",
+    "Tag updates": "`T[dstOffset] = field`",
   },
   {
     id: "version",
@@ -640,7 +659,7 @@ const INSTRUCTION_SET_RAW = [
     Summary: "Get this rollup's L2 version ID",
     Details: "",
     "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = u32`",
+    "Tag updates": "`T[dstOffset] = field`",
   },
   {
     id: "blocknumber",
@@ -658,7 +677,7 @@ const INSTRUCTION_SET_RAW = [
     Summary: "Get this L2 block's number",
     Details: "",
     "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = u32`",
+    "Tag updates": "`T[dstOffset] = field`",
   },
   {
     id: "timestamp",
@@ -694,7 +713,7 @@ const INSTRUCTION_SET_RAW = [
     Summary: "Get the block's beneficiary address",
     Details: "",
     "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = u32`",
+    "Tag updates": "`T[dstOffset] = field`",
   },
   {
     id: "blockl2gaslimit",
@@ -712,7 +731,7 @@ const INSTRUCTION_SET_RAW = [
     Summary: 'Total amount of "L2 gas" that a block can consume',
     Details: "",
     "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = u32`",
+    "Tag updates": "`T[dstOffset] = field`",
   },
   {
     id: "blockdagaslimit",
@@ -730,7 +749,7 @@ const INSTRUCTION_SET_RAW = [
     Summary: 'Total amount of "DA gas" that a block can consume',
     Details: "",
     "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = u32`",
+    "Tag updates": "`T[dstOffset] = field`",
   },
   {
     id: "calldatacopy",
@@ -1517,6 +1536,41 @@ halt
       'Return control flow to the calling context/contract. Caller will reject World State and Accrued Substate modifications. See ["Halting"](./execution#halting) to learn more. See ["Nested contract calls"](./nested-calls) to see how the caller updates its context after the nested call halts.',
     "Tag checks": "",
     "Tag updates": "",
+  },
+  {
+    id: "to_radix_le",
+    Name: "`TORADIXLE`",
+    Category: "Conversions",
+    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
+    Args: [
+      {
+        name: "srcOffset",
+        description: "memory offset of word to convert.",
+      },
+      {
+        name: "dstOffset",
+        description:
+          "memory offset specifying where the first limb of the radix-conversion result is stored.",
+      },
+      {
+        name: "radix",
+        description: "the maximum bit-size of each limb.",
+        mode: "immediate",
+        type: "u32",
+      },
+      {
+        name: "numLimbs",
+        description: "the number of limbs the word will be converted into.",
+        type: "u32",
+        mode: "immediate",
+      },
+    ],
+
+    Expression: `TBD: Storage of limbs and if T[dstOffset] is constrained to U8`,
+    Summary: "Convert a word to an array of limbs in little-endian radix form",
+    Details:
+      "The limbs will be stored in a contiguous memory block starting at `dstOffset`.",
+    "Tag checks": "`T[srcOffset] == field`",
   },
 ];
 const INSTRUCTION_SET = INSTRUCTION_SET_RAW.map((instr) => {

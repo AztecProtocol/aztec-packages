@@ -27,10 +27,11 @@ struct PrivateCircuitPublicInputsBuilder {
     returns_hash: Field,
 
     min_revertible_side_effect_counter: u32,
+    is_fee_payer: bool,
 
     max_block_number: MaxBlockNumber,
 
-    note_hash_read_requests: BoundedVec<SideEffect, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    note_hash_read_requests: BoundedVec<ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
@@ -39,6 +40,7 @@ struct PrivateCircuitPublicInputsBuilder {
 
     private_call_stack_hashes: BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    public_teardown_function_hash: Field,
     new_l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
     encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_CALL>,
@@ -78,10 +80,10 @@ impl PrivateCircuitPublicInputsBuilder {
         };
         public_inputs.call_context = call_context;
         public_inputs.args_hash = args_hash;
-        public_inputs.historical_header = fixtures::HEADER;
         public_inputs.chain_id = 0;
         public_inputs.version = 1;
         public_inputs.gas_settings = GasSettings::default();
+        public_inputs.public_teardown_function_hash = 0;
 
         public_inputs
     }
@@ -96,6 +98,7 @@ impl PrivateCircuitPublicInputsBuilder {
             args_hash: self.args_hash,
             returns_hash: self.returns_hash,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
+            is_fee_payer: self.is_fee_payer,
             max_block_number: self.max_block_number,
             note_hash_read_requests: self.note_hash_read_requests.storage,
             nullifier_read_requests: self.nullifier_read_requests.storage,
@@ -104,6 +107,7 @@ impl PrivateCircuitPublicInputsBuilder {
             new_nullifiers: self.new_nullifiers.storage,
             private_call_stack_hashes: self.private_call_stack_hashes.storage,
             public_call_stack_hashes: self.public_call_stack_hashes.storage,
+            public_teardown_function_hash: self.public_teardown_function_hash,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
             start_side_effect_counter: self.call_context.side_effect_counter,
             end_side_effect_counter: 10,
@@ -124,6 +128,7 @@ impl Empty for PrivateCircuitPublicInputsBuilder {
             args_hash: 0,
             returns_hash: 0,
             min_revertible_side_effect_counter: 0 as u32,
+            is_fee_payer: false,
             max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
@@ -132,6 +137,7 @@ impl Empty for PrivateCircuitPublicInputsBuilder {
             new_nullifiers: BoundedVec::new(),
             private_call_stack_hashes: BoundedVec::new(),
             public_call_stack_hashes: BoundedVec::new(),
+            public_teardown_function_hash: 0,
             new_l2_to_l1_msgs: BoundedVec::new(),
             encrypted_logs_hashes: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),

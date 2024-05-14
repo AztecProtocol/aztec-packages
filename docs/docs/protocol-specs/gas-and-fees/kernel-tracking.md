@@ -6,7 +6,7 @@ title: Kernel Tracking
 
 Gas and fees are tracked throughout the kernel circuits to ensure that users are charged correctly for their transactions.
 
-# Private Kernel Circuits Overview
+## Private Kernel Circuits Overview
 
 On the private side, the ordering of the circuits is:
 
@@ -26,6 +26,7 @@ PrivateContextInputs --> TxContext
 
 class PrivateCallData {
     +PrivateCallStackItem call_stack_item
+    +CallRequest public_teardown_call_request
 }
 PrivateCallData --> PrivateCallStackItem
 
@@ -48,7 +49,7 @@ PrivateCircuitPublicInputs --> Header
 class PrivateKernelCircuitPublicInputs {
     +u32 min_revertible_side_effect_counter
     +AztecAddress fee_payer
-    +Field public_teardown_function_hash
+    +CallRequest public_teardown_call_request
     +PrivateAccumulatedData end
     +CombinedConstantData constants
 }
@@ -165,6 +166,7 @@ It must:
 - set the min_revertible_side_effect_counter if it is present in the `PrivateCallData`
 - set the `fee_payer` if the `is_fee_payer` flag is set in the `PrivateCircuitPublicInputs`
 - set the `public_teardown_function_hash` if it is present in the `PrivateCircuitPublicInputs`
+- set the `combined_constant_data.global_variables` to zero, since these are not yet known during private execution
 
 ## Private Kernel Inner
 
@@ -208,9 +210,10 @@ It must:
 - compute gas used for the revertible and non-revertible. Both sets can have a DA component, but the revertible set will also include the teardown gas allocations the user specified (if any). This ensures that the user effectively pre-pays for the gas consumed in teardown.
 - ensure the gas used (across revertible and non-revertible) is less than the gas limits
 - ensure that `fee_payer` is set, and set it in the `PublicKernelCircuitPublicInputs`
+- set the `public_teardown_call_request` in the `PublicKernelCircuitPublicInputs`
 - copy the constants from the `PrivateKernelData` to the `PublicKernelCircuitPublicInputs.constants`
 
-# Mempool/Node Validation
+## Mempool/Node Validation
 
 A `Tx` broadcasted to the network has:
 
@@ -257,7 +260,7 @@ When a node receives a transaction, it must check that:
 
 See other [validity conditions](../transactions/validity.md).
 
-# Public Kernel Circuits
+## Public Kernel Circuits
 
 On the public side, the order of the circuits is:
 
@@ -292,7 +295,8 @@ class PublicKernelCircuitPublicInputs {
   +PublicAccumulatedData end_non_revertible
   +PublicAccumulatedData end
   +CombinedConstantData constants
-  +PublicConstantData public_constants
+  +AztecAddress fee_payer
+  +CallRequest[MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX] public_teardown_call_stack
   +u8 revert_code
 }
 PublicKernelCircuitPublicInputs --> PublicAccumulatedData
@@ -302,11 +306,6 @@ class CombinedConstantData {
     +Header historical_header
     +TxContext tx_context
     +GlobalVariables global_variables
-}
-
-class PublicConstantData {
-    +AztecAddress fee_payer
-    +Field public_teardown_function_hash
 }
 
 class PublicAccumulatedData {
@@ -424,6 +423,8 @@ Therefore, once we verify that the `start_gas_left` which the sequencer provided
 
 Further, we can trust that the `transaction_fee` the public VM reported is the one which was made available to the public functions during teardown (though we must verify that the sequencer provided the correct value).
 
+The `PublicCircuitPublicInputs` include the `global_variables` as injected via the `PublicContextInputs`. The first public kernel circuit to run, regardless of whether it is a setup, app, or teardown kernel, is responsible for setting its `constant_data.global_variables` equal to these. All subsequent public kernel circuit runs must verify that the `global_variables` from the `PublicCircuitPublicInputs` match the ones from the previously set `constant_data.global_variables`.
+
 ## Public Kernel Setup
 
 The PublicKernelSetup circuit takes in a `PublicKernelData` and a `PublicCallData` and outputs a `PublicKernelCircuitPublicInputs`.
@@ -537,10 +538,10 @@ The interplay between these two `revert_code`s is as follows:
 | 1                    | 1                         | 3                              |
 | 2 or 3               | (any)                     | (unchanged)                    |
 
-# Base Rollup Kernel Circuit
+## Base Rollup Kernel Circuit
 
 The base rollup kernel circuit takes in a `KernelData`, which contains a `KernelCircuitPublicInputs`, which it uses to compute the `transaction_fee`.
 
-Additionally, it verifies that the max fees per gas specified by the user are greater than the current block's fees per gas.
+Additionally, it verifies that the max fees per gas specified by the user are greater than the current block's fees per gas. It also verifies the `constant_data.global_variables.gas_fees` are correct.
 
 After the public data writes specific to this transaction have been processed, and a new tree root is produced, the kernel circuit injects an additional public data write based upon that root which deducts the transaction fee from the `fee_payer`'s balance.

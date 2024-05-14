@@ -54,14 +54,16 @@ contract GasToken {
     #[aztec(public)]
     fn pay_fee(fee_limit: Field) -> Field {
         let fee_limit_u128 = U128::from_integer(fee_limit);
-        let fee = calculate_fee(context);
+        let fee = U128::from_integer(calculate_fee(context));
+        // TODO(6252): implement debug logging in AVM
+        //dep::aztec::oracle::debug_log::debug_log_format(
+        //    "Gas token: paying fee {0} (limit {1})",
+        //    [fee.to_field(), fee_limit]
+        //);
         assert(fee <= fee_limit_u128, "Fee too high");
 
         let sender_new_balance = storage.balances.at(context.msg_sender()).read() - fee;
         storage.balances.at(context.msg_sender()).write(sender_new_balance);
-
-        let recipient_new_balance = storage.balances.at(context.fee_recipient()).read() + fee;
-        storage.balances.at(context.fee_recipient()).write(recipient_new_balance);
 
         let rebate = fee_limit_u128 - fee;
         rebate.to_field()

@@ -2,23 +2,18 @@ mod subscription_note;
 mod dapp_payload;
 
 contract AppSubscription {
-    use dep::std;
-    use crate::dapp_payload::DAppPayload;
-
-    use dep::aztec::prelude::{
+    use crate::{dapp_payload::DAppPayload, subscription_note::{SubscriptionNote, SUBSCRIPTION_NOTE_LEN}};
+    use dep::{
+        aztec::{
+        prelude::{
         AztecAddress, FunctionSelector, PrivateContext, NoteHeader, Map, PrivateMutable, PublicMutable,
         SharedImmutable
+    },
+        protocol_types::traits::is_empty
+    },
+        authwit::{account::AccountActions, auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit},
+        gas_token::GasToken, token::Token
     };
-
-    use dep::aztec::protocol_types::traits::is_empty;
-
-    use dep::aztec::{context::Context, oracle::get_public_key::get_public_key};
-    use dep::authwit::{account::AccountActions, auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit};
-
-    use crate::subscription_note::{SubscriptionNote, SUBSCRIPTION_NOTE_LEN};
-
-    use dep::gas_token::GasToken;
-    use dep::token::Token;
 
     #[aztec(storage)]
     struct Storage {
@@ -31,13 +26,14 @@ contract AppSubscription {
         subscription_price: SharedImmutable<Field>,
         subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote>>,
         gas_token_address: SharedImmutable<AztecAddress>,
+        gas_token_limit_per_tx: SharedImmutable<Field>,
     }
 
     global SUBSCRIPTION_DURATION_IN_BLOCKS = 5;
     global SUBSCRIPTION_TXS = 5;
 
     #[aztec(private)]
-    fn entrypoint(payload: pub DAppPayload, user_address: pub AztecAddress) {
+    fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
         assert(context.msg_sender().to_field() == 0);
         assert_current_call_valid_authwit(&mut context, user_address);
 
@@ -47,11 +43,17 @@ contract AppSubscription {
         note.remaining_txs -= 1;
         storage.subscriptions.at(user_address).replace(&mut note, true);
 
-        GasToken::at(storage.gas_token_address.read_private()).pay_fee(42).enqueue(&mut context);
+        context.set_as_fee_payer();
+        let gas_limit = storage.gas_token_limit_per_tx.read_private();
+        context.set_public_teardown_function(
+            storage.gas_token_address.read_private(),
+            FunctionSelector::from_signature("pay_fee(Field)"),
+            [gas_limit]
+        );
 
         context.end_setup();
 
-        AppSubscription::at(context.this_address()).assert_not_expired(note.expiry_block_number).enqueue(&mut context);
+        AppSubscription::at(context.this_address()).assert_not_expired(note.expiry_block_number).static_enqueue(&mut context);
 
         payload.execute_calls(&mut context, storage.target_address.read_private());
     }
@@ -63,14 +65,15 @@ contract AppSubscription {
         subscription_recipient_address: AztecAddress,
         subscription_token_address: AztecAddress,
         subscription_price: Field,
-        gas_token_address: AztecAddress
+        gas_token_address: AztecAddress,
+        gas_token_limit_per_tx: Field
     ) {
         storage.target_address.initialize(target_address);
         storage.subscription_token_address.initialize(subscription_token_address);
         storage.subscription_recipient_address.initialize(subscription_recipient_address);
         storage.subscription_price.initialize(subscription_price);
-
         storage.gas_token_address.initialize(gas_token_address);
+        storage.gas_token_limit_per_tx.initialize(gas_token_limit_per_tx);
     }
 
     #[aztec(public)]
@@ -105,7 +108,7 @@ contract AppSubscription {
         ).call(&mut context);
 
         // Assert that the given expiry_block_number < current_block_number + SUBSCRIPTION_DURATION_IN_BLOCKS.
-        AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).enqueue(&mut context);
+        AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).static_enqueue(&mut context);
 
         let mut subscription_note = SubscriptionNote::new(subscriber_address, expiry_block_number, tx_count);
         if (!is_initialized(subscriber_address)) {

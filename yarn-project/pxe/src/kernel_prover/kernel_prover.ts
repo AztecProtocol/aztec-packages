@@ -1,34 +1,35 @@
+import { type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
 import {
   CallRequest,
   Fr,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-  NoteHashReadRequestMembershipWitness,
+  NESTED_RECURSIVE_PROOF_LENGTH,
   PrivateCallData,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelTailCircuitPrivateInputs,
+  type PrivateKernelTailCircuitPublicInputs,
+  type RECURSIVE_PROOF_LENGTH,
+  type RecursiveProof,
   type TxRequest,
   VK_TREE_HEIGHT,
-  VerificationKey,
-  makeEmptyProof,
+  VerificationKeyAsFields,
+  makeRecursiveProof,
 } from '@aztec/circuits.js';
-import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
-import { type ExecutionResult, collectNullifiedNoteHashCounters } from '@aztec/simulator';
+import { type ExecutionResult, collectNoteHashLeafIndexMap, collectNullifiedNoteHashCounters } from '@aztec/simulator';
 
 import {
   buildPrivateKernelInnerHints,
   buildPrivateKernelTailHints,
   buildPrivateKernelTailOutputs,
 } from './private_inputs_builders/index.js';
-import { KernelProofCreator, type ProofCreator, type ProofOutput, type ProofOutputFinal } from './proof_creator.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
 
 /**
@@ -39,7 +40,8 @@ import { type ProvingDataOracle } from './proving_data_oracle.js';
  */
 export class KernelProver {
   private log = createDebugLogger('aztec:kernel-prover');
-  constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator = new KernelProofCreator()) {}
+
+  constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator) {}
 
   /**
    * Generate a proof for a given transaction request and execution result.
@@ -51,20 +53,21 @@ export class KernelProver {
    * @param executionResult - The execution result object containing nested executions and preimages.
    * @returns A Promise that resolves to a KernelProverOutput object containing proof, public inputs, and output notes.
    */
-  async prove(txRequest: TxRequest, executionResult: ExecutionResult): Promise<ProofOutputFinal> {
+  async prove(
+    txRequest: TxRequest,
+    executionResult: ExecutionResult,
+  ): Promise<KernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     const executionStack = [executionResult];
     let firstIteration = true;
-    let previousVerificationKey = VerificationKey.makeFake();
 
-    let output: ProofOutput = {
+    let output: KernelProofOutput<PrivateKernelCircuitPublicInputs> = {
       publicInputs: PrivateKernelCircuitPublicInputs.empty(),
-      proof: makeEmptyProof(),
+      proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
+      verificationKey: VerificationKeyAsFields.makeEmpty(),
     };
 
-    const noteHashNullifierCounterMap = new Map();
-    collectNullifiedNoteHashCounters(executionResult).forEach(({ noteHashCounter, nullifierCounter }) =>
-      noteHashNullifierCounterMap.set(noteHashCounter, nullifierCounter),
-    );
+    const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
+    const noteHashNullifierCounterMap = collectNullifiedNoteHashCounters(executionResult);
 
     while (executionStack.length) {
       const currentExecution = executionStack.pop()!;
@@ -74,39 +77,22 @@ export class KernelProver {
         result.callStackItem.toCallRequest(currentExecution.callStackItem.publicInputs.callContext),
       );
       const publicCallRequests = currentExecution.enqueuedPublicFunctionCalls.map(result => result.toCallRequest());
+      const publicTeardownCallRequest = currentExecution.publicTeardownFunctionCall.isEmpty()
+        ? CallRequest.empty()
+        : currentExecution.publicTeardownFunctionCall.toCallRequest();
 
-      // Start with the partially filled in read request witnesses from the simulator
-      // and fill the non-transient ones in with sibling paths via oracle.
-      const noteHashReadRequestMembershipWitnesses = currentExecution.noteHashReadRequestPartialWitnesses;
-      for (let rr = 0; rr < noteHashReadRequestMembershipWitnesses.length; rr++) {
-        // Pretty sure this check was forever broken. I made some changes to Fr and this started triggering.
-        // The conditional makes no sense to me anyway.
-        // if (currentExecution.callStackItem.publicInputs.readRequests[rr] == Fr.ZERO) {
-        //   throw new Error(
-        //     'Number of read requests output from Noir circuit does not match number of read request commitment indices output from simulator.',
-        //   );
-        // }
-        const rrWitness = noteHashReadRequestMembershipWitnesses[rr];
-        if (!rrWitness.isTransient) {
-          // Non-transient reads must contain full membership witness with sibling path from commitment to root.
-          // Get regular membership witness to fill in sibling path in the read request witness.
-          const membershipWitness = await this.oracle.getNoteMembershipWitness(rrWitness.leafIndex.toBigInt());
-          rrWitness.siblingPath = membershipWitness.siblingPath;
-        }
-      }
-
-      // fill in witnesses for remaining/empty read requests
-      noteHashReadRequestMembershipWitnesses.push(
-        ...Array(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL - noteHashReadRequestMembershipWitnesses.length)
-          .fill(0)
-          .map(() => NoteHashReadRequestMembershipWitness.empty(BigInt(0))),
+      const proofOutput = await this.proofCreator.createAppCircuitProof(
+        currentExecution.partialWitness,
+        currentExecution.acir,
       );
 
       const privateCallData = await this.createPrivateCallData(
         currentExecution,
         privateCallRequests,
         publicCallRequests,
-        noteHashReadRequestMembershipWitnesses,
+        publicTeardownCallRequest,
+        proofOutput.proof,
+        proofOutput.verificationKey,
       );
 
       const hints = buildPrivateKernelInnerHints(
@@ -119,11 +105,11 @@ export class KernelProver {
         pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.createProofInit(proofInput);
       } else {
-        const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
+        const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
         const previousKernelData = new PrivateKernelData(
           output.publicInputs,
           output.proof,
-          previousVerificationKey,
+          output.verificationKey,
           Number(previousVkMembershipWitness.leafIndex),
           assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
         );
@@ -132,14 +118,13 @@ export class KernelProver {
         output = await this.proofCreator.createProofInner(proofInput);
       }
       firstIteration = false;
-      previousVerificationKey = privateCallData.vk;
     }
 
-    const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
+    const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
     const previousKernelData = new PrivateKernelData(
       output.publicInputs,
       output.proof,
-      previousVerificationKey,
+      output.verificationKey,
       Number(previousVkMembershipWitness.leafIndex),
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
@@ -148,7 +133,7 @@ export class KernelProver {
       `Calling private kernel tail with hwm ${previousKernelData.publicInputs.minRevertibleSideEffectCounter}`,
     );
 
-    const hints = await buildPrivateKernelTailHints(output.publicInputs, this.oracle);
+    const hints = await buildPrivateKernelTailHints(output.publicInputs, noteHashLeafIndexMap, this.oracle);
 
     const expectedOutputs = buildPrivateKernelTailOutputs(hints.sortedNewNoteHashes, hints.sortedNewNullifiers);
 
@@ -159,10 +144,12 @@ export class KernelProver {
   }
 
   private async createPrivateCallData(
-    { callStackItem, vk }: ExecutionResult,
+    { callStackItem }: ExecutionResult,
     privateCallRequests: CallRequest[],
     publicCallRequests: CallRequest[],
-    noteHashReadRequestMembershipWitnesses: NoteHashReadRequestMembershipWitness[],
+    publicTeardownCallRequest: CallRequest,
+    proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>,
+    vk: VerificationKeyAsFields,
   ) {
     const { contractAddress, functionData } = callStackItem;
 
@@ -188,25 +175,18 @@ export class KernelProver {
     // const acirHash = keccak256(Buffer.from(bytecode, 'hex'));
     const acirHash = Fr.fromBuffer(Buffer.alloc(32, 0));
 
-    // TODO
-    const proof = makeEmptyProof();
-
     return PrivateCallData.from({
       callStackItem,
       privateCallStack,
       publicCallStack,
+      publicTeardownCallRequest,
       proof,
-      vk: VerificationKey.fromBuffer(vk),
+      vk,
       publicKeysHash,
       contractClassArtifactHash,
       contractClassPublicBytecodeCommitment,
       saltedInitializationHash,
       functionLeafMembershipWitness,
-      noteHashReadRequestMembershipWitnesses: makeTuple(
-        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-        i => noteHashReadRequestMembershipWitnesses[i],
-        0,
-      ),
       acirHash,
     });
   }

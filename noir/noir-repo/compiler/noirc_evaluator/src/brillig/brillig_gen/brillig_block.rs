@@ -270,7 +270,7 @@ impl<'block> BrilligBlock<'block> {
                             condition,
                             payload_values,
                             payload_as_params,
-                            selector.to_u64(),
+                            selector.as_u64(),
                         );
                     }
                     Some(ConstrainError::Intrinsic(message)) => {
@@ -488,8 +488,22 @@ impl<'block> BrilligBlock<'block> {
                 }
                 Value::Intrinsic(Intrinsic::ToRadix(endianness)) => {
                     let source = self.convert_ssa_single_addr_value(arguments[0], dfg);
-                    let radix = self.convert_ssa_single_addr_value(arguments[1], dfg);
-                    let limb_count = self.convert_ssa_single_addr_value(arguments[2], dfg);
+
+                    let radix: u32 = dfg
+                        .get_numeric_constant(arguments[1])
+                        .expect("Radix should be known")
+                        .try_to_u64()
+                        .expect("Radix should fit in u64")
+                        .try_into()
+                        .expect("Radix should be u32");
+
+                    let limb_count: usize = dfg
+                        .get_numeric_constant(arguments[2])
+                        .expect("Limb count should be known")
+                        .try_to_u64()
+                        .expect("Limb count should fit in u64")
+                        .try_into()
+                        .expect("Limb count should fit in usize");
 
                     let results = dfg.instruction_results(instruction_id);
 
@@ -511,7 +525,8 @@ impl<'block> BrilligBlock<'block> {
                         .extract_vector();
 
                     // Update the user-facing slice length
-                    self.brillig_context.cast_instruction(target_len, limb_count);
+                    self.brillig_context
+                        .usize_const_instruction(target_len.address, limb_count.into());
 
                     self.brillig_context.codegen_to_radix(
                         source,
@@ -524,7 +539,13 @@ impl<'block> BrilligBlock<'block> {
                 }
                 Value::Intrinsic(Intrinsic::ToBits(endianness)) => {
                     let source = self.convert_ssa_single_addr_value(arguments[0], dfg);
-                    let limb_count = self.convert_ssa_single_addr_value(arguments[1], dfg);
+                    let limb_count: usize = dfg
+                        .get_numeric_constant(arguments[1])
+                        .expect("Limb count should be known")
+                        .try_to_u64()
+                        .expect("Limb count should fit in u64")
+                        .try_into()
+                        .expect("Limb count should fit in usize");
 
                     let results = dfg.instruction_results(instruction_id);
 
@@ -549,21 +570,18 @@ impl<'block> BrilligBlock<'block> {
                         BrilligVariable::SingleAddr(..) => unreachable!("ICE: ToBits on non-array"),
                     };
 
-                    let radix = self.brillig_context.make_constant_instruction(2_usize.into(), 32);
-
                     // Update the user-facing slice length
-                    self.brillig_context.cast_instruction(target_len, limb_count);
+                    self.brillig_context
+                        .usize_const_instruction(target_len.address, limb_count.into());
 
                     self.brillig_context.codegen_to_radix(
                         source,
                         target_vector,
-                        radix,
+                        2,
                         limb_count,
                         matches!(endianness, Endian::Big),
                         1,
                     );
-
-                    self.brillig_context.deallocate_single_addr(radix);
                 }
                 _ => {
                     unreachable!("unsupported function call type {:?}", dfg[*func])
@@ -619,7 +637,7 @@ impl<'block> BrilligBlock<'block> {
                     destination_variable,
                 );
             }
-            Instruction::ArraySet { array, index, value, .. } => {
+            Instruction::ArraySet { array, index, value, mutable: _ } => {
                 let source_variable = self.convert_ssa_value(*array, dfg);
                 let index_register = self.convert_ssa_single_addr_value(*index, dfg);
                 let value_variable = self.convert_ssa_value(*value, dfg);
@@ -699,6 +717,9 @@ impl<'block> BrilligBlock<'block> {
             }
             Instruction::EnableSideEffects { .. } => {
                 todo!("enable_side_effects not supported by brillig")
+            }
+            Instruction::IfElse { .. } => {
+                unreachable!("IfElse instructions should not be possible in brillig")
             }
         };
 
@@ -1325,7 +1346,15 @@ impl<'block> BrilligBlock<'block> {
 
         self.brillig_context.binary_instruction(left, right, result_variable, brillig_binary_op);
 
-        self.add_overflow_check(brillig_binary_op, left, right, result_variable, is_signed);
+        self.add_overflow_check(
+            brillig_binary_op,
+            left,
+            right,
+            result_variable,
+            binary,
+            dfg,
+            is_signed,
+        );
     }
 
     /// Splits a two's complement signed integer in the sign bit and the absolute value.
@@ -1478,15 +1507,20 @@ impl<'block> BrilligBlock<'block> {
         self.brillig_context.deallocate_single_addr(bias);
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn add_overflow_check(
         &mut self,
         binary_operation: BrilligBinaryOp,
         left: SingleAddrVariable,
         right: SingleAddrVariable,
         result: SingleAddrVariable,
+        binary: &Binary,
+        dfg: &DataFlowGraph,
         is_signed: bool,
     ) {
         let bit_size = left.bit_size;
+        let max_lhs_bits = dfg.get_value_max_num_bits(binary.lhs);
+        let max_rhs_bits = dfg.get_value_max_num_bits(binary.rhs);
 
         if bit_size == FieldElement::max_num_bits() {
             return;
@@ -1494,6 +1528,11 @@ impl<'block> BrilligBlock<'block> {
 
         match (binary_operation, is_signed) {
             (BrilligBinaryOp::Add, false) => {
+                if std::cmp::max(max_lhs_bits, max_rhs_bits) < bit_size {
+                    // `left` and `right` have both been casted up from smaller types and so cannot overflow.
+                    return;
+                }
+
                 let condition =
                     SingleAddrVariable::new(self.brillig_context.allocate_register(), 1);
                 // Check that lhs <= result
@@ -1508,6 +1547,12 @@ impl<'block> BrilligBlock<'block> {
                 self.brillig_context.deallocate_single_addr(condition);
             }
             (BrilligBinaryOp::Sub, false) => {
+                if dfg.is_constant(binary.lhs) && max_lhs_bits > max_rhs_bits {
+                    // `left` is a fixed constant and `right` is restricted such that `left - right > 0`
+                    // Note strict inequality as `right > left` while `max_lhs_bits == max_rhs_bits` is possible.
+                    return;
+                }
+
                 let condition =
                     SingleAddrVariable::new(self.brillig_context.allocate_register(), 1);
                 // Check that rhs <= lhs
@@ -1524,39 +1569,36 @@ impl<'block> BrilligBlock<'block> {
                 self.brillig_context.deallocate_single_addr(condition);
             }
             (BrilligBinaryOp::Mul, false) => {
-                // Multiplication overflow is only possible for bit sizes > 1
-                if bit_size > 1 {
-                    let is_right_zero =
-                        SingleAddrVariable::new(self.brillig_context.allocate_register(), 1);
-                    let zero =
-                        self.brillig_context.make_constant_instruction(0_usize.into(), bit_size);
-                    self.brillig_context.binary_instruction(
-                        zero,
-                        right,
-                        is_right_zero,
-                        BrilligBinaryOp::Equals,
-                    );
-                    self.brillig_context.codegen_if_not(is_right_zero.address, |ctx| {
-                        let condition = SingleAddrVariable::new(ctx.allocate_register(), 1);
-                        let division = SingleAddrVariable::new(ctx.allocate_register(), bit_size);
-                        // Check that result / rhs == lhs
-                        ctx.binary_instruction(
-                            result,
-                            right,
-                            division,
-                            BrilligBinaryOp::UnsignedDiv,
-                        );
-                        ctx.binary_instruction(division, left, condition, BrilligBinaryOp::Equals);
-                        ctx.codegen_constrain(
-                            condition,
-                            Some("attempt to multiply with overflow".to_string()),
-                        );
-                        ctx.deallocate_single_addr(condition);
-                        ctx.deallocate_single_addr(division);
-                    });
-                    self.brillig_context.deallocate_single_addr(is_right_zero);
-                    self.brillig_context.deallocate_single_addr(zero);
+                if bit_size == 1 || max_lhs_bits + max_rhs_bits <= bit_size {
+                    // Either performing boolean multiplication (which cannot overflow),
+                    // or `left` and `right` have both been casted up from smaller types and so cannot overflow.
+                    return;
                 }
+
+                let is_right_zero =
+                    SingleAddrVariable::new(self.brillig_context.allocate_register(), 1);
+                let zero = self.brillig_context.make_constant_instruction(0_usize.into(), bit_size);
+                self.brillig_context.binary_instruction(
+                    zero,
+                    right,
+                    is_right_zero,
+                    BrilligBinaryOp::Equals,
+                );
+                self.brillig_context.codegen_if_not(is_right_zero.address, |ctx| {
+                    let condition = SingleAddrVariable::new(ctx.allocate_register(), 1);
+                    let division = SingleAddrVariable::new(ctx.allocate_register(), bit_size);
+                    // Check that result / rhs == lhs
+                    ctx.binary_instruction(result, right, division, BrilligBinaryOp::UnsignedDiv);
+                    ctx.binary_instruction(division, left, condition, BrilligBinaryOp::Equals);
+                    ctx.codegen_constrain(
+                        condition,
+                        Some("attempt to multiply with overflow".to_string()),
+                    );
+                    ctx.deallocate_single_addr(condition);
+                    ctx.deallocate_single_addr(division);
+                });
+                self.brillig_context.deallocate_single_addr(is_right_zero);
+                self.brillig_context.deallocate_single_addr(zero);
             }
             _ => {}
         }

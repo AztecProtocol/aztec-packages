@@ -1,18 +1,15 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
-use acvm::acir::circuit::{ExpressionWidth, Program};
+use acvm::acir::circuit::ExpressionWidth;
 use backend_interface::BackendError;
 use clap::Args;
 use iter_extended::vecmap;
 use nargo::{
-    artifacts::debug::DebugArtifact, insert_all_files_for_workspace_into_file_manager,
-    ops::report_errors, package::Package, parse_all,
+    artifacts::{debug::DebugArtifact, program::ProgramArtifact},
+    package::Package,
 };
 use nargo_toml::{get_package_manifest, resolve_workspace_from_toml, PackageSelection};
-use noirc_driver::{
-    file_manager_with_stdlib, CompileOptions, CompiledContract, CompiledProgram,
-    NOIR_ARTIFACT_VERSION_STRING,
-};
+use noirc_driver::{CompileOptions, NOIR_ARTIFACT_VERSION_STRING};
 use noirc_errors::{debug_info::OpCodesCount, Location};
 use noirc_frontend::graph::CrateName;
 use prettytable::{row, table, Row};
@@ -22,7 +19,9 @@ use serde::Serialize;
 use crate::backends::Backend;
 use crate::errors::CliError;
 
-use super::{compile_cmd::compile_workspace, NargoConfig};
+use super::{
+    compile_cmd::compile_workspace_full, fs::program::read_program_from_file, NargoConfig,
+};
 
 /// Provides detailed information on each of a program's function (represented by a single circuit)
 ///
@@ -66,72 +65,44 @@ pub(crate) fn run(
         Some(NOIR_ARTIFACT_VERSION_STRING.to_string()),
     )?;
 
-    let mut workspace_file_manager = file_manager_with_stdlib(&workspace.root_dir);
-    insert_all_files_for_workspace_into_file_manager(&workspace, &mut workspace_file_manager);
-    let parsed_files = parse_all(&workspace_file_manager);
+    // Compile the full workspace in order to generate any build artifacts.
+    compile_workspace_full(&workspace, &args.compile_options)?;
 
-    let expression_width = args
-        .compile_options
-        .expression_width
-        .unwrap_or_else(|| backend.get_backend_info_or_default());
-    let compiled_workspace = compile_workspace(
-        &workspace_file_manager,
-        &parsed_files,
-        &workspace,
-        &args.compile_options,
-    );
-
-    let (compiled_programs, compiled_contracts) = report_errors(
-        compiled_workspace,
-        &workspace_file_manager,
-        args.compile_options.deny_warnings,
-        args.compile_options.silence_warnings,
-    )?;
-
-    let compiled_programs = vecmap(compiled_programs, |program| {
-        nargo::ops::transform_program(program, expression_width)
-    });
-    let compiled_contracts = vecmap(compiled_contracts, |contract| {
-        nargo::ops::transform_contract(contract, expression_width)
-    });
+    let binary_packages: Vec<(Package, ProgramArtifact)> = workspace
+        .into_iter()
+        .filter(|package| package.is_binary())
+        .map(|package| -> Result<(Package, ProgramArtifact), CliError> {
+            let program_artifact_path = workspace.package_build_path(package);
+            let program = read_program_from_file(program_artifact_path)?;
+            Ok((package.clone(), program))
+        })
+        .collect::<Result<_, _>>()?;
 
     if args.profile_info {
-        for compiled_program in &compiled_programs {
+        for (_, compiled_program) in &binary_packages {
             let debug_artifact = DebugArtifact::from(compiled_program.clone());
-            for function_debug in compiled_program.debug.iter() {
+            for function_debug in compiled_program.debug_symbols.debug_infos.iter() {
                 let span_opcodes = function_debug.count_span_opcodes();
                 print_span_opcodes(span_opcodes, &debug_artifact);
             }
         }
-
-        for compiled_contract in &compiled_contracts {
-            let debug_artifact = DebugArtifact::from(compiled_contract.clone());
-            let functions = &compiled_contract.functions;
-            for contract_function in functions {
-                for function_debug in contract_function.debug.iter() {
-                    let span_opcodes = function_debug.count_span_opcodes();
-                    print_span_opcodes(span_opcodes, &debug_artifact);
-                }
-            }
-        }
     }
 
-    let binary_packages =
-        workspace.into_iter().filter(|package| package.is_binary()).zip(compiled_programs);
-
     let program_info = binary_packages
+        .into_iter()
         .par_bridge()
         .map(|(package, program)| {
-            count_opcodes_and_gates_in_program(backend, program, package, expression_width)
+            count_opcodes_and_gates_in_program(
+                backend,
+                workspace.package_build_path(&package),
+                program,
+                &package,
+                args.compile_options.expression_width,
+            )
         })
         .collect::<Result<_, _>>()?;
 
-    let contract_info = compiled_contracts
-        .into_par_iter()
-        .map(|contract| count_opcodes_and_gates_in_contract(backend, contract, expression_width))
-        .collect::<Result<_, _>>()?;
-
-    let info_report = InfoReport { programs: program_info, contracts: contract_info };
+    let info_report = InfoReport { programs: program_info, contracts: Vec::new() };
 
     if args.json {
         // Expose machine-readable JSON data.
@@ -148,23 +119,6 @@ pub(crate) fn run(
                 }
             }
             program_table.printstd();
-        }
-        if !info_report.contracts.is_empty() {
-            let mut contract_table = table!([
-                Fm->"Contract",
-                Fm->"Function",
-                Fm->"Expression Width",
-                Fm->"ACIR Opcodes",
-                Fm->"Backend Circuit Size"
-            ]);
-            for contract_info in info_report.contracts {
-                let contract_rows: Vec<Row> = contract_info.into();
-                for row in contract_rows {
-                    contract_table.add_row(row);
-                }
-            }
-
-            contract_table.printstd();
         }
     }
 
@@ -280,48 +234,26 @@ impl From<ContractInfo> for Vec<Row> {
 
 fn count_opcodes_and_gates_in_program(
     backend: &Backend,
-    compiled_program: CompiledProgram,
+    program_artifact_path: PathBuf,
+    compiled_program: ProgramArtifact,
     package: &Package,
     expression_width: ExpressionWidth,
 ) -> Result<ProgramInfo, CliError> {
+    let program_circuit_sizes = backend.get_exact_circuit_sizes(program_artifact_path)?;
     let functions = compiled_program
-        .program
+        .bytecode
         .functions
         .into_par_iter()
         .enumerate()
         .map(|(i, function)| -> Result<_, BackendError> {
             Ok(FunctionInfo {
                 name: compiled_program.names[i].clone(),
+                // Required while mock backend doesn't return correct circuit size.
                 acir_opcodes: function.opcodes.len(),
-                // Unconstrained functions do not matter to a backend circuit count so we pass nothing here
-                circuit_size: backend.get_exact_circuit_size(&Program {
-                    functions: vec![function],
-                    unconstrained_functions: Vec::new(),
-                })?,
+                circuit_size: program_circuit_sizes[i].circuit_size,
             })
         })
         .collect::<Result<_, _>>()?;
 
     Ok(ProgramInfo { package_name: package.name.to_string(), expression_width, functions })
-}
-
-fn count_opcodes_and_gates_in_contract(
-    backend: &Backend,
-    contract: CompiledContract,
-    expression_width: ExpressionWidth,
-) -> Result<ContractInfo, CliError> {
-    let functions = contract
-        .functions
-        .into_par_iter()
-        .map(|function| -> Result<_, BackendError> {
-            Ok(FunctionInfo {
-                name: function.name,
-                // TODO(https://github.com/noir-lang/noir/issues/4720)
-                acir_opcodes: function.bytecode.functions[0].opcodes.len(),
-                circuit_size: backend.get_exact_circuit_size(&function.bytecode)?,
-            })
-        })
-        .collect::<Result<_, _>>()?;
-
-    Ok(ContractInfo { name: contract.name, expression_width, functions })
 }
