@@ -47,12 +47,14 @@ export const mockTx = (
     numberOfRevertiblePublicCallRequests = MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX / 2,
     publicCallRequests = [],
     publicTeardownCallRequest = PublicCallRequest.empty(),
+    feePayer = AztecAddress.ZERO,
   }: {
     hasLogs?: boolean;
     numberOfNonRevertiblePublicCallRequests?: number;
     numberOfRevertiblePublicCallRequests?: number;
     publicCallRequests?: PublicCallRequest[];
     publicTeardownCallRequest?: PublicCallRequest;
+    feePayer?: AztecAddress;
   } = {},
 ) => {
   const totalPublicCallRequests =
@@ -69,6 +71,7 @@ export const mockTx = (
   const encryptedLogs = hasLogs ? EncryptedTxL2Logs.random(2, 3) : EncryptedTxL2Logs.empty(); // 2 priv function invocations creating 3 encrypted logs each
   const unencryptedLogs = hasLogs ? UnencryptedTxL2Logs.random(2, 1) : UnencryptedTxL2Logs.empty(); // 2 priv function invocations creating 1 unencrypted log each
   data.constants.txContext.gasSettings = GasSettings.default();
+  data.feePayer = feePayer;
 
   if (isForPublic) {
     data.forRollup = undefined;
@@ -89,7 +92,10 @@ export const mockTx = (
         : CallRequest.empty(),
     );
 
-    data.forPublic.publicTeardownCallRequest = publicTeardownCallRequest.toCallRequest();
+    data.forPublic.publicTeardownCallStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, () => CallRequest.empty());
+    data.forPublic.publicTeardownCallStack[0] = publicTeardownCallRequest.isEmpty()
+      ? CallRequest.empty()
+      : publicTeardownCallRequest.toCallRequest();
 
     if (hasLogs) {
       let i = 1; // 0 used in first nullifier

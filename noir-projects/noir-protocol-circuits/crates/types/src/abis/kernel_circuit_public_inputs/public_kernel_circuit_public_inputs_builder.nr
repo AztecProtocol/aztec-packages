@@ -5,7 +5,7 @@ use crate::{
     kernel_circuit_public_inputs::{public_kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs},
     validation_requests::ValidationRequestsBuilder, call_request::CallRequest
 },
-    traits::Empty
+    address::AztecAddress, constants::MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, traits::Empty
 };
 
 struct PublicKernelCircuitPublicInputsBuilder {
@@ -14,7 +14,8 @@ struct PublicKernelCircuitPublicInputsBuilder {
     end: PublicAccumulatedDataBuilder,
     constants: CombinedConstantData,
     revert_code: u8,
-    public_teardown_call_request: CallRequest,
+    public_teardown_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    fee_payer: AztecAddress,
 }
 
 impl PublicKernelCircuitPublicInputsBuilder {
@@ -28,7 +29,8 @@ impl PublicKernelCircuitPublicInputsBuilder {
             end: self.end.finish(),
             constants: self.constants,
             revert_code: self.revert_code,
-            public_teardown_call_request: self.public_teardown_call_request
+            public_teardown_call_stack: self.public_teardown_call_stack.storage,
+            fee_payer: self.fee_payer
         }
     }
 }
@@ -41,7 +43,8 @@ impl Empty for PublicKernelCircuitPublicInputsBuilder {
             end: PublicAccumulatedDataBuilder::empty(),
             constants: CombinedConstantData::empty(),
             revert_code: 0 as u8,
-            public_teardown_call_request: CallRequest::empty()
+            public_teardown_call_stack: BoundedVec::new(),
+            fee_payer: AztecAddress::empty(),
         }
     }
 }

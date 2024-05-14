@@ -9,10 +9,7 @@ use dep::types::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
     MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    hash::{
-    compute_l2_to_l1_hash, compute_note_hash_nonce, compute_unique_siloed_note_hash, silo_note_hash,
-    silo_nullifier
-},
+    hash::{compute_l2_to_l1_hash, compute_note_hash_nonce, compute_unique_note_hash, silo_note_hash, silo_nullifier},
     utils::arrays::{array_length, array_to_bounded_vec, assert_sorted_array}
 };
 
@@ -89,6 +86,8 @@ impl KernelCircuitPublicInputsComposer {
 
         self.propagate_sorted_arrays();
 
+        self.propagate_fee_payer();
+
         // TODO: Should be done in a reset circuit.
         self.squash_transient_data();
 
@@ -101,6 +100,7 @@ impl KernelCircuitPublicInputsComposer {
         let _ = self.compose();
 
         self.propagate_sorted_public_call_requests();
+        self.propagate_public_teardown_call_request();
 
         *self
     }
@@ -131,16 +131,18 @@ impl KernelCircuitPublicInputsComposer {
 
     fn silo_note_hashes(&mut self) {
         let first_nullifier = self.public_inputs.end.new_nullifiers.get_unchecked(0).value();
-        assert(first_nullifier != 0, "The 0th nullifier in the accumulated nullifier array is zero");
+
+        // This check is unnecessary. The 0th nullifier will always be set a non-zero value in private_kernel_init.
+        // assert(first_nullifier != 0, "The 0th nullifier in the accumulated nullifier array is zero");
 
         let note_hashes = self.public_inputs.end.new_note_hashes.storage;
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             let note_hash = note_hashes[i];
             if note_hash.value() != 0 {
-                let siloed = silo_note_hash(note_hash.contract_address, note_hash.value());
                 let nonce = compute_note_hash_nonce(first_nullifier, i);
-                let unique_note_hash = compute_unique_siloed_note_hash(nonce, siloed);
-                self.public_inputs.end.new_note_hashes.storage[i].note_hash.value = unique_note_hash;
+                let unique_note_hash = compute_unique_note_hash(nonce, note_hash.value());
+                let siloed = silo_note_hash(note_hash.contract_address, unique_note_hash);
+                self.public_inputs.end.new_note_hashes.storage[i].note_hash.value = siloed;
             }
         }
     }
@@ -224,6 +226,14 @@ impl KernelCircuitPublicInputsComposer {
     fn propagate_sorted_public_call_requests(&mut self) {
         let accumulated_data = self.previous_kernel.public_inputs.end;
         self.public_inputs.end.public_call_stack = array_to_bounded_vec(accumulated_data.public_call_stack);
+    }
+
+    fn propagate_public_teardown_call_request(&mut self) {
+        self.public_inputs.public_teardown_call_request = self.previous_kernel.public_inputs.public_teardown_call_request;
+    }
+
+    fn propagate_fee_payer(&mut self) {
+        self.public_inputs.fee_payer = self.previous_kernel.public_inputs.fee_payer;
     }
 
     fn squash_transient_data(&mut self) {

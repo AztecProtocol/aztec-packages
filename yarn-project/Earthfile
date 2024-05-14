@@ -35,6 +35,8 @@ build:
     BUILD ../noir/+nargo
     BUILD ../noir-projects/+build
     BUILD ../l1-contracts/+build
+    BUILD ../barretenberg/ts/+build
+    BUILD ../noir/+packages
     FROM +deps
 
     COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
@@ -144,9 +146,12 @@ test:
 
 run-e2e:
     ARG test
+    ARG debug=""
     FROM +end-to-end
-    RUN DEBUG=aztec:* yarn test $test
+    RUN DEBUG=$debug yarn test $test
 
 prover-client-test:
     FROM +build
-    RUN cd prover-client && yarn test
+    ARG test
+    ARG debug=""
+    RUN cd prover-client && DEBUG=$debug yarn test $test

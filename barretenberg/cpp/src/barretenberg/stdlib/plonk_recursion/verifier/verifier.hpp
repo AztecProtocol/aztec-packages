@@ -390,6 +390,7 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
         rhs_elements.push_back(-g1_1);
         rhs_scalars.push_back(recursion_separator_challenge);
 
+        // Need to move init_bn254_crs() above the create_circuit call to make sure we don't error here
         // g1::element P[2] = { g1_0.get_value(), g1_1.get_value() };
         // g1::element::batch_normalize(P, 2);
         // // just run the native pairing check here

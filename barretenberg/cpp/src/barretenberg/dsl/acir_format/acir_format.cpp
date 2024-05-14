@@ -185,6 +185,8 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
                 constraint.proof.erase(constraint.proof.begin(),
                                        constraint.proof.begin() +
                                            static_cast<std::ptrdiff_t>(RecursionConstraint::AGGREGATION_OBJECT_SIZE));
+            } else {
+                throw_or_abort("proof does not contain aggregation object!");
             }
             current_aggregation_object = create_recursion_constraints(builder,
                                                                       constraint,

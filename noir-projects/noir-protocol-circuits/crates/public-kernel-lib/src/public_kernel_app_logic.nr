@@ -47,6 +47,7 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
             // Pops the item from the call stack and validates it against the current execution.
             let call_request = public_inputs.end.public_call_stack.pop();
             common::validate_call_against_request(self.public_call, call_request);
+            common::update_end_call_stack(self.public_call, &mut public_inputs);
             common::update_public_end_values(self.public_call, &mut public_inputs);
         } else {
             let mut remaining_calls = array_to_bounded_vec(self.previous_kernel.public_inputs.end.public_call_stack);
@@ -86,7 +87,7 @@ mod tests {
         hash::{compute_l2_to_l1_hash, silo_note_hash, silo_nullifier},
         messaging::l2_to_l1_message::L2ToL1Message,
         tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
-        utils::arrays::{array_eq, array_length}
+        utils::arrays::{array_eq, array_length}, traits::is_empty
     };
     use dep::types::constants::{MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL};
 
@@ -508,5 +509,20 @@ mod tests {
         builder.public_call.public_inputs.global_variables.block_number = 11;
 
         builder.failed();
+    }
+
+    #[test]
+    unconstrained fn propagate_fee_payer() {
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
+        let fee_payer = AztecAddress::from_field(123);
+        builder.previous_kernel.set_fee_payer(fee_payer);
+        let public_inputs = builder.execute();
+        assert_eq(public_inputs.fee_payer, fee_payer);
+
+        // Check that the fee payer is not set if is_fee_payer is false
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
+        assert_eq(is_empty(builder.previous_kernel.fee_payer), true);
+        let public_inputs = builder.execute();
+        assert_eq(public_inputs.fee_payer, AztecAddress::empty());
     }
 }
