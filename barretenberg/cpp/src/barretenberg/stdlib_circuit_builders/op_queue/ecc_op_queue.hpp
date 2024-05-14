@@ -373,35 +373,6 @@ class ECCOpQueue {
     }
 
     /**
-     * @brief Write equality op using internal accumulator point
-     *
-     * @return current internal accumulator point (prior to reset to 0)
-     */
-    UltraOp eq_and_resetb(Point& expected)
-    {
-        accumulator.self_set_infinity();
-
-        // Construct and store the operation in the ultra op format
-        auto ultra_op = construct_and_populate_ultra_ops(EQUALITY, expected);
-
-        // Store raw operation
-        raw_ops.emplace_back(ECCVMOperation{
-            .add = false,
-            .mul = false,
-            .eq = true,
-            .reset = true,
-            .base_point = expected,
-            .z1 = 0,
-            .z2 = 0,
-            .mul_scalar_full = 0,
-        });
-        num_transcript_rows += 1;
-        update_cached_msms(raw_ops.back());
-
-        return ultra_op;
-    }
-
-    /**
      * @brief Write no op (i.e. empty row)
      *
      */

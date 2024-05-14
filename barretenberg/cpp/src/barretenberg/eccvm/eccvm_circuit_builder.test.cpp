@@ -120,7 +120,7 @@ TEST(ECCVMCircuitBuilderTests, MulInfinity)
     // G1::affine_element c = G1::affine_point_at_infinity;
     op_queue->add_accumulate(b);
     op_queue->mul_accumulate(a, x);
-    // op_queue->eq_and_resetb(c);
+    op_queue->eq_and_reset();
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
