@@ -64,6 +64,10 @@ impl Serialize<PUBLIC_ACCUMULATED_DATA_LENGTH> for PublicAccumulatedData {
 
         fields.extend_from_array(self.new_l2_to_l1_msgs);
 
+        for i in 0..MAX_NOTE_ENCRYPTED_LOGS_PER_TX {
+          fields.extend_from_array(self.note_encrypted_logs_hashes[i].serialize());
+        }
+
         for i in 0..MAX_ENCRYPTED_LOGS_PER_TX {
           fields.extend_from_array(self.encrypted_logs_hashes[i].serialize());
         }
@@ -118,6 +122,7 @@ impl Eq for PublicAccumulatedData {
     (self.new_note_hashes == other.new_note_hashes) &
     (self.new_nullifiers == other.new_nullifiers) &
     (self.new_l2_to_l1_msgs == other.new_l2_to_l1_msgs) &
+    (self.note_encrypted_logs_hashes == other.note_encrypted_logs_hashes) &
     (self.encrypted_logs_hashes == other.encrypted_logs_hashes) &
     (self.unencrypted_logs_hashes == other.unencrypted_logs_hashes) &
     (self.encrypted_log_preimages_length == other.encrypted_log_preimages_length) &

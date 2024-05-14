@@ -125,6 +125,7 @@ impl Deserialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
         new_note_hashes: reader.read_array([0; MAX_NEW_NOTE_HASHES_PER_TX]),
         new_nullifiers: reader.read_array([0; MAX_NEW_NULLIFIERS_PER_TX]),
         new_l2_to_l1_msgs: reader.read_array([0; MAX_NEW_L2_TO_L1_MSGS_PER_TX]),
+        note_encrypted_logs_hash: reader.read(),
         encrypted_logs_hash: reader.read(),
         unencrypted_logs_hash: reader.read(),
         encrypted_log_preimages_length: reader.read(),
@@ -142,6 +143,7 @@ impl Eq for CombinedAccumulatedData {
     (self.new_note_hashes == other.new_note_hashes) &
     (self.new_nullifiers == other.new_nullifiers) &
     (self.new_l2_to_l1_msgs == other.new_l2_to_l1_msgs) &
+    (self.note_encrypted_logs_hash == other.note_encrypted_logs_hash) &
     (self.encrypted_logs_hash == other.encrypted_logs_hash) &
     (self.unencrypted_logs_hash == other.unencrypted_logs_hash) &
     (self.encrypted_log_preimages_length == other.encrypted_log_preimages_length) &
