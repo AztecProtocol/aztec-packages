@@ -294,6 +294,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_permutation_denominator(const AllE
         auto z2 = View(in.transcript_z2);
         auto z1_zero = View(in.transcript_z1zero);
         auto z2_zero = View(in.transcript_z2zero);
+        auto base_infinity = View(in.transcript_base_infinity);
         auto transcript_mul = View(in.transcript_mul);
 
         auto lookup_first = (-z1_zero + 1);
@@ -312,10 +313,12 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_permutation_denominator(const AllE
         // | 1     | 1       | 1       | (X + gamma)(Y + gamma) |
         transcript_input1 = (transcript_input1 + gamma) * lookup_first + (-lookup_first + 1);
         transcript_input2 = (transcript_input2 + gamma) * lookup_second + (-lookup_second + 1);
-        // point_table_init_write = degree 2
+        // transcript_product = degree 3
+        auto transcript_product = (transcript_input1 * transcript_input2) * (-base_infinity + 1) + base_infinity;
 
-        auto point_table_init_write = transcript_mul * transcript_input1 * transcript_input2 + (-transcript_mul + 1);
-        denominator *= point_table_init_write; // degree-13
+        // point_table_init_write = degree 4
+        auto point_table_init_write = transcript_mul * transcript_product + (-transcript_mul + 1);
+        denominator *= point_table_init_write; // degree-14
 
         // auto point_table_init_write_1 = transcript_mul * transcript_input1 + (-transcript_mul + 1);
         // denominator *= point_table_init_write_1; // degree-11
@@ -339,15 +342,20 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_permutation_denominator(const AllE
         auto z1_zero = View(in.transcript_z1zero);
         auto z2_zero = View(in.transcript_z2zero);
         auto transcript_mul = View(in.transcript_mul);
+        auto base_infinity = View(in.transcript_base_infinity);
+        // auto transcript_msm_count_zero_at_transition = View(in.transcript_msm_count_zero_at_transition);
 
-        auto full_msm_count = transcript_msm_count + transcript_mul * ((-z1_zero + 1) + (-z2_zero + 1));
+        // do not add to count if point at infinity!
+        auto full_msm_count =
+            transcript_msm_count + transcript_mul * ((-z1_zero + 1) + (-z2_zero + 1)) * (-base_infinity + 1);
         //      auto count_test = transcript_msm_count
         // msm_result_read = degree 2
         auto msm_result_read =
             transcript_pc_shift + transcript_msm_x * beta + transcript_msm_y * beta_sqr + full_msm_count * beta_cube;
-
+        // N.B. NOT COUNT ZERO NOT NEEDED IS FACTORED INTO MSM TRANSITION
+        // auto read_active = transcript_msm_transition;
         msm_result_read = transcript_msm_transition * (msm_result_read + gamma) + (-transcript_msm_transition + 1);
-        denominator *= msm_result_read; // degree-17
+        denominator *= msm_result_read; // degree-20
     }
     return denominator;
 }

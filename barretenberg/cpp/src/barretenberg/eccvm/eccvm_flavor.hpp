@@ -35,17 +35,17 @@ class ECCVMFlavor {
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using RelationSeparator = FF;
 
-    static constexpr size_t NUM_WIRES = 85;
+    static constexpr size_t NUM_WIRES = 87;
 
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 116;
+    static constexpr size_t NUM_ALL_ENTITIES = 118;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 3;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 87;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 89;
 
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
@@ -191,7 +191,9 @@ class ECCVMFlavor {
                               transcript_msm_intermediate_x, // column 81
                               transcript_msm_intermediate_y, // column 82
                               transcript_msm_infinity,       // column 83
-                              transcript_msm_x_inverse);     // column 84
+                              transcript_msm_x_inverse,
+                              transcript_msm_count_zero_at_transition,
+                              transcript_msm_count_at_transition_inverse); // column 86
     };
 
     /**
@@ -594,6 +596,8 @@ class ECCVMFlavor {
                     transcript_msm_intermediate_y[i] = transcript_state[i].transcript_msm_intermediate_y;
                     transcript_msm_infinity[i] = transcript_state[i].transcript_msm_infinity;
                     transcript_msm_x_inverse[i] = transcript_state[i].transcript_msm_x_inverse;
+                    transcript_msm_count_zero_at_transition[i] = transcript_state[i].msm_count_zero_at_transition;
+                    transcript_msm_count_at_transition_inverse[i] = transcript_state[i].msm_count_at_transition_inverse;
                 }
             });
 
@@ -808,6 +812,8 @@ class ECCVMFlavor {
             Base::transcript_msm_intermediate_y = "TRANSCRIPT_MSM_INTERMEDIATE_Y";
             Base::transcript_msm_infinity = "TRANSCRIPT_MSM_INFINITY";
             Base::transcript_msm_x_inverse = "TRANSCRIPT_MSM_X_INVERSE";
+            Base::transcript_msm_count_zero_at_transition = "TRANSCRIPT_MSM_COUNT_ZERO_AT_TRANSITION";
+            Base::transcript_msm_count_at_transition_inverse = "TRANSCRIPT_MSM_COUNT_AT_TRANSITION_INVERSE";
             Base::z_perm = "Z_PERM";
             Base::lookup_inverses = "LOOKUP_INVERSES";
             // The ones beginning with "__" are only used for debugging
@@ -919,6 +925,8 @@ class ECCVMFlavor {
         Commitment transcript_msm_intermediate_y_comm;
         Commitment transcript_msm_infinity_comm;
         Commitment transcript_msm_x_inverse_comm;
+        Commitment transcript_msm_count_zero_at_transition_comm;
+        Commitment transcript_msm_count_at_transition_inverse_comm;
         Commitment z_perm_comm;
         Commitment lookup_inverses_comm;
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
@@ -1124,6 +1132,12 @@ class ECCVMFlavor {
                 NativeTranscript::proof_data, num_frs_read);
             transcript_msm_x_inverse_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
+            transcript_msm_count_zero_at_transition_comm =
+                NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
+                                                                               num_frs_read);
+            transcript_msm_count_at_transition_inverse_comm =
+                NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
+                                                                               num_frs_read);
             lookup_inverses_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
             z_perm_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
@@ -1285,6 +1299,10 @@ class ECCVMFlavor {
                                                            NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(transcript_msm_infinity_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(transcript_msm_x_inverse_comm, NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_msm_count_zero_at_transition_comm,
+                                                           NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_msm_count_at_transition_inverse_comm,
+                                                           NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(lookup_inverses_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(z_perm_comm, NativeTranscript::proof_data);
             for (size_t i = 0; i < log_n; ++i) {

@@ -18,8 +18,10 @@ TEST(ECCVMCircuitBuilderTests, BaseCase)
     typename G1::element a = generators[0];
     typename G1::element b = generators[1];
     typename G1::element c = generators[2];
+    typename G1::element point_at_infinity = G1::point_at_infinity;
     Fr x = Fr::random_element(&engine);
     Fr y = Fr::random_element(&engine);
+    Fr zero_scalar = 0;
 
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
@@ -32,11 +34,33 @@ TEST(ECCVMCircuitBuilderTests, BaseCase)
     op_queue->eq_and_reset();
     op_queue->add_accumulate(c);
     op_queue->mul_accumulate(a, x);
+    op_queue->mul_accumulate(point_at_infinity, x);
     op_queue->mul_accumulate(b, x);
     op_queue->eq_and_reset();
     op_queue->mul_accumulate(a, x);
     op_queue->mul_accumulate(b, x);
+    op_queue->mul_accumulate(point_at_infinity, zero_scalar);
     op_queue->mul_accumulate(c, x);
+    op_queue->eq_and_reset();
+    op_queue->mul_accumulate(point_at_infinity, zero_scalar);
+    op_queue->mul_accumulate(point_at_infinity, x);
+    op_queue->mul_accumulate(point_at_infinity, zero_scalar);
+    op_queue->add_accumulate(a);
+    op_queue->eq_and_reset();
+    op_queue->add_accumulate(a);
+    op_queue->add_accumulate(point_at_infinity);
+    op_queue->eq_and_reset();
+    op_queue->add_accumulate(point_at_infinity);
+    op_queue->eq_and_reset();
+    op_queue->mul_accumulate(point_at_infinity, x);
+    op_queue->mul_accumulate(point_at_infinity, -x);
+    op_queue->eq_and_reset();
+    op_queue->add_accumulate(a);
+    op_queue->mul_accumulate(point_at_infinity, x);
+    op_queue->mul_accumulate(point_at_infinity, -x);
+    op_queue->add_accumulate(a);
+    op_queue->add_accumulate(a);
+    op_queue->eq_and_reset();
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
@@ -70,6 +94,109 @@ TEST(ECCVMCircuitBuilderTests, Mul)
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
+}
+
+TEST(ECCVMCircuitBuilderTests, MulInfinity)
+{
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+
+    auto generators = G1::derive_generators("test generators", 3);
+    typename G1::element a = generators[0];
+    Fr x = Fr::random_element(&engine);
+    G1::element b = -a * x;
+    // G1::affine_element c = G1::affine_point_at_infinity;
+    op_queue->add_accumulate(b);
+    op_queue->mul_accumulate(a, x);
+    // op_queue->eq_and_resetb(c);
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
+    EXPECT_EQ(result, true);
+}
+
+// Validate we do not trigger edge cases of addition formulae when we have identical mul inputs
+TEST(ECCVMCircuitBuilderTests, MulOverIdenticalInputs)
+{
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+
+    auto generators = G1::derive_generators("test generators", 3);
+    typename G1::element a = generators[0];
+    Fr x = Fr::random_element(&engine);
+    op_queue->mul_accumulate(a, x);
+    op_queue->mul_accumulate(a, x);
+    op_queue->eq_and_reset();
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
+    EXPECT_EQ(result, true);
+}
+
+TEST(ECCVMCircuitBuilderTests, MSMProducesInfinity)
+{
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+
+    auto generators = G1::derive_generators("test generators", 3);
+    typename G1::element a = generators[0];
+    Fr x = Fr::random_element(&engine);
+    op_queue->add_accumulate(a);
+    op_queue->mul_accumulate(a, x);
+    op_queue->mul_accumulate(a, -x);
+    op_queue->eq_and_reset();
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
+    EXPECT_EQ(result, true);
+}
+
+TEST(ECCVMCircuitBuilderTests, MSMOverPointAtInfinity)
+{
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+
+    auto generators = G1::derive_generators("test generators", 3);
+    typename G1::element point_at_infinity = G1::point_at_infinity;
+    typename G1::element b = generators[0];
+    Fr x = Fr::random_element(&engine);
+    Fr zero_scalar = 0;
+
+    // validate including points at infinity in a multiscalar multiplication does not effect result
+    {
+        op_queue->mul_accumulate(b, x);
+        op_queue->mul_accumulate(point_at_infinity, x);
+        op_queue->eq_and_reset();
+        ECCVMCircuitBuilder circuit{ op_queue };
+        bool result = ECCVMTraceChecker::check(circuit);
+        EXPECT_EQ(result, true);
+    }
+    // validate multiplying a point at infinity by nonzero scalar produces point at infinity
+    {
+        op_queue->mul_accumulate(point_at_infinity, x);
+        op_queue->eq_and_reset();
+        ECCVMCircuitBuilder circuit{ op_queue };
+        bool result = ECCVMTraceChecker::check(circuit);
+        EXPECT_EQ(result, true);
+    }
+    // validate multiplying a point by zero produces point at infinity
+    {
+        op_queue->mul_accumulate(b, zero_scalar);
+        op_queue->eq_and_reset();
+        ECCVMCircuitBuilder circuit{ op_queue };
+        bool result = ECCVMTraceChecker::check(circuit);
+        EXPECT_EQ(result, true);
+    }
+    // validate multiplying a point at infinity by zero produces a point at infinity
+    {
+        op_queue->mul_accumulate(point_at_infinity, zero_scalar);
+        op_queue->eq_and_reset();
+        ECCVMCircuitBuilder circuit{ op_queue };
+        bool result = ECCVMTraceChecker::check(circuit);
+        EXPECT_EQ(result, true);
+    }
+    // validate an MSM made entirely of points at infinity / zero scalars produces a point at infinity
+    {
+        op_queue->mul_accumulate(point_at_infinity, x);
+        op_queue->mul_accumulate(b, zero_scalar);
+        op_queue->eq_and_reset();
+        ECCVMCircuitBuilder circuit{ op_queue };
+        bool result = ECCVMTraceChecker::check(circuit);
+        EXPECT_EQ(result, true);
+    }
 }
 
 TEST(ECCVMCircuitBuilderTests, ShortMul)
@@ -273,6 +400,36 @@ TEST(ECCVMCircuitBuilderTests, AddPointAtInfinity)
     op_queue->add_accumulate(b);
     op_queue->eq_and_reset();
 
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
+    EXPECT_EQ(result, true);
+}
+
+TEST(ECCVMCircuitBuilderTests, AddProducesPointAtInfinity)
+{
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+
+    auto generators = G1::derive_generators("test generators", 3);
+    typename G1::element a = generators[0];
+
+    op_queue->add_accumulate(a);
+    op_queue->add_accumulate(-a);
+    op_queue->eq_and_reset();
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
+    EXPECT_EQ(result, true);
+}
+
+TEST(ECCVMCircuitBuilderTests, AddProducesDouble)
+{
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+
+    auto generators = G1::derive_generators("test generators", 3);
+    typename G1::element a = generators[0];
+
+    op_queue->add_accumulate(a);
+    op_queue->add_accumulate(a);
+    op_queue->eq_and_reset();
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);

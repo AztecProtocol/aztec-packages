@@ -127,6 +127,8 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_INTERMEDIATE_Y", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_INFINITY", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_X_INVERSE", frs_per_G);
+        manifest_expected.add_entry(round, "TRANSCRIPT_MSM_COUNT_ZERO_AT_TRANSITION", frs_per_G);
+        manifest_expected.add_entry(round, "TRANSCRIPT_MSM_COUNT_AT_TRANSITION_INVERSE", frs_per_G);
         manifest_expected.add_challenge(round, "beta", "gamma");
 
         round++;
