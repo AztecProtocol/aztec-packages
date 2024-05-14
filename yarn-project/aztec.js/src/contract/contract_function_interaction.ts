@@ -25,7 +25,7 @@ export type SimulateMethodOptions = {
  */
 export class ContractFunctionInteraction extends BaseContractInteraction {
   constructor(
-    protected wallet: Wallet,
+    wallet: Wallet,
     protected contractAddress: AztecAddress,
     protected functionDao: FunctionAbi,
     protected args: any[],
@@ -47,10 +47,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
     if (!this.txRequest) {
-      this.txRequest = await this.wallet.createTxExecutionRequest({
-        calls: [this.request()],
-        fee: opts?.fee,
-      });
+      const calls = [this.request()];
+      const fee = opts?.estimateGas ? await this.getFeeOptions({ calls, fee: opts?.fee }) : opts?.fee;
+      this.txRequest = await this.wallet.createTxExecutionRequest({ calls, fee });
     }
     return this.txRequest;
   }
@@ -86,7 +85,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
 
     const txRequest = await this.create();
-    const simulatedTx = await this.pxe.simulateTx(txRequest, true);
+    const simulatedTx = await this.wallet.simulateTx(txRequest, true);
 
     const rawReturnValues =
       this.functionDao.functionType == FunctionType.SECRET
