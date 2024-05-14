@@ -212,9 +212,10 @@ class ECCVMCircuitBuilder {
         return result;
     }
 
+    // why are this nodiscard??
     [[nodiscard]] size_t get_num_gates() const
     {
-        // (issue #2218)
+        // (issue #2218): ?
         return op_queue->get_num_rows();
     }
 

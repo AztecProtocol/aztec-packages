@@ -17,10 +17,7 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     CommitmentLabels commitment_labels;
 
     const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
-
-    if (circuit_size != key->circuit_size) {
-        return false;
-    }
+    ASSERT(circuit_size == key->circuit_size);
 
     // Utility for extracting commitments from transcript
     const auto receive_commitment = [&](const std::string& label) {
@@ -115,6 +112,7 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
         gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
 
+    // these are the derived stuff only
     // Get commitment to permutation and lookup grand products
     commitments.lookup_inverses = receive_commitment(commitment_labels.lookup_inverses);
     commitments.z_perm = receive_commitment(commitment_labels.z_perm);

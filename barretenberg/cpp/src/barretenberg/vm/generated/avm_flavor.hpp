@@ -2048,8 +2048,6 @@ class AvmFlavor {
 
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
 
-    using FoldedPolynomials = AllEntities<std::vector<FF>>;
-
     class AllValues : public AllEntities<FF> {
       public:
         using Base = AllEntities<FF>;

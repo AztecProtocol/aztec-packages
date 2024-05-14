@@ -16,7 +16,7 @@
 #include "barretenberg/relations/ecc_vm/ecc_wnaf_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 
-// NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members)
+// NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members) ?
 
 namespace bb {
 
@@ -298,11 +298,6 @@ class ECCVMFlavor {
     };
 
   public:
-    /**
-     * @brief A container for polynomials produced after the first round of sumcheck.
-     * @todo TODO(#394) Use polynomial classes for guaranteed memory alignment.
-     */
-    using FoldedPolynomials = AllEntities<std::vector<FF>>;
 
     /**
      * @brief A field element for each entity of the flavor.  These entities represent the prover polynomials
