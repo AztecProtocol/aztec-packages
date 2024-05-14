@@ -113,7 +113,7 @@ fn validate_split_call_requests<N>(
     if first_revertible_call_request_index != num_call_requests {
         let call_request = call_requests[first_revertible_call_request_index];
         assert(
-            min_revertible_side_effect_counter < call_request.start_side_effect_counter, "min_revertible_side_effect_counter must be less than the start counter of the first revertible call"
+            min_revertible_side_effect_counter <= call_request.start_side_effect_counter, "min_revertible_side_effect_counter must be less than or equal to the start counter of the first revertible call"
         );
     }
 }
@@ -162,8 +162,8 @@ impl PrivateCallDataValidator {
         assert(call_context.is_static_call == false, "Users cannot make a static call");
 
         let min_revertible_side_effect_counter = public_inputs.min_revertible_side_effect_counter;
-        // Don't have to limit that the min_revertible_side_effect_counter has to fall in the counter range of the private call.
-        // It is valid as long as it does not fall in the middle of a call.
+        // No need to check that the min_revertible_side_effect_counter falls in the counter range of the private call.
+        // It is valid as long as it does not fall in the middle of any nested call.
         validate_split_call_requests(
             min_revertible_side_effect_counter,
             first_revertible_private_call_request_index,

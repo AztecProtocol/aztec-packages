@@ -3,6 +3,7 @@ import {
   type MAX_NEW_NOTE_HASHES_PER_CALL,
   type PrivateCircuitPublicInputs,
   PrivateKernelInitHints,
+  countAccumulatedItems,
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
 
@@ -17,12 +18,18 @@ export function buildPrivateKernelInitHints(
   ) as Tuple<number, typeof MAX_NEW_NOTE_HASHES_PER_CALL>;
 
   const minRevertibleCounter = publicInputs.minRevertibleSideEffectCounter;
-  const firstRevertiblePrivateCallRequestIndex = privateCallRequests.findIndex(
-    r => r.startSideEffectCounter > minRevertibleCounter,
+  let firstRevertiblePrivateCallRequestIndex = privateCallRequests.findIndex(
+    r => r.startSideEffectCounter >= minRevertibleCounter,
   );
-  const firstRevertiblePublicCallRequestIndex = publicCallRequests.findIndex(
-    r => r.startSideEffectCounter > minRevertibleCounter,
+  if (firstRevertiblePrivateCallRequestIndex === -1) {
+    firstRevertiblePrivateCallRequestIndex = countAccumulatedItems(privateCallRequests);
+  }
+  let firstRevertiblePublicCallRequestIndex = publicCallRequests.findIndex(
+    r => r.startSideEffectCounter >= minRevertibleCounter,
   );
+  if (firstRevertiblePublicCallRequestIndex === -1) {
+    firstRevertiblePublicCallRequestIndex = countAccumulatedItems(publicCallRequests);
+  }
 
   return new PrivateKernelInitHints(
     nullifierCounters,

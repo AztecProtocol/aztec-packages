@@ -111,8 +111,7 @@ impl PrivateCircuitPublicInputsBuilder {
     }
 
     pub fn end_setup(&mut self) {
-        let counter = self.next_counter();
-        self.min_revertible_side_effect_counter = counter;
+        self.min_revertible_side_effect_counter = self.counter_end;
     }
 
     pub fn set_tx_max_block_number(&mut self, max_block_number: u32) {
