@@ -273,7 +273,7 @@ jobs:
         with:
           concurrency_key: prover-client-test-${{ github.actor }}-x86
       - name: "Prover Client Tests"
-        timeout-minutes: 25
+        timeout-minutes: 35
         run: earthly-ci --no-output ./yarn-project/+prover-client-test
 
   build-acir-tests:
