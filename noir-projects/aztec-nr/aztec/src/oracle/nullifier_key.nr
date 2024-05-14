@@ -2,7 +2,7 @@ use dep::protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint, 
 
 // Nullifier keys pertaining to a specific account
 struct NullifierKeys {
-    // TODO (#6176): Replace get_nullifier_keys above with this once we no longer get nullifier keys with address
+    // TODO(#5630): Replace get_nullifier_keys above with this once we no longer get nullifier keys with address
     account: AztecAddress,
     master_nullifier_public_key: GrumpkinPoint,
     app_nullifier_secret_key: Field,
@@ -28,7 +28,7 @@ pub fn get_app_nullifier_secret_key(account: AztecAddress) -> Field {
     get_nullifier_keys_internal(account).app_nullifier_secret_key
 }
 
-// TODO (#6176): Replace get_nullifier_keys above with this once we no longer get nullifier keys with address
+// TODO(#5630): Replace get_nullifier_keys above with this once we no longer get nullifier keys with address
 #[oracle(getNullifierKeysWithNpkMHash)]
 fn get_nullifier_keys_with_npk_m_hash_oracle(_npk_m_hash: Field) -> [Field; 3] {}
 
