@@ -243,9 +243,9 @@ impl BlackBoxFuncCall {
                 inputs.extend(scalars.iter().copied());
                 inputs
             }
-            BlackBoxFuncCall::EmbeddedCurveAdd {
-                input1, input2, ..
-            } => vec![input1[0], input1[1], input2[0], input2[1]],
+            BlackBoxFuncCall::EmbeddedCurveAdd { input1, input2, .. } => {
+                vec![input1[0], input1[1], input2[0], input2[1]]
+            }
             BlackBoxFuncCall::RANGE { input } => vec![*input],
             BlackBoxFuncCall::SchnorrVerify {
                 public_key_x,

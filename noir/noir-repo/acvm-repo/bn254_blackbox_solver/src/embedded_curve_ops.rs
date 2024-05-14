@@ -66,8 +66,8 @@ pub fn multi_scalar_mul(
 }
 
 pub fn embedded_curve_add(
-    input1: [FieldElement;3],
-    input2: [FieldElement;3],
+    input1: [FieldElement; 3],
+    input2: [FieldElement; 3],
 ) -> Result<(FieldElement, FieldElement, FieldElement), BlackBoxResolutionError> {
     let point1 = create_point(input1[0], input1[1], input1[2] == FieldElement::one())
         .map_err(|e| BlackBoxResolutionError::Failed(BlackBoxFunc::EmbeddedCurveAdd, e))?;
@@ -226,7 +226,10 @@ mod tests {
         let x = FieldElement::from(1u128);
         let y = FieldElement::from(2u128);
 
-        let res = embedded_curve_add([x, y, FieldElement::from(0u128)], [x, y , FieldElement::from(0u128)]);
+        let res = embedded_curve_add(
+            [x, y, FieldElement::from(0u128)],
+            [x, y, FieldElement::from(0u128)],
+        );
 
         assert_eq!(
             res,
@@ -243,7 +246,10 @@ mod tests {
         let scalars = [FieldElement::from(2u128), FieldElement::zero()];
 
         let msm_res = multi_scalar_mul(&points, &scalars)?;
-        let add_res = embedded_curve_add([points[0], points[1], FieldElement::from(0u128)],[points[0], points[1], FieldElement::from(0u128)])?;
+        let add_res = embedded_curve_add(
+            [points[0], points[1], FieldElement::from(0u128)],
+            [points[0], points[1], FieldElement::from(0u128)],
+        )?;
 
         assert_eq!(msm_res.0, add_res.0);
         assert_eq!(msm_res.1, add_res.1);
