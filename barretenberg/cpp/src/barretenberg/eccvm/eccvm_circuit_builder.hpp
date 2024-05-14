@@ -123,12 +123,7 @@ class ECCVMCircuitBuilder {
                 if ((op.z1 != 0 || op.z2 != 0) && !op.base_point.is_point_at_infinity()) {
                     msm_opqueue_index.push_back(op_idx);
                     msm_mul_index.emplace_back(msm_count, active_mul_count);
-                }
-                if (op.z1 != 0 && !op.base_point.is_point_at_infinity()) {
-                    active_mul_count++;
-                }
-                if (op.z2 != 0 && !op.base_point.is_point_at_infinity()) {
-                    active_mul_count++;
+                    active_mul_count += static_cast<size_t>(op.z1 != 0) + static_cast<size_t>(op.z2 != 0);
                 }
             } else if (active_mul_count > 0) {
                 msm_sizes.push_back(active_mul_count);
@@ -154,7 +149,6 @@ class ECCVMCircuitBuilder {
                 const auto& op = raw_ops[opqueue_index];
                 auto [msm_index, mul_index] = msm_mul_index[i];
                 if (op.z1 != 0 && !op.base_point.is_point_at_infinity()) {
-
                     ASSERT(msms_test.size() > msm_index);
                     ASSERT(msms_test[msm_index].size() > mul_index);
                     msms_test[msm_index][mul_index] = (ScalarMul{

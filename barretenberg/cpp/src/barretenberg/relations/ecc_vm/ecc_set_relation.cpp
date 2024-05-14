@@ -305,12 +305,17 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_permutation_denominator(const AllE
         auto transcript_input2 = (transcript_pc - 1) + transcript_Px * endomorphism_base_field_shift * beta -
                                  transcript_Py * beta_sqr + z2 * beta_cube;
 
-        // | q_mul | z2_zero | z1_zero | lookup                 |
-        // | ----- | ------- | ------- | ---------------------- |
-        // | 0     | -       | -       | 1                      |
-        // | 1     | 0       | 1       | X + gamma              |
-        // | 1     | 1       | 0       | Y + gamma              |
-        // | 1     | 1       | 1       | (X + gamma)(Y + gamma) |
+        // | q_mul | z2_zero | z1_zero | base_infinity | lookup                 |
+        // | ----- | ------- | ------- | ------------- |----------------------- |
+        // | 0     | -       | -       |             - | 1                      |
+        // | 1     | 0       | 0       |             0 | 1                      |
+        // | 1     | 0       | 1       |             0 | X + gamma              |
+        // | 1     | 1       | 0       |             0 | Y + gamma              |
+        // | 1     | 1       | 1       |             0 | (X + gamma)(Y + gamma) |
+        // | 1     | 0       | 0       |             1 | 1                      |
+        // | 1     | 0       | 1       |             1 | 1                      |
+        // | 1     | 1       | 0       |             1 | 1                      |
+        // | 1     | 1       | 1       |             1 | 1                      |
         transcript_input1 = (transcript_input1 + gamma) * lookup_first + (-lookup_first + 1);
         transcript_input2 = (transcript_input2 + gamma) * lookup_second + (-lookup_second + 1);
         // transcript_product = degree 3
@@ -343,17 +348,13 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_permutation_denominator(const AllE
         auto z2_zero = View(in.transcript_z2zero);
         auto transcript_mul = View(in.transcript_mul);
         auto base_infinity = View(in.transcript_base_infinity);
-        // auto transcript_msm_count_zero_at_transition = View(in.transcript_msm_count_zero_at_transition);
 
         // do not add to count if point at infinity!
         auto full_msm_count =
             transcript_msm_count + transcript_mul * ((-z1_zero + 1) + (-z2_zero + 1)) * (-base_infinity + 1);
-        //      auto count_test = transcript_msm_count
         // msm_result_read = degree 2
         auto msm_result_read =
             transcript_pc_shift + transcript_msm_x * beta + transcript_msm_y * beta_sqr + full_msm_count * beta_cube;
-        // N.B. NOT COUNT ZERO NOT NEEDED IS FACTORED INTO MSM TRANSITION
-        // auto read_active = transcript_msm_transition;
         msm_result_read = transcript_msm_transition * (msm_result_read + gamma) + (-transcript_msm_transition + 1);
         denominator *= msm_result_read; // degree-20
     }

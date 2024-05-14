@@ -45,6 +45,15 @@ class ECCVMTranscriptBuilder {
         FF msm_count_at_transition_inverse = 0;
     };
 
+    /**
+     * @brief Computes offset_generator group element
+     * @details "offset generator" is used when performing multi-scalar-multiplications to ensure an HONEST prover never
+     * triggers incomplete point addition formulae.
+     * i.e. we don't need to constrain point doubling or points at infinity when computing an MSM
+     * The MSM accumulator is initialized to `offset_generator`. When adding the MSM result into the transcript
+     * accumulator, the contribution of the offset generator to the MSM result is removed (offset_generator * 2^{124})
+     * @return AffineElement
+     */
     static AffineElement offset_generator()
     {
         static constexpr auto offset_generator_base = CycleGroup::derive_generators("ECCVM_OFFSET_GENERATOR", 1)[0];
@@ -91,7 +100,6 @@ class ECCVMTranscriptBuilder {
         // We fill these vectors and then perform batch inversions to amortize the cost of FF inverts
         std::vector<FF> inverse_trace_x(num_vm_entries);
         std::vector<FF> inverse_trace_y(num_vm_entries);
-        std::vector<FF> transcript_add_lambda(num_vm_entries);
         std::vector<FF> transcript_msm_x_inverse_trace(num_vm_entries);
         std::vector<FF> add_lambda_denominator(num_vm_entries);
         std::vector<FF> add_lambda_numerator(num_vm_entries);

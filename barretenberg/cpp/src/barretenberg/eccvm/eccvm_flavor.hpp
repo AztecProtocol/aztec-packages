@@ -476,6 +476,18 @@ class ECCVMFlavor {
          *          transcript_msm_x: x-coordinate of MSM output
          *          transcript_msm_y: y-coordinate of MSM output
          *          transcript_accumulator_empty: if 1, transcript_accumulator = point at infinity
+         *          transcript_base_infinity: if 1, transcript_Px, transcript_Py is a point at infinity
+         *          transcript_add_x_equal: if adding a point into the accumulator, is 1 if x-coordinates are equal
+         *          transcript_add_y_equal: if adding a point into the accumulator, is 1 if y-coordinates are equal
+         *          transcript_base_x_inverse: to check transcript_add_x_equal (if x-vals not equal inverse exists)
+         *          transcript_base_y_inverse: to check transcript_add_x_equal (if y-vals not equal inverse exists)
+         *          transcript_add_lambda: if adding a point into the accumulator, contains the lambda gradient
+         *          transcript_msm_intermediate_x: if add MSM result into accumulator, is msm_output - offset_generator
+         *          transcript_msm_intermediate_y: if add MSM result into accumulator, is msm_output - offset_generator
+         *          transcript_msm_infinity: is MSM result the point at infinity?
+         *          transcript_msm_x_inverse: used to validate transcript_msm_infinity correct
+         *          transcript_msm_count_zero_at_transition: does an MSM only contain points at infinity/zero scalars
+         *          transcript_msm_count_at_transition_inverse: used to validate transcript_msm_count_zero_at_transition
          *          precompute_pc: point counter for Straus precomputation columns
          *          precompute_select: if 1, evaluate Straus precomputation algorithm at current row
          *          precompute_point_transition: 1 if current row operating on a different point to previous row
