@@ -4,7 +4,7 @@ mod auth_oracle;
 contract SchnorrSingleKeyAccount {
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, PrivateContext};
 
-    use dep::authwit::{entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions};
+    use dep::authwit::{entrypoint::{app::{AppPayload, ACCOUNT_MAX_CALLS}, fee::FeePayload}, account::AccountActions};
 
     use crate::{util::recover_address, auth_oracle::get_auth_witness};
 
@@ -12,9 +12,9 @@ contract SchnorrSingleKeyAccount {
 
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts
     #[aztec(private)]
-    fn entrypoint(app_payload: pub AppPayload, fee_payload: pub FeePayload) {
+    fn entrypoint(app_payload: pub AppPayload, fee_payload: pub FeePayload) -> [Field; ACCOUNT_MAX_CALLS] {
         let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
-        actions.entrypoint(app_payload, fee_payload);
+        actions.entrypoint(app_payload, fee_payload)
     }
 
     #[aztec(private)]

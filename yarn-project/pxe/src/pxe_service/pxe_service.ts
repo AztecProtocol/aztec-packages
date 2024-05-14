@@ -468,7 +468,7 @@ export class PXEService implements PXE {
     return txHash;
   }
 
-  public async viewTx(
+  public async simulateUnconstrained(
     functionName: string,
     args: any[],
     to: AztecAddress,

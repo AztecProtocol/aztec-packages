@@ -20,7 +20,7 @@ describe('Contract Class', () => {
   const mockTxRequest = { type: 'TxRequest' } as any as TxExecutionRequest;
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
-  const mockViewResultValue = 1;
+  const mockUnconstrainedResultValue = 1;
   const l1Addresses: L1ContractAddresses = {
     availabilityOracleAddress: EthAddress.random(),
     rollupAddress: EthAddress.random(),
@@ -121,7 +121,7 @@ describe('Contract Class', () => {
     wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.getContractInstance.mockResolvedValue(contractInstance);
     wallet.sendTx.mockResolvedValue(mockTxHash);
-    wallet.viewTx.mockResolvedValue(mockViewResultValue as any as DecodedReturn);
+    wallet.simulateUnconstrained.mockResolvedValue(mockUnconstrainedResultValue as any as DecodedReturn);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
     wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
     wallet.proveTx.mockResolvedValue(mockTx);
@@ -148,9 +148,9 @@ describe('Contract Class', () => {
     const result = await fooContract.methods.qux(123n).simulate({
       from: account.address,
     });
-    expect(wallet.viewTx).toHaveBeenCalledTimes(1);
-    expect(wallet.viewTx).toHaveBeenCalledWith('qux', [123n], contractAddress, account.address);
-    expect(result).toBe(mockViewResultValue);
+    expect(wallet.simulateUnconstrained).toHaveBeenCalledTimes(1);
+    expect(wallet.simulateUnconstrained).toHaveBeenCalledWith('qux', [123n], contractAddress, account.address);
+    expect(result).toBe(mockUnconstrainedResultValue);
   });
 
   it('should not call create on an unconstrained function', async () => {

@@ -1,5 +1,5 @@
-import { type FunctionCall, PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
-import { type AztecAddress, FunctionData, GasSettings, TxContext } from '@aztec/circuits.js';
+import type { FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
+import { type AztecAddress, FunctionData, type GasSettings } from '@aztec/circuits.js';
 import { type FunctionAbi, FunctionType, decodeReturnValues, encodeArguments } from '@aztec/foundation/abi';
 
 import { type Wallet } from '../account/wallet.js';
@@ -82,31 +82,17 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    */
   public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
     if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
-      return this.wallet.viewTx(this.functionDao.name, this.args, this.contractAddress, options.from);
+      return this.wallet.simulateUnconstrained(this.functionDao.name, this.args, this.contractAddress, options.from);
     }
 
-    if (this.functionDao.functionType == FunctionType.SECRET) {
-      const nodeInfo = await this.wallet.getNodeInfo();
-      const packedArgs = PackedValues.fromValues(encodeArguments(this.functionDao, this.args));
-      const gasSettings = options.gasSettings ?? GasSettings.simulation();
+    const txRequest = await this.create();
+    const simulatedTx = await this.pxe.simulateTx(txRequest, true);
 
-      const txRequest = TxExecutionRequest.from({
-        firstCallArgsHash: packedArgs.hash,
-        origin: this.contractAddress,
-        functionData: FunctionData.fromAbi(this.functionDao),
-        txContext: new TxContext(nodeInfo.chainId, nodeInfo.protocolVersion, gasSettings),
-        argsOfCalls: [packedArgs],
-        authWitnesses: [],
-      });
-      const simulatedTx = await this.pxe.simulateTx(txRequest, true, options.from ?? this.wallet.getAddress());
-      const flattened = simulatedTx.privateReturnValues;
-      return flattened ? decodeReturnValues(this.functionDao, flattened) : [];
-    } else {
-      const txRequest = await this.create();
-      const simulatedTx = await this.pxe.simulateTx(txRequest, true);
-      this.txRequest = undefined;
-      const flattened = simulatedTx.publicOutput?.publicReturnValues;
-      return flattened ? decodeReturnValues(this.functionDao, flattened) : [];
-    }
+    const rawReturnValues =
+      this.functionDao.functionType == FunctionType.SECRET
+        ? simulatedTx.privateReturnValues
+        : simulatedTx.publicOutput?.publicReturnValues;
+
+    return rawReturnValues ? decodeReturnValues(this.functionDao, rawReturnValues) : [];
   }
 }

@@ -137,7 +137,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
           visibility: 'public',
         },
       ],
-      returnTypes: [],
+      returnTypes: [{ kind: 'array', length: 4, type: { kind: 'field' } }],
     } as FunctionAbi;
   }
 }

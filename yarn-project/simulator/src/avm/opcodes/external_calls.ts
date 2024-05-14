@@ -60,8 +60,7 @@ abstract class ExternalCall extends Instruction {
     const l2Gas = memory.get(gasOffset).toNumber();
     const daGas = memory.getAs<Field>(gasOffset + 1).toNumber();
     const functionSelector = memory.getAs<Field>(this.temporaryFunctionSelectorOffset).toFr();
-    const callType = this.type === 'STATICCALL' || context.environment.isStaticCall ? 'STATICCALL' : 'CALL';
-
+    const callType = context.environment.isStaticCall ? 'STATICCALL' : this.type;
     const allocatedGas = { l2Gas, daGas };
     const memoryOperations = { reads: calldataSize + 5, writes: 1 + this.retSize, indirect: this.indirect };
     const totalGas = sumGas(this.gasCost(memoryOperations), allocatedGas);

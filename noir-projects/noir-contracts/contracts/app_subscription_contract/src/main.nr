@@ -2,7 +2,10 @@ mod subscription_note;
 mod dapp_payload;
 
 contract AppSubscription {
-    use crate::{dapp_payload::DAppPayload, subscription_note::{SubscriptionNote, SUBSCRIPTION_NOTE_LEN}};
+    use crate::{
+        dapp_payload::{DAppPayload, DAPP_MAX_CALLS},
+        subscription_note::{SubscriptionNote, SUBSCRIPTION_NOTE_LEN}
+    };
     use dep::{
         aztec::{
         prelude::{
@@ -33,7 +36,7 @@ contract AppSubscription {
     global SUBSCRIPTION_TXS = 5;
 
     #[aztec(private)]
-    fn entrypoint(payload: pub DAppPayload, user_address: pub AztecAddress) {
+    fn entrypoint(payload: pub DAppPayload, user_address: pub AztecAddress) -> [Field; DAPP_MAX_CALLS] {
         assert(context.msg_sender().to_field() == 0);
         assert_current_call_valid_authwit(&mut context, user_address);
 
@@ -54,7 +57,7 @@ contract AppSubscription {
 
         AppSubscription::at(context.this_address()).assert_not_expired(note.expiry_block_number).enqueue_view(&mut context);
 
-        payload.execute_calls(&mut context, storage.target_address.read_private());
+        payload.execute_calls(&mut context, storage.target_address.read_private())
     }
 
     #[aztec(public)]

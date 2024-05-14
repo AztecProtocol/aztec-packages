@@ -9,7 +9,7 @@ contract SchnorrAccount {
     use dep::aztec::state_vars::{Map, PublicMutable};
     use dep::aztec::context::Context;
     use dep::authwit::{
-        entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
+        entrypoint::{app::{AppPayload, ACCOUNT_MAX_CALLS}, fee::FeePayload}, account::AccountActions,
         auth_witness::get_auth_witness
     };
     use dep::aztec::hash::compute_siloed_nullifier;
@@ -39,13 +39,13 @@ contract SchnorrAccount {
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts file
     #[aztec(private)]
     #[aztec(noinitcheck)]
-    fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload) {
+    fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload) -> [Field; ACCOUNT_MAX_CALLS] {
         let actions = AccountActions::private(
             &mut context,
             storage.approved_actions.storage_slot,
             is_valid_impl
         );
-        actions.entrypoint(app_payload, fee_payload);
+        actions.entrypoint(app_payload, fee_payload)
     }
 
     #[aztec(private)]
