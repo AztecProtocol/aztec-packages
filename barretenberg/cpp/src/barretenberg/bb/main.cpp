@@ -678,6 +678,64 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
         vinfo("vk written to: ", outputPath);
     }
 }
+
+/**
+ * @brief Outputs proof as vector of field elements in readable format.
+ *
+ * Communication:
+ * - stdout: The proof as a list of field elements is written to stdout as a string
+ * - Filesystem: The proof as a list of field elements is written to the path specified by outputPath
+ *
+ *
+ * @param proof_path Path to the file containing the serialized proof
+ * @param output_path Path to write the proof to
+ */
+void proof_as_fields_honk(const std::string& proof_path, const std::string& output_path)
+{
+    auto proof = from_buffer<std::vector<bb::fr>>(read_file(proof_path));
+    auto json = proof_to_json(proof);
+
+    if (output_path == "-") {
+        writeStringToStdout(json);
+        vinfo("proof as fields written to stdout");
+    } else {
+        write_file(output_path, { json.begin(), json.end() });
+        vinfo("proof as fields written to: ", output_path);
+    }
+}
+
+/**
+ * @brief Converts a verification key from a byte array into a list of field elements
+ *
+ * Why is this needed?
+ * This follows the same rationale as `proofAsFields`.
+ *
+ * Communication:
+ * - stdout: The verification key as a list of field elements is written to stdout as a string
+ * - Filesystem: The verification key as a list of field elements is written to the path specified by outputPath
+ *
+ * @param vk_path Path to the file containing the serialized verification key
+ * @param output_path Path to write the verification key to
+ */
+template <IsUltraFlavor Flavor> void vk_as_fields_honk(const std::string& vk_path, const std::string& output_path)
+{
+    using VerificationKey = Flavor::VerificationKey;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
+
+    auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
+    verification_key->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
+    std::vector<bb::fr> data = verification_key->to_fields();
+
+    auto json = vk_to_json(data);
+    if (output_path == "-") {
+        writeStringToStdout(json);
+        vinfo("vk as fields written to stdout");
+    } else {
+        write_file(output_path, { json.begin(), json.end() });
+        vinfo("vk as fields written to: ", output_path);
+    }
+}
+
 /**
  * @brief Creates a proof for an ACIR circuit, outputs the proof and verification key in binary and 'field' format
  *
