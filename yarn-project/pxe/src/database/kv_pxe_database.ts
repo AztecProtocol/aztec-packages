@@ -387,7 +387,8 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   getCompleteAddress(accountOrNpkMHash: AztecAddress | Fr): Promise<CompleteAddress | undefined> {
-    return Promise.resolve(this.#getCompleteAddress(accountOrNpkMHash) ?? this.#getCompleteAddressWithNpkMHash(accountOrNpkMHash),
+    return Promise.resolve(
+      this.#getCompleteAddress(accountOrNpkMHash) ?? this.#getCompleteAddressWithNpkMHash(accountOrNpkMHash),
     );
   }
 

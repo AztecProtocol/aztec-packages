@@ -43,7 +43,9 @@ export class Oracle {
   }
 
   async getNullifierKeys([accountAddress]: ACVMField[]): Promise<ACVMField[]> {
-    const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeys(fromACVMField(accountAddress));
+    const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeys(
+      fromACVMField(accountAddress),
+    );
     return [
       toACVMField(masterNullifierPublicKey.x),
       toACVMField(masterNullifierPublicKey.y),
@@ -53,7 +55,9 @@ export class Oracle {
 
   // Keeping this oracle separate from above because I don't want an implicit overload in noir code
   async getNullifierKeysWithNpkMHash([masterNullifierPublicKeyHash]: ACVMField[]): Promise<ACVMField[]> {
-    const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeys(fromACVMField(masterNullifierPublicKeyHash));
+    const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeys(
+      fromACVMField(masterNullifierPublicKeyHash),
+    );
 
     return [
       toACVMField(masterNullifierPublicKey.x),

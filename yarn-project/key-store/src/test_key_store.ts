@@ -86,12 +86,13 @@ export class TestKeyStore implements KeyStore {
   /**
    * Gets the master nullifier public key for a given account or master nullifier public key hash.
    * @throws If the account does not exist in the key store.
-   * @param account or master nullifier public key hash - The account address or master nullifier public key hash for which to retrieve the master nullifier public key.
+   * @param accountOrNpkMHash - account - the address or npkMHash - the master nullifier public key hash
    * @returns The master nullifier public key for the account.
    */
   public async getMasterNullifierPublicKey(accountOrNpkMHash: AztecAddress | Fr): Promise<PublicKey> {
-    const masterNullifierPublicKeyBuffer = this.#keys.get(`${accountOrNpkMHash.toString()}-npk_m`) ??
-        this.#keys.get(`${this.#getAccountAddressForMasterNullifierPublicKeyHash(accountOrNpkMHash)?.toString()}-npk_m`);
+    const masterNullifierPublicKeyBuffer =
+      this.#keys.get(`${accountOrNpkMHash.toString()}-npk_m`) ??
+      this.#keys.get(`${this.#getAccountAddressForMasterNullifierPublicKeyHash(accountOrNpkMHash)?.toString()}-npk_m`);
 
     if (!masterNullifierPublicKeyBuffer) {
       throw new Error(
@@ -152,15 +153,13 @@ export class TestKeyStore implements KeyStore {
   /**
    * Derives and returns the application nullifier secret key for a given account or master nullifier public key hash.
    * @throws If the account does not exist in the key store.
-   * @param account or master nullifier public key hash - The account address or master nullifier public key hash for which to retrieve the application nullifier secret key.
+   * @param accountOrNpkMHash - account - the address or npkMHash - the master nullifier public key hash
    * @param app - The application address to retrieve the nullifier secret key for.
    * @returns A Promise that resolves to the application nullifier secret key.
    */
-  public async getAppNullifierSecretKey(
-    accountOrNpkMHash: AztecAddress | Fr,
-    app: AztecAddress,
-  ): Promise<Fr> {
-    const masterNullifierSecretKeyBuffer = this.#keys.get(`${accountOrNpkMHash.toString()}-nsk_m`) ??
+  public async getAppNullifierSecretKey(accountOrNpkMHash: AztecAddress | Fr, app: AztecAddress): Promise<Fr> {
+    const masterNullifierSecretKeyBuffer =
+      this.#keys.get(`${accountOrNpkMHash.toString()}-nsk_m`) ??
       this.#keys.get(`${this.#getAccountAddressForMasterNullifierPublicKeyHash(accountOrNpkMHash)?.toString()}-nsk_m`);
 
     if (!masterNullifierSecretKeyBuffer) {
