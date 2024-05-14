@@ -11,6 +11,7 @@ nargo-src: #aztec-tag=cache
       noir-repo/aztec_macros \
       noir-repo/compiler \
       noir-repo/noir_stdlib \
+      noir-repo/test_programs \
       noir-repo/tooling \
       noir-repo/utils \
       noir-repo/Cargo.lock \
@@ -18,7 +19,6 @@ nargo-src: #aztec-tag=cache
       noir-repo/.github \
       noir-repo
 
-    COPY +test-programs-source/noir-repo/test_programs ./noir-repo/test_programs
     # NOTE: we use a fake commit hash here
     # we don't want Noir to rebuild everytime the parent repo changes
     # just only when it changes
@@ -52,7 +52,7 @@ format: #aztec-tag=cache
     FROM +nargo
     ENV PATH=$PATH:/usr/src/noir-repo/target/release
 
-    COPY +test-programs-source/noir-repo/test_programs ./noir-repo/test_programs
+    COPY ./noir-repo/test_programs ./noir-repo/test_programs
     COPY ./noir-repo/noir_stdlib ./noir-repo/noir_stdlib
 
     WORKDIR ./noir-repo/test_programs
