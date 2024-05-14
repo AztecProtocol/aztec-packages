@@ -29,20 +29,17 @@ PRESET:
     FUNCTION
     ARG preset
     ARG targets
-    ARG targets_tag=$(echo $targets | tr ' ' '-')
+    ARG tag=""
     FROM +source
     # build and keep just binaries
     RUN cmake --preset $preset -Bbuild && \
         cmake --build build --target $targets && \
         bash -O extglob -c "rm -rf build/!(bin)"
-    SAVE IMAGE --push aztecprotocol/cache:barretenberg-preset-$preset-$targets_tag
+    SAVE IMAGE --push aztecprotocol/cache:barretenberg-preset-$preset$tag
     SAVE ARTIFACT build/bin
 
 preset-release: #aztec-tag=cache
     DO +PRESET --preset=clang16 --targets=bb
-
-preset-release-assert: #aztec-tag=cache
-    DO +PRESET --preset=clang16-assert --targets=bb
 
 preset-debug: #aztec-tag=cache
     DO +PRESET --preset=clang16-dbg --targets=bb
@@ -62,7 +59,7 @@ preset-wasm: #aztec-tag=cache
     END
 
 preset-sol: #aztec-tag=cache
-    DO +PRESET --preset=clang16 --targets="solidity_key_gen solidity_proof_gen"
+    DO +PRESET --preset=clang16 --targets="solidity_key_gen solidity_proof_gen" --tag=sol
 
 preset-wasm-threads: #aztec-tag=cache
     FROM +source
@@ -85,20 +82,20 @@ preset-clang-assert: #aztec-tag=cache
 # these are either fresh builds just for benching (op-count and op-count-time)
 # or build the binaries we need for benchmarking
 preset-op-count-bench: #aztec-tag=cache
-    DO +PRESET --preset=op-count --targets="ultra_honk_bench client_ivc_bench"
+    DO +PRESET --preset=op-count --targets="ultra_honk_bench client_ivc_bench" --tag=bench
 
 preset-op-count-time-bench: #aztec-tag=cache
-    DO +PRESET --preset=op-count-time --targets="ultra_honk_bench client_ivc_bench"
+    DO +PRESET --preset=op-count-time --targets="ultra_honk_bench client_ivc_bench" --tag=bench
 
 preset-release-bench: #aztec-tag=cache
-    DO +PRESET --preset=preset-release --targets="ultra_honk_bench client_ivc_bench"
+    DO +PRESET --preset=clang16 --targets="ultra_honk_bench client_ivc_bench" --tag=bench
 
 preset-wasm-bench: #aztec-tag=cache
-    DO +PRESET --preset=preset-wasm-threads --targets="ultra_honk_bench client_ivc_bench"
+    DO +PRESET --preset=wasm-threads --targets="ultra_honk_bench client_ivc_bench" --tag=bench
 
 # test images
 preset-release-assert-test: #aztec-tag=cache
-    DO +PRESET --preset=preset-release-assert --targets="all"
+    DO +PRESET --preset=clang16-assert --targets="all" --tag=test
 
 # Sent to the bench runner using a earthly --push +bench-binaries
 # then we can run earthly +bench-ultra-honk --bench_mode=cache
