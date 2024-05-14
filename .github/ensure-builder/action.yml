@@ -11,7 +11,7 @@ inputs:
   run:
     # command to run once builder/tester available
     required: false
-  runner_kind:
+  label:
     required: false
 
 runs:
