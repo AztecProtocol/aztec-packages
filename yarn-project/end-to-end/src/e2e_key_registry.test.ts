@@ -1,5 +1,16 @@
-import { type AccountWallet, AztecAddress, Fr, type PXE } from '@aztec/aztec.js';
-import { CompleteAddress, Point } from '@aztec/circuits.js';
+import { createAccounts } from '@aztec/accounts/testing';
+import { type AccountWallet, AztecAddress, type AztecNode, Fr, type L2Block, type PXE } from '@aztec/aztec.js';
+import {
+  CompleteAddress,
+  GeneratorIndex,
+  INITIAL_L2_BLOCK_NUM,
+  Point,
+  PublicKeys,
+  computeAppNullifierSecretKey,
+  deriveMasterNullifierSecretKey,
+} from '@aztec/circuits.js';
+import { siloNullifier } from '@aztec/circuits.js/hash';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { KeyRegistryContract, TestContract } from '@aztec/noir-contracts.js';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 
@@ -15,6 +26,7 @@ describe('Key Registry', () => {
   let keyRegistry: KeyRegistryContract;
 
   let pxe: PXE;
+  let aztecNode: AztecNode;
   let testContract: TestContract;
   jest.setTimeout(TIMEOUT);
 
@@ -25,7 +37,7 @@ describe('Key Registry', () => {
   const account = CompleteAddress.random();
 
   beforeAll(async () => {
-    ({ teardown, pxe, wallets } = await setup(3));
+    ({ aztecNode, teardown, pxe, wallets } = await setup(2));
     keyRegistry = await KeyRegistryContract.at(getCanonicalKeyRegistryAddress(), wallets[0]);
 
     testContract = await TestContract.deploy(wallets[0]).send().deployed();
@@ -44,20 +56,22 @@ describe('Key Registry', () => {
 
   describe('failure cases', () => {
     it('throws when address preimage check fails', async () => {
-      const keys = [
-        account.masterNullifierPublicKey,
-        account.masterIncomingViewingPublicKey,
-        account.masterOutgoingViewingPublicKey,
-        account.masterTaggingPublicKey,
-      ];
+      const publicKeysBuf = account.publicKeys.toBuffer();
+      // We randomly invalidate some of the keys by overwriting random byte
+      const byteIndex = Math.floor(Math.random() * publicKeysBuf.length);
+      publicKeysBuf[byteIndex] = (publicKeysBuf[byteIndex] + 2) % 256;
 
-      // We randomly invalidate some of the keys
-      keys[Math.floor(Math.random() * keys.length)] = Point.random();
+      const publicKeys = PublicKeys.fromBuffer(publicKeysBuf);
 
       await expect(
         keyRegistry
           .withWallet(wallets[0])
-          .methods.register(account, account.partialAddress, keys[0], keys[1], keys[2], keys[3])
+          .methods.register(
+            account,
+            account.partialAddress,
+            // TODO(#6337): Directly dump account.publicKeys here
+            publicKeys.toNoirStruct(),
+          )
           .send()
           .wait(),
       ).rejects.toThrow('Computed address does not match supplied address');
@@ -93,7 +107,7 @@ describe('Key Registry', () => {
     await testContract.methods
       .test_nullifier_key_freshness(
         newAccountCompleteAddress.address,
-        newAccountCompleteAddress.masterNullifierPublicKey,
+        newAccountCompleteAddress.publicKeys.masterNullifierPublicKey,
       )
       .send()
       .wait();
@@ -106,10 +120,8 @@ describe('Key Registry', () => {
         .methods.register(
           account,
           account.partialAddress,
-          account.masterNullifierPublicKey,
-          account.masterIncomingViewingPublicKey,
-          account.masterOutgoingViewingPublicKey,
-          account.masterTaggingPublicKey,
+          // TODO(#6337): Directly dump account.publicKeys here
+          account.publicKeys.toNoirStruct(),
         )
         .send()
         .wait();
@@ -129,13 +141,16 @@ describe('Key Registry', () => {
         .test_shared_mutable_private_getter_for_registry_contract(1, account)
         .simulate();
 
-      expect(new Fr(nullifierPublicKeyX)).toEqual(account.masterNullifierPublicKey.x);
+      expect(new Fr(nullifierPublicKeyX)).toEqual(account.publicKeys.masterNullifierPublicKey.x);
     });
 
     // Note: This test case is dependent on state from the previous one
     it('key lib succeeds for registered account', async () => {
       // Should succeed as the account is registered in key registry from tests before
-      await testContract.methods.test_nullifier_key_freshness(account, account.masterNullifierPublicKey).send().wait();
+      await testContract.methods
+        .test_nullifier_key_freshness(account, account.publicKeys.masterNullifierPublicKey)
+        .send()
+        .wait();
     });
   });
 
@@ -204,5 +219,54 @@ describe('Key Registry', () => {
         .send()
         .wait();
     });
+  });
+
+  describe('using nsk_app to detect nullification', () => {
+    // This test checks that it possible to detect that a note has been nullified just by using nsk_app. Note that this
+    // only works for non-transient note as transient notes never emit a note hash which makes it impossible to brute
+    // force their nullifier. This makes this scheme a bit useless in practice.
+    it('nsk_app and contract address are enough to detect note nullification', async () => {
+      const secret = Fr.random();
+      const [account] = await createAccounts(pxe, 1, [secret]);
+
+      const masterNullifierSecretKey = deriveMasterNullifierSecretKey(secret);
+      const nskApp = computeAppNullifierSecretKey(masterNullifierSecretKey, testContract.address);
+
+      const noteValue = 5;
+      const noteOwner = account.getAddress();
+      const noteStorageSlot = 12;
+
+      await testContract.methods.call_create_note(noteValue, noteOwner, noteStorageSlot).send().wait();
+
+      expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(0);
+
+      await testContract.methods.call_destroy_note(noteStorageSlot).send().wait();
+
+      expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(1);
+    });
+
+    const getNumNullifiedNotes = async (nskApp: Fr, contractAddress: AztecAddress) => {
+      // 1. Get all the note hashes
+      const blocks = await aztecNode.getBlocks(INITIAL_L2_BLOCK_NUM, 1000);
+      const noteHashes = blocks.flatMap((block: L2Block) =>
+        block.body.txEffects.flatMap(txEffect => txEffect.noteHashes),
+      );
+      // 2. Get all the seen nullifiers
+      const nullifiers = blocks.flatMap((block: L2Block) =>
+        block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
+      );
+      // 3. Derive all the possible nullifiers using nskApp
+      const derivedNullifiers = noteHashes.map(noteHash => {
+        const innerNullifier = poseidon2Hash([noteHash, nskApp, GeneratorIndex.NOTE_NULLIFIER]);
+        return siloNullifier(contractAddress, innerNullifier);
+      });
+      // 4. Count the number of derived nullifiers that are in the nullifiers array
+      return derivedNullifiers.reduce((count, derived) => {
+        if (nullifiers.some(nullifier => nullifier.equals(derived))) {
+          count++;
+        }
+        return count;
+      }, 0);
+    };
   });
 });
