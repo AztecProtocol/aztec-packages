@@ -62,7 +62,7 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
             self.hints.sorted_encrypted_log_hashes_indexes,
             self.hints.sorted_unencrypted_log_hashes,
             self.hints.sorted_unencrypted_log_hashes_indexes
-        ).compose().finish_to_public()
+        ).compose_public().finish_to_public()
     }
 }
 
