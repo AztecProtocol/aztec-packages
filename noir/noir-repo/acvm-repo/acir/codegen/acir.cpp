@@ -157,12 +157,8 @@ namespace Program {
         };
 
         struct EmbeddedCurveAdd {
-            Program::FunctionInput input1_x;
-            Program::FunctionInput input1_y;
-            Program::FunctionInput input1_infinite;
-            Program::FunctionInput input2_x;
-            Program::FunctionInput input2_y;
-            Program::FunctionInput input2_infinite;
+            std::array<Program::FunctionInput, 3> input1;
+            std::array<Program::FunctionInput, 3> input2;
             std::array<Program::Witness, 3> outputs;
 
             friend bool operator==(const EmbeddedCurveAdd&, const EmbeddedCurveAdd&);
@@ -2804,12 +2800,8 @@ Program::BlackBoxFuncCall::MultiScalarMul serde::Deserializable<Program::BlackBo
 namespace Program {
 
     inline bool operator==(const BlackBoxFuncCall::EmbeddedCurveAdd &lhs, const BlackBoxFuncCall::EmbeddedCurveAdd &rhs) {
-        if (!(lhs.input1_x == rhs.input1_x)) { return false; }
-        if (!(lhs.input1_y == rhs.input1_y)) { return false; }
-        if (!(lhs.input1_infinite == rhs.input1_infinite)) { return false; }
-        if (!(lhs.input2_x == rhs.input2_x)) { return false; }
-        if (!(lhs.input2_y == rhs.input2_y)) { return false; }
-        if (!(lhs.input2_infinite == rhs.input2_infinite)) { return false; }
+        if (!(lhs.input1 == rhs.input1)) { return false; }
+        if (!(lhs.input2 == rhs.input2)) { return false; }
         if (!(lhs.outputs == rhs.outputs)) { return false; }
         return true;
     }
@@ -2834,12 +2826,8 @@ namespace Program {
 template <>
 template <typename Serializer>
 void serde::Serializable<Program::BlackBoxFuncCall::EmbeddedCurveAdd>::serialize(const Program::BlackBoxFuncCall::EmbeddedCurveAdd &obj, Serializer &serializer) {
-    serde::Serializable<decltype(obj.input1_x)>::serialize(obj.input1_x, serializer);
-    serde::Serializable<decltype(obj.input1_y)>::serialize(obj.input1_y, serializer);
-    serde::Serializable<decltype(obj.input1_infinite)>::serialize(obj.input1_infinite, serializer);
-    serde::Serializable<decltype(obj.input2_x)>::serialize(obj.input2_x, serializer);
-    serde::Serializable<decltype(obj.input2_y)>::serialize(obj.input2_y, serializer);
-    serde::Serializable<decltype(obj.input2_infinite)>::serialize(obj.input2_infinite, serializer);
+    serde::Serializable<decltype(obj.input1)>::serialize(obj.input1, serializer);
+    serde::Serializable<decltype(obj.input2)>::serialize(obj.input2, serializer);
     serde::Serializable<decltype(obj.outputs)>::serialize(obj.outputs, serializer);
 }
 
@@ -2847,12 +2835,8 @@ template <>
 template <typename Deserializer>
 Program::BlackBoxFuncCall::EmbeddedCurveAdd serde::Deserializable<Program::BlackBoxFuncCall::EmbeddedCurveAdd>::deserialize(Deserializer &deserializer) {
     Program::BlackBoxFuncCall::EmbeddedCurveAdd obj;
-    obj.input1_x = serde::Deserializable<decltype(obj.input1_x)>::deserialize(deserializer);
-    obj.input1_y = serde::Deserializable<decltype(obj.input1_y)>::deserialize(deserializer);
-    obj.input1_infinite = serde::Deserializable<decltype(obj.input1_infinite)>::deserialize(deserializer);
-    obj.input2_x = serde::Deserializable<decltype(obj.input2_x)>::deserialize(deserializer);
-    obj.input2_y = serde::Deserializable<decltype(obj.input2_y)>::deserialize(deserializer);
-    obj.input2_infinite = serde::Deserializable<decltype(obj.input2_infinite)>::deserialize(deserializer);
+    obj.input1 = serde::Deserializable<decltype(obj.input1)>::deserialize(deserializer);
+    obj.input2 = serde::Deserializable<decltype(obj.input2)>::deserialize(deserializer);
     obj.outputs = serde::Deserializable<decltype(obj.outputs)>::deserialize(deserializer);
     return obj;
 }
