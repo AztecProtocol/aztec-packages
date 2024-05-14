@@ -31,7 +31,7 @@ export async function createAccounts(
   const accounts = [];
 
   if (secrets.length == 0) {
-    secrets = Array(numberOfAccounts).fill(Fr.random());
+    secrets = Array.from({ length: numberOfAccounts }, () => Fr.random());
   } else if (secrets.length > 0 && secrets.length !== numberOfAccounts) {
     throw new Error('Secrets array must be empty or have the same length as the number of accounts');
   }
