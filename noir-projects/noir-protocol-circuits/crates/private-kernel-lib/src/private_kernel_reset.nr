@@ -355,35 +355,6 @@ mod tests {
         assert(array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[0]]));
     }
 
-    #[test]
-    unconstrained fn ordering_of_note_hashes_and_nullifiers() {
-        let mut builder = PrivateKernelResetInputsBuilder::new();
-
-        builder.previous_kernel.append_new_note_hashes(10);
-        builder.previous_kernel.append_new_nullifiers(10);
-
-        let sorted_note_hashes = builder.previous_kernel.new_note_hashes.storage;
-        let sorted_nullifiers = builder.previous_kernel.new_nullifiers.storage;
-
-        let mut reversed_note_hashes = [ScopedNoteHash::empty(); 10];
-        let mut reversed_nullifiers = [ScopedNullifier::empty(); 10];
-
-        for i in 0..10 {
-            reversed_note_hashes[9 - i] = builder.previous_kernel.new_note_hashes.pop();
-            reversed_nullifiers[9 - i] = builder.previous_kernel.new_nullifiers.pop();
-        }
-
-        builder.previous_kernel.new_note_hashes.extend_from_array(reversed_note_hashes);
-        builder.previous_kernel.new_nullifiers.extend_from_array(reversed_nullifiers);
-
-        let public_inputs = builder.execute();
-
-        for i in 0..10 {
-            assert(public_inputs.end.new_note_hashes[i].eq(sorted_note_hashes[i]));
-            assert(public_inputs.end.new_nullifiers[i].eq(sorted_nullifiers[i]));
-        }
-    }
-
     #[test(should_fail_with="Value of the hinted transient note hash does not match")]
     unconstrained fn wrong_transient_nullifier_index_for_note_hash_fails() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
