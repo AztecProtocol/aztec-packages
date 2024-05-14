@@ -144,16 +144,16 @@ pub fn hash_args(args: [Field]) -> Field {
             current_chunk_values[index_inside_current_chunk] = args[i];
             index_inside_current_chunk+=1;
             if index_inside_current_chunk == ARGS_HASH_CHUNK_LENGTH {
-                chunks_hashes[current_chunk_index] = poseidon2_hash(current_chunk_values);
+                chunks_hashes[current_chunk_index] = pedersen_hash(current_chunk_values, GENERATOR_INDEX__FUNCTION_ARGS);
                 current_chunk_values = [0; ARGS_HASH_CHUNK_LENGTH];
                 current_chunk_index+=1;
                 index_inside_current_chunk = 0;
             }
         }
         if index_inside_current_chunk > 0 {
-            chunks_hashes[current_chunk_index] = poseidon2_hash(current_chunk_values);
+            chunks_hashes[current_chunk_index] = pedersen_hash(current_chunk_values, GENERATOR_INDEX__FUNCTION_ARGS);
         }
-        poseidon2_hash(chunks_hashes)
+        pedersen_hash(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)
     }
 }
 
