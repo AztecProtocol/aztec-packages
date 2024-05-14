@@ -347,8 +347,10 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg, Aci
                 af.ec_add_constraints.push_back(EcAdd{
                     .input1_x = arg.input1_x.witness.value,
                     .input1_y = arg.input1_y.witness.value,
+                    .input1_infinite = arg.input1_infinite.witness.value,
                     .input2_x = arg.input2_x.witness.value,
                     .input2_y = arg.input2_y.witness.value,
+                    .input2_infinite = arg.input2_infinite.witness.value,
                     .result_x = arg.outputs[0].value,
                     .result_y = arg.outputs[1].value,
                 });
