@@ -64,12 +64,12 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
     std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object,
     bool has_valid_witness_assignments = false);
 
-std::vector<bb::fr> export_key_in_recursion_format(std::shared_ptr<UltraFlavor::VerificationKey> const& vkey);
-std::vector<bb::fr> export_dummy_key_in_recursion_format(bool contains_recursive_proof = false);
+// std::vector<bb::fr> export_key_in_recursion_format(std::shared_ptr<UltraFlavor::VerificationKey> const& vkey);
+// std::vector<bb::fr> export_dummy_key_in_recursion_format(bool contains_recursive_proof = false);
 
-std::vector<bb::fr> export_transcript_in_recursion_format(const NativeTranscript& transcript);
-std::vector<bb::fr> export_dummy_transcript_in_recursion_format(bool contains_recursive_proof);
-size_t recursion_proof_size_without_public_inputs();
+// std::vector<bb::fr> export_transcript_in_recursion_format(const NativeTranscript& transcript);
+// std::vector<bb::fr> export_dummy_transcript_in_recursion_format(bool contains_recursive_proof);
+// size_t recursion_proof_size_without_public_inputs();
 
 // In order to interact with a recursive aggregation state inside of a circuit, we need to represent its internal G1
 // elements as field elements. This happens in multiple locations when creating a recursion constraint. The struct and

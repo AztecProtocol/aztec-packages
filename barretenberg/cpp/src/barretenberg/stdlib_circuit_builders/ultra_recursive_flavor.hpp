@@ -324,22 +324,27 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
          * @param builder
          * @param elements
          */
-        VerificationKey(CircuitBuilder* builder, std::vector<FF> elements)
+        VerificationKey(CircuitBuilder& builder, std::span<FF> elements)
         {
             // deserialize circuit size
             size_t num_frs_read = 0;
-            size_t num_element_frs = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, uint64_t>();
-            this->circuit_size = bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, uint64_t>(
-                builder, elements.subspan(num_frs_read, num_frs_read + num_element_frs));
+            size_t num_element_frs = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, FF>();
+            this->circuit_size = uint64_t(bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
+                                              builder, elements.subspan(num_frs_read, num_frs_read + num_element_frs))
+                                              .get_value());
             num_frs_read += num_element_frs;
-            num_element_frs = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, uint64_t>();
-            this->num_public_inputs = bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, uint64_t>(
-                builder, elements.subspan(num_frs_read, num_frs_read + num_element_frs));
+            num_element_frs = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, FF>();
+            this->num_public_inputs =
+                uint64_t(bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
+                             builder, elements.subspan(num_frs_read, num_frs_read + num_element_frs))
+                             .get_value());
             num_frs_read += num_element_frs;
 
-            num_element_frs = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, uint64_t>();
-            this->pub_inputs_offset = bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, uint64_t>(
-                builder, elements.subspan(num_frs_read, num_frs_read + num_element_frs));
+            num_element_frs = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, FF>();
+            this->pub_inputs_offset =
+                uint64_t(bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
+                             builder, elements.subspan(num_frs_read, num_frs_read + num_element_frs))
+                             .get_value());
             num_frs_read += num_element_frs;
 
             for (Commitment& comm : this->get_all()) {
