@@ -57,7 +57,7 @@ export class TestKeyStore implements KeyStore {
     // We save the keys to db associated with the account address
     await this.#keys.set(`${accountAddress.toString()}-public_keys_hash`, publicKeysHash.toBuffer());
 
-    // Naming of keys is as follows ${from}-${to}_${any modifiers (m = master, h = hash)}
+    // Naming of keys is as follows ${from}-${to}_m
     await this.#keys.set(`${accountAddress.toString()}-nsk_m`, masterNullifierSecretKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-ivsk_m`, masterIncomingViewingSecretKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-ovsk_m`, masterOutgoingViewingSecretKey.toBuffer());
@@ -86,19 +86,17 @@ export class TestKeyStore implements KeyStore {
   /**
    * Gets the master nullifier public key for a given account or master nullifier public key hash.
    * @throws If the account does not exist in the key store.
-   * @param account or master nullifier public key hash - The account address or master nullifier public key hash for which to retrieve the master nullifier public key.
+   * @param accountOrNpkMHash - account - the address or npkMHash - the master nullifier public key hash
    * @returns The master nullifier public key for the account.
    */
-  public async getMasterNullifierPublicKey(args: { account: AztecAddress } | { npkMHash: Fr }): Promise<PublicKey> {
+  public async getMasterNullifierPublicKey(accountOrNpkMHash: AztecAddress | Fr): Promise<PublicKey> {
     const masterNullifierPublicKeyBuffer =
-      'account' in args
-        ? this.#keys.get(`${args.account.toString()}-npk_m`)
-        : this.#keys.get(`${this.#getAccountAddressForMasterNullifierPublicKeyHash(args.npkMHash)?.toString()}-npk_m`);
+      this.#keys.get(`${accountOrNpkMHash.toString()}-npk_m`) ??
+      this.#keys.get(`${this.#getAccountAddressForMasterNullifierPublicKeyHash(accountOrNpkMHash)?.toString()}-npk_m`);
+
     if (!masterNullifierPublicKeyBuffer) {
       throw new Error(
-        `${
-          'account' in args ? `Account ${args.account}` : `Master nullifier public key hash ${args.npkMHash}`
-        } does not exist. Registered accounts: ${await this.getAccounts()}.`,
+        `Account or master nullifier public key hash ${accountOrNpkMHash} does not exist. Registered accounts: ${await this.getAccounts()}.`,
       );
     }
     return Promise.resolve(Point.fromBuffer(masterNullifierPublicKeyBuffer));
@@ -155,23 +153,18 @@ export class TestKeyStore implements KeyStore {
   /**
    * Derives and returns the application nullifier secret key for a given account or master nullifier public key hash.
    * @throws If the account does not exist in the key store.
-   * @param account or master nullifier public key hash - The account address or master nullifier public key hash for which to retrieve the application nullifier secret key.
+   * @param accountOrNpkMHash - account - the address or npkMHash - the master nullifier public key hash
    * @param app - The application address to retrieve the nullifier secret key for.
    * @returns A Promise that resolves to the application nullifier secret key.
    */
-  public async getAppNullifierSecretKey(
-    args: { account: AztecAddress } | { npkMHash: Fr },
-    app: AztecAddress,
-  ): Promise<Fr> {
+  public async getAppNullifierSecretKey(accountOrNpkMHash: AztecAddress | Fr, app: AztecAddress): Promise<Fr> {
     const masterNullifierSecretKeyBuffer =
-      'account' in args
-        ? this.#keys.get(`${args.account.toString()}-nsk_m`)
-        : this.#keys.get(`${this.#getAccountAddressForMasterNullifierPublicKeyHash(args.npkMHash)?.toString()}-nsk_m`);
+      this.#keys.get(`${accountOrNpkMHash.toString()}-nsk_m`) ??
+      this.#keys.get(`${this.#getAccountAddressForMasterNullifierPublicKeyHash(accountOrNpkMHash)?.toString()}-nsk_m`);
+
     if (!masterNullifierSecretKeyBuffer) {
       throw new Error(
-        `${
-          'account' in args ? `Account ${args.account}` : `Master nullifier public key hash ${args.npkMHash}`
-        } does not exist. Registered accounts: ${await this.getAccounts()}.`,
+        `Account or master nullifier public key hash ${accountOrNpkMHash} does not exist. Registered accounts: ${await this.getAccounts()}.`,
       );
     }
     const masterNullifierSecretKey = GrumpkinScalar.fromBuffer(masterNullifierSecretKeyBuffer);

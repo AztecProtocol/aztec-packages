@@ -281,7 +281,7 @@ export class Synchronizer {
    * @throws If checking a sync status of account which is not registered.
    */
   public async isAccountStateSynchronized(account: AztecAddress) {
-    const completeAddress = await this.db.getCompleteAddress({ account });
+    const completeAddress = await this.db.getCompleteAddress(account);
     if (!completeAddress) {
       throw new Error(`Checking if account is synched is not possible for ${account} because it is not registered.`);
     }
