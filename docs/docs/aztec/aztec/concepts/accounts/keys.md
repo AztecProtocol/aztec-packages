@@ -28,7 +28,7 @@ Canonical in this context means that it is a contract whose functionality is ess
 There is 1 key registry and its address is hardcoded in the protocol code.
 :::
 
-To retrieve them a developer can use one of the getters in aztec_nr:
+To retrieve them a developer can use one of the getters in Aztec.nr:
 
 #include_code key-getters /noir-projects/aztec-nr/aztec/src/keys/getters.nr rust
 
@@ -37,7 +37,7 @@ If they are not there, it is necessary to first register the user as a recipient
 
 #include_code register-recipient yarn-project/end-to-end/src/flakey_e2e_account_init_fees.test.ts rust
 
-Simulator will then retrieve these keys via an oracle call from PXE during private function execution.
+During private function execution these keys are obtained via an oracle call from PXE.
 
 ## Key rotation
 To prevent users from needing to migrate all their positions if some of their keys are leaked we allow for key rotation.
