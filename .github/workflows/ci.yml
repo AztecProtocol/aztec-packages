@@ -174,12 +174,18 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          BENCH_FOLDER: /usr/var/bench
+          BENCH_FOLDER: "${{ env.HOME }}/base_bench"
           PULL_REQUEST: "${{ github.event.pull_request.number }}"
       - name: "Generate summary comment if pull request"
         if: ${{ github.event_name == 'pull_request' }}
         working-directory: ./yarn-project/scripts
-        run: earthly-ci -P --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} +bench-comment
+        run: |
+          earthly-ci -P \
+            --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
+            +bench-comment \
+            --LOCAL_BASE_BENCH_FOLDER="${{ env.HOME }}/base_bench"
 
   noir-format:
     needs: setup
