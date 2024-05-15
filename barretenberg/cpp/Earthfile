@@ -96,7 +96,7 @@ preset-wasm-bench: #aztec-tag=cache
 # test images
 preset-release-assert-test:
     FROM +source
-    RUN cmake --preset clang15-assert -Bbuild && cmake --build build
+    RUN cmake --preset clang16-assert -Bbuild && cmake --build build
     SAVE ARTIFACT build/bin
 
 # Sent to the bench runner using a earthly --push +bench-binaries
