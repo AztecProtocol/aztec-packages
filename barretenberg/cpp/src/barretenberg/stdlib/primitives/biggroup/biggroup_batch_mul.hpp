@@ -27,20 +27,20 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::wnaf_batch_mul(const std::vector<el
     std::vector<element> points;
     std::vector<Fr> scalars;
     element one = element::one(nullptr);
-    for (size_t mul_idx = 0; mul_idx < _points.size(); ++mul_idx) {
-        bool_ct is_point_at_infinity = _points[mul_idx].is_point_at_infinity();
+    for (auto [_point, _scalar] : zip_view(_points, _scalars)) {
+        bool_ct is_point_at_infinity = _point.is_point_at_infinity();
         if (is_point_at_infinity.get_value() && static_cast<bool>(is_point_at_infinity.is_constant())) {
             // if point is at infinity and a circuit constant we can just skip.
             continue;
         }
-        if (_scalars[mul_idx].get_value() == 0 && _scalars[mul_idx].is_constant()) {
+        if (_scalar.get_value() == 0 && _scalar.is_constant()) {
             // if scalar multiplier is 0 and also a constant, we can skip
             continue;
         }
-        element point(_points[mul_idx]);
+        element point(_point);
         point.x = Fq::conditional_assign(is_point_at_infinity, one.x, point.x);
         point.y = Fq::conditional_assign(is_point_at_infinity, one.y, point.y);
-        Fr scalar = Fr::conditional_assign(is_point_at_infinity, 0, _scalars[mul_idx]);
+        Fr scalar = Fr::conditional_assign(is_point_at_infinity, 0, _scalar);
         points.push_back(point);
         scalars.push_back(scalar);
 
