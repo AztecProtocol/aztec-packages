@@ -1,6 +1,5 @@
 VERSION 0.8
 IMPORT ../noir AS noir
-ARG --global module=avm-transpiler
 
 source: #aztec-tag=cache
   ARG EARTHLY_TARGET_NAME
@@ -16,13 +15,11 @@ source: #aztec-tag=cache
 
   # for debugging rebuilds
   RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
-  SAVE IMAGE --push aztecprotocol/cache:$module-$EARTHLY_TARGET_NAME
+  SAVE IMAGE --push aztecprotocol/cache:avm-transpiler-$EARTHLY_TARGET_NAME
 
-build: #aztec-tag=cache
-    ARG EARTHLY_TARGET_NAME
+build: # TODO this image was too big to cache
     FROM +source
     RUN ./scripts/bootstrap_native.sh
-    SAVE IMAGE --push aztecprotocol/cache:$module-$EARTHLY_TARGET_NAME
     SAVE ARTIFACT target/release/avm-transpiler avm-transpiler
 
 run:

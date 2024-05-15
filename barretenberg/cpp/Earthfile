@@ -1,5 +1,4 @@
 VERSION 0.8
-ARG --global module=barretenberg-cpp
 
 wasmtime:
     FROM ubuntu:noble
@@ -35,7 +34,7 @@ PRESET:
     RUN cmake --preset $preset -Bbuild && \
         cmake --build build --target $targets && \
         bash -O extglob -c "rm -rf build/!(bin)"
-    SAVE IMAGE --push aztecprotocol/cache:barretenberg-preset-$preset$tag
+    SAVE IMAGE --push aztecprotocol/cache:bb-cpp-preset-$preset$tag
     SAVE ARTIFACT build/bin
 
 preset-release: #aztec-tag=cache
@@ -160,7 +159,7 @@ test-binaries:
         COPY +preset-release-assert-test/bin/*_tests build/bin/
         SAVE ARTIFACT build
         SAVE IMAGE --push aztecprotocol/bb-test-binaries:$TARGETARCH-$EARTHLY_GIT_HASH
-        SAVE IMAGE --push aztecprotocol/cache:$module-$EARTHLY_TARGET_NAME
+        SAVE IMAGE --push aztecprotocol/cache:bb-cpp-$EARTHLY_TARGET_NAME
     END
 
 test-clang-format: #aztec-tag=cache
@@ -169,7 +168,7 @@ test-clang-format: #aztec-tag=cache
     COPY .clang-format .
     COPY format.sh .
     RUN ./format.sh check
-    SAVE IMAGE --push aztecprotocol/cache:$module-$EARTHLY_TARGET_NAME
+    SAVE IMAGE --push aztecprotocol/cache:bb-cpp-$EARTHLY_TARGET_NAME
 
 test:
     ARG hardware_concurrency=""

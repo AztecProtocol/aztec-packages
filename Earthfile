@@ -41,10 +41,16 @@ scripts:
 # We grep for lines with the tag and BUILD them dynamically this keeps a clutter of bug-prone redundant BUILD statements away.
 # See https://docs.earthly.dev/docs/caching/caching-via-registry#inline-cache for inline caching details
 remote-cache:
+    ARG module
     LOCALLY
-    FOR module IN build-images barretenberg/cpp noir barretenberg/ts l1-contracts avm-transpiler
-        FOR target IN $(cat $module/Earthfile | grep '#aztec-tag=cache' | cut -d':' -f1)
-            BUILD ./$module/+$target
-        END
+    FOR module IN
+    barretenberg/cpp build-images barretenberg/cpp barretenberg/ts noir l1-contracts avm-transpiler
+        # Publish one module at a time to avoid problems with too much serialization work at end.
+        # See https://docs.earthly.dev/docs/earthfile#wait for semantics
+            FOR target IN $(cat $module/Earthfile | grep '#aztec-tag=cache' | cut -d':' -f1)
+                # WAIT
+                BUILD ./$module/+$target
+                # END
+            END
     END
 

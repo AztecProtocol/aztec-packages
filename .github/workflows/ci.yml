@@ -63,6 +63,16 @@ jobs:
   build-cache:
     # needs: build
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    strategy:
+      matrix:
+        module:
+          - barretenberg/cpp
+          - build-images
+          - barretenberg/cpp
+          - barretenberg/ts
+          - noir
+          - l1-contracts
+          - avm-transpiler
     env:
       EARTHLY_PUSH: true #${{ github.ref_name == 'ad/inline-caching' && 'true' || 'false'}}
       EARTHLY_SAVE_INLINE_CACHE: true #${{ github.ref_name == 'ad/inline-caching' && 'true' || 'false'}}
@@ -75,7 +85,7 @@ jobs:
       # push remote cache, giving ample time for first push
       - name: "Build Remote Cache"
         timeout-minutes: 60
-        run: earthly-ci +remote-cache
+        run: earthly-ci +remote-cache --module=${{ matrix.module }}
 
   # # all the non-bench end-to-end integration tests for aztec
   # e2e:

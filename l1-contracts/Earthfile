@@ -1,5 +1,4 @@
 VERSION 0.8
-ARG --global module=l1-contracts
 
 build: #aztec-tag=cache
     ARG EARTHLY_TARGET_NAME
@@ -12,4 +11,4 @@ build: #aztec-tag=cache
     RUN solhint --config ./.solhint.json --fix "src/**/*.sol"
     RUN forge clean && forge fmt --check && forge build && forge test --no-match-contract UniswapPortalTest
     SAVE ARTIFACT /usr/src/l1-contracts /usr/src/l1-contracts
-    SAVE IMAGE --push aztecprotocol/cache:$module-$EARTHLY_TARGET_NAME
+    SAVE IMAGE --push aztecprotocol/cache:l1-contracts-$EARTHLY_TARGET_NAME

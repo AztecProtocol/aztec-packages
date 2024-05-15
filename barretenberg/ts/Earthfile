@@ -1,5 +1,4 @@
 VERSION 0.8
-ARG --global module=barretenberg-ts
 
 source: #aztec-tag=cache
     ARG EARTHLY_TARGET_NAME
@@ -19,14 +18,14 @@ source: #aztec-tag=cache
     COPY ../cpp/+preset-wasm/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg.wasm
     COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm dest/node/barretenberg_wasm/barretenberg-threads.wasm
     COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm
-    SAVE IMAGE --push aztecprotocol/cache:$module-$EARTHLY_TARGET_NAME
+    SAVE IMAGE --push aztecprotocol/cache:bb-ts-$EARTHLY_TARGET_NAME
 
 esm: #aztec-tag=cache
     ARG EARTHLY_TARGET_NAME
     FROM +source
     RUN yarn build:esm
     SAVE ARTIFACT /usr/src/barretenberg/ts-build build
-    SAVE IMAGE --push aztecprotocol/cache:$module-$EARTHLY_TARGET_NAME
+    SAVE IMAGE --push aztecprotocol/cache:bb-ts-$EARTHLY_TARGET_NAME
 
 cjs: #aztec-tag=cache
     ARG EARTHLY_TARGET_NAME
@@ -34,14 +33,14 @@ cjs: #aztec-tag=cache
     COPY scripts/cjs_postprocess.sh scripts/
     RUN yarn build:cjs
     SAVE ARTIFACT /usr/src/barretenberg/ts-build build
-    SAVE IMAGE --push aztecprotocol/cache:$module-$EARTHLY_TARGET_NAME
+    SAVE IMAGE --push aztecprotocol/cache:bb-ts-$EARTHLY_TARGET_NAME
 
 browser: #aztec-tag=cache
     ARG EARTHLY_TARGET_NAME
     FROM +source
     RUN yarn build:browser
     SAVE ARTIFACT /usr/src/barretenberg/ts-build build
-    SAVE IMAGE --push aztecprotocol/cache:$module-$EARTHLY_TARGET_NAME
+    SAVE IMAGE --push aztecprotocol/cache:bb-ts-$EARTHLY_TARGET_NAME
 
 test-prettier-format:
     FROM +source
@@ -57,7 +56,7 @@ build: #aztec-tag=cache
     # We want to create a pure package, as would be published to npm, for consuming projects.
     RUN yarn pack && tar zxf package.tgz && rm package.tgz && mv package ../ts
     SAVE ARTIFACT /usr/src/barretenberg/ts build
-    SAVE IMAGE --push aztecprotocol/cache:$module-$EARTHLY_TARGET_NAME
+    SAVE IMAGE --push aztecprotocol/cache:bb-ts-$EARTHLY_TARGET_NAME
 
 test:
     BUILD +test-prettier-format
