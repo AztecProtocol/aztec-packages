@@ -45,8 +45,8 @@ export interface DBOracle extends CommitmentsDB {
 
   /**
    * Retrieve the complete address associated to a given address.
-   * @param account - account address.
-   * @returns A complete address associated with the input address
+   * @param account - The account address.
+   * @returns A complete address associated with the input address.
    * @throws An error if the account is not registered in the database.
    */
   getCompleteAddress(account: AztecAddress): Promise<CompleteAddress>;
@@ -67,7 +67,7 @@ export interface DBOracle extends CommitmentsDB {
 
   /**
    * Retrieve nullifier keys associated with a specific master nullifier public key and app address.
-   * @param npkMHash - master nullifier public key hash.
+   * @param npkMHash - The master nullifier public key hash.
    * @returns A Promise that resolves to nullifier keys.
    * @throws If the nullifier keys are not registered in the key store.
    */

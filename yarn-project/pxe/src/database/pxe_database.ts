@@ -134,7 +134,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
 
   /**
    * Retrieve the complete address associated to a given address.
-   * @param account - account address.
+   * @param account - The account address.
    * @returns A promise that resolves to a CompleteAddress instance if found, or undefined if not found.
    */
   getCompleteAddress(account: AztecAddress): Promise<CompleteAddress | undefined>;

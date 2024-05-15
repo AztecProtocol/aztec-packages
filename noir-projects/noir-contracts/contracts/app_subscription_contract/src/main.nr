@@ -9,7 +9,8 @@ contract AppSubscription {
         AztecAddress, FunctionSelector, PrivateContext, NoteHeader, Map, PrivateMutable, PublicMutable,
         SharedImmutable
     },
-        protocol_types::traits::is_empty, keys::getters::{get_npk_m_hash, get_ivpk_m}
+        protocol_types::{traits::is_empty, grumpkin_point::GrumpkinPoint},
+        keys::getters::{get_npk_m_hash, get_ivpk_m}
     },
         authwit::{account::AccountActions, auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit},
         gas_token::GasToken, token::Token
@@ -36,12 +37,13 @@ contract AppSubscription {
     fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
         assert(context.msg_sender().to_field() == 0);
         assert_current_call_valid_authwit(&mut context, user_address);
-        let subscriber_ivpk_m = get_ivpk_m(&mut context, user_address);
 
-        let mut note = storage.subscriptions.at(user_address).get_note(false, subscriber_ivpk_m);
+        let mut note = storage.subscriptions.at(user_address).get_note(false, GrumpkinPoint::zero());
         assert(note.remaining_txs as u64 > 0, "you're out of txs");
 
         note.remaining_txs -= 1;
+
+        let subscriber_ivpk_m = get_ivpk_m(&mut context, user_address);
         storage.subscriptions.at(user_address).replace(&mut note, true, subscriber_ivpk_m);
 
         context.set_as_fee_payer();
