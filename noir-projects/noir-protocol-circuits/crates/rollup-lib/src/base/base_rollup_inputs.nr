@@ -21,10 +21,10 @@ use dep::types::{
     constants::{
     NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
     PUBLIC_DATA_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT, MAX_NEW_NOTE_HASHES_PER_TX,
-    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    MAX_PUBLIC_DATA_READS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, NUM_ENCRYPTED_LOGS_HASHES_PER_TX,
-    MAX_NEW_L2_TO_L1_MSGS_PER_TX, NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, NULLIFIER_SUBTREE_HEIGHT,
-    NULLIFIER_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT,
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX,
+    MAX_NEW_NULLIFIERS_PER_TX, NUM_ENCRYPTED_LOGS_HASHES_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+    NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
+    PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT,
     PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, ARCHIVE_HEIGHT, GAS_TOKEN_ADDRESS
 },
     merkle_tree::{
@@ -108,7 +108,8 @@ impl BaseRollupInputs {
         let end_nullifier_tree_snapshot = self.check_nullifier_tree_non_membership_and_insert_to_tree();
 
         // Validate public public data reads and public data update requests, and update public data tree
-        let end_public_data_tree_snapshot = self.validate_and_process_public_state();
+        let protocol_public_data_update_requests = [self.build_payment_update_request()];
+        let end_public_data_tree_snapshot = self.validate_and_process_public_state(protocol_public_data_update_requests);
 
         let transaction_fee = self.kernel_data.public_inputs.compute_transaction_fee();
 
@@ -116,7 +117,8 @@ impl BaseRollupInputs {
         let tx_effects_hash = compute_tx_effects_hash(
             self.kernel_data.public_inputs.end,
             self.kernel_data.public_inputs.revert_code,
-            transaction_fee
+            transaction_fee,
+            protocol_public_data_update_requests
         );
         let out_hash = compute_kernel_out_hash(self.kernel_data.public_inputs.end);
 
@@ -211,10 +213,13 @@ impl BaseRollupInputs {
         }
     }
 
-    fn validate_and_process_public_state(self) -> AppendOnlyTreeSnapshot {
+    fn validate_and_process_public_state(
+        self,
+        protocol_public_data_update_requests: [PublicDataUpdateRequest; PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]
+    ) -> AppendOnlyTreeSnapshot {
         let mut all_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> = BoundedVec::new();
         all_update_requests.extend_from_array(self.kernel_data.public_inputs.end.public_data_update_requests);
-        all_update_requests.push(self.build_payment_update_request());
+        all_update_requests.extend_from_array(protocol_public_data_update_requests);
 
         let end_public_data_tree_snapshot = insert_public_data_update_requests(
             self.start.public_data_tree,
@@ -412,12 +417,12 @@ mod tests {
         merkle_tree::MembershipWitness, data::public_data_hint::PublicDataHint,
         address::{AztecAddress, EthAddress},
         constants::{
-        ARCHIVE_HEIGHT, MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        ARCHIVE_HEIGHT, MAX_PUBLIC_DATA_READS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
         NOTE_HASH_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
         NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT,
         PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX
+        MAX_NEW_L2_TO_L1_MSGS_PER_TX
     },
         contract_class_id::ContractClassId, partial_state_reference::PartialStateReference,
         public_data_tree_leaf::PublicDataTreeLeaf,
@@ -490,7 +495,7 @@ mod tests {
                             slot: low_leaf.slot,
                             value: low_leaf.value,
                             next_slot: leaf.slot,
-                            next_index: MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + i
+                            next_index: MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + i
                         };
                     }
                     low_public_data_writes_preimages[i] = low_leaf;
@@ -522,7 +527,7 @@ mod tests {
         pre_existing_notes: [Field; MAX_NEW_NOTE_HASHES_PER_TX],
         pre_existing_nullifiers: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX],
         pre_existing_contracts: [Field; 2],
-        pre_existing_public_data: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+        pre_existing_public_data: [PublicDataTreeLeafPreimage; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
         pre_existing_blocks: [Field; 2],
         public_data_reads: BoundedVec<u64, MAX_PUBLIC_DATA_READS_PER_TEST>,
         public_data_writes:BoundedVec<(u64, PublicDataTreeLeaf), MAX_PUBLIC_DATA_WRITES_PER_TEST>,
@@ -749,7 +754,7 @@ mod tests {
                 pre_existing_notes: [0; MAX_NEW_NOTE_HASHES_PER_TX],
                 pre_existing_nullifiers: [NullifierLeafPreimage::empty(); MAX_NEW_NULLIFIERS_PER_TX],
                 pre_existing_contracts: [0; 2],
-                pre_existing_public_data: [PublicDataTreeLeafPreimage::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+                pre_existing_public_data: [PublicDataTreeLeafPreimage::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
                 pre_existing_blocks: [0; 2],
                 public_data_reads: BoundedVec::new(),
                 public_data_writes:BoundedVec::new(),
@@ -1125,12 +1130,12 @@ mod tests {
 
         let outputs = builder.execute();
 
-        let mut public_data_leaves = [0; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2];
+        let mut public_data_leaves = [0; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2];
         public_data_leaves[0] = PublicDataTreeLeafPreimage {
             slot: 20,
             value: 90,
             next_slot: 25,
-            next_index: MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+            next_index: MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         }.hash();
         public_data_leaves[1] = PublicDataTreeLeafPreimage {
             slot: 28,
@@ -1150,7 +1155,7 @@ mod tests {
             next_slot: 0,
             next_index: 0,
         }.hash();
-        public_data_leaves[MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = PublicDataTreeLeafPreimage {
+        public_data_leaves[MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = PublicDataTreeLeafPreimage {
             slot: 25,
             value: 60,
             next_slot: 28,

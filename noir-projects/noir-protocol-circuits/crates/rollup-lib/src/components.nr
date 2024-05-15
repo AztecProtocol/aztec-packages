@@ -5,10 +5,14 @@ use dep::types::{
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
     NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, NUM_ENCRYPTED_LOGS_HASHES_PER_TX,
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
 },
     utils::uint256::U256,
-    abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, accumulated_data::CombinedAccumulatedData}
+    abis::{
+    append_only_tree_snapshot::AppendOnlyTreeSnapshot, accumulated_data::CombinedAccumulatedData,
+    public_data_update_request::PublicDataUpdateRequest
+}
 };
 
 /**
@@ -138,7 +142,8 @@ global TX_EFFECTS_HASH_INPUT_FIELDS = 201;
 pub fn compute_tx_effects_hash(
     combined: CombinedAccumulatedData,
     revert_code: u8,
-    transaction_fee: Field
+    transaction_fee: Field,
+    protocol_public_data_update_requests: [PublicDataUpdateRequest; PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]
 ) -> Field {
     // Compute tx effect hash
     // Consist of
@@ -198,6 +203,14 @@ pub fn compute_tx_effects_hash(
     }
     offset += MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
 
+    for j in 0..PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
+        txs_effects_hash_input[offset + j * 2] =
+                protocol_public_data_update_requests[j].leaf_slot;
+        txs_effects_hash_input[offset + j * 2 + 1] =
+                protocol_public_data_update_requests[j].new_value;
+    }
+    offset += PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
+
     txs_effects_hash_input[offset] = encrypted_logs_length;
 
     offset += 1;
@@ -240,7 +253,7 @@ fn consistent_TX_EFFECTS_HASH_INPUT_FIELDS() {
         + 1
         + MAX_NEW_NOTE_HASHES_PER_TX
         + MAX_NEW_NULLIFIERS_PER_TX
-        + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
+        + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
         + MAX_NEW_L2_TO_L1_MSGS_PER_TX
         + 2
         + NUM_ENCRYPTED_LOGS_HASHES_PER_TX
