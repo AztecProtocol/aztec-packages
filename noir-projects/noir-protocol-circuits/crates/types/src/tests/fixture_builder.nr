@@ -5,10 +5,10 @@ use crate::{
     accumulated_data::{CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder, PublicAccumulatedData},
     global_variables::GlobalVariables, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
-    kernel_data::{PublicKernelData, KernelData}, max_block_number::MaxBlockNumber,
+    kernel_data::KernelData, public_kernel_data::PublicKernelData, max_block_number::MaxBlockNumber,
     private_kernel_data::PrivateKernelData, note_hash::{NoteHash, ScopedNoteHash},
     nullifier::{Nullifier, ScopedNullifier},
-    nullifier_key_validation_request::ScopedNullifierKeyValidationRequest,
+    nullifier_key_validation_request::{ScopedNullifierKeyValidationRequest, NullifierKeyValidationRequest},
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
     read_request::{ReadRequest, ScopedReadRequest}, side_effect::SideEffect,
     validation_requests::{ValidationRequests, ValidationRequestsBuilder}
@@ -25,18 +25,20 @@ use crate::{
     hash::silo_nullifier, header::Header,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     partial_state_reference::PartialStateReference, tests::fixtures, transaction::tx_context::TxContext,
-    traits::Empty, recursion::{verification_key::VerificationKey, proof::NestedRecursiveProof}
+    traits::Empty, recursion::{verification_key::VerificationKey, proof::NestedRecursiveProof},
+    grumpkin_point::GrumpkinPoint
 };
 
 struct FixtureBuilder {
     contract_address: AztecAddress,
     storage_contract_address: AztecAddress,
+    fee_payer: AztecAddress,
+    public_teardown_call_request: CallRequest,
 
     // Constant data.
     historical_header: Header,
     tx_context: TxContext,
     global_variables: GlobalVariables,
-    public_teardown_call_request: CallRequest,
     
     // Accumulated data.
     new_note_hashes: BoundedVec<ScopedNoteHash, MAX_NEW_NOTE_HASHES_PER_TX>,
@@ -84,6 +86,7 @@ impl FixtureBuilder {
         FixtureBuilder {
             contract_address: fixtures::contracts::parent_contract.address,
             storage_contract_address: fixtures::contracts::parent_contract.address,
+            fee_payer: AztecAddress::empty(),
             historical_header: Header::empty(),
             tx_context,
             new_note_hashes: BoundedVec::new(),
@@ -183,7 +186,7 @@ impl FixtureBuilder {
         validation_requests.finish()
     }
 
-    pub fn to_private_circuit_public_inputs(self) -> PrivateKernelCircuitPublicInputs {
+    pub fn to_private_kernel_circuit_public_inputs(self) -> PrivateKernelCircuitPublicInputs {
         let end = self.to_private_accumulated_data();
         let validation_requests = self.to_validation_requests();
         let constants = self.to_constant_data();
@@ -193,12 +196,13 @@ impl FixtureBuilder {
             end,
             validation_requests,
             constants,
-            public_teardown_call_request: self.public_teardown_call_request
+            public_teardown_call_request: self.public_teardown_call_request,
+            fee_payer: self.fee_payer
         }
     }
 
     pub fn to_private_kernel_data(self) -> PrivateKernelData {
-        let public_inputs = self.to_private_circuit_public_inputs();
+        let public_inputs = self.to_private_kernel_circuit_public_inputs();
         PrivateKernelData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 
@@ -225,7 +229,8 @@ impl FixtureBuilder {
             validation_requests,
             constants,
             revert_code: self.revert_code,
-            public_teardown_call_stack: public_teardown_call_stack.storage
+            public_teardown_call_stack: public_teardown_call_stack.storage,
+            fee_payer: self.fee_payer
         }
     }
 
@@ -245,7 +250,14 @@ impl FixtureBuilder {
         let end = self.to_combined_accumulated_data();
         let constants = self.to_constant_data();
 
-        KernelCircuitPublicInputs { rollup_validation_requests, end, constants, start_state: self.start_state, revert_code: self.revert_code }
+        KernelCircuitPublicInputs {
+            rollup_validation_requests,
+            end,
+            constants,
+            start_state: self.start_state,
+            revert_code: self.revert_code,
+            fee_payer: self.fee_payer
+        }
     }
 
     pub fn to_kernel_data(self) -> KernelData {
@@ -383,6 +395,18 @@ impl FixtureBuilder {
         new_read_request_index
     }
 
+    pub fn add_request_for_nullifier_key_validation(
+        &mut self,
+        master_nullifier_public_key: GrumpkinPoint,
+        app_nullifier_secret_key: Field
+    ) -> u64 {
+        let new_request_index = self.nullifier_key_validation_requests.len();
+        let request = NullifierKeyValidationRequest { master_nullifier_public_key, app_nullifier_secret_key };
+        self.nullifier_key_validation_requests.push(request.scope(self.storage_contract_address));
+
+        new_request_index
+    }
+
     pub fn set_encrypted_logs(&mut self, hash: Field, preimages_length: Field) {
         let side_effect = SideEffect { value: hash, counter: self.next_counter() };
         self.encrypted_logs_hashes.push(side_effect);
@@ -413,6 +437,10 @@ impl FixtureBuilder {
     pub fn push_public_call_request(&mut self, hash: Field, is_delegate_call: bool) {
         let call_stack_item = self.generate_call_request(hash, is_delegate_call);
         self.public_call_stack.push(call_stack_item);
+    }
+
+    pub fn set_fee_payer(&mut self, fee_payer: AztecAddress) {
+        self.fee_payer = fee_payer;
     }
 
     pub fn set_public_teardown_call_request(&mut self, hash: Field, is_delegate_call: bool) {
@@ -472,6 +500,7 @@ impl Empty for FixtureBuilder {
         FixtureBuilder {
             contract_address: AztecAddress::zero(),
             storage_contract_address: AztecAddress::zero(),
+            fee_payer: AztecAddress::zero(),
             historical_header: Header::empty(),
             tx_context: TxContext::empty(),
             global_variables: GlobalVariables::empty(),

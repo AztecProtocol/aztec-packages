@@ -33,7 +33,7 @@ contract AppSubscription {
     global SUBSCRIPTION_TXS = 5;
 
     #[aztec(private)]
-    fn entrypoint(payload: pub DAppPayload, user_address: pub AztecAddress) {
+    fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
         assert(context.msg_sender().to_field() == 0);
         assert_current_call_valid_authwit(&mut context, user_address);
 
@@ -43,6 +43,7 @@ contract AppSubscription {
         note.remaining_txs -= 1;
         storage.subscriptions.at(user_address).replace(&mut note, true);
 
+        context.set_as_fee_payer();
         let gas_limit = storage.gas_token_limit_per_tx.read_private();
         context.set_public_teardown_function(
             storage.gas_token_address.read_private(),

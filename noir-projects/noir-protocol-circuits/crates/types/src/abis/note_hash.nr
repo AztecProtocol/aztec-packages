@@ -11,6 +11,12 @@ struct NoteHash {
     counter: u32,
 }
 
+impl Ordered for NoteHash {
+    fn counter(self) -> u32 {
+        self.counter
+    }
+}
+
 impl Eq for NoteHash {
     fn eq(self, other: NoteHash) -> bool {
         (self.value == other.value)
@@ -124,4 +130,20 @@ impl ScopedNoteHash {
         // Hide the actual counter when exposing it to the public kernel.
         NoteHash { value: self.note_hash.value, counter: 0 }
     }
+}
+
+#[test]
+fn serialization_of_empty() {
+    let item = NoteHash::empty();
+    let serialized = item.serialize();
+    let deserialized = NoteHash::deserialize(serialized);
+    assert(item.eq(deserialized));
+}
+
+#[test]
+fn serialization_of_empty_scoped() {
+    let item = ScopedNoteHash::empty();
+    let serialized = item.serialize();
+    let deserialized = ScopedNoteHash::deserialize(serialized);
+    assert(item.eq(deserialized));
 }

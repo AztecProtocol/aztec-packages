@@ -2,12 +2,14 @@ import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
+  Fr,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type ParityPublicInputs,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
+  type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   type PublicKernelCircuitPrivateInputs,
@@ -16,16 +18,15 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
-  acvmFieldMessageToString,
-  oracleDebugCallToFormattedStr,
 } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { type ForeignCallInput, type ForeignCallOutput } from '@noir-lang/acvm_js';
 import { type CompiledCircuit } from '@noir-lang/noir_js';
 import { type Abi, abiDecode, abiEncode } from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';
+import { strict as assert } from 'assert';
 
 import BaseParityJson from './target/parity_base.json' assert { type: 'json' };
 import RootParityJson from './target/parity_root.json' assert { type: 'json' };
@@ -33,6 +34,8 @@ import PrivateKernelInitJson from './target/private_kernel_init.json' assert { t
 import PrivateKernelInitSimulatedJson from './target/private_kernel_init_simulated.json' assert { type: 'json' };
 import PrivateKernelInnerJson from './target/private_kernel_inner.json' assert { type: 'json' };
 import PrivateKernelInnerSimulatedJson from './target/private_kernel_inner_simulated.json' assert { type: 'json' };
+import PrivateKernelResetJson from './target/private_kernel_reset.json' assert { type: 'json' };
+import PrivateKernelResetSimulatedJson from './target/private_kernel_reset_simulated.json' assert { type: 'json' };
 import PrivateKernelTailJson from './target/private_kernel_tail.json' assert { type: 'json' };
 import PrivateKernelTailSimulatedJson from './target/private_kernel_tail_simulated.json' assert { type: 'json' };
 import PrivateKernelTailToPublicJson from './target/private_kernel_tail_to_public.json' assert { type: 'json' };
@@ -55,6 +58,7 @@ import {
   mapPrivateKernelCircuitPublicInputsFromNoir,
   mapPrivateKernelInitCircuitPrivateInputsToNoir,
   mapPrivateKernelInnerCircuitPrivateInputsToNoir,
+  mapPrivateKernelResetCircuitPrivateInputsToNoir,
   mapPrivateKernelTailCircuitPrivateInputsToNoir,
   mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir,
   mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir,
@@ -74,11 +78,13 @@ import {
   type RollupMergeReturnType as MergeRollupReturnType,
   type PublicKernelAppLogicReturnType as PublicPublicPreviousReturnType,
   type PublicKernelSetupReturnType as PublicSetupReturnType,
+  type PrivateKernelResetReturnType as ResetReturnType,
   type ParityRootReturnType as RootParityReturnType,
   type RollupRootReturnType as RootRollupReturnType,
   type PrivateKernelTailReturnType as TailReturnType,
   PrivateKernelInit as executePrivateKernelInitWithACVM,
   PrivateKernelInner as executePrivateKernelInnerWithACVM,
+  PrivateKernelReset as executePrivateKernelResetWithACVM,
   PrivateKernelTailToPublic as executePrivateKernelTailToPublicWithACVM,
   PrivateKernelTail as executePrivateKernelTailWithACVM,
 } from './types/index.js';
@@ -101,6 +107,8 @@ export type DecodedInputs = {
 export const PrivateKernelInitArtifact = PrivateKernelInitJson as NoirCompiledCircuit;
 
 export const PrivateKernelInnerArtifact = PrivateKernelInnerJson as NoirCompiledCircuit;
+
+export const PrivateKernelResetArtifact = PrivateKernelResetJson as NoirCompiledCircuit;
 
 export const PrivateKernelTailArtifact = PrivateKernelTailJson as NoirCompiledCircuit;
 
@@ -148,6 +156,7 @@ export type ServerProtocolArtifact =
 export type ClientProtocolArtifact =
   | 'PrivateKernelInitArtifact'
   | 'PrivateKernelInnerArtifact'
+  | 'PrivateKernelResetArtifact'
   | 'PrivateKernelTailArtifact'
   | 'PrivateKernelTailToPublicArtifact';
 
@@ -168,6 +177,7 @@ export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiled
 export const ClientCircuitArtifacts: Record<ClientProtocolArtifact, NoirCompiledCircuit> = {
   PrivateKernelInitArtifact: PrivateKernelInitArtifact,
   PrivateKernelInnerArtifact: PrivateKernelInnerArtifact,
+  PrivateKernelResetArtifact: PrivateKernelResetArtifact,
   PrivateKernelTailArtifact: PrivateKernelTailArtifact,
   PrivateKernelTailToPublicArtifact: PrivateKernelTailToPublicArtifact,
 };
@@ -175,6 +185,7 @@ export const ClientCircuitArtifacts: Record<ClientProtocolArtifact, NoirCompiled
 export const ProtocolCircuitArtifacts: Record<ProtocolArtifact, NoirCompiledCircuit> = {
   PrivateKernelInitArtifact: PrivateKernelInitArtifact,
   PrivateKernelInnerArtifact: PrivateKernelInnerArtifact,
+  PrivateKernelResetArtifact: PrivateKernelResetArtifact,
   PrivateKernelTailArtifact: PrivateKernelTailArtifact,
   PrivateKernelTailToPublicArtifact: PrivateKernelTailToPublicArtifact,
   PublicKernelSetupArtifact: PublicKernelSetupArtifact,
@@ -216,6 +227,23 @@ export async function executeInner(
   const returnType = await executePrivateKernelInnerWithACVM(
     mapPrivateKernelInnerCircuitPrivateInputsToNoir(privateKernelInnerCircuitPrivateInputs),
     PrivateKernelInnerSimulatedJson as CompiledCircuit,
+    foreignCallHandler,
+  );
+
+  return mapPrivateKernelCircuitPublicInputsFromNoir(returnType);
+}
+
+/**
+ * Executes the inner private kernel.
+ * @param privateKernelResetCircuitPrivateInputs - The private inputs to the reset private kernel.
+ * @returns The public inputs.
+ */
+export async function executeReset(
+  privateKernelResetCircuitPrivateInputs: PrivateKernelResetCircuitPrivateInputs,
+): Promise<PrivateKernelCircuitPublicInputs> {
+  const returnType = await executePrivateKernelResetWithACVM(
+    mapPrivateKernelResetCircuitPrivateInputsToNoir(privateKernelResetCircuitPrivateInputs),
+    PrivateKernelResetSimulatedJson as CompiledCircuit,
     foreignCallHandler,
   );
 
@@ -283,6 +311,19 @@ export function convertPrivateKernelInnerInputsToWitnessMap(
 }
 
 /**
+ * Converts the inputs of the private kernel reset circuit into a witness map
+ * @param inputs - The private kernel inputs.
+ * @returns The witness map
+ */
+export function convertPrivateKernelResetInputsToWitnessMap(
+  privateKernelResetCircuitPrivateInputs: PrivateKernelResetCircuitPrivateInputs,
+): WitnessMap {
+  const mapped = mapPrivateKernelResetCircuitPrivateInputsToNoir(privateKernelResetCircuitPrivateInputs);
+  const initialWitnessMap = abiEncode(PrivateKernelResetArtifact.abi as Abi, { input: mapped as any });
+  return initialWitnessMap;
+}
+
+/**
  * Converts the inputs of the private kernel tail circuit into a witness map
  * @param inputs - The private kernel inputs.
  * @returns The witness map
@@ -334,6 +375,21 @@ export function convertPrivateKernelInnerOutputsFromWitnessMap(outputs: WitnessM
 
   // Cast the inputs as the return type
   const returnType = decodedInputs.return_value as InnerReturnType;
+
+  return mapPrivateKernelCircuitPublicInputsFromNoir(returnType);
+}
+
+/**
+ * Converts the outputs of the private kernel reset circuit from a witness map.
+ * @param outputs - The private kernel outputs as a witness map.
+ * @returns The public inputs.
+ */
+export function convertPrivateKernelResetOutputsFromWitnessMap(outputs: WitnessMap): PrivateKernelCircuitPublicInputs {
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(PrivateKernelResetArtifact.abi as Abi, outputs);
+
+  // Cast the inputs as the return type
+  const returnType = decodedInputs.return_value as ResetReturnType;
 
   return mapPrivateKernelCircuitPublicInputsFromNoir(returnType);
 }
@@ -631,13 +687,20 @@ export function convertPublicTailOutputFromWitnessMap(outputs: WitnessMap): Kern
   return mapKernelCircuitPublicInputsFromNoir(returnType);
 }
 
+function fromACVMField(field: string): Fr {
+  return Fr.fromBuffer(Buffer.from(field.slice(2), 'hex'));
+}
+
 export function foreignCallHandler(name: string, args: ForeignCallInput[]): Promise<ForeignCallOutput[]> {
+  // ForeignCallInput is actually a string[], so the args are string[][].
   const log = createDebugLogger('aztec:noir-protocol-circuits:oracle');
 
   if (name === 'debugLog') {
-    log.info(oracleDebugCallToFormattedStr(args));
-  } else if (name === 'debugLogWithPrefix') {
-    log.info(`${acvmFieldMessageToString(args[0])}: ${oracleDebugCallToFormattedStr(args.slice(1))}`);
+    assert(args.length === 3, 'expected 3 arguments for debugLog: msg, fields_length, fields');
+    const [msgRaw, _ignoredFieldsSize, fields] = args;
+    const msg: string = msgRaw.map(acvmField => String.fromCharCode(fromACVMField(acvmField).toNumber())).join('');
+    const fieldsFr: Fr[] = fields.map((field: string) => fromACVMField(field));
+    log.verbose('debug_log ' + applyStringFormatting(msg, fieldsFr));
   } else {
     throw Error(`unexpected oracle during execution: ${name}`);
   }

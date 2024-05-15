@@ -51,7 +51,12 @@ if [ -f ~/.ebs-cache-mounted ] ; then
     sleep 1
     echo "Waiting for other mount to finish."
   done
-  exit 0
+  if [ -f ~/.setup-complete ] ; then
+    echo "Failed to find mount! Taking mount lock and trying..."
+    rm -f ~/.ebs-cache-mounted
+  else
+    exit 0
+  fi
 fi
 
 # Mark to prevent race conditions
@@ -152,7 +157,9 @@ fi
 # Create a mount point and mount the volume
 mkdir -p /var/lib/docker
 mount $BLKDEVICE /var/lib/docker
-service docker restart
+# clear our images temp folder
+rm -rf /var/lib/docker/tmp-images
+systemctl restart docker
 # important: everything (except earthly ls) should go through earthly-ci
 scripts/earthly-ci bootstrap
 touch /home/ubuntu/.setup-complete

@@ -253,7 +253,9 @@ export class AvmPersistableStateManager {
    */
   public async writeNullifier(storageAddress: Fr, nullifier: Fr) {
     // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
-    this.transitionalExecutionResult.newNullifiers.push(new Nullifier(nullifier, this.trace.accessCounter, Fr.ZERO));
+    this.transitionalExecutionResult.newNullifiers.push(
+      new Nullifier(nullifier, this.trace.accessCounter, /*noteHash=*/ Fr.ZERO),
+    );
 
     this.log.debug(`nullifiers(${storageAddress}) += ${nullifier}.`);
     // Cache pending nullifiers for later access
@@ -332,12 +334,12 @@ export class AvmPersistableStateManager {
     this.trace.acceptAndMerge(nestedJournal.trace);
 
     // Accrued Substate
-    this.newL1Messages = this.newL1Messages.concat(nestedJournal.newL1Messages);
-    this.newLogs = this.newLogs.concat(nestedJournal.newLogs);
+    this.newL1Messages.push(...nestedJournal.newL1Messages);
+    this.newLogs.push(...nestedJournal.newLogs);
 
     // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
-    this.transitionalExecutionResult.allUnencryptedLogs.concat(
-      nestedJournal.transitionalExecutionResult.allUnencryptedLogs,
+    this.transitionalExecutionResult.allUnencryptedLogs.push(
+      ...nestedJournal.transitionalExecutionResult.allUnencryptedLogs,
     );
   }
 

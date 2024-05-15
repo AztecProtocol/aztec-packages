@@ -16,7 +16,7 @@ contract Test {
     };
 
     use dep::aztec::encrypted_logs::header::EncryptedLogHeader;
-    use dep::aztec::encrypted_logs::body::EncryptedLogBody;
+    use dep::aztec::encrypted_logs::incoming_body::EncryptedLogIncomingBody;
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
 
@@ -197,6 +197,11 @@ contract Test {
         );
     }
 
+    #[aztec(private)]
+    fn test_setting_fee_payer() {
+        context.set_as_fee_payer();
+    }
+
     // Purely exists for testing
     #[aztec(public)]
     fn create_l2_to_l1_message_public(amount: Field, secret_hash: Field, portal_address: EthAddress) {
@@ -221,12 +226,8 @@ contract Test {
 
     // Purely exists for testing
     #[aztec(public)]
-    fn create_nullifier_public(amount: Field, secret_hash: Field) {
-        // Create a commitment to the amount
-        let note = DummyNote::new(amount, secret_hash);
-
-        // Public oracle call to emit new commitment.
-        context.push_new_nullifier(note.get_commitment(), 0);
+    fn emit_nullifier_public(nullifier: Field) {
+        context.push_new_nullifier(nullifier, 0);
     }
 
     // Forcefully emits a nullifier (for testing purposes)
@@ -359,14 +360,14 @@ contract Test {
 
     // 64 bytes + 32 * #fields + 16 = 112 bytes
     #[aztec(private)]
-    fn compute_note_body_ciphertext(
+    fn compute_incoming_log_body_ciphertext(
         secret: GrumpkinPrivateKey,
         point: GrumpkinPoint,
         storage_slot: Field,
         value: Field
     ) -> [u8; 112] {
         let note = TestNote::new(value);
-        EncryptedLogBody::new(storage_slot, TestNote::get_note_type_id(), note).compute_ciphertext(secret, point).as_array()
+        EncryptedLogIncomingBody::new(storage_slot, TestNote::get_note_type_id(), note).compute_ciphertext(secret, point).as_array()
     }
 
     #[aztec(public)]
@@ -375,8 +376,6 @@ contract Test {
         version: Field,
         block_number: Field,
         timestamp: u64,
-        coinbase: EthAddress,
-        fee_recipient: AztecAddress,
         fee_per_da_gas: Field,
         fee_per_l2_gas: Field
     ) {
@@ -384,8 +383,6 @@ contract Test {
         assert(context.version() == version, "Invalid version");
         assert(context.block_number() == block_number, "Invalid block number");
         assert(context.timestamp() == timestamp, "Invalid timestamp");
-        assert(context.coinbase() == coinbase, "Invalid coinbase");
-        assert(context.fee_recipient() == fee_recipient, "Invalid fee recipient");
         assert(context.fee_per_da_gas() == fee_per_da_gas, "Invalid fee per da gas");
         assert(context.fee_per_l2_gas() == fee_per_l2_gas, "Invalid fee per l2 gas");
     }

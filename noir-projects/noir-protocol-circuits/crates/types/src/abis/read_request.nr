@@ -1,5 +1,5 @@
 use crate::{
-    traits::{Empty, Serialize, Deserialize}, address::AztecAddress,
+    abis::side_effect::Ordered, traits::{Empty, Serialize, Deserialize}, address::AztecAddress,
     constants::{READ_REQUEST_LENGTH, SCOPED_READ_REQUEST_LEN},
     utils::{arrays::array_concat, reader::Reader}
 };
@@ -8,6 +8,12 @@ use dep::std::cmp::Eq;
 struct ReadRequest {
     value: Field,
     counter: u32,
+}
+
+impl Ordered for ReadRequest {
+    fn counter(self) -> u32 {
+        self.counter
+    }
 }
 
 impl Eq for ReadRequest {
@@ -79,7 +85,7 @@ impl Deserialize<SCOPED_READ_REQUEST_LEN> for ScopedReadRequest {
         let mut reader = Reader::new(values);
         let res = Self {
             read_request: reader.read_struct(ReadRequest::deserialize),
-            contract_address: AztecAddress::from_field(values[2]),
+            contract_address: reader.read_struct(AztecAddress::deserialize),
         };
         reader.finish();
         res
@@ -93,4 +99,20 @@ impl ScopedReadRequest {
     pub fn counter(self) -> u32 {
         self.read_request.counter
     }
+}
+
+#[test]
+fn serialization_of_empty_read() {
+    let item = ReadRequest::empty();
+    let serialized = item.serialize();
+    let deserialized = ReadRequest::deserialize(serialized);
+    assert(item.eq(deserialized));
+}
+
+#[test]
+fn serialization_of_empty_scoped() {
+    let item = ScopedReadRequest::empty();
+    let serialized = item.serialize();
+    let deserialized = ScopedReadRequest::deserialize(serialized);
+    assert(item.eq(deserialized));
 }
