@@ -11,7 +11,7 @@ import { type Header } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
 import { type ContractInstance } from '@aztec/types/contracts';
 
 import { type NoteData, type NullifierKeys, TypedOracle } from '../acvm/index.js';
@@ -35,10 +35,10 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
-   * Retrieve nullifier keys associated with a (specific account or master nullifier key hash) and app/contract address.
-   * @param accountOrNpkMHash - account - the address or npkMHash - the master nullifier public key hash
-   * @returns A Promise that resolves to nullifier keys of a (requested account or master nullifier key hash) and contract.
-   * @throws An error if the nullifier keys associated to account or master nullifier public key hash is not registered in the key store.
+   * Retrieve nullifier keys associated with a specific account or master nullifier public key and app address.
+   * @param accountOrNpkMHash - account address or master nullifier public key hash.
+   * @returns A Promise that resolves to nullifier keys.
+   * @throws If the nullifier keys are not registered in the key store.
    */
   public override getNullifierKeys(accountOrNpkMHash: AztecAddress | Fr): Promise<NullifierKeys> {
     return this.db.getNullifierKeys(accountOrNpkMHash, this.contractAddress);
@@ -128,7 +128,7 @@ export class ViewDataOracle extends TypedOracle {
 
   /**
    * Retrieve the complete address associated to a given address or master nullifier public key hash.
-   * @param accountOrNpkMHash - account - the address or npkMHash - the master nullifier public key hash
+   * @param accountOrNpkMHash - account address or master nullifier public key hash.
    * @returns A complete address associated with the input address or master nullifier public key hash
    * @throws An error if the account is not registered in the database.
    */
@@ -257,5 +257,10 @@ export class ViewDataOracle extends TypedOracle {
       values.push(value);
     }
     return values;
+  }
+
+  public override debugLog(message: string, fields: Fr[]): void {
+    const formattedStr = applyStringFormatting(message, fields);
+    this.log.verbose(`debug_log ${formattedStr}`);
   }
 }
