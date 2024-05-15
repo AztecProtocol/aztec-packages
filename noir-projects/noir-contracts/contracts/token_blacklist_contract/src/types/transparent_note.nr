@@ -1,8 +1,8 @@
 // docs:start:token_types_all
 use dep::aztec::{
     note::{note_getter_options::PropertySelector, utils::compute_note_hash_for_consumption},
-    hash::poseidon2_hash, prelude::{NoteHeader, NoteInterface, PrivateContext},
-    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_point::GrumpkinPoint}
+    prelude::{NoteHeader, NoteInterface, PrivateContext},
+    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_point::GrumpkinPoint, hash::poseidon2_hash}
 };
 
 global TRANSPARENT_NOTE_LEN: Field = 2;

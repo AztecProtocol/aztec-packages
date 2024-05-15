@@ -2,11 +2,10 @@ use dep::aztec::{
     keys::getters::get_ivpk_m,
     protocol_types::{
     address::AztecAddress, grumpkin_point::GrumpkinPoint, traits::{Deserialize, Serialize},
-    constants::GENERATOR_INDEX__NOTE_NULLIFIER
+    constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash
 },
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
-    oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app, hash::poseidon2_hash,
-    context::PrivateContext
+    oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app, context::PrivateContext
 };
 
 global VALUE_NOTE_LEN: Field = 3; // 3 plus a header.
