@@ -37,9 +37,9 @@ export class SimulatorOracle implements DBOracle {
     private log = createDebugLogger('aztec:pxe:simulator_oracle'),
   ) {}
 
-  async getNullifierKeys(accountOrNpkMHash: AztecAddress | Fr, contractAddress: AztecAddress): Promise<NullifierKeys> {
-    const masterNullifierPublicKey = await this.keyStore.getMasterNullifierPublicKey(accountOrNpkMHash);
-    const appNullifierSecretKey = await this.keyStore.getAppNullifierSecretKey(accountOrNpkMHash, contractAddress);
+  async getNullifierKeys(npkMHash: Fr, contractAddress: AztecAddress): Promise<NullifierKeys> {
+    const masterNullifierPublicKey = await this.keyStore.getMasterNullifierPublicKey(npkMHash);
+    const appNullifierSecretKey = await this.keyStore.getAppNullifierSecretKey(npkMHash, contractAddress);
     return { masterNullifierPublicKey, appNullifierSecretKey };
   }
 

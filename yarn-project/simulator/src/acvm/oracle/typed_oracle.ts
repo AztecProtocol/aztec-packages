@@ -89,7 +89,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('unpackReturns');
   }
 
-  getNullifierKeys(_accountOrNpkMHash: AztecAddress | Fr): Promise<NullifierKeys> {
+  getNullifierKeys(_npkMHash: Fr): Promise<NullifierKeys> {
     throw new OracleMethodNotAvailableError('getNullifierKeys');
   }
 
