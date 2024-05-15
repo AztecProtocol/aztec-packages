@@ -154,13 +154,13 @@ impl PrivateCircuitPublicInputsBuilder {
     }
 
     pub fn add_encrypted_log(&mut self, hash: Field, preimages_length: Field) {
-        let side_effect = SideEffect { value: hash, counter: self.next_counter() };
+        let side_effect = LogHash { value: hash, counter: self.next_counter(), length: preimages_length };
         self.encrypted_logs_hashes.push(side_effect);
         self.encrypted_log_preimages_length += preimages_length;
     }
 
     pub fn add_unencrypted_log(&mut self, hash: Field, preimages_length: Field) {
-        let side_effect = SideEffect { value: hash, counter: self.next_counter() };
+        let side_effect = LogHash { value: hash, counter: self.next_counter(), length: preimages_length };
         self.unencrypted_logs_hashes.push(side_effect);
         self.unencrypted_log_preimages_length += preimages_length;
     }

@@ -130,7 +130,7 @@ impl PrivateCallDataBuilder {
         }
     }
 
-    pub fn add_teaddown_call_request(&mut self, is_delegate_call: bool) {
+    pub fn add_teardown_call_request(&mut self, is_delegate_call: bool) {
         let hash = 909090;
         self.public_teardown_call_request = self.public_inputs.generate_call_request(hash, is_delegate_call);
         self.public_inputs.add_teardown_call_request(hash);
