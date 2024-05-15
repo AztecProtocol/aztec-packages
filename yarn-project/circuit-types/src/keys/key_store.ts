@@ -35,7 +35,7 @@ export interface KeyStore {
   /**
    * Gets the master nullifier public key for a given master nullifier public key hash.
    * @throws If the account corresponding to the master nullifier public key hash does not exist in the key store.
-   * @param npkMHash - master nullifier public key hash.
+   * @param npkMHash - The master nullifier public key hash.
    * @returns The master nullifier public key for the account.
    */
   getMasterNullifierPublicKey(npkMHash: Fr): Promise<PublicKey>;
@@ -67,7 +67,7 @@ export interface KeyStore {
   /**
    * Derives and returns the application nullifier secret key for a given master nullifier public key hash.
    * @throws If the account corresponding to the master nullifier public key hash does not exist in the key store.
-   * @param npkMHash - master nullifier public key hash.
+   * @param npkMHash - The master nullifier public key hash.
    * @param app - The application address to retrieve the nullifier secret key for.
    * @returns A Promise that resolves to the application nullifier secret key.
    */
