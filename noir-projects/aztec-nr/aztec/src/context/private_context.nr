@@ -184,6 +184,10 @@ impl PrivateContext {
         }
     }
 
+    pub fn set_as_fee_payer(&mut self) {
+        self.is_fee_payer = true;
+    }
+
     pub fn end_setup(&mut self) {
         self.min_revertible_side_effect_counter = self.side_effect_counter;
     }
@@ -228,23 +232,23 @@ impl PrivateContext {
     // TODO(#5630) Replace request_app_nullifier_secret_key above with this once we no longer get app nullifier secret key with address
     pub fn request_nsk_app_with_npk_m_hash(&mut self, npk_m_hash: Field) -> Field {
         // A value of empty nullifier keys will fail the key validation request.
-        let previous_nullifier_key = self.nullifier_key.unwrap_or(NullifierKeys::empty());
+        let cached_nullifier_keys = self.nullifier_key.unwrap_or(NullifierKeys::empty());
 
-        let keys = if poseidon2_hash(previous_nullifier_key.master_nullifier_public_key.serialize()) == npk_m_hash {
-            previous_nullifier_key
+        let nullifier_keys = if poseidon2_hash(cached_nullifier_keys.master_nullifier_public_key.serialize()) == npk_m_hash {
+            cached_nullifier_keys
         } else {
-            let keys = get_nullifier_keys_with_npk_m_hash(npk_m_hash);
+            let fetched_nullifier_keys = get_nullifier_keys_with_npk_m_hash(npk_m_hash);
             let request = NullifierKeyValidationRequest {
-                master_nullifier_public_key: keys.master_nullifier_public_key,
-                app_nullifier_secret_key: keys.app_nullifier_secret_key
+                master_nullifier_public_key: fetched_nullifier_keys.master_nullifier_public_key,
+                app_nullifier_secret_key: fetched_nullifier_keys.app_nullifier_secret_key
             };
             self.nullifier_key_validation_requests.push(request);
-            self.nullifier_key = Option::some(keys);
-            keys
+            self.nullifier_key = Option::some(fetched_nullifier_keys);
+            fetched_nullifier_keys
         };
 
-        assert_eq(poseidon2_hash(keys.master_nullifier_public_key.serialize()), npk_m_hash);
-        keys.app_nullifier_secret_key
+        assert_eq(poseidon2_hash(nullifier_keys.master_nullifier_public_key.serialize()), npk_m_hash);
+        nullifier_keys.app_nullifier_secret_key
     }
 
     // docs:start:context_message_portal

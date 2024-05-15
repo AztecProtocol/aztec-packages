@@ -90,7 +90,7 @@ export class TestKeyStore implements KeyStore {
   /**
    * Gets the master nullifier public key for a given account or master nullifier public key hash.
    * @throws If the account does not exist in the key store.
-   * @param accountOrNpkMHash - account - the address or npkMHash - the master nullifier public key hash
+   * @param accountOrNpkMHash - account address or master nullifier public key hash.
    * @returns The master nullifier public key for the account.
    */
   public async getMasterNullifierPublicKey(accountOrNpkMHash: AztecAddress | Fr): Promise<PublicKey> {
@@ -158,7 +158,7 @@ export class TestKeyStore implements KeyStore {
   /**
    * Derives and returns the application nullifier secret key for a given account or master nullifier public key hash.
    * @throws If the account does not exist in the key store.
-   * @param accountOrNpkMHash - account - the address or npkMHash - the master nullifier public key hash
+   * @param accountOrNpkMHash - account address or master nullifier public key hash.
    * @param app - The application address to retrieve the nullifier secret key for.
    * @returns A Promise that resolves to the application nullifier secret key.
    */
