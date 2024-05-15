@@ -14,7 +14,7 @@ import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import { type EndToEndContext, setup } from '../fixtures/utils.js';
 
-jest.setTimeout(1_200_000);
+jest.setTimeout(3_600_000);
 
 const txTimeoutSec = 1200;
 

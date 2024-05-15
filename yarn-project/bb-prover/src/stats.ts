@@ -47,6 +47,8 @@ export function mapProtocolArtifactNameToCircuitName(
       return 'private-kernel-tail';
     case 'PrivateKernelTailToPublicArtifact':
       return 'private-kernel-tail-to-public';
+    case 'PrivateKernelResetArtifact':
+      return 'private-kernel-reset';
     default:
       throw new Error(`Unknown circuit type: ${artifact}`);
   }
