@@ -152,9 +152,12 @@ public_keys_hash := poseidon2("az_public_keys_hash", Npk_m, Ivpk_m, Ovpk_m, Tpk_
 address := poseidon2("az_contract_address_v1", public_keys_hash, partial_address)
 ```
 
-For account contracts the public keys will always be non-zero and for non-account contracts zero.
-
-<!-- TODO(#5862): is this ^ correct? -->
+Typically, for account contracts the public keys will be non-zero and for non-account contracts zero.
+An example of a non-account contract which would have some of the keys non-zero is an escrow contract.
+Escrow contract is a type of contract which on its own is an "owner" of a note meaning that it has a `Npk_m` registered and the notes contain this `Npk_m`.
+Participants in this escrow contract would then somehow get a hold of the escrow's `nsk_m` and nullify the notes based on the logic of the escrow.
+An example of an escrow contract is a betting contract. In this scenario, both parties involved in the bet would be aware of the escrow's `nsk_m`.
+The escrow would then release the reward only to the party that provides a "proof of winning".
 
 Because of the contract address derivation scheme it is possible to check that a given set of public keys corresponds to a given address just by trying to recompute it.
 Since this is commonly needed to be done when sending a note to an account whose keys are not yet registered in the key registry contract we coined the term **complete address** for the collection of:
