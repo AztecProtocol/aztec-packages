@@ -53,7 +53,7 @@ if [ -f ~/.ebs-cache-mounted ] ; then
   done
   if [ -f ~/.setup-complete ] ; then
     echo "Failed to find mount! Taking mount lock and trying..."
-    rm touch ~/.ebs-cache-mounted
+    rm -f ~/.ebs-cache-mounted
   else
     exit 0
   fi
