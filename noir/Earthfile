@@ -216,12 +216,13 @@ export-bench-acir-bb:
   ARG EARTHLY_GIT_HASH
   FROM +barretenberg-acir-benches-bb
   SAVE IMAGE aztecprotocol/barretenberg-acir-benches:$EARTHLY_GIT_HASH
-
+ 
 bench-publish-acir-bb:
   ARG PULL_REQUEST
   ARG BRANCH
   ARG COMMIT_HASH
-
+  LOCALLY
+  
   # Let docker compose know about the pushed tags above
   ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
   # Optimize to not cause serial behavior if image already exists
