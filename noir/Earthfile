@@ -223,7 +223,7 @@ FOO:
   # Let docker compose know about the pushed tags above
   ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
   # Optimize to not cause serial behavior if image already exists
-  IF ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/barretenberg-acir-benches-bb:$AZTEC_DOCKER_TAG"
+  IF ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/barretenberg-acir-benches:$AZTEC_DOCKER_TAG"
     WAIT
       BUILD +export-barretenberg-acir-benches-bb
     END
