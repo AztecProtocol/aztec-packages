@@ -124,7 +124,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getHeader');
   }
 
-  getCompleteAddress(_accountOrNpkMHash: AztecAddress | Fr): Promise<CompleteAddress> {
+  getCompleteAddress(_account: AztecAddress): Promise<CompleteAddress> {
     throw new OracleMethodNotAvailableError('getCompleteAddress');
   }
 

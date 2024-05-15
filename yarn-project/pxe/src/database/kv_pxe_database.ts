@@ -375,7 +375,7 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  #getCompleteAddress(address: AztecAddress): CompleteAddress | undefined {
+  getCompleteAddress(address: AztecAddress): CompleteAddress | undefined {
     const index = this.#addressIndex.get(address.toString());
     if (typeof index === 'undefined') {
       return undefined;
@@ -385,27 +385,8 @@ export class KVPxeDatabase implements PxeDatabase {
     return value ? CompleteAddress.fromBuffer(value) : undefined;
   }
 
-  getCompleteAddress(accountOrNpkMHash: AztecAddress | Fr): Promise<CompleteAddress | undefined> {
-    return Promise.resolve(
-      this.#getCompleteAddress(accountOrNpkMHash) ?? this.#getCompleteAddressWithNpkMHash(accountOrNpkMHash),
-    );
-  }
-
-  #getCompleteAddressWithNpkMHash(npkMHash: Fr): Promise<CompleteAddress | undefined> {
-    const completeAddresses = this.#getCompleteAddresses();
-
-    const completeAddress = completeAddresses.find(completeAddress =>
-      computeNpkMHash(completeAddress.publicKeys.masterNullifierPublicKey).equals(npkMHash),
-    );
-    return Promise.resolve(completeAddress);
-  }
-
-  #getCompleteAddresses(): CompleteAddress[] {
-    return Array.from(this.#addresses).map(v => CompleteAddress.fromBuffer(v));
-  }
-
   getCompleteAddresses(): Promise<CompleteAddress[]> {
-    return Promise.resolve(this.#getCompleteAddresses());
+    return Promise.resolve(Array.from(this.#addresses).map(v => CompleteAddress.fromBuffer(v)));
   }
 
   getSynchedBlockNumberForPublicKey(publicKey: Point): number | undefined {
