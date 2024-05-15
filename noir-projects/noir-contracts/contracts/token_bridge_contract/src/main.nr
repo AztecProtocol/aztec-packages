@@ -16,9 +16,9 @@ contract TokenBridge {
     // docs:start:token_bridge_storage_and_constructor
     // Storage structure, containing all storage, and specifying what slots they use.
     #[aztec(storage)]
-    struct Storage {
-        token: PublicMutable<AztecAddress>,
-        portal_address: SharedImmutable<EthAddress>,
+    struct Storage<Context> {
+        token: PublicMutable<AztecAddress, Context>,
+        portal_address: SharedImmutable<EthAddress, Context>,
     }
 
     // Constructs the contract.

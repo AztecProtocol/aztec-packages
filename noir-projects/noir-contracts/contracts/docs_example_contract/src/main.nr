@@ -18,42 +18,42 @@ contract DocsExample {
         PrivateContext, Map, PublicMutable, PublicImmutable, PrivateMutable, PrivateImmutable,
         PrivateSet, SharedImmutable, Deserialize
     };
-    use dep::aztec::{note::note_getter_options::Comparator, context::{PublicContext, Context}};
+    use dep::aztec::{note::note_getter_options::Comparator, context::PublicContext};
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
     use crate::types::{card_note::{CardNote, CARD_NOTE_LEN}, leader::Leader};
 
     #[aztec(storage)]
-    struct Storage {
+    struct Storage<Context> {
         // Shows how to create a custom struct in PublicMutable
         // docs:start:storage-leader-declaration
-        leader: PublicMutable<Leader>,
+        leader: PublicMutable<Leader, Context>,
         // docs:end:storage-leader-declaration
         // docs:start:storage-private-mutable-declaration
-        legendary_card: PrivateMutable<CardNote>,
+        legendary_card: PrivateMutable<CardNote, Context>,
         // docs:end:storage-private-mutable-declaration
         // just used for docs example to show how to create a private mutable map. 
-        profiles: Map<AztecAddress, PrivateMutable<CardNote>>,
+        profiles: Map<AztecAddress, PrivateMutable<CardNote, Context>, Context>,
         // docs:start:storage-set-declaration
-        set: PrivateSet<CardNote>,
+        set: PrivateSet<CardNote, Context>,
         // docs:end:storage-set-declaration
         // docs:start:storage-private-immutable-declaration
-        private_immutable: PrivateImmutable<CardNote>,
+        private_immutable: PrivateImmutable<CardNote, Context>,
         // docs:end:storage-private-immutable-declaration
         // docs:start:storage-shared-immutable-declaration
-        shared_immutable: SharedImmutable<Leader>,
+        shared_immutable: SharedImmutable<Leader, Context>,
         // docs:end:storage-shared-immutable-declaration
         // docs:start:storage-minters-declaration
-        minters: Map<AztecAddress, PublicMutable<bool>>,
+        minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
         // docs:end:storage-minters-declaration
         // docs:start:storage-public-immutable-declaration
-        public_immutable: PublicImmutable<Leader>,
+        public_immutable: PublicImmutable<Leader, Context>,
         // docs:end:storage-public-immutable-declaration
     }
 
     // Note: The following is no longer necessary to implement manually as our macros do this for us. It is left here
     // for documentation purposes only.
-    impl Storage {
+    impl<Context> Storage<Context> {
         fn init(context: Context) -> Self {
             Storage {
                 // docs:start:storage-leader-init
@@ -266,7 +266,8 @@ contract DocsExample {
     // docs:end:private_mutable_is_initialized
 
     // docs:start:get_note-private-immutable
-    unconstrained fn get_imm_card() -> pub CardNote {
+    #[aztec(private)]
+    fn get_imm_card() -> CardNote {
         storage.private_immutable.get_note()
     }
     // docs:end:get_note-private-immutable
@@ -322,7 +323,7 @@ contract DocsExample {
         // docs:end:context-example-context
 
         // docs:start:storage-example-context
-        let mut storage = Storage::init(Context::private(&mut context));
+        let mut storage = Storage::init(&mut context);
         // docs:end:storage-example-context
         // ************************************************************
 

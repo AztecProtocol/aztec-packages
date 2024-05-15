@@ -7,12 +7,12 @@ contract Benchmarking {
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, Map, PublicMutable, PrivateSet};
     use dep::value_note::{utils::{increment, decrement}, value_note::ValueNote};
 
-    use dep::aztec::{context::{Context, gas::GasOpts}};
+    use dep::aztec::context::gas::GasOpts;
 
     #[aztec(storage)]
-    struct Storage {
-        notes: Map<AztecAddress, PrivateSet<ValueNote>>,
-        balances: Map<AztecAddress, PublicMutable<Field>>,
+    struct Storage<Context> {
+        notes: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>,
+        balances: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
     }
 
     // Creates a new value note for the target owner. Use this method to seed an initial set of notes.

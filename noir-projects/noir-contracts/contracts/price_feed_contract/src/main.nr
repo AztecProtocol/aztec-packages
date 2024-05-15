@@ -2,13 +2,12 @@ mod asset;
 
 contract PriceFeed {
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, PrivateContext, Map, PublicMutable};
-    use dep::aztec::{context::{PublicContext, Context}};
     use crate::asset::Asset;
 
     // Storage structure, containing all storage, and specifying what slots they use.
     #[aztec(storage)]
-    struct Storage {
-        assets: Map<Field, PublicMutable<Asset>>,
+    struct Storage<Context> {
+        assets: Map<Field, PublicMutable<Asset, Context>, Context>,
     }
 
     #[aztec(public)]

@@ -1,15 +1,14 @@
 contract Counter {
     // docs:start:imports
     use dep::aztec::prelude::{AztecAddress, Map};
-    use dep::aztec::context::Context;
     use dep::value_note::{balance_utils, value_note::{ValueNote, VALUE_NOTE_LEN}};
     use dep::easy_private_state::EasyPrivateUint;
     // docs:end:imports
 
     // docs:start:storage_struct
     #[aztec(storage)]
-    struct Storage {
-        counters: Map<AztecAddress, EasyPrivateUint>,
+    struct Storage<Context> {
+        counters: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
     }
     // docs:end:storage_struct
 

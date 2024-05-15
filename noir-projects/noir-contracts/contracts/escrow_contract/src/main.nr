@@ -2,15 +2,13 @@
 contract Escrow {
     use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, NoteHeader, PrivateContext, PrivateImmutable};
 
-    use dep::aztec::context::{PublicContext, Context};
-
     use dep::address_note::address_note::AddressNote;
 
     use dep::token::Token;
 
     #[aztec(storage)]
-    struct Storage {
-        owner: PrivateImmutable<AddressNote>,
+    struct Storage<Context> {
+        owner: PrivateImmutable<AddressNote, Context>,
     }
 
     // Creates a new instance

@@ -8,11 +8,11 @@ contract Claim {
     use dep::token::Token;
 
     #[aztec(storage)]
-    struct Storage {
+    struct Storage<Context> {
       // Address of a contract based on whose notes we distribute the rewards
-      target_contract: SharedImmutable<AztecAddress>,
+      target_contract: SharedImmutable<AztecAddress, Context>,
       // Token to be distributed as a reward when claiming
-      reward_token: SharedImmutable<AztecAddress>,
+      reward_token: SharedImmutable<AztecAddress, Context>,
     }
 
     #[aztec(public)]

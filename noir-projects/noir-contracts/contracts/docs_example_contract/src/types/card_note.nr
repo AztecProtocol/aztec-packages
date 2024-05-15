@@ -2,7 +2,7 @@ use dep::aztec::prelude::{AztecAddress, NoteInterface, NoteHeader, PrivateContex
 use dep::aztec::{
     keys::getters::get_ivpk_m, note::{utils::compute_note_hash_for_consumption},
     oracle::nullifier_key::get_app_nullifier_secret_key, hash::poseidon2_hash,
-    protocol_types::{traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER}
+    protocol_types::{traits::{Empty, Serialize}, constants::GENERATOR_INDEX__NOTE_NULLIFIER}
 };
 
 // Shows how to create a custom note
@@ -55,5 +55,11 @@ impl NoteInterface<CARD_NOTE_LEN> for CardNote {
             ivpk_m,
             self.serialize_content(),
         );
+    }
+}
+
+impl Serialize<3> for CardNote {
+    fn serialize(self) -> [Field; 3] {
+        [ self.points.to_field(), self.randomness, self.owner.to_field() ]
     }
 }

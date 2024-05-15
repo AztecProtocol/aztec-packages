@@ -5,8 +5,8 @@ contract EasyPrivateToken {
     use dep::easy_private_state::EasyPrivateUint;
 
     #[aztec(storage)]
-    struct Storage {
-        balances: Map<AztecAddress, EasyPrivateUint>,
+    struct Storage<Context> {
+        balances: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
     }
 
     /**

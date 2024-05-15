@@ -3,16 +3,16 @@ contract Child {
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, PublicMutable, PrivateSet, PrivateContext, Deserialize};
 
     use dep::aztec::{
-        context::{PublicContext, Context, gas::GasOpts},
+        context::{PublicContext, gas::GasOpts},
         protocol_types::{abis::{call_context::CallContext}},
-        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader}
+        note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions, note_header::NoteHeader}
     };
     use dep::value_note::value_note::ValueNote;
 
     #[aztec(storage)]
-    struct Storage {
-        current_value: PublicMutable<Field>,
-        a_private_value: PrivateSet<ValueNote>,
+    struct Storage<Context> {
+        current_value: PublicMutable<Field, Context>,
+        a_private_value: PrivateSet<ValueNote, Context>,
     }
 
     // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.

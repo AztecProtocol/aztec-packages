@@ -16,17 +16,17 @@ contract AppSubscription {
     };
 
     #[aztec(storage)]
-    struct Storage {
+    struct Storage<Context> {
         // The following is only needed in private but we use ShareImmutable here instead of PrivateImmutable because
         // the value can be publicly known and SharedImmutable provides us with a better devex here because we don't
         // have to bother with sharing the note between pixies of users.
-        target_address: SharedImmutable<AztecAddress>,
-        subscription_token_address: SharedImmutable<AztecAddress>,
-        subscription_recipient_address: SharedImmutable<AztecAddress>,
-        subscription_price: SharedImmutable<Field>,
-        subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote>>,
-        gas_token_address: SharedImmutable<AztecAddress>,
-        gas_token_limit_per_tx: SharedImmutable<Field>,
+        target_address: SharedImmutable<AztecAddress, Context>,
+        subscription_token_address: SharedImmutable<AztecAddress, Context>,
+        subscription_recipient_address: SharedImmutable<AztecAddress, Context>,
+        subscription_price: SharedImmutable<Field, Context>,
+        subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote, Context>, Context>,
+        gas_token_address: SharedImmutable<AztecAddress, Context>,
+        gas_token_limit_per_tx: SharedImmutable<Field, Context>,
     }
 
     global SUBSCRIPTION_DURATION_IN_BLOCKS = 5;
@@ -110,16 +110,16 @@ contract AppSubscription {
         AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).static_enqueue(&mut context);
 
         let mut subscription_note = SubscriptionNote::new(subscriber_address, expiry_block_number, tx_count);
-        if (!is_initialized(subscriber_address)) {
+
+        // is_initialized is an unconstrained function, so we must first convert the state variable to an unconstrained
+        // one to avoid having a mutable reference (to the private context) cross the constrained <> unconstrained
+        // boundary, which is not allowed.
+        let is_initialized = storage.subscriptions.at(subscriber_address).to_unconstrained().is_initialized();
+
+        if (!is_initialized) {
             storage.subscriptions.at(subscriber_address).initialize(&mut subscription_note, true);
         } else {
             storage.subscriptions.at(subscriber_address).replace(&mut subscription_note, true)
         }
-    }
-
-    // Compiler bug workaround. You can't call an unconstrained function in another module, unless its from an
-    // unconstained function in your module.
-    unconstrained fn is_initialized(subscriber_address: AztecAddress) -> pub bool {
-        storage.subscriptions.at(subscriber_address).is_initialized()
     }
 }

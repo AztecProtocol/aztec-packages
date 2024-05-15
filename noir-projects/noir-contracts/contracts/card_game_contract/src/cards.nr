@@ -1,8 +1,7 @@
 use dep::aztec::prelude::{AztecAddress, FunctionSelector, PrivateContext, NoteHeader, NoteGetterOptions, NoteViewerOptions};
 
 use dep::aztec::{
-    protocol_types::{traits::{ToField, Serialize, FromField}, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
-    context::{PublicContext, Context}, note::note_getter::view_notes, state_vars::PrivateSet,
+    protocol_types::{traits::{ToField, Serialize, FromField}, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL}, note::note_getter::view_notes, state_vars::PrivateSet,
     note::constants::MAX_NOTES_PER_PAGE
 };
 use dep::std;
@@ -63,8 +62,8 @@ impl CardNote {
     }
 }
 
-struct Deck {
-    set: PrivateSet<ValueNote>,
+struct Deck<Context> {
+    set: PrivateSet<ValueNote, Context>,
 }
 
 pub fn filter_cards<N>(
@@ -93,15 +92,15 @@ pub fn filter_cards<N>(
     selected
 }
 
-impl Deck {
+impl<Context> Deck<Context> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         let set = PrivateSet { context, storage_slot };
         Deck { set }
     }
+}
 
+impl Deck<&mut PrivateContext> {
     pub fn add_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
-        let _context = self.set.context.private.unwrap();
-
         let mut inserted_cards = &[];
         for card in cards {
             let mut card_note = CardNote::from_card(card, owner);
@@ -147,7 +146,9 @@ impl Deck {
             self.set.remove(card_note.note);
         }
     }
+}
 
+impl Deck<()> {
     unconstrained pub fn view_cards(self, offset: u32) -> [Option<Card>; MAX_NOTES_PER_PAGE] {
         let mut options = NoteViewerOptions::new();
         let opt_notes = self.set.view_notes(options.set_offset(offset));

@@ -5,9 +5,9 @@ contract Delegator {
     use dep::delegated_on::DelegatedOn;
 
     #[aztec(storage)]
-    struct Storage {
-        current_value: PublicMutable<Field>,
-        a_private_value: PrivateSet<ValueNote>,
+    struct Storage<Context> {
+        current_value: PublicMutable<Field, Context>,
+        a_private_value: PrivateSet<ValueNote, Context>,
     }
 
     #[aztec(private)]

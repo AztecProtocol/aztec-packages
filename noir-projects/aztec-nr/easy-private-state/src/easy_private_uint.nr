@@ -1,27 +1,28 @@
 use dep::aztec::{
-    protocol_types::address::AztecAddress, context::Context,
+    context::PrivateContext,
+    protocol_types::address::AztecAddress,
     note::note_getter_options::NoteGetterOptions, state_vars::PrivateSet
 };
 use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
 
-struct EasyPrivateUint {
+struct EasyPrivateUint<Context> {
     context: Context,
-    set: PrivateSet<ValueNote>,
+    set: PrivateSet<ValueNote, Context>,
     storage_slot: Field,
 }
 
 // Holds a note that can act similarly to an int.
-impl EasyPrivateUint {
+impl<Context> EasyPrivateUint<Context> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
-        let set = PrivateSet { context, storage_slot };
+        let set = PrivateSet::new(context, storage_slot);
         EasyPrivateUint { context, set, storage_slot }
     }
+}
 
+impl<Context> EasyPrivateUint<&mut PrivateContext> {
     // Very similar to `value_note::utils::increment`.
     pub fn add(self, addend: u64, owner: AztecAddress) {
-        assert(self.context.public.is_none(), "EasyPrivateUint::add can be called from private only.");
-
         // Creates new note for the owner.
         let mut addend_note = ValueNote::new(addend as Field, owner);
 
@@ -33,8 +34,6 @@ impl EasyPrivateUint {
 
     // Very similar to `value_note::utils::decrement`.
     pub fn sub(self, subtrahend: u64, owner: AztecAddress) {
-        assert(self.context.public.is_none(), "EasyPrivateUint::sub can be called from private only.");
-
         // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
         let maybe_notes = self.set.get_notes(options);

@@ -8,11 +8,11 @@ contract Auth {
     global CHANGE_AUTHORIZED_DELAY_BLOCKS = 5;
 
     #[aztec(storage)]
-    struct Storage {
+    struct Storage<Context> {
         // Admin can change the value of the authorized address via set_authorized()
-        admin: PublicImmutable<AztecAddress>,
+        admin: PublicImmutable<AztecAddress, Context>,
         // docs:start:shared_mutable_storage
-        authorized: SharedMutable<AztecAddress, CHANGE_AUTHORIZED_DELAY_BLOCKS>, 
+        authorized: SharedMutable<AztecAddress, CHANGE_AUTHORIZED_DELAY_BLOCKS, Context>, 
         // docs:end:shared_mutable_storage
     }
 

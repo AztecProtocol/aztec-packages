@@ -28,25 +28,25 @@ contract Token {
 
     // docs:start:storage_struct
     #[aztec(storage)]
-    struct Storage {
+    struct Storage<Context> {
         // docs:start:storage_admin
-        admin: PublicMutable<AztecAddress>,
+        admin: PublicMutable<AztecAddress, Context>,
         // docs:end:storage_admin
         // docs:start:storage_minters
-        minters: Map<AztecAddress, PublicMutable<bool>>,
+        minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
         // docs:end:storage_minters
         // docs:start:storage_balances
-        balances: BalancesMap<TokenNote>,
+        balances: BalancesMap<TokenNote, Context>,
         // docs:end:storage_balances
-        total_supply: PublicMutable<U128>,
+        total_supply: PublicMutable<U128, Context>,
         // docs:start:storage_pending_shields
-        pending_shields: PrivateSet<TransparentNote>,
+        pending_shields: PrivateSet<TransparentNote, Context>,
         // docs:end:storage_pending_shields
-        public_balances: Map<AztecAddress, PublicMutable<U128>>,
-        symbol: SharedImmutable<FieldCompressedString>,
-        name: SharedImmutable<FieldCompressedString>,
+        public_balances: Map<AztecAddress, PublicMutable<U128, Context>, Context>,
+        symbol: SharedImmutable<FieldCompressedString, Context>,
+        name: SharedImmutable<FieldCompressedString, Context>,
         // docs:start:storage_decimals
-        decimals: SharedImmutable<u8>,
+        decimals: SharedImmutable<u8, Context>,
         // docs:end:storage_decimals
     }
     // docs:end:storage_struct
@@ -86,10 +86,6 @@ contract Token {
         storage.name.read_private()
     }
 
-    unconstrained fn un_get_name() -> pub [u8; 31] {
-        storage.name.read_public().to_bytes()
-    }
-
     #[aztec(public)]
     fn public_get_symbol() -> pub FieldCompressedString {
         storage.symbol.read_public()
@@ -98,10 +94,6 @@ contract Token {
     #[aztec(private)]
     fn private_get_symbol() -> pub FieldCompressedString {
         storage.symbol.read_private()
-    }
-
-    unconstrained fn un_get_symbol() -> pub [u8; 31] {
-        storage.symbol.read_public().to_bytes()
     }
 
     #[aztec(public)]
@@ -116,10 +108,6 @@ contract Token {
         // docs:start:read_decimals_private
         storage.decimals.read_private()
         // docs:end:read_decimals_private
-    }
-
-    unconstrained fn un_get_decimals() -> pub u8 {
-        storage.decimals.read_public()
     }
 
     // docs:start:set_minter

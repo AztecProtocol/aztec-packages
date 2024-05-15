@@ -8,7 +8,6 @@ contract EcdsaAccount {
     use dep::aztec::protocol_types::abis::call_context::CallContext;
     use dep::std;
 
-    use dep::aztec::context::Context;
     use dep::authwit::{
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
         auth_witness::get_auth_witness
@@ -17,8 +16,8 @@ contract EcdsaAccount {
     use crate::ecdsa_public_key_note::EcdsaPublicKeyNote;
 
     #[aztec(storage)]
-    struct Storage {
-        public_key: PrivateImmutable<EcdsaPublicKeyNote>,
+    struct Storage<Context> {
+        public_key: PrivateImmutable<EcdsaPublicKeyNote, Context>,
     }
 
     global ACCOUNT_ACTIONS_STORAGE_SLOT = 2;
@@ -35,20 +34,20 @@ contract EcdsaAccount {
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts
     #[aztec(private)]
     fn entrypoint(app_payload: pub AppPayload, fee_payload: pub FeePayload) {
-        let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        let actions = AccountActions::init(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.entrypoint(app_payload, fee_payload);
     }
 
     #[aztec(private)]
     #[aztec(noinitcheck)]
     fn spend_private_authwit(inner_hash: Field) -> Field {
-        let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        let actions = AccountActions::init(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.spend_private_authwit(inner_hash)
     }
 
     #[aztec(public)]
     fn spend_public_authwit(inner_hash: Field) -> Field {
-        let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        let actions = AccountActions::init(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.spend_public_authwit(inner_hash)
     }
 
@@ -61,14 +60,14 @@ contract EcdsaAccount {
     #[aztec(public)]
     #[aztec(internal)]
     fn approve_public_authwit(outer_hash: Field) {
-        let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        let actions = AccountActions::init(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.approve_public_authwit(outer_hash)
     }
 
     #[contract_library_method]
     fn is_valid_impl(context: &mut PrivateContext, outer_hash: Field) -> bool {
         // Load public key from storage
-        let storage = Storage::init(Context::private(context));
+        let storage = Storage::init(context);
         let public_key = storage.public_key.get_note();
 
         // Load auth witness

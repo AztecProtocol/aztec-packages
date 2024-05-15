@@ -5,7 +5,7 @@ use dep::aztec::protocol_types::{
 use dep::aztec::{
     prelude::Deserialize,
     context::{
-    PrivateContext, PublicContext, Context, gas::GasOpts,
+    PrivateContext, PublicContext, gas::GasOpts,
     interface::{ContextInterface, PublicContextInterface}
 },
     hash::hash_args_array

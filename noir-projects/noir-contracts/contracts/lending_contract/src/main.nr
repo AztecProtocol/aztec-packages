@@ -11,7 +11,7 @@ mod helpers;
 // - Liquidations
 contract Lending {
     use dep::aztec::prelude::{FunctionSelector, AztecAddress, PrivateContext, Map, PublicMutable};
-    use dep::aztec::context::{PublicContext, Context, gas::GasOpts};
+    use dep::aztec::context::{PublicContext, gas::GasOpts};
 
     use crate::asset::Asset;
     use crate::interest_math::compute_multiplier;
@@ -21,12 +21,12 @@ contract Lending {
 
     // Storage structure, containing all storage, and specifying what slots they use.
     #[aztec(storage)]
-    struct Storage {
-        collateral_asset: PublicMutable<AztecAddress>,
-        stable_coin: PublicMutable<AztecAddress>,
-        assets: Map<Field, PublicMutable<Asset>>,
-        collateral: Map<AztecAddress, PublicMutable<Field>>,
-        static_debt: Map<AztecAddress, PublicMutable<Field>>, // abusing keys very heavily
+    struct Storage<Context> {
+        collateral_asset: PublicMutable<AztecAddress, Context>,
+        stable_coin: PublicMutable<AztecAddress, Context>,
+        assets: Map<Field, PublicMutable<Asset, Context>, Context>,
+        collateral: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
+        static_debt: Map<AztecAddress, PublicMutable<Field, Context>, Context>, // abusing keys very heavily
     }
 
     struct Position {

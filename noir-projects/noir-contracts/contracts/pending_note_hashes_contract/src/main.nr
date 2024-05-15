@@ -6,11 +6,10 @@ contract PendingNoteHashes {
     // Libs
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, PrivateContext, Map, PrivateSet};
     use dep::value_note::{balance_utils, filter::filter_notes_min_sum, value_note::{VALUE_NOTE_LEN, ValueNote}};
-    use dep::aztec::context::{PublicContext, Context};
 
     #[aztec(storage)]
-    struct Storage {
-        balances: Map<AztecAddress, PrivateSet<ValueNote>>,
+    struct Storage<Context> {
+        balances: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>,
     }
 
     // TODO(dbanks12): consolidate code into internal helper functions

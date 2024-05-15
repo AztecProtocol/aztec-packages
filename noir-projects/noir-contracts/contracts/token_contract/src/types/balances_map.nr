@@ -2,18 +2,17 @@ use dep::aztec::prelude::{
     AztecAddress, NoteGetterOptions, NoteViewerOptions, NoteHeader, NoteInterface, PrivateContext,
     PrivateSet, Map
 };
-use dep::aztec::{
-    context::{PublicContext, Context}, hash::pedersen_hash,
+use dep::aztec::{hash::pedersen_hash,
     protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     note::{note_getter::view_notes, note_getter_options::SortOrder}
 };
 use crate::types::token_note::{TokenNote, OwnedNote};
 
-struct BalancesMap<T> {
-    map: Map<AztecAddress, PrivateSet<T>>
+struct BalancesMap<T, Context> {
+    map: Map<AztecAddress, PrivateSet<T, Context>, Context>
 }
 
-impl<T> BalancesMap<T> {
+impl<T, Context> BalancesMap<T, Context> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self {
@@ -24,7 +23,9 @@ impl<T> BalancesMap<T> {
             )
         }
     }
+}
 
+impl<T> BalancesMap<T, ()> {
     unconstrained pub fn balance_of<T_SERIALIZED_LEN>(
         self: Self,
         owner: AztecAddress
@@ -54,7 +55,9 @@ impl<T> BalancesMap<T> {
 
         balance
     }
+}
 
+impl<T> BalancesMap<T, &mut PrivateContext> {
     pub fn add<T_SERIALIZED_LEN>(
         self: Self,
         owner: AztecAddress,

@@ -24,7 +24,7 @@ contract Test {
 
     use dep::aztec::{
         keys::getters::{get_npk_m, get_ivpk_m},
-        context::{Context, inputs::private_context_inputs::PrivateContextInputs},
+        context::inputs::private_context_inputs::PrivateContextInputs,
         hash::{pedersen_hash, compute_secret_hash, ArgsHasher},
         note::{
         lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
@@ -44,9 +44,9 @@ contract Test {
     }
 
     #[aztec(storage)]
-    struct Storage {
-        example_constant: PrivateImmutable<TestNote>,
-        example_set: PrivateSet<TestNote>,
+    struct Storage<Context> {
+        example_constant: PrivateImmutable<TestNote, Context>,
+        example_set: PrivateSet<TestNote, Context>,
     }
 
     #[aztec(private)]

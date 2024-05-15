@@ -33,10 +33,10 @@ contract AvmTest {
     use dep::compressed_string::CompressedString;
 
     #[aztec(storage)]
-    struct Storage {
-        single: PublicMutable<Field>,
-        list: PublicMutable<Note>,
-        map: Map<AztecAddress, PublicMutable<u32>>,
+    struct Storage<Context> {
+        single: PublicMutable<Field, Context>,
+        list: PublicMutable<Note, Context>,
+        map: Map<AztecAddress, PublicMutable<u32, Context>, Context>,
     }
 
     /************************************************************************
