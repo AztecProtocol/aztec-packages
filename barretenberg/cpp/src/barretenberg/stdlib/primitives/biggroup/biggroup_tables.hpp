@@ -410,7 +410,7 @@ element<C, Fq, Fr, G>::lookup_table_plookup<length, X>::lookup_table_plookup(con
 template <typename C, class Fq, class Fr, class G>
 template <size_t length, typename X>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::lookup_table_plookup<length, X>::get(
-    const std::array<bool_t, length>& bits) const
+    const std::array<bool_ct, length>& bits) const
 {
     std::vector<field_t<C>> accumulators;
     for (size_t i = 0; i < length; ++i) {
@@ -560,20 +560,20 @@ element<C, Fq, Fr, G>::lookup_table_base<length>::lookup_table_base(const std::a
 template <typename C, class Fq, class Fr, class G>
 template <size_t length>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::lookup_table_base<length>::get(
-    const std::array<bool_t, length>& bits) const
+    const std::array<bool_ct, length>& bits) const
 {
     static_assert(length <= 4 && length >= 2);
 
     if constexpr (length == 2) {
-        bool_t table_selector = bits[0] ^ bits[1];
-        bool_t sign_selector = bits[1];
+        bool_ct table_selector = bits[0] ^ bits[1];
+        bool_ct sign_selector = bits[1];
         Fq to_add_x = twin0.x.conditional_select(twin1.x, table_selector);
         Fq to_add_y = twin0.y.conditional_select(twin1.y, table_selector);
         element to_add(to_add_x, to_add_y.conditional_negate(sign_selector));
         return to_add;
     } else if constexpr (length == 3) {
-        bool_t t0 = bits[2] ^ bits[0];
-        bool_t t1 = bits[2] ^ bits[1];
+        bool_ct t0 = bits[2] ^ bits[0];
+        bool_ct t1 = bits[2] ^ bits[1];
 
         field_t<C> x_b0 = field_t<C>::select_from_two_bit_table(x_b0_table, t1, t0);
         field_t<C> x_b1 = field_t<C>::select_from_two_bit_table(x_b1_table, t1, t0);
@@ -606,9 +606,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::lookup_table_base<length>::get(
 
         return to_add;
     } else if constexpr (length == 4) {
-        bool_t t0 = bits[3] ^ bits[0];
-        bool_t t1 = bits[3] ^ bits[1];
-        bool_t t2 = bits[3] ^ bits[2];
+        bool_ct t0 = bits[3] ^ bits[0];
+        bool_ct t1 = bits[3] ^ bits[1];
+        bool_ct t2 = bits[3] ^ bits[2];
 
         field_t<C> x_b0 = field_t<C>::select_from_three_bit_table(x_b0_table, t2, t1, t0);
         field_t<C> x_b1 = field_t<C>::select_from_three_bit_table(x_b1_table, t2, t1, t0);

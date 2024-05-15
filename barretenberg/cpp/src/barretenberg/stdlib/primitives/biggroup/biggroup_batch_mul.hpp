@@ -28,7 +28,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::wnaf_batch_mul(const std::vector<el
     std::vector<Fr> scalars;
     element one = element::one(nullptr);
     for (size_t i = 0; i < points.size(); ++i) {
-        bool_t is_point_at_infinity = points[i].is_point_at_infinity();
+        bool_ct is_point_at_infinity = points[i].is_point_at_infinity();
         if (is_point_at_infinity.get_value() && static_cast<bool>(is_point_at_infinity.is_constant())) {
             // if point is at infinity and a circuit constant we can just skip.
             continue;
@@ -78,8 +78,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::wnaf_batch_mul(const std::vector<el
 
     for (size_t i = 0; i < points.size(); ++i) {
         element skew = accumulator - points[i];
-        Fq out_x = accumulator.x.conditional_select(skew.x, bool_t(wnaf_entries[i][num_rounds]));
-        Fq out_y = accumulator.y.conditional_select(skew.y, bool_t(wnaf_entries[i][num_rounds]));
+        Fq out_x = accumulator.x.conditional_select(skew.x, bool_ct(wnaf_entries[i][num_rounds]));
+        Fq out_y = accumulator.y.conditional_select(skew.y, bool_ct(wnaf_entries[i][num_rounds]));
         accumulator = element(out_x, out_y);
     }
     accumulator -= offset_generators.second;
