@@ -11,6 +11,10 @@
     to = "/"
 
 [[redirects]]
+    from = "/developers/getting_started/quickstart"
+    to = "/getting_started/getting_started"
+
+[[redirects]]
     from = "/spec/*"
     to = "/"
 
