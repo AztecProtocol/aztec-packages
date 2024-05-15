@@ -202,17 +202,36 @@ build-acir-tests:
     SAVE ARTIFACT /usr/src/noir-repo/test_programs/acir_artifacts/*
 
 barretenberg-acir-benches-bb:
+  FROM ../build-images/+build
+
+  COPY ../barretenberg/cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+  COPY ../barretenberg/+acir-tests/ /usr/src/barretenberg/acir_tests
+  COPY +build-acir-tests/ /usr/src/acir_artifacts
+
+  WORKDIR /usr/src/barretenberg/acir_tests
+
+export-barretenberg-acir-benches-bb:
+  ARG EARTHLY_GIT_HASH
+  FROM +barretenberg-acir-benches-bb
+  SAVE IMAGE aztecprotocol/barretenberg-acir-benches:$EARTHLY_GIT_HASH
+
+bench-barretenberg-acir-benches-bb:
   ARG PULL_REQUEST
   ARG BRANCH
   ARG COMMIT_HASH
   LOCALLY
 
-  COPY ../barretenberg/cpp/+preset-clang-assert/bin/bb ../barretenberg/cpp/build/bin/bb
-  COPY +build-acir-tests/ noir-repo/test_programs/acir_artifacts
-  COPY ../barretenberg/+acir-tests/ ../barretenberg/acir_tests
+  # Let docker compose know about the pushed tags above
+  ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
+  # Optimize to not cause serial behavior if image already exists
+  IF ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/barretenberg-acir-benches-bb:$AZTEC_DOCKER_TAG"
+    WAIT
+      BUILD +export-barretenberg-acir-benches-bb
+    END
+  END
 
-  ENV LOG_FILE=./log
-  RUN ../barretenberg/acir_tests/bench_acir_tests.sh sha256
+  RUN touch ./log
+  RUN docker run -v "$(pwd)/log":/log -e LOG_FILE=/log --rm aztecprotocol/barretenberg-acir-benches:$AZTEC_DOCKER_TAG ./bench_acir_tests.sh sha256
 
   DO ../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
