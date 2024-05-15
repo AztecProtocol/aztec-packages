@@ -173,6 +173,7 @@ export const makeGlobals = (blockNumber: number) => {
     EthAddress.ZERO,
     AztecAddress.ZERO,
     GasFees.empty(),
+    Fr.ZERO,
   );
 };
 

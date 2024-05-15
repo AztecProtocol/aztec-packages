@@ -82,6 +82,7 @@ class Header {
 
 class GlobalVariables {
   +GasFees gasFees
+  +Fr totalFees
 }
 
 class GasFees {
@@ -96,6 +97,8 @@ GlobalVariables --> GasFees
 A transaction cannot be executed if the `maxFeesPerGas` is less than the `feePerGas` for any dimension.
 
 The `feePerGas` is presently held constant at `1` for both dimensions, but may be updated in future protocol versions.
+
+`totalFees` is the total fees contained in the block.
 
 ## Transaction Fee
 

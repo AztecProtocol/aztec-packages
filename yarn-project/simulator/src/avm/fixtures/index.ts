@@ -82,6 +82,7 @@ export function initGlobalVariables(overrides?: Partial<GlobalVariables>): Globa
     overrides?.coinbase ?? EthAddress.ZERO,
     overrides?.feeRecipient ?? AztecAddress.zero(),
     overrides?.gasFees ?? GasFees.empty(),
+    overrides?.totalFees ?? Fr.zero(),
   );
 }
 

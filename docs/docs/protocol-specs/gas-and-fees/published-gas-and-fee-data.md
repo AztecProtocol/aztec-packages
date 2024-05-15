@@ -12,6 +12,10 @@ The block header contains a `GlobalVariables`, which contains a `GasFees` object
 - `feePerDaGas`: The fee in [FPA](./fee-payment-asset.md) per unit of DA gas consumed for transactions in the block.
 - `feePerL2Gas`: The fee in FPA per unit of L2 gas consumed for transactions in the block.
 
+`GlobalVariables` also includes
+- a `totalFees` field, which is the total fees collected in the block in FPA.
+- a `coinbase` field, which is the L1 address that receives the fees. 
+
 ## Updating the `GasFees` Object
 
 Presently, the `feePerDaGas` and `feePerL2Gas` are fixed at `1` FPA per unit of DA gas and L2 gas consumed, respectively.
