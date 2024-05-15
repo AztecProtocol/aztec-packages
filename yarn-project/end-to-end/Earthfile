@@ -139,7 +139,7 @@ e2e-note-getter:
   DO +E2E_TEST --test=./src/e2e_note_getter.test.ts
 
 e2e-prover:
-  DO +E2E_TEST --test=./src/e2e_provr/e2e_prover.test.ts
+  DO +E2E_TEST --test=./src/e2e_prover/e2e_prover.test.ts
 
 e2e-ordering:
   DO +E2E_TEST --test=./src/e2e_ordering.test.ts
