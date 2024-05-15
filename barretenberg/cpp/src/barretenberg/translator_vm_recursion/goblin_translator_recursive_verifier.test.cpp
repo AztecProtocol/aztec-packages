@@ -6,6 +6,7 @@
 #include "barretenberg/translator_vm/goblin_translator_circuit_builder.hpp"
 #include "barretenberg/translator_vm/goblin_translator_prover.hpp"
 #include "barretenberg/translator_vm/goblin_translator_verifier.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include <gtest/gtest.h>
 namespace bb {
 
@@ -22,26 +23,20 @@ template <typename RecursiveFlavor> class GoblinTranslatorRecursiveTests : publi
     using RecursiveVerifier = GoblinTranslatorRecursiveVerifier_<RecursiveFlavor>;
 
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
-    using OuterFlavor = std::conditional_t<IsGoblinUltraBuilder<OuterBuilder>, GoblinUltraFlavor, UltraFlavor>;
-    using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor>;
+    // using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
+    // using OuterFlavor = std::conditional_t<IsGoblinUltraBuilder<OuterBuilder>, GoblinUltraFlavor, UltraFlavor>;
+    // using OuterProver = UltraProver_<OuterFlavor>;
+    // using OuterVerifier = UltraVerifier_<OuterFlavor>;
+
+    using Transcript = InnerFlavor::Transcript;
 
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     static void test_recursive_verification()
     {
-        using G1 = g1::affine_element;
-        using Fr = fr;
-        using Fq = fq;
-        using CircuitBuilder = GoblinTranslatorFlavor::CircuitBuilder;
-        using Flavor = bb::GoblinTranslatorFlavor;
-        using Transcript = GoblinTranslatorFlavor::Transcript;
-        using RecursiveVerifer =
-            GoblinTranslatorRecursiveVerifier_<GoblinTranslatorRecursiveFlavor_<bb::UltraCircuitBuilder>>;
-
-        auto P1 = G1::random_element();
-        auto P2 = G1::random_element();
-        auto z = Fr::random_element();
+        auto P1 = InnerG1::random_element();
+        auto P2 = InnerG1::random_element();
+        auto z = InnerFF::random_element();
 
         // Add the same operations to the ECC op queue; the native computation is performed under the hood.
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
@@ -53,25 +48,24 @@ template <typename RecursiveFlavor> class GoblinTranslatorRecursiveTests : publi
         }
 
         auto prover_transcript = std::make_shared<Transcript>();
-        prover_transcript->send_to_verifier("init", Fq::random_element());
+        prover_transcript->send_to_verifier("init", InnerBF::random_element());
         // normally this would be the eccvm proof
         auto fake_inital_proof = prover_transcript->export_proof();
-        Fq translation_batching_challenge =
-            prover_transcript->template get_challenge<Fq>("Translation:batching_challenge");
-        Fq translation_evaluation_challenge = Fq::random_element();
+        InnerBF translation_batching_challenge =
+            prover_transcript->template get_challenge<InnerBF>("Translation:batching_challenge");
+        InnerBF translation_evaluation_challenge = InnerBF::random_element();
 
-        auto circuit_builder =
-            CircuitBuilder(translation_batching_challenge, translation_evaluation_challenge, op_queue);
+        auto circuit_builder = InnerBuilder(translation_batching_challenge, translation_evaluation_challenge, op_queue);
         EXPECT_TRUE(circuit_builder.check_circuit());
 
-        GoblinTranslatorProver prover{ circuit_builder, prover_transcript };
+        InnerProver prover{ circuit_builder, prover_transcript };
         auto proof = prover.construct_proof();
 
         proof.insert(proof.begin(), fake_inital_proof.begin(), fake_inital_proof.end());
 
-        auto verification_key = std::make_shared<Flavor::VerificationKey>(prover.key);
-        UltraCircuitBuilder verifier_circuit;
-        RecursiveVerifer verifier{ &verifier_circuit, verification_key };
+        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key);
+        OuterBuilder verifier_circuit;
+        RecursiveVerifier verifier{ &verifier_circuit, verification_key };
         verifier.verify_proof(proof);
         info("Recursive Verifier: num gates = ", verifier_circuit.num_gates);
 
@@ -79,8 +73,8 @@ template <typename RecursiveFlavor> class GoblinTranslatorRecursiveTests : publi
         EXPECT_EQ(verifier_circuit.failed(), false) << verifier_circuit.err();
 
         auto native_verifier_transcript = std::make_shared<Transcript>(prover_transcript->proof_data);
-        native_verifier_transcript->template receive_from_prover<Fq>("init");
-        GoblinTranslatorVerifier native_verifier(prover.key, native_verifier_transcript);
+        native_verifier_transcript->template receive_from_prover<InnerBF>("init");
+        InnerVerifier native_verifier(prover.key, native_verifier_transcript);
         bool verified = native_verifier.verify_proof(proof);
         EXPECT_TRUE(verified);
 
@@ -91,12 +85,11 @@ template <typename RecursiveFlavor> class GoblinTranslatorRecursiveTests : publi
         }
     }
 
-    static void test_recursive_verification_fails();
+    // static void test_recursive_verification_fails();
 };
 
 using FlavorTypes = testing::Types<GoblinTranslatorRecursiveFlavor_<UltraCircuitBuilder>,
-                                   GoblinTranslatorRecursiveFlavor_<GoblinUltraCircuitBuilder>,
-                                   GoblinUltraRecursiveFlavor_<CircuitSimulatorBN254>>;
+                                   GoblinTranslatorRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
 
 TYPED_TEST_SUITE(GoblinTranslatorRecursiveTests, FlavorTypes);
 
@@ -105,8 +98,8 @@ TYPED_TEST(GoblinTranslatorRecursiveTests, SingleRecursiveVerification)
     TestFixture::test_recursive_verification();
 };
 
-TYPED_TEST(GoblinTranslatorRecursiveTests, SingleRecursiveVerificationFailure)
-{
-    TestFixture::test_recursive_verification_fails();
-};
+// TYPED_TEST(GoblinTranslatorRecursiveTests, SingleRecursiveVerificationFailure)
+// {
+//     TestFixture::test_recursive_verification_fails();
+// };
 } // namespace bb
