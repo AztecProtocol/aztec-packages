@@ -190,35 +190,37 @@ describe('Private Execution test suite', () => {
   beforeEach(async () => {
     trees = {};
     oracle = mock<DBOracle>();
-    oracle.getNullifierKeys.mockImplementation((accountAddress: AztecAddress, contractAddress: AztecAddress) => {
-      if (accountAddress.equals(ownerCompleteAddress.address)) {
-        return Promise.resolve({
-          masterNullifierPublicKey: ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
-          appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
-        });
-      }
-      if (accountAddress.equals(recipientCompleteAddress.address)) {
-        return Promise.resolve({
-          masterNullifierPublicKey: recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
-          appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
-        });
-      }
-      throw new Error(`Unknown address ${accountAddress}`);
-    });
+    oracle.getNullifierKeys.mockImplementation(
+      (accountOrNpkMHash: AztecAddress | Fr, contractAddress: AztecAddress) => {
+        if (accountOrNpkMHash.equals(ownerCompleteAddress.address)) {
+          return Promise.resolve({
+            masterNullifierPublicKey: ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
+            appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
+          });
+        }
+        if (accountOrNpkMHash.equals(recipientCompleteAddress.address)) {
+          return Promise.resolve({
+            masterNullifierPublicKey: recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
+            appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
+          });
+        }
+        throw new Error(`Unknown address ${accountOrNpkMHash}`);
+      },
+    );
 
     // We call insertLeaves here with no leaves to populate empty public data tree root --> this is necessary to be
     // able to get ivpk_m during execution
     await insertLeaves([], 'publicData');
     oracle.getHeader.mockResolvedValue(header);
 
-    oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
-      if (address.equals(owner)) {
+    oracle.getCompleteAddress.mockImplementation((accountOrNpkMHash: AztecAddress | Fr) => {
+      if (accountOrNpkMHash.equals(owner)) {
         return Promise.resolve(ownerCompleteAddress);
       }
-      if (address.equals(recipient)) {
+      if (accountOrNpkMHash.equals(recipient)) {
         return Promise.resolve(recipientCompleteAddress);
       }
-      throw new Error(`Unknown address ${address}`);
+      throw new Error(`Unknown address ${accountOrNpkMHash}`);
     });
     // This oracle gets called when reading ivpk_m from key registry --> we return zero witness indicating that
     // the keys were not registered. This triggers non-registered keys flow in which getCompleteAddress oracle
@@ -862,6 +864,23 @@ describe('Private Execution test suite', () => {
       const result = await runSimulator({ artifact: entrypoint });
       expect(result.publicTeardownFunctionCall.isEmpty()).toBeFalsy();
       expect(result.publicTeardownFunctionCall.functionData).toEqual(FunctionData.fromAbi(teardown));
+    });
+  });
+
+  describe('setting fee payer', () => {
+    it('should default to not being a fee payer', async () => {
+      // arbitrary random function that doesn't set a fee payer
+      const entrypoint = getFunctionArtifact(TestContractArtifact, 'emit_msg_sender');
+      const contractAddress = AztecAddress.random();
+      const result = await runSimulator({ artifact: entrypoint, contractAddress });
+      expect(result.callStackItem.publicInputs.isFeePayer).toBe(false);
+    });
+
+    it('should be able to set a fee payer', async () => {
+      const entrypoint = getFunctionArtifact(TestContractArtifact, 'test_setting_fee_payer');
+      const contractAddress = AztecAddress.random();
+      const result = await runSimulator({ artifact: entrypoint, contractAddress });
+      expect(result.callStackItem.publicInputs.isFeePayer).toBe(true);
     });
   });
 

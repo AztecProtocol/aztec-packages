@@ -6,6 +6,32 @@ keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### [Aztec.nr] Keys: Token note now stores an owner master nullifying public key hash instead of an owner address.
+
+i.e.
+
+struct TokenNote {
+    amount: U128,
+    ```diff
+    - owner: AztecAddress,
+    + npk_m_hash: Field,
+    ```
+    randomness: Field,
+}
+
+Computing the nullifier similarly changes to use this master nullifying public key hash.
+
+### [Aztec.nr] Debug logging
+
+The function `debug_log_array_with_prefix` has been removed. Use `debug_log_format` with `{}` instead. The special sequence `{}` will be replaced with the whole array. You can also use `{0}`, `{1}`, ... as usual with `debug_log_format`.
+
+```diff
+- debug_log_array_with_prefix("Prefix", my_array);
++ debug_log_format("Prefix {}", my_array);
+```
+
 ## 0.39.0
 
 ### [Aztec.nr] Mutable delays in `SharedMutable`

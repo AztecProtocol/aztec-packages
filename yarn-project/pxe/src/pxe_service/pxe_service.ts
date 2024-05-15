@@ -11,6 +11,7 @@ import {
   MerkleTreeId,
   type NoteFilter,
   type PXE,
+  type ProofCreator,
   SimulatedTx,
   SimulationError,
   Tx,
@@ -58,7 +59,6 @@ import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
-import { type ProofCreator } from '../kernel_prover/interface/proof_creator.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
@@ -205,14 +205,6 @@ export class PXEService implements PXE {
     const result = await this.getRegisteredAccounts();
     const account = result.find(r => r.address.equals(address));
     return Promise.resolve(account);
-  }
-
-  public async getRegisteredAccountPublicKeysHash(address: AztecAddress): Promise<Fr | undefined> {
-    const accounts = await this.keyStore.getAccounts();
-    if (!accounts.some(account => account.equals(address))) {
-      return undefined;
-    }
-    return this.keyStore.getPublicKeysHash(address);
   }
 
   public async registerRecipient(recipient: CompleteAddress): Promise<void> {
@@ -802,10 +794,6 @@ export class PXEService implements PXE {
 
   public getSyncStatus() {
     return Promise.resolve(this.synchronizer.getSyncStatus());
-  }
-
-  public getKeyStore() {
-    return this.keyStore;
   }
 
   public async isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
