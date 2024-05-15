@@ -77,8 +77,11 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
         return goblin_batch_mul(points, scalars);
     }
 
-    // if x_coordinates match, lambda triggers a divide by zero error.
     // Adding in `x_coordinates_match` ensures that lambda will always be well-formed
+    // Our curve has the form y^2 = x^3 + b.
+    // If (x_1, y_1), (x_2, y_2) have x_1 == x_2, and the generic formula for lambda has a division by 0.
+    // Then y_1 == y_2 (i.e. we are doubling) or y_2 == y_1 (the sum is infinity).
+    // The cases have a special addition formula. The following booleans allow us to handle these cases uniformly.
     const bool_ct x_coordinates_match = other.x == x;
     const bool_ct y_coordinates_match = (y == other.y);
     const bool_ct infinity_predicate = (x_coordinates_match && !y_coordinates_match);
@@ -97,7 +100,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     Fq lambda_denominator = Fq::conditional_assign(double_predicate, dbl_lambda_denominator, add_lambda_denominator);
     // If either inputs are points at infinity, we set lambda_denominator to be 1. This ensures we never trigger a
     // divide by zero error.
-    // (if either inputs are points at infinity we will not use the result of this computation)
+    // Note: if either inputs are points at infinity we will not use the result of this computation.
     Fq safe_edgecase_denominator = Fq(field_t<C>(1), field_t<C>(0), field_t<C>(0), field_t<C>(0));
     lambda_denominator = Fq::conditional_assign(
         lhs_infinity || rhs_infinity || infinity_predicate, safe_edgecase_denominator, lambda_denominator);
