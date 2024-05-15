@@ -97,6 +97,7 @@ preset-wasm-bench: #aztec-tag=cache
 preset-release-assert-test:
     FROM +source
     RUN cmake --preset wasm -Bbuild && cmake --build build
+    SAVE ARTIFACT build/bin
 
 # Sent to the bench runner using a earthly --push +bench-binaries
 # then we can run earthly +bench-ultra-honk --bench_mode=cache
