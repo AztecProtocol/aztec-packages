@@ -37,6 +37,16 @@ class ClientIVCTests : public ::testing::Test {
     using VerifierInstances = VerifierInstances_<Flavor>;
     using FoldingVerifier = ProtoGalaxyVerifier_<VerifierInstances>;
 
+    // WORKTODO: is there a fold proof involved here too?
+    static bool prove_and_verify(ClientIVC& ivc)
+    {
+        // Constuct four proofs: merge, eccvm, translator, decider
+        auto proof = ivc.prove();
+        auto verifier_inst = std::make_shared<VerifierInstance>(ivc.instance_vk);
+        // Verify all four proofs
+        return ivc.verify(proof, { ivc.verifier_accumulator, verifier_inst });
+    }
+
     /**
      * @brief Construct mock circuit with arithmetic gates and goblin ops
      * @details Currently default sized to 2^16 to match kernel. (Note: dummy op gates added to avoid non-zero
@@ -231,7 +241,7 @@ TEST_F(ClientIVCTests, Basic)
 
     // Initialize IVC with function circuit
     Builder circuit_0 = create_mock_circuit(ivc);
-    ivc.initialize_new(circuit_0);
+    ivc.accumulate_new(circuit_0);
 
     // Create another circuit and accumulate
     Builder circuit_1 = create_mock_circuit(ivc);
@@ -241,9 +251,27 @@ TEST_F(ClientIVCTests, Basic)
     Builder circuit_2 = create_mock_circuit(ivc);
     ivc.accumulate_new(circuit_2);
 
-    // Constuct four proofs: merge, eccvm, translator, decider
-    auto proof = ivc.prove();
-    auto verifier_inst = std::make_shared<VerifierInstance>(ivc.instance_vk);
-    // Verify all four proofs
-    EXPECT_TRUE(ivc.verify(proof, { ivc.verifier_accumulator, verifier_inst }));
+    EXPECT_TRUE(prove_and_verify(ivc));
+};
+
+/**
+ * @brief A simple-as-possible test demonstrating IVC for a collection of toy circuits
+ *
+ */
+TEST_F(ClientIVCTests, BasicLarge)
+{
+    ClientIVC ivc;
+
+    // Construct a set of arbitrary circuits
+    std::array<Builder, 3> circuits;
+    for (auto& circuit : circuits) {
+        circuit = create_mock_circuit(ivc);
+    }
+
+    // Accumulate each circuit
+    for (auto& circuit : circuits) {
+        ivc.accumulate_new(circuit);
+    }
+
+    EXPECT_TRUE(prove_and_verify(ivc));
 };

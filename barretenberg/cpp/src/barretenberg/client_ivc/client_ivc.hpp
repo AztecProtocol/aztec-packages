@@ -88,8 +88,10 @@ class ClientIVC {
     // A flag indicating whether or not to construct a structured trace in the ProverInstance
     bool structured_flag = false;
 
+    // A flag indicating whether the IVC has been initialized with an initial instance
+    bool initialized = false;
+
     void initialize(ClientCircuit& circuit);
-    void initialize_new(ClientCircuit& circuit);
 
     FoldProof accumulate(ClientCircuit& circuit);
     void accumulate_new(ClientCircuit& circuit);

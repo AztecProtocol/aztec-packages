@@ -30,35 +30,6 @@ ClientIVC::FoldProof ClientIVC::accumulate(ClientCircuit& circuit)
     return prover_fold_output.proof;
 }
 
-/**
- * @brief Initialize the IVC with a first circuit
- * @details Initializes the accumulator and performs the initial goblin merge
- *
- * @param circuit
- */
-void ClientIVC::initialize_new(ClientCircuit& circuit)
-{
-    // Construct a merge proof
-    // WORKTODO: Is this necessary, even with the hackiness?
-    goblin.merge(circuit);
-
-    // Initialize the prover accumulator instance
-    prover_accumulator = std::make_shared<ProverInstance>(circuit, structured_flag);
-    info("circuit size = ", prover_accumulator->proving_key.circuit_size);
-    prover_fold_output.accumulator = prover_accumulator;
-
-    // Initialize the verifier accumulator instance
-    auto accumulator_vk = std::make_shared<VerificationKey>(prover_accumulator->proving_key);
-    verifier_accumulator = std::make_shared<VerifierInstance>(accumulator_vk);
-}
-
-/**
- * @brief Accumulate a circuit into the IVC scheme
- * @details Performs goblin merge, generates circuit instance, folds into accumulator and constructs a folding proof
- *
- * @param circuit Circuit to be accumulated/folded
- * @return FoldProof
- */
 void ClientIVC::accumulate_new(ClientCircuit& circuit)
 {
     // Add a recursive folding verification to the circuit (if a proof exists)
@@ -70,6 +41,7 @@ void ClientIVC::accumulate_new(ClientCircuit& circuit)
     }
 
     // Construct a merge proof and add a recursive merge verifier to the circuit
+    // WORKTODO: is this necessary on the init step even with all the hackiness?
     goblin.merge(circuit);
 
     // Construct the prover instance and verification key for the updated circuit
@@ -77,9 +49,15 @@ void ClientIVC::accumulate_new(ClientCircuit& circuit)
     info("circuit size = ", prover_instance->proving_key.circuit_size);
     instance_vk = std::make_shared<VerificationKey>(prover_instance->proving_key);
 
-    // Fold
-    FoldingProver folding_prover({ prover_fold_output.accumulator, prover_instance });
-    prover_fold_output = folding_prover.fold_instances();
+    // If the IVC is uninitialized, simply initialize the prover and verifier accumulator instances
+    if (!initialized) { // Initialize the prover and verifier accumulator instances
+        prover_fold_output.accumulator = prover_instance;
+        verifier_accumulator = std::make_shared<VerifierInstance>(instance_vk);
+        initialized = true;
+    } else { // Otherwise, fold the new instance into the accumulator
+        FoldingProver folding_prover({ prover_fold_output.accumulator, prover_instance });
+        prover_fold_output = folding_prover.fold_instances();
+    }
 }
 
 /**
