@@ -1,75 +1,20 @@
-import { GrumpkinScalar } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 } from '../../constants.gen.js';
-import { type GrumpkinPrivateKey } from '../../types/grumpkin_private_key.js';
 import { countAccumulatedItems } from '../../utils/index.js';
 import { LogHash, NoteLogHash } from '../log_hash.js';
 import { ScopedNoteHash } from '../note_hash.js';
 import { ScopedNullifier } from '../nullifier.js';
-import {
-  type NoteHashReadRequestHints,
-  type NullifierReadRequestHints,
-  noteHashReadRequestHintsFromBuffer,
-  nullifierReadRequestHintsFromBuffer,
-} from '../read_request_hints/index.js';
 import { PrivateKernelData } from './private_kernel_data.js';
-
-export class PrivateKernelTailOutputs {
-  constructor(
-    public noteHashes: Tuple<ScopedNoteHash, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
-    public nullifiers: Tuple<ScopedNullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-    public noteEncryptedLogHashes: Tuple<NoteLogHash, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
-  ) {}
-
-  toBuffer() {
-    return serializeToBuffer(this.noteHashes, this.nullifiers, this.noteEncryptedLogHashes);
-  }
-
-  static fromBuffer(buffer: Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new PrivateKernelTailOutputs(
-      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, ScopedNullifier),
-      reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, NoteLogHash),
-    );
-  }
-}
 
 export class PrivateKernelTailHints {
   constructor(
-    /**
-     * Contains hints for the transient note hashes to locate corresponding nullifiers.
-     */
-    public transientNullifierIndexesForNoteHashes: Tuple<number, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
-    /**
-     * Contains hints for the transient nullifiers to locate corresponding note hashes.
-     */
-    public transientNoteHashIndexesForNullifiers: Tuple<number, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-    /**
-     * Contains hints for the transient logs to locate corresponding note hashes.
-     */
-    public transientNoteHashIndexesForLogs: Tuple<number, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
-    /**
-     * Contains hints for the transient read requests to localize corresponding commitments.
-     */
-    public noteHashReadRequestHints: NoteHashReadRequestHints,
-    /**
-     * Contains hints for the nullifier read requests to locate corresponding pending or settled nullifiers.
-     */
-    public nullifierReadRequestHints: NullifierReadRequestHints,
-
-    /**
-     * The master nullifier secret keys for the nullifier key validation requests.
-     */
-    public masterNullifierSecretKeys: Tuple<GrumpkinPrivateKey, typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
     /*
      * The sorted new note hashes.
      */
@@ -114,12 +59,6 @@ export class PrivateKernelTailHints {
 
   toBuffer() {
     return serializeToBuffer(
-      this.transientNullifierIndexesForNoteHashes,
-      this.transientNoteHashIndexesForNullifiers,
-      this.transientNoteHashIndexesForLogs,
-      this.noteHashReadRequestHints,
-      this.nullifierReadRequestHints,
-      this.masterNullifierSecretKeys,
       this.sortedNewNoteHashes,
       this.sortedNewNoteHashesIndexes,
       this.sortedNewNullifiers,
@@ -141,12 +80,6 @@ export class PrivateKernelTailHints {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new PrivateKernelTailHints(
-      reader.readNumbers(MAX_NEW_NOTE_HASHES_PER_TX),
-      reader.readNumbers(MAX_NEW_NULLIFIERS_PER_TX),
-      reader.readNumbers(MAX_NOTE_ENCRYPTED_LOGS_PER_TX),
-      reader.readObject({ fromBuffer: noteHashReadRequestHintsFromBuffer }),
-      reader.readObject({ fromBuffer: nullifierReadRequestHintsFromBuffer }),
-      reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar),
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash),
       reader.readNumbers(MAX_NEW_NOTE_HASHES_PER_TX),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, ScopedNullifier),
@@ -170,7 +103,6 @@ export class PrivateKernelTailCircuitPrivateInputs {
      * The previous kernel data
      */
     public previousKernel: PrivateKernelData,
-    public outputs: PrivateKernelTailOutputs,
     public hints: PrivateKernelTailHints,
   ) {}
 
@@ -183,7 +115,7 @@ export class PrivateKernelTailCircuitPrivateInputs {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.previousKernel, this.outputs, this.hints);
+    return serializeToBuffer(this.previousKernel, this.hints);
   }
 
   /**
@@ -195,7 +127,6 @@ export class PrivateKernelTailCircuitPrivateInputs {
     const reader = BufferReader.asReader(buffer);
     return new PrivateKernelTailCircuitPrivateInputs(
       reader.readObject(PrivateKernelData),
-      reader.readObject(PrivateKernelTailOutputs),
       reader.readObject(PrivateKernelTailHints),
     );
   }

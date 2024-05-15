@@ -164,6 +164,7 @@ describe('Kernel Prover', () => {
     );
     proofCreator.createProofInit.mockResolvedValue(createProofOutput([]));
     proofCreator.createProofInner.mockResolvedValue(createProofOutput([]));
+    proofCreator.createProofReset.mockResolvedValue(createProofOutput([]));
     proofCreator.createProofTail.mockResolvedValue(createProofOutputFinal([]));
     proofCreator.createAppCircuitProof.mockResolvedValue(createAppCircuitProofOutput());
 

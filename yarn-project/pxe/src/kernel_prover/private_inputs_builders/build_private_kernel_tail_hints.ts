@@ -1,96 +1,39 @@
 import {
-  type Fr,
-  GrumpkinScalar,
-  MAX_ENCRYPTED_LOGS_PER_TX,
+  type MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-  type MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
-  MembershipWitness,
-  NULLIFIER_TREE_HEIGHT,
+  type MAX_UNENCRYPTED_LOGS_PER_TX,
   type PrivateKernelCircuitPublicInputs,
   PrivateKernelTailHints,
-  type ScopedNullifier,
-  type ScopedNullifierKeyValidationRequest,
-  type ScopedReadRequest,
-  buildNoteHashReadRequestHints,
-  buildNullifierReadRequestHints,
-  buildTransientDataHints,
+  type SideEffect,
+  type SideEffectType,
   sortByCounterGetSortedHints,
 } from '@aztec/circuits.js';
-import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
 
-import { type ProvingDataOracle } from '../proving_data_oracle.js';
+/** @deprecated Use sortByCounterGetSortedHints instead */
+function sortSideEffects<T extends SideEffectType, K extends number>(
+  sideEffects: Tuple<T, K>,
+): [Tuple<T, K>, Tuple<number, K>] {
+  const sorted = sideEffects
+    .map((sideEffect, index) => ({ sideEffect, index }))
+    .sort((a, b) => {
+      // Empty ones go to the right
+      if (a.sideEffect.isEmpty()) {
+        return 1;
+      }
+      return Number(a.sideEffect.counter.toBigInt() - b.sideEffect.counter.toBigInt());
+    });
 
-function getNullifierReadRequestHints(
-  nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-  nullifiers: Tuple<ScopedNullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-  oracle: ProvingDataOracle,
-) {
-  const getNullifierMembershipWitness = async (nullifier: Fr) => {
-    const res = await oracle.getNullifierMembershipWitness(nullifier);
-    if (!res) {
-      throw new Error(`Cannot find the leaf for nullifier ${nullifier.toBigInt()}.`);
-    }
+  const originalToSorted = sorted.map(() => 0);
+  sorted.forEach(({ index }, i) => {
+    originalToSorted[index] = i;
+  });
 
-    const { index, siblingPath, leafPreimage } = res;
-    return {
-      membershipWitness: new MembershipWitness(
-        NULLIFIER_TREE_HEIGHT,
-        index,
-        siblingPath.toTuple<typeof NULLIFIER_TREE_HEIGHT>(),
-      ),
-      leafPreimage,
-    };
-  };
-
-  return buildNullifierReadRequestHints({ getNullifierMembershipWitness }, nullifierReadRequests, nullifiers);
+  return [sorted.map(({ sideEffect }) => sideEffect) as Tuple<T, K>, originalToSorted as Tuple<number, K>];
 }
 
-async function getMasterNullifierSecretKeys(
-  nullifierKeyValidationRequests: Tuple<
-    ScopedNullifierKeyValidationRequest,
-    typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
-  >,
-  oracle: ProvingDataOracle,
-) {
-  const keys = makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar.zero);
-  for (let i = 0; i < nullifierKeyValidationRequests.length; ++i) {
-    const request = nullifierKeyValidationRequests[i].request;
-    if (request.isEmpty()) {
-      break;
-    }
-    keys[i] = await oracle.getMasterNullifierSecretKey(request.masterNullifierPublicKey);
-  }
-  return keys;
-}
-
-export async function buildPrivateKernelTailHints(
-  publicInputs: PrivateKernelCircuitPublicInputs,
-  noteHashLeafIndexMap: Map<bigint, bigint>,
-  oracle: ProvingDataOracle,
-) {
-  const noteHashReadRequestHints = await buildNoteHashReadRequestHints(
-    oracle,
-    publicInputs.validationRequests.noteHashReadRequests,
-    publicInputs.end.newNoteHashes,
-    noteHashLeafIndexMap,
-  );
-
-  const nullifierReadRequestHints = await getNullifierReadRequestHints(
-    publicInputs.validationRequests.nullifierReadRequests,
-    publicInputs.end.newNullifiers,
-    oracle,
-  );
-
-  const masterNullifierSecretKeys = await getMasterNullifierSecretKeys(
-    publicInputs.validationRequests.nullifierKeyValidationRequests,
-    oracle,
-  );
-
+export function buildPrivateKernelTailHints(publicInputs: PrivateKernelCircuitPublicInputs) {
   const [sortedNoteHashes, sortedNoteHashesIndexes] = sortByCounterGetSortedHints(
     publicInputs.end.newNoteHashes,
     MAX_NEW_NOTE_HASHES_PER_TX,
@@ -111,31 +54,7 @@ export async function buildPrivateKernelTailHints(
     MAX_ENCRYPTED_LOGS_PER_TX,
   );
 
-  const [sortedUnencryptedLogHashes, sortedUnencryptedLogHashesIndexes] = sortByCounterGetSortedHints(
-    publicInputs.end.unencryptedLogsHashes,
-    MAX_UNENCRYPTED_LOGS_PER_TX,
-  );
-
-  const [
-    transientNullifierIndexesForNoteHashes,
-    transientNoteHashIndexesForNullifiers,
-    transientNoteHashIndexesForLogs,
-  ] = buildTransientDataHints(
-    sortedNoteHashes,
-    sortedNullifiers,
-    sortedNoteEncryptedLogHashes,
-    MAX_NEW_NOTE_HASHES_PER_TX,
-    MAX_NEW_NULLIFIERS_PER_TX,
-    MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-  );
-
   return new PrivateKernelTailHints(
-    transientNullifierIndexesForNoteHashes,
-    transientNoteHashIndexesForNullifiers,
-    transientNoteHashIndexesForLogs,
-    noteHashReadRequestHints,
-    nullifierReadRequestHints,
-    masterNullifierSecretKeys,
     sortedNoteHashes,
     sortedNoteHashesIndexes,
     sortedNullifiers,
