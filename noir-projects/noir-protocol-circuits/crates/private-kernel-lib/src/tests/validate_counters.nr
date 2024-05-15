@@ -5,19 +5,19 @@ use crate::tests::private_call_data_validator_builder::PrivateCallDataValidatorB
  */
 
 #[test]
-fn validate_counters_privata_call_succeeds() {
+fn validate_counters_private_call_succeeds() {
     let builder = PrivateCallDataValidatorBuilder::new_with_counter(23);
     builder.validate();
 }
 
 #[test]
-fn validate_counters_privata_call_from_0_counter_succeeds() {
+fn validate_counters_private_call_from_0_counter_succeeds() {
     let builder = PrivateCallDataValidatorBuilder::new_with_counter(0);
     builder.validate();
 }
 
 #[test(should_fail_with="private call has incorrect counter range")]
-fn validate_counters_privata_call_no_counter_range_fails() {
+fn validate_counters_private_call_no_counter_range_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
     builder.private_call.public_inputs.counter_end = builder.private_call.public_inputs.counter_start;
@@ -26,7 +26,7 @@ fn validate_counters_privata_call_no_counter_range_fails() {
 }
 
 #[test(should_fail_with="private call has incorrect counter range")]
-fn validate_counters_privata_call_negative_call_counter_range_fails() {
+fn validate_counters_private_call_negative_call_counter_range_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
     builder.private_call.public_inputs.counter_end = builder.private_call.public_inputs.counter_start - 1;
