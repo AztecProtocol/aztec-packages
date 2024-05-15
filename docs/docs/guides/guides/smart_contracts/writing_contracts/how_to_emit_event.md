@@ -19,9 +19,15 @@ Unlike on Ethereum, there are 2 types of events supported by Aztec: [encrypted](
 
 Encrypted events can only be emitted by private functions and are encrypted using a public key of a recipient.
 For this reason it is necessary to register a recipient in the Private Execution Environment (PXE) before encrypting the events for them.
-Recipients can be registered using Aztec.js:
 
-#include_code register-recipient yarn-project/end-to-end/src/flakey_e2e_account_init_fees.test.ts rust
+First we need to get a hold of recipient's [complete address](#complete-address).
+Bellow are some ways how we could instantiate it after getting the information in a string form from a recipient:
+
+#include_code instantiate-complete-address /yarn-project/circuits.js/src/structs/complete_address.test.ts rust
+
+Then to register the recipient's [complete address](../../../../learn/concepts/accounts/keys.md#complete-address) in PXE we would call `registerRecipient` PXE endpoint using [Aztec.js](../../../aztecjs/main.md):
+
+#include_code register-recipient /yarn-project/aztec.js/src/wallet/create_recipient.ts rust
 
 :::info
 If a note recipient is one of the accounts inside the PXE, we don't need to register it as a recipient because we already have the public key available. You can register a recipient as shown [here](../how_to_deploy_contract.md)

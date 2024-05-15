@@ -33,9 +33,16 @@ To retrieve them a developer can use one of the getters in Aztec.nr:
 #include_code key-getters /noir-projects/aztec-nr/aztec/src/keys/getters.nr rust
 
 If the keys are registered in the key registry these methods can be called without any setup.
-If they are not there, it is necessary to first register the user as a recipient in our PXE by passing in the recipient's [complete address](#complete-address) as an argument:
+If they are not there, it is necessary to first register the user as a recipient in our PXE.
 
-#include_code register-recipient yarn-project/end-to-end/src/flakey_e2e_account_init_fees.test.ts rust
+First we need to get a hold of recipient's [complete address](#complete-address).
+Bellow are some ways how we could instantiate it after getting the information in a string form from a recipient:
+
+#include_code instantiate-complete-address /yarn-project/circuits.js/src/structs/complete_address.test.ts rust
+
+Then to register the recipient's [complete address](#complete-address) in PXE we would call `registerRecipient` PXE endpoint using [Aztec.js](../../../developers/aztecjs/main.md):
+
+#include_code register-recipient /yarn-project/aztec.js/src/wallet/create_recipient.ts rust
 
 During private function execution these keys are obtained via an oracle call from PXE.
 

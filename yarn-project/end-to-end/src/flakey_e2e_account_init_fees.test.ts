@@ -289,13 +289,11 @@ describe('e2e_fees_account_init', () => {
         const instance = bobsAccountManager.getInstance();
 
         // and gives the public keys to alice
-        // docs:start:register-recipient
         const signingPubKey = new Schnorr().computePublicKey(bobsPrivateSigningKey);
         const completeAddress = CompleteAddress.fromSecretKeyAndInstance(bobsSecretKey, instance);
 
         // alice registers the keys in the PXE
         await pxe.registerRecipient(completeAddress);
-        // docs:end:register-recipient
 
         // and deploys bob's account, paying the fee from her balance
         const publicKeysHash = deriveKeys(bobsSecretKey).publicKeys.hash();
