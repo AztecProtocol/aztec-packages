@@ -185,31 +185,36 @@ jobs:
   #       timeout-minutes: 25
   #       run: earthly-ci --no-output ./+format
 
-  # # barretenberg (prover) native and AVM (public VM) tests
-  # # only ran on x86 for resource reasons (memory intensive)
-  # # DO NOT COPY THIS AS A PATTERN ELSEWHERE
-  # # TODO rewrite with proper runner separation via build_images_to_copy
-  # bb-native-tests:
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     pull-requests: read
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #     - name: BB Native Test
-  #       uses: ./.github/ensure-builder
-  #       timeout-minutes: 40
-  #       env:
-  #         USERNAME: ${{ env.USERNAME }}-bb-native-tests
-  #         WAIT_FOR_RUNNERS: false
-  #         NO_GITHUB_RUNNERS: true
-  #         # DO NOT COPY THIS AS A PATTERN - SPECIAL CASE OF NO DEPENDENCIES
-  #         # TODO follow pattern
-  #       with:
-  #         runner_type: builder-x86
-  #         run: |
-  #           scripts/earthly-ci ./barretenberg/cpp/+test
+  # barretenberg (prover) native and AVM (public VM) tests
+  # only ran on x86 for resource reasons (memory intensive)
+  # DO NOT COPY THIS as a pattern unless the piece is truly 100% disconnected from the build.
+  bb-native-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            should_run:
+              - barretenberg/cpp/**
+      - name: BB Native Test
+        if: ${{ steps.filter.outputs.should_run == 'true' }}
+        uses: ./.github/ensure-builder
+        timeout-minutes: 40
+        env:
+          USERNAME: ${{ env.USERNAME }}-bb-native-tests
+          WAIT_FOR_RUNNERS: false
+          EBS_CACHE_DISK_GB: 64
+          NO_GITHUB_RUNNERS: true
+        with:
+          runner_type: builder-x86
+          run: |
+            scripts/earthly-ci ./barretenberg/cpp/+test
 
   # bb-js-test:
   #   needs: setup
