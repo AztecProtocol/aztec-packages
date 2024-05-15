@@ -78,7 +78,8 @@ mod tests {
         address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey,
         hash::{compute_note_hash_nonce, compute_unique_note_hash, silo_note_hash, silo_nullifier},
         tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
-        utils::{arrays::{array_eq, array_length}}, traits::is_empty_array
+        utils::{arrays::{array_eq, array_length}}, traits::is_empty_array,
+        grumpkin_point::GrumpkinPoint,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailToPublicInputs and PrivateKernelTailInputs.
@@ -308,6 +309,29 @@ mod tests {
                 [siloed_note_hashes[2], siloed_note_hashes[3]]
             )
         );
+    }
+
+    #[test(should_fail_with="Non empty note hash read requests")]
+    unconstrained fn non_empty_note_hash_read_requests() {
+        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+        builder.previous_kernel.append_new_note_hashes(3);
+        builder.previous_kernel.add_read_request_for_pending_note_hash(1);
+        builder.failed();
+    }
+
+    #[test(should_fail_with="Non empty nullifier read requests")]
+    unconstrained fn non_empty_nullifier_read_requests() {
+        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+        builder.previous_kernel.append_new_nullifiers(3);
+        builder.previous_kernel.add_read_request_for_pending_nullifier(1);
+        builder.failed();
+    }
+
+    #[test(should_fail_with="Non empty nullifier key validation requests")]
+    unconstrained fn non_empty_nullifier_key_validations() {
+        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+        builder.previous_kernel.add_request_for_nullifier_key_validation(GrumpkinPoint::new(1, 2), 27);
+        builder.failed();
     }
 
     #[test]

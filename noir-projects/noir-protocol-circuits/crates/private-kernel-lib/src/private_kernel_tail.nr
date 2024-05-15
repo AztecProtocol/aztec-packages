@@ -344,7 +344,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Non empty nullifier read requests")]
+    #[test(should_fail_with="Non empty nullifier key validation requests")]
     unconstrained fn non_empty_nullifier_key_validations() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.add_request_for_nullifier_key_validation(GrumpkinPoint::new(1, 2), 27);
