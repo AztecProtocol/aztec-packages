@@ -88,11 +88,12 @@ template <typename Flavor> class SumcheckProverRound {
      domain \f$ \{0,1\} \f$ to the domain \f$ \{0,\ldots, D\} \f$ required for the computation of the round univariate.
 
      * Should only be called externally with relation_idx equal to 0.
-     * In practice, #multivariates is one of ProverPolynomials or FoldedPolynomials.
+     * In practice, #multivariates is either ProverPolynomials or PartiallyEvaluatedMultivariates.
      *
      * @param edge_idx A point \f$(0, \vec \ell) \in \{0,1\}^{d-i} \f$, where \f$ i\in \{0,\ldots, d-1\}\f$ is Round
      number.
-     * @param extended_edges Container for the evaluations of
+     * @param extended_edges Container for the evaluations of \f$P_j(u_0,\ldots, u_{i-1}, k, \vec \ell) \f$ for
+     \f$k=0,\ldots, D\f$ and \f$j=1,\ldots,N\f$.
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     void extend_edges(ExtendedEdges& extended_edges,
