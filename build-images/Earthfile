@@ -197,7 +197,7 @@ build: #aztec-tag=cache
 ########################################################################################################################
 # We want to produce downstream images: devbox and sysbox. This image is the base image for each.
 # It contains a suite of tools that developers might use to develop aztec.
-basebox: #aztec-tag=cache
+basebox:
   BUILD +build
   FROM +build
   RUN yes | unminimize
