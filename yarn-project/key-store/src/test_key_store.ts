@@ -90,20 +90,15 @@ export class TestKeyStore implements KeyStore {
   /**
    * Gets the master nullifier public key for a given account or master nullifier public key hash.
    * @throws If the account does not exist in the key store.
-   * @param accountOrNpkMHash - account address or master nullifier public key hash.
+   * @param npkMHash - master nullifier public key hash.
    * @returns The master nullifier public key for the account.
    */
-  public async getMasterNullifierPublicKey(accountOrNpkMHash: AztecAddress | Fr): Promise<PublicKey> {
-    const masterNullifierPublicKeyBuffer =
-      this.#rotatedKeys.get(
-        `${accountOrNpkMHash.toString()}-npk_m-${this.#rotatedNullifierKeyCount(accountOrNpkMHash) - 1}`,
-      ) ??
-      this.#keys.get(`${accountOrNpkMHash}-npk_m`) ??
-      this.#getMapMetadataForMasterNullifierPublicKeyHash(accountOrNpkMHash).value;
+  public async getMasterNullifierPublicKey(npkMHash: Fr): Promise<PublicKey> {
+    const masterNullifierPublicKeyBuffer = this.#getMapMetadataForMasterNullifierPublicKeyHash(npkMHash).value;
 
     if (!masterNullifierPublicKeyBuffer) {
       throw new Error(
-        `Account or master nullifier public key hash ${accountOrNpkMHash} does not exist. Registered accounts: ${await this.getAccounts()}.`,
+        `Master nullifier public key hash ${npkMHash} does not exist. Registered accounts: ${await this.getAccounts()}.`,
       );
     }
     return Promise.resolve(Point.fromBuffer(masterNullifierPublicKeyBuffer));
@@ -160,28 +155,22 @@ export class TestKeyStore implements KeyStore {
   /**
    * Derives and returns the application nullifier secret key for a given account or master nullifier public key hash.
    * @throws If the account does not exist in the key store.
-   * @param accountOrNpkMHash - account address or master nullifier public key hash.
+   * @param npkMHash - account address or master nullifier public key hash.
    * @param app - The application address to retrieve the nullifier secret key for.
    * @returns A Promise that resolves to the application nullifier secret key.
    */
-  public async getAppNullifierSecretKey(accountOrNpkMHash: AztecAddress | Fr, app: AztecAddress): Promise<Fr> {
-    let masterNullifierSecretKeyBuffer =
-      this.#rotatedKeys.get(
-        `${accountOrNpkMHash.toString()}-nsk_m-${this.#rotatedNullifierKeyCount(accountOrNpkMHash) - 1}`,
-      ) ?? this.#keys.get(`${accountOrNpkMHash}-nsk_m`);
-    if (!masterNullifierSecretKeyBuffer) {
-      const { key } = this.#getMapMetadataForMasterNullifierPublicKeyHash(accountOrNpkMHash);
-      const mapKeyForNullifierSecretKey = key.replace('npk_m', 'nsk_m');
+  public async getAppNullifierSecretKey(npkMHash: Fr, app: AztecAddress): Promise<Fr> {
+    const { key } = this.#getMapMetadataForMasterNullifierPublicKeyHash(npkMHash);
+    const mapKeyForNullifierSecretKey = key.replace('npk_m', 'nsk_m');
 
-      // #rotatedKeys has a suffix of -${index}, thus there will never be a clash, i.e. using a key in rotated keys will always return undefined if trying to retrieve something in keys
-      // and using a key in #keys will always return undefined when searching in #rotatedKeys
-      masterNullifierSecretKeyBuffer =
-        this.#keys.get(mapKeyForNullifierSecretKey) ?? this.#rotatedKeys.get(mapKeyForNullifierSecretKey);
-    }
+    // #rotatedKeys has a suffix of -${index}, thus there will never be a clash, i.e. using a key in rotated keys will always return undefined if trying to retrieve something in keys
+    // and using a key in #keys will always return undefined when searching in #rotatedKeys
+    const masterNullifierSecretKeyBuffer =
+      this.#keys.get(mapKeyForNullifierSecretKey) ?? this.#rotatedKeys.get(mapKeyForNullifierSecretKey);
 
     if (!masterNullifierSecretKeyBuffer) {
       throw new Error(
-        `Account or master nullifier public key hash ${accountOrNpkMHash} does not exist. Registered accounts: ${await this.getAccounts()}.`,
+        `Master nullifier public key hash ${npkMHash} does not exist. Registered accounts: ${await this.getAccounts()}.`,
       );
     }
 

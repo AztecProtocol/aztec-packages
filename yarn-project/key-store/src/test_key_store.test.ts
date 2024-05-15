@@ -1,4 +1,4 @@
-import { AztecAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, Fr, computeNpkMHash, deriveKeys, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
 import { openTmpStore } from '@aztec/kv-store/utils';
 
 import { TestKeyStore } from './test_key_store.js';
@@ -9,6 +9,10 @@ describe('TestKeyStore', () => {
 
     // Arbitrary fixed values
     const sk = new Fr(8923n);
+    const keys = deriveKeys(sk);
+    const derivedMasterNullifierPublicKey = derivePublicKeyFromSecretKey(keys.masterNullifierSecretKey);
+    const computedMasterNullifierPublicKeyHash = computeNpkMHash(derivedMasterNullifierPublicKey);
+
     const partialAddress = new Fr(243523n);
 
     const { address: accountAddress } = await keyStore.addAccount(sk, partialAddress);
@@ -16,7 +20,7 @@ describe('TestKeyStore', () => {
       `"0x1a8a9a1d91cbb353d8df4f1bbfd0283f7fc63766f671edd9443a1270a7b2a954"`,
     );
 
-    const masterNullifierPublicKey = await keyStore.getMasterNullifierPublicKey(accountAddress);
+    const masterNullifierPublicKey = await keyStore.getMasterNullifierPublicKey(computedMasterNullifierPublicKeyHash);
     expect(masterNullifierPublicKey.toString()).toMatchInlineSnapshot(
       `"0x2ef5d15dd65d29546680ab72846fb071f41cb9f2a0212215e6c560e29df4ff650ce764818364b376be92dc2f49577fe440e64a16012584f7c4ee94f7edbc323a"`,
     );
@@ -44,7 +48,10 @@ describe('TestKeyStore', () => {
     // Arbitrary app contract address
     const appAddress = AztecAddress.fromBigInt(624n);
 
-    const appNullifierSecretKey = await keyStore.getAppNullifierSecretKey(accountAddress, appAddress);
+    const appNullifierSecretKey = await keyStore.getAppNullifierSecretKey(
+      computedMasterNullifierPublicKeyHash,
+      appAddress,
+    );
     expect(appNullifierSecretKey.toString()).toMatchInlineSnapshot(
       `"0x230a44dfe7cfec7a735c89f7289c5cb5d2c3dc0bf5d3505917fd2476f67873a8"`,
     );
