@@ -155,7 +155,7 @@ async function startWithGithubRunners(config: ActionConfig) {
     spotStatus = "none";
   }
   let instanceId = "";
-  let requestStatus: "new" | "existing" = "new";
+  let requestStatus: "new" | "existing" = "existing";
   let ip = "";
   if (spotStatus !== "none") {
     core.info(
@@ -185,7 +185,9 @@ async function startWithGithubRunners(config: ActionConfig) {
   }
   // Export to github environment
   const tempKeyPath = installSshKey(config.ec2Key);
-  core.info("Logging BUILDER_SPOT_IP and BUILDER_SPOT_KEY to GITHUB_ENV for later step use.");
+  core.info(
+    "Logging BUILDER_REQUEST_STATUS, BUILDER_SPOT_IP and BUILDER_SPOT_KEY to GITHUB_ENV for later step use."
+  );
   await standardSpawn("bash", ["-c", `echo BUILDER_REQUEST_STATUS=${requestStatus} >> $GITHUB_ENV`]);
   await standardSpawn("bash", ["-c", `echo BUILDER_SPOT_IP=${ip} >> $GITHUB_ENV`]);
   await standardSpawn("bash", [
