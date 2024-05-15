@@ -603,6 +603,18 @@ export class BarretenbergApi {
     const out = result.map((r, i) => outTypes[i].fromBuffer(r));
     return out[0];
   }
+
+  async acirProofAsFieldsUltraHonk(proofBuf: Uint8Array): Promise<Fr[]> {
+    const inArgs = [proofBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [VectorDeserializer(Fr)];
+    const result = await this.wasm.callWasmExport(
+      'acir_proof_as_fields',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
 }
 export class BarretenbergApiSync {
   constructor(protected wasm: BarretenbergWasm) {}

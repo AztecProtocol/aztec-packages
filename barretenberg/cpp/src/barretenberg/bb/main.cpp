@@ -720,10 +720,8 @@ void proof_as_fields_honk(const std::string& proof_path, const std::string& outp
 template <IsUltraFlavor Flavor> void vk_as_fields_honk(const std::string& vk_path, const std::string& output_path)
 {
     using VerificationKey = Flavor::VerificationKey;
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
 
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
-    verification_key->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
     std::vector<bb::fr> data = verification_key->to_field_elements();
 
     auto json = vk_to_json(data);

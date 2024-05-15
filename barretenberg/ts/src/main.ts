@@ -416,6 +416,28 @@ export async function verifyUltraHonk(proofPath: string, vkPath: string) {
     await api.destroy();
   }
 }
+
+export async function proofAsFieldsUltraHonk(proofPath: string, outputPath: string) {
+  const { api } = await initLite();
+  try {
+    debug('outputting proof as vector of fields');
+    const proofAsFields = await api.acirProofAsFieldsUltraHonk(readFileSync(proofPath));
+    const jsonProofAsFields = JSON.stringify(proofAsFields.map(f => f.toString()));
+
+    if (outputPath === '-') {
+      process.stdout.write(jsonProofAsFields);
+      debug(`proofAsFields written to stdout`);
+    } else {
+      writeFileSync(outputPath, jsonProofAsFields);
+      debug(`proofAsFields written to: ${outputPath}`);
+    }
+
+    debug('done.');
+  } finally {
+    await api.destroy();
+  }
+}
+
 const program = new Command();
 
 program.option('-v, --verbose', 'enable verbose logging', false);
@@ -593,6 +615,16 @@ program
     handleGlobalOptions();
     const result = await verifyUltraHonk(proofPath, vk);
     process.exit(result ? 0 : 1);
+  });
+
+program
+  .command('proof_as_fields_honk')
+  .description('Return the proof as fields elements')
+  .requiredOption('-p, --proof-path <path>', 'Specify the proof path')
+  .requiredOption('-o, --output-path <path>', 'Specify the JSON path to write the proof fields')
+  .action(async ({ proofPath, outputPath }) => {
+    handleGlobalOptions();
+    await proofAsFieldsUltraHonk(proofPath, outputPath);
   });
 
 program.name('bb.js').parse(process.argv);

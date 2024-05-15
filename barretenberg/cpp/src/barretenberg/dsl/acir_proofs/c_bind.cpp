@@ -231,3 +231,9 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, uint8_t** out
     VerificationKey vk(prover_inst.proving_key);
     *out = to_heap_buffer(to_buffer(vk));
 }
+
+WASM_EXPORT void acir_proof_as_fields_ultra_honk(uint8_t const* proof_buf, fr::vec_out_buf out)
+{
+    auto proof = from_buffer<std::vector<bb::fr>>(from_buffer<std::vector<uint8_t>>(proof_buf));
+    *out = to_heap_buffer(proof);
+}
