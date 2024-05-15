@@ -86,6 +86,8 @@ impl KernelCircuitPublicInputsComposer {
 
         self.propagate_sorted_arrays();
 
+        self.propagate_fee_payer();
+
         // TODO: Should be done in a reset circuit.
         self.squash_transient_data();
 
@@ -129,7 +131,9 @@ impl KernelCircuitPublicInputsComposer {
 
     fn silo_note_hashes(&mut self) {
         let first_nullifier = self.public_inputs.end.new_nullifiers.get_unchecked(0).value();
-        assert(first_nullifier != 0, "The 0th nullifier in the accumulated nullifier array is zero");
+
+        // This check is unnecessary. The 0th nullifier will always be set a non-zero value in private_kernel_init.
+        // assert(first_nullifier != 0, "The 0th nullifier in the accumulated nullifier array is zero");
 
         let note_hashes = self.public_inputs.end.new_note_hashes.storage;
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
@@ -226,6 +230,10 @@ impl KernelCircuitPublicInputsComposer {
 
     fn propagate_public_teardown_call_request(&mut self) {
         self.public_inputs.public_teardown_call_request = self.previous_kernel.public_inputs.public_teardown_call_request;
+    }
+
+    fn propagate_fee_payer(&mut self) {
+        self.public_inputs.fee_payer = self.previous_kernel.public_inputs.fee_payer;
     }
 
     fn squash_transient_data(&mut self) {

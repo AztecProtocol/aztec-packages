@@ -7,7 +7,7 @@ import { gasLeftToGas, sumGas } from '../avm_gas.js';
 import { Field, Uint8 } from '../avm_memory_types.js';
 import { type AvmContractCallResults } from '../avm_message_call_result.js';
 import { AvmSimulator } from '../avm_simulator.js';
-import { AvmExecutionError } from '../errors.js';
+import { RethrownError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -40,7 +40,7 @@ abstract class ExternalCall extends Instruction {
     // Function selector is temporary since eventually public contract bytecode will be one blob
     // containing all functions, and function selector will become an application-level mechanism
     // (e.g. first few bytes of calldata + compiler-generated jump table)
-    private temporaryFunctionSelectorOffset: number,
+    private functionSelectorOffset: number,
   ) {
     super();
   }
@@ -59,7 +59,9 @@ abstract class ExternalCall extends Instruction {
     const calldata = memory.getSlice(argsOffset, calldataSize).map(f => f.toFr());
     const l2Gas = memory.get(gasOffset).toNumber();
     const daGas = memory.getAs<Field>(gasOffset + 1).toNumber();
-    const functionSelector = memory.getAs<Field>(this.temporaryFunctionSelectorOffset).toFr();
+    const functionSelector = memory.getAs<Field>(this.functionSelectorOffset).toFr();
+    // If we are already in a static call, we propagate the environment.
+    const callType = context.environment.isStaticCall ? 'STATICCALL' : this.type;
 
     const allocatedGas = { l2Gas, daGas };
     const memoryOperations = { reads: calldataSize + 5, writes: 1 + this.retSize, indirect: this.indirect };
@@ -71,7 +73,7 @@ abstract class ExternalCall extends Instruction {
       callAddress.toFr(),
       calldata,
       allocatedGas,
-      this.type,
+      callType,
       FunctionSelector.fromField(functionSelector),
     );
     const startSideEffectCounter = nestedContext.persistableState.trace.accessCounter;
@@ -101,15 +103,13 @@ abstract class ExternalCall extends Instruction {
     const success = !nestedCallResults.reverted;
 
     // TRANSITIONAL: We rethrow here so that the MESSAGE gets propagated.
+    //               This means that for now, the caller cannot recover from errors.
     if (!success) {
-      class RethrownError extends AvmExecutionError {
-        constructor(message: string) {
-          super(message);
-          this.name = 'RethrownError';
-        }
+      if (!nestedCallResults.revertReason) {
+        throw new Error('A reverted nested call should be assigned a revert reason in the AVM execution loop');
       }
-
-      throw new RethrownError(nestedCallResults.revertReason?.message || 'Unknown nested call error');
+      // The nested call's revertReason will be used to track the stack of error causes down to the root.
+      throw new RethrownError(nestedCallResults.revertReason.message, nestedCallResults.revertReason);
     }
 
     // We only take as much data as was specified in the return size and pad with zeroes if the return data is smaller

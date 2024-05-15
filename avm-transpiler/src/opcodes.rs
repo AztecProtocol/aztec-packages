@@ -65,6 +65,8 @@ pub enum AvmOpcode {
     DELEGATECALL,
     RETURN,
     REVERT,
+    // Misc
+    DEBUGLOG,
     // Gadgets
     KECCAK,
     POSEIDON2,
@@ -152,6 +154,9 @@ impl AvmOpcode {
             AvmOpcode::DELEGATECALL => "DELEGATECALL",
             AvmOpcode::RETURN => "RETURN",
             AvmOpcode::REVERT => "REVERT",
+
+            // Misc
+            AvmOpcode::DEBUGLOG => "DEBUGLOG",
 
             // Gadgets
             AvmOpcode::KECCAK => "KECCAK",

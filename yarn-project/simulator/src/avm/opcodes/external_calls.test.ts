@@ -243,7 +243,9 @@ describe('External Calls', () => {
         successOffset,
         /*temporaryFunctionSelectorOffset=*/ 0,
       );
-      await expect(() => instruction.execute(context)).rejects.toThrow(/Static calls cannot alter storage/);
+      await expect(() => instruction.execute(context)).rejects.toThrow(
+        'Static call cannot update the state, emit L2->L1 messages or generate logs',
+      );
     });
   });
 
@@ -271,11 +273,9 @@ describe('External Calls', () => {
       const instruction = new Return(/*indirect=*/ 0, /*returnOffset=*/ 0, returnData.length);
       await instruction.execute(context);
 
-      expect(context.machineState.halted).toBe(true);
-      expect(context.machineState.getResults()).toEqual({
-        reverted: false,
-        output: returnData,
-      });
+      expect(context.machineState.getHalted()).toBe(true);
+      expect(context.machineState.getReverted()).toBe(false);
+      expect(context.machineState.getOutput()).toEqual(returnData);
     });
   });
 
@@ -302,12 +302,9 @@ describe('External Calls', () => {
       const instruction = new Revert(/*indirect=*/ 0, /*returnOffset=*/ 0, returnData.length);
       await instruction.execute(context);
 
-      expect(context.machineState.halted).toBe(true);
-      expect(context.machineState.getResults()).toEqual({
-        reverted: true,
-        revertReason: new Error('Assertion failed: assert message'),
-        output: returnData.map(f => f.toFr()),
-      });
+      expect(context.machineState.getHalted()).toBe(true);
+      expect(context.machineState.getReverted()).toBe(true);
+      expect(context.machineState.getOutput()).toEqual(returnData.map(f => f.toFr()));
     });
   });
 });

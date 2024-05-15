@@ -16,25 +16,22 @@ contract Test {
     };
 
     use dep::aztec::encrypted_logs::header::EncryptedLogHeader;
-    use dep::aztec::encrypted_logs::body::EncryptedLogBody;
+    use dep::aztec::encrypted_logs::incoming_body::EncryptedLogIncomingBody;
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
 
     use dep::aztec::state_vars::{shared_mutable::SharedMutablePrivateGetter, map::derive_storage_slot_in_map};
 
     use dep::aztec::{
-        keys::getters::get_npk_m,
+        keys::getters::{get_npk_m, get_ivpk_m},
         context::{Context, inputs::private_context_inputs::PrivateContextInputs},
-        hash::{pedersen_hash, poseidon2_hash, compute_secret_hash, ArgsHasher},
+        hash::{pedersen_hash, compute_secret_hash, ArgsHasher},
         note::{
         lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
         note_getter_options::NoteStatus
     },
         deploy::deploy_contract as aztec_deploy_contract,
-        oracle::{
-        encryption::aes128_encrypt, get_public_key::get_public_key as get_public_key_oracle,
-        unsafe_rand::unsafe_rand
-    }
+        oracle::{encryption::aes128_encrypt, unsafe_rand::unsafe_rand}
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::value_note::value_note::ValueNote;
@@ -53,8 +50,8 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn get_public_key(address: AztecAddress) -> [Field; 2] {
-        let pub_key = get_public_key_oracle(address);
+    fn get_master_incoming_viewing_public_key(address: AztecAddress) -> [Field; 2] {
+        let pub_key = get_ivpk_m(&mut context, address);
 
         [pub_key.x, pub_key.y]
     }
@@ -198,6 +195,11 @@ contract Test {
             FunctionSelector::from_signature("dummy_public_call()"),
             []
         );
+    }
+
+    #[aztec(private)]
+    fn test_setting_fee_payer() {
+        context.set_as_fee_payer();
     }
 
     // Purely exists for testing
@@ -362,14 +364,14 @@ contract Test {
 
     // 64 bytes + 32 * #fields + 16 = 112 bytes
     #[aztec(private)]
-    fn compute_note_body_ciphertext(
+    fn compute_incoming_log_body_ciphertext(
         secret: GrumpkinPrivateKey,
         point: GrumpkinPoint,
         storage_slot: Field,
         value: Field
     ) -> [u8; 112] {
         let note = TestNote::new(value);
-        EncryptedLogBody::new(storage_slot, TestNote::get_note_type_id(), note).compute_ciphertext(secret, point).as_array()
+        EncryptedLogIncomingBody::new(storage_slot, TestNote::get_note_type_id(), note).compute_ciphertext(secret, point).as_array()
     }
 
     #[aztec(public)]
@@ -378,8 +380,6 @@ contract Test {
         version: Field,
         block_number: Field,
         timestamp: u64,
-        coinbase: EthAddress,
-        fee_recipient: AztecAddress,
         fee_per_da_gas: Field,
         fee_per_l2_gas: Field
     ) {
@@ -387,8 +387,6 @@ contract Test {
         assert(context.version() == version, "Invalid version");
         assert(context.block_number() == block_number, "Invalid block number");
         assert(context.timestamp() == timestamp, "Invalid timestamp");
-        assert(context.coinbase() == coinbase, "Invalid coinbase");
-        assert(context.fee_recipient() == fee_recipient, "Invalid fee recipient");
         assert(context.fee_per_da_gas() == fee_per_da_gas, "Invalid fee per da gas");
         assert(context.fee_per_l2_gas() == fee_per_l2_gas, "Invalid fee per l2 gas");
     }

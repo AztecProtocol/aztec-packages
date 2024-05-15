@@ -62,7 +62,7 @@ describe('AVM simulator: injected bytecode', () => {
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
     expect(results.reverted).toBe(true);
     expect(results.output).toEqual([]);
-    expect(results.revertReason?.name).toEqual('OutOfGasError');
+    expect(results.revertReason?.message).toEqual('Not enough L2GAS gas left');
     expect(context.machineState.l2GasLeft).toEqual(0);
     expect(context.machineState.daGasLeft).toEqual(0);
   });
@@ -78,6 +78,17 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     expect(results.reverted).toBe(false);
     expect(results.output).toEqual([new Fr(3)]);
+  });
+
+  it('modulo and u1', async () => {
+    const calldata: Fr[] = [new Fr(2)];
+    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+    const bytecode = getAvmTestContractBytecode('modulo2');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+    expect(results.reverted).toBe(false);
+    expect(results.output).toEqual([new Fr(0)]);
   });
 
   it('Should be recognized as AVM bytecode (magic present)', () => {
@@ -119,6 +130,15 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       // Note: compiler intrinsic messages (like below) are not known to the AVM
       //expect(results.revertReason?.message).toEqual("Assertion failed: call to assert_max_bit_size 'self.__assert_max_bit_size(bit_size)'");
     });
+  });
+
+  it('Logging', async () => {
+    const context = initContext();
+    const bytecode = getAvmTestContractBytecode('debug_logging');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+    expect(results.reverted).toBe(false);
+    expect(results.output).toEqual([]);
   });
 
   it('Assertion message', async () => {
@@ -860,7 +880,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(callBytecode);
 
       expect(results.reverted).toBe(true); // The outer call should revert.
-      expect(results.revertReason?.message).toEqual('Static calls cannot alter storage');
+      expect(results.revertReason?.message).toEqual(
+        'Static call cannot update the state, emit L2->L1 messages or generate logs',
+      );
     });
 
     it(`Nested calls rethrow exceptions`, async () => {
