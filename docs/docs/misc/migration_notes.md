@@ -8,6 +8,62 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## 0.39.0
 
+### [Aztec.nr] State variable rework
+
+Aztec.nr state variables have been reworked so that calling private functions in public and vice versa is detected as an error during compilation instead of at runtime. This affects users in a number of ways:
+
+#### New compile time errors
+
+It used to be that calling a state variable method only available in public from a private function resulted in obscure runtime errors in the form of a failed `_is_some` assertion.
+
+Incorrect usage of the state variable methods now results in compile time errors. For example, given the following function:
+
+```rust
+#[aztec(public)]
+fn get_decimals() -> pub u8 {
+    storage.decimals.read_private()
+}
+```
+
+The compiler will now error out with 
+```
+Expected type SharedImmutable<_, &mut PrivateContext>, found type SharedImmutable<u8, &mut PublicContext>
+```
+
+The key component is the second generic parameter: the compiler expects a `PrivateContext` (becuse `read_private` is only available during private execution), but a `PublicContext` is being used instead (because of the `#[aztec(public)]` attribute).
+
+#### Generic parameters in `Storage`
+
+The `Storage` struct (the one marked with `#[aztec(storage)]`) should now be generic over a `Context` type, which matches the new generic parameter of all Aztec.nr libraries. This parameter is always the last generic parameter.
+
+This means that there's now slightly more boilerplate when declaring this struct:
+
+```diff
+#[aztec(storage)]
+- struct Storage {
++ struct Storage<Context> {
+-   nonce_for_burn_approval: PublicMutable<Field>,    
++   nonce_for_burn_approval: PublicMutable<Field, Context>,
+-   portal_address: SharedImmutable<EthAddress>,
++   portal_address: SharedImmutable<EthAddress, Context>,
+-   approved_action: Map<Field, PublicMutable<bool>>,
++   approved_action: Map<Field, PublicMutable<bool, Context>, Context>,
+}
+```
+
+Note that `Map` also has a generic `Context` parameter, so for each `Map` an extra `Context` must be added:
+
+```diff
+-    game_decks: Map<Field, Map<AztecAddress, Deck>>,
++    game_decks: Map<Field, Map<AztecAddress, Deck<Context>, Context>, Context>,
+```
+
+This is an unfortunate side-effect, and we're looking into ways to improve this.
+
+#### Removal of `Context`
+
+The `Context` type no longer exists. End users typically didn't use it, but if imported it needs to be deleted.
+
 ### [Aztec.nr] Mutable delays in `SharedMutable`
 
 The type signature for `SharedMutable` changed from `SharedMutable<T, DELAY>` to `SharedMutable<T, INITIAL_DELAY>`. The behavior is the same as before, except the delay can now be changed after deployment by calling `schedule_delay_change`.
