@@ -69,6 +69,7 @@ export type CircuitName =
   | 'root-rollup'
   | 'merge-rollup'
   | 'private-kernel-inner'
+  | 'private-kernel-reset'
   | 'public-kernel-setup'
   | 'public-kernel-app-logic'
   | 'public-kernel-teardown'
