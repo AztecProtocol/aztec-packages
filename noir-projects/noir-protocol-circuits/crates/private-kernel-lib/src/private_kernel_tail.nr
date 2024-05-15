@@ -79,7 +79,8 @@ mod tests {
         address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey,
         hash::{compute_note_hash_nonce, compute_unique_note_hash, sha256_to_field, silo_note_hash, silo_nullifier},
         tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
-        utils::{arrays::{array_eq, array_length}}, traits::{Empty, is_empty, is_empty_array}
+        utils::{arrays::{array_eq, array_length}}, traits::{Empty, is_empty, is_empty_array},
+        grumpkin_point::GrumpkinPoint
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailInputs and PrivateKernelTailToPublicInputs.
