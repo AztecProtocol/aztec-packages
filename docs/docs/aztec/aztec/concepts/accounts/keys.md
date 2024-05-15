@@ -36,7 +36,7 @@ If the keys are registered in the key registry these methods can be called witho
 If they are not there, it is necessary to first register the user as a recipient in our PXE.
 
 First we need to get a hold of recipient's [complete address](#complete-address).
-Bellow are some ways how we could instantiate it after getting the information in a string form from a recipient:
+Below are some ways how we could instantiate it after getting the information in a string form from a recipient:
 
 #include_code instantiate-complete-address /yarn-project/circuits.js/src/structs/complete_address.test.ts rust
 
@@ -74,7 +74,7 @@ This is intentional and instead of directly trying to derive `Npk_m` from `nsk_a
 If you are curious how the derivation scheme works head over to [protocol specification](../../../protocol-specs/addresses-and-keys/example-usage/nullifier#diagram).
 
 ## Protocol key types
-All the keys bellow are Grumpkin keys (public keys derived on the Grumpkin curve).
+All the keys below are Grumpkin keys (public keys derived on the Grumpkin curve).
 
 ## Nullifier keys
 Whenever a note is consumed, a nullifier deterministically derived from it is emitted.
@@ -119,7 +119,7 @@ This is a snippet of our Schnorr Account contract implementation, which uses Sch
 Still, different accounts may use different signing schemes, may require multi-factor authentication, or _may not even use signing keys_ and instead rely on other authentication mechanisms. Read [how to write an account contract](/tutorials/tutorials/write_accounts_contract.md) for a full example of how to manage authentication.
 
 Furthermore, and since signatures are fully abstracted, how the key is stored in the contract is abstracted as well and left to the developer of the account contract.
-Bellow are a few ideas on how to store them, each with their pros and cons.
+Below are a few ideas on how to store them, each with their pros and cons.
 
 ### Ways to store signing keys
 Below we described a few ways how an account contract could be architected to obtain signing keys.
