@@ -228,7 +228,7 @@ bench-publish-acir-bb:
   # Optimize to not cause serial behavior if image already exists
   IF ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/barretenberg-acir-benches:$AZTEC_DOCKER_TAG"
     WAIT
-      BUILD +export-barretenberg-acir-benches-bb
+      BUILD +export-bench-acir-bb
     END
   END
 
