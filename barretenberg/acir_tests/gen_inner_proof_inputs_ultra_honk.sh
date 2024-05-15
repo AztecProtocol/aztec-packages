@@ -39,7 +39,7 @@ echo "Generate proof to file..."
 $BIN prove_ultra_honk $VFLAG -c $CRS_PATH -b ./target/program.json -o "./proofs/$PROOF_NAME"
 
 echo "Write proof as fields for recursion..."
-$BIN proof_as_fields_ultra_honk $VFLAG -c $CRS_PATH -p "./proofs/$PROOF_NAME" -k ./target/vk -o "./proofs/${PROOF_NAME}_fields.json"
+$BIN proof_as_fields_honk $VFLAG -c $CRS_PATH -p "./proofs/$PROOF_NAME" -o "./proofs/${PROOF_NAME}_fields.json"
 
 cat ./proofs/${PROOF_NAME}_fields.json
 echo
