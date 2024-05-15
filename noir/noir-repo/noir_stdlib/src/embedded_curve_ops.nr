@@ -11,6 +11,10 @@ impl EmbeddedCurvePoint {
     fn double(self) -> EmbeddedCurvePoint {
         embedded_curve_add(self, self)
     }
+
+    fn point_at_infinity() -> EmbeddedCurvePoint {
+        EmbeddedCurvePoint { x: 0, y: 0, is_infinite: true }
+    }
 }
 
 impl Add for EmbeddedCurvePoint {
