@@ -40,11 +40,11 @@ UPLOAD_LOGS:
     ARG PULL_REQUEST
     ARG BRANCH
     ARG COMMIT_HASH
+    ARG LOG_FILE=./log
     LOCALLY
     LET COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
     FROM ./yarn-project/end-to-end/+base-log-uploader
-    COPY ./log /usr/var/log
     ENV PULL_REQUEST=$PULL_REQUEST
     ENV BRANCH=$BRANCH
     ENV COMMIT_HASH=$COMMIT_HASH
-    RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY /usr/src/scripts/logs/upload_logs_to_s3.sh /usr/var/log
+    RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY /usr/src/scripts/logs/upload_logs_to_s3.sh $LOG_FILE
