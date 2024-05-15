@@ -174,7 +174,7 @@ template <typename Flavor> class SumcheckProver {
      * @details See Detailed description of \ref bb::SumcheckProver< Flavor > "Sumcheck Prover <Flavor>.
      * @param full_polynomials Container for ProverPolynomials
      * @param relation_parameters
-     * @param alpha Batching challenge that
+     * @param alpha Batching challenge for subrelations.
      * @param gate_challenges
      * @return SumcheckOutput
      */
