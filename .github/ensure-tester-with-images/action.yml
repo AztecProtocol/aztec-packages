@@ -64,7 +64,7 @@ runs:
 
             sudo flock /var/lib/docker/tmp-images/${{ env.IMAGE_KEY }}.lock bash -c '
               if ! [ -f /var/lib/docker/tmp-images/${{ env.IMAGE_KEY }}.brotli ] ; then
-                ${{ input.builder_images_to_copy }} | brotli -2 > /var/lib/docker/tmp-images/${{ env.IMAGE_KEY }}.brotli.tmp
+                ${{ inputs.builder_images_to_copy }} | brotli -2 > /var/lib/docker/tmp-images/${{ env.IMAGE_KEY }}.brotli.tmp
                 mv /var/lib/docker/tmp-images/${{ env.IMAGE_KEY }}.brotli.tmp /var/lib/docker/tmp-images/${{ env.IMAGE_KEY }}.brotli
               fi'
             sudo cat /var/lib/docker/tmp-images/${{ env.IMAGE_KEY }}.brotli
