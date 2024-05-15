@@ -218,7 +218,7 @@ export class Ec2Instance {
     return launchTemplateName;
   }
 
-  async requestMachine(useOnDemand: boolean): Promise<string> {
+  async requestMachine(useOnDemand: boolean): Promise<[string, 'new' | 'existing']> {
     // Note advice re max bid: "If you specify a maximum price, your instances will be interrupted more frequently than if you do not specify this parameter."
     const launchTemplateName = await this.getLaunchTemplate();
     // Launch template name already in use
@@ -258,12 +258,13 @@ export class Ec2Instance {
           error.ErrorCode === "RequestLimitExceeded" ||
           error.ErrorCode === "InsufficientInstanceCapacity"
         ) {
-          return error.ErrorCode;
+          return [error.ErrorCode, 'new'];
         }
       }
     }
     const instances: CreateFleetInstance = (fleet?.Instances || [])[0] || {};
-    return (instances.InstanceIds || [])[0] || "";
+    const status = fleet.$response.httpResponse.statusCode === 204 ? 'existing' : 'new'
+    return [(instances.InstanceIds || [])[0] || "", status];
   }
 
   async getInstanceStatus(instanceId: string) {

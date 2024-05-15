@@ -38,7 +38,7 @@ async function pollSpotStatus(
   return "unusable";
 }
 
-async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
+async function requestAndWaitForSpot(config: ActionConfig): Promise<[string, 'new' | 'existing']> {
   // subaction is 'start' or 'restart'estart'
   const ec2Client = new Ec2Instance(config);
 
@@ -60,13 +60,14 @@ async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
   }
 
   let instanceId = "";
+  let requestStatus: "new" | "existing" = "new";
   for (const ec2Strategy of ec2SpotStrategies) {
     let backoff = 0;
     core.info(`Starting instance with ${ec2Strategy} strategy`);
     const MAX_ATTEMPTS = 3; // uses exponential backoff
     for (let i = 0; i < MAX_ATTEMPTS; i++) {
       // Start instance
-      const instanceIdOrError =
+      const [instanceIdOrError, requestMachinesStatus] =
         await ec2Client.requestMachine(
           // we fallback to on-demand
           ec2Strategy.toLocaleLowerCase() === "none"
@@ -83,6 +84,7 @@ async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
         );
       } else {
         instanceId = instanceIdOrError;
+        requestStatus = requestMachinesStatus;
         break;
       }
       // wait 10 seconds
@@ -99,7 +101,7 @@ async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
     core.error("Failed to get ID of running instance");
     throw Error("Failed to get ID of running instance");
   }
-  return instanceId;
+  return [instanceId, requestStatus];
 }
 
 async function startBareSpot(config: ActionConfig) {
@@ -110,7 +112,10 @@ async function startBareSpot(config: ActionConfig) {
     );
   }
   const ec2Client = new Ec2Instance(config);
-  const instanceId = await requestAndWaitForSpot(config);
+  const [instanceId, instanceStatus] = await requestAndWaitForSpot(config);
+  if (instanceStatus !== 'new') {
+    throw new Error("Unexpected state, should not get 204 status codes on spot instances");
+  }
   const ip = await ec2Client.getPublicIpFromInstanceId(instanceId);
 
   const tempKeyPath = installSshKey(config.ec2Key);
@@ -150,6 +155,7 @@ async function startWithGithubRunners(config: ActionConfig) {
     spotStatus = "none";
   }
   let instanceId = "";
+  let requestStatus: "new" | "existing" = "new";
   let ip = "";
   if (spotStatus !== "none") {
     core.info(
@@ -164,7 +170,7 @@ async function startWithGithubRunners(config: ActionConfig) {
     core.info(
       `Starting runner.`
     );
-    instanceId = await requestAndWaitForSpot(config);
+    [instanceId, requestStatus] = await requestAndWaitForSpot(config);
     ip = await ec2Client.getPublicIpFromInstanceId(instanceId);
     if (!(await establishSshContact(ip, config.ec2Key))) {
       return false;
@@ -180,6 +186,7 @@ async function startWithGithubRunners(config: ActionConfig) {
   // Export to github environment
   const tempKeyPath = installSshKey(config.ec2Key);
   core.info("Logging BUILDER_SPOT_IP and BUILDER_SPOT_KEY to GITHUB_ENV for later step use.");
+  await standardSpawn("bash", ["-c", `echo BUILDER_REQUEST_STATUS=${requestStatus} >> $GITHUB_ENV`]);
   await standardSpawn("bash", ["-c", `echo BUILDER_SPOT_IP=${ip} >> $GITHUB_ENV`]);
   await standardSpawn("bash", [
     "-c",

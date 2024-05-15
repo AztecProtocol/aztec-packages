@@ -69,6 +69,7 @@ runs:
     # Set up a context for this run
     - name: Copy Repo to Builder
       shell: bash
+      if: ${{ env.BUILDER_REQUEST_STATUS === 'new' }}
       run: |
         sudo shutdown -P ${{ steps.select_instance.outputs.ttl }}
         set -x
@@ -88,6 +89,7 @@ runs:
 
     - name: Attach EBS Cache Disk
       uses: ./.github/run-on-builder
+      if: ${{ env.BUILDER_REQUEST_STATUS === 'new' }}
       with:
         run: |
           # give time in case another instance started the clone first
@@ -102,6 +104,7 @@ runs:
 
     - name: Setup Graceful Exit
       uses: ./.github/run-on-builder
+      if: ${{ env.BUILDER_REQUEST_STATUS === 'new' }}
       with:
         run: |
           # One-time config
