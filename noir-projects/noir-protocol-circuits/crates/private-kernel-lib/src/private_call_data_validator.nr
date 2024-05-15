@@ -97,7 +97,7 @@ fn validate_incrementing_counter_ranges_within_range<N>(
     );
 }
 
-fn validate_split_call_requests<N>(
+fn validate_split_private_call_requests<N>(
     min_revertible_side_effect_counter: u32,
     first_revertible_call_request_index: u64,
     call_requests: [CallRequest; N],
@@ -114,6 +114,27 @@ fn validate_split_call_requests<N>(
         let call_request = call_requests[first_revertible_call_request_index];
         assert(
             min_revertible_side_effect_counter <= call_request.start_side_effect_counter, "min_revertible_side_effect_counter must be less than or equal to the start counter of the first revertible call"
+        );
+    }
+}
+
+fn validate_split_public_call_requests<N>(
+    min_revertible_side_effect_counter: u32,
+    first_revertible_call_request_index: u64,
+    call_requests: [CallRequest; N],
+    num_call_requests: u64
+) {
+    if first_revertible_call_request_index != 0 {
+        let last_non_revertible_call_request_index = first_revertible_call_request_index - 1;
+        let call_request = call_requests[last_non_revertible_call_request_index];
+        assert(
+            min_revertible_side_effect_counter > call_request.counter(), "min_revertible_side_effect_counter must be greater than the counter of the last non revertible call"
+        );
+    }
+    if first_revertible_call_request_index != num_call_requests {
+        let call_request = call_requests[first_revertible_call_request_index];
+        assert(
+            min_revertible_side_effect_counter <= call_request.counter(), "min_revertible_side_effect_counter must be less than or equal to the counter of the first revertible call"
         );
     }
 }
@@ -164,13 +185,13 @@ impl PrivateCallDataValidator {
         let min_revertible_side_effect_counter = public_inputs.min_revertible_side_effect_counter;
         // No need to check that the min_revertible_side_effect_counter falls in the counter range of the private call.
         // It is valid as long as it does not fall in the middle of any nested call.
-        validate_split_call_requests(
+        validate_split_private_call_requests(
             min_revertible_side_effect_counter,
             first_revertible_private_call_request_index,
             self.data.private_call_stack,
             self.array_lengths.private_call_stack_hashes
         );
-        validate_split_call_requests(
+        validate_split_public_call_requests(
             min_revertible_side_effect_counter,
             first_revertible_public_call_request_index,
             self.data.public_call_stack,
@@ -368,7 +389,9 @@ impl PrivateCallDataValidator {
             self.data.private_call_stack,
             self.array_lengths.private_call_stack_hashes
         );
-        validate_incrementing_counter_ranges_within_range(
+
+        // Validate the public call requests by checking their start counters only, as their end counters are unknown.
+        validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
             self.data.public_call_stack,
@@ -380,7 +403,7 @@ impl PrivateCallDataValidator {
         } else {
             1
         };
-        validate_incrementing_counter_ranges_within_range(
+        validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
             [self.data.public_teardown_call_request],

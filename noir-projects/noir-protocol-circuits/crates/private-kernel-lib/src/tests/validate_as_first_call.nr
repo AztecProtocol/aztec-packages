@@ -21,12 +21,12 @@ impl PrivateCallDataValidatorBuilder {
         self.private_call.public_inputs.counter_end = counter_end + 1;
     }
 
-    pub fn add_public_call_request(&mut self, counter_start: u32, counter_end: u32) {
+    pub fn add_public_call_request(&mut self, counter_start: u32) {
         let index = self.private_call.public_call_stack.len();
         self.private_call.append_public_call_requests(1, false);
         self.private_call.public_call_stack.storage[index].start_side_effect_counter = counter_start;
-        self.private_call.public_call_stack.storage[index].end_side_effect_counter = counter_end;
-        self.private_call.public_inputs.counter_end = counter_end + 1;
+        self.private_call.public_call_stack.storage[index].end_side_effect_counter = 0;
+        self.private_call.public_inputs.counter_end = counter_start + 1;
     }
 }
 
@@ -189,23 +189,23 @@ fn validate_as_first_call_split_private_calls_index_hint_greater_than_len_fails(
 fn validate_as_first_call_split_public_calls_succeeds() {
     let mut builder = PrivateCallDataValidatorBuilder::new_first_call();
 
-    builder.add_public_call_request(20, 30);
-    builder.add_public_call_request(40, 50);
-    builder.split_calls(60);
-    builder.add_public_call_request(60, 70);
+    builder.add_public_call_request(20);
+    builder.add_public_call_request(30);
+    builder.split_calls(40);
+    builder.add_public_call_request(40);
 
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with="min_revertible_side_effect_counter must be greater than the end counter of the last non revertible call")]
-fn validate_as_first_call_split_public_calls_less_than_fails() {
+#[test(should_fail_with="min_revertible_side_effect_counter must be greater than the counter of the last non revertible call")]
+fn validate_as_first_call_split_public_calls_less_than_last_non_revertible_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_first_call();
 
-    builder.add_public_call_request(20, 30);
-    builder.add_public_call_request(40, 50);
+    builder.add_public_call_request(20);
+    builder.add_public_call_request(30);
     // Tweak the counter to be less than the end counter of the last non-revertible call.
-    builder.split_calls(49);
-    builder.add_public_call_request(60, 70);
+    builder.split_calls(29);
+    builder.add_public_call_request(40);
 
     builder.validate_as_first_call();
 }
@@ -215,24 +215,24 @@ fn validate_as_first_call_split_private_public_mix_succeeds() {
     let mut builder = PrivateCallDataValidatorBuilder::new_first_call();
 
     builder.add_private_call_request(20, 30);
-    builder.add_public_call_request(60, 70);
-    builder.split_calls(80);
-    builder.add_public_call_request(80, 90);
-    builder.add_private_call_request(100, 110);
+    builder.add_public_call_request(40);
+    builder.split_calls(50);
+    builder.add_public_call_request(50);
+    builder.add_private_call_request(60, 70);
 
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with="min_revertible_side_effect_counter must be less than or equal to the start counter of the first revertible call")]
+#[test(should_fail_with="min_revertible_side_effect_counter must be less than or equal to the counter of the first revertible call")]
 fn validate_as_first_call_split_private_public_mix_falls_in_revertible_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_first_call();
 
     builder.add_private_call_request(20, 30);
-    builder.add_public_call_request(60, 70);
+    builder.add_public_call_request(40);
     // Tweak the counter to be greater than the start counter of the next call.
-    builder.split_calls(81);
-    builder.add_public_call_request(80, 90);
-    builder.add_private_call_request(100, 110);
+    builder.split_calls(51);
+    builder.add_public_call_request(50);
+    builder.add_private_call_request(60, 70);
 
     builder.validate_as_first_call();
 }
