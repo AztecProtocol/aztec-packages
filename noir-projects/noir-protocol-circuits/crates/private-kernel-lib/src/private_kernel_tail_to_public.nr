@@ -45,7 +45,7 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
         );
 
         assert_eq(
-            array_length(previous_public_inputs.validation_requests.nullifier_non_existent_read_requests), 0, "Non empty nullifier read requests"
+            array_length(previous_public_inputs.validation_requests.nullifier_read_requests), 0, "Non empty nullifier read requests"
         );
 
         assert_eq(

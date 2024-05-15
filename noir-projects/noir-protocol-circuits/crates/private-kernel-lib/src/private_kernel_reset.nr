@@ -90,7 +90,8 @@ mod tests {
         abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         max_block_number::MaxBlockNumber, note_hash::{NoteHash, ScopedNoteHash},
-        nullifier::{Nullifier, ScopedNullifier}, side_effect::SideEffect
+        nullifier::{Nullifier, ScopedNullifier}, side_effect::SideEffect,
+        read_request::ScopedReadRequest
     },
         address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey,
         hash::{compute_note_hash_nonce, compute_unique_note_hash, sha256_to_field, silo_note_hash, silo_nullifier},
@@ -257,6 +258,28 @@ mod tests {
         builder.previous_kernel.nullifier_read_requests.push(read_request);
 
         builder.failed();
+    }
+
+    #[test]
+    unconstrained fn propagates_unverified_requests() {
+        let mut builder = PrivateKernelResetInputsBuilder::new();
+
+        builder.previous_kernel.append_new_note_hashes(3);
+        builder.previous_kernel.append_new_nullifiers(3);
+
+        builder.add_pending_note_hash_read_request(0);
+        builder.add_pending_nullifier_read_request(1);
+
+        let remaining_note_hash_rr_index = builder.previous_kernel.add_read_request_for_pending_note_hash(1); // Won't be processed for now
+        let note_hash_rr = builder.previous_kernel.note_hash_read_requests.storage[remaining_note_hash_rr_index];
+
+        let remaining_nullifier_rr_index = builder.previous_kernel.add_read_request_for_pending_nullifier(1); // Won't be processed for now
+        let nullifier_rr = builder.previous_kernel.nullifier_read_requests.storage[remaining_nullifier_rr_index];
+
+        let result = builder.execute();
+
+        assert_eq(result.validation_requests.note_hash_read_requests[0], note_hash_rr);
+        assert_eq(result.validation_requests.nullifier_read_requests[0], nullifier_rr);
     }
 
     #[test]

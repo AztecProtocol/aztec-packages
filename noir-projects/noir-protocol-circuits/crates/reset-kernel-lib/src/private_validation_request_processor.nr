@@ -27,24 +27,18 @@ struct PrivateValidationRequestProcessor {
     master_nullifier_secret_keys: [GrumpkinPrivateKey; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
 }
 
-struct PrivateValidationResult {
-    remaining_note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-    remaining_nullifier_non_existent_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-    remaining_nullifier_key_validation_requests: BoundedVec<ScopedNullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
-}
-
 impl PrivateValidationRequestProcessor {
     pub fn validate(self) -> ValidationRequests {
         let remaining_note_hash_read_requests = self.validate_note_hash_read_requests();
-        let remaining_nullifier_non_existent_read_requests = self.validate_nullifier_read_requests();
+        let remaining_nullifier_read_requests = self.validate_nullifier_read_requests();
         let remaining_nullifier_key_validation_requests = self.validate_nullifier_keys();
 
         ValidationRequests {
             for_rollup: self.validation_requests.for_rollup,
-            nullifier_read_requests: self.validation_requests.nullifier_read_requests,
+            nullifier_non_existent_read_requests: self.validation_requests.nullifier_non_existent_read_requests,
             public_data_reads: self.validation_requests.public_data_reads,
             note_hash_read_requests: remaining_note_hash_read_requests.storage,
-            nullifier_non_existent_read_requests: remaining_nullifier_non_existent_read_requests.storage,
+            nullifier_read_requests: remaining_nullifier_read_requests.storage,
             nullifier_key_validation_requests: remaining_nullifier_key_validation_requests.storage
         }
     }
