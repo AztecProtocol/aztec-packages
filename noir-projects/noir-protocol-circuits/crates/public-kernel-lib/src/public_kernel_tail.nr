@@ -103,7 +103,7 @@ mod tests {
         MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT,
         NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT,
         PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT, MAX_ENCRYPTED_LOGS_PER_TX,
-        MAX_UNENCRYPTED_LOGS_PER_TX
+        MAX_UNENCRYPTED_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
     },
         hash::{silo_nullifier, sha256_to_field},
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
@@ -124,15 +124,15 @@ mod tests {
         )
     }
 
-    fn get_settled_public_data_leaves() -> [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
-        let mut settled_public_data_leaves = [PublicDataTreeLeafPreimage::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+    fn get_settled_public_data_leaves() -> [PublicDataTreeLeafPreimage; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
+        let mut settled_public_data_leaves = [PublicDataTreeLeafPreimage::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
         settled_public_data_leaves[0] = PublicDataTreeLeafPreimage { slot: 22, value: 200, next_slot: 33, next_index: 1 };
         settled_public_data_leaves[1] = PublicDataTreeLeafPreimage { slot: 33, value: 300, next_slot: 0, next_index: 0 };
         settled_public_data_leaves[2] = PublicDataTreeLeafPreimage { slot: 11, value: 100, next_slot: 22, next_index: 0 };
         settled_public_data_leaves
     }
 
-    fn build_public_data_tree<N>() -> NonEmptyMerkleTree<MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT> {
+    fn build_public_data_tree<N>() -> NonEmptyMerkleTree<MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT> {
         let settled_public_data_leaves = get_settled_public_data_leaves();
         NonEmptyMerkleTree::new(
             settled_public_data_leaves.map(|preimage: PublicDataTreeLeafPreimage| preimage.hash()),
@@ -149,7 +149,7 @@ mod tests {
         nullifier_non_existent_read_request_hints_builder: NullifierNonExistentReadRequestHintsBuilder,
         public_data_read_request_hints_builder: PublicDataReadRequestHintsBuilder,
         public_data_hints: BoundedVec<PublicDataHint, MAX_PUBLIC_DATA_HINTS>,
-        public_data_tree: NonEmptyMerkleTree<MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT>,
+        public_data_tree: NonEmptyMerkleTree<MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT>,
         start_state: PartialStateReference,
     }
 
