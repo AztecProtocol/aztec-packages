@@ -1,5 +1,5 @@
 import { MerkleTreeId, type NoteFilter, NoteStatus, type PublicKey } from '@aztec/circuit-types';
-import { AztecAddress, CompleteAddress, Header, computeNpkMHash } from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress, Header } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr, type Point } from '@aztec/foundation/fields';
