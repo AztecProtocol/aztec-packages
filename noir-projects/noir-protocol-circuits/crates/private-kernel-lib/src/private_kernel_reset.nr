@@ -1,7 +1,7 @@
 use crate::private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer;
 use dep::reset_kernel_lib::{
     NoteHashReadRequestHints, NullifierReadRequestHints, PrivateValidationRequestProcessor,
-    verify_squashed_transient_note_hashes_and_nullifiers
+    verify_squashed_transient_note_hashes_and_nullifiers, reset::nullifier_key::NullifierKeyHint
 };
 use dep::types::{
     abis::{
@@ -23,21 +23,21 @@ struct PrivateKernelResetOutputs {
     nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
 }
 
-struct PrivateKernelResetHints {
+struct PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, NLL_KEYS> {
     transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
     transient_note_hash_indexes_for_nullifiers: [u64; MAX_NEW_NULLIFIERS_PER_TX],
-    note_hash_read_request_hints: NoteHashReadRequestHints,
-    nullifier_read_request_hints: NullifierReadRequestHints,
-    master_nullifier_secret_keys: [GrumpkinPrivateKey; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
+    note_hash_read_request_hints: NoteHashReadRequestHints<NH_RR_PENDING, NH_RR_SETTLED>,
+    nullifier_read_request_hints: NullifierReadRequestHints<NLL_RR_PENDING, NLL_RR_SETTLED>,
+    master_nullifier_secret_keys: [NullifierKeyHint; NLL_KEYS],
 }
 
-struct PrivateKernelResetCircuitPrivateInputs {
+struct PrivateKernelResetCircuitPrivateInputs<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, NLL_KEYS> {
     previous_kernel: PrivateKernelData,
     outputs: PrivateKernelResetOutputs,
-    hints: PrivateKernelResetHints,
+    hints: PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, NLL_KEYS>,
 }
 
-impl PrivateKernelResetCircuitPrivateInputs {
+impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, NLL_KEYS> PrivateKernelResetCircuitPrivateInputs<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, NLL_KEYS> {
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
         let mut previous_public_inputs = self.previous_kernel.public_inputs;
 
@@ -79,7 +79,8 @@ mod tests {
         nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder,
         squash_transient_data::{squash_transient_note_hashes, squash_transient_nullifiers}
     },
-        reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus}
+        reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus},
+        reset::nullifier_key::NullifierKeyHint
     };
     use dep::types::constants::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
@@ -156,7 +157,7 @@ mod tests {
                 transient_note_hash_indexes_for_nullifiers: self.transient_note_hash_indexes_for_nullifiers,
                 note_hash_read_request_hints: self.note_hash_read_request_hints_builder.to_hints(),
                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
-                master_nullifier_secret_keys: [GrumpkinPrivateKey::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX]
+                master_nullifier_secret_keys: [NullifierKeyHint::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX]
             };
 
             let kernel = PrivateKernelResetCircuitPrivateInputs { previous_kernel: self.previous_kernel.to_private_kernel_data(), outputs, hints };
