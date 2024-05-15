@@ -45,7 +45,7 @@ export interface DBOracle extends CommitmentsDB {
 
   /**
    * Retrieve the complete address associated to a given address or master nullifier public key hash.
-   * @param accountOrNpkMHash - account - the address or npkMHash - the master nullifier public key hash
+   * @param accountOrNpkMHash - account address or master nullifier public key hash.
    * @returns A complete address associated with the input address or master nullifier public key hash
    * @throws An error if the account is not registered in the database.
    */
@@ -66,10 +66,10 @@ export interface DBOracle extends CommitmentsDB {
   popCapsule(): Promise<Fr[]>;
 
   /**
-   * Retrieve nullifier keys associated with a (specific account or master nullifier key hash) and app/contract address.
-   * @param accountOrNpkMHash - account - the address or npkMHash - the master nullifier public key hash
-   * @returns A Promise that resolves to nullifier keys of a (requested account or master nullifier key hash) and contract.
-   * @throws An error if the nullifier keys associated to account or master nullifier public key hash is not registered in the key store.
+   * Retrieve nullifier keys associated with a specific account or master nullifier public key and app address.
+   * @param accountOrNpkMHash - account address or master nullifier public key hash.
+   * @returns A Promise that resolves to nullifier keys.
+   * @throws If the nullifier keys are not registered in the key store.
    */
   getNullifierKeys(accountOrNpkMHash: AztecAddress | Fr, contractAddress: AztecAddress): Promise<NullifierKeys>;
 
