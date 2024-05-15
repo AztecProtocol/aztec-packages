@@ -221,7 +221,7 @@ impl KernelCircuitPublicInputsComposer {
         self.public_inputs.fee_payer = self.previous_kernel.public_inputs.fee_payer;
     }
 
-    fn verify_no_transient_data(&mut self) {
+    fn verify_no_transient_data(self) {
         // Currently all the transient note hashes and nullifiers must be cleared in the reset circuits.
         // Check that the propagated note hashes don't link to a nullifier, and vice versa.
         for note_hash in self.public_inputs.end.new_note_hashes.storage {
@@ -230,5 +230,19 @@ impl KernelCircuitPublicInputsComposer {
         for new_nullifier in self.public_inputs.end.new_nullifiers.storage {
             assert(new_nullifier.nullified_note_hash() == 0, "Unresolved transient nullifier");
         }
+    }
+
+    fn verify_empty_validation_requests(self) {
+        assert_eq(
+            self.public_inputs.validation_requests.note_hash_read_requests.len(), 0, "Non empty note hash read requests"
+        );
+
+        assert_eq(
+            self.public_inputs.validation_requests.nullifier_read_requests.len(), 0, "Non empty nullifier read requests"
+        );
+
+        assert_eq(
+            self.public_inputs.validation_requests.nullifier_key_validation_requests.len(), 0, "Non empty nullifier key validation requests"
+        );
     }
 }

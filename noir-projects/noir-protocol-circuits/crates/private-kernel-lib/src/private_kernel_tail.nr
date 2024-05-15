@@ -41,18 +41,6 @@ impl PrivateKernelTailCircuitPrivateInputs {
         // verify/aggregate the previous kernel
         verify_previous_kernel_proof(self.previous_kernel);
 
-        assert_eq(
-            array_length(previous_public_inputs.validation_requests.note_hash_read_requests), 0, "Non empty read requests"
-        );
-
-        assert_eq(
-            array_length(previous_public_inputs.validation_requests.nullifier_read_requests), 0, "Non empty nullifier read requests"
-        );
-
-        assert_eq(
-            array_length(previous_public_inputs.validation_requests.nullifier_key_validation_requests), 0, "Non empty nullifier key validation requests"
-        );
-
         KernelCircuitPublicInputsComposer::new(
             self.previous_kernel,
             self.hints.sorted_new_note_hashes,
