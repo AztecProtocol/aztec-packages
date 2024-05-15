@@ -1288,8 +1288,8 @@ export function mapPublicKernelDataToNoir(publicKernelData: PublicKernelData): P
 export function mapKernelDataToNoir(kernelData: KernelData): KernelDataNoir {
   return {
     public_inputs: mapKernelCircuitPublicInputsToNoir(kernelData.publicInputs),
-    proof: {},
-    vk: {},
+    proof: mapRecursiveProofToNoir<typeof NESTED_RECURSIVE_PROOF_LENGTH>(kernelData.proof),
+    vk: mapVerificationKeyToNoir(kernelData.vk),
     vk_index: mapFieldToNoir(new Fr(kernelData.vkIndex)),
     vk_path: mapTuple(kernelData.vkPath, mapFieldToNoir),
   };
@@ -1640,7 +1640,6 @@ export function mapBaseOrMergeRollupPublicInputsToNoir(
   return {
     rollup_type: mapFieldToNoir(new Fr(baseOrMergeRollupPublicInputs.rollupType)),
     height_in_block_tree: mapFieldToNoir(new Fr(baseOrMergeRollupPublicInputs.rollupSubtreeHeight)),
-    aggregation_object: {},
     constants: mapConstantRollupDataToNoir(baseOrMergeRollupPublicInputs.constants),
     start: mapPartialStateReferenceToNoir(baseOrMergeRollupPublicInputs.start),
     end: mapPartialStateReferenceToNoir(baseOrMergeRollupPublicInputs.end),
@@ -1706,8 +1705,8 @@ export function mapPreviousRollupDataToNoir(previousRollupData: PreviousRollupDa
     base_or_merge_rollup_public_inputs: mapBaseOrMergeRollupPublicInputsToNoir(
       previousRollupData.baseOrMergeRollupPublicInputs,
     ),
-    proof: {},
-    vk: {},
+    proof: mapRecursiveProofToNoir(previousRollupData.proof),
+    vk: mapVerificationKeyToNoir(previousRollupData.vk),
     vk_index: mapFieldToNoir(new Fr(previousRollupData.vkIndex)),
     vk_sibling_path: {
       leaf_index: mapFieldToNoir(new Fr(previousRollupData.vkSiblingPath.leafIndex)),

@@ -588,8 +588,8 @@ export function makePublicKernelData(seed = 1, kernelPublicInputs?: PublicKernel
 export function makeRollupKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): KernelData {
   return new KernelData(
     kernelPublicInputs ?? makeKernelCircuitPublicInputs(seed, true),
-    new Proof(Buffer.alloc(16, seed + 0x80)),
-    makeVerificationKey(),
+    makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x80),
+    VerificationKeyAsFields.makeFake(),
     0x42,
     makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
   );
@@ -929,8 +929,8 @@ export function makePreviousRollupData(
 ): PreviousRollupData {
   return new PreviousRollupData(
     makeBaseOrMergeRollupPublicInputs(seed, globalVariables),
-    makeDynamicSizeBuffer(16, seed + 0x50),
-    makeVerificationKey(),
+    makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x50),
+    VerificationKeyAsFields.makeFake(),
     seed + 0x110,
     makeMembershipWitness(ROLLUP_VK_TREE_HEIGHT, seed + 0x120),
   );

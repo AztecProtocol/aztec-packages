@@ -14,7 +14,7 @@ import {
   Fr,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_PROOF_LENGTH,
   type ParityPublicInputs,
   type PreviousRollupData,
   Proof,
@@ -28,6 +28,7 @@ import {
   type RootRollupPublicInputs,
   type VERIFICATION_KEY_LENGTH_IN_FIELDS,
   VerificationKeyAsFields,
+  makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -165,10 +166,16 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     }
     const witnessMap = kernelOps.convertInputs(kernelRequest.inputs);
 
-    const [outputWitness, proof] = await this.createProof(witnessMap, kernelOps.artifact);
+    const [circuitOutput, proof] = await this.createRecursiveProof<
+      typeof NESTED_RECURSIVE_PROOF_LENGTH,
+      PublicKernelCircuitPublicInputs
+    >(witnessMap, kernelOps.artifact, kernelOps.convertOutputs);
 
-    const result = kernelOps.convertOutputs(outputWitness);
-    return makePublicInputsAndProof(result, proof);
+    const verificationKey = await this.getVerificationKeyDataForCircuit(kernelOps.artifact);
+
+    const vk = new VerificationKeyAsFields(verificationKey.keyAsFields, verificationKey.hash);
+
+    return makePublicInputsAndProof(circuitOutput, proof, vk);
   }
 
   /**
@@ -181,10 +188,16 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>> {
     const witnessMap = convertPublicTailInputsToWitnessMap(kernelRequest.inputs);
 
-    const [outputWitness, proof] = await this.createProof(witnessMap, 'PublicKernelTailArtifact');
+    const [circuitOutput, proof] = await this.createRecursiveProof<
+      typeof NESTED_RECURSIVE_PROOF_LENGTH,
+      KernelCircuitPublicInputs
+    >(witnessMap, 'PublicKernelTailArtifact', convertPublicTailOutputFromWitnessMap);
 
-    const result = convertPublicTailOutputFromWitnessMap(outputWitness);
-    return makePublicInputsAndProof(result, proof);
+    const verificationKey = await this.getVerificationKeyDataForCircuit('PublicKernelTailArtifact');
+
+    const vk = new VerificationKeyAsFields(verificationKey.keyAsFields, verificationKey.hash);
+
+    return makePublicInputsAndProof(circuitOutput, proof, vk);
   }
 
   /**
@@ -197,11 +210,16 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   ): Promise<PublicInputsAndProof<BaseOrMergeRollupPublicInputs>> {
     const witnessMap = convertBaseRollupInputsToWitnessMap(input);
 
-    const [outputWitness, proof] = await this.createProof(witnessMap, 'BaseRollupArtifact');
+    const [circuitOutput, proof] = await this.createRecursiveProof<
+      typeof NESTED_RECURSIVE_PROOF_LENGTH,
+      BaseOrMergeRollupPublicInputs
+    >(witnessMap, 'BaseRollupArtifact', convertBaseRollupOutputsFromWitnessMap);
 
-    const result = convertBaseRollupOutputsFromWitnessMap(outputWitness);
+    const verificationKey = await this.getVerificationKeyDataForCircuit('BaseRollupArtifact');
 
-    return makePublicInputsAndProof(result, proof);
+    const vk = new VerificationKeyAsFields(verificationKey.keyAsFields, verificationKey.hash);
+
+    return makePublicInputsAndProof(circuitOutput, proof, vk);
   }
   /**
    * Simulates the merge rollup circuit from its inputs.
@@ -216,11 +234,16 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const witnessMap = convertMergeRollupInputsToWitnessMap(input);
 
-    const [outputWitness, proof] = await this.createProof(witnessMap, 'MergeRollupArtifact');
+    const [circuitOutput, proof] = await this.createRecursiveProof<
+      typeof NESTED_RECURSIVE_PROOF_LENGTH,
+      BaseOrMergeRollupPublicInputs
+    >(witnessMap, 'MergeRollupArtifact', convertMergeRollupOutputsFromWitnessMap);
 
-    const result = convertMergeRollupOutputsFromWitnessMap(outputWitness);
+    const verificationKey = await this.getVerificationKeyDataForCircuit('MergeRollupArtifact');
 
-    return makePublicInputsAndProof(result, proof);
+    const vk = new VerificationKeyAsFields(verificationKey.keyAsFields, verificationKey.hash);
+
+    return makePublicInputsAndProof(circuitOutput, proof, vk);
   }
 
   /**
@@ -239,7 +262,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     await this.verifyProof('RootRollupArtifact', proof);
 
     const result = convertRootRollupOutputsFromWitnessMap(outputWitness);
-    return makePublicInputsAndProof(result, proof);
+    const recursiveProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
+    recursiveProof.binaryProof = proof;
+
+    const verificationKey = await this.getVerificationKeyDataForCircuit('RootRollupArtifact');
+
+    const vk = new VerificationKeyAsFields(verificationKey.keyAsFields, verificationKey.hash);
+    return makePublicInputsAndProof(result, recursiveProof, vk);
   }
 
   // TODO(@PhilWindle): Delete when no longer required
@@ -455,7 +484,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       previousRollupData.baseOrMergeRollupPublicInputs.rollupType === RollupTypes.Base
         ? 'BaseRollupArtifact'
         : 'MergeRollupArtifact';
-    await this.verifyProof(circuitType, proof);
+    await this.verifyProof(circuitType, proof.binaryProof);
   }
 
   /**

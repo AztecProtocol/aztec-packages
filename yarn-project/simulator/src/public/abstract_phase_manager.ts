@@ -43,7 +43,6 @@ import {
   type PublicKernelCircuitPublicInputs,
   PublicKernelData,
   ReadRequest,
-  type RecursiveProof,
   RevertCode,
   SideEffect,
   VK_TREE_HEIGHT,

@@ -31,6 +31,6 @@ describe('prover/bb_prover/base-rollup', () => {
     logger.verbose('Proving base rollups');
     const proofOutputs = await context.prover.getBaseRollupProof(baseRollupInputs);
     logger.verbose('Verifying base rollups');
-    await expect(prover.verifyProof('BaseRollupArtifact', proofOutputs.proof)).resolves.not.toThrow();
+    await expect(prover.verifyProof('BaseRollupArtifact', proofOutputs.proof.binaryProof)).resolves.not.toThrow();
   });
 });

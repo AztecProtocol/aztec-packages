@@ -1,5 +1,8 @@
 use crate::{
-    abis::{previous_rollup_data::PreviousRollupData, constant_rollup_data::ConstantRollupData},
+    abis::{
+    previous_rollup_data::{PreviousRollupData, verify_rollup_proof},
+    constant_rollup_data::ConstantRollupData
+},
     components, root::{root_rollup_public_inputs::RootRollupPublicInputs}
 };
 use dep::{
@@ -35,10 +38,13 @@ struct RootRollupInputs {
 
 impl RootRollupInputs {
     pub fn root_rollup_circuit(self) -> RootRollupPublicInputs {
+        // Verify the previous rollup proofs
+        verify_rollup_proof(self.previous_rollup_data[0]);
+        verify_rollup_proof(self.previous_rollup_data[1]);
+
         let left = self.previous_rollup_data[0].base_or_merge_rollup_public_inputs;
         let right = self.previous_rollup_data[1].base_or_merge_rollup_public_inputs;
 
-        let aggregation_object = components::aggregate_proofs(left, right);
         components::assert_both_input_proofs_of_same_rollup_type(left, right);
         let _ = components::assert_both_input_proofs_of_same_height_and_return(left, right);
         components::assert_equal_constants(left, right);
@@ -86,7 +92,7 @@ impl RootRollupInputs {
 
         self.verify_root_parity();
 
-        RootRollupPublicInputs { aggregation_object, archive, header }
+        RootRollupPublicInputs { archive, header }
     }
 
     fn verify_root_parity(self) {

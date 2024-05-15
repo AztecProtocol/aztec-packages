@@ -24,13 +24,16 @@ import {
   type KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type Proof,
   type PublicKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
+  type RecursiveProof,
   type RootParityInput,
   RootParityInputs,
+  type VerificationKeyAsFields,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
@@ -390,7 +393,11 @@ export class ProvingOrchestrator {
     provingState: ProvingState,
     currentLevel: bigint,
     currentIndex: bigint,
-    mergeInputs: [BaseOrMergeRollupPublicInputs, Proof],
+    mergeInputs: [
+      BaseOrMergeRollupPublicInputs,
+      RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+      VerificationKeyAsFields,
+    ],
   ) {
     const mergeLevel = currentLevel - 1n;
     const indexWithinMergeLevel = currentIndex >> 1n;
@@ -439,7 +446,11 @@ export class ProvingOrchestrator {
       result => {
         validatePartialState(result.inputs.end, tx.treeSnapshots);
         const currentLevel = provingState.numMergeLevels + 1n;
-        this.storeAndExecuteNextMergeLevel(provingState, currentLevel, index, [result.inputs, result.proof]);
+        this.storeAndExecuteNextMergeLevel(provingState, currentLevel, index, [
+          result.inputs,
+          result.proof,
+          result.verificationKey,
+        ]);
       },
     );
   }
@@ -453,15 +464,19 @@ export class ProvingOrchestrator {
     mergeInputData: MergeRollupInputData,
   ) {
     const inputs = createMergeRollupInputs(
-      [mergeInputData.inputs[0]!, mergeInputData.proofs[0]!],
-      [mergeInputData.inputs[1]!, mergeInputData.proofs[1]!],
+      [mergeInputData.inputs[0]!, mergeInputData.proofs[0]!, mergeInputData.verificationKeys[0]!],
+      [mergeInputData.inputs[1]!, mergeInputData.proofs[1]!, mergeInputData.verificationKeys[1]!],
     );
 
     this.deferredProving(
       provingState,
       signal => this.prover.getMergeRollupProof(inputs, signal),
       result => {
-        this.storeAndExecuteNextMergeLevel(provingState, level, index, [result.inputs, result.proof]);
+        this.storeAndExecuteNextMergeLevel(provingState, level, index, [
+          result.inputs,
+          result.proof,
+          result.verificationKey,
+        ]);
       },
     );
   }
@@ -478,8 +493,10 @@ export class ProvingOrchestrator {
     const inputs = await getRootRollupInput(
       mergeInputData.inputs[0]!,
       mergeInputData.proofs[0]!,
+      mergeInputData.verificationKeys[0]!,
       mergeInputData.inputs[1]!,
       mergeInputData.proofs[1]!,
+      mergeInputData.verificationKeys[1]!,
       rootParityInput,
       provingState.newL1ToL2Messages,
       provingState.messageTreeSnapshot,
@@ -492,7 +509,7 @@ export class ProvingOrchestrator {
       signal => this.prover.getRootRollupProof(inputs, signal),
       result => {
         provingState.rootRollupPublicInputs = result.inputs;
-        provingState.finalProof = result.proof;
+        provingState.finalProof = result.proof.binaryProof;
 
         const provingResult: ProvingResult = {
           status: PROVING_STATUS.SUCCESS,
@@ -555,7 +572,11 @@ export class ProvingOrchestrator {
     provingState: ProvingState,
     currentLevel: bigint,
     currentIndex: bigint,
-    mergeInputData: [BaseOrMergeRollupPublicInputs, Proof],
+    mergeInputData: [
+      BaseOrMergeRollupPublicInputs,
+      RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+      VerificationKeyAsFields,
+    ],
   ) {
     const result = this.storeMergeInputs(provingState, currentLevel, currentIndex, mergeInputData);
 

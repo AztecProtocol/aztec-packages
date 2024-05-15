@@ -12,21 +12,6 @@ use dep::types::{
 };
 
 /**
- * Create an aggregation object for the proofs that are provided
- *          - We add points P0 for each of our proofs
- *          - We add points P1 for each of our proofs
- *          - We concat our public inputs
- * TODO(Kev): This seems similar to the aggregate_proof method in the private-kernel-lib
- */
-pub fn aggregate_proofs(
-    left: BaseOrMergeRollupPublicInputs,
-    _right: BaseOrMergeRollupPublicInputs
-) -> AggregationObject {
-    // TODO: Similar to cpp code this does not do anything.
-    left.aggregation_object
-}
-
-/**
  * Asserts that the rollup types are the same. 
  * Either both merge or both base
  */

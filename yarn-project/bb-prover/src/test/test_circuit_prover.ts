@@ -22,6 +22,7 @@ import {
   type RootRollupPublicInputs,
   VerificationKeyAsFields,
   makeEmptyProof,
+  makeEmptyRecursiveProof,
   makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -162,7 +163,11 @@ export class TestCircuitProver implements ServerCircuitProver {
       result.toBuffer().length,
       this.logger,
     );
-    return makePublicInputsAndProof(result, makeEmptyProof());
+    return makePublicInputsAndProof(
+      result,
+      makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+      VerificationKeyAsFields.makeFake(),
+    );
   }
   /**
    * Simulates the merge rollup circuit from its inputs.
@@ -187,7 +192,11 @@ export class TestCircuitProver implements ServerCircuitProver {
       result.toBuffer().length,
       this.logger,
     );
-    return makePublicInputsAndProof(result, makeEmptyProof());
+    return makePublicInputsAndProof(
+      result,
+      makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+      VerificationKeyAsFields.makeFake(),
+    );
   }
 
   /**
@@ -211,7 +220,11 @@ export class TestCircuitProver implements ServerCircuitProver {
       result.toBuffer().length,
       this.logger,
     );
-    return makePublicInputsAndProof(result, makeEmptyProof());
+    return makePublicInputsAndProof(
+      result,
+      makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+      VerificationKeyAsFields.makeFake(),
+    );
   }
 
   public async getPublicKernelProof(
@@ -235,7 +248,11 @@ export class TestCircuitProver implements ServerCircuitProver {
       this.logger,
     );
 
-    return makePublicInputsAndProof(result, makeEmptyProof());
+    return makePublicInputsAndProof(
+      result,
+      makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+      VerificationKeyAsFields.makeFake(),
+    );
   }
 
   public async getPublicTailProof(
@@ -258,7 +275,11 @@ export class TestCircuitProver implements ServerCircuitProver {
       this.logger,
     );
 
-    return makePublicInputsAndProof(result, makeEmptyProof());
+    return makePublicInputsAndProof(
+      result,
+      makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+      VerificationKeyAsFields.makeFake(),
+    );
   }
 
   // Not implemented for test circuits

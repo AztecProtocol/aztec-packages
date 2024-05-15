@@ -9,8 +9,10 @@ import {
   type NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   type Proof,
   type RECURSIVE_PROOF_LENGTH,
+  type RecursiveProof,
   type RootParityInput,
   type RootRollupPublicInputs,
+  type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
 
@@ -18,7 +20,11 @@ import { type TxProvingState } from './tx-proving-state.js';
 
 export type MergeRollupInputData = {
   inputs: [BaseOrMergeRollupPublicInputs | undefined, BaseOrMergeRollupPublicInputs | undefined];
-  proofs: [Proof | undefined, Proof | undefined];
+  proofs: [
+    RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined,
+    RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined,
+  ];
+  verificationKeys: [VerificationKeyAsFields | undefined, VerificationKeyAsFields | undefined];
 };
 
 export type TreeSnapshots = Map<MerkleTreeId, AppendOnlyTreeSnapshot>;
@@ -119,7 +125,11 @@ export class ProvingState {
    * @returns True if the merge circuit is ready to be executed, false otherwise
    */
   public storeMergeInputs(
-    mergeInputs: [BaseOrMergeRollupPublicInputs, Proof],
+    mergeInputs: [
+      BaseOrMergeRollupPublicInputs,
+      RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+      VerificationKeyAsFields,
+    ],
     indexWithinMerge: number,
     indexOfMerge: number,
   ) {
@@ -127,15 +137,18 @@ export class ProvingState {
       const mergeInputData: MergeRollupInputData = {
         inputs: [undefined, undefined],
         proofs: [undefined, undefined],
+        verificationKeys: [undefined, undefined],
       };
       mergeInputData.inputs[indexWithinMerge] = mergeInputs[0];
       mergeInputData.proofs[indexWithinMerge] = mergeInputs[1];
+      mergeInputData.verificationKeys[indexWithinMerge] = mergeInputs[2];
       this.mergeRollupInputs[indexOfMerge] = mergeInputData;
       return false;
     }
     const mergeInputData = this.mergeRollupInputs[indexOfMerge];
     mergeInputData.inputs[indexWithinMerge] = mergeInputs[0];
     mergeInputData.proofs[indexWithinMerge] = mergeInputs[1];
+    mergeInputData.verificationKeys[indexWithinMerge] = mergeInputs[2];
     return true;
   }
 
