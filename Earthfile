@@ -40,10 +40,11 @@ UPLOAD_LOGS:
     ARG PULL_REQUEST
     ARG BRANCH
     ARG COMMIT_HASH
+    ARG LOG_FILE=./log
     LOCALLY
     LET COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
     FROM +base-log-uploader
-    COPY ./log /usr/var/log
+    COPY $LOG_FILE /usr/var/log
     ENV PULL_REQUEST=$PULL_REQUEST
     ENV BRANCH=$BRANCH
     ENV COMMIT_HASH=$COMMIT_HASH
