@@ -15,7 +15,7 @@ All key pairs above are derived from a secret using a ZCash inspired scheme defi
 
 :::note
 Additionally, there is typically a signing key pair which is used for authenticating the owner of the account.
-However, since Aztec supports native [account abstraction](../accounts/index#what-is-account-abstraction) this is not defined in protocol.
+However, since Aztec supports native [account abstraction](../accounts/index.md#what-is-account-abstraction) this is not defined in protocol.
 Instead it's up to the account contract developer to implement it.
 :::
 
@@ -40,7 +40,7 @@ Below are some ways how we could instantiate it after getting the information in
 
 #include_code instantiate-complete-address /yarn-project/circuits.js/src/structs/complete_address.test.ts rust
 
-Then to register the recipient's [complete address](#complete-address) in PXE we would call `registerRecipient` PXE endpoint using [Aztec.js](/developers/aztecjs/index.md):
+Then to register the recipient's [complete address](#complete-address) in PXE we would call `registerRecipient` PXE endpoint using [Aztec.js](/aztec/aztec/core_components.md#aztecjs):
 
 #include_code register-recipient /yarn-project/aztec.js/src/wallet/create_recipient.ts rust
 
@@ -108,7 +108,7 @@ Tagging note discovery scheme won't be present in our testnet so we are intentio
 
 ## Signing keys
 
-As mentioned above signing keys are not defined in protocol because of [account abstraction](../accounts/main#what-is-account-abstraction) and instead the key scheme is defined by the account contract.
+As mentioned above signing keys are not defined in protocol because of [account abstraction](../accounts/index.md#what-is-account-abstraction) and instead the key scheme is defined by the account contract.
 
 Usually, an account contract will validate a signature of the incoming payload against a known signing public key.
 

@@ -25,7 +25,7 @@ Bellow are some ways how we could instantiate it after getting the information i
 
 #include_code instantiate-complete-address /yarn-project/circuits.js/src/structs/complete_address.test.ts rust
 
-Then to register the recipient's [complete address](../../../../learn/concepts/accounts/keys.md#complete-address) in PXE we would call `registerRecipient` PXE endpoint using [Aztec.js](../../../aztecjs/main.md):
+Then to register the recipient's [complete address](/aztec/aztec/concepts/accounts/keys.md#complete-address) in PXE we would call `registerRecipient` PXE endpoint using [Aztec.js](/aztec/aztec/core_components.md#aztecjs):
 
 #include_code register-recipient /yarn-project/aztec.js/src/wallet/create_recipient.ts rust
 
