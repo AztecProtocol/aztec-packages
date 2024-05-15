@@ -1,9 +1,9 @@
 import {
   type AztecAddress,
+  type CompleteAddress,
   type Fr,
   type GrumpkinPrivateKey,
   type PartialAddress,
-  type Point,
   type PublicKey,
 } from '@aztec/circuits.js';
 
@@ -13,17 +13,17 @@ import {
 export interface KeyStore {
   /**
    * Creates a new account from a randomly generated secret key.
-   * @returns A promise that resolves to the newly created account's AztecAddress.
+   * @returns A promise that resolves to the newly created account's CompleteAddress.
    */
-  createAccount(): Promise<AztecAddress>;
+  createAccount(): Promise<CompleteAddress>;
 
   /**
    * Adds an account to the key store from the provided secret key.
    * @param sk - The secret key of the account.
    * @param partialAddress - The partial address of the account.
-   * @returns The account's address.
+   * @returns The account's complete address.
    */
-  addAccount(sk: Fr, partialAddress: PartialAddress): Promise<AztecAddress>;
+  addAccount(sk: Fr, partialAddress: PartialAddress): Promise<CompleteAddress>;
 
   /**
    * Retrieves addresses of accounts stored in the key store.
@@ -34,10 +34,10 @@ export interface KeyStore {
   /**
    * Gets the master nullifier public key for a given account or master nullifier public key hash.
    * @throws If the account does not exist in the key store.
-   * @param account or master nullifier public key hash - The account address or master nullifier public key hash for which to retrieve the master nullifier public key.
+   * @param accountOrNpkMHash - account address or master nullifier public key hash.
    * @returns The master nullifier public key for the account.
    */
-  getMasterNullifierPublicKey(accountOrMasterNullifierPublicKeyHash: AztecAddress | Fr): Promise<PublicKey>;
+  getMasterNullifierPublicKey(accountOrNpkMHash: AztecAddress | Fr): Promise<PublicKey>;
 
   /**
    * Gets the master incoming viewing public key for a given account.
@@ -66,11 +66,11 @@ export interface KeyStore {
   /**
    * Derives and returns the application nullifier secret key for a given account or master nullifier public key hash.
    * @throws If the account does not exist in the key store.
-   * @param account or master nullifier public key hash - The account address or master nullifier public key hash for which to retrieve the application nullifier secret key.
+   * @param accountOrNpkMHash - account address or master nullifier public key hash.
    * @param app - The application address to retrieve the nullifier secret key for.
    * @returns A Promise that resolves to the application nullifier secret key.
    */
-  getAppNullifierSecretKey(accountOrMasterNullifierPublicKeyHash: AztecAddress | Fr, app: AztecAddress): Promise<Fr>;
+  getAppNullifierSecretKey(accountOrNpkMHash: AztecAddress | Fr, app: AztecAddress): Promise<Fr>;
 
   /**
    * Retrieves application incoming viewing secret key.
@@ -117,30 +117,4 @@ export interface KeyStore {
    * @returns A Promise that resolves to the public keys hash.
    */
   getPublicKeysHash(account: AztecAddress): Promise<Fr>;
-
-  /**
-   * Gets the account address for a given master nullifier public key hash.
-   * @throws If the master nullifier public key hash does not exist in the key store.
-   * @param masterNullifierPublicKeyHash - The master nullifier public key hash for which to retrieve the address.
-   * @returns The address for the account.
-   */
-  getAccountAddressForMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr): AztecAddress;
-
-  /**
-   * This is used to register a recipient / for storing public keys of an address
-   * @param accountAddress - The account address to store keys for.
-   * @param masterNullifierPublicKey - The stored master nullifier public key
-   * @param masterIncomingViewingPublicKey - The stored incoming viewing public key
-   * @param masterOutgoingViewingPublicKey - The stored outgoing viewing public key
-   * @param masterTaggingPublicKey - The stored master tagging public key
-   * @remarks This also adds the master nullifier public key hash to the store for the recipient
-   */
-  // TODO(#5834): Move this function out of here. Key store should only be used for accounts, not recipients
-  addPublicKeysForAccount(
-    accountAddress: AztecAddress,
-    masterNullifierPublicKey: Point,
-    masterIncomingViewingPublicKey: Point,
-    masterOutgoingViewingPublicKey: Point,
-    masterTaggingPublicKey: Point,
-  ): Promise<void>;
 }

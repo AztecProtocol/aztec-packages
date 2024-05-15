@@ -1,8 +1,5 @@
-use dep::aztec::{
-    prelude::{AztecAddress, PrivateContext, PrivateSet, NoteGetterOptions},
-    note::note_getter_options::SortOrder, oracle::get_public_key::get_public_key,
-    keys::getters::get_npk_m_hash
-};
+use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateSet, NoteGetterOptions};
+use dep::aztec::note::note_getter_options::SortOrder;
 use crate::{filter::filter_notes_min_sum, value_note::{ValueNote, VALUE_NOTE_LEN}};
 
 // Sort the note values (0th field) in descending order.

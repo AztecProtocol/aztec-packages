@@ -1,10 +1,4 @@
-import {
-  type AztecAddress,
-  type CompleteAddress,
-  type Fr,
-  type PartialAddress,
-  type PublicKeys,
-} from '@aztec/circuits.js';
+import { type AztecAddress, type CompleteAddress, type Fr, type PartialAddress } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
@@ -74,14 +68,12 @@ export interface PXE {
    * in order to be able to encrypt data for this recipient.
    *
    * @param recipient - The complete address of the recipient
-   * @param publicKeys - The public keys of the recipient (see #5834)
    * @remarks Called recipient because we can only send notes to this account and not receive them via this PXE Service.
    * This is because we don't have the associated private key and for this reason we can't decrypt
    * the recipient's notes. We can send notes to this account because we can encrypt them with the recipient's
    * public key.
    */
-  // TODO: #5834: Nuke publicKeys optional parameter after `CompleteAddress` refactor.
-  registerRecipient(recipient: CompleteAddress, publicKeys?: PublicKeys): Promise<void>;
+  registerRecipient(recipient: CompleteAddress): Promise<void>;
 
   /**
    * Retrieves the user accounts registered on this PXE Service.
@@ -97,25 +89,6 @@ export interface PXE {
    * @returns The complete address of the requested account if found.
    */
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
-
-  /**
-   * Retrieves the public keys hash of the account corresponding to the provided aztec address.
-   *
-   * @param address - The address of account.
-   * @returns The public keys hash of the requested account if found.
-   * TODO(#5834): refactor complete address and merge with getRegisteredAccount?
-   */
-  getRegisteredAccountPublicKeysHash(address: AztecAddress): Promise<Fr | undefined>;
-
-  /**
-   * Retrieves the public keys of the account corresponding to the provided aztec address.
-   *
-   * @param address - The address of account.
-   * @returns The public keys of the requested account if found.
-   * TODO(#5834): refactor complete address and merge with getRegisteredAccount?
-   * This will change after the re enabling separation of keystore and pxe. We shouldn't need both this function and the above one
-   */
-  getRegisteredAccountPublicKeys(address: AztecAddress): Promise<PublicKeys | undefined>;
 
   /**
    * Retrieves the recipients added to this PXE Service.

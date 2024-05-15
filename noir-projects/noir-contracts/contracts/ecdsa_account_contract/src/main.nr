@@ -9,7 +9,7 @@ contract EcdsaAccount {
     use dep::std;
 
     use dep::aztec::{
-        context::{PublicContext, Context}, oracle::get_public_key::get_public_key,
+        context::Context,
         keys::getters::get_npk_m_hash
     };
     use dep::authwit::{
@@ -29,7 +29,7 @@ contract EcdsaAccount {
     // Creates a new account out of an ECDSA public key to use for signature verification
     #[aztec(private)]
     #[aztec(initializer)]
-    fn constructor(signing_pub_key_x: pub [u8; 32], signing_pub_key_y: pub [u8; 32]) {
+    fn constructor(signing_pub_key_x: [u8; 32], signing_pub_key_y: [u8; 32]) {
         let this = context.this_address();
         let this_npk_m_hash = get_npk_m_hash(&mut context, this);
         let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_npk_m_hash);
@@ -38,7 +38,7 @@ contract EcdsaAccount {
 
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts
     #[aztec(private)]
-    fn entrypoint(app_payload: pub AppPayload, fee_payload: pub FeePayload) {
+    fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload) {
         let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.entrypoint(app_payload, fee_payload);
     }

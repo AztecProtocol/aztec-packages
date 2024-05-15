@@ -1,0 +1,26 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../circuit-types"
+    },
+    {
+      "path": "../circuits.js"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
+      "path": "../simulator"
+    }
+  ],
+  "include": ["src"]
+}

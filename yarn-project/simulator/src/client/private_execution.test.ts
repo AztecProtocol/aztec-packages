@@ -5,6 +5,7 @@ import {
   Note,
   PackedValues,
   PublicDataWitness,
+  SiblingPath,
   TxExecutionRequest,
 } from '@aztec/circuit-types';
 import {
@@ -22,8 +23,6 @@ import {
   PartialStateReference,
   PublicCallRequest,
   PublicDataTreeLeafPreimage,
-  type PublicKey,
-  type PublicKeys,
   StateReference,
   TxContext,
   computeAppNullifierSecretKey,
@@ -43,7 +42,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { type AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
+import { type AppendOnlyTree, INITIAL_LEAF, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   ChildContractArtifact,
   ImportTestContractArtifact,
@@ -83,10 +82,6 @@ describe('Private Execution test suite', () => {
   let ownerCompleteAddress: CompleteAddress;
   let recipientCompleteAddress: CompleteAddress;
 
-  let ownerMasterNullifierPublicKey: PublicKey;
-  let ownerPublicKeys: PublicKeys;
-  let recipientMasterNullifierPublicKey: PublicKey;
-  let recipientPublicKeys: PublicKeys;
   let ownerMasterNullifierSecretKey: GrumpkinPrivateKey;
   let recipientMasterNullifierSecretKey: GrumpkinPrivateKey;
 
@@ -182,68 +177,61 @@ describe('Private Execution test suite', () => {
 
     const ownerPartialAddress = Fr.random();
     ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
-
-    const allOwnerKeys = deriveKeys(ownerSk);
-    ownerMasterNullifierPublicKey = allOwnerKeys.masterNullifierPublicKey;
-    ownerMasterNullifierSecretKey = allOwnerKeys.masterNullifierSecretKey;
-    ownerPublicKeys = {
-      masterNullifierPublicKey: allOwnerKeys.masterNullifierPublicKey,
-      masterIncomingViewingPublicKey: allOwnerKeys.masterIncomingViewingPublicKey,
-      masterOutgoingViewingPublicKey: allOwnerKeys.masterOutgoingViewingPublicKey,
-      masterTaggingPublicKey: allOwnerKeys.masterTaggingPublicKey,
-    };
+    ownerMasterNullifierSecretKey = deriveKeys(ownerSk).masterNullifierSecretKey;
 
     const recipientPartialAddress = Fr.random();
     recipientCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(recipientSk, recipientPartialAddress);
-
-    const allRecipientKeys = deriveKeys(recipientSk);
-    recipientMasterNullifierPublicKey = allRecipientKeys.masterNullifierPublicKey;
-    recipientMasterNullifierSecretKey = allRecipientKeys.masterNullifierSecretKey;
-    recipientPublicKeys = {
-      masterNullifierPublicKey: allRecipientKeys.masterNullifierPublicKey,
-      masterIncomingViewingPublicKey: allRecipientKeys.masterIncomingViewingPublicKey,
-      masterOutgoingViewingPublicKey: allRecipientKeys.masterOutgoingViewingPublicKey,
-      masterTaggingPublicKey: allRecipientKeys.masterTaggingPublicKey,
-    };
+    recipientMasterNullifierSecretKey = deriveKeys(recipientSk).masterNullifierSecretKey;
 
     owner = ownerCompleteAddress.address;
     recipient = recipientCompleteAddress.address;
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     trees = {};
     oracle = mock<DBOracle>();
-    oracle.getNullifierKeys.mockImplementation((accountAddress: AztecAddress, contractAddress: AztecAddress) => {
-      if (accountAddress.equals(ownerCompleteAddress.address)) {
-        return Promise.resolve({
-          masterNullifierPublicKey: ownerMasterNullifierPublicKey,
-          appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
-        });
-      }
-      if (accountAddress.equals(recipientCompleteAddress.address)) {
-        return Promise.resolve({
-          masterNullifierPublicKey: recipientMasterNullifierPublicKey,
-          appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
-        });
-      }
-      throw new Error(`Unknown address ${accountAddress}`);
-    });
-    oracle.getNullifierKeys.mockImplementation((masterNullifierPublicKeyHash: Fr, contractAddress: AztecAddress) => {
-      if (masterNullifierPublicKeyHash.equals(poseidon2Hash(ownerMasterNullifierPublicKey.toFields()))) {
-        return Promise.resolve({
-          masterNullifierPublicKey: ownerMasterNullifierPublicKey,
-          appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
-        });
-      }
-      if (masterNullifierPublicKeyHash.equals(poseidon2Hash(recipientMasterNullifierPublicKey.toFields()))) {
-        return Promise.resolve({
-          masterNullifierPublicKey: recipientMasterNullifierPublicKey,
-          appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
-        });
-      }
-      throw new Error(`Unknown master nullifier public key hash: ${masterNullifierPublicKeyHash}`);
-    });
+    oracle.getNullifierKeys.mockImplementation(
+      (accountOrNpkMHash: AztecAddress | Fr, contractAddress: AztecAddress) => {
+        if (accountOrNpkMHash.equals(ownerCompleteAddress.address)) {
+          return Promise.resolve({
+            masterNullifierPublicKey: ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
+            appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
+          });
+        }
+        if (accountOrNpkMHash.equals(recipientCompleteAddress.address)) {
+          return Promise.resolve({
+            masterNullifierPublicKey: recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
+            appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
+          });
+        }
+        throw new Error(`Unknown address ${accountOrNpkMHash}`);
+      },
+    );
+
+    // We call insertLeaves here with no leaves to populate empty public data tree root --> this is necessary to be
+    // able to get ivpk_m during execution
+    await insertLeaves([], 'publicData');
     oracle.getHeader.mockResolvedValue(header);
+
+    oracle.getCompleteAddress.mockImplementation((accountOrNpkMHash: AztecAddress | Fr) => {
+      if (accountOrNpkMHash.equals(owner)) {
+        return Promise.resolve(ownerCompleteAddress);
+      }
+      if (accountOrNpkMHash.equals(recipient)) {
+        return Promise.resolve(recipientCompleteAddress);
+      }
+      throw new Error(`Unknown address ${accountOrNpkMHash}`);
+    });
+    // This oracle gets called when reading ivpk_m from key registry --> we return zero witness indicating that
+    // the keys were not registered. This triggers non-registered keys flow in which getCompleteAddress oracle
+    // gets called and we constrain the result by hashing address preimage and checking it matches.
+    oracle.getPublicDataTreeWitness.mockResolvedValue(
+      new PublicDataWitness(
+        0n,
+        PublicDataTreeLeafPreimage.empty(),
+        SiblingPath.ZERO(PUBLIC_DATA_TREE_HEIGHT, INITIAL_LEAF, new Pedersen()),
+      ),
+    );
 
     acirSimulator = new AcirSimulator(oracle, node);
   });
@@ -319,47 +307,7 @@ describe('Private Execution test suite', () => {
       };
     };
 
-    beforeEach(async () => {
-      oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
-        if (address.equals(owner)) {
-          return Promise.resolve(ownerCompleteAddress);
-        }
-        if (address.equals(recipient)) {
-          return Promise.resolve(recipientCompleteAddress);
-        }
-        throw new Error(`Unknown address ${address}`);
-      });
-
-      oracle.getPublicKeysForAddress.mockImplementation((address: AztecAddress) => {
-        if (address.equals(owner)) {
-          return Promise.resolve({
-            masterNullifierPublicKey: ownerPublicKeys.masterNullifierPublicKey,
-            masterIncomingViewingPublicKey: ownerPublicKeys.masterIncomingViewingPublicKey,
-            masterOutgoingViewingPublicKey: ownerPublicKeys.masterOutgoingViewingPublicKey,
-            masterTaggingPublicKey: ownerPublicKeys.masterTaggingPublicKey,
-          });
-        }
-        if (address.equals(recipient)) {
-          return Promise.resolve({
-            masterNullifierPublicKey: recipientPublicKeys.masterNullifierPublicKey,
-            masterIncomingViewingPublicKey: recipientPublicKeys.masterIncomingViewingPublicKey,
-            masterOutgoingViewingPublicKey: recipientPublicKeys.masterOutgoingViewingPublicKey,
-            masterTaggingPublicKey: recipientPublicKeys.masterTaggingPublicKey,
-          });
-        }
-        throw new Error(`Unknown address ${address}`);
-      });
-
-      oracle.getCompleteAddressWithNpkMH.mockImplementation((masterNullifierPublicKeyHash: Fr) => {
-        if (masterNullifierPublicKeyHash.equals(poseidon2Hash(ownerMasterNullifierPublicKey.toFields()))) {
-          return Promise.resolve(ownerCompleteAddress);
-        }
-        if (masterNullifierPublicKeyHash.equals(poseidon2Hash(recipientMasterNullifierPublicKey.toFields()))) {
-          return Promise.resolve(recipientCompleteAddress);
-        }
-        throw new Error(`Unknown master nullifier public key hash: ${masterNullifierPublicKeyHash}`);
-      });
-
+    beforeEach(() => {
       oracle.getFunctionArtifactByName.mockImplementation((_, functionName: string) =>
         Promise.resolve(getFunctionArtifact(StatefulTestContractArtifact, functionName)),
       );
@@ -521,7 +469,7 @@ describe('Private Execution test suite', () => {
 
       const readRequests = getNonEmptyItems(result.callStackItem.publicInputs.noteHashReadRequests).map(r => r.value);
       expect(readRequests).toHaveLength(consumedNotes.length);
-      expect(readRequests).toEqual(expect.arrayContaining(consumedNotes.map(n => n.siloedNoteHash)));
+      expect(readRequests).toEqual(expect.arrayContaining(consumedNotes.map(n => n.uniqueNoteHash)));
     });
 
     it('should be able to destroy_and_create with dummy notes', async () => {
@@ -649,15 +597,6 @@ describe('Private Execution test suite', () => {
 
   describe('consuming messages', () => {
     const contractAddress = defaultContractAddress;
-
-    beforeEach(() => {
-      oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
-        if (address.equals(recipient)) {
-          return Promise.resolve(recipientCompleteAddress);
-        }
-        throw new Error(`Unknown address ${address}`);
-      });
-    });
 
     describe('L1 to L2', () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'consume_mint_private_message');
@@ -959,45 +898,25 @@ describe('Private Execution test suite', () => {
     });
   });
 
-  describe('pending note hashes contract', () => {
-    beforeEach(() => {
-      oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
-        if (address.equals(owner)) {
-          return Promise.resolve(ownerCompleteAddress);
-        }
-        throw new Error(`Unknown address ${address}`);
-      });
-      oracle.getCompleteAddressWithNpkMH.mockImplementation((masterNullifierPublicKeyHash: Fr) => {
-        if (masterNullifierPublicKeyHash.equals(poseidon2Hash(ownerMasterNullifierPublicKey.toFields()))) {
-          return Promise.resolve(ownerCompleteAddress);
-        }
-        if (masterNullifierPublicKeyHash.equals(poseidon2Hash(recipientMasterNullifierPublicKey.toFields()))) {
-          return Promise.resolve(recipientCompleteAddress);
-        }
-        throw new Error(`Unknown master nullifier public key hash: ${masterNullifierPublicKeyHash}`);
-      });
-      oracle.getPublicKeysForAddress.mockImplementation((address: AztecAddress) => {
-        if (address.equals(owner)) {
-          return Promise.resolve({
-            masterNullifierPublicKey: ownerPublicKeys.masterNullifierPublicKey,
-            masterIncomingViewingPublicKey: ownerPublicKeys.masterIncomingViewingPublicKey,
-            masterOutgoingViewingPublicKey: ownerPublicKeys.masterOutgoingViewingPublicKey,
-            masterTaggingPublicKey: ownerPublicKeys.masterTaggingPublicKey,
-          });
-        }
-        if (address.equals(recipient)) {
-          return Promise.resolve({
-            masterNullifierPublicKey: recipientPublicKeys.masterNullifierPublicKey,
-            masterIncomingViewingPublicKey: recipientPublicKeys.masterIncomingViewingPublicKey,
-            masterOutgoingViewingPublicKey: recipientPublicKeys.masterOutgoingViewingPublicKey,
-            masterTaggingPublicKey: recipientPublicKeys.masterTaggingPublicKey,
-          });
-        }
-        throw new Error(`Unknown address ${address}`);
-      });
+  describe('setting fee payer', () => {
+    it('should default to not being a fee payer', async () => {
+      // arbitrary random function that doesn't set a fee payer
+      const entrypoint = getFunctionArtifact(TestContractArtifact, 'emit_msg_sender');
+      const contractAddress = AztecAddress.random();
+      const result = await runSimulator({ artifact: entrypoint, contractAddress });
+      expect(result.callStackItem.publicInputs.isFeePayer).toBe(false);
     });
 
-    beforeEach(async () => {
+    it('should be able to set a fee payer', async () => {
+      const entrypoint = getFunctionArtifact(TestContractArtifact, 'test_setting_fee_payer');
+      const contractAddress = AztecAddress.random();
+      const result = await runSimulator({ artifact: entrypoint, contractAddress });
+      expect(result.callStackItem.publicInputs.isFeePayer).toBe(true);
+    });
+  });
+
+  describe('pending note hashes contract', () => {
+    beforeEach(() => {
       oracle.getFunctionArtifact.mockImplementation((_, selector) =>
         Promise.resolve(getFunctionArtifact(PendingNoteHashesContractArtifact, selector)),
       );
@@ -1180,15 +1099,15 @@ describe('Private Execution test suite', () => {
     });
   });
 
-  describe('get public key', () => {
+  describe('get master incoming viewing public key', () => {
     it('gets the public key for an address', async () => {
       // Tweak the contract artifact so we can extract return values
-      const artifact = getFunctionArtifact(TestContractArtifact, 'get_public_key');
+      const artifact = getFunctionArtifact(TestContractArtifact, 'get_master_incoming_viewing_public_key');
 
       // Generate a partial address, pubkey, and resulting address
       const completeAddress = CompleteAddress.random();
       const args = [completeAddress.address];
-      const pubKey = completeAddress.publicKey;
+      const pubKey = completeAddress.publicKeys.masterIncomingViewingPublicKey;
 
       oracle.getCompleteAddress.mockResolvedValue(completeAddress);
       const result = await runSimulator({ artifact, args });

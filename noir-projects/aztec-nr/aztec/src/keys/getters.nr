@@ -3,21 +3,14 @@ use dep::protocol_types::{
     hash::poseidon2_hash
 };
 use crate::{
-    context::PrivateContext, oracle::keys::get_public_keys_and_partial_address,
+    context::PrivateContext,
+    oracle::keys::{get_public_keys_and_partial_address, get_public_keys_and_partial_address_with_npk_m_hash},
+    keys::public_keys::{PublicKeys, NULLIFIER_INDEX, INCOMING_INDEX},
     state_vars::{
     map::derive_storage_slot_in_map,
     shared_mutable::shared_mutable_private_getter::SharedMutablePrivateGetter
 }
 };
-
-// Note: In fetch_key_from_registry we expect that the shared mutable slot is index * 2 + 1 for the x coordinate and
-// index * 2 + 2 for the y coordinate. For example, the npk_m x coordinates will be stored in a map at storage slot
-// 0 * 2 + 1 = 1, and the npk_m y coordinates at 2 * 2 + 2 = 6. If this changes the function will need to be
-// refactored.
-global NULLIFIER_INDEX = 0;
-global INCOMING_INDEX = 1;
-global OUTGOING_INDEX = 2;
-global TAGGING_INDEX = 3;
 
 global DELAY = 5;
 
@@ -50,7 +43,9 @@ fn get_master_key(
     let key = fetch_key_from_registry(context, key_index, address);
     if key.is_zero() {
         // Keys were not registered in registry yet --> fetch key from PXE
-        fetch_and_constrain_keys(address)[key_index]
+        let keys = fetch_and_constrain_keys(address);
+        // Return the corresponding to index
+        keys.get_key_by_index(key_index)
     } else {
         // Keys were registered --> return the key
         key
@@ -84,23 +79,17 @@ fn fetch_key_from_registry(
 }
 
 // Passes only when keys were not rotated - is expected to be called only when keys were not registered yet
-fn fetch_and_constrain_keys(address: AztecAddress) -> [GrumpkinPoint; 4] {
+fn fetch_and_constrain_keys(address: AztecAddress) -> PublicKeys {
     let (public_keys, partial_address) = get_public_keys_and_partial_address(address);
 
-    let nullifier_pub_key = public_keys[0];
-    let incoming_pub_key = public_keys[1];
-    let outgoing_pub_key = public_keys[2];
-    let tagging_pub_key = public_keys[3];
-
-    let computed_address = AztecAddress::compute_from_public_keys_and_partial_address(
-        nullifier_pub_key,
-        incoming_pub_key,
-        outgoing_pub_key,
-        tagging_pub_key,
-        partial_address
-    );
+    let computed_address = AztecAddress::compute(public_keys.hash(), partial_address);
 
     assert(computed_address.eq(address));
 
-    [nullifier_pub_key, incoming_pub_key, outgoing_pub_key, tagging_pub_key]
+    public_keys
+}
+
+pub fn get_ivpk_m_with_npk_m_hash(npk_m_hash: Field) -> GrumpkinPoint {
+    let result = get_public_keys_and_partial_address_with_npk_m_hash(npk_m_hash);
+    result.0.ivpk_m
 }

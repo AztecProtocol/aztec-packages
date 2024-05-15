@@ -5,7 +5,7 @@ import {
   type NullifierMembershipWitness,
   type PublicDataWitness,
 } from '@aztec/circuit-types';
-import { type CompleteAddress, type Header, type PublicKeys } from '@aztec/circuits.js';
+import { type CompleteAddress, type Header } from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
@@ -44,18 +44,12 @@ export interface DBOracle extends CommitmentsDB {
   getContractInstance(address: AztecAddress): Promise<ContractInstance>;
 
   /**
-   * Retrieve the complete address associated to a given address.
-   * @param address - Address to fetch the pubkey for.
-   * @returns A complete address associated with the input address.
+   * Retrieve the complete address associated to a given address or master nullifier public key hash.
+   * @param accountOrNpkMHash - account address or master nullifier public key hash.
+   * @returns A complete address associated with the input address or master nullifier public key hash
+   * @throws An error if the account is not registered in the database.
    */
-  getCompleteAddress(address: AztecAddress): Promise<CompleteAddress>;
-
-  /**
-   * Retrieve the complete address associated to a given master nullifier public key hash.
-   * @param masterNullifierPublicKeyHash - Master nullifier public key hash to fetch the complete address for.
-   * @returns A complete address associated with the input master nullifier public key hash.
-   */
-  getCompleteAddressWithNpkMH(masterNullifierPublicKeyHash: Fr): Promise<CompleteAddress>;
+  getCompleteAddress(accountOrNpkMHash: AztecAddress | Fr): Promise<CompleteAddress>;
 
   /**
    * Retrieve the auth witness for a given message hash.
@@ -72,22 +66,12 @@ export interface DBOracle extends CommitmentsDB {
   popCapsule(): Promise<Fr[]>;
 
   /**
-   * Gets public keys for an address.
-   * @param The address to look up
-   * @returns The public keys for a specific address
-   * TODO(#5834): Replace with `getCompleteAddress`.
+   * Retrieve nullifier keys associated with a specific account or master nullifier public key and app address.
+   * @param accountOrNpkMHash - account address or master nullifier public key hash.
+   * @returns A Promise that resolves to nullifier keys.
+   * @throws If the nullifier keys are not registered in the key store.
    */
-  getPublicKeysForAddress(address: AztecAddress): Promise<PublicKeys>;
-
-  /**
-   * Retrieve nullifier keys associated with a specific master nullifier public key hash and app/contract address.
-   *
-   * @param masterNullifierPublicKeyHash - The master nullifer public key hash.
-   * @param contractAddress - The contract address.
-   * @returns A Promise that resolves to nullifier keys of a requested account and contract.
-   * @throws An error if the account is not registered in the database.
-   */
-  getNullifierKeys(masterNullifierPublicKeyHash: Fr, contractAddress: AztecAddress): Promise<NullifierKeys>;
+  getNullifierKeys(accountOrNpkMHash: AztecAddress | Fr, contractAddress: AztecAddress): Promise<NullifierKeys>;
 
   /**
    * Retrieves a set of notes stored in the database for a given contract address and storage slot.

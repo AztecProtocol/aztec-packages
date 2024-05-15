@@ -6,9 +6,6 @@
     ".": "./dest/index.js",
     "./prover-pool": "./dest/prover-pool/index.js"
   },
-  "bin": {
-    "bb-cli": "./dest/bb/index.js"
-  },
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts"
@@ -53,6 +50,7 @@
     ]
   },
   "dependencies": {
+    "@aztec/bb-prover": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",

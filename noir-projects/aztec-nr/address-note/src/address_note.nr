@@ -1,7 +1,8 @@
 use dep::aztec::{
+    keys::getters::get_ivpk_m,
     protocol_types::{address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER},
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
-    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_nsk_app, get_public_key::get_public_key_with_npk_m_hash},
+    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_nsk_app_with_npk_m_hash},
     context::PrivateContext, hash::poseidon2_hash
 };
 
@@ -30,7 +31,7 @@ impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nsk_app(self.npk_m_hash);
+        let secret = get_nsk_app_with_npk_m_hash(self.npk_m_hash);
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
@@ -40,14 +41,13 @@ impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
 
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
-        // TODO (#5901): This will be refactored completely when we update the encryped log format
-        let encryption_pub_key = get_public_key_with_npk_m_hash(self.npk_m_hash);
+        let ivpk_m = get_ivpk_m_with_npk_m_hash(self.npk_m_hash);
         // docs:start:encrypted
         context.emit_encrypted_log(
             (*context).this_address(),
             slot,
             Self::get_note_type_id(),
-            encryption_pub_key,
+            ivpk_m,
             self.serialize_content(),
         );
         // docs:end:encrypted
