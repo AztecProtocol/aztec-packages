@@ -79,6 +79,26 @@ class GoblinMockCircuits {
         MockCircuits::construct_goblin_ecc_op_circuit(builder);
     }
 
+    static void construct_mock_function_circuit_new(GoblinUltraBuilder& builder, bool large = false)
+    {
+        // Determine number of times to execute the below operations that constitute the mock circuit logic. Note that
+        // the circuit size does not scale linearly with number of iterations due to e.g. amortization of lookup costs
+        const size_t NUM_ITERATIONS_LARGE = 12; // results in circuit size 2^19 (502238 gates)
+        const size_t NUM_ITERATIONS_MEDIUM = 3; // results in circuit size 2^17 (124843 gates)
+        const size_t NUM_ITERATIONS = large ? NUM_ITERATIONS_LARGE : NUM_ITERATIONS_MEDIUM;
+
+        stdlib::generate_sha256_test_circuit(builder, NUM_ITERATIONS); // min gates: ~39k
+        stdlib::generate_ecdsa_verification_test_circuit(builder, 2);  // min gates: ~41k
+        stdlib::generate_merkle_membership_test_circuit(builder, 8);   // min gates: ~29k
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
+        // function circuit because we cannot support zero commtiments. While the builder handles this at
+        // ProverInstance creation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other UGH
+        // circuits (where we don't explicitly need to add goblin ops), in ClientIVC merge proving happens prior to
+        // folding where the absense of goblin ecc ops will result in zero commitments.
+        MockCircuits::construct_goblin_ecc_op_circuit(builder);
+    }
+
     /**
      * @brief Mock the interactions of a simple curcuit with the op_queue
      * @todo The transcript aggregation protocol in the Goblin proof system can not yet support an empty "previous
@@ -221,6 +241,19 @@ class GoblinMockCircuits {
         FoldingRecursiveVerifier verifier_1{ &builder, native_acc, { func.inst_vk } };
         auto fctn_verifier_accum = verifier_1.verify_folding_proof(func.fold_proof);
         return std::make_shared<VerifierInstance>(fctn_verifier_accum->get_value());
+    }
+
+    static void construct_mock_folding_kernel_new(GoblinUltraBuilder& builder)
+    {
+
+        // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make
+        // the kernel "full" within the dyadic size 2^17 (130914 gates)
+        const size_t NUM_MERKLE_CHECKS = 20;
+        const size_t NUM_ECDSA_VERIFICATIONS = 2;
+        const size_t NUM_SHA_HASHES = 1;
+        stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
+        stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
+        stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
     }
 
     /**

@@ -46,6 +46,7 @@ void ClientIVC::accumulate_new(ClientCircuit& circuit, const std::shared_ptr<Ver
 
     // Construct the prover instance for the updated circuit
     prover_instance = std::make_shared<ProverInstance>(circuit, structured_flag);
+    info("num_gates = ", circuit.get_num_gates());
     info("circuit size = ", prover_instance->proving_key.circuit_size);
 
     // Set the instance verification key from precomputed if available, else compute it

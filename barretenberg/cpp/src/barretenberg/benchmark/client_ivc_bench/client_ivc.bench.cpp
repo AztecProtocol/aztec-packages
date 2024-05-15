@@ -153,7 +153,105 @@ class ClientIVCBench : public benchmark::Fixture {
             kernel_fold_output = { kernel_fold_proof, ivc.vks.kernel_vk };
         }
     }
+
+    static void perform_ivc_accumulation_rounds_new(State& state, ClientIVC& ivc)
+    {
+        const size_t size_hint = 1 << 17; // Size hint for reserving wires/selector vector memory in builders
+        std::vector<Builder> initial_function_circuits(2);
+
+        // Construct 2 starting function circuits in parallel
+        {
+            BB_OP_COUNT_TIME_NAME("construct_circuits");
+            parallel_for(2, [&](size_t circuit_index) {
+                GoblinMockCircuits::construct_mock_function_circuit_new(initial_function_circuits[circuit_index]);
+            });
+        };
+
+        // Prepend queue to the first circuit
+        initial_function_circuits[0].op_queue->prepend_previous_queue(*ivc.goblin.op_queue);
+        // Initialize ivc
+        info("function");
+        ivc.accumulate_new(initial_function_circuits[0]);
+        // Retrieve the queue
+        std::swap(*ivc.goblin.op_queue, *initial_function_circuits[0].op_queue);
+
+        // Prepend queue to the second circuit
+        initial_function_circuits[1].op_queue->prepend_previous_queue(*ivc.goblin.op_queue);
+        // Accumulate another function circuit
+        info("function");
+        ivc.accumulate_new(initial_function_circuits[1]);
+        // Retrieve the queue
+        std::swap(*ivc.goblin.op_queue, *initial_function_circuits[1].op_queue);
+
+        // Free memory
+        initial_function_circuits.clear();
+
+        auto NUM_CIRCUITS = static_cast<size_t>(state.range(0));
+        // Subtract two to account for the "initialization" round above i.e. we have already folded two function
+        // circuits
+        NUM_CIRCUITS -= 2;
+
+        VerifierFoldData kernel_fold_output;
+        for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
+            Builder kernel_circuit{ size_hint, ivc.goblin.op_queue };
+            Builder function_circuit{ size_hint };
+            // Construct function and kernel circuits in parallel
+            {
+                BB_OP_COUNT_TIME_NAME("construct_circuits");
+                parallel_for(2, [&](size_t workload_idx) {
+                    // workload index is 0 for kernel and 1 for function
+                    if (workload_idx == 0) {
+                        GoblinMockCircuits::construct_mock_folding_kernel_new(kernel_circuit);
+                    } else {
+                        GoblinMockCircuits::construct_mock_function_circuit_new(function_circuit);
+                    }
+                });
+            };
+
+            // No need to prepend queue, it's the same after last swap
+            // Accumulate kernel circuit
+            info("kernel");
+            ivc.accumulate_new(kernel_circuit);
+
+            // Prepend queue to function circuit
+            function_circuit.op_queue->prepend_previous_queue(*ivc.goblin.op_queue);
+
+            // Accumulate function circuit
+            info("function");
+            ivc.accumulate_new(function_circuit);
+
+            // Retrieve queue
+            std::swap(*ivc.goblin.op_queue, *function_circuit.op_queue);
+        }
+
+        // Final kernel
+        Builder kernel_circuit{ size_hint, ivc.goblin.op_queue };
+        {
+            BB_OP_COUNT_TIME_NAME("construct_circuits");
+            GoblinMockCircuits::construct_mock_folding_kernel_new(kernel_circuit);
+        }
+        info("kernel");
+        ivc.accumulate_new(kernel_circuit);
+    }
 };
+
+/**
+ * @brief Benchmark the prover work for the full PG-Goblin IVC protocol
+ *
+ */
+BENCHMARK_DEFINE_F(ClientIVCBench, FullNew)(benchmark::State& state)
+{
+    ClientIVC ivc;
+    // ivc.precompute_folding_verification_keys();
+    for (auto _ : state) {
+        BB_REPORT_OP_COUNT_IN_BENCH(state);
+        // Perform a specified number of iterations of function/kernel accumulation
+        perform_ivc_accumulation_rounds_new(state, ivc);
+
+        // Construct IVC scheme proof (fold, decider, merge, eccvm, translator)
+        ivc.prove();
+    }
+}
 
 /**
  * @brief Benchmark the prover work for the full PG-Goblin IVC protocol
@@ -270,6 +368,7 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Translator)(benchmark::State& state)
         ->Arg(1 << 5)                                                                                                  \
         ->Arg(1 << 6)
 
+BENCHMARK_REGISTER_F(ClientIVCBench, FullNew)->Unit(benchmark::kMillisecond)->ARGS;
 BENCHMARK_REGISTER_F(ClientIVCBench, Full)->Unit(benchmark::kMillisecond)->ARGS;
 BENCHMARK_REGISTER_F(ClientIVCBench, FullStructured)->Unit(benchmark::kMillisecond)->ARGS;
 BENCHMARK_REGISTER_F(ClientIVCBench, Accumulate)->Unit(benchmark::kMillisecond)->ARGS;
