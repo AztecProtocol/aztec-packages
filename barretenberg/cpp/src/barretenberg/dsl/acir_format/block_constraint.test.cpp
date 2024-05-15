@@ -167,9 +167,11 @@ TEST_F(GoblinPlonk, TestDatabus)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .recursive = false,
+        .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
+        .aes128_constraints = {},
         .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
