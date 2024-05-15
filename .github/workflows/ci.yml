@@ -137,7 +137,7 @@ jobs:
           # if they fail to copy, it will try to build them on the tester and fail
           builder_images_to_copy: aztecprotocol/barretenberg-acir-benches-bb:${{ env.GIT_COMMIT }}
           # command to produce the images in case they don't exist
-          builder_command: cd noir && ../scripts/earthly-ci +bench-barretenberg-acir-benches-bb
+          builder_command: cd noir && ../scripts/earthly-ci +export-barretenberg-acir-benches-bb
           run: |
             set -eux
             cd ./noir/
