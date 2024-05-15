@@ -43,14 +43,8 @@ scripts:
 remote-cache:
     ARG module
     LOCALLY
-    FOR module IN
-    barretenberg/cpp build-images barretenberg/cpp barretenberg/ts noir l1-contracts avm-transpiler
-        # Publish one module at a time to avoid problems with too much serialization work at end.
-        # See https://docs.earthly.dev/docs/earthfile#wait for semantics
-            FOR target IN $(cat $module/Earthfile | grep '#aztec-tag=cache' | cut -d':' -f1)
-                # WAIT
-                BUILD ./$module/+$target
-                # END
-            END
+    # Publish one module at a time to avoid problems with too much serialization work at end.
+    FOR target IN $(cat $module/Earthfile | grep '#aztec-tag=cache' | cut -d':' -f1)
+        BUILD ./$module/+$target
     END
 
