@@ -246,19 +246,25 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn propagate_fee_payer() {
+    unconstrained fn propagate_fee_payer_init_succeeds() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
         let fee_payer = builder.private_call.public_inputs.call_context.storage_contract_address;
         builder.private_call.public_inputs.is_fee_payer = true;
         let public_inputs = builder.execute();
         assert_eq(public_inputs.fee_payer, fee_payer);
+    }
 
+    #[test]
+    unconstrained fn propagate_fee_payer_not_set_succeeds() {
         // Check that the fee payer is not set if is_fee_payer is false
         let mut builder = PrivateKernelInnerInputsBuilder::new();
         assert_eq(builder.private_call.public_inputs.is_fee_payer, false);
         let public_inputs = builder.execute();
         assert_eq(public_inputs.fee_payer, AztecAddress::empty());
+    }
 
+    #[test]
+    unconstrained fn propagate_fee_payer_carry_forward_succeeds() {
         // Check that we carry forward if the fee payer is already set
         let mut builder = PrivateKernelInnerInputsBuilder::new();
         let fee_payer = AztecAddress::from_field(123);
