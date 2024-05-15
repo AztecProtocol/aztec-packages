@@ -58,15 +58,20 @@ This means that it will be possible to nullify the notes with the same old key a
 These guardrails are typically in place so a user should not lose her notes even if this unfortunate accident happens.
 
 ## Scoped keys
-Even though all the keys above are derived from the same secret, all of them are scoped (also called app-siloed) to the contract that requests them.
-This means that the keys used for the same user in two different application contracts will be different.
+To minimize damage of potential key leaks the keys are scoped (also called app-siloed) to the contract that requests them.
+This means that the keys used for the same user in two different application contracts will be different and potential leak of the scoped keys would only affect 1 application.
 
-This allows per-application auditability.
+This also allows per-application auditability.
 A user may choose to disclose their incoming and outgoing viewing keys for a given application to an auditor or regulator (or for 3rd party interfaces, e.g. giving access to a block explorer to display my activity), as a means to reveal all their activity within that context, while retaining privacy across all other applications in the network.
 
 In the case of nullifier keys, there is also a security reason involved.
 Since the nullifier secret is exposed to the application contract to be used in the nullifier computation, the contract may accidentally or maliciously leak it.
 If that happens, only the nullifier secret for that application is compromised (`nsk_app` and not `nsk_m`).
+
+Above we mentioned that the notes typically contain `Npk_m`.
+It might seem like a mistake given that the notes are nullified with `nsk_app`.
+This is intentional and instead of directly trying to derive `Npk_m` from `nsk_app` we instead verify that both of the keys were derived from the same `nsk_m` in our protocol circuits.
+If you are curious how the derivation scheme works head over to [protocol specification](../../../protocol-specs/addresses-and-keys/example-usage/nullifier#diagram).
 
 ## Protocol key types
 All the keys bellow are Grumpkin keys (public keys derived on the Grumpkin curve).
