@@ -212,7 +212,7 @@ barretenberg-acir-benches-bb:
 
   WORKDIR /usr/src/barretenberg/acir_tests
 
-export-barretenberg-acir-benches-bb:
+export-bench-acir-bb:
   ARG EARTHLY_GIT_HASH
   FROM +barretenberg-acir-benches-bb
   SAVE IMAGE aztecprotocol/barretenberg-acir-benches:$EARTHLY_GIT_HASH
@@ -232,7 +232,7 @@ FOO:
   RUN touch ./log
   RUN docker run -v "$(pwd)/log":/log -e LOG_FILE=/log --rm aztecprotocol/barretenberg-acir-benches:$AZTEC_DOCKER_TAG ./bench_acir_tests.sh sha256
 
-bench-barretenberg-acir-benches-bb:
+bench-publish-acir-bb:
   ARG PULL_REQUEST
   ARG BRANCH
   ARG COMMIT_HASH

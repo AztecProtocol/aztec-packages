@@ -137,16 +137,17 @@ jobs:
           # if they fail to copy, it will try to build them on the tester and fail
           builder_images_to_copy:  aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/barretenberg-acir-benches:${{ env.GIT_COMMIT }}
           # command to produce the images in case they don't exist
-          builder_command: cd noir && ../scripts/earthly-ci +export-barretenberg-acir-benches-bb
+          builder_command: cd noir && ../scripts/earthly-ci +export-bench-acir-bb
           run: |
             set -eux
             cd ./noir/
             export FORCE_COLOR=1
+            export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
             ../scripts/earthly-ci -P \
               --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
               --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
               --no-output \
-              +bench-barretenberg-acir-benches-bb         
+              +bench-publish-acir-bb         
 
   bench-summary:
     needs: bench-e2e
