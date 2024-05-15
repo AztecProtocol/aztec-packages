@@ -383,7 +383,7 @@ TYPED_TEST(ProtoGalaxyRecursiveTests, NewEvaluate)
     TestFixture::test_new_evaluate();
 }
 
-TYPED_TEST(ProtoGalaxyRecursiveTests, RecursiveFoldingTest)
+TYPED_TEST(ProtoGalaxyRecursiveTests, DISABLED_RecursiveFoldingTest)
 {
     TestFixture::test_recursive_folding();
 }

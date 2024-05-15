@@ -64,8 +64,8 @@ jobs:
     # needs: build
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     env:
-      EARTHLY_PUSH: ${{ github.ref_name == 'ad/inline-caching' && 'true' || 'false'}}
-      EARTHLY_SAVE_INLINE_CACHE: ${{ github.ref_name == 'ad/inline-caching' && 'true' || 'false'}}
+      EARTHLY_PUSH: true #${{ github.ref_name == 'ad/inline-caching' && 'true' || 'false'}}
+      EARTHLY_SAVE_INLINE_CACHE: true #${{ github.ref_name == 'ad/inline-caching' && 'true' || 'false'}}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
