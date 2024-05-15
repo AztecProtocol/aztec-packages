@@ -103,10 +103,10 @@ impl Deck {
     }
 
     pub fn add_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
-        let _context = self.set.context.private.unwrap();
+        let context = self.set.context.private.unwrap();
 
-        let owner_npk_m_hash = get_npk_m_hash(self.set.context.private.unwrap(), owner);
-        let owner_ivpk_m = get_ivpk_m(self.set.context.private.unwrap(), owner);
+        let owner_npk_m_hash = get_npk_m_hash(context, owner);
+        let owner_ivpk_m = get_ivpk_m(context, owner);
 
         let mut inserted_cards = &[];
         for card in cards {
@@ -129,6 +129,7 @@ impl Deck {
                 let card_note = CardNote::from_note(maybe_notes[i].unwrap_unchecked());
                 // Ensure the notes are actually owned by the owner (to prevent user from generating a valid proof while
                 // spending someone else's notes).
+                // TODO (#6312): This will break with key rotation. Fix this. Will not be able to pass this assert after rotating keys.
                 assert(card_note.note.npk_m_hash.eq(owner_npk_m_hash));
 
                 for j in 0..cards.len() {

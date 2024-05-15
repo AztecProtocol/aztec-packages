@@ -128,7 +128,12 @@ describe('e2e_key_rotation', () => {
     await contract.methods.redeem_shield(recipient, balance, secret).send().wait();
   };
 
-  it('rotates key', async () => {
+  it(`We test key rotation in four steps.
+    1. We transfer funds from A to B.
+    2. We rotate B's keys by calling rotateMasterNullifierKey on our wallet and by calling rotate_npk_m on the Key Registry.
+    3. After the key rotation has been applied, we then transfer more funds from A to B.
+    4. We finally send all of the funds back from B to A, proving that all the funds sent before and after key rotation are spendable,
+    and that we are able to spend notes associated with different nullifying keys`, async () => {
     const initialBalance = 987n;
     const transferAmount1 = 654n;
     // const transferAmount2 = 323n;

@@ -61,6 +61,7 @@ contract InclusionProofs {
     ) {
         let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
 
+        // TODO (#6312): This will break with key rotation. Fix this. Will not be able to find any notes after rotating key.
         // docs:start:get_note_from_pxe
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner);
@@ -116,6 +117,7 @@ contract InclusionProofs {
     ) {
         let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
 
+        // TODO (#6312): This will break with key rotation. Fix this. Will not be able to find any notes after rotating key.
         // 2) Get the note from PXE
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
@@ -149,6 +151,7 @@ contract InclusionProofs {
     ) {
         let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
 
+        // TODO (#6312): This will break with key rotation. Fix this. Will not be able to find any notes after rotating key.
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
@@ -178,6 +181,7 @@ contract InclusionProofs {
     fn nullify_note(owner: AztecAddress) {
         let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
 
+        // TODO (#6312): This will break with key rotation. Fix this. Will not be able to find any notes after rotating key.
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
         options = options.select(

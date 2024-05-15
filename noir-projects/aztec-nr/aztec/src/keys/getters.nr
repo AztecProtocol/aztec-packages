@@ -1,12 +1,11 @@
 use dep::protocol_types::{
     address::AztecAddress, constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint,
-    hash::poseidon2_hash
 };
 use crate::{
     context::PrivateContext,
     oracle::{
     keys::get_public_keys_and_partial_address,
-    nullifier_key::{NullifierKeys, get_nullifier_keys as get_nullifier_keys_oracle}
+    nullifier_keys::{NullifierKeys, get_nullifier_keys as get_nullifier_keys_oracle}
 },
     keys::public_keys::{PublicKeys, NULLIFIER_INDEX, INCOMING_INDEX},
     state_vars::{
@@ -22,7 +21,7 @@ pub fn get_npk_m(context: &mut PrivateContext, address: AztecAddress) -> Grumpki
 }
 
 pub fn get_npk_m_hash(context: &mut PrivateContext, address: AztecAddress) -> Field {
-    poseidon2_hash(get_master_key(context, address, NULLIFIER_INDEX).serialize())
+    get_master_key(context, address, NULLIFIER_INDEX).hash()
 }
 
 pub fn get_ivpk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
@@ -95,7 +94,7 @@ fn fetch_and_constrain_keys(address: AztecAddress) -> PublicKeys {
 // We get the full struct Nullifier Keys here
 pub fn get_nullifier_keys(npk_m_hash: Field) -> NullifierKeys {
     let nullifier_keys = get_nullifier_keys_oracle(npk_m_hash);
-    assert_eq(poseidon2_hash(nullifier_keys.master_nullifier_public_key.serialize()), npk_m_hash);
+    assert_eq(nullifier_keys.master_nullifier_public_key.hash(), npk_m_hash);
 
     nullifier_keys
 }

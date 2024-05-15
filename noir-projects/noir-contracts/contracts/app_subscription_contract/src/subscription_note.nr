@@ -11,7 +11,7 @@ global SUBSCRIPTION_NOTE_LEN: Field = 3;
 // TODO: Do we need to include a nonce, in case we want to read/nullify/recreate with the same pubkey value?
 #[aztec(note)]
 struct SubscriptionNote {
-    // The nullifying public key hash is used with the app_nullifier_secret_key to ensure that the note can be privately spent.
+    // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
     npk_m_hash: Field,
     expiry_block_number: Field,
     remaining_txs: Field,

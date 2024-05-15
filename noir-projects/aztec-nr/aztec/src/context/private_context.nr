@@ -3,7 +3,7 @@ use crate::{
     keys::getters::get_nullifier_keys, messaging::process_l1_to_l2_message,
     hash::{hash_args_array, ArgsHasher, compute_encrypted_log_hash, compute_unencrypted_log_hash},
     oracle::{
-    nullifier_key::NullifierKeys, arguments, returns,
+    nullifier_keys::NullifierKeys, arguments, returns,
     call_private_function::call_private_function_internal, header::get_header_at,
     logs::emit_encrypted_log, logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog},
     enqueue_public_function_call::{
@@ -31,7 +31,7 @@ use dep::protocol_types::{
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint, header::Header,
     messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader,
-    traits::{is_empty, Deserialize, Empty}, hash::poseidon2_hash
+    traits::{is_empty, Deserialize, Empty}
 };
 
 // When finished, one can call .finish() to convert back to the abi
@@ -207,7 +207,7 @@ impl PrivateContext {
         // A value of empty nullifier keys will fail the key validation request.
         let cached_nullifier_keys = self.nullifier_key.unwrap_or(NullifierKeys::empty());
 
-        let nullifier_keys = if poseidon2_hash(cached_nullifier_keys.master_nullifier_public_key.serialize()) == npk_m_hash {
+        let nullifier_keys = if cached_nullifier_keys.master_nullifier_public_key.hash() == npk_m_hash {
             cached_nullifier_keys
         } else {
             let fetched_nullifier_keys = get_nullifier_keys(npk_m_hash);
@@ -220,7 +220,7 @@ impl PrivateContext {
             fetched_nullifier_keys
         };
 
-        assert_eq(poseidon2_hash(nullifier_keys.master_nullifier_public_key.serialize()), npk_m_hash);
+        assert_eq(nullifier_keys.master_nullifier_public_key.hash(), npk_m_hash);
         nullifier_keys.app_nullifier_secret_key
     }
 
