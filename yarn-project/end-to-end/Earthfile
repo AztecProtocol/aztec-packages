@@ -138,8 +138,8 @@ e2e-non-contract-account:
 e2e-note-getter:
   DO +E2E_TEST --test=./src/e2e_note_getter.test.ts
 
-client-prover-integration:
-  DO +E2E_TEST --test=./src/client_prover_integration/client_prover_integration.test.ts
+e2e-prover:
+  DO +E2E_TEST --test=./src/e2e_provr/e2e_prover.test.ts
 
 e2e-ordering:
   DO +E2E_TEST --test=./src/e2e_ordering.test.ts
