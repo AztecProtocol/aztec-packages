@@ -426,10 +426,32 @@ export async function proofAsFieldsUltraHonk(proofPath: string, outputPath: stri
 
     if (outputPath === '-') {
       process.stdout.write(jsonProofAsFields);
-      debug(`proofAsFields written to stdout`);
+      debug(`proofAsFieldsUltraHonk written to stdout`);
     } else {
       writeFileSync(outputPath, jsonProofAsFields);
-      debug(`proofAsFields written to: ${outputPath}`);
+      debug(`proofAsFieldsUltraHonk written to: ${outputPath}`);
+    }
+
+    debug('done.');
+  } finally {
+    await api.destroy();
+  }
+}
+
+export async function vkAsFieldsUltraHonk(vkPath: string, vkeyOutputPath: string) {
+  const { api } = await initLite();
+
+  try {
+    debug('serializing vk byte array into field elements');
+    const vkAsFields = await api.acirVkAsFieldsUltraHonk(new RawBuffer(readFileSync(vkPath)));
+    const jsonVKAsFields = JSON.stringify(vkAsFields.map(f => f.toString()));
+
+    if (vkeyOutputPath === '-') {
+      process.stdout.write(jsonVKAsFields);
+      debug(`vkAsFieldsUltraHonk written to stdout`);
+    } else {
+      writeFileSync(vkeyOutputPath, jsonVKAsFields);
+      debug(`vkAsFieldsUltraHonk written to: ${vkeyOutputPath}`);
     }
 
     debug('done.');
@@ -452,7 +474,7 @@ function handleGlobalOptions() {
 program
   .command('prove_and_verify')
   .description('Generate a proof and verify it. Process exits with success or failure code.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .action(async ({ bytecodePath, witnessPath, crsPath }) => {
     handleGlobalOptions();
@@ -463,7 +485,7 @@ program
 program
   .command('prove_and_verify_ultra_honk')
   .description('Generate an UltraHonk proof and verify it. Process exits with success or failure code.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .action(async ({ bytecodePath, witnessPath, crsPath }) => {
     handleGlobalOptions();
@@ -474,7 +496,7 @@ program
 program
   .command('prove_and_verify_goblin_ultra_honk')
   .description('Generate a GUH proof and verify it. Process exits with success or failure code.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .action(async ({ bytecodePath, witnessPath, crsPath }) => {
     handleGlobalOptions();
@@ -485,7 +507,7 @@ program
 program
   .command('prove_and_verify_goblin')
   .description('Generate a Goblin proof and verify it. Process exits with success or failure code.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .action(async ({ bytecodePath, witnessPath, crsPath }) => {
     handleGlobalOptions();
@@ -496,7 +518,7 @@ program
 program
   .command('prove')
   .description('Generate a proof and write it to a file.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
   .action(async ({ bytecodePath, witnessPath, outputPath, crsPath }) => {
@@ -507,7 +529,7 @@ program
 program
   .command('gates')
   .description('Print gate count to standard output.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .action(async ({ bytecodePath: bytecodePath }) => {
     handleGlobalOptions();
     await gateCount(bytecodePath);
@@ -527,7 +549,7 @@ program
 program
   .command('contract')
   .description('Output solidity verification key contract.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-o, --output-path <path>', 'Specify the path to write the contract', './target/contract.sol')
   .requiredOption('-k, --vk-path <path>', 'Path to a verification key. avoids recomputation.')
   .action(async ({ outputPath, vkPath }) => {
@@ -538,8 +560,8 @@ program
 program
   .command('write_vk')
   .description('Output verification key.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
-  .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
+  .option('-o, --output-path <path>', 'Specify the path to write the key')
   .action(async ({ bytecodePath, outputPath, crsPath }) => {
     handleGlobalOptions();
     await writeVk(bytecodePath, crsPath, outputPath);
@@ -548,7 +570,7 @@ program
 program
   .command('write_pk')
   .description('Output proving key.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
   .action(async ({ bytecodePath, outputPath, crsPath }) => {
     handleGlobalOptions();
@@ -588,7 +610,7 @@ program
 program
   .command('prove_ultra_honk')
   .description('Generate a proof and write it to a file.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
   .action(async ({ bytecodePath, witnessPath, outputPath, crsPath }) => {
@@ -599,7 +621,7 @@ program
 program
   .command('write_vk_ultra_honk')
   .description('Output verification key.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
   .action(async ({ bytecodePath, outputPath, crsPath }) => {
     handleGlobalOptions();
@@ -625,6 +647,16 @@ program
   .action(async ({ proofPath, outputPath }) => {
     handleGlobalOptions();
     await proofAsFieldsUltraHonk(proofPath, outputPath);
+  });
+
+program
+  .command('vk_as_fields_ultra_honk')
+  .description('Return the verification key represented as fields elements.')
+  .requiredOption('-k, --vk-path <path>', 'Path to verification key.')
+  .requiredOption('-o, --output-path <path>', 'Specify the JSON path to write the verification key fields.')
+  .action(async ({ vkPath, outputPath }) => {
+    handleGlobalOptions();
+    await vkAsFieldsUltraHonk(vkPath, outputPath);
   });
 
 program.name('bb.js').parse(process.argv);
