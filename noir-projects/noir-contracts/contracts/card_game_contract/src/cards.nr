@@ -1,8 +1,8 @@
 use dep::aztec::prelude::{AztecAddress, FunctionSelector, PrivateContext, NoteHeader, NoteGetterOptions, NoteViewerOptions};
 
 use dep::aztec::{
-    protocol_types::{traits::{ToField, Serialize, FromField}, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL}, note::note_getter::view_notes, state_vars::PrivateSet,
-    note::constants::MAX_NOTES_PER_PAGE
+    protocol_types::{traits::{ToField, Serialize, FromField}, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
+    note::note_getter::view_notes, state_vars::PrivateSet, note::constants::MAX_NOTES_PER_PAGE
 };
 use dep::std;
 use dep::std::{option::Option};

@@ -3,9 +3,11 @@ contract Child {
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, PublicMutable, PrivateSet, PrivateContext, Deserialize};
 
     use dep::aztec::{
-        context::{PublicContext, gas::GasOpts},
-        protocol_types::{abis::{call_context::CallContext}},
-        note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions, note_header::NoteHeader}
+        context::{PublicContext, gas::GasOpts}, protocol_types::{abis::{call_context::CallContext}},
+        note::{
+        note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions,
+        note_header::NoteHeader
+    }
     };
     use dep::value_note::value_note::ValueNote;
 
