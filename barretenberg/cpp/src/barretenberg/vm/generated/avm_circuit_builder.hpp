@@ -319,8 +319,8 @@ template <typename FF> struct AvmFullRow {
     FF perm_main_mem_ind_d{};
     FF lookup_byte_lengths{};
     FF lookup_byte_operations{};
-    FF lookup_into_kernel{};
     FF kernel_output_lookup{};
+    FF lookup_into_kernel{};
     FF incl_main_tag_err{};
     FF incl_mem_tag_err{};
     FF lookup_mem_rng_chk_lo{};
@@ -354,8 +354,8 @@ template <typename FF> struct AvmFullRow {
     FF lookup_div_u16_7{};
     FF lookup_byte_lengths_counts{};
     FF lookup_byte_operations_counts{};
-    FF lookup_into_kernel_counts{};
     FF kernel_output_lookup_counts{};
+    FF lookup_into_kernel_counts{};
     FF incl_main_tag_err_counts{};
     FF incl_mem_tag_err_counts{};
     FF lookup_mem_rng_chk_lo_counts{};
@@ -720,8 +720,8 @@ class AvmCircuitBuilder {
             polys.avm_mem_w_in_tag[i] = rows[i].avm_mem_w_in_tag;
             polys.lookup_byte_lengths_counts[i] = rows[i].lookup_byte_lengths_counts;
             polys.lookup_byte_operations_counts[i] = rows[i].lookup_byte_operations_counts;
-            polys.lookup_into_kernel_counts[i] = rows[i].lookup_into_kernel_counts;
             polys.kernel_output_lookup_counts[i] = rows[i].kernel_output_lookup_counts;
+            polys.lookup_into_kernel_counts[i] = rows[i].lookup_into_kernel_counts;
             polys.incl_main_tag_err_counts[i] = rows[i].incl_main_tag_err_counts;
             polys.incl_mem_tag_err_counts[i] = rows[i].incl_mem_tag_err_counts;
             polys.lookup_mem_rng_chk_lo_counts[i] = rows[i].lookup_mem_rng_chk_lo_counts;
@@ -969,13 +969,13 @@ class AvmCircuitBuilder {
                 "LOOKUP_BYTE_OPERATIONS");
         };
 
-        auto lookup_into_kernel = [=]() {
-            return evaluate_logderivative.template operator()<lookup_into_kernel_relation<FF>>("LOOKUP_INTO_KERNEL");
-        };
-
         auto kernel_output_lookup = [=]() {
             return evaluate_logderivative.template operator()<kernel_output_lookup_relation<FF>>(
                 "KERNEL_OUTPUT_LOOKUP");
+        };
+
+        auto lookup_into_kernel = [=]() {
+            return evaluate_logderivative.template operator()<lookup_into_kernel_relation<FF>>("LOOKUP_INTO_KERNEL");
         };
 
         auto incl_main_tag_err = [=]() {
@@ -1143,9 +1143,9 @@ class AvmCircuitBuilder {
 
         relation_futures.emplace_back(std::async(std::launch::async, lookup_byte_operations));
 
-        relation_futures.emplace_back(std::async(std::launch::async, lookup_into_kernel));
-
         relation_futures.emplace_back(std::async(std::launch::async, kernel_output_lookup));
+
+        relation_futures.emplace_back(std::async(std::launch::async, lookup_into_kernel));
 
         relation_futures.emplace_back(std::async(std::launch::async, incl_main_tag_err));
 
@@ -1252,9 +1252,9 @@ class AvmCircuitBuilder {
 
         lookup_byte_operations();
 
-        lookup_into_kernel();
-
         kernel_output_lookup();
+
+        lookup_into_kernel();
 
         incl_main_tag_err();
 

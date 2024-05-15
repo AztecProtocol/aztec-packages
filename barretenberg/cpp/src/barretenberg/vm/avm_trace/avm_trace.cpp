@@ -15,8 +15,6 @@
 #include "avm_mem_trace.hpp"
 #include "avm_trace.hpp"
 #include "barretenberg/vm/avm_trace/avm_kernel_trace.hpp"
-#include "barretenberg/vm/avm_trace/aztec_constants.hpp"
-#include "barretenberg/vm/avm_trace/constants.hpp"
 
 namespace bb::avm_trace {
 

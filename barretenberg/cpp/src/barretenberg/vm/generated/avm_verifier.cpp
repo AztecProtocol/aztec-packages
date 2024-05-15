@@ -238,6 +238,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_byte_lookup_table_op_id);
     commitments.avm_byte_lookup_table_output =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_byte_lookup_table_output);
+    commitments.avm_kernel_emit_l2_to_l1_msg_write_offset = transcript->template receive_from_prover<Commitment>(
+        commitment_labels.avm_kernel_emit_l2_to_l1_msg_write_offset);
     commitments.avm_kernel_emit_note_hash_write_offset =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_kernel_emit_note_hash_write_offset);
     commitments.avm_kernel_emit_nullifier_write_offset =
@@ -364,6 +366,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_coinbase);
     commitments.avm_main_sel_op_div =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_div);
+    commitments.avm_main_sel_op_emit_l2_to_l1_msg =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_emit_l2_to_l1_msg);
     commitments.avm_main_sel_op_emit_note_hash =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_emit_note_hash);
     commitments.avm_main_sel_op_emit_nullifier =
@@ -396,8 +400,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_or);
     commitments.avm_main_sel_op_portal =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_portal);
-    commitments.avm_main_sel_op_emit_l2_to_l1_msg =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_emit_l2_to_l1_msg);
     commitments.avm_main_sel_op_sender =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_sender);
     commitments.avm_main_sel_op_shl =
@@ -477,10 +479,10 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_lengths_counts);
     commitments.lookup_byte_operations_counts =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_operations_counts);
-    commitments.lookup_into_kernel_counts =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_into_kernel_counts);
     commitments.kernel_output_lookup_counts =
         transcript->template receive_from_prover<Commitment>(commitment_labels.kernel_output_lookup_counts);
+    commitments.lookup_into_kernel_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_into_kernel_counts);
     commitments.incl_main_tag_err_counts =
         transcript->template receive_from_prover<Commitment>(commitment_labels.incl_main_tag_err_counts);
     commitments.incl_mem_tag_err_counts =
@@ -571,10 +573,10 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_lengths);
     commitments.lookup_byte_operations =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_operations);
-    commitments.lookup_into_kernel =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_into_kernel);
     commitments.kernel_output_lookup =
         transcript->template receive_from_prover<Commitment>(commitment_labels.kernel_output_lookup);
+    commitments.lookup_into_kernel =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_into_kernel);
     commitments.incl_main_tag_err =
         transcript->template receive_from_prover<Commitment>(commitment_labels.incl_main_tag_err);
     commitments.incl_mem_tag_err =

@@ -3,14 +3,13 @@ use crate::{
     messaging::process_l1_to_l2_message,
     hash::{hash_args_array, ArgsHasher, compute_encrypted_log_hash, compute_unencrypted_log_hash},
     oracle::{
-    arguments, returns, call_private_function::call_private_function_internal,
+    arguments, returns, call_private_function::call_private_function_internal, header::get_header_at,
+    logs::emit_encrypted_log, logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog},
+    nullifier_key::{get_nullifier_keys, get_nullifier_keys_with_npk_m_hash, NullifierKeys},
     enqueue_public_function_call::{
     enqueue_public_function_call_internal, set_public_teardown_function_call_internal,
     parse_public_call_stack_item_from_oracle
-},
-    header::get_header_at, logs::emit_encrypted_log,
-    logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog},
-    nullifier_key::{get_nullifier_keys, NullifierKeys}
+}
 }
 };
 use dep::protocol_types::{
@@ -29,8 +28,10 @@ use dep::protocol_types::{
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_ENCRYPTED_LOGS_PER_CALL,
     MAX_UNENCRYPTED_LOGS_PER_CALL
 },
-    grumpkin_point::GrumpkinPoint, header::Header, messaging::l2_to_l1_message::L2ToL1Message,
-    traits::{is_empty, Deserialize, Empty}
+    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
+    grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint, header::Header,
+    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader,
+    traits::{is_empty, Deserialize, Empty}, hash::poseidon2_hash
 };
 
 // When finished, one can call .finish() to convert back to the abi
@@ -40,6 +41,7 @@ struct PrivateContext {
     side_effect_counter: u32,
 
     min_revertible_side_effect_counter: u32,
+    is_fee_payer: bool,
 
     args_hash: Field,
     return_hash: Field,
@@ -115,6 +117,7 @@ impl PrivateContext {
             inputs,
             side_effect_counter,
             min_revertible_side_effect_counter,
+            is_fee_payer: false,
             args_hash,
             return_hash: 0,
             max_block_number: MaxBlockNumber::empty(),
@@ -159,6 +162,7 @@ impl PrivateContext {
             args_hash: self.args_hash,
             returns_hash: self.return_hash,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
+            is_fee_payer: self.is_fee_payer,
             max_block_number: self.max_block_number,
             note_hash_read_requests: self.note_hash_read_requests.storage,
             nullifier_read_requests: self.nullifier_read_requests.storage,
@@ -178,6 +182,10 @@ impl PrivateContext {
             historical_header: self.historical_header,
             tx_context: self.inputs.tx_context
         }
+    }
+
+    pub fn set_as_fee_payer(&mut self) {
+        self.is_fee_payer = true;
     }
 
     pub fn end_setup(&mut self) {
@@ -217,6 +225,29 @@ impl PrivateContext {
             assert(keys.account == account, "Cannot query nullifier key for more than one account per call");
             keys
         };
+        keys.app_nullifier_secret_key
+    }
+
+    // TODO(#5630) Replace request_app_nullifier_secret_key above with this once we no longer get app nullifier secret key with address
+    pub fn request_nsk_app_with_npk_m_hash(&mut self, npk_m_hash: Field) -> Field {
+        let keys = if self.nullifier_key.is_none() {
+            let keys = get_nullifier_keys_with_npk_m_hash(npk_m_hash);
+            let request = NullifierKeyValidationRequest {
+                master_nullifier_public_key: keys.master_nullifier_public_key,
+                app_nullifier_secret_key: keys.app_nullifier_secret_key
+            };
+            self.nullifier_key_validation_requests.push(request);
+            self.nullifier_key = Option::some(keys);
+            keys
+        } else {
+            let keys = self.nullifier_key.unwrap_unchecked();
+            // If MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL is larger than 1, need to update the way the key pair is cached.
+            assert(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL == 1);
+            keys
+        };
+
+        // We have to check if the key that was requested or cached corresponds to the one we request for
+        assert_eq(poseidon2_hash(keys.master_nullifier_public_key.serialize()), npk_m_hash);
         keys.app_nullifier_secret_key
     }
 
@@ -286,7 +317,7 @@ impl PrivateContext {
         contract_address: AztecAddress,
         storage_slot: Field,
         note_type_id: Field,
-        encryption_pub_key: GrumpkinPoint,
+        ivpk_m: GrumpkinPoint,
         preimage: [Field; N]
     ) where [Field; N]: LensForEncryptedLog<N, M, L> {
         // TODO(1139): perform encryption in the circuit
@@ -296,7 +327,7 @@ impl PrivateContext {
             contract_address,
             storage_slot,
             note_type_id,
-            encryption_pub_key,
+            ivpk_m,
             preimage,
             counter
         );
@@ -608,6 +639,7 @@ impl Empty for PrivateContext {
             inputs: PrivateContextInputs::empty(),
             side_effect_counter: 0 as u32,
             min_revertible_side_effect_counter: 0 as u32,
+            is_fee_payer: false,
             args_hash: 0,
             return_hash: 0,
             max_block_number: MaxBlockNumber::empty(),

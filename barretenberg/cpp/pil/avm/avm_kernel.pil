@@ -78,5 +78,3 @@ namespace avm_kernel(256);
     NOT_LAST * (sload_write_offset' - (sload_write_offset + avm_main.sel_op_sload)) = 0;
     #[SSTORE_INC_CONSISTENCY_CHECK]
     NOT_LAST * (sstore_write_offset' - (sstore_write_offset + avm_main.sel_op_sstore)) = 0;
-
-    

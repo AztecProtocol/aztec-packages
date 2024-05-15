@@ -6,15 +6,54 @@ keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### [Aztec.nr] Keys: Token note now stores an owner master nullifying public key hash instead of an owner address.
+
+i.e.
+
+struct TokenNote {
+    amount: U128,
+    ```diff
+    - owner: AztecAddress,
+    + npk_m_hash: Field,
+    ```
+    randomness: Field,
+}
+
+Computing the nullifier similarly changes to use this master nullifying public key hash.
+
+### [Aztec.nr] Debug logging
+
+The function `debug_log_array_with_prefix` has been removed. Use `debug_log_format` with `{}` instead. The special sequence `{}` will be replaced with the whole array. You can also use `{0}`, `{1}`, ... as usual with `debug_log_format`.
+
+```diff
+- debug_log_array_with_prefix("Prefix", my_array);
++ debug_log_format("Prefix {}", my_array);
+```
+
 ## 0.39.0
 
 ### [Aztec.nr] Mutable delays in `SharedMutable`
 
 The type signature for `SharedMutable` changed from `SharedMutable<T, DELAY>` to `SharedMutable<T, INITIAL_DELAY>`. The behavior is the same as before, except the delay can now be changed after deployment by calling `schedule_delay_change`.
 
+### [Aztec.nr] get_public_key oracle replaced with get_ivpk_m
+
+When implementing changes according to a [new key scheme](https://yp-aztec.netlify.app/docs/addresses-and-keys/keys) we had to change oracles.
+What used to be called encryption public key is now master incoming viewing public key.
+
+```diff
+- use dep::aztec::oracles::get_public_key::get_public_key;
++ use dep::aztec::keys::getters::get_ivpk_m;
+
+- let encryption_pub_key = get_public_key(self.owner);
++ let ivpk_m = get_ivpk_m(context, self.owner);
+```
+
 ## 0.38.0
 
-### [Aztec.nr] Emmiting encrypted logs
+### [Aztec.nr] Emitting encrypted logs
 
 The `emit_encrypted_log` function is now a context method.
 
