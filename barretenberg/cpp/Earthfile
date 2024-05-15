@@ -94,8 +94,9 @@ preset-wasm-bench: #aztec-tag=cache
     DO +PRESET --preset=wasm-threads --targets="ultra_honk_bench client_ivc_bench" --tag=bench
 
 # test images
-preset-release-assert-test: #aztec-tag=cache
-    DO +PRESET --preset=clang16-assert --targets="all" --tag=test
+preset-release-assert-test:
+    FROM +source
+    RUN cmake --preset wasm -Bbuild && cmake --build build
 
 # Sent to the bench runner using a earthly --push +bench-binaries
 # then we can run earthly +bench-ultra-honk --bench_mode=cache

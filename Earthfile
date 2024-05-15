@@ -42,7 +42,7 @@ scripts:
 # See https://docs.earthly.dev/docs/caching/caching-via-registry#inline-cache for inline caching details
 remote-cache:
     LOCALLY
-    FOR module IN noir barretenberg/cpp barretenberg/ts l1-contracts avm-transpiler
+    FOR module IN build-images barretenberg/cpp noir barretenberg/ts l1-contracts avm-transpiler
         FOR target IN $(cat $module/Earthfile | grep '#aztec-tag=cache' | cut -d':' -f1)
             BUILD ./$module/+$target
         END
