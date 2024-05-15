@@ -275,3 +275,28 @@ TEST_F(ClientIVCTests, BasicLarge)
 
     EXPECT_TRUE(prove_and_verify(ivc));
 };
+
+/**
+ * @brief Perform IVC with precomputed verification keys
+ *
+ */
+TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
+{
+    ClientIVC ivc;
+
+    // Construct a set of arbitrary circuits
+    size_t NUM_CIRCUITS = 3;
+    std::vector<Builder> circuits;
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        circuits.emplace_back(create_mock_circuit(ivc));
+    }
+
+    auto precomputed_vkeys = ivc.precompute_folding_verification_keys_new(circuits);
+
+    // Accumulate each circuit
+    for (auto [circuit, precomputed_vk] : zip_view(circuits, precomputed_vkeys)) {
+        ivc.accumulate_new(circuit, precomputed_vk);
+    }
+
+    EXPECT_TRUE(prove_and_verify(ivc));
+};

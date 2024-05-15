@@ -94,7 +94,7 @@ class ClientIVC {
     void initialize(ClientCircuit& circuit);
 
     FoldProof accumulate(ClientCircuit& circuit);
-    void accumulate_new(ClientCircuit& circuit);
+    void accumulate_new(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk = nullptr);
 
     Proof prove();
 
@@ -105,5 +105,6 @@ class ClientIVC {
     void decider_prove_and_verify(const VerifierAccumulator&) const;
 
     void precompute_folding_verification_keys();
+    std::vector<std::shared_ptr<VerificationKey>> precompute_folding_verification_keys_new(std::vector<ClientCircuit>);
 };
 } // namespace bb

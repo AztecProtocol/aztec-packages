@@ -30,7 +30,7 @@ ClientIVC::FoldProof ClientIVC::accumulate(ClientCircuit& circuit)
     return prover_fold_output.proof;
 }
 
-void ClientIVC::accumulate_new(ClientCircuit& circuit)
+void ClientIVC::accumulate_new(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk)
 {
     // Add a recursive folding verification to the circuit (if a proof exists)
     if (!prover_fold_output.proof.empty()) {
@@ -44,10 +44,16 @@ void ClientIVC::accumulate_new(ClientCircuit& circuit)
     // WORKTODO: is this necessary on the init step even with all the hackiness?
     goblin.merge(circuit);
 
-    // Construct the prover instance and verification key for the updated circuit
+    // Construct the prover instance for the updated circuit
     prover_instance = std::make_shared<ProverInstance>(circuit, structured_flag);
     info("circuit size = ", prover_instance->proving_key.circuit_size);
-    instance_vk = std::make_shared<VerificationKey>(prover_instance->proving_key);
+
+    // Set the instance verification key from precomputed if available, else compute it
+    if (precomputed_vk) {
+        instance_vk = precomputed_vk;
+    } else {
+        instance_vk = std::make_shared<VerificationKey>(prover_instance->proving_key);
+    }
 
     // If the IVC is uninitialized, simply initialize the prover and verifier accumulator instances
     if (!initialized) { // Initialize the prover and verifier accumulator instances
@@ -154,6 +160,30 @@ void ClientIVC::precompute_folding_verification_keys()
 
     // Clean the Goblin state (reinitialise op_queue with mocking and clear merge proofs)
     goblin = Goblin();
+}
+
+/**
+ * @brief
+ *
+ *
+ * @param circuits A copy of the circuits to be accumulated
+ * @return std::vector<std::shared_ptr<ClientIVC::VerificationKey>>
+ */
+std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_folding_verification_keys_new(
+    std::vector<ClientCircuit> circuits)
+{
+    std::vector<std::shared_ptr<VerificationKey>> vkeys;
+
+    for (auto& circuit : circuits) {
+        accumulate_new(circuit);
+        vkeys.emplace_back(instance_vk);
+    }
+
+    // WORKTODO: consider replacing with a reset method or some other solution once the state of the class is
+    // simplified. Or perhaps this vk precomputation shouldn't be a method on the class itself at all?
+    *this = ClientIVC();
+
+    return vkeys;
 }
 
 } // namespace bb
