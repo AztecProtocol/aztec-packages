@@ -144,6 +144,17 @@ mod tests {
             output
         }
 
+        pub fn compute_output_note_logs<N>(_self: Self, logs: [NoteLogHash; N]) -> [NoteLogHash; N] {
+            let mut output = [NoteLogHash::empty(); N];
+            for i in 0..N {
+                if logs[i].value != 0 {
+                    // TODO(Miranda): silo logs
+                    output[i] = logs[i].expose_to_public(); // Counter is cleared so it's not exposed to the public.
+                }
+            }
+            output
+        }
+
         pub fn execute(&mut self) -> PublicKernelCircuitPublicInputs {
             let sorted = sort_get_sorted_hints(
                 self.previous_kernel.new_note_hashes.storage,
@@ -366,8 +377,8 @@ mod tests {
     #[test(should_fail_with="Non empty note hash read requests")]
     unconstrained fn non_empty_note_hash_read_requests() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.append_new_note_hashes(3);
-        builder.previous_kernel.add_read_request_for_pending_note_hash(1);
+        builder.previous_kernel.append_new_note_hashes(3, false);
+        let _void = builder.previous_kernel.add_read_request_for_pending_note_hash(1);
         builder.failed();
     }
 
@@ -375,14 +386,14 @@ mod tests {
     unconstrained fn non_empty_nullifier_read_requests() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.append_new_nullifiers(3);
-        builder.previous_kernel.add_read_request_for_pending_nullifier(1);
+        let _void = builder.previous_kernel.add_read_request_for_pending_nullifier(1);
         builder.failed();
     }
 
     #[test(should_fail_with="Non empty nullifier key validation requests")]
     unconstrained fn non_empty_nullifier_key_validations() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.add_request_for_nullifier_key_validation(GrumpkinPoint::new(1, 2), 27);
+        let _void = builder.previous_kernel.add_request_for_nullifier_key_validation(GrumpkinPoint::new(1, 2), 27);
         builder.failed();
     }
 

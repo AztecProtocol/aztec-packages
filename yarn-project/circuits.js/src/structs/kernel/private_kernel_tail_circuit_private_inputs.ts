@@ -4,8 +4,8 @@ import {
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
-  MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 } from '../../constants.gen.js';
 import { countAccumulatedItems } from '../../utils/index.js';
 import { LogHash, NoteLogHash } from '../log_hash.js';
