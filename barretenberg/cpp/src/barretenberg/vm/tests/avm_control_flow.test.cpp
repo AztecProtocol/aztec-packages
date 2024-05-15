@@ -1,6 +1,7 @@
 #include "avm_common.test.hpp"
 
 namespace tests_avm {
+using namespace bb;
 using namespace bb::avm_trace;
 
 class AvmControlFlowTests : public ::testing::Test {
@@ -54,7 +55,7 @@ TEST_F(AvmControlFlowTests, simpleCall)
         EXPECT_EQ(halt_row->avm_main_pc, FF(CALL_ADDRESS));
         EXPECT_EQ(halt_row->avm_main_internal_return_ptr, FF(AvmTraceBuilder::CALLSTACK_OFFSET + 1));
     }
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), {}, true);
 }
 
 TEST_F(AvmControlFlowTests, simpleJump)

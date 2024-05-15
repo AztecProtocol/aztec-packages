@@ -17,6 +17,7 @@
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 
 namespace bb {
+
 class GoblinMockCircuits {
   public:
     using Curve = curve::BN254;
@@ -116,18 +117,27 @@ class GoblinMockCircuits {
      *
      * @param builder
      */
-    static void construct_simple_circuit(GoblinUltraBuilder& builder)
+    static void add_some_ecc_op_gates(GoblinUltraBuilder& builder)
     {
         // Add some arbitrary ecc op gates
         for (size_t i = 0; i < 3; ++i) {
-            auto point = Point::random_element();
-            auto scalar = FF::random_element();
+            auto point = Point::random_element(&engine);
+            auto scalar = FF::random_element(&engine);
             builder.queue_ecc_add_accum(point);
             builder.queue_ecc_mul_accum(point, scalar);
         }
         // queues the result of the preceding ECC
         builder.queue_ecc_eq(); // should be eq and reset
+    }
 
+    /**
+     * @brief Generate a simple test circuit with some ECC op gates and conventional arithmetic gates
+     *
+     * @param builder
+     */
+    static void construct_simple_circuit(GoblinUltraBuilder& builder)
+    {
+        add_some_ecc_op_gates(builder);
         MockCircuits::construct_arithmetic_circuit(builder);
     }
 

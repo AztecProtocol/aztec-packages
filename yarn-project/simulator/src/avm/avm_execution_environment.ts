@@ -1,7 +1,6 @@
-import { FunctionSelector, type GlobalVariables, type Header } from '@aztec/circuits.js';
+import { FunctionSelector, type GasSettings, type GlobalVariables, type Header } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
 
 export class AvmContextInputs {
@@ -23,10 +22,7 @@ export class AvmExecutionEnvironment {
   constructor(
     public readonly address: AztecAddress,
     public readonly storageAddress: AztecAddress,
-    public readonly origin: AztecAddress,
     public readonly sender: AztecAddress,
-    public readonly portal: EthAddress,
-    public readonly feePerL1Gas: Fr,
     public readonly feePerL2Gas: Fr,
     public readonly feePerDaGas: Fr,
     public readonly contractCallDepth: Fr,
@@ -35,6 +31,8 @@ export class AvmExecutionEnvironment {
     public readonly isStaticCall: boolean,
     public readonly isDelegateCall: boolean,
     public readonly calldata: Fr[],
+    public readonly gasSettings: GasSettings,
+    public readonly transactionFee: Fr,
 
     // Function selector is temporary since eventually public contract bytecode will be one blob
     // containing all functions, and function selector will become an application-level mechanism
@@ -47,75 +45,64 @@ export class AvmExecutionEnvironment {
     this.calldata = [...inputs.toFields(), ...calldata];
   }
 
-  public deriveEnvironmentForNestedCall(
+  private deriveEnvironmentForNestedCallInternal(
     targetAddress: AztecAddress,
     calldata: Fr[],
-    temporaryFunctionSelector: FunctionSelector = FunctionSelector.empty(),
-  ): AvmExecutionEnvironment {
+    functionSelector: FunctionSelector,
+    isStaticCall: boolean,
+    isDelegateCall: boolean,
+  ) {
     return new AvmExecutionEnvironment(
-      targetAddress,
+      /*address=*/ targetAddress,
       /*storageAddress=*/ targetAddress,
-      this.origin,
-      this.address,
-      this.portal,
-      this.feePerL1Gas,
+      /*sender=*/ this.address,
       this.feePerL2Gas,
       this.feePerDaGas,
       this.contractCallDepth,
       this.header,
       this.globals,
-      this.isStaticCall,
-      this.isDelegateCall,
+      isStaticCall,
+      isDelegateCall,
       calldata,
-      temporaryFunctionSelector,
+      this.gasSettings,
+      this.transactionFee,
+      functionSelector,
+    );
+  }
+
+  public deriveEnvironmentForNestedCall(
+    targetAddress: AztecAddress,
+    calldata: Fr[],
+    functionSelector: FunctionSelector = FunctionSelector.empty(),
+  ): AvmExecutionEnvironment {
+    return this.deriveEnvironmentForNestedCallInternal(
+      targetAddress,
+      calldata,
+      functionSelector,
+      /*isStaticCall=*/ false,
+      /*isDelegateCall=*/ false,
     );
   }
 
   public deriveEnvironmentForNestedStaticCall(
-    address: AztecAddress,
+    targetAddress: AztecAddress,
     calldata: Fr[],
-    temporaryFunctionSelector: FunctionSelector = FunctionSelector.empty(),
+    functionSelector: FunctionSelector,
   ): AvmExecutionEnvironment {
-    return new AvmExecutionEnvironment(
-      address,
-      /*storageAddress=*/ address,
-      this.origin,
-      this.sender,
-      this.portal,
-      this.feePerL1Gas,
-      this.feePerL2Gas,
-      this.feePerDaGas,
-      this.contractCallDepth,
-      this.header,
-      this.globals,
-      /*isStaticCall=*/ true,
-      this.isDelegateCall,
+    return this.deriveEnvironmentForNestedCallInternal(
+      targetAddress,
       calldata,
-      temporaryFunctionSelector,
+      functionSelector,
+      /*isStaticCall=*/ true,
+      /*isDelegateCall=*/ false,
     );
   }
 
   public newDelegateCall(
-    address: AztecAddress,
-    calldata: Fr[],
-    temporaryFunctionSelector: FunctionSelector = FunctionSelector.empty(),
+    _targetAddress: AztecAddress,
+    _calldata: Fr[],
+    _functionSelector: FunctionSelector,
   ): AvmExecutionEnvironment {
-    return new AvmExecutionEnvironment(
-      address,
-      this.storageAddress,
-      this.origin,
-      this.sender,
-      this.portal,
-      this.feePerL1Gas,
-      this.feePerL2Gas,
-      this.feePerDaGas,
-      this.contractCallDepth,
-      this.header,
-      this.globals,
-      this.isStaticCall,
-      /*isDelegateCall=*/ true,
-      calldata,
-      temporaryFunctionSelector,
-    );
+    throw new Error('Delegate calls not supported!');
   }
 }

@@ -2,9 +2,11 @@
 contract Escrow {
     use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, NoteHeader, PrivateContext, PrivateImmutable};
 
-    use dep::aztec::{context::{PublicContext, Context}, oracle::get_public_key::get_public_key};
+    use dep::aztec::context::{PublicContext, Context};
 
     use dep::address_note::address_note::AddressNote;
+
+    use dep::token::Token;
 
     #[aztec(storage)]
     struct Storage {
@@ -14,7 +16,7 @@ contract Escrow {
     // Creates a new instance
     #[aztec(private)]
     #[aztec(initializer)]
-    fn constructor(owner: pub AztecAddress) {
+    fn constructor(owner: AztecAddress) {
         let mut note = AddressNote::new(owner, owner);
         storage.owner.initialize(&mut note, true);
     }
@@ -28,11 +30,6 @@ contract Escrow {
         let note = storage.owner.get_note();
         assert(note.address == sender);
 
-        let selector = FunctionSelector::from_signature("transfer((Field),(Field),Field,Field)");
-        let _callStackItem = context.call_private_function(
-            token,
-            selector,
-            [this.to_field(), recipient.to_field(), amount, 0]
-        );
+        Token::at(token).transfer(this, recipient, amount, 0).call(&mut context);
     }
 }

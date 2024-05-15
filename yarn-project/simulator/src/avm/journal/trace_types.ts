@@ -11,6 +11,7 @@ export type TracedPublicStorageRead = {
   //  callPointer: Fr;
   storageAddress: Fr;
   exists: boolean;
+  cached: boolean;
   slot: Fr;
   value: Fr;
   counter: Fr;
@@ -70,6 +71,13 @@ export type TracedL1toL2MessageCheck = {
   leafIndex: Fr;
   msgHash: Fr;
   exists: boolean;
+  //endLifetime: Fr;
+};
+
+export type TracedUnencryptedL2Log = {
+  //callPointer: Fr;
+  logHash: Fr;
+  counter: Fr;
   //endLifetime: Fr;
 };
 

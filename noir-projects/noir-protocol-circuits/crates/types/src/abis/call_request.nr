@@ -1,7 +1,9 @@
 use crate::address::AztecAddress;
 use dep::std::cmp::Eq;
-use crate::traits::Empty;
+use crate::traits::{Empty, Serialize, Deserialize};
 use crate::abis::caller_context::CallerContext;
+use crate::constants::CALL_REQUEST_LENGTH;
+use crate::utils::reader::Reader;
 
 struct CallRequest {
     hash: Field,
@@ -33,8 +35,42 @@ impl Empty for CallRequest {
     }
 }
 
-impl CallRequest {
-    pub fn is_empty(self) -> bool {
-        self.hash == 0
-    }
+impl Serialize<CALL_REQUEST_LENGTH> for CallRequest {
+  fn serialize(self) -> [Field; CALL_REQUEST_LENGTH] {
+    let mut fields: BoundedVec<Field, CALL_REQUEST_LENGTH> = BoundedVec::new();
+
+    fields.push(self.hash);
+    fields.extend_from_array(self.caller_contract_address.serialize());
+    fields.extend_from_array(self.caller_context.serialize());
+    fields.push(self.start_side_effect_counter as Field);
+    fields.push(self.end_side_effect_counter as Field);
+
+    assert_eq(fields.len(), CALL_REQUEST_LENGTH);
+
+    fields.storage
+  }
+}
+
+impl Deserialize<CALL_REQUEST_LENGTH> for CallRequest {
+  fn deserialize(fields: [Field; CALL_REQUEST_LENGTH]) -> CallRequest {
+    let mut reader = Reader::new(fields);
+
+    let item = CallRequest {
+      hash: reader.read(),
+      caller_contract_address: reader.read_struct(AztecAddress::deserialize),
+      caller_context: reader.read_struct(CallerContext::deserialize),
+      start_side_effect_counter: reader.read() as u32,
+      end_side_effect_counter: reader.read() as u32,
+    };
+    reader.finish();
+    item
+  }
+}
+
+#[test]
+fn serialization_of_empty() {
+    let item = CallRequest::empty();
+    let serialized = item.serialize();
+    let deserialized = CallRequest::deserialize(serialized);
+    assert(item.eq(deserialized));
 }

@@ -9,6 +9,7 @@ use std::{
 };
 
 pub use super::debug_vars::{DebugVars, StackFrame};
+use super::{contract::ContractArtifact, program::ProgramArtifact};
 use fm::{FileId, FileManager, PathString};
 
 /// A Debug Artifact stores, for a given program, the debug info for every function
@@ -121,9 +122,19 @@ impl DebugArtifact {
 impl From<CompiledProgram> for DebugArtifact {
     fn from(compiled_program: CompiledProgram) -> Self {
         DebugArtifact {
-            debug_symbols: vec![compiled_program.debug],
+            debug_symbols: compiled_program.debug,
             file_map: compiled_program.file_map,
             warnings: compiled_program.warnings,
+        }
+    }
+}
+
+impl From<ProgramArtifact> for DebugArtifact {
+    fn from(program_artifact: ProgramArtifact) -> Self {
+        DebugArtifact {
+            debug_symbols: program_artifact.debug_symbols.debug_infos,
+            file_map: program_artifact.file_map,
+            warnings: Vec::new(),
         }
     }
 }
@@ -133,13 +144,29 @@ impl From<CompiledContract> for DebugArtifact {
         let all_functions_debug: Vec<DebugInfo> = compiled_artifact
             .functions
             .into_iter()
-            .map(|contract_function| contract_function.debug)
+            .flat_map(|contract_function| contract_function.debug)
             .collect();
 
         DebugArtifact {
             debug_symbols: all_functions_debug,
             file_map: compiled_artifact.file_map,
             warnings: compiled_artifact.warnings,
+        }
+    }
+}
+
+impl From<ContractArtifact> for DebugArtifact {
+    fn from(compiled_artifact: ContractArtifact) -> Self {
+        let all_functions_debug: Vec<DebugInfo> = compiled_artifact
+            .functions
+            .into_iter()
+            .flat_map(|contract_function| contract_function.debug_symbols.debug_infos)
+            .collect();
+
+        DebugArtifact {
+            debug_symbols: all_functions_debug,
+            file_map: compiled_artifact.file_map,
+            warnings: Vec::new(),
         }
     }
 }

@@ -29,7 +29,6 @@ describe('e2e_deploy_contract private initialization', () => {
       const expected = siloNullifier(contract.address, new Fr(10));
       expect(receipt.debugInfo?.nullifiers[1]).toEqual(expected);
     },
-    30_000,
   );
 
   // Tests privately initializing an undeployed contract. Also requires pxe registration in advance.
@@ -51,21 +50,20 @@ describe('e2e_deploy_contract private initialization', () => {
       await contract.methods.create_note(owner, 10).send().wait();
       expect(await contract.methods.summed_values(owner).simulate()).toEqual(52n);
     },
-    30_000,
   );
 
   // Tests privately initializing multiple undeployed contracts on the same tx through an account contract.
   it('initializes multiple undeployed contracts in a single tx', async () => {
     const owner = await t.registerRandomAccount();
-    const initArgss: StatefulContractCtorArgs[] = [42, 52].map(value => [owner, value]);
+    const initArgs: StatefulContractCtorArgs[] = [42, 52].map(value => [owner, value]);
     const contracts = await Promise.all(
-      initArgss.map(initArgs => t.registerContract(wallet, StatefulTestContract, { initArgs })),
+      initArgs.map(initArgs => t.registerContract(wallet, StatefulTestContract, { initArgs })),
     );
-    const calls = contracts.map((c, i) => c.methods.constructor(...initArgss[i]).request());
+    const calls = contracts.map((c, i) => c.methods.constructor(...initArgs[i]).request());
     await new BatchCall(wallet, calls).send().wait();
     expect(await contracts[0].methods.summed_values(owner).simulate()).toEqual(42n);
     expect(await contracts[1].methods.summed_values(owner).simulate()).toEqual(52n);
-  }, 30_000);
+  });
 
   // TODO(@spalladino): This won't work until we can read a nullifier in the same tx in which it was emitted.
   it.skip('initializes and calls a private function in a single tx', async () => {

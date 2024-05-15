@@ -4,8 +4,8 @@ use crate::{
     gas::GasOpts
 },
     messaging::process_l1_to_l2_message,
-    oracle::{arguments, public_call::call_public_function_internal, returns},
-    hash::{hash_args_array, ArgsHasher}
+    oracle::{arguments, public_call::call_public_function_internal, returns, logs_traits::ToBytesForUnencryptedLog},
+    hash::{hash_args, ArgsHasher, compute_unencrypted_log_hash}
 };
 use dep::protocol_types::{
     abis::{
@@ -13,14 +13,15 @@ use dep::protocol_types::{
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
     public_call_stack_item::PublicCallStackItem,
     public_circuit_public_inputs::PublicCircuitPublicInputs, read_request::ReadRequest,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    note_hash::NoteHash, nullifier::Nullifier, side_effect::SideEffect
 },
     hash::silo_nullifier, address::{AztecAddress, EthAddress},
     constants::{
     MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL
+    MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
+    MAX_UNENCRYPTED_LOGS_PER_CALL
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest}, header::Header,
     messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader, traits::{Deserialize, Empty}
@@ -39,13 +40,13 @@ struct PublicContext {
     contract_storage_reads: BoundedVec<StorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
     public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
 
-    new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_CALL>,
-    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
+    new_note_hashes: BoundedVec<NoteHash, MAX_NEW_NOTE_HASHES_PER_CALL>,
+    new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_CALL>,
 
     new_l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
-    unencrypted_logs_hash: Field,
-    unencrypted_logs_preimages_length: Field,
+    unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_CALL>,
+    unencrypted_log_preimages_length: Field,
 
     // Header of a block whose state is used during public execution. Set by sequencer to be a header of a block
     // previous to the one in which the tx is included.
@@ -68,12 +69,10 @@ impl PublicContext {
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
             new_l2_to_l1_msgs: BoundedVec::new(),
-            unencrypted_logs_hash: 0,
-            unencrypted_logs_preimages_length: 0,
+            unencrypted_logs_hashes: BoundedVec::new(),
+            unencrypted_log_preimages_length: 0,
             historical_header: inputs.historical_header,
-            prover_address: AztecAddress::zero() // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-            // encrypted_logs_preimages: Vec::new(),
-            // unencrypted_logs_preimages: Vec::new(),
+            prover_address: AztecAddress::zero()
         }
     }
 
@@ -110,7 +109,7 @@ impl PublicContext {
         is_delegate_call: bool
     ) -> FunctionReturns<RETURNS_COUNT> {
         let side_effect_counter = self.side_effect_counter;
-        // TODO get next value from output of `call_public_function_internal`
+        // TODO(6052): get next value from output of `call_public_function_internal`
         self.side_effect_counter += 1;
 
         let raw_returns = call_public_function_internal(
@@ -130,11 +129,19 @@ impl PublicContext {
         self.return_hash = returns_hasher.hash();
     }
 
-    pub fn finish(self) -> PublicCircuitPublicInputs {
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-        let unencrypted_logs_hash = 0;
-        let unencrypted_log_preimages_length = 0;
+    // Keep private or ask the AVM team if you want to change it.
+    fn push_nullifier_read_request(&mut self, nullifier: Field) {
+        let request = ReadRequest { value: nullifier, counter: self.next_counter() };
+        self.nullifier_read_requests.push(request);
+    }
 
+    // Keep private or ask the AVM team if you want to change it.
+    fn push_nullifier_non_existent_read_request(&mut self, nullifier: Field) {
+        let request = ReadRequest { value: nullifier, counter: self.next_counter() };
+        self.nullifier_non_existent_read_requests.push(request);
+    }
+
+    pub fn finish(self) -> PublicCircuitPublicInputs {
         // Compute the public call stack hashes
         let pub_circuit_pub_inputs = PublicCircuitPublicInputs {
             call_context: self.inputs.call_context, // Done
@@ -150,13 +157,23 @@ impl PublicContext {
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
             start_side_effect_counter: self.inputs.start_side_effect_counter,
             end_side_effect_counter: self.side_effect_counter,
-            unencrypted_logs_hash,
-            unencrypted_log_preimages_length,
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
+            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length + 4,
             historical_header: self.inputs.historical_header,
+            global_variables: self.inputs.public_global_variables,
             prover_address: self.prover_address,
-            revert_code: 0
+            revert_code: 0,
+            start_gas_left: self.inputs.gas_left,
+            end_gas_left: self.inputs.gas_left, // AVM should decrease this value
+            transaction_fee: self.inputs.transaction_fee
         };
         pub_circuit_pub_inputs
+    }
+
+    fn next_counter(&mut self) -> u32 {
+        let counter = self.side_effect_counter;
+        self.side_effect_counter += 1;
+        counter
     }
 }
 
@@ -167,10 +184,6 @@ impl ContextInterface for PublicContext {
 
     fn this_address(self) -> AztecAddress {
         self.inputs.call_context.storage_contract_address
-    }
-
-    fn this_portal_address(self) -> EthAddress {
-        self.inputs.call_context.portal_contract_address
     }
 
     fn chain_id(self) -> Field {
@@ -189,24 +202,16 @@ impl ContextInterface for PublicContext {
         self.args_hash
     }
 
-    fn get_header(self) -> Header {
-        self.historical_header
-    }
-
     fn push_new_note_hash(&mut self, note_hash: Field) {
-        let side_effect = SideEffect { value: note_hash, counter: self.side_effect_counter };
-        self.new_note_hashes.push(side_effect);
-        self.side_effect_counter = self.side_effect_counter + 1;
+        self.new_note_hashes.push(NoteHash { value: note_hash, counter: self.next_counter() });
     }
 
-    fn push_new_nullifier(&mut self, nullifier: Field, _nullified_commitment: Field) {
-        let side_effect = SideEffectLinkedToNoteHash {
+    fn push_new_nullifier(&mut self, nullifier: Field, _nullified_note_hash: Field) {
+        self.new_nullifiers.push(Nullifier {
             value: nullifier,
             note_hash: 0, // cannot nullify pending notes in public context
-            counter: self.side_effect_counter
-        };
-        self.new_nullifiers.push(side_effect);
-        self.side_effect_counter = self.side_effect_counter + 1;
+            counter: self.next_counter()
+        });
     }
 }
 
@@ -220,23 +225,25 @@ impl PublicContextInterface for PublicContext {
     }
 
     fn coinbase(self) -> EthAddress {
-        self.inputs.public_global_variables.coinbase
+        assert(false, "'coinbase' not implemented!");
+        EthAddress::zero()
     }
 
     fn fee_recipient(self) -> AztecAddress {
-        self.inputs.public_global_variables.fee_recipient
+        assert(false, "'fee_recipient' not implemented!");
+        AztecAddress::zero()
     }
 
     fn fee_per_da_gas(self) -> Field {
         self.inputs.public_global_variables.gas_fees.fee_per_da_gas
     }
 
-    fn fee_per_l1_gas(self) -> Field {
-        self.inputs.public_global_variables.gas_fees.fee_per_l1_gas
-    }
-
     fn fee_per_l2_gas(self) -> Field {
         self.inputs.public_global_variables.gas_fees.fee_per_l2_gas
+    }
+
+    fn transaction_fee(self) -> Field {
+        self.inputs.transaction_fee
     }
 
     fn nullifier_exists(self, unsiloed_nullifier: Field, address: AztecAddress) -> bool {
@@ -245,26 +252,15 @@ impl PublicContextInterface for PublicContext {
         nullifier_exists_oracle(siloed_nullifier) == 1
     }
 
-    fn push_nullifier_read_request(&mut self, nullifier: Field) {
-        let request = ReadRequest { value: nullifier, counter: self.side_effect_counter };
-        self.nullifier_read_requests.push(request);
-        self.side_effect_counter = self.side_effect_counter + 1;
-    }
-
-    fn push_nullifier_non_existent_read_request(&mut self, nullifier: Field) {
-        let request = ReadRequest { value: nullifier, counter: self.side_effect_counter };
-        self.nullifier_non_existent_read_requests.push(request);
-        self.side_effect_counter = self.side_effect_counter + 1;
-    }
-
     fn message_portal(&mut self, recipient: EthAddress, content: Field) {
-        let message = L2ToL1Message { recipient, content };
+        let message = L2ToL1Message { recipient, content, counter: self.next_counter() };
         self.new_l2_to_l1_msgs.push(message);
     }
 
     // We can consume message with a secret in public context because the message cannot be modified and therefore
     // there is no front-running risk (e.g. somebody could front run you to claim your tokens to your address).
-    fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress) {
+    // Leaf index is not used in public context, but it is used in the AVMContext which will replace it.
+    fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress, _leaf_index: Field) {
         let this = (*self).this_address();
         let nullifier = process_l1_to_l2_message(
             self.historical_header.state.l1_to_l2_message_tree.root,
@@ -280,49 +276,54 @@ impl PublicContextInterface for PublicContext {
         self.push_new_nullifier(nullifier, 0)
     }
 
-    fn accumulate_encrypted_logs<N>(&mut self, log: [Field; N]) {
-        let _void1 = self;
-        let _void2 = log;
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
+    fn emit_unencrypted_log<T, N, M>(&mut self, log: T) where T: ToBytesForUnencryptedLog<N, M> {
+        let event_selector = 5; // TODO: compute actual event selector.
+        let contract_address = self.this_address();
+        let log_slice = log.to_be_bytes_arr();
+        let log_hash = compute_unencrypted_log_hash(
+            contract_address,
+            event_selector,
+            log
+        );
+        let side_effect = SideEffect { value: log_hash, counter: self.next_counter() };
+        self.unencrypted_logs_hashes.push(side_effect);
+        // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4)
+        self.unencrypted_log_preimages_length = self.unencrypted_log_preimages_length + 44 + log_slice.len().to_field();
+        // Call oracle to broadcast log
+        let _void = emit_unencrypted_log_oracle(contract_address, event_selector, log, side_effect.counter);
     }
 
-    fn accumulate_unencrypted_logs<T>(&mut self, log: T) {
-        let _void1 = self;
-        let _void2 = log;
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-    }
-
-    fn call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    fn call_public_function<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field],
         _gas: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {
-        let args_hash = hash_args_array(args);
+        let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
-    fn static_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    fn static_call_public_function<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field],
         _gas: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {
-        let args_hash = hash_args_array(args);
+        let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
     }
 
-    fn delegate_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    fn delegate_call_public_function<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
+        args: [Field]
     ) -> FunctionReturns<RETURNS_COUNT> {
-        let args_hash = hash_args_array(args);
+        let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
     }
@@ -343,8 +344,8 @@ impl Empty for PublicContext {
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
             new_l2_to_l1_msgs: BoundedVec::new(),
-            unencrypted_logs_hash: 0,
-            unencrypted_logs_preimages_length: 0,
+            unencrypted_logs_hashes: BoundedVec::new(),
+            unencrypted_log_preimages_length: 0,
             historical_header: Header::empty(),
             prover_address: AztecAddress::zero(),
         }
@@ -353,6 +354,14 @@ impl Empty for PublicContext {
 
 #[oracle(checkNullifierExists)]
 fn nullifier_exists_oracle(nullifier: Field) -> Field {}
+
+#[oracle(emitUnencryptedLog)]
+fn emit_unencrypted_log_oracle<T>(
+    _contract_address: AztecAddress,
+    _event_selector: Field,
+    _message: T,
+    _counter: u32
+) -> Field {}
 
 struct FunctionReturns<N> {
     values: [Field; N]

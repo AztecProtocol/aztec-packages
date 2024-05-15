@@ -14,14 +14,14 @@
 // designed to have efficient bb::g1 operations, a developer might accidentally write inefficient circuits
 // using biggroup functions that do not use the OpQueue. We use this concept to prevent compilation of such functions.
 template <typename Builder, typename NativeGroup>
-concept IsNotGoblinInefficiencyTrap = !(IsGoblinBuilder<Builder> && std::same_as<NativeGroup, bb::g1>);
+concept IsNotGoblinInefficiencyTrap = !(IsGoblinUltraBuilder<Builder> && std::same_as<NativeGroup, bb::g1>);
 
 namespace bb::stdlib {
 
 // ( ͡° ͜ʖ ͡°)
 template <class Builder, class Fq, class Fr, class NativeGroup> class element {
   public:
-    using bool_t = stdlib::bool_t<Builder>;
+    using bool_ct = stdlib::bool_t<Builder>;
 
     struct secp256k1_wnaf {
         std::vector<field_t<Builder>> wnaf;
@@ -123,7 +123,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
 
     element operator*(const Fr& other) const;
 
-    element conditional_negate(const bool_t& predicate) const
+    element conditional_negate(const bool_ct& predicate) const
     {
         element result(*this);
         result.y = result.y.conditional_negate(predicate);
@@ -233,7 +233,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     // i.e. for the bn254 curve, the template param is `typename = void`
     // for any other curve, there is no template param
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, bb::g1>::value>>
-        requires(IsNotGoblinBuilder<Builder>) // TODO(https://github.com/AztecProtocol/barretenberg/issues/707)
+        requires(IsNotGoblinUltraBuilder<Builder>) // TODO(https://github.com/AztecProtocol/barretenberg/issues/707)
     static element bn254_endo_batch_mul(const std::vector<element>& big_points,
                                         const std::vector<Fr>& big_scalars,
                                         const std::vector<element>& small_points,
@@ -241,7 +241,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
                                         const size_t max_num_small_bits);
 
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, bb::g1>::value>>
-        requires(IsNotGoblinBuilder<Builder>) // TODO(https://github.com/AztecProtocol/barretenberg/issues/707)
+        requires(IsNotGoblinUltraBuilder<Builder>) // TODO(https://github.com/AztecProtocol/barretenberg/issues/707)
     static element bn254_endo_batch_mul_with_generator(const std::vector<element>& big_points,
                                                        const std::vector<Fr>& big_scalars,
                                                        const std::vector<element>& small_points,
@@ -252,7 +252,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, secp256k1::g1>::value>>
     static element secp256k1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2);
 
-    static std::vector<bool_t> compute_naf(const Fr& scalar, const size_t max_num_bits = 0);
+    static std::vector<bool_ct> compute_naf(const Fr& scalar, const size_t max_num_bits = 0);
 
     template <size_t max_num_bits = 0, size_t WNAF_SIZE = 4>
     static std::vector<field_t<Builder>> compute_wnaf(const Fr& scalar);
@@ -288,14 +288,14 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         return nullptr;
     }
 
-    bool_t is_point_at_infinity() const { return _is_infinity; }
-    void set_point_at_infinity(const bool_t& is_infinity) { _is_infinity = is_infinity; }
+    bool_ct is_point_at_infinity() const { return _is_infinity; }
+    void set_point_at_infinity(const bool_ct& is_infinity) { _is_infinity = is_infinity; }
 
     Fq x;
     Fq y;
 
   private:
-    bool_t _is_infinity;
+    bool_ct _is_infinity;
 
     template <size_t num_elements, typename = typename std::enable_if<HasPlookup<Builder>>>
     static std::array<twin_rom_table<Builder>, 5> create_group_element_rom_tables(
@@ -395,7 +395,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         lookup_table_base(const lookup_table_base& other) = default;
         lookup_table_base& operator=(const lookup_table_base& other) = default;
 
-        element get(const std::array<bool_t, length>& bits) const;
+        element get(const std::array<bool_ct, length>& bits) const;
 
         element operator[](const size_t idx) const { return element_table[idx]; }
 
@@ -425,7 +425,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         lookup_table_plookup(const lookup_table_plookup& other) = default;
         lookup_table_plookup& operator=(const lookup_table_plookup& other) = default;
 
-        element get(const std::array<bool_t, length>& bits) const;
+        element get(const std::array<bool_ct, length>& bits) const;
 
         element operator[](const size_t idx) const { return element_table[idx]; }
 
@@ -636,7 +636,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
             return chain_add_accumulator(add_accumulator[0]);
         }
 
-        element::chain_add_accumulator get_chain_add_accumulator(std::vector<bool_t>& naf_entries) const
+        element::chain_add_accumulator get_chain_add_accumulator(std::vector<bool_ct>& naf_entries) const
         {
             std::vector<element> round_accumulator;
             for (size_t j = 0; j < num_sixes; ++j) {
@@ -688,7 +688,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
             return (accumulator);
         }
 
-        element get(std::vector<bool_t>& naf_entries) const
+        element get(std::vector<bool_ct>& naf_entries) const
         {
             std::vector<element> round_accumulator;
             for (size_t j = 0; j < num_sixes; ++j) {
@@ -840,21 +840,21 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
             return chain_add_accumulator(add_accumulator[0]);
         }
 
-        element::chain_add_accumulator get_chain_add_accumulator(std::vector<bool_t>& naf_entries) const
+        element::chain_add_accumulator get_chain_add_accumulator(std::vector<bool_ct>& naf_entries) const
         {
             std::vector<element> round_accumulator;
             for (size_t j = 0; j < num_quads; ++j) {
-                round_accumulator.push_back(quad_tables[j].get(std::array<bool_t, 4>{
+                round_accumulator.push_back(quad_tables[j].get(std::array<bool_ct, 4>{
                     naf_entries[4 * j], naf_entries[4 * j + 1], naf_entries[4 * j + 2], naf_entries[4 * j + 3] }));
             }
 
             if (has_triple) {
-                round_accumulator.push_back(triple_tables[0].get(std::array<bool_t, 3>{
+                round_accumulator.push_back(triple_tables[0].get(std::array<bool_ct, 3>{
                     naf_entries[num_quads * 4], naf_entries[num_quads * 4 + 1], naf_entries[num_quads * 4 + 2] }));
             }
             if (has_twin) {
                 round_accumulator.push_back(twin_tables[0].get(
-                    std::array<bool_t, 2>{ naf_entries[num_quads * 4], naf_entries[num_quads * 4 + 1] }));
+                    std::array<bool_ct, 2>{ naf_entries[num_quads * 4], naf_entries[num_quads * 4 + 1] }));
             }
             if (has_singleton) {
                 round_accumulator.push_back(singletons[0].conditional_negate(naf_entries[num_points - 1]));
@@ -877,7 +877,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
             return (accumulator);
         }
 
-        element get(std::vector<bool_t>& naf_entries) const
+        element get(std::vector<bool_ct>& naf_entries) const
         {
             std::vector<element> round_accumulator;
             for (size_t j = 0; j < num_quads; ++j) {
@@ -886,7 +886,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
             }
 
             if (has_triple) {
-                round_accumulator.push_back(triple_tables[0].get(std::array<bool_t, 3>{
+                round_accumulator.push_back(triple_tables[0].get(std::array<bool_ct, 3>{
                     naf_entries[num_quads * 4], naf_entries[num_quads * 4 + 1], naf_entries[num_quads * 4 + 2] }));
             }
             if (has_twin) {

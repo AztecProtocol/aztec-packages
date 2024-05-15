@@ -11,16 +11,15 @@ import {
 import {
   type AztecAddress,
   type CompleteAddress,
-  type EthAddress,
   type Fr,
   type FunctionSelector,
   type Header,
   type L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
-import { type FunctionArtifactWithDebugMetadata, getFunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
+import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type DBOracle, type KeyPair, MessageLoadOracleInputs } from '@aztec/simulator';
+import { type DBOracle, MessageLoadOracleInputs, type NullifierKeys } from '@aztec/simulator';
 import { type ContractInstance } from '@aztec/types/contracts';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -38,18 +37,18 @@ export class SimulatorOracle implements DBOracle {
     private log = createDebugLogger('aztec:pxe:simulator_oracle'),
   ) {}
 
-  async getNullifierKeyPair(accountAddress: AztecAddress, contractAddress: AztecAddress): Promise<KeyPair> {
-    const accountPublicKey = (await this.db.getCompleteAddress(accountAddress))!.publicKey;
-    const publicKey = await this.keyStore.getNullifierPublicKey(accountPublicKey);
-    const secretKey = await this.keyStore.getSiloedNullifierSecretKey(accountPublicKey, contractAddress);
-    return { publicKey, secretKey };
+  async getNullifierKeys(accountOrNpkMHash: AztecAddress | Fr, contractAddress: AztecAddress): Promise<NullifierKeys> {
+    const masterNullifierPublicKey = await this.keyStore.getMasterNullifierPublicKey(accountOrNpkMHash);
+    const appNullifierSecretKey = await this.keyStore.getAppNullifierSecretKey(accountOrNpkMHash, contractAddress);
+    return { masterNullifierPublicKey, appNullifierSecretKey };
   }
 
-  async getCompleteAddress(address: AztecAddress): Promise<CompleteAddress> {
-    const completeAddress = await this.db.getCompleteAddress(address);
+  async getCompleteAddress(accountOrNpkMHash: AztecAddress | Fr): Promise<CompleteAddress> {
+    const completeAddress = await this.db.getCompleteAddress(accountOrNpkMHash);
     if (!completeAddress) {
       throw new Error(
-        `No public key registered for address ${address.toString()}. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/developers/debugging/aztecnr-errors#simulation-error-No-public-key-registered-for-address-0x0-Register-it-by-calling-pxeregisterRecipient-or-pxeregisterAccount`,
+        `No public key registered for address or master nullifier public key hash ${accountOrNpkMHash}.
+        Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/developers/debugging/aztecnr-errors#simulation-error-No-public-key-registered-for-address-0x0-Register-it-by-calling-pxeregisterRecipient-or-pxeregisterAccount`,
       );
     }
     return completeAddress;
@@ -97,10 +96,7 @@ export class SimulatorOracle implements DBOracle {
     }));
   }
 
-  async getFunctionArtifact(
-    contractAddress: AztecAddress,
-    selector: FunctionSelector,
-  ): Promise<FunctionArtifactWithDebugMetadata> {
+  async getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector): Promise<FunctionArtifact> {
     const artifact = await this.contractDataOracle.getFunctionArtifact(contractAddress, selector);
     const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, selector);
     return {
@@ -112,14 +108,10 @@ export class SimulatorOracle implements DBOracle {
   async getFunctionArtifactByName(
     contractAddress: AztecAddress,
     functionName: string,
-  ): Promise<FunctionArtifactWithDebugMetadata | undefined> {
+  ): Promise<FunctionArtifact | undefined> {
     const instance = await this.contractDataOracle.getContractInstance(contractAddress);
     const artifact = await this.contractDataOracle.getContractArtifact(instance.contractClassId);
-    return artifact && getFunctionArtifactWithDebugMetadata(artifact, functionName);
-  }
-
-  async getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress> {
-    return await this.contractDataOracle.getPortalContractAddress(contractAddress);
+    return artifact && getFunctionArtifact(artifact, functionName);
   }
 
   /**
@@ -157,6 +149,11 @@ export class SimulatorOracle implements DBOracle {
 
     // Assuming messageIndex is what you intended to use for the index in MessageLoadOracleInputs
     return new MessageLoadOracleInputs(messageIndex, siblingPath);
+  }
+
+  // Only used in public.
+  public getL1ToL2LeafValue(_leafIndex: bigint): Promise<Fr | undefined> {
+    throw new Error('Unimplemented in private!');
   }
 
   /**

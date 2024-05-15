@@ -1,5 +1,5 @@
 import { PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
-import { TxContext } from '@aztec/circuits.js';
+import { GasSettings, TxContext } from '@aztec/circuits.js';
 
 import { type EntrypointInterface, type ExecutionRequestInit } from './entrypoint.js';
 
@@ -18,7 +18,8 @@ export class DefaultEntrypoint implements EntrypointInterface {
 
     const call = calls[0];
     const entrypointPackedValues = PackedValues.fromValues(call.args);
-    const txContext = TxContext.empty(this.chainId, this.protocolVersion);
+    const gasSettings = exec.fee?.gasSettings ?? GasSettings.default();
+    const txContext = new TxContext(this.chainId, this.protocolVersion, gasSettings);
     return Promise.resolve(
       new TxExecutionRequest(
         call.to,

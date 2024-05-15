@@ -43,7 +43,7 @@ export class KernelOracle implements ProvingDataOracle {
     return await this.contractDataOracle.getVkMembershipWitness();
   }
 
-  async getNoteMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>> {
+  async getNoteHashMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>> {
     const path = await this.node.getNoteHashSiblingPath('latest', leafIndex);
     return new MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>(
       path.pathSize,
@@ -62,6 +62,6 @@ export class KernelOracle implements ProvingDataOracle {
   }
 
   public getMasterNullifierSecretKey(nullifierPublicKey: Point) {
-    return this.keyStore.getNullifierSecretKeyFromPublicKey(nullifierPublicKey);
+    return this.keyStore.getMasterNullifierSecretKeyForPublicKey(nullifierPublicKey);
   }
 }

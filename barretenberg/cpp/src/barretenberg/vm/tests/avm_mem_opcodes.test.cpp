@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 namespace tests_avm {
+using namespace bb;
 using namespace bb::avm_trace;
 using namespace testing;
 
@@ -65,7 +66,7 @@ class AvmMemOpcodeTests : public ::testing::Test {
 
     static std::function<bool(Row)> gen_matcher(FF clk, uint32_t sub_clk)
     {
-        return [clk, sub_clk](Row r) { return r.avm_mem_clk == clk && r.avm_mem_sub_clk == sub_clk; };
+        return [clk, sub_clk](Row r) { return r.avm_mem_tsp == FF(AvmMemTraceBuilder::NUM_SUB_CLK) * clk + sub_clk; };
     };
 
     void compute_index_a(FF clk, bool indirect)
@@ -391,7 +392,7 @@ TEST_F(AvmMemOpcodeTests, indirectMovInvalidAddressTag)
                       Field(&Row::avm_mem_r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
                       Field(&Row::avm_mem_ind_op_c, 1)));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), {}, true);
 }
 
 /******************************************************************************

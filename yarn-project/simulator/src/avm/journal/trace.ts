@@ -8,6 +8,7 @@ import {
   type TracedNullifierCheck,
   type TracedPublicStorageRead,
   type TracedPublicStorageWrite,
+  type TracedUnencryptedL2Log,
 } from './trace_types.js';
 
 export class WorldStateAccessTrace {
@@ -21,19 +22,21 @@ export class WorldStateAccessTrace {
   public nullifierChecks: TracedNullifierCheck[] = [];
   public newNullifiers: TracedNullifier[] = [];
   public l1ToL2MessageChecks: TracedL1toL2MessageCheck[] = [];
+  public newLogsHashes: TracedUnencryptedL2Log[] = [];
 
   //public contractCalls: TracedContractCall[] = [];
   //public archiveChecks: TracedArchiveLeafCheck[] = [];
 
   constructor(parentTrace?: WorldStateAccessTrace) {
     this.accessCounter = parentTrace ? parentTrace.accessCounter : 0;
+    // TODO(4805): consider tracking the parent's trace vector lengths so we can enforce limits
   }
 
   public getAccessCounter() {
     return this.accessCounter;
   }
 
-  public tracePublicStorageRead(storageAddress: Fr, slot: Fr, value: Fr, exists: boolean) {
+  public tracePublicStorageRead(storageAddress: Fr, slot: Fr, value: Fr, exists: boolean, cached: boolean) {
     // TODO(4805): check if some threshold is reached for max storage reads
     // (need access to parent length, or trace needs to be initialized with parent's contents)
     const traced: TracedPublicStorageRead = {
@@ -42,6 +45,7 @@ export class WorldStateAccessTrace {
       slot,
       value,
       exists,
+      cached,
       counter: new Fr(this.accessCounter),
       //  endLifetime: Fr.ZERO,
     };
@@ -133,6 +137,15 @@ export class WorldStateAccessTrace {
     this.incrementAccessCounter();
   }
 
+  public traceNewLog(logHash: Fr) {
+    const traced: TracedUnencryptedL2Log = {
+      logHash,
+      counter: new Fr(this.accessCounter),
+    };
+    this.newLogsHashes.push(traced);
+    this.incrementAccessCounter();
+  }
+
   private incrementAccessCounter() {
     this.accessCounter++;
   }
@@ -140,21 +153,19 @@ export class WorldStateAccessTrace {
   /**
    * Merges another trace into this one
    *
-   * - Public state journals (r/w logs), with the accessing being appended in chronological order
-   * - Utxo objects are concatenated
-   *
    * @param incomingTrace - the incoming trace to merge into this instance
    */
   public acceptAndMerge(incomingTrace: WorldStateAccessTrace) {
     // Merge storage read and write journals
-    this.publicStorageReads = this.publicStorageReads.concat(incomingTrace.publicStorageReads);
-    this.publicStorageWrites = this.publicStorageWrites.concat(incomingTrace.publicStorageWrites);
+    this.publicStorageReads.push(...incomingTrace.publicStorageReads);
+    this.publicStorageWrites.push(...incomingTrace.publicStorageWrites);
     // Merge new note hashes and nullifiers
-    this.noteHashChecks = this.noteHashChecks.concat(incomingTrace.noteHashChecks);
-    this.newNoteHashes = this.newNoteHashes.concat(incomingTrace.newNoteHashes);
-    this.nullifierChecks = this.nullifierChecks.concat(incomingTrace.nullifierChecks);
-    this.newNullifiers = this.newNullifiers.concat(incomingTrace.newNullifiers);
-    this.l1ToL2MessageChecks = this.l1ToL2MessageChecks.concat(incomingTrace.l1ToL2MessageChecks);
+    this.noteHashChecks.push(...incomingTrace.noteHashChecks);
+    this.newNoteHashes.push(...incomingTrace.newNoteHashes);
+    this.nullifierChecks.push(...incomingTrace.nullifierChecks);
+    this.newNullifiers.push(...incomingTrace.newNullifiers);
+    this.l1ToL2MessageChecks.push(...incomingTrace.l1ToL2MessageChecks);
+    this.newLogsHashes.push(...incomingTrace.newLogsHashes);
     // it is assumed that the incoming trace was initialized with this as parent, so accept counter
     this.accessCounter = incomingTrace.accessCounter;
   }

@@ -6,15 +6,15 @@ mod function_selector;
 mod function_data;
 
 mod global_variables;
-
-mod membership_witness;
-
+mod note_hash_leaf_preimage;
 mod nullifier_leaf_preimage;
 
 mod combined_constant_data;
 
 mod side_effect;
 mod read_request;
+mod note_hash;
+mod nullifier;
 mod nullifier_key_validation_request;
 mod public_data_read;
 mod public_data_update_request;
@@ -27,6 +27,8 @@ mod max_block_number;
 mod private_kernel;
 mod kernel_circuit_public_inputs;
 mod kernel_data;
+mod private_kernel_data;
+mod public_kernel_data;
 
 mod call_request;
 mod private_call_stack_item;
@@ -41,4 +43,4 @@ mod private_circuit_public_inputs;
 
 mod gas_fees;
 mod gas_settings;
-mod gas_used;
+mod gas;

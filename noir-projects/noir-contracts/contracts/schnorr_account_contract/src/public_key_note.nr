@@ -1,7 +1,8 @@
-use dep::aztec::prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext, emit_encrypted_log};
+use dep::aztec::prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext};
 use dep::aztec::{
-    note::utils::compute_note_hash_for_consumption, hash::pedersen_hash,
-    oracle::{nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key}
+    keys::getters::get_ivpk_m, note::utils::compute_note_hash_for_consumption, hash::poseidon2_hash,
+    oracle::{nullifier_key::get_app_nullifier_secret_key},
+    protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER
 };
 
 global PUBLIC_KEY_NOTE_LEN: Field = 3;
@@ -17,36 +18,33 @@ struct PublicKeyNote {
 
 impl NoteInterface<PUBLIC_KEY_NOTE_LEN> for PublicKeyNote {
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
-        let unique_siloed_note_hash = compute_note_hash_for_consumption(self);
-        let secret = context.request_nullifier_secret_key(self.owner);
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash([
-            unique_siloed_note_hash,
-            secret.low,
-            secret.high,
-        ],0)
+        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
+        let secret = context.request_app_nullifier_secret_key(self.owner);
+        poseidon2_hash([
+            note_hash_for_nullify,
+            secret,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+        ])
     }
 
     fn compute_nullifier_without_context(self) -> Field {
-        let unique_siloed_note_hash = compute_note_hash_for_consumption(self);
-        let secret = get_nullifier_secret_key(self.owner);
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash([
-            unique_siloed_note_hash,
-            secret.low,
-            secret.high,
-        ],0)
+        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
+        let secret = get_app_nullifier_secret_key(self.owner);
+        poseidon2_hash([
+            note_hash_for_nullify,
+            secret,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+        ])
     }
 
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
-        let encryption_pub_key = get_public_key(self.owner);
-        emit_encrypted_log(
-            context,
+        let ivpk_m = get_ivpk_m(context, self.owner);
+        context.emit_encrypted_log(
             (*context).this_address(),
             slot,
             Self::get_note_type_id(),
-            encryption_pub_key,
+            ivpk_m,
             self.serialize_content(),
         );
     }

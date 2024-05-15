@@ -1,13 +1,19 @@
-import { AztecAddress } from '@aztec/circuits.js';
-import { type ProcessReturnValues } from '@aztec/foundation/abi';
+import { Fr } from '@aztec/circuits.js';
 
+import { type ProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
 
+// REFACTOR: Review what we need to expose to the user when running a simulation.
+// Eg tx already has encrypted and unencrypted logs, but those cover only the ones
+// emitted during private. We need the ones from ProcessOutput to include the public
+// ones as well. However, those would only be present if the user chooses to simulate
+// the public side of things. This also points at this class needing to be split into
+// two: one with just private simulation, and one that also includes public simulation.
 export class SimulatedTx {
   constructor(
     public tx: Tx,
     public privateReturnValues?: ProcessReturnValues,
-    public publicReturnValues?: ProcessReturnValues,
+    public publicOutput?: PublicSimulationOutput,
   ) {}
 
   /**
@@ -15,23 +21,10 @@ export class SimulatedTx {
    * @returns A plain object with SimulatedTx properties.
    */
   public toJSON() {
-    const returnToJson = (data: ProcessReturnValues): string => {
-      const replacer = (key: string, value: any): any => {
-        if (typeof value === 'bigint') {
-          return value.toString() + 'n'; // Indicate bigint with "n"
-        } else if (value instanceof AztecAddress) {
-          return value.toString();
-        } else {
-          return value;
-        }
-      };
-      return JSON.stringify(data, replacer);
-    };
-
     return {
       tx: this.tx.toJSON(),
-      privateReturnValues: returnToJson(this.privateReturnValues),
-      publicReturnValues: returnToJson(this.publicReturnValues),
+      privateReturnValues: this.privateReturnValues?.map(fr => fr.toString()),
+      publicOutput: this.publicOutput && this.publicOutput.toJSON(),
     };
   }
 
@@ -41,28 +34,10 @@ export class SimulatedTx {
    * @returns A Tx class object.
    */
   public static fromJSON(obj: any) {
-    const returnFromJson = (json: string): ProcessReturnValues => {
-      if (json == undefined) {
-        return json;
-      }
-      const reviver = (key: string, value: any): any => {
-        if (typeof value === 'string') {
-          if (value.match(/\d+n$/)) {
-            // Detect bigint serialization
-            return BigInt(value.slice(0, -1));
-          } else if (value.match(/^0x[a-fA-F0-9]{64}$/)) {
-            return AztecAddress.fromString(value);
-          }
-        }
-        return value;
-      };
-      return JSON.parse(json, reviver);
-    };
-
     const tx = Tx.fromJSON(obj.tx);
-    const privateReturnValues = returnFromJson(obj.privateReturnValues);
-    const publicReturnValues = returnFromJson(obj.publicReturnValues);
+    const publicOutput = obj.publicOutput ? PublicSimulationOutput.fromJSON(obj.publicOutput) : undefined;
+    const privateReturnValues = obj.privateReturnValues?.map(Fr.fromString);
 
-    return new SimulatedTx(tx, privateReturnValues, publicReturnValues);
+    return new SimulatedTx(tx, privateReturnValues, publicOutput);
   }
 }

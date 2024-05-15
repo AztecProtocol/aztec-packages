@@ -1,28 +1,28 @@
 use dep::std::cmp::Eq;
 use crate::{
     address::AztecAddress,
-    constants::{NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH, NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH},
+    constants::{SCOPED_NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH, NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH},
     traits::{Empty, Serialize, Deserialize}, grumpkin_point::GrumpkinPoint,
-    grumpkin_private_key::GrumpkinPrivateKey
+    utils::{arrays::array_concat, reader::Reader}
 };
 
 struct NullifierKeyValidationRequest {
-    public_key: GrumpkinPoint,
-    secret_key: GrumpkinPrivateKey,
+    master_nullifier_public_key: GrumpkinPoint,
+    app_nullifier_secret_key: Field, // not a grumpkin scalar because it's output of poseidon2
 }
 
 impl Eq for NullifierKeyValidationRequest {
     fn eq(self, request: NullifierKeyValidationRequest) -> bool {
-        (request.public_key.eq(self.public_key))
-            & (request.secret_key.eq(self.secret_key))
+        (request.master_nullifier_public_key.eq(self.master_nullifier_public_key))
+            & (request.app_nullifier_secret_key.eq(self.app_nullifier_secret_key))
     }
 }
 
 impl Empty for NullifierKeyValidationRequest {
     fn empty() -> Self {
         NullifierKeyValidationRequest {
-            public_key: GrumpkinPoint::zero(),
-            secret_key: GrumpkinPrivateKey::zero(),
+            master_nullifier_public_key: GrumpkinPoint::zero(),
+            app_nullifier_secret_key: 0,
         }
     }
 }
@@ -30,10 +30,9 @@ impl Empty for NullifierKeyValidationRequest {
 impl Serialize<NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH> for NullifierKeyValidationRequest {
     fn serialize(self) -> [Field; NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH] {
         [
-            self.public_key.x,
-            self.public_key.y,
-            self.secret_key.high,
-            self.secret_key.low,
+            self.master_nullifier_public_key.x,
+            self.master_nullifier_public_key.y,
+            self.app_nullifier_secret_key,
         ]
     }
 }
@@ -41,61 +40,62 @@ impl Serialize<NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH> for NullifierKeyValidati
 impl Deserialize<NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH> for NullifierKeyValidationRequest {
     fn deserialize(fields: [Field; NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH]) -> Self {
         Self {
-            public_key: GrumpkinPoint::new(fields[0], fields[1]),
-            secret_key: GrumpkinPrivateKey::new(fields[2], fields[3]),
+            master_nullifier_public_key: GrumpkinPoint::new(fields[0], fields[1]),
+            app_nullifier_secret_key: fields[2],
         }
     }
 }
 
 impl NullifierKeyValidationRequest {
-    pub fn to_context(self, contract_address: AztecAddress) -> NullifierKeyValidationRequestContext {
-        NullifierKeyValidationRequestContext { public_key: self.public_key, secret_key: self.secret_key, contract_address }
+    pub fn scope(self, contract_address: AztecAddress) -> ScopedNullifierKeyValidationRequest {
+        ScopedNullifierKeyValidationRequest { request: self, contract_address }
     }
 }
 
-struct NullifierKeyValidationRequestContext {
-    public_key: GrumpkinPoint,
-    secret_key: GrumpkinPrivateKey,
+struct ScopedNullifierKeyValidationRequest {
+    request: NullifierKeyValidationRequest,
     contract_address: AztecAddress,
 }
 
-impl Eq for NullifierKeyValidationRequestContext {
-    fn eq(self, request: NullifierKeyValidationRequestContext) -> bool {
-        (request.public_key.eq(self.public_key))
-            & (request.secret_key.eq(self.secret_key))
-            & (request.contract_address.eq(self.contract_address))
+impl Eq for ScopedNullifierKeyValidationRequest {
+    fn eq(self, other: ScopedNullifierKeyValidationRequest) -> bool {
+        (self.request.eq(other.request))
+            & (self.contract_address.eq(other.contract_address))
     }
 }
 
-impl Empty for NullifierKeyValidationRequestContext {
+impl Empty for ScopedNullifierKeyValidationRequest {
     fn empty() -> Self {
-        NullifierKeyValidationRequestContext {
-            public_key: GrumpkinPoint::zero(),
-            secret_key: GrumpkinPrivateKey::zero(),
+        ScopedNullifierKeyValidationRequest {
+            request: NullifierKeyValidationRequest::empty(),
             contract_address: AztecAddress::zero(),
         }
     }
 }
 
-impl Serialize<NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH> for NullifierKeyValidationRequestContext {
-    fn serialize(self) -> [Field; NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH] {
-        [
-            self.public_key.x,
-            self.public_key.y,
-            self.secret_key.high,
-            self.secret_key.low,
-            self.contract_address.to_field(),
-        ]
+impl Serialize<SCOPED_NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH> for ScopedNullifierKeyValidationRequest {
+    fn serialize(self) -> [Field; SCOPED_NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH] {
+        array_concat(self.request.serialize(), [self.contract_address.to_field()])
     }
 }
 
-impl Deserialize<NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH> for NullifierKeyValidationRequestContext {
-    fn deserialize(fields: [Field; NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH]) -> Self {
-        Self {
-            public_key: GrumpkinPoint::new(fields[0], fields[1]),
-            secret_key: GrumpkinPrivateKey::new(fields[2], fields[3]),
-            contract_address: AztecAddress::from_field(fields[4]),
-        }
+impl Deserialize<SCOPED_NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH> for ScopedNullifierKeyValidationRequest {
+    fn deserialize(fields: [Field; SCOPED_NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH]) -> Self {
+        let mut reader = Reader::new(fields);
+        let res = Self {
+            request: reader.read_struct(NullifierKeyValidationRequest::deserialize),
+            contract_address: reader.read_struct(AztecAddress::deserialize),
+        };
+        reader.finish();
+        res
     }
+}
+
+#[test]
+fn serialization_of_empty() {
+    let item = ScopedNullifierKeyValidationRequest::empty();
+    let serialized = item.serialize();
+    let deserialized = ScopedNullifierKeyValidationRequest::deserialize(serialized);
+    assert(item.eq(deserialized));
 }
 

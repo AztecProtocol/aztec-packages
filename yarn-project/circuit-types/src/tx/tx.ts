@@ -38,17 +38,11 @@ export class Tx {
      * Preimages of the public call stack entries from the private kernel circuit output.
      */
     public readonly enqueuedPublicFunctionCalls: PublicCallRequest[],
+    /**
+     * Public function call to be run by the sequencer as part of teardown.
+     */
+    public readonly publicTeardownFunctionCall: PublicCallRequest,
   ) {
-    if (this.unencryptedLogs.functionLogs.length < this.encryptedLogs.functionLogs.length) {
-      // This check is present because each private function invocation creates encrypted FunctionL2Logs object and
-      // both public and private function invocations create unencrypted FunctionL2Logs object. Hence "num unencrypted"
-      // >= "num encrypted".
-      throw new Error(
-        `Number of function logs in unencrypted logs (${this.unencryptedLogs.functionLogs.length}) has to be equal
-        or larger than number function logs in encrypted logs (${this.encryptedLogs.functionLogs.length})`,
-      );
-    }
-
     const kernelPublicCallStackSize = data.numberOfPublicCallRequests();
     if (kernelPublicCallStackSize !== enqueuedPublicFunctionCalls.length) {
       throw new Error(
@@ -75,6 +69,7 @@ export class Tx {
       reader.readObject(EncryptedTxL2Logs),
       reader.readObject(UnencryptedTxL2Logs),
       reader.readArray(reader.readNumber(), PublicCallRequest),
+      reader.readObject(PublicCallRequest),
     );
   }
 
@@ -90,6 +85,7 @@ export class Tx {
       this.unencryptedLogs,
       this.enqueuedPublicFunctionCalls.length,
       this.enqueuedPublicFunctionCalls,
+      this.publicTeardownFunctionCall,
     ]);
   }
 
@@ -104,6 +100,7 @@ export class Tx {
       unencryptedLogs: this.unencryptedLogs.toBuffer().toString('hex'),
       proof: this.proof.toBuffer().toString('hex'),
       enqueuedPublicFunctions: this.enqueuedPublicFunctionCalls.map(f => f.toBuffer().toString('hex')) ?? [],
+      publicTeardownFunctionCall: this.publicTeardownFunctionCall.toBuffer().toString('hex'),
     };
   }
 
@@ -129,7 +126,15 @@ export class Tx {
     const enqueuedPublicFunctions = obj.enqueuedPublicFunctions
       ? obj.enqueuedPublicFunctions.map((x: string) => PublicCallRequest.fromBuffer(Buffer.from(x, 'hex')))
       : [];
-    return new Tx(publicInputs, Proof.fromBuffer(proof), encryptedLogs, unencryptedLogs, enqueuedPublicFunctions);
+    const publicTeardownFunctionCall = PublicCallRequest.fromBuffer(Buffer.from(obj.publicTeardownFunctionCall, 'hex'));
+    return new Tx(
+      publicInputs,
+      Proof.fromBuffer(proof),
+      encryptedLogs,
+      unencryptedLogs,
+      enqueuedPublicFunctions,
+      publicTeardownFunctionCall,
+    );
   }
 
   /**
@@ -208,7 +213,15 @@ export class Tx {
     const enqueuedPublicFunctions = tx.enqueuedPublicFunctionCalls.map(x => {
       return PublicCallRequest.fromBuffer(x.toBuffer());
     });
-    return new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions);
+    const publicTeardownFunctionCall = PublicCallRequest.fromBuffer(tx.publicTeardownFunctionCall.toBuffer());
+    return new Tx(
+      publicInputs,
+      proof,
+      encryptedLogs,
+      unencryptedLogs,
+      enqueuedPublicFunctions,
+      publicTeardownFunctionCall,
+    );
   }
 }
 

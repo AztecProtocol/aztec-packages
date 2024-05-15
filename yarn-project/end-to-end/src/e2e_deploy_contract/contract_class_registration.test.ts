@@ -5,7 +5,6 @@ import {
   type ContractClassWithId,
   type ContractInstanceWithAddress,
   type DebugLogger,
-  EthAddress,
   Fr,
   type PXE,
   TxStatus,
@@ -19,7 +18,7 @@ import {
   deployInstance,
   registerContractClass,
 } from '@aztec/aztec.js/deployment';
-import { type ContractClassIdPreimage, Point } from '@aztec/circuits.js';
+import { type ContractClassIdPreimage } from '@aztec/circuits.js';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { writeTestData } from '@aztec/foundation/testing';
 import { StatefulTestContract } from '@aztec/noir-contracts.js';
@@ -48,7 +47,7 @@ describe('e2e_deploy_contract contract class registration', () => {
     artifact = StatefulTestContract.artifact;
     await registerContractClass(wallet, artifact).then(c => c.send().wait());
     contractClass = getContractClassFromArtifact(artifact);
-  }, 60_000);
+  });
 
   it('registers the contract class on the node', async () => {
     const registeredClass = await aztecNode.getContractClass(contractClass.id);
@@ -71,7 +70,7 @@ describe('e2e_deploy_contract contract class registration', () => {
     const fetchedFunction = fetchedClass!.privateFunctions[0]!;
     expect(fetchedFunction).toBeDefined();
     expect(fetchedFunction.selector).toEqual(selector);
-  }, 60_000);
+  });
 
   it('broadcasts an unconstrained function', async () => {
     const functionArtifact = artifact.functions.find(fn => fn.functionType === FunctionType.UNCONSTRAINED)!;
@@ -85,7 +84,7 @@ describe('e2e_deploy_contract contract class registration', () => {
     const fetchedFunction = fetchedClass!.unconstrainedFunctions[0]!;
     expect(fetchedFunction).toBeDefined();
     expect(fetchedFunction.selector).toEqual(selector);
-  }, 60_000);
+  });
 
   const testDeployingAnInstance = (how: string, deployFn: (toDeploy: ContractInstanceWithAddress) => Promise<void>) =>
     describe(`deploying a contract instance ${how}`, () => {
@@ -96,13 +95,11 @@ describe('e2e_deploy_contract contract class registration', () => {
       const deployInstance = async (opts: { constructorName?: string; deployer?: AztecAddress } = {}) => {
         const initArgs = [wallet.getAddress(), 42] as StatefulContractCtorArgs;
         const salt = Fr.random();
-        const portalAddress = EthAddress.random();
-        const publicKey = Point.random();
+        const publicKeysHash = Fr.random();
         const instance = getContractInstanceFromDeployParams(artifact, {
           constructorArgs: initArgs,
           salt,
-          publicKey,
-          portalAddress,
+          publicKeysHash,
           constructorArtifact: opts.constructorName,
           deployer: opts.deployer,
         });
@@ -122,20 +119,19 @@ describe('e2e_deploy_contract contract class registration', () => {
         const registered = await t.registerContract(wallet, StatefulTestContract, {
           constructorName: opts.constructorName,
           salt: instance.salt,
-          portalAddress: instance.portalContractAddress,
-          publicKey,
+          publicKeysHash,
           initArgs,
           deployer: opts.deployer,
         });
         expect(registered.address).toEqual(instance.address);
         const contract = await StatefulTestContract.at(instance.address, wallet);
-        return { contract, initArgs, instance, publicKey };
+        return { contract, initArgs, instance, publicKeysHash };
       };
 
       describe('using a private constructor', () => {
         beforeAll(async () => {
           ({ instance, initArgs, contract } = await deployInstance());
-        }, 60_000);
+        });
 
         it('stores contract instance in the aztec node', async () => {
           const deployed = await aztecNode.getContract(instance.address);
@@ -143,7 +139,6 @@ describe('e2e_deploy_contract contract class registration', () => {
           expect(deployed!.address).toEqual(instance.address);
           expect(deployed!.contractClassId).toEqual(contractClass.id);
           expect(deployed!.initializationHash).toEqual(instance.initializationHash);
-          expect(deployed!.portalContractAddress).toEqual(instance.portalContractAddress);
           expect(deployed!.publicKeysHash).toEqual(instance.publicKeysHash);
           expect(deployed!.salt).toEqual(instance.salt);
           expect(deployed!.deployer).toEqual(instance.deployer);
@@ -157,7 +152,7 @@ describe('e2e_deploy_contract contract class registration', () => {
             .wait();
           const stored = await contract.methods.get_public_value(whom).simulate();
           expect(stored).toEqual(10n);
-        }, 30_000);
+        });
 
         it('refuses to call a public function with init check if the instance is not initialized', async () => {
           const whom = AztecAddress.random();
@@ -169,13 +164,13 @@ describe('e2e_deploy_contract contract class registration', () => {
 
           // Meanwhile we check we didn't increment the value
           expect(await contract.methods.get_public_value(whom).simulate()).toEqual(0n);
-        }, 30_000);
+        });
 
         it('refuses to initialize the instance with wrong args via a private function', async () => {
           await expect(contract.methods.constructor(AztecAddress.random(), 43).prove()).rejects.toThrow(
             /initialization hash does not match/i,
           );
-        }, 30_000);
+        });
 
         it('initializes the contract and calls a public function', async () => {
           await contract.methods
@@ -186,7 +181,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           await contract.methods.increment_public_value(whom, 10).send({ skipPublicSimulation: true }).wait();
           const stored = await contract.methods.get_public_value(whom).simulate();
           expect(stored).toEqual(10n);
-        }, 30_000);
+        });
 
         it('refuses to reinitialize the contract', async () => {
           await expect(
@@ -195,13 +190,13 @@ describe('e2e_deploy_contract contract class registration', () => {
               .send({ skipPublicSimulation: true })
               .wait(),
           ).rejects.toThrow(/dropped/i);
-        }, 30_000);
+        });
       });
 
       describe('using a public constructor', () => {
         beforeAll(async () => {
           ({ instance, initArgs, contract } = await deployInstance({ constructorName: 'public_constructor' }));
-        }, 60_000);
+        });
 
         it('refuses to initialize the instance with wrong args via a public function', async () => {
           const whom = AztecAddress.random();
@@ -211,7 +206,7 @@ describe('e2e_deploy_contract contract class registration', () => {
             .wait({ dontThrowOnRevert: true });
           expect(receipt.status).toEqual(TxStatus.REVERTED);
           expect(await contract.methods.get_public_value(whom).simulate()).toEqual(0n);
-        }, 30_000);
+        });
 
         it('initializes the contract and calls a public function', async () => {
           await contract.methods
@@ -222,7 +217,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           await contract.methods.increment_public_value(whom, 10).send({ skipPublicSimulation: true }).wait();
           const stored = await contract.methods.get_public_value(whom).simulate();
           expect(stored).toEqual(10n);
-        }, 30_000);
+        });
 
         it('refuses to reinitialize the contract', async () => {
           await expect(
@@ -231,7 +226,7 @@ describe('e2e_deploy_contract contract class registration', () => {
               .send({ skipPublicSimulation: true })
               .wait(),
           ).rejects.toThrow(/dropped/i);
-        }, 30_000);
+        });
       });
     });
 

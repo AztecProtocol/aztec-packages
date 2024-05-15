@@ -13,6 +13,7 @@ import {
   type PXE,
   type Wallet,
 } from '@aztec/aztec.js';
+import { deriveSigningKey } from '@aztec/circuits.js/keys';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { ChildContract } from '@aztec/noir-contracts.js/Child';
 
@@ -20,17 +21,13 @@ import { setup } from './fixtures/utils.js';
 
 function itShouldBehaveLikeAnAccountContract(
   getAccountContract: (encryptionKey: GrumpkinPrivateKey) => AccountContract,
-  walletSetup: (
-    pxe: PXE,
-    encryptionPrivateKey: GrumpkinPrivateKey,
-    accountContract: AccountContract,
-  ) => Promise<Wallet>,
+  walletSetup: (pxe: PXE, secretKey: Fr, accountContract: AccountContract) => Promise<Wallet>,
   walletAt: (pxe: PXE, accountContract: AccountContract, address: CompleteAddress) => Promise<Wallet>,
 ) {
   describe(`behaves like an account contract`, () => {
     let child: ChildContract;
     let wallet: Wallet;
-    let encryptionPrivateKey: GrumpkinPrivateKey;
+    let secretKey: Fr;
 
     let pxe: PXE;
     let logger: DebugLogger;
@@ -38,25 +35,26 @@ function itShouldBehaveLikeAnAccountContract(
 
     beforeEach(async () => {
       ({ logger, pxe, teardown } = await setup(0));
-      encryptionPrivateKey = GrumpkinScalar.random();
+      secretKey = Fr.random();
+      const signingKey = deriveSigningKey(secretKey);
 
-      wallet = await walletSetup(pxe, encryptionPrivateKey, getAccountContract(encryptionPrivateKey));
+      wallet = await walletSetup(pxe, secretKey, getAccountContract(signingKey));
       child = await ChildContract.deploy(wallet).send().deployed();
-    }, 60_000);
+    });
 
     afterEach(() => teardown());
 
     it('calls a private function', async () => {
       logger.info('Calling private function...');
       await child.methods.value(42).send().wait({ interval: 0.1 });
-    }, 60_000);
+    });
 
     it('calls a public function', async () => {
       logger.info('Calling public function...');
       await child.methods.pub_inc_value(42).send().wait({ interval: 0.1 });
       const storedValue = await pxe.getPublicStorageAt(child.address, new Fr(1));
       expect(storedValue).toEqual(new Fr(42n));
-    }, 60_000);
+    });
 
     it('fails to call a function using an invalid signature', async () => {
       const accountAddress = wallet.getCompleteAddress();
@@ -68,8 +66,8 @@ function itShouldBehaveLikeAnAccountContract(
 }
 
 describe('e2e_account_contracts', () => {
-  const walletSetup = async (pxe: PXE, encryptionPrivateKey: GrumpkinPrivateKey, accountContract: AccountContract) => {
-    const account = new AccountManager(pxe, encryptionPrivateKey, accountContract);
+  const walletSetup = async (pxe: PXE, secretKey: Fr, accountContract: AccountContract) => {
+    const account = new AccountManager(pxe, secretKey, accountContract);
     return await account.waitSetup();
   };
 

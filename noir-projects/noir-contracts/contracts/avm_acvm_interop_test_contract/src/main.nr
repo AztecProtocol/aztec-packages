@@ -28,7 +28,7 @@ contract AvmAcvmInteropTest {
     }
 
     #[aztec(public)]
-    fn new_nullifier_acvm(nullifier: Field) -> pub Field {
+    fn new_nullifier_acvm(nullifier: Field) {
         context.push_new_nullifier(nullifier, 0);
     }
 
@@ -42,7 +42,7 @@ contract AvmAcvmInteropTest {
         context.call_public_function(
             context.this_address(),
             FunctionSelector::from_signature("constant_field_acvm()"),
-            [],
+            [].as_slice(),
             GasOpts::default()
         ).deserialize_into()
     }
@@ -52,14 +52,19 @@ contract AvmAcvmInteropTest {
         context.call_public_function(
             context.this_address(),
             FunctionSelector::from_signature("constant_field_avm()"),
-            [],
+            [].as_slice(),
             GasOpts::default()
         ).deserialize_into()
     }
 
     #[aztec(public-vm)]
     fn avm_to_acvm_call(selector: FunctionSelector, args: Field) {
-        context.call_public_function(context.this_address(), selector, [args], GasOpts::default()).assert_empty();
+        context.call_public_function(
+            context.this_address(),
+            selector,
+            [args].as_slice(),
+            GasOpts::default()
+        ).assert_empty();
     }
 
     /************************************************************************

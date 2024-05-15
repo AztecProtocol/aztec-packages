@@ -1,8 +1,8 @@
-use dep::aztec::prelude::{AztecAddress, NoteInterface, NoteHeader, PrivateContext, emit_encrypted_log};
+use dep::aztec::prelude::{AztecAddress, NoteInterface, NoteHeader, PrivateContext};
 use dep::aztec::{
-    note::{utils::compute_note_hash_for_consumption},
-    oracle::{nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key},
-    hash::pedersen_hash, protocol_types::traits::Empty
+    keys::getters::get_ivpk_m, note::{utils::compute_note_hash_for_consumption},
+    oracle::nullifier_key::get_app_nullifier_secret_key, hash::poseidon2_hash,
+    protocol_types::{traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER}
 };
 
 // Shows how to create a custom note
@@ -27,33 +27,32 @@ impl CardNote {
 impl NoteInterface<CARD_NOTE_LEN> for CardNote {
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_nullifier_secret_key(self.owner);
-        pedersen_hash([
+        let secret = context.request_app_nullifier_secret_key(self.owner);
+        poseidon2_hash([
             note_hash_for_nullify,
-            secret.high,
-            secret.low,
-        ],0)
+            secret,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+        ])
     }
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nullifier_secret_key(self.owner);
-        pedersen_hash([
+        let secret = get_app_nullifier_secret_key(self.owner);
+        poseidon2_hash([
             note_hash_for_nullify,
-            secret.high,
-            secret.low,
-        ],0)
+            secret,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+        ])
     }
 
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
-        let encryption_pub_key = get_public_key(self.owner);
-        emit_encrypted_log(
-            context,
+        let ivpk_m = get_ivpk_m(context, self.owner);
+        context.emit_encrypted_log(
             (*context).this_address(),
             slot,
             Self::get_note_type_id(),
-            encryption_pub_key,
+            ivpk_m,
             self.serialize_content(),
         );
     }

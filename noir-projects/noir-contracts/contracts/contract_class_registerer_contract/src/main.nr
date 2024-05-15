@@ -2,7 +2,7 @@ mod events;
 mod capsule;
 
 contract ContractClassRegisterer {
-    use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, emit_unencrypted_log};
+    use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector};
     use dep::aztec::protocol_types::{
         contract_class_id::ContractClassId,
         constants::{
@@ -12,22 +12,24 @@ contract ContractClassRegisterer {
         traits::Serialize
     };
 
-    use dep::aztec::log::emit_unencrypted_log_from_private;
-
     use crate::events::{
         class_registered::ContractClassRegistered,
         private_function_broadcasted::{ClassPrivateFunctionBroadcasted, PrivateFunction},
         unconstrained_function_broadcasted::{ClassUnconstrainedFunctionBroadcasted, UnconstrainedFunction}
     };
 
+    // docs:start:import_pop_capsule
     use crate::capsule::pop_capsule;
+    // docs:end:import_pop_capsule
 
     #[aztec(private)]
     fn register(artifact_hash: Field, private_functions_root: Field, public_bytecode_commitment: Field) {
         // TODO: Validate public_bytecode_commitment is the correct commitment of packed_public_bytecode
         // TODO: Validate packed_public_bytecode is legit public bytecode
 
+        // docs:start:pop_capsule
         let packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] = pop_capsule();
+        // docs:end:pop_capsule
 
         // Compute contract class id from preimage
         let contract_class_id = ContractClassId::compute(
@@ -41,8 +43,8 @@ contract ContractClassRegisterer {
         context.push_new_nullifier(contract_class_id.to_field(), 0);
 
         // Broadcast class info including public bytecode
-        dep::aztec::oracle::debug_log::debug_log_array_with_prefix(
-            "ContractClassRegistered",
+        dep::aztec::oracle::debug_log::debug_log_format(
+            "ContractClassRegistered: {}",
             [
             contract_class_id.to_field(),
             artifact_hash,
@@ -50,7 +52,7 @@ contract ContractClassRegisterer {
             public_bytecode_commitment
         ]
         );
-        emit_unencrypted_log_from_private(&mut context, event.serialize());
+        context.emit_contract_class_unencrypted_log(event.serialize());
     }
 
     #[aztec(private)]
@@ -74,8 +76,8 @@ contract ContractClassRegisterer {
             artifact_function_tree_leaf_index,
             function: function_data
         };
-        dep::aztec::oracle::debug_log::debug_log_array_with_prefix(
-            "ClassPrivateFunctionBroadcasted",
+        dep::aztec::oracle::debug_log::debug_log_format(
+            "ClassPrivateFunctionBroadcasted: {}",
             [
             contract_class_id.to_field(),
             artifact_metadata_hash,
@@ -85,7 +87,7 @@ contract ContractClassRegisterer {
             function_data.metadata_hash
         ]
         );
-        emit_unencrypted_log_from_private(&mut context, event.serialize());
+        context.emit_contract_class_unencrypted_log(event.serialize());
     }
 
     #[aztec(private)]
@@ -105,8 +107,8 @@ contract ContractClassRegisterer {
             artifact_function_tree_leaf_index,
             function: function_data
         };
-        dep::aztec::oracle::debug_log::debug_log_array_with_prefix(
-            "ClassUnconstrainedFunctionBroadcasted",
+        dep::aztec::oracle::debug_log::debug_log_format(
+            "ClassUnconstrainedFunctionBroadcasted: {}",
             [
             contract_class_id.to_field(),
             artifact_metadata_hash,
@@ -115,6 +117,6 @@ contract ContractClassRegisterer {
             function_data.metadata_hash
         ]
         );
-        emit_unencrypted_log_from_private(&mut context, event.serialize());
+        context.emit_contract_class_unencrypted_log(event.serialize());
     }
 }

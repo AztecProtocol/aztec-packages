@@ -23,6 +23,7 @@ impl BrilligContext {
             section_label: 0,
             next_section: 1,
             debug_show: DebugShow::new(false),
+            bigint_new_id: 0,
         };
 
         context.codegen_entry_point(&arguments, &return_parameters);
@@ -163,7 +164,7 @@ impl BrilligContext {
     }
 
     /// Computes the size of a parameter if it was flattened
-    fn flattened_size(param: &BrilligParameter) -> usize {
+    pub(super) fn flattened_size(param: &BrilligParameter) -> usize {
         match param {
             BrilligParameter::SingleAddr(_) => 1,
             BrilligParameter::Array(item_types, item_count)
@@ -175,7 +176,7 @@ impl BrilligContext {
     }
 
     /// Computes the size of a parameter if it was flattened
-    fn flattened_tuple_size(tuple: &[BrilligParameter]) -> usize {
+    pub(super) fn flattened_tuple_size(tuple: &[BrilligParameter]) -> usize {
         tuple.iter().map(BrilligContext::flattened_size).sum()
     }
 
@@ -368,7 +369,7 @@ impl BrilligContext {
     }
 
     // Flattens an array by recursively copying nested arrays and regular items.
-    fn flatten_array(
+    pub(super) fn flatten_array(
         &mut self,
         item_type: &[BrilligParameter],
         item_count: usize,

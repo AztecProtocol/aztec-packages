@@ -5,12 +5,12 @@
 use acir::{BlackBoxFunc, FieldElement};
 use acvm_blackbox_solver::{BlackBoxFunctionSolver, BlackBoxResolutionError};
 
-mod fixed_base_scalar_mul;
+mod embedded_curve_ops;
 mod poseidon2;
 mod wasm;
 
-pub use fixed_base_scalar_mul::{embedded_curve_add, fixed_base_scalar_mul};
-use poseidon2::Poseidon2;
+pub use embedded_curve_ops::{embedded_curve_add, multi_scalar_mul};
+pub use poseidon2::poseidon2_permutation;
 use wasm::Barretenberg;
 
 use self::wasm::{Pedersen, SchnorrSig};
@@ -52,7 +52,7 @@ impl BlackBoxFunctionSolver for Bn254BlackBoxSolver {
         &self,
         public_key_x: &FieldElement,
         public_key_y: &FieldElement,
-        signature: &[u8],
+        signature: &[u8; 64],
         message: &[u8],
     ) -> Result<bool, BlackBoxResolutionError> {
         let pub_key_bytes: Vec<u8> =
@@ -89,12 +89,12 @@ impl BlackBoxFunctionSolver for Bn254BlackBoxSolver {
         })
     }
 
-    fn fixed_base_scalar_mul(
+    fn multi_scalar_mul(
         &self,
-        low: &FieldElement,
-        high: &FieldElement,
+        points: &[FieldElement],
+        scalars: &[FieldElement],
     ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
-        fixed_base_scalar_mul(low, high)
+        multi_scalar_mul(points, scalars)
     }
 
     fn ec_add(
@@ -112,7 +112,6 @@ impl BlackBoxFunctionSolver for Bn254BlackBoxSolver {
         inputs: &[FieldElement],
         len: u32,
     ) -> Result<Vec<FieldElement>, BlackBoxResolutionError> {
-        let poseidon = Poseidon2::new();
-        poseidon.permutation(inputs, len)
+        poseidon2_permutation(inputs, len)
     }
 }

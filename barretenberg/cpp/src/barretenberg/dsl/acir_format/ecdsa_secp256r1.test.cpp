@@ -22,35 +22,35 @@ size_t generate_r1_constraints(EcdsaSecp256r1Constraint& ecdsa_r1_constraint,
                                ecdsa_signature signature)
 {
 
-    std::vector<uint32_t> message_in;
-    std::vector<uint32_t> pub_x_indices_in;
-    std::vector<uint32_t> pub_y_indices_in;
-    std::vector<uint32_t> signature_in;
+    std::array<uint32_t, 32> message_in;
+    std::array<uint32_t, 32> pub_x_indices_in;
+    std::array<uint32_t, 32> pub_y_indices_in;
+    std::array<uint32_t, 64> signature_in;
     size_t offset = 0;
     for (size_t i = 0; i < hashed_message.size(); ++i) {
-        message_in.emplace_back(i + offset);
+        message_in[i] = static_cast<uint32_t>(i + offset);
         const auto byte = static_cast<uint8_t>(hashed_message[i]);
         witness_values.emplace_back(byte);
     }
     offset += message_in.size();
 
     for (size_t i = 0; i < 32; ++i) {
-        pub_x_indices_in.emplace_back(i + offset);
+        pub_x_indices_in[i] = static_cast<uint32_t>(i + offset);
         witness_values.emplace_back(pub_x_value.slice(248 - i * 8, 256 - i * 8));
     }
     offset += pub_x_indices_in.size();
     for (size_t i = 0; i < 32; ++i) {
-        pub_y_indices_in.emplace_back(i + offset);
+        pub_y_indices_in[i] = static_cast<uint32_t>(i + offset);
         witness_values.emplace_back(pub_y_value.slice(248 - i * 8, 256 - i * 8));
     }
     offset += pub_y_indices_in.size();
     for (size_t i = 0; i < 32; ++i) {
-        signature_in.emplace_back(i + offset);
+        signature_in[i] = static_cast<uint32_t>(i + offset);
         witness_values.emplace_back(signature.r[i]);
     }
     offset += signature.r.size();
     for (size_t i = 0; i < 32; ++i) {
-        signature_in.emplace_back(i + offset);
+        signature_in[i + 32] = static_cast<uint32_t>(i + offset);
         witness_values.emplace_back(signature.s[i]);
     }
     offset += signature.s.size();
@@ -125,9 +125,11 @@ TEST(ECDSASecp256r1, test_hardcoded)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .recursive = false,
+        .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
+        .aes128_constraints = {},
         .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
@@ -140,13 +142,14 @@ TEST(ECDSASecp256r1, test_hardcoded)
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
-        .fixed_base_scalar_mul_constraints = {},
+        .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
-        .constraints = {},
+        .poly_triple_constraints = {},
+        .quad_constraints = {},
         .block_constraints = {},
     };
 
@@ -175,9 +178,11 @@ TEST(ECDSASecp256r1, TestECDSAConstraintSucceed)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .recursive = false,
+        .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
+        .aes128_constraints = {},
         .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
@@ -190,13 +195,14 @@ TEST(ECDSASecp256r1, TestECDSAConstraintSucceed)
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
-        .fixed_base_scalar_mul_constraints = {},
+        .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
-        .constraints = {},
+        .poly_triple_constraints = {},
+        .quad_constraints = {},
         .block_constraints = {},
     };
 
@@ -223,9 +229,11 @@ TEST(ECDSASecp256r1, TestECDSACompilesForVerifier)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .recursive = false,
+        .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
+        .aes128_constraints = {},
         .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
@@ -238,13 +246,14 @@ TEST(ECDSASecp256r1, TestECDSACompilesForVerifier)
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
-        .fixed_base_scalar_mul_constraints = {},
+        .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
-        .constraints = {},
+        .poly_triple_constraints = {},
+        .quad_constraints = {},
         .block_constraints = {},
     };
     auto builder = create_circuit(constraint_system);
@@ -266,9 +275,11 @@ TEST(ECDSASecp256r1, TestECDSAConstraintFail)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .recursive = false,
+        .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
+        .aes128_constraints = {},
         .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
@@ -281,13 +292,14 @@ TEST(ECDSASecp256r1, TestECDSAConstraintFail)
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
-        .fixed_base_scalar_mul_constraints = {},
+        .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
-        .constraints = {},
+        .poly_triple_constraints = {},
+        .quad_constraints = {},
         .block_constraints = {},
     };
 
