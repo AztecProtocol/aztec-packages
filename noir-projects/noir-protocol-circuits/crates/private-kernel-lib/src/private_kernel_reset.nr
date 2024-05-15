@@ -96,7 +96,7 @@ mod tests {
         address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey,
         hash::{compute_note_hash_nonce, compute_unique_note_hash, sha256_to_field, silo_note_hash, silo_nullifier},
         tests::{fixture_builder::FixtureBuilder}, utils::{arrays::{array_eq, array_length}},
-        traits::{Empty, is_empty, is_empty_array}
+        traits::{Empty, is_empty, is_empty_array}, grumpkin_point::GrumpkinPoint
     };
 
     struct PrivateKernelResetInputsBuilder {
@@ -270,16 +270,22 @@ mod tests {
         builder.add_pending_note_hash_read_request(0);
         builder.add_pending_nullifier_read_request(1);
 
-        let remaining_note_hash_rr_index = builder.previous_kernel.add_read_request_for_pending_note_hash(1); // Won't be processed for now
+        // Now add some read requests that will be propagated
+        let remaining_note_hash_rr_index = builder.previous_kernel.add_read_request_for_pending_note_hash(1);
         let note_hash_rr = builder.previous_kernel.note_hash_read_requests.storage[remaining_note_hash_rr_index];
 
-        let remaining_nullifier_rr_index = builder.previous_kernel.add_read_request_for_pending_nullifier(1); // Won't be processed for now
+        let remaining_nullifier_rr_index = builder.previous_kernel.add_read_request_for_pending_nullifier(1);
         let nullifier_rr = builder.previous_kernel.nullifier_read_requests.storage[remaining_nullifier_rr_index];
 
+        let nk_validation_index = builder.previous_kernel.add_request_for_nullifier_key_validation(GrumpkinPoint::new(1, 2), 27);
+        let nk_validation = builder.previous_kernel.nullifier_key_validation_requests.storage[nk_validation_index];
+
+        // Check that they have been propagated to the next kernel
         let result = builder.execute();
 
         assert_eq(result.validation_requests.note_hash_read_requests[0], note_hash_rr);
         assert_eq(result.validation_requests.nullifier_read_requests[0], nullifier_rr);
+        assert_eq(result.validation_requests.nullifier_key_validation_requests[0], nk_validation);
     }
 
     #[test]
