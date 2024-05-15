@@ -213,10 +213,7 @@ pub fn export_fn_abi(
 ///
 /// This will allow developers to access their contract' storage struct in unconstrained functions
 pub fn transform_unconstrained(func: &mut NoirFunction, storage_struct_name: String) {
-    func.def
-        .body
-        .statements
-        .insert(0, abstract_storage(storage_struct_name, true));
+    func.def.body.statements.insert(0, abstract_storage(storage_struct_name, true));
 }
 
 /// Helper function that returns what the private context would look like in the ast

@@ -85,10 +85,7 @@ pub fn generate_storage_field_constructor(
                             // of either context nor slot, and avoid that way having to deal with the generic context
                             // type.
                             vec![
-                                (
-                                    pattern("context"),
-                                    make_type(UnresolvedTypeData::Unspecified),
-                                ),
+                                (pattern("context"), make_type(UnresolvedTypeData::Unspecified)),
                                 (
                                     Pattern::Identifier(ident("slot")),
                                     make_type(UnresolvedTypeData::Unspecified),
@@ -172,15 +169,13 @@ pub fn generate_storage_implementation(
 
     // This is the type over which the impl is generic.
     let generic_context_ident = ident("Context");
-    let generic_context_type = make_type(UnresolvedTypeData::Named(ident_path("Context"), vec![], true));
+    let generic_context_type =
+        make_type(UnresolvedTypeData::Named(ident_path("Context"), vec![], true));
 
     let init = NoirFunction::normal(FunctionDefinition::normal(
         &ident("init"),
         &vec![],
-        &[(
-            ident("context"),
-            generic_context_type.clone(),
-        )],
+        &[(ident("context"), generic_context_type.clone())],
         &BlockExpression { statements: vec![storage_constructor_statement] },
         &[],
         &return_type(chained_path!("Self")),
@@ -188,7 +183,11 @@ pub fn generate_storage_implementation(
 
     let storage_impl = TypeImpl {
         object_type: UnresolvedType {
-            typ: UnresolvedTypeData::Named(chained_path!(storage_struct_name), vec![generic_context_type.clone()], true),
+            typ: UnresolvedTypeData::Named(
+                chained_path!(storage_struct_name),
+                vec![generic_context_type.clone()],
+                true,
+            ),
             span: Some(Span::default()),
         },
         type_span: Span::default(),
@@ -345,7 +344,9 @@ pub fn assign_storage_slots(
 
             let mut storage_slot: u64 = 1;
             for (index, (_, expr_id)) in storage_constructor_expression.fields.iter().enumerate() {
-                let fields = storage_struct.borrow().get_fields(&storage_constructor_expression.struct_generics);
+                let fields = storage_struct
+                    .borrow()
+                    .get_fields(&storage_constructor_expression.struct_generics);
                 let (field_name, field_type) = fields.get(index).unwrap();
                 let new_call_expression = match context.def_interner.expression(expr_id) {
                     HirExpression::Call(hir_call_expression) => Ok(hir_call_expression),
