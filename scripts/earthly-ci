@@ -45,7 +45,7 @@ while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
       echo "Got 'Error: pull ping error: pull ping response', intermittent failure when writing out images to docker. If this persists, try 'systemctl restart docker' on the spot instance."
     elif grep '================================= System Info ==================================' $OUTPUT_FILE >/dev/null; then
       echo "Detected an Earthly daemon restart, possibly due to it (mis)detecting a cache setting change, trying again..."
-    elif grep 'dial unix /run/buildkit/buildkitd.sock' $OUTPUT_FILE >/dev/null || grep "Unable to find image 'earthly/buildkitd'" $OUTPUT_FILE >/dev/null || grep "Error: build new buildkitd client:"  $OUTPUT_FILE >/dev/null ; then
+    elif grep 'dial unix /run/buildkit/buildkitd.sock' $OUTPUT_FILE >/dev/null || grep "Unable to find image 'earthly/buildkitd'" $OUTPUT_FILE >/dev/null; then
       echo "Detected earthly unable to find buildkit, waiting and trying again..."
       sleep 20
     elif grep 'The container name "/earthly-buildkitd" is already in use by container' $OUTPUT_FILE >/dev/null; then
