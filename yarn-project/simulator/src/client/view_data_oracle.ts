@@ -129,7 +129,7 @@ export class ViewDataOracle extends TypedOracle {
   /**
    * Retrieve the complete address associated to a given address.
    * @param account - account address.
-   * @returns A complete address associated with the input address or master nullifier public key hash
+   * @returns A complete address associated with the input address
    * @throws An error if the account is not registered in the database.
    */
   public override getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {

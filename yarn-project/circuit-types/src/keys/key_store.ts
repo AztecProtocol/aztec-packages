@@ -33,8 +33,8 @@ export interface KeyStore {
   getAccounts(): Promise<AztecAddress[]>;
 
   /**
-   * Gets the master nullifier public key for a given account or master nullifier public key hash.
-   * @throws If the account does not exist in the key store.
+   * Gets the master nullifier public key for a given master nullifier public key hash.
+   * @throws If the account corresponding to the master nullifier public key hash does not exist in the key store.
    * @param npkMHash - master nullifier public key hash.
    * @returns The master nullifier public key for the account.
    */
@@ -65,8 +65,8 @@ export interface KeyStore {
   getMasterTaggingPublicKey(account: AztecAddress): Promise<PublicKey>;
 
   /**
-   * Derives and returns the application nullifier secret key for a given account or master nullifier public key hash.
-   * @throws If the account does not exist in the key store.
+   * Derives and returns the application nullifier secret key for a given master nullifier public key hash.
+   * @throws If the account corresponding to the master nullifier public key hash does not exist in the key store.
    * @param npkMHash - master nullifier public key hash.
    * @param app - The application address to retrieve the nullifier secret key for.
    * @returns A Promise that resolves to the application nullifier secret key.
