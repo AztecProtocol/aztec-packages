@@ -22,6 +22,7 @@ pub fn get_npk_m_hash(context: &mut PrivateContext, address: AztecAddress) -> Fi
     poseidon2_hash(get_master_key(context, address, NULLIFIER_INDEX).serialize())
 }
 
+// TODO(benesjan): This is no longer really used. Do we even need it?
 pub fn get_ivpk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
     get_master_key(context, address, INCOMING_INDEX)
 }

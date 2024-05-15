@@ -2,10 +2,7 @@
 contract Escrow {
     use dep::aztec::prelude::{AztecAddress, PrivateImmutable};
 
-    use dep::aztec::{
-        context::Context,
-        keys::getters::get_npk_m_hash
-    };
+    use dep::aztec::{context::Context, keys::getters::get_npk_m_hash};
 
     use dep::address_note::address_note::AddressNote;
 

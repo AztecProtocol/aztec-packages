@@ -85,6 +85,8 @@ describe('Private Execution test suite', () => {
   let ownerMasterNullifierSecretKey: GrumpkinPrivateKey;
   let recipientMasterNullifierSecretKey: GrumpkinPrivateKey;
 
+  let ownerMasterNullifierPublicKeyHash: Fr, recipientMasterNullifierPublicKeyHash: Fr;
+
   const treeHeights: { [name: string]: number } = {
     noteHash: NOTE_HASH_TREE_HEIGHT,
     l1ToL2Messages: L1_TO_L2_MSG_TREE_HEIGHT,
@@ -185,6 +187,13 @@ describe('Private Execution test suite', () => {
 
     owner = ownerCompleteAddress.address;
     recipient = recipientCompleteAddress.address;
+
+    ownerMasterNullifierPublicKeyHash = poseidon2Hash(
+      ownerCompleteAddress.publicKeys.masterNullifierPublicKey.toFields(),
+    );
+    recipientMasterNullifierPublicKeyHash = poseidon2Hash(
+      recipientCompleteAddress.publicKeys.masterNullifierPublicKey.toFields(),
+    );
   });
 
   beforeEach(async () => {
@@ -307,7 +316,7 @@ describe('Private Execution test suite', () => {
       };
     };
 
-    beforeEach(() => {
+    beforeEach(async () => {
       oracle.getFunctionArtifactByName.mockImplementation((_, functionName: string) =>
         Promise.resolve(getFunctionArtifact(StatefulTestContractArtifact, functionName)),
       );
@@ -373,7 +382,7 @@ describe('Private Execution test suite', () => {
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'create_note_no_init_check');
 
       const result = await runSimulator({
-        args: [owner, poseidon2Hash(recipientMasterNullifierPublicKey.toFields()), 140],
+        args: [owner, recipientMasterNullifierPublicKeyHash, 140],
         artifact,
       });
 
@@ -416,8 +425,8 @@ describe('Private Execution test suite', () => {
       const noteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
 
       const notes = [
-        buildNote(60n, poseidon2Hash(ownerMasterNullifierPublicKey.toFields()), storageSlot, noteTypeId),
-        buildNote(80n, poseidon2Hash(ownerMasterNullifierPublicKey.toFields()), storageSlot, noteTypeId),
+        buildNote(60n, ownerMasterNullifierPublicKeyHash, storageSlot, noteTypeId),
+        buildNote(80n, ownerMasterNullifierPublicKeyHash, storageSlot, noteTypeId),
       ];
       oracle.getNotes.mockResolvedValue(notes);
 
@@ -427,7 +436,7 @@ describe('Private Execution test suite', () => {
       await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
 
       const args = [
-        // poseidon2Hash(ownerMasterNullifierPublicKey.toFields()),
+        // ownerMasterNullifierPublicKeyHash,
         recipient,
         // poseidon2Hash(recipientMasterNullifierPublicKey.toFields()),
         amountToTransfer,
@@ -480,9 +489,7 @@ describe('Private Execution test suite', () => {
       const storageSlot = computeSlotForMapping(new Fr(1n), owner);
       const noteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
 
-      const notes = [
-        buildNote(balance, poseidon2Hash(ownerMasterNullifierPublicKey.toFields()), storageSlot, noteTypeId),
-      ];
+      const notes = [buildNote(balance, ownerMasterNullifierPublicKeyHash, storageSlot, noteTypeId)];
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>
@@ -916,7 +923,7 @@ describe('Private Execution test suite', () => {
   });
 
   describe('pending note hashes contract', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       oracle.getFunctionArtifact.mockImplementation((_, selector) =>
         Promise.resolve(getFunctionArtifact(PendingNoteHashesContractArtifact, selector)),
       );
@@ -1088,7 +1095,7 @@ describe('Private Execution test suite', () => {
 
       const artifact = getFunctionArtifact(PendingNoteHashesContractArtifact, 'test_bad_get_then_insert_flat');
 
-      const args = [amountToTransfer, owner, poseidon2Hash(ownerMasterNullifierPublicKey.toFields())];
+      const args = [amountToTransfer, owner, ownerMasterNullifierPublicKeyHash];
       await expect(() =>
         runSimulator({
           args: args,

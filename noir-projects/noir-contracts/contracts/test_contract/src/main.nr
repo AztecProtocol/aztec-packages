@@ -23,7 +23,7 @@ contract Test {
     use dep::aztec::state_vars::{shared_mutable::SharedMutablePrivateGetter, map::derive_storage_slot_in_map};
 
     use dep::aztec::{
-        keys::getters::{get_npk_m, get_npk_m_hash},
+        keys::getters::{get_npk_m, get_npk_m_hash, get_ivpk_m},
         context::{Context, inputs::private_context_inputs::PrivateContextInputs},
         hash::{pedersen_hash, compute_secret_hash, ArgsHasher},
         note::{

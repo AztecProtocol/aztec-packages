@@ -67,8 +67,7 @@ mod test {
 
     use crate::{
         note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
-        oracle::{unsafe_rand::unsafe_rand},
-        context::PrivateContext, hash::poseidon2_hash
+        oracle::{unsafe_rand::unsafe_rand}, context::PrivateContext, hash::poseidon2_hash
     };
 
     struct AddressNote {
