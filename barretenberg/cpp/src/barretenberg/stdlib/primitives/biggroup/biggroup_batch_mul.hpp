@@ -27,24 +27,24 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::wnaf_batch_mul(const std::vector<el
     std::vector<element> points;
     std::vector<Fr> scalars;
     element one = element::one(nullptr);
-    for (size_t i = 0; i < points.size(); ++i) {
-        bool_ct is_point_at_infinity = points[i].is_point_at_infinity();
+    for (size_t mul_idx = 0; mul_idx < _points.size(); ++mul_idx) {
+        bool_ct is_point_at_infinity = _points[mul_idx].is_point_at_infinity();
         if (is_point_at_infinity.get_value() && static_cast<bool>(is_point_at_infinity.is_constant())) {
             // if point is at infinity and a circuit constant we can just skip.
             continue;
         }
-        if (_scalars[i].get_value() == 0 && _scalars[i].is_constant()) {
+        if (_scalars[mul_idx].get_value() == 0 && _scalars[mul_idx].is_constant()) {
             // if scalar multiplier is 0 and also a constant, we can skip
             continue;
         }
-        element point(_points[i]);
+        element point(_points[mul_idx]);
         point.x = Fq::conditional_assign(is_point_at_infinity, one.x, point.x);
         point.y = Fq::conditional_assign(is_point_at_infinity, one.y, point.y);
-        Fr scalar = Fr::conditional_assign(is_point_at_infinity, 0, _scalars[i]);
+        Fr scalar = Fr::conditional_assign(is_point_at_infinity, 0, _scalars[mul_idx]);
         points.push_back(point);
         scalars.push_back(scalar);
 
-        // TODO: if both point and scalar are constant, don't bother adding constraints
+        // WORKTODO TODO: if both point and scalar are constant, don't bother adding constraints
     }
 
     std::vector<four_bit_table_plookup<>> point_tables;
