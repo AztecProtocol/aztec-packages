@@ -65,6 +65,7 @@ impl KernelCircuitPublicInputsComposer {
         assert_eq(
             array_length(self.previous_kernel.public_inputs.end.private_call_stack), 0, "Private call stack must be empty when executing the tail circuit"
         );
+        self.verify_empty_validation_requests();
 
         self.propagate_rollup_validation_requests();
 
@@ -75,8 +76,6 @@ impl KernelCircuitPublicInputsComposer {
         self.propagate_fee_payer();
 
         self.verify_no_transient_data();
-
-        self.verify_empty_validation_requests();
 
         self.silo_values();
 
@@ -236,15 +235,15 @@ impl KernelCircuitPublicInputsComposer {
 
     fn verify_empty_validation_requests(self) {
         assert_eq(
-            self.public_inputs.validation_requests.note_hash_read_requests.len(), 0, "Non empty note hash read requests"
+            array_length(self.previous_kernel.public_inputs.validation_requests.note_hash_read_requests), 0, "Non empty note hash read requests"
         );
 
         assert_eq(
-            self.public_inputs.validation_requests.nullifier_read_requests.len(), 0, "Non empty nullifier read requests"
+            array_length(self.previous_kernel.public_inputs.validation_requests.nullifier_read_requests), 0, "Non empty nullifier read requests"
         );
 
         assert_eq(
-            self.public_inputs.validation_requests.nullifier_key_validation_requests.len(), 0, "Non empty nullifier key validation requests"
+            array_length(self.previous_kernel.public_inputs.validation_requests.nullifier_key_validation_requests), 0, "Non empty nullifier key validation requests"
         );
     }
 }

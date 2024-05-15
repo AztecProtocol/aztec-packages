@@ -327,6 +327,29 @@ mod tests {
         builder.failed();
     }
 
+    #[test(should_fail_with="Non empty note hash read requests")]
+    unconstrained fn non_empty_note_hash_read_requests() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        builder.previous_kernel.append_new_note_hashes(3);
+        builder.previous_kernel.add_read_request_for_pending_note_hash(1);
+        builder.failed();
+    }
+
+    #[test(should_fail_with="Non empty nullifier read requests")]
+    unconstrained fn non_empty_nullifier_read_requests() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        builder.previous_kernel.append_new_nullifiers(3);
+        builder.previous_kernel.add_read_request_for_pending_nullifier(1);
+        builder.failed();
+    }
+
+    #[test(should_fail_with="Non empty nullifier read requests")]
+    unconstrained fn non_empty_nullifier_key_validations() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        builder.previous_kernel.add_request_for_nullifier_key_validation(GrumpkinPoint::new(1, 2), 27);
+        builder.failed();
+    }
+
     #[test]
     unconstrained fn empty_tx_consumes_teardown_limits_plus_fixed_gas() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
