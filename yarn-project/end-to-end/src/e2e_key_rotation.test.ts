@@ -22,7 +22,7 @@ import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup, setupPXEService } f
 
 const TIMEOUT = 120_000;
 
-describe('e2e_2_pxes', () => {
+describe('e2e_key_rotation', () => {
   jest.setTimeout(TIMEOUT);
 
   let aztecNode: AztecNode | undefined;
