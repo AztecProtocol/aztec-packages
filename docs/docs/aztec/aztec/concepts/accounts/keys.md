@@ -54,7 +54,7 @@ E.g. for nullifier key:
 #include_code key-rotation /yarn-project/end-to-end/src/e2e_key_registry.test.ts rust
 
 Note that the notes directly contain `Npk_m`.
-This means that the notes will be spendable by the same old key after the key rotation and attacker could still potentially steal them if there are no other guardrails in place (like for example account contract auth check).
+This means that it will be possible to nullify the notes with the same old key after the key rotation and attacker could still potentially steal them if there are no other guardrails in place (like for example account contract auth check).
 These guardrails are typically in place so a user should not lose her notes even if this unfortunate accident happens.
 
 ## Scoped keys
