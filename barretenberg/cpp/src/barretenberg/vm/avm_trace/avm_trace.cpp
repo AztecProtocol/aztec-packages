@@ -1203,7 +1203,7 @@ Row AvmTraceBuilder::create_kernel_output_opcode(uint32_t clk, uint32_t data_off
         .avm_main_mem_idx_a = data_offset,
         .avm_main_mem_op_a = 1,
         .avm_main_pc = pc++,
-        .avm_main_q_kernel_lookup = 1,
+        .avm_main_q_kernel_output_lookup = 1,
         .avm_main_r_in_tag = static_cast<uint32_t>(r_tag),
         .avm_main_rwa = 0,
     };
@@ -1230,7 +1230,7 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_metadata(
         .avm_main_mem_op_a = 1,
         .avm_main_mem_op_b = 1,
         .avm_main_pc = pc++,
-        .avm_main_q_kernel_lookup = 1,
+        .avm_main_q_kernel_output_lookup = 1,
         .avm_main_r_in_tag = static_cast<uint32_t>(data_r_tag),
         .avm_main_rwa = 0,
         .avm_main_rwb = 0,
@@ -1298,8 +1298,8 @@ void AvmTraceBuilder::op_sload(uint32_t slot_offset, uint32_t value_offset)
     auto const clk = static_cast<uint32_t>(main_trace.size());
 
     Row row =
-        create_kernel_output_opcode_with_metadata(clk, slot_offset, AvmMemoryTag::FF, value_offset, AvmMemoryTag::FF);
-    kernel_trace_builder.op_sload(clk, row.avm_main_ia, row.avm_main_ib);
+        create_kernel_output_opcode_with_metadata(clk, value_offset, AvmMemoryTag::FF, slot_offset, AvmMemoryTag::FF);
+    kernel_trace_builder.op_sload(clk, row.avm_main_ib, row.avm_main_ia);
     row.avm_main_sel_op_sload = FF(1);
 
     main_trace.push_back(row);
@@ -1310,8 +1310,8 @@ void AvmTraceBuilder::op_sstore(uint32_t slot_offset, uint32_t value_offset)
     auto const clk = static_cast<uint32_t>(main_trace.size());
 
     Row row =
-        create_kernel_output_opcode_with_metadata(clk, slot_offset, AvmMemoryTag::FF, value_offset, AvmMemoryTag::FF);
-    kernel_trace_builder.op_sstore(clk, row.avm_main_ia, row.avm_main_ib);
+        create_kernel_output_opcode_with_metadata(clk, value_offset, AvmMemoryTag::FF, slot_offset, AvmMemoryTag::FF);
+    kernel_trace_builder.op_sstore(clk, row.avm_main_ib, row.avm_main_ia);
     row.avm_main_sel_op_sstore = FF(1);
 
     main_trace.push_back(row);
