@@ -150,7 +150,7 @@ export class FullProverTest {
     await this.aztecNode.setConfig({
       // stop the fake provers
       proverAgents: 0,
-      minTxsPerBlock: 1,
+      minTxsPerBlock: 2, // min 2 txs per block
     });
 
     await this.proverPool.start((this.aztecNode as AztecNodeService).getProver().getProvingJobSource());

@@ -30,45 +30,49 @@ describe('full_prover_integration', () => {
   });
 
   it(
-    'private transfer less than balance',
+    'transfer less than balance',
     async () => {
       logger.info(
         `Starting test using function: ${provenAsset.address}:${provenAsset.methods.balance_of_private.selector}`,
       );
-      const balance0 = await provenAsset.methods.balance_of_private(accounts[0].address).simulate();
-      const amount = balance0 / 2n;
-      expect(amount).toBeGreaterThan(0n);
-      const interaction = provenAsset.methods.transfer(accounts[0].address, accounts[1].address, amount, 0);
-      const provenTx = await interaction.prove();
+      const privateBalance = await provenAsset.methods.balance_of_private(accounts[0].address).simulate();
+      const privateSendAmount = privateBalance / 2n;
+      expect(privateSendAmount).toBeGreaterThan(0n);
+      const privateInteraction = provenAsset.methods.transfer(
+        accounts[0].address,
+        accounts[1].address,
+        privateSendAmount,
+        0,
+      );
+      const privateTx = await privateInteraction.prove();
 
       // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
-      logger.info(`Verifying kernel tail proof`);
-      await verifyProof('PrivateKernelTailArtifact', provenTx, proofCreator!);
+      logger.info(`Verifying private kernel tail proof`);
+      await verifyProof('PrivateKernelTailArtifact', privateTx, proofCreator!);
 
-      await interaction.send().wait({ timeout: 600, interval: 10 });
-      tokenSim.transferPrivate(accounts[0].address, accounts[1].address, amount);
-    },
-    TIMEOUT,
-  );
-
-  it(
-    'public transfer less than balance',
-    async () => {
-      logger.info(
-        `Starting test using function: ${provenAsset.address}:${provenAsset.methods.balance_of_public.selector}`,
+      const publicBalance = await provenAsset.methods.balance_of_public(accounts[0].address).simulate();
+      const publicSendAmount = publicBalance / 2n;
+      expect(publicSendAmount).toBeGreaterThan(0n);
+      const publicInteraction = provenAsset.methods.transfer_public(
+        accounts[0].address,
+        accounts[1].address,
+        publicSendAmount,
+        0,
       );
-      const balance0 = await provenAsset.methods.balance_of_public(accounts[0].address).simulate();
-      const amount = balance0 / 2n;
-      expect(amount).toBeGreaterThan(0n);
-      const interaction = provenAsset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, 0);
-      const provenTx = await interaction.prove();
+      const publicTx = await publicInteraction.prove();
 
       // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
       logger.info(`Verifying kernel tail to public proof`);
-      await verifyProof('PrivateKernelTailToPublicArtifact', provenTx, proofCreator!);
+      await verifyProof('PrivateKernelTailToPublicArtifact', publicTx, proofCreator!);
 
-      await interaction.send().wait({ timeout: 600, interval: 10 });
-      tokenSim.transferPublic(accounts[0].address, accounts[1].address, amount);
+      const sentPrivateTx = privateInteraction.send();
+      const sentPublicTx = publicInteraction.send();
+      await Promise.all([
+        sentPrivateTx.wait({ timeout: 600, interval: 10 }),
+        sentPublicTx.wait({ timeout: 600, interval: 10 }),
+      ]);
+      tokenSim.transferPrivate(accounts[0].address, accounts[1].address, privateSendAmount);
+      tokenSim.transferPublic(accounts[0].address, accounts[1].address, publicSendAmount);
     },
     TIMEOUT,
   );
