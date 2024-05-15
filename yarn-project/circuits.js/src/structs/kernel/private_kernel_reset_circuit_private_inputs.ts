@@ -90,7 +90,7 @@ export class PrivateKernelResetHints {
 }
 
 /**
- * Input to the private kernel circuit - tail call.
+ * Input to the private kernel circuit - reset call.
  */
 export class PrivateKernelResetCircuitPrivateInputs {
   constructor(
