@@ -1,6 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2Hash, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
-import { type Fq, type Fr, type GrumpkinScalar, type Point } from '@aztec/foundation/fields';
+import { type Fq, type Fr, type GrumpkinScalar } from '@aztec/foundation/fields';
 
 import { Grumpkin } from '../barretenberg/crypto/grumpkin/index.js';
 import { GeneratorIndex } from '../constants.gen.js';
@@ -32,10 +32,6 @@ export function computeAddress(publicKeysHash: Fr, partialAddress: Fr) {
 export function derivePublicKeyFromSecretKey(secretKey: Fq) {
   const curve = new Grumpkin();
   return curve.mul(curve.generator(), secretKey);
-}
-
-export function computeNpkMHash(npkM: Point) {
-  return poseidon2Hash(npkM.toFields());
 }
 
 /**

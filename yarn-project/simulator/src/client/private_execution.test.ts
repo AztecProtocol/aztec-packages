@@ -26,7 +26,6 @@ import {
   StateReference,
   TxContext,
   computeAppNullifierSecretKey,
-  computeNpkMHash,
   deriveKeys,
   getContractInstanceFromDeployParams,
   getNonEmptyItems,
@@ -192,19 +191,13 @@ describe('Private Execution test suite', () => {
     trees = {};
     oracle = mock<DBOracle>();
     oracle.getNullifierKeys.mockImplementation((masterNullifierPublicKeyHash: Fr, contractAddress: AztecAddress) => {
-      if (
-        masterNullifierPublicKeyHash.equals(computeNpkMHash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey))
-      ) {
+      if (masterNullifierPublicKeyHash.equals(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
         return Promise.resolve({
           masterNullifierPublicKey: ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
           appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
         });
       }
-      if (
-        masterNullifierPublicKeyHash.equals(
-          computeNpkMHash(recipientCompleteAddress.publicKeys.masterNullifierPublicKey),
-        )
-      ) {
+      if (masterNullifierPublicKeyHash.equals(recipientCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
         return Promise.resolve({
           masterNullifierPublicKey: recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
           appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
@@ -400,18 +393,8 @@ describe('Private Execution test suite', () => {
       const noteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
 
       const notes = [
-        buildNote(
-          60n,
-          computeNpkMHash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey),
-          storageSlot,
-          noteTypeId,
-        ),
-        buildNote(
-          80n,
-          computeNpkMHash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey),
-          storageSlot,
-          noteTypeId,
-        ),
+        buildNote(60n, ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash(), storageSlot, noteTypeId),
+        buildNote(80n, ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash(), storageSlot, noteTypeId),
       ];
       oracle.getNotes.mockResolvedValue(notes);
 
@@ -470,12 +453,7 @@ describe('Private Execution test suite', () => {
       const noteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
 
       const notes = [
-        buildNote(
-          balance,
-          computeNpkMHash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey),
-          storageSlot,
-          noteTypeId,
-        ),
+        buildNote(balance, ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash(), storageSlot, noteTypeId),
       ];
       oracle.getNotes.mockResolvedValue(notes);
 

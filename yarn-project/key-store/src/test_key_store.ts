@@ -302,7 +302,7 @@ export class TestKeyStore implements KeyStore {
     for (const [key, value] of this.#keys.entries()) {
       if (key.includes('-npk_m')) {
         const masterNullifierPublicKey = Point.fromBuffer(value);
-        const computedMasterNullifierPublicKeyHash = poseidon2Hash(masterNullifierPublicKey.toFields());
+        const computedMasterNullifierPublicKeyHash = masterNullifierPublicKey.hash();
         if (computedMasterNullifierPublicKeyHash.equals(npkMHash)) {
           return masterNullifierPublicKey;
         }
@@ -315,7 +315,7 @@ export class TestKeyStore implements KeyStore {
           const masterNullifierPublicKey = Point.fromBuffer(
             value.subarray(i * Point.SIZE_IN_BYTES, (i + 1) * Point.SIZE_IN_BYTES),
           );
-          const computedMasterNullifierPublicKeyHash = poseidon2Hash(masterNullifierPublicKey.toFields());
+          const computedMasterNullifierPublicKeyHash = masterNullifierPublicKey.hash();
           if (computedMasterNullifierPublicKeyHash.equals(npkMHash)) {
             return masterNullifierPublicKey;
           }
@@ -330,7 +330,7 @@ export class TestKeyStore implements KeyStore {
     for (const [key, value] of this.#keys.entries()) {
       if (key.includes('-npk_m')) {
         const masterNullifierPublicKey = Point.fromBuffer(value);
-        const computedMasterNullifierPublicKeyHash = poseidon2Hash(masterNullifierPublicKey.toFields());
+        const computedMasterNullifierPublicKeyHash = masterNullifierPublicKey.hash();
         if (computedMasterNullifierPublicKeyHash.equals(npkMHash)) {
           const mapKeyForNullifierSecretKey = key.replace('npk_m', 'nsk_m');
 
@@ -345,7 +345,7 @@ export class TestKeyStore implements KeyStore {
           const masterNullifierPublicKey = Point.fromBuffer(
             value.subarray(i * Point.SIZE_IN_BYTES, (i + 1) * Point.SIZE_IN_BYTES),
           );
-          const computedMasterNullifierPublicKeyHash = poseidon2Hash(masterNullifierPublicKey.toFields());
+          const computedMasterNullifierPublicKeyHash = masterNullifierPublicKey.hash();
           if (computedMasterNullifierPublicKeyHash.equals(npkMHash)) {
             const mapKeyForNullifierSecretKey = key.replace('npk_m', 'nsk_m');
             const nullifierSecretKeyBuffer = this.#rotatedKeys.get(mapKeyForNullifierSecretKey);

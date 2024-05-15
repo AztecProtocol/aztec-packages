@@ -3,7 +3,6 @@ import {
   Fq,
   Fr,
   computeAppNullifierSecretKey,
-  computeNpkMHash,
   deriveKeys,
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
@@ -19,7 +18,7 @@ describe('TestKeyStore', () => {
     const sk = new Fr(8923n);
     const keys = deriveKeys(sk);
     const derivedMasterNullifierPublicKey = derivePublicKeyFromSecretKey(keys.masterNullifierSecretKey);
-    const computedMasterNullifierPublicKeyHash = computeNpkMHash(derivedMasterNullifierPublicKey);
+    const computedMasterNullifierPublicKeyHash = derivedMasterNullifierPublicKey.hash();
 
     const partialAddress = new Fr(243523n);
 
@@ -108,9 +107,9 @@ describe('TestKeyStore', () => {
     ];
 
     const newComputedMasterNullifierPublicKeyHashes = [
-      computeNpkMHash(newDerivedMasterNullifierPublicKeys[0]),
-      computeNpkMHash(newDerivedMasterNullifierPublicKeys[1]),
-      computeNpkMHash(newDerivedMasterNullifierPublicKeys[2]),
+      newDerivedMasterNullifierPublicKeys[0].hash(),
+      newDerivedMasterNullifierPublicKeys[1].hash(),
+      newDerivedMasterNullifierPublicKeys[2].hash(),
     ];
 
     // We rotate our nullifier key

@@ -1,5 +1,5 @@
 import { type AztecNode, CompleteAddress, Note } from '@aztec/circuit-types';
-import { GeneratorIndex, computeAppNullifierSecretKey, computeNpkMHash, deriveKeys } from '@aztec/circuits.js';
+import { GeneratorIndex, computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
 import {
   computeInnerNoteHash,
   computeNoteContentHash,
@@ -57,8 +57,7 @@ describe('Simulator', () => {
     const storageSlot = TokenContractArtifact.storageLayout['balances'].slot;
     const noteTypeId = TokenContractArtifact.notes['TokenNote'].id;
 
-    const createNote = (amount = 123n) =>
-      new Note([new Fr(amount), computeNpkMHash(ownerMasterNullifierPublicKey), Fr.random()]);
+    const createNote = (amount = 123n) => new Note([new Fr(amount), ownerMasterNullifierPublicKey.hash(), Fr.random()]);
 
     it('should compute note hashes and nullifier', async () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(artifact);
