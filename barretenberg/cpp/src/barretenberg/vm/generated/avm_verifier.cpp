@@ -238,6 +238,16 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_byte_lookup_table_op_id);
     commitments.avm_byte_lookup_table_output =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_byte_lookup_table_output);
+    commitments.avm_conversion_clk =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_conversion_clk);
+    commitments.avm_conversion_input =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_conversion_input);
+    commitments.avm_conversion_num_limbs =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_conversion_num_limbs);
+    commitments.avm_conversion_radix =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_conversion_radix);
+    commitments.avm_conversion_to_radix_le_sel =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_conversion_to_radix_le_sel);
     commitments.avm_kernel_emit_l2_to_l1_msg_write_offset = transcript->template receive_from_prover<Commitment>(
         commitment_labels.avm_kernel_emit_l2_to_l1_msg_write_offset);
     commitments.avm_kernel_emit_note_hash_write_offset =
@@ -400,6 +410,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_or);
     commitments.avm_main_sel_op_portal =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_portal);
+    commitments.avm_main_sel_op_radix_le =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_radix_le);
     commitments.avm_main_sel_op_sender =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_sender);
     commitments.avm_main_sel_op_shl =
@@ -553,6 +565,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     // Get commitments to inverses
     commitments.perm_main_alu = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_alu);
     commitments.perm_main_bin = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_bin);
+    commitments.perm_main_conv = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_conv);
     commitments.perm_main_mem_a =
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_a);
     commitments.perm_main_mem_b =
