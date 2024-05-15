@@ -383,6 +383,7 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     const ephSk = GrumpkinScalar.random();
 
+    // @todo Needs to be populated
     const recipient = AztecAddress.random();
 
     return taggedNote.encrypt(ephSk, recipient, ivpkM, ovKeys);

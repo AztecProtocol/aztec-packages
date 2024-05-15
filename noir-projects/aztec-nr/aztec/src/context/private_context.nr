@@ -1,3 +1,8 @@
+// By updating the import here, you can "switch" between using an oracle for computing the encrypted 
+// logs, or constraining it in the circuit. The interfaces are the exact same, so just flip this.
+// use crate::oracle::logs::compute_encrypted_log;
+use crate::encrypted_logs::{payload::compute_encrypted_note_log};
+
 use crate::{
     context::{inputs::PrivateContextInputs, packed_returns::PackedReturns},
     messaging::process_l1_to_l2_message,
@@ -272,7 +277,10 @@ impl PrivateContext {
     // --> might be a better approach to force devs to make a public function call that emits the log if needed then
     // it would be less easy to accidentally leak information.
     // If we decide to keep this function around would make sense to wait for traits and then merge it with emit_unencrypted_log.
-    pub fn emit_unencrypted_log<T, N, M>(&mut self, log: T) where T: ToBytesForUnencryptedLog<N, M> {
+    pub fn emit_unencrypted_log<T, N, M>(
+        &mut self,
+        log: T
+    ) where T: ToBytesForUnencryptedLog<N, M> {
         let event_selector = 5; // TODO: compute actual event selector.
         let contract_address = self.this_address();
         let counter = self.next_counter();
@@ -339,7 +347,6 @@ impl PrivateContext {
         &mut self,
         contract_address: AztecAddress,
         storage_slot: Field,
-        note_type_id: Field,
         ovpk_m: GrumpkinPoint,
         ivpk_m: GrumpkinPoint,
         note: Note
@@ -352,21 +359,13 @@ impl PrivateContext {
         assert(
             note_exists_index != MAX_NEW_NOTE_HASHES_PER_CALL, "Can only emit a note log for an existing note."
         );
-        let preimage = note.serialize_content();
+
         let counter = self.next_counter();
 
         let ovsk_app = self.request_ovsk_app(ovpk_m.hash());
 
         // TODO(#1139 | #6408): perform encryption in the circuit
-        let encrypted_log: [u8; M] = compute_encrypted_log(
-            contract_address,
-            storage_slot,
-            note_type_id,
-            ovsk_app,
-            ovpk_m,
-            ivpk_m,
-            preimage
-        );
+        let encrypted_log: [u8; M] = compute_encrypted_note_log(contract_address, storage_slot, ovsk_app, ovpk_m, ivpk_m, note);
         emit_encrypted_note_log(note_hash_counter, encrypted_log, counter);
 
         // Current unoptimized size of the encrypted log
@@ -379,6 +378,10 @@ impl PrivateContext {
         // incoming_body_fixed (64 bytes)
         // incoming_body_variable (N * 32 bytes + 16 bytes padding) 
         // len of processed log (4 bytes)
+
+        // @todo The preimage size should be fetches somewhere else than this.
+        // preimage.len + 64 == NB.
+        let preimage = note.serialize_content();
         let len = 32 + 32 + 64 + 48 + 48 + 176 + 64 + (preimage.len() as Field * 32) + 16 + 4;
 
         let log_hash = sha256_to_field(encrypted_log);
