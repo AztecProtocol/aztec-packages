@@ -238,7 +238,7 @@ bench-barretenberg-acir-benches-bb:
   ARG COMMIT_HASH
 
   DO +FOO
-  DO ../yarn-project/scripts/+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+  DO ../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
 barretenberg-acir-tests-bb:
     FROM ../build-images/+build
