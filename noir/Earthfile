@@ -217,12 +217,9 @@ export-barretenberg-acir-benches-bb:
   FROM +barretenberg-acir-benches-bb
   SAVE IMAGE aztecprotocol/barretenberg-acir-benches:$EARTHLY_GIT_HASH
 
-bench-barretenberg-acir-benches-bb:
-  ARG PULL_REQUEST
-  ARG BRANCH
-  ARG COMMIT_HASH
+FOO:
+  FUNCTION
   LOCALLY
-
   # Let docker compose know about the pushed tags above
   ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
   # Optimize to not cause serial behavior if image already exists
@@ -233,8 +230,14 @@ bench-barretenberg-acir-benches-bb:
   END
 
   RUN touch ./log
-  RUN docker run -v "$(pwd)/log":/log -e LOG_FILE=/log  --rm aztecprotocol/barretenberg-acir-benches:$AZTEC_DOCKER_TAG ./bench_acir_tests.sh sha256
+  RUN docker run -v "$(pwd)/log":/log -e LOG_FILE=/log --rm aztecprotocol/barretenberg-acir-benches:$AZTEC_DOCKER_TAG ./bench_acir_tests.sh sha256
 
+bench-barretenberg-acir-benches-bb:
+  ARG PULL_REQUEST
+  ARG BRANCH
+  ARG COMMIT_HASH
+
+  DO +FOO
   DO ../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
 barretenberg-acir-tests-bb:
