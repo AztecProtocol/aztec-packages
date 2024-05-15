@@ -1,6 +1,4 @@
-use dep::protocol_types::{
-    address::AztecAddress, constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint,
-};
+use dep::protocol_types::{address::AztecAddress, constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint};
 use crate::{
     context::PrivateContext,
     oracle::{
