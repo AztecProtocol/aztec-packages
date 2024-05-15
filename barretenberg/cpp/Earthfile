@@ -72,11 +72,11 @@ preset-wasm-threads: #aztec-tag=cache
 preset-gcc: #aztec-tag=cache
     DO +PRESET --preset=gcc --targets="all"
 
-preset-fuzzing: #aztec-tag=cache
+preset-fuzzing:
     DO +PRESET --preset=fuzzing --targets="all"
 
 preset-clang-assert: #aztec-tag=cache
-    DO +PRESET --preset=clang16-assert --targets="all"
+    DO +PRESET --preset=clang16-assert --targets="bb"
 
 # benchmarking images
 # these are either fresh builds just for benching (op-count and op-count-time)
