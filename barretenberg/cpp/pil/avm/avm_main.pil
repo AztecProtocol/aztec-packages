@@ -49,7 +49,6 @@ namespace avm_main(256);
     //===== Gadget Selectors ======================================================
     pol commit sel_op_radix_le;
     
-
     //===== Fix Range Checks Selectors=============================================
     // We re-use the clk column for the lookup values of 8-bit resp. 16-bit range check.
     pol commit sel_rng_8;  // Boolean selector for the  8-bit range check lookup
