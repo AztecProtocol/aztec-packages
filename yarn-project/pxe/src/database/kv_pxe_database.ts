@@ -375,7 +375,7 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  getCompleteAddress(address: AztecAddress): CompleteAddress | undefined {
+  #getCompleteAddress(address: AztecAddress): CompleteAddress | undefined {
     const index = this.#addressIndex.get(address.toString());
     if (typeof index === 'undefined') {
       return undefined;
@@ -383,6 +383,10 @@ export class KVPxeDatabase implements PxeDatabase {
 
     const value = this.#addresses.at(index);
     return value ? CompleteAddress.fromBuffer(value) : undefined;
+  }
+
+  getCompleteAddress(account: AztecAddress): Promise<CompleteAddress | undefined> {
+    return Promise.resolve(this.#getCompleteAddress(account));
   }
 
   getCompleteAddresses(): Promise<CompleteAddress[]> {
