@@ -23,10 +23,10 @@ class ClientIVC {
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
     using FoldProof = std::vector<FF>;
-    using ProverAccumulator = std::shared_ptr<ProverInstance_<Flavor>>;
-    using VerifierAccumulator = std::shared_ptr<VerifierInstance_<Flavor>>;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerifierInstance = VerifierInstance_<Flavor>;
+    using ProverAccumulator = std::shared_ptr<ProverInstance>;
+    using VerifierAccumulator = std::shared_ptr<VerifierInstance>;
     using ClientCircuit = GoblinUltraCircuitBuilder; // can only be GoblinUltra
     using DeciderProver = DeciderProver_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
@@ -34,6 +34,11 @@ class ClientIVC {
     using FoldingProver = ProtoGalaxyProver_<ProverInstances>;
     using VerifierInstances = VerifierInstances_<Flavor>;
     using FoldingVerifier = ProtoGalaxyVerifier_<VerifierInstances>;
+
+    using GURecursiveFlavor = GoblinUltraRecursiveFlavor_<bb::GoblinUltraCircuitBuilder>;
+    using RecursiveVerifierInstances = bb::stdlib::recursion::honk::RecursiveVerifierInstances_<GURecursiveFlavor, 2>;
+    using FoldingRecursiveVerifier =
+        bb::stdlib::recursion::honk::ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
 
     // A full proof for the IVC scheme
     struct Proof {
@@ -73,6 +78,8 @@ class ClientIVC {
     Goblin goblin;
     ProverFoldOutput prover_fold_output;
     ProverAccumulator prover_accumulator;
+    VerifierAccumulator verifier_accumulator;
+    std::shared_ptr<VerificationKey> instance_vk;
     PrecomputedVerificationKeys vks;
     // Note: We need to save the last instance that was folded in order to compute its verification key, this will not
     // be needed in the real IVC as they are provided as inputs
@@ -82,8 +89,10 @@ class ClientIVC {
     bool structured_flag = false;
 
     void initialize(ClientCircuit& circuit);
+    void initialize_new(ClientCircuit& circuit);
 
     FoldProof accumulate(ClientCircuit& circuit);
+    void accumulate_new(ClientCircuit& circuit);
 
     Proof prove();
 

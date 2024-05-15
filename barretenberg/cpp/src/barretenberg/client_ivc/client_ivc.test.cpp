@@ -17,6 +17,7 @@ class ClientIVCTests : public ::testing::Test {
 
     using Flavor = ClientIVC::Flavor;
     using FF = typename Flavor::FF;
+    using VerificationKey = Flavor::VerificationKey;
     using Builder = ClientIVC::ClientCircuit;
     using ProverAccumulator = ClientIVC::ProverAccumulator;
     using VerifierAccumulator = ClientIVC::VerifierAccumulator;
@@ -115,8 +116,6 @@ class ClientIVCTests : public ::testing::Test {
 // intermittent failures, presumably due to uninitialized memory
 TEST_F(ClientIVCTests, DISABLED_Full)
 {
-    using VerificationKey = Flavor::VerificationKey;
-
     ClientIVC ivc;
     // Initialize IVC with function circuit
     Builder function_circuit = create_mock_circuit(ivc);
@@ -162,4 +161,89 @@ TEST_F(ClientIVCTests, DISABLED_Full)
     auto inst = std::make_shared<VerifierInstance>(kernel_vk);
     // Verify all four proofs
     EXPECT_TRUE(ivc.verify(proof, { foo_verifier_instance, inst }));
+};
+
+/**
+ * @brief A simple-as-possible test demonstrating Aztec client IVC
+ *
+ */
+TEST_F(ClientIVCTests, AztecBasic)
+{
+    ClientIVC ivc;
+
+    // Initialize IVC with function circuit
+    Builder function_circuit = create_mock_circuit(ivc);
+    ivc.initialize(function_circuit);
+
+    // Initialize the VerifierInstance
+    auto accumulator_vk = std::make_shared<VerificationKey>(ivc.prover_fold_output.accumulator->proving_key);
+    auto verifier_accum = std::make_shared<VerifierInstance>(accumulator_vk);
+
+    // Accumulate kernel circuit (first kernel mocked as simple circuit since no folding proofs yet)
+    Builder kernel_circuit = create_mock_circuit(ivc);
+    FoldProof kernel_fold_proof = ivc.accumulate(kernel_circuit);
+
+    // Construct kernel input
+    auto function_vk = std::make_shared<VerificationKey>(ivc.prover_instance->proving_key);
+    auto kernel_vk = function_vk; // First kernel vk is just a function vk
+    VerifierFoldData kernel_fold_output = { kernel_fold_proof, kernel_vk };
+
+    size_t NUM_CIRCUITS = 1;
+    for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
+
+        // Construct function circuit
+        Builder function_circuit = create_mock_circuit(ivc);
+
+        // Accumulate function circuit
+        FoldProof function_fold_proof = ivc.accumulate(function_circuit);
+
+        // Construct kernel circuit input
+        function_vk = std::make_shared<VerificationKey>(ivc.prover_instance->proving_key);
+        VerifierFoldData function_fold_output = { function_fold_proof, function_vk };
+
+        // Construct kernel circuit
+        Builder kernel_circuit{ ivc.goblin.op_queue };
+        verifier_accum =
+            construct_mock_folding_kernel(kernel_circuit, kernel_fold_output, function_fold_output, verifier_accum);
+
+        // Accumulate kernel circuit
+        FoldProof kernel_fold_proof = ivc.accumulate(kernel_circuit);
+
+        // Construct kernel circuit input
+        kernel_vk = std::make_shared<VerificationKey>(ivc.prover_instance->proving_key);
+        VerifierFoldData kernel_fold_output = { kernel_fold_proof, kernel_vk };
+    }
+
+    // Constuct four proofs: merge, eccvm, translator, decider
+    auto proof = ivc.prove();
+    auto inst = std::make_shared<VerifierInstance>(kernel_vk);
+    // Verify all four proofs
+    EXPECT_TRUE(ivc.verify(proof, { verifier_accum, inst }));
+};
+
+/**
+ * @brief A simple-as-possible test demonstrating IVC for a collection of toy circuits
+ *
+ */
+TEST_F(ClientIVCTests, Basic)
+{
+    ClientIVC ivc;
+
+    // Initialize IVC with function circuit
+    Builder circuit_0 = create_mock_circuit(ivc);
+    ivc.initialize_new(circuit_0);
+
+    // Create another circuit and accumulate
+    Builder circuit_1 = create_mock_circuit(ivc);
+    ivc.accumulate_new(circuit_1);
+
+    // Create another circuit and accumulate
+    Builder circuit_2 = create_mock_circuit(ivc);
+    ivc.accumulate_new(circuit_2);
+
+    // Constuct four proofs: merge, eccvm, translator, decider
+    auto proof = ivc.prove();
+    auto verifier_inst = std::make_shared<VerifierInstance>(ivc.instance_vk);
+    // Verify all four proofs
+    EXPECT_TRUE(ivc.verify(proof, { ivc.verifier_accumulator, verifier_inst }));
 };
