@@ -18,7 +18,6 @@ impl Empty for NullifierKeys {
     }
 }
 
-// TODO(#5630): Replace get_nullifier_keys above with this once we no longer get nullifier keys with address
 #[oracle(getNullifierKeys)]
 fn get_nullifier_keys_oracle(_npk_m_hash: Field) -> [Field; 3] {}
 

@@ -29,6 +29,7 @@ import {
   deriveKeys,
   getContractInstanceFromDeployParams,
   getNonEmptyItems,
+  computeNpkMHash,
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, computeSecretHash, computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
@@ -193,7 +194,7 @@ describe('Private Execution test suite', () => {
     oracle.getNullifierKeys.mockImplementation((masterNullifierPublicKeyHash: Fr, contractAddress: AztecAddress) => {
       if (
         masterNullifierPublicKeyHash.equals(
-          poseidon2Hash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.toFields()),
+          computeNpkMHash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey),
         )
       ) {
         return Promise.resolve({
@@ -203,7 +204,7 @@ describe('Private Execution test suite', () => {
       }
       if (
         masterNullifierPublicKeyHash.equals(
-          poseidon2Hash(recipientCompleteAddress.publicKeys.masterNullifierPublicKey.toFields()),
+          computeNpkMHash(recipientCompleteAddress.publicKeys.masterNullifierPublicKey),
         )
       ) {
         return Promise.resolve({
@@ -288,7 +289,7 @@ describe('Private Execution test suite', () => {
     const mockFirstNullifier = new Fr(1111);
     let currentNoteIndex = 0n;
 
-    const buildNote = (amount: bigint, ownerNpkMH: Fr, storageSlot: Fr, noteTypeId: Fr) => {
+    const buildNote = (amount: bigint, ownerNpkMHash: Fr, storageSlot: Fr, noteTypeId: Fr) => {
       // WARNING: this is not actually how nonces are computed!
       // For the purpose of this test we use a mocked firstNullifier and and a random number
       // to compute the nonce. Proper nonces are only enforced later by the kernel/later circuits
@@ -299,7 +300,7 @@ describe('Private Execution test suite', () => {
       // `hash(firstNullifier, noteHashIndex)`
       const noteHashIndex = randomInt(1); // mock index in TX's final newNoteHashes array
       const nonce = computeNoteHashNonce(mockFirstNullifier, noteHashIndex);
-      const note = new Note([new Fr(amount), ownerNpkMH, Fr.random()]);
+      const note = new Note([new Fr(amount), ownerNpkMHash, Fr.random()]);
       const innerNoteHash = pedersenHash(note.items);
       return {
         contractAddress,
@@ -403,13 +404,13 @@ describe('Private Execution test suite', () => {
       const notes = [
         buildNote(
           60n,
-          poseidon2Hash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.toFields()),
+          computeNpkMHash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey),
           storageSlot,
           noteTypeId,
         ),
         buildNote(
           80n,
-          poseidon2Hash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.toFields()),
+          computeNpkMHash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey),
           storageSlot,
           noteTypeId,
         ),
@@ -473,7 +474,7 @@ describe('Private Execution test suite', () => {
       const notes = [
         buildNote(
           balance,
-          poseidon2Hash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.toFields()),
+          computeNpkMHash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey),
           storageSlot,
           noteTypeId,
         ),
