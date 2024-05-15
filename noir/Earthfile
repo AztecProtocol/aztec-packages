@@ -208,6 +208,8 @@ barretenberg-acir-benches-bb:
   COPY ../barretenberg/+acir-tests/ /usr/src/barretenberg/acir_tests
   COPY +build-acir-tests/ /usr/src/acir_artifacts
 
+  ENV TEST_SRC=/usr/src/acir_artifacts
+
   WORKDIR /usr/src/barretenberg/acir_tests
 
 export-barretenberg-acir-benches-bb:
@@ -231,7 +233,7 @@ bench-barretenberg-acir-benches-bb:
   END
 
   RUN touch ./log
-  RUN docker run -v "$(pwd)/log":/log -e LOG_FILE=/log --rm aztecprotocol/barretenberg-acir-benches:$AZTEC_DOCKER_TAG ./bench_acir_tests.sh sha256
+  RUN docker run -v "$(pwd)/log":/log -e LOG_FILE=/log  --rm aztecprotocol/barretenberg-acir-benches:$AZTEC_DOCKER_TAG ./bench_acir_tests.sh sha256
 
   DO ../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
