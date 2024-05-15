@@ -671,7 +671,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitL2ToL1Msg)
     };
     auto checks = [=](const std::vector<Row>& trace) {
         std::vector<Row>::const_iterator row = std::ranges::find_if(
-            trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_send_l2_to_l1_msg == FF(1); });
+            trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_emit_l2_to_l1_msg == FF(1); });
         EXPECT_TRUE(row != trace.end());
 
         // Check the outputs of the trace

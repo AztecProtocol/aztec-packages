@@ -98,11 +98,16 @@ class AvmTraceBuilder {
     void op_timestamp(uint32_t dst_offset);
 
     // Outputs
+    // With single output values
     void op_emit_note_hash(uint32_t note_hash_offset);
-
     void op_emit_nullifier(uint32_t nullifier_offset);
-    void op_emit_l2_to_l1_msg(uint32_t msg_offset);
     void op_emit_unencrypted_log(uint32_t log_offset);
+    void op_emit_l2_to_l1_msg(uint32_t msg_offset);
+
+    // With additional metadata output
+    void op_l1_to_l2_msg_exists(uint32_t msg_offset);
+    void op_sload(uint32_t slot_offset, uint32_t value_offset);
+    void op_sstore(uint32_t slot_offset, uint32_t value_offset);
 
     // Cast an element pointed by the address a_offset into type specified by dst_tag and
     // store the result in address given by dst_offset.
@@ -159,6 +164,11 @@ class AvmTraceBuilder {
 
     Row create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t selector, FF value, AvmMemoryTag w_tag);
     Row create_kernel_output_opcode(uint32_t clk, uint32_t data_offset, AvmMemoryTag r_tag);
+    Row create_kernel_output_opcode_with_metadata(uint32_t clk,
+                                                  uint32_t data_offset,
+                                                  AvmMemoryTag data_r_tag,
+                                                  uint32_t metadata_offset,
+                                                  AvmMemoryTag metadata_r_tag);
 
     void finalise_mem_trace_lookup_counts();
 

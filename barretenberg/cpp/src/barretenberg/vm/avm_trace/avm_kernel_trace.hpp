@@ -56,9 +56,9 @@ class AvmKernelTraceBuilder {
         bool op_emit_note_hash = false;
         bool op_nullifier_exists = false;
         bool op_emit_nullifier = false;
-        bool op_emit_l2_to_l1_msg = false;
-        // TODO: send in PIL
+        bool op_l1_to_l2_msg_exists = false;
         bool op_emit_unencrypted_log = false;
+        bool op_emit_l2_to_l1_msg = false;
         bool op_sload = false;
         bool op_sstore = false;
     };
@@ -101,8 +101,9 @@ class AvmKernelTraceBuilder {
     void op_emit_note_hash(uint32_t clk, FF note_hash);
     void op_nullifier_exists(uint32_t clk, FF nullifier);
     void op_emit_nullifier(uint32_t clk, FF nullifier);
-    void op_emit_l2_to_l1_msg(uint32_t clk, FF message);
+    void op_l1_to_l2_msg_exists(uint32_t clk, FF message);
     void op_emit_unencrypted_log(uint32_t clk, FF log_hash);
+    void op_emit_l2_to_l1_msg(uint32_t clk, FF message);
 
     void op_sload(uint32_t clk, FF slot, FF value);
     void op_sstore(uint32_t clk, FF slot, FF value);
@@ -112,8 +113,9 @@ class AvmKernelTraceBuilder {
     uint32_t get_emit_note_hash_offset();
     uint32_t get_nullifier_exists_offset();
     uint32_t get_emit_nullifier_offset();
-    uint32_t get_l2_to_l1_msg_offset();
+    uint32_t get_l1_to_l2_msg_exists_offset();
     uint32_t get_emit_unencrypted_log_offset();
+    uint32_t get_l2_to_l1_msg_offset();
     uint32_t get_sload_offset();
     uint32_t get_sstore_offset();
 
@@ -122,11 +124,12 @@ class AvmKernelTraceBuilder {
     static const uint32_t START_EMIT_NOTE_HASH_WRITE_OFFSET = 4;
     static const uint32_t START_NULLIFIER_EXISTS_OFFSET = 8;
     static const uint32_t START_EMIT_NULLIFIER_WRITE_OFFSET = 12;
-    static const uint32_t START_L2_TO_L1_MSG_WRITE_OFFSET = 16;
+    static const uint32_t START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET = 16;
     static const uint32_t START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 20;
+    static const uint32_t START_L2_TO_L1_MSG_WRITE_OFFSET = 24;
 
-    static const uint32_t START_SLOAD_WRITE_OFFSET = 24;
-    static const uint32_t START_SSTORE_WRITE_OFFSET = 28;
+    static const uint32_t START_SLOAD_WRITE_OFFSET = 28;
+    static const uint32_t START_SSTORE_WRITE_OFFSET = 32;
 
   private:
     std::vector<KernelTraceEntry> kernel_trace;
@@ -141,8 +144,9 @@ class AvmKernelTraceBuilder {
     uint32_t emit_note_hash_offset = 0;
     uint32_t nullifier_exists_offset = 0;
     uint32_t emit_nullifier_offset = 0;
-    uint32_t l2_to_l1_msg_offset = 0;
+    uint32_t l1_to_l2_msg_exists_offset = 0;
     uint32_t emit_unencrypted_log_offset = 0;
+    uint32_t emit_l2_to_l1_msg_offset = 0;
 
     uint32_t sload_write_offset = 0;
     uint32_t sstore_write_offset = 0;

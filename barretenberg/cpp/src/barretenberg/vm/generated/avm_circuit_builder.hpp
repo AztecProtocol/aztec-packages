@@ -176,6 +176,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_byte_lookup_table_input_b{};
     FF avm_byte_lookup_table_op_id{};
     FF avm_byte_lookup_table_output{};
+    FF avm_kernel_emit_l2_to_l1_msg_write_offset{};
     FF avm_kernel_emit_note_hash_write_offset{};
     FF avm_kernel_emit_nullifier_write_offset{};
     FF avm_kernel_emit_unencrypted_log_write_offset{};
@@ -185,7 +186,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_kernel_kernel_sel{};
     FF avm_kernel_kernel_side_effect_out__is_public{};
     FF avm_kernel_kernel_value_out__is_public{};
-    FF avm_kernel_l1_to_l2_msg_write_offset{};
+    FF avm_kernel_l1_to_l2_msg_exists_write_offset{};
     FF avm_kernel_note_hash_exist_write_offset{};
     FF avm_kernel_nullifier_exists_write_offset{};
     FF avm_kernel_q_public_input_kernel_add_to_table{};
@@ -246,6 +247,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_op_chain_id{};
     FF avm_main_sel_op_coinbase{};
     FF avm_main_sel_op_div{};
+    FF avm_main_sel_op_emit_l2_to_l1_msg{};
     FF avm_main_sel_op_emit_note_hash{};
     FF avm_main_sel_op_emit_nullifier{};
     FF avm_main_sel_op_emit_unencrypted_log{};
@@ -262,7 +264,6 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_op_nullifier_exists{};
     FF avm_main_sel_op_or{};
     FF avm_main_sel_op_portal{};
-    FF avm_main_sel_op_send_l2_to_l1_msg{};
     FF avm_main_sel_op_sender{};
     FF avm_main_sel_op_shl{};
     FF avm_main_sel_op_shr{};
@@ -430,10 +431,11 @@ template <typename FF> struct AvmFullRow {
     FF avm_binary_acc_ic_shift{};
     FF avm_binary_mem_tag_ctr_shift{};
     FF avm_binary_op_id_shift{};
+    FF avm_kernel_emit_l2_to_l1_msg_write_offset_shift{};
     FF avm_kernel_emit_note_hash_write_offset_shift{};
     FF avm_kernel_emit_nullifier_write_offset_shift{};
     FF avm_kernel_emit_unencrypted_log_write_offset_shift{};
-    FF avm_kernel_l1_to_l2_msg_write_offset_shift{};
+    FF avm_kernel_l1_to_l2_msg_exists_write_offset_shift{};
     FF avm_kernel_note_hash_exist_write_offset_shift{};
     FF avm_kernel_nullifier_exists_write_offset_shift{};
     FF avm_kernel_side_effect_counter_shift{};
@@ -459,8 +461,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 376;
-    static constexpr size_t num_polys = 315;
+    static constexpr size_t num_fixed_columns = 378;
+    static constexpr size_t num_polys = 316;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -581,6 +583,7 @@ class AvmCircuitBuilder {
             polys.avm_byte_lookup_table_input_b[i] = rows[i].avm_byte_lookup_table_input_b;
             polys.avm_byte_lookup_table_op_id[i] = rows[i].avm_byte_lookup_table_op_id;
             polys.avm_byte_lookup_table_output[i] = rows[i].avm_byte_lookup_table_output;
+            polys.avm_kernel_emit_l2_to_l1_msg_write_offset[i] = rows[i].avm_kernel_emit_l2_to_l1_msg_write_offset;
             polys.avm_kernel_emit_note_hash_write_offset[i] = rows[i].avm_kernel_emit_note_hash_write_offset;
             polys.avm_kernel_emit_nullifier_write_offset[i] = rows[i].avm_kernel_emit_nullifier_write_offset;
             polys.avm_kernel_emit_unencrypted_log_write_offset[i] =
@@ -592,7 +595,7 @@ class AvmCircuitBuilder {
             polys.avm_kernel_kernel_side_effect_out__is_public[i] =
                 rows[i].avm_kernel_kernel_side_effect_out__is_public;
             polys.avm_kernel_kernel_value_out__is_public[i] = rows[i].avm_kernel_kernel_value_out__is_public;
-            polys.avm_kernel_l1_to_l2_msg_write_offset[i] = rows[i].avm_kernel_l1_to_l2_msg_write_offset;
+            polys.avm_kernel_l1_to_l2_msg_exists_write_offset[i] = rows[i].avm_kernel_l1_to_l2_msg_exists_write_offset;
             polys.avm_kernel_note_hash_exist_write_offset[i] = rows[i].avm_kernel_note_hash_exist_write_offset;
             polys.avm_kernel_nullifier_exists_write_offset[i] = rows[i].avm_kernel_nullifier_exists_write_offset;
             polys.avm_kernel_q_public_input_kernel_add_to_table[i] =
@@ -655,6 +658,7 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_op_chain_id[i] = rows[i].avm_main_sel_op_chain_id;
             polys.avm_main_sel_op_coinbase[i] = rows[i].avm_main_sel_op_coinbase;
             polys.avm_main_sel_op_div[i] = rows[i].avm_main_sel_op_div;
+            polys.avm_main_sel_op_emit_l2_to_l1_msg[i] = rows[i].avm_main_sel_op_emit_l2_to_l1_msg;
             polys.avm_main_sel_op_emit_note_hash[i] = rows[i].avm_main_sel_op_emit_note_hash;
             polys.avm_main_sel_op_emit_nullifier[i] = rows[i].avm_main_sel_op_emit_nullifier;
             polys.avm_main_sel_op_emit_unencrypted_log[i] = rows[i].avm_main_sel_op_emit_unencrypted_log;
@@ -671,7 +675,6 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_op_nullifier_exists[i] = rows[i].avm_main_sel_op_nullifier_exists;
             polys.avm_main_sel_op_or[i] = rows[i].avm_main_sel_op_or;
             polys.avm_main_sel_op_portal[i] = rows[i].avm_main_sel_op_portal;
-            polys.avm_main_sel_op_send_l2_to_l1_msg[i] = rows[i].avm_main_sel_op_send_l2_to_l1_msg;
             polys.avm_main_sel_op_sender[i] = rows[i].avm_main_sel_op_sender;
             polys.avm_main_sel_op_shl[i] = rows[i].avm_main_sel_op_shl;
             polys.avm_main_sel_op_shr[i] = rows[i].avm_main_sel_op_shr;
@@ -796,14 +799,16 @@ class AvmCircuitBuilder {
         polys.avm_binary_acc_ic_shift = Polynomial(polys.avm_binary_acc_ic.shifted());
         polys.avm_binary_mem_tag_ctr_shift = Polynomial(polys.avm_binary_mem_tag_ctr.shifted());
         polys.avm_binary_op_id_shift = Polynomial(polys.avm_binary_op_id.shifted());
+        polys.avm_kernel_emit_l2_to_l1_msg_write_offset_shift =
+            Polynomial(polys.avm_kernel_emit_l2_to_l1_msg_write_offset.shifted());
         polys.avm_kernel_emit_note_hash_write_offset_shift =
             Polynomial(polys.avm_kernel_emit_note_hash_write_offset.shifted());
         polys.avm_kernel_emit_nullifier_write_offset_shift =
             Polynomial(polys.avm_kernel_emit_nullifier_write_offset.shifted());
         polys.avm_kernel_emit_unencrypted_log_write_offset_shift =
             Polynomial(polys.avm_kernel_emit_unencrypted_log_write_offset.shifted());
-        polys.avm_kernel_l1_to_l2_msg_write_offset_shift =
-            Polynomial(polys.avm_kernel_l1_to_l2_msg_write_offset.shifted());
+        polys.avm_kernel_l1_to_l2_msg_exists_write_offset_shift =
+            Polynomial(polys.avm_kernel_l1_to_l2_msg_exists_write_offset.shifted());
         polys.avm_kernel_note_hash_exist_write_offset_shift =
             Polynomial(polys.avm_kernel_note_hash_exist_write_offset.shifted());
         polys.avm_kernel_nullifier_exists_write_offset_shift =

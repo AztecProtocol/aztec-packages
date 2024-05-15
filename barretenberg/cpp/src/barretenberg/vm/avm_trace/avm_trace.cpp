@@ -1211,6 +1211,34 @@ Row AvmTraceBuilder::create_kernel_output_opcode(uint32_t clk, uint32_t data_off
     };
 }
 
+Row AvmTraceBuilder::create_kernel_output_opcode_with_metadata(
+    uint32_t clk, uint32_t data_offset, AvmMemoryTag data_r_tag, uint32_t metadata_offset, AvmMemoryTag metadata_r_tag)
+{
+    AvmMemTraceBuilder::MemRead read_a =
+        mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, data_offset, data_r_tag, AvmMemoryTag::U0);
+
+    AvmMemTraceBuilder::MemRead read_b = mem_trace_builder.read_and_load_from_memory(
+        clk, IntermRegister::IB, metadata_offset, metadata_r_tag, AvmMemoryTag::U0);
+
+    return Row{
+        .avm_main_clk = clk,
+        .avm_main_ia = read_a.val,
+        .avm_main_ib = read_b.val,
+        .avm_main_ind_a = 0,
+        .avm_main_ind_b = 0,
+        .avm_main_internal_return_ptr = internal_return_ptr,
+        .avm_main_mem_idx_a = data_offset,
+        .avm_main_mem_idx_b = metadata_offset,
+        .avm_main_mem_op_a = 1,
+        .avm_main_mem_op_b = 1,
+        .avm_main_pc = pc++,
+        .avm_main_q_kernel_lookup = 1,
+        .avm_main_r_in_tag = static_cast<uint32_t>(data_r_tag),
+        .avm_main_rwa = 0,
+        .avm_main_rwb = 0,
+    };
+}
+
 void AvmTraceBuilder::op_emit_note_hash(uint32_t note_hash_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size());
@@ -1239,7 +1267,7 @@ void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint32_t msg_offset)
 
     Row row = create_kernel_output_opcode(clk, msg_offset, AvmMemoryTag::FF);
     kernel_trace_builder.op_emit_l2_to_l1_msg(clk, row.avm_main_ia);
-    row.avm_main_sel_op_send_l2_to_l1_msg = FF(1);
+    row.avm_main_sel_op_emit_l2_to_l1_msg = FF(1);
 
     main_trace.push_back(row);
 }
@@ -1251,6 +1279,42 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint32_t log_offset)
     Row row = create_kernel_output_opcode(clk, log_offset, AvmMemoryTag::FF);
     kernel_trace_builder.op_emit_unencrypted_log(clk, row.avm_main_ia);
     row.avm_main_sel_op_emit_unencrypted_log = FF(1);
+
+    main_trace.push_back(row);
+}
+
+// State output opcodes that include metadata
+void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint32_t log_offset)
+{
+    auto const clk = static_cast<uint32_t>(main_trace.size());
+
+    Row row = create_kernel_output_opcode(clk, log_offset, AvmMemoryTag::FF);
+    kernel_trace_builder.op_l1_to_l2_msg_exists(clk, row.avm_main_ia);
+    row.avm_main_sel_op_emit_unencrypted_log = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_sload(uint32_t slot_offset, uint32_t value_offset)
+{
+    auto const clk = static_cast<uint32_t>(main_trace.size());
+
+    Row row =
+        create_kernel_output_opcode_with_metadata(clk, slot_offset, AvmMemoryTag::FF, value_offset, AvmMemoryTag::FF);
+    kernel_trace_builder.op_sload(clk, row.avm_main_ia, row.avm_main_ib);
+    row.avm_main_sel_op_sload = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_sstore(uint32_t slot_offset, uint32_t value_offset)
+{
+    auto const clk = static_cast<uint32_t>(main_trace.size());
+
+    Row row =
+        create_kernel_output_opcode_with_metadata(clk, slot_offset, AvmMemoryTag::FF, value_offset, AvmMemoryTag::FF);
+    kernel_trace_builder.op_sstore(clk, row.avm_main_ia, row.avm_main_ib);
+    row.avm_main_sel_op_sstore = FF(1);
 
     main_trace.push_back(row);
 }
@@ -2248,8 +2312,9 @@ std::vector<Row> AvmTraceBuilder::finalize()
             dest.avm_kernel_emit_note_hash_write_offset = prev.avm_kernel_emit_note_hash_write_offset;
             dest.avm_kernel_nullifier_exists_write_offset = prev.avm_kernel_nullifier_exists_write_offset;
             dest.avm_kernel_emit_nullifier_write_offset = prev.avm_kernel_emit_nullifier_write_offset;
-            dest.avm_kernel_l1_to_l2_msg_write_offset = prev.avm_kernel_l1_to_l2_msg_write_offset;
+            dest.avm_kernel_emit_l2_to_l1_msg_write_offset = prev.avm_kernel_emit_l2_to_l1_msg_write_offset;
             dest.avm_kernel_emit_unencrypted_log_write_offset = prev.avm_kernel_emit_unencrypted_log_write_offset;
+            dest.avm_kernel_l1_to_l2_msg_exists_write_offset = prev.avm_kernel_l1_to_l2_msg_exists_write_offset;
             dest.avm_kernel_sload_write_offset = prev.avm_kernel_sload_write_offset;
             dest.avm_kernel_sstore_write_offset = prev.avm_kernel_sstore_write_offset;
             dest.avm_kernel_side_effect_counter = prev.avm_kernel_side_effect_counter;
@@ -2269,8 +2334,9 @@ std::vector<Row> AvmTraceBuilder::finalize()
         curr.avm_main_sel_op_emit_note_hash = static_cast<uint32_t>(src.op_emit_note_hash);
         curr.avm_main_sel_op_nullifier_exists = static_cast<uint32_t>(src.op_nullifier_exists);
         curr.avm_main_sel_op_emit_nullifier = static_cast<uint32_t>(src.op_emit_nullifier);
-        curr.avm_main_sel_op_send_l2_to_l1_msg = static_cast<uint32_t>(src.op_emit_l2_to_l1_msg);
+        curr.avm_main_sel_op_l1_to_l2_msg_exists = static_cast<uint32_t>(src.op_l1_to_l2_msg_exists);
         curr.avm_main_sel_op_emit_unencrypted_log = static_cast<uint32_t>(src.op_emit_unencrypted_log);
+        curr.avm_main_sel_op_emit_l2_to_l1_msg = static_cast<uint32_t>(src.op_emit_l2_to_l1_msg);
         curr.avm_main_sel_op_sload = static_cast<uint32_t>(src.op_sload);
         curr.avm_main_sel_op_sstore = static_cast<uint32_t>(src.op_sstore);
 
@@ -2287,8 +2353,10 @@ std::vector<Row> AvmTraceBuilder::finalize()
                 next.avm_kernel_emit_nullifier_write_offset = curr.avm_kernel_emit_nullifier_write_offset + 1;
             } else if (src.op_nullifier_exists) {
                 next.avm_kernel_nullifier_exists_write_offset = curr.avm_kernel_nullifier_exists_write_offset + 1;
+            } else if (src.op_l1_to_l2_msg_exists) {
+                next.avm_kernel_l1_to_l2_msg_exists_write_offset = curr.avm_kernel_l1_to_l2_msg_exists_write_offset + 1;
             } else if (src.op_emit_l2_to_l1_msg) {
-                next.avm_kernel_l1_to_l2_msg_write_offset = curr.avm_kernel_l1_to_l2_msg_write_offset + 1;
+                next.avm_kernel_emit_l2_to_l1_msg_write_offset = curr.avm_kernel_emit_l2_to_l1_msg_write_offset + 1;
             } else if (src.op_emit_unencrypted_log) {
                 next.avm_kernel_emit_unencrypted_log_write_offset =
                     curr.avm_kernel_emit_unencrypted_log_write_offset + 1;
@@ -2319,8 +2387,9 @@ std::vector<Row> AvmTraceBuilder::finalize()
             dest.avm_kernel_emit_note_hash_write_offset = 0;
             dest.avm_kernel_nullifier_exists_write_offset = 0;
             dest.avm_kernel_emit_nullifier_write_offset = 0;
-            dest.avm_kernel_l1_to_l2_msg_write_offset = 0;
+            dest.avm_kernel_l1_to_l2_msg_exists_write_offset = 0;
             dest.avm_kernel_emit_unencrypted_log_write_offset = 0;
+            dest.avm_kernel_emit_l2_to_l1_msg_write_offset = 0;
             dest.avm_kernel_sload_write_offset = 0;
             dest.avm_kernel_sstore_write_offset = 0;
             dest.avm_kernel_side_effect_counter = 0;
@@ -2329,8 +2398,9 @@ std::vector<Row> AvmTraceBuilder::finalize()
             dest.avm_kernel_emit_note_hash_write_offset = prev.avm_kernel_emit_note_hash_write_offset;
             dest.avm_kernel_nullifier_exists_write_offset = prev.avm_kernel_nullifier_exists_write_offset;
             dest.avm_kernel_emit_nullifier_write_offset = prev.avm_kernel_emit_nullifier_write_offset;
-            dest.avm_kernel_l1_to_l2_msg_write_offset = prev.avm_kernel_l1_to_l2_msg_write_offset;
+            dest.avm_kernel_l1_to_l2_msg_exists_write_offset = prev.avm_kernel_l1_to_l2_msg_exists_write_offset;
             dest.avm_kernel_emit_unencrypted_log_write_offset = prev.avm_kernel_emit_unencrypted_log_write_offset;
+            dest.avm_kernel_emit_l2_to_l1_msg_write_offset = prev.avm_kernel_emit_l2_to_l1_msg_write_offset;
             dest.avm_kernel_sload_write_offset = prev.avm_kernel_sload_write_offset;
             dest.avm_kernel_sstore_write_offset = prev.avm_kernel_sstore_write_offset;
             dest.avm_kernel_side_effect_counter = prev.avm_kernel_side_effect_counter;

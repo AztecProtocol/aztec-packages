@@ -84,11 +84,11 @@ class AvmFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 313;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 314;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 376;
+    static constexpr size_t NUM_ALL_ENTITIES = 378;
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
@@ -322,6 +322,7 @@ class AvmFlavor {
                               avm_byte_lookup_table_input_b,
                               avm_byte_lookup_table_op_id,
                               avm_byte_lookup_table_output,
+                              avm_kernel_emit_l2_to_l1_msg_write_offset,
                               avm_kernel_emit_note_hash_write_offset,
                               avm_kernel_emit_nullifier_write_offset,
                               avm_kernel_emit_unencrypted_log_write_offset,
@@ -331,7 +332,7 @@ class AvmFlavor {
                               avm_kernel_kernel_sel,
                               avm_kernel_kernel_side_effect_out__is_public,
                               avm_kernel_kernel_value_out__is_public,
-                              avm_kernel_l1_to_l2_msg_write_offset,
+                              avm_kernel_l1_to_l2_msg_exists_write_offset,
                               avm_kernel_note_hash_exist_write_offset,
                               avm_kernel_nullifier_exists_write_offset,
                               avm_kernel_q_public_input_kernel_add_to_table,
@@ -392,6 +393,7 @@ class AvmFlavor {
                               avm_main_sel_op_chain_id,
                               avm_main_sel_op_coinbase,
                               avm_main_sel_op_div,
+                              avm_main_sel_op_emit_l2_to_l1_msg,
                               avm_main_sel_op_emit_note_hash,
                               avm_main_sel_op_emit_nullifier,
                               avm_main_sel_op_emit_unencrypted_log,
@@ -408,7 +410,6 @@ class AvmFlavor {
                               avm_main_sel_op_nullifier_exists,
                               avm_main_sel_op_or,
                               avm_main_sel_op_portal,
-                              avm_main_sel_op_send_l2_to_l1_msg,
                               avm_main_sel_op_sender,
                               avm_main_sel_op_shl,
                               avm_main_sel_op_shr,
@@ -638,6 +639,7 @@ class AvmFlavor {
                      avm_byte_lookup_table_input_b,
                      avm_byte_lookup_table_op_id,
                      avm_byte_lookup_table_output,
+                     avm_kernel_emit_l2_to_l1_msg_write_offset,
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
                      avm_kernel_emit_unencrypted_log_write_offset,
@@ -647,7 +649,7 @@ class AvmFlavor {
                      avm_kernel_kernel_sel,
                      avm_kernel_kernel_side_effect_out__is_public,
                      avm_kernel_kernel_value_out__is_public,
-                     avm_kernel_l1_to_l2_msg_write_offset,
+                     avm_kernel_l1_to_l2_msg_exists_write_offset,
                      avm_kernel_note_hash_exist_write_offset,
                      avm_kernel_nullifier_exists_write_offset,
                      avm_kernel_q_public_input_kernel_add_to_table,
@@ -708,6 +710,7 @@ class AvmFlavor {
                      avm_main_sel_op_chain_id,
                      avm_main_sel_op_coinbase,
                      avm_main_sel_op_div,
+                     avm_main_sel_op_emit_l2_to_l1_msg,
                      avm_main_sel_op_emit_note_hash,
                      avm_main_sel_op_emit_nullifier,
                      avm_main_sel_op_emit_unencrypted_log,
@@ -724,7 +727,6 @@ class AvmFlavor {
                      avm_main_sel_op_nullifier_exists,
                      avm_main_sel_op_or,
                      avm_main_sel_op_portal,
-                     avm_main_sel_op_send_l2_to_l1_msg,
                      avm_main_sel_op_sender,
                      avm_main_sel_op_shl,
                      avm_main_sel_op_shr,
@@ -959,6 +961,7 @@ class AvmFlavor {
                               avm_byte_lookup_table_input_b,
                               avm_byte_lookup_table_op_id,
                               avm_byte_lookup_table_output,
+                              avm_kernel_emit_l2_to_l1_msg_write_offset,
                               avm_kernel_emit_note_hash_write_offset,
                               avm_kernel_emit_nullifier_write_offset,
                               avm_kernel_emit_unencrypted_log_write_offset,
@@ -968,7 +971,7 @@ class AvmFlavor {
                               avm_kernel_kernel_sel,
                               avm_kernel_kernel_side_effect_out__is_public,
                               avm_kernel_kernel_value_out__is_public,
-                              avm_kernel_l1_to_l2_msg_write_offset,
+                              avm_kernel_l1_to_l2_msg_exists_write_offset,
                               avm_kernel_note_hash_exist_write_offset,
                               avm_kernel_nullifier_exists_write_offset,
                               avm_kernel_q_public_input_kernel_add_to_table,
@@ -1029,6 +1032,7 @@ class AvmFlavor {
                               avm_main_sel_op_chain_id,
                               avm_main_sel_op_coinbase,
                               avm_main_sel_op_div,
+                              avm_main_sel_op_emit_l2_to_l1_msg,
                               avm_main_sel_op_emit_note_hash,
                               avm_main_sel_op_emit_nullifier,
                               avm_main_sel_op_emit_unencrypted_log,
@@ -1045,7 +1049,6 @@ class AvmFlavor {
                               avm_main_sel_op_nullifier_exists,
                               avm_main_sel_op_or,
                               avm_main_sel_op_portal,
-                              avm_main_sel_op_send_l2_to_l1_msg,
                               avm_main_sel_op_sender,
                               avm_main_sel_op_shl,
                               avm_main_sel_op_shr,
@@ -1213,10 +1216,11 @@ class AvmFlavor {
                               avm_binary_acc_ic_shift,
                               avm_binary_mem_tag_ctr_shift,
                               avm_binary_op_id_shift,
+                              avm_kernel_emit_l2_to_l1_msg_write_offset_shift,
                               avm_kernel_emit_note_hash_write_offset_shift,
                               avm_kernel_emit_nullifier_write_offset_shift,
                               avm_kernel_emit_unencrypted_log_write_offset_shift,
-                              avm_kernel_l1_to_l2_msg_write_offset_shift,
+                              avm_kernel_l1_to_l2_msg_exists_write_offset_shift,
                               avm_kernel_note_hash_exist_write_offset_shift,
                               avm_kernel_nullifier_exists_write_offset_shift,
                               avm_kernel_side_effect_counter_shift,
@@ -1338,6 +1342,7 @@ class AvmFlavor {
                      avm_byte_lookup_table_input_b,
                      avm_byte_lookup_table_op_id,
                      avm_byte_lookup_table_output,
+                     avm_kernel_emit_l2_to_l1_msg_write_offset,
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
                      avm_kernel_emit_unencrypted_log_write_offset,
@@ -1347,7 +1352,7 @@ class AvmFlavor {
                      avm_kernel_kernel_sel,
                      avm_kernel_kernel_side_effect_out__is_public,
                      avm_kernel_kernel_value_out__is_public,
-                     avm_kernel_l1_to_l2_msg_write_offset,
+                     avm_kernel_l1_to_l2_msg_exists_write_offset,
                      avm_kernel_note_hash_exist_write_offset,
                      avm_kernel_nullifier_exists_write_offset,
                      avm_kernel_q_public_input_kernel_add_to_table,
@@ -1408,6 +1413,7 @@ class AvmFlavor {
                      avm_main_sel_op_chain_id,
                      avm_main_sel_op_coinbase,
                      avm_main_sel_op_div,
+                     avm_main_sel_op_emit_l2_to_l1_msg,
                      avm_main_sel_op_emit_note_hash,
                      avm_main_sel_op_emit_nullifier,
                      avm_main_sel_op_emit_unencrypted_log,
@@ -1424,7 +1430,6 @@ class AvmFlavor {
                      avm_main_sel_op_nullifier_exists,
                      avm_main_sel_op_or,
                      avm_main_sel_op_portal,
-                     avm_main_sel_op_send_l2_to_l1_msg,
                      avm_main_sel_op_sender,
                      avm_main_sel_op_shl,
                      avm_main_sel_op_shr,
@@ -1592,10 +1597,11 @@ class AvmFlavor {
                      avm_binary_acc_ic_shift,
                      avm_binary_mem_tag_ctr_shift,
                      avm_binary_op_id_shift,
+                     avm_kernel_emit_l2_to_l1_msg_write_offset_shift,
                      avm_kernel_emit_note_hash_write_offset_shift,
                      avm_kernel_emit_nullifier_write_offset_shift,
                      avm_kernel_emit_unencrypted_log_write_offset_shift,
-                     avm_kernel_l1_to_l2_msg_write_offset_shift,
+                     avm_kernel_l1_to_l2_msg_exists_write_offset_shift,
                      avm_kernel_note_hash_exist_write_offset_shift,
                      avm_kernel_nullifier_exists_write_offset_shift,
                      avm_kernel_side_effect_counter_shift,
@@ -1717,6 +1723,7 @@ class AvmFlavor {
                      avm_byte_lookup_table_input_b,
                      avm_byte_lookup_table_op_id,
                      avm_byte_lookup_table_output,
+                     avm_kernel_emit_l2_to_l1_msg_write_offset,
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
                      avm_kernel_emit_unencrypted_log_write_offset,
@@ -1726,7 +1733,7 @@ class AvmFlavor {
                      avm_kernel_kernel_sel,
                      avm_kernel_kernel_side_effect_out__is_public,
                      avm_kernel_kernel_value_out__is_public,
-                     avm_kernel_l1_to_l2_msg_write_offset,
+                     avm_kernel_l1_to_l2_msg_exists_write_offset,
                      avm_kernel_note_hash_exist_write_offset,
                      avm_kernel_nullifier_exists_write_offset,
                      avm_kernel_q_public_input_kernel_add_to_table,
@@ -1787,6 +1794,7 @@ class AvmFlavor {
                      avm_main_sel_op_chain_id,
                      avm_main_sel_op_coinbase,
                      avm_main_sel_op_div,
+                     avm_main_sel_op_emit_l2_to_l1_msg,
                      avm_main_sel_op_emit_note_hash,
                      avm_main_sel_op_emit_nullifier,
                      avm_main_sel_op_emit_unencrypted_log,
@@ -1803,7 +1811,6 @@ class AvmFlavor {
                      avm_main_sel_op_nullifier_exists,
                      avm_main_sel_op_or,
                      avm_main_sel_op_portal,
-                     avm_main_sel_op_send_l2_to_l1_msg,
                      avm_main_sel_op_sender,
                      avm_main_sel_op_shl,
                      avm_main_sel_op_shr,
@@ -1974,10 +1981,11 @@ class AvmFlavor {
                      avm_binary_acc_ic,
                      avm_binary_mem_tag_ctr,
                      avm_binary_op_id,
+                     avm_kernel_emit_l2_to_l1_msg_write_offset,
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
                      avm_kernel_emit_unencrypted_log_write_offset,
-                     avm_kernel_l1_to_l2_msg_write_offset,
+                     avm_kernel_l1_to_l2_msg_exists_write_offset,
                      avm_kernel_note_hash_exist_write_offset,
                      avm_kernel_nullifier_exists_write_offset,
                      avm_kernel_side_effect_counter,
@@ -2038,10 +2046,11 @@ class AvmFlavor {
                      avm_binary_acc_ic_shift,
                      avm_binary_mem_tag_ctr_shift,
                      avm_binary_op_id_shift,
+                     avm_kernel_emit_l2_to_l1_msg_write_offset_shift,
                      avm_kernel_emit_note_hash_write_offset_shift,
                      avm_kernel_emit_nullifier_write_offset_shift,
                      avm_kernel_emit_unencrypted_log_write_offset_shift,
-                     avm_kernel_l1_to_l2_msg_write_offset_shift,
+                     avm_kernel_l1_to_l2_msg_exists_write_offset_shift,
                      avm_kernel_note_hash_exist_write_offset_shift,
                      avm_kernel_nullifier_exists_write_offset_shift,
                      avm_kernel_side_effect_counter_shift,
@@ -2112,10 +2121,11 @@ class AvmFlavor {
                      avm_binary_acc_ic,
                      avm_binary_mem_tag_ctr,
                      avm_binary_op_id,
+                     avm_kernel_emit_l2_to_l1_msg_write_offset,
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
                      avm_kernel_emit_unencrypted_log_write_offset,
-                     avm_kernel_l1_to_l2_msg_write_offset,
+                     avm_kernel_l1_to_l2_msg_exists_write_offset,
                      avm_kernel_note_hash_exist_write_offset,
                      avm_kernel_nullifier_exists_write_offset,
                      avm_kernel_side_effect_counter,
@@ -2430,6 +2440,7 @@ class AvmFlavor {
             Base::avm_byte_lookup_table_input_b = "AVM_BYTE_LOOKUP_TABLE_INPUT_B";
             Base::avm_byte_lookup_table_op_id = "AVM_BYTE_LOOKUP_TABLE_OP_ID";
             Base::avm_byte_lookup_table_output = "AVM_BYTE_LOOKUP_TABLE_OUTPUT";
+            Base::avm_kernel_emit_l2_to_l1_msg_write_offset = "AVM_KERNEL_EMIT_L2_TO_L1_MSG_WRITE_OFFSET";
             Base::avm_kernel_emit_note_hash_write_offset = "AVM_KERNEL_EMIT_NOTE_HASH_WRITE_OFFSET";
             Base::avm_kernel_emit_nullifier_write_offset = "AVM_KERNEL_EMIT_NULLIFIER_WRITE_OFFSET";
             Base::avm_kernel_emit_unencrypted_log_write_offset = "AVM_KERNEL_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET";
@@ -2439,7 +2450,7 @@ class AvmFlavor {
             Base::avm_kernel_kernel_sel = "AVM_KERNEL_KERNEL_SEL";
             Base::avm_kernel_kernel_side_effect_out__is_public = "AVM_KERNEL_KERNEL_SIDE_EFFECT_OUT__IS_PUBLIC";
             Base::avm_kernel_kernel_value_out__is_public = "AVM_KERNEL_KERNEL_VALUE_OUT__IS_PUBLIC";
-            Base::avm_kernel_l1_to_l2_msg_write_offset = "AVM_KERNEL_L1_TO_L2_MSG_WRITE_OFFSET";
+            Base::avm_kernel_l1_to_l2_msg_exists_write_offset = "AVM_KERNEL_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET";
             Base::avm_kernel_note_hash_exist_write_offset = "AVM_KERNEL_NOTE_HASH_EXIST_WRITE_OFFSET";
             Base::avm_kernel_nullifier_exists_write_offset = "AVM_KERNEL_NULLIFIER_EXISTS_WRITE_OFFSET";
             Base::avm_kernel_q_public_input_kernel_add_to_table = "AVM_KERNEL_Q_PUBLIC_INPUT_KERNEL_ADD_TO_TABLE";
@@ -2501,6 +2512,7 @@ class AvmFlavor {
             Base::avm_main_sel_op_chain_id = "AVM_MAIN_SEL_OP_CHAIN_ID";
             Base::avm_main_sel_op_coinbase = "AVM_MAIN_SEL_OP_COINBASE";
             Base::avm_main_sel_op_div = "AVM_MAIN_SEL_OP_DIV";
+            Base::avm_main_sel_op_emit_l2_to_l1_msg = "AVM_MAIN_SEL_OP_EMIT_L2_TO_L1_MSG";
             Base::avm_main_sel_op_emit_note_hash = "AVM_MAIN_SEL_OP_EMIT_NOTE_HASH";
             Base::avm_main_sel_op_emit_nullifier = "AVM_MAIN_SEL_OP_EMIT_NULLIFIER";
             Base::avm_main_sel_op_emit_unencrypted_log = "AVM_MAIN_SEL_OP_EMIT_UNENCRYPTED_LOG";
@@ -2517,7 +2529,6 @@ class AvmFlavor {
             Base::avm_main_sel_op_nullifier_exists = "AVM_MAIN_SEL_OP_NULLIFIER_EXISTS";
             Base::avm_main_sel_op_or = "AVM_MAIN_SEL_OP_OR";
             Base::avm_main_sel_op_portal = "AVM_MAIN_SEL_OP_PORTAL";
-            Base::avm_main_sel_op_send_l2_to_l1_msg = "AVM_MAIN_SEL_OP_SEND_L2_TO_L1_MSG";
             Base::avm_main_sel_op_sender = "AVM_MAIN_SEL_OP_SENDER";
             Base::avm_main_sel_op_shl = "AVM_MAIN_SEL_OP_SHL";
             Base::avm_main_sel_op_shr = "AVM_MAIN_SEL_OP_SHR";
@@ -2763,6 +2774,7 @@ class AvmFlavor {
         Commitment avm_byte_lookup_table_input_b;
         Commitment avm_byte_lookup_table_op_id;
         Commitment avm_byte_lookup_table_output;
+        Commitment avm_kernel_emit_l2_to_l1_msg_write_offset;
         Commitment avm_kernel_emit_note_hash_write_offset;
         Commitment avm_kernel_emit_nullifier_write_offset;
         Commitment avm_kernel_emit_unencrypted_log_write_offset;
@@ -2772,7 +2784,7 @@ class AvmFlavor {
         Commitment avm_kernel_kernel_sel;
         Commitment avm_kernel_kernel_side_effect_out__is_public;
         Commitment avm_kernel_kernel_value_out__is_public;
-        Commitment avm_kernel_l1_to_l2_msg_write_offset;
+        Commitment avm_kernel_l1_to_l2_msg_exists_write_offset;
         Commitment avm_kernel_note_hash_exist_write_offset;
         Commitment avm_kernel_nullifier_exists_write_offset;
         Commitment avm_kernel_q_public_input_kernel_add_to_table;
@@ -2833,6 +2845,7 @@ class AvmFlavor {
         Commitment avm_main_sel_op_chain_id;
         Commitment avm_main_sel_op_coinbase;
         Commitment avm_main_sel_op_div;
+        Commitment avm_main_sel_op_emit_l2_to_l1_msg;
         Commitment avm_main_sel_op_emit_note_hash;
         Commitment avm_main_sel_op_emit_nullifier;
         Commitment avm_main_sel_op_emit_unencrypted_log;
@@ -2849,7 +2862,6 @@ class AvmFlavor {
         Commitment avm_main_sel_op_nullifier_exists;
         Commitment avm_main_sel_op_or;
         Commitment avm_main_sel_op_portal;
-        Commitment avm_main_sel_op_send_l2_to_l1_msg;
         Commitment avm_main_sel_op_sender;
         Commitment avm_main_sel_op_shl;
         Commitment avm_main_sel_op_shr;
@@ -3096,6 +3108,8 @@ class AvmFlavor {
             avm_byte_lookup_table_input_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_byte_lookup_table_op_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_byte_lookup_table_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_kernel_emit_l2_to_l1_msg_write_offset =
+                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_kernel_emit_note_hash_write_offset =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_kernel_emit_nullifier_write_offset =
@@ -3112,7 +3126,7 @@ class AvmFlavor {
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_kernel_kernel_value_out__is_public =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_kernel_l1_to_l2_msg_write_offset =
+            avm_kernel_l1_to_l2_msg_exists_write_offset =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_kernel_note_hash_exist_write_offset =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3178,6 +3192,8 @@ class AvmFlavor {
             avm_main_sel_op_chain_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_coinbase = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_div = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_emit_l2_to_l1_msg =
+                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_emit_note_hash = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_emit_nullifier = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_emit_unencrypted_log =
@@ -3198,8 +3214,6 @@ class AvmFlavor {
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_or = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_portal = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_main_sel_op_send_l2_to_l1_msg =
-                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_sender = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_shl = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_shr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3449,6 +3463,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_byte_lookup_table_input_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_byte_lookup_table_op_id, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_byte_lookup_table_output, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_kernel_emit_l2_to_l1_msg_write_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_emit_note_hash_write_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_emit_nullifier_write_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_emit_unencrypted_log_write_offset, Transcript::proof_data);
@@ -3458,7 +3473,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_kernel_kernel_sel, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_kernel_side_effect_out__is_public, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_kernel_value_out__is_public, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_kernel_l1_to_l2_msg_write_offset, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_kernel_l1_to_l2_msg_exists_write_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_note_hash_exist_write_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_nullifier_exists_write_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_q_public_input_kernel_add_to_table, Transcript::proof_data);
@@ -3519,6 +3534,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_sel_op_chain_id, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_coinbase, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_div, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_emit_l2_to_l1_msg, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_emit_note_hash, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_emit_nullifier, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_emit_unencrypted_log, Transcript::proof_data);
@@ -3535,7 +3551,6 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_sel_op_nullifier_exists, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_or, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_portal, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_main_sel_op_send_l2_to_l1_msg, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_sender, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_shl, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_shr, Transcript::proof_data);

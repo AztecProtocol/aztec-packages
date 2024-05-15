@@ -166,17 +166,17 @@ void AvmKernelTraceBuilder::op_emit_nullifier(uint32_t clk, FF nullifier)
     kernel_trace.push_back(entry);
 }
 
-void AvmKernelTraceBuilder::op_emit_l2_to_l1_msg(uint32_t clk, FF l2_to_l1_msg)
+void AvmKernelTraceBuilder::op_l1_to_l2_msg_exists(uint32_t clk, FF message)
 {
-    uint32_t offset = START_L2_TO_L1_MSG_WRITE_OFFSET + l2_to_l1_msg_offset;
-    perform_kernel_output_lookup(offset, l2_to_l1_msg, FF(0));
-    l2_to_l1_msg_offset++;
+    uint32_t offset = START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET + l1_to_l2_msg_exists_offset;
+    perform_kernel_output_lookup(offset, message, FF(0));
+    l1_to_l2_msg_exists_offset++;
 
     KernelTraceEntry entry = {
         .clk = clk,
         .kernel_out_selector = offset,
         .q_kernel_output_lookup = true,
-        .op_emit_l2_to_l1_msg = true,
+        .op_l1_to_l2_msg_exists = true,
     };
     kernel_trace.push_back(entry);
 }
@@ -192,6 +192,21 @@ void AvmKernelTraceBuilder::op_emit_unencrypted_log(uint32_t clk, FF log_hash)
         .kernel_out_selector = offset,
         .q_kernel_output_lookup = true,
         .op_emit_unencrypted_log = true,
+    };
+    kernel_trace.push_back(entry);
+}
+
+void AvmKernelTraceBuilder::op_emit_l2_to_l1_msg(uint32_t clk, FF l2_to_l1_msg)
+{
+    uint32_t offset = START_L2_TO_L1_MSG_WRITE_OFFSET + emit_l2_to_l1_msg_offset;
+    perform_kernel_output_lookup(offset, l2_to_l1_msg, FF(0));
+    emit_l2_to_l1_msg_offset++;
+
+    KernelTraceEntry entry = {
+        .clk = clk,
+        .kernel_out_selector = offset,
+        .q_kernel_output_lookup = true,
+        .op_emit_l2_to_l1_msg = true,
     };
     kernel_trace.push_back(entry);
 }
@@ -249,7 +264,7 @@ uint32_t AvmKernelTraceBuilder::get_emit_nullifier_offset()
 
 uint32_t AvmKernelTraceBuilder::get_l2_to_l1_msg_offset()
 {
-    return l2_to_l1_msg_offset;
+    return emit_l2_to_l1_msg_offset;
 }
 
 uint32_t AvmKernelTraceBuilder::get_emit_unencrypted_log_offset()

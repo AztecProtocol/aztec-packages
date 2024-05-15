@@ -107,6 +107,8 @@
     [[maybe_unused]] auto avm_byte_lookup_table_input_b = View(new_term.avm_byte_lookup_table_input_b);                \
     [[maybe_unused]] auto avm_byte_lookup_table_op_id = View(new_term.avm_byte_lookup_table_op_id);                    \
     [[maybe_unused]] auto avm_byte_lookup_table_output = View(new_term.avm_byte_lookup_table_output);                  \
+    [[maybe_unused]] auto avm_kernel_emit_l2_to_l1_msg_write_offset =                                                  \
+        View(new_term.avm_kernel_emit_l2_to_l1_msg_write_offset);                                                      \
     [[maybe_unused]] auto avm_kernel_emit_note_hash_write_offset =                                                     \
         View(new_term.avm_kernel_emit_note_hash_write_offset);                                                         \
     [[maybe_unused]] auto avm_kernel_emit_nullifier_write_offset =                                                     \
@@ -122,7 +124,8 @@
         View(new_term.avm_kernel_kernel_side_effect_out__is_public);                                                   \
     [[maybe_unused]] auto avm_kernel_kernel_value_out__is_public =                                                     \
         View(new_term.avm_kernel_kernel_value_out__is_public);                                                         \
-    [[maybe_unused]] auto avm_kernel_l1_to_l2_msg_write_offset = View(new_term.avm_kernel_l1_to_l2_msg_write_offset);  \
+    [[maybe_unused]] auto avm_kernel_l1_to_l2_msg_exists_write_offset =                                                \
+        View(new_term.avm_kernel_l1_to_l2_msg_exists_write_offset);                                                    \
     [[maybe_unused]] auto avm_kernel_note_hash_exist_write_offset =                                                    \
         View(new_term.avm_kernel_note_hash_exist_write_offset);                                                        \
     [[maybe_unused]] auto avm_kernel_nullifier_exists_write_offset =                                                   \
@@ -187,6 +190,7 @@
     [[maybe_unused]] auto avm_main_sel_op_chain_id = View(new_term.avm_main_sel_op_chain_id);                          \
     [[maybe_unused]] auto avm_main_sel_op_coinbase = View(new_term.avm_main_sel_op_coinbase);                          \
     [[maybe_unused]] auto avm_main_sel_op_div = View(new_term.avm_main_sel_op_div);                                    \
+    [[maybe_unused]] auto avm_main_sel_op_emit_l2_to_l1_msg = View(new_term.avm_main_sel_op_emit_l2_to_l1_msg);        \
     [[maybe_unused]] auto avm_main_sel_op_emit_note_hash = View(new_term.avm_main_sel_op_emit_note_hash);              \
     [[maybe_unused]] auto avm_main_sel_op_emit_nullifier = View(new_term.avm_main_sel_op_emit_nullifier);              \
     [[maybe_unused]] auto avm_main_sel_op_emit_unencrypted_log = View(new_term.avm_main_sel_op_emit_unencrypted_log);  \
@@ -203,7 +207,6 @@
     [[maybe_unused]] auto avm_main_sel_op_nullifier_exists = View(new_term.avm_main_sel_op_nullifier_exists);          \
     [[maybe_unused]] auto avm_main_sel_op_or = View(new_term.avm_main_sel_op_or);                                      \
     [[maybe_unused]] auto avm_main_sel_op_portal = View(new_term.avm_main_sel_op_portal);                              \
-    [[maybe_unused]] auto avm_main_sel_op_send_l2_to_l1_msg = View(new_term.avm_main_sel_op_send_l2_to_l1_msg);        \
     [[maybe_unused]] auto avm_main_sel_op_sender = View(new_term.avm_main_sel_op_sender);                              \
     [[maybe_unused]] auto avm_main_sel_op_shl = View(new_term.avm_main_sel_op_shl);                                    \
     [[maybe_unused]] auto avm_main_sel_op_shr = View(new_term.avm_main_sel_op_shr);                                    \
@@ -372,14 +375,16 @@
     [[maybe_unused]] auto avm_binary_acc_ic_shift = View(new_term.avm_binary_acc_ic_shift);                            \
     [[maybe_unused]] auto avm_binary_mem_tag_ctr_shift = View(new_term.avm_binary_mem_tag_ctr_shift);                  \
     [[maybe_unused]] auto avm_binary_op_id_shift = View(new_term.avm_binary_op_id_shift);                              \
+    [[maybe_unused]] auto avm_kernel_emit_l2_to_l1_msg_write_offset_shift =                                            \
+        View(new_term.avm_kernel_emit_l2_to_l1_msg_write_offset_shift);                                                \
     [[maybe_unused]] auto avm_kernel_emit_note_hash_write_offset_shift =                                               \
         View(new_term.avm_kernel_emit_note_hash_write_offset_shift);                                                   \
     [[maybe_unused]] auto avm_kernel_emit_nullifier_write_offset_shift =                                               \
         View(new_term.avm_kernel_emit_nullifier_write_offset_shift);                                                   \
     [[maybe_unused]] auto avm_kernel_emit_unencrypted_log_write_offset_shift =                                         \
         View(new_term.avm_kernel_emit_unencrypted_log_write_offset_shift);                                             \
-    [[maybe_unused]] auto avm_kernel_l1_to_l2_msg_write_offset_shift =                                                 \
-        View(new_term.avm_kernel_l1_to_l2_msg_write_offset_shift);                                                     \
+    [[maybe_unused]] auto avm_kernel_l1_to_l2_msg_exists_write_offset_shift =                                          \
+        View(new_term.avm_kernel_l1_to_l2_msg_exists_write_offset_shift);                                              \
     [[maybe_unused]] auto avm_kernel_note_hash_exist_write_offset_shift =                                              \
         View(new_term.avm_kernel_note_hash_exist_write_offset_shift);                                                  \
     [[maybe_unused]] auto avm_kernel_nullifier_exists_write_offset_shift =                                             \

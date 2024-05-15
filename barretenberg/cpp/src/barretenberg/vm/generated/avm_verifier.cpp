@@ -256,8 +256,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         commitment_labels.avm_kernel_kernel_side_effect_out__is_public);
     commitments.avm_kernel_kernel_value_out__is_public =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_kernel_kernel_value_out__is_public);
-    commitments.avm_kernel_l1_to_l2_msg_write_offset =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_kernel_l1_to_l2_msg_write_offset);
+    commitments.avm_kernel_l1_to_l2_msg_exists_write_offset = transcript->template receive_from_prover<Commitment>(
+        commitment_labels.avm_kernel_l1_to_l2_msg_exists_write_offset);
     commitments.avm_kernel_note_hash_exist_write_offset =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_kernel_note_hash_exist_write_offset);
     commitments.avm_kernel_nullifier_exists_write_offset = transcript->template receive_from_prover<Commitment>(
@@ -396,8 +396,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_or);
     commitments.avm_main_sel_op_portal =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_portal);
-    commitments.avm_main_sel_op_send_l2_to_l1_msg =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_send_l2_to_l1_msg);
+    commitments.avm_main_sel_op_emit_l2_to_l1_msg =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_emit_l2_to_l1_msg);
     commitments.avm_main_sel_op_sender =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_sender);
     commitments.avm_main_sel_op_shl =
