@@ -76,6 +76,8 @@ impl KernelCircuitPublicInputsComposer {
 
         self.verify_no_transient_data();
 
+        self.verify_empty_validation_requests();
+
         self.silo_values();
 
         *self
