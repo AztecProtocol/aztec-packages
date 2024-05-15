@@ -4,6 +4,8 @@ import { type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types
 
 import { FullProverTest } from './e2e_prover_test.js';
 
+const TIMEOUT = 600_000;
+
 async function verifyProof(circuitType: ClientProtocolArtifact, tx: Tx, proofCreator: BBNativeProofCreator) {
   await expect(proofCreator.verifyProofForProtocolCircuit(circuitType, tx.proof)).resolves.not.toThrow();
 }
@@ -27,39 +29,47 @@ describe('full_prover_integration', () => {
     await t.tokenSim.check();
   });
 
-  it('private transfer less than balance', async () => {
-    logger.info(
-      `Starting test using function: ${provenAsset.address}:${provenAsset.methods.balance_of_private.selector}`,
-    );
-    const balance0 = await provenAsset.methods.balance_of_private(accounts[0].address).simulate();
-    const amount = balance0 / 2n;
-    expect(amount).toBeGreaterThan(0n);
-    const interaction = provenAsset.methods.transfer(accounts[0].address, accounts[1].address, amount, 0);
-    const provenTx = await interaction.prove();
+  it(
+    'private transfer less than balance',
+    async () => {
+      logger.info(
+        `Starting test using function: ${provenAsset.address}:${provenAsset.methods.balance_of_private.selector}`,
+      );
+      const balance0 = await provenAsset.methods.balance_of_private(accounts[0].address).simulate();
+      const amount = balance0 / 2n;
+      expect(amount).toBeGreaterThan(0n);
+      const interaction = provenAsset.methods.transfer(accounts[0].address, accounts[1].address, amount, 0);
+      const provenTx = await interaction.prove();
 
-    // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
-    logger.info(`Verifying kernel tail proof`);
-    await verifyProof('PrivateKernelTailArtifact', provenTx, proofCreator!);
+      // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
+      logger.info(`Verifying kernel tail proof`);
+      await verifyProof('PrivateKernelTailArtifact', provenTx, proofCreator!);
 
-    await interaction.send().wait({ timeout: 600, interval: 10 });
-    tokenSim.transferPrivate(accounts[0].address, accounts[1].address, amount);
-  });
+      await interaction.send().wait({ timeout: 600, interval: 10 });
+      tokenSim.transferPrivate(accounts[0].address, accounts[1].address, amount);
+    },
+    TIMEOUT,
+  );
 
-  it('public transfer less than balance', async () => {
-    logger.info(
-      `Starting test using function: ${provenAsset.address}:${provenAsset.methods.balance_of_public.selector}`,
-    );
-    const balance0 = await provenAsset.methods.balance_of_public(accounts[0].address).simulate();
-    const amount = balance0 / 2n;
-    expect(amount).toBeGreaterThan(0n);
-    const interaction = provenAsset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, 0);
-    const provenTx = await interaction.prove();
+  it(
+    'public transfer less than balance',
+    async () => {
+      logger.info(
+        `Starting test using function: ${provenAsset.address}:${provenAsset.methods.balance_of_public.selector}`,
+      );
+      const balance0 = await provenAsset.methods.balance_of_public(accounts[0].address).simulate();
+      const amount = balance0 / 2n;
+      expect(amount).toBeGreaterThan(0n);
+      const interaction = provenAsset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, 0);
+      const provenTx = await interaction.prove();
 
-    // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
-    logger.info(`Verifying kernel tail to public proof`);
-    await verifyProof('PrivateKernelTailToPublicArtifact', provenTx, proofCreator!);
+      // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
+      logger.info(`Verifying kernel tail to public proof`);
+      await verifyProof('PrivateKernelTailToPublicArtifact', provenTx, proofCreator!);
 
-    await interaction.send().wait({ timeout: 600, interval: 10 });
-    tokenSim.transferPublic(accounts[0].address, accounts[1].address, amount);
-  });
+      await interaction.send().wait({ timeout: 600, interval: 10 });
+      tokenSim.transferPublic(accounts[0].address, accounts[1].address, amount);
+    },
+    TIMEOUT,
+  );
 });
