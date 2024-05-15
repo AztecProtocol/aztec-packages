@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+cd "$(dirname "$0")"
+
 TEST_NAMES=("$@")
 THREADS=(1 4 16 32 64)
 BENCHMARKS=$LOG_FILE

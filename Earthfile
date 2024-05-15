@@ -42,7 +42,7 @@ UPLOAD_LOGS:
     ARG COMMIT_HASH
     LOCALLY
     LET COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
-    FROM +base-log-uploader
+    FROM ./yarn-project/end-to-end/+base-log-uploader
     COPY ./log /usr/var/log
     ENV PULL_REQUEST=$PULL_REQUEST
     ENV BRANCH=$BRANCH
