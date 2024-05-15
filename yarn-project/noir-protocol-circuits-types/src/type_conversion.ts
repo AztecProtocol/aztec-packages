@@ -75,6 +75,7 @@ import {
   PrivateKernelCircuitPublicInputs,
   type PrivateKernelData,
   type PrivateKernelInitCircuitPrivateInputs,
+  type PrivateKernelInitHints,
   type PrivateKernelInnerCircuitPrivateInputs,
   type PrivateKernelInnerHints,
   type PrivateKernelTailCircuitPrivateInputs,
@@ -179,6 +180,7 @@ import type {
   PrivateKernelCircuitPublicInputs as PrivateKernelCircuitPublicInputsNoir,
   PrivateKernelData as PrivateKernelDataNoir,
   PrivateKernelInitCircuitPrivateInputs as PrivateKernelInitCircuitPrivateInputsNoir,
+  PrivateKernelInitHints as PrivateKernelInitHintsNoir,
   PrivateKernelInnerCircuitPrivateInputs as PrivateKernelInnerCircuitPrivateInputsNoir,
   PrivateKernelInnerHints as PrivateKernelInnerHintsNoir,
   PrivateKernelTailCircuitPrivateInputs as PrivateKernelTailCircuitPrivateInputsNoir,
@@ -1426,6 +1428,14 @@ export function mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir(
   );
 }
 
+function mapPrivateKernelInitHintsToNoir(inputs: PrivateKernelInitHints): PrivateKernelInitHintsNoir {
+  return {
+    note_hash_nullifier_counters: mapTuple(inputs.noteHashNullifierCounters, mapNumberToNoir),
+    first_revertible_private_call_request_index: mapNumberToNoir(inputs.firstRevertiblePrivateCallRequestIndex),
+    first_revertible_public_call_request_index: mapNumberToNoir(inputs.firstRevertiblePublicCallRequestIndex),
+  };
+}
+
 function mapPrivateKernelInnerHintsToNoir(inputs: PrivateKernelInnerHints): PrivateKernelInnerHintsNoir {
   return {
     note_hash_nullifier_counters: mapTuple(inputs.noteHashNullifierCounters, mapNumberToNoir),
@@ -1438,7 +1448,7 @@ export function mapPrivateKernelInitCircuitPrivateInputsToNoir(
   return {
     tx_request: mapTxRequestToNoir(inputs.txRequest),
     private_call: mapPrivateCallDataToNoir(inputs.privateCall),
-    hints: mapPrivateKernelInnerHintsToNoir(inputs.hints),
+    hints: mapPrivateKernelInitHintsToNoir(inputs.hints),
   };
 }
 
