@@ -20,10 +20,10 @@ Instead it's up to the account contract developer to implement it.
 :::
 
 ## Public keys retrieval
-The keys can either be received from a key registry contract or from [Private eXecution Environment (PXE)](../../../learn/concepts/pxe/main).
+The keys can either be retrieved from a key registry contract or from the [Private eXecution Environment (PXE)](../../../learn/concepts/pxe/main).
 
 :::note
-Key registry is a canonical contract used to store users keys.
+The key registry is a canonical contract used to store user public keys.
 Canonical in this context means that it is a contract whose functionality is essential for the protocol.
 There is 1 key registry and its address is hardcoded in the protocol code.
 :::
@@ -40,7 +40,7 @@ If they are not there, it is necessary to first register the user as a recipient
 Simulator will then retrieve these keys via an oracle call from PXE during private function execution.
 
 ## Key rotation
-To prevent users from needing to migrate all their positions when some of their keys are leaked we allow for key rotation.
+To prevent users from needing to migrate all their positions if some of their keys are leaked we allow for key rotation.
 Key rotation can be performed by calling the corresponding function on key registry.
 E.g. for nullifier key:
 
@@ -48,7 +48,7 @@ E.g. for nullifier key:
 
 Note that the notes directly contain `Npk_m`.
 This means that the notes will be spendable by the same old key after the key rotation and attacker could still potentially steal them if there are no other guardrails in place (like for example account contract auth check).
-These guardrails are typically in place so a user should not lose her notes even when this unfortunate accident happens.
+These guardrails are typically in place so a user should not lose her notes even if this unfortunate accident happens.
 
 ## Scoped keys
 Even though all the keys above are derived from the same secret, all of them are scoped (also called app-siloed) to the contract that requests them.
@@ -58,11 +58,11 @@ This allows per-application auditability.
 A user may choose to disclose their incoming and outgoing viewing keys for a given application to an auditor or regulator (or for 3rd party interfaces, e.g. giving access to a block explorer to display my activity), as a means to reveal all their activity within that context, while retaining privacy across all other applications in the network.
 
 In the case of nullifier keys, there is also a security reason involved.
-Since the nullifier secret is exposed in plain text to the application contract, the contract may accidentally or maliciously leak it.
+Since the nullifier secret is exposed to the application contract to be used in the nullifier computation, the contract may accidentally or maliciously leak it.
 If that happens, only the nullifier secret for that application is compromised (`nsk_app` and not `nsk_m`).
 
 ## Protocol key types
-All the keys bellow are Grumpkin keys (public keys derived on a Grumpkin curve).
+All the keys bellow are Grumpkin keys (public keys derived on the Grumpkin curve).
 
 ## Nullifier keys
 Whenever a note is consumed, a nullifier deterministically derived from it is emitted.
@@ -77,7 +77,7 @@ An application in Aztec.nr can request a secret from the current user for comput
 These specific nullifier keys are called a master nullifier secret key (`nsk_m`) and master nullifier public key(`Npk_m`).
 Typically, `Npk_m` is stored in a note and later on, the note is nullified using the secret app-siloed version (denoted `nsk_app`).
 `nsk_app` is derived by hashing `nsk_m` with the app contract address and it is necessary to present it to compute the nullifier.
-Validity of `nsk_app` is automatically verified by our [protocol kernel circuits](../../../protocol-specs/circuits/private-kernel-tail#verifying-and-splitting-ordered-data).
+Validity of `nsk_app` is verified by our [protocol kernel circuits](../../../protocol-specs/circuits/private-kernel-tail#verifying-and-splitting-ordered-data).
 
 ## Incoming viewing keys
 Called master incoming viewing secret key (`ivsk_m`) and master incoming viewing public key (`Ivpk_m`).
