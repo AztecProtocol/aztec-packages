@@ -61,12 +61,11 @@ jobs:
   # does not block merge
   # pushes cache on master
   build-cache:
-    # needs: build
+    needs: setup # build
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     strategy:
       matrix:
         module:
-          - barretenberg/cpp
           - build-images
           - barretenberg/cpp
           - barretenberg/ts

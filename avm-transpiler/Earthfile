@@ -17,10 +17,12 @@ source: #aztec-tag=cache
   RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
   SAVE IMAGE --push aztecprotocol/cache:avm-transpiler-$EARTHLY_TARGET_NAME
 
-build: # TODO this image was too big to cache
+build: #aztec-tag=cache
+    ARG EARTHLY_TARGET_NAME
     FROM +source
     RUN ./scripts/bootstrap_native.sh
     SAVE ARTIFACT target/release/avm-transpiler avm-transpiler
+    SAVE IMAGE --push aztecprotocol/cache:avm-transpiler-$EARTHLY_TARGET_NAME
 
 run:
     #TODO needed?
