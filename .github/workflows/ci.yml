@@ -167,14 +167,25 @@ jobs:
           concurrency_key: build-x86
       - name: "Build and upload bench aggregate file"
         working-directory: ./yarn-project/scripts
-        run: earthly-ci -P --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} +bench-aggregate
-      - name: "Download base benchmark"
+        run: |
+          earthly-ci -P \
+            --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            +bench-aggregate
+      - name: "Download base benchmark and package into earthly"
         if: ${{ github.event_name == 'pull_request' }}
-        run: scripts/logs/download_base_benchmark_from_s3.sh
+        run: |
+          # Download the base benchmark locally (requires AWS creds and .git history)
+          scripts/logs/download_base_benchmark_from_s3.sh
+          cd yarn-project/scripts
+          # Package it into an earthly artifact
+          earthly-ci -P +pack-base-benchmark --LOCAL_BENCH_FOLDER="./bench"
+          # Delete it so we don't accidentally bust the yarn-project+build cache
+          rm -rf ./bench
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          BENCH_FOLDER: "${{ env.HOME }}/base_bench"
+          BENCH_FOLDER: "./yarn-project/scripts/bench"
           PULL_REQUEST: "${{ github.event.pull_request.number }}"
       - name: "Generate summary comment if pull request"
         if: ${{ github.event_name == 'pull_request' }}
@@ -184,8 +195,7 @@ jobs:
             --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
             --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
             --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
-            +bench-comment \
-            --LOCAL_BASE_BENCH_FOLDER="${{ env.HOME }}/base_bench"
+            +bench-comment
 
   noir-format:
     needs: setup
