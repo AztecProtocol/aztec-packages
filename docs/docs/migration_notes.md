@@ -12,14 +12,14 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 i.e.
 
-struct TokenNote {
+struct TokenNote \{
     amount: U128,
     ```diff
     - owner: AztecAddress,
     + npk_m_hash: Field,
     ```
     randomness: Field,
-}
+\}
 
 Computing the nullifier similarly changes to use this master nullifying public key hash.
 
