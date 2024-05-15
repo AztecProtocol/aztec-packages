@@ -2,14 +2,14 @@ import { type Tx } from '@aztec/aztec.js';
 import { type BBNativeProofCreator } from '@aztec/bb-prover';
 import { type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
 
-import { ClientProverTest } from './client_prover_test.js';
+import { FullProverTest } from './e2e_prover_test.js';
 
 async function verifyProof(circuitType: ClientProtocolArtifact, tx: Tx, proofCreator: BBNativeProofCreator) {
   await expect(proofCreator.verifyProofForProtocolCircuit(circuitType, tx.proof)).resolves.not.toThrow();
 }
 
-describe('client_prover_integration', () => {
-  const t = new ClientProverTest('transfer_private');
+describe('full_prover_integration', () => {
+  const t = new FullProverTest('transfer_private');
   let { provenAsset, accounts, tokenSim, logger, proofCreator } = t;
 
   beforeAll(async () => {
@@ -41,7 +41,7 @@ describe('client_prover_integration', () => {
     logger.info(`Verifying kernel tail proof`);
     await verifyProof('PrivateKernelTailArtifact', provenTx, proofCreator!);
 
-    await interaction.send().wait();
+    await interaction.send().wait({ timeout: 600, interval: 10 });
     tokenSim.transferPrivate(accounts[0].address, accounts[1].address, amount);
   });
 
@@ -59,7 +59,7 @@ describe('client_prover_integration', () => {
     logger.info(`Verifying kernel tail to public proof`);
     await verifyProof('PrivateKernelTailToPublicArtifact', provenTx, proofCreator!);
 
-    await interaction.send().wait();
+    await interaction.send().wait({ timeout: 600, interval: 10 });
     tokenSim.transferPublic(accounts[0].address, accounts[1].address, amount);
   });
 });

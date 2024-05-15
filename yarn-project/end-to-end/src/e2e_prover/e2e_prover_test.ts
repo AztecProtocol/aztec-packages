@@ -1,4 +1,5 @@
 import { SchnorrAccountContractArtifact, getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { type AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWalletWithSecretKey,
   type AztecNode,
@@ -14,9 +15,11 @@ import {
 } from '@aztec/aztec.js';
 import { BBNativeProofCreator } from '@aztec/bb-prover';
 import { TokenContract } from '@aztec/noir-contracts.js';
+import { ProverPool } from '@aztec/prover-client/prover-pool';
 import { type PXEService } from '@aztec/pxe';
 
 import { waitRegisteredAccountSynced } from '../benchmarks/utils.js';
+import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import {
   type ISnapshotManager,
@@ -39,7 +42,7 @@ const SALT = 1;
  * We then prove and verify transactions created via this full prover PXE.
  */
 
-export class ClientProverTest {
+export class FullProverTest {
   static TOKEN_NAME = 'Aztec Token';
   static TOKEN_SYMBOL = 'AZT';
   static TOKEN_DECIMALS = 18n;
@@ -53,9 +56,11 @@ export class ClientProverTest {
   aztecNode!: AztecNode;
   pxe!: PXEService;
   fullProverPXE!: PXEService;
+  private proverPool!: ProverPool;
   provenAsset!: TokenContract;
   provenPXETeardown?: () => Promise<void>;
   private bbConfigCleanup?: () => Promise<void>;
+  private acvmConfigCleanup?: () => Promise<void>;
   proofCreator?: BBNativeProofCreator;
 
   constructor(testName: string) {
@@ -89,9 +94,9 @@ export class ClientProverTest {
         const asset = await TokenContract.deploy(
           this.wallets[0],
           this.accounts[0],
-          ClientProverTest.TOKEN_NAME,
-          ClientProverTest.TOKEN_SYMBOL,
-          ClientProverTest.TOKEN_DECIMALS,
+          FullProverTest.TOKEN_NAME,
+          FullProverTest.TOKEN_SYMBOL,
+          FullProverTest.TOKEN_DECIMALS,
         )
           .send()
           .deployed();
@@ -120,16 +125,39 @@ export class ClientProverTest {
     ({ pxe: this.pxe, aztecNode: this.aztecNode } = context);
 
     // Configure a full prover PXE
-    const bbConfig = await getBBConfig(this.logger);
-    this.bbConfigCleanup = bbConfig?.cleanup;
+
+    const [acvmConfig, bbConfig] = await Promise.all([getACVMConfig(this.logger), getBBConfig(this.logger)]);
+    if (!acvmConfig || !bbConfig) {
+      throw new Error('Missing ACVM or BB config');
+    }
+
+    this.acvmConfigCleanup = acvmConfig.cleanup;
+    this.bbConfigCleanup = bbConfig.cleanup;
 
     if (!bbConfig?.bbWorkingDirectory || !bbConfig?.bbBinaryPath) {
       throw new Error(`Test must be run with BB native configuration`);
     }
 
+    this.proverPool = ProverPool.nativePool(
+      {
+        ...acvmConfig,
+        ...bbConfig,
+      },
+      4,
+      10,
+    );
+
+    await this.aztecNode.setConfig({
+      // stop the fake provers
+      proverAgents: 0,
+      minTxsPerBlock: 1,
+    });
+
+    await this.proverPool.start((this.aztecNode as AztecNodeService).getProver().getProvingJobSource());
+
     this.proofCreator = new BBNativeProofCreator(bbConfig.bbBinaryPath, bbConfig.bbWorkingDirectory);
 
-    this.logger.debug(`Main setup completed, initializing full prover PXE...`);
+    this.logger.debug(`Main setup completed, initializing full prover PXE and Node...`);
     ({ pxe: this.fullProverPXE, teardown: this.provenPXETeardown } = await setupPXEService(
       this.aztecNode,
       {
@@ -180,6 +208,7 @@ export class ClientProverTest {
     await this.provenPXETeardown?.();
 
     await this.bbConfigCleanup?.();
+    await this.acvmConfigCleanup?.();
   }
 
   async addPendingShieldNoteToPXE(accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) {
