@@ -418,7 +418,7 @@ describe('ACIR public execution simulator', () => {
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
       const result = await simulate(execution, globalVariables);
 
-      expect(result.newNullifiers).toEqual(expect.objectContaining([{ value: nullifier }]));
+      expect(result.newNullifiers).toEqual([expect.objectContaining({ value: nullifier })]);
     });
 
     describe('L1 to L2 messages', () => {

@@ -116,7 +116,7 @@ describe('e2e_block_building', () => {
     let teardown: () => Promise<void>;
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/5818): clean up
     // Under current public, we expect 'dropped', under the AVM, we expect 'reverted'.
-    const DUPLICATE_NULLIFIER_PUBLIC_ERROR = /dropped|reverted/;
+    const DUPLICATE_NULLIFIER_ERROR = /dropped|reverted/;
 
     beforeAll(async () => {
       ({ teardown, pxe, logger, wallet: owner } = await setup(1));
@@ -141,7 +141,7 @@ describe('e2e_block_building', () => {
           { status: 'fulfilled', value: expect.anything() },
           {
             status: 'rejected',
-            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_PUBLIC_ERROR) }),
+            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_ERROR) }),
           },
         ]);
       });
@@ -158,7 +158,7 @@ describe('e2e_block_building', () => {
           { status: 'fulfilled', value: expect.anything() },
           {
             status: 'rejected',
-            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_PUBLIC_ERROR) }),
+            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_ERROR) }),
           },
         ]);
       });
@@ -175,7 +175,7 @@ describe('e2e_block_building', () => {
           { status: 'fulfilled', value: expect.anything() },
           {
             status: 'rejected',
-            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_PUBLIC_ERROR) }),
+            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_ERROR) }),
           },
         ]);
       });
@@ -192,7 +192,7 @@ describe('e2e_block_building', () => {
           { status: 'fulfilled', value: expect.anything() },
           {
             status: 'rejected',
-            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_PUBLIC_ERROR) }),
+            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_ERROR) }),
           },
         ]);
       });
@@ -209,7 +209,7 @@ describe('e2e_block_building', () => {
         const nullifier = Fr.random();
         await contract.methods.emit_nullifier_public(nullifier).send().wait();
         await expect(contract.methods.emit_nullifier_public(nullifier).send().wait()).rejects.toThrow(
-          DUPLICATE_NULLIFIER_PUBLIC_ERROR,
+          DUPLICATE_NULLIFIER_ERROR,
         );
       });
 
@@ -217,7 +217,7 @@ describe('e2e_block_building', () => {
         const nullifier = Fr.random();
         await contract.methods.emit_nullifier(nullifier).send().wait();
         await expect(contract.methods.emit_nullifier_public(nullifier).send().wait()).rejects.toThrow(
-          DUPLICATE_NULLIFIER_PUBLIC_ERROR,
+          DUPLICATE_NULLIFIER_ERROR,
         );
       });
 
