@@ -7,10 +7,11 @@ use dep::types::{
 },
     address::AztecAddress,
     constants::{
-    MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+    MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_TX,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL
 },
-    traits::is_empty, transaction::tx_request::TxRequest, utils::arrays::array_to_bounded_vec
+    traits::is_empty, transaction::tx_request::TxRequest,
+    utils::arrays::{array_to_bounded_vec, find_index}
 };
 
 struct DataSource {
@@ -190,7 +191,10 @@ impl PrivateKernelCircuitPublicInputsComposer {
         let note_logs = source.private_call_public_inputs.note_encrypted_logs_hashes;
         for i in 0..note_logs.len() {
             if !is_empty(note_logs[i]) {
-                assert(self.match_log_to_note(note_logs[i]), "Could not find note hash linked to note log.");
+                let note_index = self.match_log_to_note(note_logs[i]);
+                assert(
+                    note_index != MAX_NEW_NOTE_HASHES_PER_TX, "Could not find note hash linked to note log."
+                );
                 self.public_inputs.end.note_encrypted_logs_hashes.push(note_logs[i]);
             }
         }
@@ -200,8 +204,11 @@ impl PrivateKernelCircuitPublicInputsComposer {
         self.public_inputs.end.unencrypted_log_preimages_length += source.private_call_public_inputs.unencrypted_log_preimages_length;
     }
 
-    unconstrained fn match_log_to_note(self, note_log: NoteLogHash) -> bool {
-        self.public_inputs.end.new_note_hashes.any(|n: ScopedNoteHash| n.counter() == note_log.note_hash_counter)
+    unconstrained fn match_log_to_note(self, note_log: NoteLogHash) -> u64 {
+        find_index(
+            self.public_inputs.end.new_note_hashes.storage,
+            |n: ScopedNoteHash| n.counter() == note_log.note_hash_counter
+        )
     }
 
     fn propagate_private_call_requests(&mut self, source: DataSource) {
