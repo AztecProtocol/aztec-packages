@@ -10,8 +10,8 @@ async function verifyProof(circuitType: ClientProtocolArtifact, tx: Tx, proofCre
   await expect(proofCreator.verifyProofForProtocolCircuit(circuitType, tx.proof)).resolves.not.toThrow();
 }
 
-describe('full_prover_integration', () => {
-  const t = new FullProverTest('transfer_private');
+describe('full_prover', () => {
+  const t = new FullProverTest('full_prover');
   let { provenAsset, accounts, tokenSim, logger, proofCreator } = t;
 
   beforeAll(async () => {
