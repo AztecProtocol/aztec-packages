@@ -2,7 +2,7 @@ use dep::aztec::{
     prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext},
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_point::GrumpkinPoint},
     note::utils::compute_note_hash_for_consumption, hash::poseidon2_hash,
-    oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app,
+    oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app
 };
 
 trait OwnedNote {

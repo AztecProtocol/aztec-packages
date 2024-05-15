@@ -1,10 +1,10 @@
 use crate::{
     context::{inputs::PrivateContextInputs, interface::ContextInterface},
-    keys::getters::get_nullifier_keys,
-    messaging::process_l1_to_l2_message,
+    keys::getters::get_nullifier_keys, messaging::process_l1_to_l2_message,
     hash::{hash_args_array, ArgsHasher, compute_encrypted_log_hash, compute_unencrypted_log_hash},
     oracle::{
-    nullifier_key::NullifierKeys,arguments, returns, call_private_function::call_private_function_internal, header::get_header_at,
+    nullifier_key::NullifierKeys, arguments, returns,
+    call_private_function::call_private_function_internal, header::get_header_at,
     logs::emit_encrypted_log, logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog},
     enqueue_public_function_call::{
     enqueue_public_function_call_internal, set_public_teardown_function_call_internal,
@@ -215,7 +215,7 @@ impl PrivateContext {
         let nullifier_keys = if poseidon2_hash(cached_nullifier_keys.master_nullifier_public_key.serialize()) == npk_m_hash {
             cached_nullifier_keys
         } else {
-            let fetched_nullifier_keys = get_nullifier_keys_with_npk_m_hash(npk_m_hash);
+            let fetched_nullifier_keys = get_nullifier_keys(npk_m_hash);
             let request = NullifierKeyValidationRequest {
                 master_nullifier_public_key: fetched_nullifier_keys.master_nullifier_public_key,
                 app_nullifier_secret_key: fetched_nullifier_keys.app_nullifier_secret_key

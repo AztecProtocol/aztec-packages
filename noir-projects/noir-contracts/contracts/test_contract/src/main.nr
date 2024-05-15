@@ -85,13 +85,7 @@ contract Test {
         let owner_ivpk_m = get_ivpk_m(&mut context, owner);
 
         let mut note = ValueNote::new(value, owner_npk_m_hash);
-        create_note(
-            &mut context,
-            storage_slot,
-            &mut note,
-            true,
-            owner_ivpk_m,
-        );
+        create_note(&mut context, storage_slot, &mut note, true, owner_ivpk_m);
     }
 
     #[aztec(private)]
@@ -277,13 +271,7 @@ contract Test {
         let owner_ivpk_m = get_ivpk_m(&mut context, owner);
 
         let mut note = ValueNote::new(value + 1, owner_npk_m_hash);
-        create_note(
-            &mut context,
-            storage_slot,
-            &mut note,
-            true,
-            owner_ivpk_m,
-        );
+        create_note(&mut context, storage_slot, &mut note, true, owner_ivpk_m);
         storage_slot += 1;
         Test::at(context.this_address()).call_create_note(value + 2, owner, storage_slot).call(&mut context);
     }

@@ -95,7 +95,9 @@ export class TestKeyStore implements KeyStore {
    */
   public async getMasterNullifierPublicKey(accountOrNpkMHash: AztecAddress | Fr): Promise<PublicKey> {
     const masterNullifierPublicKeyBuffer =
-      this.#rotatedKeys.get(`${accountOrNpkMHash.toString()}-npk_m-${this.#rotatedNullifierKeyCount(accountOrNpkMHash) - 1}`) ??
+      this.#rotatedKeys.get(
+        `${accountOrNpkMHash.toString()}-npk_m-${this.#rotatedNullifierKeyCount(accountOrNpkMHash) - 1}`,
+      ) ??
       this.#keys.get(`${accountOrNpkMHash}-npk_m`) ??
       this.#getMapMetadataForMasterNullifierPublicKeyHash(accountOrNpkMHash).value;
 
@@ -164,12 +166,13 @@ export class TestKeyStore implements KeyStore {
    */
   public async getAppNullifierSecretKey(accountOrNpkMHash: AztecAddress | Fr, app: AztecAddress): Promise<Fr> {
     let masterNullifierSecretKeyBuffer =
-      this.#rotatedKeys.get(`${accountOrNpkMHash.toString()}-nsk_m-${this.#rotatedNullifierKeyCount(accountOrNpkMHash) - 1}`) ??
-      this.#keys.get(`${accountOrNpkMHash}-nsk_m`);
+      this.#rotatedKeys.get(
+        `${accountOrNpkMHash.toString()}-nsk_m-${this.#rotatedNullifierKeyCount(accountOrNpkMHash) - 1}`,
+      ) ?? this.#keys.get(`${accountOrNpkMHash}-nsk_m`);
     if (!masterNullifierSecretKeyBuffer) {
       const { key } = this.#getMapMetadataForMasterNullifierPublicKeyHash(accountOrNpkMHash);
       const mapKeyForNullifierSecretKey = key.replace('npk_m', 'nsk_m');
-  
+
       // #rotatedKeys has a suffix of -${index}, thus there will never be a clash, i.e. using a key in rotated keys will always return undefined if trying to retrieve something in keys
       // and using a key in #keys will always return undefined when searching in #rotatedKeys
       masterNullifierSecretKeyBuffer =

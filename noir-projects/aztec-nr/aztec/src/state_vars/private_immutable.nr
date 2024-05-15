@@ -49,20 +49,19 @@ impl<Note> PrivateImmutable<Note> {
     // docs:end:is_initialized
 
     // docs:start:initialize
-    pub fn initialize<N>(self, note: &mut Note, broadcast: bool, ivpk_m: GrumpkinPoint) where Note: NoteInterface<N> {
+    pub fn initialize<N>(
+        self,
+        note: &mut Note,
+        broadcast: bool,
+        ivpk_m: GrumpkinPoint
+    ) where Note: NoteInterface<N> {
         let context = self.context.unwrap();
 
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
         context.push_new_nullifier(nullifier, 0);
 
-        create_note(
-            context,
-            self.storage_slot,
-            note,
-            broadcast,
-            ivpk_m,
-        );
+        create_note(context, self.storage_slot, note, broadcast, ivpk_m);
     }
     // docs:end:initialize
 

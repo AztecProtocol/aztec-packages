@@ -8,7 +8,8 @@ contract Crowdfunding {
         abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize,
         grumpkin_point::GrumpkinPoint
     },
-        state_vars::{PrivateSet, PublicImmutable, SharedImmutable}, keys::getters::{get_npk_m_hash, get_ivpk_m}
+        state_vars::{PrivateSet, PublicImmutable, SharedImmutable},
+        keys::getters::{get_npk_m_hash, get_ivpk_m}
     };
     use dep::value_note::value_note::ValueNote;
     use dep::token::Token;

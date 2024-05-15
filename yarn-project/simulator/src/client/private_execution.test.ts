@@ -141,7 +141,7 @@ describe('Private Execution test suite', () => {
     // Create a new snapshot.
     const newSnap = new AppendOnlyTreeSnapshot(Fr.fromBuffer(tree.getRoot(true)), Number(tree.getNumLeaves(true)));
 
-    if (name === 'noteHash' || name === 'l1ToL2Messages' || name ===  'publicData') {
+    if (name === 'noteHash' || name === 'l1ToL2Messages' || name === 'publicData') {
       header = new Header(
         header.lastArchive,
         header.contentCommitment,
@@ -191,13 +191,21 @@ describe('Private Execution test suite', () => {
     trees = {};
     oracle = mock<DBOracle>();
     oracle.getNullifierKeys.mockImplementation((masterNullifierPublicKeyHash: Fr, contractAddress: AztecAddress) => {
-      if (masterNullifierPublicKeyHash.equals(poseidon2Hash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.toFields()))) {
+      if (
+        masterNullifierPublicKeyHash.equals(
+          poseidon2Hash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.toFields()),
+        )
+      ) {
         return Promise.resolve({
           masterNullifierPublicKey: ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
           appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
         });
       }
-      if (masterNullifierPublicKeyHash.equals(poseidon2Hash(recipientCompleteAddress.publicKeys.masterNullifierPublicKey.toFields()))) {
+      if (
+        masterNullifierPublicKeyHash.equals(
+          poseidon2Hash(recipientCompleteAddress.publicKeys.masterNullifierPublicKey.toFields()),
+        )
+      ) {
         return Promise.resolve({
           masterNullifierPublicKey: recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
           appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
@@ -392,7 +400,20 @@ describe('Private Execution test suite', () => {
 
       const noteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
 
-      const notes = [buildNote(60n, poseidon2Hash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.toFields()), storageSlot, noteTypeId), buildNote(80n, poseidon2Hash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.toFields()), storageSlot, noteTypeId)];
+      const notes = [
+        buildNote(
+          60n,
+          poseidon2Hash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.toFields()),
+          storageSlot,
+          noteTypeId,
+        ),
+        buildNote(
+          80n,
+          poseidon2Hash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.toFields()),
+          storageSlot,
+          noteTypeId,
+        ),
+      ];
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>
@@ -449,7 +470,14 @@ describe('Private Execution test suite', () => {
       const storageSlot = computeSlotForMapping(new Fr(1n), owner);
       const noteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
 
-      const notes = [buildNote(balance, poseidon2Hash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.toFields()), storageSlot, noteTypeId)];
+      const notes = [
+        buildNote(
+          balance,
+          poseidon2Hash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.toFields()),
+          storageSlot,
+          noteTypeId,
+        ),
+      ];
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>

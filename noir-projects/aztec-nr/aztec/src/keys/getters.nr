@@ -4,7 +4,10 @@ use dep::protocol_types::{
 };
 use crate::{
     context::PrivateContext,
-    oracle::{keys::get_public_keys_and_partial_address, nullifier_key::{NullifierKeys, get_nullifier_keys as get_nullifier_keys_oracle}},
+    oracle::{
+    keys::get_public_keys_and_partial_address,
+    nullifier_key::{NullifierKeys, get_nullifier_keys as get_nullifier_keys_oracle}
+},
     keys::public_keys::{PublicKeys, NULLIFIER_INDEX, INCOMING_INDEX},
     state_vars::{
     map::derive_storage_slot_in_map,

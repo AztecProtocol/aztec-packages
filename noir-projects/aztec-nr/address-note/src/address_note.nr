@@ -4,8 +4,8 @@ use dep::aztec::{
     grumpkin_point::GrumpkinPoint
 },
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
-    oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app,
-    context::PrivateContext, hash::poseidon2_hash
+    oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app, context::PrivateContext,
+    hash::poseidon2_hash
 };
 
 global ADDRESS_NOTE_LEN: Field = 3;

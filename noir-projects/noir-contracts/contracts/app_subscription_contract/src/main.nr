@@ -9,7 +9,7 @@ contract AppSubscription {
         AztecAddress, FunctionSelector, PrivateContext, NoteHeader, Map, PrivateMutable, PublicMutable,
         SharedImmutable
     },
-        protocol_types::traits::is_empty, keys::getters::{get_npk_m_hash, get_ivpk_m},
+        protocol_types::traits::is_empty, keys::getters::{get_npk_m_hash, get_ivpk_m}
     },
         authwit::{account::AccountActions, auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit},
         gas_token::GasToken, token::Token

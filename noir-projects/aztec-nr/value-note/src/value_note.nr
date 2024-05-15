@@ -5,8 +5,8 @@ use dep::aztec::{
     constants::GENERATOR_INDEX__NOTE_NULLIFIER
 },
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
-    oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app,
-    hash::poseidon2_hash, context::PrivateContext
+    oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app, hash::poseidon2_hash,
+    context::PrivateContext
 };
 
 global VALUE_NOTE_LEN: Field = 3; // 3 plus a header.

@@ -1,6 +1,7 @@
 use dep::aztec::{
     protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint}, context::Context,
-    note::note_getter_options::NoteGetterOptions, state_vars::PrivateSet, keys::getters::{get_npk_m_hash, get_ivpk_m}
+    note::note_getter_options::NoteGetterOptions, state_vars::PrivateSet,
+    keys::getters::{get_npk_m_hash, get_ivpk_m}
 };
 use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
 
