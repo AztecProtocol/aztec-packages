@@ -13,7 +13,8 @@ struct GlobalVariables {
     timestamp : u64,
     coinbase : EthAddress,
     fee_recipient : AztecAddress,
-    gas_fees : GasFees
+    gas_fees : GasFees,
+    total_fees : Field
 }
 // docs:end:global-variables
 
@@ -26,6 +27,7 @@ impl GlobalVariables {
             & (self.coinbase.is_zero())
             & (self.fee_recipient.is_zero())
             & (self.gas_fees.is_empty())
+            & (self.total_fees == 0)
     }
 }
 
@@ -40,6 +42,7 @@ impl Serialize<GLOBAL_VARIABLES_LENGTH> for GlobalVariables {
         serialized.push(self.coinbase.to_field());
         serialized.push(self.fee_recipient.to_field());
         serialized.extend_from_array(self.gas_fees.serialize());
+        serialized.push(self.total_fees);
 
         serialized.storage
     }
@@ -55,7 +58,8 @@ impl Deserialize<GLOBAL_VARIABLES_LENGTH> for GlobalVariables {
             timestamp: reader.read() as u64,
             coinbase: EthAddress::from_field(reader.read()),
             fee_recipient: AztecAddress::from_field(reader.read()),
-            gas_fees: reader.read_struct(GasFees::deserialize)
+            gas_fees: reader.read_struct(GasFees::deserialize),
+            total_fees: reader.read()
         }
     }
 }
@@ -68,7 +72,8 @@ impl Eq for GlobalVariables {
         (self.timestamp == other.timestamp) &
         (self.coinbase == other.coinbase) &
         (self.fee_recipient == other.fee_recipient) &
-        (self.gas_fees == other.gas_fees) 
+        (self.gas_fees == other.gas_fees) &
+        (self.total_fees == other.total_fees)
     }
 }
 
@@ -81,7 +86,8 @@ impl Empty for GlobalVariables {
             timestamp: 0,
             coinbase: EthAddress::empty(),
             fee_recipient: AztecAddress::empty(),
-            gas_fees: GasFees::empty()
+            gas_fees: GasFees::empty(),
+            total_fees: 0
         }
     }
 }

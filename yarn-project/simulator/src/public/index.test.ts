@@ -297,6 +297,7 @@ describe('ACIR public execution simulator', () => {
         EthAddress.fromField(new Fr(8)),
         AztecAddress.fromField(new Fr(9)),
         new GasFees(new Fr(10), new Fr(11)),
+        new Fr(12),
       );
 
       const result = await simulate(execution, globalVariables);
@@ -476,6 +477,7 @@ describe('ACIR public execution simulator', () => {
           EthAddress.ZERO,
           AztecAddress.ZERO,
           GasFees.empty(),
+          Fr.ZERO,
         );
 
       const mockOracles = (updateState = true) => {

@@ -50,6 +50,7 @@ import {Hash} from "./Hash.sol";
  *  | 0x01c8                                                                           | 0x20         |     feeRecipient
  *  | 0x01e8                                                                           | 0x20         |     gasFees.feePerDaGas
  *  | 0x0208                                                                           | 0x20         |     gasFees.feePerL2Gas
+ *  | 0x0228                                                                           | 0x20         |     totalFees
  *  |                                                                                  |              |   }
  *  |                                                                                  |              | }
  *  | ---                                                                              | ---          | ---
@@ -86,6 +87,7 @@ library HeaderLib {
     address coinbase;
     bytes32 feeRecipient;
     GasFees gasFees;
+    uint256 totalFees;
   }
 
   struct ContentCommitment {
@@ -102,7 +104,7 @@ library HeaderLib {
     GlobalVariables globalVariables;
   }
 
-  uint256 private constant HEADER_LENGTH = 0x228; // Header byte length
+  uint256 private constant HEADER_LENGTH = 0x248; // Header byte length
 
   /**
    * @notice Validates the header
@@ -189,6 +191,7 @@ library HeaderLib {
     header.globalVariables.feeRecipient = bytes32(_header[0x01c8:0x01e8]);
     header.globalVariables.gasFees.feePerDaGas = uint256(bytes32(_header[0x01e8:0x0208]));
     header.globalVariables.gasFees.feePerL2Gas = uint256(bytes32(_header[0x0208:0x0228]));
+    header.globalVariables.totalFees = uint256(bytes32(_header[0x0228:0x0248]));
 
     return header;
   }

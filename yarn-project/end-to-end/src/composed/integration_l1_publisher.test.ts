@@ -388,6 +388,7 @@ describe('L1Publisher integration', () => {
         coinbase,
         feeRecipient,
         GasFees.empty(),
+        Fr.ZERO,
       );
       const ticket = await buildBlock(globalVariables, txs, currentL1ToL2Messages, makeEmptyProcessedTx());
       const result = await ticket.provingPromise;
@@ -483,6 +484,7 @@ describe('L1Publisher integration', () => {
         coinbase,
         feeRecipient,
         GasFees.empty(),
+        Fr.ZERO,
       );
       const blockTicket = await buildBlock(globalVariables, txs, l1ToL2Messages, makeEmptyProcessedTx());
       const result = await blockTicket.provingPromise;

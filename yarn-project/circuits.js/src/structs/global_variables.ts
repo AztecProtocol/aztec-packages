@@ -26,6 +26,8 @@ export class GlobalVariables {
     public feeRecipient: AztecAddress,
     /** Global gas prices for this block. */
     public gasFees: GasFees,
+    /** Total transaction fees in this block, measured in fee paying asset */
+    public totalFees: Fr,
   ) {}
 
   static from(fields: FieldsOf<GlobalVariables>): GlobalVariables {
@@ -33,7 +35,16 @@ export class GlobalVariables {
   }
 
   static empty(): GlobalVariables {
-    return new GlobalVariables(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO, AztecAddress.ZERO, GasFees.empty());
+    return new GlobalVariables(
+      Fr.ZERO,
+      Fr.ZERO,
+      Fr.ZERO,
+      Fr.ZERO,
+      EthAddress.ZERO,
+      AztecAddress.ZERO,
+      GasFees.empty(),
+      Fr.ZERO,
+    );
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): GlobalVariables {
@@ -46,6 +57,7 @@ export class GlobalVariables {
       reader.readObject(EthAddress),
       reader.readObject(AztecAddress),
       reader.readObject(GasFees),
+      Fr.fromBuffer(reader),
     );
   }
 
@@ -58,6 +70,7 @@ export class GlobalVariables {
       EthAddress.fromString(obj.coinbase),
       AztecAddress.fromString(obj.feeRecipient),
       GasFees.fromJSON(obj.gasFees),
+      Fr.fromString(obj.totalFees),
     );
   }
 
@@ -72,6 +85,7 @@ export class GlobalVariables {
       EthAddress.fromField(reader.readField()),
       AztecAddress.fromField(reader.readField()),
       GasFees.fromFields(reader),
+      reader.readField(),
     );
   }
 
@@ -85,6 +99,7 @@ export class GlobalVariables {
       fields.coinbase,
       fields.feeRecipient,
       fields.gasFees,
+      fields.totalFees,
     ] as const;
   }
 
@@ -111,6 +126,7 @@ export class GlobalVariables {
       coinbase: this.coinbase.toString(),
       feeRecipient: this.feeRecipient.toString(),
       gasFees: this.gasFees.toJSON(),
+      totalFees: this.totalFees.toString(),
     };
   }
 
@@ -126,7 +142,8 @@ export class GlobalVariables {
       this.timestamp.isZero() &&
       this.coinbase.isZero() &&
       this.feeRecipient.isZero() &&
-      this.gasFees.isEmpty()
+      this.gasFees.isEmpty() &&
+      this.totalFees.isZero()
     );
   }
 }

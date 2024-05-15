@@ -87,6 +87,7 @@ export class SimpleTestGlobalVariableBuilder implements GlobalVariableBuilder {
     }
 
     const gasFees = GasFees.default();
+    const totalFees = Fr.ZERO;
     const globalVariables = new GlobalVariables(
       chainId,
       version,
@@ -95,8 +96,9 @@ export class SimpleTestGlobalVariableBuilder implements GlobalVariableBuilder {
       coinbase,
       feeRecipient,
       gasFees,
+      totalFees,
     );
     this.log.debug(`Built global variables for block ${blockNumber}`, globalVariables.toJSON());
-    return new GlobalVariables(chainId, version, blockNumber, lastTimestamp, coinbase, feeRecipient, gasFees);
+    return globalVariables;
   }
 }

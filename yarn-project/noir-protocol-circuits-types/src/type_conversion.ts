@@ -1597,6 +1597,7 @@ export function mapGlobalVariablesToNoir(globalVariables: GlobalVariables): Glob
     coinbase: mapEthAddressToNoir(globalVariables.coinbase),
     fee_recipient: mapAztecAddressToNoir(globalVariables.feeRecipient),
     gas_fees: mapGasFeesToNoir(globalVariables.gasFees),
+    total_fees: mapFieldToNoir(globalVariables.totalFees),
   };
 }
 
@@ -1625,6 +1626,7 @@ export function mapGlobalVariablesFromNoir(globalVariables: GlobalVariablesNoir)
     mapEthAddressFromNoir(globalVariables.coinbase),
     mapAztecAddressFromNoir(globalVariables.fee_recipient),
     mapGasFeesFromNoir(globalVariables.gas_fees),
+    mapFieldFromNoir(globalVariables.total_fees),
   );
 }
 

@@ -33,6 +33,7 @@ class GlobalVariables {
     fee_recipient: Address
     gas_fees.fees_per_da_gas: Fr
     gas_fees.fees_per_l2_gas: Fr
+    total_fees: Fr
 }
 
 class ConstantRollupData {
