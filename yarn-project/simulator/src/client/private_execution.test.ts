@@ -26,10 +26,10 @@ import {
   StateReference,
   TxContext,
   computeAppNullifierSecretKey,
+  computeNpkMHash,
   deriveKeys,
   getContractInstanceFromDeployParams,
   getNonEmptyItems,
-  computeNpkMHash,
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, computeSecretHash, computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
@@ -193,9 +193,7 @@ describe('Private Execution test suite', () => {
     oracle = mock<DBOracle>();
     oracle.getNullifierKeys.mockImplementation((masterNullifierPublicKeyHash: Fr, contractAddress: AztecAddress) => {
       if (
-        masterNullifierPublicKeyHash.equals(
-          computeNpkMHash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey),
-        )
+        masterNullifierPublicKeyHash.equals(computeNpkMHash(ownerCompleteAddress.publicKeys.masterNullifierPublicKey))
       ) {
         return Promise.resolve({
           masterNullifierPublicKey: ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
