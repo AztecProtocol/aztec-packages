@@ -4,13 +4,13 @@ For a detailed description head over to the [protocol specification](../../../pr
 
 Each account in Aztec is backed by 4 key pairs:
 
-- A **nullifier key pair*** used for note nullifier computation.
-- A **incoming viewing key pair*** used to encrypt a note for note recipient.
-- A **outgoing viewing key pair*** used to encrypt a note for note sender.
-- A **tagging key pair*** used to compute tags in a [tagging note discovery scheme](../../../protocol-specs/private-message-delivery/private-msg-delivery#note-tagging).
+- A **nullifier key pair** used for note nullifier computation, comprising the master nullifier secret key (`nsk_m`) and master nullifier public key (`Npk_m`).
+- A **incoming viewing key pair** used to encrypt a note for the recipient, consisting of the master incoming viewing secret key (`ivsk_m`) and master incoming viewing public key (`Ivpk_m`).
+- A **outgoing viewing key pair** used to encrypt a note for the sender, includes the master outgoing viewing secret key (`ovsk_m`) and master outgoing viewing public key (`Ovpk_m`).
+- A **tagging key pair** used to compute tags in a [tagging note discovery scheme](../../../protocol-specs/private-message-delivery/private-msg-delivery#note-tagging), comprising the master tagging secret key (`tsk_m`) and master tagging public key (`Tpk_m`).
 
 :::info
-All these keys are derived from a secret using a ZCash inspired scheme defined in [protocol specification](../../../protocol-specs/addresses-and-keys/keys#cheat-sheet).
+All key pairs above are derived from a secret using a ZCash inspired scheme defined in [protocol specification](../../../protocol-specs/addresses-and-keys/keys#cheat-sheet).
 :::
 
 :::note
@@ -74,23 +74,20 @@ An application in Aztec.nr can request a secret from the current user for comput
 
 #include_code nullifier /noir-projects/aztec-nr/value-note/src/value_note.nr rust
 
-These specific nullifier keys are called a master nullifier secret key (`nsk_m`) and master nullifier public key(`Npk_m`).
 Typically, `Npk_m` is stored in a note and later on, the note is nullified using the secret app-siloed version (denoted `nsk_app`).
 `nsk_app` is derived by hashing `nsk_m` with the app contract address and it is necessary to present it to compute the nullifier.
 Validity of `nsk_app` is verified by our [protocol kernel circuits](../../../protocol-specs/circuits/private-kernel-tail#verifying-and-splitting-ordered-data).
 
 ## Incoming viewing keys
-Called master incoming viewing secret key (`ivsk_m`) and master incoming viewing public key (`Ivpk_m`).
 The app-siloed version of public key (denoted `Ivpk_app`) is used to encrypt a note for a recipient and the the corresponding secret key (`ivsk_app`) is used by recipient during decryption.
 
 ## Outgoing viewing keys
-Called master outgoing viewing secret key (`ovsk_m`, app-siloed denoted `ovsk_app`) and master outgoing viewing public key (`Ovpk_m`, app-siloed denoted `Ovpk_app`).
+App-siloed versions of outgoing viewing keys are denoted `ovsk_app` and `Ovpk_app`.
 These keys are used to encrypt a note for a note sender which is necessary for reconstructing transaction history from on-chain data.
 For example, during a token transfer, the token contract may dictate that the sender encrypts the note with value with the recipient's `Ivpk_app`, but also records the transfer with its own `Ovpk_app` for bookkeeping purposes.
 If these keys were not used and a new device would be synched there would be no "direct" information available about notes that a user created for other people.
 
 ## Tagging keys
-Called master tagging secret key (`tsk_m`) and master tagging public key (`Tpk_m`).
 Used to compute tags in a [tagging note discovery scheme](../../../protocol-specs/private-message-delivery/private-msg-delivery#note-tagging).
 
 :::note
