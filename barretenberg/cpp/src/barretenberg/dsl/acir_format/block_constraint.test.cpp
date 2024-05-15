@@ -1,5 +1,8 @@
 #include "block_constraint.hpp"
 #include "acir_format.hpp"
+
+#include "barretenberg/dsl/acir_proofs/goblin_acir_composer.hpp"
+
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 
@@ -11,6 +14,11 @@ using namespace acir_format;
 class UltraPlonkRAM : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+};
+
+class GoblinPlonk : public ::testing::Test {
+  protected:
+    static void SetUpTestSuite() { bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin"); }
 };
 size_t generate_block_constraint(BlockConstraint& constraint, WitnessVector& witness_values)
 {
@@ -149,7 +157,7 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
-TEST_F(UltraPlonkRAM, TestDatabus)
+TEST_F(GoblinPlonk, TestDatabus)
 {
     BlockConstraint block;
     WitnessVector witness_values;
@@ -185,13 +193,13 @@ TEST_F(UltraPlonkRAM, TestDatabus)
         .block_constraints = { block },
     };
 
-    if (IsGoblinUltraBuilder<Builder>) {
-        auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
-        auto composer = Composer();
-        auto prover = composer.create_prover(builder);
+    acir_proofs::GoblinAcirComposer acir_composer;
+    acir_composer.create_circuit(constraint_system, witness_values);
 
-        auto proof = prover.construct_proof();
-        auto verifier = composer.create_verifier(builder);
-        EXPECT_EQ(verifier.verify_proof(proof), true);
-    }
+    // Generate a GoblinUltraHonk proof and a full Goblin proof
+    auto proof = acir_composer.accumulate_and_prove();
+
+    // Verify the GoblinUltraHonk proof and the full Goblin proof
+    auto verified = acir_composer.verify(proof);
+    EXPECT_EQ(verified, true);
 }

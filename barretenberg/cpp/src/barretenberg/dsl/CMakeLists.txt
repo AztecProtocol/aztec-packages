@@ -1,6 +1,7 @@
 barretenberg_module(
     dsl
     plonk
+    goblin
     stdlib_sha256
     stdlib_aes128
     stdlib_keccak
