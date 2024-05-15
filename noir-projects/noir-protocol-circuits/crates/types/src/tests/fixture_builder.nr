@@ -81,7 +81,7 @@ struct FixtureBuilder {
 
 impl FixtureBuilder {
     pub fn new() -> Self {
-        let tx_context = TxContext { chain_id: 1, version: 0, gas_settings: GasSettings::empty() };
+        let tx_context = TxContext { chain_id: fixtures::CHAIN_ID, version: fixtures::VERSION, gas_settings: GasSettings::default() };
 
         FixtureBuilder {
             contract_address: fixtures::contracts::parent_contract.address,

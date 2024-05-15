@@ -1,7 +1,9 @@
 use dep::types::{
     abis::{
-    call_context::CallContext, call_request::CallRequest, private_call_stack_item::PrivateCallStackItem,
-    private_kernel::private_call_data::PrivateCallData, side_effect::Ordered
+    call_context::CallContext, call_request::CallRequest,
+    kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+    private_call_stack_item::PrivateCallStackItem, private_kernel::private_call_data::PrivateCallData,
+    side_effect::Ordered
 },
     address::{AztecAddress, PartialAddress}, contract_class_id::ContractClassId,
     hash::{private_functions_root_from_siblings, stdlib_recursion_verification_key_compress_native_vk},
@@ -239,6 +241,15 @@ impl PrivateCallDataValidator {
                 call_context.msg_sender, request.caller_contract_address, "call stack msg_sender does not match caller contract address"
             );
         }
+    }
+
+    pub fn validate_against_previous_kernel(self, previous_kernel: PrivateKernelCircuitPublicInputs) {
+        let constants = previous_kernel.constants;
+        let public_inputs = self.data.call_stack_item.public_inputs;
+        assert_eq(public_inputs.historical_header, constants.historical_header, "mismatch historical header");
+        assert_eq(public_inputs.tx_context, constants.tx_context, "mismatch tx context");
+        // constants.global_variables refers to the states shared among all txs in a block.
+        // It should be empty when executing private functions (initialized in PrivateKernelCircuitPublicInputsComposer.new_from_tx_request()).
     }
 
     fn validate_contract_address(self) {

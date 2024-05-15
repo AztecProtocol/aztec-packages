@@ -37,6 +37,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         let private_call_stack_size = array_length(private_call_stack);
         let call_request = private_call_stack[private_call_stack_size - 1];
         privateCallDataValidator.validate_against_call_request(call_request);
+        privateCallDataValidator.validate_against_previous_kernel(self.previous_kernel.public_inputs);
 
         PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(self.previous_kernel.public_inputs).compose(
             self.private_call.call_stack_item.public_inputs,

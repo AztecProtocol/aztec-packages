@@ -85,8 +85,8 @@ impl PrivateCircuitPublicInputsBuilder {
             side_effect_counter: counter
         };
 
-        public_inputs.chain_id = 0;
-        public_inputs.version = 1;
+        public_inputs.chain_id = fixtures::CHAIN_ID;
+        public_inputs.version = fixtures::VERSION;
         public_inputs.gas_settings = GasSettings::default();
         public_inputs.counter_start = counter;
         public_inputs.counter_end = counter + 1;
