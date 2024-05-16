@@ -397,6 +397,10 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<FF>& pu
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_diff_hi);
     commitments.avm_mem_diff_lo =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_diff_lo);
+    commitments.avm_mem_diff_mid =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_diff_mid);
+    commitments.avm_mem_glob_addr =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_glob_addr);
     commitments.avm_mem_ind_op_a =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_ind_op_a);
     commitments.avm_mem_ind_op_b =
@@ -429,6 +433,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<FF>& pu
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_sel_mov_b);
     commitments.avm_mem_skip_check_tag =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_skip_check_tag);
+    commitments.avm_mem_space_id =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_space_id);
     commitments.avm_mem_tag = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_tag);
     commitments.avm_mem_tag_err =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_tag_err);
@@ -448,6 +454,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<FF>& pu
         transcript->template receive_from_prover<Commitment>(commitment_labels.incl_mem_tag_err_counts);
     commitments.lookup_mem_rng_chk_lo_counts =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_mem_rng_chk_lo_counts);
+    commitments.lookup_mem_rng_chk_mid_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_mem_rng_chk_mid_counts);
     commitments.lookup_mem_rng_chk_hi_counts =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_mem_rng_chk_hi_counts);
     commitments.lookup_pow_2_0_counts =
@@ -541,6 +549,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<FF>& pu
         transcript->template receive_from_prover<Commitment>(commitment_labels.incl_mem_tag_err);
     commitments.lookup_mem_rng_chk_lo =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_mem_rng_chk_lo);
+    commitments.lookup_mem_rng_chk_mid =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_mem_rng_chk_mid);
     commitments.lookup_mem_rng_chk_hi =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_mem_rng_chk_hi);
     commitments.lookup_pow_2_0 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_pow_2_0);

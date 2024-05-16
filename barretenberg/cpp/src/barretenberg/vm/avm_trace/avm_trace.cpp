@@ -1873,9 +1873,10 @@ std::vector<Row> AvmTraceBuilder::finalize()
     // Get tag_err counts from the mem_trace_builder
     finalise_mem_trace_lookup_counts();
 
-    // Data structure to collect all lookup counts pertaining to 32-bit range checks in memory trace
+    // Data structure to collect all lookup counts pertaining to 16-bit/32-bit range checks in memory trace
     std::unordered_map<uint16_t, uint32_t> mem_rng_check_lo_counts;
-    std::unordered_map<uint16_t, uint32_t> mem_rng_check_hi_counts;
+    std::unordered_map<uint16_t, uint32_t> mem_rng_check_mid_counts;
+    std::unordered_map<uint8_t, uint32_t> mem_rng_check_hi_counts;
 
     // Main Trace needs to be at least as big as the biggest subtrace.
     // If the bin_trace_size has entries, we need the main_trace to be as big as our byte lookup table (3 *
@@ -1896,11 +1897,13 @@ std::vector<Row> AvmTraceBuilder::finalize()
 
     // Memory trace inclusion
 
-    // We compute in the main loop the timestamp for next row.
+    // We compute in the main loop the timestamp and glbal address for next row.
     // Perform initialization for index 0 outside of the loop provided that mem trace exists.
     if (mem_trace_size > 0) {
         main_trace.at(0).avm_mem_tsp =
             FF(AvmMemTraceBuilder::NUM_SUB_CLK * mem_trace.at(0).m_clk + mem_trace.at(0).m_sub_clk);
+        main_trace.at(0).avm_mem_glob_addr =
+            FF(mem_trace.at(0).m_addr + (static_cast<uint64_t>(mem_trace.at(0).m_space_id) << 32));
     }
 
     for (size_t i = 0; i < mem_trace_size; i++) {
@@ -1910,6 +1913,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
         dest.avm_mem_mem_sel = FF(1);
         dest.avm_mem_clk = FF(src.m_clk);
         dest.avm_mem_addr = FF(src.m_addr);
+        dest.avm_mem_space_id = FF(src.m_space_id);
         dest.avm_mem_val = src.m_val;
         dest.avm_mem_rw = FF(static_cast<uint32_t>(src.m_rw));
         dest.avm_mem_r_in_tag = FF(static_cast<uint32_t>(src.r_in_tag));
@@ -1965,25 +1969,29 @@ std::vector<Row> AvmTraceBuilder::finalize()
             auto const& next = mem_trace.at(i + 1);
             auto& dest_next = main_trace.at(i + 1);
             dest_next.avm_mem_tsp = FF(AvmMemTraceBuilder::NUM_SUB_CLK * next.m_clk + next.m_sub_clk);
+            dest_next.avm_mem_glob_addr = FF(next.m_addr + (static_cast<uint64_t>(next.m_space_id) << 32));
 
             FF diff{};
-            if (src.m_addr == next.m_addr) {
+            if (dest_next.avm_mem_glob_addr == dest.avm_mem_glob_addr) {
                 diff = dest_next.avm_mem_tsp - dest.avm_mem_tsp;
             } else {
-                diff = next.m_addr - src.m_addr;
+                diff = dest_next.avm_mem_glob_addr - dest.avm_mem_glob_addr;
                 dest.avm_mem_lastAccess = FF(1);
             }
             dest.avm_mem_rng_chk_sel = FF(1);
 
             // Decomposition of diff
-            auto const diff_32 = uint32_t(diff);
-            auto const diff_hi = static_cast<uint16_t>(diff_32 >> 16);
-            auto const diff_lo = static_cast<uint16_t>(diff_32 & UINT16_MAX);
+            auto const diff_64 = uint64_t(diff);
+            auto const diff_hi = static_cast<uint8_t>(diff_64 >> 32);
+            auto const diff_mid = static_cast<uint16_t>((diff_64 & UINT32_MAX) >> 16);
+            auto const diff_lo = static_cast<uint16_t>(diff_64 & UINT16_MAX);
             dest.avm_mem_diff_hi = FF(diff_hi);
+            dest.avm_mem_diff_mid = FF(diff_mid);
             dest.avm_mem_diff_lo = FF(diff_lo);
 
             // Add the range checks counts
             mem_rng_check_hi_counts[diff_hi]++;
+            mem_rng_check_mid_counts[diff_mid]++;
             mem_rng_check_lo_counts[diff_lo]++;
         } else {
             dest.avm_mem_lastAccess = FF(1);
@@ -2154,6 +2162,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
             r.lookup_u8_1_counts = alu_trace_builder.u8_range_chk_counters[1][static_cast<uint8_t>(i)];
             r.lookup_pow_2_0_counts = alu_trace_builder.u8_pow_2_counters[0][static_cast<uint8_t>(i)];
             r.lookup_pow_2_1_counts = alu_trace_builder.u8_pow_2_counters[1][static_cast<uint8_t>(i)];
+            r.lookup_mem_rng_chk_hi_counts = mem_rng_check_hi_counts[static_cast<uint8_t>(i)];
             r.avm_main_sel_rng_8 = FF(1);
             r.avm_main_table_pow_2 = uint256_t(1) << uint256_t(i);
         }
@@ -2178,7 +2187,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
             r.lookup_u16_13_counts = alu_trace_builder.u16_range_chk_counters[13][static_cast<uint16_t>(i)];
             r.lookup_u16_14_counts = alu_trace_builder.u16_range_chk_counters[14][static_cast<uint16_t>(i)];
 
-            r.lookup_mem_rng_chk_hi_counts = mem_rng_check_hi_counts[static_cast<uint16_t>(i)];
+            r.lookup_mem_rng_chk_mid_counts = mem_rng_check_mid_counts[static_cast<uint16_t>(i)];
             r.lookup_mem_rng_chk_lo_counts = mem_rng_check_lo_counts[static_cast<uint16_t>(i)];
 
             r.lookup_div_u16_0_counts = alu_trace_builder.div_u64_range_chk_counters[0][static_cast<uint16_t>(i)];

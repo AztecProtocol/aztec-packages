@@ -27,6 +27,7 @@ class AvmMemTraceBuilder {
     std::map<uint32_t, uint32_t> m_tag_err_lookup_counts;
 
     struct MemoryTraceEntry {
+        uint8_t m_space_id{};
         uint32_t m_clk{};
         uint32_t m_sub_clk{};
         uint32_t m_addr{};
@@ -48,6 +49,14 @@ class AvmMemTraceBuilder {
          */
         bool operator<(const MemoryTraceEntry& other) const
         {
+            if (m_space_id < other.m_space_id) {
+                return true;
+            }
+
+            if (m_space_id > other.m_space_id) {
+                return false;
+            }
+
             if (m_addr < other.m_addr) {
                 return true;
             }
