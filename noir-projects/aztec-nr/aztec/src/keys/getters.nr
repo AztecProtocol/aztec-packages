@@ -1,9 +1,12 @@
-use dep::protocol_types::{address::AztecAddress, constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint};
+use dep::protocol_types::{
+    abis::nullifier_key_validation_request::NullifierKeyValidationRequest, address::AztecAddress,
+    constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint
+};
 use crate::{
     context::PrivateContext,
     oracle::{
     keys::get_public_keys_and_partial_address,
-    nullifier_keys::{NullifierKeys, get_nullifier_keys as get_nullifier_keys_oracle}
+    nullifier_keys::get_nullifier_keys as get_nullifier_keys_oracle
 },
     keys::public_keys::{PublicKeys, NULLIFIER_INDEX, INCOMING_INDEX},
     state_vars::{
@@ -92,7 +95,7 @@ fn fetch_and_constrain_keys(address: AztecAddress) -> PublicKeys {
 }
 
 // We get the full struct Nullifier Keys here
-pub fn get_nullifier_keys(npk_m_hash: Field) -> NullifierKeys {
+pub fn get_nullifier_keys(npk_m_hash: Field) -> NullifierKeyValidationRequest {
     let nullifier_keys = get_nullifier_keys_oracle(npk_m_hash);
     assert_eq(nullifier_keys.master_nullifier_public_key.hash(), npk_m_hash);
 

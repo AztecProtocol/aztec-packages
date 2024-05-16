@@ -4,8 +4,7 @@ use crate::{
     hash::{hash_args_array, ArgsHasher, compute_encrypted_log_hash, compute_unencrypted_log_hash},
     note::{note_interface::NoteInterface, utils::compute_note_hash_for_insertion},
     oracle::{
-    nullifier_keys::NullifierKeys, arguments, returns,
-    call_private_function::call_private_function_internal, header::get_header_at,
+    arguments, returns, call_private_function::call_private_function_internal, header::get_header_at,
     logs::emit_encrypted_log, logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog},
     enqueue_public_function_call::{
     enqueue_public_function_call_internal, set_public_teardown_function_call_internal,
@@ -71,7 +70,7 @@ struct PrivateContext {
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
 
-    nullifier_key: Option<NullifierKeys>,
+    nullifier_key: Option<NullifierKeyValidationRequest>,
 }
 
 impl ContextInterface for PrivateContext {
@@ -209,7 +208,7 @@ impl PrivateContext {
 
     pub fn request_nsk_app(&mut self, npk_m_hash: Field) -> Field {
         // A value of empty nullifier keys will fail the key validation request.
-        let cached_nullifier_keys = self.nullifier_key.unwrap_or(NullifierKeys::empty());
+        let cached_nullifier_keys = self.nullifier_key.unwrap_or(NullifierKeyValidationRequest::empty());
 
         let nullifier_keys = if cached_nullifier_keys.master_nullifier_public_key.hash() == npk_m_hash {
             cached_nullifier_keys
