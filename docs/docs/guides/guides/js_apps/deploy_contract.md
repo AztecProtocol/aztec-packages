@@ -10,7 +10,7 @@ You should have a wallet to act as the deployer, and a contract artifact ready t
 
 You can learn how to create wallets from [this guide](./create_account.md).
 
-You can read about contract artifacts [here](/aztec/aztec/concepts/smart_contracts/contract_structure.md).
+You can read about contract artifacts [here](/aztec/concepts/smart_contracts/contract_structure.md).
 
 ## Import the contract artifact
 

@@ -86,7 +86,7 @@ This pattern is discussed in detail in [writing a token contract section in the 
 
 ### Discovering my notes
 
-When you send someone a note, the note hash gets added to the [note hash tree](/aztec/aztec/concepts/storage/trees/index.md#note-hash-tree). To spend the note, the receiver needs to get the note itself (the note hash preimage). There are two ways you can get a hold of your notes:
+When you send someone a note, the note hash gets added to the [note hash tree](/aztec/concepts/storage/trees/index.md#note-hash-tree). To spend the note, the receiver needs to get the note itself (the note hash preimage). There are two ways you can get a hold of your notes:
 
 1. When sending someone a note, use `emit_encrypted_log` (the function encrypts the log in such a way that only a recipient can decrypt it). PXE then tries to decrypt all the encrypted logs, and stores the successfully decrypted one. [More info here](/guides/guides/smart_contracts/writing_contracts/how_to_emit_event)
 2. Manually using `pxe.addNote()` - If you choose to not emit logs to save gas or when creating a note in the public domain and want to consume it in private domain (`emit_encrypted_log` shouldn't be called in the public domain because everything is public), like in the previous section where we created a TransparentNote in public.
@@ -151,6 +151,6 @@ PS: when calling from private to public, `msg_sender` is the contract address wh
 
 In the [Prevent the same user flow from happening twice using nullifier](#prevent-the-same-user-flow-from-happening-twice-using-nullifiers), we recommended using nullifiers. But what you put in the nullifier is also as important.
 
-E.g. for a voting contract, if your nullifier simply emits just the `user_address`, then privacy can easily be leaked as nullifiers are deterministic (have no randomness), especially if there are few users of the contract. So you need some kind of randomness. You can add the user's secret key into the nullifier to add randomness. We call this "nullifier secrets" as explained [here](/aztec/aztec/concepts/accounts/keys.md#nullifier-secrets). E.g.:
+E.g. for a voting contract, if your nullifier simply emits just the `user_address`, then privacy can easily be leaked as nullifiers are deterministic (have no randomness), especially if there are few users of the contract. So you need some kind of randomness. You can add the user's secret key into the nullifier to add randomness. We call this "nullifier secrets" as explained [here](/aztec/concepts/accounts/keys.md#nullifier-secrets). E.g.:
 
 #include_code nullifier /noir-projects/aztec-nr/value-note/src/value_note.nr rust

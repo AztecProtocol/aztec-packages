@@ -4,7 +4,7 @@ title: Private State
 
 On this page we will look at how to manage private state in Aztec contracts. We will look at how to declare private state, how to read and write to it, and how to use it in your contracts.
 
-For a higher level overview of the state model in Aztec, see the [hybrid state model](/aztec/aztec/concepts/state_model/index.md) page.
+For a higher level overview of the state model in Aztec, see the [hybrid state model](/aztec/concepts/state_model/index.md) page.
 
 ## Overview
 
@@ -12,7 +12,7 @@ In contrast to public state, private state is persistent state that is **not** v
 
 The value of a private state variable can either be shared via an [encrypted log](/guides/guides/smart_contracts/writing_contracts/how_to_emit_event#encrypted-events), or offchain via web2, or completely offline: it's up to the app developer.
 
-Aztec private state follows a [utxo](https://en.wikipedia.org/wiki/Unspent_transaction_output)-based model. That is, a private state's current value is represented as one or many [notes](/aztec/aztec/concepts/storage/trees/index.md).
+Aztec private state follows a [utxo](https://en.wikipedia.org/wiki/Unspent_transaction_output)-based model. That is, a private state's current value is represented as one or many [notes](/aztec/concepts/storage/trees/index.md).
 
 To greatly simplify the experience of writing private state, Aztec.nr provides three different types of private state variable:
 
@@ -248,7 +248,7 @@ This function requires a `NoteViewerOptions`. The `NoteViewerOptions` is essenti
 
 ## `NoteGetterOptions`
 
-`NoteGetterOptions` encapsulates a set of configurable options for filtering and retrieving a selection of notes from a [data oracle](/aztec/aztec/concepts/smart_contracts/oracles/index.md). Developers can design instances of `NoteGetterOptions`, to determine how notes should be filtered and returned to the functions of their smart contracts.
+`NoteGetterOptions` encapsulates a set of configurable options for filtering and retrieving a selection of notes from a [data oracle](/aztec/concepts/smart_contracts/oracles/index.md). Developers can design instances of `NoteGetterOptions`, to determine how notes should be filtered and returned to the functions of their smart contracts.
 
 You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_getter_options.nr).
 

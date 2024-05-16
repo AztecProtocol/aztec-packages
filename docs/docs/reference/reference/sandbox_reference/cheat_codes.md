@@ -1,7 +1,6 @@
 ---
 title: Cheat Codes
 ---
-import Disclaimer from "../../../../src/components/Disclaimers/\_wip_disclaimer.mdx";
 
 ## Introduction
 
@@ -524,6 +523,7 @@ Loads the value stored at the given slot in the private storage of the given con
 Note: One Field element occupies a storage slot. Hence, structs with multiple field elements will be spread over multiple sequential slots. Using loadPublic will only load a single field of the struct (depending on the size of the attributes within it).
 
 #### Example
+
 ```rust
 #[aztec(storage)]
 struct Storage {
@@ -543,5 +543,3 @@ contract Token {
 Keep up with the latest discussion and join the conversation in the [Aztec forum](https://discourse.aztec.network).
 
 You can also use the above link to request more cheatcodes.
-
-<Disclaimer/>

@@ -116,7 +116,7 @@ Let’s create a constructor method to run on deployment that assigns an initial
 
 This function accesses the counts from storage. Then it assigns the passed initial counter to the `owner`'s counter privately using `at().add()`.
 
-We have annotated this and other functions with `#[aztec(private)]` which are ABI macros so the compiler understands it will handle private inputs. Learn more about functions and annotations [here](/aztec/aztec/concepts/smart_contracts/functions).
+We have annotated this and other functions with `#[aztec(private)]` which are ABI macros so the compiler understands it will handle private inputs. Learn more about functions and annotations [here](/aztec/concepts/smart_contracts/functions).
 
 ## Incrementing our counter
 
@@ -183,5 +183,4 @@ The next recommmended steps are follow the tutorials in order. They will teach y
 
 To follow the series of tutorials, start with the private voting contract [here](/tutorials/tutorials/contract_tutorials/private_voting_contract.md).
 
-Alternatively, you can read about the high level architecture on the [Core Components page](/aztec/aztec/concepts/state_model/index.md) and [the lifecycle of a transaction](/aztec/aztec/concepts/transactions).
-
+Alternatively, you can read about the high level architecture on the [Core Components page](/aztec/concepts/state_model/index.md) and [the lifecycle of a transaction](/aztec/concepts/transactions).

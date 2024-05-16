@@ -1,5 +1,4 @@
 ---
-
 title: "Crowdfunding contract"
 sidebar_position: 2
 tags: [developers, tutorial, example]
@@ -96,6 +95,7 @@ aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_
 ```
 
 A word about versions:
+
 - Choose the aztec packages version to match your aztec sandbox version
 - Check that your `compiler_version` in Nargo.toml is satisified by your aztec compiler - `aztec-nargo -V`
 
@@ -108,7 +108,6 @@ use dep::aztec::protocol_types::address::AztecAddress;
 ```
 
 The `aztec::protocol_types` can be browsed [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/crates/types/src). And like rust dependencies, the relative path inside the dependency corresponds to `address::AztecAddress`.
-
 
 #### Storage
 
@@ -170,7 +169,6 @@ Now conclude adding all dependencies to the `Crowdfunding` contract:
 
 Like before, you can find these and other `aztec::protocol_types` [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/crates/types/src).
 
-
 #### Interfacing with another contract
 
 The token being used for donations is stored simply as an `AztecAddress` (named `donation_token`). so to easily use it as a token, we let the compiler know that we want the address to have a Token interface. Here we will use a maintained example Token contract.
@@ -181,10 +179,10 @@ Add this `Token` contract to Nargo.toml:
 token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/token_contract" }
 ```
 
-With the dependency already `use`d at the start of the contract, the token contract can be called to make the transfer from msg sender to this contract. 
+With the dependency already `use`d at the start of the contract, the token contract can be called to make the transfer from msg sender to this contract.
 
 :::note
-The user must have authorised this action (concept [here](/aztec/aztec/concepts/accounts#authorizing-actions)), example use of `createAuthWit` in 'full donor flow' test [here](../../../../../yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts).
+The user must have authorised this action (concept [here](/aztec/concepts/accounts#authorizing-actions)), example use of `createAuthWit` in 'full donor flow' test [here](../../../../../yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts).
 :::
 
 #### Creating and storing a private receipt note
@@ -196,6 +194,7 @@ The last thing to do is create a new value note and add it to the `donation_rece
 ### 3. Operator withdrawals
 
 The remaining function to implement, `withdraw`, is reasonably straight-forward:
+
 1. make sure the address calling is the operator address
 2. transfer tokens from the contract to the operator
 3. reveal that an amount has been withdrawn to the operator

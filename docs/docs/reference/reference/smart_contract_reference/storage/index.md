@@ -26,7 +26,7 @@ On this and the following pages in this section, you’ll learn:
 
 Public state variables can be read by anyone, while private state variables can only be read by their owner (or people whom the owner has shared the decrypted data or note viewing key with).
 
-Public state follows the Ethereum style account model, where each contract has its own key-value datastore. Private state follows a UTXO model, where note contents (/aztec/aztec/concepts/state_model/index.md) and [private/public execution](/aztec/aztec/concepts/smart_contracts/communication/public_private_calls.md)) for more background.
+Public state follows the Ethereum style account model, where each contract has its own key-value datastore. Private state follows a UTXO model, where note contents (/aztec/concepts/state_model/index.md) and [private/public execution](/aztec/concepts/smart_contracts/communication/public_private_calls.md)) for more background.
 
 ## Storage struct
 
@@ -46,7 +46,7 @@ A `map` is a state variable that "maps" a key to a value. It can be used with pr
 In Aztec.nr, keys are always `Field`s, or types that can be serialized as Fields, and values can be any type - even other maps. `Field`s are finite field elements, but you can think of them as integers.
 :::
 
-It includes a [`Context`](/aztec/aztec/concepts/smart_contracts/functions/context) to specify the private or public domain, a `storage_slot` to specify where in storage the map is stored, and a `start_var_constructor` which tells the map how it should operate on the underlying type. This includes how to serialize and deserialize the type, as well as how commitments and nullifiers are computed for the type if it's private.
+It includes a [`Context`](/aztec/concepts/smart_contracts/functions/context) to specify the private or public domain, a `storage_slot` to specify where in storage the map is stored, and a `start_var_constructor` which tells the map how it should operate on the underlying type. This includes how to serialize and deserialize the type, as well as how commitments and nullifiers are computed for the type if it's private.
 
 You can view the implementation in the Aztec.nr library [here](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/aztec-nr).
 
@@ -54,7 +54,7 @@ You can have multiple `map`s in your contract that each have a different underly
 
 ### `new`
 
-When declaring the storage for a map, we use the `Map::new()` constructor. As seen below, this takes the `storage_slot` and the `start_var_constructor` along with the [`Context`](/aztec/aztec/concepts/smart_contracts/functions/context).
+When declaring the storage for a map, we use the `Map::new()` constructor. As seen below, this takes the `storage_slot` and the `start_var_constructor` along with the [`Context`](/aztec/concepts/smart_contracts/functions/context).
 
 We will see examples of map constructors for public and private variables in later sections.
 
@@ -94,6 +94,6 @@ require(minters[msg.sender], "caller is not minter");
 
 ## Concepts mentioned
 
-- [State Model](/aztec/aztec/concepts/state_model/index.md)
-- [Public-private execution](/aztec/aztec/concepts/smart_contracts/communication/public_private_calls.md)
-- [Function Contexts](/aztec/aztec/concepts/smart_contracts/functions/context)
+- [State Model](/aztec/concepts/state_model/index.md)
+- [Public-private execution](/aztec/concepts/smart_contracts/communication/public_private_calls.md)
+- [Function Contexts](/aztec/concepts/smart_contracts/functions/context)
