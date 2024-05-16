@@ -454,6 +454,8 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - setup
+      # - bench-e2e # does not block merge
+      # - bench-summary # does not block merge
       - e2e
       - bb-native-tests
       - bb-bench
@@ -465,7 +467,10 @@ jobs:
       - barretenberg-acir-tests-bb
       - barretenberg-acir-tests-sol
       - noir-test
+      - l1-contracts-test
       - noir-packages-test
+      - docs-preview
+      # - protocol-circuit-gates-report # does not block merge
     if: always()
     steps:
       - run: |
