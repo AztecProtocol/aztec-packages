@@ -169,7 +169,8 @@ async function startWithGithubRunners(config: ActionConfig) {
     instanceId = await requestAndWaitForSpot(config);
     ip = await ec2Client.getPublicIpFromInstanceId(instanceId);
     if (!(await establishSshContact(ip, config.ec2Key))) {
-      return false;
+      // We should not create another spot in this case
+      return true;
     }
     await setupGithubRunners(ip, config);
     if (instanceId) await ghClient.pollForRunnerCreation([config.githubJobId]);
@@ -223,7 +224,7 @@ async function establishSshContact(
   const tempKeyPath = installSshKey(encodedSshKey);
   // Improved SSH connection retry logic
   let attempts = 0;
-  const maxAttempts = 60;
+  const maxAttempts = 90;
   while (attempts < maxAttempts) {
     try {
       execSync(
@@ -234,7 +235,7 @@ async function establishSshContact(
     } catch {
       if (attempts >= maxAttempts - 1) {
         core.error(
-          `Timeout: SSH could not connect to ${ip} within 60 seconds.`
+          `Timeout: SSH could not connect to ${ip} within 90 seconds.`
         );
         return false;
       }
