@@ -7,7 +7,11 @@ use dep::std::{hash::sha256, embedded_curve_ops::{EmbeddedCurvePoint, multi_scal
 // TODO(#5726): This function is called deriveAESSecret in TS. I don't like point_to_symmetric_key name much since
 // point is not the only input of the function. Unify naming with TS once we have a better name.
 pub fn point_to_symmetric_key(secret: GrumpkinPrivateKey, point: GrumpkinPoint) -> [u8; 32] {
-    let shared_secret_fields = multi_scalar_mul([EmbeddedCurvePoint{ x: point.x, y: point.y, is_infinite: false }], [secret.low], [secret.high]);
+    let shared_secret_fields = multi_scalar_mul(
+        [EmbeddedCurvePoint{ x: point.x, y: point.y, is_infinite: false }],
+        [secret.low],
+        [secret.high]
+    );
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6061): make the func return Point struct directly
     let shared_secret = GrumpkinPoint::new(shared_secret_fields[0], shared_secret_fields[1]);
     let mut shared_secret_bytes_with_separator = [0 as u8; 65];
