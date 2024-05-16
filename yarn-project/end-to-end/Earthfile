@@ -5,7 +5,6 @@ E2E_COMPOSE_TEST:
   ARG test
   ARG compose_file=./scripts/docker-compose.yml
   ARG debug="aztec:*"
-  ARG allow_fail=false
   LOCALLY
   ENV TEST=$test
   ENV DEBUG=$debug
@@ -26,7 +25,7 @@ E2E_COMPOSE_TEST:
   END
   # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
   ENV JOB_NAME=$project_name
-  RUN $CMD -p $project_name -f $compose_file up --exit-code-from=end-to-end --force-recreate || $allow_fail
+  RUN $CMD -p $project_name -f $compose_file up --exit-code-from=end-to-end --force-recreate
 
 E2E_TEST:
   FUNCTION
@@ -203,6 +202,5 @@ bench-proving:
   ARG PULL_REQUEST
   ARG BRANCH
   ARG COMMIT_HASH
-  DO +E2E_COMPOSE_TEST --test=bench_proving --debug="aztec:benchmarks:*,aztec:prover*,aztec:bb*" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml --allow_fail=true
-  RUN dmesg | grep memory
-  # DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+  DO +E2E_COMPOSE_TEST --test=bench_proving --debug="aztec:benchmarks:*,aztec:prover*,aztec:bb*,aztec:pxe*" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml
+  DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH

@@ -200,12 +200,16 @@ describe('benchmarks/proving', () => {
       ),
     };
 
-    ctx.logger.info('Proving transactions');
+    ctx.logger.info('Proving first two transactions');
     await Promise.all([
       fnCalls[0].prove(),
       fnCalls[1].prove({
         fee: feeFnCall1,
       }),
+    ]);
+
+    ctx.logger.info('Proving the next transactions');
+    await Promise.all([
       fnCalls[2].prove(),
       fnCalls[3].prove({
         fee: feeFnCall3,
@@ -221,7 +225,6 @@ describe('benchmarks/proving', () => {
       fnCalls[2].send(),
       fnCalls[3].send({ fee: feeFnCall3 }),
     ];
-    ctx.logger.info('Finished sending transactions');
 
     const receipts = await Promise.all(txs.map(tx => tx.wait({ timeout: txTimeoutSec })));
     expect(receipts.every(r => r.status === TxStatus.MINED)).toBe(true);
