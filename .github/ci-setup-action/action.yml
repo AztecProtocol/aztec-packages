@@ -42,7 +42,7 @@ runs:
         # permission issue with spot runners, simpler to leave out
         use-cache: false
         # NOTE also update in .github/spot-runner-action/src/userdata.ts
-        version: "v0.8.9"
+        version: "v0.8.10"
 
     - name: Setup Env
       shell: bash
@@ -59,7 +59,7 @@ runs:
       if: ${{ inputs.concurrency_key }}
       with:
         run: |
-          while [ -f "${{ inputs.concurrency_key }}.lock" ]; do sleep 1 ; echo "Lock is currently held by $(cat '${{ inputs.concurrency_key }}.lock'), waiting..." ; done
+          while [ -f "/home/ubuntu/${{ inputs.concurrency_key }}.lock" ]; do sleep 1 ; echo "Lock is currently held by $(cat '/home/ubuntu/${{ inputs.concurrency_key }}.lock'), waiting..." ; done
           echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > "/home/ubuntu/${{ inputs.concurrency_key }}.lock"
           echo "/home/ubuntu/${{ inputs.concurrency_key }}.lock acquired."
         post: |
@@ -75,3 +75,7 @@ runs:
           [ -f ~/.setup-complete ] && ( ! [ -f ~/.user-data-started ] || [ -f ~/.user-data-finished ] ) && break
           sleep 1
         done
+        if ! [ -f ~/.setup-complete ] && [ -f ~/.user-data-started ] ; then
+          echo "Cache mount not seeming to be complete, exiting!"
+          exit 1
+        fi
