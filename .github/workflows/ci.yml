@@ -183,7 +183,9 @@ jobs:
               +bench-publish-acir-bb         
 
   bench-summary:
-    needs: bench-e2e
+    needs: 
+      - acir-bench
+      - bench-e2e
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
