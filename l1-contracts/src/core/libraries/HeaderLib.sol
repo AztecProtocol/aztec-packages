@@ -4,8 +4,6 @@ pragma solidity >=0.8.18;
 
 // Libraries
 import {Errors} from "./Errors.sol";
-import {Constants} from "./ConstantsGen.sol";
-import {Hash} from "./Hash.sol";
 
 /**
  * @title Header Library

@@ -224,7 +224,7 @@ export const deployL1Contracts = async (
 
   logger.info(`Deployed Gas Portal at ${gasPortalAddress}`);
 
-  // fund the rollup contract with gas tokens
+  // fund the rollup contract with gas tokens so it can pay transaction fees to block producers
   const gasToken = getContract({
     address: gasTokenAddress.toString(),
     abi: contractsToDeploy.gasToken.contractAbi,
