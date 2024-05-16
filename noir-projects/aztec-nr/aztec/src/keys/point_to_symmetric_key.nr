@@ -8,7 +8,7 @@ use dep::std::{hash::sha256, embedded_curve_ops::{EmbeddedCurvePoint, multi_scal
 // point is not the only input of the function. Unify naming with TS once we have a better name.
 pub fn point_to_symmetric_key(secret: GrumpkinPrivateKey, point: GrumpkinPoint) -> [u8; 32] {
     let shared_secret_fields = multi_scalar_mul(
-        [EmbeddedCurvePoint{ x: point.x, y: point.y, is_infinite: false }],
+        [EmbeddedCurvePoint { x: point.x, y: point.y, is_infinite: false }],
         [secret.low],
         [secret.high]
     );
