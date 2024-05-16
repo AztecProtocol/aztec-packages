@@ -91,10 +91,7 @@ class ClientIVC {
     // A flag indicating whether the IVC has been initialized with an initial instance
     bool initialized = false;
 
-    void initialize(ClientCircuit& circuit);
-
-    FoldProof accumulate(ClientCircuit& circuit);
-    void accumulate_new(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk = nullptr);
+    void accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk = nullptr);
 
     Proof prove();
 
