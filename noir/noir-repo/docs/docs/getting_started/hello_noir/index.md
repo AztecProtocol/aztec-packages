@@ -123,7 +123,13 @@ y = "0x0000000000000000000000000000000000000000000000000000000000000002"
 
 ## Prove Our Noir Program
 
-Prove the valid execution of your Noir program using bb:
+:::info
+
+Nargo no longer handles communicating with backends in order to generate proofs. In order to prove/verify your Noir programs, you'll need an installation of [bb](../barretenberg/index.md).
+
+:::
+
+Prove the valid execution of your Noir program using `bb`:
 
 ```sh
 bb prove -b ./target/hello_world.json -w ./target/witness-name.gz -o ./proof
