@@ -17,7 +17,7 @@ unconstrained fn main(priv_key: Field, pub_x: pub Field, pub_y: pub Field) {
     assert(double.x == res.x);
 
     // Test calling multi_scalar_mul with multiple points and scalars
-    let res = std::embedded_curve_ops::multi_scalar_mul([g1, g1], [priv_key, priv_key],[0, 0]);
+    let res = std::embedded_curve_ops::multi_scalar_mul([g1, g1], [priv_key, priv_key], [0, 0]);
 
     // The results should be double the g1 point because the scalars are 1 and we pass in g1 twice
     assert(double.x == res[0]);
