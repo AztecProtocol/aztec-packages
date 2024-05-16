@@ -56,7 +56,7 @@ examples:
   WORKDIR noir-repo/examples/codegen-verifier
   RUN ./test.sh
 
-  WORKDIR noir-repo/examples/prove_and_verify
+  WORKDIR ../prove_and_verify
   RUN ./test.sh
 
 format:
