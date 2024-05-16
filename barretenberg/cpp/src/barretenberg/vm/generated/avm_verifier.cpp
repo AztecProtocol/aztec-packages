@@ -653,27 +653,32 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         return false;
     }
 
-    // PUBLIC INPUT COLUMN EVALUATION CHECKS
-    FF kernel_inputs_evaluation = evaluate_public_input_column(public_inputs[0], circuit_size, multivariate_challenge);
-    if (kernel_inputs_evaluation != claimed_evaluations.avm_kernel_kernel_inputs__is_public) {
+    // Public columns evaluation checks
+
+    FF avm_kernel_kernel_inputs__is_public_evaluation =
+        evaluate_public_input_column(public_inputs[0], circuit_size, multivariate_challenge);
+    if (avm_kernel_kernel_inputs__is_public_evaluation != claimed_evaluations.avm_kernel_kernel_inputs__is_public) {
         return false;
     }
 
-    FF kernel_output_value_evaluation =
+    FF avm_kernel_kernel_metadata_out__is_public_evaluation =
         evaluate_public_input_column(public_inputs[1], circuit_size, multivariate_challenge);
-    if (kernel_output_value_evaluation != claimed_evaluations.avm_kernel_kernel_value_out__is_public) {
+    if (avm_kernel_kernel_metadata_out__is_public_evaluation !=
+        claimed_evaluations.avm_kernel_kernel_metadata_out__is_public) {
         return false;
     }
 
-    FF kernel_side_effect_out_evaluation =
+    FF avm_kernel_kernel_side_effect_out__is_public_evaluation =
         evaluate_public_input_column(public_inputs[2], circuit_size, multivariate_challenge);
-    if (kernel_side_effect_out_evaluation != claimed_evaluations.avm_kernel_kernel_side_effect_out__is_public) {
+    if (avm_kernel_kernel_side_effect_out__is_public_evaluation !=
+        claimed_evaluations.avm_kernel_kernel_side_effect_out__is_public) {
         return false;
     }
 
-    FF kernel_metadata_out_evaluation =
+    FF avm_kernel_kernel_value_out__is_public_evaluation =
         evaluate_public_input_column(public_inputs[3], circuit_size, multivariate_challenge);
-    if (kernel_metadata_out_evaluation != claimed_evaluations.avm_kernel_kernel_metadata_out__is_public) {
+    if (avm_kernel_kernel_value_out__is_public_evaluation !=
+        claimed_evaluations.avm_kernel_kernel_value_out__is_public) {
         return false;
     }
 

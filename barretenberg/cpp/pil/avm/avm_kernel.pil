@@ -8,7 +8,7 @@ namespace avm_kernel(256);
     pol public kernel_side_effect_out;
     pol public kernel_metadata_out;
 
-    // TODO: just use one col for both of these
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6463): just use one col for both of these
     pol commit kernel_sel;
     pol commit kernel_out_sel;
 
@@ -17,21 +17,14 @@ namespace avm_kernel(256);
     pol commit q_public_input_kernel_add_to_table;
     pol commit q_public_input_kernel_out_add_to_table;
 
-
     // Kernel Outputs
     // 
     // The current implementation of kernel outputs is described within https://hackmd.io/zP1oMXF6Rf-L-ZZLXWmfHg
-    // 
     
-    // Global side effect counter -> should always increment when a side effect is created
+    // Global side effect counter; incremented after each side effect is produced.
     pol commit side_effect_counter;
 
-    // TODO: INCREMENT SIDE EFFECT COUNTER
-    // TODO: CONSTRAIN START AND MAX VALUES FOR OFFSET COUNTERS -> 16 length etc
-    // All 16 bit range checks will be required
-    // OR CONSTRAIN VALUE - MAX in clk therefore is positive
-
-    // FIXED INDEXES -> CONSTANTS - TEMP for the meantime to test with
+    // FIXED INDEXES
     pol START_NOTE_HASH_EXISTS_WRITE_OFFSET = 0;
     pol START_EMIT_NOTE_HASH_WRITE_OFFSET = 4;
     pol START_NULLIFIER_EXISTS_OFFSET = 8;
@@ -43,6 +36,7 @@ namespace avm_kernel(256);
     pol START_SLOAD_WRITE_OFFSET = 28;
     pol START_SSTORE_WRITE_OFFSET = 32;
 
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6465): Must constrain write_offset counters to be less than side effect MAX
     // Current write offsets for each opcode
     pol commit note_hash_exist_write_offset;
     pol commit emit_note_hash_write_offset;
