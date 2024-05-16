@@ -1237,8 +1237,6 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_metadata(
     };
 }
 
-// TODO(ISSUE_NUMBER): We require the r tag and w tag to be different for this instruction
-//                     Input will be field and output will be boolean
 Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output(uint32_t clk,
                                                                           uint32_t data_offset,
                                                                           AvmMemoryTag data_r_tag,
@@ -1247,10 +1245,10 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output(uint32
                                                                           AvmMemoryTag metadata_w_tag)
 {
     AvmMemTraceBuilder::MemRead read_a =
-        mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, data_offset, data_r_tag, AvmMemoryTag::FF);
+        mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, data_offset, data_r_tag, metadata_w_tag);
 
     mem_trace_builder.write_into_memory(
-        clk, IntermRegister::IB, metadata_offset, write_value, AvmMemoryTag::FF, metadata_w_tag);
+        clk, IntermRegister::IB, metadata_offset, write_value, data_r_tag, metadata_w_tag);
 
     return Row{
         .avm_main_clk = clk,
@@ -1324,7 +1322,7 @@ void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint32_t log_offset, uint32_t dest_
     // TODO(ISSUE_NUMBER): success or fail must come from hint - it is always 1 for now
     uint32_t result = 1;
     Row row = create_kernel_output_opcode_with_set_metadata_output(
-        clk, log_offset, AvmMemoryTag::FF, dest_offset, result, AvmMemoryTag::FF);
+        clk, log_offset, AvmMemoryTag::FF, dest_offset, result, AvmMemoryTag::U8);
     kernel_trace_builder.op_l1_to_l2_msg_exists(clk, row.avm_main_ia, result);
     row.avm_main_sel_op_l1_to_l2_msg_exists = FF(1);
 
@@ -1338,7 +1336,7 @@ void AvmTraceBuilder::op_note_hash_exists(uint32_t note_offset, uint32_t dest_of
     // TODO(ISSUE_NUMBER): success or fail must come from hint - it is always 1 for now
     uint32_t result = 1;
     Row row = create_kernel_output_opcode_with_set_metadata_output(
-        clk, note_offset, AvmMemoryTag::FF, dest_offset, result, AvmMemoryTag::FF);
+        clk, note_offset, AvmMemoryTag::FF, dest_offset, result, AvmMemoryTag::U8);
     kernel_trace_builder.op_note_hash_exists(clk, row.avm_main_ia, result);
     row.avm_main_sel_op_l1_to_l2_msg_exists = FF(1);
 
@@ -1352,7 +1350,7 @@ void AvmTraceBuilder::op_nullifier_exists(uint32_t note_offset, uint32_t dest_of
     // TODO(ISSUE_NUMBER): success or fail must come from hint - it is always 1 for now
     uint32_t result = 1;
     Row row = create_kernel_output_opcode_with_set_metadata_output(
-        clk, note_offset, AvmMemoryTag::FF, dest_offset, result, AvmMemoryTag::FF);
+        clk, note_offset, AvmMemoryTag::FF, dest_offset, result, AvmMemoryTag::U8);
     kernel_trace_builder.op_nullifier_exists(clk, row.avm_main_ia, result);
     row.avm_main_sel_op_nullifier_exists = FF(1);
 
