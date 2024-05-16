@@ -24,7 +24,7 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
     // [1] = x[31]
     // [2] = y[0..31]
     // [3] = y[31]
-    // [4] = owner
+    // [4] = npk_m_hash
     fn serialize_content(self) -> [Field; ECDSA_PUBLIC_KEY_NOTE_LEN] {
         let mut x: Field = 0;
         let mut y: Field = 0;
