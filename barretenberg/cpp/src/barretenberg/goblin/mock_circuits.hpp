@@ -87,9 +87,9 @@ class GoblinMockCircuits {
         const size_t NUM_ITERATIONS_MEDIUM = 3; // results in circuit size 2^17 (124843 gates)
         const size_t NUM_ITERATIONS = large ? NUM_ITERATIONS_LARGE : NUM_ITERATIONS_MEDIUM;
 
-        stdlib::generate_sha256_test_circuit(builder, NUM_ITERATIONS); // min gates: ~39k
-        stdlib::generate_ecdsa_verification_test_circuit(builder, 2);  // min gates: ~41k
-        stdlib::generate_merkle_membership_test_circuit(builder, 8);   // min gates: ~29k
+        stdlib::generate_sha256_test_circuit(builder, NUM_ITERATIONS + 2); // min gates: ~39k
+        stdlib::generate_ecdsa_verification_test_circuit(builder, 2);      // min gates: ~41k
+        stdlib::generate_merkle_membership_test_circuit(builder, 10);      // min gates: ~29k
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
         // function circuit because we cannot support zero commtiments. While the builder handles this at
