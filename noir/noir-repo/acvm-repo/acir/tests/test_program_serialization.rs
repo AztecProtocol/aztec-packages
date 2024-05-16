@@ -63,19 +63,26 @@ fn multi_scalar_mul_circuit() {
         points: vec![
             FunctionInput { witness: Witness(1), num_bits: 128 },
             FunctionInput { witness: Witness(2), num_bits: 128 },
+            FunctionInput { witness: Witness(3), num_bits: 1 },
         ],
         scalars: vec![
-            FunctionInput { witness: Witness(3), num_bits: 128 },
             FunctionInput { witness: Witness(4), num_bits: 128 },
+            FunctionInput { witness: Witness(5), num_bits: 128 },
         ],
-        outputs: (Witness(5), Witness(6), Witness(7)),
+        outputs: (Witness(6), Witness(7), Witness(8)),
     });
 
     let circuit = Circuit {
-        current_witness_index: 7,
+        current_witness_index: 9,
         opcodes: vec![multi_scalar_mul],
-        private_parameters: BTreeSet::from([Witness(1), Witness(2), Witness(3), Witness(4)]),
-        return_values: PublicInputs(BTreeSet::from_iter(vec![Witness(5), Witness(6)])),
+        private_parameters: BTreeSet::from([
+            Witness(1),
+            Witness(2),
+            Witness(3),
+            Witness(4),
+            Witness(5),
+        ]),
+        return_values: PublicInputs(BTreeSet::from_iter(vec![Witness(6), Witness(7), Witness(8)])),
         ..Circuit::default()
     };
     let program = Program { functions: vec![circuit], unconstrained_functions: vec![] };
@@ -83,10 +90,10 @@ fn multi_scalar_mul_circuit() {
     let bytes = Program::serialize_program(&program);
 
     let expected_serialization: Vec<u8> = vec![
-        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 101, 140, 219, 10, 0, 48, 8, 66, 171, 221, 94, 246, 209,
-        125, 250, 26, 59, 65, 48, 65, 76, 73, 85, 30, 86, 80, 185, 175, 238, 160, 21, 239, 120, 47,
-        121, 195, 119, 116, 4, 39, 91, 66, 158, 125, 227, 63, 51, 41, 59, 217, 251, 112, 0, 103,
-        167, 216, 209, 157, 0, 0, 0,
+        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 93, 141, 219, 10, 0, 32, 8, 67, 243, 214, 5, 250, 232,
+        62, 189, 69, 123, 176, 132, 195, 116, 50, 149, 114, 107, 0, 97, 127, 116, 2, 75, 243, 2,
+        74, 53, 122, 202, 189, 211, 15, 106, 5, 13, 116, 238, 35, 221, 81, 230, 61, 249, 37, 253,
+        250, 179, 79, 109, 218, 22, 67, 227, 173, 0, 0, 0,
     ];
 
     assert_eq!(bytes, expected_serialization)
