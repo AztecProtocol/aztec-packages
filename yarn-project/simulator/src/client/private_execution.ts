@@ -42,7 +42,7 @@ export async function executePrivateFunction(
   const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
   const publicInputs = PrivateCircuitPublicInputs.fromFields(returnWitness);
 
-  context.chopNoteEncryptedLogsFromNested();
+  context.chopNoteEncryptedLogs();
   const noteEncryptedLogs = context.getNoteEncryptedLogs();
   const encryptedLogs = context.getEncryptedLogs();
   const unencryptedLogs = context.getUnencryptedLogs();

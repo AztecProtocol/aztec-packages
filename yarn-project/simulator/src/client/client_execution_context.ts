@@ -141,9 +141,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Return the note encrypted logs emitted during this execution.
    */
   public getNoteEncryptedLogs() {
-    // Do not return logs that have been chopped in the cache
-    const filteredLogs = this.noteEncryptedLogs.filter(l => this.noteCache.getLogs().includes(l));
-    return filteredLogs;
+    return this.noteEncryptedLogs;
   }
 
   /**
@@ -151,9 +149,10 @@ export class ClientExecutionContext extends ViewDataOracle {
    * This means finished nested executions still hold transient logs. This method removes them.
    * TODO(Miranda): is there a cleaner solution?
    */
-  public chopNoteEncryptedLogsFromNested() {
+  public chopNoteEncryptedLogs() {
     // Do not return logs that have been chopped in the cache
     const allNoteLogs = this.noteCache.getLogs();
+    this.noteEncryptedLogs = this.noteEncryptedLogs.filter(l => allNoteLogs.includes(l));
     const chop = (thing: any) =>
       thing.nestedExecutions.forEach((result: ExecutionResult) => {
         if (!result.noteEncryptedLogs[0]?.isEmpty()) {
