@@ -31,10 +31,8 @@ class ClientIVCBench : public benchmark::Fixture {
         bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
     }
 
-    static auto precompute_verification_keys(const size_t num_function_circuits)
+    static auto precompute_verification_keys(ClientIVC& ivc, const size_t num_function_circuits)
     {
-        ClientIVC ivc;
-
         std::vector<Builder> circuits;
         Builder function_circuit{ ivc.goblin.op_queue };
         GoblinMockCircuits::construct_mock_function_circuit_new(function_circuit);
@@ -176,9 +174,8 @@ class ClientIVCBench : public benchmark::Fixture {
         }
     }
 
-    static void perform_ivc_accumulation_rounds_new(State& state, ClientIVC& ivc, auto& precomputed_vks)
+    static void perform_ivc_accumulation_rounds_new(size_t NUM_CIRCUITS, ClientIVC& ivc, auto& precomputed_vks)
     {
-        auto NUM_CIRCUITS = static_cast<size_t>(state.range(0));
         size_t TOTAL_NUM_CIRCUITS = NUM_CIRCUITS * 2 - 1; // need one less kernel than number of function circuits
         ASSERT(precomputed_vks.size() == TOTAL_NUM_CIRCUITS);
 
@@ -263,11 +260,37 @@ class ClientIVCBench : public benchmark::Fixture {
 BENCHMARK_DEFINE_F(ClientIVCBench, FullNew)(benchmark::State& state)
 {
     ClientIVC ivc;
-    auto precomputed_vks = precompute_verification_keys(static_cast<size_t>(state.range(0)));
+
+    auto num_circuits = static_cast<size_t>(state.range(0));
+    auto precomputed_vks = precompute_verification_keys(ivc, num_circuits);
+
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
         // Perform a specified number of iterations of function/kernel accumulation
-        perform_ivc_accumulation_rounds_new(state, ivc, precomputed_vks);
+        perform_ivc_accumulation_rounds_new(num_circuits, ivc, precomputed_vks);
+
+        // Construct IVC scheme proof (fold, decider, merge, eccvm, translator)
+        ivc.prove();
+    }
+}
+
+/**
+ * @brief Benchmark the prover work for the full PG-Goblin IVC protocol
+ *
+ */
+BENCHMARK_DEFINE_F(ClientIVCBench, FullStructuredNew)(benchmark::State& state)
+{
+    ClientIVC ivc;
+    ivc.structured_flag = true;
+
+    auto num_circuits = static_cast<size_t>(state.range(0));
+    auto precomputed_vks = precompute_verification_keys(ivc, num_circuits);
+    ivc.structured_flag = true;
+
+    for (auto _ : state) {
+        BB_REPORT_OP_COUNT_IN_BENCH(state);
+        // Perform a specified number of iterations of function/kernel accumulation
+        perform_ivc_accumulation_rounds_new(num_circuits, ivc, precomputed_vks);
 
         // Construct IVC scheme proof (fold, decider, merge, eccvm, translator)
         ivc.prove();
@@ -391,6 +414,7 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Translator)(benchmark::State& state)
 
 BENCHMARK_REGISTER_F(ClientIVCBench, FullNew)->Unit(benchmark::kMillisecond)->ARGS;
 BENCHMARK_REGISTER_F(ClientIVCBench, Full)->Unit(benchmark::kMillisecond)->ARGS;
+BENCHMARK_REGISTER_F(ClientIVCBench, FullStructuredNew)->Unit(benchmark::kMillisecond)->ARGS;
 BENCHMARK_REGISTER_F(ClientIVCBench, FullStructured)->Unit(benchmark::kMillisecond)->ARGS;
 BENCHMARK_REGISTER_F(ClientIVCBench, Accumulate)->Unit(benchmark::kMillisecond)->ARGS;
 BENCHMARK_REGISTER_F(ClientIVCBench, Decide)->Unit(benchmark::kMillisecond)->ARGS;
