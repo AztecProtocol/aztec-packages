@@ -1,6 +1,6 @@
 ---
 title: Core Components
-sidebar_position: 2
+sidebar_position: 1
 ---
 
 Aztec Labs is building a layer 2 rollup on Ethereum focused on 3 things:
