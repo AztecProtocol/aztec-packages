@@ -64,23 +64,7 @@ pub(crate) enum CliError {
     #[error(transparent)]
     CompileError(#[from] CompileError),
 
-    /// Error related to backend selection/installation.
-    #[error(transparent)]
-    BackendError(#[from] BackendError),
-
     /// Error related to communication with backend.
     #[error(transparent)]
     BackendCommunicationError(#[from] backend_interface::BackendError),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub(crate) enum BackendError {
-    #[error("No backend is installed with the name {0}")]
-    UnknownBackend(String),
-
-    #[error("The backend {0} is already installed")]
-    AlreadyInstalled(String),
-
-    #[error("Backend installation failed: {0}")]
-    InstallationError(#[from] std::io::Error),
 }

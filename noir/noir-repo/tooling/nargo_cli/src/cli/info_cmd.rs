@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
 
 use acvm::acir::circuit::ExpressionWidth;
 use backend_interface::BackendError;
@@ -16,7 +16,6 @@ use prettytable::{row, table, Row};
 use rayon::prelude::*;
 use serde::Serialize;
 
-use crate::backends::Backend;
 use crate::errors::CliError;
 
 use super::{
@@ -50,11 +49,7 @@ pub(crate) struct InfoCommand {
     compile_options: CompileOptions,
 }
 
-pub(crate) fn run(
-    backend: &Backend,
-    args: InfoCommand,
-    config: NargoConfig,
-) -> Result<(), CliError> {
+pub(crate) fn run(args: InfoCommand, config: NargoConfig) -> Result<(), CliError> {
     let toml_path = get_package_manifest(&config.program_dir)?;
     let default_selection =
         if args.workspace { PackageSelection::All } else { PackageSelection::DefaultOrAll };
@@ -93,8 +88,6 @@ pub(crate) fn run(
         .par_bridge()
         .map(|(package, program)| {
             count_opcodes_and_gates_in_program(
-                backend,
-                workspace.package_build_path(&package),
                 program,
                 &package,
                 args.compile_options.expression_width,
@@ -196,7 +189,6 @@ impl From<ProgramInfo> for Vec<Row> {
                 Fc->format!("{}", function.name),
                 format!("{:?}", program_info.expression_width),
                 Fc->format!("{}", function.acir_opcodes),
-                Fc->format!("{}", function.circuit_size),
             ]
         })
     }
@@ -215,7 +207,6 @@ struct ContractInfo {
 struct FunctionInfo {
     name: String,
     acir_opcodes: usize,
-    circuit_size: u32,
 }
 
 impl From<ContractInfo> for Vec<Row> {
@@ -226,20 +217,16 @@ impl From<ContractInfo> for Vec<Row> {
                 Fc->format!("{}", function.name),
                 format!("{:?}", contract_info.expression_width),
                 Fc->format!("{}", function.acir_opcodes),
-                Fc->format!("{}", function.circuit_size),
             ]
         })
     }
 }
 
 fn count_opcodes_and_gates_in_program(
-    backend: &Backend,
-    program_artifact_path: PathBuf,
     compiled_program: ProgramArtifact,
     package: &Package,
     expression_width: ExpressionWidth,
 ) -> Result<ProgramInfo, CliError> {
-    let program_circuit_sizes = backend.get_exact_circuit_sizes(program_artifact_path)?;
     let functions = compiled_program
         .bytecode
         .functions
@@ -248,9 +235,7 @@ fn count_opcodes_and_gates_in_program(
         .map(|(i, function)| -> Result<_, BackendError> {
             Ok(FunctionInfo {
                 name: compiled_program.names[i].clone(),
-                // Required while mock backend doesn't return correct circuit size.
                 acir_opcodes: function.opcodes.len(),
-                circuit_size: program_circuit_sizes[i].circuit_size,
             })
         })
         .collect::<Result<_, _>>()?;
