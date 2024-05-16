@@ -1,7 +1,7 @@
 name: CI (ARM)
 on:
   push:
-    branches: [ad/reenable-arm-ci] # [master]
+    branches: [master]
   workflow_dispatch:
     inputs: {}
 concurrency:
