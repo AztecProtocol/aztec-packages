@@ -97,27 +97,16 @@ class AvmKernelTraceBuilder {
 
     // Outputs
     // Each returns the selector that was used
-    void op_note_hash_exists(uint32_t clk, FF note_hash);
+    void op_note_hash_exists(uint32_t clk, FF note_hash, uint32_t result);
     void op_emit_note_hash(uint32_t clk, FF note_hash);
-    void op_nullifier_exists(uint32_t clk, FF nullifier);
+    void op_nullifier_exists(uint32_t clk, FF nullifier, uint32_t result);
     void op_emit_nullifier(uint32_t clk, FF nullifier);
-    void op_l1_to_l2_msg_exists(uint32_t clk, FF message);
+    void op_l1_to_l2_msg_exists(uint32_t clk, FF message, uint32_t result);
     void op_emit_unencrypted_log(uint32_t clk, FF log_hash);
     void op_emit_l2_to_l1_msg(uint32_t clk, FF message);
 
     void op_sload(uint32_t clk, FF slot, FF value);
     void op_sstore(uint32_t clk, FF slot, FF value);
-
-    // Getters for local counters
-    uint32_t get_note_hash_exists_offset();
-    uint32_t get_emit_note_hash_offset();
-    uint32_t get_nullifier_exists_offset();
-    uint32_t get_emit_nullifier_offset();
-    uint32_t get_l1_to_l2_msg_exists_offset();
-    uint32_t get_emit_unencrypted_log_offset();
-    uint32_t get_l2_to_l1_msg_offset();
-    uint32_t get_sload_offset();
-    uint32_t get_sstore_offset();
 
     // TODO: maybe just have these start at the correct offsets?
     static const uint32_t START_NOTE_HASH_EXISTS_WRITE_OFFSET = 0;

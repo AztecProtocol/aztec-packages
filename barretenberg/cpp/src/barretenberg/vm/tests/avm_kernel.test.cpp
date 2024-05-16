@@ -105,6 +105,27 @@ void expect_output_table_row_with_metadata(
     EXPECT_EQ(row->avm_main_mem_op_b, FF(1));
 }
 
+void expect_output_table_row_with_exists_metadata(
+    std::vector<Row>::const_iterator row, FF selector, FF ia, FF mem_idx_a, FF ib, FF mem_idx_b, AvmMemoryTag w_in_tag)
+{
+    expect_output_table_row(row, selector, ia, mem_idx_a, w_in_tag);
+
+    EXPECT_EQ(row->avm_main_ib, ib);
+    EXPECT_EQ(row->avm_main_mem_idx_b, mem_idx_b);
+
+    // Checks that are fixed for kernel inputs
+    EXPECT_EQ(row->avm_main_rwb, FF(1));
+    EXPECT_EQ(row->avm_main_ind_b, FF(0));
+    EXPECT_EQ(row->avm_main_mem_op_b, FF(1));
+}
+
+void check_kernel_outputs(const Row& row, FF value, FF side_effect_counter, FF metadata)
+{
+    EXPECT_EQ(row.avm_kernel_kernel_value_out__is_public, value);
+    EXPECT_EQ(row.avm_kernel_kernel_side_effect_out__is_public, side_effect_counter);
+    EXPECT_EQ(row.avm_kernel_kernel_metadata_out__is_public, metadata);
+}
+
 TEST_F(AvmKernelPositiveTests, kernelSender)
 {
     uint32_t dst_offset = 42;
@@ -628,19 +649,11 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitNoteHash)
             /*mem_idx_a=*/offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
 
-        // Validate lookup and counts
-        // Plus 1 as we have a padded empty first row
-        Row output_row = trace.at(output_offset + 1);
-        EXPECT_EQ(output_row.avm_kernel_kernel_value_out__is_public, 1234);
-        EXPECT_EQ(output_row.avm_kernel_kernel_side_effect_out__is_public, FF(0));
-        EXPECT_EQ(output_row.avm_kernel_kernel_metadata_out__is_public, FF(0));
+        check_kernel_outputs(trace.at(output_offset + 1), 1234, /*side_effect_counter=*/0, /*metadata=*/0);
     };
 
     test_kernel_lookup(apply_opcodes, checks);
 }
-
-// TODO: this must be updated to include a boolean
-// TEST_F(AvmKernelOutputPositiveTests, kernelNoteHashExists) {}
 
 TEST_F(AvmKernelOutputPositiveTests, kernelEmitNullifier)
 {
@@ -667,10 +680,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitNullifier)
 
         // Validate lookup and counts
         // Plus 1 as we have a padded empty first row
-        Row output_row = trace.at(output_offset + 1);
-        EXPECT_EQ(output_row.avm_kernel_kernel_value_out__is_public, 1234);
-        EXPECT_EQ(output_row.avm_kernel_kernel_side_effect_out__is_public, FF(0));
-        EXPECT_EQ(output_row.avm_kernel_kernel_metadata_out__is_public, FF(0));
+        check_kernel_outputs(trace.at(output_offset + 1), 1234, /*side_effect_counter=*/0, /*metadata=*/0);
     };
 
     test_kernel_lookup(apply_opcodes, checks);
@@ -699,12 +709,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitL2ToL1Msg)
             /*mem_idx_a=*/offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
 
-        // Validate lookup and counts
-        // Plus 1 as we have a padded empty first row
-        Row output_row = trace.at(output_offset + 1);
-        EXPECT_EQ(output_row.avm_kernel_kernel_value_out__is_public, 1234);
-        EXPECT_EQ(output_row.avm_kernel_kernel_side_effect_out__is_public, FF(0));
-        EXPECT_EQ(output_row.avm_kernel_kernel_metadata_out__is_public, FF(0));
+        check_kernel_outputs(trace.at(output_offset + 1), 1234, /*side_effect_counter=*/0, /*metadata=*/0);
     };
 
     test_kernel_lookup(apply_opcodes, checks);
@@ -733,12 +738,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitUnencryptedLog)
             /*mem_idx_a=*/offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
 
-        // Validate lookup and counts
-        // Plus 1 as we have a padded empty first row
-        Row output_row = trace.at(output_offset + 1);
-        EXPECT_EQ(output_row.avm_kernel_kernel_value_out__is_public, 1234);
-        EXPECT_EQ(output_row.avm_kernel_kernel_side_effect_out__is_public, FF(0));
-        EXPECT_EQ(output_row.avm_kernel_kernel_metadata_out__is_public, FF(0));
+        check_kernel_outputs(trace.at(output_offset + 1), 1234, 0, 0);
     };
 
     test_kernel_lookup(apply_opcodes, checks);
@@ -762,7 +762,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSload)
         EXPECT_TRUE(row != trace.end());
 
         // Check the outputs of the trace
-        uint32_t output_offset = AvmKernelTraceBuilder::START_SSTORE_WRITE_OFFSET;
+        uint32_t output_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET;
 
         expect_output_table_row_with_metadata(
             row,
@@ -773,12 +773,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSload)
             /*mem_idx_b=*/metadata_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
 
-        // Validate lookup and counts
-        // Plus 1 as we have a padded empty first row
-        Row output_row = trace.at(output_offset + 1);
-        EXPECT_EQ(output_row.avm_kernel_kernel_value_out__is_public, value);
-        EXPECT_EQ(output_row.avm_kernel_kernel_side_effect_out__is_public, FF(0));
-        EXPECT_EQ(output_row.avm_kernel_kernel_metadata_out__is_public, slot);
+        check_kernel_outputs(trace.at(output_offset + 1), value, /*side_effect_counter=*/0, slot);
     };
 
     test_kernel_lookup(apply_opcodes, checks);
@@ -813,12 +808,109 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSstore)
             /*mem_idx_b=*/metadata_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
 
-        // Validate lookup and counts
-        // Plus 1 as we have a padded empty first row
-        Row output_row = trace.at(output_offset + 1);
-        EXPECT_EQ(output_row.avm_kernel_kernel_value_out__is_public, value);
-        EXPECT_EQ(output_row.avm_kernel_kernel_side_effect_out__is_public, FF(0));
-        EXPECT_EQ(output_row.avm_kernel_kernel_metadata_out__is_public, slot);
+        check_kernel_outputs(trace.at(output_offset + 1), value, /*side_effect_counter=*/0, slot);
+    };
+
+    test_kernel_lookup(apply_opcodes, checks);
+}
+
+TEST_F(AvmKernelOutputPositiveTests, kernelNoteHashExists)
+{
+    uint32_t value_offset = 42;
+    auto value = 1234;
+    uint32_t metadata_offset = 420;
+    auto exists = 1;
+    // We write the note hash into memoru
+    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
+        trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
+        trace_builder.op_note_hash_exists(value_offset, metadata_offset);
+    };
+    auto checks = [=](const std::vector<Row>& trace) {
+        std::vector<Row>::const_iterator row = std::ranges::find_if(
+            trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_note_hash_exists == FF(1); });
+        EXPECT_TRUE(row != trace.end());
+
+        // Check the outputs of the trace
+        uint32_t output_offset = AvmKernelTraceBuilder::START_NOTE_HASH_EXISTS_WRITE_OFFSET;
+
+        expect_output_table_row_with_exists_metadata(
+            row,
+            /*kernel_sel=*/output_offset,
+            /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
+            /*mem_idx_a=*/value_offset,
+            /*ib=*/exists,
+            /*mem_idx_b=*/metadata_offset,
+            /*w_in_tag=*/AvmMemoryTag::FF);
+
+        check_kernel_outputs(trace.at(output_offset + 1), value, /*side_effect_counter=*/0, exists);
+    };
+
+    test_kernel_lookup(apply_opcodes, checks);
+}
+
+TEST_F(AvmKernelOutputPositiveTests, kernelNullifierExists)
+{
+    uint32_t value_offset = 42;
+    auto value = 1234;
+    uint32_t metadata_offset = 420;
+    auto exists = 1;
+    // We write the note hash into memoru
+    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
+        trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
+        trace_builder.op_nullifier_exists(value_offset, metadata_offset);
+    };
+    auto checks = [=](const std::vector<Row>& trace) {
+        std::vector<Row>::const_iterator row = std::ranges::find_if(
+            trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_nullifier_exists == FF(1); });
+        EXPECT_TRUE(row != trace.end());
+
+        // Check the outputs of the trace
+        uint32_t output_offset = AvmKernelTraceBuilder::START_NULLIFIER_EXISTS_OFFSET;
+
+        expect_output_table_row_with_exists_metadata(
+            row,
+            /*kernel_sel=*/output_offset,
+            /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
+            /*mem_idx_a=*/value_offset,
+            /*ib=*/exists,
+            /*mem_idx_b=*/metadata_offset,
+            /*w_in_tag=*/AvmMemoryTag::FF);
+
+        check_kernel_outputs(trace.at(output_offset + 1), value, /*side_effect_counter=*/0, exists);
+    };
+
+    test_kernel_lookup(apply_opcodes, checks);
+}
+
+TEST_F(AvmKernelOutputPositiveTests, kernelL1ToL2MsgExists)
+{
+    uint32_t value_offset = 42;
+    auto value = 1234;
+    uint32_t metadata_offset = 420;
+    auto exists = 1;
+    // We write the note hash into memoru
+    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
+        trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
+        trace_builder.op_l1_to_l2_msg_exists(value_offset, metadata_offset);
+    };
+    auto checks = [=](const std::vector<Row>& trace) {
+        std::vector<Row>::const_iterator row = std::ranges::find_if(
+            trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_l1_to_l2_msg_exists == FF(1); });
+        EXPECT_TRUE(row != trace.end());
+
+        // Check the outputs of the trace
+        uint32_t output_offset = AvmKernelTraceBuilder::START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET;
+
+        expect_output_table_row_with_exists_metadata(
+            row,
+            /*kernel_sel=*/output_offset,
+            /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
+            /*mem_idx_a=*/value_offset,
+            /*ib=*/exists,
+            /*mem_idx_b=*/metadata_offset,
+            /*w_in_tag=*/AvmMemoryTag::FF);
+
+        check_kernel_outputs(trace.at(output_offset + 1), value, /*side_effect_counter=*/0, exists);
     };
 
     test_kernel_lookup(apply_opcodes, checks);

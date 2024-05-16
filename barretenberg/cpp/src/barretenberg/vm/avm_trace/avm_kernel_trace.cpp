@@ -104,11 +104,12 @@ FF AvmKernelTraceBuilder::op_timestamp()
     return perform_kernel_input_lookup(TIMESTAMP_SELECTOR);
 }
 
-void AvmKernelTraceBuilder::op_note_hash_exists(uint32_t clk, FF note_hash)
+// TODO(ISSUE_NUMBER): need to process hint from avm in order to know if output should be set to true or not
+void AvmKernelTraceBuilder::op_note_hash_exists(uint32_t clk, FF note_hash, uint32_t result)
 {
 
     uint32_t offset = START_NOTE_HASH_EXISTS_WRITE_OFFSET + note_hash_exists_offset;
-    perform_kernel_output_lookup(offset, note_hash, FF(0));
+    perform_kernel_output_lookup(offset, note_hash, FF(result));
     note_hash_exists_offset++;
 
     KernelTraceEntry entry = {
@@ -135,10 +136,11 @@ void AvmKernelTraceBuilder::op_emit_note_hash(uint32_t clk, FF note_hash)
     kernel_trace.push_back(entry);
 }
 
-void AvmKernelTraceBuilder::op_nullifier_exists(uint32_t clk, FF nullifier)
+// TODOISSUE_NUMBER: need to process hint from avm in order to know if output should be set to true or not
+void AvmKernelTraceBuilder::op_nullifier_exists(uint32_t clk, FF nullifier, uint32_t result)
 {
     uint32_t offset = START_NULLIFIER_EXISTS_OFFSET + nullifier_exists_offset;
-    perform_kernel_output_lookup(offset, nullifier, FF(0));
+    perform_kernel_output_lookup(offset, nullifier, FF(result));
     nullifier_exists_offset++;
 
     KernelTraceEntry entry = {
@@ -153,7 +155,6 @@ void AvmKernelTraceBuilder::op_nullifier_exists(uint32_t clk, FF nullifier)
 void AvmKernelTraceBuilder::op_emit_nullifier(uint32_t clk, FF nullifier)
 {
     uint32_t offset = START_EMIT_NULLIFIER_WRITE_OFFSET + emit_nullifier_offset;
-    info("write offset in builder: ", offset);
     perform_kernel_output_lookup(offset, nullifier, FF(0));
     emit_nullifier_offset++;
 
@@ -166,10 +167,11 @@ void AvmKernelTraceBuilder::op_emit_nullifier(uint32_t clk, FF nullifier)
     kernel_trace.push_back(entry);
 }
 
-void AvmKernelTraceBuilder::op_l1_to_l2_msg_exists(uint32_t clk, FF message)
+// TODO(ISSUE_NUMBER): need to process hint from avm in order to know if output should be set to true or not
+void AvmKernelTraceBuilder::op_l1_to_l2_msg_exists(uint32_t clk, FF message, uint32_t result)
 {
     uint32_t offset = START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET + l1_to_l2_msg_exists_offset;
-    perform_kernel_output_lookup(offset, message, FF(0));
+    perform_kernel_output_lookup(offset, message, FF(result));
     l1_to_l2_msg_exists_offset++;
 
     KernelTraceEntry entry = {
@@ -239,47 +241,6 @@ void AvmKernelTraceBuilder::op_sstore(uint32_t clk, FF slot, FF value)
         .op_sstore = true,
     };
     kernel_trace.push_back(entry);
-}
-
-// Getters
-uint32_t AvmKernelTraceBuilder::get_note_hash_exists_offset()
-{
-    return note_hash_exists_offset;
-}
-
-uint32_t AvmKernelTraceBuilder::get_emit_note_hash_offset()
-{
-    return emit_note_hash_offset;
-}
-
-uint32_t AvmKernelTraceBuilder::get_nullifier_exists_offset()
-{
-    return nullifier_exists_offset;
-}
-
-uint32_t AvmKernelTraceBuilder::get_emit_nullifier_offset()
-{
-    return emit_nullifier_offset;
-}
-
-uint32_t AvmKernelTraceBuilder::get_l2_to_l1_msg_offset()
-{
-    return emit_l2_to_l1_msg_offset;
-}
-
-uint32_t AvmKernelTraceBuilder::get_emit_unencrypted_log_offset()
-{
-    return emit_unencrypted_log_offset;
-}
-
-uint32_t AvmKernelTraceBuilder::get_sload_offset()
-{
-    return sload_write_offset;
-}
-
-uint32_t AvmKernelTraceBuilder::get_sstore_offset()
-{
-    return sstore_write_offset;
 }
 
 } // namespace bb::avm_trace

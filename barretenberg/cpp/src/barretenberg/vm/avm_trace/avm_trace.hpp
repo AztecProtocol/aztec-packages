@@ -106,7 +106,10 @@ class AvmTraceBuilder {
     void op_emit_l2_to_l1_msg(uint32_t msg_offset);
 
     // With additional metadata output
-    void op_l1_to_l2_msg_exists(uint32_t msg_offset);
+    void op_l1_to_l2_msg_exists(uint32_t msg_offset, uint32_t dest_offset);
+    void op_note_hash_exists(uint32_t note_hash_offset, uint32_t dest_offset);
+    void op_nullifier_exists(uint32_t nullifier_offset, uint32_t dest_offset);
+
     void op_sload(uint32_t slot_offset, uint32_t value_offset);
     void op_sstore(uint32_t slot_offset, uint32_t value_offset);
 
@@ -176,6 +179,12 @@ class AvmTraceBuilder {
                                                   AvmMemoryTag data_r_tag,
                                                   uint32_t metadata_offset,
                                                   AvmMemoryTag metadata_r_tag);
+    Row create_kernel_output_opcode_with_set_metadata_output(uint32_t clk,
+                                                             uint32_t data_offset,
+                                                             AvmMemoryTag data_r_tag,
+                                                             uint32_t metadata_offset,
+                                                             FF write_value,
+                                                             AvmMemoryTag metadata_w_tag);
 
     void finalise_mem_trace_lookup_counts();
 
