@@ -234,12 +234,13 @@ export class Ec2Instance {
         SubnetId: this.config.githubActionRunnerConcurrency > 0 ? this.config.ec2SubnetId : undefined,
       })),
     };
+    const clientToken = this.config.clientToken ?this.config.clientToken + ",spot=" + useOnDemand : undefined;
     const createFleetRequest: CreateFleetRequest = {
       Type: "instant",
       LaunchTemplateConfigs: [fleetLaunchConfig],
-      ClientToken: this.config.clientToken || undefined,
+      ClientToken: clientToken,
       SpotOptions: {
-        AllocationStrategy: "price-capacity-optimized",
+        AllocationStrategy: "capacity-optimized",
       },
       TargetCapacitySpecification: {
         TotalTargetCapacity: 1,
