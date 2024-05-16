@@ -220,6 +220,34 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/bb-prover@workspace:^, @aztec/bb-prover@workspace:bb-prover":
+  version: 0.0.0-use.local
+  resolution: "@aztec/bb-prover@workspace:bb-prover"
+  dependencies:
+    "@aztec/circuit-types": "workspace:^"
+    "@aztec/circuits.js": "workspace:^"
+    "@aztec/foundation": "workspace:^"
+    "@aztec/noir-protocol-circuits-types": "workspace:^"
+    "@aztec/simulator": "workspace:^"
+    "@jest/globals": ^29.5.0
+    "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi"
+    "@noir-lang/types": "portal:../../noir/packages/types"
+    "@types/jest": ^29.5.0
+    "@types/memdown": ^3.0.0
+    "@types/node": ^18.7.23
+    "@types/source-map-support": ^0.5.10
+    commander: ^9.0.0
+    jest: ^29.5.0
+    jest-mock-extended: ^3.0.3
+    source-map-support: ^0.5.21
+    ts-node: ^10.9.1
+    tslib: ^2.4.0
+    typescript: ^5.0.4
+  bin:
+    bb-cli: ./dest/bb/index.js
+  languageName: unknown
+  linkType: soft
+
 "@aztec/bb.js@portal:../barretenberg/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/bb.js@portal:../barretenberg/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A."
@@ -330,6 +358,7 @@ __metadata:
     "@aztec/archiver": "workspace:^"
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
+    "@aztec/bb-prover": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
@@ -367,6 +396,7 @@ __metadata:
     get-port: ^7.1.0
     glob: ^10.3.10
     jest: ^29.5.0
+    jest-extended: ^4.0.2
     jest-mock-extended: ^3.0.5
     koa: ^2.14.2
     koa-static: ^5.0.0
@@ -582,7 +612,7 @@ __metadata:
     "@jest/globals": ^29.5.0
     "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js"
     "@noir-lang/noir_codegen": "portal:../../noir/packages/noir_codegen"
-    "@noir-lang/noir_js": "portal:../../noir/packages/noir_js"
+    "@noir-lang/noir_js": "file:../../noir/packages/noir_js"
     "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi"
     "@noir-lang/types": "portal:../../noir/packages/types"
     "@types/jest": ^29.5.0
@@ -683,6 +713,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/prover-client@workspace:prover-client"
   dependencies:
+    "@aztec/bb-prover": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -704,8 +735,6 @@ __metadata:
     ts-node: ^10.9.1
     tslib: ^2.4.0
     typescript: ^5.0.4
-  bin:
-    bb-cli: ./dest/bb/index.js
   languageName: unknown
   linkType: soft
 
@@ -713,6 +742,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/pxe@workspace:pxe"
   dependencies:
+    "@aztec/bb-prover": "workspace:^"
     "@aztec/bb.js": "portal:../../barretenberg/ts"
     "@aztec/builder": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
@@ -2851,15 +2881,16 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@noir-lang/noir_js@portal:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@noir-lang/noir_js@portal:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+"@noir-lang/noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.29.0
+  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=edd4c2&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     "@noir-lang/acvm_js": 0.45.0
     "@noir-lang/noirc_abi": 0.29.0
     "@noir-lang/types": 0.29.0
+  checksum: 33ebaa2b3cabd8fc71c6d07ecd014fde7be0036aed5b56d37ad08241ce41848c2330bafda50eb0c270a57dbc2a795edf88d1d8a129b89a409d4d49a1b835d577
   languageName: node
-  linkType: soft
+  linkType: hard
 
 "@noir-lang/noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.0.0-use.local
@@ -9018,7 +9049,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jest-diff@npm:^29.7.0":
+"jest-diff@npm:^29.0.0, jest-diff@npm:^29.7.0":
   version: 29.7.0
   resolution: "jest-diff@npm:29.7.0"
   dependencies:
@@ -9066,7 +9097,22 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jest-get-type@npm:^29.6.3":
+"jest-extended@npm:^4.0.2":
+  version: 4.0.2
+  resolution: "jest-extended@npm:4.0.2"
+  dependencies:
+    jest-diff: ^29.0.0
+    jest-get-type: ^29.0.0
+  peerDependencies:
+    jest: ">=27.2.5"
+  peerDependenciesMeta:
+    jest:
+      optional: true
+  checksum: afdc255eec7caa173f9e805e94562273d8b8aa4c7ab9b396668f018c18ea5236270a6ac499ca84b8c60e90ccbe9ccb4aebf998daef13aec9542c426df1df6079
+  languageName: node
+  linkType: hard
+
+"jest-get-type@npm:^29.0.0, jest-get-type@npm:^29.6.3":
   version: 29.6.3
   resolution: "jest-get-type@npm:29.6.3"
   checksum: 88ac9102d4679d768accae29f1e75f592b760b44277df288ad76ce5bf038c3f5ce3719dea8aa0f035dac30e9eb034b848ce716b9183ad7cc222d029f03e92205
