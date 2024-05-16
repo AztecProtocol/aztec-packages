@@ -56,6 +56,9 @@ examples:
   WORKDIR noir-repo/examples/codegen-verifier
   RUN ./test.sh
 
+  WORKDIR ../prove_and_verify
+  RUN ./test.sh
+
 format:
   FROM +nargo
   ENV PATH=$PATH:/usr/src/noir-repo/target/release
