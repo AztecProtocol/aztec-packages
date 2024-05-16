@@ -1,6 +1,6 @@
 use dep::aztec::prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext};
 use dep::aztec::{
-    note::utils::compute_note_hash_for_consumption, keys::getters::get_nsk_app,
+    note::utils::compute_note_hash_for_consumption, oracle::nullifier_keys::get_nsk_app,
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_point::GrumpkinPoint, hash::poseidon2_hash}
 };
 
@@ -39,12 +39,12 @@ impl NoteInterface<PUBLIC_KEY_NOTE_LEN> for PublicKeyNote {
 
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field, ivpk_m: GrumpkinPoint) {
-        context.emit_encrypted_log(
+        context.emit_note_encrypted_log(
             (*context).this_address(),
             slot,
             Self::get_note_type_id(),
             ivpk_m,
-            self.serialize_content(),
+            self,
         );
     }
 }

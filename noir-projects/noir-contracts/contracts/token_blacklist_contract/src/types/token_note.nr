@@ -2,7 +2,7 @@ use dep::aztec::{
     prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext},
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_point::GrumpkinPoint, hash::poseidon2_hash},
     note::utils::compute_note_hash_for_consumption, oracle::unsafe_rand::unsafe_rand,
-    keys::getters::get_nsk_app
+    oracle::nullifier_keys::get_nsk_app
 };
 
 trait OwnedNote {
@@ -51,12 +51,12 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
       // We only bother inserting the note if non-empty to save funds on gas.
       // TODO: (#5901) This will be changed a lot, as it should use the updated encrypted log format
       if !(self.amount == U128::from_integer(0)) {
-          context.emit_encrypted_log(
+          context.emit_note_encrypted_log(
               (*context).this_address(),
               slot,
               Self::get_note_type_id(),
               ivpk_m,
-              self.serialize_content(),
+              self,
           );
       }
     }
