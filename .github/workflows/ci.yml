@@ -467,6 +467,7 @@ jobs:
       - barretenberg-acir-tests-bb
       - barretenberg-acir-tests-sol
       - noir-test
+      - noir-packages
       - l1-contracts-test
       - noir-packages-test
       - docs-preview
