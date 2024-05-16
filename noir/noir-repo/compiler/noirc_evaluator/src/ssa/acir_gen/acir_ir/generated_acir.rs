@@ -689,7 +689,7 @@ fn black_box_func_expected_input_size(name: BlackBoxFunc) -> Option<usize> {
         // Recursive aggregation has a variable number of inputs
         BlackBoxFunc::RecursiveAggregation => None,
 
-        // Addition over the embedded curve: input are coordinates (x1,y1) and (x2,y2) of the Grumpkin points
+        // Addition over the embedded curve: input are coordinates (x1,y1,infinite1) and (x2,y2,infinite2) of the Grumpkin points
         BlackBoxFunc::EmbeddedCurveAdd => Some(6),
 
         // Big integer operations take in 0 inputs. They use constants for their inputs.

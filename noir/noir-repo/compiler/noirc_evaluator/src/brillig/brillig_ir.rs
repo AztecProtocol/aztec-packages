@@ -170,9 +170,10 @@ pub(crate) mod tests {
         fn multi_scalar_mul(
             &self,
             _points: &[FieldElement],
-            _scalars: &[FieldElement],
-        ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
-            Ok((4_u128.into(), 5_u128.into()))
+            _scalars_lo: &[FieldElement],
+            _scalars_hi: &[FieldElement],
+        ) -> Result<(FieldElement, FieldElement, FieldElement), BlackBoxResolutionError> {
+            Ok((4_u128.into(), 5_u128.into(), 0_u128.into()))
         }
 
         fn ec_add(
