@@ -1,8 +1,6 @@
 use std::path::PathBuf;
 
-use crate::cli::{
-    CircuitReport, GatesCommand, 
-};
+use crate::cli::{CircuitReport, GatesCommand};
 use crate::{Backend, BackendError};
 
 impl Backend {
@@ -15,5 +13,4 @@ impl Backend {
 
         GatesCommand { crs_path: self.crs_directory(), artifact_path }.run(binary_path)
     }
-
 }
