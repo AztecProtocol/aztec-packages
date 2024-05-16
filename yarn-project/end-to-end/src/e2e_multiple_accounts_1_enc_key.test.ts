@@ -10,12 +10,12 @@ import {
   Note,
   type PXE,
   type Wallet,
-  computeMessageSecretHash,
-  generatePublicKey,
+  computeSecretHash,
+  deriveKeys,
 } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup } from './fixtures/utils.js';
+import { expectsNumOfNoteEncryptedLogsInTheLastBlockToBe, setup } from './fixtures/utils.js';
 
 describe('e2e_multiple_accounts_1_enc_key', () => {
   let aztecNode: AztecNode | undefined;
@@ -33,7 +33,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
   beforeEach(async () => {
     ({ teardown, aztecNode, pxe, logger } = await setup(0));
 
-    const encryptionPrivateKey = GrumpkinScalar.random();
+    const encryptionPrivateKey = Fr.random();
 
     for (let i = 0; i < numAccounts; i++) {
       logger.info(`Deploying account contract ${i}/3...`);
@@ -47,10 +47,10 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     logger.info('Account contracts deployed');
 
     // Verify that all accounts use the same encryption key
-    const encryptionPublicKey = generatePublicKey(encryptionPrivateKey);
+    const encryptionPublicKey = deriveKeys(encryptionPrivateKey).publicKeys.masterIncomingViewingPublicKey;
 
     for (const account of accounts) {
-      expect(account.publicKey).toEqual(encryptionPublicKey);
+      expect(account.publicKeys.masterIncomingViewingPublicKey).toEqual(encryptionPublicKey);
     }
 
     logger.info(`Deploying Token...`);
@@ -59,7 +59,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     logger.info(`Token deployed at ${tokenAddress}`);
 
     const secret = Fr.random();
-    const secretHash = computeMessageSecretHash(secret);
+    const secretHash = computeSecretHash(secret);
 
     const receipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
 
@@ -75,7 +75,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     await pxe.addNote(extendedNote);
 
     await token.methods.redeem_shield(accounts[0], initialBalance, secret).send().wait();
-  }, 100_000);
+  });
 
   afterEach(() => teardown());
 
@@ -109,7 +109,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
       await expectBalance(i, expectedBalances[i]);
     }
 
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
+    await expectsNumOfNoteEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
 
     logger.info(`Transfer ${transferAmount} from ${sender} to ${receiver} successful`);
   };
@@ -142,5 +142,5 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
       expectedBalancesAfterTransfer2[2] + transferAmount3,
     ];
     await transfer(1, 2, transferAmount3, expectedBalancesAfterTransfer3);
-  }, 180_000);
+  });
 });

@@ -5,13 +5,10 @@ import {
   type DebugLogger,
   ExtendedNote,
   Fr,
-  type GrumpkinPrivateKey,
-  GrumpkinScalar,
   Note,
   type PXE,
-  type PublicKey,
-  computeMessageSecretHash,
-  generatePublicKey,
+  computeSecretHash,
+  deriveKeys,
 } from '@aztec/aztec.js';
 import { computePartialAddress } from '@aztec/circuits.js';
 import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
@@ -32,8 +29,8 @@ describe('e2e_escrow_contract', () => {
   let owner: AztecAddress;
   let recipient: AztecAddress;
 
-  let escrowPrivateKey: GrumpkinPrivateKey;
-  let escrowPublicKey: PublicKey;
+  let escrowSecretKey: Fr;
+  let escrowPublicKeysHash: Fr;
 
   beforeEach(async () => {
     // Setup environment
@@ -48,11 +45,11 @@ describe('e2e_escrow_contract', () => {
 
     // Generate private key for escrow contract, register key in pxe service, and deploy
     // Note that we need to register it first if we want to emit an encrypted note for it in the constructor
-    escrowPrivateKey = GrumpkinScalar.random();
-    escrowPublicKey = generatePublicKey(escrowPrivateKey);
-    const escrowDeployment = EscrowContract.deployWithPublicKey(escrowPublicKey, wallet, owner);
+    escrowSecretKey = Fr.random();
+    escrowPublicKeysHash = deriveKeys(escrowSecretKey).publicKeys.hash();
+    const escrowDeployment = EscrowContract.deployWithPublicKeysHash(escrowPublicKeysHash, wallet, owner);
     const escrowInstance = escrowDeployment.getInstance();
-    await pxe.registerAccount(escrowPrivateKey, computePartialAddress(escrowInstance));
+    await pxe.registerAccount(escrowSecretKey, computePartialAddress(escrowInstance));
     escrowContract = await escrowDeployment.send().deployed();
     logger.info(`Escrow contract deployed at ${escrowContract.address}`);
 
@@ -61,7 +58,7 @@ describe('e2e_escrow_contract', () => {
 
     const mintAmount = 100n;
     const secret = Fr.random();
-    const secretHash = computeMessageSecretHash(secret);
+    const secretHash = computeSecretHash(secret);
 
     const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
@@ -80,7 +77,7 @@ describe('e2e_escrow_contract', () => {
     await token.methods.redeem_shield(escrowContract.address, mintAmount, secret).send().wait();
 
     logger.info(`Token contract deployed at ${token.address}`);
-  }, 100_000);
+  });
 
   afterEach(() => teardown(), 30_000);
 
@@ -101,19 +98,19 @@ describe('e2e_escrow_contract', () => {
     await expectBalance(owner, 0n);
     await expectBalance(recipient, 30n);
     await expectBalance(escrowContract.address, 70n);
-  }, 60_000);
+  });
 
   it('refuses to withdraw funds as a non-owner', async () => {
     await expect(
       escrowContract.withWallet(recipientWallet).methods.withdraw(token.address, 30, recipient).prove(),
     ).rejects.toThrow();
-  }, 60_000);
+  });
 
   it('moves funds using multiple keys on the same tx (#1010)', async () => {
     logger.info(`Minting funds in token contract to ${owner}`);
     const mintAmount = 50n;
     const secret = Fr.random();
-    const secretHash = computeMessageSecretHash(secret);
+    const secretHash = computeSecretHash(secret);
 
     const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
@@ -139,5 +136,5 @@ describe('e2e_escrow_contract', () => {
 
     await new BatchCall(wallet, actions).send().wait();
     await expectBalance(recipient, 30n);
-  }, 120_000);
+  });
 });

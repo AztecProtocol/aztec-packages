@@ -12,7 +12,7 @@ The purpose of the L1 contracts are simple:
 
 - Facilitate cross-chain communication such that L1 liquidity can be used on L2
 - Act as a validating light node for L2 that every L1 node implicitly run
-  :::
+:::
 
 ## Overview
 
@@ -41,10 +41,12 @@ def process(block: ProvenBlock, proof: Proof):
 ```
 
 :::info Why `math.ceil(log2(MAX_NEW_L2_TO_L1_MSGS_PER_TX))`?
+
 The argument to the `insert` function is the `outbox` is the heigh of the message tree.
 Since every transaction can hold more than 1 message, it might add multiple layers to the tree.
 For a binary tree, the number of extra layers to add is computed as `math.ceil(log2(MAX_NEW_L2_TO_L1_MSGS_PER_TX))`.
 Currently, `MAX_NEW_L2_TO_L1_MSGS_PER_TX = 2` which means that we are simply adding 1 extra layer.
+
 :::
 
 While the `ProvenBlock` must be published and available for nodes to build the state of the rollup, we can build the validating light node (the contract) such that as long as the node can be _convinced_ that the data is available we can progress the state.
@@ -188,8 +190,9 @@ Insertions require a L2 transaction, and it is then to be consumed and moved to 
 
 ### Portals
 
-When deploying a contract on L2, it is possible to specify its "portal" address.
-This is an immutable variable, that can be used to constrain who the L2 contract expects messages from, and who it sends messages to.
+Some contracts on L2 might wish to talk to contracts on L1 - these recipients on L1 are called portals.
+
+Often it is desired to constrain where messages are sent to and received from, which can be done by keeping the portal address in the storage of the L2 contract, such that it can be loaded on demand.
 
 ### Messages
 
@@ -485,10 +488,9 @@ Also, some of the conditions are repetitions of what we saw earlier from the [st
     - The consumer contract SHOULD check that the message exists in the state
 
 :::info
-
 - For cost purposes, it can be useful to commit to the public inputs to just pass a single value into the circuit.
 - Time constraints might change depending on the exact sequencer selection mechanism.
-  :::
+:::
 
 ## Logical Execution
 

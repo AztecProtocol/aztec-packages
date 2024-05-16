@@ -27,22 +27,8 @@ namespace bb::avm_trace {
  * @param bytecode A vector of bytes representing the bytecode to execute.
  * @param calldata expressed as a vector of finite field elements.
  * @throws runtime_error exception when the bytecode is invalid.
- * @return A zk proof of the execution.
+ * @return The verifier key and zk proof of the execution.
  */
-HonkProof Execution::run_and_prove(std::vector<uint8_t> const& bytecode, std::vector<FF> const& calldata)
-{
-    auto instructions = Deserialization::parse(bytecode);
-    auto trace = gen_trace(instructions, calldata);
-    auto circuit_builder = bb::AvmCircuitBuilder();
-    circuit_builder.set_trace(std::move(trace));
-
-    auto composer = AvmComposer();
-    auto prover = composer.create_prover(circuit_builder);
-    auto verifier = composer.create_verifier(circuit_builder);
-    auto proof = prover.construct_proof();
-    return proof;
-}
-
 std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<uint8_t> const& bytecode,
                                                                    std::vector<FF> const& calldata)
 {
@@ -50,9 +36,6 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     auto trace = gen_trace(instructions, calldata);
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
-
-    // Temporarily use this until #4954 is resolved
-    assert(circuit_builder.check_circuit());
 
     auto composer = AvmComposer();
     auto prover = composer.create_prover(circuit_builder);
@@ -72,7 +55,9 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
     // crs_factory_);
     // output_state.pcs_verification_key = std::move(pcs_verification_key);
 
-    return verifier.verify_proof(proof);
+    // TODO: We hardcode public inputs for now
+    std::vector<FF> public_inputs = {};
+    return verifier.verify_proof(proof, public_inputs);
 }
 
 /**
@@ -83,6 +68,22 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
  * @return The trace as a vector of Row.
  */
 std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructions, std::vector<FF> const& calldata)
+{
+    std::vector<FF> returndata{};
+    return gen_trace(instructions, returndata, calldata);
+}
+
+/**
+ * @brief Generate the execution trace pertaining to the supplied instructions returns the return data.
+ *
+ * @param instructions A vector of the instructions to be executed.
+ * @param calldata expressed as a vector of finite field elements.
+ * @return The trace as a vector of Row.
+ */
+std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructions,
+                                      std::vector<FF>& returndata,
+                                      std::vector<FF> const& calldata)
+
 {
     AvmTraceBuilder trace_builder;
 
@@ -120,6 +121,12 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                  std::get<uint32_t>(inst.operands.at(3)),
                                  std::get<uint32_t>(inst.operands.at(4)),
                                  std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        case OpCode::FDIV:
+            trace_builder.op_fdiv(std::get<uint8_t>(inst.operands.at(0)),
+                                  std::get<uint32_t>(inst.operands.at(1)),
+                                  std::get<uint32_t>(inst.operands.at(2)),
+                                  std::get<uint32_t>(inst.operands.at(3)));
             break;
         case OpCode::DIV:
             trace_builder.op_div(std::get<uint8_t>(inst.operands.at(0)),
@@ -179,6 +186,27 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                  std::get<uint32_t>(inst.operands.at(3)),
                                  std::get<uint32_t>(inst.operands.at(4)),
                                  std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        case OpCode::SHR:
+            trace_builder.op_shr(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint32_t>(inst.operands.at(2)),
+                                 std::get<uint32_t>(inst.operands.at(3)),
+                                 std::get<uint32_t>(inst.operands.at(4)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        case OpCode::SHL:
+            trace_builder.op_shl(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint32_t>(inst.operands.at(2)),
+                                 std::get<uint32_t>(inst.operands.at(3)),
+                                 std::get<uint32_t>(inst.operands.at(4)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+            // Compute - Type Conversions
+        case OpCode::CAST:
+            trace_builder.op_cast(std::get<uint8_t>(inst.operands.at(0)),
+                                  std::get<uint32_t>(inst.operands.at(2)),
+                                  std::get<uint32_t>(inst.operands.at(3)),
+                                  std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
             // Execution Environment - Calldata
         case OpCode::CALLDATACOPY:
@@ -240,10 +268,19 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                   std::get<uint32_t>(inst.operands.at(4)));
             break;
             // Control Flow - Contract Calls
-        case OpCode::RETURN:
-            trace_builder.return_op(std::get<uint8_t>(inst.operands.at(0)),
-                                    std::get<uint32_t>(inst.operands.at(1)),
-                                    std::get<uint32_t>(inst.operands.at(2)));
+        case OpCode::RETURN: {
+            auto ret = trace_builder.return_op(std::get<uint8_t>(inst.operands.at(0)),
+                                               std::get<uint32_t>(inst.operands.at(1)),
+                                               std::get<uint32_t>(inst.operands.at(2)));
+            returndata.insert(returndata.end(), ret.begin(), ret.end());
+            break;
+        }
+        case OpCode::TORADIXLE:
+            trace_builder.op_to_radix_le(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint32_t>(inst.operands.at(1)),
+                                         std::get<uint32_t>(inst.operands.at(2)),
+                                         std::get<uint32_t>(inst.operands.at(3)),
+                                         std::get<uint32_t>(inst.operands.at(4)));
             break;
         default:
             break;

@@ -1,6 +1,9 @@
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import type { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AggregationObject } from '../aggregation_object.js';
+import { PartialStateReference } from '../partial_state_reference.js';
 import { RevertCode } from '../revert_code.js';
 import { RollupValidationRequests } from '../rollup_validation_requests.js';
 import { CombinedAccumulatedData } from './combined_accumulated_data.js';
@@ -28,14 +31,29 @@ export class KernelCircuitPublicInputs {
      * Data which is not modified by the circuits.
      */
     public constants: CombinedConstantData,
+    public startState: PartialStateReference,
     /**
      * Flag indicating whether the transaction reverted.
      */
     public revertCode: RevertCode,
+    /**
+     * The address of the fee payer for the transaction.
+     */
+    public feePayer: AztecAddress,
   ) {}
 
   getNonEmptyNullifiers() {
     return this.end.newNullifiers.filter(n => !n.isZero());
+  }
+
+  // Note: it is safe to compute this method in typescript
+  // because we compute the transaction_fee ourselves in the base rollup.
+  // This value must match the value computed in the base rollup,
+  // otherwise the content commitment of the block will be invalid.
+  get transactionFee(): Fr {
+    return this.end.gasUsed
+      .computeFee(this.constants.globalVariables.gasFees)
+      .add(this.constants.txContext.gasSettings.inclusionFee);
   }
 
   toBuffer() {
@@ -44,7 +62,9 @@ export class KernelCircuitPublicInputs {
       this.rollupValidationRequests,
       this.end,
       this.constants,
+      this.startState,
       this.revertCode,
+      this.feePayer,
     );
   }
 
@@ -60,7 +80,9 @@ export class KernelCircuitPublicInputs {
       reader.readObject(RollupValidationRequests),
       reader.readObject(CombinedAccumulatedData),
       reader.readObject(CombinedConstantData),
+      reader.readObject(PartialStateReference),
       reader.readObject(RevertCode),
+      reader.readObject(AztecAddress),
     );
   }
 
@@ -70,7 +92,17 @@ export class KernelCircuitPublicInputs {
       RollupValidationRequests.empty(),
       CombinedAccumulatedData.empty(),
       CombinedConstantData.empty(),
+      PartialStateReference.empty(),
       RevertCode.OK,
+      AztecAddress.ZERO,
     );
+  }
+
+  toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  static fromString(str: string) {
+    return KernelCircuitPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
   }
 }

@@ -78,11 +78,12 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_lookup);
 
     // Compute correction terms for grand products
-    const FF public_input_delta = compute_public_input_delta<Flavor>(inst->public_inputs,
-                                                                     beta,
-                                                                     gamma,
-                                                                     inst->verification_key->circuit_size,
-                                                                     inst->verification_key->pub_inputs_offset);
+    const FF public_input_delta =
+        compute_public_input_delta<Flavor>(inst->public_inputs,
+                                           beta,
+                                           gamma,
+                                           inst->verification_key->circuit_size,
+                                           static_cast<size_t>(inst->verification_key->pub_inputs_offset));
     const FF lookup_grand_product_delta =
         compute_lookup_grand_product_delta<FF>(beta, gamma, inst->verification_key->circuit_size);
     inst->relation_parameters =
@@ -105,7 +106,7 @@ template <class VerifierInstances> void ProtoGalaxyRecursiveVerifier_<VerifierIn
     if (!inst->is_accumulator) {
         receive_and_finalise_instance(inst, domain_separator);
         inst->target_sum = 0;
-        inst->gate_challenges = std::vector<FF>(inst->verification_key->log_circuit_size, 0);
+        inst->gate_challenges = std::vector<FF>(static_cast<size_t>(inst->verification_key->log_circuit_size), 0);
     }
     index++;
 
@@ -128,11 +129,12 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
 
     auto delta = transcript->template get_challenge<FF>("delta");
     auto accumulator = get_accumulator();
-    auto deltas = compute_round_challenge_pows(accumulator->verification_key->log_circuit_size, delta);
+    auto deltas =
+        compute_round_challenge_pows(static_cast<size_t>(accumulator->verification_key->log_circuit_size), delta);
 
-    std::vector<FF> perturbator_coeffs(accumulator->verification_key->log_circuit_size + 1, 0);
+    std::vector<FF> perturbator_coeffs(static_cast<size_t>(accumulator->verification_key->log_circuit_size) + 1, 0);
     if (accumulator->is_accumulator) {
-        for (size_t idx = 1; idx <= accumulator->verification_key->log_circuit_size; idx++) {
+        for (size_t idx = 1; idx <= static_cast<size_t>(accumulator->verification_key->log_circuit_size); idx++) {
             perturbator_coeffs[idx] =
                 transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
         }
@@ -163,44 +165,20 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
     next_accumulator->verification_key->pcs_verification_key = accumulator->verification_key->pcs_verification_key;
     next_accumulator->verification_key->pub_inputs_offset = accumulator->verification_key->pub_inputs_offset;
     next_accumulator->public_inputs = accumulator->public_inputs;
-    size_t vk_idx = 0;
-    for (auto& expected_vk : next_accumulator->verification_key->get_all()) {
-        size_t inst = 0;
-        std::vector<FF> scalars;
-        std::vector<Commitment> commitments;
-        for (auto& instance : instances) {
-            scalars.emplace_back(lagranges[inst]);
-            commitments.emplace_back(instance->verification_key->get_all()[vk_idx]);
-            inst++;
-        }
-        expected_vk = Commitment::batch_mul(commitments, scalars);
-        vk_idx++;
-    }
+
     next_accumulator->is_accumulator = true;
 
-    // Compute next folding parameters and verify against the ones received from the prover
+    // Compute next folding parameters
     next_accumulator->target_sum =
         perturbator_at_challenge * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
     next_accumulator->gate_challenges =
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
-    // Compute ϕ and verify against the data received from the prover
-    auto& acc_witness_commitments = next_accumulator->witness_commitments;
-    size_t comm_idx = 0;
-    for (auto& comm : acc_witness_commitments.get_all()) {
-        std::vector<FF> scalars;
-        std::vector<Commitment> commitments;
-        size_t inst = 0;
-        for (auto& instance : instances) {
-            scalars.emplace_back(lagranges[inst]);
-            commitments.emplace_back(instance->witness_commitments.get_all()[comm_idx]);
-            inst++;
-        }
-        comm = Commitment::batch_mul(commitments, scalars);
-        comm_idx++;
-    }
+    // Compute ϕ
+    fold_commitments(lagranges, instances, next_accumulator);
 
-    next_accumulator->public_inputs = std::vector<FF>(next_accumulator->verification_key->num_public_inputs, 0);
+    next_accumulator->public_inputs =
+        std::vector<FF>(static_cast<size_t>(next_accumulator->verification_key->num_public_inputs), 0);
     size_t public_input_idx = 0;
     for (auto& public_input : next_accumulator->public_inputs) {
         size_t inst = 0;
@@ -245,4 +223,12 @@ template class ProtoGalaxyRecursiveVerifier_<
     RecursiveVerifierInstances_<UltraRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
 template class ProtoGalaxyRecursiveVerifier_<
     RecursiveVerifierInstances_<GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, 2>>;
+template class ProtoGalaxyRecursiveVerifier_<
+    RecursiveVerifierInstances_<UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, 2>>;
+template class ProtoGalaxyRecursiveVerifier_<
+    RecursiveVerifierInstances_<GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
+template class ProtoGalaxyRecursiveVerifier_<
+    RecursiveVerifierInstances_<UltraRecursiveFlavor_<CircuitSimulatorBN254>, 2>>;
+template class ProtoGalaxyRecursiveVerifier_<
+    RecursiveVerifierInstances_<GoblinUltraRecursiveFlavor_<CircuitSimulatorBN254>, 2>>;
 } // namespace bb::stdlib::recursion::honk

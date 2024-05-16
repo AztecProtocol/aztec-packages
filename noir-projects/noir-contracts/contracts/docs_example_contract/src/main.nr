@@ -18,7 +18,11 @@ contract DocsExample {
         PrivateContext, Map, PublicMutable, PublicImmutable, PrivateMutable, PrivateImmutable,
         PrivateSet, SharedImmutable, Deserialize
     };
-    use dep::aztec::{note::note_getter_options::Comparator, context::{PublicContext, Context}};
+    use dep::aztec::{
+        note::note_getter_options::Comparator, context::{PublicContext, Context},
+        keys::getters::{get_npk_m_hash, get_ivpk_m}
+    };
+    use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
     use crate::types::{card_note::{CardNote, CARD_NOTE_LEN}, leader::Leader};
@@ -76,9 +80,7 @@ contract DocsExample {
                 set: PrivateSet::new(context, 5),
                 // docs:end:storage-set-init
                 private_immutable: PrivateImmutable::new(context, 6),
-                // docs:start:storage-shared-immutable
                 shared_immutable: SharedImmutable::new(context, 7),
-                // docs:end:storage-shared-immutable
                 // docs:start:storage-minters-init
                 minters: Map::new(
                     context,
@@ -115,10 +117,9 @@ contract DocsExample {
         // and returns the response.
         // Used to test that we can retrieve values through calls and 
         // correctly return them in the simulation
-        context.call_private_function_no_args(
-            context.this_address(),
-            FunctionSelector::from_signature("get_shared_immutable_constrained_private()")
-        ).unpack_into()
+        let mut leader = DocsExample::at(context.this_address()).get_shared_immutable_constrained_private().static_call(&mut context);
+        leader.points += 1;
+        leader
     }
 
     #[aztec(public)]
@@ -127,15 +128,20 @@ contract DocsExample {
         // and returns the response.
         // Used to test that we can retrieve values through calls and 
         // correctly return them in the simulation
-        context.call_public_function_no_args(
-            context.this_address(),
-            FunctionSelector::from_signature("get_shared_immutable_constrained_public()")
-        ).deserialize_into()
+        let mut leader = DocsExample::at(context.this_address()).get_shared_immutable_constrained_public().static_call(&mut context);
+        leader.points += 1;
+        leader
     }
 
     #[aztec(public)]
     fn get_shared_immutable_constrained_public() -> pub Leader {
         storage.shared_immutable.read_public()
+    }
+
+    #[aztec(public)]
+    fn get_shared_immutable_constrained_public_multiple() -> pub [Leader; 5] {
+        let a = storage.shared_immutable.read_public();
+        [a, a, a, a, a]
     }
 
     #[aztec(private)]
@@ -164,31 +170,43 @@ contract DocsExample {
     // docs:start:initialize-private-mutable
     #[aztec(private)]
     fn initialize_private_immutable(randomness: Field, points: u8) {
-        let mut new_card = CardNote::new(points, randomness, context.msg_sender());
-        storage.private_immutable.initialize(&mut new_card, true);
+        let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
+        let msg_sender_ivpk_m = get_ivpk_m(&mut context, context.msg_sender());
+
+        let mut new_card = CardNote::new(points, randomness, msg_sender_npk_m_hash);
+        storage.private_immutable.initialize(&mut new_card, true, msg_sender_ivpk_m);
     }
     // docs:end:initialize-private-mutable
 
     #[aztec(private)]
     // msg_sender() is 0 at deploy time. So created another function
     fn initialize_private(randomness: Field, points: u8) {
-        let mut legendary_card = CardNote::new(points, randomness, context.msg_sender());
+        let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
+        let msg_sender_ivpk_m = get_ivpk_m(&mut context, context.msg_sender());
+
+        let mut legendary_card = CardNote::new(points, randomness, msg_sender_npk_m_hash);
         // create and broadcast note
-        storage.legendary_card.initialize(&mut legendary_card, true);
+        storage.legendary_card.initialize(&mut legendary_card, true, msg_sender_ivpk_m);
     }
 
     #[aztec(private)]
-    fn insert_notes(amounts: [u8; 10]) {
+    fn insert_notes(amounts: [u8; 3]) {
+        let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
+        let msg_sender_ivpk_m = get_ivpk_m(&mut context, context.msg_sender());
+
         for i in 0..amounts.len() {
-            let mut note = CardNote::new(amounts[i], 1, context.msg_sender());
-            storage.set.insert(&mut note, true);
+            let mut note = CardNote::new(amounts[i], 1, msg_sender_npk_m_hash);
+            storage.set.insert(&mut note, true, msg_sender_ivpk_m);
         }
     }
 
     #[aztec(private)]
     fn insert_note(amount: u8, randomness: Field) {
-        let mut note = CardNote::new(amount, randomness, context.msg_sender());
-        storage.set.insert(&mut note, true);
+        let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
+        let msg_sender_ivpk_m = get_ivpk_m(&mut context, context.msg_sender());
+
+        let mut note = CardNote::new(amount, randomness, msg_sender_npk_m_hash);
+        storage.set.insert(&mut note, true, msg_sender_ivpk_m);
     }
 
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
@@ -208,14 +226,12 @@ contract DocsExample {
 
     #[aztec(private)]
     fn update_legendary_card(randomness: Field, points: u8) {
-        let mut new_card = CardNote::new(points, randomness, context.msg_sender());
-        storage.legendary_card.replace(&mut new_card, true);
+        let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
+        let msg_sender_ivpk_m = get_ivpk_m(&mut context, context.msg_sender());
 
-        context.call_public_function(
-            context.this_address(),
-            FunctionSelector::from_signature("update_leader((Field),u8)"),
-            [context.msg_sender().to_field(), points as Field]
-        );
+        let mut new_card = CardNote::new(points, randomness, msg_sender_npk_m_hash);
+        storage.legendary_card.replace(&mut new_card, true, msg_sender_ivpk_m);
+        DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(&mut context);
     }
 
     #[aztec(private)]
@@ -224,21 +240,20 @@ contract DocsExample {
         // Also serves as a e2e test that you can `get_note()` and then `replace()`
 
         // docs:start:state_vars-PrivateMutableGet
-        let card = storage.legendary_card.get_note(false);
+        let card = storage.legendary_card.get_note(false, GrumpkinPoint::zero());
         // docs:end:state_vars-PrivateMutableGet
 
         let points = card.points + 1;
 
-        let mut new_card = CardNote::new(points, card.randomness, context.msg_sender());
+        let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
+        let msg_sender_ivpk_m = get_ivpk_m(&mut context, context.msg_sender());
+
+        let mut new_card = CardNote::new(points, card.randomness, msg_sender_npk_m_hash);
         // docs:start:state_vars-PrivateMutableReplace
-        storage.legendary_card.replace(&mut new_card, true);
+        storage.legendary_card.replace(&mut new_card, true, msg_sender_ivpk_m);
         // docs:end:state_vars-PrivateMutableReplace
 
-        context.call_public_function(
-            context.this_address(),
-            FunctionSelector::from_signature("update_leader((Field),u8)"),
-            [context.msg_sender().to_field(), points as Field]
-        );
+        DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(&mut context);
     }
 
     #[aztec(private)]
@@ -313,7 +328,7 @@ contract DocsExample {
         b: Field // The actual return type of our circuit is the PrivateCircuitPublicInputs struct, this will be the 
         // input to our kernel! 
         // docs:start:context-example-return
-    ) -> distinct pub PrivateCircuitPublicInputs {
+    ) -> pub PrivateCircuitPublicInputs {
         // docs:end:context-example-return
         // ************************************************************
         // The hasher is a structure used to generate a hash of the circuits inputs. 

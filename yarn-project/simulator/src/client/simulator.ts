@@ -1,15 +1,13 @@
 import { type AztecNode, type FunctionCall, type Note, type TxExecutionRequest } from '@aztec/circuit-types';
-import { CallContext, FunctionData, GasSettings } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { CallContext, FunctionData } from '@aztec/circuits.js';
 import {
   type ArrayType,
-  type FunctionArtifactWithDebugMetadata,
+  type FunctionArtifact,
   FunctionSelector,
   FunctionType,
   encodeArguments,
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
@@ -61,15 +59,13 @@ export class AcirSimulator {
    * @param request - The transaction request.
    * @param entryPointArtifact - The artifact of the entry point function.
    * @param contractAddress - The address of the contract (should match request.origin)
-   * @param portalContractAddress - The address of the portal contract.
    * @param msgSender - The address calling the function. This can be replaced to simulate a call from another contract or a specific account.
    * @returns The result of the execution.
    */
   public async run(
     request: TxExecutionRequest,
-    entryPointArtifact: FunctionArtifactWithDebugMetadata,
+    entryPointArtifact: FunctionArtifact,
     contractAddress: AztecAddress,
-    portalContractAddress: EthAddress,
     msgSender = AztecAddress.ZERO,
   ): Promise<ExecutionResult> {
     if (entryPointArtifact.functionType !== FunctionType.SECRET) {
@@ -82,36 +78,29 @@ export class AcirSimulator {
       );
     }
 
-    const curve = new Grumpkin();
-
     const header = await this.db.getHeader();
 
     // reserve the first side effect for the tx hash (inserted by the private kernel)
     const startSideEffectCounter = 1;
 
-    const transactionFee = Fr.ZERO; // TODO(palla/gas-in-circuits)
     const callContext = new CallContext(
       msgSender,
       contractAddress,
-      portalContractAddress,
       FunctionSelector.fromNameAndParameters(entryPointArtifact.name, entryPointArtifact.parameters),
       false,
       false,
       startSideEffectCounter,
-      GasSettings.empty(), // TODO(palla/gas-in-circuits)
-      transactionFee,
     );
     const context = new ClientExecutionContext(
       contractAddress,
-      request.argsHash,
+      request.firstCallArgsHash,
       request.txContext,
       callContext,
       header,
       request.authWitnesses,
-      PackedValuesCache.create(request.packedArguments),
+      PackedValuesCache.create(request.argsOfCalls),
       new ExecutionNoteCache(),
       this.db,
-      curve,
       this.node,
       startSideEffectCounter,
     );
@@ -138,11 +127,11 @@ export class AcirSimulator {
    */
   public async runUnconstrained(
     request: FunctionCall,
-    entryPointArtifact: FunctionArtifactWithDebugMetadata,
+    entryPointArtifact: FunctionArtifact,
     contractAddress: AztecAddress,
   ) {
     if (entryPointArtifact.functionType !== FunctionType.UNCONSTRAINED) {
-      throw new Error(`Cannot run ${entryPointArtifact.functionType} function as constrained`);
+      throw new Error(`Cannot run ${entryPointArtifact.functionType} function as unconstrained`);
     }
 
     const context = new ViewDataOracle(contractAddress, [], this.db, this.node);
@@ -176,7 +165,7 @@ export class AcirSimulator {
     noteTypeId: Fr,
     note: Note,
   ) {
-    const artifact: FunctionArtifactWithDebugMetadata | undefined = await this.db.getFunctionArtifactByName(
+    const artifact: FunctionArtifact | undefined = await this.db.getFunctionArtifactByName(
       contractAddress,
       'compute_note_hash_and_nullifier',
     );
@@ -209,7 +198,7 @@ export class AcirSimulator {
       args: encodeArguments(artifact, [contractAddress, nonce, storageSlot, noteTypeId, extendedNoteItems]),
     };
 
-    const [innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier] = (await this.runUnconstrained(
+    const [innerNoteHash, uniqueNoteHash, siloedNoteHash, innerNullifier] = (await this.runUnconstrained(
       execRequest,
       artifact,
       contractAddress,
@@ -217,8 +206,8 @@ export class AcirSimulator {
 
     return {
       innerNoteHash: new Fr(innerNoteHash),
+      uniqueNoteHash: new Fr(uniqueNoteHash),
       siloedNoteHash: new Fr(siloedNoteHash),
-      uniqueSiloedNoteHash: new Fr(uniqueSiloedNoteHash),
       innerNullifier: new Fr(innerNullifier),
     };
   }
@@ -240,83 +229,5 @@ export class AcirSimulator {
       note,
     );
     return innerNoteHash;
-  }
-
-  /**
-   * Computes the unique note hash of a note.
-   * @param contractAddress - The address of the contract.
-   * @param nonce - The nonce of the note hash.
-   * @param storageSlot - The storage slot.
-   * @param noteTypeId - The note type identifier.
-   * @param note - The note.
-   * @returns The note hash.
-   */
-  public async computeUniqueSiloedNoteHash(
-    contractAddress: AztecAddress,
-    nonce: Fr,
-    storageSlot: Fr,
-    noteTypeId: Fr,
-    note: Note,
-  ) {
-    const { uniqueSiloedNoteHash } = await this.computeNoteHashAndNullifier(
-      contractAddress,
-      nonce,
-      storageSlot,
-      noteTypeId,
-      note,
-    );
-    return uniqueSiloedNoteHash;
-  }
-
-  /**
-   * Computes the siloed note hash of a note.
-   * @param contractAddress - The address of the contract.
-   * @param nonce - The nonce of the note hash.
-   * @param storageSlot - The storage slot.
-   * @param noteTypeId - The note type identifier.
-   * @param note - The note.
-   * @returns The note hash.
-   */
-  public async computeSiloedNoteHash(
-    contractAddress: AztecAddress,
-    nonce: Fr,
-    storageSlot: Fr,
-    noteTypeId: Fr,
-    note: Note,
-  ) {
-    const { siloedNoteHash } = await this.computeNoteHashAndNullifier(
-      contractAddress,
-      nonce,
-      storageSlot,
-      noteTypeId,
-      note,
-    );
-    return siloedNoteHash;
-  }
-
-  /**
-   * Computes the inner note hash of a note, which contains storage slot and the custom note hash.
-   * @param contractAddress - The address of the contract.
-   * @param nonce - The nonce of the unique note hash.
-   * @param storageSlot - The storage slot.
-   * @param noteTypeId - The note type identifier.
-   * @param note - The note.
-   * @returns The note hash.
-   */
-  public async computeInnerNullifier(
-    contractAddress: AztecAddress,
-    nonce: Fr,
-    storageSlot: Fr,
-    noteTypeId: Fr,
-    note: Note,
-  ) {
-    const { innerNullifier } = await this.computeNoteHashAndNullifier(
-      contractAddress,
-      nonce,
-      storageSlot,
-      noteTypeId,
-      note,
-    );
-    return innerNullifier;
   }
 }

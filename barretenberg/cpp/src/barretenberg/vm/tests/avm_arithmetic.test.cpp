@@ -1,6 +1,7 @@
 #include "avm_common.test.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
+#include "barretenberg/vm/tests/helpers.test.hpp"
 #include <cstdint>
 
 namespace tests_avm {
@@ -167,6 +168,35 @@ size_t common_validate_eq(std::vector<Row> const& trace,
     return static_cast<size_t>(alu_row - trace.begin());
 }
 
+size_t common_validate_div(std::vector<Row> const& trace,
+                           FF const& a,
+                           FF const& b,
+                           FF const& c,
+                           FF const& addr_a,
+                           FF const& addr_b,
+                           FF const& addr_c,
+                           avm_trace::AvmMemoryTag const tag)
+{
+    // Find the first row enabling the division selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_div == FF(1); });
+
+    // Find the corresponding Alu trace row
+    auto clk = row->avm_main_clk;
+    auto alu_row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) { return r.avm_alu_clk == clk; });
+
+    // Check that both rows were found
+    EXPECT_TRUE(row != trace.end());
+    EXPECT_TRUE(alu_row != trace.end());
+
+    common_validate_arithmetic_op(*row, *alu_row, a, b, c, addr_a, addr_b, addr_c, tag);
+    EXPECT_EQ(row->avm_main_w_in_tag, FF(static_cast<uint32_t>(tag)));
+
+    // Check that division selector is set.
+    EXPECT_EQ(alu_row->avm_alu_op_div, FF(1));
+
+    return static_cast<size_t>(alu_row - trace.begin());
+}
+
 // Generate a trace with an EQ opcode operation.
 std::vector<Row> gen_trace_eq(uint128_t const& a,
                               uint128_t const& b,
@@ -282,6 +312,7 @@ class AvmArithmeticTestsU16 : public AvmArithmeticTests {};
 class AvmArithmeticTestsU32 : public AvmArithmeticTests {};
 class AvmArithmeticTestsU64 : public AvmArithmeticTests {};
 class AvmArithmeticTestsU128 : public AvmArithmeticTests {};
+class AvmArithmeticTestsDiv : public AvmArithmeticTests, public testing::WithParamInterface<ThreeOpParamRow> {};
 
 class AvmArithmeticNegativeTestsFF : public AvmArithmeticTests {};
 class AvmArithmeticNegativeTestsU8 : public AvmArithmeticTests {};
@@ -290,6 +321,18 @@ class AvmArithmeticNegativeTestsU32 : public AvmArithmeticTests {};
 class AvmArithmeticNegativeTestsU64 : public AvmArithmeticTests {};
 class AvmArithmeticNegativeTestsU128 : public AvmArithmeticTests {};
 
+std::vector<AvmMemoryTag> uint_mem_tags{
+    { AvmMemoryTag::U8, AvmMemoryTag::U16, AvmMemoryTag::U32, AvmMemoryTag::U64, AvmMemoryTag::U128 }
+};
+std::vector<std::array<FF, 3>> positive_op_div_test_values = { {
+    { FF(10), FF(5), FF(2) },
+    { FF(5323), FF(5323), FF(1) },
+    { FF(13793), FF(10590617LLU), FF(0) },
+    { FF(0x7bff744e3cdf79LLU), FF(0x14ccccccccb6LLU), FF(1526) },
+    { uint256_t::from_uint128((uint128_t{ 0x1006021301080000 } << 64) + uint128_t{ 0x000000000000001080876844827 }),
+      uint256_t::from_uint128(uint128_t{ 0xb900000000000001 }),
+      uint256_t::from_uint128(uint128_t{ 0x162c4ad3b97863a1 }) },
+} };
 /******************************************************************************
  *
  * POSITIVE TESTS
@@ -334,7 +377,7 @@ TEST_F(AvmArithmeticTestsFF, addition)
     EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
     EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0));
 
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), {}, true);
 }
 
 // Test on basic subtraction over finite field type.
@@ -353,7 +396,6 @@ TEST_F(AvmArithmeticTestsFF, subtraction)
     EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
     EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0));
 
-    avm_trace::log_avm_trace(trace, 0, 10);
     validate_trace(std::move(trace));
 }
 
@@ -398,17 +440,17 @@ TEST_F(AvmArithmeticTestsFF, multiplicationByZero)
 }
 
 // Test on basic division over finite field type.
-TEST_F(AvmArithmeticTestsFF, division)
+TEST_F(AvmArithmeticTestsFF, fDivision)
 {
     trace_builder.calldata_copy(0, 0, 2, 0, std::vector<FF>{ 15, 315 });
 
-    //                             Memory layout:    [15,315,0,0,0,0,....]
-    trace_builder.op_div(0, 1, 0, 2, AvmMemoryTag::FF); // [15,315,21,0,0,0....]
+    //                  Memory layout:    [15,315,0,0,0,0,....]
+    trace_builder.op_fdiv(0, 1, 0, 2); // [15,315,21,0,0,0....]
     trace_builder.return_op(0, 0, 3);
     auto trace = trace_builder.finalize();
 
-    // Find the first row enabling the division selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_div == FF(1); });
+    // Find the first row enabling the fdiv selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
 
     // Check that the correct result is stored at the expected memory location.
     EXPECT_TRUE(row != trace.end());
@@ -421,17 +463,17 @@ TEST_F(AvmArithmeticTestsFF, division)
 }
 
 // Test on division with zero numerator over finite field type.
-TEST_F(AvmArithmeticTestsFF, divisionNumeratorZero)
+TEST_F(AvmArithmeticTestsFF, fDivisionNumeratorZero)
 {
     trace_builder.calldata_copy(0, 0, 1, 0, std::vector<FF>{ 15 });
 
-    //                             Memory layout:    [15,0,0,0,0,0,....]
-    trace_builder.op_div(0, 1, 0, 0, AvmMemoryTag::FF); // [0,0,0,0,0,0....]
+    //                  Memory layout:    [15,0,0,0,0,0,....]
+    trace_builder.op_fdiv(0, 1, 0, 0); // [0,0,0,0,0,0....]
     trace_builder.return_op(0, 0, 3);
     auto trace = trace_builder.finalize();
 
-    // Find the first row enabling the division selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_div == FF(1); });
+    // Find the first row enabling the fdiv selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
 
     // Check that the correct result is stored at the expected memory location.
     EXPECT_TRUE(row != trace.end());
@@ -445,17 +487,17 @@ TEST_F(AvmArithmeticTestsFF, divisionNumeratorZero)
 
 // Test on division by zero over finite field type.
 // We check that the operator error flag is raised.
-TEST_F(AvmArithmeticTestsFF, divisionByZeroError)
+TEST_F(AvmArithmeticTestsFF, fDivisionByZeroError)
 {
     trace_builder.calldata_copy(0, 0, 1, 0, std::vector<FF>{ 15 });
 
-    //                             Memory layout:    [15,0,0,0,0,0,....]
-    trace_builder.op_div(0, 0, 1, 2, AvmMemoryTag::FF); // [15,0,0,0,0,0....]
+    //                  Memory layout:    [15,0,0,0,0,0,....]
+    trace_builder.op_fdiv(0, 0, 1, 2); // [15,0,0,0,0,0....]
     trace_builder.halt();
     auto trace = trace_builder.finalize();
 
-    // Find the first row enabling the division selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_div == FF(1); });
+    // Find the first row enabling the fdiv selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
 
     // Check that the correct result is stored at the expected memory location.
     EXPECT_TRUE(row != trace.end());
@@ -470,15 +512,15 @@ TEST_F(AvmArithmeticTestsFF, divisionByZeroError)
 
 // Test on division of zero by zero over finite field type.
 // We check that the operator error flag is raised.
-TEST_F(AvmArithmeticTestsFF, divisionZeroByZeroError)
+TEST_F(AvmArithmeticTestsFF, fDivisionZeroByZeroError)
 {
-    //                             Memory layout:    [0,0,0,0,0,0,....]
-    trace_builder.op_div(0, 0, 1, 2, AvmMemoryTag::FF); // [0,0,0,0,0,0....]
+    //                  Memory layout:    [0,0,0,0,0,0,....]
+    trace_builder.op_fdiv(0, 0, 1, 2); // [0,0,0,0,0,0....]
     trace_builder.halt();
     auto trace = trace_builder.finalize();
 
-    // Find the first row enabling the division selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_div == FF(1); });
+    // Find the first row enabling the fdiv selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
 
     // Check that the correct result is stored at the expected memory location.
     EXPECT_TRUE(row != trace.end());
@@ -506,14 +548,13 @@ TEST_F(AvmArithmeticTestsFF, mixedOperationsWithError)
     trace_builder.op_add(0, 5, 6, 7, AvmMemoryTag::FF); // [0,0,45,23,68,136,0,136,0....]
     trace_builder.op_sub(0, 7, 6, 8, AvmMemoryTag::FF); // [0,0,45,23,68,136,0,136,136,0....]
     trace_builder.op_mul(0, 8, 8, 8, AvmMemoryTag::FF); // [0,0,45,23,68,136,0,136,136^2,0....]
-    trace_builder.op_div(0, 3, 5, 1, AvmMemoryTag::FF); // [0,23*136^(-1),45,23,68,136,0,136,136^2,0....]
-    trace_builder.op_div(0, 1, 1, 9, AvmMemoryTag::FF); // [0,23*136^(-1),45,23,68,136,0,136,136^2,1,0....]
-    trace_builder.op_div(
-        0, 9, 0, 4, AvmMemoryTag::FF); // [0,23*136^(-1),45,23,1/0,136,0,136,136^2,1,0....] Error: division by 0
+    trace_builder.op_fdiv(0, 3, 5, 1);                  // [0,23*136^(-1),45,23,68,136,0,136,136^2,0....]
+    trace_builder.op_fdiv(0, 1, 1, 9);                  // [0,23*136^(-1),45,23,68,136,0,136,136^2,1,0....]
+    trace_builder.op_fdiv(0, 9, 0, 4); // [0,23*136^(-1),45,23,1/0,136,0,136,136^2,1,0....] Error: division by 0
     trace_builder.halt();
 
     auto trace = trace_builder.finalize();
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), {}, true);
 }
 
 // Test of equality on FF elements
@@ -548,6 +589,51 @@ TEST_F(AvmArithmeticTestsFF, nonEquality)
 
     EXPECT_EQ(alu_row.avm_alu_ff_tag, FF(1));
     EXPECT_EQ(alu_row.avm_alu_op_eq_diff_inv, FF(-1).invert());
+    validate_trace(std::move(trace));
+}
+
+TEST_P(AvmArithmeticTestsDiv, division)
+{
+    const auto [operands, mem_tag] = GetParam();
+    const auto [a, b, output] = operands;
+    auto trace_builder = avm_trace::AvmTraceBuilder();
+    trace_builder.op_set(0, uint128_t(a), 0, mem_tag);
+    trace_builder.op_set(0, uint128_t(b), 1, mem_tag);
+    trace_builder.op_div(0, 0, 1, 2, mem_tag);
+    trace_builder.return_op(0, 0, 0);
+    auto trace = trace_builder.finalize();
+
+    common_validate_div(trace, a, b, output, 0, 1, 2, mem_tag);
+    // auto alu_row = trace.at(alu_row_index);
+
+    validate_trace(std::move(trace));
+}
+INSTANTIATE_TEST_SUITE_P(AvmArithmeticTestsDiv,
+                         AvmArithmeticTestsDiv,
+                         testing::ValuesIn(gen_three_op_params(positive_op_div_test_values, uint_mem_tags)));
+
+// Test on division by zero over U128.
+// We check that the operator error flag is raised.
+TEST_F(AvmArithmeticTests, DivisionByZeroError)
+{
+    auto trace_builder = avm_trace::AvmTraceBuilder();
+    trace_builder.op_set(0, 100, 0, AvmMemoryTag::U128);
+    trace_builder.op_set(0, 0, 1, AvmMemoryTag::U128);
+    trace_builder.op_div(0, 0, 1, 2, AvmMemoryTag::U128);
+    trace_builder.halt();
+    auto trace = trace_builder.finalize();
+
+    // Find the first row enabling the div selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_div == FF(1); });
+
+    // Check that the correct result is stored at the expected memory location.
+    EXPECT_TRUE(row != trace.end());
+    EXPECT_EQ(row->avm_main_ic, FF(0));
+    EXPECT_EQ(row->avm_main_mem_idx_c, FF(2));
+    EXPECT_EQ(row->avm_main_mem_op_c, FF(1));
+    EXPECT_EQ(row->avm_main_rwc, FF(1));
+    EXPECT_EQ(row->avm_main_op_err, FF(1));
+
     validate_trace(std::move(trace));
 }
 
@@ -1668,34 +1754,34 @@ TEST_F(AvmArithmeticNegativeTestsFF, multiplication)
 }
 
 // Test on basic incorrect division over finite field type.
-TEST_F(AvmArithmeticNegativeTestsFF, divisionFF)
+TEST_F(AvmArithmeticNegativeTestsFF, fDivision)
 {
     trace_builder.calldata_copy(0, 0, 2, 0, std::vector<FF>{ 15, 315 });
 
-    //                             Memory layout:    [15,315,0,0,0,0,....]
-    trace_builder.op_div(0, 1, 0, 2, AvmMemoryTag::FF); // [15,315,21,0,0,0....]
+    //                  Memory layout:    [15,315,0,0,0,0,....]
+    trace_builder.op_fdiv(0, 1, 0, 2); // [15,315,21,0,0,0....]
     trace_builder.halt();
     auto trace = trace_builder.finalize();
 
-    auto select_row = [](Row r) { return r.avm_main_sel_op_div == FF(1); };
+    auto select_row = [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); };
     mutate_ic_in_trace(trace, std::move(select_row), FF(0));
 
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_DIVISION_FF");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_FDIV");
 }
 
 // Test where division is not by zero but an operation error is wrongly raised
 // in the trace.
-TEST_F(AvmArithmeticNegativeTestsFF, divisionNoZeroButError)
+TEST_F(AvmArithmeticNegativeTestsFF, fDivisionNoZeroButError)
 {
     trace_builder.calldata_copy(0, 0, 2, 0, std::vector<FF>{ 15, 315 });
 
-    //                             Memory layout:    [15,315,0,0,0,0,....]
-    trace_builder.op_div(0, 1, 0, 2, AvmMemoryTag::FF); // [15,315,21,0,0,0....]
+    //                  Memory layout:    [15,315,0,0,0,0,....]
+    trace_builder.op_fdiv(0, 1, 0, 2); // [15,315,21,0,0,0....]
     trace_builder.halt();
     auto trace = trace_builder.finalize();
 
-    // Find the first row enabling the division selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_div == FF(1); });
+    // Find the first row enabling the fdiv selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
 
     size_t const index = static_cast<size_t>(row - trace.begin());
 
@@ -1703,47 +1789,83 @@ TEST_F(AvmArithmeticNegativeTestsFF, divisionNoZeroButError)
     trace[index].avm_main_op_err = FF(1);
     auto trace2 = trace;
 
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_DIVISION_ZERO_ERR1");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_FDIV_ZERO_ERR1");
 
     // Even more malicious, one makes the first relation passes by setting the inverse to zero.
     trace2[index].avm_main_inv = FF(0);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace2)), "SUBOP_DIVISION_ZERO_ERR2");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace2)), "SUBOP_FDIV_ZERO_ERR2");
 }
 
-// Test with division by zero occurs and no error is raised (remove error flag)
-TEST_F(AvmArithmeticNegativeTestsFF, divisionByZeroNoError)
+// Test with finite field division by zero occurs and no error is raised (remove error flag)
+TEST_F(AvmArithmeticNegativeTestsFF, fDivisionByZeroNoError)
 {
     trace_builder.calldata_copy(0, 0, 1, 0, std::vector<FF>{ 15 });
 
-    //                             Memory layout:    [15,0,0,0,0,0,....]
-    trace_builder.op_div(0, 0, 1, 2, AvmMemoryTag::FF); // [15,0,0,0,0,0....]
+    //                  Memory layout:    [15,0,0,0,0,0,....]
+    trace_builder.op_fdiv(0, 0, 1, 2); // [15,0,0,0,0,0....]
     trace_builder.halt();
     auto trace = trace_builder.finalize();
 
-    // Find the first row enabling the division selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_div == FF(1); });
+    // Find the first row enabling the fdiv selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
 
     // Remove the operator error flag
     row->avm_main_op_err = FF(0);
 
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_DIVISION_FF");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_FDIV");
 }
 
-// Test with division of zero by zero occurs and no error is raised (remove error flag)
-TEST_F(AvmArithmeticNegativeTestsFF, divisionZeroByZeroNoError)
+// Test with finite field division of zero by zero occurs and no error is raised (remove error flag)
+TEST_F(AvmArithmeticNegativeTestsFF, fDivisionZeroByZeroNoError)
 {
-    //                             Memory layout:    [0,0,0,0,0,0,....]
-    trace_builder.op_div(0, 0, 1, 2, AvmMemoryTag::FF); // [0,0,0,0,0,0....]
+    //                  Memory layout:    [0,0,0,0,0,0,....]
+    trace_builder.op_fdiv(0, 0, 1, 2); // [0,0,0,0,0,0....]
     trace_builder.halt();
     auto trace = trace_builder.finalize();
 
-    // Find the first row enabling the division selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_div == FF(1); });
+    // Find the first row enabling the fdiv selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
 
     // Remove the operator error flag
     row->avm_main_op_err = FF(0);
 
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_DIVISION_ZERO_ERR1");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_FDIV_ZERO_ERR1");
+}
+
+// Test with finite field division using a wrong read instruction tag
+TEST_F(AvmArithmeticNegativeTestsFF, fDivisionWrongRInTag)
+{
+    trace_builder.calldata_copy(0, 0, 1, 0, std::vector<FF>{ 18, 6 });
+    //                  Memory layout:    [18,6,0,0,0,0,....]
+    trace_builder.op_fdiv(0, 0, 1, 2); // [18,6,3,0,0,0....]
+    trace_builder.halt();
+    auto trace = trace_builder.finalize();
+
+    // Find the first row enabling the fdiv selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
+
+    // Change read instruction tag
+    row->avm_main_r_in_tag = FF(3);
+
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_FDIV_R_IN_TAG_FF");
+}
+
+// Test with finite field division using a wrong write instruction tag
+TEST_F(AvmArithmeticNegativeTestsFF, fDivisionWrongWInTag)
+{
+    trace_builder.calldata_copy(0, 0, 1, 0, std::vector<FF>{ 18, 6 });
+    //                  Memory layout:    [18,6,0,0,0,0,....]
+    trace_builder.op_fdiv(0, 0, 1, 2); // [18,6,3,0,0,0....]
+    trace_builder.halt();
+    auto trace = trace_builder.finalize();
+
+    // Find the first row enabling the fdiv selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
+
+    // Change write instruction tag
+    row->avm_main_w_in_tag = FF(3);
+
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_FDIV_W_IN_TAG_FF");
 }
 
 // Test that error flag cannot be raised for a non-relevant operation such as

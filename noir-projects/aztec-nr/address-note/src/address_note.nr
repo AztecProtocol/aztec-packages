@@ -1,11 +1,10 @@
-// docs:start:encrypted_import
-use dep::aztec::log::emit_encrypted_log;
-// docs:end:encrypted_import
 use dep::aztec::{
-    protocol_types::{address::AztecAddress, traits::Empty},
+    protocol_types::{
+    address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+    grumpkin_point::GrumpkinPoint, hash::poseidon2_hash
+},
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
-    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key},
-    hash::pedersen_hash, context::PrivateContext
+    oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app, context::PrivateContext
 };
 
 global ADDRESS_NOTE_LEN: Field = 3;
@@ -15,54 +14,51 @@ global ADDRESS_NOTE_LEN: Field = 3;
 #[aztec(note)]
 struct AddressNote {
     address: AztecAddress,
-    owner: AztecAddress,
+    // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
+    npk_m_hash: Field,
     randomness: Field,
 }
 
-impl NoteInterface<ADDRESS_NOTE_LEN>  for AddressNote {
+impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
 
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_nullifier_secret_key(self.owner);
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash([
+        let secret = context.request_nsk_app(self.npk_m_hash);
+        poseidon2_hash([
             note_hash_for_nullify,
-            secret.low,
-            secret.high,
-        ],0)
+            secret,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+        ])
     }
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nullifier_secret_key(self.owner);
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash([
+        let secret = get_nsk_app(self.npk_m_hash);
+        poseidon2_hash([
             note_hash_for_nullify,
-            secret.low,
-            secret.high,
-        ],0)
+            secret,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+        ])
     }
 
     // Broadcasts the note as an encrypted log on L1.
-    fn broadcast(self, context: &mut PrivateContext, slot: Field) {
-        let encryption_pub_key = get_public_key(self.owner);
+    fn broadcast(self, context: &mut PrivateContext, slot: Field, ivpk_m: GrumpkinPoint) {
         // docs:start:encrypted
-        emit_encrypted_log(
-            context,
+        context.emit_note_encrypted_log(
             (*context).this_address(),
             slot,
             Self::get_note_type_id(),
-            encryption_pub_key,
-            self.serialize_content(),
+            ivpk_m,
+            self,
         );
         // docs:end:encrypted
     }
 }
 
 impl AddressNote {
-    pub fn new(address: AztecAddress, owner: AztecAddress) -> Self {
+    pub fn new(address: AztecAddress, npk_m_hash: Field) -> Self {
         let randomness = unsafe_rand();
-        AddressNote { address, owner, randomness, header: NoteHeader::empty() }
+        AddressNote { address, npk_m_hash, randomness, header: NoteHeader::empty() }
     }
     // docs:end:address_note_def
 }

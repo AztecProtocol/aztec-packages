@@ -128,8 +128,8 @@ pub(super) fn transform_internal(
                 new_acir_opcode_positions.push(acir_opcode_positions[index]);
                 transformed_opcodes.push(opcode);
             }
-            Opcode::Brillig(ref brillig) => {
-                for output in &brillig.outputs {
+            Opcode::BrilligCall { ref outputs, .. } => {
+                for output in outputs {
                     match output {
                         BrilligOutputs::Simple(w) => transformer.mark_solvable(*w),
                         BrilligOutputs::Array(v) => {
@@ -139,6 +139,7 @@ pub(super) fn transform_internal(
                         }
                     }
                 }
+
                 new_acir_opcode_positions.push(acir_opcode_positions[index]);
                 transformed_opcodes.push(opcode);
             }

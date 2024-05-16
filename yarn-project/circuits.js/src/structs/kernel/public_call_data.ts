@@ -1,10 +1,10 @@
-import { type Fr } from '@aztec/foundation/fields';
-import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { type MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL } from '../../constants.gen.js';
-import { type CallRequest } from '../call_request.js';
-import { type Proof } from '../proof.js';
-import { type PublicCallStackItem } from '../public_call_stack_item.js';
+import { MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL } from '../../constants.gen.js';
+import { CallRequest } from '../call_request.js';
+import { Proof } from '../proof.js';
+import { PublicCallStackItem } from '../public_call_stack_item.js';
 
 /**
  * Public calldata assembled from the kernel execution result and proof.
@@ -24,22 +24,25 @@ export class PublicCallData {
      */
     public readonly proof: Proof,
     /**
-     * Address of the corresponding portal contract.
-     */
-    public readonly portalContractAddress: Fr,
-    /**
      * Hash of the L2 contract bytecode.
      */
     public readonly bytecodeHash: Fr,
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(
-      this.callStackItem,
-      this.publicCallStack,
-      this.proof,
-      this.portalContractAddress,
-      this.bytecodeHash,
+    return serializeToBuffer(this.callStackItem, this.publicCallStack, this.proof, this.bytecodeHash);
+  }
+
+  static fromBuffer(buffer: BufferReader | Buffer) {
+    const reader = BufferReader.asReader(buffer);
+    return new PublicCallData(
+      reader.readObject(PublicCallStackItem),
+      reader.readArray<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>(
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+        CallRequest,
+      ),
+      reader.readObject(Proof),
+      reader.readObject(Fr),
     );
   }
 }

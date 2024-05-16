@@ -1,12 +1,11 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { type Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
-  NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH,
   NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH,
+  SCOPED_NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH,
 } from '../constants.gen.js';
-import { type GrumpkinPrivateKey } from '../types/grumpkin_private_key.js';
 
 /**
  * Request for validating a nullifier key pair used in the app.
@@ -14,26 +13,26 @@ import { type GrumpkinPrivateKey } from '../types/grumpkin_private_key.js';
 export class NullifierKeyValidationRequest {
   constructor(
     /**
-     * Public key of the nullifier key.
+     * Public key of the nullifier key (Npk_m).
      */
-    public readonly publicKey: Point,
+    public readonly masterNullifierPublicKey: Point,
     /**
-     * Secret key of the nullifier key.
+     * App-siloed nullifier secret key (nsk_app*).
      */
-    public readonly secretKey: GrumpkinPrivateKey,
+    public readonly appNullifierSecretKey: Fr,
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.publicKey, this.secretKey);
+    return serializeToBuffer(this.masterNullifierPublicKey, this.appNullifierSecretKey);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new NullifierKeyValidationRequest(Point.fromBuffer(reader), GrumpkinScalar.fromBuffer(reader));
+    return new NullifierKeyValidationRequest(Point.fromBuffer(reader), Fr.fromBuffer(reader));
   }
 
   toFields(): Fr[] {
-    const fields = [this.publicKey.toFields(), this.secretKey.high, this.secretKey.low].flat();
+    const fields = [this.masterNullifierPublicKey.toFields(), this.appNullifierSecretKey].flat();
     if (fields.length !== NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH) {
       throw new Error(
         `Invalid number of fields for NullifierKeyValidationRequest. Expected ${NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH}, got ${fields.length}`,
@@ -44,74 +43,59 @@ export class NullifierKeyValidationRequest {
 
   static fromFields(fields: Fr[] | FieldReader): NullifierKeyValidationRequest {
     const reader = FieldReader.asReader(fields);
-    return new NullifierKeyValidationRequest(Point.fromFields(reader), reader.readFq());
+    return new NullifierKeyValidationRequest(Point.fromFields(reader), reader.readField());
   }
 
   isEmpty() {
-    return this.publicKey.isZero() && this.secretKey.isZero();
+    return this.masterNullifierPublicKey.isZero() && this.appNullifierSecretKey.isZero();
   }
 
   static empty() {
-    return new NullifierKeyValidationRequest(Point.ZERO, GrumpkinScalar.ZERO);
+    return new NullifierKeyValidationRequest(Point.ZERO, Fr.ZERO);
   }
 }
 
 /**
  * Request for validating a nullifier key pair used in the app.
  */
-export class NullifierKeyValidationRequestContext {
-  constructor(
-    /**
-     * Public key of the nullifier key.
-     */
-    public readonly publicKey: Point,
-    /**
-     * Secret key of the nullifier key.
-     */
-    public readonly secretKey: GrumpkinPrivateKey,
-    /**
-     * The storage contract address the nullifier key is for.
-     */
-    public readonly contractAddress: AztecAddress,
-  ) {}
+export class ScopedNullifierKeyValidationRequest {
+  constructor(public readonly request: NullifierKeyValidationRequest, public readonly contractAddress: AztecAddress) {}
 
   toBuffer() {
-    return serializeToBuffer(this.publicKey, this.secretKey, this.contractAddress);
+    return serializeToBuffer(this.request, this.contractAddress);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new NullifierKeyValidationRequestContext(
-      Point.fromBuffer(reader),
-      GrumpkinScalar.fromBuffer(reader),
+    return new ScopedNullifierKeyValidationRequest(
+      NullifierKeyValidationRequest.fromBuffer(reader),
       AztecAddress.fromBuffer(reader),
     );
   }
 
   toFields(): Fr[] {
-    const fields = [this.publicKey.toFields(), this.secretKey.high, this.secretKey.low, this.contractAddress].flat();
-    if (fields.length !== NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH) {
+    const fields = [...this.request.toFields(), this.contractAddress];
+    if (fields.length !== SCOPED_NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH) {
       throw new Error(
-        `Invalid number of fields for NullifierKeyValidationRequestContext. Expected ${NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH}, got ${fields.length}`,
+        `Invalid number of fields for ScopedNullifierKeyValidationRequest. Expected ${SCOPED_NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH}, got ${fields.length}`,
       );
     }
     return fields;
   }
 
-  static fromFields(fields: Fr[] | FieldReader): NullifierKeyValidationRequestContext {
+  static fromFields(fields: Fr[] | FieldReader): ScopedNullifierKeyValidationRequest {
     const reader = FieldReader.asReader(fields);
-    return new NullifierKeyValidationRequestContext(
-      Point.fromFields(reader),
-      reader.readFq(),
+    return new ScopedNullifierKeyValidationRequest(
+      NullifierKeyValidationRequest.fromFields(reader),
       AztecAddress.fromFields(reader),
     );
   }
 
   isEmpty() {
-    return this.publicKey.isZero() && this.secretKey.isZero() && this.contractAddress.isZero();
+    return this.request.isEmpty() && this.contractAddress.isZero();
   }
 
   static empty() {
-    return new NullifierKeyValidationRequestContext(Point.ZERO, GrumpkinScalar.ZERO, AztecAddress.ZERO);
+    return new ScopedNullifierKeyValidationRequest(NullifierKeyValidationRequest.empty(), AztecAddress.ZERO);
   }
 }

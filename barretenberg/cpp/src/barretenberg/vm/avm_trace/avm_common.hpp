@@ -1,8 +1,8 @@
 #pragma once
 
-#include "barretenberg/relations/generated/avm/avm_binary.hpp"
 #include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
 #include "barretenberg/vm/generated/avm_circuit_builder.hpp"
+#include "constants.hpp"
 #include <cstdint>
 
 namespace bb::avm_trace {

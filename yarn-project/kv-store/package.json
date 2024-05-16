@@ -33,11 +33,19 @@
     },
     "extensionsToTreatAsEsm": [
       ".ts"
+    ],
+    "reporters": [
+      [
+        "default",
+        {
+          "summaryThreshold": 9999
+        }
+      ]
     ]
   },
   "dependencies": {
     "@aztec/foundation": "workspace:^",
-    "lmdb": "^2.9.2"
+    "lmdb": "^3.0.6"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",

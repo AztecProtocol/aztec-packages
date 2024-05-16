@@ -8,13 +8,8 @@ import {
   RevertCode,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
-import { sha256 } from '@aztec/foundation/crypto';
-import {
-  BufferReader,
-  serializeArrayOfBufferableToVector,
-  serializeToBuffer,
-  truncateAndPad,
-} from '@aztec/foundation/serialize';
+import { sha256Trunc } from '@aztec/foundation/crypto';
+import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
@@ -25,6 +20,10 @@ export class TxEffect {
      */
     public revertCode: RevertCode,
     /**
+     * The transaction fee, denominated in FPA.
+     */
+    public transactionFee: Fr,
+    /**
      * The note hashes to be inserted into the note hash tree.
      */
     public noteHashes: Fr[],
@@ -33,7 +32,8 @@ export class TxEffect {
      */
     public nullifiers: Fr[],
     /**
-     * The L2 to L1 messages to be inserted into the messagebox on L1.
+     * The hash of L2 to L1 messages to be inserted into the messagebox on L1.
+     * TODO(just-mitch): rename to l2ToL1MsgHashes
      */
     public l2ToL1Msgs: Fr[],
     /**
@@ -43,6 +43,7 @@ export class TxEffect {
     /**
      * The logs of the txEffect
      */
+    public noteEncryptedLogs: EncryptedTxL2Logs,
     public encryptedLogs: EncryptedTxL2Logs,
     public unencryptedLogs: UnencryptedTxL2Logs,
   ) {
@@ -90,10 +91,12 @@ export class TxEffect {
   toBuffer(): Buffer {
     return serializeToBuffer([
       this.revertCode,
+      this.transactionFee,
       serializeArrayOfBufferableToVector(this.noteHashes, 1),
       serializeArrayOfBufferableToVector(this.nullifiers, 1),
       serializeArrayOfBufferableToVector(this.l2ToL1Msgs, 1),
       serializeArrayOfBufferableToVector(this.publicDataWrites, 1),
+      this.noteEncryptedLogs,
       this.encryptedLogs,
       this.unencryptedLogs,
     ]);
@@ -109,10 +112,12 @@ export class TxEffect {
 
     return new TxEffect(
       RevertCode.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       reader.readVectorUint8Prefix(Fr),
       reader.readVectorUint8Prefix(Fr),
       reader.readVectorUint8Prefix(Fr),
       reader.readVectorUint8Prefix(PublicDataWrite),
+      reader.readObject(EncryptedTxL2Logs),
       reader.readObject(EncryptedTxL2Logs),
       reader.readObject(UnencryptedTxL2Logs),
     );
@@ -143,20 +148,23 @@ export class TxEffect {
       PublicDataWrite.SIZE_IN_BYTES * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );
 
+    const noteEncryptedLogsHashKernel0 = this.noteEncryptedLogs.hash(0);
     const encryptedLogsHashKernel0 = this.encryptedLogs.hash();
     const unencryptedLogsHashKernel0 = this.unencryptedLogs.hash();
 
     const inputValue = Buffer.concat([
       this.revertCode.toHashPreimage(),
+      this.transactionFee.toBuffer(),
       noteHashesBuffer,
       nullifiersBuffer,
       l2ToL1MsgsBuffer,
       publicDataWritesBuffer,
+      noteEncryptedLogsHashKernel0,
       encryptedLogsHashKernel0,
       unencryptedLogsHashKernel0,
     ]);
 
-    return truncateAndPad(sha256(inputValue));
+    return sha256Trunc(inputValue);
   }
 
   static random(
@@ -167,17 +175,29 @@ export class TxEffect {
   ): TxEffect {
     return new TxEffect(
       RevertCode.random(),
+      Fr.random(),
       makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, Fr.random),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.random),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
+      EncryptedTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall),
       EncryptedTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall),
       UnencryptedTxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall),
     );
   }
 
   static empty(): TxEffect {
-    return new TxEffect(RevertCode.OK, [], [], [], [], EncryptedTxL2Logs.empty(), UnencryptedTxL2Logs.empty());
+    return new TxEffect(
+      RevertCode.OK,
+      Fr.ZERO,
+      [],
+      [],
+      [],
+      [],
+      EncryptedTxL2Logs.empty(),
+      EncryptedTxL2Logs.empty(),
+      UnencryptedTxL2Logs.empty(),
+    );
   }
 
   isEmpty(): boolean {
@@ -196,10 +216,12 @@ export class TxEffect {
 
     return `TxEffect { 
       revertCode: ${this.revertCode},
+      transactionFee: ${this.transactionFee},
       note hashes: [${this.noteHashes.map(h => h.toString()).join(', ')}],
       nullifiers: [${this.nullifiers.map(h => h.toString()).join(', ')}],
       l2ToL1Msgs: [${this.l2ToL1Msgs.map(h => h.toString()).join(', ')}],
       publicDataWrites: [${this.publicDataWrites.map(h => h.toString()).join(', ')}],
+      noteEncryptedLogs: ${JSON.stringify(this.noteEncryptedLogs.toJSON())},
       encryptedLogs: ${JSON.stringify(this.encryptedLogs.toJSON())},
       unencryptedLogs: ${JSON.stringify(this.unencryptedLogs.toJSON())}
      }`;

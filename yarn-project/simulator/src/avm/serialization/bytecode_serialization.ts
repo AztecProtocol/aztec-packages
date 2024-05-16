@@ -1,5 +1,6 @@
-import { DAGasLeft, L1GasLeft, L2GasLeft } from '../opcodes/context_getters.js';
+import { DAGasLeft, L2GasLeft } from '../opcodes/context_getters.js';
 import { Keccak, Pedersen, Poseidon2, Sha256 } from '../opcodes/hashing.js';
+import type { Instruction } from '../opcodes/index.js';
 import {
   Add,
   Address,
@@ -10,13 +11,13 @@ import {
   CalldataCopy,
   Cast,
   ChainId,
+  DebugLog,
   Div,
   EmitNoteHash,
   EmitNullifier,
   EmitUnencryptedLog,
   Eq,
   FeePerDAGas,
-  FeePerL1Gas,
   FeePerL2Gas,
   FieldDiv,
   GetContractInstance,
@@ -33,8 +34,6 @@ import {
   NoteHashExists,
   NullifierExists,
   Or,
-  Origin,
-  Portal,
   Return,
   Revert,
   SLoad,
@@ -48,10 +47,11 @@ import {
   StorageAddress,
   Sub,
   Timestamp,
+  ToRadixLE,
+  TransactionFee,
   Version,
   Xor,
 } from '../opcodes/index.js';
-import type { Instruction } from '../opcodes/index.js';
 import { BufferCursor } from './buffer_cursor.js';
 import { Opcode } from './instruction_serialization.js';
 
@@ -82,12 +82,10 @@ const INSTRUCTION_SET = () =>
     [Cast.opcode, Cast],
     [Address.opcode, Address],
     [StorageAddress.opcode, StorageAddress],
-    [Origin.opcode, Origin],
     [Sender.opcode, Sender],
-    [Portal.opcode, Portal],
-    [FeePerL1Gas.opcode, FeePerL1Gas],
     [FeePerL2Gas.opcode, FeePerL2Gas],
     [FeePerDAGas.opcode, FeePerDAGas],
+    [TransactionFee.opcode, TransactionFee],
     //[Contractcalldepth.opcode, Contractcalldepth],
     // Execution Environment - Globals
     [ChainId.opcode, ChainId],
@@ -95,7 +93,6 @@ const INSTRUCTION_SET = () =>
     [BlockNumber.opcode, BlockNumber],
     [Timestamp.opcode, Timestamp],
     //[Coinbase.opcode, Coinbase],
-    //[Blockl1gaslimit.opcode, Blockl1gaslimit],
     //[Blockl2gaslimit.opcode, Blockl2gaslimit],
     //[Blockdagaslimit.opcode, Blockdagaslimit],
     // Execution Environment - Calldata
@@ -103,7 +100,6 @@ const INSTRUCTION_SET = () =>
 
     // Machine State
     // Machine State - Gas
-    [L1GasLeft.opcode, L1GasLeft],
     [L2GasLeft.opcode, L2GasLeft],
     [DAGasLeft.opcode, DAGasLeft],
     // Machine State - Internal Control Flow
@@ -137,11 +133,16 @@ const INSTRUCTION_SET = () =>
     [Return.opcode, Return],
     [Revert.opcode, Revert],
 
+    // Misc
+    [DebugLog.opcode, DebugLog],
+
     // //// Gadgets
     [Keccak.opcode, Keccak],
     [Poseidon2.opcode, Poseidon2],
     [Sha256.opcode, Sha256],
     [Pedersen.opcode, Pedersen],
+    // Conversions
+    [ToRadixLE.opcode, ToRadixLE],
   ]);
 
 interface Serializable {

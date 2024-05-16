@@ -1,5 +1,6 @@
 #include "eccvm_trace_checker.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 
 using namespace bb;
 
@@ -8,10 +9,10 @@ using Builder = typename ECCVMFlavor::CircuitBuilder;
 using FF = typename ECCVMFlavor::FF;
 using ProverPolynomials = typename ECCVMFlavor::ProverPolynomials;
 
-bool ECCVMTraceChecker::check(Builder& builder)
+bool ECCVMTraceChecker::check(Builder& builder, numeric::RNG* engine_ptr)
 {
-    const FF gamma = FF::random_element();
-    const FF beta = FF::random_element();
+    const FF gamma = FF::random_element(engine_ptr);
+    const FF beta = FF::random_element(engine_ptr);
     const FF beta_sqr = beta.sqr();
     const FF beta_cube = beta_sqr * beta;
     auto eccvm_set_permutation_delta =
@@ -31,7 +32,7 @@ bool ECCVMTraceChecker::check(Builder& builder)
     ProverPolynomials polynomials(builder);
     const size_t num_rows = polynomials.get_polynomial_size();
     compute_logderivative_inverse<Flavor, ECCVMLookupRelation<FF>>(polynomials, params, num_rows);
-    compute_permutation_grand_product<Flavor, ECCVMSetRelation<FF>>(num_rows, polynomials, params);
+    compute_grand_product<Flavor, ECCVMSetRelation<FF>>(polynomials, params);
 
     polynomials.z_perm_shift = Polynomial(polynomials.z_perm.shifted());
 

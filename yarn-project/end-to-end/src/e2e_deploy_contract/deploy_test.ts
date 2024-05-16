@@ -3,26 +3,23 @@ import {
   type AccountWallet,
   type AztecAddress,
   type AztecNode,
-  CompleteAddress,
   type ContractArtifact,
   type ContractBase,
   type DebugLogger,
-  type EthAddress,
-  type Fr,
+  Fr,
   type PXE,
   type Wallet,
   createDebugLogger,
   getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
-import { type Point } from '@aztec/circuits.js';
 import { type StatefulTestContract } from '@aztec/noir-contracts.js';
 
-import { SnapshotManager, addAccounts } from '../fixtures/snapshot_manager.js';
+import { type ISnapshotManager, addAccounts, createSnapshotManager } from '../fixtures/snapshot_manager.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
 
 export class DeployTest {
-  private snapshotManager: SnapshotManager;
+  private snapshotManager: ISnapshotManager;
   private wallets: AccountWallet[] = [];
 
   public logger: DebugLogger;
@@ -32,7 +29,7 @@ export class DeployTest {
 
   constructor(testName: string) {
     this.logger = createDebugLogger(`aztec:e2e_deploy_contract:${testName}`);
-    this.snapshotManager = new SnapshotManager(`e2e_deploy_contract/${testName}`, dataPath);
+    this.snapshotManager = createSnapshotManager(`e2e_deploy_contract/${testName}`, dataPath);
   }
 
   async setup() {
@@ -64,20 +61,18 @@ export class DeployTest {
     contractArtifact: ContractArtifactClass<T>,
     opts: {
       salt?: Fr;
-      publicKey?: Point;
-      portalAddress?: EthAddress;
+      publicKeysHash?: Fr;
       initArgs?: any[];
       constructorName?: string;
       deployer?: AztecAddress;
     } = {},
   ): Promise<T> {
-    const { salt, publicKey, portalAddress, initArgs, constructorName, deployer } = opts;
+    const { salt, publicKeysHash, initArgs, constructorName, deployer } = opts;
     const instance = getContractInstanceFromDeployParams(contractArtifact.artifact, {
       constructorArgs: initArgs ?? [],
       constructorArtifact: constructorName,
       salt,
-      publicKey,
-      portalAddress,
+      publicKeysHash,
       deployer,
     });
     await wallet.registerContract({ artifact: contractArtifact.artifact, instance });
@@ -85,10 +80,8 @@ export class DeployTest {
   }
 
   async registerRandomAccount(): Promise<AztecAddress> {
-    const pxe = this.pxe;
-    const { completeAddress: owner, privateKey } = CompleteAddress.fromRandomPrivateKey();
-    await pxe.registerAccount(privateKey, owner.partialAddress);
-    return owner.address;
+    const completeAddress = await this.pxe.registerAccount(Fr.random(), Fr.random());
+    return completeAddress.address;
   }
 }
 

@@ -1,12 +1,4 @@
-import {
-  AztecAddress,
-  CallContext,
-  EthAddress,
-  FunctionData,
-  FunctionSelector,
-  GasSettings,
-  type Header,
-} from '@aztec/circuits.js';
+import { AztecAddress, CallContext, FunctionData, FunctionSelector, type Header } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -28,13 +20,10 @@ describe('AVM WitGen and Proof Generation', () => {
   const callContext = CallContext.from({
     msgSender: AztecAddress.random(),
     storageContractAddress: AztecAddress.random(),
-    portalContractAddress: EthAddress.random(),
     functionSelector: FunctionSelector.empty(),
     isDelegateCall: false,
     isStaticCall: false,
     sideEffectCounter: 0,
-    gasSettings: GasSettings.empty(),
-    transactionFee: Fr.ZERO,
   });
   const contractAddress = AztecAddress.random();
 
@@ -70,6 +59,6 @@ describe('AVM WitGen and Proof Generation', () => {
       const valid = await executor.verifyAvmProof(vk, proof);
       expect(valid).toBe(true);
     },
-    60 * 1000,
-  ); // 60 seconds should be enough to generate the proof with 16-bit range checks
+    120 * 1000,
+  ); // 120 seconds should be enough to generate the proof with 16-bit range checks
 });

@@ -2,6 +2,8 @@ import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { inspect } from 'util';
+
 import {
   type MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
@@ -9,7 +11,7 @@ import {
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '../../constants.gen.js';
-import { GasUsed } from '../gas_used.js';
+import { Gas } from '../gas.js';
 import { PublicDataUpdateRequest } from '../public_data_update_request.js';
 
 /**
@@ -29,6 +31,11 @@ export class CombinedAccumulatedData {
      * All the new L2 to L1 messages created in this transaction.
      */
     public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    /**
+     * Accumulated encrypted note logs hash from all the previous kernel iterations.
+     * Note: Truncated to 31 bytes to fit in Fr.
+     */
+    public noteEncryptedLogsHash: Fr,
     /**
      * Accumulated encrypted logs hash from all the previous kernel iterations.
      * Note: Truncated to 31 bytes to fit in Fr.
@@ -53,7 +60,7 @@ export class CombinedAccumulatedData {
     public publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
 
     /** Gas used during this transaction */
-    public gasUsed: GasUsed,
+    public gasUsed: Gas,
   ) {}
 
   toBuffer() {
@@ -61,6 +68,7 @@ export class CombinedAccumulatedData {
       this.newNoteHashes,
       this.newNullifiers,
       this.newL2ToL1Msgs,
+      this.noteEncryptedLogsHash,
       this.encryptedLogsHash,
       this.unencryptedLogsHash,
       this.encryptedLogPreimagesLength,
@@ -89,8 +97,9 @@ export class CombinedAccumulatedData {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
-      reader.readObject(GasUsed),
+      reader.readObject(Gas),
     );
   }
 
@@ -112,8 +121,36 @@ export class CombinedAccumulatedData {
       Fr.zero(),
       Fr.zero(),
       Fr.zero(),
+      Fr.zero(),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
-      GasUsed.empty(),
+      Gas.empty(),
     );
+  }
+
+  [inspect.custom]() {
+    return `CombinedAccumulatedData {
+      newNoteHashes: [${this.newNoteHashes
+        .filter(x => !x.isZero())
+        .map(x => inspect(x))
+        .join(', ')}],
+      newNullifiers: [${this.newNullifiers
+        .filter(x => !x.isZero())
+        .map(x => inspect(x))
+        .join(', ')}],
+      newL2ToL1Msgs: [${this.newL2ToL1Msgs
+        .filter(x => !x.isZero())
+        .map(x => inspect(x))
+        .join(', ')}],
+      noteEncryptedLogsHash: ${this.noteEncryptedLogsHash.toString()},
+      encryptedLogsHash: ${this.encryptedLogsHash.toString()},
+      unencryptedLogsHash: ${this.unencryptedLogsHash.toString()},
+      encryptedLogPreimagesLength: ${this.encryptedLogPreimagesLength.toString()},
+      unencryptedLogPreimagesLength: ${this.unencryptedLogPreimagesLength.toString()},
+      publicDataUpdateRequests: [${this.publicDataUpdateRequests
+        .filter(x => !x.isEmpty())
+        .map(x => inspect(x))
+        .join(', ')}],
+      gasUsed: ${inspect(this.gasUsed)}
+    }`;
   }
 }

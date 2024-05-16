@@ -15,6 +15,15 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
     };
 
     /**
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
+     *
+     */
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.q_delta_range.is_zero();
+    }
+
+    /**
      * @brief Expression for the generalized permutation sort gate.
      * @details The relation is defined as C(in(X)...) =
      *    q_delta_range * \sum{ i = [0, 3]} \alpha^i D_i(D_i - 1)(D_i - 2)(D_i - 3)
@@ -35,6 +44,7 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
                                   const Parameters&,
                                   const FF& scaling_factor)
     {
+        BB_OP_COUNT_TIME_NAME("DeltaRange::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
         auto w_1 = View(in.w_l);

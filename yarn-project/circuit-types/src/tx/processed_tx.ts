@@ -9,6 +9,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   Fr,
+  type Gas,
   type Header,
   KernelCircuitPublicInputs,
   type Proof,
@@ -45,7 +46,7 @@ export type PublicKernelRequest = PublicKernelTailRequest | PublicKernelNonTailR
  * Represents a tx that has been processed by the sequencer public processor,
  * so its kernel circuit public inputs are filled in.
  */
-export type ProcessedTx = Pick<Tx, 'proof' | 'encryptedLogs' | 'unencryptedLogs'> & {
+export type ProcessedTx = Pick<Tx, 'proof' | 'noteEncryptedLogs' | 'encryptedLogs' | 'unencryptedLogs'> & {
   /**
    * Output of the private tail or public tail kernel circuit for this tx.
    */
@@ -68,6 +69,11 @@ export type ProcessedTx = Pick<Tx, 'proof' | 'encryptedLogs' | 'unencryptedLogs'
    * The collection of public kernel circuit inputs for simulation/proving
    */
   publicKernelRequests: PublicKernelRequest[];
+  /**
+   * Gas usage per public execution phase.
+   * Doesn't account for any base costs nor DA gas used in private execution.
+   */
+  gasUsed: Partial<Record<PublicKernelType, Gas>>;
 };
 
 export type RevertedTx = ProcessedTx & {
@@ -122,16 +128,20 @@ export function makeProcessedTx(
   proof: Proof,
   publicKernelRequests: PublicKernelRequest[],
   revertReason?: SimulationError,
+  gasUsed: ProcessedTx['gasUsed'] = {},
 ): ProcessedTx {
   return {
     hash: tx.getTxHash(),
     data: kernelOutput,
     proof,
+    // TODO(4712): deal with non-revertible logs here
+    noteEncryptedLogs: revertReason ? EncryptedTxL2Logs.empty() : tx.noteEncryptedLogs,
     encryptedLogs: revertReason ? EncryptedTxL2Logs.empty() : tx.encryptedLogs,
     unencryptedLogs: revertReason ? UnencryptedTxL2Logs.empty() : tx.unencryptedLogs,
     isEmpty: false,
     revertReason,
     publicKernelRequests,
+    gasUsed,
   };
 }
 
@@ -149,6 +159,7 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
   const hash = new TxHash(Fr.ZERO.toBuffer());
   return {
     hash,
+    noteEncryptedLogs: EncryptedTxL2Logs.empty(),
     encryptedLogs: EncryptedTxL2Logs.empty(),
     unencryptedLogs: UnencryptedTxL2Logs.empty(),
     data: emptyKernelOutput,
@@ -156,18 +167,21 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
     isEmpty: true,
     revertReason: undefined,
     publicKernelRequests: [],
+    gasUsed: {},
   };
 }
 
 export function toTxEffect(tx: ProcessedTx): TxEffect {
   return new TxEffect(
     tx.data.revertCode,
+    tx.data.transactionFee,
     tx.data.end.newNoteHashes.filter(h => !h.isZero()),
     tx.data.end.newNullifiers.filter(h => !h.isZero()),
     tx.data.end.newL2ToL1Msgs.filter(h => !h.isZero()),
     tx.data.end.publicDataUpdateRequests
       .map(t => new PublicDataWrite(t.leafSlot, t.newValue))
       .filter(h => !h.isEmpty()),
+    tx.noteEncryptedLogs || EncryptedTxL2Logs.empty(),
     tx.encryptedLogs || EncryptedTxL2Logs.empty(),
     tx.unencryptedLogs || UnencryptedTxL2Logs.empty(),
   );

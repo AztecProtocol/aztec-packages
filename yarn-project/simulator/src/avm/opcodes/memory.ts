@@ -1,5 +1,5 @@
 import type { AvmContext } from '../avm_context.js';
-import { getBaseGasCost, getMemoryGasCost, mulGas, sumGas } from '../avm_gas.js';
+import { getBaseGasCost, getMemoryGasCost, sumGas } from '../avm_gas.js';
 import { Field, type MemoryOperations, TaggedMemory, TypeTag } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import { BufferCursor } from '../serialization/buffer_cursor.js';
@@ -46,7 +46,7 @@ export class Set extends Instruction {
   }
 
   /** We need to use a custom serialize function because of the variable length of the value. */
-  public serialize(): Buffer {
+  public override serialize(): Buffer {
     const format: OperandType[] = [
       ...Set.wireFormatBeforeConst,
       getOperandTypeFromInTag(this.inTag),
@@ -56,7 +56,7 @@ export class Set extends Instruction {
   }
 
   /** We need to use a custom deserialize function because of the variable length of the value. */
-  public static deserialize(this: typeof Set, buf: BufferCursor | Buffer): Set {
+  public static override deserialize(this: typeof Set, buf: BufferCursor | Buffer): Set {
     if (buf instanceof Buffer) {
       buf = new BufferCursor(buf);
     }
@@ -217,8 +217,8 @@ export class CalldataCopy extends Instruction {
     context.machineState.incrementPc();
   }
 
-  protected gasCost(memoryOps: Partial<MemoryOperations & { indirect: number }> = {}) {
-    const baseGasCost = mulGas(getBaseGasCost(this.opcode), this.copySize);
+  protected override gasCost(memoryOps: Partial<MemoryOperations & { indirect: number }> = {}) {
+    const baseGasCost = getBaseGasCost(this.opcode);
     const memoryGasCost = getMemoryGasCost(memoryOps);
     return sumGas(baseGasCost, memoryGasCost);
   }

@@ -1,5 +1,13 @@
 import { UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
-import { Fr, type GlobalVariables, type Header, PublicCircuitPublicInputs } from '@aztec/circuits.js';
+import {
+  Fr,
+  Gas,
+  type GlobalVariables,
+  type Header,
+  type Nullifier,
+  PublicCircuitPublicInputs,
+  type TxContext,
+} from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { spawn } from 'child_process';
@@ -19,7 +27,7 @@ import { PackedValuesCache } from '../common/packed_values_cache.js';
 import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db.js';
 import { type PublicExecution, type PublicExecutionResult, checkValidStaticCall } from './execution.js';
 import { PublicExecutionContext } from './public_execution_context.js';
-import { convertAvmResults, createAvmExecutionEnvironment, isAvmBytecode } from './transitional_adaptors.js';
+import { convertAvmResultsToPxResult, createAvmExecutionEnvironment, isAvmBytecode } from './transitional_adaptors.js';
 
 /**
  * Execute a public function and return the execution result.
@@ -39,15 +47,23 @@ export async function executePublicFunction(
   }
 
   if (isAvmBytecode(bytecode)) {
-    return await executePublicFunctionAvm(context);
+    return await executeTopLevelPublicFunctionAvm(context, bytecode);
   } else {
     return await executePublicFunctionAcvm(context, bytecode, nested);
   }
 }
 
-async function executePublicFunctionAvm(executionContext: PublicExecutionContext): Promise<PublicExecutionResult> {
+/**
+ * Execute a top-level public function call (the first call in an enqueued-call/execution-request) in the AVM.
+ * Translate the results back to the PublicExecutionResult format.
+ */
+async function executeTopLevelPublicFunctionAvm(
+  executionContext: PublicExecutionContext,
+  bytecode: Buffer,
+): Promise<PublicExecutionResult> {
   const address = executionContext.execution.contractAddress;
   const selector = executionContext.execution.functionData.selector;
+  const startGas = executionContext.availableGas;
   const log = createDebugLogger('aztec:simulator:public_execution');
   log.verbose(`[AVM] Executing public external function ${address.toString()}:${selector}.`);
 
@@ -58,29 +74,49 @@ async function executePublicFunctionAvm(executionContext: PublicExecutionContext
     executionContext.contractsDb,
     executionContext.commitmentsDb,
   );
+
+  // TODO(6207): add sideEffectCounter to persistableState construction
+  // or modify the PersistableStateManager to manage rollbacks across enqueued-calls and transactions.
   const worldStateJournal = new AvmPersistableStateManager(hostStorage);
+  const startSideEffectCounter = executionContext.execution.callContext.sideEffectCounter;
+  for (const nullifier of executionContext.pendingNullifiers) {
+    worldStateJournal.nullifiers.cache.appendSiloed(nullifier.value);
+  }
+  // All the subsequent side effects will have a counter larger than the call's start counter.
+  worldStateJournal.trace.accessCounter = startSideEffectCounter + 1;
 
   const executionEnv = createAvmExecutionEnvironment(
     executionContext.execution,
     executionContext.header,
     executionContext.globalVariables,
+    executionContext.gasSettings,
+    executionContext.transactionFee,
   );
 
-  // TODO(@spalladino) Load initial gas from the public execution request
-  const machineState = new AvmMachineState(1e7, 1e7, 1e7);
+  const machineState = new AvmMachineState(startGas);
+  const avmContext = new AvmContext(worldStateJournal, executionEnv, machineState);
+  const simulator = new AvmSimulator(avmContext);
 
-  const context = new AvmContext(worldStateJournal, executionEnv, machineState);
-  const simulator = new AvmSimulator(context);
+  const avmResult = await simulator.executeBytecode(bytecode);
 
-  const result = await simulator.execute();
-  const newWorldState = context.persistableState.flush();
+  // Commit the journals state to the DBs since this is a top-level execution.
+  // Observe that this will write all the state changes to the DBs, not only the latest for each slot.
+  // However, the underlying DB keep a cache and will only write the latest state to disk.
+  await avmContext.persistableState.publicStorage.commitToDB();
 
   log.verbose(
-    `[AVM] ${address.toString()}:${selector} returned, reverted: ${result.reverted}, reason: ${result.revertReason}.`,
+    `[AVM] ${address.toString()}:${selector} returned, reverted: ${avmResult.reverted}, reason: ${
+      avmResult.revertReason
+    }.`,
   );
 
-  // TODO(@spalladino) Read gas left from machineState and return it
-  return await convertAvmResults(executionContext, newWorldState, result);
+  return convertAvmResultsToPxResult(
+    avmResult,
+    startSideEffectCounter,
+    executionContext.execution,
+    startGas,
+    avmContext,
+  );
 }
 
 async function executePublicFunctionAcvm(
@@ -133,10 +169,6 @@ async function executePublicFunctionAcvm(
   })();
 
   if (reverted) {
-    if (!revertReason) {
-      throw new Error('Reverted but no revert reason');
-    }
-
     return {
       execution,
       returnValues: [],
@@ -151,9 +183,15 @@ async function executePublicFunctionAcvm(
       contractStorageReads: [],
       contractStorageUpdateRequests: [],
       nestedExecutions: [],
+      unencryptedLogsHashes: [],
       unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
+      unencryptedLogPreimagesLength: Fr.ZERO,
+      allUnencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       reverted,
       revertReason,
+      startGasLeft: context.availableGas,
+      endGasLeft: Gas.empty(),
+      transactionFee: context.transactionFee,
     };
   }
 
@@ -171,6 +209,8 @@ async function executePublicFunctionAcvm(
     newNullifiers: newNullifiersPadded,
     startSideEffectCounter,
     endSideEffectCounter,
+    unencryptedLogsHashes: unencryptedLogsHashesPadded,
+    unencryptedLogPreimagesLength,
   } = PublicCircuitPublicInputs.fromFields(returnWitness);
   const returnValues = await context.unpackReturns(returnsHash);
 
@@ -179,6 +219,7 @@ async function executePublicFunctionAcvm(
   const newL2ToL1Messages = newL2ToL1Msgs.filter(v => !v.isEmpty());
   const newNoteHashes = newNoteHashesPadded.filter(v => !v.isEmpty());
   const newNullifiers = newNullifiersPadded.filter(v => !v.isEmpty());
+  const unencryptedLogsHashes = unencryptedLogsHashesPadded.filter(v => !v.isEmpty());
 
   const { contractStorageReads, contractStorageUpdateRequests } = context.getStorageActionData();
 
@@ -195,6 +236,11 @@ async function executePublicFunctionAcvm(
 
   const nestedExecutions = context.getNestedExecutions();
   const unencryptedLogs = context.getUnencryptedLogs();
+  const allUnencryptedLogs = context.getAllUnencryptedLogs();
+
+  // TODO(palla/gas): We should be loading these values from the returned PublicCircuitPublicInputs
+  const startGasLeft = context.availableGas;
+  const endGasLeft = context.availableGas; // No gas consumption in non-AVM
 
   return {
     execution,
@@ -209,9 +255,15 @@ async function executePublicFunctionAcvm(
     contractStorageUpdateRequests,
     returnValues,
     nestedExecutions,
+    unencryptedLogsHashes,
     unencryptedLogs,
+    unencryptedLogPreimagesLength,
+    allUnencryptedLogs,
     reverted: false,
     revertReason: undefined,
+    startGasLeft,
+    endGasLeft,
+    transactionFee: context.transactionFee,
   };
 }
 
@@ -236,6 +288,10 @@ export class PublicExecutor {
   public async simulate(
     execution: PublicExecution,
     globalVariables: GlobalVariables,
+    availableGas: Gas,
+    txContext: TxContext,
+    pendingNullifiers: Nullifier[],
+    transactionFee: Fr = Fr.ZERO,
     sideEffectCounter: number = 0,
   ): Promise<PublicExecutionResult> {
     // Functions can request to pack arguments before calling other functions.
@@ -251,6 +307,10 @@ export class PublicExecutor {
       this.stateDb,
       this.contractsDb,
       this.commitmentsDb,
+      availableGas,
+      transactionFee,
+      txContext.gasSettings,
+      pendingNullifiers,
     );
 
     const executionResult = await executePublicFunction(context, /*nested=*/ false);

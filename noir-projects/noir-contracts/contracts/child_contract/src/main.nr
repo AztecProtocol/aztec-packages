@@ -1,14 +1,12 @@
 // A contract used along with `Parent` contract to test nested calls.
 contract Child {
-    use dep::aztec::prelude::{
-        AztecAddress, FunctionSelector, PublicMutable, PrivateSet, PrivateContext, emit_unencrypted_log,
-        Deserialize
-    };
+    use dep::aztec::prelude::{AztecAddress, FunctionSelector, PublicMutable, PrivateSet, PrivateContext, Deserialize};
 
     use dep::aztec::{
         context::{PublicContext, Context, gas::GasOpts},
-        protocol_types::{abis::{call_context::CallContext}},
-        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader}
+        protocol_types::{abis::call_context::CallContext, grumpkin_point::GrumpkinPoint},
+        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader},
+        keys::getters::{get_npk_m_hash, get_ivpk_m}
     };
     use dep::value_note::value_note::ValueNote;
 
@@ -47,24 +45,29 @@ contract Child {
     #[aztec(public)]
     fn pub_set_value(new_value: Field) -> Field {
         storage.current_value.write(new_value);
-        emit_unencrypted_log(&mut context, new_value);
+        context.emit_unencrypted_log(new_value);
 
         new_value
     }
 
     #[aztec(private)]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        let mut note = ValueNote::new(new_value, owner);
-        storage.a_private_value.insert(&mut note, true);
+        let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
+        let owner_ivpk_m = get_ivpk_m(&mut context, owner);
+
+        let mut note = ValueNote::new(new_value, owner_npk_m_hash);
+        storage.a_private_value.insert(&mut note, true, owner_ivpk_m);
         new_value
     }
 
     #[aztec(private)]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
+        let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
+
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, amount, Option::none()).select(
-            ValueNote::properties().owner,
-            owner.to_field(),
+            ValueNote::properties().npk_m_hash,
+            owner_npk_m_hash,
             Option::none()
         ).set_limit(1);
         let notes = storage.a_private_value.get_notes(options);
@@ -76,7 +79,7 @@ contract Child {
     fn pub_inc_value(new_value: Field) -> Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
-        emit_unencrypted_log(&mut context, new_value);
+        context.emit_unencrypted_log(new_value);
 
         new_value
     }
@@ -87,36 +90,32 @@ contract Child {
     fn pub_inc_value_internal(new_value: Field) -> Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
-        emit_unencrypted_log(&mut context, new_value);
+        context.emit_unencrypted_log(new_value);
 
         new_value
     }
 
     #[aztec(public)]
     fn set_value_twice_with_nested_first() {
-        let pub_set_value_selector = FunctionSelector::from_signature("pub_set_value(Field)");
-        let _result: Field = context.call_public_function(
-            context.this_address(),
-            pub_set_value_selector,
-            [10],
-            GasOpts::default()
-        ).deserialize_into();
-
+        let _result = Child::at(context.this_address()).pub_set_value(10).call(&mut context);
         storage.current_value.write(20);
-        emit_unencrypted_log(&mut context, 20);
+        context.emit_unencrypted_log(20);
     }
 
     #[aztec(public)]
     fn set_value_twice_with_nested_last() {
         storage.current_value.write(20);
-        emit_unencrypted_log(&mut context, 20);
+        context.emit_unencrypted_log(20);
+        let _result = Child::at(context.this_address()).pub_set_value(10).call(&mut context);
+    }
 
-        let pub_set_value_selector = FunctionSelector::from_signature("pub_set_value(Field)");
-        let _result: Field = context.call_public_function(
-            context.this_address(),
-            pub_set_value_selector,
-            [10],
-            GasOpts::default()
-        ).deserialize_into();
+    #[aztec(public)]
+    // TODO(6052): The logs emitted are currently in the wrong order as we don't update
+    // counters for nested public calls
+    fn set_value_with_two_nested_calls() {
+        Child::at(context.this_address()).set_value_twice_with_nested_first().call(&mut context);
+        Child::at(context.this_address()).set_value_twice_with_nested_last().call(&mut context);
+        storage.current_value.write(20);
+        context.emit_unencrypted_log(20);
     }
 }

@@ -16,6 +16,15 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
     };
 
     /**
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
+     *
+     */
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.q_poseidon2_internal.is_zero();
+    }
+
+    /**
      * @brief Expression for the poseidon2 internal round relation, based on I_i in Section 6 of
      * https://eprint.iacr.org/2023/323.pdf.
      * @details This relation is defined as C(in(X)...) :=
@@ -40,6 +49,7 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
                            const Parameters&,
                            const FF& scaling_factor)
     {
+        BB_OP_COUNT_TIME_NAME("PoseidonInt::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
         auto w_l = View(in.w_l);

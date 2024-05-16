@@ -7,13 +7,8 @@ import { mock } from 'jest-mock-extended';
 import { type CommitmentsDB } from '../../index.js';
 import { type AvmContext } from '../avm_context.js';
 import { Field, Uint8 } from '../avm_memory_types.js';
-import { InstructionExecutionError } from '../errors.js';
-import {
-  initContext,
-  initExecutionEnvironment,
-  initHostStorage,
-  initL1ToL2MessageOracleInput,
-} from '../fixtures/index.js';
+import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
+import { initContext, initExecutionEnvironment, initHostStorage } from '../fixtures/index.js';
 import { AvmPersistableStateManager } from '../journal/journal.js';
 import {
   EmitNoteHash,
@@ -24,7 +19,6 @@ import {
   NullifierExists,
   SendL2ToL1Message,
 } from './accrued_substate.js';
-import { StaticCallStorageAlterError } from './storage.js';
 
 describe('Accrued Substate', () => {
   let context: AvmContext;
@@ -348,7 +342,32 @@ describe('Accrued Substate', () => {
 
       // mock commitments db to show message exists
       const commitmentsDb = mock<CommitmentsDB>();
-      commitmentsDb.getL1ToL2MembershipWitness.mockResolvedValue(initL1ToL2MessageOracleInput(leafIndex.toBigInt()));
+      commitmentsDb.getL1ToL2LeafValue.mockResolvedValue(msgHash.toFr());
+      const hostStorage = initHostStorage({ commitmentsDb });
+      context = initContext({ persistableState: new AvmPersistableStateManager(hostStorage) });
+
+      context.machineState.memory.set(msgHashOffset, msgHash);
+      context.machineState.memory.set(msgLeafIndexOffset, leafIndex);
+      await new L1ToL2MessageExists(/*indirect=*/ 0, msgHashOffset, msgLeafIndexOffset, existsOffset).execute(context);
+
+      const exists = context.machineState.memory.getAs<Uint8>(existsOffset);
+      expect(exists).toEqual(new Uint8(1));
+
+      const journalState = context.persistableState.flush();
+      expect(journalState.l1ToL2MessageChecks).toEqual([
+        expect.objectContaining({ leafIndex: leafIndex.toFr(), msgHash: msgHash.toFr(), exists: true }),
+      ]);
+    });
+
+    it('Should correctly show false when another L1ToL2 message exists at that index', async () => {
+      const msgHash = new Field(69n);
+      const leafIndex = new Field(42n);
+      const msgHashOffset = 0;
+      const msgLeafIndexOffset = 1;
+      const existsOffset = 2;
+
+      const commitmentsDb = mock<CommitmentsDB>();
+      commitmentsDb.getL1ToL2LeafValue.mockResolvedValue(Fr.ZERO);
       const hostStorage = initHostStorage({ commitmentsDb });
       context = initContext({ persistableState: new AvmPersistableStateManager(hostStorage) });
 
@@ -358,11 +377,11 @@ describe('Accrued Substate', () => {
 
       // never created, doesn't exist!
       const exists = context.machineState.memory.getAs<Uint8>(existsOffset);
-      expect(exists).toEqual(new Uint8(1));
+      expect(exists).toEqual(new Uint8(0));
 
       const journalState = context.persistableState.flush();
       expect(journalState.l1ToL2MessageChecks).toEqual([
-        expect.objectContaining({ leafIndex: leafIndex.toFr(), msgHash: msgHash.toFr(), exists: true }),
+        expect.objectContaining({ leafIndex: leafIndex.toFr(), msgHash: msgHash.toFr(), exists: false }),
       ]);
     });
   });
@@ -445,7 +464,9 @@ describe('Accrued Substate', () => {
       ).execute(context);
 
       const journalState = context.persistableState.flush();
-      expect(journalState.newL1Messages).toEqual([{ recipient: EthAddress.fromField(recipient), content }]);
+      expect(journalState.newL1Messages).toEqual([
+        expect.objectContaining({ recipient: EthAddress.fromField(recipient), content }),
+      ]);
     });
   });
 
@@ -460,7 +481,7 @@ describe('Accrued Substate', () => {
     ];
 
     for (const instruction of instructions) {
-      await expect(instruction.execute(context)).rejects.toThrow(StaticCallStorageAlterError);
+      await expect(instruction.execute(context)).rejects.toThrow(StaticCallAlterationError);
     }
   });
 });

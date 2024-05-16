@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 
 const NOIR_CONSTANTS_FILE = '../../../../noir-projects/noir-protocol-circuits/crates/types/src/constants.nr';
 const TS_CONSTANTS_FILE = '../constants.gen.ts';
+const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/vm/avm_trace/aztec_constants.hpp';
 const SOLIDITY_CONSTANTS_FILE = '../../../../l1-contracts/src/core/libraries/ConstantsGen.sol';
 
 /**
@@ -30,6 +31,24 @@ function processConstantsTS(constants: { [key: string]: string }): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
     code.push(`export const ${key} = ${+value > Number.MAX_SAFE_INTEGER ? value + 'n' : value};`);
+  });
+  return code.join('\n');
+}
+
+/**
+ * Processes a collection of constants and generates code to export them as cpp constants.
+ * Required to ensure consistency between the constants used in pil and used in the vm witness generator.
+ *
+ * @param constants - An object containing key-value pairs representing constants.
+ * @returns A string containing code that exports the constants as cpp constants.
+ */
+function processConstantsCpp(constants: { [key: string]: string }): string {
+  const code: string[] = [];
+  Object.entries(constants).forEach(([key, value]) => {
+    // We exclude large numbers
+    if (!(value.startsWith('0x') || value.includes('0_0'))) {
+      code.push(`const size_t ${key} = ${value};`);
+    }
   });
   return code.join('\n');
 }
@@ -84,6 +103,20 @@ function generateTypescriptConstants({ constants, generatorIndexEnum }: ParsedCo
 }
 
 /**
+ * Generate the constants file in C++.
+ */
+function generateCppConstants({ constants }: ParsedContent, targetPath: string) {
+  const resultCpp: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
+#pragma once
+#include <cstddef>
+
+${processConstantsCpp(constants)}
+\n`;
+
+  fs.writeFileSync(targetPath, resultCpp);
+}
+
+/**
  * Generate the constants file in Solidity.
  */
 function generateSolidityConstants({ constants }: ParsedContent, targetPath: string) {
@@ -122,7 +155,7 @@ function parseNoirFile(fileContent: string): ParsedContent {
       return;
     }
 
-    const [, name, _type, value] = line.match(/global\s+(\w+)(\s*:\s*\w+)?\s*=\s*(0x[a-fA-F0-9]+|[\d_]+);/) || [];
+    const [, name, _type, value] = line.match(/global\s+(\w+)(\s*:\s*\w+)?\s*=\s*(.+?);/) || [];
 
     if (!name || !value) {
       // eslint-disable-next-line no-console
@@ -154,6 +187,10 @@ function main(): void {
   // Typescript
   const tsTargetPath = join(__dirname, TS_CONSTANTS_FILE);
   generateTypescriptConstants(parsedContent, tsTargetPath);
+
+  // Cpp
+  const cppTargetPath = join(__dirname, CPP_AZTEC_CONSTANTS_FILE);
+  generateCppConstants(parsedContent, cppTargetPath);
 
   // Solidity
   const solidityTargetPath = join(__dirname, SOLIDITY_CONSTANTS_FILE);

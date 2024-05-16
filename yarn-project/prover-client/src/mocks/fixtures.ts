@@ -44,7 +44,7 @@ const {
 } = process.env;
 
 // Determines if we have access to the bb binary and a tmp folder for temp files
-export const getConfig = async (logger: DebugLogger) => {
+export const getEnvironmentConfig = async (logger: DebugLogger) => {
   try {
     const expectedBBPath = BB_BINARY_PATH
       ? BB_BINARY_PATH
@@ -119,6 +119,7 @@ export const makeBloatedProcessedTx = async (builderDb: MerkleTreeOperations, se
   processedTx.data.end.newNullifiers[tx.data.forPublic!.end.newNullifiers.length - 1] = Fr.zero();
 
   processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
+  processedTx.data.end.noteEncryptedLogsHash = Fr.fromBuffer(processedTx.noteEncryptedLogs.hash(0));
   processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
   processedTx.data.end.unencryptedLogsHash = Fr.fromBuffer(processedTx.unencryptedLogs.hash());
 

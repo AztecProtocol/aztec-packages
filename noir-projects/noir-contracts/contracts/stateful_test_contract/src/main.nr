@@ -17,8 +17,7 @@ contract StatefulTest {
     #[aztec(private)]
     #[aztec(initializer)]
     fn constructor(owner: AztecAddress, value: Field) {
-        let selector = FunctionSelector::from_signature("create_note_no_init_check((Field),Field)");
-        context.call_private_function(context.this_address(), selector, [owner.to_field(), value]).assert_empty();
+        StatefulTest::at(context.this_address()).create_note_no_init_check(owner, value).call(&mut context);
     }
 
     #[aztec(private)]
@@ -31,20 +30,14 @@ contract StatefulTest {
     #[aztec(public)]
     #[aztec(initializer)]
     fn public_constructor(owner: AztecAddress, value: Field) {
-        let selector = FunctionSelector::from_signature("increment_public_value_no_init_check((Field),Field)");
-        context.call_public_function(
-            context.this_address(),
-            selector,
-            [owner.to_field(), value],
-            GasOpts::default()
-        ).assert_empty();
+        StatefulTest::at(context.this_address()).increment_public_value_no_init_check(owner, value).call(&mut context);
     }
 
     #[aztec(private)]
     fn create_note(owner: AztecAddress, value: Field) {
         if (value != 0) {
             let loc = storage.notes.at(owner);
-            increment(loc, value, owner);
+            increment(context, loc, value, owner);
         }
     }
 
@@ -53,7 +46,8 @@ contract StatefulTest {
     fn create_note_no_init_check(owner: AztecAddress, value: Field) {
         if (value != 0) {
             let loc = storage.notes.at(owner);
-            increment(loc, value, owner);
+            // TODO (#6312): This will break with key rotation. Fix this. Will not be able to spend / increment any notes after rotating key.
+            increment(context, loc, value, owner);
         }
     }
 
@@ -63,10 +57,10 @@ contract StatefulTest {
         let sender = context.msg_sender();
 
         let sender_notes = storage.notes.at(sender);
-        decrement(sender_notes, amount, sender);
+        decrement(context, sender_notes, amount, sender);
 
         let recipient_notes = storage.notes.at(recipient);
-        increment(recipient_notes, amount, recipient);
+        increment(context, recipient_notes, amount, recipient);
     }
 
     #[aztec(private)]
@@ -75,10 +69,10 @@ contract StatefulTest {
         let sender = context.msg_sender();
 
         let sender_notes = storage.notes.at(sender);
-        decrement(sender_notes, amount, sender);
+        decrement(context, sender_notes, amount, sender);
 
         let recipient_notes = storage.notes.at(recipient);
-        increment(recipient_notes, amount, recipient);
+        increment(context, recipient_notes, amount, recipient);
     }
 
     #[aztec(public)]

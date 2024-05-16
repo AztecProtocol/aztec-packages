@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# A wrapper for Earthly that is meant to catch signs of known intermittent failures and continue.
+# The silver lining is if Earthly does crash, the cache can pick up the build.
+set -eu -o pipefail
+
+MAX_WAIT_TIME=300 # Maximum wait time in seconds
+WAIT_INTERVAL=10  # Interval between checks in seconds
+elapsed_time=0
+
+OUTPUT_FILE=$(mktemp)
+INCONSISTENT_GRAPH_STATE_COUNT=0  # Counter for 'inconsistent graph state' errors
+
+# Maximum attempts
+MAX_ATTEMPTS=5
+ATTEMPT_COUNT=0
+
+# earthly settings
+export EARTHLY_ALLOW_PRIVILEGED=true
+export EARTHLY_USE_INLINE_CACHE=true
+export EARTHLY_NO_BUILDKIT_UPDATE=true
+export FORCE_COLOR=1
+export EARTHLY_CONFIG=$(git rev-parse --show-toplevel)/.github/earthly-ci-config.yml
+# TODO(AD) to be investigated
+#if [ "$GITHUB_REF_NAME" == "master" ]; then
+#  export EARTHLY_SAVE_INLINE_CACHE=true
+#  export EARTHLY_PUSH=true
+#fi
+
+# Handle earthly commands and retries
+while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
+  if earthly $@ 2>&1 | tee $OUTPUT_FILE >&2 ; then
+    exit 0  # Success, exit the script
+  else
+    # Increment attempt counter
+    ATTEMPT_COUNT=$((ATTEMPT_COUNT + 1))
+    echo "Attempt #$ATTEMPT_COUNT failed."
+
+    # Check the output for specific errors
+    if grep 'failed to get edge: inconsistent graph state' $OUTPUT_FILE >/dev/null || grep 'failed to get state for index' $OUTPUT_FILE >/dev/null ; then
+      INCONSISTENT_GRAPH_STATE_COUNT=$((INCONSISTENT_GRAPH_STATE_COUNT + 1))
+      if [ "$INCONSISTENT_GRAPH_STATE_COUNT" -eq $MAX_ATTEMPTS ]; then
+        echo "Unable to recover from 'inconsistent graph state' or 'failed to get state for index'. Retry the workflow, and if all else fails, connect to spot runner and run 'earthly prune'."
+        exit 1
+      fi
+      echo "Got 'inconsistent graph state' or 'failed to get state for index'. Sleeping for 30 seconds and retrying."
+      sleep 30
+    elif grep 'Error: pull ping error: pull ping response' $OUTPUT_FILE >/dev/null; then
+      echo "Got 'Error: pull ping error: pull ping response', intermittent failure when writing out images to docker. If this persists, try 'systemctl restart docker' on the spot instance."
+    elif grep '================================= System Info ==================================' $OUTPUT_FILE >/dev/null; then
+      echo "Detected an Earthly daemon restart, possibly due to it (mis)detecting a cache setting change, trying again..."
+    elif grep 'dial unix /run/buildkit/buildkitd.sock' $OUTPUT_FILE >/dev/null; then
+      echo "Detected earthly unable to find buildkit, waiting and trying again..."
+      sleep 20
+    elif grep 'The container name "/earthly-buildkitd" is already in use by container' $OUTPUT_FILE >/dev/null; then
+      echo "Detected earthly bootstrap happening in parallel and failing, waiting and trying again."
+      sleep 20
+    else
+      # If other errors, exit the script
+      exit 1
+    fi
+  fi
+done
+
+echo "Maximum attempts reached, exiting with failure."
+exit 1

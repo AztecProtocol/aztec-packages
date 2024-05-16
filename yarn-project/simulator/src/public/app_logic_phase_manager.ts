@@ -17,14 +17,14 @@ import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simul
  */
 export class AppLogicPhaseManager extends AbstractPhaseManager {
   constructor(
-    protected db: MerkleTreeOperations,
-    protected publicExecutor: PublicExecutor,
-    protected publicKernel: PublicKernelCircuitSimulator,
-    protected globalVariables: GlobalVariables,
-    protected historicalHeader: Header,
+    db: MerkleTreeOperations,
+    publicExecutor: PublicExecutor,
+    publicKernel: PublicKernelCircuitSimulator,
+    globalVariables: GlobalVariables,
+    historicalHeader: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
-    public phase: PublicKernelPhase = PublicKernelPhase.APP_LOGIC,
+    phase: PublicKernelPhase = PublicKernelPhase.APP_LOGIC,
   ) {
     super(db, publicExecutor, publicKernel, globalVariables, historicalHeader, phase);
   }
@@ -47,6 +47,7 @@ export class AppLogicPhaseManager extends AbstractPhaseManager {
       newUnencryptedFunctionLogs,
       revertReason,
       returnValues,
+      gasUsed,
     ] = await this.processEnqueuedPublicCalls(tx, previousPublicKernelOutput, previousPublicKernelProof).catch(
       // if we throw for any reason other than simulation, we need to rollback and drop the TX
       async err => {
@@ -71,6 +72,6 @@ export class AppLogicPhaseManager extends AbstractPhaseManager {
       };
       return request;
     });
-    return { kernelRequests, publicKernelOutput, publicKernelProof, revertReason, returnValues };
+    return { kernelRequests, publicKernelOutput, publicKernelProof, revertReason, returnValues, gasUsed };
   }
 }

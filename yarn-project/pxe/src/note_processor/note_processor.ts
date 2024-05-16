@@ -8,7 +8,6 @@ import {
 } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import { INITIAL_L2_BLOCK_NUM, MAX_NEW_NOTE_HASHES_PER_TX, type PublicKey } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -49,7 +48,7 @@ export class NoteProcessor {
     /**
      * The public counterpart to the private key to be used in note decryption.
      */
-    public readonly publicKey: PublicKey,
+    public readonly masterIncomingViewingPublicKey: PublicKey,
     private keyStore: KeyStore,
     private db: PxeDatabase,
     private node: AztecNode,
@@ -78,7 +77,7 @@ export class NoteProcessor {
   }
 
   private getSyncedToBlock(): number {
-    return this.db.getSynchedBlockNumberForPublicKey(this.publicKey) ?? this.startingBlock - 1;
+    return this.db.getSynchedBlockNumberForPublicKey(this.masterIncomingViewingPublicKey) ?? this.startingBlock - 1;
   }
 
   /**
@@ -99,7 +98,6 @@ export class NoteProcessor {
       return;
     }
 
-    const curve = new Grumpkin();
     const blocksAndNotes: ProcessedData[] = [];
     // Keep track of notes that we couldn't process because the contract was not found.
     const deferredNoteDaos: DeferredNoteDao[] = [];
@@ -116,7 +114,9 @@ export class NoteProcessor {
       // We are using set for `userPertainingTxIndices` to avoid duplicates. This would happen in case there were
       // multiple encrypted logs in a tx pertaining to a user.
       const noteDaos: NoteDao[] = [];
-      const privateKey = await this.keyStore.getAccountPrivateKey(this.publicKey);
+      const secretKey = await this.keyStore.getMasterIncomingViewingSecretKeyForPublicKey(
+        this.masterIncomingViewingPublicKey,
+      );
 
       // Iterate over all the encrypted logs and try decrypting them. If successful, store the note.
       for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
@@ -130,7 +130,7 @@ export class NoteProcessor {
         for (const functionLogs of txFunctionLogs) {
           for (const log of functionLogs.logs) {
             this.stats.seen++;
-            const taggedNote = TaggedNote.fromEncryptedBuffer(log.data, privateKey, curve);
+            const taggedNote = TaggedNote.fromEncryptedBuffer(log.data, secretKey);
             if (taggedNote?.notePayload) {
               const { notePayload: payload } = taggedNote;
               // We have successfully decrypted the data.
@@ -138,7 +138,7 @@ export class NoteProcessor {
               try {
                 const noteDao = await produceNoteDao(
                   this.simulator,
-                  this.publicKey,
+                  this.masterIncomingViewingPublicKey,
                   payload,
                   txHash,
                   newNoteHashes,
@@ -152,7 +152,7 @@ export class NoteProcessor {
                   this.stats.deferred++;
                   this.log.warn(e.message);
                   const deferredNoteDao = new DeferredNoteDao(
-                    this.publicKey,
+                    this.masterIncomingViewingPublicKey,
                     payload.note,
                     payload.contractAddress,
                     payload.storageSlot,
@@ -164,7 +164,7 @@ export class NoteProcessor {
                   deferredNoteDaos.push(deferredNoteDao);
                 } else {
                   this.stats.failed++;
-                  this.log.warn(`Could not process note because of "${e}". Discarding note...`);
+                  this.log.error(`Could not process note because of "${e}". Discarding note...`);
                 }
               }
             }
@@ -182,7 +182,7 @@ export class NoteProcessor {
     await this.processDeferredNotes(deferredNoteDaos);
 
     const syncedToBlock = l2Blocks[l2Blocks.length - 1].number;
-    await this.db.setSynchedBlockNumberForPublicKey(this.publicKey, syncedToBlock);
+    await this.db.setSynchedBlockNumberForPublicKey(this.masterIncomingViewingPublicKey, syncedToBlock);
 
     this.log.debug(`Synched block ${syncedToBlock}`);
   }
@@ -212,7 +212,7 @@ export class NoteProcessor {
     const newNullifiers: Fr[] = blocksAndNotes.flatMap(b =>
       b.block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
     );
-    const removedNotes = await this.db.removeNullifiedNotes(newNullifiers, this.publicKey);
+    const removedNotes = await this.db.removeNullifiedNotes(newNullifiers, this.masterIncomingViewingPublicKey);
     removedNotes.forEach(noteDao => {
       this.log.verbose(
         `Removed note for contract ${noteDao.contractAddress} at slot ${
@@ -260,7 +260,7 @@ export class NoteProcessor {
       try {
         const noteDao = await produceNoteDao(
           this.simulator,
-          this.publicKey,
+          this.masterIncomingViewingPublicKey,
           payload,
           txHash,
           newNoteHashes,

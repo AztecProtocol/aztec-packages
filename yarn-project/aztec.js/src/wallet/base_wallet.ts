@@ -15,13 +15,7 @@ import {
   type TxHash,
   type TxReceipt,
 } from '@aztec/circuit-types';
-import {
-  type AztecAddress,
-  type CompleteAddress,
-  type Fr,
-  type GrumpkinPrivateKey,
-  type PartialAddress,
-} from '@aztec/circuits.js';
+import { type AztecAddress, type CompleteAddress, type Fq, type Fr, type PartialAddress } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
@@ -72,8 +66,11 @@ export abstract class BaseWallet implements Wallet {
   addCapsule(capsule: Fr[]): Promise<void> {
     return this.pxe.addCapsule(capsule);
   }
-  registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress> {
-    return this.pxe.registerAccount(privKey, partialAddress);
+  registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
+    return this.pxe.registerAccount(secretKey, partialAddress);
+  }
+  rotateMasterNullifierKey(account: AztecAddress, secretKey: Fq): Promise<void> {
+    return this.pxe.rotateMasterNullifierKey(account, secretKey);
   }
   registerRecipient(account: CompleteAddress): Promise<void> {
     return this.pxe.registerRecipient(account);

@@ -124,18 +124,25 @@ pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -
     )
 }
 
-global TX_EFFECTS_HASH_INPUT_FIELDS = 197;
+global TX_EFFECTS_HASH_INPUT_FIELDS = 199;
 
 // Computes the tx effects hash for a base rollup (a single transaction)
 // TODO(Alvaro): This is too slow for brillig without the array optimization
-pub fn compute_tx_effects_hash(combined: CombinedAccumulatedData, revert_code: u8) -> Field {
+pub fn compute_tx_effects_hash(
+    combined: CombinedAccumulatedData,
+    revert_code: u8,
+    transaction_fee: Field
+) -> Field {
     // Compute tx effect hash
     // Consist of
+    // 1 field for revert code
+    // 1 field for transaction fee
     // MAX_NEW_NOTE_HASHES_PER_TX fields for note hashes
     // MAX_NEW_NULLIFIERS_PER_TX fields for nullifiers
     // 2 l2 -> l1 messages -> 2 fields
     // 32 public data update requests -> 64 fields
     // 1 contract deployments -> 3 fields
+    // 1 note encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32! 
     // 1 encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!  
     // 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!
     let mut txs_effects_hash_input = [0; TX_EFFECTS_HASH_INPUT_FIELDS];
@@ -144,6 +151,7 @@ pub fn compute_tx_effects_hash(combined: CombinedAccumulatedData, revert_code: u
     let new_nullifiers = combined.new_nullifiers;
     let new_l2_to_l1_msgs = combined.new_l2_to_l1_msgs;
     let public_data_update_requests = combined.public_data_update_requests;
+    let note_encrypted_logs_hash = combined.note_encrypted_logs_hash;
     let encrypted_logs_hash = combined.encrypted_logs_hash;
     let unencrypted_logs_hash = combined.unencrypted_logs_hash;
 
@@ -151,6 +159,9 @@ pub fn compute_tx_effects_hash(combined: CombinedAccumulatedData, revert_code: u
 
     // upcast to Field to have the same size for the purposes of the hash
     txs_effects_hash_input[offset] = revert_code as Field;
+    offset += 1;
+
+    txs_effects_hash_input[offset] = transaction_fee;
     offset += 1;
 
     for j in 0..MAX_NEW_NOTE_HASHES_PER_TX {
@@ -176,6 +187,10 @@ pub fn compute_tx_effects_hash(combined: CombinedAccumulatedData, revert_code: u
     }
     offset += MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
 
+    txs_effects_hash_input[offset] = note_encrypted_logs_hash;
+
+    offset += NUM_ENCRYPTED_LOGS_HASHES_PER_TX;
+
     txs_effects_hash_input[offset] = encrypted_logs_hash;
 
     offset += NUM_ENCRYPTED_LOGS_HASHES_PER_TX;
@@ -200,11 +215,14 @@ pub fn compute_tx_effects_hash(combined: CombinedAccumulatedData, revert_code: u
 #[test]
 fn consistent_TX_EFFECTS_HASH_INPUT_FIELDS() {
     // 1 for revert_code
+    // 1 for transaction_fee
     let expected_size = 1
+        + 1
         + MAX_NEW_NOTE_HASHES_PER_TX
         + MAX_NEW_NULLIFIERS_PER_TX
         + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
         + MAX_NEW_L2_TO_L1_MSGS_PER_TX
+        + NUM_ENCRYPTED_LOGS_HASHES_PER_TX
         + NUM_ENCRYPTED_LOGS_HASHES_PER_TX
         + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX;
     assert(TX_EFFECTS_HASH_INPUT_FIELDS == expected_size, "tx effects hash input size is incorrect");

@@ -1,10 +1,16 @@
-import { sha256 } from '@aztec/foundation/crypto';
-import { BufferReader, prefixBufferWithLength, truncateAndPad } from '@aztec/foundation/serialize';
+import {
+  MAX_ENCRYPTED_LOGS_PER_TX,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+  MAX_UNENCRYPTED_LOGS_PER_TX,
+} from '@aztec/circuits.js';
+import { sha256Trunc } from '@aztec/foundation/crypto';
+import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
 import isEqual from 'lodash.isequal';
 
 import { type EncryptedL2Log } from './encrypted_l2_log.js';
 import { EncryptedFunctionL2Logs, type FunctionL2Logs, UnencryptedFunctionL2Logs } from './function_l2_logs.js';
+import { LogType } from './log_type.js';
 import { type UnencryptedL2Log } from './unencrypted_l2_log.js';
 
 /**
@@ -82,19 +88,23 @@ export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2Log> {
    * Note: This is a TS implementation of `computeKernelLogsHash` function in Decoder.sol. See that function documentation
    *       for more details.
    */
-  public hash(): Buffer {
-    const logsHashes: [Buffer, Buffer] = [Buffer.alloc(32), Buffer.alloc(32)];
-    let kernelPublicInputsLogsHash = Buffer.alloc(32);
-
-    for (const logsFromSingleFunctionCall of this.functionLogs) {
-      logsHashes[0] = kernelPublicInputsLogsHash;
-      logsHashes[1] = logsFromSingleFunctionCall.hash(); // privateCircuitPublicInputsLogsHash
-
-      // Hash logs hash from the public inputs of previous kernel iteration and logs hash from private circuit public inputs
-      kernelPublicInputsLogsHash = truncateAndPad(sha256(Buffer.concat(logsHashes)));
+  public hash(logType: LogType = LogType.ENCRYPTED): Buffer {
+    if (this.unrollLogs().length == 0) {
+      return Buffer.alloc(32);
     }
 
-    return kernelPublicInputsLogsHash;
+    let flattenedLogs = Buffer.alloc(0);
+    for (const logsFromSingleFunctionCall of this.unrollLogs()) {
+      flattenedLogs = Buffer.concat([flattenedLogs, logsFromSingleFunctionCall.hash()]);
+    }
+    // pad the end of logs with 0s
+    // NB - This assumes MAX_ENCRYPTED_LOGS_PER_TX == MAX_UNENCRYPTED_LOGS_PER_TX
+    const pad = logType == LogType.NOTEENCRYPTED ? MAX_NOTE_ENCRYPTED_LOGS_PER_TX : MAX_ENCRYPTED_LOGS_PER_TX;
+    for (let i = 0; i < pad - this.unrollLogs().length; i++) {
+      flattenedLogs = Buffer.concat([flattenedLogs, Buffer.alloc(32)]);
+    }
+
+    return sha256Trunc(flattenedLogs);
   }
 }
 
@@ -129,6 +139,11 @@ export class UnencryptedTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
    * @returns A new `TxL2Logs` object.
    */
   public static random(numCalls: number, numLogsPerCall: number): UnencryptedTxL2Logs {
+    if (numCalls * numLogsPerCall > MAX_UNENCRYPTED_LOGS_PER_TX) {
+      throw new Error(
+        `Trying to create ${numCalls * numLogsPerCall} logs for one tx (max: ${MAX_UNENCRYPTED_LOGS_PER_TX})`,
+      );
+    }
     const functionLogs: UnencryptedFunctionL2Logs[] = [];
     for (let i = 0; i < numCalls; i++) {
       functionLogs.push(UnencryptedFunctionL2Logs.random(numLogsPerCall));
@@ -178,6 +193,11 @@ export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
    * @returns A new `TxL2Logs` object.
    */
   public static random(numCalls: number, numLogsPerCall: number): EncryptedTxL2Logs {
+    if (numCalls * numLogsPerCall > MAX_ENCRYPTED_LOGS_PER_TX) {
+      throw new Error(
+        `Trying to create ${numCalls * numLogsPerCall} logs for one tx (max: ${MAX_ENCRYPTED_LOGS_PER_TX})`,
+      );
+    }
     const functionLogs: EncryptedFunctionL2Logs[] = [];
     for (let i = 0; i < numCalls; i++) {
       functionLogs.push(EncryptedFunctionL2Logs.random(numLogsPerCall));
