@@ -39,8 +39,8 @@ describe('AVM simulator: injected bytecode', () => {
     ]);
   });
 
-  it('Should not be recognized as AVM bytecode (magic missing)', () => {
-    expect(!isAvmBytecode(bytecode));
+  it('Should not be recognized as AVM bytecode (magic missing)', async () => {
+    expect(!(await isAvmBytecode(bytecode)));
   });
 
   it('Should execute bytecode that performs basic addition', async () => {
@@ -91,9 +91,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(results.output).toEqual([new Fr(0)]);
   });
 
-  it('Should be recognized as AVM bytecode (magic present)', () => {
+  it('Should be recognized as AVM bytecode (magic present)', async () => {
     const bytecode = getAvmTestContractBytecode('add_args_return');
-    expect(isAvmBytecode(bytecode));
+    expect(await isAvmBytecode(bytecode));
   });
 
   describe('U128 addition and overflows', () => {

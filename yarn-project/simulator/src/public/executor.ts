@@ -18,7 +18,7 @@ import path from 'path';
 import { Oracle, acvm, extractCallStack, witnessMapToFields } from '../acvm/index.js';
 import { AvmContext } from '../avm/avm_context.js';
 import { AvmMachineState } from '../avm/avm_machine_state.js';
-import { AvmSimulator, decompressBytecode } from '../avm/avm_simulator.js';
+import { AvmSimulator } from '../avm/avm_simulator.js';
 import { HostStorage } from '../avm/journal/host_storage.js';
 import { AvmPersistableStateManager } from '../avm/journal/index.js';
 import { AcirSimulator } from '../client/simulator.js';
@@ -28,7 +28,12 @@ import { PackedValuesCache } from '../common/packed_values_cache.js';
 import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db.js';
 import { type PublicExecution, type PublicExecutionResult, checkValidStaticCall } from './execution.js';
 import { PublicExecutionContext } from './public_execution_context.js';
-import { convertAvmResultsToPxResult, createAvmExecutionEnvironment, isAvmBytecode } from './transitional_adaptors.js';
+import {
+  convertAvmResultsToPxResult,
+  createAvmExecutionEnvironment,
+  decompressBytecodeIfCompressed,
+  isAvmBytecode,
+} from './transitional_adaptors.js';
 
 /**
  * Execute a public function and return the execution result.
@@ -47,7 +52,7 @@ export async function executePublicFunction(
     );
   }
 
-  if (isAvmBytecode(bytecode)) {
+  if (await isAvmBytecode(bytecode)) {
     return await executeTopLevelPublicFunctionAvm(context, bytecode);
   } else {
     return await executePublicFunctionAcvm(context, bytecode, nested);
@@ -359,7 +364,7 @@ export class PublicExecutor {
     let bytecode = await this.contractsDb.getBytecode(contractAddress, functionData.selector);
     assert(!!bytecode, `Bytecode not found for ${contractAddress}:${functionData.selector}`);
     // This should be removed once we do bytecode validation.
-    bytecode = await decompressBytecode(bytecode!);
+    bytecode = await decompressBytecodeIfCompressed(bytecode!);
     // Write call data and bytecode to files.
     await fs.writeFile(
       calldataPath,
