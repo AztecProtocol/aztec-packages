@@ -41,25 +41,6 @@ bench-aggregate:
     || (echo "Not all log files from benchmark jobs found"; mkdir -p $BENCH_FOLDER)
   SAVE ARTIFACT $BENCH_FOLDER bench
 
-pack-base-benchmark:
-  # Copies the base benchmark (ie the master run) into a container and packs it as an artifact,
-  # so it can be consumed from bench-comment. Note that we need to download base-benchmark 
-  # outside of this target beforehand. We cannot run it within an Earthly container because it needs
-  # access to the .git folder, and we cannot run it with a LOCALLY statement because Earthly does 
-  # not support secrets when running locally (and we need) the AWS access keys to access S3. 
-  # We also cannot COPY the local file directly from bench-comment, since the file must be present 
-  # within  the build context so we can copy it (ie within yarn-project/scripts), and that invalidates 
-  # the cache of yarn-project+build since it does a `COPY . .`, and we cannot add the bench file to
-  # earthlyignore or we would not be able to copy it from anywhere.
-  ARG COMMIT_HASH
-  ARG PULL_REQUEST
-  ARG BRANCH
-  FROM scratch
-  LET LOCAL_BENCH_FOLDER=./bench
-  LET BENCH_FOLDER=/usr/var/bench
-  COPY $LOCAL_BENCH_FOLDER $BENCH_FOLDER
-  SAVE ARTIFACT $BENCH_FOLDER bench
-
 bench-comment:
   # Use the scripts image to run bench comment after loading the benchmark from bench-aggregate
   # and the base benchmark (ie the benches from master to compare to) from pack-base-benchmark.
@@ -73,7 +54,7 @@ bench-comment:
   ENV PULL_REQUEST=$PULL_REQUEST
   ENV PR_NUMBER=$PULL_REQUEST
   ENV BRANCH=$BRANCH
-  COPY +pack-base-benchmark/bench $BENCH_FOLDER/
+  COPY ../../scripts/logs+pack-base-benchmark/bench $BENCH_FOLDER/
   COPY +bench-aggregate/bench $BENCH_FOLDER/
   RUN echo "Bench folder contents $(ls $BENCH_FOLDER)"
   RUN --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN \
