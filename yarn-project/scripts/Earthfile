@@ -57,7 +57,7 @@ pack-base-benchmark:
   FROM scratch
   LET LOCAL_BENCH_FOLDER=./bench
   LET BENCH_FOLDER=/usr/var/bench
-  COPY --if-exists $LOCAL_BENCH_FOLDER $BENCH_FOLDER
+  COPY $LOCAL_BENCH_FOLDER $BENCH_FOLDER
   SAVE ARTIFACT $BENCH_FOLDER bench
 
 bench-comment:
