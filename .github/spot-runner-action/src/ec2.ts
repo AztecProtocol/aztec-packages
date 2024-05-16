@@ -51,6 +51,9 @@ export class Ec2Instance {
       this.client = new AWS.EC2({
         credentials: credentials,
         region: this.config.awsRegion,
+        maxRetries: 3,
+        // base 10 seconds for the exponential backoff, up to 3 times
+        retryDelayOptions: {base: 10000}
       });
     }
     return this.client;
@@ -234,12 +237,13 @@ export class Ec2Instance {
         SubnetId: this.config.githubActionRunnerConcurrency > 0 ? this.config.ec2SubnetId : undefined,
       })),
     };
+    const clientToken = this.config.clientToken ?this.config.clientToken + ",spot=" + useOnDemand : undefined;
     const createFleetRequest: CreateFleetRequest = {
       Type: "instant",
       LaunchTemplateConfigs: [fleetLaunchConfig],
-      ClientToken: this.config.clientToken || undefined,
+      ClientToken: clientToken,
       SpotOptions: {
-        AllocationStrategy: "price-capacity-optimized",
+        AllocationStrategy: "capacity-optimized",
       },
       TargetCapacitySpecification: {
         TotalTargetCapacity: 1,
