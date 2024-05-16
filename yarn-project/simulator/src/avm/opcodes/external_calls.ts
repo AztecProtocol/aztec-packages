@@ -3,7 +3,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 
 import { convertAvmResultsToPxResult, createPublicExecution } from '../../public/transitional_adaptors.js';
 import type { AvmContext } from '../avm_context.js';
-import { gasLeftToGas, sumGas } from '../avm_gas.js';
+import { gasLeftToGas } from '../avm_gas.js';
 import { Field, Uint8 } from '../avm_memory_types.js';
 import { type AvmContractCallResults } from '../avm_message_call_result.js';
 import { AvmSimulator } from '../avm_simulator.js';
