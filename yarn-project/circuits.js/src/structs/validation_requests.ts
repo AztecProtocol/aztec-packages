@@ -4,8 +4,8 @@ import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/s
 import { inspect } from 'util';
 
 import {
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
@@ -45,7 +45,7 @@ export class ValidationRequests {
      */
     public nullifierKeyValidationRequests: Tuple<
       ScopedNullifierKeyValidationRequest,
-      typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
+      typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX
     >,
     /**
      * All the public data reads made in this transaction.
@@ -80,7 +80,7 @@ export class ValidationRequests {
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest),
       reader.readArray(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, ScopedReadRequest),
-      reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, ScopedNullifierKeyValidationRequest),
+      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_TX, ScopedNullifierKeyValidationRequest),
       reader.readArray(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead),
     );
   }
@@ -100,7 +100,7 @@ export class ValidationRequests {
       makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest.empty),
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest.empty),
       makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, ScopedReadRequest.empty),
-      makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, ScopedNullifierKeyValidationRequest.empty),
+      makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, ScopedNullifierKeyValidationRequest.empty),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
     );
   }

@@ -71,7 +71,7 @@ export interface DBOracle extends CommitmentsDB {
    * @returns A Promise that resolves to nullifier keys.
    * @throws If the nullifier keys are not registered in the key store.
    */
-  getNullifierKeys(npkMHash: Fr, contractAddress: AztecAddress): Promise<NullifierKeys>;
+  getKeyValidationRequest(npkMHash: Fr, contractAddress: AztecAddress): Promise<NullifierKeys>;
 
   /**
    * Retrieves a set of notes stored in the database for a given contract address and storage slot.

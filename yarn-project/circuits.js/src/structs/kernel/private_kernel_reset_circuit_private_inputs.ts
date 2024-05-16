@@ -2,10 +2,10 @@ import { GrumpkinScalar } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
 } from '../../constants.gen.js';
 import { type GrumpkinPrivateKey } from '../../types/grumpkin_private_key.js';
 import { countAccumulatedItems } from '../../utils/index.js';
@@ -67,7 +67,7 @@ export class PrivateKernelResetHints {
     /**
      * The master nullifier secret keys for the nullifier key validation requests.
      */
-    public masterNullifierSecretKeys: Tuple<GrumpkinPrivateKey, typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
+    public masterNullifierSecretKeys: Tuple<GrumpkinPrivateKey, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
   ) {}
 
   toBuffer() {
@@ -94,7 +94,7 @@ export class PrivateKernelResetHints {
       reader.readNumbers(MAX_NOTE_ENCRYPTED_LOGS_PER_TX),
       reader.readObject({ fromBuffer: noteHashReadRequestHintsFromBuffer }),
       reader.readObject({ fromBuffer: nullifierReadRequestHintsFromBuffer }),
-      reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar),
+      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar),
     );
   }
 }

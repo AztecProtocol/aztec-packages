@@ -32,12 +32,12 @@ fn validate_arrays_malformed_nullifier_read_requests_fails() {
     builder.validate();
 }
 
-// Enable this test if MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL is greater than 1.
+// Enable this test if MAX_KEY_VALIDATION_REQUESTS_PER_CALL is greater than 1.
 // #[test(should_fail_with="invalid array")]
-// fn validate_arrays_malformed_nullifier_key_validation_requests_fails() {
+// fn validate_arrays_malformed_key_validation_requests_fails() {
 //     let mut builder = PrivateCallDataValidatorBuilder::new();
 
-//     builder.private_call.public_inputs.nullifier_key_validation_requests.extend_from_array(
+//     builder.private_call.public_inputs.key_validation_requests.extend_from_array(
 //         [
 //         NullifierKeyValidationRequest::empty(),
 //         NullifierKeyValidationRequest { master_nullifier_public_key: GrumpkinPoint { x: 12, y: 34 }, app_nullifier_secret_key: 5 }

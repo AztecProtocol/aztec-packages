@@ -40,8 +40,8 @@ export class ViewDataOracle extends TypedOracle {
    * @returns A Promise that resolves to nullifier keys.
    * @throws If the nullifier keys are not registered in the key store.
    */
-  public override getNullifierKeys(npkMHash: Fr): Promise<NullifierKeys> {
-    return this.db.getNullifierKeys(npkMHash, this.contractAddress);
+  public override getKeyValidationRequest(npkMHash: Fr): Promise<NullifierKeys> {
+    return this.db.getKeyValidationRequest(npkMHash, this.contractAddress);
   }
 
   /**

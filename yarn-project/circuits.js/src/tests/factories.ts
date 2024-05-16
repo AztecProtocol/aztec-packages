@@ -40,6 +40,8 @@ import {
   LogHash,
   MAX_ENCRYPTED_LOGS_PER_CALL,
   MAX_ENCRYPTED_LOGS_PER_TX,
+  MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_CALL,
@@ -50,8 +52,6 @@ import {
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
@@ -280,7 +280,7 @@ export function makeValidationRequests(seed = 1) {
     makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x80),
     makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x90),
     makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x95),
-    makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, makeScopedNullifierKeyValidationRequest, seed + 0x100),
+    makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, makeScopedNullifierKeyValidationRequest, seed + 0x100),
     makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
   );
 }
@@ -779,7 +779,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     noteHashReadRequests: makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x300),
     nullifierReadRequests: makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x310),
     nullifierKeyValidationRequests: makeTuple(
-      MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
+      MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
       makeNullifierKeyValidationRequest,
       seed + 0x320,
     ),

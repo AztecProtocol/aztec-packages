@@ -6,11 +6,11 @@ use crate::{
 },
     constants::{
     MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
-    MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL,
-    MAX_NEW_NULLIFIERS_PER_CALL, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-    PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH, GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS,
-    MAX_ENCRYPTED_LOGS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL
+    MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
+    MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+    MAX_NEW_L2_TO_L1_MSGS_PER_CALL, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS, MAX_ENCRYPTED_LOGS_PER_CALL,
+    MAX_UNENCRYPTED_LOGS_PER_CALL, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL
 },
     header::Header, hash::pedersen_hash, messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Deserialize, Hash, Serialize, Empty}, utils::reader::Reader,
@@ -30,7 +30,7 @@ struct PrivateCircuitPublicInputs {
 
     note_hash_read_requests: [ReadRequest; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     nullifier_read_requests: [ReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
-    nullifier_key_validation_requests: [NullifierKeyValidationRequest; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL],
+    key_validation_requests: [NullifierKeyValidationRequest; MAX_KEY_VALIDATION_REQUESTS_PER_CALL],
 
     new_note_hashes: [NoteHash; MAX_NEW_NOTE_HASHES_PER_CALL],
     new_nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_CALL],
@@ -64,7 +64,7 @@ impl Eq for PrivateCircuitPublicInputs {
         (self.max_block_number == other.max_block_number) &
         (self.note_hash_read_requests == other.note_hash_read_requests) &
         (self.nullifier_read_requests == other.nullifier_read_requests) &
-        (self.nullifier_key_validation_requests == other.nullifier_key_validation_requests) &
+        (self.key_validation_requests == other.key_validation_requests) &
         (self.new_note_hashes == other.new_note_hashes) &
         (self.new_nullifiers == other.new_nullifiers) &
         (self.private_call_stack_hashes == other.private_call_stack_hashes) &
@@ -98,8 +98,8 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         for i in 0..self.nullifier_read_requests.len() {
             fields.extend_from_array(self.nullifier_read_requests[i].serialize());
         }
-        for i in 0..self.nullifier_key_validation_requests.len() {
-            fields.extend_from_array(self.nullifier_key_validation_requests[i].serialize());
+        for i in 0..self.key_validation_requests.len() {
+            fields.extend_from_array(self.key_validation_requests[i].serialize());
         }
         for i in 0..self.new_note_hashes.len() {
             fields.extend_from_array(self.new_note_hashes[i].serialize());
@@ -146,7 +146,7 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             max_block_number: reader.read_struct(MaxBlockNumber::deserialize),
             note_hash_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]),
             nullifier_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL]),
-            nullifier_key_validation_requests: reader.read_struct_array(NullifierKeyValidationRequest::deserialize, [NullifierKeyValidationRequest::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL]),
+            key_validation_requests: reader.read_struct_array(NullifierKeyValidationRequest::deserialize, [NullifierKeyValidationRequest::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_CALL]),
             new_note_hashes: reader.read_struct_array(NoteHash::deserialize, [NoteHash::empty(); MAX_NEW_NOTE_HASHES_PER_CALL]),
             new_nullifiers: reader.read_struct_array(Nullifier::deserialize, [Nullifier::empty(); MAX_NEW_NULLIFIERS_PER_CALL]),
             private_call_stack_hashes: reader.read_array([0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL]),
@@ -184,7 +184,7 @@ impl Empty for PrivateCircuitPublicInputs {
             max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: [ReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
             nullifier_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
-            nullifier_key_validation_requests: [NullifierKeyValidationRequest::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL],
+            key_validation_requests: [NullifierKeyValidationRequest::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_CALL],
             new_note_hashes: [NoteHash::empty(); MAX_NEW_NOTE_HASHES_PER_CALL],
             new_nullifiers: [Nullifier::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
             private_call_stack_hashes: [0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],

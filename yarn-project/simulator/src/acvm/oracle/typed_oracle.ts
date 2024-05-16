@@ -89,8 +89,8 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('unpackReturns');
   }
 
-  getNullifierKeys(_npkMHash: Fr): Promise<NullifierKeys> {
-    throw new OracleMethodNotAvailableError('getNullifierKeys');
+  getKeyValidationRequest(_npkMHash: Fr): Promise<NullifierKeys> {
+    throw new OracleMethodNotAvailableError('getKeyValidationRequest');
   }
 
   getContractInstance(_address: AztecAddress): Promise<ContractInstance> {

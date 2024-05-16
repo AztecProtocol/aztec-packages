@@ -251,7 +251,7 @@ class PrivateFunctionPublicInputs {
     encrypted_note_preimage_hashes: List~EncryptedNotePreimageHash~
     note_hash_read_requests: List~ReadRequest~
     nullifier_read_requests: List~ReadRequest~
-    nullifier_key_validation_requests: List~ParentSecretKeyValidationRequest~
+    key_validation_requests: List~ParentSecretKeyValidationRequest~
     public_call_requests: List~PublicCallRequest~
     private_call_requests: List~PrivateCallRequest~
     counter_start: u32
@@ -266,7 +266,7 @@ PrivateFunctionPublicInputs *-- NoteHash: note_hashes
 PrivateFunctionPublicInputs *-- Nullifier: nullifiers
 PrivateFunctionPublicInputs *-- ReadRequest: note_hash_read_requests
 PrivateFunctionPublicInputs *-- ReadRequest: nullifier_read_requests
-PrivateFunctionPublicInputs *-- ParentSecretKeyValidationRequest: nullifier_key_validation_requests
+PrivateFunctionPublicInputs *-- ParentSecretKeyValidationRequest: key_validation_requests
 PrivateFunctionPublicInputs *-- UnencryptedLogHash: unencrypted_log_hashes
 PrivateFunctionPublicInputs *-- EncryptedLogHash: encrypted_log_hashes
 PrivateFunctionPublicInputs *-- EncryptedNotePreimageHash: encrypted_note_preimage_hashes
@@ -338,7 +338,7 @@ class ParentSecretKeyValidationRequest {
     parent_public_key: GrumpkinPoint
     hardened_child_secret_key: fq
 }
-ParentSecretKeyValidationRequest ..> ParentSecretKeyValidationRequestContext: nullifier_key_validation_requests\n->nullifier_key_validation_request_contexts
+ParentSecretKeyValidationRequest ..> ParentSecretKeyValidationRequestContext: key_validation_requests\n->nullifier_key_validation_request_contexts
 
 class UnencryptedLogHash {
     hash: field

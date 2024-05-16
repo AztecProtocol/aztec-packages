@@ -9,7 +9,7 @@ use dep::types::{
     nullifier_key_validation_request::ScopedNullifierKeyValidationRequest
 },
     constants::{
-    MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
+    MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
     GENERATOR_INDEX__NSK_M, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX
 },
     grumpkin_private_key::GrumpkinPrivateKey, hash::poseidon2_hash, traits::is_empty,
@@ -24,14 +24,15 @@ struct PrivateValidationRequestProcessor {
     nullifier_read_request_hints: NullifierReadRequestHints,
     pending_nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
     nullifier_tree_root: Field,
-    master_nullifier_secret_keys: [GrumpkinPrivateKey; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
+    master_secret_keys: [GrumpkinPrivateKey; MAX_KEY_VALIDATION_REQUESTS_PER_TX],
+    app_secret_keys_generators: [Field; MAX_KEY_VALIDATION_REQUESTS_PER_TX],
 }
 
 impl PrivateValidationRequestProcessor {
     pub fn validate(self) -> ValidationRequests {
         let remaining_note_hash_read_requests = self.validate_note_hash_read_requests();
         let remaining_nullifier_read_requests = self.validate_nullifier_read_requests();
-        let remaining_nullifier_key_validation_requests = self.validate_nullifier_keys();
+        let remaining_key_validation_requests = self.validate_nullifier_keys();
 
         ValidationRequests {
             for_rollup: self.validation_requests.for_rollup,
@@ -39,7 +40,7 @@ impl PrivateValidationRequestProcessor {
             public_data_reads: self.validation_requests.public_data_reads,
             note_hash_read_requests: remaining_note_hash_read_requests.storage,
             nullifier_read_requests: remaining_nullifier_read_requests.storage,
-            nullifier_key_validation_requests: remaining_nullifier_key_validation_requests.storage
+            key_validation_requests: remaining_key_validation_requests.storage
         }
     }
 
@@ -65,14 +66,14 @@ impl PrivateValidationRequestProcessor {
         )
     }
 
-    fn validate_nullifier_keys(self) -> BoundedVec<ScopedNullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX> {
-        let mut should_propagate = [false; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX];
-        let requests = self.validation_requests.nullifier_key_validation_requests;
-        for i in 0..MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX {
+    fn validate_nullifier_keys(self) -> BoundedVec<ScopedNullifierKeyValidationRequest, MAX_KEY_VALIDATION_REQUESTS_PER_TX> {
+        let mut should_propagate = [false; MAX_KEY_VALIDATION_REQUESTS_PER_TX];
+        let requests = self.validation_requests.key_validation_requests;
+        for i in 0..MAX_KEY_VALIDATION_REQUESTS_PER_TX {
             let request = requests[i].request;
             if !is_empty(request) {
                 let contract_address = requests[i].contract_address;
-                let master_nullifier_secret_key = self.master_nullifier_secret_keys[i];
+                let master_nullifier_secret_key = self.master_secret_keys[i];
                 if !is_empty(master_nullifier_secret_key) {
                     // First we check that derived public key matches master nullifier public key from request
                     let master_nullifier_public_key = master_nullifier_secret_key.derive_public_key();
@@ -84,7 +85,7 @@ impl PrivateValidationRequestProcessor {
 
                     let app_nullifier_secret_key = poseidon2_hash(
                         [
-                        master_nullifier_secret_key.high, master_nullifier_secret_key.low, contract_address.to_field(), GENERATOR_INDEX__NSK_M
+                        master_nullifier_secret_key.high, master_nullifier_secret_key.low, contract_address.to_field(), self.app_secret_keys_generators[i]
                     ]
                     );
                     assert(

@@ -1,10 +1,10 @@
 import {
   type Fr,
   GrumpkinScalar,
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   type MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MembershipWitness,
   NULLIFIER_TREE_HEIGHT,
@@ -48,13 +48,10 @@ function getNullifierReadRequestHints(
 }
 
 async function getMasterNullifierSecretKeys(
-  nullifierKeyValidationRequests: Tuple<
-    ScopedNullifierKeyValidationRequest,
-    typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
-  >,
+  nullifierKeyValidationRequests: Tuple<ScopedNullifierKeyValidationRequest, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
   oracle: ProvingDataOracle,
 ) {
-  const keys = makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar.zero);
+  const keys = makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar.zero);
   for (let i = 0; i < nullifierKeyValidationRequests.length; ++i) {
     const request = nullifierKeyValidationRequests[i].request;
     if (request.isEmpty()) {

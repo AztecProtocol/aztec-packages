@@ -236,7 +236,7 @@ The format aligns with the [`PreviousKernel`](./private-kernel-inner#previousker
 
 | Field                | Type                                                                                           | Description                             |
 | -------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------- |
-| `master_secret_keys` | [`field`; [`MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX`](../constants.md#circuit-constants)] | Master secret keys for the secret keys. |
+| `master_secret_keys` | [`field`; [`MAX_KEY_VALIDATION_REQUESTS_PER_TX`](../constants.md#circuit-constants)] | Master secret keys for the secret keys. |
 
 ### _Hints_ for [Transient Note Reset Private Kernel Circuit](#transient-note-reset-private-kernel-circuit)
 

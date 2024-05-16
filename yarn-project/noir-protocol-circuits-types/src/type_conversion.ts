@@ -31,12 +31,12 @@ import {
   type LeafDataReadHint,
   LogHash,
   MAX_ENCRYPTED_LOGS_PER_TX,
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
@@ -788,7 +788,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     returns_hash: mapFieldToNoir(privateCircuitPublicInputs.returnsHash),
     note_hash_read_requests: mapTuple(privateCircuitPublicInputs.noteHashReadRequests, mapReadRequestToNoir),
     nullifier_read_requests: mapTuple(privateCircuitPublicInputs.nullifierReadRequests, mapReadRequestToNoir),
-    nullifier_key_validation_requests: mapTuple(
+    key_validation_requests: mapTuple(
       privateCircuitPublicInputs.nullifierKeyValidationRequests,
       mapNullifierKeyValidationRequestToNoir,
     ),
@@ -1042,7 +1042,7 @@ function mapValidationRequestsToNoir(requests: ValidationRequests): ValidationRe
       requests.nullifierNonExistentReadRequests,
       mapScopedReadRequestToNoir,
     ),
-    nullifier_key_validation_requests: mapTuple(
+    key_validation_requests: mapTuple(
       requests.nullifierKeyValidationRequests,
       mapScopedNullifierKeyValidationRequestToNoir,
     ),
@@ -1069,8 +1069,8 @@ function mapValidationRequestsFromNoir(requests: ValidationRequestsNoir): Valida
       mapScopedReadRequestFromNoir,
     ),
     mapTupleFromNoir(
-      requests.nullifier_key_validation_requests,
-      MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
+      requests.key_validation_requests,
+      MAX_KEY_VALIDATION_REQUESTS_PER_TX,
       mapScopedNullifierKeyValidationRequestFromNoir,
     ),
     mapTupleFromNoir(requests.public_data_reads, MAX_PUBLIC_DATA_READS_PER_TX, mapPublicDataReadFromNoir),
@@ -1494,7 +1494,7 @@ function mapPrivateKernelResetHintsToNoir(inputs: PrivateKernelResetHints): Priv
     transient_note_hash_indexes_for_logs: mapTuple(inputs.transientNoteHashIndexesForLogs, mapNumberToNoir),
     note_hash_read_request_hints: mapNoteHashReadRequestHintsToNoir(inputs.noteHashReadRequestHints),
     nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
-    master_nullifier_secret_keys: mapTuple(inputs.masterNullifierSecretKeys, mapGrumpkinPrivateKeyToNoir),
+    master_secret_keys: mapTuple(inputs.masterNullifierSecretKeys, mapGrumpkinPrivateKeyToNoir),
   };
 }
 
