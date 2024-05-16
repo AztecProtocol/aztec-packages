@@ -1,14 +1,14 @@
 import {
-  type AztecAddress,
   BatchCall,
   Fr,
   PrivateFeePaymentMethod,
+  computeSecretHash,
+  type AztecAddress,
   type TxReceipt,
   type Wallet,
-  computeSecretHash,
 } from '@aztec/aztec.js';
 import { type GasSettings } from '@aztec/circuits.js';
-import { type TokenContract as BananaCoin, FPCContract, type GasTokenContract } from '@aztec/noir-contracts.js';
+import { FPCContract, type TokenContract as BananaCoin, type GasTokenContract } from '@aztec/noir-contracts.js';
 
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
@@ -118,7 +118,6 @@ describe('e2e_fees private_payment', () => {
 
     const tx = await interaction.send().wait();
 
-    await expect(t.getCoinbaseBalance()).resolves.toEqual(InitialSequencerL1Gas + 1n);
 
     /**
      * at present the user is paying DA gas for:
@@ -139,6 +138,7 @@ describe('e2e_fees private_payment', () => {
      *    but we shouldn't.
      */
     expect(tx.transactionFee).toEqual(200018496n);
+    await expect(t.getCoinbaseBalance()).resolves.toEqual(InitialSequencerL1Gas + tx.transactionFee!);
     const [feeAmount, refundAmount] = getFeeAndRefund(tx);
 
     await expectMapping(

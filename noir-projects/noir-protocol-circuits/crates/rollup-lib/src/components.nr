@@ -79,6 +79,13 @@ pub fn assert_prev_rollups_follow_on_from_each_other(
     );
 }
 
+pub fn aggregate_fees(
+    left: BaseOrMergeRollupPublicInputs,
+    right: BaseOrMergeRollupPublicInputs
+) -> Field {
+    left.aggregate_fees + right.aggregate_fees
+}
+
 /**
  * @brief From two previous rollup data, compute a single out hash
  *

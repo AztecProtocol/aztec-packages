@@ -1726,6 +1726,7 @@ export function mapBaseOrMergeRollupPublicInputsToNoir(
     end: mapPartialStateReferenceToNoir(baseOrMergeRollupPublicInputs.end),
     txs_effects_hash: mapFieldToNoir(baseOrMergeRollupPublicInputs.txsEffectsHash),
     out_hash: mapFieldToNoir(baseOrMergeRollupPublicInputs.outHash),
+    aggregate_fees: mapFieldToNoir(baseOrMergeRollupPublicInputs.aggregateFees),
   };
 }
 
@@ -1773,6 +1774,7 @@ export function mapBaseOrMergeRollupPublicInputsFromNoir(
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.end),
     mapFieldFromNoir(baseOrMergeRollupPublicInputs.txs_effects_hash),
     mapFieldFromNoir(baseOrMergeRollupPublicInputs.out_hash),
+    mapFieldFromNoir(baseOrMergeRollupPublicInputs.aggregate_fees),
   );
 }
 
