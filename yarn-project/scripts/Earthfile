@@ -55,10 +55,11 @@ pack-base-benchmark:
   ARG PULL_REQUEST
   ARG BRANCH
   ARG LOCAL_BENCH_FOLDER
+  LOCALLY
+  RUN mkdir -p $LOCAL_BENCH_FOLDER
   FROM scratch
   LET BENCH_FOLDER=/usr/var/bench
   COPY --if-exists $LOCAL_BENCH_FOLDER $BENCH_FOLDER
-  RUN mkdir -p $BENCH_FOLDER
   SAVE ARTIFACT $BENCH_FOLDER bench
 
 bench-comment:
