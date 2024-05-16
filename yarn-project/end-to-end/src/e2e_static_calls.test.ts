@@ -209,7 +209,7 @@ describe('e2e_static_calls', () => {
 
       it('fails when performing non-static calls to poorly written static public functions', async () => {
         await expect(childContract.methods.avm_illegal_inc_value(42n).send().wait()).rejects.toThrow(
-          "Static calls cannot alter storage 'storage_write(self.storage_slot, fields)'",
+          "Static calls cannot alter storage 'storage_write_oracle(self.storage_slot, fields)'",
         );
       });
     });
@@ -265,7 +265,7 @@ describe('e2e_static_calls', () => {
             ])
             .send()
             .wait(),
-        ).rejects.toThrow("Static calls cannot alter storage 'storage_write(self.storage_slot, fields)'");
+        ).rejects.toThrow("Static calls cannot alter storage 'storage_write_oracle(self.storage_slot, fields)'");
       });
 
       it('fails when performing illegal (nested) enqueued public static calls', async () => {
@@ -278,7 +278,7 @@ describe('e2e_static_calls', () => {
             )
             .send()
             .wait(),
-        ).rejects.toThrow("Static calls cannot alter storage 'storage_write(self.storage_slot, fields)'");
+        ).rejects.toThrow("Static calls cannot alter storage 'storage_write_oracle(self.storage_slot, fields)'");
       });
 
       it('fails when performing non-static enqueue calls to poorly written public static functions', async () => {
