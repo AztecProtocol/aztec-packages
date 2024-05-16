@@ -203,7 +203,8 @@ build-acir-tests:
 
 barretenberg-acir-benches-bb:
   FROM ubuntu:noble
-
+  RUN apt update && \
+      apt install -y curl git jq unzip
   COPY ../barretenberg/cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
   COPY ../barretenberg/+acir-tests/ /usr/src/barretenberg/acir_tests
   COPY +build-acir-tests/ /usr/src/acir_artifacts
