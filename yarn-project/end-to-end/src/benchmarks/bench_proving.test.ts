@@ -16,7 +16,7 @@ import { type EndToEndContext, setup } from '../fixtures/utils.js';
 
 jest.setTimeout(3_600_000);
 
-const txTimeoutSec = 1200;
+const txTimeoutSec = 3600;
 
 describe('benchmarks/proving', () => {
   let ctx: EndToEndContext;
@@ -116,7 +116,7 @@ describe('benchmarks/proving', () => {
         ...acvmConfig,
         ...bbConfig,
       },
-      4,
+      2,
       10,
     );
 
@@ -169,34 +169,59 @@ describe('benchmarks/proving', () => {
   });
 
   it('builds a full block', async () => {
-    const txs = [
-      // fully private tx
-      (await getTestContractOnPXE(0)).methods.emit_nullifier(42).send(),
-      // tx with setup, app, teardown
-      (await getTestContractOnPXE(1)).methods.emit_unencrypted(43).send({
-        fee: {
-          gasSettings: GasSettings.default(),
-          paymentMethod: new PublicFeePaymentMethod(
-            initialTokenContract.address,
-            initialFpContract.address,
-            await getWalletOnPxe(1),
-          ),
-        },
-      }),
-      // tx with messages
-      (await getTestContractOnPXE(2)).methods.create_l2_to_l1_message_public(45, 46, EthAddress.random()).send(),
-      // tx with private and public exec
-      (await getTokenContract(3)).methods.transfer(schnorrWalletAddress.address, recipient.address, 1000, 0).send({
-        fee: {
-          gasSettings: GasSettings.default(),
-          paymentMethod: new PrivateFeePaymentMethod(
-            initialTokenContract.address,
-            initialFpContract.address,
-            await getWalletOnPxe(3),
-          ),
-        },
-      }),
+    ctx.logger.info('+----------------------+');
+    ctx.logger.info('|                      |');
+    ctx.logger.info('|  STARTING BENCHMARK  |');
+    ctx.logger.info('|                      |');
+    ctx.logger.info('+----------------------+');
+
+    const fnCalls = [
+      (await getTestContractOnPXE(0)).methods.emit_nullifier(42),
+      (await getTestContractOnPXE(1)).methods.emit_unencrypted(43),
+      (await getTestContractOnPXE(2)).methods.create_l2_to_l1_message_public(45, 46, EthAddress.random()),
+      (await getTokenContract(3)).methods.transfer(schnorrWalletAddress.address, recipient.address, 1000, 0),
     ];
+
+    const feeFnCall1 = {
+      gasSettings: GasSettings.default(),
+      paymentMethod: new PublicFeePaymentMethod(
+        initialTokenContract.address,
+        initialFpContract.address,
+        await getWalletOnPxe(1),
+      ),
+    };
+
+    const feeFnCall3 = {
+      gasSettings: GasSettings.default(),
+      paymentMethod: new PrivateFeePaymentMethod(
+        initialTokenContract.address,
+        initialFpContract.address,
+        await getWalletOnPxe(3),
+      ),
+    };
+
+    ctx.logger.info('Proving transactions');
+    await Promise.all([
+      fnCalls[0].prove(),
+      fnCalls[1].prove({
+        fee: feeFnCall1,
+      }),
+      fnCalls[2].prove(),
+      fnCalls[3].prove({
+        fee: feeFnCall3,
+      }),
+    ]);
+
+    ctx.logger.info('Finished proving all transactions');
+
+    ctx.logger.info('Sending transactions');
+    const txs = [
+      fnCalls[0].send(),
+      fnCalls[1].send({ fee: feeFnCall1 }),
+      fnCalls[2].send(),
+      fnCalls[3].send({ fee: feeFnCall3 }),
+    ];
+    ctx.logger.info('Finished sending transactions');
 
     const receipts = await Promise.all(txs.map(tx => tx.wait({ timeout: txTimeoutSec })));
     expect(receipts.every(r => r.status === TxStatus.MINED)).toBe(true);
