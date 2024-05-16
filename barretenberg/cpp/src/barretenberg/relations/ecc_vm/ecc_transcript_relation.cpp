@@ -424,6 +424,10 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
         auto y_diff = lhs_y - rhs_y;
         auto y_product = transcript_Py_inverse * (-transcript_add_y_equal + 1) + transcript_add_y_equal;
         auto y_constant = transcript_add_y_equal - 1;
+        info("y_diff                : ", y_diff);
+        info("transcript_Py_inverse : ", transcript_Py_inverse);
+        info("prod that is 1 or 0   : ", y_diff * transcript_Py_inverse);
+        info("transcript_add_y_equal: ", transcript_add_y_equal);
         auto transcript_add_y_equal_check_relation = (y_diff * y_product + y_constant) * any_add_is_active;
         std::get<24>(accumulator) += transcript_add_y_equal_check_relation * scaling_factor; // degree 5
     }
