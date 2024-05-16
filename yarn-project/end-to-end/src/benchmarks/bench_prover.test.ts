@@ -14,9 +14,8 @@ import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import { type EndToEndContext, setup } from '../fixtures/utils.js';
 
-jest.setTimeout(3_600_000);
-
-const txTimeoutSec = 3600;
+jest.setTimeout(12_000_000);
+const txTimeoutSec = 1200;
 
 describe('benchmarks/proving', () => {
   let ctx: EndToEndContext;
@@ -200,23 +199,17 @@ describe('benchmarks/proving', () => {
       ),
     };
 
-    ctx.logger.info('Proving first two transactions');
+    ctx.logger.info('Proving transactions in parallel');
     await Promise.all([
       fnCalls[0].prove(),
       fnCalls[1].prove({
         fee: feeFnCall1,
       }),
-    ]);
-
-    ctx.logger.info('Proving the next transactions');
-    await Promise.all([
       fnCalls[2].prove(),
       fnCalls[3].prove({
         fee: feeFnCall3,
       }),
     ]);
-
-    ctx.logger.info('Finished proving all transactions');
 
     ctx.logger.info('Sending transactions');
     const txs = [
