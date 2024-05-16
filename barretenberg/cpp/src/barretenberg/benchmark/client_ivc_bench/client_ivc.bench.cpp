@@ -31,6 +31,28 @@ class ClientIVCBench : public benchmark::Fixture {
         bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
     }
 
+    static auto precompute_verification_keys(const size_t num_function_circuits)
+    {
+        ClientIVC ivc;
+
+        std::vector<Builder> circuits;
+        Builder function_circuit{ ivc.goblin.op_queue };
+        GoblinMockCircuits::construct_mock_function_circuit_new(function_circuit);
+        circuits.emplace_back(function_circuit);
+
+        for (size_t idx = 1; idx < num_function_circuits; ++idx) {
+            Builder function_circuit{ ivc.goblin.op_queue };
+            GoblinMockCircuits::construct_mock_function_circuit_new(function_circuit);
+            circuits.emplace_back(function_circuit);
+
+            Builder kernel_circuit{ ivc.goblin.op_queue };
+            GoblinMockCircuits::construct_mock_folding_kernel_new(kernel_circuit);
+            circuits.emplace_back(kernel_circuit);
+        }
+
+        return ivc.precompute_folding_verification_keys_new(circuits);
+    }
+
     /**
      * @brief Perform a specified number of function circuit accumulation rounds
      * @details Each round "accumulates" a mock function circuit and a mock kernel circuit. Each round thus consists of
@@ -154,8 +176,12 @@ class ClientIVCBench : public benchmark::Fixture {
         }
     }
 
-    static void perform_ivc_accumulation_rounds_new(State& state, ClientIVC& ivc)
+    static void perform_ivc_accumulation_rounds_new(State& state, ClientIVC& ivc, auto& precomputed_vks)
     {
+        auto NUM_CIRCUITS = static_cast<size_t>(state.range(0));
+        size_t TOTAL_NUM_CIRCUITS = NUM_CIRCUITS * 2 - 1; // need one less kernel than number of function circuits
+        ASSERT(precomputed_vks.size() == TOTAL_NUM_CIRCUITS);
+
         const size_t size_hint = 1 << 17; // Size hint for reserving wires/selector vector memory in builders
         std::vector<Builder> initial_function_circuits(2);
 
@@ -171,7 +197,7 @@ class ClientIVCBench : public benchmark::Fixture {
         initial_function_circuits[0].op_queue->prepend_previous_queue(*ivc.goblin.op_queue);
         // Initialize ivc
         info("function");
-        ivc.accumulate_new(initial_function_circuits[0]);
+        ivc.accumulate_new(initial_function_circuits[0], precomputed_vks[0]);
         // Retrieve the queue
         std::swap(*ivc.goblin.op_queue, *initial_function_circuits[0].op_queue);
 
@@ -179,20 +205,15 @@ class ClientIVCBench : public benchmark::Fixture {
         initial_function_circuits[1].op_queue->prepend_previous_queue(*ivc.goblin.op_queue);
         // Accumulate another function circuit
         info("function");
-        ivc.accumulate_new(initial_function_circuits[1]);
+        ivc.accumulate_new(initial_function_circuits[1], precomputed_vks[1]);
         // Retrieve the queue
         std::swap(*ivc.goblin.op_queue, *initial_function_circuits[1].op_queue);
 
         // Free memory
         initial_function_circuits.clear();
 
-        auto NUM_CIRCUITS = static_cast<size_t>(state.range(0));
-        // Subtract two to account for the "initialization" round above i.e. we have already folded two function
-        // circuits
-        NUM_CIRCUITS -= 2;
-
-        VerifierFoldData kernel_fold_output;
-        for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
+        for (size_t circuit_idx = 2; circuit_idx < TOTAL_NUM_CIRCUITS - 1; circuit_idx += 2) {
+            // for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
             Builder kernel_circuit{ size_hint, ivc.goblin.op_queue };
             Builder function_circuit{ size_hint };
             // Construct function and kernel circuits in parallel
@@ -211,14 +232,14 @@ class ClientIVCBench : public benchmark::Fixture {
             // No need to prepend queue, it's the same after last swap
             // Accumulate kernel circuit
             info("kernel");
-            ivc.accumulate_new(kernel_circuit);
+            ivc.accumulate_new(kernel_circuit, precomputed_vks[circuit_idx]);
 
             // Prepend queue to function circuit
             function_circuit.op_queue->prepend_previous_queue(*ivc.goblin.op_queue);
 
             // Accumulate function circuit
             info("function");
-            ivc.accumulate_new(function_circuit);
+            ivc.accumulate_new(function_circuit, precomputed_vks[circuit_idx + 1]);
 
             // Retrieve queue
             std::swap(*ivc.goblin.op_queue, *function_circuit.op_queue);
@@ -231,7 +252,7 @@ class ClientIVCBench : public benchmark::Fixture {
             GoblinMockCircuits::construct_mock_folding_kernel_new(kernel_circuit);
         }
         info("kernel");
-        ivc.accumulate_new(kernel_circuit);
+        ivc.accumulate_new(kernel_circuit, precomputed_vks.back());
     }
 };
 
@@ -242,11 +263,11 @@ class ClientIVCBench : public benchmark::Fixture {
 BENCHMARK_DEFINE_F(ClientIVCBench, FullNew)(benchmark::State& state)
 {
     ClientIVC ivc;
-    // ivc.precompute_folding_verification_keys();
+    auto precomputed_vks = precompute_verification_keys(static_cast<size_t>(state.range(0)));
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
         // Perform a specified number of iterations of function/kernel accumulation
-        perform_ivc_accumulation_rounds_new(state, ivc);
+        perform_ivc_accumulation_rounds_new(state, ivc, precomputed_vks);
 
         // Construct IVC scheme proof (fold, decider, merge, eccvm, translator)
         ivc.prove();

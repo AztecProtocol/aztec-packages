@@ -34,6 +34,7 @@ void ClientIVC::accumulate_new(ClientCircuit& circuit, const std::shared_ptr<Ver
 {
     // Add a recursive folding verification to the circuit (if a proof exists)
     if (!prover_fold_output.proof.empty()) {
+        BB_OP_COUNT_TIME_NAME("construct_circuits");
         FoldingRecursiveVerifier verifier{ &circuit, verifier_accumulator, { instance_vk } };
         // WORKTODO: maybe out of scope but would be nice to avoid this awkwardness with verifier accum types
         auto verifier_accum = verifier.verify_folding_proof(prover_fold_output.proof);
@@ -41,7 +42,6 @@ void ClientIVC::accumulate_new(ClientCircuit& circuit, const std::shared_ptr<Ver
     }
 
     // Construct a merge proof and add a recursive merge verifier to the circuit
-    // WORKTODO: is this necessary on the init step even with all the hackiness?
     goblin.merge(circuit);
 
     // Construct the prover instance for the updated circuit

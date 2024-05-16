@@ -263,9 +263,10 @@ TEST_F(ClientIVCTests, BasicLarge)
     ClientIVC ivc;
 
     // Construct a set of arbitrary circuits
-    std::array<Builder, 3> circuits;
-    for (auto& circuit : circuits) {
-        circuit = create_mock_circuit(ivc);
+    size_t NUM_CIRCUITS = 3;
+    std::vector<Builder> circuits;
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        circuits.emplace_back(create_mock_circuit(ivc));
     }
 
     // Accumulate each circuit
