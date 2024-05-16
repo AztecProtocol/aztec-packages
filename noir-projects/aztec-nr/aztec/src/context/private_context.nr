@@ -210,19 +210,17 @@ impl PrivateContext {
     pub fn request_nsk_app(&mut self, npk_m_hash: Field) -> Field {
         let cached_request = self.last_nullifier_key_validation_request.unwrap_or(NullifierKeyValidationRequest::empty());
 
-        let request = if cached_request.master_nullifier_public_key.hash() == npk_m_hash {
+        if cached_request.master_nullifier_public_key.hash() == npk_m_hash {
             // We get a match so the cached request is the latest one 
-            cached_request
+            cached_request.app_nullifier_secret_key
         } else {
             // We didn't get a match meaning the cached result is stale. We fetch new values from oracle and instruct
-            // protocol circuit to validate them by storing the validation request.
+            // protocol circuits to validate them by storing the validation request in context.
             let request = get_nullifier_key_validation_request(npk_m_hash);
             self.nullifier_key_validation_requests.push(request);
             self.last_nullifier_key_validation_request = Option::some(request);
-            request
-        };
-
-        request.app_nullifier_secret_key
+            request.app_nullifier_secret_key
+        }
     }
 
     // docs:start:context_message_portal
