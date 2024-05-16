@@ -4,15 +4,11 @@ title: L1 <--> L2 communication
 
 import Image from "@theme/IdealImage";
 
-import Disclaimer from "../../../../../../src/components/Disclaimers/\_wip_disclaimer.mdx";
+In Aztec, what we call _portals_ are the key element in facilitating communication between L1 and L2. While typical L2 solutions rely on synchronous communication with L1, Aztec's privacy-first nature means this is not possible.
 
-<Disclaimer />
+Traditional L1 \<-\> L2 communication might involve direct calls between L2 nd L1 contracts. However, in Aztec, due to the privacy components and the way transactions are processed (kernel proofs built on historical data, client-side), direct calls between L1 and L2 are not possible if we want to maintain privacy.
 
-In Aztec, what we call _portals_ are the key element in facilitating communication between L1 and L2. While typical L2 solutions rely on synchronous communication with L1, Aztec's privacy-first nature means this is not possible. You can learn more about why in the previous section.
-
-Traditional L1 \<-\> L2 communication might involve direct calls between L2 nd L1 contracts. However, in Aztec, due to the privacy components and the way transactions are processed (kernel proofs built on historical data), direct calls between L1 and L2 would not be possible if we want to maintain privacy.
-
-Portals are the solution to this problem, acting as bridges for communication between the two layers. These portals can transmit messages from public functions in L1 to private functions in L2 and vice versa, thus enabling messaging while maintaining privacy.
+Portals are the solution to this problem, acting as bridges for communication between the two layers. Portals contracts transmit messages from public functions in L1 to private functions in L2 and vice versa, enabling messaging while maintaining privacy.
 
 This page covers:
 
@@ -21,36 +17,35 @@ This page covers:
 - Message Boxes and how they work
 - How and why linking of contracts between L1 and L2 occurs
 
-# Objective
+## Objective
 
-The goal is to set up a minimal-complexity mechanism, that will allow a base-layer (L1) and the Aztec Network (L2) to communicate arbitrary messages such that:
+The goal is to set up a minimally-complex mechanism that will allow Ethereum (L1) and the Aztec Network (L2) to communicate arbitrary messages such that:
 
-- L2 functions can `call` L1 functions.
-- L1 functions can `call` L2 functions.
-- The rollup-block size have a limited impact by the messages and their size.
+- L2 functions can send information to L1 functions
+- L1 functions can send information to L2 functions
+- The rollup-block size should have limited impact by the messages and their size
 
-# High Level Overview
+## Overview
 
-This document will contain communication abstractions that we use to support interaction between _private_ functions, _public_ functions and Layer 1 portal contracts.
+This document contains communication abstractions to support interaction between _private_ functions, _public_ functions and Layer 1 portal contracts.
 
 Fundamental restrictions for Aztec:
 
-- L1 and L2 have very different execution environments, stuff that is cheap on L1 is most often expensive on L2 and vice versa. As an example, `keccak256` is cheap on L1, but very expensive on L2.
+- L1 and L2 have very different execution environments. Computation and storage that is cheap on L1 is most often expensive on L2 and vice versa. As an example, `keccak256` is cheap on L1, but very expensive on L2.
 - L1 and L2 have causal ordering, simply meaning that we cannot execute something on L1 that depends on something happening on L2 and vice versa.
-- _Private_ function calls are fully "prepared" and proven by the user, which provides the kernel proof along with commitments and nullifiers to the sequencer.
-- _Public_ functions altering public state (updatable storage) must be executed at the current "head" of the chain, which only the sequencer can ensure, so these must be executed separately to the _private_ functions.
-- _Private_ and _public_ functions within Aztec are therefore ordered such that first _private_ functions are executed, and then _public_. For a more detailed description of why, see above.
-- There is an **explicit 1:1 link** from a L2 contract to an L1 contract, and only the messages between a pair is allowed. See [Portal](#portal) for more information.
+- _Private_ function calls are fully prepared and proven by the user, which provides the kernel proof along with commitments and nullifiers to the sequencer.
+- _Public_ functions altering public state (updatable storage) must be executed at the current "head" of the chain, which only the sequencer can ensure, so these must be executed separately to _private_ functions.
+- _Private_ and _public_ functions within Aztec are ordered such that first _private_ functions are executed, and then _public_.
 - Messages are consumables, and can only be consumed by the recipient. See [Message Boxes](#message-boxes) for more information.
 
-With the aforementioned restrictions taken into account, cross-chain messages can be operated in a similar manner to when _public_ functions must transmit information to _private_ functions. In such a scenario, a "message" is created and conveyed to the recipient for future use. It is worth noting that any call made between different domains (_private, public, cross-chain_) is unilateral in nature. In other words, the caller is unaware of the outcome of the initiated call until told when some later rollup is executed (if at all). This can be regarded as message passing, providing us with a consistent mental model across all domains, which is convenient.
+With the aforementioned restrictions taken into account, cross-chain messages are functionally similar to when _public_ functions must transmit information to _private_ functions. A "message" is created and conveyed to the recipient for future use. It is worth noting that any call made between different domains (_private, public, cross-chain_) is unilateral in nature. In other words, the caller is unaware of the outcome of the initiated call until told when some later rollup is executed, if at all (there are no "callbacks"). This can be regarded as message passing, providing us with a consistent mental model across all domains.
 
-As an illustration, suppose a private function adds a cross-chain call. In such a case, the private function would not have knowledge of the result of the cross-chain call within the same rollup (since it has yet to be executed).
+As an illustration, suppose a private function from Aztec adds a cross-chain call to Ethereum. In such a case, the private function would not have knowledge of the result of the cross-chain call within the same rollup (since it has yet to be executed). The cross-chain message will be added to Ethereum once the rollup block including the transaction with the cross-chain call is published to Ethereum.
 
-Similarly to the ordering of private and public functions, we can also reap the benefits of intentionally ordering messages between L1 and L2. When a message is sent from L1 to L2, it has been "emitted" by an action in the past (an L1 interaction), allowing us to add it to the list of consumables at the "beginning" of the block execution. This practical approach means that a message could be consumed in the same block it is included. In a sophisticated setup, rollup $n$ could send an L2 to L1 message that is then consumed on L1, and the response is added already in $n+1$. However, messages going from L2 to L1 will be added as they are emitted.
+Similarly to the ordering of private and public functions, we can also benefit from ordering messages between L1 and L2. When a message is sent from L1 to L2, it is created by an action (an L1 interaction) that is visible to the sequencer, so the sequencer adds it to the list of consumables at the beginning of the block execution and the message is available to be used by any subsequent transactions in the block. In a sophisticated setup, rollup $n$ could send an L2 to L1 message that is then consumed on L1, and the response is added immediately for use in $n+1$.
 
 :::info
-Because everything is unilateral and async, the application developer have to explicitly handle failure cases such that user can gracefully recover. Example where recovering is of utmost importance is token bridges, where it is very inconvenient if the locking of funds on one domain occur, but never the minting or unlocking on the other.
+Because everything is unilateral and async, the application developer have to explicitly handle failure cases such that user can gracefully recover. For example, recovery is of utmost importance in applications like token bridges. It is very inconvenient if the locking of funds on one domain occur, but never the minting or unlocking on the other.
 :::
 
 ## Components
