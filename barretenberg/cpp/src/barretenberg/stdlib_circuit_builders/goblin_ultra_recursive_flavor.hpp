@@ -32,8 +32,8 @@ namespace bb {
  */
 template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
   public:
-    using Builder = BuilderType; // Determines arithmetization of circuit instantiated with this flavor
-    using Curve = stdlib::bn254<Builder>;
+    using CircuitBuilder = BuilderType; // Determines arithmetization of circuit instantiated with this flavor
+    using Curve = stdlib::bn254<CircuitBuilder>;
     using PCS = KZG<Curve>;
     using GroupElement = typename Curve::Element;
     using FF = typename Curve::ScalarField;
@@ -114,7 +114,7 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
          * @param builder
          * @param native_key Native verification key from which to extract the precomputed commitments
          */
-        VerificationKey(Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
+        VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
             this->pcs_verification_key = native_key->pcs_verification_key;
             this->circuit_size = native_key->circuit_size;
@@ -159,29 +159,29 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
          * @param builder
          * @param elements
          */
-        VerificationKey(Builder& builder, std::span<FF> elements)
+        VerificationKey(CircuitBuilder& builder, std::span<FF> elements)
         {
             // deserialize circuit size
             size_t num_frs_read = 0;
-            size_t num_frs_FF = bb::stdlib::field_conversion::calc_num_bn254_frs<Builder, FF>();
-            size_t num_frs_Comm = bb::stdlib::field_conversion::calc_num_bn254_frs<Builder, Commitment>();
+            size_t num_frs_FF = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, FF>();
+            size_t num_frs_Comm = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, Commitment>();
 
-            this->circuit_size = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<Builder, FF>(
+            this->circuit_size = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
                                               builder, elements.subspan(num_frs_read, num_frs_read + num_frs_FF))
                                               .get_value());
             num_frs_read += num_frs_FF;
-            this->num_public_inputs = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<Builder, FF>(
+            this->num_public_inputs = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
                                                    builder, elements.subspan(num_frs_read, num_frs_read + num_frs_FF))
                                                    .get_value());
             num_frs_read += num_frs_FF;
 
-            this->pub_inputs_offset = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<Builder, FF>(
+            this->pub_inputs_offset = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
                                                    builder, elements.subspan(num_frs_read, num_frs_read + num_frs_FF))
                                                    .get_value());
             num_frs_read += num_frs_FF;
 
             for (Commitment& comm : this->get_all()) {
-                comm = bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, Commitment>(
+                comm = bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, Commitment>(
                     builder, elements.subspan(num_frs_read, num_frs_read + num_frs_Comm));
                 num_frs_read += num_frs_Comm;
             }
@@ -197,7 +197,7 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
     // Reuse the VerifierCommitments from GoblinUltra
     using VerifierCommitments = GoblinUltraFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from GoblinUltra
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };
 
 } // namespace bb
