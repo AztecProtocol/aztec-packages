@@ -27,8 +27,9 @@ pub trait BlackBoxFunctionSolver {
     fn multi_scalar_mul(
         &self,
         points: &[FieldElement],
-        scalars: &[FieldElement],
-    ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError>;
+        scalars_lo: &[FieldElement],
+        scalars_hi: &[FieldElement],
+    ) -> Result<(FieldElement, FieldElement, FieldElement), BlackBoxResolutionError>;
     fn ec_add(
         &self,
         input1_x: &FieldElement,
@@ -83,8 +84,9 @@ impl BlackBoxFunctionSolver for StubbedBlackBoxSolver {
     fn multi_scalar_mul(
         &self,
         _points: &[FieldElement],
-        _scalars: &[FieldElement],
-    ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
+        _scalars_lo: &[FieldElement],
+        _scalars_hi: &[FieldElement],
+    ) -> Result<(FieldElement, FieldElement, FieldElement), BlackBoxResolutionError> {
         Err(Self::fail(BlackBoxFunc::MultiScalarMul))
     }
     fn ec_add(

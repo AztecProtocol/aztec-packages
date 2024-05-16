@@ -27,9 +27,13 @@ impl BlackBoxFunctionSolver for WrapperSolver {
     fn multi_scalar_mul(
         &self,
         points: &[acvm::FieldElement],
-        scalars: &[acvm::FieldElement],
-    ) -> Result<(acvm::FieldElement, acvm::FieldElement), acvm::BlackBoxResolutionError> {
-        self.0.multi_scalar_mul(points, scalars)
+        scalars_lo: &[acvm::FieldElement],
+        scalars_hi: &[acvm::FieldElement],
+    ) -> Result<
+        (acvm::FieldElement, acvm::FieldElement, acvm::FieldElement),
+        acvm::BlackBoxResolutionError,
+    > {
+        self.0.multi_scalar_mul(points, scalars_lo, scalars_hi)
     }
 
     fn pedersen_hash(

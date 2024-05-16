@@ -156,14 +156,32 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
             memory.write(*result, verified.into());
             Ok(())
         }
-        BlackBoxOp::MultiScalarMul { points, scalars, outputs: result } => {
-            let points: Vec<FieldElement> =
-                read_heap_vector(memory, points).iter().map(|x| x.try_into().unwrap()).collect();
-            let scalars: Vec<FieldElement> =
-                read_heap_vector(memory, scalars).iter().map(|x| x.try_into().unwrap()).collect();
-
-            let (x, y) = solver.multi_scalar_mul(&points, &scalars)?;
-            memory.write_slice(memory.read_ref(result.pointer), &[x.into(), y.into()]);
+        BlackBoxOp::MultiScalarMul { points, scalars_lo, scalars_hi, outputs: result } => {
+            let points: Vec<FieldElement> = read_heap_vector(memory, points)
+                .iter()
+                .enumerate()
+                .map(|(i, x)| {
+                    if i % 3 == 2 {
+                        let is_infinite: bool = x.try_into().unwrap();
+                        FieldElement::from(is_infinite as u128)
+                    } else {
+                        x.try_into().unwrap()
+                    }
+                })
+                .collect();
+            let scalars_lo: Vec<FieldElement> = read_heap_vector(memory, scalars_lo)
+                .iter()
+                .map(|x| x.try_into().unwrap())
+                .collect();
+            let scalars_hi: Vec<FieldElement> = read_heap_vector(memory, scalars_hi)
+                .iter()
+                .map(|x| x.try_into().unwrap())
+                .collect();
+            let (x, y, is_infinite) = solver.multi_scalar_mul(&points, &scalars_lo, &scalars_hi)?;
+            memory.write_slice(
+                memory.read_ref(result.pointer),
+                &[x.into(), y.into(), is_infinite.into()],
+            );
             Ok(())
         }
         BlackBoxOp::EmbeddedCurveAdd {

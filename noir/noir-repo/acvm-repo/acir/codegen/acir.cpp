@@ -149,7 +149,7 @@ namespace Program {
         struct MultiScalarMul {
             std::vector<Program::FunctionInput> points;
             std::vector<Program::FunctionInput> scalars;
-            std::array<Program::Witness, 2> outputs;
+            std::array<Program::Witness, 3> outputs;
 
             friend bool operator==(const MultiScalarMul&, const MultiScalarMul&);
             std::vector<uint8_t> bincodeSerialize() const;
@@ -769,7 +769,8 @@ namespace Program {
 
         struct MultiScalarMul {
             Program::HeapVector points;
-            Program::HeapVector scalars;
+            Program::HeapVector scalars_lo;
+            Program::HeapVector scalars_hi;
             Program::HeapArray outputs;
 
             friend bool operator==(const MultiScalarMul&, const MultiScalarMul&);
@@ -3858,7 +3859,8 @@ namespace Program {
 
     inline bool operator==(const BlackBoxOp::MultiScalarMul &lhs, const BlackBoxOp::MultiScalarMul &rhs) {
         if (!(lhs.points == rhs.points)) { return false; }
-        if (!(lhs.scalars == rhs.scalars)) { return false; }
+        if (!(lhs.scalars_lo == rhs.scalars_lo)) { return false; }
+        if (!(lhs.scalars_hi == rhs.scalars_hi)) { return false; }
         if (!(lhs.outputs == rhs.outputs)) { return false; }
         return true;
     }
@@ -3884,7 +3886,8 @@ template <>
 template <typename Serializer>
 void serde::Serializable<Program::BlackBoxOp::MultiScalarMul>::serialize(const Program::BlackBoxOp::MultiScalarMul &obj, Serializer &serializer) {
     serde::Serializable<decltype(obj.points)>::serialize(obj.points, serializer);
-    serde::Serializable<decltype(obj.scalars)>::serialize(obj.scalars, serializer);
+    serde::Serializable<decltype(obj.scalars_lo)>::serialize(obj.scalars_lo, serializer);
+    serde::Serializable<decltype(obj.scalars_hi)>::serialize(obj.scalars_hi, serializer);
     serde::Serializable<decltype(obj.outputs)>::serialize(obj.outputs, serializer);
 }
 
@@ -3893,7 +3896,8 @@ template <typename Deserializer>
 Program::BlackBoxOp::MultiScalarMul serde::Deserializable<Program::BlackBoxOp::MultiScalarMul>::deserialize(Deserializer &deserializer) {
     Program::BlackBoxOp::MultiScalarMul obj;
     obj.points = serde::Deserializable<decltype(obj.points)>::deserialize(deserializer);
-    obj.scalars = serde::Deserializable<decltype(obj.scalars)>::deserialize(deserializer);
+    obj.scalars_lo = serde::Deserializable<decltype(obj.scalars_lo)>::deserialize(deserializer);
+    obj.scalars_hi = serde::Deserializable<decltype(obj.scalars_hi)>::deserialize(deserializer);
     obj.outputs = serde::Deserializable<decltype(obj.outputs)>::deserialize(deserializer);
     return obj;
 }

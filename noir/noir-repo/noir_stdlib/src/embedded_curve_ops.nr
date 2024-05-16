@@ -48,9 +48,10 @@ impl Neg for EmbeddedCurvePoint {
 #[foreign(multi_scalar_mul)]
 // docs:start:multi_scalar_mul
 pub fn multi_scalar_mul<N>(
-    points: [Field; N], // points represented as x and y coordinates [x1, y1, x2, y2,...]
-    scalars: [Field; N] // scalars represented as low and high limbs [low1, high1, low2, high2, ...]
-) -> [Field; 2]
+    points: [EmbeddedCurvePoint; N],
+    scalars_lo: [Field; N], // scalars represented as low and high limbs [low1, low2, low3, ...]
+    scalars_hi: [Field; N], // [high1, high2, high3,...]
+) -> [Field; 3]
 // docs:end:multi_scalar_mul
 {}
 
@@ -58,12 +59,11 @@ pub fn multi_scalar_mul<N>(
 pub fn fixed_base_scalar_mul(
     scalar_low: Field,
     scalar_high: Field
-) -> [Field; 2]
+) -> [Field; 3]
 // docs:end:fixed_base_scalar_mul
 {
-    let g1_x = 1;
-    let g1_y = 17631683881184975370165255887551781615748388533673675138860;
-    multi_scalar_mul([g1_x, g1_y], [scalar_low, scalar_high])
+    let g1 = EmbeddedCurvePoint { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
+    multi_scalar_mul([g1], [scalar_low], [scalar_high])
 }
 
 // This is a hack as returning an `EmbeddedCurvePoint` from a foreign function in brillig returns a [BrilligVariable::SingleAddr; 2] rather than BrilligVariable::BrilligArray

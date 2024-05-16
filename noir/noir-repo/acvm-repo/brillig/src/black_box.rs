@@ -76,7 +76,8 @@ pub enum BlackBoxOp {
     /// Performs multi scalar multiplication over the embedded curve.
     MultiScalarMul {
         points: HeapVector,
-        scalars: HeapVector,
+        scalars_lo: HeapVector,
+        scalars_hi: HeapVector,
         outputs: HeapArray,
     },
     /// Performs addition over the embedded curve.

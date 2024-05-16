@@ -89,7 +89,7 @@ pub enum BlackBoxFuncCall {
     MultiScalarMul {
         points: Vec<FunctionInput>,
         scalars: Vec<FunctionInput>,
-        outputs: (Witness, Witness),
+        outputs: (Witness, Witness, Witness),
     },
     EmbeddedCurveAdd {
         input1: Box<[FunctionInput; 3]>,
@@ -341,9 +341,9 @@ impl BlackBoxFuncCall {
             | BlackBoxFuncCall::EcdsaSecp256k1 { output, .. }
             | BlackBoxFuncCall::PedersenHash { output, .. }
             | BlackBoxFuncCall::EcdsaSecp256r1 { output, .. } => vec![*output],
+            BlackBoxFuncCall::PedersenCommitment { outputs, .. } => vec![outputs.0, outputs.1],
             BlackBoxFuncCall::MultiScalarMul { outputs, .. }
-            | BlackBoxFuncCall::PedersenCommitment { outputs, .. } => vec![outputs.0, outputs.1],
-            BlackBoxFuncCall::EmbeddedCurveAdd { outputs, .. } => {
+            | BlackBoxFuncCall::EmbeddedCurveAdd { outputs, .. } => {
                 vec![outputs.0, outputs.1, outputs.2]
             }
             BlackBoxFuncCall::RANGE { .. }

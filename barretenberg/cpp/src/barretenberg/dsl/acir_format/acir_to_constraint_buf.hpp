@@ -342,6 +342,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg, Aci
                     .scalars = map(arg.scalars, [](auto& e) { return e.witness.value; }),
                     .out_point_x = arg.outputs[0].value,
                     .out_point_y = arg.outputs[1].value,
+                    .out_point_is_infinite = arg.outputs[2].value,
                 });
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::EmbeddedCurveAdd>) {
                 af.ec_add_constraints.push_back(EcAdd{

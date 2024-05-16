@@ -149,7 +149,7 @@ struct BlackBoxFuncCall {
     struct MultiScalarMul {
         std::vector<Program::FunctionInput> points;
         std::vector<Program::FunctionInput> scalars;
-        std::array<Program::Witness, 2> outputs;
+        std::array<Program::Witness, 3> outputs;
 
         friend bool operator==(const MultiScalarMul&, const MultiScalarMul&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -794,7 +794,8 @@ struct BlackBoxOp {
 
     struct MultiScalarMul {
         Program::HeapVector points;
-        Program::HeapVector scalars;
+        Program::HeapVector scalars_lo;
+        Program::HeapVector scalars_hi;
         Program::HeapArray outputs;
 
         friend bool operator==(const MultiScalarMul&, const MultiScalarMul&);
@@ -4568,7 +4569,10 @@ inline bool operator==(const BlackBoxOp::MultiScalarMul& lhs, const BlackBoxOp::
     if (!(lhs.points == rhs.points)) {
         return false;
     }
-    if (!(lhs.scalars == rhs.scalars)) {
+    if (!(lhs.scalars_lo == rhs.scalars_lo)) {
+        return false;
+    }
+    if (!(lhs.scalars_hi == rhs.scalars_hi)) {
         return false;
     }
     if (!(lhs.outputs == rhs.outputs)) {
@@ -4602,7 +4606,8 @@ void serde::Serializable<Program::BlackBoxOp::MultiScalarMul>::serialize(const P
                                                                          Serializer& serializer)
 {
     serde::Serializable<decltype(obj.points)>::serialize(obj.points, serializer);
-    serde::Serializable<decltype(obj.scalars)>::serialize(obj.scalars, serializer);
+    serde::Serializable<decltype(obj.scalars_lo)>::serialize(obj.scalars_lo, serializer);
+    serde::Serializable<decltype(obj.scalars_hi)>::serialize(obj.scalars_hi, serializer);
     serde::Serializable<decltype(obj.outputs)>::serialize(obj.outputs, serializer);
 }
 
@@ -4613,7 +4618,8 @@ Program::BlackBoxOp::MultiScalarMul serde::Deserializable<Program::BlackBoxOp::M
 {
     Program::BlackBoxOp::MultiScalarMul obj;
     obj.points = serde::Deserializable<decltype(obj.points)>::deserialize(deserializer);
-    obj.scalars = serde::Deserializable<decltype(obj.scalars)>::deserialize(deserializer);
+    obj.scalars_lo = serde::Deserializable<decltype(obj.scalars_lo)>::deserialize(deserializer);
+    obj.scalars_hi = serde::Deserializable<decltype(obj.scalars_hi)>::deserialize(deserializer);
     obj.outputs = serde::Deserializable<decltype(obj.outputs)>::deserialize(deserializer);
     return obj;
 }

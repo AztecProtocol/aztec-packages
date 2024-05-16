@@ -325,12 +325,13 @@ impl DebugShow {
                     result
                 );
             }
-            BlackBoxOp::MultiScalarMul { points, scalars, outputs } => {
+            BlackBoxOp::MultiScalarMul { points, scalars_lo, scalars_hi, outputs } => {
                 debug_println!(
                     self.enable_debug_trace,
-                    "  MULTI_SCALAR_MUL {} {} -> {}",
+                    "  MULTI_SCALAR_MUL {} {} {} -> {}",
                     points,
-                    scalars,
+                    scalars_lo,
+                    scalars_hi,
                     outputs
                 );
             }

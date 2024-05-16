@@ -5,7 +5,7 @@ fn main(priv_key: Field, pub_x: pub Field, pub_y: pub Field) {
     let g1 = std::embedded_curve_ops::EmbeddedCurvePoint { x: 1, y: g1_y, is_infinite: false };
 
     // Test that multi_scalar_mul correctly derives the public key
-    let res = std::embedded_curve_ops::multi_scalar_mul([g1.x, g1.y], [priv_key, 0]);
+    let res = std::embedded_curve_ops::multi_scalar_mul([g1], [priv_key], [0]);
     assert(res[0] == pub_x);
     assert(res[1] == pub_y);
 
@@ -17,7 +17,7 @@ fn main(priv_key: Field, pub_x: pub Field, pub_y: pub Field) {
     assert(double.x == res.x);
 
     // Test calling multi_scalar_mul with multiple points and scalars
-    let res = std::embedded_curve_ops::multi_scalar_mul([g1.x, g1.y, g1.x, g1.y], [priv_key, 0, priv_key, 0]);
+    let res = std::embedded_curve_ops::multi_scalar_mul([g1, g1], [priv_key, priv_key], [0, 0]);
 
     // The results should be double the g1 point because the scalars are 1 and we pass in g1 twice
     assert(double.x == res[0]);

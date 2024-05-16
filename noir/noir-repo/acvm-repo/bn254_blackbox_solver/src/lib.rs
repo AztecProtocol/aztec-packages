@@ -92,9 +92,10 @@ impl BlackBoxFunctionSolver for Bn254BlackBoxSolver {
     fn multi_scalar_mul(
         &self,
         points: &[FieldElement],
-        scalars: &[FieldElement],
-    ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
-        multi_scalar_mul(points, scalars)
+        scalars_lo: &[FieldElement],
+        scalars_hi: &[FieldElement],
+    ) -> Result<(FieldElement, FieldElement, FieldElement), BlackBoxResolutionError> {
+        multi_scalar_mul(points, scalars_lo, scalars_hi)
     }
 
     fn ec_add(
