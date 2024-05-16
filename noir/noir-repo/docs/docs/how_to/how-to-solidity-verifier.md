@@ -131,13 +131,25 @@ To verify a proof using the Solidity verifier contract, we call the `verify` fun
 function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external view returns (bool)
 ```
 
-TODO: this needs rewriting to handle the new proof format being in binary rather than hex.
+When using the default example in the [Hello Noir](../getting_started/hello_noir/index.md) guide, the easiest way to confirm that the verifier contract is doing its job is by calling the `verify` function via remix with the required parameters. Note that the public inputs must be passed in separately to the rest of the proof so we must split the proof as returned from `bb`.
 
-When using the default example in the [Hello Noir](../getting_started/hello_noir/index.md) guide, the easiest way to confirm that the verifier contract is doing its job is by calling the `verify` function via remix with the required parameters. For `_proof`, run `nargo prove` and use the string in `proof/<file>.proof` (adding the hex `0x` prefix). We can also copy the public input from `Verifier.toml`, as it will be properly formatted as 32-byte strings:
+First generate a proof with `bb` at the location `./proof` using the steps in [get started](../getting_started/hello_noir/index.md), this proof is in a binary format but we want to convert it into a hex string to pass into Remix, this can be done with the 
 
+```bash
+# This value must be changed to match the number of public inputs (including return values!) in your program.
+NUM_PUBLIC_INPUTS=1
+PUBLIC_INPUT_BYTES=32*NUM_PUBLIC_INPUTS
+HEX_PUBLIC_INPUTS=$(head -c $PUBLIC_INPUT_BYTES ./proof | od -An -v -t x1 | tr -d $' \n')
+HEX_PROOF=$(tail -c +$PUBLIC_INPUT_BYTES ./proof | od -An -v -t x1 | tr -d $' \n')
+
+echo "Public inputs:"
+echo $HEX_PUBLIC_INPUTS
+
+echo "Proof:"
+echo "0x$HEX_PROOF"
 ```
-0x...<proof bytes>... , [0x0000.....02]
-```
+
+Remix expects that the public inputs will be split into an array of `bytes32` values so `HEX_PUBLIC_INPUTS` needs to be split up and prefixed with `0x` accordingly. You may notice that the public inputs match up with the values which are written in the `Verifier.toml` file so we can also copy the public input values from `Verifier.toml` which are already split up. Take care to ensure that the order of the public inputs aren't changed.
 
 A programmatic example of how the `verify` function is called can be seen in the example zk voting application [here](https://github.com/noir-lang/noir-examples/blob/33e598c257e2402ea3a6b68dd4c5ad492bce1b0a/foundry-voting/src/zkVote.sol#L35):
 
@@ -154,11 +166,9 @@ function castVote(bytes calldata proof, uint proposalId, uint vote, bytes32 null
 
 :::info[Return Values]
 
-A circuit doesn't have the concept of a return value. Return values are just syntactic sugar in
-Noir.
+A circuit doesn't have the concept of a return value. Return values are just syntactic sugar in Noir.
 
-Under the hood, the return value is passed as an input to the circuit and is checked at the end of
-the circuit program.
+Under the hood, the return value is passed as an input to the circuit and is checked at the end of the circuit program.
 
 For example, if you have Noir program like this:
 
@@ -176,7 +186,7 @@ the `verify` function will expect the public inputs array (second function param
 
 Passing only two inputs will result in an error such as `PUBLIC_INPUT_COUNT_INVALID(3, 2)`.
 
-In this case, the inputs parameter to `verify` would be an array ordered as `[pubkey_x, pubkey_y, return]`.
+In this case, the inputs parameter to `verify` would be an array ordered as `[pubkey_x, pubkey_y, return`.
 
 :::
 
