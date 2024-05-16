@@ -4,10 +4,10 @@ contract MultiCallEntrypoint {
     use dep::std;
 
     use dep::aztec::prelude::AztecAddress;
-    use dep::authwit::entrypoint::app::{AppPayload, ACCOUNT_MAX_CALLS};
+    use dep::authwit::entrypoint::app::AppPayload;
 
     #[aztec(private)]
-    fn entrypoint(app_payload: AppPayload) -> [Field; ACCOUNT_MAX_CALLS] {
-        app_payload.execute_calls(&mut context)
+    fn entrypoint(app_payload: AppPayload) {
+        app_payload.execute_calls(&mut context);
     }
 }

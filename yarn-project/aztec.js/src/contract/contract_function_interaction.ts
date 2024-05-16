@@ -70,27 +70,37 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * Differs from prove in a few important ways:
    * 1. It returns the values of the function execution
    * 2. It supports `unconstrained`, `private` and `public` functions
-   * 3. For `private` execution it:
-   * 3.a SKIPS the entrypoint and starts directly at the function
-   * 4. For `public` execution it:
-   * 4.a Removes the `txRequest` value after ended simulation
-   * 4.b Ignores the `from` in the options
    *
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the transaction as returned by the contract function.
    */
   public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
     if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
-      return this.wallet.simulateUnconstrained(this.functionDao.name, this.args, this.contractAddress, options.from);
+      return this.wallet.simulateUnconstrained(
+        this.functionDao.name,
+        this.args,
+        this.contractAddress,
+        this.wallet.getAddress(),
+      );
     }
 
     const txRequest = await this.create();
-    const simulatedTx = await this.wallet.simulateTx(txRequest, true);
+    // const from =
+    //   this.functionDao.functionType == FunctionType.SECRET ? options.from ?? this.wallet.getAddress() : undefined;
 
+    const simulatedTx = await this.wallet.simulateTx(txRequest, true, options?.from);
+
+    this.txRequest = undefined;
+
+    simulatedTx.tx;
+
+    // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
+    // since we're interested in the first set of values AFTER the account entrypoint
+    // For public functions we retrieve the first values directly from the public output.
     const rawReturnValues =
       this.functionDao.functionType == FunctionType.SECRET
-        ? simulatedTx.privateReturnValues
-        : simulatedTx.publicOutput?.publicReturnValues;
+        ? simulatedTx.privateReturnValues?.nested?.[0].values
+        : simulatedTx.publicOutput?.publicReturnValues?.values;
 
     return rawReturnValues ? decodeReturnValues(this.functionDao, rawReturnValues) : [];
   }

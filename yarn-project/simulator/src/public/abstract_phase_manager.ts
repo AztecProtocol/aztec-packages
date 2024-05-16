@@ -1,6 +1,6 @@
 import {
   MerkleTreeId,
-  type ProcessReturnValues,
+  NestedProcessReturnValues,
   type PublicKernelRequest,
   PublicKernelType,
   type SimulationError,
@@ -140,7 +140,7 @@ export abstract class AbstractPhaseManager {
      * revert reason, if any
      */
     revertReason: SimulationError | undefined;
-    returnValues: ProcessReturnValues;
+    returnValues: NestedProcessReturnValues[];
     /** Gas used during the execution this particular phase. */
     gasUsed: Gas | undefined;
   }>;
@@ -227,7 +227,7 @@ export abstract class AbstractPhaseManager {
       Proof,
       UnencryptedFunctionL2Logs[],
       SimulationError | undefined,
-      ProcessReturnValues,
+      NestedProcessReturnValues[],
       Gas,
     ]
   > {
@@ -238,7 +238,7 @@ export abstract class AbstractPhaseManager {
     const enqueuedCalls = this.extractEnqueuedPublicCalls(tx);
 
     if (!enqueuedCalls || !enqueuedCalls.length) {
-      return [[], kernelOutput, kernelProof, [], undefined, undefined, Gas.empty()];
+      return [[], kernelOutput, kernelProof, [], undefined, [], Gas.empty()];
     }
 
     const newUnencryptedFunctionLogs: UnencryptedFunctionL2Logs[] = [];
@@ -250,8 +250,9 @@ export abstract class AbstractPhaseManager {
     // separate public callstacks to be proven by separate public kernel sequences
     // and submitted separately to the base rollup?
 
-    let returns: ProcessReturnValues = undefined;
     let gasUsed = Gas.empty();
+
+    const enqueuedCallResults = [];
 
     for (const enqueuedCall of enqueuedCalls) {
       const executionStack: (PublicExecution | PublicExecutionResult)[] = [enqueuedCall];
@@ -334,13 +335,14 @@ export abstract class AbstractPhaseManager {
             }`,
           );
           // TODO(@spalladino): Check gasUsed is correct. The AVM should take care of setting gasLeft to zero upon a revert.
-          return [[], kernelOutput, kernelProof, [], result.revertReason, undefined, gasUsed];
+          return [[], kernelOutput, kernelProof, [], result.revertReason, [], gasUsed];
         }
 
         if (!enqueuedExecutionResult) {
           enqueuedExecutionResult = result;
-          returns = result.returnValues;
         }
+
+        enqueuedCallResults.push(this.#accumulateReturnValues(enqueuedExecutionResult));
       }
       // HACK(#1622): Manually patches the ordering of public state actions
       // TODO(#757): Enforce proper ordering of public state actions
@@ -350,7 +352,27 @@ export abstract class AbstractPhaseManager {
     // TODO(#3675): This should be done in a public kernel circuit
     removeRedundantPublicDataWrites(kernelOutput, this.phase);
 
-    return [publicKernelInputs, kernelOutput, kernelProof, newUnencryptedFunctionLogs, undefined, returns, gasUsed];
+    return [
+      publicKernelInputs,
+      kernelOutput,
+      kernelProof,
+      newUnencryptedFunctionLogs,
+      undefined,
+      enqueuedCallResults,
+      gasUsed,
+    ];
+  }
+
+  /**
+   * Recursively accummulate the return values of a public call result and its nested executions,
+   * so they can be retrieved in order.
+   * @param executionResult
+   * @returns
+   */
+  #accumulateReturnValues(executionResult: PublicExecutionResult): NestedProcessReturnValues {
+    const acc = new NestedProcessReturnValues(executionResult.returnValues);
+    acc.nested = executionResult.nestedExecutions.map(nestedExecution => this.#accumulateReturnValues(nestedExecution));
+    return acc;
   }
 
   /** Returns all pending private and public nullifiers.  */

@@ -9,6 +9,7 @@ import {
   type L2Block,
   type LogFilter,
   MerkleTreeId,
+  NestedProcessReturnValues,
   type NoteFilter,
   type PXE,
   type ProofCreator,
@@ -643,6 +644,18 @@ export class PXEService implements PXE {
   }
 
   /**
+   * Recursively accummulate the return values of a private execution results and its nested calls,
+   * so they can be retrieved in order.
+   * @param executionResult
+   * @returns
+   */
+  #accumulateReturnValues(executionResult: ExecutionResult): NestedProcessReturnValues {
+    const acc = new NestedProcessReturnValues(executionResult.returnValues);
+    acc.nested = executionResult.nestedExecutions.map(nestedExecution => this.#accumulateReturnValues(nestedExecution));
+    return acc;
+  }
+
+  /**
    * Simulate a transaction, generate a kernel proof, and create a private transaction object.
    * The function takes in a transaction request, simulates it, and then generates a kernel proof
    * using the simulation result. Finally, it creates a private
@@ -682,7 +695,8 @@ export class PXEService implements PXE {
       enqueuedPublicFunctions,
       teardownPublicFunction,
     );
-    return new SimulatedTx(tx, executionResult.returnValues);
+
+    return new SimulatedTx(tx, this.#accumulateReturnValues(executionResult));
   }
 
   /**

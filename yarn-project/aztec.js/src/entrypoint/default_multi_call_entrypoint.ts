@@ -85,7 +85,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
           visibility: 'public',
         },
       ],
-      returnTypes: [{ kind: 'array', length: 4, type: { kind: 'field' } }],
+      returnTypes: [],
     } as FunctionAbi;
   }
 }

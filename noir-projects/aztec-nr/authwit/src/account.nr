@@ -2,7 +2,7 @@ use dep::aztec::context::{PrivateContext, PublicContext, Context};
 use dep::aztec::state_vars::{Map, PublicMutable};
 use dep::aztec::protocol_types::{address::AztecAddress, abis::function_selector::FunctionSelector, hash::pedersen_hash};
 
-use crate::entrypoint::{app::{AppPayload, ACCOUNT_MAX_CALLS}, fee::FeePayload};
+use crate::entrypoint::{app::AppPayload, fee::FeePayload};
 use crate::auth::{IS_VALID_SELECTOR, compute_outer_authwit_hash};
 
 struct AccountActions {
@@ -55,11 +55,7 @@ impl AccountActions {
     }
 
     // docs:start:entrypoint
-    pub fn entrypoint(
-        self,
-        app_payload: AppPayload,
-        fee_payload: FeePayload
-    ) -> [Field; ACCOUNT_MAX_CALLS] {
+    pub fn entrypoint(self, app_payload: AppPayload, fee_payload: FeePayload) {
         let valid_fn = self.is_valid_impl;
         let mut private_context = self.context.private.unwrap();
 
@@ -70,7 +66,7 @@ impl AccountActions {
 
         let app_hash = app_payload.hash();
         assert(valid_fn(private_context, app_hash));
-        app_payload.execute_calls(private_context)
+        app_payload.execute_calls(private_context);
     }
     // docs:end:entrypoint
 

@@ -54,12 +54,7 @@ impl DAppPayload {
 
     // Executes all private and public calls
     // docs:start:entrypoint-execute-calls
-    fn execute_calls(
-        self,
-        context: &mut PrivateContext,
-        target_address: AztecAddress
-    ) -> [Field; DAPP_MAX_CALLS] {
-        let mut return_value_hashes = [0; DAPP_MAX_CALLS];
+    fn execute_calls(self, context: &mut PrivateContext, target_address: AztecAddress) {
         for i in 0..DAPP_MAX_CALLS {
             let call = self.function_calls[i];
             // whitelist the calls that the user can do only go to the expected Dapp contract
@@ -72,19 +67,16 @@ impl DAppPayload {
                     call.is_static,
                     false
                 );
-                return_value_hashes[i] = 0;
             } else {
-                let result = context.call_private_function_with_packed_args(
+                let _result = context.call_private_function_with_packed_args(
                     call.target_address,
                     call.function_selector,
                     call.args_hash,
                     call.is_static,
                     false
                 );
-                return_value_hashes[i] = result.raw();
             }
         }
-        return_value_hashes
     }
     // docs:end:entrypoint-execute-calls
 }

@@ -116,7 +116,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
           visibility: 'public',
         },
       ],
-      returnTypes: [{ kind: 'array', length: 1, type: { kind: 'field' } }],
+      returnTypes: [],
     } as FunctionAbi;
   }
 }
