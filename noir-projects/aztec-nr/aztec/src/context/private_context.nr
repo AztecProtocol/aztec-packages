@@ -217,10 +217,10 @@ impl PrivateContext {
             // We didn't get a match meaning the cached result is stale. We fetch new values from oracle and instruct
             // protocol circuits to validate them by storing the validation request in context.
             let request = get_nullifier_key_validation_request(npk_m_hash);
-            // We constrain that the npk_m_hash matches the one in the request (otherwise we could get a arbitrary
-            // valid key request and not the one corresponding to npk_m_hash)
+            // We constrain that the npk_m_hash matches the one in the request (otherwise we could get an arbitrary
+            // valid key request and not the one corresponding to npk_m_hash).
             assert(request.master_nullifier_public_key.hash() == npk_m_hash);
-            self.key_validation_requests.push(request);
+            self.nullifier_key_validation_requests.push(request);
             self.last_nullifier_key_validation_request = Option::some(request);
             request.app_nullifier_secret_key
         }
