@@ -50,7 +50,7 @@ impl Neg for EmbeddedCurvePoint {
 pub fn multi_scalar_mul<N>(
     points: [EmbeddedCurvePoint; N],
     scalars_lo: [Field; N], // scalars represented as low and high limbs [low1, low2, low3, ...]
-    scalars_hi: [Field; N], // [high1, high2, high3,...]
+    scalars_hi: [Field; N] // [high1, high2, high3,...]
 ) -> [Field; 3]
 // docs:end:multi_scalar_mul
 {}
