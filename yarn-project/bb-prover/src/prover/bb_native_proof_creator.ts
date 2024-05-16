@@ -19,6 +19,7 @@ import { siloNoteHash } from '@aztec/circuits.js/hash';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
+import { Timer } from '@aztec/foundation/timer';
 import {
   ClientCircuitArtifacts,
   type ClientProtocolArtifact,
@@ -341,6 +342,10 @@ export class BBNativeProofCreator implements ProofCreator {
 
     this.log.debug(`Written ${inputsWitnessFile}`);
 
+    this.log.info(`Proving ${circuitType} circuit...`);
+
+    const timer = new Timer();
+
     const provingResult = await generateProof(
       this.bbBinaryPath,
       directory,
@@ -354,6 +359,8 @@ export class BBNativeProofCreator implements ProofCreator {
       this.log.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
       throw new Error(provingResult.reason);
     }
+
+    this.log.info(`Generated ${circuitType} circuit proof in ${timer.ms} ms`);
 
     if (circuitType === 'App') {
       const vkData = await this.convertVk(directory);
