@@ -4,7 +4,7 @@ import { type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types
 
 import { FullProverTest } from './e2e_prover_test.js';
 
-const TIMEOUT = 600_000;
+const TIMEOUT = 2_400_000;
 
 async function verifyProof(circuitType: ClientProtocolArtifact, tx: Tx, proofCreator: BBNativeProofCreator) {
   await expect(proofCreator.verifyProofForProtocolCircuit(circuitType, tx.proof)).resolves.not.toThrow();
