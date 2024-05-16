@@ -68,7 +68,7 @@ fn multi_scalar_mul_circuit() {
             FunctionInput { witness: Witness(3), num_bits: 128 },
             FunctionInput { witness: Witness(4), num_bits: 128 },
         ],
-        outputs: (Witness(5), Witness(6)),
+        outputs: (Witness(5), Witness(6), Witness(7)),
     });
 
     let circuit = Circuit {
@@ -83,10 +83,10 @@ fn multi_scalar_mul_circuit() {
     let bytes = Program::serialize_program(&program);
 
     let expected_serialization: Vec<u8> = vec![
-        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 85, 76, 65, 14, 0, 32, 8, 82, 179, 186, 244, 104, 159,
-        30, 45, 218, 136, 141, 33, 40, 186, 93, 76, 208, 57, 31, 93, 96, 136, 47, 250, 146, 188,
-        209, 39, 181, 131, 131, 187, 148, 110, 240, 246, 101, 38, 63, 180, 243, 97, 3, 125, 173,
-        118, 131, 153, 0, 0, 0,
+        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 101, 140, 219, 10, 0, 48, 8, 66, 171, 221, 94, 246, 209,
+        125, 250, 26, 59, 65, 48, 65, 76, 73, 85, 30, 86, 80, 185, 175, 238, 160, 21, 239, 120, 47,
+        121, 195, 119, 116, 4, 39, 91, 66, 158, 125, 227, 63, 51, 41, 59, 217, 251, 112, 0, 103,
+        167, 216, 209, 157, 0, 0, 0,
     ];
 
     assert_eq!(bytes, expected_serialization)
