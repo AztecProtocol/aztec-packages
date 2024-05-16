@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use acvm::acir::circuit::ExpressionWidth;
-use backend_interface::BackendError;
 use clap::Args;
 use iter_extended::vecmap;
 use nargo::{
@@ -93,7 +92,7 @@ pub(crate) fn run(args: InfoCommand, config: NargoConfig) -> Result<(), CliError
                 args.compile_options.expression_width,
             )
         })
-        .collect::<Result<_, _>>()?;
+        .collect();
 
     let info_report = InfoReport { programs: program_info, contracts: Vec::new() };
 
@@ -226,19 +225,19 @@ fn count_opcodes_and_gates_in_program(
     compiled_program: ProgramArtifact,
     package: &Package,
     expression_width: ExpressionWidth,
-) -> Result<ProgramInfo, CliError> {
+) -> ProgramInfo {
     let functions = compiled_program
         .bytecode
         .functions
         .into_par_iter()
         .enumerate()
-        .map(|(i, function)| -> Result<_, BackendError> {
-            Ok(FunctionInfo {
+        .map(|(i, function)| {
+            FunctionInfo {
                 name: compiled_program.names[i].clone(),
                 acir_opcodes: function.opcodes.len(),
-            })
+            }
         })
-        .collect::<Result<_, _>>()?;
+        .collect();
 
-    Ok(ProgramInfo { package_name: package.name.to_string(), expression_width, functions })
+    ProgramInfo { package_name: package.name.to_string(), expression_width, functions }
 }

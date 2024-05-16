@@ -63,8 +63,4 @@ pub(crate) enum CliError {
     /// Error from the compilation pipeline
     #[error(transparent)]
     CompileError(#[from] CompileError),
-
-    /// Error related to communication with backend.
-    #[error(transparent)]
-    BackendCommunicationError(#[from] backend_interface::BackendError),
 }
