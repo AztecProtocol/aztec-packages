@@ -10,7 +10,7 @@ To learn more about how storage works in Aztec, read [the concepts](/guides/guid
 
 ```rust
 #[aztec(storage)]
-struct Storage {
+struct Storage<Context> {
   // public state variables
   // private state variables
 }
