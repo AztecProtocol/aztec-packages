@@ -9,6 +9,7 @@
 #include "ec_operations.hpp"
 #include "ecdsa_secp256k1.hpp"
 #include "ecdsa_secp256r1.hpp"
+#include "honk_recursion_constraint.hpp"
 #include "keccak_constraint.hpp"
 #include "logic_constraint.hpp"
 #include "multi_scalar_mul.hpp"
@@ -54,6 +55,7 @@ struct AcirFormat {
     std::vector<MultiScalarMul> multi_scalar_mul_constraints;
     std::vector<EcAdd> ec_add_constraints;
     std::vector<RecursionConstraint> recursion_constraints;
+    std::vector<HonkRecursionConstraint> honk_recursion_constraints;
     std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
     std::vector<BigIntToLeBytes> bigint_to_le_bytes_constraints;
     std::vector<BigIntOperation> bigint_operations;
@@ -89,6 +91,7 @@ struct AcirFormat {
                    multi_scalar_mul_constraints,
                    ec_add_constraints,
                    recursion_constraints,
+                   honk_recursion_constraints,
                    poly_triple_constraints,
                    block_constraints,
                    bigint_from_le_bytes_constraints,
