@@ -202,7 +202,7 @@ build-acir-tests:
     SAVE ARTIFACT /usr/src/noir-repo/test_programs/acir_artifacts/*
 
 barretenberg-acir-benches-bb:
-  FROM ../build-images/+build
+  FROM ubuntu:noble
 
   COPY ../barretenberg/cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
   COPY ../barretenberg/+acir-tests/ /usr/src/barretenberg/acir_tests
