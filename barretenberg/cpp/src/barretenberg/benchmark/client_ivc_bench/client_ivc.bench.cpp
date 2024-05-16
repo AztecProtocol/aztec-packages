@@ -47,7 +47,7 @@ class ClientIVCBench : public benchmark::Fixture {
             circuits.emplace_back(kernel_circuit);
         }
 
-        return ivc.precompute_folding_verification_keys_new(circuits);
+        return ivc.precompute_folding_verification_keys(circuits);
     }
 
     /**
@@ -130,7 +130,6 @@ class ClientIVCBench : public benchmark::Fixture {
             BB_OP_COUNT_TIME_NAME("construct_circuits");
             GoblinMockCircuits::construct_mock_folding_kernel(kernel_circuit);
         }
-        info("kernel");
         ivc.accumulate(kernel_circuit, precomputed_vks.back());
     }
 };

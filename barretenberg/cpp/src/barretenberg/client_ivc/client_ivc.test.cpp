@@ -154,7 +154,7 @@ TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
         circuits.emplace_back(create_mock_circuit(ivc));
     }
 
-    auto precomputed_vkeys = ivc.precompute_folding_verification_keys_new(circuits);
+    auto precomputed_vkeys = ivc.precompute_folding_verification_keys(circuits);
 
     // Accumulate each circuit
     for (auto [circuit, precomputed_vk] : zip_view(circuits, precomputed_vkeys)) {

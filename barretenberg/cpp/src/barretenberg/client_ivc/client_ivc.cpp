@@ -25,8 +25,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 
     // Construct the prover instance for the updated circuit
     prover_instance = std::make_shared<ProverInstance>(circuit, structured_flag);
-    info("num_gates = ", circuit.get_num_gates());
-    info("circuit size = ", prover_instance->proving_key.circuit_size);
 
     // Set the instance verification key from precomputed if available, else compute it
     if (precomputed_vk) {
@@ -94,7 +92,7 @@ HonkProof ClientIVC::decider_prove() const
  * @param circuits A copy of the circuits to be accumulated
  * @return std::vector<std::shared_ptr<ClientIVC::VerificationKey>>
  */
-std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_folding_verification_keys_new(
+std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_folding_verification_keys(
     std::vector<ClientCircuit> circuits)
 {
     std::vector<std::shared_ptr<VerificationKey>> vkeys;

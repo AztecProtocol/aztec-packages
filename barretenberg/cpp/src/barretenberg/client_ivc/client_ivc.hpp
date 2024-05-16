@@ -102,6 +102,6 @@ class ClientIVC {
     void decider_prove_and_verify(const VerifierAccumulator&) const;
 
     void precompute_folding_verification_keys();
-    std::vector<std::shared_ptr<VerificationKey>> precompute_folding_verification_keys_new(std::vector<ClientCircuit>);
+    std::vector<std::shared_ptr<VerificationKey>> precompute_folding_verification_keys(std::vector<ClientCircuit>);
 };
 } // namespace bb

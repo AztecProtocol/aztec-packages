@@ -192,7 +192,6 @@ class GoblinMockCircuits {
         stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
     }
 
-    // WORKTODO: needed?
     /**
      * @brief A minimal version of the mock kernel (recursive verifiers only) for faster testing
      *
