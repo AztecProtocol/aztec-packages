@@ -492,8 +492,9 @@ class ECCVMFlavor {
             const std::vector<MSM> msms = builder.get_msms();
             const auto point_table_rows =
                 ECCVMPointTablePrecomputationBuilder::compute_rows(CircuitBuilder::get_flattened_scalar_muls(msms));
-            const auto [msm_rows, point_table_read_counts] = ECCVMMSMMBuilder::compute_rows(
-                msms, builder.get_number_of_muls(), builder.op_queue->get_num_msm_rows());
+            std::array<std::vector<size_t>, 2> point_table_read_counts;
+            const auto msm_rows = ECCVMMSMMBuilder::compute_rows(
+                msms, point_table_read_counts, builder.get_number_of_muls(), builder.op_queue->get_num_msm_rows());
 
             const size_t num_rows = std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() });
             const auto log_num_rows = static_cast<size_t>(numeric::get_msb64(num_rows));
@@ -564,12 +565,12 @@ class ECCVMFlavor {
             }
             // in addition, unless the accumulator is reset, it contains the value from the previous row so this
             // must be propagated
-            for (size_t i = transcript_state.size(); i < num_rows_pow2; ++i) {
+            for (size_t i = transcript_rows.size(); i < dyadic_num_rows; ++i) {
                 transcript_accumulator_x[i] = transcript_accumulator_x[i - 1];
                 transcript_accumulator_y[i] = transcript_accumulator_y[i - 1];
             }
 
-            run_loop_in_parallel(precompute_table_rows.size(), [&](size_t start, size_t end) {
+            run_loop_in_parallel(point_table_rows.size(), [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
                     // first row is always an empty row (to accommodate shifted polynomials which must have 0 as 1st
                     // coefficient). All other rows in the point_table_rows represent active wnaf gates (i.e.

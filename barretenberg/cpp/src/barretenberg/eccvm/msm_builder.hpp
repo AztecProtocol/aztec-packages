@@ -15,11 +15,12 @@ class ECCVMMSMMBuilder {
     using AffineElement = typename CycleGroup::affine_element;
 
     static constexpr size_t ADDITIONS_PER_ROW = bb::eccvm::ADDITIONS_PER_ROW;
-    static constexpr size_t NUM_SCALAR_BITS = bb::eccvm::NUM_SCALAR_BITS;
-    static constexpr size_t WNAF_SLICE_BITS = bb::eccvm::WNAF_SLICE_BITS;
+    static constexpr size_t NUM_WNAF_DIGITS_PER_SCALAR = bb::eccvm::NUM_WNAF_DIGITS_PER_SCALAR;
 
-    struct alignas(64) MSMState {
+    struct alignas(64) MSMRow {
+        // counter over all half-length scalar muls used to compute the required MSMs
         uint32_t pc = 0;
+        // the number of points that will be scaled and summed
         uint32_t msm_size = 0;
         uint32_t msm_count = 0;
         uint32_t msm_round = 0;
@@ -43,21 +44,6 @@ class ECCVMMSMMBuilder {
         FF accumulator_y = 0;
     };
 
-    struct alignas(64) MSMRowTranscript {
-        std::array<FF, 4> lambda_numerator;
-        std::array<FF, 4> lambda_denominator;
-        Element accumulator_in;
-        Element accumulator_out;
-    };
-
-    struct alignas(64) AdditionTrace {
-        Element p1;
-        Element p2;
-        Element p3;
-        bool predicate;
-        bool is_double;
-    };
-
     /**
      * @brief Computes the row values for the Straus MSM columns of the ECCVM.
      *
@@ -67,12 +53,12 @@ class ECCVMMSMMBuilder {
      * @param msms
      * @param point_table_read_counts
      * @param total_number_of_muls
-     * @return std::vector<MSMState>
+     * @return std::vector<MSMRow>
      */
-    static std::vector<MSMState> compute_msm_state(const std::vector<bb::eccvm::MSM<CycleGroup>>& msms,
-                                                   std::array<std::vector<size_t>, 2>& point_table_read_counts,
-                                                   const uint32_t total_number_of_muls,
-                                                   const size_t num_msm_rows)
+    static std::vector<MSMRow> compute_rows(const std::vector<bb::eccvm::MSM<CycleGroup>>& msms,
+                                            std::array<std::vector<size_t>, 2>& point_table_read_counts,
+                                            const uint32_t total_number_of_muls,
+                                            const size_t num_msm_rows)
     {
         // N.B. the following comments refer to a "point lookup table" frequently.
         // To perform a scalar multiplicaiton of a point [P] by a scalar x, we compute multiples of [P] and store in a
@@ -129,15 +115,14 @@ class ECCVMMSMMBuilder {
         msm_row_indices.push_back(1);
         pc_indices.push_back(total_number_of_muls);
         for (const auto& msm : msms) {
-            const size_t rows = ECCOpQueue::get_msm_row_count_for_single_msm(msm.size());
+            const size_t rows = ECCOpQueue::num_eccvm_msm_rows(msm.size());
             msm_row_indices.push_back(msm_row_indices.back() + rows);
             pc_indices.push_back(pc_indices.back() - msm.size());
         }
 
-        static constexpr size_t num_rounds = NUM_SCALAR_BITS / WNAF_SLICE_BITS;
-        std::vector<MSMState> msm_state(num_msm_rows);
+        std::vector<MSMRow> msm_state(num_msm_rows);
         // start with empty row (shiftable polynomials must have 0 as first coefficient)
-        msm_state[0] = (MSMState{});
+        msm_state[0] = (MSMRow{});
 
         // compute "read counts" so that we can determine the number of times entries in our log-derivative lookup
         // tables are called.
@@ -145,7 +130,7 @@ class ECCVMMSMMBuilder {
         // concern.
         for (size_t i = 0; i < msms.size(); ++i) {
 
-            for (size_t j = 0; j < num_rounds; ++j) {
+            for (size_t j = 0; j < NUM_WNAF_DIGITS_PER_SCALAR; ++j) {
                 uint32_t pc = static_cast<uint32_t>(pc_indices[i]);
                 const auto& msm = msms[i];
                 const size_t msm_size = msm.size();
@@ -159,13 +144,13 @@ class ECCVMMSMMBuilder {
                     for (size_t m = 0; m < ADDITIONS_PER_ROW; ++m) {
                         bool add = points_per_row > m;
                         if (add) {
-                            int slice = add ? msm[idx + m].wnaf_slices[j] : 0;
+                            int slice = add ? msm[idx + m].wnaf_digits[j] : 0;
                             update_read_counts(pc - idx - m, slice);
                         }
                     }
                 }
 
-                if (j == num_rounds - 1) {
+                if (j == NUM_WNAF_DIGITS_PER_SCALAR - 1) {
                     for (size_t k = 0; k < rows_per_round; ++k) {
                         const size_t points_per_row =
                             (k + 1) * ADDITIONS_PER_ROW > msm_size ? msm_size % ADDITIONS_PER_ROW : ADDITIONS_PER_ROW;
@@ -220,7 +205,7 @@ class ECCVMMSMMBuilder {
                     (msm_size / ADDITIONS_PER_ROW) + (msm_size % ADDITIONS_PER_ROW != 0 ? 1 : 0);
                 size_t trace_index = (msm_row_indices[i] - 1) * 4;
 
-                for (size_t j = 0; j < num_rounds; ++j) {
+                for (size_t j = 0; j < NUM_WNAF_DIGITS_PER_SCALAR; ++j) {
                     const uint32_t pc = static_cast<uint32_t>(pc_indices[i]);
 
                     for (size_t k = 0; k < rows_per_round; ++k) {
@@ -233,7 +218,7 @@ class ECCVMMSMMBuilder {
 
                             auto& add_state = row.add_state[m];
                             add_state.add = points_per_row > m;
-                            int slice = add_state.add ? msm[idx + m].wnaf_slices[j] : 0;
+                            int slice = add_state.add ? msm[idx + m].wnaf_digits[j] : 0;
                             // In the MSM columns in the ECCVM circuit, we can add up to 4 points per row.
                             // if `row.add_state[m].add = 1`, this indicates that we want to add the `m`'th point in
                             // the MSM columns into the MSM accumulator `add_state.slice` = A 4-bit WNAF slice of
@@ -268,7 +253,7 @@ class ECCVMMSMMBuilder {
                         msm_row_index++;
                     }
                     // doubling
-                    if (j < num_rounds - 1) {
+                    if (j < NUM_WNAF_DIGITS_PER_SCALAR - 1) {
                         auto& row = msm_state[msm_row_index];
                         row.msm_transition = false;
                         row.msm_round = static_cast<uint32_t>(j + 1);
@@ -371,7 +356,7 @@ class ECCVMMSMMBuilder {
                 const size_t rows_per_round =
                     (msm_size / ADDITIONS_PER_ROW) + (msm_size % ADDITIONS_PER_ROW != 0 ? 1 : 0);
 
-                for (size_t j = 0; j < num_rounds; ++j) {
+                for (size_t j = 0; j < NUM_WNAF_DIGITS_PER_SCALAR; ++j) {
                     for (size_t k = 0; k < rows_per_round; ++k) {
                         auto& row = msm_state[msm_row_index];
                         const Element& normalized_accumulator = accumulator_trace[accumulator_index];
@@ -391,8 +376,8 @@ class ECCVMMSMMBuilder {
                         msm_row_index++;
                     }
 
-                    if (j < num_rounds - 1) {
-                        MSMState& row = msm_state[msm_row_index];
+                    if (j < NUM_WNAF_DIGITS_PER_SCALAR - 1) {
+                        MSMRow& row = msm_state[msm_row_index];
                         const Element& normalized_accumulator = accumulator_trace[accumulator_index];
                         const FF& acc_x = normalized_accumulator.is_point_at_infinity() ? 0 : normalized_accumulator.x;
                         const FF& acc_y = normalized_accumulator.is_point_at_infinity() ? 0 : normalized_accumulator.y;
@@ -411,7 +396,7 @@ class ECCVMMSMMBuilder {
                         msm_row_index++;
                     } else {
                         for (size_t k = 0; k < rows_per_round; ++k) {
-                            MSMState& row = msm_state[msm_row_index];
+                            MSMRow& row = msm_state[msm_row_index];
                             const Element& normalized_accumulator = accumulator_trace[accumulator_index];
                             ASSERT(normalized_accumulator.is_point_at_infinity() == 0);
                             const size_t idx = k * ADDITIONS_PER_ROW;
@@ -441,7 +426,7 @@ class ECCVMMSMMBuilder {
         // we always require 1 extra row at the end of the trace, because the accumulator x/y coordinates for row `i`
         // are present at row `i+1`
         Element final_accumulator(accumulator_trace.back());
-        MSMState& final_row = msm_state.back();
+        MSMRow& final_row = msm_state.back();
         final_row.pc = static_cast<uint32_t>(pc_indices.back());
         final_row.msm_transition = true;
         final_row.accumulator_x = final_accumulator.is_point_at_infinity() ? 0 : final_accumulator.x;
@@ -451,10 +436,10 @@ class ECCVMMSMMBuilder {
         final_row.q_add = false;
         final_row.q_double = false;
         final_row.q_skew = false;
-        final_row.add_state = { typename MSMState::AddState{ false, 0, AffineElement{ 0, 0 }, 0, 0 },
-                                typename MSMState::AddState{ false, 0, AffineElement{ 0, 0 }, 0, 0 },
-                                typename MSMState::AddState{ false, 0, AffineElement{ 0, 0 }, 0, 0 },
-                                typename MSMState::AddState{ false, 0, AffineElement{ 0, 0 }, 0, 0 } };
+        final_row.add_state = { typename MSMRow::AddState{ false, 0, AffineElement{ 0, 0 }, 0, 0 },
+                                typename MSMRow::AddState{ false, 0, AffineElement{ 0, 0 }, 0, 0 },
+                                typename MSMRow::AddState{ false, 0, AffineElement{ 0, 0 }, 0, 0 },
+                                typename MSMRow::AddState{ false, 0, AffineElement{ 0, 0 }, 0, 0 } };
 
         return msm_state;
     }
