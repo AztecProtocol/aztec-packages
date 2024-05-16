@@ -13,6 +13,3 @@
 [submodule "barretenberg/sol/lib/openzeppelin-contracts"]
 	path = barretenberg/sol/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
-[submodule "noir/noir-repo/examples/codegen-verifier/lib/forge-std"]
-	path = noir/noir-repo/examples/codegen-verifier/lib/forge-std
-	url = https://github.com/foundry-rs/forge-std
