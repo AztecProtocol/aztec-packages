@@ -1,7 +1,7 @@
 use crate::{
     abis::{
     call_request::CallRequest, gas::Gas, note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
-    log_hash::{LogHash, NoteLogHash}
+    private_call_request::ScopedPrivateCallRequest, log_hash::{LogHash, NoteLogHash}
 },
     traits::{Serialize, Deserialize, Eq, Empty}, messaging::l2_to_l1_message::ScopedL2ToL1Message,
     utils::reader::Reader
@@ -26,7 +26,7 @@ struct PrivateAccumulatedData {
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
 
-    private_call_stack: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
+    private_call_stack: [ScopedPrivateCallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
     public_call_stack: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
 }
 
@@ -88,7 +88,7 @@ impl Deserialize<PRIVATE_ACCUMULATED_DATA_LENGTH> for PrivateAccumulatedData {
         unencrypted_logs_hashes: reader.read_struct_array(LogHash::deserialize, [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX]),
         encrypted_log_preimages_length: reader.read(),
         unencrypted_log_preimages_length: reader.read(),
-        private_call_stack: reader.read_struct_array(CallRequest::deserialize, [CallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX]),
+        private_call_stack: reader.read_struct_array(ScopedPrivateCallRequest::deserialize, [ScopedPrivateCallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX]),
         public_call_stack: reader.read_struct_array(CallRequest::deserialize, [CallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX]),
     };
     reader.finish();
@@ -122,7 +122,7 @@ impl Empty for PrivateAccumulatedData {
             unencrypted_logs_hashes: [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
-            private_call_stack: [CallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
+            private_call_stack: [ScopedPrivateCallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
             public_call_stack: [CallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
         }
     }

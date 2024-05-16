@@ -16,9 +16,9 @@ use dep::types::{
 
 struct DataSource {
     private_call_public_inputs: PrivateCircuitPublicInputs,
+    contract_address: AztecAddress,
     storage_contract_address: AztecAddress,
     note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
-    private_call_requests: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
     public_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
     public_teardown_call_request: CallRequest,
 }
@@ -81,17 +81,17 @@ impl PrivateKernelCircuitPublicInputsComposer {
     pub fn compose(
         &mut self,
         private_call_public_inputs: PrivateCircuitPublicInputs,
+        contract_address: AztecAddress,
         note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
-        private_call_requests: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
         public_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
         public_teardown_call_request: CallRequest
     ) -> Self {
         let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
         let source = DataSource {
+            contract_address,
             storage_contract_address,
             private_call_public_inputs,
             note_hash_nullifier_counters,
-            private_call_requests,
             public_call_requests,
             public_teardown_call_request
         };
@@ -216,11 +216,11 @@ impl PrivateKernelCircuitPublicInputsComposer {
     }
 
     fn propagate_private_call_requests(&mut self, source: DataSource) {
-        let call_requests = source.private_call_requests;
+        let call_requests = source.private_call_public_inputs.private_call_requests;
         for i in 0..call_requests.len() {
             let call_request = call_requests[i];
             if !is_empty(call_request) {
-                self.public_inputs.end.private_call_stack.push(call_request);
+                self.public_inputs.end.private_call_stack.push(call_request.scope(source.contract_address));
             }
         }
     }

@@ -8,7 +8,8 @@ use crate::{
     public_accumulated_data_builder::PublicAccumulatedDataBuilder
 },
     call_request::CallRequest, note_hash::{NoteHash, ScopedNoteHash}, nullifier::ScopedNullifier,
-    public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, NoteLogHash}
+    private_call_request::ScopedPrivateCallRequest, public_data_update_request::PublicDataUpdateRequest,
+    log_hash::{LogHash, NoteLogHash}
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
@@ -37,7 +38,7 @@ struct PrivateAccumulatedDataBuilder {
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
 
-    private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
+    private_call_stack: BoundedVec<ScopedPrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
 
 }
@@ -230,6 +231,23 @@ impl PrivateAccumulatedDataBuilder {
         revertible_builder.gas_used = Gas::new(revertible_da_gas_used, revertible_l2_gas_used);
         non_revertible_builder.gas_used = Gas::tx_overhead() + Gas::new(non_revertible_da_gas_used, non_revertible_l2_gas_used);
         (non_revertible_builder.finish(), revertible_builder.finish())
+    }
+}
+
+impl Empty for PrivateAccumulatedDataBuilder {
+    fn empty() -> Self {
+        PrivateAccumulatedDataBuilder {
+            new_note_hashes: BoundedVec::new(),
+            new_nullifiers: BoundedVec::new(),
+            new_l2_to_l1_msgs: BoundedVec::new(),
+            note_encrypted_logs_hashes: BoundedVec::new(),
+            encrypted_logs_hashes: BoundedVec::new(),
+            unencrypted_logs_hashes: BoundedVec::new(),
+            encrypted_log_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
+            private_call_stack: BoundedVec::new(),
+            public_call_stack: BoundedVec::new(),
+        }
     }
 }
 
@@ -457,22 +475,5 @@ mod tests {
         )
             + Gas::tx_overhead()
         );
-    }
-}
-
-impl Empty for PrivateAccumulatedDataBuilder {
-    fn empty() -> Self {
-        PrivateAccumulatedDataBuilder {
-            new_note_hashes: BoundedVec::new(),
-            new_nullifiers: BoundedVec::new(),
-            new_l2_to_l1_msgs: BoundedVec::new(),
-            note_encrypted_logs_hashes: BoundedVec::new(),
-            encrypted_logs_hashes: BoundedVec::new(),
-            unencrypted_logs_hashes: BoundedVec::new(),
-            encrypted_log_preimages_length: 0,
-            unencrypted_log_preimages_length: 0,
-            private_call_stack: BoundedVec::new(),
-            public_call_stack: BoundedVec::new(),
-        }
     }
 }

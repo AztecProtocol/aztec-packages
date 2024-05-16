@@ -8,3 +8,4 @@ mod validate_call;
 mod validate_call_requests;
 mod validate_contract_address;
 mod validate_counters;
+mod validate_private_call_requests;
