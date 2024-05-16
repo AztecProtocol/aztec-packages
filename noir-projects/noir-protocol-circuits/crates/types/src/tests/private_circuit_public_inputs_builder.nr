@@ -88,7 +88,7 @@ impl PrivateCircuitPublicInputsBuilder {
 
         public_inputs.chain_id = fixtures::CHAIN_ID;
         public_inputs.version = fixtures::VERSION;
-        public_inputs.gas_settings = GasSettings::default();
+        public_inputs.gas_settings = GasSettings::empty();
         public_inputs.counter_start = counter;
         public_inputs.counter_end = counter + 1;
 
