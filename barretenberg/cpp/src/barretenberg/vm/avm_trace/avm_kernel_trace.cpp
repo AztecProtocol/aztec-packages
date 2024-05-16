@@ -8,8 +8,6 @@
 // For the meantime, we do not fire around the public inputs as a vector or otherwise
 // Instead we fire them around as a fixed length array from the kernel, as that is how they will be
 
-// TODO: max offset checks for the offset selectors
-
 namespace bb::avm_trace {
 
 AvmKernelTraceBuilder::AvmKernelTraceBuilder(VM_PUBLIC_INPUTS public_inputs)
@@ -104,7 +102,8 @@ FF AvmKernelTraceBuilder::op_timestamp()
     return perform_kernel_input_lookup(TIMESTAMP_SELECTOR);
 }
 
-// TODO(ISSUE_NUMBER): need to process hint from avm in order to know if output should be set to true or not
+// TODO(https://github.com/AztecProtocol/aztec-packages/issues/6481): need to process hint from avm in order to know if
+// output should be set to true or not
 void AvmKernelTraceBuilder::op_note_hash_exists(uint32_t clk, FF note_hash, uint32_t result)
 {
 
@@ -136,7 +135,8 @@ void AvmKernelTraceBuilder::op_emit_note_hash(uint32_t clk, FF note_hash)
     kernel_trace.push_back(entry);
 }
 
-// TODOISSUE_NUMBER: need to process hint from avm in order to know if output should be set to true or not
+// TODO(https://github.com/AztecProtocol/aztec-packages/issues/6481): need to process hint from avm in order to know if
+// output should be set to true or not
 void AvmKernelTraceBuilder::op_nullifier_exists(uint32_t clk, FF nullifier, uint32_t result)
 {
     uint32_t offset = START_NULLIFIER_EXISTS_OFFSET + nullifier_exists_offset;
@@ -167,7 +167,8 @@ void AvmKernelTraceBuilder::op_emit_nullifier(uint32_t clk, FF nullifier)
     kernel_trace.push_back(entry);
 }
 
-// TODO(ISSUE_NUMBER): need to process hint from avm in order to know if output should be set to true or not
+// TODO(https://github.com/AztecProtocol/aztec-packages/issues/6481): need to process hint from avm in order to know if
+// output should be set to true or not
 void AvmKernelTraceBuilder::op_l1_to_l2_msg_exists(uint32_t clk, FF message, uint32_t result)
 {
     uint32_t offset = START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET + l1_to_l2_msg_exists_offset;

@@ -35,23 +35,15 @@ namespace bb::avm_trace {
 
 class AvmKernelTraceBuilder {
   public:
-    // TODO: should this trace be called on every single operation as it must maintain the
-    // value of its counters for each operation that takes place
-    // E.g. we need to have consistent values of the offset counters in the trace, even if not
-    // performing an operation that impacts those counters.
-
-    // We can think of succinct data structures to store the values in these traces ( in line with something
-    // that is a sparse representation )
     struct KernelTraceEntry {
-        // TODO: make lineup with PIL
+        // Clk - to join black onto the main trace
         uint32_t clk = 0;
         uint32_t kernel_selector = 0;
         uint32_t kernel_out_selector = 0;
         bool q_kernel_lookup = false;
         bool q_kernel_output_lookup = false;
 
-        // Store each of the rows in which the index counters have incremented
-        // In finalise, we can infer the counter values from the rows in which we need to increment
+        // In finalise, the main trace writes the correct write_offset for each operation based appearing selectors
         bool op_note_hash_exists = false;
         bool op_emit_note_hash = false;
         bool op_nullifier_exists = false;
@@ -68,8 +60,8 @@ class AvmKernelTraceBuilder {
     // Counts the number of accesses into each SELECTOR for the environment selector lookups;
     std::unordered_map<uint32_t, uint32_t> kernel_input_selector_counter;
 
-    // TODO: as outputs are only written to once, we can optimise this to just
-    // hardcode the counter to be the same as the lookup selector value!!!
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6484): as outputs are only written to once, we can
+    // optimise this to just hardcode the counter to be the same as the lookup selector value!!!
     std::unordered_map<uint32_t, uint32_t> kernel_output_selector_counter;
 
     // Constructor receives copy of kernel_inputs from the main trace builder
@@ -108,7 +100,7 @@ class AvmKernelTraceBuilder {
     void op_sload(uint32_t clk, FF slot, FF value);
     void op_sstore(uint32_t clk, FF slot, FF value);
 
-    // TODO: maybe just have these start at the correct offsets?
+    // Temp: these are temporary offsets
     static const uint32_t START_NOTE_HASH_EXISTS_WRITE_OFFSET = 0;
     static const uint32_t START_EMIT_NOTE_HASH_WRITE_OFFSET = 4;
     static const uint32_t START_NULLIFIER_EXISTS_OFFSET = 8;
@@ -125,7 +117,6 @@ class AvmKernelTraceBuilder {
 
     // Side effect counter will incremenent when any state writing values are
     // encountered
-    // TODO: This will need to be read from the kernel inputs
     uint32_t side_effect_counter = 0;
 
     // Output index counters

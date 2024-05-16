@@ -25,7 +25,10 @@ void validate_trace_check_circuit(std::vector<Row>&& trace, VM_PUBLIC_INPUTS pub
     validate_trace(std::move(trace), public_inputs, false);
 };
 
-// TODO:
+// Copy Public Input Columns
+// There are 4 public input columns, one for inputs, and 3 for the kernel outputs {value, side effect counter, metadata}
+// The verifier is generic, and so accepts vectors of these values rather than the fixed length arrays that are used
+// during circuit building This method copies each array into a vector to be used by the verifier
 std::vector<std::vector<FF>> copy_public_inputs_columns(VM_PUBLIC_INPUTS public_inputs)
 {
     // We convert to a vector as the pil generated verifier is generic and unaware of the KERNEL_INPUTS_LENGTH

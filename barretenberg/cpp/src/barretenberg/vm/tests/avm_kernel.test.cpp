@@ -41,7 +41,6 @@ void test_kernel_lookup(OpcodesFunc apply_opcodes, CheckFunc check_trace)
 {
     VM_PUBLIC_INPUTS public_inputs = get_public_inputs();
 
-    // TODO: update the trace builder to take in the full VM_PUBLIC_INPUTS
     AvmTraceBuilder trace_builder(public_inputs);
 
     // We should return a value of 1 for the sender, as it exists at index 0
@@ -74,9 +73,12 @@ void expect_row(std::vector<Row>::const_iterator row, FF selector, FF ia, FF mem
     EXPECT_EQ(row->avm_main_q_kernel_lookup, FF(1));
 }
 
-// TODO: add side effect counter checks?
-void expect_output_table_row(
-    std::vector<Row>::const_iterator row, FF selector, FF ia, FF mem_idx_a, AvmMemoryTag w_in_tag)
+void expect_output_table_row(std::vector<Row>::const_iterator row,
+                             FF selector,
+                             FF ia,
+                             FF mem_idx_a,
+                             AvmMemoryTag w_in_tag,
+                             uint32_t side_effect_counter)
 {
     // Checks dependent on the opcode
     EXPECT_EQ(row->avm_kernel_kernel_out_sel, selector);
@@ -89,12 +91,20 @@ void expect_output_table_row(
     EXPECT_EQ(row->avm_main_mem_op_a, FF(1));
     EXPECT_EQ(row->avm_main_r_in_tag, static_cast<uint32_t>(w_in_tag));
     EXPECT_EQ(row->avm_main_q_kernel_output_lookup, FF(1));
+
+    EXPECT_EQ(row->avm_kernel_side_effect_counter, FF(side_effect_counter));
 }
 
-void expect_output_table_row_with_metadata(
-    std::vector<Row>::const_iterator row, FF selector, FF ia, FF mem_idx_a, FF ib, FF mem_idx_b, AvmMemoryTag w_in_tag)
+void expect_output_table_row_with_metadata(std::vector<Row>::const_iterator row,
+                                           FF selector,
+                                           FF ia,
+                                           FF mem_idx_a,
+                                           FF ib,
+                                           FF mem_idx_b,
+                                           AvmMemoryTag w_in_tag,
+                                           uint32_t side_effect_counter)
 {
-    expect_output_table_row(row, selector, ia, mem_idx_a, w_in_tag);
+    expect_output_table_row(row, selector, ia, mem_idx_a, w_in_tag, side_effect_counter);
 
     EXPECT_EQ(row->avm_main_ib, ib);
     EXPECT_EQ(row->avm_main_mem_idx_b, mem_idx_b);
@@ -105,10 +115,16 @@ void expect_output_table_row_with_metadata(
     EXPECT_EQ(row->avm_main_mem_op_b, FF(1));
 }
 
-void expect_output_table_row_with_exists_metadata(
-    std::vector<Row>::const_iterator row, FF selector, FF ia, FF mem_idx_a, FF ib, FF mem_idx_b, AvmMemoryTag w_in_tag)
+void expect_output_table_row_with_exists_metadata(std::vector<Row>::const_iterator row,
+                                                  FF selector,
+                                                  FF ia,
+                                                  FF mem_idx_a,
+                                                  FF ib,
+                                                  FF mem_idx_b,
+                                                  AvmMemoryTag w_in_tag,
+                                                  uint32_t side_effect_counter)
 {
-    expect_output_table_row(row, selector, ia, mem_idx_a, w_in_tag);
+    expect_output_table_row(row, selector, ia, mem_idx_a, w_in_tag, side_effect_counter);
 
     EXPECT_EQ(row->avm_main_ib, ib);
     EXPECT_EQ(row->avm_main_mem_idx_b, mem_idx_b);
@@ -647,7 +663,8 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitNoteHash)
             /*kernel_sel=*/output_offset,
             /*ia=*/1234, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/offset,
-            /*w_in_tag=*/AvmMemoryTag::FF);
+            /*w_in_tag=*/AvmMemoryTag::FF,
+            /*side_effect_counter=*/0);
 
         check_kernel_outputs(trace.at(output_offset + 1), 1234, /*side_effect_counter=*/0, /*metadata=*/0);
     };
@@ -676,7 +693,8 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitNullifier)
             /*kernel_sel=*/output_offset,
             /*ia=*/1234, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/offset,
-            /*w_in_tag=*/AvmMemoryTag::FF);
+            /*w_in_tag=*/AvmMemoryTag::FF,
+            /*side_effect_counter=*/0);
 
         // Validate lookup and counts
         // Plus 1 as we have a padded empty first row
@@ -707,7 +725,10 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitL2ToL1Msg)
             /*kernel_sel=*/output_offset,
             /*ia=*/1234, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/offset,
-            /*w_in_tag=*/AvmMemoryTag::FF);
+            /*w_in_tag=*/AvmMemoryTag::FF,
+            /*side_effect_counter=*/0
+
+        );
 
         check_kernel_outputs(trace.at(output_offset + 1), 1234, /*side_effect_counter=*/0, /*metadata=*/0);
     };
@@ -736,7 +757,8 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitUnencryptedLog)
             /*kernel_sel=*/output_offset,
             /*ia=*/1234, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/offset,
-            /*w_in_tag=*/AvmMemoryTag::FF);
+            /*w_in_tag=*/AvmMemoryTag::FF,
+            /*side_effect_counter=*/0);
 
         check_kernel_outputs(trace.at(output_offset + 1), 1234, 0, 0);
     };
@@ -771,7 +793,10 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSload)
             /*mem_idx_a=*/value_offset,
             /*ib=*/slot,
             /*mem_idx_b=*/metadata_offset,
-            /*w_in_tag=*/AvmMemoryTag::FF);
+            /*w_in_tag=*/AvmMemoryTag::FF,
+            /*side_effect_counter=*/0
+
+        );
 
         check_kernel_outputs(trace.at(output_offset + 1), value, /*side_effect_counter=*/0, slot);
     };
@@ -806,7 +831,8 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSstore)
             /*mem_idx_a=*/value_offset,
             /*ib=*/slot,
             /*mem_idx_b=*/metadata_offset,
-            /*w_in_tag=*/AvmMemoryTag::FF);
+            /*w_in_tag=*/AvmMemoryTag::FF,
+            /*side_effect_counter=*/0);
 
         check_kernel_outputs(trace.at(output_offset + 1), value, /*side_effect_counter=*/0, slot);
     };
@@ -840,7 +866,9 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNoteHashExists)
             /*mem_idx_a=*/value_offset,
             /*ib=*/exists,
             /*mem_idx_b=*/metadata_offset,
-            /*w_in_tag=*/AvmMemoryTag::FF);
+            /*w_in_tag=*/AvmMemoryTag::FF,
+
+            /*side_effect_counter=*/0);
 
         check_kernel_outputs(trace.at(output_offset + 1), value, /*side_effect_counter=*/0, exists);
     };
@@ -874,7 +902,8 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierExists)
             /*mem_idx_a=*/value_offset,
             /*ib=*/exists,
             /*mem_idx_b=*/metadata_offset,
-            /*w_in_tag=*/AvmMemoryTag::FF);
+            /*w_in_tag=*/AvmMemoryTag::FF,
+            /*side_effect_counter=*/0);
 
         check_kernel_outputs(trace.at(output_offset + 1), value, /*side_effect_counter=*/0, exists);
     };
@@ -908,7 +937,8 @@ TEST_F(AvmKernelOutputPositiveTests, kernelL1ToL2MsgExists)
             /*mem_idx_a=*/value_offset,
             /*ib=*/exists,
             /*mem_idx_b=*/metadata_offset,
-            /*w_in_tag=*/AvmMemoryTag::FF);
+            /*w_in_tag=*/AvmMemoryTag::FF,
+            /*side_effect_counter=*/0);
 
         check_kernel_outputs(trace.at(output_offset + 1), value, /*side_effect_counter=*/0, exists);
     };

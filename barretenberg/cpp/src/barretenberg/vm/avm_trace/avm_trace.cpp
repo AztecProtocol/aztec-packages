@@ -1180,15 +1180,6 @@ void AvmTraceBuilder::op_timestamp(uint32_t dst_offset)
     main_trace.push_back(row);
 }
 
-// Row AvmTraceBuilder::create_kernel_lookup__output_opcode(uint32_t dst_offset,
-//                                                          uint32_t selector,
-//                                                          FF value,
-//                                                          AvmMemoryTag w_tag)
-// {
-//     auto const clk = static_cast<uint32_t>(main_trace.size());
-
-// }
-
 // Helper function to add kernel lookup operations into the main trace
 Row AvmTraceBuilder::create_kernel_output_opcode(uint32_t clk, uint32_t data_offset, AvmMemoryTag r_tag)
 {
@@ -1319,7 +1310,8 @@ void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint32_t log_offset, uint32_t dest_
 {
     auto const clk = static_cast<uint32_t>(main_trace.size());
 
-    // TODO(ISSUE_NUMBER): success or fail must come from hint - it is always 1 for now
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6481): success or fail must come from hint - it is
+    // always 1 for now
     uint32_t result = 1;
     Row row = create_kernel_output_opcode_with_set_metadata_output(
         clk, log_offset, AvmMemoryTag::FF, dest_offset, result, AvmMemoryTag::U8);
@@ -2481,15 +2473,11 @@ std::vector<Row> AvmTraceBuilder::finalize()
 
     // Copy the kernel input public inputs
     for (size_t i = 0; i < KERNEL_INPUTS_LENGTH; i++) {
-        // TODO: Maybe keep public inputs in this class? - rather than the tuple syntax here!
         main_trace.at(i).avm_kernel_kernel_inputs__is_public =
             std::get<KERNEL_INPUTS>(kernel_trace_builder.public_inputs).at(i);
     }
 
     // Copy the kernel outputs counts into the main trace,
-    // TODO: move away from hardcoded 4 in this case
-
-    // Copy the kernel outputs into the public inputs
     for (size_t i = 0; i < KERNEL_OUTPUTS_LENGTH; i++) {
         main_trace.at(i).avm_kernel_kernel_value_out__is_public =
             std::get<KERNEL_OUTPUTS_VALUE>(kernel_trace_builder.public_inputs).at(i);
@@ -2511,14 +2499,13 @@ std::vector<Row> AvmTraceBuilder::finalize()
         }
     }
 
-    // ============= WORK IN PROGRESS =============================
-
-    // 0. Assert that the indexes are 0 on the first row w/ some boundary condition check
-    // 1. Get access to the avm main trace, work out how to keep the incrementing array indexes constant
-
-    // move
+    // Write the kernel trace into the main trace
+    // 1. The write offsets are constrained to be non changing over the entire trace, so we fill in the values until we
+    //    hit an operation that changes one of the write_offsets (a relevant opcode)
+    // 2. Upon hitting the clk of each kernel operation we copy the values into the main trace
+    // 3. When an increment is required, we increment the value in the next row, then continue the process until the end
+    // 4. Whenever we hit the last row, we zero all write_offsets such that the shift relation will succeed
     std::vector<AvmKernelTraceBuilder::KernelTraceEntry> kernel_trace = kernel_trace_builder.finalize();
-    // TODO: DOES THIS BREAK WITH A LOG EMIT AS THE FIRST INSTRUCTION?
     size_t kernel_padding_main_trace_bottom = 1;
     for (size_t i = 0; i < kernel_trace.size(); i++) {
         auto const& src = kernel_trace.at(i);
@@ -2564,7 +2551,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
         curr.avm_main_sel_op_sload = static_cast<uint32_t>(src.op_sload);
         curr.avm_main_sel_op_sstore = static_cast<uint32_t>(src.op_sstore);
 
-        // Hack? - we just need to know the values in the row before so we can increment
         if (clk < main_trace_size) {
             Row& next = main_trace.at(clk + 1);
 
@@ -2600,11 +2586,9 @@ std::vector<Row> AvmTraceBuilder::finalize()
     // Pad out the main trace from the bottom of the main trace until the end
     for (size_t i = kernel_padding_main_trace_bottom + 1; i < main_trace_size; ++i) {
 
-        // TODO: Start from plus 1 and prev is i - 1? SWAP THIS AROUND?
         Row const& prev = main_trace.at(i - 1);
         Row& dest = main_trace.at(i);
 
-        // TODO: is there a better way to do this? - this now just sets to 0 on the last row
         // Setting all of the counters to 0 after the IS_LAST check so we can satisfy the constraints until the end
         if (i == main_trace_size) {
             dest.avm_kernel_note_hash_exist_write_offset = 0;
@@ -2630,8 +2614,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
             dest.avm_kernel_side_effect_counter = prev.avm_kernel_side_effect_counter;
         }
     }
-
-    // ============= WORK IN PROGRESS =============================
 
     // Adding extra row for the shifted values at the top of the execution trace.
     Row first_row = Row{ .avm_main_first = FF(1), .avm_mem_lastAccess = FF(1) };

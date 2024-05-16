@@ -172,13 +172,63 @@ class AvmTraceBuilder {
     AvmKernelTraceBuilder kernel_trace_builder;
     AvmConversionTraceBuilder conversion_trace_builder;
 
+    /**
+     * @brief Create a kernel lookup opcode object
+     *
+     * Used for looking up into the kernel inputs (context) - {caller, address, etc.}
+     *
+     * @param dst_offset
+     * @param selector
+     * @param value
+     * @param w_tag
+     * @return Row
+     */
     Row create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t selector, FF value, AvmMemoryTag w_tag);
+
+    /**
+     * @brief Create a kernel output opcode object
+     *
+     * Used for writing to the kernel app outputs - {new_note_hash, new_nullifier, etc.}
+     *
+     * @param clk
+     * @param data_offset
+     * @param r_tag
+     * @return Row
+     */
     Row create_kernel_output_opcode(uint32_t clk, uint32_t data_offset, AvmMemoryTag r_tag);
+
+    /**
+     * @brief Create a kernel output opcode with metadata object
+     *
+     * Used for writing to the kernel app outputs with extra metadata - {sload, sstore} (value, slot)
+     *
+     * @param clk
+     * @param data_offset
+     * @param data_r_tag
+     * @param metadata_offset
+     * @param metadata_r_tag
+     * @return Row
+     */
     Row create_kernel_output_opcode_with_metadata(uint32_t clk,
                                                   uint32_t data_offset,
                                                   AvmMemoryTag data_r_tag,
                                                   uint32_t metadata_offset,
                                                   AvmMemoryTag metadata_r_tag);
+
+    /**
+     * @brief Create a kernel output opcode with set metadata output object
+     *
+     * Used for writing output opcode where one value is written and comes from a hint
+     * {note_hash_exists, nullifier_exists, etc. } Where a boolean output if it exists must also be written
+     *
+     * @param clk
+     * @param data_offset
+     * @param data_r_tag
+     * @param metadata_offset
+     * @param write_value
+     * @param metadata_w_tag
+     * @return Row
+     */
     Row create_kernel_output_opcode_with_set_metadata_output(uint32_t clk,
                                                              uint32_t data_offset,
                                                              AvmMemoryTag data_r_tag,
@@ -187,11 +237,6 @@ class AvmTraceBuilder {
                                                              AvmMemoryTag metadata_w_tag);
 
     void finalise_mem_trace_lookup_counts();
-
-    // kernel_output_lookup_opcode
-    // uint32_t value_read_offset,
-    //                                     uint32_t metadata_read_offset,
-    //                                     AvmMemoryTag w_tag);
 
     IndirectThreeResolution resolve_ind_three(
         uint32_t clk, uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t c_offset);
