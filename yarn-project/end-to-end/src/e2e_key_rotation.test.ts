@@ -12,6 +12,7 @@ import {
   type Wallet,
   computeSecretHash,
   retryUntil,
+  type AccountWallet,
 } from '@aztec/aztec.js';
 import { type PublicKey, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
 import { KeyRegistryContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
@@ -31,8 +32,8 @@ describe('e2e_key_rotation', () => {
   let aztecNode: AztecNode;
   let pxeA: PXE;
   let pxeB: PXE;
-  let walletA: Wallet;
-  let walletB: Wallet;
+  let walletA: AccountWallet;
+  let walletB: AccountWallet;
   let logger: DebugLogger;
   let teardownA: () => Promise<void>;
   let teardownB: () => Promise<void>;
@@ -176,7 +177,11 @@ describe('e2e_key_rotation', () => {
     {
       const newNskM = Fq.random();
       newNpkM = derivePublicKeyFromSecretKey(newNskM);
-      await pxeB.rotateMasterNullifierKey(walletB.getAddress(), newNskM);
+      // This or
+      await (await walletB.rotateNskM(newNskM)).send().wait();
+      // this
+      // await walletB.rotateNskMPxe(newNskM)
+      // await walletB.rotateNskM(newNskM).send().wait();
 
       await keyRegistryWithB.methods.rotate_npk_m(walletB.getAddress(), newNpkM, 0).send().wait();
       await crossDelay();

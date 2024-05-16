@@ -159,6 +159,10 @@ export class PXEService implements PXE {
     return this.db.getAuthWitness(messageHash);
   }
 
+  async rotateNskMPxe(account: AztecAddress, secretKey: Fq = Fq.random()): Promise<void> {
+    await this.keyStore.rotateMasterNullifierKey(account, secretKey);
+  }
+
   public addCapsule(capsule: Fr[]) {
     return this.db.addCapsule(capsule);
   }
@@ -189,10 +193,6 @@ export class PXEService implements PXE {
 
     await this.db.addCompleteAddress(accountCompleteAddress);
     return accountCompleteAddress;
-  }
-
-  public async rotateMasterNullifierKey(account: AztecAddress, secretKey: Fq = Fq.random()): Promise<void> {
-    await this.keyStore.rotateMasterNullifierKey(account, secretKey);
   }
 
   public async getRegisteredAccounts(): Promise<CompleteAddress[]> {

@@ -69,8 +69,10 @@ export abstract class BaseWallet implements Wallet {
   registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     return this.pxe.registerAccount(secretKey, partialAddress);
   }
-  rotateMasterNullifierKey(account: AztecAddress, secretKey: Fq): Promise<void> {
-    return this.pxe.rotateMasterNullifierKey(account, secretKey);
+  // This is exposed here only because Wallet implements PXE.
+  // This should not be called directly, but should be called via the AccountWallet
+  rotateNskMPxe(address: AztecAddress, secretKey: Fq) {
+    return this.pxe.rotateNskMPxe(address, secretKey);
   }
   registerRecipient(account: CompleteAddress): Promise<void> {
     return this.pxe.registerRecipient(account);
