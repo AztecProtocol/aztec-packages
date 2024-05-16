@@ -131,6 +131,8 @@ To verify a proof using the Solidity verifier contract, we call the `verify` fun
 function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external view returns (bool)
 ```
 
+TODO: this needs rewriting to handle the new proof format being in binary rather than hex.
+
 When using the default example in the [Hello Noir](../getting_started/hello_noir/index.md) guide, the easiest way to confirm that the verifier contract is doing its job is by calling the `verify` function via remix with the required parameters. For `_proof`, run `nargo prove` and use the string in `proof/<file>.proof` (adding the hex `0x` prefix). We can also copy the public input from `Verifier.toml`, as it will be properly formatted as 32-byte strings:
 
 ```
@@ -170,7 +172,7 @@ fn main(
 ) -> pub Field
 ```
 
-the `verify` function will expect the public inputs array (second function parameter) to be of length 3, the two inputs and the return value. Like before, these values are populated in Verifier.toml after running `nargo prove`.
+the `verify` function will expect the public inputs array (second function parameter) to be of length 3, the two inputs and the return value. Like before, these values are populated in Verifier.toml after running `nargo execute`.
 
 Passing only two inputs will result in an error such as `PUBLIC_INPUT_COUNT_INVALID(3, 2)`.
 
