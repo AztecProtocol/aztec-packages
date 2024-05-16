@@ -21,12 +21,6 @@ PUBLIC_INPUT_BYTES=$((32 * $NUM_PUBLIC_INPUTS))
 HEX_PUBLIC_INPUTS=$(head -c $PUBLIC_INPUT_BYTES $PROOF_PATH | od -An -v -t x1 | tr -d $' \n')
 HEX_PROOF=$(tail -c +$(($PUBLIC_INPUT_BYTES + 1)) $PROOF_PATH | od -An -v -t x1 | tr -d $' \n')
 
-# echo "Public inputs:"
-# echo $HEX_PUBLIC_INPUTS
-
-# echo "Proof:"
-# echo "0x$HEX_PROOF"
-
 # Spin up an anvil node to deploy the contract to
 anvil &
 
