@@ -68,7 +68,6 @@ bool GoblinTranslatorVerifier::verify_proof(const HonkProof& proof)
     Flavor::VerifierCommitments commitments{ key };
     Flavor::CommitmentLabels commitment_labels;
 
-    // TODO(Adrian): Change the initialization of the transcript to take the VK hash?
     const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
     evaluation_input_x = transcript->template receive_from_prover<BF>("evaluation_input_x");
 
