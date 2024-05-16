@@ -18,6 +18,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import 'jest-extended';
 
 import { TaggedNote } from '../../circuit-types/src/logs/l1_note_payload/tagged_note.js';
+import { DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_block_building', () => {
@@ -114,9 +115,6 @@ describe('e2e_block_building', () => {
   describe('double-spends', () => {
     let contract: TestContract;
     let teardown: () => Promise<void>;
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/5818): clean up
-    // Under current public, we expect 'dropped', under the AVM, we expect 'reverted'.
-    const DUPLICATE_NULLIFIER_ERROR = /dropped|reverted/;
 
     beforeAll(async () => {
       ({ teardown, pxe, logger, wallet: owner } = await setup(1));
@@ -273,7 +271,7 @@ describe('e2e_block_building', () => {
 
       // compare logs
       expect(rct.status).toEqual('mined');
-      const decryptedLogs = tx.encryptedLogs
+      const decryptedLogs = tx.noteEncryptedLogs
         .unrollLogs()
         .map(l => TaggedNote.fromEncryptedBuffer(l.data, keys.masterIncomingViewingSecretKey));
       const notevalues = decryptedLogs.map(l => l?.notePayload.note.items[0]);
