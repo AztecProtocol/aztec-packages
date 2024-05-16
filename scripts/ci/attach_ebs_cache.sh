@@ -51,7 +51,12 @@ if [ -f ~/.ebs-cache-mounted ] ; then
     sleep 1
     echo "Waiting for other mount to finish."
   done
-  exit 0
+  if [ -f ~/.setup-complete ] ; then
+    echo "Failed to find mount! Taking mount lock and trying..."
+    rm -f ~/.ebs-cache-mounted
+  else
+    exit 0
+  fi
 fi
 
 # Mark to prevent race conditions
@@ -105,11 +110,6 @@ while [ "$(aws ec2 describe-volumes \
   sleep $WAIT_INTERVAL
   elapsed_time=$((elapsed_time + WAIT_INTERVAL))
 done
-
-# First, make sure this is detached from any instances stuck in stopping state
-aws ec2 detach-volume \
-  --region $REGION \
-  --volume-id $VOLUME_ID || true
 
 # Attach volume to the instance
 aws ec2 attach-volume \
