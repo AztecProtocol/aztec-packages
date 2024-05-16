@@ -25,8 +25,6 @@ class ClientIVC {
     using FoldProof = std::vector<FF>;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerifierInstance = VerifierInstance_<Flavor>;
-    using ProverAccumulator = std::shared_ptr<ProverInstance>;
-    using VerifierAccumulator = std::shared_ptr<VerifierInstance>;
     using ClientCircuit = GoblinUltraCircuitBuilder; // can only be GoblinUltra
     using DeciderProver = DeciderProver_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
@@ -62,13 +60,6 @@ class ClientIVC {
         }
     };
 
-    struct PrecomputedVerificationKeys {
-        std::shared_ptr<VerificationKey> first_func_vk;
-        std::shared_ptr<VerificationKey> func_vk;
-        std::shared_ptr<VerificationKey> first_kernel_vk;
-        std::shared_ptr<VerificationKey> kernel_vk;
-    };
-
   private:
     using ProverFoldOutput = FoldingResult<Flavor>;
     // Note: We need to save the last instance that was folded in order to compute its verification key, this will not
@@ -76,11 +67,10 @@ class ClientIVC {
 
   public:
     Goblin goblin;
-    ProverFoldOutput prover_fold_output;
-    ProverAccumulator prover_accumulator;
-    VerifierAccumulator verifier_accumulator;
+    ProverFoldOutput fold_output;
+    std::shared_ptr<ProverInstance> prover_accumulator;
+    std::shared_ptr<VerifierInstance> verifier_accumulator;
     std::shared_ptr<VerificationKey> instance_vk;
-    PrecomputedVerificationKeys vks;
     // Note: We need to save the last instance that was folded in order to compute its verification key, this will not
     // be needed in the real IVC as they are provided as inputs
     std::shared_ptr<ProverInstance> prover_instance;
@@ -95,13 +85,10 @@ class ClientIVC {
 
     Proof prove();
 
-    bool verify(Proof& proof, const std::vector<VerifierAccumulator>& verifier_instances);
+    bool verify(Proof& proof, const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances);
 
     HonkProof decider_prove() const;
 
-    void decider_prove_and_verify(const VerifierAccumulator&) const;
-
-    void precompute_folding_verification_keys();
     std::vector<std::shared_ptr<VerificationKey>> precompute_folding_verification_keys(std::vector<ClientCircuit>);
 };
 } // namespace bb

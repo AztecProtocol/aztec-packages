@@ -19,8 +19,7 @@ class ClientIVCTests : public ::testing::Test {
     using FF = typename Flavor::FF;
     using VerificationKey = Flavor::VerificationKey;
     using Builder = ClientIVC::ClientCircuit;
-    using ProverAccumulator = ClientIVC::ProverAccumulator;
-    using VerifierAccumulator = ClientIVC::VerifierAccumulator;
+    using ProverInstance = ClientIVC::ProverInstance;
     using VerifierInstance = ClientIVC::VerifierInstance;
     using FoldProof = ClientIVC::FoldProof;
     using DeciderProver = ClientIVC::DeciderProver;
@@ -63,45 +62,17 @@ class ClientIVCTests : public ::testing::Test {
         MockCircuits::construct_goblin_ecc_op_circuit(circuit);
         return circuit;
     }
-
-    /**
-     * @brief Perform native fold verification and run decider prover/verifier
-     *
-     */
-    // WORKTODO: is it useful to use this in my new tests?
-    static VerifierAccumulator update_accumulator_and_decide_native(
-        const ProverAccumulator& prover_accumulator,
-        const FoldProof& fold_proof,
-        const VerifierAccumulator& prev_verifier_accumulator,
-        const std::shared_ptr<Flavor::VerificationKey>& verifier_inst_vk)
-    {
-        // Verify fold proof
-        auto new_verifier_inst = std::make_shared<VerifierInstance>(verifier_inst_vk);
-        FoldingVerifier folding_verifier({ prev_verifier_accumulator, new_verifier_inst });
-        auto verifier_accumulator = folding_verifier.verify_folding_proof(fold_proof);
-
-        // Run decider
-        DeciderProver decider_prover(prover_accumulator);
-        DeciderVerifier decider_verifier(verifier_accumulator);
-        auto decider_proof = decider_prover.construct_proof();
-        bool decision = decider_verifier.verify_proof(decider_proof);
-        EXPECT_TRUE(decision);
-
-        return verifier_accumulator;
-    }
 };
 
-// WORKTODO: add a structured test!
-
 /**
- * @brief A simple-as-possible test demonstrating IVC for a collection of toy circuits
+ * @brief A simple-as-possible test demonstrating IVC for two mock circuits
  *
  */
 TEST_F(ClientIVCTests, Basic)
 {
     ClientIVC ivc;
 
-    // Initialize IVC with function circuit
+    // Initialize the IVC with an arbitrary circuit
     Builder circuit_0 = create_mock_circuit(ivc);
     ivc.accumulate(circuit_0);
 
@@ -109,15 +80,11 @@ TEST_F(ClientIVCTests, Basic)
     Builder circuit_1 = create_mock_circuit(ivc);
     ivc.accumulate(circuit_1);
 
-    // Create another circuit and accumulate
-    Builder circuit_2 = create_mock_circuit(ivc);
-    ivc.accumulate(circuit_2);
-
     EXPECT_TRUE(prove_and_verify(ivc));
 };
 
 /**
- * @brief A simple-as-possible test demonstrating IVC for a collection of toy circuits
+ * @brief Prove and verify accumulation of an arbitrary set of circuits
  *
  */
 TEST_F(ClientIVCTests, BasicLarge)
@@ -125,7 +92,7 @@ TEST_F(ClientIVCTests, BasicLarge)
     ClientIVC ivc;
 
     // Construct a set of arbitrary circuits
-    size_t NUM_CIRCUITS = 3;
+    size_t NUM_CIRCUITS = 5;
     std::vector<Builder> circuits;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         circuits.emplace_back(create_mock_circuit(ivc));
@@ -140,7 +107,7 @@ TEST_F(ClientIVCTests, BasicLarge)
 };
 
 /**
- * @brief Perform IVC with precomputed verification keys
+ * @brief Prove and verify accumulation of an arbitrary set of circuits using precomputed verification keys
  *
  */
 TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
@@ -160,6 +127,60 @@ TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
     for (auto [circuit, precomputed_vk] : zip_view(circuits, precomputed_vkeys)) {
         ivc.accumulate(circuit, precomputed_vk);
     }
+
+    EXPECT_TRUE(prove_and_verify(ivc));
+};
+
+/**
+ * @brief Check that the IVC fails to verify if an intermediate fold proof is invalid
+ *
+ */
+TEST_F(ClientIVCTests, BasicFailure)
+{
+    ClientIVC ivc;
+
+    // Initialize the IVC with an arbitrary circuit
+    Builder circuit_0 = create_mock_circuit(ivc);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    Builder circuit_1 = create_mock_circuit(ivc);
+    ivc.accumulate(circuit_1);
+
+    // Tamper with the fold proof to be recursively verified in the next call to accumulate
+    for (auto& val : ivc.fold_output.proof) {
+        if (val > 0) { // tamper by finding the first non-zero value and incrementing it by 1
+            val += 1;
+            break;
+        }
+    }
+
+    // Accumulate another circuit; this involves recursive folding verification of the bad proof
+    Builder circuit_2 = create_mock_circuit(ivc);
+    ivc.accumulate(circuit_2);
+
+    // The bad fold proof should result in an invalid witness and the IVC should fail to verify
+    EXPECT_FALSE(prove_and_verify(ivc));
+};
+
+/**
+ * @brief Using a structured trace allows for the accumulation of circuits of varying size
+ *
+ */
+TEST_F(ClientIVCTests, BasicStructured)
+{
+    ClientIVC ivc;
+    ivc.structured_flag = true;
+
+    // Construct some circuits of varying size
+    Builder circuit_0 = create_mock_circuit(ivc, /*log2_num_gates=*/5);
+    Builder circuit_1 = create_mock_circuit(ivc, /*log2_num_gates=*/10);
+    Builder circuit_2 = create_mock_circuit(ivc, /*log2_num_gates=*/15);
+
+    // The circuits can be accumulated as normal due to the structured trace
+    ivc.accumulate(circuit_0);
+    ivc.accumulate(circuit_1);
+    ivc.accumulate(circuit_2);
 
     EXPECT_TRUE(prove_and_verify(ivc));
 };

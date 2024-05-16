@@ -4,26 +4,27 @@ namespace bb {
 
 /**
  * @brief Accumulate a circuit into the IVC scheme
- * @details Performs goblin merge, generates circuit instance, folds into accumulator and constructs a folding proof
+ * @details If this is the first circuit being accumulated, initialize the prover and verifier accumulators. Otherwise,
+ * fold the instance for the provided circuit into the accumulator. If a previous fold proof exists, a recursive folding
+ * verification is appended to the provided circuit prior to its accumulation.
  *
  * @param circuit Circuit to be accumulated/folded
  * @return FoldProof
  */
 void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk)
 {
-    // Add a recursive folding verification to the circuit (if a proof exists)
-    if (!prover_fold_output.proof.empty()) {
+    // If a previous fold proof exists, add a recursive folding verification to the circuit
+    if (!fold_output.proof.empty()) {
         BB_OP_COUNT_TIME_NAME("construct_circuits");
         FoldingRecursiveVerifier verifier{ &circuit, verifier_accumulator, { instance_vk } };
-        // WORKTODO: maybe out of scope but would be nice to avoid this awkwardness with verifier accum types
-        auto verifier_accum = verifier.verify_folding_proof(prover_fold_output.proof);
+        auto verifier_accum = verifier.verify_folding_proof(fold_output.proof);
         verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
     }
 
-    // Construct a merge proof and add a recursive merge verifier to the circuit
+    // Construct a merge proof (and add a recursive merge verifier to the circuit if a previous merge proof exists)
     goblin.merge(circuit);
 
-    // Construct the prover instance for the updated circuit
+    // Construct the prover instance for circuit
     prover_instance = std::make_shared<ProverInstance>(circuit, structured_flag);
 
     // Set the instance verification key from precomputed if available, else compute it
@@ -34,13 +35,13 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     }
 
     // If the IVC is uninitialized, simply initialize the prover and verifier accumulator instances
-    if (!initialized) { // Initialize the prover and verifier accumulator instances
-        prover_fold_output.accumulator = prover_instance;
+    if (!initialized) {
+        fold_output.accumulator = prover_instance;
         verifier_accumulator = std::make_shared<VerifierInstance>(instance_vk);
         initialized = true;
     } else { // Otherwise, fold the new instance into the accumulator
-        FoldingProver folding_prover({ prover_fold_output.accumulator, prover_instance });
-        prover_fold_output = folding_prover.fold_instances();
+        FoldingProver folding_prover({ fold_output.accumulator, prover_instance });
+        fold_output = folding_prover.fold_instances();
     }
 }
 
@@ -51,7 +52,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
  */
 ClientIVC::Proof ClientIVC::prove()
 {
-    return { prover_fold_output.proof, decider_prove(), goblin.prove() };
+    return { fold_output.proof, decider_prove(), goblin.prove() };
 }
 
 /**
@@ -60,7 +61,7 @@ ClientIVC::Proof ClientIVC::prove()
  * @param proof
  * @return bool
  */
-bool ClientIVC::verify(Proof& proof, const std::vector<VerifierAccumulator>& verifier_instances)
+bool ClientIVC::verify(Proof& proof, const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances)
 {
     // Goblin verification (merge, eccvm, translator)
     bool goblin_verified = goblin.verify(proof.goblin_proof);
@@ -81,7 +82,7 @@ bool ClientIVC::verify(Proof& proof, const std::vector<VerifierAccumulator>& ver
  */
 HonkProof ClientIVC::decider_prove() const
 {
-    GoblinUltraDeciderProver decider_prover(prover_fold_output.accumulator);
+    GoblinUltraDeciderProver decider_prover(fold_output.accumulator);
     return decider_prover.construct_proof();
 }
 
