@@ -32,8 +32,8 @@ namespace bb {
  */
 template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
   public:
-    using CircuitBuilder = BuilderType; // Determines arithmetization of circuit instantiated with this flavor
-    using Curve = stdlib::bn254<CircuitBuilder>;
+    using Builder = BuilderType; // Determines arithmetization of circuit instantiated with this flavor
+    using Curve = stdlib::bn254<Builder>;
     using PCS = KZG<Curve>;
     using GroupElement = typename Curve::Element;
     using FF = typename Curve::ScalarField;
@@ -102,6 +102,7 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
       public:
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
         {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/983): Think about if these should be witnesses
             this->circuit_size = circuit_size;
             this->log_circuit_size = numeric::get_msb(circuit_size);
             this->num_public_inputs = num_public_inputs;
@@ -113,7 +114,7 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
          * @param builder
          * @param native_key Native verification key from which to extract the precomputed commitments
          */
-        VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
+        VerificationKey(Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
             this->pcs_verification_key = native_key->pcs_verification_key;
             this->circuit_size = native_key->circuit_size;
@@ -158,34 +159,31 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
          * @param builder
          * @param elements
          */
-        VerificationKey(CircuitBuilder& builder, std::span<FF> elements)
+        VerificationKey(Builder& builder, std::span<FF> elements)
         {
             // deserialize circuit size
             size_t num_frs_read = 0;
-            size_t num_element_frs = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, FF>();
-            this->circuit_size = uint64_t(bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                              builder, elements.subspan(num_frs_read, num_frs_read + num_element_frs))
-                                              .get_value());
-            num_frs_read += num_element_frs;
-            num_element_frs = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, FF>();
-            this->num_public_inputs =
-                uint64_t(bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                             builder, elements.subspan(num_frs_read, num_frs_read + num_element_frs))
-                             .get_value());
-            num_frs_read += num_element_frs;
+            size_t num_frs_FF = bb::stdlib::field_conversion::calc_num_bn254_frs<Builder, FF>();
+            size_t num_frs_Comm = bb::stdlib::field_conversion::calc_num_bn254_frs<Builder, Commitment>();
 
-            num_element_frs = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, FF>();
-            this->pub_inputs_offset =
-                uint64_t(bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                             builder, elements.subspan(num_frs_read, num_frs_read + num_element_frs))
-                             .get_value());
-            num_frs_read += num_element_frs;
+            this->circuit_size = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<Builder, FF>(
+                                              builder, elements.subspan(num_frs_read, num_frs_read + num_frs_FF))
+                                              .get_value());
+            num_frs_read += num_frs_FF;
+            this->num_public_inputs = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<Builder, FF>(
+                                                   builder, elements.subspan(num_frs_read, num_frs_read + num_frs_FF))
+                                                   .get_value());
+            num_frs_read += num_frs_FF;
+
+            this->pub_inputs_offset = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<Builder, FF>(
+                                                   builder, elements.subspan(num_frs_read, num_frs_read + num_frs_FF))
+                                                   .get_value());
+            num_frs_read += num_frs_FF;
 
             for (Commitment& comm : this->get_all()) {
-                num_element_frs = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, Commitment>();
-                comm = bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, Commitment>(
-                    builder, elements.subspan(num_frs_read, num_frs_read + num_element_frs));
-                num_frs_read += num_element_frs;
+                comm = bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, Commitment>(
+                    builder, elements.subspan(num_frs_read, num_frs_read + num_frs_Comm));
+                num_frs_read += num_frs_Comm;
             }
         }
     };
@@ -199,7 +197,7 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
     // Reuse the VerifierCommitments from GoblinUltra
     using VerifierCommitments = GoblinUltraFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from GoblinUltra
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
+    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 };
 
 } // namespace bb
