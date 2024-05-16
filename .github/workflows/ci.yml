@@ -179,7 +179,8 @@ jobs:
           scripts/logs/download_base_benchmark_from_s3.sh
           cd yarn-project/scripts
           # Package it into an earthly artifact
-          earthly-ci -P +pack-base-benchmark --LOCAL_BENCH_FOLDER="./bench"
+          mkdir -p ./bench
+          earthly-ci -P +pack-base-benchmark
           # Delete it so we don't accidentally bust the yarn-project+build cache
           rm -rf ./bench
         env:
