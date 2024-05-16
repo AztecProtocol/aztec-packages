@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
-echo "Running with ENVIRONMENT set to: $ENVIRONMENT"
-ENV=$ENVIRONMENT
+echo "Running with ENV set to: $ENV"
 
 # Helper function for building packages in yarn project
 build_package() {

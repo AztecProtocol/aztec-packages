@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "docs": "yarn preprocess && yarn typedoc && docusaurus start --host ${HOST:-localhost}",
-    "start": "HOST=0.0.0.0 ENV=dev yarn docs",
-    "start:local": "ENV=dev HOT=false yarn docs",
+    "dev": "HOST=0.0.0.0 ENV=dev yarn docs",
+    "dev:local": "ENV=dev yarn docs",
     "build": "./scripts/build.sh",
     "swizzle": "docusaurus swizzle",
     "clear": "rm -rf 'processed-docs' 'processed-docs-cache' docs/apis && docusaurus clear && rm 'src/preprocess/AztecnrReferenceAutogenStructure.json' && rm -rf 'docs/developers/references/aztec-nr'",
