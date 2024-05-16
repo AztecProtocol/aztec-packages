@@ -205,3 +205,111 @@ TEST_F(GoblinPlonk, TestDatabus)
     auto verified = acir_composer.verify(proof);
     EXPECT_EQ(verified, true);
 }
+
+TEST_F(GoblinPlonk, TestDatabusReturn)
+{
+    BlockConstraint block;
+    WitnessVector witness_values;
+    size_t num_variables = generate_block_constraint(block, witness_values);
+    block.type = BlockType::CallData;
+
+    poly_triple rd_index{
+        .a = static_cast<uint32_t>(num_variables),
+        .b = 0,
+        .c = 0,
+        .q_m = 0,
+        .q_l = 1,
+        .q_r = 0,
+        .q_o = 0,
+        .q_c = 0,
+    };
+    witness_values.emplace_back(0);
+    ++num_variables;
+    auto fr_five = fr(5);
+    poly_triple rd_read{
+        .a = static_cast<uint32_t>(num_variables),
+        .b = 0,
+        .c = 0,
+        .q_m = 0,
+        .q_l = 1,
+        .q_r = 0,
+        .q_o = 0,
+        .q_c = 0,
+    };
+    witness_values.emplace_back(fr_five);
+    poly_triple five{
+        .a = 0,
+        .b = 0,
+        .c = 0,
+        .q_m = 0,
+        .q_l = 0,
+        .q_r = 0,
+        .q_o = 0,
+        .q_c = fr(fr_five),
+    };
+    ++num_variables;
+    MemOp op_rd{
+        .access_type = 0,
+        .index = rd_index,
+        .value = rd_read,
+    };
+    // Initialize the data_bus as [5] and read its value into rd_read
+    auto return_data = BlockConstraint{
+        .init = { five },
+        .trace = { op_rd },
+        .type = BlockType::ReturnData,
+    };
+
+    // Assert that call_data[0]+call_data[1] == return_data[0]
+    poly_triple assert_equal{
+        .a = 1,
+        .b = 2,
+        .c = rd_read.a,
+        .q_m = 0,
+        .q_l = 1,
+        .q_r = 1,
+        .q_o = fr::neg_one(),
+        .q_c = 0,
+    };
+
+    AcirFormat constraint_system{
+        .varnum = static_cast<uint32_t>(num_variables),
+        .recursive = false,
+        .num_acir_opcodes = 1,
+        .public_inputs = {},
+        .logic_constraints = {},
+        .range_constraints = {},
+        .aes128_constraints = {},
+        .sha256_constraints = {},
+        .sha256_compression = {},
+        .schnorr_constraints = {},
+        .ecdsa_k1_constraints = {},
+        .ecdsa_r1_constraints = {},
+        .blake2s_constraints = {},
+        .blake3_constraints = {},
+        .keccak_constraints = {},
+        .keccak_permutations = {},
+        .pedersen_constraints = {},
+        .pedersen_hash_constraints = {},
+        .poseidon2_constraints = {},
+        .multi_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
+        .bigint_operations = {},
+        .poly_triple_constraints = { assert_equal },
+        .quad_constraints = {},
+        .block_constraints = { block },
+    };
+
+    acir_proofs::GoblinAcirComposer acir_composer;
+    acir_composer.create_circuit(constraint_system, witness_values);
+
+    // Generate a GoblinUltraHonk proof and a full Goblin proof
+    auto proof = acir_composer.accumulate_and_prove();
+
+    // Verify the GoblinUltraHonk proof and the full Goblin proof
+    auto verified = acir_composer.verify(proof);
+    EXPECT_EQ(verified, true);
+}
