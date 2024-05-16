@@ -1,6 +1,8 @@
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
+import { promisify } from 'util';
+import { gunzip } from 'zlib';
 
 import { isAvmBytecode } from '../public/transitional_adaptors.js';
 import type { AvmContext } from './avm_context.js';
@@ -39,7 +41,6 @@ export class AvmSimulator {
     if (!bytecode) {
       throw new NoBytecodeForContractError(this.context.environment.address);
     }
-    assert(isAvmBytecode(bytecode), "AVM simulator can't execute non-AVM bytecode");
 
     return await this.executeBytecode(bytecode);
   }
@@ -49,6 +50,16 @@ export class AvmSimulator {
    * This method is useful for testing and debugging.
    */
   public async executeBytecode(bytecode: Buffer): Promise<AvmContractCallResults> {
+    try {
+      bytecode = await decompressBytecode(bytecode);
+      this.log.debug('Decompressed bytecode... OK');
+    } catch {
+      // If the bytecode is not compressed, the gunzip call will throw an error
+      // In this case, we assume the bytecode is not compressed and continue.
+      this.log.debug('Decompressed bytecode... FAILED');
+    }
+    assert(isAvmBytecode(bytecode), "AVM simulator can't execute non-AVM bytecode");
+
     return await this.executeInstructions(decodeFromBytecode(bytecode));
   }
 
@@ -104,4 +115,9 @@ export class AvmSimulator {
       return results;
     }
   }
+}
+
+// This is just a helper function for the AVM circuit.
+export async function decompressBytecode(bytecode: Buffer): Promise<Buffer> {
+  return await promisify(gunzip)(bytecode);
 }

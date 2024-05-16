@@ -10,7 +10,7 @@ import { AvmNestedCallsTestContractArtifact, AvmTestContractArtifact } from '@az
 import { jest } from '@jest/globals';
 import { strict as assert } from 'assert';
 
-import { isAvmBytecode } from '../public/transitional_adaptors.js';
+import { isAvmBytecode, markBytecodeAsAvm } from '../public/transitional_adaptors.js';
 import { AvmMachineState } from './avm_machine_state.js';
 import { type MemoryValue, TypeTag, type Uint8 } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
@@ -46,7 +46,7 @@ describe('AVM simulator: injected bytecode', () => {
   it('Should execute bytecode that performs basic addition', async () => {
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
     const { l2GasLeft: initialL2GasLeft } = AvmMachineState.fromState(context.machineState);
-    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+    const results = await new AvmSimulator(context).executeBytecode(markBytecodeAsAvm(bytecode));
 
     expect(results.reverted).toBe(false);
     expect(results.output).toEqual([new Fr(3)]);
@@ -59,7 +59,7 @@ describe('AVM simulator: injected bytecode', () => {
       machineState: initMachineState({ l2GasLeft: 5 }),
     });
 
-    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+    const results = await new AvmSimulator(context).executeBytecode(markBytecodeAsAvm(bytecode));
     expect(results.reverted).toBe(true);
     expect(results.output).toEqual([]);
     expect(results.revertReason?.message).toEqual('Not enough L2GAS gas left');
