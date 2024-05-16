@@ -16,12 +16,10 @@ import {
   type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   type ParityPublicInputs,
-  type PreviousRollupData,
   Proof,
   type PublicKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
   RecursiveProof,
-  RollupTypes,
   RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
@@ -229,9 +227,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   public async getMergeRollupProof(
     input: MergeRollupInputs,
   ): Promise<PublicInputsAndProof<BaseOrMergeRollupPublicInputs>> {
-    // verify both inputs
-    await Promise.all(input.previousRollupData.map(prev => this.verifyPreviousRollupProof(prev)));
-
     const witnessMap = convertMergeRollupInputsToWitnessMap(input);
 
     const [circuitOutput, proof] = await this.createRecursiveProof<
@@ -252,9 +247,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @returns The public inputs as outputs of the simulation.
    */
   public async getRootRollupProof(input: RootRollupInputs): Promise<PublicInputsAndProof<RootRollupPublicInputs>> {
-    // verify the inputs
-    await Promise.all(input.previousRollupData.map(prev => this.verifyPreviousRollupProof(prev)));
-
     const witnessMap = convertRootRollupInputsToWitnessMap(input);
 
     const [outputWitness, proof] = await this.createProof(witnessMap, 'RootRollupArtifact');
@@ -476,15 +468,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   public async getVerificationKeyForCircuit(circuitType: ServerProtocolArtifact): Promise<VerificationKeyAsFields> {
     const vkData = await this.getVerificationKeyDataForCircuit(circuitType);
     return new VerificationKeyAsFields(vkData.keyAsFields, vkData.hash);
-  }
-
-  private async verifyPreviousRollupProof(previousRollupData: PreviousRollupData) {
-    const proof = previousRollupData.proof;
-    const circuitType =
-      previousRollupData.baseOrMergeRollupPublicInputs.rollupType === RollupTypes.Base
-        ? 'BaseRollupArtifact'
-        : 'MergeRollupArtifact';
-    await this.verifyProof(circuitType, proof.binaryProof);
   }
 
   /**

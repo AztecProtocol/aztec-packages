@@ -6,6 +6,7 @@ import {
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
+  type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   Proof,
@@ -18,6 +19,7 @@ import { siloNoteHash } from '@aztec/circuits.js/hash';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
+import { Timer } from '@aztec/foundation/timer';
 import {
   ClientCircuitArtifacts,
   type ClientProtocolArtifact,
@@ -25,6 +27,8 @@ import {
   convertPrivateKernelInitOutputsFromWitnessMap,
   convertPrivateKernelInnerInputsToWitnessMap,
   convertPrivateKernelInnerOutputsFromWitnessMap,
+  convertPrivateKernelResetInputsToWitnessMap,
+  convertPrivateKernelResetOutputsFromWitnessMap,
   convertPrivateKernelTailForPublicOutputsFromWitnessMap,
   convertPrivateKernelTailInputsToWitnessMap,
   convertPrivateKernelTailOutputsFromWitnessMap,
@@ -69,6 +73,9 @@ const PrivateKernelArtifactMapping: Record<ClientProtocolArtifact, PrivateKernel
   PrivateKernelTailArtifact: {
     convertOutputs: convertPrivateKernelTailOutputsFromWitnessMap,
   },
+  PrivateKernelResetArtifact: {
+    convertOutputs: convertPrivateKernelResetOutputsFromWitnessMap,
+  },
   PrivateKernelTailToPublicArtifact: {
     convertOutputs: convertPrivateKernelTailForPublicOutputsFromWitnessMap,
   },
@@ -112,6 +119,13 @@ export class BBNativeProofCreator implements ProofCreator {
   ): Promise<KernelProofOutput<PrivateKernelCircuitPublicInputs>> {
     const witnessMap = convertPrivateKernelInnerInputsToWitnessMap(inputs);
     return await this.createSafeProof(witnessMap, 'PrivateKernelInnerArtifact');
+  }
+
+  public async createProofReset(
+    inputs: PrivateKernelResetCircuitPrivateInputs,
+  ): Promise<KernelProofOutput<PrivateKernelCircuitPublicInputs>> {
+    const witnessMap = convertPrivateKernelResetInputsToWitnessMap(inputs);
+    return await this.createSafeProof(witnessMap, 'PrivateKernelResetArtifact');
   }
 
   public async createProofTail(
@@ -328,6 +342,10 @@ export class BBNativeProofCreator implements ProofCreator {
 
     this.log.debug(`Written ${inputsWitnessFile}`);
 
+    this.log.info(`Proving ${circuitType} circuit...`);
+
+    const timer = new Timer();
+
     const provingResult = await generateProof(
       this.bbBinaryPath,
       directory,
@@ -341,6 +359,8 @@ export class BBNativeProofCreator implements ProofCreator {
       this.log.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
       throw new Error(provingResult.reason);
     }
+
+    this.log.info(`Generated ${circuitType} circuit proof in ${timer.ms()} ms`);
 
     if (circuitType === 'App') {
       const vkData = await this.convertVk(directory);
