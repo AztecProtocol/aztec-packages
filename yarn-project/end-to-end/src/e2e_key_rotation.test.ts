@@ -8,11 +8,12 @@ import {
   Fr,
   Note,
   type PXE,
+  type TxHash,
   type Wallet,
   computeSecretHash,
   retryUntil,
 } from '@aztec/aztec.js';
-import { derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
+import { type PublicKey, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
 import { KeyRegistryContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 
@@ -22,10 +23,12 @@ import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup, setupPXEService } f
 
 const TIMEOUT = 120_000;
 
+const SHARED_MUTABLE_DELAY = 5;
+
 describe('e2e_key_rotation', () => {
   jest.setTimeout(TIMEOUT);
 
-  let aztecNode: AztecNode | undefined;
+  let aztecNode: AztecNode;
   let pxeA: PXE;
   let pxeB: PXE;
   let walletA: Wallet;
@@ -35,12 +38,15 @@ describe('e2e_key_rotation', () => {
   let teardownB: () => Promise<void>;
 
   let keyRegistryWithB: KeyRegistryContract;
-
   let testContract: TestContract;
+  let contractWithWalletA: TokenContract;
+  let contractWithWalletB: TokenContract;
 
-  const SHARED_MUTABLE_DELAY = 5 + 3;
+  let tokenAddress: AztecAddress;
 
-  beforeEach(async () => {
+  const initialBalance = 987n;
+
+  beforeAll(async () => {
     ({
       aztecNode,
       pxe: pxeA,
@@ -49,12 +55,29 @@ describe('e2e_key_rotation', () => {
       teardown: teardownA,
     } = await setup(1));
 
-    ({ pxe: pxeB, teardown: teardownB } = await setupPXEService(aztecNode!, {}, undefined, true));
+    ({ pxe: pxeB, teardown: teardownB } = await setupPXEService(aztecNode, {}, undefined, true));
 
     [walletB] = await createAccounts(pxeB, 1);
     keyRegistryWithB = await KeyRegistryContract.at(getCanonicalKeyRegistryAddress(), walletB);
 
+    // We deploy test and token contracts
     testContract = await TestContract.deploy(walletA).send().deployed();
+    const tokenInstance = await deployTokenContract(initialBalance, walletA.getAddress(), pxeA);
+    tokenAddress = tokenInstance.address;
+
+    // Add account B to wallet A
+    await pxeA.registerRecipient(walletB.getCompleteAddress());
+    // Add account A to wallet B
+    await pxeB.registerRecipient(walletA.getCompleteAddress());
+
+    // Add token to PXE B (PXE A already has it because it was deployed through it)
+    await pxeB.registerContract({
+      artifact: TokenContract.artifact,
+      instance: tokenInstance,
+    });
+
+    contractWithWalletA = await TokenContract.at(tokenAddress, walletA);
+    contractWithWalletB = await TokenContract.at(tokenAddress, walletB);
   });
 
   afterEach(async () => {
@@ -128,70 +151,83 @@ describe('e2e_key_rotation', () => {
     await contract.methods.redeem_shield(recipient, balance, secret).send().wait();
   };
 
-  it(`We test key rotation in four steps.
-    1. We transfer funds from A to B.
-    2. We rotate B's keys by calling rotateMasterNullifierKey on our wallet and by calling rotate_npk_m on the Key Registry.
-    3. After the key rotation has been applied, we then transfer more funds from A to B.
-    4. We finally send all of the funds back from B to A, proving that all the funds sent before and after key rotation are spendable,
-    and that we are able to spend notes associated with different nullifying keys`, async () => {
-    const initialBalance = 987n;
-    const transferAmount1 = 654n;
-    // const transferAmount2 = 323n;
-
-    const tokenInstance = await deployTokenContract(initialBalance, walletA.getAddress(), pxeA);
-    const tokenAddress = tokenInstance.address;
-
-    // Add account B to wallet A
-    await pxeA.registerRecipient(walletB.getCompleteAddress());
-    // Add account A to wallet B
-    await pxeB.registerRecipient(walletA.getCompleteAddress());
-
-    // Add token to PXE B (PXE A already has it because it was deployed through it)
-    await pxeB.registerContract({
-      artifact: TokenContract.artifact,
-      instance: tokenInstance,
-    });
-
-    // Check initial balances and logs are as expected
+  it(`Rotates keys and uses them`, async () => {
+    // 1. We check that setup set initial balances as expected
     await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance);
     await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), 0n);
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 1);
 
-    // Transfer funds from A to B via PXE A
-    const contractWithWalletA = await TokenContract.at(tokenAddress, walletA);
-    await contractWithWalletA.methods
-      .transfer(walletA.getAddress(), walletB.getAddress(), transferAmount1, 0)
-      .send()
-      .wait();
+    // 2. Transfer funds from A to B via PXE A
+    let txHashTransfer1: TxHash;
+    const transfer1Amount = 654n;
+    {
+      ({ txHash: txHashTransfer1 } = await contractWithWalletA.methods
+        .transfer(walletA.getAddress(), walletB.getAddress(), transfer1Amount, 0)
+        .send()
+        .wait());
 
-    // Check balances and logs are as expected
-    await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance - transferAmount1);
-    await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), transferAmount1);
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
+      // Check balances and logs are as expected
+      await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance - transfer1Amount);
+      await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), transfer1Amount);
+      await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
+    }
 
-    // Rotates B key
-    const newNskM = Fq.random();
-    const newNpkM = derivePublicKeyFromSecretKey(newNskM);
-    await pxeB.rotateMasterNullifierKey(walletB.getAddress(), newNskM);
+    // 3. Rotates B key
+    let newNpkM: PublicKey;
+    {
+      const newNskM = Fq.random();
+      newNpkM = derivePublicKeyFromSecretKey(newNskM);
+      await pxeB.rotateMasterNullifierKey(walletB.getAddress(), newNskM);
 
-    await keyRegistryWithB.methods.rotate_npk_m(walletB.getAddress(), newNpkM, 0).send().wait();
-    await crossDelay();
+      await keyRegistryWithB.methods.rotate_npk_m(walletB.getAddress(), newNpkM, 0).send().wait();
+      await crossDelay();
+    }
 
-    // Transfer funds from A to B via PXE A
-    await contractWithWalletA.methods.transfer(walletA.getAddress(), walletB.getAddress(), 123, 0).send().wait();
+    // 4. Transfer funds from A to B via PXE A
+    let txHashTransfer2: TxHash;
+    const transfer2Amount = 321n;
+    {
+      ({ txHash: txHashTransfer2 } = await contractWithWalletA.methods
+        .transfer(walletA.getAddress(), walletB.getAddress(), transfer2Amount, 0)
+        .send()
+        .wait());
 
-    await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance - transferAmount1 - 123n);
-    await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), transferAmount1 + 123n);
-    // await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
+      await expectTokenBalance(
+        walletA,
+        tokenAddress,
+        walletA.getAddress(),
+        initialBalance - transfer1Amount - transfer2Amount,
+      );
+      await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), transfer1Amount + transfer2Amount);
+    }
 
-    // Transfer funds from B to A via PXE B
-    const contractWithWalletB = await TokenContract.at(tokenAddress, walletB);
-    await contractWithWalletB.methods
-      .transfer(walletB.getAddress(), walletA.getAddress(), transferAmount1 + 123n, 0)
-      .send()
-      .wait({ interval: 0.1 });
+    // 5. Now we check that a correct nullifier keys were used in both transfers
+    {
+      await awaitUserSynchronized(walletB, walletB.getAddress());
+      const transfer1Notes = await walletB.getNotes({ txHash: txHashTransfer1 });
+      const transfer2Notes = await walletB.getNotes({ txHash: txHashTransfer2 });
+      expect(transfer1Notes.length).toBe(1);
+      expect(transfer2Notes.length).toBe(1);
+      // Second field in the token note is the npk_m_hash
+      const noteNpkMHashTransfer1 = transfer1Notes[0].note.items[1];
+      const noteNpkMHashTransfer2 = transfer2Notes[0].note.items[1];
 
-    await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance);
-    await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), 0n);
+      // Now we check the note created in transfer 2 used the new npk_m_hash
+      expect(noteNpkMHashTransfer2.equals(newNpkM.hash())).toBe(true);
+      // We sanity check that the note created in transfer 1 had old npk_m_hash by checking it's different from the new
+      // one
+      expect(noteNpkMHashTransfer2.equals(noteNpkMHashTransfer1)).toBe(false);
+    }
+
+    // 6. Finally we check that all the B notes are spendable by transferring full B balance to A
+    // --> this way we verify that it's possible to obtain both keys via oracles
+    {
+      await contractWithWalletB.methods
+        .transfer(walletB.getAddress(), walletA.getAddress(), transfer1Amount + transfer2Amount, 0)
+        .send()
+        .wait();
+
+      await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance);
+      await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), 0n);
+    }
   }, 600_000);
 });
