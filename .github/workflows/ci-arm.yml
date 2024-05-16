@@ -34,6 +34,7 @@ jobs:
           runner_type: builder-x86
           run: |
             set -eux
+            git submodule update --init --recursive --recommend-shallow
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             scripts/earthly-ci ./yarn-project+export-e2e-test-images
 
