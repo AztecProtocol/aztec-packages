@@ -339,7 +339,7 @@ describe('ACIR public execution simulator', () => {
         childExecutionResult.unencryptedLogsHashes[0].value,
       );
       // We take 4 to avoid counting the extra 4 bytes used to store len for L1
-      expect(childExecutionResult.unencryptedLogPreimagesLength).toEqual(
+      expect(childExecutionResult.unencryptedLogsHashes[0].length).toEqual(
         new Fr(childExecutionResult.unencryptedLogs.getSerializedLength() - 4),
       );
       expect(result.returnValues[0]).toEqual(new Fr(newValue));

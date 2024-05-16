@@ -38,10 +38,6 @@ struct PublicCircuitPublicInputs {
 
     unencrypted_logs_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_CALL],
 
-    // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
-    // variable-length data.
-    unencrypted_log_preimages_length: Field,
-
     // Header of a block whose state is used during public execution. Set by sequencer to be a header of a block
     // previous to the one in which the tx is included.
     historical_header: Header,
@@ -100,7 +96,6 @@ impl Serialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInput
         for i in 0..MAX_UNENCRYPTED_LOGS_PER_CALL{
             fields.extend_from_array(self.unencrypted_logs_hashes[i].serialize());
         }
-        fields.push(self.unencrypted_log_preimages_length);
         fields.extend_from_array(self.historical_header.serialize());
         fields.extend_from_array(self.global_variables.serialize());
         fields.push(self.prover_address.to_field());
@@ -131,7 +126,6 @@ impl Deserialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInp
             start_side_effect_counter: reader.read() as u32,
             end_side_effect_counter: reader.read() as u32,
             unencrypted_logs_hashes: reader.read_struct_array(LogHash::deserialize, [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL]),
-            unencrypted_log_preimages_length: reader.read(),
             historical_header: reader.read_struct(Header::deserialize),
             global_variables: reader.read_struct(GlobalVariables::deserialize),
             prover_address: reader.read_struct(AztecAddress::deserialize),
@@ -169,7 +163,6 @@ impl Empty for PublicCircuitPublicInputs {
             start_side_effect_counter: 0 as u32,
             end_side_effect_counter: 0 as u32,
             unencrypted_logs_hashes: [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL],
-            unencrypted_log_preimages_length: 0,
             historical_header: Header::empty(),
             global_variables: GlobalVariables::empty(),
             prover_address: AztecAddress::zero(),
@@ -195,6 +188,6 @@ fn empty_hash() {
     let hash = inputs.hash();
 
     // Value from public_circuit_public_inputs.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x048912d56248af479f8d7ecedbba7092d27741b10075a989e040f8e3242a7a3f;
+    let test_data_empty_hash = 0x2dde0131305d9017c9ed55ed8ebd080188adc62d706610b6c7dba9ab7d2716b9;
     assert_eq(hash, test_data_empty_hash);
 }
