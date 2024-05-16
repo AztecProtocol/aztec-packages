@@ -342,11 +342,6 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
                 const fr_ct l2 = public_inputs[idx2];
                 const fr_ct l3 = public_inputs[idx3];
 
-                info("l0: ", l0.get_value());
-                info("l1: ", l1.get_value());
-                info("l2: ", l2.get_value());
-                info("l3: ", l3.get_value());
-
                 l0.create_range_constraint(fq_ct::NUM_LIMB_BITS, "l0");
                 l1.create_range_constraint(fq_ct::NUM_LIMB_BITS, "l1");
                 l2.create_range_constraint(fq_ct::NUM_LIMB_BITS, "l2");
@@ -356,53 +351,28 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
 
         fr_ct recursion_separator_challenge = transcript.get_challenge_field_element("separator", 2);
 
-        info("x0: ");
         const auto x0 = recover_fq_from_public_inputs(key->recursive_proof_public_input_indices[0],
                                                       key->recursive_proof_public_input_indices[1],
                                                       key->recursive_proof_public_input_indices[2],
                                                       key->recursive_proof_public_input_indices[3]);
-        info("y0: ");
         const auto y0 = recover_fq_from_public_inputs(key->recursive_proof_public_input_indices[4],
                                                       key->recursive_proof_public_input_indices[5],
                                                       key->recursive_proof_public_input_indices[6],
                                                       key->recursive_proof_public_input_indices[7]);
-        info("x1: ");
-
         const auto x1 = recover_fq_from_public_inputs(key->recursive_proof_public_input_indices[8],
                                                       key->recursive_proof_public_input_indices[9],
                                                       key->recursive_proof_public_input_indices[10],
                                                       key->recursive_proof_public_input_indices[11]);
-        info("y1: ");
         const auto y1 = recover_fq_from_public_inputs(key->recursive_proof_public_input_indices[12],
                                                       key->recursive_proof_public_input_indices[13],
                                                       key->recursive_proof_public_input_indices[14],
                                                       key->recursive_proof_public_input_indices[15]);
-        info(x0, y0, x1, y1);
-        auto g1_0 = g1_ct(x0, y0);
-        info("is g1_0 infinity: ", g1_0.get_value().is_point_at_infinity());
-        info("g1_0: ", g1_0.get_value());
 
-        opening_elements.push_back(g1_0);
+        opening_elements.push_back(g1_ct(x0, y0));
         opening_scalars.push_back(recursion_separator_challenge);
 
-        auto g1_1 = g1_ct(x1, y1);
-        info("g1_1: ", g1_1.get_value());
-        rhs_elements.push_back(-g1_1);
+        rhs_elements.push_back(-g1_ct(x1, y1));
         rhs_scalars.push_back(recursion_separator_challenge);
-
-        // Need to move init_bn254_crs() above the create_circuit call to make sure we don't error here
-        // g1::element P[2] = { g1_0.get_value(), g1_1.get_value() };
-        // g1::element::batch_normalize(P, 2);
-        // // just run the native pairing check here
-        // g1::affine_element P_affine[2]{
-        //     { P[0].x, P[0].y },
-        //     { P[1].x, P[1].y },
-        // };
-        // key->reference_string = srs::get_bn254_crs_factory()->get_verifier_crs();
-        // info("before pairing", key->reference_string);
-        // bb::fq12 result = bb::pairing::reduced_ate_pairing_batch_precomputed(
-        //     P_affine, key->reference_string->get_precomputed_g2_lines(), 2);
-        // info("result of pairing: ", (result == bb::fq12::one()));
     }
 
     auto opening_result = g1_ct::template bn254_endo_batch_mul_with_generator(

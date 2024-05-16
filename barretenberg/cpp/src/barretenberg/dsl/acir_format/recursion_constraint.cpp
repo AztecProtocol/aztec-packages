@@ -42,7 +42,6 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
         nested_aggregation_indices_all_zero &= (idx == 0);
     }
     const bool inner_proof_contains_recursive_proof = !nested_aggregation_indices_all_zero;
-    info("inner_proof_contains_recursive_proof: ", inner_proof_contains_recursive_proof);
     // If we do not have a witness, we must ensure that our dummy witness will not trigger
     // on-curve errors and inverting-zero errors
     {
@@ -133,7 +132,6 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
     // Prepend the public inputs to the proof fields because this is how the
     // core barretenberg library processes proofs (with the public inputs first and not separated)
     proof_fields.reserve(input.proof.size() + input.public_inputs.size());
-    info("input.public_inputs.size(): ", input.public_inputs.size());
     for (const auto& idx : input.public_inputs) {
         auto field = field_ct::from_witness_index(&builder, idx);
         proof_fields.emplace_back(field);

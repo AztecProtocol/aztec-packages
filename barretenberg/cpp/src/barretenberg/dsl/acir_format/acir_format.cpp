@@ -153,41 +153,29 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
             // attached to the proof as public inputs. As this is the only object that can prepended to the proof if the
             // proof is above the expected size (with public inputs stripped)
             std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object = {};
-            // If the proof has public inputs attached to it, we should handle setting the nested aggregation object
-            if (constraint.proof.size() > proof_size_no_pub_inputs) {
-                info("constraint.proof.size(): ", constraint.proof.size());
-                info("proof_size_no_pub_inputs: ", proof_size_no_pub_inputs);
-                // The public inputs attached to a proof should match the aggregation object in size
-                if (constraint.proof.size() - proof_size_no_pub_inputs !=
-                    RecursionConstraint::AGGREGATION_OBJECT_SIZE) {
-                    auto error_string = format(
-                        "Public inputs are always stripped from proofs unless we have a recursive proof.\n"
-                        "Thus, public inputs attached to a proof must match the recursive aggregation object in size "
-                        "which is ",
-                        RecursionConstraint::AGGREGATION_OBJECT_SIZE);
-                    info("constraint.proof.size(): ", constraint.proof.size());
-                    info("proof_size_no_pub_inputs: ", proof_size_no_pub_inputs);
-                    throw_or_abort(error_string);
-                }
-                for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
-                    // Set the nested aggregation object indices to the current size of the public inputs
-                    // This way we know that the nested aggregation object indices will always be the last
-                    // indices of the public inputs
-                    nested_aggregation_object[i] = static_cast<uint32_t>(constraint.public_inputs.size());
-                    // Attach the nested aggregation object to the end of the public inputs to fill in
-                    // the slot where the nested aggregation object index will point into
-                    // info("nested_aggregation_object[", i, "]: ", nested_aggregation_object[i]);
-                    // info("constraint.proof[", i, "]: ", constraint.proof[i]);
-                    constraint.public_inputs.emplace_back(constraint.proof[i]);
-                }
-                // Remove the aggregation object so that they can be handled as normal public inputs
-                // in they way taht the recursion constraint expects
-                constraint.proof.erase(constraint.proof.begin(),
-                                       constraint.proof.begin() +
-                                           static_cast<std::ptrdiff_t>(RecursionConstraint::AGGREGATION_OBJECT_SIZE));
-            } else {
-                throw_or_abort("proof does not contain aggregation object!");
+            // The public inputs attached to a proof should match the aggregation object in size
+            if (constraint.proof.size() - proof_size_no_pub_inputs != RecursionConstraint::AGGREGATION_OBJECT_SIZE) {
+                auto error_string = format(
+                    "Public inputs are always stripped from proofs unless we have a recursive proof.\n"
+                    "Thus, public inputs attached to a proof must match the recursive aggregation object in size "
+                    "which is ",
+                    RecursionConstraint::AGGREGATION_OBJECT_SIZE);
+                throw_or_abort(error_string);
             }
+            for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
+                // Set the nested aggregation object indices to the current size of the public inputs
+                // This way we know that the nested aggregation object indices will always be the last
+                // indices of the public inputs
+                nested_aggregation_object[i] = static_cast<uint32_t>(constraint.public_inputs.size());
+                // Attach the nested aggregation object to the end of the public inputs to fill in
+                // the slot where the nested aggregation object index will point into
+                constraint.public_inputs.emplace_back(constraint.proof[i]);
+            }
+            // Remove the aggregation object so that they can be handled as normal public inputs
+            // in they way taht the recursion constraint expects
+            constraint.proof.erase(constraint.proof.begin(),
+                                   constraint.proof.begin() +
+                                       static_cast<std::ptrdiff_t>(RecursionConstraint::AGGREGATION_OBJECT_SIZE));
             current_aggregation_object = create_recursion_constraints(builder,
                                                                       constraint,
                                                                       current_aggregation_object,
@@ -211,12 +199,6 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
                                                                current_aggregation_object.end());
             builder.set_recursive_proof(proof_output_witness_indices);
         } else if (builder.is_recursive_circuit) {
-            info("g1 infinity: ", bb::g1::affine_point_at_infinity);
-            // const auto zero = bb::fr::zero();
-            // const auto group_zero = bb::g1::affine_one * zero;
-            // info("group_zero: ", group_zero);
-            info("fq_ct::NUM_LAST_LIMB_BITS: ", fq_ct::NUM_LAST_LIMB_BITS);
-            info("bb::stdlib::field_conversion::TOTAL_BITS: ", bb::stdlib::field_conversion::TOTAL_BITS);
             fq x0("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
             fq x1("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
             std::array<fq, 2> xs = { x0, x1 };
@@ -226,7 +208,6 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
             std::array<fq, 2> ys = { y0, y1 };
             for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE / 8; ++i) {
                 const auto group_element = g1::element(xs[i], ys[i], 1);
-                info("is group_element infinity: ", group_element.is_point_at_infinity());
 
                 // const auto x = bb::field_conversion::convert_to_bn254_frs(const T &val);
                 const uint256_t x = group_element.x;
@@ -247,16 +228,6 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
                                            stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3);
                 const bb::fr y_4 =
                     y.slice(stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3, bb::stdlib::field_conversion::TOTAL_BITS);
-
-                info("x_1: ", x_1);
-                info("x_2: ", x_2);
-                info("x_3: ", x_3);
-                info("x_4: ", x_4);
-
-                info("y_1: ", y_1);
-                info("y_2: ", y_2);
-                info("y_3: ", y_3);
-                info("y_4: ", y_4);
 
                 uint32_t idx = builder.add_variable(x_1);
                 builder.set_public_input(idx);
