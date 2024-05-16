@@ -1,9 +1,7 @@
 import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
-import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from '@aztec/circuits.js';
 import { EventSelector, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
 
 import { type ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField } from '../deserialize.js';
@@ -14,7 +12,7 @@ import { type TypedOracle } from './typed_oracle.js';
  * A data source that has all the apis required by Aztec.nr.
  */
 export class Oracle {
-  constructor(private typedOracle: TypedOracle, private log = createDebugLogger('aztec:simulator:oracle')) {}
+  constructor(private typedOracle: TypedOracle) {}
 
   getRandomField(): ACVMField {
     const val = this.typedOracle.getRandomField();
@@ -42,10 +40,11 @@ export class Oracle {
     return unpacked.map(toACVMField);
   }
 
-  async getNullifierKeys([accountAddress]: ACVMField[]): Promise<ACVMField[]> {
+  async getNullifierKeys([masterNullifierPublicKeyHash]: ACVMField[]): Promise<ACVMField[]> {
     const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeys(
-      fromACVMField(accountAddress),
+      fromACVMField(masterNullifierPublicKeyHash),
     );
+
     return [
       toACVMField(masterNullifierPublicKey.x),
       toACVMField(masterNullifierPublicKey.y),
@@ -166,21 +165,9 @@ export class Oracle {
 
   async getPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<ACVMField[]> {
     const parsedAddress = AztecAddress.fromField(fromACVMField(address));
-    const {
-      masterNullifierPublicKey,
-      masterIncomingViewingPublicKey,
-      masterOutgoingViewingPublicKey,
-      masterTaggingPublicKey,
-      partialAddress,
-    } = await this.typedOracle.getCompleteAddress(parsedAddress);
+    const { publicKeys, partialAddress } = await this.typedOracle.getCompleteAddress(parsedAddress);
 
-    return [
-      ...masterNullifierPublicKey.toFields(),
-      ...masterIncomingViewingPublicKey.toFields(),
-      ...masterOutgoingViewingPublicKey.toFields(),
-      ...masterTaggingPublicKey.toFields(),
-      partialAddress,
-    ].map(toACVMField);
+    return [...publicKeys.toFields(), partialAddress].map(toACVMField);
   }
 
   async getNotes(
@@ -362,12 +349,10 @@ export class Oracle {
     return toACVMField(logHash);
   }
 
-  debugLog(...args: ACVMField[][]): void {
-    this.log.verbose(oracleDebugCallToFormattedStr(args));
-  }
-
-  debugLogWithPrefix(arg0: ACVMField[], ...args: ACVMField[][]): void {
-    this.log.verbose(`${acvmFieldMessageToString(arg0)}: ${oracleDebugCallToFormattedStr(args)}`);
+  debugLog(message: ACVMField[], _ignoredFieldsSize: ACVMField[], fields: ACVMField[]): void {
+    const messageStr = message.map(acvmField => String.fromCharCode(fromACVMField(acvmField).toNumber())).join('');
+    const fieldsFr = fields.map(fromACVMField);
+    this.typedOracle.debugLog(messageStr, fieldsFr);
   }
 
   async callPrivateFunction(

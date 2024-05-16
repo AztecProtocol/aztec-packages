@@ -51,7 +51,12 @@ if [ -f ~/.ebs-cache-mounted ] ; then
     sleep 1
     echo "Waiting for other mount to finish."
   done
-  exit 0
+  if [ -f ~/.setup-complete ] ; then
+    echo "Failed to find mount! Taking mount lock and trying..."
+    rm -f ~/.ebs-cache-mounted
+  else
+    exit 0
+  fi
 fi
 
 # Mark to prevent race conditions
@@ -106,11 +111,6 @@ while [ "$(aws ec2 describe-volumes \
   elapsed_time=$((elapsed_time + WAIT_INTERVAL))
 done
 
-# First, make sure this is detached from any instances stuck in stopping state
-aws ec2 detach-volume \
-  --region $REGION \
-  --volume-id $VOLUME_ID || true
-
 # Attach volume to the instance
 aws ec2 attach-volume \
   --region $REGION \
@@ -152,7 +152,9 @@ fi
 # Create a mount point and mount the volume
 mkdir -p /var/lib/docker
 mount $BLKDEVICE /var/lib/docker
-service docker restart
+# clear our images temp folder
+rm -rf /var/lib/docker/tmp-images
+systemctl restart docker
 # important: everything (except earthly ls) should go through earthly-ci
 scripts/earthly-ci bootstrap
 touch /home/ubuntu/.setup-complete

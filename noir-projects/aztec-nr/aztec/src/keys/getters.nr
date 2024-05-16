@@ -1,28 +1,26 @@
-use dep::protocol_types::{
-    address::{AztecAddress, PublicKeysHash}, constants::CANONICAL_KEY_REGISTRY_ADDRESS,
-    grumpkin_point::GrumpkinPoint
-};
+use dep::protocol_types::{address::AztecAddress, constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint};
 use crate::{
-    context::PrivateContext, oracle::keys::get_public_keys_and_partial_address,
+    context::PrivateContext,
+    oracle::{
+    keys::get_public_keys_and_partial_address,
+    nullifier_keys::{NullifierKeys, get_nullifier_keys as get_nullifier_keys_oracle}
+},
+    keys::public_keys::{PublicKeys, NULLIFIER_INDEX, INCOMING_INDEX},
     state_vars::{
     map::derive_storage_slot_in_map,
     shared_mutable::shared_mutable_private_getter::SharedMutablePrivateGetter
 }
 };
 
-// Note: In fetch_key_from_registry we expect that the shared mutable slot is index * 2 + 1 for the x coordinate and
-// index * 2 + 2 for the y coordinate. For example, the npk_m x coordinates will be stored in a map at storage slot
-// 0 * 2 + 1 = 1, and the npk_m y coordinates at 2 * 2 + 2 = 6. If this changes the function will need to be
-// refactored.
-global NULLIFIER_INDEX = 0;
-global INCOMING_INDEX = 1;
-global OUTGOING_INDEX = 2;
-global TAGGING_INDEX = 3;
-
 global DELAY = 5;
 
+// docs:start:key-getters
 pub fn get_npk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
     get_master_key(context, address, NULLIFIER_INDEX)
+}
+
+pub fn get_npk_m_hash(context: &mut PrivateContext, address: AztecAddress) -> Field {
+    get_master_key(context, address, NULLIFIER_INDEX).hash()
 }
 
 pub fn get_ivpk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
@@ -37,6 +35,7 @@ pub fn get_ivpk_m(context: &mut PrivateContext, address: AztecAddress) -> Grumpk
 // pub fn get_tpk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
 //     get_master_key(context, address, TAGGING_INDEX)
 // }
+// docs:end:key-getters
 
 fn get_master_key(
     context: &mut PrivateContext,
@@ -46,7 +45,9 @@ fn get_master_key(
     let key = fetch_key_from_registry(context, key_index, address);
     if key.is_zero() {
         // Keys were not registered in registry yet --> fetch key from PXE
-        fetch_and_constrain_keys(address)[key_index]
+        let keys = fetch_and_constrain_keys(address);
+        // Return the corresponding to index
+        keys.get_key_by_index(key_index)
     } else {
         // Keys were registered --> return the key
         key
@@ -80,18 +81,25 @@ fn fetch_key_from_registry(
 }
 
 // Passes only when keys were not rotated - is expected to be called only when keys were not registered yet
-fn fetch_and_constrain_keys(address: AztecAddress) -> [GrumpkinPoint; 4] {
+fn fetch_and_constrain_keys(address: AztecAddress) -> PublicKeys {
     let (public_keys, partial_address) = get_public_keys_and_partial_address(address);
 
-    let npk_m = public_keys[0];
-    let ivpk_m = public_keys[1];
-    let ovpk_m = public_keys[2];
-    let tpk_m = public_keys[3];
-
-    let public_keys_hash = PublicKeysHash::compute(npk_m, ivpk_m, ovpk_m, tpk_m);
-    let computed_address = AztecAddress::compute(public_keys_hash, partial_address);
+    let computed_address = AztecAddress::compute(public_keys.hash(), partial_address);
 
     assert(computed_address.eq(address));
 
-    [npk_m, ivpk_m, ovpk_m, tpk_m]
+    public_keys
+}
+
+// We get the full struct Nullifier Keys here
+pub fn get_nullifier_keys(npk_m_hash: Field) -> NullifierKeys {
+    let nullifier_keys = get_nullifier_keys_oracle(npk_m_hash);
+    assert_eq(nullifier_keys.master_nullifier_public_key.hash(), npk_m_hash);
+
+    nullifier_keys
+}
+
+// We are only getting the app_nullifier_secret_key here
+pub fn get_nsk_app(npk_m_hash: Field) -> Field {
+    get_nullifier_keys(npk_m_hash).app_nullifier_secret_key
 }

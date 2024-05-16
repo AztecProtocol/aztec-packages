@@ -2,7 +2,7 @@ use crate::{
     abis::{
     call_context::CallContext, max_block_number::MaxBlockNumber, gas_settings::GasSettings,
     nullifier_key_validation_request::NullifierKeyValidationRequest, note_hash::NoteHash,
-    nullifier::Nullifier, read_request::ReadRequest, side_effect::SideEffect
+    nullifier::Nullifier, read_request::ReadRequest, log_hash::{LogHash, NoteLogHash}
 },
     constants::{
     MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
@@ -10,7 +10,7 @@ use crate::{
     MAX_NEW_NULLIFIERS_PER_CALL, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
     PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH, GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS,
-    MAX_ENCRYPTED_LOGS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL
+    MAX_ENCRYPTED_LOGS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL
 },
     header::Header, hash::pedersen_hash, messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Deserialize, Hash, Serialize, Empty}, utils::reader::Reader,
@@ -24,6 +24,7 @@ struct PrivateCircuitPublicInputs {
     returns_hash: Field,
 
     min_revertible_side_effect_counter: u32,
+    is_fee_payer: bool,
 
     max_block_number: MaxBlockNumber,
 
@@ -40,8 +41,9 @@ struct PrivateCircuitPublicInputs {
 
     start_side_effect_counter : u32,
     end_side_effect_counter : u32,
-    encrypted_logs_hashes: [SideEffect; MAX_ENCRYPTED_LOGS_PER_CALL],
-    unencrypted_logs_hashes: [SideEffect; MAX_UNENCRYPTED_LOGS_PER_CALL],
+    note_encrypted_logs_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_CALL],
+    encrypted_logs_hashes: [LogHash; MAX_ENCRYPTED_LOGS_PER_CALL],
+    unencrypted_logs_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_CALL],
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
     // variable-length data.
@@ -62,6 +64,8 @@ impl Eq for PrivateCircuitPublicInputs {
         self.call_context.eq(other.call_context) &
         self.args_hash.eq(other.args_hash) &
         (self.returns_hash == other.returns_hash) &
+        (self.min_revertible_side_effect_counter == other.min_revertible_side_effect_counter) &
+        (self.is_fee_payer == other.is_fee_payer) &
         (self.max_block_number == other.max_block_number) &
         (self.note_hash_read_requests == other.note_hash_read_requests) &
         (self.nullifier_read_requests == other.nullifier_read_requests) &
@@ -73,6 +77,7 @@ impl Eq for PrivateCircuitPublicInputs {
         (self.new_l2_to_l1_msgs == other.new_l2_to_l1_msgs) &
         (self.start_side_effect_counter == other.start_side_effect_counter) &
         (self.end_side_effect_counter == other.end_side_effect_counter) &
+        (self.note_encrypted_logs_hashes == other.note_encrypted_logs_hashes) &
         (self.encrypted_logs_hashes == other.encrypted_logs_hashes) &
         (self.unencrypted_logs_hashes == other.unencrypted_logs_hashes) &
         (self.encrypted_log_preimages_length == other.encrypted_log_preimages_length) &
@@ -90,6 +95,7 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         fields.push(self.returns_hash);
 
         fields.push(self.min_revertible_side_effect_counter as Field);
+        fields.push(if self.is_fee_payer { 1 } else { 0 } as Field);
 
         fields.extend_from_array(self.max_block_number.serialize());
 
@@ -116,6 +122,9 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         }
         fields.push(self.start_side_effect_counter as Field);
         fields.push(self.end_side_effect_counter as Field);
+        for i in 0..self.note_encrypted_logs_hashes.len() {
+            fields.extend_from_array(self.note_encrypted_logs_hashes[i].serialize());
+        }
         for i in 0..self.encrypted_logs_hashes.len() {
             fields.extend_from_array(self.encrypted_logs_hashes[i].serialize());
         }
@@ -142,6 +151,7 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             args_hash: reader.read(),
             returns_hash: reader.read(),
             min_revertible_side_effect_counter: reader.read() as u32,
+            is_fee_payer: reader.read() == 1,
             max_block_number: reader.read_struct(MaxBlockNumber::deserialize),
             note_hash_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]),
             nullifier_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL]),
@@ -154,8 +164,9 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             new_l2_to_l1_msgs: reader.read_struct_array(L2ToL1Message::deserialize, [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
             start_side_effect_counter: reader.read() as u32,
             end_side_effect_counter: reader.read() as u32,
-            encrypted_logs_hashes: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_ENCRYPTED_LOGS_PER_CALL]),
-            unencrypted_logs_hashes: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL]),
+            note_encrypted_logs_hashes: reader.read_struct_array(NoteLogHash::deserialize, [NoteLogHash::empty(); MAX_NOTE_ENCRYPTED_LOGS_PER_CALL]),
+            encrypted_logs_hashes: reader.read_struct_array(LogHash::deserialize, [LogHash::empty(); MAX_ENCRYPTED_LOGS_PER_CALL]),
+            unencrypted_logs_hashes: reader.read_struct_array(LogHash::deserialize, [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL]),
             encrypted_log_preimages_length: reader.read(),
             unencrypted_log_preimages_length: reader.read(),
             historical_header: reader.read_struct(Header::deserialize),
@@ -180,6 +191,7 @@ impl Empty for PrivateCircuitPublicInputs {
             args_hash: 0,
             returns_hash: 0,
             min_revertible_side_effect_counter: 0 as u32,
+            is_fee_payer: false,
             max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: [ReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
             nullifier_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
@@ -192,8 +204,9 @@ impl Empty for PrivateCircuitPublicInputs {
             new_l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
             start_side_effect_counter : 0 as u32,
             end_side_effect_counter : 0 as u32,
-            encrypted_logs_hashes: [SideEffect::empty(); MAX_ENCRYPTED_LOGS_PER_CALL],
-            unencrypted_logs_hashes: [SideEffect::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL],
+            note_encrypted_logs_hashes: [NoteLogHash::empty(); MAX_NOTE_ENCRYPTED_LOGS_PER_CALL],
+            encrypted_logs_hashes: [LogHash::empty(); MAX_ENCRYPTED_LOGS_PER_CALL],
+            unencrypted_logs_hashes: [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL],
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
             historical_header: Header::empty(),
@@ -215,6 +228,6 @@ fn empty_hash() {
     let inputs = PrivateCircuitPublicInputs::empty();
     let hash = inputs.hash();
     // Value from private_circuit_public_inputs.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x09cc3ed80b2171f093828087431d66777514912b4e7baddb418ab5f1ddbbfd5a;
+    let test_data_empty_hash = 0x04f513d6a85e9d0c994d3c3764732e4486264190b3bf285257f41180f09a0b58;
     assert_eq(hash, test_data_empty_hash);
 }

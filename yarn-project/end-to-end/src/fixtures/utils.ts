@@ -27,6 +27,7 @@ import {
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
+import { type BBNativeProofCreator } from '@aztec/bb-prover';
 import {
   CANONICAL_KEY_REGISTRY_ADDRESS,
   computeContractAddressFromInstance,
@@ -54,13 +55,7 @@ import { GasTokenContract } from '@aztec/noir-contracts.js/GasToken';
 import { getCanonicalGasToken, getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
 import { type ProverClient } from '@aztec/prover-client';
-import {
-  type BBNativeProofCreator,
-  PXEService,
-  type PXEServiceConfig,
-  createPXEService,
-  getPXEServiceConfig,
-} from '@aztec/pxe';
+import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type SequencerClient } from '@aztec/sequencer-client';
 
 import { type Anvil, createAnvil } from '@viem/anvil';
@@ -495,7 +490,7 @@ export function getLogger() {
  * @param aztecNode - The instance of aztec node for retrieving the logs.
  * @param numEncryptedLogs - The number of expected logs.
  */
-export const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (
+export const expectsNumOfNoteEncryptedLogsInTheLastBlockToBe = async (
   aztecNode: AztecNode | undefined,
   numEncryptedLogs: number,
 ) => {
@@ -505,7 +500,7 @@ export const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (
     return;
   }
   const l2BlockNum = await aztecNode.getBlockNumber();
-  const encryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.ENCRYPTED);
+  const encryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.NOTEENCRYPTED);
   const unrolledLogs = EncryptedL2BlockL2Logs.unrollLogs(encryptedLogs);
   expect(unrolledLogs.length).toBe(numEncryptedLogs);
 };

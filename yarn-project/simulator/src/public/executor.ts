@@ -82,7 +82,8 @@ async function executeTopLevelPublicFunctionAvm(
   for (const nullifier of executionContext.pendingNullifiers) {
     worldStateJournal.nullifiers.cache.appendSiloed(nullifier.value);
   }
-  worldStateJournal.trace.accessCounter = startSideEffectCounter;
+  // All the subsequent side effects will have a counter larger than the call's start counter.
+  worldStateJournal.trace.accessCounter = startSideEffectCounter + 1;
 
   const executionEnv = createAvmExecutionEnvironment(
     executionContext.execution,
@@ -184,7 +185,7 @@ async function executePublicFunctionAcvm(
       nestedExecutions: [],
       unencryptedLogsHashes: [],
       unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
-      unencryptedLogPreimagesLength: new Fr(4n), // empty logs have len 4
+      unencryptedLogPreimagesLength: Fr.ZERO,
       allUnencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       reverted,
       revertReason,

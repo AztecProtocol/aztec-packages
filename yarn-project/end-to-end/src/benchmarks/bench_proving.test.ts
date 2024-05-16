@@ -11,7 +11,7 @@ import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import { type EndToEndContext, publicDeployAccounts, setup } from '../fixtures/utils.js';
 
-jest.setTimeout(600_000);
+jest.setTimeout(900_000);
 
 const txTimeoutSec = 600;
 
@@ -120,5 +120,5 @@ describe('benchmarks/proving', () => {
 
     const receipts = await Promise.all(txs.map(tx => tx.wait({ timeout: txTimeoutSec })));
     expect(receipts.every(r => r.status === TxStatus.MINED)).toBe(true);
-  });
+  }, 1_200_000);
 });
