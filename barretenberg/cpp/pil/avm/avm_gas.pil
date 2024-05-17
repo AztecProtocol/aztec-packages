@@ -1,0 +1,6 @@
+
+namespace avm_gas(256);
+
+    // TODO(ISSUE_NUMBER): Constrain variable gas costs
+    pol commit l2_gas_fixed_table;
+    pol commit da_gas_fixed_table;
