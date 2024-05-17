@@ -162,6 +162,7 @@ TEST_F(EcOperations, TestECMultiScalarMul)
         .multi_scalar_mul_constraints = { msm_constrain },
         .ec_add_constraints = {},
         .recursion_constraints = {},
+        .honk_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
