@@ -96,7 +96,7 @@ HonkProof ClientIVC::decider_prove() const
  * circuits, it could be run once and for all to compute then save the required VKs. It also provides a convenient
  * (albeit innefficient) way of separating out the cost of computing VKs from a benchmark.
  *
- * @param circuits A copy of the circuits to be accumulated
+ * @param circuits A copy of the circuits to be accumulated (passing by reference would alter the original circuits)
  * @return std::vector<std::shared_ptr<ClientIVC::VerificationKey>>
  */
 std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_folding_verification_keys(
