@@ -65,7 +65,7 @@ export interface AccountKeyRotationInterface {
   rotateNpkM(newNpkM: Point): ContractFunctionInteraction;
 
   /**
-    * Rotates master nullifier keys.
+   * Rotates the account master nullifier secret key in our pxe / keystore
    * @param newNskM - The new master nullifier secret key we want to use.
    * @remarks - This does not hinder our ability to spend notes tied to a previous master nullifier public key.
    */
