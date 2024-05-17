@@ -39,8 +39,8 @@ fn validate_arrays_malformed_nullifier_read_requests_fails() {
 
 //     builder.private_call.public_inputs.key_validation_requests.extend_from_array(
 //         [
-//         NullifierKeyValidationRequest::empty(),
-//         NullifierKeyValidationRequest { master_nullifier_public_key: GrumpkinPoint { x: 12, y: 34 }, app_nullifier_secret_key: 5 }
+//         KeyValidationRequest::empty(),
+//         KeyValidationRequest { master_nullifier_public_key: GrumpkinPoint { x: 12, y: 34 }, app_nullifier_secret_key: 5 }
 //     ]
 //     );
 

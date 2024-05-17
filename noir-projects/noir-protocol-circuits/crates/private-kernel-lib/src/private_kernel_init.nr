@@ -53,7 +53,7 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::NoteHash,
-        nullifier_key_validation_request::NullifierKeyValidationRequest,
+        key_validation_request::KeyValidationRequest,
         private_kernel::private_call_data::PrivateCallData, read_request::ReadRequest,
         nullifier::Nullifier, log_hash::{LogHash, NoteLogHash}
     },
@@ -204,7 +204,7 @@ mod tests {
     fn propagate_key_validation_requests() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        let request_0 = NullifierKeyValidationRequest { master_nullifier_public_key: GrumpkinPoint { x: 1, y: 2 }, app_nullifier_secret_key: 3 };
+        let request_0 = KeyValidationRequest { master_nullifier_public_key: GrumpkinPoint { x: 1, y: 2 }, app_nullifier_secret_key: 3 };
         builder.private_call.public_inputs.key_validation_requests.push(request_0);
 
         let public_inputs = builder.execute();

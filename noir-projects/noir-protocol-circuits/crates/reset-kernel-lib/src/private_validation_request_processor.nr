@@ -5,8 +5,7 @@ use crate::{
 use dep::types::{
     abis::{
     note_hash::ScopedNoteHash, nullifier::ScopedNullifier, validation_requests::ValidationRequests,
-    read_request::ScopedReadRequest,
-    nullifier_key_validation_request::ScopedNullifierKeyValidationRequest
+    read_request::ScopedReadRequest, key_validation_request::ScopedKeyValidationRequest
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
@@ -66,7 +65,7 @@ impl PrivateValidationRequestProcessor {
         )
     }
 
-    fn validate_nullifier_keys(self) -> BoundedVec<ScopedNullifierKeyValidationRequest, MAX_KEY_VALIDATION_REQUESTS_PER_TX> {
+    fn validate_nullifier_keys(self) -> BoundedVec<ScopedKeyValidationRequest, MAX_KEY_VALIDATION_REQUESTS_PER_TX> {
         let mut should_propagate = [false; MAX_KEY_VALIDATION_REQUESTS_PER_TX];
         let requests = self.validation_requests.key_validation_requests;
         for i in 0..MAX_KEY_VALIDATION_REQUESTS_PER_TX {

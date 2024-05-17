@@ -1,7 +1,6 @@
 use crate::{
     abis::{
-    max_block_number::MaxBlockNumber,
-    nullifier_key_validation_request::ScopedNullifierKeyValidationRequest,
+    max_block_number::MaxBlockNumber, key_validation_request::ScopedKeyValidationRequest,
     public_data_read::PublicDataRead, read_request::ScopedReadRequest,
     validation_requests::rollup_validation_requests::RollupValidationRequests
 },
@@ -19,7 +18,7 @@ struct ValidationRequests {
     note_hash_read_requests: [ScopedReadRequest; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
     nullifier_read_requests: [ScopedReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
     nullifier_non_existent_read_requests: [ScopedReadRequest; MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX],
-    key_validation_requests: [ScopedNullifierKeyValidationRequest; MAX_KEY_VALIDATION_REQUESTS_PER_TX],
+    key_validation_requests: [ScopedKeyValidationRequest; MAX_KEY_VALIDATION_REQUESTS_PER_TX],
     public_data_reads: [PublicDataRead; MAX_PUBLIC_DATA_READS_PER_TX],
 }
 
@@ -64,7 +63,7 @@ impl Deserialize<VALIDATION_REQUESTS_LENGTH> for ValidationRequests {
             note_hash_read_requests: reader.read_struct_array(ScopedReadRequest::deserialize, [ScopedReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_TX]),
             nullifier_read_requests: reader.read_struct_array(ScopedReadRequest::deserialize, [ScopedReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_TX]),
             nullifier_non_existent_read_requests: reader.read_struct_array(ScopedReadRequest::deserialize, [ScopedReadRequest::empty(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX]),
-            key_validation_requests: reader.read_struct_array(ScopedNullifierKeyValidationRequest::deserialize, [ScopedNullifierKeyValidationRequest::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_TX]),
+            key_validation_requests: reader.read_struct_array(ScopedKeyValidationRequest::deserialize, [ScopedKeyValidationRequest::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_TX]),
             public_data_reads: reader.read_struct_array(PublicDataRead::deserialize, [PublicDataRead::empty(); MAX_PUBLIC_DATA_READS_PER_TX]),
         };
 
@@ -81,7 +80,7 @@ impl Empty for ValidationRequests {
             note_hash_read_requests: [ScopedReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
             nullifier_read_requests: [ScopedReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_TX],
             nullifier_non_existent_read_requests: [ScopedReadRequest::empty(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX],
-            key_validation_requests: [ScopedNullifierKeyValidationRequest::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_TX],
+            key_validation_requests: [ScopedKeyValidationRequest::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_TX],
             public_data_reads: [PublicDataRead::empty(); MAX_PUBLIC_DATA_READS_PER_TX],
         }
     }

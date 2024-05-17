@@ -1,5 +1,5 @@
 use dep::protocol_types::{
-    abis::nullifier_key_validation_request::NullifierKeyValidationRequest, address::AztecAddress,
+    abis::key_validation_request::KeyValidationRequest, address::AztecAddress,
     constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint
 };
 use crate::{

@@ -10,8 +10,8 @@ import {
   NULLIFIER_TREE_HEIGHT,
   type PrivateKernelCircuitPublicInputs,
   PrivateKernelResetHints,
+  type ScopedKeyValidationRequest,
   type ScopedNullifier,
-  type ScopedNullifierKeyValidationRequest,
   type ScopedReadRequest,
   buildNoteHashReadRequestHints,
   buildNullifierReadRequestHints,
@@ -48,7 +48,7 @@ function getNullifierReadRequestHints(
 }
 
 async function getMasterNullifierSecretKeys(
-  nullifierKeyValidationRequests: Tuple<ScopedNullifierKeyValidationRequest, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+  nullifierKeyValidationRequests: Tuple<ScopedKeyValidationRequest, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
   oracle: ProvingDataOracle,
 ) {
   const keys = makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar.zero);

@@ -8,7 +8,7 @@ use crate::{
     kernel_data::KernelData, public_kernel_data::PublicKernelData, max_block_number::MaxBlockNumber,
     private_kernel_data::PrivateKernelData, note_hash::{NoteHash, ScopedNoteHash},
     nullifier::{Nullifier, ScopedNullifier},
-    nullifier_key_validation_request::{ScopedNullifierKeyValidationRequest, NullifierKeyValidationRequest},
+    key_validation_request::{ScopedKeyValidationRequest, KeyValidationRequest},
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
     read_request::{ReadRequest, ScopedReadRequest}, log_hash::{LogHash, NoteLogHash},
     validation_requests::{ValidationRequests, ValidationRequestsBuilder}
@@ -63,7 +63,7 @@ struct FixtureBuilder {
     note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     nullifier_non_existent_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
-    key_validation_requests: BoundedVec<ScopedNullifierKeyValidationRequest, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+    key_validation_requests: BoundedVec<ScopedKeyValidationRequest, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
     public_data_reads: BoundedVec<PublicDataRead, MAX_PUBLIC_DATA_READS_PER_TX>,
 
     // Proof.
@@ -416,7 +416,7 @@ impl FixtureBuilder {
         app_nullifier_secret_key: Field
     ) -> u64 {
         let new_request_index = self.key_validation_requests.len();
-        let request = NullifierKeyValidationRequest { master_nullifier_public_key, app_nullifier_secret_key };
+        let request = KeyValidationRequest { master_nullifier_public_key, app_nullifier_secret_key };
         self.key_validation_requests.push(request.scope(self.storage_contract_address));
 
         new_request_index

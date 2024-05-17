@@ -29,12 +29,12 @@ import {
 import { Header } from '../structs/header.js';
 import { isEmptyArray } from '../utils/index.js';
 import { CallContext } from './call_context.js';
+import { KeyValidationRequest } from './key_validation_request.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
 import { LogHash, NoteLogHash } from './log_hash.js';
 import { MaxBlockNumber } from './max_block_number.js';
 import { NoteHash } from './note_hash.js';
 import { Nullifier } from './nullifier.js';
-import { NullifierKeyValidationRequest } from './nullifier_key_validation_request.js';
 import { ReadRequest } from './read_request.js';
 import { TxContext } from './tx_context.js';
 
@@ -78,10 +78,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * Nullifier key validation requests created by the corresponding function call.
      */
-    public nullifierKeyValidationRequests: Tuple<
-      NullifierKeyValidationRequest,
-      typeof MAX_KEY_VALIDATION_REQUESTS_PER_CALL
-    >,
+    public nullifierKeyValidationRequests: Tuple<KeyValidationRequest, typeof MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
     /**
      * New note hashes created by the corresponding function call.
      */
@@ -168,7 +165,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(MaxBlockNumber),
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
-      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest),
+      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequest),
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_CALL, NoteHash),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr),
@@ -196,7 +193,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(MaxBlockNumber),
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
-      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest),
+      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequest),
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_CALL, NoteHash),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier),
       reader.readFieldArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
@@ -227,7 +224,7 @@ export class PrivateCircuitPublicInputs {
       MaxBlockNumber.empty(),
       makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest.empty),
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.empty),
-      makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest.empty),
+      makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequest.empty),
       makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, NoteHash.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr.zero),

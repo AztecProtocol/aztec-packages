@@ -35,6 +35,7 @@ import {
   G1AffineElement,
   type GrumpkinPrivateKey,
   GrumpkinScalar,
+  KeyValidationRequest,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   L2ToL1Message,
   LogHash,
@@ -79,7 +80,6 @@ import {
   NoteHash,
   NoteLogHash,
   Nullifier,
-  NullifierKeyValidationRequest,
   NullifierLeafPreimage,
   NullifierNonExistentReadRequestHintsBuilder,
   NullifierReadRequestHintsBuilder,
@@ -120,7 +120,7 @@ import {
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
-  ScopedNullifierKeyValidationRequest,
+  ScopedKeyValidationRequest,
   ScopedReadRequest,
   StateDiffHints,
   StateReference,
@@ -210,16 +210,16 @@ function makeScopedReadRequest(n: number): ScopedReadRequest {
 }
 
 /**
- * Creates arbitrary NullifierKeyValidationRequest from the given seed.
- * @param seed - The seed to use for generating the NullifierKeyValidationRequest.
- * @returns A NullifierKeyValidationRequest.
+ * Creates arbitrary KeyValidationRequest from the given seed.
+ * @param seed - The seed to use for generating the KeyValidationRequest.
+ * @returns A KeyValidationRequest.
  */
-function makeNullifierKeyValidationRequest(seed: number): NullifierKeyValidationRequest {
-  return new NullifierKeyValidationRequest(makePoint(seed), fr(seed + 2));
+function makeNullifierKeyValidationRequest(seed: number): KeyValidationRequest {
+  return new KeyValidationRequest(makePoint(seed), fr(seed + 2));
 }
 
-function makeScopedNullifierKeyValidationRequest(seed: number): ScopedNullifierKeyValidationRequest {
-  return new ScopedNullifierKeyValidationRequest(makeNullifierKeyValidationRequest(seed), makeAztecAddress(seed + 4));
+function makeScopedNullifierKeyValidationRequest(seed: number): ScopedKeyValidationRequest {
+  return new ScopedKeyValidationRequest(makeNullifierKeyValidationRequest(seed), makeAztecAddress(seed + 4));
 }
 
 /**

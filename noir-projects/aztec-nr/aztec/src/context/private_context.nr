@@ -19,7 +19,7 @@ use dep::protocol_types::{
     hash::sha256_to_field,
     abis::{
     function_selector::FunctionSelector, max_block_number::MaxBlockNumber,
-    nullifier_key_validation_request::NullifierKeyValidationRequest,
+    key_validation_request::KeyValidationRequest,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
     public_call_stack_item::PublicCallStackItem, read_request::ReadRequest, note_hash::NoteHash,
     nullifier::Nullifier, log_hash::{LogHash, NoteLogHash}
@@ -54,7 +54,7 @@ struct PrivateContext {
 
     note_hash_read_requests: BoundedVec<ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
-    key_validation_requests: BoundedVec<NullifierKeyValidationRequest, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
+    key_validation_requests: BoundedVec<KeyValidationRequest, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
     app_secret_keys_generators: BoundedVec<Field, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
     new_note_hashes: BoundedVec<NoteHash, MAX_NEW_NOTE_HASHES_PER_CALL>,
@@ -76,7 +76,7 @@ struct PrivateContext {
     // Contains the last key validation request for each key type. This is used to cache the last request and avoid
     // fetching the same request multiple times.
     // The index of the array corresponds to the key type (0 nullifier, 1 incoming, ).
-    last_key_validation_requests: [Option<NullifierKeyValidationRequest>; NUM_KEY_TYPES],
+    last_key_validation_requests: [Option<KeyValidationRequest>; NUM_KEY_TYPES],
 }
 
 impl ContextInterface for PrivateContext {
@@ -218,7 +218,7 @@ impl PrivateContext {
     }
 
     fn request_sk_app(&mut self, pk_m_hash: Field, key_index: Field) -> Field {
-        let cached_request = self.last_key_validation_requests[key_index].unwrap_or(NullifierKeyValidationRequest::empty());
+        let cached_request = self.last_key_validation_requests[key_index].unwrap_or(KeyValidationRequest::empty());
 
         if cached_request.master_nullifier_public_key.hash() == pk_m_hash {
             // We get a match so the cached request is the latest one 

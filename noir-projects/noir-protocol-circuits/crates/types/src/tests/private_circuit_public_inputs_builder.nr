@@ -2,7 +2,7 @@ use crate::{
     abis::{
     call_context::CallContext, call_request::CallRequest, caller_context::CallerContext,
     gas_settings::GasSettings, gas::Gas, max_block_number::MaxBlockNumber, note_hash::NoteHash,
-    nullifier::Nullifier, nullifier_key_validation_request::NullifierKeyValidationRequest,
+    nullifier::Nullifier, key_validation_request::KeyValidationRequest,
     private_circuit_public_inputs::PrivateCircuitPublicInputs, read_request::ReadRequest,
     log_hash::{LogHash, NoteLogHash}
 },
@@ -34,7 +34,7 @@ struct PrivateCircuitPublicInputsBuilder {
 
     note_hash_read_requests: BoundedVec<ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
-    key_validation_requests: BoundedVec<NullifierKeyValidationRequest, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
+    key_validation_requests: BoundedVec<KeyValidationRequest, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
     new_note_hashes: BoundedVec<NoteHash, MAX_NEW_NOTE_HASHES_PER_CALL>,
     new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_CALL>,

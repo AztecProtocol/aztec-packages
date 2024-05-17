@@ -27,6 +27,7 @@ import {
   Header,
   KernelCircuitPublicInputs,
   type KernelData,
+  KeyValidationRequest,
   L2ToL1Message,
   type LeafDataReadHint,
   LogHash,
@@ -56,7 +57,6 @@ import {
   type NoteHashReadRequestHints,
   NoteLogHash,
   Nullifier,
-  NullifierKeyValidationRequest,
   type NullifierLeafPreimage,
   type NullifierNonExistentReadRequestHints,
   type NullifierReadRequestHints,
@@ -108,10 +108,10 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   RootRollupPublicInputs,
+  ScopedKeyValidationRequest,
   ScopedL2ToL1Message,
   ScopedNoteHash,
   ScopedNullifier,
-  ScopedNullifierKeyValidationRequest,
   ScopedReadRequest,
   type SettledReadHint,
   type StateDiffHints,
@@ -163,7 +163,7 @@ import type {
   NoteHashReadRequestHints as NoteHashReadRequestHintsNoir,
   NoteHashSettledReadHint as NoteHashSettledReadHintNoir,
   NoteLogHash as NoteLogHashNoir,
-  NullifierKeyValidationRequest as NullifierKeyValidationRequestNoir,
+  KeyValidationRequest as NullifierKeyValidationRequestNoir,
   NullifierLeafPreimage as NullifierLeafPreimageNoir,
   Nullifier as NullifierNoir,
   NullifierNonExistentReadRequestHints as NullifierNonExistentReadRequestHintsNoir,
@@ -214,7 +214,7 @@ import type {
   RootRollupPublicInputs as RootRollupPublicInputsNoir,
   ScopedL2ToL1Message as ScopedL2ToL1MessageNoir,
   ScopedNoteHash as ScopedNoteHashNoir,
-  ScopedNullifierKeyValidationRequest as ScopedNullifierKeyValidationRequestNoir,
+  ScopedKeyValidationRequest as ScopedNullifierKeyValidationRequestNoir,
   ScopedNullifier as ScopedNullifierNoir,
   ScopedReadRequest as ScopedReadRequestNoir,
   StateDiffHints as StateDiffHintsNoir,
@@ -693,12 +693,12 @@ export function mapScopedReadRequestFromNoir(scoped: ScopedReadRequestNoir): Sco
 }
 
 /**
- * Maps a NullifierKeyValidationRequest to a noir NullifierKeyValidationRequest.
- * @param request - The NullifierKeyValidationRequest.
- * @returns The noir NullifierKeyValidationRequest.
+ * Maps a KeyValidationRequest to a noir KeyValidationRequest.
+ * @param request - The KeyValidationRequest.
+ * @returns The noir KeyValidationRequest.
  */
 export function mapNullifierKeyValidationRequestToNoir(
-  request: NullifierKeyValidationRequest,
+  request: KeyValidationRequest,
 ): NullifierKeyValidationRequestNoir {
   return {
     master_nullifier_public_key: mapPointToNoir(request.masterNullifierPublicKey),
@@ -707,21 +707,21 @@ export function mapNullifierKeyValidationRequestToNoir(
 }
 
 /**
- * Maps a noir NullifierKeyValidationRequest to NullifierKeyValidationRequest.
- * @param request - The noir NullifierKeyValidationRequest.
- * @returns The TS NullifierKeyValidationRequest.
+ * Maps a noir KeyValidationRequest to KeyValidationRequest.
+ * @param request - The noir KeyValidationRequest.
+ * @returns The TS KeyValidationRequest.
  */
 export function mapNullifierKeyValidationRequestFromNoir(
   request: NullifierKeyValidationRequestNoir,
-): NullifierKeyValidationRequest {
-  return new NullifierKeyValidationRequest(
+): KeyValidationRequest {
+  return new KeyValidationRequest(
     mapPointFromNoir(request.master_nullifier_public_key),
     mapFieldFromNoir(request.app_nullifier_secret_key),
   );
 }
 
 function mapScopedNullifierKeyValidationRequestToNoir(
-  request: ScopedNullifierKeyValidationRequest,
+  request: ScopedKeyValidationRequest,
 ): ScopedNullifierKeyValidationRequestNoir {
   return {
     request: mapNullifierKeyValidationRequestToNoir(request.request),
@@ -731,8 +731,8 @@ function mapScopedNullifierKeyValidationRequestToNoir(
 
 function mapScopedNullifierKeyValidationRequestFromNoir(
   request: ScopedNullifierKeyValidationRequestNoir,
-): ScopedNullifierKeyValidationRequest {
-  return new ScopedNullifierKeyValidationRequest(
+): ScopedKeyValidationRequest {
+  return new ScopedKeyValidationRequest(
     mapNullifierKeyValidationRequestFromNoir(request.request),
     mapAztecAddressFromNoir(request.contract_address),
   );
