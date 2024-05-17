@@ -241,8 +241,20 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: noir-x86
-      - name: "Test Noir JS packages"
+      - name: "Test Nargo"
         run: earthly-ci --no-output ./noir+test
+
+  noir-examples:
+    needs: setup
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: noir-examples-x86
+      - name: "Test Noir examples"
+        run: earthly-ci --no-output ./noir+examples
 
   noir-packages-test:
     needs: setup
@@ -390,7 +402,7 @@ jobs:
           concurrency_key: docs-preview-x86
       - name: "Docs Preview"
         timeout-minutes: 40
-        run: earthly-ci --no-output ./docs/+deploy-preview --PR=${{ github.event.number }} --AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
+        run: earthly-ci --no-output ./docs/+deploy-preview --ENV=staging --PR=${{ github.event.number }} --AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
 
   bb-bench:
     runs-on: ubuntu-latest
