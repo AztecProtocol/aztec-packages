@@ -45,7 +45,7 @@ jobs:
       - name: "Build images"
         timeout-minutes: 40
         run: |
-          earthly-ci --no-output --build-arg DIST_TAG=latest --build-arg ARCH=${{ matrix.arch }} ./yarn-project+export-aztec
+          earthly-ci --no-output --build-arg DIST_TAG=latest --build-arg ARCH=${{ matrix.arch }} ./yarn-project+export-aztec-arch
           earthly-ci --no-output --build-arg DIST_TAG=latest --build-arg ARCH=${{ matrix.arch }} ./noir+export-noir
 
   publish:

@@ -131,7 +131,7 @@ all:
     BUILD +aztec
     BUILD +end-to-end
 
-export-aztec:
+export-aztec-arch:
     FROM +aztec
     ARG DIST_TAG="latest"
     ARG ARCH="x86_64"
@@ -143,10 +143,10 @@ export-aztec-builder:
     ARG ARCH="x86_64"
     SAVE IMAGE aztecprotocol/aztec-builder:${DIST_TAG}-${ARCH}
 
-export-aztec-arch:
+export-aztec:
     ARG EARTHLY_GIT_HASH
     FROM +aztec
-    SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH-amd64
+    SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH
 
 export-end-to-end:
     ARG EARTHLY_GIT_HASH
