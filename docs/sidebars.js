@@ -1,55 +1,7 @@
-/**
- * Creating a sidebar enables you to:
- - create an ordered group of docs
- - render a sidebar for each doc of that group
- - provide next/previous navigation
-
- The sidebars can be generated from the filesystem, or explicitly defined here.
-
- Create as many sidebars as you want.
- */
-
 // @ts-check
 
 const fs = require("fs");
 const path = require("path");
-// Load the structured documentation paths
-const docsStructurePath = path.join(
-  __dirname,
-  "/src/preprocess/AztecnrReferenceAutogenStructure.json"
-);
-const docsStructure = JSON.parse(fs.readFileSync(docsStructurePath, "utf8"));
-
-// Function to recursively build sidebar items from the structured documentation
-function buildSidebarItemsFromStructure(structure, basePath = "") {
-  const items = [];
-  for (const key in structure) {
-    if (key === "_docs") {
-      // Base case: add the docs
-      structure[key].forEach((doc) => {
-        items.push(`${basePath}/${doc}`);
-      });
-    } else {
-      // Recursive case: process a subdirectory
-      const subItems = buildSidebarItemsFromStructure(
-        structure[key],
-        `${basePath}/${key}`
-      );
-      items.push({
-        type: "category",
-        label: key.charAt(0).toUpperCase() + key.slice(1), // Capitalize the label
-        items: subItems,
-      });
-    }
-  }
-  return items;
-}
-
-// Build sidebar for AztecNR documentation
-const aztecNRSidebar = buildSidebarItemsFromStructure(
-  docsStructure.AztecNR,
-  "developers/contracts/references/aztec-nr"
-);
 
 /** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
 export default {
