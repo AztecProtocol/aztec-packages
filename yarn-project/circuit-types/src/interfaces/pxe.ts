@@ -112,7 +112,7 @@ export interface PXE {
    * @remarks - This does not hinder our ability to spend notes tied to a previous master nullifier public key.
    * Also, one should not use this function directly without also calling the canonical key registry.
    */
-  rotateNskMPxe(address: AztecAddress, newNskM: Fq): Promise<void>;
+  rotateNskM(address: AztecAddress, newNskM: Fq): Promise<void>;
 
   /**
    * Registers a contract class in the PXE without registering any associated contract instance with it.

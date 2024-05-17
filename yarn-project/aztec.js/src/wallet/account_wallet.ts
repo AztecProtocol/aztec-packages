@@ -1,5 +1,5 @@
 import { type AuthWitness, type FunctionCall, type PXE, type TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, CANONICAL_KEY_REGISTRY_ADDRESS, type Fq, Fr, type Point, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
+import { AztecAddress, CANONICAL_KEY_REGISTRY_ADDRESS, Fq, Fr, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
 import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 
 import { type AccountInterface } from '../account/interface.js';
@@ -166,27 +166,19 @@ export class AccountWallet extends BaseWallet {
   }
 
   /**
-   * Returns a function interaction to rotate our master nullifer public key in the canonical key registry.
-   * @param newNpkM - The new master nullifier public key we want to use.
-   * @remarks - This does not hinder our ability to spend notes tied to a previous master nullifier public key.
-   * @returns - A function interaction.
-   */
-  public rotateNpkM(newNpkM: Point): ContractFunctionInteraction {
-    return new ContractFunctionInteraction(
-      this,
-      AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS),
-      this.getRotateNpkMAbi(),
-      [this.getAddress(), newNpkM, Fr.ZERO],
-    );
-  }
-
-  /**
-   * Rotates the account master nullifier secret key in our pxe / keystore
+   * Rotates the account master nullifier key pair.
    * @param newNskM - The new master nullifier secret key we want to use.
-   * @remarks - This does not hinder our ability to spend notes tied to a previous master nullifier public key.
+   * @remarks - This function also calls the canonical key registry with the account's new derived master nullifier public key.
+   * We are doing it this way to avoid user error, in the case that a user rotates their keys in the key registry,
+   * but fails to do so in the key store. This leads to unspendable notes.
+   * 
+   * This does not hinder our ability to spend notes tied to a previous master nullifier public key, provided we have the master nullifier secret key for it.
    */
-  public async rotateNullifierKeys(newNskM: Fq): Promise<void> {
-    await this.pxe.rotateNskMPxe(this.getAddress(), newNskM);
+  public async rotateNullifierKeys(newNskM: Fq = Fq.random()): Promise<void> {
+    // We rotate our secret key in the keystore first, because if the subsequent interaction fails, there are no bad side-effects.
+    // If vice versa (the key registry is called first), but the call to the PXE fails, we will end up in a situation with unspendable notes, as we have not committed our
+    // nullifier secret key to our wallet.
+    await this.pxe.rotateNskM(this.getAddress(), newNskM);
     const interaction = new ContractFunctionInteraction(
       this,
       AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS),

@@ -45,10 +45,6 @@ export abstract class BaseWallet implements Wallet {
 
   abstract createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest>;
 
-  abstract rotateNpkM(newNpkM: Point): ContractFunctionInteraction;
-
-  abstract rotateNskM(newNskM: Fq): Promise<void>;
-
   abstract createAuthWit(
     messageHashOrIntent:
       | Fr
@@ -65,6 +61,8 @@ export abstract class BaseWallet implements Wallet {
         },
   ): Promise<AuthWitness>;
 
+  abstract rotateNullifierKeys(newNskM: Fq): Promise<void>;
+
   getAddress() {
     return this.getCompleteAddress().address;
   }
@@ -80,8 +78,8 @@ export abstract class BaseWallet implements Wallet {
   registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     return this.pxe.registerAccount(secretKey, partialAddress);
   }
-  rotateNskMPxe(address: AztecAddress, secretKey: Fq) {
-    return this.pxe.rotateNskMPxe(address, secretKey);
+  rotateNskM(address: AztecAddress, secretKey: Fq) {
+    return this.pxe.rotateNskM(address, secretKey);
   }
   registerRecipient(account: CompleteAddress): Promise<void> {
     return this.pxe.registerRecipient(account);

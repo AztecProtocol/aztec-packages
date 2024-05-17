@@ -44,11 +44,7 @@ export class SignerlessWallet extends BaseWallet {
     throw new Error('Method not implemented.');
   }
 
-  rotateNpkM(_newNpkM: Point): ContractFunctionInteraction {
-    throw new Error('Method not implemented.');
-  }
-
-  rotateNskM(_newNskM: Fq): Promise<void> {
+  rotateNullifierKeys(_newNskM: Fq): Promise<void> {
     throw new Error('Method not implemented.');
   }
 }

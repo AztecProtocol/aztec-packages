@@ -160,7 +160,7 @@ export class PXEService implements PXE {
     return this.db.getAuthWitness(messageHash);
   }
 
-  async rotateNskMPxe(account: AztecAddress, secretKey: Fq = Fq.random()): Promise<void> {
+  async rotateNskM(account: AztecAddress, secretKey: Fq = Fq.random()): Promise<void> {
     await this.keyStore.rotateMasterNullifierKey(account, secretKey);
   }
 
