@@ -1,6 +1,7 @@
 import { type Wallet } from '@aztec/aztec.js';
 import { StaticChildContract, StaticParentContract } from '@aztec/noir-contracts.js';
 
+import { STATIC_CALL_STATE_MODIFICATION_ERROR, STATIC_CONTEXT_ASSERTION_ERROR } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_static_calls', () => {
@@ -28,7 +29,7 @@ describe('e2e_static_calls', () => {
     it('fails when performing non-static calls to poorly written static private functions', async () => {
       await expect(
         childContract.methods.private_illegal_set_value(42n, wallet.getCompleteAddress().address).send().wait(),
-      ).rejects.toThrow('Static call cannot update the state, emit L2->L1 messages or generate logs');
+      ).rejects.toThrow(STATIC_CALL_STATE_MODIFICATION_ERROR);
     });
 
     it('performs legal public static calls', async () => {
@@ -37,7 +38,7 @@ describe('e2e_static_calls', () => {
 
     it('fails when performing non-static calls to poorly written static public functions', async () => {
       await expect(childContract.methods.pub_illegal_inc_value(42n).send().wait()).rejects.toThrow(
-        'Static call cannot update the state, emit L2->L1 messages or generate logs',
+        STATIC_CALL_STATE_MODIFICATION_ERROR,
       );
     });
   });
@@ -119,7 +120,7 @@ describe('e2e_static_calls', () => {
           ])
           .send()
           .wait(),
-      ).rejects.toThrow('Static call cannot update the state, emit L2->L1 messages or generate logs');
+      ).rejects.toThrow(STATIC_CALL_STATE_MODIFICATION_ERROR);
     });
 
     it('fails when performing non-static calls to poorly written private static functions', async () => {
@@ -131,7 +132,7 @@ describe('e2e_static_calls', () => {
           ])
           .send()
           .wait(),
-      ).rejects.toThrow("Assertion failed: Function private_illegal_set_value can only be called statically ''");
+      ).rejects.toThrow(STATIC_CONTEXT_ASSERTION_ERROR);
     });
 
     it('fails when performing illegal (nested) private to private static calls', async () => {
@@ -143,7 +144,7 @@ describe('e2e_static_calls', () => {
           ])
           .send()
           .wait(),
-      ).rejects.toThrow('Static call cannot update the state, emit L2->L1 messages or generate logs');
+      ).rejects.toThrow(STATIC_CALL_STATE_MODIFICATION_ERROR);
     });
 
     it('fails when performing illegal public to public static calls', async () => {
@@ -152,7 +153,7 @@ describe('e2e_static_calls', () => {
           .public_static_call(childContract.address, childContract.methods.pub_set_value.selector, [42n])
           .send()
           .wait(),
-      ).rejects.toThrow('Static call cannot update the state, emit L2->L1 messages or generate logs');
+      ).rejects.toThrow(STATIC_CALL_STATE_MODIFICATION_ERROR);
     });
 
     it('fails when performing illegal (nested) public to public static calls', async () => {
@@ -161,7 +162,7 @@ describe('e2e_static_calls', () => {
           .public_nested_static_call(childContract.address, childContract.methods.pub_set_value.selector, [42n])
           .send()
           .wait(),
-      ).rejects.toThrow('Static call cannot update the state, emit L2->L1 messages or generate logs');
+      ).rejects.toThrow(STATIC_CALL_STATE_MODIFICATION_ERROR);
     });
 
     it('fails when performing illegal enqueued public static calls', async () => {
@@ -172,7 +173,7 @@ describe('e2e_static_calls', () => {
           ])
           .send()
           .wait(),
-      ).rejects.toThrow('Static call cannot update the state, emit L2->L1 messages or generate logs');
+      ).rejects.toThrow(STATIC_CALL_STATE_MODIFICATION_ERROR);
     });
 
     it('fails when performing illegal (nested) enqueued public static calls', async () => {
@@ -185,7 +186,7 @@ describe('e2e_static_calls', () => {
           )
           .send()
           .wait(),
-      ).rejects.toThrow('Static call cannot update the state, emit L2->L1 messages or generate logs');
+      ).rejects.toThrow(STATIC_CALL_STATE_MODIFICATION_ERROR);
     });
 
     it('fails when performing non-static enqueue calls to poorly written public static functions', async () => {
@@ -197,10 +198,12 @@ describe('e2e_static_calls', () => {
           ])
           .send()
           .wait(),
-      ).rejects.toThrow("Assertion failed: Function pub_illegal_inc_value can only be called statically ''");
+      ).rejects.toThrow(STATIC_CONTEXT_ASSERTION_ERROR);
     });
   });
 
+  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/5818): clean up the following tests and either remove the "public" version above or rename these to be the new public.
+  // There should be 1:1 correspondence between the two sets of tests.
   describe('avm', () => {
     describe('direct view calls to child', () => {
       it('performs legal public static calls', async () => {
@@ -209,7 +212,7 @@ describe('e2e_static_calls', () => {
 
       it('fails when performing non-static calls to poorly written static public functions', async () => {
         await expect(childContract.methods.avm_illegal_inc_value(42n).send().wait()).rejects.toThrow(
-          "Static call cannot update the state, emit L2->L1 messages or generate logs 'storage_write_oracle(self.storage_slot, fields)'",
+          STATIC_CALL_STATE_MODIFICATION_ERROR,
         );
       });
     });
@@ -265,9 +268,7 @@ describe('e2e_static_calls', () => {
             ])
             .send()
             .wait(),
-        ).rejects.toThrow(
-          "Static call cannot update the state, emit L2->L1 messages or generate logs 'storage_write_oracle(self.storage_slot, fields)'",
-        );
+        ).rejects.toThrow(STATIC_CALL_STATE_MODIFICATION_ERROR);
       });
 
       it('fails when performing illegal (nested) enqueued public static calls', async () => {
@@ -280,9 +281,7 @@ describe('e2e_static_calls', () => {
             )
             .send()
             .wait(),
-        ).rejects.toThrow(
-          "Static call cannot update the state, emit L2->L1 messages or generate logs 'storage_write_oracle(self.storage_slot, fields)'",
-        );
+        ).rejects.toThrow(STATIC_CALL_STATE_MODIFICATION_ERROR);
       });
 
       it('fails when performing non-static enqueue calls to poorly written public static functions', async () => {
@@ -294,7 +293,7 @@ describe('e2e_static_calls', () => {
             ])
             .send()
             .wait(),
-        ).rejects.toThrow("Assertion failed: Function avm_illegal_inc_value can only be called statically ''");
+        ).rejects.toThrow(STATIC_CONTEXT_ASSERTION_ERROR);
       });
     });
   });
