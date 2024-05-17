@@ -3,6 +3,7 @@ import {
   GrumpkinScalar,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
@@ -126,16 +127,23 @@ export async function buildPrivateKernelResetInputs(
     oracle,
   );
 
-  const [transientNullifierIndexesForNoteHashes, transientNoteHashIndexesForNullifiers] = buildTransientDataHints(
+  const [
+    transientNullifierIndexesForNoteHashes,
+    transientNoteHashIndexesForNullifiers,
+    transientNoteHashIndexesForLogs,
+  ] = buildTransientDataHints(
     publicInputs.end.newNoteHashes,
     publicInputs.end.newNullifiers,
+    publicInputs.end.noteEncryptedLogsHashes,
     MAX_NEW_NOTE_HASHES_PER_TX,
     MAX_NEW_NULLIFIERS_PER_TX,
+    MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   );
 
   const expectedOutputs = buildPrivateKernelResetOutputs(
     previousKernelData.publicInputs.end.newNoteHashes,
     previousKernelData.publicInputs.end.newNullifiers,
+    previousKernelData.publicInputs.end.noteEncryptedLogsHashes,
   );
 
   let privateInputs;
@@ -154,6 +162,7 @@ export async function buildPrivateKernelResetInputs(
         new PrivateKernelResetHints(
           transientNullifierIndexesForNoteHashes,
           transientNoteHashIndexesForNullifiers,
+          transientNoteHashIndexesForLogs,
           noteHashReadRequestHints,
           nullifierReadRequestHints,
           masterNullifierSecretKeys,
