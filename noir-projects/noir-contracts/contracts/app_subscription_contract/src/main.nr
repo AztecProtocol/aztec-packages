@@ -116,16 +116,6 @@ contract AppSubscription {
         let subscriber_ivpk_m = get_ivpk_m(&mut context, subscriber_address);
 
         let mut subscription_note = SubscriptionNote::new(subscriber_npk_m_hash, expiry_block_number, tx_count);
-        if (!is_initialized(subscriber_address)) {
-            storage.subscriptions.at(subscriber_address).initialize(&mut subscription_note, true, subscriber_ivpk_m);
-        } else {
-            storage.subscriptions.at(subscriber_address).replace(&mut subscription_note, true, subscriber_ivpk_m)
-        }
-    }
-
-    // Compiler bug workaround. You can't call an unconstrained function in another module, unless its from an
-    // unconstained function in your module.
-    unconstrained fn is_initialized(subscriber_address: AztecAddress) -> pub bool {
-        storage.subscriptions.at(subscriber_address).is_initialized()
+        storage.subscriptions.at(subscriber_address).initialize_or_replace(&mut subscription_note, true, subscriber_ivpk_m);
     }
 }
