@@ -162,7 +162,7 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
                     auto error_string = format(
                         "Public inputs are always stripped from proofs unless we have a recursive proof.\n"
                         "Thus, public inputs attached to a proof must match the recursive aggregation object in size "
-                        "which is {}\n",
+                        "which is ",
                         RecursionConstraint::AGGREGATION_OBJECT_SIZE);
                     throw_or_abort(error_string);
                 }
