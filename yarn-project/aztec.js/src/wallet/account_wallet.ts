@@ -176,7 +176,7 @@ export class AccountWallet extends BaseWallet {
       this,
       AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS),
       this.getRotateNpkMAbi(),
-      [this.getAddress(), newNpkM],
+      [this.getAddress(), newNpkM, Fr.ZERO],
     );
   }
 
