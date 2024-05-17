@@ -166,12 +166,12 @@ export class AccountWallet extends BaseWallet {
   }
 
   /**
-   * Rotates our master nullifier secret key by adding it to our keystore and returning a contract interaction to call the key registry with.
+   * Returns a function interaction to rotate our nsk_m in the canonical key registry.
    * @param newNskM - The new master nullifier secret key we want to use.
    * @remarks - This does not hinder our ability to spend notes tied to a previous master nullifier public key.
+   * @returns - A function interaction.
    */
-  public async rotateNskM(newNskM: Fq = Fq.random()): Promise<ContractFunctionInteraction> {
-    await this.pxe.rotateNskMPxe(this.getAddress(), newNskM);
+  public rotateNskMRegistry(newNskM: Fq): ContractFunctionInteraction {
     return new ContractFunctionInteraction(this, AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS), this.getRotateNpkMAbi(), [
       this.getAddress(),
       newNskM

@@ -177,11 +177,8 @@ describe('e2e_key_rotation', () => {
     {
       const newNskM = Fq.random();
       newNpkM = derivePublicKeyFromSecretKey(newNskM);
-      // This or
-      await (await walletB.rotateNskM(newNskM)).send().wait();
-      // this
-      // await walletB.rotateNskMPxe(newNskM)
-      // await walletB.rotateNskM(newNskM).send().wait();
+      await walletB.rotateNskMRegistry(newNskM).send().wait();
+      await walletB.rotateNskMPxe(walletB.getAddress(), newNskM)
 
       await keyRegistryWithB.methods.rotate_npk_m(walletB.getAddress(), newNpkM, 0).send().wait();
       await crossDelay();
