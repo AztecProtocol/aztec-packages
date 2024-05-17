@@ -40,7 +40,7 @@ fn validate_arrays_malformed_nullifier_read_requests_fails() {
 //     builder.private_call.public_inputs.key_validation_requests.extend_from_array(
 //         [
 //         KeyValidationRequest::empty(),
-//         KeyValidationRequest { master_nullifier_public_key: GrumpkinPoint { x: 12, y: 34 }, app_nullifier_secret_key: 5 }
+//         KeyValidationRequest { pk_m: GrumpkinPoint { x: 12, y: 34 }, sk_app: 5 }
 //     ]
 //     );
 

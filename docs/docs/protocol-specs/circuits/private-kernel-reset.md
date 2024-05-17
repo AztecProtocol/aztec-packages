@@ -83,7 +83,7 @@ This reset circuit validates the correct derivation of secret keys used in priva
 
 Initialize `requests_kept` to `0`.
 
-For each `request` at index `i` in `key_validation_request_contexts`, locate the `master_secret_key` at `master_secret_keys[i]`, provided as [hints](#hints-for-nullifier-key-validation-request-reset-private-kernel-circuit) through `private_inputs`.
+For each `request` at index `i` in `key_validation_request_contexts`, locate the `master_secret_key` at `master_secret_keys[i]` and the relevant `app_secret_key` generator at `app_secret_keys_generators[i]`, provided as [hints](#hints-for-nullifier-key-validation-request-reset-private-kernel-circuit) through `private_inputs`.
 
 1. If `master_secret_key == 0`, ensure the request remain within the `public_inputs`.:
 
@@ -236,7 +236,8 @@ The format aligns with the [`PreviousKernel`](./private-kernel-inner#previousker
 
 | Field                | Type                                                                                           | Description                             |
 | -------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------- |
-| `master_secret_keys` | [`field`; [`MAX_KEY_VALIDATION_REQUESTS_PER_TX`](../constants.md#circuit-constants)] | Master secret keys for the secret keys. |
+| `master_secret_keys` | [`field`; [`MAX_KEY_VALIDATION_REQUESTS_PER_TX`](../constants.md#circuit-constants)] | Master secret to try to derive app secret keys and pub keys from. |
+| `app_secret_keys_generators` | [`field`; [`MAX_KEY_VALIDATION_REQUESTS_PER_TX`](../constants.md#circuit-constants)] | App secret key generators to assist with ^. |
 
 ### _Hints_ for [Transient Note Reset Private Kernel Circuit](#transient-note-reset-private-kernel-circuit)
 

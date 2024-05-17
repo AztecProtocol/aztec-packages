@@ -75,20 +75,20 @@ impl PrivateValidationRequestProcessor {
                 let master_nullifier_secret_key = self.master_secret_keys[i];
                 if !is_empty(master_nullifier_secret_key) {
                     // First we check that derived public key matches master nullifier public key from request
-                    let master_nullifier_public_key = master_nullifier_secret_key.derive_public_key();
+                    let pk_m = master_nullifier_secret_key.derive_public_key();
                     assert(
-                        master_nullifier_public_key.eq(request.master_nullifier_public_key), "Failed to derive matching master nullifier public key from the secret key."
+                        pk_m.eq(request.pk_m), "Failed to derive matching master nullifier public key from the secret key."
                     );
 
                     // Then we check that siloing the master secret key with the contract address gives the app nullifier secret key
 
-                    let app_nullifier_secret_key = poseidon2_hash(
+                    let sk_app = poseidon2_hash(
                         [
                         master_nullifier_secret_key.high, master_nullifier_secret_key.low, contract_address.to_field(), self.app_secret_keys_generators[i]
                     ]
                     );
                     assert(
-                        app_nullifier_secret_key.eq(request.app_nullifier_secret_key), "Failed to derive matching app nullifier secret key from the secret key."
+                        sk_app.eq(request.sk_app), "Failed to derive matching app nullifier secret key from the secret key."
                     );
                 } else {
                     should_propagate[i] = true;

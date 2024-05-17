@@ -699,8 +699,8 @@ export function mapScopedReadRequestFromNoir(scoped: ScopedReadRequestNoir): Sco
  */
 export function mapKeyValidationRequestsToNoir(request: KeyValidationRequest): KeyValidationRequestsNoir {
   return {
-    master_nullifier_public_key: mapPointToNoir(request.masterPublicKey),
-    app_nullifier_secret_key: mapFieldToNoir(request.appSecretKey),
+    pk_m: mapPointToNoir(request.masterPublicKey),
+    sk_app: mapFieldToNoir(request.appSecretKey),
   };
 }
 
@@ -711,8 +711,8 @@ export function mapKeyValidationRequestsToNoir(request: KeyValidationRequest): K
  */
 export function mapKeyValidationRequestsFromNoir(request: KeyValidationRequestsNoir): KeyValidationRequest {
   return new KeyValidationRequest(
-    mapPointFromNoir(request.master_nullifier_public_key),
-    mapFieldFromNoir(request.app_nullifier_secret_key),
+    mapPointFromNoir(request.pk_m),
+    mapFieldFromNoir(request.sk_app),
   );
 }
 

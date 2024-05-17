@@ -204,7 +204,7 @@ mod tests {
     fn propagate_key_validation_requests() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        let request_0 = KeyValidationRequest { master_nullifier_public_key: GrumpkinPoint { x: 1, y: 2 }, app_nullifier_secret_key: 3 };
+        let request_0 = KeyValidationRequest { pk_m: GrumpkinPoint { x: 1, y: 2 }, sk_app: 3 };
         builder.private_call.public_inputs.key_validation_requests.push(request_0);
 
         let public_inputs = builder.execute();

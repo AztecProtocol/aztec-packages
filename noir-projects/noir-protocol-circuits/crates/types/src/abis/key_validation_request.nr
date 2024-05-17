@@ -7,22 +7,22 @@ use crate::{
 };
 
 struct KeyValidationRequest {
-    master_nullifier_public_key: GrumpkinPoint,
-    app_nullifier_secret_key: Field, // not a grumpkin scalar because it's output of poseidon2
+    pk_m: GrumpkinPoint,
+    sk_app: Field, // not a grumpkin scalar because it's output of poseidon2
 }
 
 impl Eq for KeyValidationRequest {
     fn eq(self, request: KeyValidationRequest) -> bool {
-        (request.master_nullifier_public_key.eq(self.master_nullifier_public_key))
-            & (request.app_nullifier_secret_key.eq(self.app_nullifier_secret_key))
+        (request.pk_m.eq(self.pk_m))
+            & (request.sk_app.eq(self.sk_app))
     }
 }
 
 impl Empty for KeyValidationRequest {
     fn empty() -> Self {
         KeyValidationRequest {
-            master_nullifier_public_key: GrumpkinPoint::zero(),
-            app_nullifier_secret_key: 0,
+            pk_m: GrumpkinPoint::zero(),
+            sk_app: 0,
         }
     }
 }
@@ -30,9 +30,9 @@ impl Empty for KeyValidationRequest {
 impl Serialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
     fn serialize(self) -> [Field; KEY_VALIDATION_REQUEST_LENGTH] {
         [
-            self.master_nullifier_public_key.x,
-            self.master_nullifier_public_key.y,
-            self.app_nullifier_secret_key,
+            self.pk_m.x,
+            self.pk_m.y,
+            self.sk_app,
         ]
     }
 }
@@ -40,8 +40,8 @@ impl Serialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
 impl Deserialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
     fn deserialize(fields: [Field; KEY_VALIDATION_REQUEST_LENGTH]) -> Self {
         Self {
-            master_nullifier_public_key: GrumpkinPoint::new(fields[0], fields[1]),
-            app_nullifier_secret_key: fields[2],
+            pk_m: GrumpkinPoint::new(fields[0], fields[1]),
+            sk_app: fields[2],
         }
     }
 }

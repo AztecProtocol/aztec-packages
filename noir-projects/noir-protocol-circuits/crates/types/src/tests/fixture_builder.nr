@@ -410,13 +410,9 @@ impl FixtureBuilder {
         new_read_request_index
     }
 
-    pub fn add_request_for_nullifier_key_validation(
-        &mut self,
-        master_nullifier_public_key: GrumpkinPoint,
-        app_nullifier_secret_key: Field
-    ) -> u64 {
+    pub fn add_request_for_key_validation(&mut self, pk_m: GrumpkinPoint, sk_app: Field) -> u64 {
         let new_request_index = self.key_validation_requests.len();
-        let request = KeyValidationRequest { master_nullifier_public_key, app_nullifier_secret_key };
+        let request = KeyValidationRequest { pk_m, sk_app };
         self.key_validation_requests.push(request.scope(self.storage_contract_address));
 
         new_request_index

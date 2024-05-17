@@ -9,10 +9,8 @@ global INCOMING_INDEX = 1;
 global OUTGOING_INDEX = 2;
 global TAGGING_INDEX = 3;
 
-// TODO(benesjan): used also in private_context.nr. Move to shared location?
 global NUM_KEY_TYPES = 4;
 
-// TODO(benesjan): Is this the best place to have this?
 global sk_generators = [
     GENERATOR_INDEX__NSK_M,
     GENERATOR_INDEX__IVSK_M,

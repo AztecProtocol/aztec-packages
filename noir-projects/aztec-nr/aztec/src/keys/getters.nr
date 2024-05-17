@@ -93,5 +93,5 @@ fn fetch_and_constrain_keys(address: AztecAddress) -> PublicKeys {
 
 // A helper function since requesting nsk_app is very common
 pub fn get_nsk_app(npk_m_hash: Field) -> Field {
-    get_key_validation_request(npk_m_hash, NULLIFIER_INDEX).app_nullifier_secret_key
+    get_key_validation_request(npk_m_hash, NULLIFIER_INDEX).sk_app
 }

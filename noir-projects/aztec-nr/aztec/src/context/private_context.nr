@@ -75,7 +75,7 @@ struct PrivateContext {
 
     // Contains the last key validation request for each key type. This is used to cache the last request and avoid
     // fetching the same request multiple times.
-    // The index of the array corresponds to the key type (0 nullifier, 1 incoming, ).
+    // The index of the array corresponds to the key type (0 nullifier, 1 incoming, 2 outgoing, 3 tagging).
     last_key_validation_requests: [Option<KeyValidationRequest>; NUM_KEY_TYPES],
 }
 
@@ -220,20 +220,20 @@ impl PrivateContext {
     fn request_sk_app(&mut self, pk_m_hash: Field, key_index: Field) -> Field {
         let cached_request = self.last_key_validation_requests[key_index].unwrap_or(KeyValidationRequest::empty());
 
-        if cached_request.master_nullifier_public_key.hash() == pk_m_hash {
+        if cached_request.pk_m.hash() == pk_m_hash {
             // We get a match so the cached request is the latest one 
-            cached_request.app_nullifier_secret_key
+            cached_request.sk_app
         } else {
             // We didn't get a match meaning the cached result is stale. We fetch new values from oracle and instruct
             // protocol circuits to validate them by storing the validation request in context.
             let request = get_key_validation_request(pk_m_hash, key_index);
-            // We constrain that the npk_m_hash matches the one in the request (otherwise we could get an arbitrary
-            // valid key request and not the one corresponding to npk_m_hash).
-            assert(request.master_nullifier_public_key.hash() == pk_m_hash);
+            // We constrain that the pk_m_hash matches the one in the request (otherwise we could get an arbitrary
+            // valid key request and not the one corresponding to pk_m_hash).
+            assert(request.pk_m.hash() == pk_m_hash);
             self.key_validation_requests.push(request);
             self.app_secret_keys_generators.push(sk_generators[key_index]);
             self.last_key_validation_requests[key_index] = Option::some(request);
-            request.app_nullifier_secret_key
+            request.sk_app
         }
     }
 
