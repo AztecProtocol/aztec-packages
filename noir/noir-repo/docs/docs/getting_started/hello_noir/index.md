@@ -90,9 +90,7 @@ cd hello_world
 nargo check
 ```
 
-Two additional files would be generated in your project directory:
-
-_Prover.toml_ houses input values, and _Verifier.toml_ houses public values.
+A _Prover.toml_ file will be generated in your project directory, to allow specifying input values to the program.
 
 ## Execute Our Noir Program
 
@@ -112,14 +110,6 @@ nargo execute witness-name
 ```
 
 The witness corresponding to this execution will then be written to the file `./target/witness-name.gz`.
-
-The _Verifier.toml_ file would also be updated with the public values computed from program execution (in this case the value of `y`):
-
-```toml
-y = "0x0000000000000000000000000000000000000000000000000000000000000002"
-```
-
-> **Note:** Fields in _Verifier.toml_ are outputted as 32-byte hex values.
 
 ## Prove Our Noir Program
 

@@ -1,10 +1,10 @@
 ---
 title: Project Breakdown
 description:
-  Learn about the anatomy of a Nargo project, including the purpose of the Prover and Verifier TOML
-  files, and how to prove and verify your program.
+  Learn about the anatomy of a Nargo project, including the purpose of the Prover TOML
+  file, and how to prove and verify your program.
 keywords:
-  [Nargo, Nargo project, Prover.toml, Verifier.toml, proof verification, private asset transfer]
+  [Nargo, Nargo project, Prover.toml, proof verification, private asset transfer]
 sidebar_position: 2 
 ---
 
@@ -18,7 +18,6 @@ commands, you would get a minimal Nargo project of the following structure:
 
     - src
     - Prover.toml
-    - Verifier.toml
     - Nargo.toml
 
 The source directory _src_ holds the source code for your Noir program. By default only a _main.nr_
@@ -27,10 +26,6 @@ file will be generated within it.
 ### Prover.toml
 
 _Prover.toml_ is used for specifying the input values for executing and proving the program. You can specify `toml` files with different names by using the `--prover-name` or `-p` flags, see the [Prover](#provertoml) section below. Optionally you may specify expected output values for prove-time checking as well.
-
-### Verifier.toml
-
-_Verifier.toml_ contains public in/output values computed when executing the Noir program.
 
 ### Nargo.toml
 

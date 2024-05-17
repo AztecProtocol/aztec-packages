@@ -149,7 +149,7 @@ echo "Proof:"
 echo "0x$HEX_PROOF"
 ```
 
-Remix expects that the public inputs will be split into an array of `bytes32` values so `HEX_PUBLIC_INPUTS` needs to be split up and prefixed with `0x` accordingly. You may notice that the public inputs match up with the values which are written in the `Verifier.toml` file so we can also copy the public input values from `Verifier.toml` which are already split up. Take care to ensure that the order of the public inputs aren't changed.
+Remix expects that the public inputs will be split into an array of `bytes32` values so `HEX_PUBLIC_INPUTS` needs to be split up into 32 byte chunks which are prefixed with `0x` accordingly.
 
 A programmatic example of how the `verify` function is called can be seen in the example zk voting application [here](https://github.com/noir-lang/noir-examples/blob/33e598c257e2402ea3a6b68dd4c5ad492bce1b0a/foundry-voting/src/zkVote.sol#L35):
 
@@ -182,7 +182,7 @@ fn main(
 ) -> pub Field
 ```
 
-the `verify` function will expect the public inputs array (second function parameter) to be of length 3, the two inputs and the return value. Like before, these values are populated in Verifier.toml after running `nargo execute`.
+the `verify` function will expect the public inputs array (second function parameter) to be of length 3, the two inputs and the return value.
 
 Passing only two inputs will result in an error such as `PUBLIC_INPUT_COUNT_INVALID(3, 2)`.
 
