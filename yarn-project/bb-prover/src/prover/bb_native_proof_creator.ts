@@ -24,7 +24,7 @@ import { Timer } from '@aztec/foundation/timer';
 import {
   ClientCircuitArtifacts,
   type ClientProtocolArtifact,
-  PrivateResetTagToArtifact,
+  PrivateResetTagToArtifactName,
   convertPrivateKernelInitInputsToWitnessMap,
   convertPrivateKernelInitOutputsFromWitnessMap,
   convertPrivateKernelInnerInputsToWitnessMap,
@@ -115,9 +115,9 @@ export class BBNativeProofCreator implements ProofCreator {
   ): Promise<KernelProofOutput<PrivateKernelCircuitPublicInputs>> {
     return await this.createSafeProof(
       inputs,
-      PrivateResetTagToArtifact[inputs.sizeTag],
+      PrivateResetTagToArtifactName[inputs.sizeTag],
       convertPrivateKernelResetInputsToWitnessMap,
-      convertPrivateKernelResetOutputsFromWitnessMap,
+      output => convertPrivateKernelResetOutputsFromWitnessMap(output, inputs.sizeTag),
     );
   }
 
