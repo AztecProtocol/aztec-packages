@@ -190,9 +190,9 @@ impl PrivateCircuitPublicInputsBuilder {
         self.private_call_requests.push(
             PrivateCallRequest {
             hash,
+            caller_context,
             start_side_effect_counter: self.next_counter(),
-            end_side_effect_counter: self.next_counter(),
-            caller_context
+            end_side_effect_counter: self.next_counter()
         }
         );
     }

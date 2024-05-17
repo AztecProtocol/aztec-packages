@@ -7,9 +7,9 @@ use crate::{
 
 struct PrivateCallRequest {
     hash: Field,
+    caller_context: CallerContext,
     start_side_effect_counter: u32,
     end_side_effect_counter: u32,
-    caller_context: CallerContext,
 }
 
 impl Ordered for PrivateCallRequest {
@@ -30,9 +30,9 @@ impl RangeOrdered for PrivateCallRequest {
 impl Eq for PrivateCallRequest {
     fn eq(self, other: PrivateCallRequest) -> bool {
         (self.hash == other.hash)
+            & (self.caller_context == other.caller_context)
             & (self.start_side_effect_counter == other.start_side_effect_counter)
             & (self.end_side_effect_counter == other.end_side_effect_counter)
-            & (self.caller_context == other.caller_context)
     }
 }
 
@@ -40,9 +40,9 @@ impl Empty for PrivateCallRequest {
     fn empty() -> Self {
         PrivateCallRequest {
             hash: 0,
+            caller_context: CallerContext::empty(),
             start_side_effect_counter: 0,
             end_side_effect_counter: 0,
-            caller_context: CallerContext::empty(),
         }
     }
 }
@@ -52,9 +52,9 @@ impl Serialize<PRIVATE_CALL_REQUEST_LENGTH> for PrivateCallRequest {
         let mut fields: BoundedVec<Field, PRIVATE_CALL_REQUEST_LENGTH> = BoundedVec::new();
 
         fields.push(self.hash);
+        fields.extend_from_array(self.caller_context.serialize());
         fields.push(self.start_side_effect_counter as Field);
         fields.push(self.end_side_effect_counter as Field);
-        fields.extend_from_array(self.caller_context.serialize());
 
         assert_eq(fields.len(), PRIVATE_CALL_REQUEST_LENGTH);
 
@@ -67,9 +67,9 @@ impl Deserialize<PRIVATE_CALL_REQUEST_LENGTH> for PrivateCallRequest {
         let mut reader = Reader::new(fields);
         let item = PrivateCallRequest {
             hash: reader.read(),
+            caller_context: reader.read_struct(CallerContext::deserialize),
             start_side_effect_counter: reader.read_u32(),
             end_side_effect_counter: reader.read_u32(),
-            caller_context: reader.read_struct(CallerContext::deserialize),
         };
         reader.finish();
         item

@@ -97,9 +97,9 @@ impl PrivateCallDataBuilder {
         };
         PrivateCallRequest {
             hash,
+            caller_context,
             start_side_effect_counter: self.public_inputs.counter_start,
-            end_side_effect_counter: self.public_inputs.counter_end,
-            caller_context
+            end_side_effect_counter: self.public_inputs.counter_end
         }.scope(self.public_inputs.call_context.msg_sender)
     }
 

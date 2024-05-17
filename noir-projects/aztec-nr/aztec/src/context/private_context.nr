@@ -480,7 +480,7 @@ impl PrivateContext {
             caller_context.storage_contract_address = self.inputs.call_context.storage_contract_address;
         }
         self.private_call_requests.push(
-            PrivateCallRequest { hash: item.hash(), start_side_effect_counter, end_side_effect_counter, caller_context }
+            PrivateCallRequest { hash: item.hash(), caller_context, start_side_effect_counter, end_side_effect_counter }
         );
 
         PackedReturns::new(item.public_inputs.returns_hash)
