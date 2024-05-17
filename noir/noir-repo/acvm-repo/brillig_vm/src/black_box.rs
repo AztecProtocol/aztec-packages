@@ -156,7 +156,7 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
             memory.write(*result, verified.into());
             Ok(())
         }
-        BlackBoxOp::MultiScalarMul { points, scalars_lo, scalars_hi, outputs: result } => {
+        BlackBoxOp::MultiScalarMul { points, scalars, outputs: result } => {
             let points: Vec<FieldElement> = read_heap_vector(memory, points)
                 .iter()
                 .enumerate()
@@ -169,14 +169,17 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
                     }
                 })
                 .collect();
-            let scalars_lo: Vec<FieldElement> = read_heap_vector(memory, scalars_lo)
-                .iter()
-                .map(|x| x.try_into().unwrap())
-                .collect();
-            let scalars_hi: Vec<FieldElement> = read_heap_vector(memory, scalars_hi)
-                .iter()
-                .map(|x| x.try_into().unwrap())
-                .collect();
+            let scalars: Vec<FieldElement> =
+                read_heap_vector(memory, scalars).iter().map(|x| x.try_into().unwrap()).collect();
+            let mut scalars_lo = Vec::with_capacity(scalars.len() / 2);
+            let mut scalars_hi = Vec::with_capacity(scalars.len() / 2);
+            for (i, scalar) in scalars.iter().enumerate() {
+                if i % 2 == 0 {
+                    scalars_lo.push(*scalar);
+                } else {
+                    scalars_hi.push(*scalar);
+                }
+            }
             let (x, y, is_infinite) = solver.multi_scalar_mul(&points, &scalars_lo, &scalars_hi)?;
             memory.write_slice(
                 memory.read_ref(result.pointer),

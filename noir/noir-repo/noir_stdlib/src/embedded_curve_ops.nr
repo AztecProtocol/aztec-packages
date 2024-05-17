@@ -45,6 +45,12 @@ impl Eq for EmbeddedCurvePoint {
     }
 }
 
+// Scalar represented as low and high limbs
+struct EmbeddedCurveScalar {
+    lo: Field,
+    hi: Field,
+}
+
 // Computes a multi scalar multiplication over the embedded curve.
 // For bn254, We have Grumpkin and Baby JubJub.
 // For bls12-381, we have JubJub and Bandersnatch.
@@ -55,8 +61,7 @@ impl Eq for EmbeddedCurvePoint {
 // docs:start:multi_scalar_mul
 pub fn multi_scalar_mul<N>(
     points: [EmbeddedCurvePoint; N],
-    scalars_lo: [Field; N], // scalars represented as low and high limbs [low1, low2, low3, ...]
-    scalars_hi: [Field; N] // [high1, high2, high3,...]
+    scalars: [EmbeddedCurveScalar; N]
 ) -> [Field; 3]
 // docs:end:multi_scalar_mul
 {}
@@ -69,7 +74,8 @@ pub fn fixed_base_scalar_mul(
 // docs:end:fixed_base_scalar_mul
 {
     let g1 = EmbeddedCurvePoint { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
-    multi_scalar_mul([g1], [scalar_low], [scalar_high])
+    let scalar = EmbeddedCurveScalar { lo: scalar_low, hi: scalar_high };
+    multi_scalar_mul([g1], [scalar])
 }
 
 // This is a hack as returning an `EmbeddedCurvePoint` from a foreign function in brillig returns a [BrilligVariable::SingleAddr; 2] rather than BrilligVariable::BrilligArray
@@ -91,23 +97,36 @@ fn embedded_curve_add(
 fn embedded_curve_add_array_return(_point1: EmbeddedCurvePoint, _point2: EmbeddedCurvePoint) -> [Field; 3] {}
 
 mod test {
-    use crate::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
+    use crate::embedded_curve_ops::{EmbeddedCurvePoint, EmbeddedCurveScalar, multi_scalar_mul};
 
     #[test]
     fn test_infinite_point() {
         let zero = EmbeddedCurvePoint::point_at_infinity();
         let g1 = EmbeddedCurvePoint { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
         let g2 = g1 + g1;
+        let s1 = EmbeddedCurveScalar { lo: 1, hi: 0 };
         assert(g1 + zero == g1);
         assert(g1 - g1 == zero);
         assert(g1 - zero == g1);
         assert(zero + zero == zero);
         assert(
-            multi_scalar_mul([g1], [1], [0])
+            multi_scalar_mul([g1], [s1])
             == [1, 17631683881184975370165255887551781615748388533673675138860, 0]
         );
-        assert(multi_scalar_mul([g1, g1], [1, 1], [0, 0]) == [g2.x, g2.y, 0]);
-        assert(multi_scalar_mul([g1, zero], [2, 42], [0, 25]) == [g2.x, g2.y, 0]);
-        assert(multi_scalar_mul([g1, g1, zero], [1, 1, 42], [0, 0, 25]) == [g2.x, g2.y, 0]);
+        assert(multi_scalar_mul([g1, g1], [s1, s1]) == [g2.x, g2.y, 0]);
+        assert(
+            multi_scalar_mul(
+            [g1, zero],
+            [EmbeddedCurveScalar { lo: 2, hi: 0 }, EmbeddedCurveScalar { lo: 42, hi: 25 }]
+        )
+            == [g2.x, g2.y, 0]
+        );
+        assert(
+            multi_scalar_mul(
+            [g1, g1, zero],
+            [s1, s1, EmbeddedCurveScalar { lo: 42, hi: 25 }]
+        )
+            == [g2.x, g2.y, 0]
+        );
     }
 }

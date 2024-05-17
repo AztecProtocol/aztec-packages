@@ -290,18 +290,12 @@ impl GeneratedAcir {
                     output: outputs[0],
                 }
             }
-            BlackBoxFunc::MultiScalarMul => {
-                let mut scalars = Vec::new();
-                for (lo, hi) in inputs[1].iter().zip(&inputs[2]) {
-                    scalars.push(*lo);
-                    scalars.push(*hi);
-                }
-                BlackBoxFuncCall::MultiScalarMul {
-                    points: inputs[0].clone(),
-                    scalars,
-                    outputs: (outputs[0], outputs[1], outputs[2]),
-                }
-            }
+            BlackBoxFunc::MultiScalarMul => BlackBoxFuncCall::MultiScalarMul {
+                points: inputs[0].clone(),
+                scalars: inputs[1].clone(),
+                outputs: (outputs[0], outputs[1], outputs[2]),
+            },
+
             BlackBoxFunc::EmbeddedCurveAdd => BlackBoxFuncCall::EmbeddedCurveAdd {
                 input1: Box::new([inputs[0][0], inputs[1][0], inputs[2][0]]),
                 input2: Box::new([inputs[3][0], inputs[4][0], inputs[5][0]]),

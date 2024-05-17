@@ -189,16 +189,14 @@ pub(crate) fn convert_black_box_call(
             }
         }
         BlackBoxFunc::MultiScalarMul => {
-            if let ([points, scalars_lo, scalars_hi], [BrilligVariable::BrilligArray(outputs)]) =
+            if let ([points, scalars], [BrilligVariable::BrilligArray(outputs)]) =
                 (function_arguments, function_results)
             {
                 let points = convert_array_or_vector(brillig_context, points, bb_func);
-                let scalars_lo = convert_array_or_vector(brillig_context, scalars_lo, bb_func);
-                let scalars_hi = convert_array_or_vector(brillig_context, scalars_hi, bb_func);
+                let scalars = convert_array_or_vector(brillig_context, scalars, bb_func);
                 brillig_context.black_box_op_instruction(BlackBoxOp::MultiScalarMul {
                     points: points.to_heap_vector(),
-                    scalars_lo: scalars_lo.to_heap_vector(),
-                    scalars_hi: scalars_hi.to_heap_vector(),
+                    scalars: scalars.to_heap_vector(),
                     outputs: outputs.to_heap_array(),
                 });
             } else {
