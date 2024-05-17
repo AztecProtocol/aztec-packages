@@ -656,7 +656,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitNoteHash)
         EXPECT_TRUE(row != trace.end());
 
         // Check the outputs of the trace
-        uint32_t output_offset = AvmKernelTraceBuilder::START_EMIT_NULLIFIER_WRITE_OFFSET;
+        uint32_t output_offset = AvmKernelTraceBuilder::START_EMIT_NOTE_HASH_WRITE_OFFSET;
 
         expect_output_table_row(
             row,
