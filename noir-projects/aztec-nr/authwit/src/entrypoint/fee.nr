@@ -2,10 +2,10 @@ use dep::aztec::prelude::PrivateContext;
 use dep::aztec::protocol_types::{constants::GENERATOR_INDEX__FEE_PAYLOAD, hash::pedersen_hash, traits::{Hash, Serialize}};
 use crate::entrypoint::function_call::FunctionCall;
 
-// 2 * 5 (function call) + 1
+// 2 * 5 (FUNCTION_CALL_SIZE) + 1
 global FEE_PAYLOAD_SIZE: Field = 11;
 
-// 2*98 + 32
+// 2 * 98 (FUNCTION_CALL_SIZE_IN_BYTES) + 32
 global FEE_PAYLOAD_SIZE_IN_BYTES: Field = 228;
 
 global MAX_FEE_FUNCTION_CALLS = 2;

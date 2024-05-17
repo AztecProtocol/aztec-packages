@@ -9,7 +9,6 @@ import {
   type L2Block,
   type LogFilter,
   MerkleTreeId,
-  NestedProcessReturnValues,
   type NoteFilter,
   type PXE,
   type ProofCreator,
@@ -56,6 +55,7 @@ import {
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
 
+import { accumulateReturnValues } from '../../../simulator/src/utils.js';
 import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type PxeDatabase } from '../database/index.js';
@@ -641,18 +641,6 @@ export class PXEService implements PXE {
   }
 
   /**
-   * Recursively accummulate the return values of a private execution results and its nested calls,
-   * so they can be retrieved in order.
-   * @param executionResult
-   * @returns
-   */
-  #accumulateReturnValues(executionResult: ExecutionResult): NestedProcessReturnValues {
-    const acc = new NestedProcessReturnValues(executionResult.returnValues);
-    acc.nested = executionResult.nestedExecutions.map(nestedExecution => this.#accumulateReturnValues(nestedExecution));
-    return acc;
-  }
-
-  /**
    * Simulate a transaction, generate a kernel proof, and create a private transaction object.
    * The function takes in a transaction request, simulates it, and then generates a kernel proof
    * using the simulation result. Finally, it creates a private
@@ -695,7 +683,7 @@ export class PXEService implements PXE {
       teardownPublicFunction,
     );
 
-    return new SimulatedTx(tx, this.#accumulateReturnValues(executionResult));
+    return new SimulatedTx(tx, accumulateReturnValues(executionResult));
   }
 
   /**

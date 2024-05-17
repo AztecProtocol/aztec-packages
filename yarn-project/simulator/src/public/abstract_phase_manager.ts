@@ -1,6 +1,6 @@
 import {
   MerkleTreeId,
-  NestedProcessReturnValues,
+  type NestedProcessReturnValues,
   type PublicKernelRequest,
   PublicKernelType,
   type SimulationError,
@@ -63,6 +63,7 @@ import {
 } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
+import { accumulateReturnValues } from '../utils.js';
 import { HintsBuilder } from './hints_builder.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 import { lastSideEffectCounter } from './utils.js';
@@ -342,7 +343,7 @@ export abstract class AbstractPhaseManager {
           enqueuedExecutionResult = result;
         }
 
-        enqueuedCallResults.push(this.#accumulateReturnValues(enqueuedExecutionResult));
+        enqueuedCallResults.push(accumulateReturnValues(enqueuedExecutionResult));
       }
       // HACK(#1622): Manually patches the ordering of public state actions
       // TODO(#757): Enforce proper ordering of public state actions
@@ -361,18 +362,6 @@ export abstract class AbstractPhaseManager {
       enqueuedCallResults,
       gasUsed,
     ];
-  }
-
-  /**
-   * Recursively accummulate the return values of a public call result and its nested executions,
-   * so they can be retrieved in order.
-   * @param executionResult
-   * @returns
-   */
-  #accumulateReturnValues(executionResult: PublicExecutionResult): NestedProcessReturnValues {
-    const acc = new NestedProcessReturnValues(executionResult.returnValues);
-    acc.nested = executionResult.nestedExecutions.map(nestedExecution => this.#accumulateReturnValues(nestedExecution));
-    return acc;
   }
 
   /** Returns all pending private and public nullifiers.  */

@@ -85,10 +85,6 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
 
     const simulatedTx = await this.wallet.simulateTx(txRequest, true, options?.from);
 
-    this.txRequest = undefined;
-
-    simulatedTx.tx;
-
     // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
     // since we're interested in the first set of values AFTER the account entrypoint
     // For public functions we retrieve the first values directly from the public output.

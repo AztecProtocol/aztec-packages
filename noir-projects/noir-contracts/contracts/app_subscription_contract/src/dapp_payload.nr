@@ -3,12 +3,11 @@ use dep::aztec::protocol_types::{constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD, 
 
 use dep::authwit::entrypoint::function_call::{FunctionCall, FUNCTION_CALL_SIZE_IN_BYTES};
 
+global DAPP_MAX_CALLS: u64 = 1;
 // FUNCTION_CALL_SIZE * DAPP_MAX_CALLS + 1
 global DAPP_PAYLOAD_SIZE: u64 = 6;
 // FUNCTION_CALL_SIZE_IN_BYTES * DAPP_MAX_CALLS + 32
 global DAPP_PAYLOAD_SIZE_IN_BYTES: u64 = 130;
-
-global DAPP_MAX_CALLS: u64 = 1;
 
 // Note: If you change the following struct you have to update default_entrypoint.ts
 // docs:start:app-payload-struct
