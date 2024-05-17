@@ -1,4 +1,7 @@
-use dep::protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::pedersen_hash};
+use dep::protocol_types::{
+    address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
+    grumpkin_point::GrumpkinPoint, hash::pedersen_hash
+};
 
 use crate::context::PrivateContext;
 use crate::note::{
@@ -47,29 +50,43 @@ impl<Note, Context> PrivateMutable<Note, Context> {
 
 impl<Note> PrivateMutable<Note, &mut PrivateContext> {
     // docs:start:initialize
-    pub fn initialize<N>(self, note: &mut Note, broadcast: bool) where Note: NoteInterface<N> {
+    pub fn initialize<N>(
+        self,
+        note: &mut Note,
+        broadcast: bool,
+        ivpk_m: GrumpkinPoint
+    ) where Note: NoteInterface<N> {
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
         self.context.push_new_nullifier(nullifier, 0);
 
-        create_note(self.context, self.storage_slot, note, broadcast);
+        create_note(self.context, self.storage_slot, note, broadcast, ivpk_m);
     }
     // docs:end:initialize
 
     // docs:start:replace
-    pub fn replace<N>(self, new_note: &mut Note, broadcast: bool) where Note: NoteInterface<N> {
+    pub fn replace<N>(
+        self,
+        new_note: &mut Note,
+        broadcast: bool,
+        ivpk_m: GrumpkinPoint
+    ) where Note: NoteInterface<N> {
         let prev_note: Note = get_note(self.context, self.storage_slot);
 
         // Nullify previous note.
         destroy_note(self.context, prev_note);
 
         // Add replacement note.
-        create_note(self.context, self.storage_slot, new_note, broadcast);
+        create_note(self.context, self.storage_slot, new_note, broadcast, ivpk_m);
     }
     // docs:end:replace
 
     // docs:start:get_note
-    pub fn get_note<N>(self, broadcast: bool) -> Note where Note: NoteInterface<N> {
+    pub fn get_note<N>(
+        self,
+        broadcast: bool,
+        ivpk_m: GrumpkinPoint
+    ) -> Note where Note: NoteInterface<N> {
         let mut note = get_note(self.context, self.storage_slot);
 
         // Nullify current note to make sure it's reading the latest note.
@@ -77,7 +94,7 @@ impl<Note> PrivateMutable<Note, &mut PrivateContext> {
 
         // Add the same note again.
         // Because a nonce is added to every note in the kernel, its nullifier will be different.
-        create_note(self.context, self.storage_slot, &mut note, broadcast);
+        create_note(self.context, self.storage_slot, &mut note, broadcast, ivpk_m);
 
         note
     }
