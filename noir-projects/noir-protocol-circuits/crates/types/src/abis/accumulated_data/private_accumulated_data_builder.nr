@@ -102,25 +102,19 @@ impl PrivateAccumulatedDataBuilder {
         // note_encrypted_logs_hash_gas
         for i in 0..self.note_encrypted_logs_hashes.storage.len() {
             let log = self.note_encrypted_logs_hashes.get_unchecked(i);
-            if !is_empty(log) {
-                metered_bytes += log.length as u32;
-            }
+            metered_bytes += log.length as u32;
         }
 
         // encrypted_logs_hash_gas
         for i in 0..self.encrypted_logs_hashes.storage.len() {
             let log = self.encrypted_logs_hashes.get_unchecked(i);
-            if !is_empty(log) {
-                metered_bytes += log.length as u32;
-            }
+            metered_bytes += log.length as u32;
         }
 
         // unencrypted_logs_hash_gas
         for i in 0..self.unencrypted_logs_hashes.storage.len() {
             let log = self.unencrypted_logs_hashes.get_unchecked(i);
-            if !is_empty(log) {
-                metered_bytes += log.length as u32;
-            }
+            metered_bytes += log.length as u32;
         }
 
         Gas::new(DA_GAS_PER_BYTE * metered_bytes, 0)

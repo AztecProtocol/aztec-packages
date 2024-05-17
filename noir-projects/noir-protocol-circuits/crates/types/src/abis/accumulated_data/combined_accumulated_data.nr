@@ -52,18 +52,12 @@ impl CombinedAccumulatedData {
                 revertible.unencrypted_logs_hashes
             )
         );
-        let encrypted_log_preimages_length = array_merge(
-            non_revertible.encrypted_logs_hashes,
-            revertible.encrypted_logs_hashes
-        ).fold(0, |a, b: LogHash| a + b.length)
-            + array_merge(
-                non_revertible.note_encrypted_logs_hashes,
-                revertible.note_encrypted_logs_hashes
-            ).fold(0, |a, b: NoteLogHash| a + b.length);
-        let unencrypted_log_preimages_length = array_merge(
-            non_revertible.unencrypted_logs_hashes,
-            revertible.unencrypted_logs_hashes
-        ).fold(0, |a, b: LogHash| a + b.length);
+        let encrypted_log_preimages_length = non_revertible.encrypted_logs_hashes.fold(0, |a, b: LogHash| a + b.length)
+            + revertible.encrypted_logs_hashes.fold(0, |a, b: LogHash| a + b.length)
+            + non_revertible.note_encrypted_logs_hashes.fold(0, |a, b: NoteLogHash| a + b.length)
+            + revertible.note_encrypted_logs_hashes.fold(0, |a, b: NoteLogHash| a + b.length);
+        let unencrypted_log_preimages_length = non_revertible.unencrypted_logs_hashes.fold(0, |a, b: LogHash| a + b.length)
+            + revertible.unencrypted_logs_hashes.fold(0, |a, b: LogHash| a + b.length);
         CombinedAccumulatedData {
             new_note_hashes: array_merge(non_revertible.new_note_hashes, revertible.new_note_hashes).map(|n: NoteHash| n.value),
             new_nullifiers: array_merge(non_revertible.new_nullifiers, revertible.new_nullifiers).map(|n: Nullifier| n.value),
