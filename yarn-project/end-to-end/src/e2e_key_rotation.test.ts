@@ -179,11 +179,10 @@ describe('e2e_key_rotation', () => {
       newNpkM = derivePublicKeyFromSecretKey(newNskM);
 
       // We call the registry to rotate our key here
-      await walletB.rotateNskMRegistry(newNskM).send().wait();
+      await walletB.rotateNpkM(newNpkM).send().wait();
       // We add it to our Pxe here
-      await walletB.rotateNskMPxe(walletB.getAddress(), newNskM)
+      await walletB.rotateNskM(newNskM);
 
-      await keyRegistryWithB.methods.rotate_npk_m(walletB.getAddress(), newNpkM, 0).send().wait();
       await crossDelay();
     }
 

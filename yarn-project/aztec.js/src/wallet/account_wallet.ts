@@ -1,5 +1,5 @@
 import { type AuthWitness, type FunctionCall, type PXE, type TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, Fr, CANONICAL_KEY_REGISTRY_ADDRESS, Fq } from '@aztec/circuits.js';
+import { AztecAddress, Fr, CANONICAL_KEY_REGISTRY_ADDRESS, type Point, Fq } from '@aztec/circuits.js';
 import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 
 import { type AccountInterface } from '../account/interface.js';
@@ -166,17 +166,26 @@ export class AccountWallet extends BaseWallet {
   }
 
   /**
-   * Returns a function interaction to rotate our nsk_m in the canonical key registry.
-   * @param newNskM - The new master nullifier secret key we want to use.
+   * Returns a function interaction to rotate our master nullifer public key in the canonical key registry.
+   * @param newNpkM - The new master nullifier public key we want to use.
    * @remarks - This does not hinder our ability to spend notes tied to a previous master nullifier public key.
    * @returns - A function interaction.
    */
-  public rotateNskMRegistry(newNskM: Fq): ContractFunctionInteraction {
+  public rotateNpkM(newNpkM: Point): ContractFunctionInteraction {
     return new ContractFunctionInteraction(this, AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS), this.getRotateNpkMAbi(), [
       this.getAddress(),
-      newNskM
+      newNpkM,
     ]);
   }
+
+  /**
+   * Rotates the account master nullifier secret key in our pxe / keystore
+   * @param newNskM - The new master nullifier secret key we want to use.
+   * @remarks - This does not hinder our ability to spend notes tied to a previous master nullifier public key.
+   */
+    public async rotateNskM(newNskM: Fq): Promise<void> {
+      await this.pxe.rotateNskMPxe(this.getAddress(), newNskM);
+    }
 
   /**
    * Returns a function interaction to cancel a message hash as authorized in this account.
