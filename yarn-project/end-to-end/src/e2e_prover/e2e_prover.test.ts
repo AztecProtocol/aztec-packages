@@ -30,7 +30,7 @@ describe('full_prover', () => {
   });
 
   it(
-    'transfer less than balance',
+    'makes both public and private transfers',
     async () => {
       logger.info(
         `Starting test using function: ${provenAssets[0].address}:${provenAssets[0].methods.balance_of_private.selector}`,

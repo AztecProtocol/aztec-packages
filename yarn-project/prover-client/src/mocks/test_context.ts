@@ -1,9 +1,9 @@
 import { type BBProverConfig } from '@aztec/bb-prover';
 import {
   type BlockProver,
-  BlockResult,
+  type BlockResult,
   type ProcessedTx,
-  ProvingTicket,
+  type ProvingTicket,
   type ServerCircuitProver,
   type Tx,
   type TxValidator,

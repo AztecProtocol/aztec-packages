@@ -28,7 +28,7 @@ import {
   type VerificationKeyData,
   makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
-import { randomBytes, sha256 } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
