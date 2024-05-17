@@ -84,54 +84,6 @@ TEST_F(ClientIVCTests, Basic)
 };
 
 /**
- * @brief Prove and verify accumulation of an arbitrary set of circuits
- *
- */
-TEST_F(ClientIVCTests, BasicLarge)
-{
-    ClientIVC ivc;
-
-    // Construct a set of arbitrary circuits
-    size_t NUM_CIRCUITS = 5;
-    std::vector<Builder> circuits;
-    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        circuits.emplace_back(create_mock_circuit(ivc));
-    }
-
-    // Accumulate each circuit
-    for (auto& circuit : circuits) {
-        ivc.accumulate(circuit);
-    }
-
-    EXPECT_TRUE(prove_and_verify(ivc));
-};
-
-/**
- * @brief Prove and verify accumulation of an arbitrary set of circuits using precomputed verification keys
- *
- */
-TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
-{
-    ClientIVC ivc;
-
-    // Construct a set of arbitrary circuits
-    size_t NUM_CIRCUITS = 3;
-    std::vector<Builder> circuits;
-    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        circuits.emplace_back(create_mock_circuit(ivc));
-    }
-
-    auto precomputed_vkeys = ivc.precompute_folding_verification_keys(circuits);
-
-    // Accumulate each circuit
-    for (auto [circuit, precomputed_vk] : zip_view(circuits, precomputed_vkeys)) {
-        ivc.accumulate(circuit, precomputed_vk);
-    }
-
-    EXPECT_TRUE(prove_and_verify(ivc));
-};
-
-/**
  * @brief Check that the IVC fails to verify if an intermediate fold proof is invalid
  *
  */
@@ -164,6 +116,29 @@ TEST_F(ClientIVCTests, BasicFailure)
 };
 
 /**
+ * @brief Prove and verify accumulation of an arbitrary set of circuits
+ *
+ */
+TEST_F(ClientIVCTests, BasicLarge)
+{
+    ClientIVC ivc;
+
+    // Construct a set of arbitrary circuits
+    size_t NUM_CIRCUITS = 5;
+    std::vector<Builder> circuits;
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        circuits.emplace_back(create_mock_circuit(ivc));
+    }
+
+    // Accumulate each circuit
+    for (auto& circuit : circuits) {
+        ivc.accumulate(circuit);
+    }
+
+    EXPECT_TRUE(prove_and_verify(ivc));
+};
+
+/**
  * @brief Using a structured trace allows for the accumulation of circuits of varying size
  *
  */
@@ -181,6 +156,57 @@ TEST_F(ClientIVCTests, BasicStructured)
     ivc.accumulate(circuit_0);
     ivc.accumulate(circuit_1);
     ivc.accumulate(circuit_2);
+
+    EXPECT_TRUE(prove_and_verify(ivc));
+};
+
+/**
+ * @brief Prove and verify accumulation of an arbitrary set of circuits using precomputed verification keys
+ *
+ */
+TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
+{
+    ClientIVC ivc;
+
+    // Construct a set of arbitrary circuits
+    size_t NUM_CIRCUITS = 3;
+    std::vector<Builder> circuits;
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        circuits.emplace_back(create_mock_circuit(ivc));
+    }
+
+    auto precomputed_vkeys = ivc.precompute_folding_verification_keys(circuits);
+
+    // Accumulate each circuit
+    for (auto [circuit, precomputed_vk] : zip_view(circuits, precomputed_vkeys)) {
+        ivc.accumulate(circuit, precomputed_vk);
+    }
+
+    EXPECT_TRUE(prove_and_verify(ivc));
+};
+
+/**
+ * @brief Perform accumulation with a structured trace and precomputed verification keys
+ *
+ */
+TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
+{
+    ClientIVC ivc;
+    ivc.structured_flag = true;
+
+    // Construct a set of arbitrary circuits
+    size_t NUM_CIRCUITS = 3;
+    std::vector<Builder> circuits;
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        circuits.emplace_back(create_mock_circuit(ivc));
+    }
+
+    auto precomputed_vkeys = ivc.precompute_folding_verification_keys(circuits);
+
+    // Accumulate each circuit
+    for (auto [circuit, precomputed_vk] : zip_view(circuits, precomputed_vkeys)) {
+        ivc.accumulate(circuit, precomputed_vk);
+    }
 
     EXPECT_TRUE(prove_and_verify(ivc));
 };

@@ -26,6 +26,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 
     // Construct the prover instance for circuit
     prover_instance = std::make_shared<ProverInstance>(circuit, structured_flag);
+    // info("num gates = ", circuit.get_num_gates());
+    // info("circ size = ", prover_instance->proving_key.circuit_size);
 
     // Set the instance verification key from precomputed if available, else compute it
     if (precomputed_vk) {
@@ -87,8 +89,13 @@ HonkProof ClientIVC::decider_prove() const
 }
 
 /**
- * @brief
- *
+ * @brief Given a set of circuits, compute the verification keys that will be required by the IVC scheme
+ * @details Recursive verifier circuits (merge and/or folding) may be appended to the incoming circuits as part
+ * accumulation, thus the verification keys computed here are in general not the same as the verification keys for the
+ * raw input circuits.
+ * @note This method exists for convenience and is not not meant to be used in practice for IVC. Given a set of
+ * circuits, it could be run once and for all to compute then save the required VKs. Its also convenient for simply
+ * separating out the cost of computing VKs from a benchmark.
  *
  * @param circuits A copy of the circuits to be accumulated
  * @return std::vector<std::shared_ptr<ClientIVC::VerificationKey>>
@@ -103,9 +110,8 @@ std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_f
         vkeys.emplace_back(instance_vk);
     }
 
-    // WORKTODO: consider replacing with a reset method or some other solution once the state of the class is
-    // simplified. Or perhaps this vk precomputation shouldn't be a method on the class itself at all?
-    *this = ClientIVC();
+    // Reset the scheme so it can be reused for actual accumulation
+    this->reset();
 
     return vkeys;
 }

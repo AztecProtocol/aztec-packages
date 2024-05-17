@@ -30,8 +30,15 @@ class ClientIVCBench : public benchmark::Fixture {
         bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
     }
 
+    /**
+     * @brief Compute verification key for each circuit in the IVC based on the number of desired function circuits
+     *
+     * @param ivc
+     * @param num_function_circuits
+     */
     static auto precompute_verification_keys(ClientIVC& ivc, const size_t num_function_circuits)
     {
+        // Populate the set of mock function and kernel circuits to be accumulated in the IVC
         std::vector<Builder> circuits;
         Builder function_circuit{ ivc.goblin.op_queue };
         GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
@@ -47,6 +54,7 @@ class ClientIVCBench : public benchmark::Fixture {
             circuits.emplace_back(kernel_circuit);
         }
 
+        // Compute and return the verfication keys corresponding to this set of circuits
         return ivc.precompute_folding_verification_keys(circuits);
     }
 
@@ -166,7 +174,6 @@ BENCHMARK_DEFINE_F(ClientIVCBench, FullStructured)(benchmark::State& state)
 
     auto num_circuits = static_cast<size_t>(state.range(0));
     auto precomputed_vks = precompute_verification_keys(ivc, num_circuits);
-    ivc.structured_flag = true;
 
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
