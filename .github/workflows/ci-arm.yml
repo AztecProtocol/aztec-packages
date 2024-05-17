@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - master
-      - '*/*fix-arm-build'
+      - '*/*arm-build'
   workflow_dispatch:
     inputs: {}
 concurrency:
