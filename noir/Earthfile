@@ -38,6 +38,12 @@ nargo:
     SAVE ARTIFACT /usr/src/noir-repo/target/release/acvm acvm
     SAVE IMAGE aztecprotocol/nargo
 
+export-noir:
+    FROM +nargo
+    ARG DIST_TAG=latest
+    ARG ARCH=x86_64
+    SAVE IMAGE aztecprotocol/noir:$DIST_TAG-$ARCH
+
 test:
   FROM +nargo
   COPY ./scripts/test_native.sh ./scripts/test_native.sh

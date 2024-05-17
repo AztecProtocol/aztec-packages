@@ -1,0 +1,95 @@
+name: Publish public artifacts
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The tag to build from.
+        required: true
+
+concurrency:
+  # This only runs on master
+  group: ci-${{ github.run_id || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  setup_x86:
+    uses: ./.github/workflows/setup-runner.yml
+    with:
+      username: master
+      runner_type: builder-x86
+    secrets: inherit
+
+  setup_arm:
+    uses: ./.github/workflows/setup-runner.yml
+    with:
+      username: master
+      runner_type: builder-arm
+    secrets: inherit
+
+  build:
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            runner-label: master-x86
+          - arch: arm64
+            runner-label: master-arm
+    runs-on: ${{ matrix.runner-label }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_key: build-release-artifacts-${{ github.actor }}-${{ matrix.arch }}
+      - name: "Build images"
+        timeout-minutes: 40
+        run: |
+          earthly-ci --no-output --build-arg DIST_TAG=latest --build-arg ARCH=${{ matrix.arch }} ./yarn-project+export-aztec
+          earthly-ci --no-output --build-arg DIST_TAG=latest --build-arg ARCH=${{ matrix.arch }} ./noir+export-noir
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_key: publish-public-artifacts-${{ github.actor }}-x86
+
+      - name: Publish aztec to Dockerhub
+        uses: ./github/ensure-builder
+        with:
+          run: |
+            docker manifest create aztecprotocol/aztec:latest \
+              --amend aztecprotocol/aztec:latest-x86_64 \
+              --amend aztecprotocol/aztec:latest-arm64
+            docker manifest push aztecprotocol/aztec:latest
+
+      - name: Publish aztec-builder to Dockerhub
+        uses: ./github/ensure-builder
+        with:
+          run: |
+            docker manifest create aztecprotocol/aztec-builder:latest \
+              --amend aztecprotocol/aztec-builder:latest-x86_64 \
+              --amend aztecprotocol/aztec-builder:latest-arm64
+            docker manifest push aztecprotocol/aztec-builder:latest
+
+      - name: Publish noir to Dockerhub
+        uses: ./github/ensure-builder
+        with:
+          run: |
+            docker manifest create aztecprotocol/noir:latest \
+              --amend aztecprotocol/noir:latest-x86_64 \
+              --amend aztecprotocol/noir:latest-arm64
+            docker manifest push aztecprotocol/noir:latest
+
+      - name: Publish to NPM
+        uses: ./github/ensure-builder
+        with:
+          working-directory: yarn-project
+          run: |
+            earthly-ci --no-output --secret NPM_TOKEN=${{ secrets.NPM_TOKEN }} --build-arg VERSION=${{ inputs.tag }} --build-arg DIST_TAG=latest +publish-npm

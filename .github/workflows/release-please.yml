@@ -39,3 +39,12 @@ jobs:
           ref: master
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           inputs: '{ "tag": "${{ steps.release.outputs.tag_name }}" }'
+
+      - name: Dipatch to deploy TS projects to NPM & Dockerhub
+        uses: benc-uk/workflow-dispatch@v1
+        if: ${{ steps.release.outputs.tag_name }}
+        with:
+          workflow: release-public-artifacts.yml
+          ref: master
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          inputs: '{ "tag": "${{ steps.release.outputs.tag_name }}" }'

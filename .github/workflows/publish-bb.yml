@@ -93,7 +93,7 @@ jobs:
           sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/lib/* /usr/local/lib/
           sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/share/* /usr/local/share/
 
-      - name: Install yarn # Needed to call 'yarn build' on barretenberg/ts 
+      - name: Install yarn # Needed to call 'yarn build' on barretenberg/ts
         run: |
           curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
           echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
@@ -117,19 +117,19 @@ jobs:
         working-directory: barretenberg/cpp/build-wasm/bin
         run: tar -cvzf acvm_backend.wasm.tar.gz acvm_backend.wasm
 
-      # - name: Setup Node.js
-      #   uses: actions/setup-node@v2
-      #   with:
-      #     node-version: "18"
-      #     registry-url: "https://registry.npmjs.org"
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "18"
+          registry-url: "https://registry.npmjs.org"
 
-      # - name: Deploy Typescript to NPM
-      #   if: github.event.inputs.tag != 'nightly' && github.event.inputs.tag != '' # Do not deploy to npm if it is a nightly build
-      #   run: |
-      #     cd barretenberg/ts
-      #     yarn deploy
-      #   env:
-      #     NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+      - name: Deploy Typescript to NPM
+        if: github.event.inputs.tag != 'nightly' && github.event.inputs.tag != '' # Do not deploy to npm if it is a nightly build
+        run: |
+          cd barretenberg/ts
+          yarn deploy
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
@@ -157,7 +157,7 @@ jobs:
           export PATH="/usr/local/opt/llvm@16/bin:$PATH"
           export LDFLAGS="-L/usr/local/opt/llvm@16/lib"
           export CPPFLAGS="-I/usr/local/opt/llvm@16/include"
-          cmake -DCMAKE_BUILD_TYPE=RelWithAssert --preset default 
+          cmake -DCMAKE_BUILD_TYPE=RelWithAssert --preset default
           cmake --build --preset default --target bb
 
       - name: Package barretenberg artifact
@@ -175,7 +175,7 @@ jobs:
           retention-days: 3
 
   build-mac-m1:
-    name: Build on Mac aarch64-apple-darwin 
+    name: Build on Mac aarch64-apple-darwin
     runs-on: macos-14
     steps:
       - name: Checkout
@@ -208,7 +208,8 @@ jobs:
 
   release:
     name: Publish
-    needs: [build-x86_64-linux-gnu, build-mac-intel, build-mac-m1,build-wasm-ts]
+    needs:
+      [build-x86_64-linux-gnu, build-mac-intel, build-mac-m1, build-wasm-ts]
     runs-on: ubuntu-latest
     steps:
       - name: Download files from Linux Runner
