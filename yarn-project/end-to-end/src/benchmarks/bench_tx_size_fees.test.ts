@@ -1,7 +1,6 @@
 import {
   type AccountWalletWithSecretKey,
   type AztecAddress,
-  type EthAddress,
   type FeePaymentMethod,
   NativeFeePaymentMethod,
   PrivateFeePaymentMethod,
@@ -25,13 +24,10 @@ describe('benchmarks/tx_size_fees', () => {
   let gas: GasTokenContract;
   let fpc: FPCContract;
   let token: TokenContract;
-  let gasPortalAddress: EthAddress;
 
   // setup the environment
   beforeAll(async () => {
-    const { wallets, aztecNode, deployL1ContractsValues } = await setup(3, {}, {}, true);
-
-    gasPortalAddress = deployL1ContractsValues.l1ContractAddresses.gasPortalAddress;
+    const { wallets, aztecNode } = await setup(3, {}, {}, true);
 
     aliceWallet = wallets[0];
     bobAddress = wallets[1].getAddress();

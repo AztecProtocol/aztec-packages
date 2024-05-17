@@ -13,7 +13,7 @@ import {
   type Header,
   KernelCircuitPublicInputs,
   type Proof,
-  PublicDataUpdateRequest,
+  type PublicDataUpdateRequest,
   type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
   type PublicKernelTailCircuitPrivateInputs,
