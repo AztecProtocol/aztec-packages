@@ -113,7 +113,7 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
         WitnessVector witness{
             5, 10, 15, 5, inverse_of_five, 1,
         };
-        auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
+        auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness, /*honk recursion*/ true);
 
         return builder;
     }
