@@ -141,7 +141,7 @@ describe('Private Execution test suite', () => {
     // Create a new snapshot.
     const newSnap = new AppendOnlyTreeSnapshot(Fr.fromBuffer(tree.getRoot(true)), Number(tree.getNumLeaves(true)));
 
-    if (name === 'noteHash' || name === 'l1ToL2Messages' || 'publicData') {
+    if (name === 'noteHash' || name === 'l1ToL2Messages' || name === 'publicData') {
       header = new Header(
         header.lastArchive,
         header.contentCommitment,
@@ -167,9 +167,9 @@ describe('Private Execution test suite', () => {
     return trees[name];
   };
 
-  const getEncryptedSerializedLength = (result: ExecutionResult) => {
-    const fnLogs = new EncryptedFunctionL2Logs(result.encryptedLogs.map(l => l.log));
-    return fnLogs.getSerializedLength();
+  const getEncryptedNoteSerializedLength = (result: ExecutionResult) => {
+    const fnLogs = new EncryptedFunctionL2Logs(result.noteEncryptedLogs.map(l => l.log));
+    return fnLogs.getKernelLength();
   };
 
   beforeAll(() => {
@@ -190,37 +190,35 @@ describe('Private Execution test suite', () => {
   beforeEach(async () => {
     trees = {};
     oracle = mock<DBOracle>();
-    oracle.getNullifierKeys.mockImplementation(
-      (accountOrNpkMHash: AztecAddress | Fr, contractAddress: AztecAddress) => {
-        if (accountOrNpkMHash.equals(ownerCompleteAddress.address)) {
-          return Promise.resolve({
-            masterNullifierPublicKey: ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
-            appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
-          });
-        }
-        if (accountOrNpkMHash.equals(recipientCompleteAddress.address)) {
-          return Promise.resolve({
-            masterNullifierPublicKey: recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
-            appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
-          });
-        }
-        throw new Error(`Unknown address ${accountOrNpkMHash}`);
-      },
-    );
+    oracle.getNullifierKeys.mockImplementation((masterNullifierPublicKeyHash: Fr, contractAddress: AztecAddress) => {
+      if (masterNullifierPublicKeyHash.equals(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
+        return Promise.resolve({
+          masterNullifierPublicKey: ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
+          appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
+        });
+      }
+      if (masterNullifierPublicKeyHash.equals(recipientCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
+        return Promise.resolve({
+          masterNullifierPublicKey: recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
+          appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
+        });
+      }
+      throw new Error(`Unknown master nullifier public key hash: ${masterNullifierPublicKeyHash}`);
+    });
 
     // We call insertLeaves here with no leaves to populate empty public data tree root --> this is necessary to be
     // able to get ivpk_m during execution
     await insertLeaves([], 'publicData');
     oracle.getHeader.mockResolvedValue(header);
 
-    oracle.getCompleteAddress.mockImplementation((accountOrNpkMHash: AztecAddress | Fr) => {
-      if (accountOrNpkMHash.equals(owner)) {
+    oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
+      if (address.equals(owner)) {
         return Promise.resolve(ownerCompleteAddress);
       }
-      if (accountOrNpkMHash.equals(recipient)) {
+      if (address.equals(recipient)) {
         return Promise.resolve(recipientCompleteAddress);
       }
-      throw new Error(`Unknown address ${accountOrNpkMHash}`);
+      throw new Error(`Unknown address: ${address}`);
     });
     // This oracle gets called when reading ivpk_m from key registry --> we return zero witness indicating that
     // the keys were not registered. This triggers non-registered keys flow in which getCompleteAddress oracle
@@ -249,9 +247,7 @@ describe('Private Execution test suite', () => {
 
       const [unencryptedLog] = newUnencryptedLogs;
       expect(unencryptedLog.value).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
-      expect(result.callStackItem.publicInputs.unencryptedLogPreimagesLength).toEqual(
-        new Fr(functionLogs.getSerializedLength()),
-      );
+      expect(unencryptedLog.length).toEqual(new Fr(functionLogs.getKernelLength()));
       // Test that the log payload (ie ignoring address, selector, and header) matches what we emitted
       expect(functionLogs.logs[0].data.subarray(-32).toString('hex')).toEqual(owner.toBuffer().toString('hex'));
     });
@@ -268,9 +264,7 @@ describe('Private Execution test suite', () => {
 
       const [unencryptedLog] = newUnencryptedLogs;
       expect(unencryptedLog.value).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
-      expect(result.callStackItem.publicInputs.unencryptedLogPreimagesLength).toEqual(
-        new Fr(functionLogs.getSerializedLength()),
-      );
+      expect(unencryptedLog.length).toEqual(new Fr(functionLogs.getKernelLength()));
       // Test that the log payload (ie ignoring address, selector, and header) matches what we emitted
       const expected = Buffer.concat(args[0].map(arg => arg.toBuffer())).toString('hex');
       expect(functionLogs.logs[0].data.subarray(-32 * 5).toString('hex')).toEqual(expected);
@@ -282,7 +276,7 @@ describe('Private Execution test suite', () => {
     const mockFirstNullifier = new Fr(1111);
     let currentNoteIndex = 0n;
 
-    const buildNote = (amount: bigint, owner: AztecAddress, storageSlot: Fr, noteTypeId: Fr) => {
+    const buildNote = (amount: bigint, ownerNpkMHash: Fr, storageSlot: Fr, noteTypeId: Fr) => {
       // WARNING: this is not actually how nonces are computed!
       // For the purpose of this test we use a mocked firstNullifier and and a random number
       // to compute the nonce. Proper nonces are only enforced later by the kernel/later circuits
@@ -293,7 +287,7 @@ describe('Private Execution test suite', () => {
       // `hash(firstNullifier, noteHashIndex)`
       const noteHashIndex = randomInt(1); // mock index in TX's final newNoteHashes array
       const nonce = computeNoteHashNonce(mockFirstNullifier, noteHashIndex);
-      const note = new Note([new Fr(amount), owner.toField(), Fr.random()]);
+      const note = new Note([new Fr(amount), ownerNpkMHash, Fr.random()]);
       const innerNoteHash = pedersenHash(note.items);
       return {
         contractAddress,
@@ -341,14 +335,13 @@ describe('Private Execution test suite', () => {
         ),
       );
 
-      const newEncryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.encryptedLogsHashes);
+      const newEncryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.noteEncryptedLogsHashes);
       expect(newEncryptedLogs).toHaveLength(1);
 
       const [encryptedLog] = newEncryptedLogs;
-      expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs[0].log.hash()));
-      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
-        new Fr(getEncryptedSerializedLength(result)),
-      );
+      expect(encryptedLog.noteHashCounter).toEqual(newNoteHashes[0].counter);
+      expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[0].log.hash()));
+      expect(encryptedLog.length).toEqual(new Fr(getEncryptedNoteSerializedLength(result)));
     });
 
     it('should run the create_note function', async () => {
@@ -372,14 +365,13 @@ describe('Private Execution test suite', () => {
         ),
       );
 
-      const newEncryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.encryptedLogsHashes);
+      const newEncryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.noteEncryptedLogsHashes);
       expect(newEncryptedLogs).toHaveLength(1);
 
       const [encryptedLog] = newEncryptedLogs;
-      expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs[0].log.hash()));
-      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
-        new Fr(getEncryptedSerializedLength(result)),
-      );
+      expect(encryptedLog.noteHashCounter).toEqual(newNoteHashes[0].counter);
+      expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[0].log.hash()));
+      expect(encryptedLog.length).toEqual(new Fr(getEncryptedNoteSerializedLength(result)));
     });
 
     it('should run the destroy_and_create function', async () => {
@@ -394,7 +386,10 @@ describe('Private Execution test suite', () => {
 
       const noteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
 
-      const notes = [buildNote(60n, owner, storageSlot, noteTypeId), buildNote(80n, owner, storageSlot, noteTypeId)];
+      const notes = [
+        buildNote(60n, ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash(), storageSlot, noteTypeId),
+        buildNote(80n, ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash(), storageSlot, noteTypeId),
+      ];
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>
@@ -418,24 +413,26 @@ describe('Private Execution test suite', () => {
       const newNoteHashes = getNonEmptyItems(result.callStackItem.publicInputs.newNoteHashes);
       expect(newNoteHashes).toHaveLength(2);
       const [changeNoteHash, recipientNoteHash] = newNoteHashes;
-      expect(recipientNoteHash.value).toEqual(
+      const [recipientInnerNoteHash, changeInnerNoteHash] = [
         await acirSimulator.computeInnerNoteHash(contractAddress, recipientStorageSlot, noteTypeId, recipientNote.note),
-      );
-      expect(changeNoteHash.value).toEqual(
         await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, noteTypeId, changeNote.note),
-      );
+      ];
+      expect(recipientNoteHash.value).toEqual(recipientInnerNoteHash);
+      expect(changeNoteHash.value).toEqual(changeInnerNoteHash);
 
       expect(recipientNote.note.items[0]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.note.items[0]).toEqual(new Fr(40n));
 
-      const newEncryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.encryptedLogsHashes);
+      const newEncryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.noteEncryptedLogsHashes);
       expect(newEncryptedLogs).toHaveLength(2);
 
       const [encryptedChangeLog, encryptedRecipientLog] = newEncryptedLogs;
-      expect(encryptedChangeLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs[0].log.hash()));
-      expect(encryptedRecipientLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs[1].log.hash()));
-      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
-        new Fr(getEncryptedSerializedLength(result)),
+      expect(encryptedChangeLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[0].log.hash()));
+      expect(encryptedChangeLog.noteHashCounter).toEqual(changeNoteHash.counter);
+      expect(encryptedRecipientLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[1].log.hash()));
+      expect(encryptedRecipientLog.noteHashCounter).toEqual(recipientNoteHash.counter);
+      expect(encryptedChangeLog.length.add(encryptedRecipientLog.length)).toEqual(
+        new Fr(getEncryptedNoteSerializedLength(result)),
       );
 
       const readRequests = getNonEmptyItems(result.callStackItem.publicInputs.noteHashReadRequests).map(r => r.value);
@@ -451,7 +448,9 @@ describe('Private Execution test suite', () => {
       const storageSlot = computeSlotForMapping(new Fr(1n), owner);
       const noteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
 
-      const notes = [buildNote(balance, owner, storageSlot, noteTypeId)];
+      const notes = [
+        buildNote(balance, ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash(), storageSlot, noteTypeId),
+      ];
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>
@@ -470,13 +469,15 @@ describe('Private Execution test suite', () => {
       expect(recipientNote.note.items[0]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.note.items[0]).toEqual(new Fr(balance - amountToTransfer));
 
-      const newEncryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.encryptedLogsHashes);
+      const newEncryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.noteEncryptedLogsHashes);
       expect(newEncryptedLogs).toHaveLength(2);
       const [encryptedChangeLog, encryptedRecipientLog] = newEncryptedLogs;
-      expect(encryptedChangeLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs[0].log.hash()));
-      expect(encryptedRecipientLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs[1].log.hash()));
-      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
-        new Fr(getEncryptedSerializedLength(result)),
+      expect(encryptedChangeLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[0].log.hash()));
+      expect(encryptedChangeLog.noteHashCounter).toEqual(result.callStackItem.publicInputs.newNoteHashes[0].counter);
+      expect(encryptedRecipientLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[1].log.hash()));
+      expect(encryptedRecipientLog.noteHashCounter).toEqual(result.callStackItem.publicInputs.newNoteHashes[1].counter);
+      expect(encryptedChangeLog.length.add(encryptedRecipientLog.length)).toEqual(
+        new Fr(getEncryptedNoteSerializedLength(result)),
       );
     });
   });
@@ -933,14 +934,14 @@ describe('Private Execution test suite', () => {
       );
       expect(noteHash).toEqual(innerNoteHash);
 
-      const newEncryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.encryptedLogsHashes);
+      const newEncryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.noteEncryptedLogsHashes);
       expect(newEncryptedLogs).toHaveLength(1);
 
       const [encryptedLog] = newEncryptedLogs;
-      expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs[0].log.hash()));
-      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
-        new Fr(getEncryptedSerializedLength(result)),
-      );
+      expect(encryptedLog.noteHashCounter).toEqual(newNoteHashes[0].counter);
+      // We expect the note log to be chopped in ts.
+      // (note logs are chopped in kernel tail, so will still exist in the call stack item)
+      expect(result.noteEncryptedLogs).toHaveLength(0);
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
       const readRequest = getNonEmptyItems(result.callStackItem.publicInputs.noteHashReadRequests)[0];
@@ -1012,14 +1013,14 @@ describe('Private Execution test suite', () => {
       );
       expect(noteHash).toEqual(innerNoteHash);
 
-      const newEncryptedLogs = getNonEmptyItems(execInsert.callStackItem.publicInputs.encryptedLogsHashes);
+      const newEncryptedLogs = getNonEmptyItems(execInsert.callStackItem.publicInputs.noteEncryptedLogsHashes);
       expect(newEncryptedLogs).toHaveLength(1);
 
       const [encryptedLog] = newEncryptedLogs;
-      expect(encryptedLog.value).toEqual(Fr.fromBuffer(execInsert.encryptedLogs[0].log.hash()));
-      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
-        new Fr(getEncryptedSerializedLength(result)),
-      );
+      expect(encryptedLog.noteHashCounter).toEqual(newNoteHashes[0].counter);
+      // We expect the note log to be chopped in ts.
+      // (note logs are chopped in kernel tail, so will still exist in the call stack item)
+      expect(execInsert.noteEncryptedLogs).toHaveLength(0);
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
       const readRequest = execGetThenNullify.callStackItem.publicInputs.noteHashReadRequests[0];

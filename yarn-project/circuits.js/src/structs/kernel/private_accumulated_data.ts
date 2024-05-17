@@ -1,22 +1,21 @@
 import { makeTuple } from '@aztec/foundation/array';
-import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
   MAX_ENCRYPTED_LOGS_PER_TX,
-  type MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { CallRequest } from '../call_request.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
+import { LogHash, NoteLogHash } from '../log_hash.js';
 import { ScopedNoteHash } from '../note_hash.js';
 import { ScopedNullifier } from '../nullifier.js';
-import { SideEffect } from '../side_effects.js';
 
 /**
  * Specific accumulated data structure for the final ordering private kernel circuit. It is included
@@ -35,25 +34,22 @@ export class PrivateAccumulatedData {
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
-    public newL2ToL1Msgs: Tuple<ScopedL2ToL1Message, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    public newL2ToL1Msgs: Tuple<ScopedL2ToL1Message, typeof MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
     /**
-     * Accumulated encrypted logs hash from all the previous kernel iterations.
-     * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
+     * Accumulated encrypted note logs hashes from all the previous kernel iterations.
+     * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public encryptedLogsHashes: Tuple<SideEffect, typeof MAX_ENCRYPTED_LOGS_PER_TX>,
+    public noteEncryptedLogsHashes: Tuple<NoteLogHash, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
     /**
-     * Accumulated unencrypted logs hash from all the previous kernel iterations.
-     * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
+     * Accumulated encrypted logs hashes from all the previous kernel iterations.
+     * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public unencryptedLogsHashes: Tuple<SideEffect, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
+    public encryptedLogsHashes: Tuple<LogHash, typeof MAX_ENCRYPTED_LOGS_PER_TX>,
     /**
-     * Total accumulated length of the encrypted log preimages emitted in all the previous kernel iterations
+     * Accumulated unencrypted logs hashes from all the previous kernel iterations.
+     * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public encryptedLogPreimagesLength: Fr,
-    /**
-     * Total accumulated length of the unencrypted log preimages emitted in all the previous kernel iterations
-     */
-    public unencryptedLogPreimagesLength: Fr,
+    public unencryptedLogsHashes: Tuple<LogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
     /**
      * Current private call stack.
      * TODO(#3417): Given this field must empty, should we just remove it?
@@ -70,10 +66,9 @@ export class PrivateAccumulatedData {
       this.newNoteHashes,
       this.newNullifiers,
       this.newL2ToL1Msgs,
+      this.noteEncryptedLogsHashes,
       this.encryptedLogsHashes,
       this.unencryptedLogsHashes,
-      this.encryptedLogPreimagesLength,
-      this.unencryptedLogPreimagesLength,
       this.privateCallStack,
       this.publicCallStack,
     );
@@ -94,10 +89,9 @@ export class PrivateAccumulatedData {
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, ScopedNullifier),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
-      reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, SideEffect),
-      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, SideEffect),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, NoteLogHash),
+      reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, LogHash),
+      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, LogHash),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
     );
@@ -117,10 +111,9 @@ export class PrivateAccumulatedData {
       makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, ScopedNullifier.empty),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
-      makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, SideEffect.empty),
-      makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, SideEffect.empty),
-      Fr.zero(),
-      Fr.zero(),
+      makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, NoteLogHash.empty),
+      makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, LogHash.empty),
+      makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, LogHash.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
     );

@@ -1,5 +1,7 @@
 use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateSet, NoteGetterOptions};
 use dep::aztec::note::note_getter_options::SortOrder;
+use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
+use dep::aztec::keys::getters::{get_npk_m_hash, get_ivpk_m};
 use crate::{filter::filter_notes_min_sum, value_note::{ValueNote, VALUE_NOTE_LEN}};
 
 // Sort the note values (0th field) in descending order.
@@ -11,9 +13,13 @@ pub fn create_note_getter_options_for_decreasing_balance(amount: Field) -> NoteG
 // Creates a new note for the recipient.
 // Inserts it to the recipient's set of notes.
 pub fn increment(balance: PrivateSet<ValueNote>, amount: Field, recipient: AztecAddress) {
-    let mut note = ValueNote::new(amount, recipient);
+    let context = balance.context.private.unwrap();
+    let recipient_npk_m_hash = get_npk_m_hash(context, recipient);
+    let recipient_ivpk_m = get_ivpk_m(context, recipient);
+
+    let mut note = ValueNote::new(amount, recipient_npk_m_hash);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
-    balance.insert(&mut note, amount != 0);
+    balance.insert(&mut note, amount != 0, recipient_ivpk_m);
 }
 
 // Find some of the `owner`'s notes whose values add up to the `amount`.
@@ -64,7 +70,10 @@ pub fn decrement_by_at_most(
 pub fn destroy_note(balance: PrivateSet<ValueNote>, owner: AztecAddress, note: ValueNote) -> Field {
     // Ensure the note is actually owned by the owner (to prevent user from generating a valid proof while
     // spending someone else's notes).
-    assert(note.owner.eq(owner));
+    let owner_npk_m_hash = get_npk_m_hash(balance.context.private.unwrap(), owner);
+
+    // TODO (#6312): This will break with key rotation. Fix this. Will not be able to pass this after rotating keys.
+    assert(note.npk_m_hash.eq(owner_npk_m_hash));
 
     balance.remove(note);
 

@@ -338,8 +338,8 @@ describe('ACIR public execution simulator', () => {
       expect(Fr.fromBuffer(childExecutionResult.unencryptedLogs.logs[0].hash())).toEqual(
         childExecutionResult.unencryptedLogsHashes[0].value,
       );
-      expect(childExecutionResult.unencryptedLogPreimagesLength).toEqual(
-        new Fr(childExecutionResult.unencryptedLogs.getSerializedLength()),
+      expect(childExecutionResult.unencryptedLogsHashes[0].length).toEqual(
+        new Fr(childExecutionResult.unencryptedLogs.getKernelLength()),
       );
       expect(result.returnValues[0]).toEqual(new Fr(newValue));
     }, 20_000);
