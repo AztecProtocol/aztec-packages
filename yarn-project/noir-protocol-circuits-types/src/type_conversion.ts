@@ -512,15 +512,6 @@ export function mapCallerContextToNoir(callerContext: CallerContext): CallerCont
   };
 }
 
-function mapPrivateCallRequestToNoir(callRequest: PrivateCallRequest): PrivateCallRequestNoir {
-  return {
-    hash: mapFieldToNoir(callRequest.hash),
-    caller_context: mapCallerContextToNoir(callRequest.callerContext),
-    start_side_effect_counter: mapNumberToNoir(callRequest.startSideEffectCounter),
-    end_side_effect_counter: mapNumberToNoir(callRequest.endSideEffectCounter),
-  };
-}
-
 function mapPrivateCallRequestFromNoir(callRequest: PrivateCallRequestNoir) {
   return new PrivateCallRequest(
     mapFieldFromNoir(callRequest.hash),
@@ -530,11 +521,27 @@ function mapPrivateCallRequestFromNoir(callRequest: PrivateCallRequestNoir) {
   );
 }
 
+function mapPrivateCallRequestToNoir(callRequest: PrivateCallRequest): PrivateCallRequestNoir {
+  return {
+    hash: mapFieldToNoir(callRequest.hash),
+    caller_context: mapCallerContextToNoir(callRequest.callerContext),
+    start_side_effect_counter: mapNumberToNoir(callRequest.startSideEffectCounter),
+    end_side_effect_counter: mapNumberToNoir(callRequest.endSideEffectCounter),
+  };
+}
+
 function mapScopedPrivateCallRequestFromNoir(callRequest: ScopedPrivateCallRequestNoir) {
   return new ScopedPrivateCallRequest(
     mapPrivateCallRequestFromNoir(callRequest.call_request),
     mapAztecAddressFromNoir(callRequest.contract_address),
   );
+}
+
+function mapScopedPrivateCallRequestToNoir(callRequest: ScopedPrivateCallRequest): ScopedPrivateCallRequestNoir {
+  return {
+    call_request: mapPrivateCallRequestToNoir(callRequest.callRequest),
+    contract_address: mapAztecAddressToNoir(callRequest.contractAddress),
+  };
 }
 
 /**
@@ -1141,7 +1148,7 @@ export function mapPrivateAccumulatedDataToNoir(data: PrivateAccumulatedData): P
     note_encrypted_logs_hashes: mapTuple(data.noteEncryptedLogsHashes, mapNoteLogHashToNoir),
     encrypted_logs_hashes: mapTuple(data.encryptedLogsHashes, mapLogHashToNoir),
     unencrypted_logs_hashes: mapTuple(data.unencryptedLogsHashes, mapLogHashToNoir),
-    private_call_stack: mapTuple(data.privateCallStack, mapCallRequestToNoir),
+    private_call_stack: mapTuple(data.privateCallStack, mapScopedPrivateCallRequestToNoir),
     public_call_stack: mapTuple(data.publicCallStack, mapCallRequestToNoir),
   };
 }
