@@ -72,14 +72,16 @@ describe('buildNullifierReadRequestHints', () => {
     numSettledReads++;
   };
 
-  const buildHints = () =>
-    buildNullifierReadRequestHints(
-      oracle,
-      nullifierReadRequests,
-      nullifiers,
-      MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-      MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-    );
+  const buildHints = async () =>
+    (
+      await buildNullifierReadRequestHints(
+        oracle,
+        nullifierReadRequests,
+        nullifiers,
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+      )
+    ).hints;
 
   beforeEach(() => {
     nullifierReadRequests = makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest.empty);

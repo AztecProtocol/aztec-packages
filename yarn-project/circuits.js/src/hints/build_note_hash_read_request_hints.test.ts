@@ -67,15 +67,17 @@ describe('buildNoteHashReadRequestHints', () => {
     numSettledReads++;
   };
 
-  const buildHints = () =>
-    buildNoteHashReadRequestHints(
-      oracle,
-      noteHashReadRequests,
-      noteHashes,
-      noteHashLeafIndexMap,
-      MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-      MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-    );
+  const buildHints = async () =>
+    (
+      await buildNoteHashReadRequestHints(
+        oracle,
+        noteHashReadRequests,
+        noteHashes,
+        noteHashLeafIndexMap,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+      )
+    ).hints;
 
   beforeEach(() => {
     noteHashReadRequests = makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest.empty);
