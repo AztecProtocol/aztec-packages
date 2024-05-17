@@ -306,8 +306,7 @@ export class TestKeyStore implements KeyStore {
     let keyGenerator: KeyGenerator;
     if (skDbKey.includes('nsk_m')) {
       keyGenerator = GeneratorIndex.NSK_M;
-    }
-    if (skDbKey.includes('ivsk_m')) {
+    } else if (skDbKey.includes('ivsk_m')) {
       keyGenerator = GeneratorIndex.IVSK_M;
     } else if (skDbKey.includes('ovsk_m')) {
       keyGenerator = GeneratorIndex.OVSK_M;
