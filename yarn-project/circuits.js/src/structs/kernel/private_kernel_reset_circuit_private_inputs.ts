@@ -85,7 +85,7 @@ export class PrivateKernelResetHints<
       this.transientNoteHashIndexesForLogs,
       this.noteHashReadRequestHints,
       this.nullifierReadRequestHints,
-      mapTuple(this.masterNullifierSecretKeys, item => serializeToBuffer(item.private_key, item.request_index)),
+      mapTuple(this.masterNullifierSecretKeys, item => serializeToBuffer(item.privateKey, item.requestIndex)),
     );
   }
 

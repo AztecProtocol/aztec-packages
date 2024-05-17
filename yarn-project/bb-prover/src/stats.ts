@@ -47,7 +47,11 @@ export function mapProtocolArtifactNameToCircuitName(
       return 'private-kernel-tail';
     case 'PrivateKernelTailToPublicArtifact':
       return 'private-kernel-tail-to-public';
-    case 'PrivateKernelResetArtifact':
+    // TODO(Alvaro): Do we want different stats for the variants?
+    case 'PrivateKernelResetFullArtifact':
+    case 'PrivateKernelResetBigArtifact':
+    case 'PrivateKernelResetMediumArtifact':
+    case 'PrivateKernelResetSmallArtifact':
       return 'private-kernel-reset';
     default:
       throw new Error(`Unknown circuit type: ${artifact}`);
