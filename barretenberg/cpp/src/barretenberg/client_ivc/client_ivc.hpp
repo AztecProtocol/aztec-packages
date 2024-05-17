@@ -90,23 +90,5 @@ class ClientIVC {
     HonkProof decider_prove() const;
 
     std::vector<std::shared_ptr<VerificationKey>> precompute_folding_verification_keys(std::vector<ClientCircuit>);
-
-    /**
-     * @brief Reset the scheme so it can be reused
-     * @details This is useful mostly because the easiest way to precompute the verification keys needed by the scheme
-     * is to simply run the IVC in its entirety, save the computed VKs, then reset the scheme.
-     * @note The is_structured flag is not reset in order to preserve this setting.
-     *
-     */
-    void reset()
-    {
-        goblin = Goblin();
-        fold_output = ProverFoldOutput();
-        prover_accumulator = nullptr;
-        verifier_accumulator = nullptr;
-        prover_instance = nullptr;
-        instance_vk = nullptr;
-        initialized = false;
-    }
 };
 } // namespace bb

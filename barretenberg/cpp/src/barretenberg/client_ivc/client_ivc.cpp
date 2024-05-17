@@ -109,8 +109,10 @@ std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_f
         vkeys.emplace_back(instance_vk);
     }
 
-    // Reset the scheme so it can be reused for actual accumulation
-    this->reset();
+    // Reset the scheme so it can be reused for actual accumulation, maintaining the structured trace flag as is
+    bool structured = structured_flag;
+    *this = ClientIVC();
+    this->structured_flag = structured;
 
     return vkeys;
 }
