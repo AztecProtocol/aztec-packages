@@ -1,5 +1,5 @@
 import { type AuthWitness, type FunctionCall, type PXE, type TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, Fr, CANONICAL_KEY_REGISTRY_ADDRESS, type Point, Fq } from '@aztec/circuits.js';
+import { AztecAddress, CANONICAL_KEY_REGISTRY_ADDRESS, type Fq, Fr, type Point } from '@aztec/circuits.js';
 import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 
 import { type AccountInterface } from '../account/interface.js';
@@ -172,10 +172,12 @@ export class AccountWallet extends BaseWallet {
    * @returns - A function interaction.
    */
   public rotateNpkM(newNpkM: Point): ContractFunctionInteraction {
-    return new ContractFunctionInteraction(this, AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS), this.getRotateNpkMAbi(), [
-      this.getAddress(),
-      newNpkM,
-    ]);
+    return new ContractFunctionInteraction(
+      this,
+      AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS),
+      this.getRotateNpkMAbi(),
+      [this.getAddress(), newNpkM],
+    );
   }
 
   /**
@@ -183,9 +185,9 @@ export class AccountWallet extends BaseWallet {
    * @param newNskM - The new master nullifier secret key we want to use.
    * @remarks - This does not hinder our ability to spend notes tied to a previous master nullifier public key.
    */
-    public async rotateNskM(newNskM: Fq): Promise<void> {
-      await this.pxe.rotateNskMPxe(this.getAddress(), newNskM);
-    }
+  public async rotateNskM(newNskM: Fq): Promise<void> {
+    await this.pxe.rotateNskMPxe(this.getAddress(), newNskM);
+  }
 
   /**
    * Returns a function interaction to cancel a message hash as authorized in this account.
@@ -300,24 +302,25 @@ export class AccountWallet extends BaseWallet {
           type: {
             fields: [{ name: 'inner', type: { kind: 'field' } }],
             kind: 'struct',
-            path: 'authwit::aztec::protocol_types::address::aztec_address::AztecAddress'
+            path: 'authwit::aztec::protocol_types::address::aztec_address::AztecAddress',
           },
           visibility: 'private' as ABIParameterVisibility,
         },
         {
           name: 'new_npk_m',
           type: {
-            fields: [{name:"x",type:{kind:"field"}},{name:"y",type:{kind:"field"}}],
+            fields: [
+              { name: 'x', type: { kind: 'field' } },
+              { name: 'y', type: { kind: 'field' } },
+            ],
             kind: 'struct',
-            path: 'authwit::aztec::protocol_types::grumpkin_point::GrumpkinPoint'
+            path: 'authwit::aztec::protocol_types::grumpkin_point::GrumpkinPoint',
           },
           visibility: 'private' as ABIParameterVisibility,
         },
-        { name: 'nonce', type: { kind: 'field' }, 
-          visibility: 'private' as ABIParameterVisibility,
-      }
+        { name: 'nonce', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility },
       ],
       returnTypes: [],
-    }
-  };
+    };
+  }
 }

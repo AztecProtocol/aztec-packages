@@ -1,5 +1,6 @@
 import { createAccounts } from '@aztec/accounts/testing';
 import {
+  type AccountWallet,
   type AztecAddress,
   type AztecNode,
   type DebugLogger,
@@ -12,11 +13,9 @@ import {
   type Wallet,
   computeSecretHash,
   retryUntil,
-  type AccountWallet,
 } from '@aztec/aztec.js';
 import { type PublicKey, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
-import { KeyRegistryContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
-import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
+import { TestContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
@@ -38,7 +37,6 @@ describe('e2e_key_rotation', () => {
   let teardownA: () => Promise<void>;
   let teardownB: () => Promise<void>;
 
-  let keyRegistryWithB: KeyRegistryContract;
   let testContract: TestContract;
   let contractWithWalletA: TokenContract;
   let contractWithWalletB: TokenContract;
@@ -59,7 +57,6 @@ describe('e2e_key_rotation', () => {
     ({ pxe: pxeB, teardown: teardownB } = await setupPXEService(aztecNode, {}, undefined, true));
 
     [walletB] = await createAccounts(pxeB, 1);
-    keyRegistryWithB = await KeyRegistryContract.at(getCanonicalKeyRegistryAddress(), walletB);
 
     // We deploy test and token contracts
     testContract = await TestContract.deploy(walletA).send().deployed();
