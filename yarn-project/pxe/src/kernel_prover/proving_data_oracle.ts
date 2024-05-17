@@ -79,5 +79,5 @@ export interface ProvingDataOracle {
    */
   getMasterSecretKeyAndAppKeyGenerator(masterPublicKey: Point): Promise<[GrumpkinPrivateKey, KeyGenerator]>;
 
-  getFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
+  getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 }
