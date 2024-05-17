@@ -23,8 +23,8 @@ library Constants {
   uint256 internal constant MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL = 16;
   uint256 internal constant MAX_PUBLIC_DATA_READS_PER_CALL = 16;
   uint256 internal constant MAX_NOTE_HASH_READ_REQUESTS_PER_CALL = 32;
-  uint256 internal constant MAX_NULLIFIER_READ_REQUESTS_PER_CALL = 2;
-  uint256 internal constant MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL = 2;
+  uint256 internal constant MAX_NULLIFIER_READ_REQUESTS_PER_CALL = 32;
+  uint256 internal constant MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL = 32;
   uint256 internal constant MAX_KEY_VALIDATION_REQUESTS_PER_CALL = 16;
   uint256 internal constant MAX_NOTE_ENCRYPTED_LOGS_PER_CALL = 16;
   uint256 internal constant MAX_ENCRYPTED_LOGS_PER_CALL = 4;
@@ -37,8 +37,8 @@ library Constants {
   uint256 internal constant MAX_PUBLIC_DATA_READS_PER_TX = 32;
   uint256 internal constant MAX_NEW_L2_TO_L1_MSGS_PER_TX = 2;
   uint256 internal constant MAX_NOTE_HASH_READ_REQUESTS_PER_TX = 128;
-  uint256 internal constant MAX_NULLIFIER_READ_REQUESTS_PER_TX = 8;
-  uint256 internal constant MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX = 8;
+  uint256 internal constant MAX_NULLIFIER_READ_REQUESTS_PER_TX = 128;
+  uint256 internal constant MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX = 128;
   uint256 internal constant MAX_KEY_VALIDATION_REQUESTS_PER_TX = 64;
   uint256 internal constant MAX_NOTE_ENCRYPTED_LOGS_PER_TX = 64;
   uint256 internal constant MAX_ENCRYPTED_LOGS_PER_TX = 8;
@@ -120,8 +120,7 @@ library Constants {
   uint256 internal constant SCOPED_L2_TO_L1_MESSAGE_LENGTH = L2_TO_L1_MESSAGE_LENGTH + 1;
   uint256 internal constant MAX_BLOCK_NUMBER_LENGTH = 2;
   uint256 internal constant KEY_VALIDATION_REQUEST_LENGTH = 3;
-  uint256 internal constant SCOPED_KEY_VALIDATION_REQUEST_LENGTH =
-    KEY_VALIDATION_REQUEST_LENGTH + 1;
+  uint256 internal constant SCOPED_KEY_VALIDATION_REQUEST_LENGTH = KEY_VALIDATION_REQUEST_LENGTH + 1;
   uint256 internal constant PARTIAL_STATE_REFERENCE_LENGTH = 6;
   uint256 internal constant READ_REQUEST_LENGTH = 2;
   uint256 internal constant LOG_HASH_LENGTH = 3;
