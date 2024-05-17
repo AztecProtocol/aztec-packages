@@ -9,7 +9,7 @@ import {
 } from '@aztec/aztec.js';
 import { GasSettings } from '@aztec/circuits.js';
 import { FPCContract, GasTokenContract, TokenContract } from '@aztec/noir-contracts.js';
-import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
+import { GasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
 import { jest } from '@jest/globals';
 
@@ -42,7 +42,7 @@ describe('benchmarks/tx_size_fees', () => {
 
   // deploy the contracts
   beforeAll(async () => {
-    gas = await GasTokenContract.at(getCanonicalGasTokenAddress(), aliceWallet);
+    gas = await GasTokenContract.at(GasTokenAddress, aliceWallet);
     token = await TokenContract.deploy(aliceWallet, aliceWallet.getAddress(), 'test', 'test', 18).send().deployed();
     fpc = await FPCContract.deploy(aliceWallet, token.address, gas.address).send().deployed();
   });

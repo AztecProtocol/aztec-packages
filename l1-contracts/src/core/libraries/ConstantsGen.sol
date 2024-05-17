@@ -103,7 +103,7 @@ library Constants {
   uint256 internal constant DEPLOYER_CONTRACT_ADDRESS =
     0x2e9c386f07e22a1d24e677ab70407b2dd0adbc7cafb9c822bf249685d6a2e4cc;
   uint256 internal constant GAS_TOKEN_ADDRESS =
-    0x0000000000000000000000000000000000000000000000000000000000000000;
+    0x1abc48077afea1bc908f39fac1c7c99b73c3eb764caa584f7dd1ee5b7527b887;
   uint256 internal constant AZTEC_ADDRESS_LENGTH = 1;
   uint256 internal constant GAS_FEES_LENGTH = 2;
   uint256 internal constant GAS_LENGTH = 2;

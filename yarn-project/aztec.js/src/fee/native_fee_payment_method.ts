@@ -1,7 +1,7 @@
 import { type FunctionCall } from '@aztec/circuit-types';
 import { type AztecAddress, FunctionData, type GasSettings } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
-import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
+import { GasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
 import { type FeePaymentMethod } from './fee_payment_method.js';
 
@@ -12,7 +12,7 @@ export class NativeFeePaymentMethod implements FeePaymentMethod {
   #gasTokenAddress: AztecAddress;
 
   constructor() {
-    this.#gasTokenAddress = getCanonicalGasTokenAddress();
+    this.#gasTokenAddress = GasTokenAddress;
   }
 
   /**

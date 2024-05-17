@@ -10,7 +10,7 @@ import {
 } from '@aztec/aztec.js';
 import { GasPortalAbi, OutboxAbi, PortalERC20Abi } from '@aztec/l1-artifacts';
 import { GasTokenContract } from '@aztec/noir-contracts.js';
-import { getCanonicalGasToken, getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
+import { GasTokenAddress, getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 
 import {
   type Account,
@@ -83,7 +83,7 @@ export class GasPortalTestingHarnessFactory {
       client: walletClient,
     });
 
-    const gasL2 = await GasTokenContract.at(getCanonicalGasTokenAddress(), wallet);
+    const gasL2 = await GasTokenContract.at(GasTokenAddress, wallet);
 
     return new GasBridgingTestHarness(
       aztecNode,

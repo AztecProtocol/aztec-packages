@@ -52,7 +52,7 @@ import {
 } from '@aztec/l1-artifacts';
 import { KeyRegistryContract } from '@aztec/noir-contracts.js';
 import { GasTokenContract } from '@aztec/noir-contracts.js/GasToken';
-import { getCanonicalGasToken, getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
+import { GasTokenAddress, getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
 import { type ProverClient } from '@aztec/prover-client';
 import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
@@ -140,7 +140,7 @@ async function initGasBridge({ walletClient, l1ContractAddresses }: DeployL1Cont
     [
       l1ContractAddresses.registryAddress.toString(),
       l1ContractAddresses.gasTokenAddress.toString(),
-      getCanonicalGasTokenAddress().toString(),
+      GasTokenAddress.toString(),
     ],
     {} as any,
   );
