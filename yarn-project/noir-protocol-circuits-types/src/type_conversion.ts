@@ -1481,7 +1481,7 @@ function mapPrivateKernelResetHintsToNoir(inputs: PrivateKernelResetHints): Priv
     note_hash_read_request_hints: mapNoteHashReadRequestHintsToNoir(inputs.noteHashReadRequestHints),
     nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
     master_secret_keys: mapTuple(inputs.masterSecretKeys, mapGrumpkinPrivateKeyToNoir),
-    app_secret_keys_generators: mapTuple(inputs.appSecretKeysGenerators, mapGrumpkinPrivateKeyToNoir),
+    app_secret_keys_generators: mapTuple(inputs.appSecretKeysGenerators, mapFieldToNoir),
   };
 }
 
