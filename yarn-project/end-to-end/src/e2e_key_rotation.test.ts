@@ -1,6 +1,5 @@
 import { createAccounts } from '@aztec/accounts/testing';
 import {
-  type AccountWallet,
   type AztecAddress,
   type AztecNode,
   type DebugLogger,
@@ -31,8 +30,8 @@ describe('e2e_key_rotation', () => {
   let aztecNode: AztecNode;
   let pxeA: PXE;
   let pxeB: PXE;
-  let walletA: AccountWallet;
-  let walletB: AccountWallet;
+  let walletA: Wallet;
+  let walletB: Wallet;
   let logger: DebugLogger;
   let teardownA: () => Promise<void>;
   let teardownB: () => Promise<void>;

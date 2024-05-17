@@ -15,7 +15,14 @@ import {
   type TxHash,
   type TxReceipt,
 } from '@aztec/circuit-types';
-import { type AztecAddress, type CompleteAddress, type Fq, type Fr, type PartialAddress } from '@aztec/circuits.js';
+import {
+  type AztecAddress,
+  type CompleteAddress,
+  type Fq,
+  type Fr,
+  type PartialAddress,
+  type Point,
+} from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
@@ -37,6 +44,10 @@ export abstract class BaseWallet implements Wallet {
   abstract getVersion(): Fr;
 
   abstract createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest>;
+
+  abstract rotateNpkM(newNpkM: Point): ContractFunctionInteraction;
+
+  abstract rotateNskM(newNskM: Fq): Promise<void>;
 
   abstract createAuthWit(
     messageHashOrIntent:
