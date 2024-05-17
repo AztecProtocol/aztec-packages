@@ -174,7 +174,8 @@ describe('e2e_key_rotation', () => {
       const newNskM = Fq.random();
       newNpkM = derivePublicKeyFromSecretKey(newNskM);
 
-      // This function saves our new nullifier secret key in our PXE, and calls the key registry with the derived public key.
+      // This function saves the new nullifier secret key for the account in our PXE,
+      // and calls the key registry with the derived nullifier public key.
       await walletB.rotateNullifierKeys(newNskM);
 
       await crossDelay();
