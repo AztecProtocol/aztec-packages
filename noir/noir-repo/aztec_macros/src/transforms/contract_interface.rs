@@ -77,7 +77,8 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
                 for i in 0..{0}.len() {{
                     args_acc = args_acc.append(hash_{0}[i].as_slice());
                 }}\n",
-                        param_name, typ.typ
+                        param_name,
+                        typ.typ.to_string().replace("plain::", "")
                     )
                 }
                 _ => {
