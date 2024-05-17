@@ -110,8 +110,7 @@ export interface PXE {
    * @param address - The address of the account we want to rotate our key for.
    * @param newNskM - The new master nullifier secret key we want to use.
    * @remarks - This does not hinder our ability to spend notes tied to a previous master nullifier public key.
-   * Also, one should not use this function directly without also calling the canonical key registry, and it is preferred to use the function
-   * under the AccountWallet interface, as that implementation also returns a contract interaction one could use to call the key registry with.
+   * Also, one should not use this function directly without also calling the canonical key registry.
    */
   rotateNskMPxe(address: AztecAddress, newNskM: Fq): Promise<void>;
 
