@@ -6,7 +6,7 @@ import {
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputs,
+  type PrivateKernelResetCircuitPrivateInputsVariants,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   RECURSIVE_PROOF_LENGTH,
@@ -67,7 +67,7 @@ export class TestProofCreator implements ProofCreator {
   }
 
   public async createProofReset(
-    privateInputs: PrivateKernelResetCircuitPrivateInputs,
+    privateInputs: PrivateKernelResetCircuitPrivateInputsVariants,
   ): Promise<KernelProofOutput<PrivateKernelCircuitPublicInputs>> {
     const [duration, result] = await elapsed(() => executeReset(privateInputs));
     this.log.debug(`Simulated private kernel reset`, {

@@ -6,7 +6,7 @@ import {
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputs,
+  type PrivateKernelResetCircuitPrivateInputsVariants,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   Proof,
@@ -22,6 +22,7 @@ import { type Tuple } from '@aztec/foundation/serialize';
 import {
   ClientCircuitArtifacts,
   type ClientProtocolArtifact,
+  PrivateResetTagToArtifact,
   convertPrivateKernelInitInputsToWitnessMap,
   convertPrivateKernelInitOutputsFromWitnessMap,
   convertPrivateKernelInnerInputsToWitnessMap,
@@ -72,7 +73,16 @@ const PrivateKernelArtifactMapping: Record<ClientProtocolArtifact, PrivateKernel
   PrivateKernelTailArtifact: {
     convertOutputs: convertPrivateKernelTailOutputsFromWitnessMap,
   },
-  PrivateKernelResetArtifact: {
+  PrivateKernelResetFullArtifact: {
+    convertOutputs: convertPrivateKernelResetOutputsFromWitnessMap,
+  },
+  PrivateKernelResetBigArtifact: {
+    convertOutputs: convertPrivateKernelResetOutputsFromWitnessMap,
+  },
+  PrivateKernelResetMediumArtifact: {
+    convertOutputs: convertPrivateKernelResetOutputsFromWitnessMap,
+  },
+  PrivateKernelResetSmallArtifact: {
     convertOutputs: convertPrivateKernelResetOutputsFromWitnessMap,
   },
   PrivateKernelTailToPublicArtifact: {
@@ -121,10 +131,10 @@ export class BBNativeProofCreator implements ProofCreator {
   }
 
   public async createProofReset(
-    inputs: PrivateKernelResetCircuitPrivateInputs,
+    inputs: PrivateKernelResetCircuitPrivateInputsVariants,
   ): Promise<KernelProofOutput<PrivateKernelCircuitPublicInputs>> {
     const witnessMap = convertPrivateKernelResetInputsToWitnessMap(inputs);
-    return await this.createSafeProof(witnessMap, 'PrivateKernelResetArtifact');
+    return await this.createSafeProof(witnessMap, PrivateResetTagToArtifact[inputs.sizeTag]);
   }
 
   public async createProofTail(

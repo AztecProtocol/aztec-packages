@@ -9,6 +9,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "toml": "^3.0.0"
+    "@iarna/toml": "^2.2.5"
   }
 }
