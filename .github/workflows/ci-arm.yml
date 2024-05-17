@@ -1,7 +1,7 @@
 name: CI (ARM)
 on:
   push:
-    branches: [ad/test-arm]
+    branches: [master]
   workflow_dispatch:
     inputs: {}
 concurrency:
