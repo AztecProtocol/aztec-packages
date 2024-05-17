@@ -101,6 +101,7 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
                                       .multi_scalar_mul_constraints = {},
                                       .ec_add_constraints = {},
                                       .recursion_constraints = {},
+                                      .honk_recursion_constraints = {},
                                       .bigint_from_le_bytes_constraints = {},
                                       .bigint_to_le_bytes_constraints = {},
                                       .bigint_operations = {},
