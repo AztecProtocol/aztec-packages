@@ -57,7 +57,7 @@ async function getMasterSecretKeys(
     if (request.isEmpty()) {
       break;
     }
-    keys[i] = await oracle.getMasterNullifierSecretKey(request.masterNullifierPublicKey);
+    keys[i] = await oracle.getMasterNullifierSecretKey(request.masterPublicKey);
   }
   return keys;
 }

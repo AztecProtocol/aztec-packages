@@ -41,7 +41,7 @@ export class ValidationRequests {
       typeof MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX
     >,
     /**
-     * All the nullifier key validation requests made in this transaction.
+     * All the key validation requests made in this transaction.
      */
     public keyValidationRequests: Tuple<ScopedKeyValidationRequest, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
     /**

@@ -5,22 +5,22 @@ import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/
 import { KEY_VALIDATION_REQUEST_LENGTH, SCOPED_KEY_VALIDATION_REQUEST_LENGTH } from '../constants.gen.js';
 
 /**
- * Request for validating a nullifier key pair used in the app.
+ * Request for validating keys used in the app.
  */
 export class KeyValidationRequest {
   constructor(
     /**
-     * Public key of the nullifier key (Npk_m).
+     * Public key of the key (pk_m).
      */
-    public readonly masterNullifierPublicKey: Point,
+    public readonly masterPublicKey: Point,
     /**
-     * App-siloed nullifier secret key (nsk_app*).
+     * App-siloed secret key (sk_app*).
      */
-    public readonly appNullifierSecretKey: Fr,
+    public readonly appSecretKey: Fr,
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.masterNullifierPublicKey, this.appNullifierSecretKey);
+    return serializeToBuffer(this.masterPublicKey, this.appSecretKey);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
@@ -29,7 +29,7 @@ export class KeyValidationRequest {
   }
 
   toFields(): Fr[] {
-    const fields = [this.masterNullifierPublicKey.toFields(), this.appNullifierSecretKey].flat();
+    const fields = [this.masterPublicKey.toFields(), this.appSecretKey].flat();
     if (fields.length !== KEY_VALIDATION_REQUEST_LENGTH) {
       throw new Error(
         `Invalid number of fields for KeyValidationRequest. Expected ${KEY_VALIDATION_REQUEST_LENGTH}, got ${fields.length}`,
@@ -44,7 +44,7 @@ export class KeyValidationRequest {
   }
 
   isEmpty() {
-    return this.masterNullifierPublicKey.isZero() && this.appNullifierSecretKey.isZero();
+    return this.masterPublicKey.isZero() && this.appSecretKey.isZero();
   }
 
   static empty() {
@@ -53,7 +53,7 @@ export class KeyValidationRequest {
 }
 
 /**
- * Request for validating a nullifier key pair used in the app.
+ * Request for validating keys used in the app.
  */
 export class ScopedKeyValidationRequest {
   constructor(public readonly request: KeyValidationRequest, public readonly contractAddress: AztecAddress) {}
