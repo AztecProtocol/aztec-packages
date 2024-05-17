@@ -463,7 +463,6 @@ export abstract class AbstractPhaseManager {
       ),
       publicCallStackHashes,
       unencryptedLogsHashes: padArrayEnd(result.unencryptedLogsHashes, LogHash.empty(), MAX_UNENCRYPTED_LOGS_PER_CALL),
-      unencryptedLogPreimagesLength: result.unencryptedLogPreimagesLength,
       historicalHeader: this.historicalHeader,
       globalVariables: this.globalVariables,
       startGasLeft: Gas.from(result.startGasLeft),
