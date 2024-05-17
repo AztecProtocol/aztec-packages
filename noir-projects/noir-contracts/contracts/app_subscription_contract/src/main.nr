@@ -2,23 +2,19 @@ mod subscription_note;
 mod dapp_payload;
 
 contract AppSubscription {
-    use dep::std;
-    use crate::dapp_payload::DAppPayload;
-
-    use dep::aztec::prelude::{
+    use crate::{dapp_payload::DAppPayload, subscription_note::{SubscriptionNote, SUBSCRIPTION_NOTE_LEN}};
+    use dep::{
+        aztec::{
+        prelude::{
         AztecAddress, FunctionSelector, PrivateContext, NoteHeader, Map, PrivateMutable, PublicMutable,
         SharedImmutable
+    },
+        protocol_types::{traits::is_empty, grumpkin_point::GrumpkinPoint},
+        keys::getters::{get_npk_m_hash, get_ivpk_m}
+    },
+        authwit::{account::AccountActions, auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit},
+        gas_token::GasToken, token::Token
     };
-
-    use dep::aztec::protocol_types::traits::is_empty;
-
-    use dep::aztec::{context::Context, oracle::get_public_key::get_public_key};
-    use dep::authwit::{account::AccountActions, auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit};
-
-    use crate::subscription_note::{SubscriptionNote, SUBSCRIPTION_NOTE_LEN};
-
-    use dep::gas_token::GasToken;
-    use dep::token::Token;
 
     #[aztec(storage)]
     struct Storage {
@@ -38,18 +34,25 @@ contract AppSubscription {
     global SUBSCRIPTION_TXS = 5;
 
     #[aztec(private)]
-    fn entrypoint(payload: pub DAppPayload, user_address: pub AztecAddress) {
+    fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
         assert(context.msg_sender().to_field() == 0);
         assert_current_call_valid_authwit(&mut context, user_address);
 
-        let mut note = storage.subscriptions.at(user_address).get_note(false);
+        let mut note = storage.subscriptions.at(user_address).get_note(false, GrumpkinPoint::zero());
         assert(note.remaining_txs as u64 > 0, "you're out of txs");
 
         note.remaining_txs -= 1;
-        storage.subscriptions.at(user_address).replace(&mut note, true);
 
+        let subscriber_ivpk_m = get_ivpk_m(&mut context, user_address);
+        storage.subscriptions.at(user_address).replace(&mut note, true, subscriber_ivpk_m);
+
+        context.set_as_fee_payer();
         let gas_limit = storage.gas_token_limit_per_tx.read_private();
-        GasToken::at(storage.gas_token_address.read_private()).pay_fee(gas_limit).enqueue(&mut context);
+        context.set_public_teardown_function(
+            storage.gas_token_address.read_private(),
+            FunctionSelector::from_signature("pay_fee(Field)"),
+            [gas_limit]
+        );
 
         context.end_setup();
 
@@ -109,12 +112,14 @@ contract AppSubscription {
 
         // Assert that the given expiry_block_number < current_block_number + SUBSCRIPTION_DURATION_IN_BLOCKS.
         AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).static_enqueue(&mut context);
+        let subscriber_npk_m_hash = get_npk_m_hash(&mut context, subscriber_address);
+        let subscriber_ivpk_m = get_ivpk_m(&mut context, subscriber_address);
 
-        let mut subscription_note = SubscriptionNote::new(subscriber_address, expiry_block_number, tx_count);
+        let mut subscription_note = SubscriptionNote::new(subscriber_npk_m_hash, expiry_block_number, tx_count);
         if (!is_initialized(subscriber_address)) {
-            storage.subscriptions.at(subscriber_address).initialize(&mut subscription_note, true);
+            storage.subscriptions.at(subscriber_address).initialize(&mut subscription_note, true, subscriber_ivpk_m);
         } else {
-            storage.subscriptions.at(subscriber_address).replace(&mut subscription_note, true)
+            storage.subscriptions.at(subscriber_address).replace(&mut subscription_note, true, subscriber_ivpk_m)
         }
     }
 

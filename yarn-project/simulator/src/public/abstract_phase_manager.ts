@@ -2,6 +2,7 @@ import {
   MerkleTreeId,
   type ProcessReturnValues,
   type PublicKernelRequest,
+  PublicKernelType,
   type SimulationError,
   type Tx,
   type UnencryptedFunctionL2Logs,
@@ -17,6 +18,7 @@ import {
   type Header,
   type KernelCircuitPublicInputs,
   L2ToL1Message,
+  LogHash,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
@@ -31,7 +33,6 @@ import {
   MembershipWitness,
   NoteHash,
   Nullifier,
-  type PrivateKernelTailCircuitPublicInputs,
   type Proof,
   PublicCallData,
   type PublicCallRequest,
@@ -44,7 +45,6 @@ import {
   PublicKernelData,
   ReadRequest,
   RevertCode,
-  SideEffect,
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
@@ -80,6 +80,20 @@ export const PhaseIsRevertible: Record<PublicKernelPhase, boolean> = {
   [PublicKernelPhase.TEARDOWN]: false,
   [PublicKernelPhase.TAIL]: false,
 };
+
+// REFACTOR: Unify both enums and move to types or circuit-types.
+export function publicKernelPhaseToKernelType(phase: PublicKernelPhase): PublicKernelType {
+  switch (phase) {
+    case PublicKernelPhase.SETUP:
+      return PublicKernelType.SETUP;
+    case PublicKernelPhase.APP_LOGIC:
+      return PublicKernelType.APP_LOGIC;
+    case PublicKernelPhase.TEARDOWN:
+      return PublicKernelType.TEARDOWN;
+    case PublicKernelPhase.TAIL:
+      return PublicKernelType.TAIL;
+  }
+}
 
 export abstract class AbstractPhaseManager {
   protected hintsBuilder: HintsBuilder;
@@ -127,13 +141,12 @@ export abstract class AbstractPhaseManager {
      */
     revertReason: SimulationError | undefined;
     returnValues: ProcessReturnValues;
+    /** Gas used during the execution this particular phase. */
+    gasUsed: Gas | undefined;
   }>;
 
-  public static extractEnqueuedPublicCallsByPhase(
-    publicInputs: PrivateKernelTailCircuitPublicInputs,
-    enqueuedPublicFunctionCalls: PublicCallRequest[],
-  ): Record<PublicKernelPhase, PublicCallRequest[]> {
-    const data = publicInputs.forPublic;
+  public static extractEnqueuedPublicCallsByPhase(tx: Tx): Record<PublicKernelPhase, PublicCallRequest[]> {
+    const data = tx.data.forPublic;
     if (!data) {
       return {
         [PublicKernelPhase.SETUP]: [],
@@ -142,7 +155,7 @@ export abstract class AbstractPhaseManager {
         [PublicKernelPhase.TAIL]: [],
       };
     }
-    const publicCallsStack = enqueuedPublicFunctionCalls.slice().reverse();
+    const publicCallsStack = tx.enqueuedPublicFunctionCalls.slice().reverse();
     const nonRevertibleCallStack = data.endNonRevertibleData.publicCallStack.filter(i => !i.isEmpty());
     const revertibleCallStack = data.end.publicCallStack.filter(i => !i.isEmpty());
 
@@ -169,39 +182,40 @@ export abstract class AbstractPhaseManager {
       c => revertibleCallStack.findIndex(p => p.equals(c)) !== -1,
     );
 
+    const teardownCallStack = tx.publicTeardownFunctionCall.isEmpty() ? [] : [tx.publicTeardownFunctionCall];
+
     if (firstRevertibleCallIndex === 0) {
       return {
         [PublicKernelPhase.SETUP]: [],
         [PublicKernelPhase.APP_LOGIC]: publicCallsStack,
-        [PublicKernelPhase.TEARDOWN]: [],
+        [PublicKernelPhase.TEARDOWN]: teardownCallStack,
         [PublicKernelPhase.TAIL]: [],
       };
     } else if (firstRevertibleCallIndex === -1) {
       // there's no app logic, split the functions between setup (many) and teardown (just one function call)
       return {
-        [PublicKernelPhase.SETUP]: publicCallsStack.slice(0, -1),
+        [PublicKernelPhase.SETUP]: publicCallsStack,
         [PublicKernelPhase.APP_LOGIC]: [],
-        [PublicKernelPhase.TEARDOWN]: [publicCallsStack[publicCallsStack.length - 1]],
+        [PublicKernelPhase.TEARDOWN]: teardownCallStack,
         [PublicKernelPhase.TAIL]: [],
       };
     } else {
       return {
-        [PublicKernelPhase.SETUP]: publicCallsStack.slice(0, firstRevertibleCallIndex - 1),
+        [PublicKernelPhase.SETUP]: publicCallsStack.slice(0, firstRevertibleCallIndex),
         [PublicKernelPhase.APP_LOGIC]: publicCallsStack.slice(firstRevertibleCallIndex),
-        [PublicKernelPhase.TEARDOWN]: [publicCallsStack[firstRevertibleCallIndex - 1]],
+        [PublicKernelPhase.TEARDOWN]: teardownCallStack,
         [PublicKernelPhase.TAIL]: [],
       };
     }
   }
 
   protected extractEnqueuedPublicCalls(tx: Tx): PublicCallRequest[] {
-    const calls = AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx.data, tx.enqueuedPublicFunctionCalls)[
-      this.phase
-    ];
+    const calls = AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx)[this.phase];
 
     return calls;
   }
 
+  // REFACTOR: Do not return an array and instead return a struct with similar shape to that returned by `handle`
   protected async processEnqueuedPublicCalls(
     tx: Tx,
     previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
@@ -214,6 +228,7 @@ export abstract class AbstractPhaseManager {
       UnencryptedFunctionL2Logs[],
       SimulationError | undefined,
       ProcessReturnValues,
+      Gas,
     ]
   > {
     let kernelOutput = previousPublicKernelOutput;
@@ -223,7 +238,7 @@ export abstract class AbstractPhaseManager {
     const enqueuedCalls = this.extractEnqueuedPublicCalls(tx);
 
     if (!enqueuedCalls || !enqueuedCalls.length) {
-      return [[], kernelOutput, kernelProof, [], undefined, undefined];
+      return [[], kernelOutput, kernelProof, [], undefined, undefined, Gas.empty()];
     }
 
     const newUnencryptedFunctionLogs: UnencryptedFunctionL2Logs[] = [];
@@ -236,6 +251,7 @@ export abstract class AbstractPhaseManager {
     // and submitted separately to the base rollup?
 
     let returns: ProcessReturnValues = undefined;
+    let gasUsed = Gas.empty();
 
     for (const enqueuedCall of enqueuedCalls) {
       const executionStack: (PublicExecution | PublicExecutionResult)[] = [enqueuedCall];
@@ -263,7 +279,18 @@ export abstract class AbstractPhaseManager {
             )
           : current;
 
+        // Sanity check for a current upstream assumption.
+        // Consumers of the result seem to expect "reverted <=> revertReason !== undefined".
         const functionSelector = result.execution.functionData.selector.toString();
+        if (result.reverted && !result.revertReason) {
+          throw new Error(
+            `Simulation of ${result.execution.contractAddress.toString()}:${functionSelector} reverted with no reason.`,
+          );
+        }
+
+        // Accumulate gas used in this execution
+        gasUsed = gasUsed.add(Gas.from(result.startGasLeft).sub(Gas.from(result.endGasLeft)));
+
         if (result.reverted && !PhaseIsRevertible[this.phase]) {
           this.log.debug(
             `Simulation error on ${result.execution.contractAddress.toString()}:${functionSelector} with reason: ${
@@ -306,7 +333,8 @@ export abstract class AbstractPhaseManager {
               result.revertReason
             }`,
           );
-          return [[], kernelOutput, kernelProof, [], result.revertReason, undefined];
+          // TODO(@spalladino): Check gasUsed is correct. The AVM should take care of setting gasLeft to zero upon a revert.
+          return [[], kernelOutput, kernelProof, [], result.revertReason, undefined, gasUsed];
         }
 
         if (!enqueuedExecutionResult) {
@@ -322,7 +350,7 @@ export abstract class AbstractPhaseManager {
     // TODO(#3675): This should be done in a public kernel circuit
     removeRedundantPublicDataWrites(kernelOutput, this.phase);
 
-    return [publicKernelInputs, kernelOutput, kernelProof, newUnencryptedFunctionLogs, undefined, returns];
+    return [publicKernelInputs, kernelOutput, kernelProof, newUnencryptedFunctionLogs, undefined, returns, gasUsed];
   }
 
   /** Returns all pending private and public nullifiers.  */
@@ -423,11 +451,7 @@ export abstract class AbstractPhaseManager {
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
       ),
       publicCallStackHashes,
-      unencryptedLogsHashes: padArrayEnd(
-        result.unencryptedLogsHashes,
-        SideEffect.empty(),
-        MAX_UNENCRYPTED_LOGS_PER_CALL,
-      ),
+      unencryptedLogsHashes: padArrayEnd(result.unencryptedLogsHashes, LogHash.empty(), MAX_UNENCRYPTED_LOGS_PER_CALL),
       unencryptedLogPreimagesLength: result.unencryptedLogPreimagesLength,
       historicalHeader: this.historicalHeader,
       globalVariables: this.globalVariables,

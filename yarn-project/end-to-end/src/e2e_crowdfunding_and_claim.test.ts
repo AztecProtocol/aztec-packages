@@ -106,7 +106,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     logger.info(`Reward Token deployed to ${rewardToken.address}`);
 
     crowdfundingSecretKey = Fr.random();
-    crowdfundingPublicKeysHash = deriveKeys(crowdfundingSecretKey).publicKeysHash;
+    crowdfundingPublicKeysHash = deriveKeys(crowdfundingSecretKey).publicKeys.hash();
 
     const crowdfundingDeployment = CrowdfundingContract.deployWithPublicKeysHash(
       crowdfundingPublicKeysHash,
@@ -188,7 +188,8 @@ describe('e2e_crowdfunding_and_claim', () => {
         nonce: noteNonces[0],
       },
       value: extendedNote.note.items[0],
-      owner: extendedNote.note.items[1],
+      // eslint-disable-next-line camelcase
+      npk_m_hash: extendedNote.note.items[1],
       randomness: extendedNote.note.items[2],
     };
   };

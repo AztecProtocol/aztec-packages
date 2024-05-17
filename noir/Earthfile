@@ -44,6 +44,34 @@ test:
   COPY noir-repo/.rustfmt.toml noir-repo/.rustfmt.toml
   RUN ./scripts/test_native.sh
 
+examples:
+  FROM +nargo
+  ENV PATH="/usr/src/noir-repo/target/release:${PATH}"
+
+  COPY --dir noir-repo/examples noir-repo
+  COPY ../barretenberg/cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+
+  ENV BACKEND=/usr/src/barretenberg/cpp/build/bin/bb
+
+  WORKDIR noir-repo/examples/codegen-verifier
+  RUN ./test.sh
+
+  WORKDIR ../prove_and_verify
+  RUN ./test.sh
+
+format:
+  FROM +nargo
+  ENV PATH=$PATH:/usr/src/noir-repo/target/release
+
+  COPY ./noir-repo/test_programs ./noir-repo/test_programs
+  COPY ./noir-repo/noir_stdlib ./noir-repo/noir_stdlib
+
+  WORKDIR ./noir-repo/test_programs
+  RUN ./format.sh check
+
+  WORKDIR ../noir_stdlib
+  RUN nargo fmt --check
+
 packages-deps:
     BUILD ../barretenberg/ts/+build # prefetch
 
@@ -155,7 +183,6 @@ packages-test-browser:
     WORKDIR /usr/src/noir/noir-repo
     RUN ./.github/scripts/playwright-install.sh
     RUN yarn workspaces foreach \
-      --parallel \
       --verbose \
       --include integration-tests \
       --include @noir-lang/noir_wasm \

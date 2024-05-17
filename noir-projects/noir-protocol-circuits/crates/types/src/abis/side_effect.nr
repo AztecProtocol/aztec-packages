@@ -1,5 +1,5 @@
 use crate::{
-    abis::read_request::ReadRequestContext, address::AztecAddress,
+    abis::read_request::ScopedReadRequest, address::AztecAddress,
     constants::{GENERATOR_INDEX__SIDE_EFFECT, SIDE_EFFECT_LENGTH},
     traits::{Empty, Hash, Serialize, Deserialize}
 };
@@ -15,7 +15,7 @@ trait OrderedValue<T> where T: Eq {
 }
 
 trait Readable {
-    fn assert_match_read_request(self, read_request: ReadRequestContext);
+    fn assert_match_read_request(self, read_request: ScopedReadRequest);
 }
 
 struct SideEffect {
@@ -74,4 +74,12 @@ impl Deserialize<SIDE_EFFECT_LENGTH> for SideEffect {
             counter: values[1] as u32,
         }
     }
+}
+
+#[test]
+fn serialization_of_empty() {
+    let item = SideEffect::empty();
+    let serialized = item.serialize();
+    let deserialized = SideEffect::deserialize(serialized);
+    assert(item.eq(deserialized));
 }

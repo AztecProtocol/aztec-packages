@@ -37,6 +37,7 @@ import {
   GrumpkinScalar,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   L2ToL1Message,
+  LogHash,
   MAX_ENCRYPTED_LOGS_PER_CALL,
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
@@ -45,6 +46,8 @@ import {
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_CALL,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
@@ -54,7 +57,6 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_HINTS,
@@ -75,10 +77,9 @@ import {
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   NUM_MSGS_PER_BASE_PARITY,
   NoteHash,
-  NoteHashContext,
+  NoteLogHash,
   Nullifier,
   NullifierKeyValidationRequest,
-  NullifierKeyValidationRequestContext,
   NullifierLeafPreimage,
   NullifierNonExistentReadRequestHintsBuilder,
   NullifierReadRequestHintsBuilder,
@@ -90,12 +91,9 @@ import {
   PartialStateReference,
   Point,
   PreviousRollupData,
-  PrivateAccumulatedData,
   PrivateCallData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
-  PrivateKernelCircuitPublicInputs,
-  PrivateKernelData,
   PrivateKernelTailCircuitPublicInputs,
   Proof,
   PublicAccumulatedData,
@@ -116,14 +114,14 @@ import {
   RECURSIVE_PROOF_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
   ReadRequest,
-  ReadRequestContext,
   RevertCode,
   RollupTypes,
   RootParityInput,
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
-  SideEffect,
+  ScopedNullifierKeyValidationRequest,
+  ScopedReadRequest,
   StateDiffHints,
   StateReference,
   TxContext,
@@ -152,16 +150,16 @@ import { ValidationRequests } from '../structs/validation_requests.js';
  * @param seed - The seed to use for generating the object.
  * @returns A side effect object.
  */
-export function makeNewSideEffect(seed: number): SideEffect {
-  return new SideEffect(fr(seed), fr(seed + 1));
+function makeLogHash(seed: number) {
+  return new LogHash(fr(seed), seed + 1, fr(seed + 2));
+}
+
+function makeNoteLogHash(seed: number) {
+  return new NoteLogHash(fr(seed + 3), seed + 1, fr(seed + 2), seed);
 }
 
 function makeNoteHash(seed: number) {
   return new NoteHash(fr(seed), seed + 1);
-}
-
-function makeNoteHashContext(seed: number) {
-  return new NoteHashContext(fr(seed), seed + 1, seed + 2);
 }
 
 function makeNullifier(seed: number) {
@@ -207,8 +205,8 @@ function makeReadRequest(n: number): ReadRequest {
   return new ReadRequest(new Fr(BigInt(n)), n + 1);
 }
 
-function makeReadRequestContext(n: number): ReadRequestContext {
-  return new ReadRequestContext(new Fr(BigInt(n)), n + 1, AztecAddress.fromBigInt(BigInt(n + 2)));
+function makeScopedReadRequest(n: number): ScopedReadRequest {
+  return new ScopedReadRequest(makeReadRequest(n), AztecAddress.fromBigInt(BigInt(n + 2)));
 }
 
 /**
@@ -220,13 +218,8 @@ function makeNullifierKeyValidationRequest(seed: number): NullifierKeyValidation
   return new NullifierKeyValidationRequest(makePoint(seed), fr(seed + 2));
 }
 
-/**
- * Creates arbitrary NullifierKeyValidationRequestContext from the given seed.
- * @param seed - The seed to use for generating the NullifierKeyValidationRequestContext.
- * @returns A NullifierKeyValidationRequestContext.
- */
-function makeNullifierKeyValidationRequestContext(seed: number): NullifierKeyValidationRequestContext {
-  return new NullifierKeyValidationRequestContext(makePoint(seed), fr(seed + 2), makeAztecAddress(seed + 4));
+function makeScopedNullifierKeyValidationRequest(seed: number): ScopedNullifierKeyValidationRequest {
+  return new ScopedNullifierKeyValidationRequest(makeNullifierKeyValidationRequest(seed), makeAztecAddress(seed + 4));
 }
 
 /**
@@ -284,10 +277,10 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
 export function makeValidationRequests(seed = 1) {
   return new ValidationRequests(
     makeRollupValidationRequests(seed),
-    makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, makeReadRequestContext, seed + 0x80),
-    makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, makeReadRequestContext, seed + 0x90),
-    makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, makeReadRequestContext, seed + 0x95),
-    makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, makeNullifierKeyValidationRequestContext, seed + 0x100),
+    makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x80),
+    makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x90),
+    makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x95),
+    makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, makeScopedNullifierKeyValidationRequest, seed + 0x100),
     makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
   );
 }
@@ -312,10 +305,11 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
     tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, fr, seed + 0x120, Fr.zero),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200, Fr.zero),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
-    fr(seed + 0x700), // encrypted logs hash
-    fr(seed + 0x800), // unencrypted logs hash
-    fr(seed + 0x900), // encrypted_log_preimages_length
-    fr(seed + 0xa00), // unencrypted_log_preimages_length
+    fr(seed + 0x700), // note encrypted logs hash
+    fr(seed + 0x800), // encrypted logs hash
+    fr(seed + 0x900), // unencrypted logs hash
+    fr(seed + 0xa00), // encrypted_log_preimages_length
+    fr(seed + 0xb00), // unencrypted_log_preimages_length
     tupleGenerator(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       makePublicDataUpdateRequest,
@@ -342,10 +336,11 @@ export function makePublicAccumulatedData(seed = 1, full = false): PublicAccumul
     tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, makeNoteHash, seed + 0x120, NoteHash.empty),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, makeNullifier, seed + 0x200, Nullifier.empty),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
-    tupleGenerator(MAX_ENCRYPTED_LOGS_PER_TX, makeNewSideEffect, seed + 0x700, SideEffect.empty), // encrypted logs hashes
-    tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeNewSideEffect, seed + 0x800, SideEffect.empty), // unencrypted logs hashes
-    fr(seed + 0x900), // encrypted_log_preimages_length
-    fr(seed + 0xa00), // unencrypted_log_preimages_length
+    tupleGenerator(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, makeNoteLogHash, seed + 0x700, NoteLogHash.empty), // note encrypted logs hashes
+    tupleGenerator(MAX_ENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x800, LogHash.empty), // encrypted logs hashes
+    tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x900, LogHash.empty), // unencrypted logs hashes
+    fr(seed + 0xa00), // encrypted_log_preimages_length
+    fr(seed + 0xb00), // unencrypted_log_preimages_length
     tupleGenerator(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       makePublicDataUpdateRequest,
@@ -354,27 +349,6 @@ export function makePublicAccumulatedData(seed = 1, full = false): PublicAccumul
     ),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500, CallRequest.empty),
     makeGas(seed + 0x600),
-  );
-}
-
-/**
- * Creates arbitrary accumulated data.
- * @param seed - The seed to use for generating the accumulated data.
- * @returns An accumulated data.
- */
-export function makePrivateAccumulatedData(seed = 1, full = false) {
-  const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
-
-  return new PrivateAccumulatedData(
-    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, makeNoteHashContext, seed + 0x120, NoteHashContext.empty),
-    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, makeNullifier, seed + 0x200, Nullifier.empty),
-    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
-    tupleGenerator(MAX_ENCRYPTED_LOGS_PER_TX, makeNewSideEffect, seed + 0x700, SideEffect.empty), // encrypted logs hashes
-    tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeNewSideEffect, seed + 0x800, SideEffect.empty), // unencrypted logs hashes
-    fr(seed + 0x900), // encrypted_log_preimages_length
-    fr(seed + 0xa00), // unencrypted_log_preimages_length
-    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400, CallRequest.empty),
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500, CallRequest.empty),
   );
 }
 
@@ -442,7 +416,7 @@ export function makePublicCircuitPublicInputs(
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x900, L2ToL1Message.empty),
     fr(seed + 0xa00),
     fr(seed + 0xa01),
-    tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_CALL, makeNewSideEffect, seed + 0x901, SideEffect.empty),
+    tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_CALL, makeLogHash, seed + 0x901, LogHash.empty),
     fr(seed + 0x902),
     makeHeader(seed + 0xa00, undefined),
     makeGlobalVariables(seed + 0xa01),
@@ -463,6 +437,7 @@ export function makePublicKernelCircuitPublicInputs(
   seed = 1,
   fullAccumulatedData = true,
 ): PublicKernelCircuitPublicInputs {
+  const tupleGenerator = fullAccumulatedData ? makeTuple : makeHalfFullTuple;
   return new PublicKernelCircuitPublicInputs(
     makeAggregationObject(seed),
     makeValidationRequests(seed),
@@ -470,23 +445,8 @@ export function makePublicKernelCircuitPublicInputs(
     makePublicAccumulatedData(seed, fullAccumulatedData),
     makeConstantData(seed + 0x100),
     RevertCode.OK,
-    makeCallRequest(seed + 0x200),
-  );
-}
-
-/**
- * Creates arbitrary private kernel inner circuit public inputs.
- * @param seed - The seed to use for generating the kernel circuit public inputs.
- * @returns Private kernel circuit public inputs.
- */
-export function makePrivateKernelCircuitPublicInputs(seed = 1, full = true): PrivateKernelCircuitPublicInputs {
-  return new PrivateKernelCircuitPublicInputs(
-    makeAggregationObject(seed),
-    fr(seed + 0x100),
-    makeValidationRequests(seed),
-    makePrivateAccumulatedData(seed, full),
-    makeConstantData(seed + 0x100),
-    makeCallRequest(seed + 0x200),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x600, CallRequest.empty),
+    makeAztecAddress(seed + 0x700),
   );
 }
 
@@ -504,7 +464,7 @@ export function makePrivateKernelTailCircuitPublicInputs(
         ValidationRequests.empty(),
         makePublicAccumulatedData(seed + 0x100, false),
         makePublicAccumulatedData(seed + 0x200, false),
-        makeCallRequest(seed + 0x300),
+        makeHalfFullTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400, CallRequest.empty),
       )
     : undefined;
   const forRollup = !isForPublic
@@ -517,6 +477,7 @@ export function makePrivateKernelTailCircuitPublicInputs(
     makeAggregationObject(seed),
     makeConstantData(seed + 0x300),
     RevertCode.OK,
+    makeAztecAddress(seed + 0x700),
     forPublic,
     forRollup,
   );
@@ -535,6 +496,7 @@ export function makeKernelCircuitPublicInputs(seed = 1, fullAccumulatedData = tr
     makeConstantData(seed + 0x100),
     makePartialStateReference(seed + 0x200),
     RevertCode.OK,
+    makeAztecAddress(seed + 0x700),
   );
 }
 
@@ -635,22 +597,6 @@ export function makePublicKernelData(seed = 1, kernelPublicInputs?: PublicKernel
 export function makeRollupKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): KernelData {
   return new KernelData(
     kernelPublicInputs ?? makeKernelCircuitPublicInputs(seed, true),
-    new Proof(Buffer.alloc(16, seed + 0x80)),
-    makeVerificationKey(),
-    0x42,
-    makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
-  );
-}
-
-/**
- * Makes arbitrary previous kernel data.
- * @param seed - The seed to use for generating the previous kernel data.
- * @param inputs - The kernel public inputs to use for generating the private kernel inner data.
- * @returns A previous kernel data.
- */
-export function makePrivateKernelInnerData(seed = 1, inputs?: PrivateKernelCircuitPublicInputs): PrivateKernelData {
-  return new PrivateKernelData(
-    inputs ?? makePrivateKernelCircuitPublicInputs(seed, true),
     new Proof(Buffer.alloc(16, seed + 0x80)),
     makeVerificationKey(),
     0x42,
@@ -796,8 +742,9 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
     callStackItem: makePrivateCallStackItem(seed),
     privateCallStack: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, makeCallRequest, seed + 0x10),
     publicCallStack: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, makeCallRequest, seed + 0x20),
-    proof: new Proof(Buffer.alloc(16).fill(seed + 0x50)),
-    vk: makeVerificationKey(),
+    publicTeardownCallRequest: makeCallRequest(seed + 0x30),
+    proof: makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH, seed + 0x50),
+    vk: makeVerificationKeyAsFields(),
     contractClassArtifactHash: fr(seed + 0x70),
     contractClassPublicBytecodeCommitment: fr(seed + 0x71),
     publicKeysHash: fr(seed + 0x72),
@@ -847,12 +794,14 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     newL2ToL1Msgs: makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x800),
     startSideEffectCounter: fr(seed + 0x849),
     endSideEffectCounter: fr(seed + 0x850),
-    encryptedLogsHashes: makeTuple(MAX_ENCRYPTED_LOGS_PER_CALL, makeNewSideEffect, seed + 0x900),
-    unencryptedLogsHashes: makeTuple(MAX_UNENCRYPTED_LOGS_PER_CALL, makeNewSideEffect, seed + 0xa00),
+    noteEncryptedLogsHashes: makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, makeNoteLogHash, seed + 0x875),
+    encryptedLogsHashes: makeTuple(MAX_ENCRYPTED_LOGS_PER_CALL, makeLogHash, seed + 0x900),
+    unencryptedLogsHashes: makeTuple(MAX_UNENCRYPTED_LOGS_PER_CALL, makeLogHash, seed + 0xa00),
     encryptedLogPreimagesLength: fr(seed + 0xb00),
     unencryptedLogPreimagesLength: fr(seed + 0xc00),
     historicalHeader: makeHeader(seed + 0xd00, undefined),
     txContext: makeTxContext(seed + 0x1400),
+    isFeePayer: false,
   });
 }
 
@@ -1107,7 +1056,7 @@ export function makeL2ToL1Message(seed = 0): L2ToL1Message {
   const recipient = EthAddress.fromField(new Fr(seed));
   const content = new Fr(seed + 1);
 
-  return new L2ToL1Message(recipient, content);
+  return new L2ToL1Message(recipient, content, seed + 2);
 }
 
 /**

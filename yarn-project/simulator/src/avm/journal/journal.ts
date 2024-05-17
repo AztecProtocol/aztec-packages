@@ -6,10 +6,10 @@ import {
   ContractStorageUpdateRequest,
   EthAddress,
   L2ToL1Message,
+  LogHash,
   NoteHash,
   Nullifier,
   ReadRequest,
-  SideEffect,
 } from '@aztec/circuits.js';
 import { EventSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
@@ -64,7 +64,7 @@ type PartialPublicExecutionResult = {
   newNullifiers: Nullifier[];
   contractStorageReads: ContractStorageRead[];
   contractStorageUpdateRequests: ContractStorageUpdateRequest[];
-  unencryptedLogsHashes: SideEffect[];
+  unencryptedLogsHashes: LogHash[];
   unencryptedLogs: UnencryptedL2Log[];
   unencryptedLogPreimagesLength: Fr;
   allUnencryptedLogs: UnencryptedL2Log[];
@@ -119,7 +119,7 @@ export class AvmPersistableStateManager {
       contractStorageUpdateRequests: [],
       unencryptedLogsHashes: [],
       unencryptedLogs: [],
-      unencryptedLogPreimagesLength: new Fr(0),
+      unencryptedLogPreimagesLength: Fr.ZERO,
       allUnencryptedLogs: [],
       nestedExecutions: [],
     };
@@ -140,7 +140,7 @@ export class AvmPersistableStateManager {
    * @param value - the value being written to the slot
    */
   public writeStorage(storageAddress: Fr, slot: Fr, value: Fr) {
-    this.log.debug(`storage(${storageAddress})@${slot} <- ${value}`);
+    this.log.debug(`Storage write (address=${storageAddress}, slot=${slot}): value=${value}`);
     // Cache storage writes for later reference/reads
     this.publicStorage.write(storageAddress, slot, value);
 
@@ -171,7 +171,9 @@ export class AvmPersistableStateManager {
    */
   public async readStorage(storageAddress: Fr, slot: Fr): Promise<Fr> {
     const { value, exists, cached } = await this.publicStorage.read(storageAddress, slot);
-    this.log.debug(`storage(${storageAddress})@${slot} ?? value: ${value}, exists: ${exists}, cached: ${cached}.`);
+    this.log.debug(
+      `Storage read  (address=${storageAddress}, slot=${slot}): value=${value}, exists=${exists}, cached=${cached}`,
+    );
 
     // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
     // The current info to the kernel kernel does not consider cached reads.
@@ -252,7 +254,9 @@ export class AvmPersistableStateManager {
    */
   public async writeNullifier(storageAddress: Fr, nullifier: Fr) {
     // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
-    this.transitionalExecutionResult.newNullifiers.push(new Nullifier(nullifier, this.trace.accessCounter, Fr.ZERO));
+    this.transitionalExecutionResult.newNullifiers.push(
+      new Nullifier(nullifier, this.trace.accessCounter, /*noteHash=*/ Fr.ZERO),
+    );
 
     this.log.debug(`nullifiers(${storageAddress}) += ${nullifier}.`);
     // Cache pending nullifiers for later access
@@ -285,7 +289,7 @@ export class AvmPersistableStateManager {
   public writeL1Message(recipient: EthAddress | Fr, content: Fr) {
     this.log.debug(`L1Messages(${recipient}) += ${content}.`);
     const recipientAddress = recipient instanceof EthAddress ? recipient : EthAddress.fromField(recipient);
-    const message = new L2ToL1Message(recipientAddress, content);
+    const message = new L2ToL1Message(recipientAddress, content, 0);
     this.newL1Messages.push(message);
 
     // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
@@ -306,12 +310,14 @@ export class AvmPersistableStateManager {
     this.transitionalExecutionResult.allUnencryptedLogs.push(ulog);
     // this duplicates exactly what happens in the trace just for the purpose of transitional integration with the kernel
     this.transitionalExecutionResult.unencryptedLogsHashes.push(
-      new SideEffect(logHash, new Fr(this.trace.accessCounter)),
+      new LogHash(logHash, this.trace.accessCounter, new Fr(ulog.length)),
     );
     // Duplicates computation performed in public_context.nr::emit_unencrypted_log
     // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4).
-    this.transitionalExecutionResult.unencryptedLogPreimagesLength = new Fr(
-      this.transitionalExecutionResult.unencryptedLogPreimagesLength.toNumber() + 44 + log.length * Fr.SIZE_IN_BYTES,
+    // Note that ulog.length includes all the above bytes apart from processed log len
+    // Processed log len is added to replicate conversion to function_l2_logs at the end of exec.
+    this.transitionalExecutionResult.unencryptedLogPreimagesLength = new Fr(ulog.length + 4).add(
+      this.transitionalExecutionResult.unencryptedLogPreimagesLength,
     );
     // TODO(6206): likely need to track this here and not just in the transitional logic.
 
@@ -331,12 +337,12 @@ export class AvmPersistableStateManager {
     this.trace.acceptAndMerge(nestedJournal.trace);
 
     // Accrued Substate
-    this.newL1Messages = this.newL1Messages.concat(nestedJournal.newL1Messages);
-    this.newLogs = this.newLogs.concat(nestedJournal.newLogs);
+    this.newL1Messages.push(...nestedJournal.newL1Messages);
+    this.newLogs.push(...nestedJournal.newLogs);
 
     // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
-    this.transitionalExecutionResult.allUnencryptedLogs.concat(
-      nestedJournal.transitionalExecutionResult.allUnencryptedLogs,
+    this.transitionalExecutionResult.allUnencryptedLogs.push(
+      ...nestedJournal.transitionalExecutionResult.allUnencryptedLogs,
     );
   }
 

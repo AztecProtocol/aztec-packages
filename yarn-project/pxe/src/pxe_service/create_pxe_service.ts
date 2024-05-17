@@ -1,5 +1,7 @@
-import { type AztecNode } from '@aztec/circuit-types';
+import { BBNativeProofCreator } from '@aztec/bb-prover';
+import { type AztecNode, type ProofCreator } from '@aztec/circuit-types';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { TestKeyStore } from '@aztec/key-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { initStoreForRollup } from '@aztec/kv-store/utils';
@@ -13,8 +15,6 @@ import { join } from 'path';
 
 import { type PXEServiceConfig } from '../config/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
-import { BBNativeProofCreator } from '../kernel_prover/bb_prover/bb_native_proof_creator.js';
-import { type ProofCreator } from '../kernel_prover/interface/proof_creator.js';
 import { TestProofCreator } from '../kernel_prover/test/test_circuit_prover.js';
 import { PXEService } from './pxe_service.js';
 
@@ -55,7 +55,11 @@ export async function createPXEService(
     }
     prover = !config.proverEnabled
       ? new TestProofCreator()
-      : new BBNativeProofCreator(config.bbBinaryPath!, config.bbWorkingDirectory!);
+      : new BBNativeProofCreator(
+          config.bbBinaryPath!,
+          config.bbWorkingDirectory!,
+          createDebugLogger('aztec:pxe:bb-native-prover' + (logSuffix ? `:${logSuffix}` : '')),
+        );
   }
 
   const server = new PXEService(keyStore, aztecNode, db, prover, config, logSuffix);
