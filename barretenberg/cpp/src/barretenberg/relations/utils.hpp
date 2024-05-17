@@ -22,7 +22,7 @@ template <typename Flavor> class RelationUtils {
      * @brief General purpose method for applying an operation to a tuple of tuples of Univariates
      *
      * @tparam Operation Any operation valid on Univariates
-     * @tparam outer_idx Index into the outer tuplex
+     * @tparam outer_idx Index into the outer tuple
      * @tparam inner_idx Index into the inner tuple
      * @param tuple A Tuple of tuples of Univariates
      * @param operation Operation to apply to Univariates

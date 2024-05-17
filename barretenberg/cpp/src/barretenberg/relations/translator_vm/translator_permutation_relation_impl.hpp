@@ -1,5 +1,5 @@
 #pragma once
-#include "barretenberg/relations/translator_vm_relations/translator_permutation_relation.hpp"
+#include "barretenberg/relations/translator_vm/translator_permutation_relation.hpp"
 
 namespace bb {
 

@@ -1,10 +1,10 @@
 #include "./goblin_translator_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
-#include "barretenberg/relations/translator_vm_relations/translator_decomposition_relation_impl.hpp"
-#include "barretenberg/relations/translator_vm_relations/translator_delta_range_constraint_relation_impl.hpp"
-#include "barretenberg/relations/translator_vm_relations/translator_extra_relations_impl.hpp"
-#include "barretenberg/relations/translator_vm_relations/translator_non_native_field_relation_impl.hpp"
-#include "barretenberg/relations/translator_vm_relations/translator_permutation_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_decomposition_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_delta_range_constraint_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_extra_relations_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_non_native_field_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_permutation_relation_impl.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -65,9 +65,9 @@ std::array<typename Flavor::GroupElement, 2> GoblinTranslatorRecursiveVerifier_<
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
     transcript = std::make_shared<Transcript>(stdlib_proof);
 
-    // TODO(https: github.com/AztecProtocol/barretenberg/issues/985): Normally, the ECCVM verifier would have run
+    // TODO(github.com/AztecProtocol/barretenberg/issues/985): Normally, the ECCVM verifier would have run
     // before the translator and there will already by data in the transcript that can be hash to get the batching
-    // challenge. Once this
+    // challenge. Once this is implemented the hack can be removed.
     transcript->template receive_from_prover<BF>("init");
     batching_challenge_v = transcript->template get_challenge<BF>("Translation:batching_challenge");
 

@@ -10,11 +10,11 @@
 #include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/relations/translator_vm_relations/translator_decomposition_relation.hpp"
-#include "barretenberg/relations/translator_vm_relations/translator_delta_range_constraint_relation.hpp"
-#include "barretenberg/relations/translator_vm_relations/translator_extra_relations.hpp"
-#include "barretenberg/relations/translator_vm_relations/translator_non_native_field_relation.hpp"
-#include "barretenberg/relations/translator_vm_relations/translator_permutation_relation.hpp"
+#include "barretenberg/relations/translator_vm/translator_decomposition_relation.hpp"
+#include "barretenberg/relations/translator_vm/translator_delta_range_constraint_relation.hpp"
+#include "barretenberg/relations/translator_vm/translator_extra_relations.hpp"
+#include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
+#include "barretenberg/relations/translator_vm/translator_permutation_relation.hpp"
 #include "barretenberg/translator_vm/goblin_translator_circuit_builder.hpp"
 
 namespace bb {

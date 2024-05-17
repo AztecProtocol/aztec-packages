@@ -1,4 +1,4 @@
-#include "barretenberg/relations/translator_vm_relations/translator_extra_relations_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_extra_relations_impl.hpp"
 #include "barretenberg/translator_vm/goblin_translator_flavor.hpp"
 namespace bb {
 template class GoblinTranslatorOpcodeConstraintRelationImpl<fr>;

@@ -1,5 +1,5 @@
 #pragma once
-#include "barretenberg/relations/translator_vm_relations/translator_non_native_field_relation.hpp"
+#include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
 
 namespace bb {
 /**

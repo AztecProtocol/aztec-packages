@@ -212,7 +212,7 @@ template <typename TranscriptParams> class BaseTranscript {
         constexpr size_t element_fr_size = TranscriptParams::template calc_num_bn254_frs<T>();
         ASSERT(offset + element_fr_size <= proof_data.size());
 
-        auto element_frs = std::span{ proof_data }.subspan(offset + static_cast<size_t>(proof_start), element_fr_size);
+        auto element_frs = std::span{ proof_data }.subspan(offset, element_fr_size);
         offset += element_fr_size;
 
         auto element = TranscriptParams::template convert_from_bn254_frs<T>(element_frs);
