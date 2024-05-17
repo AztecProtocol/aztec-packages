@@ -293,66 +293,26 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from
             // a valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
             fq x0("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
-            fq x1("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
-            std::array<fq, 2> xs = { x0, x1 };
-
             fq y0("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
+
+            fq x1("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
             fq y1("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
-            std::array<fq, 2> ys = { y0, y1 };
-            for (size_t i = 0; i < 2; ++i) {
-                const auto group_element = g1::element(xs[i], ys[i], 1);
-
-                // const auto x = bb::field_conversion::convert_to_bn254_frs(const T &val);
-                const uint256_t x = group_element.x;
-                const uint256_t y = group_element.y;
-                const bb::fr x_1 = x.slice(0, stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION);
-
-                const bb::fr x_2 =
-                    x.slice(stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION, stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2);
-                const bb::fr x_3 = x.slice(stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2,
-                                           stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3);
-                const bb::fr x_4 =
-                    x.slice(stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3, bb::stdlib::field_conversion::TOTAL_BITS);
-
-                const bb::fr y_1 = y.slice(0, stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION);
-                const bb::fr y_2 =
-                    y.slice(stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION, stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2);
-                const bb::fr y_3 = y.slice(stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2,
-                                           stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3);
-                const bb::fr y_4 =
-                    y.slice(stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3, bb::stdlib::field_conversion::TOTAL_BITS);
-
-                uint32_t idx = builder.add_variable(x_1);
-                builder.set_public_input(idx);
-                current_aggregation_object[i * 8] = idx;
-
-                idx = builder.add_variable(x_2);
-                builder.set_public_input(idx);
-                current_aggregation_object[i * 8 + 1] = idx;
-
-                idx = builder.add_variable(x_3);
-                builder.set_public_input(idx);
-                current_aggregation_object[i * 8 + 2] = idx;
-
-                idx = builder.add_variable(x_4);
-                builder.set_public_input(idx);
-                current_aggregation_object[i * 8 + 3] = idx;
-
-                idx = builder.add_variable(y_1);
-                builder.set_public_input(idx);
-                current_aggregation_object[i * 8 + 4] = idx;
-
-                idx = builder.add_variable(y_2);
-                builder.set_public_input(idx);
-                current_aggregation_object[i * 8 + 5] = idx;
-
-                idx = builder.add_variable(y_3);
-                builder.set_public_input(idx);
-                current_aggregation_object[i * 8 + 6] = idx;
-
-                idx = builder.add_variable(y_4);
-                builder.set_public_input(idx);
-                current_aggregation_object[i * 8 + 7] = idx;
+            std::vector<fq> aggregation_object_fq_values = { x0, y0, x1, y1 };
+            size_t agg_obj_indices_idx = 0;
+            for (fq val : aggregation_object_fq_values) {
+                const uint256_t x = val;
+                std::array<bb::fr, fq_ct::NUM_LIMBS> val_limbs = {
+                    x.slice(0, fq_ct::NUM_LIMB_BITS),
+                    x.slice(fq_ct::NUM_LIMB_BITS, fq_ct::NUM_LIMB_BITS * 2),
+                    x.slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 3),
+                    x.slice(fq_ct::NUM_LIMB_BITS * 3, bb::stdlib::field_conversion::TOTAL_BITS)
+                };
+                for (size_t i = 0; i < fq_ct::NUM_LIMBS; ++i) {
+                    uint32_t idx = builder.add_variable(val_limbs[i]);
+                    builder.set_public_input(idx);
+                    current_aggregation_object[agg_obj_indices_idx] = idx;
+                    agg_obj_indices_idx++;
+                }
             }
             // Make sure the verification key records the public input indices of the
             // final recursion output.
