@@ -1,0 +1,9 @@
+#include "barretenberg/relations/translator_vm_relations/translator_extra_relations_impl.hpp"
+#include "barretenberg/translator_vm/goblin_translator_flavor.hpp"
+namespace bb {
+template class GoblinTranslatorOpcodeConstraintRelationImpl<fr>;
+template class GoblinTranslatorAccumulatorTransferRelationImpl<fr>;
+
+DEFINE_SUMCHECK_RELATION_CLASS(GoblinTranslatorOpcodeConstraintRelationImpl, GoblinTranslatorFlavor);
+DEFINE_SUMCHECK_RELATION_CLASS(GoblinTranslatorAccumulatorTransferRelationImpl, GoblinTranslatorFlavor);
+} // namespace bb

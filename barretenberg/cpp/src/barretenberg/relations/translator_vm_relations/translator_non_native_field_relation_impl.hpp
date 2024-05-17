@@ -1,5 +1,5 @@
-#include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
-#include "barretenberg/translator_vm/goblin_translator_flavor.hpp"
+#pragma once
+#include "barretenberg/relations/translator_vm_relations/translator_non_native_field_relation.hpp"
 
 namespace bb {
 /**
@@ -276,5 +276,4 @@ void GoblinTranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSub
     tmp *= scaling_factor;
     std::get<2>(accumulators) += tmp;
 };
-
 } // namespace bb

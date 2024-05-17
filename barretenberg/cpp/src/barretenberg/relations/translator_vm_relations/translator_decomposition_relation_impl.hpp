@@ -1,5 +1,5 @@
-#include "barretenberg/relations/translator_vm/translator_decomposition_relation.hpp"
-#include "barretenberg/translator_vm/goblin_translator_flavor.hpp"
+#pragma once
+#include "barretenberg/relations/translator_vm_relations/translator_decomposition_relation.hpp"
 
 namespace bb {
 
@@ -615,5 +615,4 @@ void GoblinTranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubr
     tmp_48 *= scaling_factor;
     std::get<47>(accumulators) += tmp_48;
 };
-
 } // namespace bb

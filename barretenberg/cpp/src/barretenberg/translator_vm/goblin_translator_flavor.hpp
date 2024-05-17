@@ -10,11 +10,11 @@
 #include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/relations/translator_vm/translator_decomposition_relation.hpp"
-#include "barretenberg/relations/translator_vm/translator_delta_range_constraint_relation.hpp"
-#include "barretenberg/relations/translator_vm/translator_extra_relations.hpp"
-#include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
-#include "barretenberg/relations/translator_vm/translator_permutation_relation.hpp"
+#include "barretenberg/relations/translator_vm_relations/translator_decomposition_relation.hpp"
+#include "barretenberg/relations/translator_vm_relations/translator_delta_range_constraint_relation.hpp"
+#include "barretenberg/relations/translator_vm_relations/translator_extra_relations.hpp"
+#include "barretenberg/relations/translator_vm_relations/translator_non_native_field_relation.hpp"
+#include "barretenberg/relations/translator_vm_relations/translator_permutation_relation.hpp"
 #include "barretenberg/translator_vm/goblin_translator_circuit_builder.hpp"
 
 namespace bb {
@@ -1033,373 +1033,380 @@ class GoblinTranslatorFlavor {
     };
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 
-    /**
-     * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
-     *
-     */
-    class Transcript : public NativeTranscript {
-      public:
-        // Transcript objects defined as public member variables for easy access and modification
-        uint32_t circuit_size;
-        BF evaluation_input_x;
-        BF accumculated_result;
-        Commitment op_comm;
-        Commitment x_lo_y_hi_comm;
-        Commitment x_hi_z_1_comm;
-        Commitment y_lo_z_2_comm;
-        Commitment p_x_low_limbs_comm;
-        Commitment p_x_low_limbs_range_constraint_0_comm;
-        Commitment p_x_low_limbs_range_constraint_1_comm;
-        Commitment p_x_low_limbs_range_constraint_2_comm;
-        Commitment p_x_low_limbs_range_constraint_3_comm;
-        Commitment p_x_low_limbs_range_constraint_4_comm;
-        Commitment p_x_low_limbs_range_constraint_tail_comm;
-        Commitment p_x_high_limbs_comm;
-        Commitment p_x_high_limbs_range_constraint_0_comm;
-        Commitment p_x_high_limbs_range_constraint_1_comm;
-        Commitment p_x_high_limbs_range_constraint_2_comm;
-        Commitment p_x_high_limbs_range_constraint_3_comm;
-        Commitment p_x_high_limbs_range_constraint_4_comm;
-        Commitment p_x_high_limbs_range_constraint_tail_comm;
-        Commitment p_y_low_limbs_comm;
-        Commitment p_y_low_limbs_range_constraint_0_comm;
-        Commitment p_y_low_limbs_range_constraint_1_comm;
-        Commitment p_y_low_limbs_range_constraint_2_comm;
-        Commitment p_y_low_limbs_range_constraint_3_comm;
-        Commitment p_y_low_limbs_range_constraint_4_comm;
-        Commitment p_y_low_limbs_range_constraint_tail_comm;
-        Commitment p_y_high_limbs_comm;
-        Commitment p_y_high_limbs_range_constraint_0_comm;
-        Commitment p_y_high_limbs_range_constraint_1_comm;
-        Commitment p_y_high_limbs_range_constraint_2_comm;
-        Commitment p_y_high_limbs_range_constraint_3_comm;
-        Commitment p_y_high_limbs_range_constraint_4_comm;
-        Commitment p_y_high_limbs_range_constraint_tail_comm;
-        Commitment z_low_limbs_comm;
-        Commitment z_low_limbs_range_constraint_0_comm;
-        Commitment z_low_limbs_range_constraint_1_comm;
-        Commitment z_low_limbs_range_constraint_2_comm;
-        Commitment z_low_limbs_range_constraint_3_comm;
-        Commitment z_low_limbs_range_constraint_4_comm;
-        Commitment z_low_limbs_range_constraint_tail_comm;
-        Commitment z_high_limbs_comm;
-        Commitment z_high_limbs_range_constraint_0_comm;
-        Commitment z_high_limbs_range_constraint_1_comm;
-        Commitment z_high_limbs_range_constraint_2_comm;
-        Commitment z_high_limbs_range_constraint_3_comm;
-        Commitment z_high_limbs_range_constraint_4_comm;
-        Commitment z_high_limbs_range_constraint_tail_comm;
-        Commitment accumulators_binary_limbs_0_comm;
-        Commitment accumulators_binary_limbs_1_comm;
-        Commitment accumulators_binary_limbs_2_comm;
-        Commitment accumulators_binary_limbs_3_comm;
-        Commitment accumulator_low_limbs_range_constraint_0_comm;
-        Commitment accumulator_low_limbs_range_constraint_1_comm;
-        Commitment accumulator_low_limbs_range_constraint_2_comm;
-        Commitment accumulator_low_limbs_range_constraint_3_comm;
-        Commitment accumulator_low_limbs_range_constraint_4_comm;
-        Commitment accumulator_low_limbs_range_constraint_tail_comm;
-        Commitment accumulator_high_limbs_range_constraint_0_comm;
-        Commitment accumulator_high_limbs_range_constraint_1_comm;
-        Commitment accumulator_high_limbs_range_constraint_2_comm;
-        Commitment accumulator_high_limbs_range_constraint_3_comm;
-        Commitment accumulator_high_limbs_range_constraint_4_comm;
-        Commitment accumulator_high_limbs_range_constraint_tail_comm;
-        Commitment quotient_low_binary_limbs_comm;
-        Commitment quotient_high_binary_limbs_comm;
-        Commitment quotient_low_limbs_range_constraint_0_comm;
-        Commitment quotient_low_limbs_range_constraint_1_comm;
-        Commitment quotient_low_limbs_range_constraint_2_comm;
-        Commitment quotient_low_limbs_range_constraint_3_comm;
-        Commitment quotient_low_limbs_range_constraint_4_comm;
-        Commitment quotient_low_limbs_range_constraint_tail_comm;
-        Commitment quotient_high_limbs_range_constraint_0_comm;
-        Commitment quotient_high_limbs_range_constraint_1_comm;
-        Commitment quotient_high_limbs_range_constraint_2_comm;
-        Commitment quotient_high_limbs_range_constraint_3_comm;
-        Commitment quotient_high_limbs_range_constraint_4_comm;
-        Commitment quotient_high_limbs_range_constraint_tail_comm;
-        Commitment relation_wide_limbs_comm;
-        Commitment relation_wide_limbs_range_constraint_0_comm;
-        Commitment relation_wide_limbs_range_constraint_1_comm;
-        Commitment relation_wide_limbs_range_constraint_2_comm;
-        Commitment relation_wide_limbs_range_constraint_3_comm;
-        Commitment ordered_range_constraints_0_comm;
-        Commitment ordered_range_constraints_1_comm;
-        Commitment ordered_range_constraints_2_comm;
-        Commitment ordered_range_constraints_3_comm;
-        Commitment ordered_range_constraints_4_comm;
-        Commitment z_perm_comm;
-        std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
-        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
-        std::vector<Commitment> zm_cq_comms;
-        Commitment zm_cq_comm;
-        Commitment kzg_w_comm;
+    // /**
+    //  * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
+    //  *
+    //  */
+    // class Transcript : public NativeTranscript {
+    //   public:
+    //     // Transcript objects defined as public member variables for easy access and modification
+    //     uint32_t circuit_size;
+    //     BF evaluation_input_x;
+    //     BF accumculated_result;
+    //     Commitment op_comm;
+    //     Commitment x_lo_y_hi_comm;
+    //     Commitment x_hi_z_1_comm;
+    //     Commitment y_lo_z_2_comm;
+    //     Commitment p_x_low_limbs_comm;
+    //     Commitment p_x_low_limbs_range_constraint_0_comm;
+    //     Commitment p_x_low_limbs_range_constraint_1_comm;
+    //     Commitment p_x_low_limbs_range_constraint_2_comm;
+    //     Commitment p_x_low_limbs_range_constraint_3_comm;
+    //     Commitment p_x_low_limbs_range_constraint_4_comm;
+    //     Commitment p_x_low_limbs_range_constraint_tail_comm;
+    //     Commitment p_x_high_limbs_comm;
+    //     Commitment p_x_high_limbs_range_constraint_0_comm;
+    //     Commitment p_x_high_limbs_range_constraint_1_comm;
+    //     Commitment p_x_high_limbs_range_constraint_2_comm;
+    //     Commitment p_x_high_limbs_range_constraint_3_comm;
+    //     Commitment p_x_high_limbs_range_constraint_4_comm;
+    //     Commitment p_x_high_limbs_range_constraint_tail_comm;
+    //     Commitment p_y_low_limbs_comm;
+    //     Commitment p_y_low_limbs_range_constraint_0_comm;
+    //     Commitment p_y_low_limbs_range_constraint_1_comm;
+    //     Commitment p_y_low_limbs_range_constraint_2_comm;
+    //     Commitment p_y_low_limbs_range_constraint_3_comm;
+    //     Commitment p_y_low_limbs_range_constraint_4_comm;
+    //     Commitment p_y_low_limbs_range_constraint_tail_comm;
+    //     Commitment p_y_high_limbs_comm;
+    //     Commitment p_y_high_limbs_range_constraint_0_comm;
+    //     Commitment p_y_high_limbs_range_constraint_1_comm;
+    //     Commitment p_y_high_limbs_range_constraint_2_comm;
+    //     Commitment p_y_high_limbs_range_constraint_3_comm;
+    //     Commitment p_y_high_limbs_range_constraint_4_comm;
+    //     Commitment p_y_high_limbs_range_constraint_tail_comm;
+    //     Commitment z_low_limbs_comm;
+    //     Commitment z_low_limbs_range_constraint_0_comm;
+    //     Commitment z_low_limbs_range_constraint_1_comm;
+    //     Commitment z_low_limbs_range_constraint_2_comm;
+    //     Commitment z_low_limbs_range_constraint_3_comm;
+    //     Commitment z_low_limbs_range_constraint_4_comm;
+    //     Commitment z_low_limbs_range_constraint_tail_comm;
+    //     Commitment z_high_limbs_comm;
+    //     Commitment z_high_limbs_range_constraint_0_comm;
+    //     Commitment z_high_limbs_range_constraint_1_comm;
+    //     Commitment z_high_limbs_range_constraint_2_comm;
+    //     Commitment z_high_limbs_range_constraint_3_comm;
+    //     Commitment z_high_limbs_range_constraint_4_comm;
+    //     Commitment z_high_limbs_range_constraint_tail_comm;
+    //     Commitment accumulators_binary_limbs_0_comm;
+    //     Commitment accumulators_binary_limbs_1_comm;
+    //     Commitment accumulators_binary_limbs_2_comm;
+    //     Commitment accumulators_binary_limbs_3_comm;
+    //     Commitment accumulator_low_limbs_range_constraint_0_comm;
+    //     Commitment accumulator_low_limbs_range_constraint_1_comm;
+    //     Commitment accumulator_low_limbs_range_constraint_2_comm;
+    //     Commitment accumulator_low_limbs_range_constraint_3_comm;
+    //     Commitment accumulator_low_limbs_range_constraint_4_comm;
+    //     Commitment accumulator_low_limbs_range_constraint_tail_comm;
+    //     Commitment accumulator_high_limbs_range_constraint_0_comm;
+    //     Commitment accumulator_high_limbs_range_constraint_1_comm;
+    //     Commitment accumulator_high_limbs_range_constraint_2_comm;
+    //     Commitment accumulator_high_limbs_range_constraint_3_comm;
+    //     Commitment accumulator_high_limbs_range_constraint_4_comm;
+    //     Commitment accumulator_high_limbs_range_constraint_tail_comm;
+    //     Commitment quotient_low_binary_limbs_comm;
+    //     Commitment quotient_high_binary_limbs_comm;
+    //     Commitment quotient_low_limbs_range_constraint_0_comm;
+    //     Commitment quotient_low_limbs_range_constraint_1_comm;
+    //     Commitment quotient_low_limbs_range_constraint_2_comm;
+    //     Commitment quotient_low_limbs_range_constraint_3_comm;
+    //     Commitment quotient_low_limbs_range_constraint_4_comm;
+    //     Commitment quotient_low_limbs_range_constraint_tail_comm;
+    //     Commitment quotient_high_limbs_range_constraint_0_comm;
+    //     Commitment quotient_high_limbs_range_constraint_1_comm;
+    //     Commitment quotient_high_limbs_range_constraint_2_comm;
+    //     Commitment quotient_high_limbs_range_constraint_3_comm;
+    //     Commitment quotient_high_limbs_range_constraint_4_comm;
+    //     Commitment quotient_high_limbs_range_constraint_tail_comm;
+    //     Commitment relation_wide_limbs_comm;
+    //     Commitment relation_wide_limbs_range_constraint_0_comm;
+    //     Commitment relation_wide_limbs_range_constraint_1_comm;
+    //     Commitment relation_wide_limbs_range_constraint_2_comm;
+    //     Commitment relation_wide_limbs_range_constraint_3_comm;
+    //     Commitment ordered_range_constraints_0_comm;
+    //     Commitment ordered_range_constraints_1_comm;
+    //     Commitment ordered_range_constraints_2_comm;
+    //     Commitment ordered_range_constraints_3_comm;
+    //     Commitment ordered_range_constraints_4_comm;
+    //     Commitment z_perm_comm;
+    //     std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
+    //     std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
+    //     std::vector<Commitment> zm_cq_comms;
+    //     Commitment zm_cq_comm;
+    //     Commitment kzg_w_comm;
 
-        Transcript() = default;
+    //     Transcript() = default;
 
-        // Used by verifier to initialize the transcript
-        Transcript(const std::vector<FF>& proof)
-            : NativeTranscript(proof)
-        {}
+    //     // Used by verifier to initialize the transcript
+    //     Transcript(const std::vector<FF>& proof)
+    //         : NativeTranscript(proof)
+    //     {}
 
-        static std::shared_ptr<Transcript> prover_init_empty()
-        {
-            auto transcript = std::make_shared<Transcript>();
-            constexpr uint32_t init{ 42 }; // arbitrary
-            transcript->send_to_verifier("Init", init);
-            return transcript;
-        };
+    //     static std::shared_ptr<Transcript> prover_init_empty()
+    //     {
+    //         auto transcript = std::make_shared<Transcript>();
+    //         constexpr uint32_t init{ 42 }; // arbitrary
+    //         transcript->send_to_verifier("Init", init);
+    //         return transcript;
+    //     };
 
-        static std::shared_ptr<Transcript> verifier_init_empty(const std::shared_ptr<Transcript>& transcript)
-        {
-            auto verifier_transcript = std::make_shared<Transcript>(transcript->proof_data);
-            [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<FF>("Init");
-            return verifier_transcript;
-        };
+    //     static std::shared_ptr<Transcript> verifier_init_empty(const std::shared_ptr<Transcript>& transcript)
+    //     {
+    //         auto verifier_transcript = std::make_shared<Transcript>(transcript->proof_data);
+    //         [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<FF>("Init");
+    //         return verifier_transcript;
+    //     };
 
-        /**
-         * @brief Takes a FULL Ultra proof and deserializes it into the public member variables
-         * that compose the structure. Must be called in order to access the structure of the
-         * proof.
-         *
-         */
-        void deserialize_full_transcript()
-        {
-            // take current proof and put them into the struct
-            size_t num_frs_read = 0;
-            circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
-            size_t log_n = numeric::get_msb(circuit_size);
-            evaluation_input_x = deserialize_from_buffer<BF>(proof_data, num_frs_read);
-            accumculated_result = deserialize_from_buffer<BF>(proof_data, num_frs_read);
-            op_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            x_lo_y_hi_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            x_hi_z_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            y_lo_z_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_x_low_limbs_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_x_low_limbs_range_constraint_0_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_x_low_limbs_range_constraint_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_x_low_limbs_range_constraint_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_x_low_limbs_range_constraint_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_x_low_limbs_range_constraint_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_x_low_limbs_range_constraint_tail_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_x_high_limbs_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_x_high_limbs_range_constraint_0_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_x_high_limbs_range_constraint_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_x_high_limbs_range_constraint_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_x_high_limbs_range_constraint_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_x_high_limbs_range_constraint_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_x_high_limbs_range_constraint_tail_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_y_low_limbs_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_y_low_limbs_range_constraint_0_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_y_low_limbs_range_constraint_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_y_low_limbs_range_constraint_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_y_low_limbs_range_constraint_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_y_low_limbs_range_constraint_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_y_low_limbs_range_constraint_tail_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_y_high_limbs_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_y_high_limbs_range_constraint_0_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_y_high_limbs_range_constraint_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_y_high_limbs_range_constraint_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_y_high_limbs_range_constraint_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_y_high_limbs_range_constraint_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            p_y_high_limbs_range_constraint_tail_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_low_limbs_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_low_limbs_range_constraint_0_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_low_limbs_range_constraint_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_low_limbs_range_constraint_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_low_limbs_range_constraint_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_low_limbs_range_constraint_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_low_limbs_range_constraint_tail_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_high_limbs_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_high_limbs_range_constraint_0_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_high_limbs_range_constraint_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_high_limbs_range_constraint_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_high_limbs_range_constraint_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_high_limbs_range_constraint_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_high_limbs_range_constraint_tail_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            accumulators_binary_limbs_0_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            accumulators_binary_limbs_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            accumulators_binary_limbs_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            accumulators_binary_limbs_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            accumulator_low_limbs_range_constraint_0_comm =
-                deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            accumulator_low_limbs_range_constraint_1_comm =
-                deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            accumulator_low_limbs_range_constraint_2_comm =
-                deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            accumulator_low_limbs_range_constraint_3_comm =
-                deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            accumulator_low_limbs_range_constraint_4_comm =
-                deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            accumulator_low_limbs_range_constraint_tail_comm =
-                deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            accumulator_high_limbs_range_constraint_0_comm =
-                deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            accumulator_high_limbs_range_constraint_1_comm =
-                deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            accumulator_high_limbs_range_constraint_2_comm =
-                deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            accumulator_high_limbs_range_constraint_3_comm =
-                deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            accumulator_high_limbs_range_constraint_4_comm =
-                deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            accumulator_high_limbs_range_constraint_tail_comm =
-                deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            quotient_low_binary_limbs_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            quotient_high_binary_limbs_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            quotient_low_limbs_range_constraint_0_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            quotient_low_limbs_range_constraint_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            quotient_low_limbs_range_constraint_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            quotient_low_limbs_range_constraint_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            quotient_low_limbs_range_constraint_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            quotient_low_limbs_range_constraint_tail_comm =
-                deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            quotient_high_limbs_range_constraint_0_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            quotient_high_limbs_range_constraint_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            quotient_high_limbs_range_constraint_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            quotient_high_limbs_range_constraint_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            quotient_high_limbs_range_constraint_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            quotient_high_limbs_range_constraint_tail_comm =
-                deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            relation_wide_limbs_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            relation_wide_limbs_range_constraint_0_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            relation_wide_limbs_range_constraint_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            relation_wide_limbs_range_constraint_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            relation_wide_limbs_range_constraint_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            ordered_range_constraints_0_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            ordered_range_constraints_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            ordered_range_constraints_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            ordered_range_constraints_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            ordered_range_constraints_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            for (size_t i = 0; i < log_n; ++i) {
-                sumcheck_univariates.push_back(
-                    deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(proof_data,
-                                                                                                 num_frs_read));
-            }
-            sumcheck_evaluations = deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_frs_read);
-            for (size_t i = 0; i < log_n; ++i) {
-                zm_cq_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
-            }
-            zm_cq_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            kzg_w_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-        }
-        /**
-         * @brief Serializes the structure variables into a FULL Ultra proof. Should be called
-         * only if deserialize_full_transcript() was called and some transcript variable was
-         * modified.
-         *
-         */
-        void serialize_full_transcript()
-        {
-            size_t old_proof_length = proof_data.size();
-            proof_data.clear(); // clear proof_data so the rest of the function can replace it
-            size_t log_n = numeric::get_msb(circuit_size);
-            serialize_to_buffer(circuit_size, proof_data);
-            serialize_to_buffer(evaluation_input_x, proof_data);
-            serialize_to_buffer(accumculated_result, proof_data);
-            serialize_to_buffer(op_comm, proof_data);
-            serialize_to_buffer(x_lo_y_hi_comm, proof_data);
-            serialize_to_buffer(x_hi_z_1_comm, proof_data);
-            serialize_to_buffer(y_lo_z_2_comm, proof_data);
-            serialize_to_buffer(p_x_low_limbs_comm, proof_data);
-            serialize_to_buffer(p_x_low_limbs_range_constraint_0_comm, proof_data);
-            serialize_to_buffer(p_x_low_limbs_range_constraint_1_comm, proof_data);
-            serialize_to_buffer(p_x_low_limbs_range_constraint_2_comm, proof_data);
-            serialize_to_buffer(p_x_low_limbs_range_constraint_3_comm, proof_data);
-            serialize_to_buffer(p_x_low_limbs_range_constraint_4_comm, proof_data);
-            serialize_to_buffer(p_x_low_limbs_range_constraint_tail_comm, proof_data);
-            serialize_to_buffer(p_x_high_limbs_comm, proof_data);
-            serialize_to_buffer(p_x_high_limbs_range_constraint_0_comm, proof_data);
-            serialize_to_buffer(p_x_high_limbs_range_constraint_1_comm, proof_data);
-            serialize_to_buffer(p_x_high_limbs_range_constraint_2_comm, proof_data);
-            serialize_to_buffer(p_x_high_limbs_range_constraint_3_comm, proof_data);
-            serialize_to_buffer(p_x_high_limbs_range_constraint_4_comm, proof_data);
-            serialize_to_buffer(p_x_high_limbs_range_constraint_tail_comm, proof_data);
-            serialize_to_buffer(p_y_low_limbs_comm, proof_data);
-            serialize_to_buffer(p_y_low_limbs_range_constraint_0_comm, proof_data);
-            serialize_to_buffer(p_y_low_limbs_range_constraint_1_comm, proof_data);
-            serialize_to_buffer(p_y_low_limbs_range_constraint_2_comm, proof_data);
-            serialize_to_buffer(p_y_low_limbs_range_constraint_3_comm, proof_data);
-            serialize_to_buffer(p_y_low_limbs_range_constraint_4_comm, proof_data);
-            serialize_to_buffer(p_y_low_limbs_range_constraint_tail_comm, proof_data);
-            serialize_to_buffer(p_y_high_limbs_comm, proof_data);
-            serialize_to_buffer(p_y_high_limbs_range_constraint_0_comm, proof_data);
-            serialize_to_buffer(p_y_high_limbs_range_constraint_1_comm, proof_data);
-            serialize_to_buffer(p_y_high_limbs_range_constraint_2_comm, proof_data);
-            serialize_to_buffer(p_y_high_limbs_range_constraint_3_comm, proof_data);
-            serialize_to_buffer(p_y_high_limbs_range_constraint_4_comm, proof_data);
-            serialize_to_buffer(p_y_high_limbs_range_constraint_tail_comm, proof_data);
-            serialize_to_buffer(z_low_limbs_comm, proof_data);
-            serialize_to_buffer(z_low_limbs_range_constraint_0_comm, proof_data);
-            serialize_to_buffer(z_low_limbs_range_constraint_1_comm, proof_data);
-            serialize_to_buffer(z_low_limbs_range_constraint_2_comm, proof_data);
-            serialize_to_buffer(z_low_limbs_range_constraint_3_comm, proof_data);
-            serialize_to_buffer(z_low_limbs_range_constraint_4_comm, proof_data);
-            serialize_to_buffer(z_low_limbs_range_constraint_tail_comm, proof_data);
-            serialize_to_buffer(z_high_limbs_comm, proof_data);
-            serialize_to_buffer(z_high_limbs_range_constraint_0_comm, proof_data);
-            serialize_to_buffer(z_high_limbs_range_constraint_1_comm, proof_data);
-            serialize_to_buffer(z_high_limbs_range_constraint_2_comm, proof_data);
-            serialize_to_buffer(z_high_limbs_range_constraint_3_comm, proof_data);
-            serialize_to_buffer(z_high_limbs_range_constraint_4_comm, proof_data);
-            serialize_to_buffer(z_high_limbs_range_constraint_tail_comm, proof_data);
-            serialize_to_buffer(accumulators_binary_limbs_0_comm, proof_data);
-            serialize_to_buffer(accumulators_binary_limbs_1_comm, proof_data);
-            serialize_to_buffer(accumulators_binary_limbs_2_comm, proof_data);
-            serialize_to_buffer(accumulators_binary_limbs_3_comm, proof_data);
-            serialize_to_buffer(accumulator_low_limbs_range_constraint_0_comm, proof_data);
-            serialize_to_buffer(accumulator_low_limbs_range_constraint_1_comm, proof_data);
-            serialize_to_buffer(accumulator_low_limbs_range_constraint_2_comm, proof_data);
-            serialize_to_buffer(accumulator_low_limbs_range_constraint_3_comm, proof_data);
-            serialize_to_buffer(accumulator_low_limbs_range_constraint_4_comm, proof_data);
-            serialize_to_buffer(accumulator_low_limbs_range_constraint_tail_comm, proof_data);
-            serialize_to_buffer(accumulator_high_limbs_range_constraint_0_comm, proof_data);
-            serialize_to_buffer(accumulator_high_limbs_range_constraint_1_comm, proof_data);
-            serialize_to_buffer(accumulator_high_limbs_range_constraint_2_comm, proof_data);
-            serialize_to_buffer(accumulator_high_limbs_range_constraint_3_comm, proof_data);
-            serialize_to_buffer(accumulator_high_limbs_range_constraint_4_comm, proof_data);
-            serialize_to_buffer(accumulator_high_limbs_range_constraint_tail_comm, proof_data);
-            serialize_to_buffer(quotient_low_binary_limbs_comm, proof_data);
-            serialize_to_buffer(quotient_high_binary_limbs_comm, proof_data);
-            serialize_to_buffer(quotient_low_limbs_range_constraint_0_comm, proof_data);
-            serialize_to_buffer(quotient_low_limbs_range_constraint_1_comm, proof_data);
-            serialize_to_buffer(quotient_low_limbs_range_constraint_2_comm, proof_data);
-            serialize_to_buffer(quotient_low_limbs_range_constraint_3_comm, proof_data);
-            serialize_to_buffer(quotient_low_limbs_range_constraint_4_comm, proof_data);
-            serialize_to_buffer(quotient_low_limbs_range_constraint_tail_comm, proof_data);
-            serialize_to_buffer(quotient_high_limbs_range_constraint_0_comm, proof_data);
-            serialize_to_buffer(quotient_high_limbs_range_constraint_1_comm, proof_data);
-            serialize_to_buffer(quotient_high_limbs_range_constraint_2_comm, proof_data);
-            serialize_to_buffer(quotient_high_limbs_range_constraint_3_comm, proof_data);
-            serialize_to_buffer(quotient_high_limbs_range_constraint_4_comm, proof_data);
-            serialize_to_buffer(quotient_high_limbs_range_constraint_tail_comm, proof_data);
-            serialize_to_buffer(relation_wide_limbs_comm, proof_data);
-            serialize_to_buffer(relation_wide_limbs_range_constraint_0_comm, proof_data);
-            serialize_to_buffer(relation_wide_limbs_range_constraint_1_comm, proof_data);
-            serialize_to_buffer(relation_wide_limbs_range_constraint_2_comm, proof_data);
-            serialize_to_buffer(relation_wide_limbs_range_constraint_3_comm, proof_data);
-            serialize_to_buffer(ordered_range_constraints_0_comm, proof_data);
-            serialize_to_buffer(ordered_range_constraints_1_comm, proof_data);
-            serialize_to_buffer(ordered_range_constraints_2_comm, proof_data);
-            serialize_to_buffer(ordered_range_constraints_3_comm, proof_data);
-            serialize_to_buffer(ordered_range_constraints_4_comm, proof_data);
-            serialize_to_buffer(z_perm_comm, proof_data);
+    //     /**
+    //      * @brief Takes a FULL Ultra proof and deserializes it into the public member variables
+    //      * that compose the structure. Must be called in order to access the structure of the
+    //      * proof.
+    //      *
+    //      */
+    //     void deserialize_full_transcript()
+    //     {
+    //         // take current proof and put them into the struct
+    //         size_t num_frs_read = 0;
+    //         circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
+    //         size_t log_n = numeric::get_msb(circuit_size);
+    //         evaluation_input_x = deserialize_from_buffer<BF>(proof_data, num_frs_read);
+    //         accumculated_result = deserialize_from_buffer<BF>(proof_data, num_frs_read);
+    //         op_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         x_lo_y_hi_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         x_hi_z_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         y_lo_z_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_x_low_limbs_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_x_low_limbs_range_constraint_0_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_x_low_limbs_range_constraint_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_x_low_limbs_range_constraint_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_x_low_limbs_range_constraint_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_x_low_limbs_range_constraint_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_x_low_limbs_range_constraint_tail_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_x_high_limbs_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_x_high_limbs_range_constraint_0_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_x_high_limbs_range_constraint_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_x_high_limbs_range_constraint_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_x_high_limbs_range_constraint_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_x_high_limbs_range_constraint_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_x_high_limbs_range_constraint_tail_comm = deserialize_from_buffer<Commitment>(proof_data,
+    //         num_frs_read); p_y_low_limbs_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_y_low_limbs_range_constraint_0_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_y_low_limbs_range_constraint_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_y_low_limbs_range_constraint_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_y_low_limbs_range_constraint_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_y_low_limbs_range_constraint_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_y_low_limbs_range_constraint_tail_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_y_high_limbs_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_y_high_limbs_range_constraint_0_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_y_high_limbs_range_constraint_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_y_high_limbs_range_constraint_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_y_high_limbs_range_constraint_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_y_high_limbs_range_constraint_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         p_y_high_limbs_range_constraint_tail_comm = deserialize_from_buffer<Commitment>(proof_data,
+    //         num_frs_read); z_low_limbs_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         z_low_limbs_range_constraint_0_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         z_low_limbs_range_constraint_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         z_low_limbs_range_constraint_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         z_low_limbs_range_constraint_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         z_low_limbs_range_constraint_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         z_low_limbs_range_constraint_tail_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         z_high_limbs_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         z_high_limbs_range_constraint_0_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         z_high_limbs_range_constraint_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         z_high_limbs_range_constraint_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         z_high_limbs_range_constraint_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         z_high_limbs_range_constraint_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         z_high_limbs_range_constraint_tail_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         accumulators_binary_limbs_0_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         accumulators_binary_limbs_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         accumulators_binary_limbs_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         accumulators_binary_limbs_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         accumulator_low_limbs_range_constraint_0_comm =
+    //             deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         accumulator_low_limbs_range_constraint_1_comm =
+    //             deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         accumulator_low_limbs_range_constraint_2_comm =
+    //             deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         accumulator_low_limbs_range_constraint_3_comm =
+    //             deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         accumulator_low_limbs_range_constraint_4_comm =
+    //             deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         accumulator_low_limbs_range_constraint_tail_comm =
+    //             deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         accumulator_high_limbs_range_constraint_0_comm =
+    //             deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         accumulator_high_limbs_range_constraint_1_comm =
+    //             deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         accumulator_high_limbs_range_constraint_2_comm =
+    //             deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         accumulator_high_limbs_range_constraint_3_comm =
+    //             deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         accumulator_high_limbs_range_constraint_4_comm =
+    //             deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         accumulator_high_limbs_range_constraint_tail_comm =
+    //             deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         quotient_low_binary_limbs_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         quotient_high_binary_limbs_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         quotient_low_limbs_range_constraint_0_comm = deserialize_from_buffer<Commitment>(proof_data,
+    //         num_frs_read); quotient_low_limbs_range_constraint_1_comm =
+    //         deserialize_from_buffer<Commitment>(proof_data, num_frs_read); quotient_low_limbs_range_constraint_2_comm
+    //         = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         quotient_low_limbs_range_constraint_3_comm = deserialize_from_buffer<Commitment>(proof_data,
+    //         num_frs_read); quotient_low_limbs_range_constraint_4_comm =
+    //         deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         quotient_low_limbs_range_constraint_tail_comm =
+    //             deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         quotient_high_limbs_range_constraint_0_comm = deserialize_from_buffer<Commitment>(proof_data,
+    //         num_frs_read); quotient_high_limbs_range_constraint_1_comm =
+    //         deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         quotient_high_limbs_range_constraint_2_comm = deserialize_from_buffer<Commitment>(proof_data,
+    //         num_frs_read); quotient_high_limbs_range_constraint_3_comm =
+    //         deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         quotient_high_limbs_range_constraint_4_comm = deserialize_from_buffer<Commitment>(proof_data,
+    //         num_frs_read); quotient_high_limbs_range_constraint_tail_comm =
+    //             deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         relation_wide_limbs_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         relation_wide_limbs_range_constraint_0_comm = deserialize_from_buffer<Commitment>(proof_data,
+    //         num_frs_read); relation_wide_limbs_range_constraint_1_comm =
+    //         deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         relation_wide_limbs_range_constraint_2_comm = deserialize_from_buffer<Commitment>(proof_data,
+    //         num_frs_read); relation_wide_limbs_range_constraint_3_comm =
+    //         deserialize_from_buffer<Commitment>(proof_data, num_frs_read); ordered_range_constraints_0_comm =
+    //         deserialize_from_buffer<Commitment>(proof_data, num_frs_read); ordered_range_constraints_1_comm =
+    //         deserialize_from_buffer<Commitment>(proof_data, num_frs_read); ordered_range_constraints_2_comm =
+    //         deserialize_from_buffer<Commitment>(proof_data, num_frs_read); ordered_range_constraints_3_comm =
+    //         deserialize_from_buffer<Commitment>(proof_data, num_frs_read); ordered_range_constraints_4_comm =
+    //         deserialize_from_buffer<Commitment>(proof_data, num_frs_read); z_perm_comm =
+    //         deserialize_from_buffer<Commitment>(proof_data, num_frs_read); for (size_t i = 0; i < log_n; ++i) {
+    //             sumcheck_univariates.push_back(
+    //                 deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(proof_data,
+    //                                                                                              num_frs_read));
+    //         }
+    //         sumcheck_evaluations = deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data,
+    //         num_frs_read); for (size_t i = 0; i < log_n; ++i) {
+    //             zm_cq_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
+    //         }
+    //         zm_cq_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //         kzg_w_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+    //     }
+    //     /**
+    //      * @brief Serializes the structure variables into a FULL Ultra proof. Should be called
+    //      * only if deserialize_full_transcript() was called and some transcript variable was
+    //      * modified.
+    //      *
+    //      */
+    //     void serialize_full_transcript()
+    //     {
+    //         size_t old_proof_length = proof_data.size();
+    //         proof_data.clear(); // clear proof_data so the rest of the function can replace it
+    //         size_t log_n = numeric::get_msb(circuit_size);
+    //         serialize_to_buffer(circuit_size, proof_data);
+    //         serialize_to_buffer(evaluation_input_x, proof_data);
+    //         serialize_to_buffer(accumculated_result, proof_data);
+    //         serialize_to_buffer(op_comm, proof_data);
+    //         serialize_to_buffer(x_lo_y_hi_comm, proof_data);
+    //         serialize_to_buffer(x_hi_z_1_comm, proof_data);
+    //         serialize_to_buffer(y_lo_z_2_comm, proof_data);
+    //         serialize_to_buffer(p_x_low_limbs_comm, proof_data);
+    //         serialize_to_buffer(p_x_low_limbs_range_constraint_0_comm, proof_data);
+    //         serialize_to_buffer(p_x_low_limbs_range_constraint_1_comm, proof_data);
+    //         serialize_to_buffer(p_x_low_limbs_range_constraint_2_comm, proof_data);
+    //         serialize_to_buffer(p_x_low_limbs_range_constraint_3_comm, proof_data);
+    //         serialize_to_buffer(p_x_low_limbs_range_constraint_4_comm, proof_data);
+    //         serialize_to_buffer(p_x_low_limbs_range_constraint_tail_comm, proof_data);
+    //         serialize_to_buffer(p_x_high_limbs_comm, proof_data);
+    //         serialize_to_buffer(p_x_high_limbs_range_constraint_0_comm, proof_data);
+    //         serialize_to_buffer(p_x_high_limbs_range_constraint_1_comm, proof_data);
+    //         serialize_to_buffer(p_x_high_limbs_range_constraint_2_comm, proof_data);
+    //         serialize_to_buffer(p_x_high_limbs_range_constraint_3_comm, proof_data);
+    //         serialize_to_buffer(p_x_high_limbs_range_constraint_4_comm, proof_data);
+    //         serialize_to_buffer(p_x_high_limbs_range_constraint_tail_comm, proof_data);
+    //         serialize_to_buffer(p_y_low_limbs_comm, proof_data);
+    //         serialize_to_buffer(p_y_low_limbs_range_constraint_0_comm, proof_data);
+    //         serialize_to_buffer(p_y_low_limbs_range_constraint_1_comm, proof_data);
+    //         serialize_to_buffer(p_y_low_limbs_range_constraint_2_comm, proof_data);
+    //         serialize_to_buffer(p_y_low_limbs_range_constraint_3_comm, proof_data);
+    //         serialize_to_buffer(p_y_low_limbs_range_constraint_4_comm, proof_data);
+    //         serialize_to_buffer(p_y_low_limbs_range_constraint_tail_comm, proof_data);
+    //         serialize_to_buffer(p_y_high_limbs_comm, proof_data);
+    //         serialize_to_buffer(p_y_high_limbs_range_constraint_0_comm, proof_data);
+    //         serialize_to_buffer(p_y_high_limbs_range_constraint_1_comm, proof_data);
+    //         serialize_to_buffer(p_y_high_limbs_range_constraint_2_comm, proof_data);
+    //         serialize_to_buffer(p_y_high_limbs_range_constraint_3_comm, proof_data);
+    //         serialize_to_buffer(p_y_high_limbs_range_constraint_4_comm, proof_data);
+    //         serialize_to_buffer(p_y_high_limbs_range_constraint_tail_comm, proof_data);
+    //         serialize_to_buffer(z_low_limbs_comm, proof_data);
+    //         serialize_to_buffer(z_low_limbs_range_constraint_0_comm, proof_data);
+    //         serialize_to_buffer(z_low_limbs_range_constraint_1_comm, proof_data);
+    //         serialize_to_buffer(z_low_limbs_range_constraint_2_comm, proof_data);
+    //         serialize_to_buffer(z_low_limbs_range_constraint_3_comm, proof_data);
+    //         serialize_to_buffer(z_low_limbs_range_constraint_4_comm, proof_data);
+    //         serialize_to_buffer(z_low_limbs_range_constraint_tail_comm, proof_data);
+    //         serialize_to_buffer(z_high_limbs_comm, proof_data);
+    //         serialize_to_buffer(z_high_limbs_range_constraint_0_comm, proof_data);
+    //         serialize_to_buffer(z_high_limbs_range_constraint_1_comm, proof_data);
+    //         serialize_to_buffer(z_high_limbs_range_constraint_2_comm, proof_data);
+    //         serialize_to_buffer(z_high_limbs_range_constraint_3_comm, proof_data);
+    //         serialize_to_buffer(z_high_limbs_range_constraint_4_comm, proof_data);
+    //         serialize_to_buffer(z_high_limbs_range_constraint_tail_comm, proof_data);
+    //         serialize_to_buffer(accumulators_binary_limbs_0_comm, proof_data);
+    //         serialize_to_buffer(accumulators_binary_limbs_1_comm, proof_data);
+    //         serialize_to_buffer(accumulators_binary_limbs_2_comm, proof_data);
+    //         serialize_to_buffer(accumulators_binary_limbs_3_comm, proof_data);
+    //         serialize_to_buffer(accumulator_low_limbs_range_constraint_0_comm, proof_data);
+    //         serialize_to_buffer(accumulator_low_limbs_range_constraint_1_comm, proof_data);
+    //         serialize_to_buffer(accumulator_low_limbs_range_constraint_2_comm, proof_data);
+    //         serialize_to_buffer(accumulator_low_limbs_range_constraint_3_comm, proof_data);
+    //         serialize_to_buffer(accumulator_low_limbs_range_constraint_4_comm, proof_data);
+    //         serialize_to_buffer(accumulator_low_limbs_range_constraint_tail_comm, proof_data);
+    //         serialize_to_buffer(accumulator_high_limbs_range_constraint_0_comm, proof_data);
+    //         serialize_to_buffer(accumulator_high_limbs_range_constraint_1_comm, proof_data);
+    //         serialize_to_buffer(accumulator_high_limbs_range_constraint_2_comm, proof_data);
+    //         serialize_to_buffer(accumulator_high_limbs_range_constraint_3_comm, proof_data);
+    //         serialize_to_buffer(accumulator_high_limbs_range_constraint_4_comm, proof_data);
+    //         serialize_to_buffer(accumulator_high_limbs_range_constraint_tail_comm, proof_data);
+    //         serialize_to_buffer(quotient_low_binary_limbs_comm, proof_data);
+    //         serialize_to_buffer(quotient_high_binary_limbs_comm, proof_data);
+    //         serialize_to_buffer(quotient_low_limbs_range_constraint_0_comm, proof_data);
+    //         serialize_to_buffer(quotient_low_limbs_range_constraint_1_comm, proof_data);
+    //         serialize_to_buffer(quotient_low_limbs_range_constraint_2_comm, proof_data);
+    //         serialize_to_buffer(quotient_low_limbs_range_constraint_3_comm, proof_data);
+    //         serialize_to_buffer(quotient_low_limbs_range_constraint_4_comm, proof_data);
+    //         serialize_to_buffer(quotient_low_limbs_range_constraint_tail_comm, proof_data);
+    //         serialize_to_buffer(quotient_high_limbs_range_constraint_0_comm, proof_data);
+    //         serialize_to_buffer(quotient_high_limbs_range_constraint_1_comm, proof_data);
+    //         serialize_to_buffer(quotient_high_limbs_range_constraint_2_comm, proof_data);
+    //         serialize_to_buffer(quotient_high_limbs_range_constraint_3_comm, proof_data);
+    //         serialize_to_buffer(quotient_high_limbs_range_constraint_4_comm, proof_data);
+    //         serialize_to_buffer(quotient_high_limbs_range_constraint_tail_comm, proof_data);
+    //         serialize_to_buffer(relation_wide_limbs_comm, proof_data);
+    //         serialize_to_buffer(relation_wide_limbs_range_constraint_0_comm, proof_data);
+    //         serialize_to_buffer(relation_wide_limbs_range_constraint_1_comm, proof_data);
+    //         serialize_to_buffer(relation_wide_limbs_range_constraint_2_comm, proof_data);
+    //         serialize_to_buffer(relation_wide_limbs_range_constraint_3_comm, proof_data);
+    //         serialize_to_buffer(ordered_range_constraints_0_comm, proof_data);
+    //         serialize_to_buffer(ordered_range_constraints_1_comm, proof_data);
+    //         serialize_to_buffer(ordered_range_constraints_2_comm, proof_data);
+    //         serialize_to_buffer(ordered_range_constraints_3_comm, proof_data);
+    //         serialize_to_buffer(ordered_range_constraints_4_comm, proof_data);
+    //         serialize_to_buffer(z_perm_comm, proof_data);
 
-            for (size_t i = 0; i < log_n; ++i) {
-                serialize_to_buffer(sumcheck_univariates[i], proof_data);
-            }
-            serialize_to_buffer(sumcheck_evaluations, proof_data);
-            for (size_t i = 0; i < log_n; ++i) {
-                serialize_to_buffer(zm_cq_comms[i], proof_data);
-            }
-            serialize_to_buffer(zm_cq_comm, proof_data);
-            serialize_to_buffer(kzg_w_comm, proof_data);
+    //         for (size_t i = 0; i < log_n; ++i) {
+    //             serialize_to_buffer(sumcheck_univariates[i], proof_data);
+    //         }
+    //         serialize_to_buffer(sumcheck_evaluations, proof_data);
+    //         for (size_t i = 0; i < log_n; ++i) {
+    //             serialize_to_buffer(zm_cq_comms[i], proof_data);
+    //         }
+    //         serialize_to_buffer(zm_cq_comm, proof_data);
+    //         serialize_to_buffer(kzg_w_comm, proof_data);
 
-            // sanity check to make sure we generate the same length of proof as before.
-            ASSERT(proof_data.size() == old_proof_length);
-        }
-    };
+    //         // sanity check to make sure we generate the same length of proof as before.
+    //         ASSERT(proof_data.size() == old_proof_length);
+    //     }
+    // };
+
+    using Transcript = NativeTranscript;
 };
 } // namespace bb
