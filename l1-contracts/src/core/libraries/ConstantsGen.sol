@@ -23,8 +23,8 @@ library Constants {
   uint256 internal constant MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL = 16;
   uint256 internal constant MAX_PUBLIC_DATA_READS_PER_CALL = 16;
   uint256 internal constant MAX_NOTE_HASH_READ_REQUESTS_PER_CALL = 32;
-  uint256 internal constant MAX_NULLIFIER_READ_REQUESTS_PER_CALL = 2;
-  uint256 internal constant MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL = 2;
+  uint256 internal constant MAX_NULLIFIER_READ_REQUESTS_PER_CALL = 32;
+  uint256 internal constant MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL = 32;
   uint256 internal constant MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL = 16;
   uint256 internal constant MAX_NOTE_ENCRYPTED_LOGS_PER_CALL = 16;
   uint256 internal constant MAX_ENCRYPTED_LOGS_PER_CALL = 4;
@@ -37,8 +37,8 @@ library Constants {
   uint256 internal constant MAX_PUBLIC_DATA_READS_PER_TX = 32;
   uint256 internal constant MAX_NEW_L2_TO_L1_MSGS_PER_TX = 2;
   uint256 internal constant MAX_NOTE_HASH_READ_REQUESTS_PER_TX = 128;
-  uint256 internal constant MAX_NULLIFIER_READ_REQUESTS_PER_TX = 8;
-  uint256 internal constant MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX = 8;
+  uint256 internal constant MAX_NULLIFIER_READ_REQUESTS_PER_TX = 128;
+  uint256 internal constant MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX = 128;
   uint256 internal constant MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX = 64;
   uint256 internal constant MAX_NOTE_ENCRYPTED_LOGS_PER_TX = 64;
   uint256 internal constant MAX_ENCRYPTED_LOGS_PER_TX = 8;
@@ -76,7 +76,6 @@ library Constants {
   uint256 internal constant INITIALIZATION_SLOT_SEPARATOR = 1000_000_000;
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant BLOB_SIZE_IN_BYTES = 31 * 4096;
-  uint256 internal constant NESTED_CALL_L2_GAS_BUFFER = 20000;
   uint256 internal constant MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 20000;
   uint256 internal constant MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS = 3000;
   uint256 internal constant MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS = 3000;
