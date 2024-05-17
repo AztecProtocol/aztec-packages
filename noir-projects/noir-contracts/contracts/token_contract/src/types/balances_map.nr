@@ -3,8 +3,7 @@ use dep::aztec::prelude::{
     PrivateSet, Map
 };
 use dep::aztec::{
-    context::PrivateContext, hash::pedersen_hash,
-    protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+    hash::pedersen_hash, protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     note::{note_getter::view_notes, note_getter_options::SortOrder},
     keys::getters::{get_npk_m_hash, get_ivpk_m}
 };

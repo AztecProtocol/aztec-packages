@@ -47,7 +47,7 @@ pub fn decrement_by_at_most(
     let options = create_note_getter_options_for_decreasing_balance(max_amount);
     let opt_notes = balance.get_notes(options);
 
-    let owner_npk_m_hash = get_npk_m_hash(balance.context.private.unwrap(), owner);
+    let owner_npk_m_hash = get_npk_m_hash(balance.context, owner);
 
     let mut decremented = 0;
     for i in 0..opt_notes.len() {
