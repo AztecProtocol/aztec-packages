@@ -104,12 +104,12 @@ global BLOB_SIZE_IN_BYTES: Field = 31 * 4096;
 global NESTED_CALL_L2_GAS_BUFFER = 20000;
 
 // CONTRACT CLASS CONSTANTS
-global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u64 = 32;
+global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u64 = 32000;
 // Bytecode size for private functions is per function, not for the entire contract.
 // Note that private functions bytecode includes a mix of acir and brillig.
-global MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS: u64 = 30;
+global MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS: u64 = 3000;
 // Same for unconstrained functions: the size is per function.
-global MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS: u64 = 30;
+global MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS: u64 = 3000;
 // How many fields are on the serialized ClassPrivateFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS.
 global REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u64 = 19;
 // How many fields are on the serialized ClassUnconstrainedFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS.
