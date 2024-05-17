@@ -1,4 +1,5 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
+import { VerificationKeyAsFields } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { makeBloatedProcessedTx } from '../mocks/fixtures.js';
@@ -27,7 +28,12 @@ describe('prover/bb_prover/base-rollup', () => {
     const tx = await makeBloatedProcessedTx(context.actualDb, 1);
 
     logger.verbose('Building base rollup inputs');
-    const baseRollupInputs = await buildBaseRollupInput(tx, context.globalVariables, context.actualDb);
+    const baseRollupInputs = await buildBaseRollupInput(
+      tx,
+      context.globalVariables,
+      context.actualDb,
+      VerificationKeyAsFields.makeFake(),
+    );
     logger.verbose('Proving base rollups');
     const proofOutputs = await context.prover.getBaseRollupProof(baseRollupInputs);
     logger.verbose('Verifying base rollups');

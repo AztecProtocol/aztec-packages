@@ -27,13 +27,14 @@ import {
   type NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
-  type Proof,
   type PublicKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
   type RootParityInput,
   RootParityInputs,
   type VerificationKeyAsFields,
+  VerificationKeyData,
+  VerificationKeys,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
@@ -93,6 +94,7 @@ export class ProvingOrchestrator {
    * @param globalVariables - The global variables for the block
    * @param l1ToL2Messages - The l1 to l2 messages for the block
    * @param emptyTx - The instance of an empty transaction to be used to pad this block
+   * @param verificationKeys - The private kernel verification keys
    * @returns A proving ticket, containing a promise notifying of proving completion
    */
   public async startNewBlock(
@@ -100,6 +102,7 @@ export class ProvingOrchestrator {
     globalVariables: GlobalVariables,
     l1ToL2Messages: Fr[],
     emptyTx: ProcessedTx,
+    verificationKeys: VerificationKeys,
   ): Promise<ProvingTicket> {
     // Check that the length of the array of txs is a power of two
     // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
@@ -157,6 +160,7 @@ export class ProvingOrchestrator {
       emptyTx,
       messageTreeSnapshot,
       newL1ToL2MessageTreeRootSiblingPath,
+      verificationKeys,
     );
 
     for (let i = 0; i < baseParityInputs.length; i++) {
@@ -279,7 +283,10 @@ export class ProvingOrchestrator {
    * @param provingState - The proving state being worked on
    */
   private async startTransaction(tx: ProcessedTx, provingState: ProvingState) {
-    const txInputs = await this.prepareBaseRollupInputs(provingState, tx);
+    const previousKernelVerificationKey = tx.publicKernelRequests.length
+      ? provingState.privateKernelVerificationKeys.privateKernelToPublicCircuit
+      : provingState.privateKernelVerificationKeys.privateKernelCircuit;
+    const txInputs = await this.prepareBaseRollupInputs(provingState, tx, previousKernelVerificationKey);
     if (!txInputs) {
       // This should not be possible
       throw new Error(`Unable to add padding transaction, preparing base inputs failed`);
@@ -368,12 +375,13 @@ export class ProvingOrchestrator {
   private async prepareBaseRollupInputs(
     provingState: ProvingState | undefined,
     tx: ProcessedTx,
+    kernelVk: VerificationKeyData,
   ): Promise<[BaseRollupInputs, TreeSnapshots] | undefined> {
     if (!provingState?.verifyState()) {
       logger.debug('Not preparing base rollup inputs, state invalid');
       return;
     }
-    const inputs = await buildBaseRollupInput(tx, provingState.globalVariables, this.db);
+    const inputs = await buildBaseRollupInput(tx, provingState.globalVariables, this.db, kernelVk);
     const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
       async (id: MerkleTreeId) => {
         return { key: id, value: await getTreeSnapshot(id, this.db) };

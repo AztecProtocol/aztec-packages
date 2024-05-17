@@ -37,13 +37,12 @@ import {
   type StateReference,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
+  VerificationKeyData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { type MerkleTreeOperations } from '@aztec/world-state';
-
-import { type VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 
 // Denotes fields that are not used now, but will be in the future
 const FUTURE_FR = new Fr(0n);
@@ -66,6 +65,7 @@ export async function buildBaseRollupInput(
   tx: ProcessedTx,
   globalVariables: GlobalVariables,
   db: MerkleTreeOperations,
+  kernelVk: VerificationKeyData,
 ) {
   // Get trees info before any changes hit
   const constants = await getConstantRollupData(globalVariables, db);
@@ -150,7 +150,7 @@ export async function buildBaseRollupInput(
   );
 
   return BaseRollupInputs.from({
-    kernelData: getKernelDataFor(tx, getVerificationKeys()),
+    kernelData: getKernelDataFor(tx, kernelVk),
     start,
     stateDiffHints,
 
@@ -286,7 +286,7 @@ export async function getTreeSnapshot(id: MerkleTreeId, db: MerkleTreeOperations
   return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
 }
 
-export function getKernelDataFor(tx: ProcessedTx, vks: VerificationKeys): KernelData {
+export function getKernelDataFor(tx: ProcessedTx, vk: VerificationKeyData): KernelData {
   const recursiveProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
   recursiveProof.binaryProof = tx.proof;
   return new KernelData(
@@ -294,7 +294,7 @@ export function getKernelDataFor(tx: ProcessedTx, vks: VerificationKeys): Kernel
     recursiveProof,
 
     // VK for the kernel circuit
-    vks.privateKernelCircuit,
+    vk,
 
     // MembershipWitness for a VK tree to be implemented in the future
     FUTURE_NUM,

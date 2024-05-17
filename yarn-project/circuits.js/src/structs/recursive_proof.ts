@@ -22,6 +22,10 @@ export class RecursiveProof<N extends number> {
      * Holds the serialized proof data in a binary buffer, this contains the public inputs
      */
     public binaryProof: Proof,
+    /**
+     * This flag determines if the 'proof' member is valid, or if we need to generate it from the 'binaryProof' first
+     */
+    public fieldsValid: boolean,
   ) {}
 
   /**
@@ -33,7 +37,7 @@ export class RecursiveProof<N extends number> {
    */
   static fromBuffer<N extends number>(buffer: Buffer | BufferReader, size: N): RecursiveProof<N> {
     const reader = BufferReader.asReader(buffer);
-    return new RecursiveProof<N>(reader.readArray(size, Fr), Proof.fromBuffer(reader));
+    return new RecursiveProof<N>(reader.readArray(size, Fr), Proof.fromBuffer(reader), reader.readBoolean());
   }
 
   /**
@@ -43,7 +47,7 @@ export class RecursiveProof<N extends number> {
    * @returns A Buffer containing the serialized proof data in custom format.
    */
   public toBuffer() {
-    return serializeToBuffer(this.proof, this.binaryProof);
+    return serializeToBuffer(this.proof, this.binaryProof, this.fieldsValid);
   }
 
   /**
@@ -70,12 +74,13 @@ export class RecursiveProof<N extends number> {
  * @returns The empty "proof".
  */
 export function makeEmptyRecursiveProof<N extends number>(size: N) {
-  return new RecursiveProof(makeTuple<Fr, N>(size, Fr.zero), makeEmptyProof());
+  return new RecursiveProof(makeTuple<Fr, N>(size, Fr.zero), makeEmptyProof(), false);
 }
 
 export function makeRecursiveProof<PROOF_LENGTH extends number>(size: PROOF_LENGTH, seed = 1) {
   return new RecursiveProof<PROOF_LENGTH>(
     makeTuple<Fr, PROOF_LENGTH>(size, (i: number) => new Fr(i), seed),
     makeEmptyProof(),
+    false,
   );
 }

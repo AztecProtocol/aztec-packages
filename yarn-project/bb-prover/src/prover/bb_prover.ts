@@ -24,13 +24,12 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
-  type VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  VerificationKeyAsFields,
+  type VerificationKeyAsFields,
+  type VerificationKeyData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type Tuple } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import {
   ServerCircuitArtifacts,
@@ -57,21 +56,18 @@ import {
   BB_RESULT,
   PROOF_FIELDS_FILENAME,
   PROOF_FILENAME,
-  VK_FIELDS_FILENAME,
-  VK_FILENAME,
   generateKeyForNoirCircuit,
   generateProof,
   verifyProof,
+  writeProofAsFields,
 } from '../bb/execute.js';
 import { PublicKernelArtifactMapping } from '../mappings/mappings.js';
 import { circuitTypeToCircuitName, emitCircuitProvingStats, emitCircuitWitnessGenerationStats } from '../stats.js';
 import {
   AGGREGATION_OBJECT_SIZE,
-  CIRCUIT_PUBLIC_INPUTS_INDEX,
-  CIRCUIT_RECURSIVE_INDEX,
-  CIRCUIT_SIZE_INDEX,
-  type VerificationKeyData,
-} from './verification_key_data.js';
+  extractVkData,
+  getNumPublicInputsFromVKFields,
+} from '../verification_key/verification_key_data.js';
 
 const logger = createDebugLogger('aztec:bb-prover');
 
@@ -123,9 +119,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('BaseParityArtifact');
 
-    const vk = new VerificationKeyAsFields(verificationKey.keyAsFields, verificationKey.hash);
-
-    return new RootParityInput(proof, vk, circuitOutput);
+    return new RootParityInput(proof, verificationKey.keyAsFields, circuitOutput);
   }
 
   /**
@@ -145,9 +139,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('RootParityArtifact');
 
-    const vk = new VerificationKeyAsFields(verificationKey.keyAsFields, verificationKey.hash);
-
-    return new RootParityInput(proof, vk, circuitOutput);
+    return new RootParityInput(proof, verificationKey.keyAsFields, circuitOutput);
   }
 
   /**
@@ -171,9 +163,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const verificationKey = await this.getVerificationKeyDataForCircuit(kernelOps.artifact);
 
-    const vk = new VerificationKeyAsFields(verificationKey.keyAsFields, verificationKey.hash);
-
-    return makePublicInputsAndProof(circuitOutput, proof, vk);
+    return makePublicInputsAndProof(circuitOutput, proof, verificationKey.keyAsFields);
   }
 
   /**
@@ -193,9 +183,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('PublicKernelTailArtifact');
 
-    const vk = new VerificationKeyAsFields(verificationKey.keyAsFields, verificationKey.hash);
-
-    return makePublicInputsAndProof(circuitOutput, proof, vk);
+    return makePublicInputsAndProof(circuitOutput, proof, verificationKey.keyAsFields);
   }
 
   /**
@@ -206,6 +194,11 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   public async getBaseRollupProof(
     input: BaseRollupInputs,
   ): Promise<PublicInputsAndProof<BaseOrMergeRollupPublicInputs>> {
+    input.kernelData.proof = await this.ensureValidProof(
+      input.kernelData.proof,
+      'BaseRollupArtifact',
+      input.kernelData.vk,
+    );
     const witnessMap = convertBaseRollupInputsToWitnessMap(input);
 
     const [circuitOutput, proof] = await this.createRecursiveProof<
@@ -215,9 +208,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('BaseRollupArtifact');
 
-    const vk = new VerificationKeyAsFields(verificationKey.keyAsFields, verificationKey.hash);
-
-    return makePublicInputsAndProof(circuitOutput, proof, vk);
+    return makePublicInputsAndProof(circuitOutput, proof, verificationKey.keyAsFields);
   }
   /**
    * Simulates the merge rollup circuit from its inputs.
@@ -236,9 +227,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('MergeRollupArtifact');
 
-    const vk = new VerificationKeyAsFields(verificationKey.keyAsFields, verificationKey.hash);
-
-    return makePublicInputsAndProof(circuitOutput, proof, vk);
+    return makePublicInputsAndProof(circuitOutput, proof, verificationKey.keyAsFields);
   }
 
   /**
@@ -259,8 +248,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('RootRollupArtifact');
 
-    const vk = new VerificationKeyAsFields(verificationKey.keyAsFields, verificationKey.hash);
-    return makePublicInputsAndProof(result, recursiveProof, vk);
+    return makePublicInputsAndProof(result, recursiveProof, verificationKey.keyAsFields);
   }
 
   // TODO(@PhilWindle): Delete when no longer required
@@ -439,7 +427,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const verificationKeyPath = `${bbWorkingDirectory}/vk`;
     const verificationKey = await this.getVerificationKeyDataForCircuit(circuitType);
 
-    logger.debug(`Verifying with key: ${verificationKey.hash.toString()}`);
+    logger.debug(`Verifying with key: ${verificationKey.keyAsFields.hash.toString()}`);
 
     await fs.writeFile(proofFileName, proof.buffer);
     await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
@@ -467,7 +455,60 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async getVerificationKeyForCircuit(circuitType: ServerProtocolArtifact): Promise<VerificationKeyAsFields> {
     const vkData = await this.getVerificationKeyDataForCircuit(circuitType);
-    return new VerificationKeyAsFields(vkData.keyAsFields, vkData.hash);
+    return vkData.clone().keyAsFields;
+  }
+
+  /**
+   * Will check a recursive proof argument for validity of it's 'fields' format of proof and convert if required
+   * @param proof - The input proof that may need converting
+   * @returns - The valid proof
+   */
+  public async ensureValidProof(
+    proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+    circuit: ServerProtocolArtifact,
+    vk: VerificationKeyData,
+  ) {
+    const numPublicInputs = getNumPublicInputsFromVKFields(vk.keyAsFields) - AGGREGATION_OBJECT_SIZE;
+    // Create random directory to be used for temp files
+    const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
+    try {
+      await fs.mkdir(bbWorkingDirectory, { recursive: true });
+      const proofFullFilename = `${bbWorkingDirectory}/${PROOF_FILENAME}`;
+      const vkFullFilename = `${bbWorkingDirectory}/vk`;
+
+      logger.debug(`Converting proof to fields format for circuit ${circuit}, directory ${bbWorkingDirectory}`);
+
+      await fs.writeFile(proofFullFilename, proof.binaryProof.buffer);
+      await fs.writeFile(vkFullFilename, vk.keyAsBytes);
+
+      const logFunction = (message: string) => {
+        logger.debug(`${circuit} BB out - ${message}`);
+      };
+
+      const result = await writeProofAsFields(
+        this.config.bbBinaryPath,
+        bbWorkingDirectory,
+        PROOF_FILENAME,
+        vkFullFilename,
+        logFunction,
+      );
+
+      if (result.status === BB_RESULT.FAILURE) {
+        const errorMessage = `Failed to convert ${circuit} proof to fields, ${result.reason}`;
+        throw new Error(errorMessage);
+      }
+
+      const proofString = await fs.readFile(`${bbWorkingDirectory}/${PROOF_FIELDS_FILENAME}`, { encoding: 'utf-8' });
+      const json = JSON.parse(proofString);
+      const fields = json.slice(numPublicInputs).map(Fr.fromString);
+      return new RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(
+        fields,
+        new Proof(proof.binaryProof.buffer),
+        true,
+      );
+    } finally {
+      //await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
+    }
   }
 
   /**
@@ -489,37 +530,11 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         if (result.status === BB_RESULT.FAILURE) {
           throw new Error(`Failed to generate verification key for ${circuitType}, ${result.reason}`);
         }
-        return this.convertVk(result.vkPath!);
+        return extractVkData(result.vkPath!);
       });
       this.verificationKeys.set(circuitType, promise);
     }
     return await promise;
-  }
-
-  /**
-   * Reads the verification key data stored at the specified location and parses into a VerificationKeyData
-   * @param filePath - The directory containing the verification key data files
-   * @returns The verification key data
-   */
-  private async convertVk(filePath: string): Promise<VerificationKeyData> {
-    const [rawFields, rawBinary] = await Promise.all([
-      fs.readFile(`${filePath}/${VK_FIELDS_FILENAME}`, { encoding: 'utf-8' }),
-      fs.readFile(`${filePath}/${VK_FILENAME}`),
-    ]);
-    const fieldsJson = JSON.parse(rawFields);
-    const fields = fieldsJson.map(Fr.fromString);
-    // The first item is the hash, this is not part of the actual VK
-    const vkHash = fields[0];
-    const actualVk = fields.slice(1);
-    const vk: VerificationKeyData = {
-      hash: vkHash,
-      keyAsFields: actualVk as Tuple<Fr, typeof VERIFICATION_KEY_LENGTH_IN_FIELDS>,
-      keyAsBytes: rawBinary,
-      numPublicInputs: Number(actualVk[CIRCUIT_PUBLIC_INPUTS_INDEX]),
-      circuitSize: Number(actualVk[CIRCUIT_SIZE_INDEX]),
-      isRecursive: actualVk[CIRCUIT_RECURSIVE_INDEX] == Fr.ONE,
-    };
-    return vk;
   }
 
   /**
@@ -530,7 +545,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   private async updateVerificationKeyAfterProof(filePath: string, circuitType: ServerProtocolArtifact) {
     let promise = this.verificationKeys.get(circuitType);
     if (!promise) {
-      promise = this.convertVk(filePath);
+      promise = extractVkData(filePath);
       this.verificationKeys.set(circuitType, promise);
     }
     await promise;
@@ -551,7 +566,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       fs.readFile(`${filePath}/${PROOF_FIELDS_FILENAME}`, { encoding: 'utf-8' }),
     ]);
     const json = JSON.parse(proofString);
-    const fields = json.map(Fr.fromString);
     const vkData = await this.verificationKeys.get(circuitType);
     if (!vkData) {
       throw new Error(`Invalid verification key for ${circuitType}`);
@@ -559,11 +573,11 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const numPublicInputs = CIRCUITS_WITHOUT_AGGREGATION.has(circuitType)
       ? vkData.numPublicInputs
       : vkData.numPublicInputs - AGGREGATION_OBJECT_SIZE;
-    const fieldsWithoutPublicInputs = fields.slice(numPublicInputs);
+    const fieldsWithoutPublicInputs = json.slice(numPublicInputs).map(Fr.fromString);
     logger.debug(
-      `Circuit type: ${circuitType}, complete proof length: ${fields.length}, without public inputs: ${fieldsWithoutPublicInputs.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
+      `Circuit type: ${circuitType}, complete proof length: ${json.length}, without public inputs: ${fieldsWithoutPublicInputs.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
     );
-    const proof = new RecursiveProof<PROOF_LENGTH>(fieldsWithoutPublicInputs, new Proof(binaryProof));
+    const proof = new RecursiveProof<PROOF_LENGTH>(fieldsWithoutPublicInputs, new Proof(binaryProof), true);
     return proof;
   }
 }

@@ -191,3 +191,80 @@ export class VerificationKey {
     );
   }
 }
+
+export class VerificationKeyData {
+  constructor(
+    public readonly keyAsFields: VerificationKeyAsFields,
+    public readonly keyAsBytes: Buffer,
+    public readonly numPublicInputs: number,
+    public readonly circuitSize: number,
+    public readonly isRecursive: boolean,
+  ) {}
+
+  static makeFake(): VerificationKeyData {
+    return new VerificationKeyData(
+      VerificationKeyAsFields.makeFake(),
+      VerificationKey.makeFake().toBuffer(),
+      8,
+      1024,
+      false,
+    );
+  }
+
+  /**
+   * Serialize as a buffer.
+   * @returns The buffer.
+   */
+  toBuffer() {
+    return serializeToBuffer(
+      this.keyAsFields,
+      this.keyAsBytes,
+      this.numPublicInputs,
+      this.circuitSize,
+      this.isRecursive,
+    );
+  }
+
+  /**
+	@@ -126,28 +97,14 @@ export class VerificationKeyAsFields {
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): VerificationKeyData {
+    const reader = BufferReader.asReader(buffer);
+    return new VerificationKeyData(
+      reader.readObject(VerificationKeyAsFields),
+      reader.readBuffer(),
+      reader.readNumber(),
+      reader.readNumber(),
+      reader.readBoolean(),
+    );
+  }
+
+  public clone() {
+    return VerificationKeyData.fromBuffer(this.toBuffer());
+  }
+}
+
+/**
+ * Well-known verification keys.
+ */
+export interface VerificationKeys {
+  /**
+   * Verification key for the default private kernel tail circuit.
+   */
+  privateKernelCircuit: VerificationKeyData;
+  /**
+   * Verification key for the default private kernel circuit.
+   */
+  privateKernelToPublicCircuit: VerificationKeyData;
+}
+
+/**
+ * Returns mock verification keys for each well known circuit.
+ * @returns A VerificationKeys object with fake values.
+ */
+export function getMockVerificationKeys(): VerificationKeys {
+  return {
+    privateKernelCircuit: VerificationKeyData.makeFake(),
+    privateKernelToPublicCircuit: VerificationKeyData.makeFake(),
+  };
+}

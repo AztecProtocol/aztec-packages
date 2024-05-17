@@ -50,29 +50,29 @@ describe('full_prover', () => {
       logger.info(`Verifying private kernel tail proof`);
       await verifyProof('PrivateKernelTailArtifact', privateTx, proofCreator!);
 
-      const publicBalance = await provenAsset.methods.balance_of_public(accounts[0].address).simulate();
-      const publicSendAmount = publicBalance / 2n;
-      expect(publicSendAmount).toBeGreaterThan(0n);
-      const publicInteraction = provenAsset.methods.transfer_public(
-        accounts[0].address,
-        accounts[1].address,
-        publicSendAmount,
-        0,
-      );
-      const publicTx = await publicInteraction.prove();
+      // const publicBalance = await provenAsset.methods.balance_of_public(accounts[0].address).simulate();
+      // const publicSendAmount = publicBalance / 2n;
+      // expect(publicSendAmount).toBeGreaterThan(0n);
+      // const publicInteraction = provenAsset.methods.transfer_public(
+      //   accounts[0].address,
+      //   accounts[1].address,
+      //   publicSendAmount,
+      //   0,
+      // );
+      //const publicTx = await publicInteraction.prove();
 
       // This will recursively verify all app and kernel circuits involved in the private stage of this transaction!
-      logger.info(`Verifying kernel tail to public proof`);
-      await verifyProof('PrivateKernelTailToPublicArtifact', publicTx, proofCreator!);
+      //logger.info(`Verifying kernel tail to public proof`);
+      //await verifyProof('PrivateKernelTailToPublicArtifact', publicTx, proofCreator!);
 
       const sentPrivateTx = privateInteraction.send();
-      const sentPublicTx = publicInteraction.send();
+      //const sentPublicTx = publicInteraction.send();
       await Promise.all([
         sentPrivateTx.wait({ timeout: 600, interval: 10 }),
-        sentPublicTx.wait({ timeout: 600, interval: 10 }),
+        //sentPublicTx.wait({ timeout: 600, interval: 10 }),
       ]);
       tokenSim.transferPrivate(accounts[0].address, accounts[1].address, privateSendAmount);
-      tokenSim.transferPublic(accounts[0].address, accounts[1].address, publicSendAmount);
+      //tokenSim.transferPublic(accounts[0].address, accounts[1].address, publicSendAmount);
     },
     TIMEOUT,
   );

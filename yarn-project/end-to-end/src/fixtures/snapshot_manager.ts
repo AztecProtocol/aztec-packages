@@ -28,12 +28,14 @@ import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
+import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
 import { deployCanonicalKeyRegistry } from './utils.js';
 
 export type SubsystemsContext = {
   anvil: Anvil;
   acvmConfig: any;
+  bbConfig: any;
   aztecNode: AztecNodeService;
   aztecNodeConfig: AztecNodeConfig;
   pxe: PXEService;
@@ -259,6 +261,12 @@ async function setupFromFresh(statePath: string | undefined, logger: Logger): Pr
     aztecNodeConfig.acvmBinaryPath = acvmConfig.acvmBinaryPath;
   }
 
+  const bbConfig = await getBBConfig(logger);
+  if (bbConfig) {
+    aztecNodeConfig.bbBinaryPath = bbConfig.bbBinaryPath;
+    aztecNodeConfig.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
+  }
+
   logger.verbose('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig);
 
@@ -282,6 +290,7 @@ async function setupFromFresh(statePath: string | undefined, logger: Logger): Pr
     aztecNode,
     pxe,
     acvmConfig,
+    bbConfig,
   };
 }
 
@@ -316,6 +325,12 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     aztecNodeConfig.acvmBinaryPath = acvmConfig.acvmBinaryPath;
   }
 
+  const bbConfig = await getBBConfig(logger);
+  if (bbConfig) {
+    aztecNodeConfig.bbBinaryPath = bbConfig.bbBinaryPath;
+    aztecNodeConfig.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
+  }
+
   logger.verbose('Creating aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig);
 
@@ -330,6 +345,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     aztecNode,
     pxe,
     acvmConfig,
+    bbConfig,
   };
 }
 

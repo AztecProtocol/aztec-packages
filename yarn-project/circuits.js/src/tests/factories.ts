@@ -126,6 +126,7 @@ import {
   VK_TREE_HEIGHT,
   VerificationKey,
   VerificationKeyAsFields,
+  VerificationKeyData,
   computeContractClassId,
   computePublicBytecodeCommitment,
   makeRecursiveProof,
@@ -589,7 +590,7 @@ export function makeRollupKernelData(seed = 1, kernelPublicInputs?: KernelCircui
   return new KernelData(
     kernelPublicInputs ?? makeKernelCircuitPublicInputs(seed, true),
     makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x80),
-    VerificationKeyAsFields.makeFake(),
+    VerificationKeyData.makeFake(),
     0x42,
     makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
   );

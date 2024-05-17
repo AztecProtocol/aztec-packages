@@ -1295,7 +1295,7 @@ export function mapKernelDataToNoir(kernelData: KernelData): KernelDataNoir {
   return {
     public_inputs: mapKernelCircuitPublicInputsToNoir(kernelData.publicInputs),
     proof: mapRecursiveProofToNoir<typeof NESTED_RECURSIVE_PROOF_LENGTH>(kernelData.proof),
-    vk: mapVerificationKeyToNoir(kernelData.vk),
+    vk: mapVerificationKeyToNoir(kernelData.vk.keyAsFields),
     vk_index: mapFieldToNoir(new Fr(kernelData.vkIndex)),
     vk_path: mapTuple(kernelData.vkPath, mapFieldToNoir),
   };

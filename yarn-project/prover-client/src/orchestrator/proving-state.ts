@@ -13,6 +13,7 @@ import {
   type RootParityInput,
   type RootRollupPublicInputs,
   type VerificationKeyAsFields,
+  type VerificationKeys,
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
 
@@ -60,6 +61,7 @@ export class ProvingState {
     public readonly emptyTx: ProcessedTx,
     public readonly messageTreeSnapshot: AppendOnlyTreeSnapshot,
     public readonly messageTreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    public readonly privateKernelVerificationKeys: VerificationKeys,
   ) {
     this.rootParityInputs = Array.from({ length: numRootParityInputs }).map(_ => undefined);
   }

@@ -150,7 +150,7 @@ export async function generateKeyForNoirCircuit(
     await fs.writeFile(bytecodePath, bytecode);
 
     // args are the output path and the input bytecode path
-    const args = ['-o', outputPath, '-b', bytecodePath];
+    const args = ['-o', `${outputPath}/${VK_FILENAME}`, '-b', bytecodePath];
     const timer = new Timer();
     let result = await executeBB(pathToBB, `write_${key}`, args, log);
     // If we succeeded and the type of key if verification, have bb write the 'fields' version too
@@ -326,6 +326,7 @@ export async function writeVkAsFields(
  * @param pathToBB - The full path to the bb binary
  * @param proofPath - The directory containing the binary proof
  * @param proofFileName - The filename of the proof
+ * @param vkFileName - The filename of the verification key
  * @param log - A logging function
  * @returns An object containing a result indication and duration taken
  */
@@ -333,6 +334,7 @@ export async function writeProofAsFields(
   pathToBB: string,
   proofPath: string,
   proofFileName: string,
+  vkFilePath: string,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   const binaryPresent = await fs
@@ -344,7 +346,8 @@ export async function writeProofAsFields(
   }
 
   try {
-    const args = ['-p', `${proofPath}/${proofFileName}`, '-v'];
+    const args = ['-p', `${proofPath}/${proofFileName}`, '-k', vkFilePath, '-v'];
+    log(`args: ${args.join()}`);
     const timer = new Timer();
     const result = await executeBB(pathToBB, 'proof_as_fields', args, log);
     const duration = timer.ms();

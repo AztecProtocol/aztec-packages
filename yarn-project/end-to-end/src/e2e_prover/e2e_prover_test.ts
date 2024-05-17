@@ -64,8 +64,8 @@ export class FullProverTest {
   proofCreator?: BBNativeProofCreator;
 
   constructor(testName: string) {
-    this.logger = createDebugLogger(`aztec:client_prover_test:${testName}`);
-    this.snapshotManager = createSnapshotManager(`client_prover_integration/${testName}`, dataPath);
+    this.logger = createDebugLogger(`aztec:full_prover_test:${testName}`);
+    this.snapshotManager = createSnapshotManager(`full_prover_integration/${testName}`, dataPath);
   }
 
   /**
@@ -147,10 +147,12 @@ export class FullProverTest {
       10,
     );
 
+    this.logger.debug(`Configuring the node for real proofs...`);
     await this.aztecNode.setConfig({
       // stop the fake provers
       proverAgents: 0,
-      minTxsPerBlock: 2, // min 2 txs per block
+      realProofs: true,
+      minTxsPerBlock: 1, // min 2 txs per block
     });
 
     await this.proverPool.start((this.aztecNode as AztecNodeService).getProver().getProvingJobSource());
