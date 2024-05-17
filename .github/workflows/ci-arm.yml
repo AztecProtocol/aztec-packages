@@ -53,6 +53,7 @@ jobs:
         with:
           runner_type: builder-arm
           run: |
+            sudo shutdown -P 15 # hack until core part of the scripts
             set -eux
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             scripts/earthly-ci -P --no-output ./yarn-project/end-to-end/+uniswap-trade-on-l1-from-l2
