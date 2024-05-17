@@ -1,5 +1,5 @@
 use crate::ops::arith::{Add, Sub, Neg};
-
+use crate::cmp::Eq;
 // TODO(https://github.com/noir-lang/noir/issues/4931)
 struct EmbeddedCurvePoint {
     x: Field,
@@ -36,6 +36,12 @@ impl Neg for EmbeddedCurvePoint {
             y: -self.y,
             is_infinite: self.is_infinite
         }
+    }
+}
+
+impl Eq for EmbeddedCurvePoint {
+    fn eq(self: Self, b: EmbeddedCurvePoint) -> bool {
+        (self.is_infinite & b.is_infinite) | ((self.is_infinite == b.is_infinite) & (self.x == b.x) & (self.y == b.y))
     }
 }
 
