@@ -29,11 +29,7 @@ Private state works with UTXOs, or what we call notes. To keep things private, e
 
 Public state works similarly to other chains like Ethereum, behaving like a public ledger. Public data is stored in a [public data tree](/aztec/concepts/storage/trees/index.md#public-state-tree).
 
-<<<<<<< HEAD:docs/docs/aztec/aztec/concepts/index.md
 Aztec [smart contract](/aztec/aztec/concepts/smart_contracts/index.md) developers should keep in mind that different types are used when manipulating private or public state. Working with private state is creating commitments and nullifiers to state, whereas working with public state is directly updating state.
-=======
-Aztec [smart contract](/aztec/concepts/smart_contracts/index.md) developers should keep in mind that different types are used when manipulating private or public state. Working with private state is creating commitments and nullifiers to state, whereas working with public state is directly updating state. 
->>>>>>> fd81464071 (removing nested folders):docs/docs/aztec/concepts/index.md
 
 ## Accounts
 
@@ -55,12 +51,7 @@ Aztec allows private communications with Ethereum - ie no-one knows where the tr
 
 This is achieved through portals - these are smart contracts deployed on an EVM that are related to the Ethereum smart contract you want to interact with.
 
-<<<<<<< HEAD:docs/docs/aztec/aztec/concepts/index.md
 Learn more about portals [here](/protocol-specs/l1-smart-contracts/index.md).
-=======
-Learn more about portals [here](/aztec/concepts/smart_contracts/communication/cross_chain_calls).
->>>>>>> fd81464071 (removing nested folders):docs/docs/aztec/concepts/index.md
-
 ## Circuits
 
 Aztec operates on three types of circuits:
@@ -79,9 +70,14 @@ Explore the Concepts for a deeper understanding into the components that make up
 
 ### Start coding
 
+<<<<<<< HEAD
 <<<<<<< HEAD:docs/docs/aztec/aztec/concepts/index.md
 Follow the [developer getting started guide](/getting_started/getting_started).
 =======
 Follow the [developer getting started guide](/getting_started).
 
 >>>>>>> fd81464071 (removing nested folders):docs/docs/aztec/concepts/index.md
+=======
+Follow the [developer getting started guide](/getting_started).
+
+>>>>>>> 02be02cbcb (fixing conflicts)

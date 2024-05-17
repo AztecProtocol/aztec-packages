@@ -4,15 +4,13 @@ title: Sandbox Reference
 
 :::tip
 
-For a quick start, follow the [guide](/getting_started) to install the sandbox.
+For a quick start, follow the [guide](/getting_started.md) to install the sandbox.
 
 :::
 
 ## Manual Install
 
-<<<<<<< HEAD:docs/docs/reference/reference/sandbox_reference/sandbox-reference.md
-You can manually install the sandbox via the underlying script used in the [Aztec Boxes](getting_started/getting_started/index.md#run-the-npx-script).
-=======
+
 You can manually install the sandbox via the underlying script used in the [Aztec Boxes](/getting_started.md#run-the-npx-script).
 
 ### Prerequisites
@@ -66,6 +64,9 @@ In the terminal, you will see some logs:
 
 You can manually install the sandbox via the underlying script used in the [Aztec Boxes](/getting_started.md#run-the-npx-script).
 >>>>>>> fd81464071 (removing nested folders):docs/docs/reference/sandbox_reference/sandbox-reference.md
+=======
+You can manually install the sandbox via the underlying script used in the [Aztec Boxes](getting_started.md#run-the-npx-script).
+>>>>>>> 02be02cbcb (fixing conflicts)
 
 ### Prerequisites
 
