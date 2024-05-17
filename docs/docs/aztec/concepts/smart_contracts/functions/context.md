@@ -126,11 +126,7 @@ The public call stack contains all of the external function calls that are creat
 
 ### New L2 to L1 msgs
 
-<<<<<<< HEAD:docs/docs/aztec/aztec/concepts/smart_contracts/functions/context.md
 New L2 to L1 messages contains messages that are delivered to the [l1 outbox](/protocol-specs/l1-smart-contracts/index.md) on the execution of each rollup.
-=======
-New L2 to L1 messages contains messages that are delivered to the [l1 outbox](/aztec/concepts/smart_contracts/communication/cross_chain_calls) on the execution of each rollup.
->>>>>>> fd81464071 (removing nested folders):docs/docs/aztec/concepts/smart_contracts/functions/context.md
 
 ## Public Context
 

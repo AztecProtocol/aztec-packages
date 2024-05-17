@@ -2,11 +2,7 @@
 title: Communicating with L1
 ---
 
-<<<<<<< HEAD:docs/docs/guides/guides/smart_contracts/writing_contracts/portals/communicate_with_portal.md
-Is this your first time hearing the word `Portal`? Check out the [concepts section](../../../../../protocol-specs/l1-smart-contracts/index.md).
-=======
-Is this your first time hearing the word `Portal`? Check out the [concepts section](/aztec/concepts/smart_contracts/communication/cross_chain_calls).
->>>>>>> fd81464071 (removing nested folders):docs/docs/guides/smart_contracts/writing_contracts/portals/communicate_with_portal.md
+Is this your first time hearing the word `Portal`? Check out the [concepts section](../../../../protocol-specs/l1-smart-contracts/index.md).
 
 Follow the [token bridge tutorial](/tutorials/contract_tutorials/advanced/token_bridge) for hands-on experience writing and deploying a Portal contract.
 

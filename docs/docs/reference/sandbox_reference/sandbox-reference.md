@@ -62,11 +62,7 @@ In the terminal, you will see some logs:
 
 ## Manual Install
 
-You can manually install the sandbox via the underlying script used in the [Aztec Boxes](/getting_started.md#run-the-npx-script).
->>>>>>> fd81464071 (removing nested folders):docs/docs/reference/sandbox_reference/sandbox-reference.md
-=======
 You can manually install the sandbox via the underlying script used in the [Aztec Boxes](getting_started.md#run-the-npx-script).
->>>>>>> 02be02cbcb (fixing conflicts)
 
 ### Prerequisites
 
