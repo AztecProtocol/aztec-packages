@@ -1,13 +1,12 @@
 use dep::protocol_types::{
     address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint,
-    constants::GENERATOR_INDEX__SYMMETRIC_KEY
+    constants::GENERATOR_INDEX__SYMMETRIC_KEY, hash::poseidon2_hash
 };
 
 use dep::std::aes128::aes128_encrypt;
 use dep::std::println;
 
 use crate::keys::point_to_symmetric_key::point_to_symmetric_key;
-use crate::hash::poseidon2_hash;
 
 struct EncryptedLogOutgoingBody {
     eph_sk: GrumpkinPrivateKey,
@@ -70,14 +69,10 @@ mod test {
     use crate::encrypted_logs::outgoing_body::EncryptedLogOutgoingBody;
     use dep::protocol_types::{
         address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint
+        grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint, hash::poseidon2_hash
     };
 
-    use crate::{
-        note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
-        oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_app_nullifier_secret_key, get_public_key::get_public_key},
-        context::PrivateContext, hash::poseidon2_hash
-    };
+    use crate::context::PrivateContext;
 
     #[test]
     fn test_encrypted_log_outgoing_body() {
