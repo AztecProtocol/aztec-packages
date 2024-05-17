@@ -6,8 +6,8 @@ namespace bb {
  * @brief Accumulate a circuit into the IVC scheme
  * @details If this is the first circuit being accumulated, initialize the prover and verifier accumulators. Otherwise,
  * fold the instance for the provided circuit into the accumulator. If a previous fold proof exists, a recursive folding
- * verification is appended to the provided circuit prior to its accumulation. If a merge proof exists, a recursive
- * merge verifier is also appended to the circuit.
+ * verification is appended to the provided circuit prior to its accumulation. Similarly, if a merge proof exists, a
+ * recursive merge verifier is appended.
  *
  * @param circuit Circuit to be accumulated/folded
  * @param precomputed_vk Optional precomputed VK (otherwise will be computed herein)
