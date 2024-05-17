@@ -99,3 +99,28 @@ fetch_and_constrain_keys(address);
 | --- | --- |
 | address | AztecAddress |
 
+<<<<<<< HEAD
+=======
+### get_nullifier_keys
+
+```rust
+get_nullifier_keys(npk_m_hash);
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| npk_m_hash | Field |
+
+### get_nsk_app
+
+```rust
+get_nsk_app(npk_m_hash);
+```
+
+#### Parameters
+| Name | Type |
+| --- | --- |
+| npk_m_hash | Field |
+
+>>>>>>> fd81464071 (removing nested folders)

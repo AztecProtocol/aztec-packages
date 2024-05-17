@@ -362,6 +362,11 @@ Helper functions
 address();
 ```
 
+<<<<<<< HEAD
+=======
+TODO(https://github.com/AztecProtocol/aztec-packages/issues/6420): reconsider.
+
+>>>>>>> fd81464071 (removing nested folders)
 Takes no parameters.
 
 ### sender

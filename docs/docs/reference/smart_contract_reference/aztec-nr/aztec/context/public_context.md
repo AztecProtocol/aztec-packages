@@ -15,7 +15,11 @@
 | new_note_hashes | BoundedVec&lt;NoteHash, MAX_NEW_NOTE_HASHES_PER_CALL&gt; |
 | new_nullifiers | BoundedVec&lt;Nullifier, MAX_NEW_NULLIFIERS_PER_CALL&gt; |
 | new_l2_to_l1_msgs | BoundedVec&lt;L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL&gt; |
+<<<<<<< HEAD
 | unencrypted_logs_hashes | BoundedVec&lt;LogHash, MAX_UNENCRYPTED_LOGS_PER_CALL&gt; |
+=======
+| unencrypted_logs_hashes | BoundedVec&lt;SideEffect, MAX_UNENCRYPTED_LOGS_PER_CALL&gt; |
+>>>>>>> fd81464071 (removing nested folders)
 | unencrypted_log_preimages_length | Field |
 | historical_header | Header |
 | prover_address | AztecAddress |

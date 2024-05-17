@@ -22,12 +22,20 @@ When finished, one can call .finish() to convert back to the abi
 | public_teardown_function_hash | Field |
 | new_l2_to_l1_msgs  | BoundedVec&lt;L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL&gt; |
 | historical_header | Header |
+<<<<<<< HEAD
 | note_encrypted_logs_hashes | BoundedVec&lt;NoteLogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL&gt; |
 | encrypted_logs_hashes | BoundedVec&lt;LogHash, MAX_ENCRYPTED_LOGS_PER_CALL&gt; |
 | unencrypted_logs_hashes | BoundedVec&lt;LogHash, MAX_UNENCRYPTED_LOGS_PER_CALL&gt; |
 | encrypted_log_preimages_length | Field |
 | unencrypted_log_preimages_length | Field |
 | last_nullifier_key_validation_request | Option&lt;NullifierKeyValidationRequest&gt; |
+=======
+| encrypted_logs_hashes | BoundedVec&lt;SideEffect, MAX_ENCRYPTED_LOGS_PER_CALL&gt; |
+| unencrypted_logs_hashes | BoundedVec&lt;SideEffect, MAX_UNENCRYPTED_LOGS_PER_CALL&gt; |
+| encrypted_log_preimages_length | Field |
+| unencrypted_log_preimages_length | Field |
+| nullifier_key | Option&lt;NullifierKeys&gt; |
+>>>>>>> fd81464071 (removing nested folders)
 
 ## Methods
 
@@ -220,8 +228,11 @@ PrivateContext::emit_contract_class_unencrypted_log(&mut self, log);
 
 ### emit_encrypted_log
 
+<<<<<<< HEAD
 TODO(1139): Convert to generic input once we encrypt inside the circuit
 
+=======
+>>>>>>> fd81464071 (removing nested folders)
 ```rust
 PrivateContext::emit_encrypted_log(&mut self, contract_address, storage_slot, note_type_id, ivpk_m, preimage);
 ```
@@ -236,6 +247,7 @@ PrivateContext::emit_encrypted_log(&mut self, contract_address, storage_slot, no
 | ivpk_m | GrumpkinPoint |
 | preimage | [Field; N] |
 
+<<<<<<< HEAD
 ### emit_note_encrypted_log
 
 ```rust
@@ -252,6 +264,8 @@ PrivateContext::emit_note_encrypted_log(&mut self, contract_address, storage_slo
 | encryption_pub_key | GrumpkinPoint |
 | note | Note |
 
+=======
+>>>>>>> fd81464071 (removing nested folders)
 ### call_private_function
 
 ```rust
