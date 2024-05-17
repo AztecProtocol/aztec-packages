@@ -8,7 +8,7 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## 0.X.X
 
-### [Aztec.nr] View functions
+### [Aztec.nr] View functions and interface navigation
 
 It is now possible to explicitly state a function doesn't perform any state alterations (including storage, logs, nullifiers and/or messages from L2 to L1) with the `#[aztec(view)]` attribute, similarly to solidity's `view` function modifier.
 
@@ -34,6 +34,13 @@ fn enqueue_public_get_value_from_child(target_contract: AztecAddress, value: Fie
 -   StaticChild::at(target_contract).pub_get_value(value).static_enqueue(&mut context);
 }
 ```
+
+Additionally, the Noir LSP will now honor "go to definitions" requests for contract interfaces (Ctrl+click), taking the user to the original function implementation.
+
+### [Aztec.js] Simulate changes
+
+* `.simulate()` now tracks closer the process performed by `.send().wait()`, specifically going through the account contract entrypoint instead of directly calling the intended function.
+* `wallet.viewTx(...)` has been renamed to `wallet.simulateUnconstrained(...)` to better clarify what it does.
 
 ## 0.41.0
 
