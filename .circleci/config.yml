@@ -1,4 +1,4 @@
-# This file uses YAML anchors and aliases to prevent repetition of blocks of config:
+v# This file uses YAML anchors and aliases to prevent repetition of blocks of config:
 # https://support.atlassian.com/bitbucket-cloud/docs/yaml-anchors/
 #
 # Two primary anchors are checkout and setup_env, called as the first step of almost all jobs:
@@ -483,6 +483,9 @@ workflows:
     #   # Used to generate a dynamic 'system' workflow
     #   # This is rewritten to 'system' on the real workflow (otherwise this is ignored by circleci)
     #   equal: [NEVER, << pipeline.parameters.workflow >>]
+    when:
+      and:
+        - equal: [ master, << pipeline.git.branch >> ]
     jobs:
       # Noir
       - noir-x86_64: *defaults
