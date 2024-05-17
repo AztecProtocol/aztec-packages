@@ -574,7 +574,7 @@ export function makePublicKernelData(seed = 1, kernelPublicInputs?: PublicKernel
   return new PublicKernelData(
     kernelPublicInputs ?? makePublicKernelCircuitPublicInputs(seed, true),
     makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x80),
-    VerificationKeyAsFields.makeFake(),
+    VerificationKeyData.makeFake(),
     0x42,
     makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
   );

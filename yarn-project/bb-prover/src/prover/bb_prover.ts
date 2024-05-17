@@ -28,7 +28,7 @@ import {
   type VerificationKeyData,
   makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBytes, sha256 } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
@@ -63,11 +63,7 @@ import {
 } from '../bb/execute.js';
 import { PublicKernelArtifactMapping } from '../mappings/mappings.js';
 import { circuitTypeToCircuitName, emitCircuitProvingStats, emitCircuitWitnessGenerationStats } from '../stats.js';
-import {
-  AGGREGATION_OBJECT_SIZE,
-  extractVkData,
-  getNumPublicInputsFromVKFields,
-} from '../verification_key/verification_key_data.js';
+import { AGGREGATION_OBJECT_SIZE, extractVkData } from '../verification_key/verification_key_data.js';
 
 const logger = createDebugLogger('aztec:bb-prover');
 
@@ -154,6 +150,11 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     if (kernelOps === undefined) {
       throw new Error(`Unable to prove kernel type ${PublicKernelType[kernelRequest.type]}`);
     }
+    kernelRequest.inputs.previousKernel.proof = await this.ensureValidProof(
+      kernelRequest.inputs.previousKernel.proof,
+      kernelOps.artifact,
+      kernelRequest.inputs.previousKernel.vk,
+    );
     const witnessMap = kernelOps.convertInputs(kernelRequest.inputs);
 
     const [circuitOutput, proof] = await this.createRecursiveProof<
@@ -163,7 +164,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const verificationKey = await this.getVerificationKeyDataForCircuit(kernelOps.artifact);
 
-    return makePublicInputsAndProof(circuitOutput, proof, verificationKey.keyAsFields);
+    return makePublicInputsAndProof(circuitOutput, proof, verificationKey);
   }
 
   /**
@@ -183,7 +184,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('PublicKernelTailArtifact');
 
-    return makePublicInputsAndProof(circuitOutput, proof, verificationKey.keyAsFields);
+    return makePublicInputsAndProof(circuitOutput, proof, verificationKey);
   }
 
   /**
@@ -208,7 +209,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('BaseRollupArtifact');
 
-    return makePublicInputsAndProof(circuitOutput, proof, verificationKey.keyAsFields);
+    return makePublicInputsAndProof(circuitOutput, proof, verificationKey);
   }
   /**
    * Simulates the merge rollup circuit from its inputs.
@@ -227,7 +228,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('MergeRollupArtifact');
 
-    return makePublicInputsAndProof(circuitOutput, proof, verificationKey.keyAsFields);
+    return makePublicInputsAndProof(circuitOutput, proof, verificationKey);
   }
 
   /**
@@ -248,7 +249,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('RootRollupArtifact');
 
-    return makePublicInputsAndProof(result, recursiveProof, verificationKey.keyAsFields);
+    return makePublicInputsAndProof(result, recursiveProof, verificationKey);
   }
 
   // TODO(@PhilWindle): Delete when no longer required
@@ -468,6 +469,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     circuit: ServerProtocolArtifact,
     vk: VerificationKeyData,
   ) {
+    if (proof.fieldsValid) {
+      return proof;
+    }
+
     const numPublicInputs = vk.numPublicInputs - AGGREGATION_OBJECT_SIZE;
     // Create random directory to be used for temp files
     const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
@@ -509,7 +514,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         true,
       );
     } finally {
-      //await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
+      await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
     }
   }
 
@@ -536,7 +541,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       });
       this.verificationKeys.set(circuitType, promise);
     }
-    return await promise;
+    const vk = await promise;
+    return vk.clone();
   }
 
   /**

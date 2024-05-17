@@ -33,8 +33,8 @@ import {
   type RootParityInput,
   RootParityInputs,
   type VerificationKeyAsFields,
-  VerificationKeyData,
-  VerificationKeys,
+  type VerificationKeyData,
+  type VerificationKeys,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
@@ -283,16 +283,19 @@ export class ProvingOrchestrator {
    * @param provingState - The proving state being worked on
    */
   private async startTransaction(tx: ProcessedTx, provingState: ProvingState) {
-    const previousKernelVerificationKey = tx.publicKernelRequests.length
-      ? provingState.privateKernelVerificationKeys.privateKernelToPublicCircuit
-      : provingState.privateKernelVerificationKeys.privateKernelCircuit;
+    const previousKernelVerificationKey = provingState.privateKernelVerificationKeys.privateKernelCircuit;
     const txInputs = await this.prepareBaseRollupInputs(provingState, tx, previousKernelVerificationKey);
     if (!txInputs) {
       // This should not be possible
       throw new Error(`Unable to add padding transaction, preparing base inputs failed`);
     }
     const [inputs, treeSnapshots] = txInputs;
-    const txProvingState = new TxProvingState(tx, inputs, treeSnapshots);
+    const txProvingState = new TxProvingState(
+      tx,
+      inputs,
+      treeSnapshots,
+      provingState.privateKernelVerificationKeys.privateKernelToPublicCircuit,
+    );
     const txIndex = provingState.addNewTx(txProvingState);
     const numPublicKernels = txProvingState.getNumPublicKernels();
     if (!numPublicKernels) {
@@ -457,7 +460,7 @@ export class ProvingOrchestrator {
         this.storeAndExecuteNextMergeLevel(provingState, currentLevel, index, [
           result.inputs,
           result.proof,
-          result.verificationKey,
+          result.verificationKey.keyAsFields,
         ]);
       },
     );
@@ -483,7 +486,7 @@ export class ProvingOrchestrator {
         this.storeAndExecuteNextMergeLevel(provingState, level, index, [
           result.inputs,
           result.proof,
-          result.verificationKey,
+          result.verificationKey.keyAsFields,
         ]);
       },
     );
@@ -673,7 +676,11 @@ export class ProvingOrchestrator {
         }
       },
       result => {
-        const nextKernelRequest = txProvingState.getNextPublicKernelFromKernelProof(functionIndex, result.proof);
+        const nextKernelRequest = txProvingState.getNextPublicKernelFromKernelProof(
+          functionIndex,
+          result.proof,
+          result.verificationKey,
+        );
         // What's the status of the next kernel?
         if (nextKernelRequest.code === TX_PROVING_CODE.NOT_READY) {
           // Must be waiting on a VM proof
@@ -683,6 +690,8 @@ export class ProvingOrchestrator {
         if (nextKernelRequest.code === TX_PROVING_CODE.COMPLETED) {
           // We must have completed all public function proving, we now move to the base rollup
           logger.debug(`Public functions completed for tx ${txIndex} enqueueing base rollup`);
+          txProvingState.baseRollupInputs.kernelData.proof = result.proof;
+          txProvingState.baseRollupInputs.kernelData.vk = result.verificationKey;
           this.enqueueBaseRollup(provingState, BigInt(txIndex), txProvingState);
           return;
         }

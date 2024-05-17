@@ -347,7 +347,6 @@ export async function writeProofAsFields(
 
   try {
     const args = ['-p', `${proofPath}/${proofFileName}`, '-k', vkFilePath, '-v'];
-    log(`args: ${args.join()}`);
     const timer = new Timer();
     const result = await executeBB(pathToBB, 'proof_as_fields', args, log);
     const duration = timer.ms();

@@ -8,6 +8,12 @@ import {
   convertPublicSetupRollupOutputFromWitnessMap,
   convertPublicTeardownRollupInputsToWitnessMap,
   convertPublicTeardownRollupOutputFromWitnessMap,
+  convertSimulatedPublicInnerRollupInputsToWitnessMap,
+  convertSimulatedPublicInnerRollupOutputFromWitnessMap,
+  convertSimulatedPublicSetupRollupInputsToWitnessMap,
+  convertSimulatedPublicSetupRollupOutputFromWitnessMap,
+  convertSimulatedPublicTeardownRollupInputsToWitnessMap,
+  convertSimulatedPublicTeardownRollupOutputFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
 
 import { type WitnessMap } from '@noir-lang/types';
@@ -19,6 +25,26 @@ export type PublicKernelProvingOps = {
 };
 
 export type KernelTypeToArtifact = Record<PublicKernelType, PublicKernelProvingOps | undefined>;
+
+export const SimulatedPublicKernelArtifactMapping: KernelTypeToArtifact = {
+  [PublicKernelType.NON_PUBLIC]: undefined,
+  [PublicKernelType.APP_LOGIC]: {
+    artifact: 'PublicKernelAppLogicArtifact',
+    convertInputs: convertSimulatedPublicInnerRollupInputsToWitnessMap,
+    convertOutputs: convertSimulatedPublicInnerRollupOutputFromWitnessMap,
+  },
+  [PublicKernelType.SETUP]: {
+    artifact: 'PublicKernelSetupArtifact',
+    convertInputs: convertSimulatedPublicSetupRollupInputsToWitnessMap,
+    convertOutputs: convertSimulatedPublicSetupRollupOutputFromWitnessMap,
+  },
+  [PublicKernelType.TEARDOWN]: {
+    artifact: 'PublicKernelTeardownArtifact',
+    convertInputs: convertSimulatedPublicTeardownRollupInputsToWitnessMap,
+    convertOutputs: convertSimulatedPublicTeardownRollupOutputFromWitnessMap,
+  },
+  [PublicKernelType.TAIL]: undefined,
+};
 
 export const PublicKernelArtifactMapping: KernelTypeToArtifact = {
   [PublicKernelType.NON_PUBLIC]: undefined,

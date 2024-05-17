@@ -5,6 +5,7 @@ import {
   NESTED_RECURSIVE_PROOF_LENGTH,
   type Proof,
   type RecursiveProof,
+  type VerificationKeyData,
   makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
 
@@ -17,7 +18,7 @@ export enum TX_PROVING_CODE {
 export type PublicFunction = {
   vmProof: Proof | undefined;
   previousProofType: PublicKernelType;
-  previousKernelProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined;
+  previousKernelProven: boolean;
   publicKernelRequest: PublicKernelRequest;
 };
 
@@ -40,15 +41,21 @@ export class TxProvingState {
     public readonly processedTx: ProcessedTx,
     public readonly baseRollupInputs: BaseRollupInputs,
     public readonly treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
+    privateKernelVk: VerificationKeyData,
   ) {
     let previousKernelProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined =
       makeRecursiveProofFromBinary(processedTx.proof, NESTED_RECURSIVE_PROOF_LENGTH);
     let previousProofType = PublicKernelType.NON_PUBLIC;
-    for (const kernelRequest of processedTx.publicKernelRequests) {
+    for (let i = 0; i < processedTx.publicKernelRequests.length; i++) {
+      const kernelRequest = processedTx.publicKernelRequests[i];
+      if (previousKernelProof) {
+        kernelRequest.inputs.previousKernel.proof = previousKernelProof;
+        kernelRequest.inputs.previousKernel.vk = privateKernelVk;
+      }
       const publicFunction: PublicFunction = {
         vmProof: undefined,
         previousProofType,
-        previousKernelProof,
+        previousKernelProven: i === 0,
         publicKernelRequest: kernelRequest,
       };
       this.publicFunctions.push(publicFunction);
@@ -62,6 +69,7 @@ export class TxProvingState {
   public getNextPublicKernelFromKernelProof(
     provenIndex: number,
     proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+    verificationKey: VerificationKeyData,
   ): TxProvingInstruction {
     const kernelRequest = this.getPublicFunctionState(provenIndex).publicKernelRequest;
     const nextKernelIndex = provenIndex + 1;
@@ -72,7 +80,11 @@ export class TxProvingState {
 
     // There is more work to do, are we ready?
     const nextFunction = this.publicFunctions[nextKernelIndex];
-    nextFunction.previousKernelProof = proof;
+    nextFunction.publicKernelRequest.inputs.previousKernel.proof = proof;
+    nextFunction.publicKernelRequest.inputs.previousKernel.vk = verificationKey;
+
+    // We need to update this so the state machine knows this proof is ready
+    nextFunction.previousKernelProven = true;
     nextFunction.previousProofType = kernelRequest.type;
     if (nextFunction.vmProof === undefined) {
       // The VM proof for the next function is not ready
@@ -89,7 +101,7 @@ export class TxProvingState {
     const provenFunction = this.publicFunctions[provenIndex];
     provenFunction.vmProof = proof;
 
-    if (provenFunction.previousKernelProof === undefined) {
+    if (!provenFunction.previousKernelProven) {
       // The previous kernel is not yet ready
       return { code: TX_PROVING_CODE.NOT_READY, function: undefined };
     }

@@ -46,7 +46,7 @@ import {
   RevertCode,
   SideEffect,
   VK_TREE_HEIGHT,
-  VerificationKeyAsFields,
+  VerificationKeyData,
   makeEmptyProof,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
@@ -391,7 +391,7 @@ export abstract class AbstractPhaseManager {
 
   protected getPreviousKernelData(previousOutput: PublicKernelCircuitPublicInputs): PublicKernelData {
     // The proof and verification key are not used in simulation
-    const vk = VerificationKeyAsFields.makeFake();
+    const vk = VerificationKeyData.makeFake();
     const proof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
     const vkIndex = 0;
     const vkSiblingPath = MembershipWitness.random(VK_TREE_HEIGHT).siblingPath;

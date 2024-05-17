@@ -12,7 +12,7 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
-  type VerificationKeyAsFields,
+  type VerificationKeyData,
 } from '@aztec/circuits.js';
 
 import type { PublicKernelNonTailRequest, PublicKernelTailRequest } from '../tx/processed_tx.js';
@@ -20,13 +20,13 @@ import type { PublicKernelNonTailRequest, PublicKernelTailRequest } from '../tx/
 export type PublicInputsAndProof<T> = {
   inputs: T;
   proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
-  verificationKey: VerificationKeyAsFields;
+  verificationKey: VerificationKeyData;
 };
 
 export function makePublicInputsAndProof<T>(
   inputs: T,
   proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
-  verificationKey: VerificationKeyAsFields,
+  verificationKey: VerificationKeyData,
 ) {
   const result: PublicInputsAndProof<T> = {
     inputs,

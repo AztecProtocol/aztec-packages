@@ -9,6 +9,7 @@ import {
   type Fq,
   Fr,
   Note,
+  type PXE,
   type TxHash,
   computeSecretHash,
   createDebugLogger,
@@ -35,6 +36,11 @@ const { E2E_DATA_PATH: dataPath } = process.env;
 
 const SALT = 1;
 
+type ProvenSetup = {
+  pxe: PXE;
+  teardown: () => Promise<void>;
+};
+
 /**
  * Largely taken from the e2e_token_contract test file. We deploy 2 accounts and a token contract.
  * However, we then setup a second PXE with a full prover instance.
@@ -55,13 +61,12 @@ export class FullProverTest {
   tokenSim!: TokenSimulator;
   aztecNode!: AztecNode;
   pxe!: PXEService;
-  fullProverPXE!: PXEService;
   private proverPool!: ProverPool;
-  provenAsset!: TokenContract;
-  provenPXETeardown?: () => Promise<void>;
+  private provenComponents: ProvenSetup[] = [];
   private bbConfigCleanup?: () => Promise<void>;
   private acvmConfigCleanup?: () => Promise<void>;
   proofCreator?: BBNativeProofCreator;
+  provenAssets: TokenContract[] = [];
 
   constructor(testName: string) {
     this.logger = createDebugLogger(`aztec:full_prover_test:${testName}`);
@@ -160,39 +165,52 @@ export class FullProverTest {
     this.proofCreator = new BBNativeProofCreator(bbConfig.bbBinaryPath, bbConfig.bbWorkingDirectory);
 
     this.logger.debug(`Main setup completed, initializing full prover PXE and Node...`);
-    ({ pxe: this.fullProverPXE, teardown: this.provenPXETeardown } = await setupPXEService(
-      this.aztecNode,
-      {
-        proverEnabled: false,
-        bbBinaryPath: bbConfig?.bbBinaryPath,
-        bbWorkingDirectory: bbConfig?.bbWorkingDirectory,
-      },
-      undefined,
-      true,
-      this.proofCreator,
-    ));
-    this.logger.debug(`Contract address ${this.asset.address}`);
-    await this.fullProverPXE.registerContract(this.asset);
 
     for (let i = 0; i < 2; i++) {
-      await waitRegisteredAccountSynced(
-        this.fullProverPXE,
-        this.keys[i][0],
-        this.wallets[i].getCompleteAddress().partialAddress,
+      const result = await setupPXEService(
+        this.aztecNode,
+        {
+          proverEnabled: false,
+          bbBinaryPath: bbConfig?.bbBinaryPath,
+          bbWorkingDirectory: bbConfig?.bbWorkingDirectory,
+        },
+        undefined,
+        true,
+        this.proofCreator,
       );
+      this.logger.debug(`Contract address ${this.asset.address}`);
+      await result.pxe.registerContract(this.asset);
 
-      await waitRegisteredAccountSynced(this.pxe, this.keys[i][0], this.wallets[i].getCompleteAddress().partialAddress);
+      for (let i = 0; i < 2; i++) {
+        await waitRegisteredAccountSynced(
+          result.pxe,
+          this.keys[i][0],
+          this.wallets[i].getCompleteAddress().partialAddress,
+        );
+
+        await waitRegisteredAccountSynced(
+          this.pxe,
+          this.keys[i][0],
+          this.wallets[i].getCompleteAddress().partialAddress,
+        );
+      }
+
+      const account = getSchnorrAccount(result.pxe, this.keys[0][0], this.keys[0][1], SALT);
+
+      await result.pxe.registerContract({
+        instance: account.getInstance(),
+        artifact: SchnorrAccountContractArtifact,
+      });
+
+      const provenWallet = await account.getWallet();
+      const asset = await TokenContract.at(this.asset.address, provenWallet);
+      this.provenComponents.push({
+        pxe: result.pxe,
+        teardown: result.teardown,
+      });
+      this.provenAssets.push(asset);
     }
 
-    const account = getSchnorrAccount(this.fullProverPXE, this.keys[0][0], this.keys[0][1], SALT);
-
-    await this.fullProverPXE.registerContract({
-      instance: account.getInstance(),
-      artifact: SchnorrAccountContractArtifact,
-    });
-
-    const provenWallet = await account.getWallet();
-    this.provenAsset = await TokenContract.at(this.asset.address, provenWallet);
     this.logger.debug(`Full prover PXE started!!`);
     return this;
   }
@@ -206,8 +224,10 @@ export class FullProverTest {
   async teardown() {
     await this.snapshotManager.teardown();
 
-    // Cleanup related to the second 'full prover' PXE
-    await this.provenPXETeardown?.();
+    // Cleanup related to the full prover PXEs
+    for (let i = 0; i < this.provenComponents.length; i++) {
+      await this.provenComponents[i].teardown();
+    }
 
     await this.bbConfigCleanup?.();
     await this.acvmConfigCleanup?.();
