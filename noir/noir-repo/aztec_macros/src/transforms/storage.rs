@@ -1,7 +1,7 @@
 use noirc_errors::Span;
 use noirc_frontend::ast::{
     BlockExpression, Expression, ExpressionKind, FunctionDefinition, Ident, Literal, NoirFunction,
-    NoirStruct, PathKind, Pattern, StatementKind, TypeImpl, UnresolvedType, UnresolvedTypeData,
+    NoirStruct, Pattern, StatementKind, TypeImpl, UnresolvedType, UnresolvedTypeData,
 };
 use noirc_frontend::{
     graph::CrateId,
@@ -16,7 +16,7 @@ use noirc_frontend::{
 };
 
 use crate::{
-    chained_dep, chained_path,
+    chained_path,
     utils::{
         ast_utils::{
             call, expression, ident, ident_path, is_custom_attribute, lambda, make_statement,
