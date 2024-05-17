@@ -175,6 +175,7 @@ export async function buildPrivateKernelResetInputs(
         ),
         sizeTag,
       );
+      break;
     }
   }
 
