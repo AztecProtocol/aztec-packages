@@ -159,6 +159,6 @@ bool GoblinTranslatorRecursiveVerifier_<Flavor>::verify_translation(
 }
 template class GoblinTranslatorRecursiveVerifier_<bb::GoblinTranslatorRecursiveFlavor_<UltraCircuitBuilder>>;
 template class GoblinTranslatorRecursiveVerifier_<bb::GoblinTranslatorRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
-// template class GoblinTranslatorRecursiveVerifier_<bb::GoblinTranslatorRecursiveFlavor_<CircuitSimulatorBN254>>;
+template class GoblinTranslatorRecursiveVerifier_<bb::GoblinTranslatorRecursiveFlavor_<CircuitSimulatorBN254>>;
 
 } // namespace bb
