@@ -1,6 +1,6 @@
 import { type AuthWitness, type CompleteAddress, type FunctionCall } from '@aztec/circuit-types';
 import { type AztecAddress } from '@aztec/circuits.js';
-import { type Fq, type Fr, type Point } from '@aztec/foundation/fields';
+import { type Fr } from '@aztec/foundation/fields';
 
 import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { type EntrypointInterface } from '../entrypoint/entrypoint.js';
@@ -50,25 +50,5 @@ export interface AccountInterface extends AuthWitnessProvider, EntrypointInterfa
 
   /** Returns the rollup version for this account */
   getVersion(): Fr;
-}
-
-/**
- * Handler for interfacing with an account's ability to rotate its keys.
- */
-export interface AccountKeyRotationInterface {
-  /**
-   * Returns a function interaction to rotate our master nullifer public key in the canonical key registry.
-   * @param newNpkM - The new master nullifier public key we want to use.
-   * @remarks - This does not hinder our ability to spend notes tied to a previous master nullifier public key.
-   * @returns - A function interaction.
-   */
-  rotateNpkM(newNpkM: Point): ContractFunctionInteraction;
-
-  /**
-   * Rotates the account master nullifier secret key in our pxe / keystore
-   * @param newNskM - The new master nullifier secret key we want to use.
-   * @remarks - This does not hinder our ability to spend notes tied to a previous master nullifier public key.
-   */
-  rotateNskM(newNskM: Fq): Promise<void>;
 }
 // docs:end:account-interface

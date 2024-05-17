@@ -1,7 +1,6 @@
 import { type AuthWitness, type PXE, type TxExecutionRequest } from '@aztec/circuit-types';
-import { type CompleteAddress, type Fq, type Fr, type Point } from '@aztec/circuits.js';
+import { type CompleteAddress, type Fr } from '@aztec/circuits.js';
 
-import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { DefaultEntrypoint } from '../entrypoint/default_entrypoint.js';
 import { type EntrypointInterface, type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 import { BaseWallet } from './base_wallet.js';
@@ -41,14 +40,6 @@ export class SignerlessWallet extends BaseWallet {
   }
 
   createAuthWit(_messageHash: Fr): Promise<AuthWitness> {
-    throw new Error('Method not implemented.');
-  }
-
-  rotateNpkM(_newNpkM: Point): ContractFunctionInteraction {
-    throw new Error('Method not implemented.');
-  }
-
-  rotateNskM(_newNskM: Fq): Promise<void> {
     throw new Error('Method not implemented.');
   }
 }
