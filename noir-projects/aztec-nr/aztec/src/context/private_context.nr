@@ -5,7 +5,7 @@ use crate::{
     keys::constants::{NULLIFIER_INDEX, OUTGOING_INDEX, NUM_KEY_TYPES, sk_generators},
     note::{note_interface::NoteInterface, utils::compute_note_hash_for_insertion},
     oracle::{
-    nullifier_keys::get_key_validation_request, arguments, returns,
+    key_validation_request::get_key_validation_request, arguments, returns,
     call_private_function::call_private_function_internal, header::get_header_at,
     logs::{emit_encrypted_log, emit_encrypted_note_log, compute_encrypted_log},
     logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog},

@@ -162,16 +162,16 @@ And read it from storage whenever needed instead of from the context.
 
 ### [Aztec.nr] Oracles
 
-Oracle `get_nullifier_secret_key` was renamed to `get_sk_app` and `request_nullifier_secret_key` function on PrivateContext was renamed as `request_sk_app`.
+Oracle `get_nullifier_secret_key` was renamed to `get_app_nullifier_secret_key` and `request_nullifier_secret_key` function on PrivateContext was renamed as `request_app_nullifier_secret_key`.
 
 ```diff
 - let secret = get_nullifier_secret_key(self.owner);
-+ let secret = get_sk_app(self.owner);
++ let secret = get_app_nullifier_secret_key(self.owner);
 ```
 
 ```diff
 - let secret = context.request_nullifier_secret_key(self.owner);
-+ let secret = context.request_sk_app(self.owner);
++ let secret = context.request_app_nullifier_secret_key(self.owner);
 ```
 
 ### [Aztec.nr] Contract interfaces

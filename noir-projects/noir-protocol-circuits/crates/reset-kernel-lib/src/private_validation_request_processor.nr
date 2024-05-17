@@ -31,7 +31,7 @@ impl PrivateValidationRequestProcessor {
     pub fn validate(self) -> ValidationRequests {
         let remaining_note_hash_read_requests = self.validate_note_hash_read_requests();
         let remaining_nullifier_read_requests = self.validate_nullifier_read_requests();
-        let remaining_key_validation_requests = self.validate_nullifier_keys();
+        let remaining_key_validation_requests = self.validate_keys();
 
         ValidationRequests {
             for_rollup: self.validation_requests.for_rollup,
@@ -65,30 +65,30 @@ impl PrivateValidationRequestProcessor {
         )
     }
 
-    fn validate_nullifier_keys(self) -> BoundedVec<ScopedKeyValidationRequest, MAX_KEY_VALIDATION_REQUESTS_PER_TX> {
+    fn validate_keys(self) -> BoundedVec<ScopedKeyValidationRequest, MAX_KEY_VALIDATION_REQUESTS_PER_TX> {
         let mut should_propagate = [false; MAX_KEY_VALIDATION_REQUESTS_PER_TX];
         let requests = self.validation_requests.key_validation_requests;
         for i in 0..MAX_KEY_VALIDATION_REQUESTS_PER_TX {
             let request = requests[i].request;
             if !is_empty(request) {
                 let contract_address = requests[i].contract_address;
-                let master_nullifier_secret_key = self.master_secret_keys[i];
-                if !is_empty(master_nullifier_secret_key) {
-                    // First we check that derived public key matches master nullifier public key from request
-                    let pk_m = master_nullifier_secret_key.derive_public_key();
+                let sk_m = self.master_secret_keys[i];
+                if !is_empty(sk_m) {
+                    // First we check that derived public key matches master public key from request
+                    let pk_m = sk_m.derive_public_key();
                     assert(
-                        pk_m.eq(request.pk_m), "Failed to derive matching master nullifier public key from the secret key."
+                        pk_m.eq(request.pk_m), "Failed to derive matching master public key from the secret key."
                     );
 
-                    // Then we check that siloing the master secret key with the contract address gives the app nullifier secret key
+                    // Then we check that siloing the master secret key with the contract address gives the app secret key
 
                     let sk_app = poseidon2_hash(
                         [
-                        master_nullifier_secret_key.high, master_nullifier_secret_key.low, contract_address.to_field(), self.app_secret_keys_generators[i]
+                        sk_m.high, sk_m.low, contract_address.to_field(), self.app_secret_keys_generators[i]
                     ]
                     );
                     assert(
-                        sk_app.eq(request.sk_app), "Failed to derive matching app nullifier secret key from the secret key."
+                        sk_app.eq(request.sk_app), "Failed to derive matching app secret key from the secret key."
                     );
                 } else {
                     should_propagate[i] = true;
