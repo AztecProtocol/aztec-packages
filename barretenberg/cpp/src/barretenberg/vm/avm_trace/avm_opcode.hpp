@@ -92,9 +92,15 @@ enum class OpCode : uint8_t {
     RETURN,
     REVERT,
 
+    // Misc
+    DEBUGLOG,
+
     // Gadgets
     KECCAK,
     POSEIDON2,
+
+    // Conversions
+    TORADIXLE,
 
     // Sentinel
     LAST_OPCODE_SENTINEL,

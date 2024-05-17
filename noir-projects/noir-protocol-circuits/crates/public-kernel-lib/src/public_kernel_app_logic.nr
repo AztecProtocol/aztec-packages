@@ -1,5 +1,5 @@
 use dep::types::abis::public_call_data::PublicCallData;
-use dep::types::abis::kernel_data::PublicKernelData;
+use dep::types::abis::public_kernel_data::PublicKernelData;
 use dep::types::PublicKernelCircuitPublicInputs;
 use dep::types::abis::kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder;
 use dep::types::utils::arrays::array_to_bounded_vec;
@@ -47,6 +47,7 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
             // Pops the item from the call stack and validates it against the current execution.
             let call_request = public_inputs.end.public_call_stack.pop();
             common::validate_call_against_request(self.public_call, call_request);
+            common::update_end_call_stack(self.public_call, &mut public_inputs);
             common::update_public_end_values(self.public_call, &mut public_inputs);
         } else {
             let mut remaining_calls = array_to_bounded_vec(self.previous_kernel.public_inputs.end.public_call_stack);
@@ -78,14 +79,15 @@ mod tests {
     use dep::types::{
         abis::{
         gas::Gas, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-        note_hash::{NoteHash, NoteHashContext}, nullifier::Nullifier, public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest, read_request::ReadRequest
+        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
+        public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
+        read_request::ReadRequest
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
         hash::{compute_l2_to_l1_hash, silo_note_hash, silo_nullifier},
         messaging::l2_to_l1_message::L2ToL1Message,
         tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
-        utils::arrays::{array_eq, array_length}
+        utils::arrays::{array_eq, array_length}, traits::is_empty
     };
     use dep::types::constants::{MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL};
 
@@ -184,23 +186,30 @@ mod tests {
     fn circuit_outputs_should_be_correctly_populated_with_previous_commitments() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         let contract_address = builder.public_call.contract_address;
-        // Setup 2 new note hashes on the previous kernel.
-        builder.previous_kernel.append_new_note_hashes(2);
-        let previous = builder.previous_kernel.new_note_hashes.storage.map(|n: NoteHashContext| n.to_note_hash());
+        // Setup 2 new note hashes and logs on the previous kernel.
+        builder.previous_kernel.append_new_note_hashes(2, true);
+        let previous = builder.previous_kernel.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash);
         // Setup 2 new note hashes on the current public inputs.
         let current = [
-            NoteHash { value: previous[1].value + 1, counter: 3 },
-            NoteHash { value: previous[1].value + 2, counter: 4 }
+            NoteHash { value: previous[1].value + 1, counter: 5 },
+            NoteHash { value: previous[1].value + 2, counter: 6 }
         ];
+        let note_logs = builder.previous_kernel.note_encrypted_logs_hashes.storage;
         builder.public_call.public_inputs.new_note_hashes.extend_from_array(current);
         let siloed = current.map(|c: NoteHash| silo_note_hash(contract_address, c.value));
         let new_note_hashes = [
-            previous[0], previous[1], NoteHash { value: siloed[0], counter: 3 }, NoteHash { value: siloed[1], counter: 4 }
+            previous[0], previous[1], NoteHash { value: siloed[0], counter: 5 }, NoteHash { value: siloed[1], counter: 6 }
         ];
 
         let public_inputs = builder.execute();
 
         assert(array_eq(public_inputs.end.new_note_hashes, new_note_hashes));
+        assert(
+            array_eq(
+                public_inputs.end.note_encrypted_logs_hashes,
+                [note_logs[0], note_logs[1]]
+            )
+        );
     }
 
     #[test]
@@ -247,19 +256,19 @@ mod tests {
 
         // Setup 2 new nullifiers on the previous kernel.
         builder.previous_kernel.append_new_nullifiers(2);
-        let previous = builder.previous_kernel.new_nullifiers.storage;
+        let previous = builder.previous_kernel.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier);
         // Setup 2 new note hashes on the current public inputs.
 
         let current = [
             Nullifier { value: previous[1].value + 1, note_hash: 0, counter: 4 }, Nullifier { value: previous[1].value + 2, note_hash: 0, counter: 5 }
         ];
+        builder.public_call.public_inputs.new_nullifiers.extend_from_array(current);
 
         let siloed = current.map(
             |current: Nullifier| 
         Nullifier { value: silo_nullifier(contract_address, current.value), note_hash: current.note_hash, counter: current.counter }
         );
 
-        builder.public_call.public_inputs.new_nullifiers.extend_from_array(current);
         // There are 2 revertible nullifiers in the previous kernel.
         // The tx nullifier is part of the non-revertible nullifiers.
         let new_nullifiers = [previous[0], previous[1], siloed[0], siloed[1]];
@@ -278,9 +287,9 @@ mod tests {
         // Setup 1 new l2 to l1 message on the previous kernel.
         let previous = [12345];
 
-        builder.previous_kernel.new_l2_to_l1_msgs.extend_from_array(previous);
+        builder.previous_kernel.add_l2_to_l1_message(previous[0], portal_contract_address);
         // Setup 1 new l2 to l1 message on the current public inputs.
-        let current = [L2ToL1Message { recipient: portal_contract_address, content: 67890 }];
+        let current = [L2ToL1Message { recipient: portal_contract_address, content: 67890, counter: 0 }];
         builder.public_call.public_inputs.new_l2_to_l1_msgs.extend_from_array(current);
         let tx_context = builder.previous_kernel.tx_context;
         let version = tx_context.version;
@@ -438,15 +447,13 @@ mod tests {
         let end_requests = public_inputs.validation_requests.nullifier_non_existent_read_requests;
         assert_eq(array_length(end_requests), 2);
 
-        let request_context = end_requests[0];
-        assert_eq(request_context.value, request_0.value);
-        assert_eq(request_context.counter, request_0.counter);
-        assert_eq(request_context.contract_address, storage_contract_address);
+        let request = end_requests[0];
+        assert_eq(request.read_request, request_0);
+        assert_eq(request.contract_address, storage_contract_address);
 
-        let request_context = end_requests[1];
-        assert_eq(request_context.value, request_1.value);
-        assert_eq(request_context.counter, request_1.counter);
-        assert_eq(request_context.contract_address, storage_contract_address);
+        let request = end_requests[1];
+        assert_eq(request.read_request, request_1);
+        assert_eq(request.contract_address, storage_contract_address);
     }
 
     #[test]
@@ -509,5 +516,20 @@ mod tests {
         builder.public_call.public_inputs.global_variables.block_number = 11;
 
         builder.failed();
+    }
+
+    #[test]
+    unconstrained fn propagate_fee_payer() {
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
+        let fee_payer = AztecAddress::from_field(123);
+        builder.previous_kernel.set_fee_payer(fee_payer);
+        let public_inputs = builder.execute();
+        assert_eq(public_inputs.fee_payer, fee_payer);
+
+        // Check that the fee payer is not set if is_fee_payer is false
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
+        assert_eq(is_empty(builder.previous_kernel.fee_payer), true);
+        let public_inputs = builder.execute();
+        assert_eq(public_inputs.fee_payer, AztecAddress::empty());
     }
 }

@@ -8,7 +8,6 @@ import {
   GlobalVariables,
   type Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
-  L2ToL1Message,
   NULLIFIER_TREE_HEIGHT,
   NullifierLeaf,
   NullifierLeafPreimage,
@@ -99,7 +98,7 @@ describe('ACIR public execution simulator', () => {
     });
 
   const simulate = (execution: PublicExecution, globalVariables: GlobalVariables) =>
-    executor.simulate(execution, globalVariables, Gas.test(), makeTxContext(), Fr.ZERO);
+    executor.simulate(execution, globalVariables, Gas.test(), makeTxContext(), /*pendingNullifiers=*/ [], Fr.ZERO);
 
   describe('Token contract', () => {
     let recipient: AztecAddress;
@@ -339,8 +338,9 @@ describe('ACIR public execution simulator', () => {
       expect(Fr.fromBuffer(childExecutionResult.unencryptedLogs.logs[0].hash())).toEqual(
         childExecutionResult.unencryptedLogsHashes[0].value,
       );
+      // We take 4 to avoid counting the extra 4 bytes used to store len for L1
       expect(childExecutionResult.unencryptedLogPreimagesLength).toEqual(
-        new Fr(childExecutionResult.unencryptedLogs.getSerializedLength()),
+        new Fr(childExecutionResult.unencryptedLogs.getSerializedLength() - 4),
       );
       expect(result.returnValues[0]).toEqual(new Fr(newValue));
     }, 20_000);
@@ -400,18 +400,17 @@ describe('ACIR public execution simulator', () => {
 
       // Assert the l2 to l1 message was created
       expect(result.newL2ToL1Messages.length).toEqual(1);
-
-      const expectedNewMessage = new L2ToL1Message(portalContractAddress, pedersenHash(params));
-
-      expect(result.newL2ToL1Messages[0]).toEqual(expectedNewMessage);
+      expect(result.newL2ToL1Messages[0].recipient).toEqual(portalContractAddress);
+      expect(result.newL2ToL1Messages[0].content).toEqual(pedersenHash(params));
     });
 
     it('Should be able to create a nullifier from the public context', async () => {
       const createNullifierPublicArtifact = TestContractArtifact.functions.find(
-        f => f.name === 'create_nullifier_public',
+        f => f.name === 'emit_nullifier_public',
       )!;
 
-      const args = encodeArguments(createNullifierPublicArtifact, params);
+      const nullifier = new Fr(1234);
+      const args = encodeArguments(createNullifierPublicArtifact, [nullifier]);
 
       const callContext = makeCallContext(contractAddress);
 
@@ -420,11 +419,7 @@ describe('ACIR public execution simulator', () => {
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
       const result = await simulate(execution, globalVariables);
 
-      // Assert the l2 to l1 message was created
-      expect(result.newNullifiers.length).toEqual(1);
-
-      const expectedNewMessageValue = pedersenHash(params);
-      expect(result.newNullifiers[0].value).toEqual(expectedNewMessageValue);
+      expect(result.newNullifiers).toEqual([expect.objectContaining({ value: nullifier })]);
     });
 
     describe('L1 to L2 messages', () => {
@@ -677,12 +672,6 @@ describe('ACIR public execution simulator', () => {
       { value: new Fr(1), invalidValue: Fr.random(), description: 'Version' },
       { value: new Fr(1), invalidValue: Fr.random(), description: 'Block number' },
       { value: new Fr(1), invalidValue: Fr.random(), description: 'Timestamp' },
-      { value: EthAddress.random(), invalidValue: EthAddress.random(), description: 'Coinbase' },
-      {
-        value: AztecAddress.random(),
-        invalidValue: AztecAddress.random(),
-        description: 'Fee recipient',
-      },
       { value: new Fr(1), invalidValue: Fr.random(), description: 'Fee per DA gas' },
       { value: new Fr(1), invalidValue: Fr.random(), description: 'Fee per L2 gas' },
     ];
@@ -731,7 +720,8 @@ describe('ACIR public execution simulator', () => {
     });
   });
 
-  describe('Historical header in public context', () => {
+  // TODO(4840): add AVM opcodes for getting header (members)
+  describe.skip('Historical header in public context', () => {
     let contractAddress: AztecAddress;
     let callContext: CallContext;
     let assertHeaderPublicArtifact: FunctionArtifact;

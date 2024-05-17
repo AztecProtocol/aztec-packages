@@ -13,6 +13,7 @@ import {
   type ProvingResult,
   type ProvingTicket,
   type PublicInputsAndProof,
+  type ServerCircuitProver,
 } from '@aztec/circuit-types/interfaces';
 import {
   type BaseOrMergeRollupPublicInputs,
@@ -43,7 +44,6 @@ import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 
-import { type CircuitProver } from '../prover/interface.js';
 import {
   buildBaseRollupInput,
   createMergeRollupInputs,
@@ -82,7 +82,7 @@ export class ProvingOrchestrator {
   private provingState: ProvingState | undefined = undefined;
   private pendingProvingJobs: AbortController[] = [];
 
-  constructor(private db: MerkleTreeOperations, private prover: CircuitProver) {}
+  constructor(private db: MerkleTreeOperations, private prover: ServerCircuitProver) {}
 
   /**
    * Starts off a new block
@@ -406,6 +406,18 @@ export class ProvingOrchestrator {
   private enqueueBaseRollup(provingState: ProvingState | undefined, index: bigint, tx: TxProvingState) {
     if (!provingState?.verifyState()) {
       logger.debug('Not running base rollup, state invalid');
+      return;
+    }
+    if (
+      !tx.baseRollupInputs.kernelData.publicInputs.end.noteEncryptedLogsHash
+        .toBuffer()
+        .equals(tx.processedTx.noteEncryptedLogs.hash(0))
+    ) {
+      provingState.reject(
+        `Note encrypted logs hash mismatch: ${
+          tx.baseRollupInputs.kernelData.publicInputs.end.noteEncryptedLogsHash
+        } === ${Fr.fromBuffer(tx.processedTx.noteEncryptedLogs.hash(0))}`,
+      );
       return;
     }
     if (

@@ -20,7 +20,7 @@ template <typename Flavor> class GoblinTranslatorRecursiveVerifier_ {
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingPoints = std::array<GroupElement, 2>;
-    using TranslationEvaluations = TranslationEvaluations_<BF>;
+    using TranslationEvaluations = TranslationEvaluations_<BF, FF>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using RelationParams = ::bb::RelationParameters<FF>;
 

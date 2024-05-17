@@ -126,7 +126,7 @@ std::array<typename Flavor::GroupElement, 2> GoblinTranslatorRecursiveVerifier_<
 // this we verify outside translator
 template <typename Flavor>
 bool GoblinTranslatorRecursiveVerifier_<Flavor>::verify_translation(
-    const TranslationEvaluations_<typename Flavor::BF>& translation_evaluations)
+    const TranslationEvaluations_<typename Flavor::BF, typename Flavor::FF>& translation_evaluations)
 {
     const auto reconstruct_from_array = [&](const auto& arr) {
         const BF reconstructed = BF(arr[0], arr[1], arr[2], arr[3]);

@@ -41,7 +41,7 @@ template <typename PCS> class ZeroMorphProver_ {
 
     // TODO(#742): Set this N_max to be the number of G1 elements in the mocked zeromorph SRS once it's in place.
     // (Then, eventually, set it based on the real SRS). For now we set it to be large but more or less arbitrary.
-    static const size_t N_max = 1 << 22;
+    static const size_t N_max = 1 << 23;
 
   public:
     /**
@@ -608,8 +608,6 @@ template <typename PCS> class ZeroMorphVerifier_ {
         }
 
         if constexpr (Curve::is_stdlib_type) {
-            auto builder = scalars[0].get_context();
-            info("num gates before:", builder->num_gates);
             return Commitment::batch_mul(commitments, scalars);
         } else {
             return batch_mul_native(commitments, scalars);
@@ -626,7 +624,6 @@ template <typename PCS> class ZeroMorphVerifier_ {
         for (size_t idx = 1; idx < scalars.size(); ++idx) {
             result = result + points[idx] * scalars[idx];
         }
-        // info(points.size());
         return result;
     }
 
@@ -711,7 +708,6 @@ template <typename PCS> class ZeroMorphVerifier_ {
         if constexpr (Curve::is_stdlib_type) {
             // Express operation as a batch_mul in order to use Goblinization if available
             auto builder = z_challenge.get_context();
-            info("num gates after:", builder->num_gates);
             std::vector<FF> scalars = { FF(builder, 1), z_challenge };
             std::vector<Commitment> points = { C_zeta_x, C_Z_x };
             C_zeta_Z = Commitment::batch_mul(points, scalars);

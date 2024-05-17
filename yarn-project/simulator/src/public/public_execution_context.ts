@@ -7,11 +7,12 @@ import {
   type GasSettings,
   type GlobalVariables,
   type Header,
+  type Nullifier,
   PublicContextInputs,
 } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
 import { type ContractInstance } from '@aztec/types/contracts';
 
 import { TypedOracle, toACVMWitness } from '../acvm/index.js';
@@ -45,6 +46,7 @@ export class PublicExecutionContext extends TypedOracle {
     public readonly availableGas: Gas,
     public readonly transactionFee: Fr,
     public readonly gasSettings: GasSettings,
+    public readonly pendingNullifiers: Nullifier[],
     // Unencrypted logs emitted during this call AND any nested calls
     // Useful for maintaining correct ordering in ts
     private allUnencryptedLogs: UnencryptedL2Log[] = [],
@@ -239,6 +241,7 @@ export class PublicExecutionContext extends TypedOracle {
       this.availableGas,
       this.transactionFee,
       this.gasSettings,
+      /*pendingNullifiers=*/ [],
       this.allUnencryptedLogs,
       this.log,
     );
@@ -277,5 +280,10 @@ export class PublicExecutionContext extends TypedOracle {
       throw new Error(`Contract instance at ${address} not found`);
     }
     return instance;
+  }
+
+  public override debugLog(message: string, fields: Fr[]): void {
+    const formattedStr = applyStringFormatting(message, fields);
+    this.log.verbose(`debug_log ${formattedStr}`);
   }
 }

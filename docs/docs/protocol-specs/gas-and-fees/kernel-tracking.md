@@ -6,7 +6,7 @@ title: Kernel Tracking
 
 Gas and fees are tracked throughout the kernel circuits to ensure that users are charged correctly for their transactions.
 
-# Private Kernel Circuits Overview
+## Private Kernel Circuits Overview
 
 On the private side, the ordering of the circuits is:
 
@@ -26,6 +26,7 @@ PrivateContextInputs --> TxContext
 
 class PrivateCallData {
     +PrivateCallStackItem call_stack_item
+    +CallRequest public_teardown_call_request
 }
 PrivateCallData --> PrivateCallStackItem
 
@@ -212,7 +213,7 @@ It must:
 - set the `public_teardown_call_request` in the `PublicKernelCircuitPublicInputs`
 - copy the constants from the `PrivateKernelData` to the `PublicKernelCircuitPublicInputs.constants`
 
-# Mempool/Node Validation
+## Mempool/Node Validation
 
 A `Tx` broadcasted to the network has:
 
@@ -259,7 +260,7 @@ When a node receives a transaction, it must check that:
 
 See other [validity conditions](../transactions/validity.md).
 
-# Public Kernel Circuits
+## Public Kernel Circuits
 
 On the public side, the order of the circuits is:
 
@@ -295,7 +296,7 @@ class PublicKernelCircuitPublicInputs {
   +PublicAccumulatedData end
   +CombinedConstantData constants
   +AztecAddress fee_payer
-  +CallRequest public_teardown_call_request
+  +CallRequest[MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX] public_teardown_call_stack
   +u8 revert_code
 }
 PublicKernelCircuitPublicInputs --> PublicAccumulatedData
@@ -537,7 +538,7 @@ The interplay between these two `revert_code`s is as follows:
 | 1                    | 1                         | 3                              |
 | 2 or 3               | (any)                     | (unchanged)                    |
 
-# Base Rollup Kernel Circuit
+## Base Rollup Kernel Circuit
 
 The base rollup kernel circuit takes in a `KernelData`, which contains a `KernelCircuitPublicInputs`, which it uses to compute the `transaction_fee`.
 

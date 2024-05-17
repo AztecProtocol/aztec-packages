@@ -42,6 +42,8 @@ export async function executePrivateFunction(
   const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
   const publicInputs = PrivateCircuitPublicInputs.fromFields(returnWitness);
 
+  context.chopNoteEncryptedLogs();
+  const noteEncryptedLogs = context.getNoteEncryptedLogs();
   const encryptedLogs = context.getEncryptedLogs();
   const unencryptedLogs = context.getUnencryptedLogs();
 
@@ -54,6 +56,7 @@ export async function executePrivateFunction(
   const nullifiedNoteHashCounters = context.getNullifiedNoteHashCounters();
   const nestedExecutions = context.getNestedExecutions();
   const enqueuedPublicFunctionCalls = context.getEnqueuedPublicFunctionCalls();
+  const publicTeardownFunctionCall = context.getPublicTeardownFunctionCall();
 
   log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
 
@@ -68,6 +71,8 @@ export async function executePrivateFunction(
     vk: Buffer.from(artifact.verificationKey!, 'hex'),
     nestedExecutions,
     enqueuedPublicFunctionCalls,
+    noteEncryptedLogs,
+    publicTeardownFunctionCall,
     encryptedLogs,
     unencryptedLogs,
   };

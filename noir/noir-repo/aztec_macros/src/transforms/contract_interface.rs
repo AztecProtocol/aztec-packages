@@ -75,7 +75,8 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> String {
                 for i in 0..{0}.len() {{
                     args_acc = args_acc.append(hash_{0}[i].as_slice());
                 }}\n",
-                        param_name, typ.typ
+                        param_name,
+                        typ.typ.to_string().replace("plain::", "")
                     )
                 }
                 _ => {
@@ -126,6 +127,7 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> String {
                 target_contract: self.target_contract,
                 selector: {},
                 args: args_acc,
+                gas_opts: dep::aztec::context::gas::GasOpts::default(),
             }}",
             args, is_void, fn_selector,
         );

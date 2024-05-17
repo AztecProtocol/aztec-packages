@@ -1,11 +1,11 @@
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2Hash, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
-import { type Fr, type GrumpkinScalar } from '@aztec/foundation/fields';
+import { type Fq, type Fr, type GrumpkinScalar } from '@aztec/foundation/fields';
 
 import { Grumpkin } from '../barretenberg/crypto/grumpkin/index.js';
 import { GeneratorIndex } from '../constants.gen.js';
 import { type GrumpkinPrivateKey } from '../types/grumpkin_private_key.js';
-import { type PublicKey } from '../types/public_key.js';
+import { PublicKeys } from '../types/public_keys.js';
 
 export function computeAppNullifierSecretKey(masterNullifierSecretKey: GrumpkinPrivateKey, app: AztecAddress): Fr {
   return poseidon2Hash([masterNullifierSecretKey.high, masterNullifierSecretKey.low, app, GeneratorIndex.NSK_M]);
@@ -24,19 +24,14 @@ export function deriveSigningKey(secretKey: Fr): GrumpkinScalar {
   return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
 }
 
-export function computePublicKeysHash(
-  masterNullifierPublicKey: PublicKey,
-  masterIncomingViewingPublicKey: PublicKey,
-  masterOutgoingViewingPublicKey: PublicKey,
-  masterTaggingPublicKey: PublicKey,
-): Fr {
-  return poseidon2Hash([
-    masterNullifierPublicKey,
-    masterIncomingViewingPublicKey,
-    masterOutgoingViewingPublicKey,
-    masterTaggingPublicKey,
-    GeneratorIndex.PUBLIC_KEYS_HASH,
-  ]);
+export function computeAddress(publicKeysHash: Fr, partialAddress: Fr) {
+  const addressFr = poseidon2Hash([publicKeysHash, partialAddress, GeneratorIndex.CONTRACT_ADDRESS_V1]);
+  return AztecAddress.fromField(addressFr);
+}
+
+export function derivePublicKeyFromSecretKey(secretKey: Fq) {
+  const curve = new Grumpkin();
+  return curve.mul(curve.generator(), secretKey);
 }
 
 /**
@@ -45,7 +40,6 @@ export function computePublicKeysHash(
  * @returns The derived keys.
  */
 export function deriveKeys(secretKey: Fr) {
-  const curve = new Grumpkin();
   // First we derive master secret keys -  we use sha512 here because this derivation will never take place
   // in a circuit
   const masterNullifierSecretKey = deriveMasterNullifierSecretKey(secretKey);
@@ -54,13 +48,13 @@ export function deriveKeys(secretKey: Fr) {
   const masterTaggingSecretKey = sha512ToGrumpkinScalar([secretKey, GeneratorIndex.TSK_M]);
 
   // Then we derive master public keys
-  const masterNullifierPublicKey = curve.mul(curve.generator(), masterNullifierSecretKey);
-  const masterIncomingViewingPublicKey = curve.mul(curve.generator(), masterIncomingViewingSecretKey);
-  const masterOutgoingViewingPublicKey = curve.mul(curve.generator(), masterOutgoingViewingSecretKey);
-  const masterTaggingPublicKey = curve.mul(curve.generator(), masterTaggingSecretKey);
+  const masterNullifierPublicKey = derivePublicKeyFromSecretKey(masterNullifierSecretKey);
+  const masterIncomingViewingPublicKey = derivePublicKeyFromSecretKey(masterIncomingViewingSecretKey);
+  const masterOutgoingViewingPublicKey = derivePublicKeyFromSecretKey(masterOutgoingViewingSecretKey);
+  const masterTaggingPublicKey = derivePublicKeyFromSecretKey(masterTaggingSecretKey);
 
   // We hash the public keys to get the public keys hash
-  const publicKeysHash = computePublicKeysHash(
+  const publicKeys = new PublicKeys(
     masterNullifierPublicKey,
     masterIncomingViewingPublicKey,
     masterOutgoingViewingPublicKey,
@@ -72,10 +66,6 @@ export function deriveKeys(secretKey: Fr) {
     masterIncomingViewingSecretKey,
     masterOutgoingViewingSecretKey,
     masterTaggingSecretKey,
-    masterNullifierPublicKey,
-    masterIncomingViewingPublicKey,
-    masterOutgoingViewingPublicKey,
-    masterTaggingPublicKey,
-    publicKeysHash,
+    publicKeys,
   };
 }
