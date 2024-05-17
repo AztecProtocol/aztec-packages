@@ -193,11 +193,12 @@ TEST_F(DataBusTests, CallDataDuplicateRead)
         result_witness_indices.emplace_back(value_witness_idx);
     }
 
-    // auto expected_read_result = calldata_values[1];
-    // auto duplicate_read_result_1 = builder.get_variable(result_witness_indices[0]);
-    // auto duplicate_read_result_2 = builder.get_variable(result_witness_indices[2]);
-    // EXPECT_EQ(duplicate_read_result_1, expected_read_result);
-    // EXPECT_EQ(duplicate_read_result_1, duplicate_read_result_2);
+    // Check that the read result is as axpected and that the duplicate reads produce the same result
+    auto expected_read_result = calldata_values[1];
+    auto duplicate_read_result_1 = builder.get_variable(result_witness_indices[0]);
+    auto duplicate_read_result_2 = builder.get_variable(result_witness_indices[2]);
+    EXPECT_EQ(duplicate_read_result_1, expected_read_result);
+    EXPECT_EQ(duplicate_read_result_1, duplicate_read_result_2);
 
     // Construct and verify Honk proof
     bool result = construct_and_verify_proof(builder);
