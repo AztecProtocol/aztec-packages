@@ -1,5 +1,5 @@
 import { type AuthWitness, type FunctionCall, type PXE, type TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, CANONICAL_KEY_REGISTRY_ADDRESS, type Fq, Fr, type Point } from '@aztec/circuits.js';
+import { AztecAddress, CANONICAL_KEY_REGISTRY_ADDRESS, type Fq, Fr, type Point, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
 import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 
 import { type AccountInterface } from '../account/interface.js';
@@ -185,8 +185,16 @@ export class AccountWallet extends BaseWallet {
    * @param newNskM - The new master nullifier secret key we want to use.
    * @remarks - This does not hinder our ability to spend notes tied to a previous master nullifier public key.
    */
-  public async rotateNskM(newNskM: Fq): Promise<void> {
+  public async rotateNullifierKeys(newNskM: Fq): Promise<void> {
     await this.pxe.rotateNskMPxe(this.getAddress(), newNskM);
+    const interaction = new ContractFunctionInteraction(
+      this,
+      AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS),
+      this.getRotateNpkMAbi(),
+      [this.getAddress(), derivePublicKeyFromSecretKey(newNskM), Fr.ZERO],
+    );
+
+    await interaction.send().wait();
   }
 
   /**
