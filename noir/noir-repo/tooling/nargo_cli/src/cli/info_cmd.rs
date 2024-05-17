@@ -231,11 +231,9 @@ fn count_opcodes_and_gates_in_program(
         .functions
         .into_par_iter()
         .enumerate()
-        .map(|(i, function)| {
-            FunctionInfo {
-                name: compiled_program.names[i].clone(),
-                acir_opcodes: function.opcodes.len(),
-            }
+        .map(|(i, function)| FunctionInfo {
+            name: compiled_program.names[i].clone(),
+            acir_opcodes: function.opcodes.len(),
         })
         .collect();
 
