@@ -1,10 +1,10 @@
 use crate::{
     context::{inputs::PrivateContextInputs, interface::ContextInterface},
-    keys::getters::get_nullifier_keys, messaging::process_l1_to_l2_message,
+    messaging::process_l1_to_l2_message,
     hash::{hash_args_array, ArgsHasher, compute_encrypted_log_hash, compute_unencrypted_log_hash},
     note::{note_interface::NoteInterface, utils::compute_note_hash_for_insertion},
     oracle::{
-    nullifier_keys::NullifierKeys, arguments, returns,
+    nullifier_keys::get_nullifier_key_validation_request, arguments, returns,
     call_private_function::call_private_function_internal, header::get_header_at,
     logs::emit_encrypted_log, logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog},
     enqueue_public_function_call::{
@@ -68,10 +68,8 @@ struct PrivateContext {
     note_encrypted_logs_hashes: BoundedVec<NoteLogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL>,
     encrypted_logs_hashes: BoundedVec<LogHash, MAX_ENCRYPTED_LOGS_PER_CALL>,
     unencrypted_logs_hashes: BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_CALL>,
-    encrypted_log_preimages_length: Field,
-    unencrypted_log_preimages_length: Field,
 
-    nullifier_key: Option<NullifierKeys>,
+    last_nullifier_key_validation_request: Option<NullifierKeyValidationRequest>,
 }
 
 impl ContextInterface for PrivateContext {
@@ -131,9 +129,7 @@ impl PrivateContext {
             note_encrypted_logs_hashes: BoundedVec::new(),
             encrypted_logs_hashes: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
-            encrypted_log_preimages_length: 0,
-            unencrypted_log_preimages_length: 0,
-            nullifier_key: Option::none()
+            last_nullifier_key_validation_request: Option::none()
         }
     }
 
@@ -176,8 +172,6 @@ impl PrivateContext {
             note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage,
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
-            encrypted_log_preimages_length: self.encrypted_log_preimages_length,
-            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             historical_header: self.historical_header,
             tx_context: self.inputs.tx_context
         }
@@ -208,24 +202,22 @@ impl PrivateContext {
     }
 
     pub fn request_nsk_app(&mut self, npk_m_hash: Field) -> Field {
-        // A value of empty nullifier keys will fail the key validation request.
-        let cached_nullifier_keys = self.nullifier_key.unwrap_or(NullifierKeys::empty());
+        let cached_request = self.last_nullifier_key_validation_request.unwrap_or(NullifierKeyValidationRequest::empty());
 
-        let nullifier_keys = if cached_nullifier_keys.master_nullifier_public_key.hash() == npk_m_hash {
-            cached_nullifier_keys
+        if cached_request.master_nullifier_public_key.hash() == npk_m_hash {
+            // We get a match so the cached request is the latest one 
+            cached_request.app_nullifier_secret_key
         } else {
-            let fetched_nullifier_keys = get_nullifier_keys(npk_m_hash);
-            let request = NullifierKeyValidationRequest {
-                master_nullifier_public_key: fetched_nullifier_keys.master_nullifier_public_key,
-                app_nullifier_secret_key: fetched_nullifier_keys.app_nullifier_secret_key
-            };
+            // We didn't get a match meaning the cached result is stale. We fetch new values from oracle and instruct
+            // protocol circuits to validate them by storing the validation request in context.
+            let request = get_nullifier_key_validation_request(npk_m_hash);
+            // We constrain that the npk_m_hash matches the one in the request (otherwise we could get an arbitrary
+            // valid key request and not the one corresponding to npk_m_hash).
+            assert(request.master_nullifier_public_key.hash() == npk_m_hash);
             self.nullifier_key_validation_requests.push(request);
-            self.nullifier_key = Option::some(fetched_nullifier_keys);
-            fetched_nullifier_keys
-        };
-
-        assert_eq(nullifier_keys.master_nullifier_public_key.hash(), npk_m_hash);
-        nullifier_keys.app_nullifier_secret_key
+            self.last_nullifier_key_validation_request = Option::some(request);
+            request.app_nullifier_secret_key
+        }
     }
 
     // docs:start:context_message_portal
@@ -268,7 +260,6 @@ impl PrivateContext {
         let len = 44 + log_slice.len().to_field();
         let side_effect = LogHash { value: log_hash, counter, length: len };
         self.unencrypted_logs_hashes.push(side_effect);
-        self.unencrypted_log_preimages_length += len;
         // call oracle
         let _void = emit_unencrypted_log_private_internal(contract_address, event_selector, log, counter);
     }
@@ -289,7 +280,6 @@ impl PrivateContext {
         let len = 44 + N * 32;
         let side_effect = LogHash { value: log_hash, counter, length: len };
         self.unencrypted_logs_hashes.push(side_effect);
-        self.unencrypted_log_preimages_length += len;
     }
     // TODO(1139): Convert to generic input once we encrypt inside the circuit
     pub fn emit_encrypted_log<N, M, L>(
@@ -316,7 +306,6 @@ impl PrivateContext {
         let log_hash = compute_encrypted_log_hash(encrypted_log);
         let side_effect = LogHash { value: log_hash, counter, length: len };
         self.encrypted_logs_hashes.push(side_effect);
-        self.encrypted_log_preimages_length += len;
     }
 
     pub fn emit_note_encrypted_log<Note, N, M, L>(
@@ -353,7 +342,6 @@ impl PrivateContext {
         let log_hash = compute_encrypted_log_hash(encrypted_log);
         let side_effect = NoteLogHash { value: log_hash, counter, length: len, note_hash_counter };
         self.note_encrypted_logs_hashes.push(side_effect);
-        self.encrypted_log_preimages_length += len;
     }
 
     pub fn call_private_function<ARGS_COUNT>(
@@ -683,9 +671,7 @@ impl Empty for PrivateContext {
             note_encrypted_logs_hashes: BoundedVec::new(),
             encrypted_logs_hashes: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
-            encrypted_log_preimages_length: 0,
-            unencrypted_log_preimages_length: 0,
-            nullifier_key: Option::none(),
+            last_nullifier_key_validation_request: Option::none(),
         }
     }
 }

@@ -83,8 +83,9 @@ fn empty_hash() {
     let mut item = PrivateCallStackItem::empty();
     item.function_data.is_private = true;
     let hash = item.hash();
+    println(hash);
 
     // Value from private_call_stack_item.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x6b31356bc5ba7ebd1037e561196c32756978fb4b079692cb742133afab2711;
+    let test_data_empty_hash = 0x140e6a3702395dfaa918b0946c80bd0e0db9131a177b44f201651208479306ba;
     assert_eq(hash, test_data_empty_hash);
 }

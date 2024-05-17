@@ -46,11 +46,6 @@ struct PrivateCircuitPublicInputs {
     encrypted_logs_hashes: [LogHash; MAX_ENCRYPTED_LOGS_PER_CALL],
     unencrypted_logs_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_CALL],
 
-    // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
-    // variable-length data.
-    encrypted_log_preimages_length: Field,
-    unencrypted_log_preimages_length: Field,
-
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
     historical_header: Header,
 
@@ -81,8 +76,6 @@ impl Eq for PrivateCircuitPublicInputs {
         (self.note_encrypted_logs_hashes == other.note_encrypted_logs_hashes) &
         (self.encrypted_logs_hashes == other.encrypted_logs_hashes) &
         (self.unencrypted_logs_hashes == other.unencrypted_logs_hashes) &
-        (self.encrypted_log_preimages_length == other.encrypted_log_preimages_length) &
-        (self.unencrypted_log_preimages_length == other.unencrypted_log_preimages_length) &
         self.historical_header.eq(other.historical_header) &
         self.tx_context.eq(other.tx_context)
     }
@@ -134,8 +127,6 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         for i in 0..self.unencrypted_logs_hashes.len() {
             fields.extend_from_array(self.unencrypted_logs_hashes[i].serialize());
         }
-        fields.push(self.encrypted_log_preimages_length);
-        fields.push(self.unencrypted_log_preimages_length);
         fields.extend_from_array(self.historical_header.serialize());
         fields.extend_from_array(self.tx_context.serialize());
 
@@ -170,8 +161,6 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             note_encrypted_logs_hashes: reader.read_struct_array(NoteLogHash::deserialize, [NoteLogHash::empty(); MAX_NOTE_ENCRYPTED_LOGS_PER_CALL]),
             encrypted_logs_hashes: reader.read_struct_array(LogHash::deserialize, [LogHash::empty(); MAX_ENCRYPTED_LOGS_PER_CALL]),
             unencrypted_logs_hashes: reader.read_struct_array(LogHash::deserialize, [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL]),
-            encrypted_log_preimages_length: reader.read(),
-            unencrypted_log_preimages_length: reader.read(),
             historical_header: reader.read_struct(Header::deserialize),
             tx_context: reader.read_struct(TxContext::deserialize),
         };
@@ -210,8 +199,6 @@ impl Empty for PrivateCircuitPublicInputs {
             note_encrypted_logs_hashes: [NoteLogHash::empty(); MAX_NOTE_ENCRYPTED_LOGS_PER_CALL],
             encrypted_logs_hashes: [LogHash::empty(); MAX_ENCRYPTED_LOGS_PER_CALL],
             unencrypted_logs_hashes: [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL],
-            encrypted_log_preimages_length: 0,
-            unencrypted_log_preimages_length: 0,
             historical_header: Header::empty(),
             tx_context: TxContext::empty(),
         }
@@ -230,7 +217,8 @@ fn serialization_of_empty() {
 fn empty_hash() {
     let inputs = PrivateCircuitPublicInputs::empty();
     let hash = inputs.hash();
+    println(hash);
     // Value from private_circuit_public_inputs.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0xb6f2c00b491fb2a5f27952a3221dc9124093a36a7dd729a79fd427a93a370e;
+    let test_data_empty_hash = 0x24ea8c67b7902c1bdc827592303786ea3df7ada25a95e8682ed26b9b36fe2f9e;
     assert_eq(hash, test_data_empty_hash);
 }
