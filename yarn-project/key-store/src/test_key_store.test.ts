@@ -80,7 +80,7 @@ describe('TestKeyStore', () => {
     );
 
     // Manages to find master nullifer secret key for pub key
-    const masterNullifierSecretKey = await keyStore.getMasterNullifierSecretKeyForPublicKey(masterNullifierPublicKey);
+    const masterNullifierSecretKey = await keyStore.getMasterSecretKeyAndAppKeyGenerator(masterNullifierPublicKey);
     expect(masterNullifierSecretKey.toString()).toMatchInlineSnapshot(
       `"0x0fde74d5e504c73b58aad420dd72590fc6004571411e7f77c45378714195a52b"`,
     );

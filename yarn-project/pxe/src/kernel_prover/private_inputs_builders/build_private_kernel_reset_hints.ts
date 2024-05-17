@@ -1,6 +1,7 @@
 import {
-  type Fr,
+  Fr,
   GrumpkinScalar,
+  type KeyGenerator,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
@@ -47,19 +48,25 @@ function getNullifierReadRequestHints(
   return buildNullifierReadRequestHints({ getNullifierMembershipWitness }, nullifierReadRequests, nullifiers);
 }
 
-async function getMasterSecretKeys(
+async function getMasterSecretKeysAndAppKeyGenerators(
   keyValidationRequests: Tuple<ScopedKeyValidationRequest, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
   oracle: ProvingDataOracle,
-) {
+): Promise<
+  [
+    Tuple<GrumpkinScalar, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+    Tuple<KeyGenerator, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+  ]
+> {
   const keys = makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar.zero);
+  const generators = makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, () => 0);
   for (let i = 0; i < keyValidationRequests.length; ++i) {
     const request = keyValidationRequests[i].request;
     if (request.isEmpty()) {
       break;
     }
-    keys[i] = await oracle.getMasterNullifierSecretKey(request.masterPublicKey);
+    [keys[i], generators[i]] = await oracle.getMasterSecretKey(request.masterPublicKey);
   }
-  return keys;
+  return [keys, generators];
 }
 
 export async function buildPrivateKernelResetHints(
@@ -80,7 +87,16 @@ export async function buildPrivateKernelResetHints(
     oracle,
   );
 
-  const masterSecretKeys = await getMasterSecretKeys(publicInputs.validationRequests.keyValidationRequests, oracle);
+  const [masterSecretKeys, appKeyGenerators] = await getMasterSecretKeysAndAppKeyGenerators(
+    publicInputs.validationRequests.keyValidationRequests,
+    oracle,
+  );
+
+  // In TS key generators are numbers but circuits expect Fr so we have to do this ugly conversion 🤮💥🤮🌪️🤮🔥🤮🌈🤮
+  const appKeyGeneratorsFields = appKeyGenerators.map(generator => new Fr(generator)) as Tuple<
+    Fr,
+    typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX
+  >;
 
   const [
     transientNullifierIndexesForNoteHashes,
@@ -102,5 +118,6 @@ export async function buildPrivateKernelResetHints(
     noteHashReadRequestHints,
     nullifierReadRequestHints,
     masterSecretKeys,
+    appKeyGeneratorsFields,
   );
 }

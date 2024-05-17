@@ -41,9 +41,8 @@ export class Oracle {
   }
 
   async getKeyValidationRequest([masterNullifierPublicKeyHash]: ACVMField[]): Promise<ACVMField[]> {
-    const { masterPublicKey: masterNullifierPublicKey, appSecretKey: appNullifierSecretKey } = await this.typedOracle.getKeyValidationRequest(
-      fromACVMField(masterNullifierPublicKeyHash),
-    );
+    const { masterPublicKey: masterNullifierPublicKey, appSecretKey: appNullifierSecretKey } =
+      await this.typedOracle.getKeyValidationRequest(fromACVMField(masterNullifierPublicKeyHash));
 
     return [
       toACVMField(masterNullifierPublicKey.x),

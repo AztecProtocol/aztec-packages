@@ -7,6 +7,7 @@ import {
   GeneratorIndex,
   type GrumpkinPrivateKey,
   GrumpkinScalar,
+  type KeyGenerator,
   type PartialAddress,
   Point,
   computeAddress,
@@ -277,20 +278,17 @@ export class TestKeyStore implements KeyStore {
   }
 
   /**
-   * Retrieves the master nullifier secret key (nsk_m) corresponding to the specified master nullifier public key
-   * (Npk_m).
+   * Retrieves the sk_m for the pk_m and a generator index of the key type.
    * @throws If the provided public key is not associated with any of the registered accounts.
-   * @param masterNullifierPublicKey - The master nullifier public key to get secret key for.
-   * @returns A Promise that resolves to the master nullifier secret key.
-   * @dev Used when feeding the master nullifier secret key to the kernel circuit for nullifier keys verification.
+   * @param masterPublicKey - The master public key to get secret key for.
+   * @returns A Promise that resolves to sk_m.
+   * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
-  public getMasterNullifierSecretKeyForPublicKey(masterNullifierPublicKey: PublicKey): Promise<GrumpkinPrivateKey> {
+  public getMasterSecretKeyAndAppKeyGenerator(masterPublicKey: PublicKey): Promise<[GrumpkinPrivateKey, KeyGenerator]> {
     // We get the account address associated with the master nullifier public key hash
-    const accountAddressBuffer = this.#keys.get(`${masterNullifierPublicKey.hash().toString()}-npk_m_hash`);
+    const accountAddressBuffer = this.#keys.get(`${masterPublicKey.hash().toString()}-npk_m_hash`);
     if (!accountAddressBuffer) {
-      throw new Error(
-        `Could not find account address for master nullifier public key ${masterNullifierPublicKey.toString()}`,
-      );
+      throw new Error(`Could not find account address for master nullifier public key ${masterPublicKey.toString()}`);
     }
     const accountAddress = AztecAddress.fromBuffer(accountAddressBuffer);
 
@@ -312,7 +310,7 @@ export class TestKeyStore implements KeyStore {
       const publicKey = Point.fromBuffer(
         masterNullifierPublicKeysBuffer.subarray(i * Point.SIZE_IN_BYTES, (i + 1) * Point.SIZE_IN_BYTES),
       );
-      if (publicKey.equals(masterNullifierPublicKey)) {
+      if (publicKey.equals(masterPublicKey)) {
         keyIndex = i;
         break;
       }
@@ -332,10 +330,8 @@ export class TestKeyStore implements KeyStore {
     const secretKey = GrumpkinScalar.fromBuffer(secretKeyBuffer);
 
     // We sanity check that it's possible to derive the public key from the secret key
-    if (!derivePublicKeyFromSecretKey(secretKey).equals(masterNullifierPublicKey)) {
-      throw new Error(
-        `Could not find master nullifier secret key for public key ${masterNullifierPublicKey.toString()}`,
-      );
+    if (!derivePublicKeyFromSecretKey(secretKey).equals(masterPublicKey)) {
+      throw new Error(`Could not find master nullifier secret key for public key ${masterPublicKey.toString()}`);
     }
 
     return Promise.resolve(secretKey);

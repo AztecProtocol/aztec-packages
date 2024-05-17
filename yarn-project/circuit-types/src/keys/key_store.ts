@@ -4,6 +4,7 @@ import {
   type Fq,
   type Fr,
   type GrumpkinPrivateKey,
+  type KeyGenerator,
   type PartialAddress,
   type PublicKey,
 } from '@aztec/circuits.js';
@@ -92,14 +93,13 @@ export interface KeyStore {
   getAppOutgoingViewingSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr>;
 
   /**
-   * Retrieves the master nullifier secret key (nsk_m) corresponding to the specified master nullifier public key
-   * (Npk_m).
+   * Retrieves the sk_m for the pk_m and a generator index of the key type.
    * @throws If the provided public key is not associated with any of the registered accounts.
-   * @param masterNullifierPublicKey - The master nullifier public key to get secret key for.
-   * @returns A Promise that resolves to the master nullifier secret key.
-   * @dev Used when feeding the master nullifier secret key to the kernel circuit for nullifier keys verification.
+   * @param masterPublicKey - The master public key to get secret key for.
+   * @returns A Promise that resolves to sk_m.
+   * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
-  getMasterNullifierSecretKeyForPublicKey(masterNullifierPublicKey: PublicKey): Promise<GrumpkinPrivateKey>;
+  getMasterSecretKeyAndAppKeyGenerator(masterPublicKey: PublicKey): Promise<[GrumpkinPrivateKey, KeyGenerator]>;
 
   /**
    * Retrieves the master incoming viewing secret key (ivsk_m) corresponding to the specified master incoming viewing

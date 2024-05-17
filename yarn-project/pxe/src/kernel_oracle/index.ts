@@ -3,6 +3,7 @@ import {
   type AztecAddress,
   type Fr,
   type FunctionSelector,
+  type GrumpkinPrivateKey,
   MembershipWitness,
   type NOTE_HASH_TREE_HEIGHT,
   type Point,
@@ -67,8 +68,8 @@ export class KernelOracle implements ProvingDataOracle {
     return header.state.partial.noteHashTree.root;
   }
 
-  public getMasterNullifierSecretKey(nullifierPublicKey: Point) {
-    return this.keyStore.getMasterNullifierSecretKeyForPublicKey(nullifierPublicKey);
+  public getMasterSecretKey(nullifierPublicKey: Point): Promise<GrumpkinPrivateKey, KeyType> {
+    return this.keyStore.getMasterSecretKeyAndAppKeyGenerator(nullifierPublicKey);
   }
 
   public async getFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
