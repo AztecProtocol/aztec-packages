@@ -9,7 +9,7 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib_circuit_builders/goblin_ultra_circuit_builder.hpp"
-#include "barretenberg/translator_vm/goblin_translator_flavor.hpp"
+#include "barretenberg/translator_vm/translator_flavor.hpp"
 
 namespace bb {
 
@@ -22,7 +22,7 @@ namespace bb {
  * sense to instantiate a Verifier with this flavor. We reuse the native flavor to initialise identical  constructions.
  * @tparam BuilderType Determines the arithmetization of the verifier circuit defined based on this flavor.
  */
-template <typename BuilderType> class GoblinTranslatorRecursiveFlavor_ {
+template <typename BuilderType> class TranslatorRecursiveFlavor_ {
 
   public:
     static constexpr size_t mini_circuit_size = 2048; // WORKTODO: is this needed?
@@ -35,7 +35,7 @@ template <typename BuilderType> class GoblinTranslatorRecursiveFlavor_ {
     using BF = Curve::BaseField;
     using RelationSeparator = FF;
 
-    using NativeFlavor = GoblinTranslatorFlavor;
+    using NativeFlavor = TranslatorFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
 
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
@@ -83,7 +83,7 @@ template <typename BuilderType> class GoblinTranslatorRecursiveFlavor_ {
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = NativeFlavor::NUM_WITNESS_ENTITIES;
 
-    using Relations = GoblinTranslatorFlavor::Relations_<FF>;
+    using Relations = TranslatorFlavor::Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
@@ -102,9 +102,9 @@ template <typename BuilderType> class GoblinTranslatorRecursiveFlavor_ {
      * @brief A field element for each entity of the flavor.  These entities represent the prover polynomials
      * evaluated at one point.
      */
-    class AllValues : public GoblinTranslatorFlavor::AllEntities<FF> {
+    class AllValues : public TranslatorFlavor::AllEntities<FF> {
       public:
-        using Base = GoblinTranslatorFlavor::AllEntities<FF>;
+        using Base = TranslatorFlavor::AllEntities<FF>;
         using Base::Base;
     };
     /**
@@ -116,7 +116,7 @@ template <typename BuilderType> class GoblinTranslatorRecursiveFlavor_ {
      * portability of our circuits.
      */
     class VerificationKey
-        : public VerificationKey_<GoblinTranslatorFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public VerificationKey_<TranslatorFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
         {
@@ -142,12 +142,12 @@ template <typename BuilderType> class GoblinTranslatorRecursiveFlavor_ {
     /**
      * @brief A container for the witness commitments.
      */
-    using WitnessCommitments = GoblinTranslatorFlavor::WitnessEntities<Commitment>;
+    using WitnessCommitments = TranslatorFlavor::WitnessEntities<Commitment>;
 
-    using CommitmentLabels = GoblinTranslatorFlavor::CommitmentLabels;
-    // Reuse the VerifierCommitments from GoblinTranslator
-    using VerifierCommitments = GoblinTranslatorFlavor::VerifierCommitments_<Commitment, VerificationKey>;
-    // Reuse the transcript from GoblinTranslator
+    using CommitmentLabels = TranslatorFlavor::CommitmentLabels;
+    // Reuse the VerifierCommitments from Translator
+    using VerifierCommitments = TranslatorFlavor::VerifierCommitments_<Commitment, VerificationKey>;
+    // Reuse the transcript from Translator
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };
 } // namespace bb

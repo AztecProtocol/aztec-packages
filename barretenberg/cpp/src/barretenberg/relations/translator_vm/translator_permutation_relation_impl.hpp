@@ -26,10 +26,10 @@ namespace bb {
 
 template <typename FF>
 template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
-void GoblinTranslatorPermutationRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulators,
-                                                             const AllEntities& in,
-                                                             const Parameters& params,
-                                                             const FF& scaling_factor)
+void TranslatorPermutationRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulators,
+                                                       const AllEntities& in,
+                                                       const Parameters& params,
+                                                       const FF& scaling_factor)
 {
     [&]() {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;

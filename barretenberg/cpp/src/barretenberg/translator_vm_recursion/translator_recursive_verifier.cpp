@@ -1,4 +1,4 @@
-#include "./goblin_translator_recursive_verifier.hpp"
+#include "./translator_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/relations/translator_vm/translator_decomposition_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_delta_range_constraint_relation_impl.hpp"
@@ -10,7 +10,7 @@
 namespace bb {
 
 template <typename Flavor>
-GoblinTranslatorRecursiveVerifier_<Flavor>::GoblinTranslatorRecursiveVerifier_(
+TranslatorRecursiveVerifier_<Flavor>::TranslatorRecursiveVerifier_(
     Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_verifier_key)
     : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
     , builder(builder)
@@ -18,8 +18,9 @@ GoblinTranslatorRecursiveVerifier_<Flavor>::GoblinTranslatorRecursiveVerifier_(
 
 // Relation params used in sumcheck which is done over FF but the received data is from BF
 template <typename Flavor>
-void GoblinTranslatorRecursiveVerifier_<Flavor>::put_translation_data_in_relation_parameters(
-    const BF& evaluation_input_x, const BF& batching_challenge_v, const BF& accumulated_result)
+void TranslatorRecursiveVerifier_<Flavor>::put_translation_data_in_relation_parameters(const BF& evaluation_input_x,
+                                                                                       const BF& batching_challenge_v,
+                                                                                       const BF& accumulated_result)
 {
 
     const auto compute_four_limbs = [](const BF& in) {
@@ -49,11 +50,10 @@ void GoblinTranslatorRecursiveVerifier_<Flavor>::put_translation_data_in_relatio
 };
 
 /**
- * @brief This function verifies an GoblinTranslatorFlavor Honk proof for given program settings.
+ * @brief This function verifies an TranslatorFlavor Honk proof for given program settings.
  */
 template <typename Flavor>
-std::array<typename Flavor::GroupElement, 2> GoblinTranslatorRecursiveVerifier_<Flavor>::verify_proof(
-    const HonkProof& proof)
+std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
@@ -128,7 +128,7 @@ std::array<typename Flavor::GroupElement, 2> GoblinTranslatorRecursiveVerifier_<
 
 // this we verify outside translator
 template <typename Flavor>
-bool GoblinTranslatorRecursiveVerifier_<Flavor>::verify_translation(
+bool TranslatorRecursiveVerifier_<Flavor>::verify_translation(
     const TranslationEvaluations_<typename Flavor::BF, typename Flavor::FF>& translation_evaluations)
 {
     const auto reconstruct_from_array = [&](const auto& arr) {
@@ -160,8 +160,8 @@ bool GoblinTranslatorRecursiveVerifier_<Flavor>::verify_translation(
         reconstruct_value_from_eccvm_evaluations(translation_evaluations, relation_parameters);
     return is_value_reconstructed;
 }
-template class GoblinTranslatorRecursiveVerifier_<bb::GoblinTranslatorRecursiveFlavor_<UltraCircuitBuilder>>;
-template class GoblinTranslatorRecursiveVerifier_<bb::GoblinTranslatorRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
-template class GoblinTranslatorRecursiveVerifier_<bb::GoblinTranslatorRecursiveFlavor_<CircuitSimulatorBN254>>;
+template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<UltraCircuitBuilder>>;
+template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
+template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<CircuitSimulatorBN254>>;
 
 } // namespace bb

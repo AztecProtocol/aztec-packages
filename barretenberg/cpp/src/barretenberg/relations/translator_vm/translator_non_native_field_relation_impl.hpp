@@ -3,7 +3,7 @@
 
 namespace bb {
 /**
- * @brief Expression for the computation of Goblin Translator accumulator in integers through 68-bit limbs and
+ * @brief Expression for the computation of Translator accumulator in integers through 68-bit limbs and
  * native field (prime) limb
  * @details This relation is a part of system of relations that enforce a formula in non-native field (base field of
  * bn254 curve Fp (p - modulus of Fp)). We are trying to compute:
@@ -55,7 +55,7 @@ namespace bb {
  * All of these subrelations are multiplied by lagrange_odd_in_minicircuit, which is a polynomial with 1 at each odd
  * index less than the size of the mini-circuit (16 times smaller than the final circuit and the only part over
  * which we need to calculate non-permutation relations). All other indices are set to zero. Each EccOpQueue entry
- * (operation) occupies 2 rows in bn254 transcripts. So the Goblin Translator VM has a 2-row cycle and we need to
+ * (operation) occupies 2 rows in bn254 transcripts. So the Translator VM has a 2-row cycle and we need to
  * switch the checks being performed depending on which row we are at right now. We have half a cycle of
  * accumulation, where we perform this computation, and half a cycle where we just copy accumulator data.
  *
@@ -66,10 +66,10 @@ namespace bb {
  */
 template <typename FF>
 template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
-void GoblinTranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulators,
-                                                                const AllEntities& in,
-                                                                const Parameters& params,
-                                                                const FF& scaling_factor)
+void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulators,
+                                                          const AllEntities& in,
+                                                          const Parameters& params,
+                                                          const FF& scaling_factor)
 {
 
     using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;

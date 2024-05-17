@@ -1,13 +1,13 @@
 #pragma once
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/translator_vm/goblin_translator_flavor.hpp"
-#include "barretenberg/translator_vm/goblin_translator_prover.hpp"
+#include "barretenberg/translator_vm/translator_flavor.hpp"
+#include "barretenberg/translator_vm/translator_prover.hpp"
 
 namespace bb {
-class GoblinTranslatorVerifier {
+class TranslatorVerifier {
   public:
-    using Flavor = GoblinTranslatorFlavor;
+    using Flavor = TranslatorFlavor;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
     using Commitment = typename Flavor::Commitment;
@@ -25,11 +25,10 @@ class GoblinTranslatorVerifier {
     std::shared_ptr<Transcript> transcript;
     RelationParameters<FF> relation_parameters;
 
-    GoblinTranslatorVerifier(const std::shared_ptr<VerificationKey>& verifier_key,
-                             const std::shared_ptr<Transcript>& transcript);
+    TranslatorVerifier(const std::shared_ptr<VerificationKey>& verifier_key,
+                       const std::shared_ptr<Transcript>& transcript);
 
-    GoblinTranslatorVerifier(const std::shared_ptr<ProvingKey>& proving_key,
-                             const std::shared_ptr<Transcript>& transcript);
+    TranslatorVerifier(const std::shared_ptr<ProvingKey>& proving_key, const std::shared_ptr<Transcript>& transcript);
 
     void put_translation_data_in_relation_parameters(const uint256_t& evaluation_input_x,
                                                      const BF& batching_challenge_v,

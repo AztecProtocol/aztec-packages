@@ -3,11 +3,11 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
-#include "barretenberg/translator_vm/goblin_translator_prover.hpp"
-#include "barretenberg/translator_vm_recursion/goblin_translator_recursive_flavor.hpp"
+#include "barretenberg/translator_vm/translator_prover.hpp"
+#include "barretenberg/translator_vm_recursion/translator_recursive_flavor.hpp"
 
 namespace bb {
-template <typename Flavor> class GoblinTranslatorRecursiveVerifier_ {
+template <typename Flavor> class TranslatorRecursiveVerifier_ {
   public:
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
@@ -35,8 +35,7 @@ template <typename Flavor> class GoblinTranslatorRecursiveVerifier_ {
 
     RelationParams relation_parameters;
 
-    GoblinTranslatorRecursiveVerifier_(Builder* builder,
-                                       const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
+    TranslatorRecursiveVerifier_(Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
 
     void put_translation_data_in_relation_parameters(const BF& evaluation_input_x,
                                                      const BF& batching_challenge_v,

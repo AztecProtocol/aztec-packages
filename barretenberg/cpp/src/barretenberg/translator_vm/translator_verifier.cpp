@@ -1,25 +1,23 @@
-#include "./goblin_translator_verifier.hpp"
+#include "./translator_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
 
-GoblinTranslatorVerifier::GoblinTranslatorVerifier(
-    const std::shared_ptr<GoblinTranslatorVerifier::VerificationKey>& verifier_key,
-    const std::shared_ptr<Transcript>& transcript)
+TranslatorVerifier::TranslatorVerifier(const std::shared_ptr<TranslatorVerifier::VerificationKey>& verifier_key,
+                                       const std::shared_ptr<Transcript>& transcript)
     : key(verifier_key)
     , transcript(transcript)
 {}
 
-GoblinTranslatorVerifier::GoblinTranslatorVerifier(
-    const std::shared_ptr<GoblinTranslatorVerifier::ProvingKey>& proving_key,
-    const std::shared_ptr<Transcript>& transcript)
-    : GoblinTranslatorVerifier(std::make_shared<GoblinTranslatorFlavor::VerificationKey>(proving_key), transcript){};
+TranslatorVerifier::TranslatorVerifier(const std::shared_ptr<TranslatorVerifier::ProvingKey>& proving_key,
+                                       const std::shared_ptr<Transcript>& transcript)
+    : TranslatorVerifier(std::make_shared<TranslatorFlavor::VerificationKey>(proving_key), transcript){};
 
-void GoblinTranslatorVerifier::put_translation_data_in_relation_parameters(const uint256_t& evaluation_input_x,
-                                                                           const BF& batching_challenge_v,
-                                                                           const uint256_t& accumulated_result)
+void TranslatorVerifier::put_translation_data_in_relation_parameters(const uint256_t& evaluation_input_x,
+                                                                     const BF& batching_challenge_v,
+                                                                     const uint256_t& accumulated_result)
 {
 
     const auto compute_four_limbs = [](const auto& in) {
@@ -51,9 +49,9 @@ void GoblinTranslatorVerifier::put_translation_data_in_relation_parameters(const
 };
 
 /**
- * @brief This function verifies an GoblinTranslatorFlavor Honk proof for given program settings.
+ * @brief This function verifies an TranslatorFlavor Honk proof for given program settings.
  */
-bool GoblinTranslatorVerifier::verify_proof(const HonkProof& proof)
+bool TranslatorVerifier::verify_proof(const HonkProof& proof)
 {
     batching_challenge_v = transcript->template get_challenge<BF>("Translation:batching_challenge");
 
@@ -125,7 +123,7 @@ bool GoblinTranslatorVerifier::verify_proof(const HonkProof& proof)
     return verified;
 }
 
-bool GoblinTranslatorVerifier::verify_translation(const TranslationEvaluations& translation_evaluations)
+bool TranslatorVerifier::verify_translation(const TranslationEvaluations& translation_evaluations)
 {
     const auto reconstruct_from_array = [&](const auto& arr) {
         const BF elt_0 = (static_cast<uint256_t>(arr[0]));

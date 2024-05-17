@@ -16,10 +16,10 @@ namespace bb {
  */
 template <typename FF>
 template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
-void GoblinTranslatorOpcodeConstraintRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulators,
-                                                                  const AllEntities& in,
-                                                                  const Parameters&,
-                                                                  const FF& scaling_factor)
+void TranslatorOpcodeConstraintRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulators,
+                                                            const AllEntities& in,
+                                                            const Parameters&,
+                                                            const FF& scaling_factor)
 {
 
     using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -57,10 +57,10 @@ void GoblinTranslatorOpcodeConstraintRelationImpl<FF>::accumulate(ContainerOverS
  */
 template <typename FF>
 template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
-void GoblinTranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulators,
-                                                                     const AllEntities& in,
-                                                                     const Parameters& params,
-                                                                     const FF& scaling_factor)
+void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulators,
+                                                               const AllEntities& in,
+                                                               const Parameters& params,
+                                                               const FF& scaling_factor)
 {
     using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;

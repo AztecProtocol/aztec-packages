@@ -1,6 +1,6 @@
 #include "barretenberg/relations/translator_vm/translator_permutation_relation_impl.hpp"
-#include "barretenberg/translator_vm/goblin_translator_flavor.hpp"
+#include "barretenberg/translator_vm/translator_flavor.hpp"
 namespace bb {
-template class GoblinTranslatorPermutationRelationImpl<fr>;
-DEFINE_SUMCHECK_RELATION_CLASS(GoblinTranslatorPermutationRelationImpl, GoblinTranslatorFlavor);
+template class TranslatorPermutationRelationImpl<fr>;
+DEFINE_SUMCHECK_RELATION_CLASS(TranslatorPermutationRelationImpl, TranslatorFlavor);
 } // namespace bb

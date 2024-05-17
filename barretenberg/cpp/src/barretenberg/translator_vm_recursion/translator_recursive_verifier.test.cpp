@@ -1,11 +1,11 @@
-#include "barretenberg/translator_vm_recursion/goblin_translator_recursive_verifier.hpp"
+#include "barretenberg/translator_vm_recursion/translator_recursive_verifier.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
-#include "barretenberg/translator_vm/goblin_translator_circuit_builder.hpp"
-#include "barretenberg/translator_vm/goblin_translator_prover.hpp"
-#include "barretenberg/translator_vm/goblin_translator_verifier.hpp"
+#include "barretenberg/translator_vm/translator_circuit_builder.hpp"
+#include "barretenberg/translator_vm/translator_prover.hpp"
+#include "barretenberg/translator_vm/translator_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include <gtest/gtest.h>
@@ -21,17 +21,17 @@ namespace bb {
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/980): Add failing tests after we have a proper shared
 // transcript interface between ECCVM and Translator and we are able to deserialise and serialise the transcript
 // correctly.
-template <typename RecursiveFlavor> class GoblinTranslatorRecursiveTests : public ::testing::Test {
+template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::testing::Test {
   public:
     using InnerFlavor = typename RecursiveFlavor::NativeFlavor;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
-    using InnerProver = GoblinTranslatorProver;
-    using InnerVerifier = GoblinTranslatorVerifier;
+    using InnerProver = TranslatorProver;
+    using InnerVerifier = TranslatorVerifier;
     using InnerG1 = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
     using InnerBF = InnerFlavor::BF;
 
-    using RecursiveVerifier = GoblinTranslatorRecursiveVerifier_<RecursiveFlavor>;
+    using RecursiveVerifier = TranslatorRecursiveVerifier_<RecursiveFlavor>;
 
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
     using OuterFlavor = std::conditional_t<IsGoblinUltraBuilder<OuterBuilder>, GoblinUltraFlavor, UltraFlavor>;
@@ -122,13 +122,13 @@ template <typename RecursiveFlavor> class GoblinTranslatorRecursiveTests : publi
     }
 };
 
-using FlavorTypes = testing::Types<GoblinTranslatorRecursiveFlavor_<UltraCircuitBuilder>,
-                                   GoblinTranslatorRecursiveFlavor_<GoblinUltraCircuitBuilder>,
-                                   GoblinTranslatorRecursiveFlavor_<CircuitSimulatorBN254>>;
+using FlavorTypes = testing::Types<TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
+                                   TranslatorRecursiveFlavor_<GoblinUltraCircuitBuilder>,
+                                   TranslatorRecursiveFlavor_<CircuitSimulatorBN254>>;
 
-TYPED_TEST_SUITE(GoblinTranslatorRecursiveTests, FlavorTypes);
+TYPED_TEST_SUITE(TranslatorRecursiveTests, FlavorTypes);
 
-TYPED_TEST(GoblinTranslatorRecursiveTests, SingleRecursiveVerification)
+TYPED_TEST(TranslatorRecursiveTests, SingleRecursiveVerification)
 {
     TestFixture::test_recursive_verification();
 };

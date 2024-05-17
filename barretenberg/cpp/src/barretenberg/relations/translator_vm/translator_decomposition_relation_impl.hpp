@@ -23,10 +23,10 @@ namespace bb {
  */
 template <typename FF>
 template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
-void GoblinTranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulators,
-                                                               const AllEntities& in,
-                                                               const Parameters&,
-                                                               const FF& scaling_factor)
+void TranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulators,
+                                                         const AllEntities& in,
+                                                         const Parameters&,
+                                                         const FF& scaling_factor)
 {
     static constexpr size_t NUM_LIMB_BITS = 68;       // Number of bits in a standard limb used for bigfield operations
     static constexpr size_t NUM_MICRO_LIMB_BITS = 14; // Number of bits in a standard limb used for bigfield operations

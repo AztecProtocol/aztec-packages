@@ -17,10 +17,10 @@ namespace bb {
  */
 template <typename FF>
 template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
-void GoblinTranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulators,
-                                                                      const AllEntities& in,
-                                                                      const Parameters&,
-                                                                      const FF& scaling_factor)
+void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulators,
+                                                                const AllEntities& in,
+                                                                const Parameters&,
+                                                                const FF& scaling_factor)
 {
     static const FF minus_one = FF(-1);
     static const FF minus_two = FF(-2);
