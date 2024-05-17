@@ -1,7 +1,9 @@
 name: CI (ARM)
 on:
   push:
-    branches: [ad/fix-arm-build]
+    branches:
+      - master
+      - '*/*fix-arm-build'
   workflow_dispatch:
     inputs: {}
 concurrency:
