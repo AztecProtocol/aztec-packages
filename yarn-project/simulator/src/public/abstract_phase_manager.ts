@@ -57,13 +57,13 @@ import {
   type PublicExecution,
   type PublicExecutionResult,
   type PublicExecutor,
+  accumulateReturnValues,
   collectPublicDataReads,
   collectPublicDataUpdateRequests,
   isPublicExecutionResult,
 } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { accumulateReturnValues } from '../utils.js';
 import { HintsBuilder } from './hints_builder.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 import { lastSideEffectCounter } from './utils.js';

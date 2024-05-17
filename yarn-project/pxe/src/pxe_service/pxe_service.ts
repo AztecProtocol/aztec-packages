@@ -45,6 +45,7 @@ import { Timer } from '@aztec/foundation/timer';
 import {
   type AcirSimulator,
   type ExecutionResult,
+  accumulateReturnValues,
   collectEnqueuedPublicFunctionCalls,
   collectPublicTeardownFunctionCall,
   collectSortedEncryptedLogs,
@@ -55,7 +56,6 @@ import {
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
 
-import { accumulateReturnValues } from '../../../simulator/src/utils.js';
 import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type PxeDatabase } from '../database/index.js';
