@@ -80,7 +80,7 @@ async function initGasBridge({ walletClient, l1ContractAddresses }: DeployL1Cont
     [
       l1ContractAddresses.registryAddress.toString(),
       l1ContractAddresses.gasTokenAddress.toString(),
-      getCanonicalGasTokenAddress(l1ContractAddresses.gasPortalAddress).toString(),
+      getCanonicalGasTokenAddress().toString(),
     ],
     {} as any,
   );

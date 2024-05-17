@@ -80,10 +80,7 @@ describe('benchmarks/proving', () => {
     )
       .send()
       .deployed();
-    initialGasContract = await GasTokenContract.at(
-      getCanonicalGasTokenAddress(ctx.deployL1ContractsValues.l1ContractAddresses.gasPortalAddress),
-      initialSchnorrWallet,
-    );
+    initialGasContract = await GasTokenContract.at(getCanonicalGasTokenAddress(), initialSchnorrWallet);
     initialFpContract = await FPCContract.deploy(
       initialSchnorrWallet,
       initialTokenContract.address,

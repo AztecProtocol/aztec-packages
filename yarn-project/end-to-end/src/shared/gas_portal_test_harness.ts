@@ -46,10 +46,8 @@ export class GasPortalTestingHarnessFactory {
     const wallet = this.config.wallet;
 
     // In this case we are not using a portal we just yolo it.
-    const gasL2 = await GasTokenContract.deploy(wallet, EthAddress.ZERO)
-      .send({
-        contractAddressSalt: getCanonicalGasToken(EthAddress.ZERO).instance.salt,
-      })
+    const gasL2 = await GasTokenContract.deploy(wallet)
+      .send({ contractAddressSalt: getCanonicalGasToken().instance.salt })
       .deployed();
     return Promise.resolve(new MockGasBridgingTestHarness(gasL2, EthAddress.ZERO));
   }
@@ -85,7 +83,7 @@ export class GasPortalTestingHarnessFactory {
       client: walletClient,
     });
 
-    const gasL2 = await GasTokenContract.at(getCanonicalGasTokenAddress(gasPortalAddress), wallet);
+    const gasL2 = await GasTokenContract.at(getCanonicalGasTokenAddress(), wallet);
 
     return new GasBridgingTestHarness(
       aztecNode,

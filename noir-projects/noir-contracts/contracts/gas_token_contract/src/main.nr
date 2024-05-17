@@ -14,23 +14,23 @@ contract GasToken {
         portal_address: SharedImmutable<EthAddress>,
     }
 
+    // We purposefully not set this function as an initializer so we do not bind
+    // the contract to a specific L1 portal address, since the gas token address
+    // is a hardcoded constant in the rollup circuits.
     #[aztec(public)]
-    #[aztec(initializer)]
-    fn constructor(portal_address: EthAddress) {
+    fn set_portal(portal_address: EthAddress) {
+        assert(storage.portal_address.read_public().is_zero());
         storage.portal_address.initialize(portal_address);
     }
 
     #[aztec(public)]
     fn claim_public(to: AztecAddress, amount: Field, secret: Field, leaf_index: Field) {
         let content_hash = get_bridge_gas_msg_hash(to, amount);
+        let portal_address = storage.portal_address.read_public();
+        assert(!portal_address.is_zero());
 
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(
-            content_hash,
-            secret,
-            storage.portal_address.read_public(),
-            leaf_index
-        );
+        context.consume_l1_to_l2_message(content_hash, secret, portal_address, leaf_index);
 
         let new_balance = storage.balances.at(to).read() + U128::from_integer(amount);
         storage.balances.at(to).write(new_balance);

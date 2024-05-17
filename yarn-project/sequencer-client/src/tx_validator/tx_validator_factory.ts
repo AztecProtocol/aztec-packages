@@ -23,7 +23,7 @@ export class TxValidatorFactory {
       new MetadataTxValidator(globalVariables),
       new DoubleSpendTxValidator(new WorldStateDB(this.merkleTreeDb)),
       new PhasesTxValidator(this.contractDataSource, setupAllowList),
-      new GasTxValidator(new WorldStatePublicDB(this.merkleTreeDb), getCanonicalGasTokenAddress(this.gasPortalAddress)),
+      new GasTxValidator(new WorldStatePublicDB(this.merkleTreeDb), getCanonicalGasTokenAddress()),
     );
   }
 

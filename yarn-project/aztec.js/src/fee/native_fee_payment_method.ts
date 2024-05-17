@@ -3,7 +3,6 @@ import { type AztecAddress, FunctionData, type GasSettings } from '@aztec/circui
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
-import { type Wallet } from '../account/wallet.js';
 import { type FeePaymentMethod } from './fee_payment_method.js';
 
 /**
@@ -12,13 +11,8 @@ import { type FeePaymentMethod } from './fee_payment_method.js';
 export class NativeFeePaymentMethod implements FeePaymentMethod {
   #gasTokenAddress: AztecAddress;
 
-  private constructor(canonicalGasTokenAddress: AztecAddress) {
-    this.#gasTokenAddress = canonicalGasTokenAddress;
-  }
-
-  static async create(wallet: Wallet): Promise<NativeFeePaymentMethod> {
-    const nodeInfo = await wallet.getNodeInfo();
-    return new NativeFeePaymentMethod(getCanonicalGasTokenAddress(nodeInfo.l1ContractAddresses.gasPortalAddress));
+  constructor() {
+    this.#gasTokenAddress = getCanonicalGasTokenAddress();
   }
 
   /**
