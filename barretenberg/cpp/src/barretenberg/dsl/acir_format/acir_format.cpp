@@ -10,7 +10,10 @@ template class DSLBigInts<UltraCircuitBuilder>;
 template class DSLBigInts<GoblinUltraCircuitBuilder>;
 
 template <typename Builder>
-void build_constraints(Builder& builder, AcirFormat const& constraint_system, bool has_valid_witness_assignments)
+void build_constraints(Builder& builder,
+                       AcirFormat const& constraint_system,
+                       bool has_valid_witness_assignments,
+                       bool honk_recursion)
 {
     // Add arithmetic gates
     for (const auto& constraint : constraint_system.poly_triple_constraints) {
@@ -289,7 +292,8 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
             std::vector<uint32_t> proof_output_witness_indices(current_aggregation_object.begin(),
                                                                current_aggregation_object.end());
             builder.set_recursive_proof(proof_output_witness_indices);
-        } else if (builder.is_recursive_circuit) { // Set a default aggregation object if we don't have one.
+        } else if (honk_recursion &&
+                   builder.is_recursive_circuit) { // Set a default aggregation object if we don't have one.
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from
             // a valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
             fq x0("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
@@ -333,14 +337,17 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
  * @return Builder
  */
 template <>
-UltraCircuitBuilder create_circuit(const AcirFormat& constraint_system, size_t size_hint, WitnessVector const& witness)
+UltraCircuitBuilder create_circuit(const AcirFormat& constraint_system,
+                                   size_t size_hint,
+                                   WitnessVector const& witness,
+                                   bool honk_recursion)
 {
     Builder builder{
         size_hint, witness, constraint_system.public_inputs, constraint_system.varnum, constraint_system.recursive
     };
 
     bool has_valid_witness_assignments = !witness.empty();
-    build_constraints(builder, constraint_system, has_valid_witness_assignments);
+    build_constraints(builder, constraint_system, has_valid_witness_assignments, honk_recursion);
 
     builder.finalize_circuit();
 
@@ -359,7 +366,8 @@ UltraCircuitBuilder create_circuit(const AcirFormat& constraint_system, size_t s
 template <>
 GoblinUltraCircuitBuilder create_circuit(const AcirFormat& constraint_system,
                                          [[maybe_unused]] size_t size_hint,
-                                         WitnessVector const& witness)
+                                         WitnessVector const& witness,
+                                         bool honk_recursion)
 {
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
     auto op_queue = std::make_shared<ECCOpQueue>(); // instantiate empty op_queue
@@ -368,13 +376,13 @@ GoblinUltraCircuitBuilder create_circuit(const AcirFormat& constraint_system,
 
     // Populate constraints in the builder via the data in constraint_system
     bool has_valid_witness_assignments = !witness.empty();
-    acir_format::build_constraints(builder, constraint_system, has_valid_witness_assignments);
+    acir_format::build_constraints(builder, constraint_system, has_valid_witness_assignments, honk_recursion);
 
     builder.finalize_circuit();
 
     return builder;
 };
 
-template void build_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder&, AcirFormat const&, bool);
+template void build_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder&, AcirFormat const&, bool, bool);
 
 } // namespace acir_format

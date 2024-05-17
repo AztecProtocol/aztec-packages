@@ -105,9 +105,17 @@ using WitnessVector = std::vector<fr, ContainerSlabAllocator<fr>>;
 using WitnessVectorStack = std::vector<std::pair<uint32_t, WitnessVector>>;
 
 template <typename Builder = UltraCircuitBuilder>
-Builder create_circuit(const AcirFormat& constraint_system, size_t size_hint = 0, WitnessVector const& witness = {});
+Builder create_circuit(const AcirFormat& constraint_system,
+                       size_t size_hint = 0,
+                       WitnessVector const& witness = {},
+                       bool honk_recursion = false);
 
 template <typename Builder>
-void build_constraints(Builder& builder, AcirFormat const& constraint_system, bool has_valid_witness_assignments);
+void build_constraints(Builder& builder,
+                       AcirFormat const& constraint_system,
+                       bool has_valid_witness_assignments,
+                       bool honk_recursion = false); // honk_recursion means we will honk to recursively verify this
+                                                     // circuit. This distinction is needed to not add the default
+                                                     // aggregation object when we're not using the honk RV.
 
 } // namespace acir_format

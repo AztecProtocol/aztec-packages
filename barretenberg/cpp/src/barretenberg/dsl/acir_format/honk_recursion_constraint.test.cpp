@@ -250,7 +250,7 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
                                       .quad_constraints = {},
                                       .block_constraints = {} };
 
-        auto outer_circuit = create_circuit(constraint_system, /*size_hint*/ 0, witness);
+        auto outer_circuit = create_circuit(constraint_system, /*size_hint*/ 0, witness, /*honk recursion*/ true);
 
         return outer_circuit;
     }
