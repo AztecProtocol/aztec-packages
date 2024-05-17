@@ -410,22 +410,22 @@ mod tests {
     fn test_ascii_decode_range_58_64_fails_0() {
         let _ = U128::decode_ascii(58);
     }
-    
+
     #[test(should_fail)]
     fn test_ascii_decode_range_58_64_fails_1() {
         let _ = U128::decode_ascii(64);
     }
-    
+
     #[test(should_fail)]
     fn test_ascii_decode_range_71_96_fails_0() {
         let _ = U128::decode_ascii(71);
     }
-    
+
     #[test(should_fail)]
     fn test_ascii_decode_range_71_96_fails_1() {
         let _ = U128::decode_ascii(96);
     }
-    
+
     #[test(should_fail)]
     fn test_ascii_decode_range_greater_than_102_fails() {
         let _ = U128::decode_ascii(103);
@@ -441,7 +441,6 @@ mod tests {
         assert(c[16] != 0);
     }
 
-    
     #[test]
     fn test_unconstrained_div() {
         // Test the potential overflow case
