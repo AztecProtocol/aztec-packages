@@ -1,4 +1,13 @@
-import { EncryptedLogBody, EncryptedLogHeader, Fr, GrumpkinScalar, Note, type Wallet } from '@aztec/aztec.js';
+import {
+  AztecAddress,
+  EncryptedLogHeader,
+  EncryptedLogIncomingBody,
+  EncryptedLogOutgoingBody,
+  Fr,
+  GrumpkinScalar,
+  Note,
+  type Wallet,
+} from '@aztec/aztec.js';
 import { Aes128, Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { TestContract } from '@aztec/noir-contracts.js';
 
@@ -55,7 +64,7 @@ describe('e2e_encryption', () => {
     expect(ciphertext).toEqual(expectedCiphertext);
   });
 
-  it('encrypts header', async () => {
+  it('encrypts log header', async () => {
     const ephSecretKey = GrumpkinScalar.random();
     const viewingSecretKey = GrumpkinScalar.random();
 
@@ -73,7 +82,7 @@ describe('e2e_encryption', () => {
     expect(recreated.address).toEqual(contract.address);
   });
 
-  it('encrypted body', async () => {
+  it('encrypts log incoming body', async () => {
     const ephSecretKey = GrumpkinScalar.random();
     const viewingSecretKey = GrumpkinScalar.random();
 
@@ -85,17 +94,40 @@ describe('e2e_encryption', () => {
     const value = Fr.random();
     const note = new Note([value]);
 
-    const body = new EncryptedLogBody(storageSlot, noteTypeId, note);
+    const body = new EncryptedLogIncomingBody(storageSlot, noteTypeId, note);
 
     const encrypted = await contract.methods
-      .compute_note_body_ciphertext(ephSecretKey, viewingPubKey, storageSlot, value)
+      .compute_incoming_log_body_ciphertext(ephSecretKey, viewingPubKey, storageSlot, value)
       .simulate();
 
     expect(Buffer.from(encrypted.map((x: bigint) => Number(x)))).toEqual(
       body.computeCiphertext(ephSecretKey, viewingPubKey),
     );
 
-    const recreated = EncryptedLogBody.fromCiphertext(encrypted, viewingSecretKey, ephPubKey);
+    const recreated = EncryptedLogIncomingBody.fromCiphertext(encrypted, viewingSecretKey, ephPubKey);
+
+    expect(recreated.toBuffer()).toEqual(body.toBuffer());
+  });
+
+  it('encrypts log outgoing body', async () => {
+    const ephSk = GrumpkinScalar.random();
+    const recipientIvskApp = GrumpkinScalar.random();
+    const senderOvskApp = GrumpkinScalar.random();
+
+    const ephPk = grumpkin.mul(Grumpkin.generator, ephSk);
+    const recipientIvpkApp = grumpkin.mul(Grumpkin.generator, recipientIvskApp);
+
+    const recipientAddress = AztecAddress.fromBigInt(BigInt('0xdeadbeef'));
+
+    const body = new EncryptedLogOutgoingBody(ephSk, recipientAddress, recipientIvpkApp);
+
+    const encrypted = await contract.methods
+      .compute_outgoing_log_body_ciphertext(ephSk, recipientAddress, recipientIvpkApp, senderOvskApp)
+      .simulate();
+
+    expect(Buffer.from(encrypted.map((x: bigint) => Number(x)))).toEqual(body.computeCiphertext(senderOvskApp, ephPk));
+
+    const recreated = EncryptedLogOutgoingBody.fromCiphertext(encrypted, senderOvskApp, ephPk);
 
     expect(recreated.toBuffer()).toEqual(body.toBuffer());
   });
