@@ -32,6 +32,7 @@ struct PrivateKernelResetHints {
     note_hash_read_request_hints: NoteHashReadRequestHints,
     nullifier_read_request_hints: NullifierReadRequestHints,
     master_secret_keys: [GrumpkinPrivateKey; MAX_KEY_VALIDATION_REQUESTS_PER_TX],
+    app_secret_keys_generators: [Field; MAX_KEY_VALIDATION_REQUESTS_PER_TX],
 }
 
 struct PrivateKernelResetCircuitPrivateInputs {
@@ -55,7 +56,8 @@ impl PrivateKernelResetCircuitPrivateInputs {
             nullifier_read_request_hints: self.hints.nullifier_read_request_hints,
             pending_nullifiers: previous_public_inputs.end.new_nullifiers,
             nullifier_tree_root: previous_public_inputs.constants.historical_header.state.partial.nullifier_tree.root,
-            master_secret_keys: self.hints.master_secret_keys
+            master_secret_keys: self.hints.master_secret_keys,
+            app_secret_keys_generators: self.hints.app_secret_keys_generators
         }.validate();
 
         verify_squashed_transient_note_hashes_and_nullifiers(
@@ -178,7 +180,8 @@ mod tests {
                 transient_note_hash_indexes_for_logs: self.transient_note_hash_indexes_for_logs,
                 note_hash_read_request_hints: self.note_hash_read_request_hints_builder.to_hints(),
                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
-                master_secret_keys: [GrumpkinPrivateKey::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_TX]
+                master_secret_keys: [GrumpkinPrivateKey::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_TX],
+                app_secret_keys_generators: [0; MAX_KEY_VALIDATION_REQUESTS_PER_TX]
             };
 
             let kernel = PrivateKernelResetCircuitPrivateInputs { previous_kernel: self.previous_kernel.to_private_kernel_data(), outputs, hints };

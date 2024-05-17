@@ -17,6 +17,7 @@ import {
   GeneratorIndex,
   type GrumpkinPrivateKey,
   Header,
+  KeyValidationRequest,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
@@ -193,16 +194,20 @@ describe('Private Execution test suite', () => {
     oracle.getKeyValidationRequest.mockImplementation(
       (masterNullifierPublicKeyHash: Fr, contractAddress: AztecAddress) => {
         if (masterNullifierPublicKeyHash.equals(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
-          return Promise.resolve({
-            masterNullifierPublicKey: ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
-            appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
-          });
+          return Promise.resolve(
+            new KeyValidationRequest(
+              ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
+              computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
+            ),
+          );
         }
         if (masterNullifierPublicKeyHash.equals(recipientCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
-          return Promise.resolve({
-            masterNullifierPublicKey: recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
-            appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
-          });
+          return Promise.resolve(
+            new KeyValidationRequest(
+              recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
+              computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
+            ),
+          );
         }
         throw new Error(`Unknown master nullifier public key hash: ${masterNullifierPublicKeyHash}`);
       },

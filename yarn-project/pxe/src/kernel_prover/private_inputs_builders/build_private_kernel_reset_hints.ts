@@ -47,13 +47,13 @@ function getNullifierReadRequestHints(
   return buildNullifierReadRequestHints({ getNullifierMembershipWitness }, nullifierReadRequests, nullifiers);
 }
 
-async function getMasterNullifierSecretKeys(
-  nullifierKeyValidationRequests: Tuple<ScopedKeyValidationRequest, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+async function getMasterSecretKeys(
+  keyValidationRequests: Tuple<ScopedKeyValidationRequest, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
   oracle: ProvingDataOracle,
 ) {
   const keys = makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar.zero);
-  for (let i = 0; i < nullifierKeyValidationRequests.length; ++i) {
-    const request = nullifierKeyValidationRequests[i].request;
+  for (let i = 0; i < keyValidationRequests.length; ++i) {
+    const request = keyValidationRequests[i].request;
     if (request.isEmpty()) {
       break;
     }
@@ -80,10 +80,7 @@ export async function buildPrivateKernelResetHints(
     oracle,
   );
 
-  const masterNullifierSecretKeys = await getMasterNullifierSecretKeys(
-    publicInputs.validationRequests.nullifierKeyValidationRequests,
-    oracle,
-  );
+  const masterSecretKeys = await getMasterSecretKeys(publicInputs.validationRequests.keyValidationRequests, oracle);
 
   const [
     transientNullifierIndexesForNoteHashes,
@@ -104,6 +101,6 @@ export async function buildPrivateKernelResetHints(
     transientNoteHashIndexesForLogs,
     noteHashReadRequestHints,
     nullifierReadRequestHints,
-    masterNullifierSecretKeys,
+    masterSecretKeys,
   );
 }

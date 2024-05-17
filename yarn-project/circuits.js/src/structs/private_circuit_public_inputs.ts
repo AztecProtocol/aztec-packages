@@ -78,7 +78,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * Nullifier key validation requests created by the corresponding function call.
      */
-    public nullifierKeyValidationRequests: Tuple<KeyValidationRequest, typeof MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
+    public keyValidationRequests: Tuple<KeyValidationRequest, typeof MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
     /**
      * New note hashes created by the corresponding function call.
      */
@@ -252,7 +252,7 @@ export class PrivateCircuitPublicInputs {
       this.maxBlockNumber.isEmpty() &&
       isEmptyArray(this.noteHashReadRequests) &&
       isEmptyArray(this.nullifierReadRequests) &&
-      isEmptyArray(this.nullifierKeyValidationRequests) &&
+      isEmptyArray(this.keyValidationRequests) &&
       isEmptyArray(this.newNoteHashes) &&
       isEmptyArray(this.newNullifiers) &&
       isZeroArray(this.privateCallStackHashes) &&
@@ -282,7 +282,7 @@ export class PrivateCircuitPublicInputs {
       fields.maxBlockNumber,
       fields.noteHashReadRequests,
       fields.nullifierReadRequests,
-      fields.nullifierKeyValidationRequests,
+      fields.keyValidationRequests,
       fields.newNoteHashes,
       fields.newNullifiers,
       fields.privateCallStackHashes,

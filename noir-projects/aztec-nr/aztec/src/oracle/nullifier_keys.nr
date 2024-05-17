@@ -18,10 +18,10 @@ pub fn get_key_validation_request(pk_m_hash: Field, key_index: Field) -> KeyVali
     get_key_validation_request_internal(pk_m_hash, key_index)
 }
 
-pub fn get_key_validation_request(npk_m_hash: Field) -> KeyValidationRequest {
+pub fn get_nullifier_key_validation_request(npk_m_hash: Field) -> KeyValidationRequest {
     get_key_validation_request_internal(npk_m_hash, NULLIFIER_INDEX)
 }
 
 pub fn get_nsk_app(npk_m_hash: Field) -> Field {
-    get_key_validation_request(npk_m_hash).app_nullifier_secret_key
+    get_nullifier_key_validation_request(npk_m_hash).app_nullifier_secret_key
 }

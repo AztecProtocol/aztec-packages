@@ -20,18 +20,12 @@ global PUBLIC_KEYS_LENGTH = 8;
 global NUM_KEY_TYPES = 4;
 
 // TODO(benesjan): Is this the best place to have this?
-pub fn get_sk_app_generator(key_index: Field) -> Field {
-    assert(key_index as u8 < NUM_KEY_TYPES, "Invalid key index");
-    if key_index == NULLIFIER_INDEX {
-        GENERATOR_INDEX__NSK_M
-    } else if key_index == INCOMING_INDEX {
-        GENERATOR_INDEX__IVSK_M
-    } else if key_index == OUTGOING_INDEX {
-        GENERATOR_INDEX__OVSK_M
-    } else {
-        GENERATOR_INDEX__TSK_M
-    }
-}
+global sk_generators = [
+    GENERATOR_INDEX__NSK_M,
+    GENERATOR_INDEX__IVSK_M,
+    GENERATOR_INDEX__OVSK_M,
+    GENERATOR_INDEX__TSK_M
+];
 
 struct PublicKeys {
     npk_m: GrumpkinPoint,

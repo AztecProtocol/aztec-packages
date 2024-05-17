@@ -43,7 +43,7 @@ export class ValidationRequests {
     /**
      * All the nullifier key validation requests made in this transaction.
      */
-    public nullifierKeyValidationRequests: Tuple<ScopedKeyValidationRequest, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+    public keyValidationRequests: Tuple<ScopedKeyValidationRequest, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
     /**
      * All the public data reads made in this transaction.
      */
@@ -56,7 +56,7 @@ export class ValidationRequests {
       this.noteHashReadRequests,
       this.nullifierReadRequests,
       this.nullifierNonExistentReadRequests,
-      this.nullifierKeyValidationRequests,
+      this.keyValidationRequests,
       this.publicDataReads,
     );
   }
@@ -117,7 +117,7 @@ export class ValidationRequests {
     .filter(x => !x.isEmpty())
     .map(h => inspect(h))
     .join(', ')}],
-  nullifierKeyValidationRequests: [${this.nullifierKeyValidationRequests
+  keyValidationRequests: [${this.keyValidationRequests
     .filter(x => !x.isEmpty())
     .map(h => inspect(h))
     .join(', ')}],

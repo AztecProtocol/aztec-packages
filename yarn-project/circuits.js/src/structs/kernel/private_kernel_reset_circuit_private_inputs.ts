@@ -1,4 +1,4 @@
-import { GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
@@ -63,11 +63,14 @@ export class PrivateKernelResetHints {
      * Contains hints for the nullifier read requests to locate corresponding pending or settled nullifiers.
      */
     public nullifierReadRequestHints: NullifierReadRequestHints,
-
     /**
-     * The master nullifier secret keys for the nullifier key validation requests.
+     * The master secret keys for the key validation requests.
      */
-    public masterNullifierSecretKeys: Tuple<GrumpkinPrivateKey, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+    public masterSecretKeys: Tuple<GrumpkinPrivateKey, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+    /**
+     * Generators used to derive app secret keys from secret. In 1 to 1 correspondence with master secret keys.
+     */
+    public appSecretKeysGenerators: Tuple<Fr, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
   ) {}
 
   toBuffer() {
@@ -77,7 +80,7 @@ export class PrivateKernelResetHints {
       this.transientNoteHashIndexesForLogs,
       this.noteHashReadRequestHints,
       this.nullifierReadRequestHints,
-      this.masterNullifierSecretKeys,
+      this.masterSecretKeys,
     );
   }
 
@@ -95,6 +98,7 @@ export class PrivateKernelResetHints {
       reader.readObject({ fromBuffer: noteHashReadRequestHintsFromBuffer }),
       reader.readObject({ fromBuffer: nullifierReadRequestHintsFromBuffer }),
       reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar),
+      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_TX, Fr),
     );
   }
 }

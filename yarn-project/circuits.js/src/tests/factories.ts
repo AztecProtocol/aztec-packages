@@ -214,12 +214,12 @@ function makeScopedReadRequest(n: number): ScopedReadRequest {
  * @param seed - The seed to use for generating the KeyValidationRequest.
  * @returns A KeyValidationRequest.
  */
-function makeNullifierKeyValidationRequest(seed: number): KeyValidationRequest {
+function makeKeyValidationRequests(seed: number): KeyValidationRequest {
   return new KeyValidationRequest(makePoint(seed), fr(seed + 2));
 }
 
-function makeScopedNullifierKeyValidationRequest(seed: number): ScopedKeyValidationRequest {
-  return new ScopedKeyValidationRequest(makeNullifierKeyValidationRequest(seed), makeAztecAddress(seed + 4));
+function makeScopedKeyValidationRequests(seed: number): ScopedKeyValidationRequest {
+  return new ScopedKeyValidationRequest(makeKeyValidationRequests(seed), makeAztecAddress(seed + 4));
 }
 
 /**
@@ -280,7 +280,7 @@ export function makeValidationRequests(seed = 1) {
     makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x80),
     makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x90),
     makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x95),
-    makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, makeScopedNullifierKeyValidationRequest, seed + 0x100),
+    makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, makeScopedKeyValidationRequests, seed + 0x100),
     makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
   );
 }
@@ -778,11 +778,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     minRevertibleSideEffectCounter: fr(0),
     noteHashReadRequests: makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x300),
     nullifierReadRequests: makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x310),
-    nullifierKeyValidationRequests: makeTuple(
-      MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
-      makeNullifierKeyValidationRequest,
-      seed + 0x320,
-    ),
+    keyValidationRequests: makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, makeKeyValidationRequests, seed + 0x320),
     newNoteHashes: makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, makeNoteHash, seed + 0x400),
     newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, makeNullifier, seed + 0x500),
     privateCallStackHashes: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),

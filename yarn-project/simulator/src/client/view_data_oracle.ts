@@ -7,14 +7,14 @@ import {
   type NullifierMembershipWitness,
   type PublicDataWitness,
 } from '@aztec/circuit-types';
-import { type Header } from '@aztec/circuits.js';
+import { type Header, type KeyValidationRequest } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
 import { type ContractInstance } from '@aztec/types/contracts';
 
-import { type NoteData, type NullifierKeys, TypedOracle } from '../acvm/index.js';
+import { type NoteData, TypedOracle } from '../acvm/index.js';
 import { type DBOracle } from './db_oracle.js';
 import { pickNotes } from './pick_notes.js';
 
@@ -40,7 +40,7 @@ export class ViewDataOracle extends TypedOracle {
    * @returns A Promise that resolves to nullifier keys.
    * @throws If the nullifier keys are not registered in the key store.
    */
-  public override getKeyValidationRequest(npkMHash: Fr): Promise<NullifierKeys> {
+  public override getKeyValidationRequest(npkMHash: Fr): Promise<KeyValidationRequest> {
     return this.db.getKeyValidationRequest(npkMHash, this.contractAddress);
   }
 

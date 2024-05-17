@@ -2,7 +2,7 @@ use crate::{
     context::{inputs::PrivateContextInputs, interface::ContextInterface},
     messaging::process_l1_to_l2_message,
     hash::{hash_args_array, ArgsHasher, compute_unencrypted_log_hash},
-    keys::public_keys::{NULLIFIER_INDEX, OUTGOING_INDEX, NUM_KEY_TYPES, get_sk_app_generator},
+    keys::public_keys::{NULLIFIER_INDEX, OUTGOING_INDEX, NUM_KEY_TYPES, sk_generators},
     note::{note_interface::NoteInterface, utils::compute_note_hash_for_insertion},
     oracle::{
     nullifier_keys::get_key_validation_request, arguments, returns,
@@ -226,12 +226,12 @@ impl PrivateContext {
         } else {
             // We didn't get a match meaning the cached result is stale. We fetch new values from oracle and instruct
             // protocol circuits to validate them by storing the validation request in context.
-            let request = get_key_validation_request(pk_m_hash);
+            let request = get_key_validation_request(pk_m_hash, key_index);
             // We constrain that the npk_m_hash matches the one in the request (otherwise we could get an arbitrary
             // valid key request and not the one corresponding to npk_m_hash).
             assert(request.master_nullifier_public_key.hash() == pk_m_hash);
             self.key_validation_requests.push(request);
-            self.app_secret_keys_generators.push(get_sk_app_generator(key_index));
+            self.app_secret_keys_generators.push(sk_generators[key_index]);
             self.last_key_validation_requests[key_index] = Option::some(request);
             request.app_nullifier_secret_key
         }

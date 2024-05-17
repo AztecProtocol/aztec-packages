@@ -5,13 +5,13 @@ import {
   type NullifierMembershipWitness,
   type PublicDataWitness,
 } from '@aztec/circuit-types';
-import { type CompleteAddress, type Header } from '@aztec/circuits.js';
+import { type CompleteAddress, type Header, type KeyValidationRequest } from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
 
-import { type NoteData, type NullifierKeys } from '../acvm/index.js';
+import { type NoteData } from '../acvm/index.js';
 import { type CommitmentsDB } from '../public/db.js';
 
 /**
@@ -71,7 +71,7 @@ export interface DBOracle extends CommitmentsDB {
    * @returns A Promise that resolves to nullifier keys.
    * @throws If the nullifier keys are not registered in the key store.
    */
-  getKeyValidationRequest(npkMHash: Fr, contractAddress: AztecAddress): Promise<NullifierKeys>;
+  getKeyValidationRequest(npkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest>;
 
   /**
    * Retrieves a set of notes stored in the database for a given contract address and storage slot.
