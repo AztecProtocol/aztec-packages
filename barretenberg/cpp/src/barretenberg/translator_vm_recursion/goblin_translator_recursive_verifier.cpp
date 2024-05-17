@@ -65,6 +65,9 @@ std::array<typename Flavor::GroupElement, 2> GoblinTranslatorRecursiveVerifier_<
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
     transcript = std::make_shared<Transcript>(stdlib_proof);
 
+    // TODO(https: github.com/AztecProtocol/barretenberg/issues/985): Normally, the ECCVM verifier would have run
+    // before the translator and there will already by data in the transcript that can be hash to get the batching
+    // challenge. Once this
     transcript->template receive_from_prover<BF>("init");
     batching_challenge_v = transcript->template get_challenge<BF>("Translation:batching_challenge");
 

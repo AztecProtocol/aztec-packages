@@ -15,7 +15,6 @@ cd build/
 ./bin/sumcheck_tests
 ./bin/eccvm_tests
 ./bin/translator_vm_tests
-
 ./bin/protogalaxy_tests
 ./bin/ultra_honk_tests
 ./bin/stdlib_honk_recursion_tests --gtest_filter=Goblin*

@@ -28,7 +28,6 @@
     ACCUMULATE(RelationImpl, Flavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge)                            \
     ACCUMULATE(RelationImpl, Flavor, SumcheckArrayOfValuesOverSubrelations, EntityEdge)
 
-// will this work with simulator?
 #define DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(RelationImpl, Flavor)                                                  \
     ACCUMULATE(RelationImpl, Flavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge)
 

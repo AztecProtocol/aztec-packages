@@ -11,6 +11,16 @@
 #include <gtest/gtest.h>
 namespace bb {
 
+/**
+ * @brief Test suite for standalone recursive verification of translation proofs.
+ * @details `Inner*` types describe the type of circuits (and everything else required to generate a proof) that we aim
+ * to recursively verify. `Outer*` describes the arithmetisation of the recursive verifier circuit and the types
+ * required to ensure the recursive verifier circuit is correct (i.e. by producing a proof and verifying it).
+ */
+
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/980): Add failing tests after we have a proper shared
+// transcript interface between ECCVM and Translator and we are able to deserialise and serialise the transcript
+// correctly.
 template <typename RecursiveFlavor> class GoblinTranslatorRecursiveTests : public ::testing::Test {
   public:
     using InnerFlavor = typename RecursiveFlavor::NativeFlavor;
@@ -62,6 +72,10 @@ template <typename RecursiveFlavor> class GoblinTranslatorRecursiveTests : publi
         InnerProver prover{ circuit_builder, prover_transcript };
         auto proof = prover.construct_proof();
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/985): Insert the proof that serves as the content
+        // neeeded by the Translator verifier in the ECCVM proof. Unlike the native verifier where we can directly pass
+        // a transcript initialised with the correct information, in the recursive scenario the transcript is a circuit
+        // primitives that is initialised from the proof so we need the batching challenge contained in the proof.
         proof.insert(proof.begin(), fake_inital_proof.begin(), fake_inital_proof.end());
 
         auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key);

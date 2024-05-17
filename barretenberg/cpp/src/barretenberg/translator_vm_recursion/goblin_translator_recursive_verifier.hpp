@@ -44,7 +44,8 @@ template <typename Flavor> class GoblinTranslatorRecursiveVerifier_ {
 
     PairingPoints verify_proof(const HonkProof& proof);
 
-    // verified somewhere else, need to be careful
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/986): Ensure the translation is also recursively
+    // verified somewhere
     bool verify_translation(const TranslationEvaluations& translation_evaluations);
 };
 } // namespace bb
