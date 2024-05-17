@@ -2,7 +2,7 @@ use crate::{
     context::{inputs::PrivateContextInputs, interface::ContextInterface},
     messaging::process_l1_to_l2_message,
     hash::{hash_args_array, ArgsHasher, compute_unencrypted_log_hash},
-    keys::public_keys::{NULLIFIER_INDEX, OUTGOING_INDEX, NUM_KEY_TYPES, sk_generators},
+    keys::constants::{NULLIFIER_INDEX, OUTGOING_INDEX, NUM_KEY_TYPES, sk_generators},
     note::{note_interface::NoteInterface, utils::compute_note_hash_for_insertion},
     oracle::{
     nullifier_keys::get_key_validation_request, arguments, returns,

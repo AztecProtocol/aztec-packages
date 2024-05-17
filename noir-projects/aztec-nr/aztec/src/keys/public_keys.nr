@@ -2,30 +2,9 @@ use dep::protocol_types::{
     address::PublicKeysHash, constants::GENERATOR_INDEX__PUBLIC_KEYS_HASH, hash::poseidon2_hash,
     grumpkin_point::GrumpkinPoint, traits::{Deserialize, Serialize}
 };
-
-// TODO(benesjan): used only in get_sk_app_generator
-use dep::protocol_types::constants::{GENERATOR_INDEX__NSK_M, GENERATOR_INDEX__IVSK_M, GENERATOR_INDEX__OVSK_M, GENERATOR_INDEX__TSK_M};
-
-// Note: In fetch_key_from_registry we expect that the shared mutable slot is index * 2 + 1 for the x coordinate and
-// index * 2 + 2 for the y coordinate. For example, the npk_m x coordinates will be stored in a map at storage slot
-// 0 * 2 + 1 = 1, and the npk_m y coordinates at 2 * 2 + 2 = 6. If this changes the function will need to be
-// refactored.
-global NULLIFIER_INDEX = 0;
-global INCOMING_INDEX = 1;
-global OUTGOING_INDEX = 2;
-global TAGGING_INDEX = 3;
+use crate::keys::constants::{NUM_KEY_TYPES, NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX};
 
 global PUBLIC_KEYS_LENGTH = 8;
-// TODO(benesjan): used also in private_context.nr. Move to shared location?
-global NUM_KEY_TYPES = 4;
-
-// TODO(benesjan): Is this the best place to have this?
-global sk_generators = [
-    GENERATOR_INDEX__NSK_M,
-    GENERATOR_INDEX__IVSK_M,
-    GENERATOR_INDEX__OVSK_M,
-    GENERATOR_INDEX__TSK_M
-];
 
 struct PublicKeys {
     npk_m: GrumpkinPoint,
