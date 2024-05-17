@@ -301,7 +301,6 @@ export class TestKeyStore implements KeyStore {
       throw new Error(`Could not find sk_m for pk_m ${masterPublicKey.toString()}. This should not happen.`);
     }
 
-    // TODO(benesjan): make less ugly
     // Now we determine the key type and return generator accordingly
     let keyGenerator: KeyGenerator;
     if (skDbKey.includes('nsk_m')) {

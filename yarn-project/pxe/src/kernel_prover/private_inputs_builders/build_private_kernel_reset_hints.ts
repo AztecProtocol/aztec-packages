@@ -64,7 +64,7 @@ async function getMasterSecretKeysAndAppKeyGenerators(
     if (request.isEmpty()) {
       break;
     }
-    [keys[i], generators[i]] = await oracle.getMasterSecretKey(request.masterPublicKey);
+    [keys[i], generators[i]] = await oracle.getMasterSecretKeyAndAppKeyGenerator(request.masterPublicKey);
   }
   return [keys, generators];
 }

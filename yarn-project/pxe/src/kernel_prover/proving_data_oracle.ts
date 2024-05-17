@@ -74,10 +74,10 @@ export interface ProvingDataOracle {
    * Retrieves the sk_m for the pk_m and a generator index of the key type.
    * @throws If the provided public key is not associated with any of the registered accounts.
    * @param masterPublicKey - The master public key to get secret key for.
-   * @returns A Promise that resolves to sk_m.
+   * @returns A Promise that resolves to sk_m and the corresponding app key generator.
    * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
-  getMasterSecretKey(masterPublicKey: Point): Promise<[GrumpkinPrivateKey, KeyGenerator]>;
+  getMasterSecretKeyAndAppKeyGenerator(masterPublicKey: Point): Promise<[GrumpkinPrivateKey, KeyGenerator]>;
 
   getFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 }

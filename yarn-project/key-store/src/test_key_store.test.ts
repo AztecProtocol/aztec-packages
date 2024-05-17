@@ -88,6 +88,15 @@ describe('TestKeyStore', () => {
       `"0x0fde74d5e504c73b58aad420dd72590fc6004571411e7f77c45378714195a52b"`,
     );
     expect(generator).toBe(GeneratorIndex.NSK_M);
+
+    // Manages to find master incoming viewing secret key for pub key
+    const [masterIncomingViewingSecretKey, generatorIncoming] = await keyStore.getMasterSecretKeyAndAppKeyGenerator(
+      masterIncomingViewingPublicKey,
+    );
+    expect(masterIncomingViewingSecretKey.toString()).toMatchInlineSnapshot(
+      `"0x1f1f43082427fed511393bbabf8a471eb87af09f0e95bb740dc33e1ced1a54c1"`,
+    );
+    expect(generatorIncoming).toBe(GeneratorIndex.IVSK_M);
   });
 
   it('nullifier key rotation tests', async () => {

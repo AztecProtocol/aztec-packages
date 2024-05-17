@@ -76,7 +76,7 @@ export class PrivateCircuitPublicInputs {
      */
     public nullifierReadRequests: Tuple<ReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     /**
-     * Nullifier key validation requests created by the corresponding function call.
+     * Key validation requests created by the corresponding function call.
      */
     public keyValidationRequests: Tuple<KeyValidationRequest, typeof MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
     /**

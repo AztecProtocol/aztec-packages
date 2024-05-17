@@ -710,10 +710,7 @@ export function mapKeyValidationRequestsToNoir(request: KeyValidationRequest): K
  * @returns The TS KeyValidationRequest.
  */
 export function mapKeyValidationRequestsFromNoir(request: KeyValidationRequestsNoir): KeyValidationRequest {
-  return new KeyValidationRequest(
-    mapPointFromNoir(request.pk_m),
-    mapFieldFromNoir(request.sk_app),
-  );
+  return new KeyValidationRequest(mapPointFromNoir(request.pk_m), mapFieldFromNoir(request.sk_app));
 }
 
 function mapScopedKeyValidationRequestsToNoir(request: ScopedKeyValidationRequest): ScopedKeyValidationRequestsNoir {

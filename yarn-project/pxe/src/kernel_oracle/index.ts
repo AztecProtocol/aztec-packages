@@ -69,7 +69,7 @@ export class KernelOracle implements ProvingDataOracle {
     return header.state.partial.noteHashTree.root;
   }
 
-  public getMasterSecretKey(nullifierPublicKey: Point): Promise<[GrumpkinPrivateKey, KeyGenerator]> {
+  public getMasterSecretKeyAndAppKeyGenerator(nullifierPublicKey: Point): Promise<[GrumpkinPrivateKey, KeyGenerator]> {
     return this.keyStore.getMasterSecretKeyAndAppKeyGenerator(nullifierPublicKey);
   }
 

@@ -302,15 +302,15 @@ mod tests {
         let remaining_nullifier_rr_index = builder.previous_kernel.add_read_request_for_pending_nullifier(1);
         let nullifier_rr = builder.previous_kernel.nullifier_read_requests.storage[remaining_nullifier_rr_index];
 
-        let nk_validation_index = builder.previous_kernel.add_request_for_key_validation(GrumpkinPoint::new(1, 2), 27);
-        let nk_validation = builder.previous_kernel.key_validation_requests.storage[nk_validation_index];
+        let key_validation_index = builder.previous_kernel.add_request_for_key_validation(GrumpkinPoint::new(1, 2), 27);
+        let key_validation = builder.previous_kernel.key_validation_requests.storage[key_validation_index];
 
         // Check that they have been propagated to the next kernel
         let result = builder.execute();
 
         assert_eq(result.validation_requests.note_hash_read_requests[0], note_hash_rr);
         assert_eq(result.validation_requests.nullifier_read_requests[0], nullifier_rr);
-        assert_eq(result.validation_requests.key_validation_requests[0], nk_validation);
+        assert_eq(result.validation_requests.key_validation_requests[0], key_validation);
     }
 
     #[test]
