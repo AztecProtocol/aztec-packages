@@ -56,8 +56,8 @@ namespace avm_main(256);
     // 2. Read gas_op from gas table based on the opcode idx
     // 3. TODO(ISSUE_NUMBER): constrain gas start and gas end
 
+    // TODO(ISSUE_NUMBER): Opcode index will be constrained by the bytecode validation circuit
     pol commit opcode_idx;
-
 
     pol commit l2_gas_left;
     pol commit da_gas_left;
@@ -71,7 +71,6 @@ namespace avm_main(256);
     // Constrain that the gas decrements correctly per instruction
     OP_SELECTOR * (l2_gas_left' - (l2_gas_left + l2_gas_op));
     OP_SELECTOR * (da_gas_left' - (da_gas_left + da_gas_op));
-
 
     //===== Gadget Selectors ======================================================
     pol commit sel_op_radix_le;
@@ -283,33 +282,6 @@ namespace avm_main(256);
     ind_op_b * (1 - ind_op_b) = 0;
     ind_op_c * (1 - ind_op_c) = 0;
     ind_op_d * (1 - ind_op_d) = 0;
-
-    // SET THE OPCODE INDEX 
-    // Assuming that all op
-    opcode_idx - (
-        (constants.ADD_IDX * sel_op_add) + (constants.SUB_IDX * sel_op_sub) + (constants.MUL_IDX * sel_op_mul) + 
-        (constants.DIV_IDX * sel_op_div) + (constants.FDIV_IDX * sel_op_fdiv) + (constants.EQ_IDX * sel_op_eq) + 
-        (constants.LT_IDX * sel_op_lt) + (constants.LTE_IDX * sel_op_lte) + (constants.AND_IDX * sel_op_and) + 
-        (constants.OR_IDX * sel_op_or) + (constants.XOR_IDX * sel_op_xor) + (constants.NOT_IDX * sel_op_not) + 
-        (constants.SHL_IDX * sel_op_shl) + (constants.SHR_IDX * sel_op_shr) + (constants.CAST_IDX * sel_op_cast) + 
-        (constants.ADDRESS_IDX * sel_op_address) + (constants.STORAGEADDRESS_IDX * sel_op_portal) + (constants.SENDER_IDX * sel_op_sender) + 
-        (constants.FEEPERL2GAS_IDX * sel_op_fee_per_l2_gas) + (constants.FEEPERDAGAS_IDX * sel_op_fee_per_da_gas) + (constants.TRANSACTIONFEE_IDX * sel_op_transaction_fee) + 
-        (constants.CHAINID_IDX * sel_op_chain_id) + (constants.VERSION_IDX * sel_op_version) + (constants.BLOCKNUMBER_IDX * sel_op_block_number) + 
-        (constants.TIMESTAMP_IDX * sel_op_timestamp) + (constants.COINBASE_IDX * sel_op_coinbase) + (constants.BLOCKL2GASLIMIT_IDX * sel_op_l2_gas_limit) + 
-        (constants.BLOCKDAGASLIMIT_IDX * sel_op_da_gas_limit) + (constants.CALLDATACOPY_IDX * sel_op_calldata_copy) + (constants.L2GASLEFT_IDX * sel_op_l2_gas_left) + 
-        (constants.DAGASLEFT_IDX * sel_op_da_gas_left) + (constants.JUMP_IDX * sel_jump) + (constants.JUMPI_IDX * sel_jumpi) + 
-        (constants.INTERNALCALL_IDX * sel_internal_call) + (constants.INTERNALRETURN_IDX * sel_internal_return) + (constants.SET_IDX * sel_set) + 
-        (constants.MOV_IDX * sel_mov) + (constants.CMOV_IDX * sel_cmov) + 
-        // Implemented in prs not in master yet
-        // (constants.SLOAD_IDX * sel_op_sload) + 
-        // (constants.SSTORE_IDX * sel_op_sstore) + (constants.NOTEHASHEXISTS_IDX * sel_op_note_hash_exists) + (constants.EMITNOTEHASH_IDX * sel_op_emit_note_hash) + 
-        // (constants.NULLIFIEREXISTS_IDX * sel_op_nullifier_exists) + (constants.EMITNULLIFIER_IDX * sel_op_emit_nullifier) + 
-        // (constants.L1TOL2MSGEXISTS_IDX * sel_op_l1_to_l2_msg_exists) + (constants.EMITUNENCRYPTEDLOG_IDX * sel_op_emit_unencrypted_log) + 
-        // (constants.SENDL2TOL1MSG_IDX * sel_op_send_l2_to_l1_msg) + 
-        // (constants.CALL_IDX * sel_op_call) + (constants.STATICCALL_IDX * sel_op_staticcall) + 
-        (constants.RETURN_IDX * sel_op_return) + (constants.REVERT_IDX * sel_op_revert) + (constants.KECCAK_IDX * sel_op_keccak) + 
-        // (constants.POSEIDON2_IDX * sel_op_poseidon2) + (constants.SHA256_IDX * sel_op_sha256) + (constants.PEDERSEN_IDX * sel_op_pedersen) + 
-        (constants.TORADIXLE_IDX * sel_op_to_radix_le)) = 0;
 
     // TODO - Constraints:
     // - mem_idx_a, mem_idx_b, mem_idx_c, mem_idx_d to u32 type
