@@ -9,7 +9,7 @@ use dep::std::{hash::sha256, embedded_curve_ops::{EmbeddedCurvePoint, EmbeddedCu
 pub fn point_to_symmetric_key(secret: GrumpkinPrivateKey, point: GrumpkinPoint) -> [u8; 32] {
     let shared_secret_fields = multi_scalar_mul(
         [EmbeddedCurvePoint { x: point.x, y: point.y, is_infinite: false }],
-        [EmbeddedCurveScalar { lo: secret.low, hi: secret.high }],
+        [EmbeddedCurveScalar { lo: secret.low, hi: secret.high }]
     );
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6061): make the func return Point struct directly
     let shared_secret = GrumpkinPoint::new(shared_secret_fields[0], shared_secret_fields[1]);
