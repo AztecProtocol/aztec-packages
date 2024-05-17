@@ -1,6 +1,6 @@
 import { type AuthWitness, type CompleteAddress, type FunctionCall } from '@aztec/circuit-types';
 import { type AztecAddress } from '@aztec/circuits.js';
-import { type Fq, type Fr, type Point } from '@aztec/foundation/fields';
+import { type Fq, type Fr } from '@aztec/foundation/fields';
 
 import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { type EntrypointInterface } from '../entrypoint/entrypoint.js';
@@ -62,7 +62,7 @@ export interface AccountKeyRotationInterface {
    * @remarks - This function also calls the canonical key registry with the account's new derived master nullifier public key.
    * We are doing it this way to avoid user error, in the case that a user rotates their keys in the key registry,
    * but fails to do so in the key store. This leads to unspendable notes.
-   * 
+   *
    * This does not hinder our ability to spend notes tied to a previous master nullifier public key, provided we have the master nullifier secret key for it.
    */
   rotateNullifierKeys(newNskM: Fq): Promise<void>;

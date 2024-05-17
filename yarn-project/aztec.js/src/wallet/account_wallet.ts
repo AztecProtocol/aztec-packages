@@ -171,7 +171,7 @@ export class AccountWallet extends BaseWallet {
    * @remarks - This function also calls the canonical key registry with the account's new derived master nullifier public key.
    * We are doing it this way to avoid user error, in the case that a user rotates their keys in the key registry,
    * but fails to do so in the key store. This leads to unspendable notes.
-   * 
+   *
    * This does not hinder our ability to spend notes tied to a previous master nullifier public key, provided we have the master nullifier secret key for it.
    */
   public async rotateNullifierKeys(newNskM: Fq = Fq.random()): Promise<void> {
