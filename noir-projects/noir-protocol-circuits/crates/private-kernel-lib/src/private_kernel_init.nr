@@ -52,7 +52,7 @@ mod tests {
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::NoteHash,
         nullifier_key_validation_request::NullifierKeyValidationRequest,
         private_kernel::private_call_data::PrivateCallData, read_request::ReadRequest,
-        nullifier::Nullifier, log_hash::{LogHash, NoteLogHash}
+        nullifier::Nullifier, log_hash::{LogHash, NoteLogHash, ScopedLogHash}
     },
         address::{AztecAddress, EthAddress}, constants::MAX_NEW_NOTE_HASHES_PER_CALL,
         grumpkin_point::GrumpkinPoint, messaging::l2_to_l1_message::L2ToL1Message,
@@ -129,7 +129,7 @@ mod tests {
         );
         assert(
             array_eq(
-                public_inputs.end.unencrypted_logs_hashes,
+                public_inputs.end.unencrypted_logs_hashes.map(|l: ScopedLogHash| l.log_hash),
                 expected_unencrypted_logs
             )
         );

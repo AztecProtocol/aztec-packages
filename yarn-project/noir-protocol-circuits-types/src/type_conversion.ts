@@ -110,6 +110,7 @@ import {
   type RootRollupInputs,
   RootRollupPublicInputs,
   ScopedL2ToL1Message,
+  ScopedLogHash,
   ScopedNoteHash,
   ScopedNullifier,
   ScopedNullifierKeyValidationRequest,
@@ -216,6 +217,7 @@ import type {
   RootRollupParityInput as RootRollupParityInputNoir,
   RootRollupPublicInputs as RootRollupPublicInputsNoir,
   ScopedL2ToL1Message as ScopedL2ToL1MessageNoir,
+  ScopedLogHash as ScopedLogHashNoir,
   ScopedNoteHash as ScopedNoteHashNoir,
   ScopedNullifierKeyValidationRequest as ScopedNullifierKeyValidationRequestNoir,
   ScopedNullifier as ScopedNullifierNoir,
@@ -638,8 +640,8 @@ function mapScopedNullifierFromNoir(nullifier: ScopedNullifierNoir) {
 
 /**
  * Maps a LogHash to a noir LogHash.
- * @param sideEffect - The LogHash.
- * @returns The noir side effect.
+ * @param logHash - The LogHash.
+ * @returns The noir log hash.
  */
 export function mapLogHashToNoir(logHash: LogHash): LogHashNoir {
   return {
@@ -651,8 +653,8 @@ export function mapLogHashToNoir(logHash: LogHash): LogHashNoir {
 
 /**
  * Maps a noir LogHash to a LogHash.
- * @param sideEffect - The noir LogHash.
- * @returns The TS side effect.
+ * @param logHash - The noir LogHash.
+ * @returns The TS log hash.
  */
 export function mapLogHashFromNoir(logHash: LogHashNoir): LogHash {
   return new LogHash(
@@ -663,9 +665,21 @@ export function mapLogHashFromNoir(logHash: LogHashNoir): LogHash {
 }
 
 /**
+ * Maps a noir ScopedLogHash to a ts ScopedLogHash.
+ * @param logHash - The noir LogHash.
+ * @returns The TS log hash.
+ */
+export function mapScopedLogHashFromNoir(scopedLogHash: ScopedLogHashNoir): ScopedLogHash {
+  return new ScopedLogHash(
+    mapLogHashFromNoir(scopedLogHash.log_hash),
+    mapAztecAddressFromNoir(scopedLogHash.contract_address),
+  );
+}
+
+/**
  * Maps a LogHash to a noir LogHash.
- * @param sideEffect - The LogHash.
- * @returns The noir side effect.
+ * @param noteLogHash - The NoteLogHash.
+ * @returns The noir note log hash.
  */
 export function mapNoteLogHashToNoir(noteLogHash: NoteLogHash): NoteLogHashNoir {
   return {
@@ -678,8 +692,8 @@ export function mapNoteLogHashToNoir(noteLogHash: NoteLogHash): NoteLogHashNoir 
 
 /**
  * Maps a noir LogHash to a LogHash.
- * @param sideEffect - The noir LogHash.
- * @returns The TS side effect.
+ * @param noteLogHash - The noir NoteLogHash.
+ * @returns The TS note log hash.
  */
 export function mapNoteLogHashFromNoir(noteLogHash: NoteLogHashNoir): NoteLogHash {
   return new NoteLogHash(
@@ -1131,7 +1145,11 @@ export function mapPrivateAccumulatedDataFromNoir(
       mapNoteLogHashFromNoir,
     ),
     mapTupleFromNoir(privateAccumulatedData.encrypted_logs_hashes, MAX_ENCRYPTED_LOGS_PER_TX, mapLogHashFromNoir),
-    mapTupleFromNoir(privateAccumulatedData.unencrypted_logs_hashes, MAX_UNENCRYPTED_LOGS_PER_TX, mapLogHashFromNoir),
+    mapTupleFromNoir(
+      privateAccumulatedData.unencrypted_logs_hashes,
+      MAX_UNENCRYPTED_LOGS_PER_TX,
+      mapScopedLogHashFromNoir,
+    ),
     mapTupleFromNoir(
       privateAccumulatedData.private_call_stack,
       MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,

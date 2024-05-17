@@ -1,7 +1,7 @@
 use crate::{
     abis::{
     call_request::CallRequest, gas::Gas, note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
-    private_call_request::ScopedPrivateCallRequest, log_hash::{LogHash, NoteLogHash}
+    private_call_request::ScopedPrivateCallRequest, log_hash::{LogHash, NoteLogHash, ScopedLogHash}
 },
     traits::{Serialize, Deserialize, Eq, Empty}, messaging::l2_to_l1_message::ScopedL2ToL1Message,
     utils::reader::Reader
@@ -19,7 +19,7 @@ struct PrivateAccumulatedData {
 
     note_encrypted_logs_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
     encrypted_logs_hashes: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX],
-    unencrypted_logs_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
+    unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
 
     private_call_stack: [ScopedPrivateCallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
     public_call_stack: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
@@ -77,7 +77,7 @@ impl Deserialize<PRIVATE_ACCUMULATED_DATA_LENGTH> for PrivateAccumulatedData {
         new_l2_to_l1_msgs: reader.read_struct_array(ScopedL2ToL1Message::deserialize, [ScopedL2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_TX]),
         note_encrypted_logs_hashes: reader.read_struct_array(NoteLogHash::deserialize, [NoteLogHash::empty(); MAX_NOTE_ENCRYPTED_LOGS_PER_TX]),
         encrypted_logs_hashes: reader.read_struct_array(LogHash::deserialize, [LogHash::empty(); MAX_ENCRYPTED_LOGS_PER_TX]),
-        unencrypted_logs_hashes: reader.read_struct_array(LogHash::deserialize, [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX]),
+        unencrypted_logs_hashes: reader.read_struct_array(ScopedLogHash::deserialize, [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX]),
         private_call_stack: reader.read_struct_array(ScopedPrivateCallRequest::deserialize, [ScopedPrivateCallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX]),
         public_call_stack: reader.read_struct_array(CallRequest::deserialize, [CallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX]),
     };
@@ -107,7 +107,7 @@ impl Empty for PrivateAccumulatedData {
             new_l2_to_l1_msgs: [ScopedL2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_TX],
             note_encrypted_logs_hashes: [NoteLogHash::empty(); MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
             encrypted_logs_hashes: [LogHash::empty(); MAX_ENCRYPTED_LOGS_PER_TX],
-            unencrypted_logs_hashes: [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
+            unencrypted_logs_hashes: [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
             private_call_stack: [ScopedPrivateCallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
             public_call_stack: [CallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
         }

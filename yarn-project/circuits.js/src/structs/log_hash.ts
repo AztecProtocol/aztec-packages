@@ -1,3 +1,4 @@
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -34,6 +35,48 @@ export class LogHash implements Ordered {
 
   toString(): string {
     return `value=${this.value} counter=${this.counter} length=${this.length}`;
+  }
+}
+
+export class ScopedLogHash implements Ordered {
+  constructor(public logHash: LogHash, public contractAddress: AztecAddress) {}
+
+  get counter() {
+    return this.logHash.counter;
+  }
+
+  get value() {
+    return this.logHash.value;
+  }
+
+  toFields(): Fr[] {
+    return [...this.logHash.toFields(), this.contractAddress.toField()];
+  }
+
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return new ScopedLogHash(reader.readObject(LogHash), AztecAddress.fromField(reader.readField()));
+  }
+
+  isEmpty() {
+    return this.logHash.isEmpty() && this.contractAddress.isZero();
+  }
+
+  static empty() {
+    return new ScopedLogHash(LogHash.empty(), AztecAddress.ZERO);
+  }
+
+  toBuffer(): Buffer {
+    return serializeToBuffer(this.logHash, this.contractAddress);
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new ScopedLogHash(LogHash.fromBuffer(reader), AztecAddress.fromBuffer(reader));
+  }
+
+  toString(): string {
+    return `logHash=${this.logHash} contractAddress=${this.contractAddress}`;
   }
 }
 

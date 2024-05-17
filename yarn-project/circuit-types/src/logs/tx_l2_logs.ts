@@ -89,32 +89,6 @@ export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2Log> {
   public equals(other: TxL2Logs<TLog>): boolean {
     return isEqual(this, other);
   }
-
-  /**
-   * Computes logs hash as is done in the kernel and app circuits.
-   * @param logs - Logs to be hashed.
-   * @returns The hash of the logs.
-   * Note: This is a TS implementation of `computeKernelLogsHash` function in Decoder.sol. See that function documentation
-   *       for more details.
-   */
-  public hash(logType: LogType = LogType.ENCRYPTED): Buffer {
-    if (this.unrollLogs().length == 0) {
-      return Buffer.alloc(32);
-    }
-
-    let flattenedLogs = Buffer.alloc(0);
-    for (const logsFromSingleFunctionCall of this.unrollLogs()) {
-      flattenedLogs = Buffer.concat([flattenedLogs, logsFromSingleFunctionCall.hash()]);
-    }
-    // pad the end of logs with 0s
-    // NB - This assumes MAX_ENCRYPTED_LOGS_PER_TX == MAX_UNENCRYPTED_LOGS_PER_TX
-    const pad = logType == LogType.NOTEENCRYPTED ? MAX_NOTE_ENCRYPTED_LOGS_PER_TX : MAX_ENCRYPTED_LOGS_PER_TX;
-    for (let i = 0; i < pad - this.unrollLogs().length; i++) {
-      flattenedLogs = Buffer.concat([flattenedLogs, Buffer.alloc(32)]);
-    }
-
-    return sha256Trunc(flattenedLogs);
-  }
 }
 
 export class UnencryptedTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
@@ -169,6 +143,30 @@ export class UnencryptedTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
     const functionLogs = obj.functionLogs.map((log: any) => UnencryptedFunctionL2Logs.fromJSON(log));
     return new UnencryptedTxL2Logs(functionLogs);
   }
+
+  /**
+   * Computes unencrypted logs hash as is done in the kernel and decoder contract.
+   * @param logs - Logs to be hashed.
+   * @returns The hash of the logs.
+   * Note: This is a TS implementation of `computeKernelUnencryptedLogsHash` function in Decoder.sol. See that function documentation
+   *       for more details.
+   */
+  public hash(): Buffer {
+    if (this.unrollLogs().length == 0) {
+      return Buffer.alloc(32);
+    }
+
+    let flattenedLogs = Buffer.alloc(0);
+    for (const logsFromSingleFunctionCall of this.unrollLogs()) {
+      flattenedLogs = Buffer.concat([flattenedLogs, logsFromSingleFunctionCall.getSiloedHash()]);
+    }
+    // pad the end of logs with 0s
+    for (let i = 0; i < MAX_UNENCRYPTED_LOGS_PER_TX - this.unrollLogs().length; i++) {
+      flattenedLogs = Buffer.concat([flattenedLogs, Buffer.alloc(32)]);
+    }
+
+    return sha256Trunc(flattenedLogs);
+  }
 }
 
 export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
@@ -222,5 +220,30 @@ export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
   public static fromJSON(obj: any) {
     const functionLogs = obj.functionLogs.map((log: any) => EncryptedFunctionL2Logs.fromJSON(log));
     return new EncryptedTxL2Logs(functionLogs);
+  }
+
+  /**
+   * Computes encrypted logs hash as is done in the kernel and decoder contract.
+   * @param logs - Logs to be hashed.
+   * @returns The hash of the logs.
+   * Note: This is a TS implementation of `computeKernelLogsHash` function in Decoder.sol. See that function documentation
+   *       for more details.
+   */
+  public hash(logType: LogType = LogType.ENCRYPTED): Buffer {
+    if (this.unrollLogs().length == 0) {
+      return Buffer.alloc(32);
+    }
+
+    let flattenedLogs = Buffer.alloc(0);
+    for (const logsFromSingleFunctionCall of this.unrollLogs()) {
+      flattenedLogs = Buffer.concat([flattenedLogs, logsFromSingleFunctionCall.hash()]);
+    }
+    // pad the end of logs with 0s
+    const pad = logType == LogType.NOTEENCRYPTED ? MAX_NOTE_ENCRYPTED_LOGS_PER_TX : MAX_ENCRYPTED_LOGS_PER_TX;
+    for (let i = 0; i < pad - this.unrollLogs().length; i++) {
+      flattenedLogs = Buffer.concat([flattenedLogs, Buffer.alloc(32)]);
+    }
+
+    return sha256Trunc(flattenedLogs);
   }
 }

@@ -1,6 +1,7 @@
 use crate::{
-    abis::side_effect::{Ordered, OrderedValue}, constants::{LOG_HASH_LENGTH, NOTE_LOG_HASH_LENGTH},
-    traits::{Empty, Serialize, Deserialize}
+    abis::side_effect::{Ordered, OrderedValue}, address::AztecAddress,
+    constants::{LOG_HASH_LENGTH, NOTE_LOG_HASH_LENGTH, SCOPED_LOG_HASH_LENGTH},
+    traits::{Empty, Serialize, Deserialize}, utils::{arrays::array_concat, reader::Reader}
 };
 
 struct LogHash {
@@ -55,6 +56,66 @@ impl Deserialize<LOG_HASH_LENGTH> for LogHash {
             counter: values[1] as u32,
             length: values[2],
         }
+    }
+}
+
+impl LogHash {
+    pub fn scope(self, contract_address: AztecAddress) -> ScopedLogHash {
+        ScopedLogHash { log_hash: self, contract_address }
+    }
+}
+
+struct ScopedLogHash {
+    log_hash: LogHash,
+    contract_address: AztecAddress,
+}
+
+impl Ordered for ScopedLogHash {
+    fn counter(self) -> u32 {
+        self.log_hash.counter
+    }
+}
+
+impl OrderedValue<Field> for ScopedLogHash {
+    fn value(self) -> Field {
+        self.log_hash.value
+    }
+    fn counter(self) -> u32 {
+        self.log_hash.counter
+    }
+}
+
+impl Eq for ScopedLogHash {
+    fn eq(self, other: ScopedLogHash) -> bool {
+        (self.log_hash == other.log_hash)
+            & (self.contract_address == other.contract_address) 
+    }
+}
+
+impl Empty for ScopedLogHash {
+    fn empty() -> Self {
+        ScopedLogHash {
+            log_hash: LogHash::empty(),
+            contract_address: AztecAddress::empty(),
+        }
+    }
+}
+
+impl Serialize<SCOPED_LOG_HASH_LENGTH> for ScopedLogHash {
+    fn serialize(self) -> [Field; SCOPED_LOG_HASH_LENGTH] {
+       array_concat(self.log_hash.serialize(), [self.contract_address.to_field()])
+    }
+}
+
+impl Deserialize<SCOPED_LOG_HASH_LENGTH> for ScopedLogHash {
+    fn deserialize(values: [Field; SCOPED_LOG_HASH_LENGTH]) -> Self {
+        let mut reader = Reader::new(values);
+        let res = Self {
+            log_hash: reader.read_struct(LogHash::deserialize),
+            contract_address: reader.read_struct(AztecAddress::deserialize),
+        };
+        reader.finish();
+        res
     }
 }
 

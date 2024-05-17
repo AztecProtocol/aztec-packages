@@ -3,7 +3,7 @@ use dep::types::{
     abis::{
     private_kernel_data::{PrivateKernelData, verify_previous_kernel_proof},
     kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, note_hash::ScopedNoteHash,
-    nullifier::ScopedNullifier, log_hash::{LogHash, NoteLogHash}
+    nullifier::ScopedNullifier, log_hash::{LogHash, NoteLogHash, ScopedLogHash}
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
@@ -22,7 +22,7 @@ struct PrivateKernelTailToPublicHints {
     sorted_note_encrypted_log_hashes_indexes: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
     sorted_encrypted_log_hashes: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
-    sorted_unencrypted_log_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
+    sorted_unencrypted_log_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
     sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX],
 }
 
@@ -78,7 +78,7 @@ mod tests {
         abis::{
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, gas::Gas,
         note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
-        log_hash::{LogHash, NoteLogHash}
+        log_hash::{LogHash, NoteLogHash, ScopedLogHash}
     },
         address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey,
         hash::{compute_note_hash_nonce, compute_unique_note_hash, silo_note_hash, silo_nullifier},
@@ -148,7 +148,6 @@ mod tests {
             let mut output = [NoteLogHash::empty(); N];
             for i in 0..N {
                 if logs[i].value != 0 {
-                    // TODO(Miranda): silo logs
                     output[i] = logs[i].expose_to_public(); // Counter is cleared so it's not exposed to the public.
                 }
             }
@@ -186,7 +185,7 @@ mod tests {
 
             let sorted = sort_get_sorted_hints(
                 self.previous_kernel.unencrypted_logs_hashes.storage,
-                |a: LogHash, b: LogHash| a.counter < b.counter
+                |a: ScopedLogHash, b: ScopedLogHash| a.counter() < b.counter()
             );
             let sorted_unencrypted_log_hashes = sorted.sorted_array;
             let sorted_unencrypted_log_hashes_indexes = sorted.sorted_index_hints;

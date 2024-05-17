@@ -74,6 +74,10 @@ pub fn silo_nullifier(address: AztecAddress, nullifier: Field) -> Field {
     )
 }
 
+pub fn silo_unencrypted_log(address: AztecAddress, log_hash: Field) -> Field {
+    accumulate_sha256([address.to_field(), log_hash])
+}
+
 pub fn merkle_hash(left: Field, right: Field) -> Field {
     pedersen_hash([left, right], 0)
 }

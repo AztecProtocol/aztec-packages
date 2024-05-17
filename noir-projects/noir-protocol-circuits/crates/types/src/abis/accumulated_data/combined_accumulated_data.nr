@@ -9,7 +9,7 @@ use crate::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, COMBINED_ACCUMULATED_DATA_LENGTH
 },
-    utils::arrays::array_merge, traits::{Empty, Serialize, Deserialize}, utils::reader::Reader
+    utils::{arrays::array_merge, reader::Reader}, traits::{Empty, Serialize, Deserialize}
 };
 
 struct CombinedAccumulatedData {

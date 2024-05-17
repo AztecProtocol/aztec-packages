@@ -8,7 +8,7 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { countAccumulatedItems } from '../../utils/index.js';
-import { LogHash, NoteLogHash } from '../log_hash.js';
+import { LogHash, NoteLogHash, ScopedLogHash } from '../log_hash.js';
 import { ScopedNoteHash } from '../note_hash.js';
 import { ScopedNullifier } from '../nullifier.js';
 import { PrivateKernelData } from './private_kernel_data.js';
@@ -50,7 +50,7 @@ export class PrivateKernelTailHints {
     /**
      * The sorted unencrypted log hashes.
      */
-    public sortedUnencryptedLogHashes: Tuple<LogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
+    public sortedUnencryptedLogHashes: Tuple<ScopedLogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
     /**
      * The sorted encrypted log hashes indexes. Maps original to sorted.
      */
@@ -88,7 +88,7 @@ export class PrivateKernelTailHints {
       reader.readNumbers(MAX_NOTE_ENCRYPTED_LOGS_PER_TX),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, LogHash),
       reader.readNumbers(MAX_ENCRYPTED_LOGS_PER_TX),
-      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, LogHash),
+      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       reader.readNumbers(MAX_UNENCRYPTED_LOGS_PER_TX),
     );
   }

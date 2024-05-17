@@ -11,7 +11,7 @@ use crate::{
     nullifier_key_validation_request::{ScopedNullifierKeyValidationRequest, NullifierKeyValidationRequest},
     private_call_request::{PrivateCallRequest, ScopedPrivateCallRequest},
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-    read_request::{ReadRequest, ScopedReadRequest}, log_hash::{LogHash, NoteLogHash},
+    read_request::{ReadRequest, ScopedReadRequest}, log_hash::{LogHash, NoteLogHash, ScopedLogHash},
     validation_requests::{ValidationRequests, ValidationRequestsBuilder}
 },
     address::{AztecAddress, EthAddress},
@@ -48,7 +48,7 @@ struct FixtureBuilder {
     new_l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
     note_encrypted_logs_hashes: BoundedVec<NoteLogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
     encrypted_logs_hashes: BoundedVec<LogHash, MAX_ENCRYPTED_LOGS_PER_TX>,
-    unencrypted_logs_hashes: BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
+    unencrypted_logs_hashes: BoundedVec<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
     note_encrypted_logs_hash: Field,
     encrypted_logs_hash: Field,
     unencrypted_logs_hash: Field,
@@ -157,7 +157,7 @@ impl FixtureBuilder {
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
             note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage,
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.log_hash),
             public_data_update_requests: self.public_data_update_requests.storage,
             public_call_stack: self.public_call_stack.storage,
             gas_used: self.gas_used
@@ -432,7 +432,7 @@ impl FixtureBuilder {
 
     pub fn set_unencrypted_logs(&mut self, hash: Field, preimages_length: Field) {
         let side_effect = LogHash { value: hash, counter: self.next_counter(), length: preimages_length };
-        self.unencrypted_logs_hashes.push(side_effect);
+        self.unencrypted_logs_hashes.push(side_effect.scope(self.storage_contract_address));
         self.unencrypted_log_preimages_length += preimages_length;
     }
 
