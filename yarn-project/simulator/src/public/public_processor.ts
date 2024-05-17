@@ -127,7 +127,10 @@ export class PublicProcessor {
           : await this.processTxWithPublicCalls(tx);
 
         // Push fee payment update request into the processed tx
-        processedTx.protocolPublicDataUpdateRequests.push(await this.createFeePaymentDataUpdateRequest(processedTx));
+        const feePaymentUpdateRequest = await this.createFeePaymentDataUpdateRequest(processedTx);
+        if (feePaymentUpdateRequest) {
+          processedTx.protocolPublicDataUpdateRequests.push(feePaymentUpdateRequest);
+        }
 
         // Commit the state updates from this transaction
         await this.publicStateDB.commit();
@@ -170,10 +173,10 @@ export class PublicProcessor {
    * BaseRollupInputs.build_payment_update_request, and updates the local public state db.
    * @remarks Only runs if fee payer is set (for now).
    */
-  private async createFeePaymentDataUpdateRequest(tx: ProcessedTx): Promise<PublicDataUpdateRequest> {
+  private async createFeePaymentDataUpdateRequest(tx: ProcessedTx): Promise<PublicDataUpdateRequest | undefined> {
     const feePayer = tx.data.feePayer;
     if (feePayer.isZero()) {
-      return PublicDataUpdateRequest.empty();
+      return;
     }
 
     const gasToken = AztecAddress.fromBigInt(GAS_TOKEN_ADDRESS);

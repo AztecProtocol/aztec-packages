@@ -15,7 +15,7 @@ describe('GasTxValidator', () => {
   beforeEach(() => {
     gasTokenAddress = AztecAddress.random();
     publicStateSource = mock<PublicStateSource>({
-      storageRead: mockFn().mockImplementation((_address: AztecAddress, _slot: Fr) => 0n),
+      storageRead: mockFn().mockImplementation((_address: AztecAddress, _slot: Fr) => Fr.ZERO),
     });
 
     validator = new GasTxValidator(publicStateSource, gasTokenAddress);
