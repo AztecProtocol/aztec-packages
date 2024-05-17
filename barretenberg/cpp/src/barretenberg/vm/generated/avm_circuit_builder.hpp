@@ -189,6 +189,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_alu_sel{};
     FF avm_main_bin_op_id{};
     FF avm_main_bin_sel{};
+    FF avm_main_call_ptr{};
     FF avm_main_ia{};
     FF avm_main_ib{};
     FF avm_main_ic{};
@@ -258,6 +259,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_op_xor{};
     FF avm_main_sel_rng_16{};
     FF avm_main_sel_rng_8{};
+    FF avm_main_space_id{};
     FF avm_main_table_pow_2{};
     FF avm_main_tag_err{};
     FF avm_main_w_in_tag{};
@@ -437,8 +439,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 353;
-    static constexpr size_t num_polys = 301;
+    static constexpr size_t num_fixed_columns = 355;
+    static constexpr size_t num_polys = 303;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -572,6 +574,7 @@ class AvmCircuitBuilder {
             polys.avm_main_alu_sel[i] = rows[i].avm_main_alu_sel;
             polys.avm_main_bin_op_id[i] = rows[i].avm_main_bin_op_id;
             polys.avm_main_bin_sel[i] = rows[i].avm_main_bin_sel;
+            polys.avm_main_call_ptr[i] = rows[i].avm_main_call_ptr;
             polys.avm_main_ia[i] = rows[i].avm_main_ia;
             polys.avm_main_ib[i] = rows[i].avm_main_ib;
             polys.avm_main_ic[i] = rows[i].avm_main_ic;
@@ -641,6 +644,7 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_op_xor[i] = rows[i].avm_main_sel_op_xor;
             polys.avm_main_sel_rng_16[i] = rows[i].avm_main_sel_rng_16;
             polys.avm_main_sel_rng_8[i] = rows[i].avm_main_sel_rng_8;
+            polys.avm_main_space_id[i] = rows[i].avm_main_space_id;
             polys.avm_main_table_pow_2[i] = rows[i].avm_main_table_pow_2;
             polys.avm_main_tag_err[i] = rows[i].avm_main_tag_err;
             polys.avm_main_w_in_tag[i] = rows[i].avm_main_w_in_tag;

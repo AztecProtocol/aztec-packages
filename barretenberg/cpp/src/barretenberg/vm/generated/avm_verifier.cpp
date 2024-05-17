@@ -262,6 +262,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<FF>& pu
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_bin_op_id);
     commitments.avm_main_bin_sel =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_bin_sel);
+    commitments.avm_main_call_ptr =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_call_ptr);
     commitments.avm_main_ia = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ia);
     commitments.avm_main_ib = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ib);
     commitments.avm_main_ic = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ic);
@@ -385,6 +387,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<FF>& pu
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_rng_16);
     commitments.avm_main_sel_rng_8 =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_rng_8);
+    commitments.avm_main_space_id =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_space_id);
     commitments.avm_main_table_pow_2 =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_table_pow_2);
     commitments.avm_main_tag_err =

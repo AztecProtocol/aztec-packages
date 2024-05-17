@@ -38,10 +38,10 @@ TEST_F(AvmControlFlowTests, simpleCall)
         EXPECT_TRUE(call_row != trace.end());
         EXPECT_EQ(call_row->avm_main_pc, FF(0));
         EXPECT_EQ(call_row->avm_main_ia, FF(CALL_ADDRESS));
-        EXPECT_EQ(call_row->avm_main_internal_return_ptr, FF(AvmTraceBuilder::CALLSTACK_OFFSET));
+        EXPECT_EQ(call_row->avm_main_internal_return_ptr, FF(0));
         EXPECT_EQ(call_row->avm_main_ib, FF(1));
         EXPECT_EQ(call_row->avm_main_mem_idx_b,
-                  FF(AvmTraceBuilder::CALLSTACK_OFFSET)); // Store the return address (0) in memory
+                  FF(0)); // Store the return address (0) in memory
     }
 
     // Check halt
@@ -52,7 +52,7 @@ TEST_F(AvmControlFlowTests, simpleCall)
         // Check that the correct result is stored at the expected memory location.
         EXPECT_TRUE(halt_row != trace.end());
         EXPECT_EQ(halt_row->avm_main_pc, FF(CALL_ADDRESS));
-        EXPECT_EQ(halt_row->avm_main_internal_return_ptr, FF(AvmTraceBuilder::CALLSTACK_OFFSET + 1));
+        EXPECT_EQ(halt_row->avm_main_internal_return_ptr, FF(1));
     }
     validate_trace(std::move(trace), {}, true);
 }
@@ -111,10 +111,10 @@ TEST_F(AvmControlFlowTests, simpleCallAndReturn)
             trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_internal_call == FF(1); });
         EXPECT_TRUE(call_row != trace.end());
         EXPECT_EQ(call_row->avm_main_pc, FF(0));
-        EXPECT_EQ(call_row->avm_main_internal_return_ptr, FF(AvmTraceBuilder::CALLSTACK_OFFSET));
+        EXPECT_EQ(call_row->avm_main_internal_return_ptr, FF(0));
         EXPECT_EQ(call_row->avm_main_ib, FF(1));
         EXPECT_EQ(call_row->avm_main_mem_idx_b,
-                  FF(AvmTraceBuilder::CALLSTACK_OFFSET)); // Store the return address (0) in memory
+                  FF(0)); // Store the return address (0) in memory
     }
 
     // Check return
@@ -125,7 +125,7 @@ TEST_F(AvmControlFlowTests, simpleCallAndReturn)
         // Check that the correct result is stored at the expected memory location.
         EXPECT_TRUE(return_row != trace.end());
         EXPECT_EQ(return_row->avm_main_pc, FF(CALL_ADDRESS));
-        EXPECT_EQ(return_row->avm_main_internal_return_ptr, FF(AvmTraceBuilder::CALLSTACK_OFFSET + 1));
+        EXPECT_EQ(return_row->avm_main_internal_return_ptr, FF(1));
     }
 
     // Check halt
@@ -182,9 +182,9 @@ TEST_F(AvmControlFlowTests, multipleCallsAndReturns)
         EXPECT_TRUE(call_1 != trace.end());
         EXPECT_EQ(call_1->avm_main_pc, FF(0));
         EXPECT_EQ(call_1->avm_main_ia, FF(CALL_ADDRESS_1));
-        EXPECT_EQ(call_1->avm_main_internal_return_ptr, FF(AvmTraceBuilder::CALLSTACK_OFFSET));
+        EXPECT_EQ(call_1->avm_main_internal_return_ptr, FF(0));
         EXPECT_EQ(call_1->avm_main_mem_idx_b,
-                  FF(AvmTraceBuilder::CALLSTACK_OFFSET)); // Store the return address (0) in memory
+                  FF(0)); // Store the return address (0) in memory
     }
 
     // Call 2
@@ -195,9 +195,9 @@ TEST_F(AvmControlFlowTests, multipleCallsAndReturns)
         EXPECT_TRUE(call_2 != trace.end());
         EXPECT_EQ(call_2->avm_main_ib, FF(CALL_ADDRESS_1 + 1));
         EXPECT_EQ(call_2->avm_main_ia, FF(CALL_ADDRESS_2));
-        EXPECT_EQ(call_2->avm_main_internal_return_ptr, FF(AvmTraceBuilder::CALLSTACK_OFFSET + 1));
+        EXPECT_EQ(call_2->avm_main_internal_return_ptr, FF(1));
         EXPECT_EQ(call_2->avm_main_mem_idx_b,
-                  FF(AvmTraceBuilder::CALLSTACK_OFFSET + 1)); // Store the return address (0) in memory
+                  FF(1)); // Store the return address (0) in memory
     }
 
     // Call 3
@@ -207,9 +207,9 @@ TEST_F(AvmControlFlowTests, multipleCallsAndReturns)
         });
         EXPECT_TRUE(call_3 != trace.end());
         EXPECT_EQ(call_3->avm_main_ib, FF(CALL_ADDRESS_2 + 1));
-        EXPECT_EQ(call_3->avm_main_internal_return_ptr, FF(AvmTraceBuilder::CALLSTACK_OFFSET + 2));
+        EXPECT_EQ(call_3->avm_main_internal_return_ptr, FF(2));
         EXPECT_EQ(call_3->avm_main_mem_idx_b,
-                  FF(AvmTraceBuilder::CALLSTACK_OFFSET + 2)); // Store the return address (0) in memory
+                  FF(2)); // Store the return address (0) in memory
     }
 
     // Return 1
@@ -218,7 +218,7 @@ TEST_F(AvmControlFlowTests, multipleCallsAndReturns)
             trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_internal_return == FF(1); });
         EXPECT_TRUE(return_1 != trace.end());
         EXPECT_EQ(return_1->avm_main_pc, FF(CALL_ADDRESS_3));
-        EXPECT_EQ(return_1->avm_main_internal_return_ptr, FF(AvmTraceBuilder::CALLSTACK_OFFSET + 3));
+        EXPECT_EQ(return_1->avm_main_internal_return_ptr, FF(3));
     }
 
     // Call 4
@@ -228,9 +228,9 @@ TEST_F(AvmControlFlowTests, multipleCallsAndReturns)
         });
         EXPECT_TRUE(call_4 != trace.end());
         EXPECT_EQ(call_4->avm_main_ib, FF(CALL_ADDRESS_2 + 2));
-        EXPECT_EQ(call_4->avm_main_internal_return_ptr, FF(AvmTraceBuilder::CALLSTACK_OFFSET + 2));
+        EXPECT_EQ(call_4->avm_main_internal_return_ptr, FF(2));
         EXPECT_EQ(call_4->avm_main_mem_idx_b,
-                  FF(AvmTraceBuilder::CALLSTACK_OFFSET + 2)); // Store the return address (0) in memory
+                  FF(2)); // Store the return address (0) in memory
     }
 
     // Return 2
@@ -240,7 +240,7 @@ TEST_F(AvmControlFlowTests, multipleCallsAndReturns)
         });
         EXPECT_TRUE(return_2 != trace.end());
         EXPECT_EQ(return_2->avm_main_ia, FF(CALL_ADDRESS_2 + 2));
-        EXPECT_EQ(return_2->avm_main_internal_return_ptr, FF(AvmTraceBuilder::CALLSTACK_OFFSET + 3));
+        EXPECT_EQ(return_2->avm_main_internal_return_ptr, FF(3));
     }
 
     // Jump 1
@@ -250,7 +250,7 @@ TEST_F(AvmControlFlowTests, multipleCallsAndReturns)
         });
         EXPECT_TRUE(jump_1 != trace.end());
         EXPECT_EQ(jump_1->avm_main_ia, FF(JUMP_ADDRESS_1));
-        EXPECT_EQ(jump_1->avm_main_internal_return_ptr, FF(AvmTraceBuilder::CALLSTACK_OFFSET + 2));
+        EXPECT_EQ(jump_1->avm_main_internal_return_ptr, FF(2));
     }
 
     // Return 3
@@ -260,7 +260,7 @@ TEST_F(AvmControlFlowTests, multipleCallsAndReturns)
         });
         EXPECT_TRUE(return_3 != trace.end());
         EXPECT_EQ(return_3->avm_main_ia, FF(CALL_ADDRESS_1 + 1));
-        EXPECT_EQ(return_3->avm_main_internal_return_ptr, FF(AvmTraceBuilder::CALLSTACK_OFFSET + 2));
+        EXPECT_EQ(return_3->avm_main_internal_return_ptr, FF(2));
     }
 
     // Return 4
@@ -270,7 +270,7 @@ TEST_F(AvmControlFlowTests, multipleCallsAndReturns)
         });
         EXPECT_TRUE(return_4 != trace.end());
         EXPECT_EQ(return_4->avm_main_ia, FF(1));
-        EXPECT_EQ(return_4->avm_main_internal_return_ptr, FF(AvmTraceBuilder::CALLSTACK_OFFSET + 1));
+        EXPECT_EQ(return_4->avm_main_internal_return_ptr, FF(1));
     }
 
     // Halt row

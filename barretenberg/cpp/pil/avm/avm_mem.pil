@@ -79,6 +79,10 @@ namespace avm_mem(256);
     #[MEM_FIRST_EMPTY]
     avm_main.first * mem_sel = 0;
 
+    // Definition of last, i.e., last row with mem_sel activated
+    #[MEM_LAST]
+    (1 - last) * mem_sel * (1 - mem_sel') = 0;
+
     // Definition of rng_chk_sel. It is a boolean as mem_sel and last are booleans.
     rng_chk_sel = mem_sel * (1 - last);
 
@@ -127,7 +131,7 @@ namespace avm_mem(256);
     // Therefore, we ensure proper grouping of each global address and each memory access pertaining to a given
     // global address is sorted according the arrow of time.
     #[DIFF_RNG_CHK_DEC]
-    rng_chk_sel * (DIFF - diff_hi * 2**32 + diff_mid * 2**16 - diff_lo) = 0;
+    rng_chk_sel * (DIFF - diff_hi * 2**32 - diff_mid * 2**16 - diff_lo) = 0;
 
     // lastAccess == 0 && rw' == 0 ==> val == val'
     // This condition does not apply on the last row.

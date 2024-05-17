@@ -120,6 +120,7 @@
     [[maybe_unused]] auto avm_main_alu_sel = View(new_term.avm_main_alu_sel);                                          \
     [[maybe_unused]] auto avm_main_bin_op_id = View(new_term.avm_main_bin_op_id);                                      \
     [[maybe_unused]] auto avm_main_bin_sel = View(new_term.avm_main_bin_sel);                                          \
+    [[maybe_unused]] auto avm_main_call_ptr = View(new_term.avm_main_call_ptr);                                        \
     [[maybe_unused]] auto avm_main_ia = View(new_term.avm_main_ia);                                                    \
     [[maybe_unused]] auto avm_main_ib = View(new_term.avm_main_ib);                                                    \
     [[maybe_unused]] auto avm_main_ic = View(new_term.avm_main_ic);                                                    \
@@ -189,6 +190,7 @@
     [[maybe_unused]] auto avm_main_sel_op_xor = View(new_term.avm_main_sel_op_xor);                                    \
     [[maybe_unused]] auto avm_main_sel_rng_16 = View(new_term.avm_main_sel_rng_16);                                    \
     [[maybe_unused]] auto avm_main_sel_rng_8 = View(new_term.avm_main_sel_rng_8);                                      \
+    [[maybe_unused]] auto avm_main_space_id = View(new_term.avm_main_space_id);                                        \
     [[maybe_unused]] auto avm_main_table_pow_2 = View(new_term.avm_main_table_pow_2);                                  \
     [[maybe_unused]] auto avm_main_tag_err = View(new_term.avm_main_tag_err);                                          \
     [[maybe_unused]] auto avm_main_w_in_tag = View(new_term.avm_main_w_in_tag);                                        \

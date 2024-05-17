@@ -85,11 +85,11 @@ class AvmFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 299;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 301;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 353;
+    static constexpr size_t NUM_ALL_ENTITIES = 355;
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
@@ -337,6 +337,7 @@ class AvmFlavor {
                               avm_main_alu_sel,
                               avm_main_bin_op_id,
                               avm_main_bin_sel,
+                              avm_main_call_ptr,
                               avm_main_ia,
                               avm_main_ib,
                               avm_main_ic,
@@ -406,6 +407,7 @@ class AvmFlavor {
                               avm_main_sel_op_xor,
                               avm_main_sel_rng_16,
                               avm_main_sel_rng_8,
+                              avm_main_space_id,
                               avm_main_table_pow_2,
                               avm_main_tag_err,
                               avm_main_w_in_tag,
@@ -639,6 +641,7 @@ class AvmFlavor {
                      avm_main_alu_sel,
                      avm_main_bin_op_id,
                      avm_main_bin_sel,
+                     avm_main_call_ptr,
                      avm_main_ia,
                      avm_main_ib,
                      avm_main_ic,
@@ -708,6 +711,7 @@ class AvmFlavor {
                      avm_main_sel_op_xor,
                      avm_main_sel_rng_16,
                      avm_main_sel_rng_8,
+                     avm_main_space_id,
                      avm_main_table_pow_2,
                      avm_main_tag_err,
                      avm_main_w_in_tag,
@@ -946,6 +950,7 @@ class AvmFlavor {
                               avm_main_alu_sel,
                               avm_main_bin_op_id,
                               avm_main_bin_sel,
+                              avm_main_call_ptr,
                               avm_main_ia,
                               avm_main_ib,
                               avm_main_ic,
@@ -1015,6 +1020,7 @@ class AvmFlavor {
                               avm_main_sel_op_xor,
                               avm_main_sel_rng_16,
                               avm_main_sel_rng_8,
+                              avm_main_space_id,
                               avm_main_table_pow_2,
                               avm_main_tag_err,
                               avm_main_w_in_tag,
@@ -1302,6 +1308,7 @@ class AvmFlavor {
                      avm_main_alu_sel,
                      avm_main_bin_op_id,
                      avm_main_bin_sel,
+                     avm_main_call_ptr,
                      avm_main_ia,
                      avm_main_ib,
                      avm_main_ic,
@@ -1371,6 +1378,7 @@ class AvmFlavor {
                      avm_main_sel_op_xor,
                      avm_main_sel_rng_16,
                      avm_main_sel_rng_8,
+                     avm_main_space_id,
                      avm_main_table_pow_2,
                      avm_main_tag_err,
                      avm_main_w_in_tag,
@@ -1658,6 +1666,7 @@ class AvmFlavor {
                      avm_main_alu_sel,
                      avm_main_bin_op_id,
                      avm_main_bin_sel,
+                     avm_main_call_ptr,
                      avm_main_ia,
                      avm_main_ib,
                      avm_main_ic,
@@ -1727,6 +1736,7 @@ class AvmFlavor {
                      avm_main_sel_op_xor,
                      avm_main_sel_rng_16,
                      avm_main_sel_rng_8,
+                     avm_main_space_id,
                      avm_main_table_pow_2,
                      avm_main_tag_err,
                      avm_main_w_in_tag,
@@ -2332,6 +2342,7 @@ class AvmFlavor {
             Base::avm_main_alu_sel = "AVM_MAIN_ALU_SEL";
             Base::avm_main_bin_op_id = "AVM_MAIN_BIN_OP_ID";
             Base::avm_main_bin_sel = "AVM_MAIN_BIN_SEL";
+            Base::avm_main_call_ptr = "AVM_MAIN_CALL_PTR";
             Base::avm_main_ia = "AVM_MAIN_IA";
             Base::avm_main_ib = "AVM_MAIN_IB";
             Base::avm_main_ic = "AVM_MAIN_IC";
@@ -2401,6 +2412,7 @@ class AvmFlavor {
             Base::avm_main_sel_op_xor = "AVM_MAIN_SEL_OP_XOR";
             Base::avm_main_sel_rng_16 = "AVM_MAIN_SEL_RNG_16";
             Base::avm_main_sel_rng_8 = "AVM_MAIN_SEL_RNG_8";
+            Base::avm_main_space_id = "AVM_MAIN_SPACE_ID";
             Base::avm_main_table_pow_2 = "AVM_MAIN_TABLE_POW_2";
             Base::avm_main_tag_err = "AVM_MAIN_TAG_ERR";
             Base::avm_main_w_in_tag = "AVM_MAIN_W_IN_TAG";
@@ -2650,6 +2662,7 @@ class AvmFlavor {
         Commitment avm_main_alu_sel;
         Commitment avm_main_bin_op_id;
         Commitment avm_main_bin_sel;
+        Commitment avm_main_call_ptr;
         Commitment avm_main_ia;
         Commitment avm_main_ib;
         Commitment avm_main_ic;
@@ -2719,6 +2732,7 @@ class AvmFlavor {
         Commitment avm_main_sel_op_xor;
         Commitment avm_main_sel_rng_16;
         Commitment avm_main_sel_rng_8;
+        Commitment avm_main_space_id;
         Commitment avm_main_table_pow_2;
         Commitment avm_main_tag_err;
         Commitment avm_main_w_in_tag;
@@ -2971,6 +2985,7 @@ class AvmFlavor {
             avm_main_alu_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_bin_op_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_bin_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_call_ptr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_ia = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_ib = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3040,6 +3055,7 @@ class AvmFlavor {
             avm_main_sel_op_xor = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_rng_16 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_rng_8 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_space_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_table_pow_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_w_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3293,6 +3309,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_alu_sel, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_bin_op_id, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_bin_sel, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_call_ptr, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_ia, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_ib, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_ic, Transcript::proof_data);
@@ -3362,6 +3379,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_sel_op_xor, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_rng_16, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_rng_8, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_space_id, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_table_pow_2, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_tag_err, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_w_in_tag, Transcript::proof_data);

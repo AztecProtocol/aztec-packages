@@ -177,6 +177,7 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.avm_main_alu_sel = commitment_key->commit(key->avm_main_alu_sel);
     witness_commitments.avm_main_bin_op_id = commitment_key->commit(key->avm_main_bin_op_id);
     witness_commitments.avm_main_bin_sel = commitment_key->commit(key->avm_main_bin_sel);
+    witness_commitments.avm_main_call_ptr = commitment_key->commit(key->avm_main_call_ptr);
     witness_commitments.avm_main_ia = commitment_key->commit(key->avm_main_ia);
     witness_commitments.avm_main_ib = commitment_key->commit(key->avm_main_ib);
     witness_commitments.avm_main_ic = commitment_key->commit(key->avm_main_ic);
@@ -246,6 +247,7 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.avm_main_sel_op_xor = commitment_key->commit(key->avm_main_sel_op_xor);
     witness_commitments.avm_main_sel_rng_16 = commitment_key->commit(key->avm_main_sel_rng_16);
     witness_commitments.avm_main_sel_rng_8 = commitment_key->commit(key->avm_main_sel_rng_8);
+    witness_commitments.avm_main_space_id = commitment_key->commit(key->avm_main_space_id);
     witness_commitments.avm_main_table_pow_2 = commitment_key->commit(key->avm_main_table_pow_2);
     witness_commitments.avm_main_tag_err = commitment_key->commit(key->avm_main_tag_err);
     witness_commitments.avm_main_w_in_tag = commitment_key->commit(key->avm_main_w_in_tag);
@@ -450,6 +452,7 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.avm_main_alu_sel, witness_commitments.avm_main_alu_sel);
     transcript->send_to_verifier(commitment_labels.avm_main_bin_op_id, witness_commitments.avm_main_bin_op_id);
     transcript->send_to_verifier(commitment_labels.avm_main_bin_sel, witness_commitments.avm_main_bin_sel);
+    transcript->send_to_verifier(commitment_labels.avm_main_call_ptr, witness_commitments.avm_main_call_ptr);
     transcript->send_to_verifier(commitment_labels.avm_main_ia, witness_commitments.avm_main_ia);
     transcript->send_to_verifier(commitment_labels.avm_main_ib, witness_commitments.avm_main_ib);
     transcript->send_to_verifier(commitment_labels.avm_main_ic, witness_commitments.avm_main_ic);
@@ -533,6 +536,7 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.avm_main_sel_op_xor, witness_commitments.avm_main_sel_op_xor);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_rng_16, witness_commitments.avm_main_sel_rng_16);
     transcript->send_to_verifier(commitment_labels.avm_main_sel_rng_8, witness_commitments.avm_main_sel_rng_8);
+    transcript->send_to_verifier(commitment_labels.avm_main_space_id, witness_commitments.avm_main_space_id);
     transcript->send_to_verifier(commitment_labels.avm_main_table_pow_2, witness_commitments.avm_main_table_pow_2);
     transcript->send_to_verifier(commitment_labels.avm_main_tag_err, witness_commitments.avm_main_tag_err);
     transcript->send_to_verifier(commitment_labels.avm_main_w_in_tag, witness_commitments.avm_main_w_in_tag);
