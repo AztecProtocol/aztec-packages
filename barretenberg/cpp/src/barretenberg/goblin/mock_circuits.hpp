@@ -172,8 +172,9 @@ class GoblinMockCircuits {
     }
 
     /**
-     * @brief Construct a mock kernel circuit based on folding
-     * @details WORKTODO
+     * @brief Construct a mock kernel circuit
+     * @details Construct an arbitrary circuit meant to represent the aztec private function execution kernel. Recursive
+     * folding verification is handled internally by ClientIvc, not in the kernel.
      *
      * @param builder
      * @param function_fold_proof
@@ -181,9 +182,8 @@ class GoblinMockCircuits {
      */
     static void construct_mock_folding_kernel(GoblinUltraBuilder& builder)
     {
-
         // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make
-        // the kernel "full" within the dyadic size 2^17 (130914 gates)
+        // the kernel "full" within the dyadic size 2^17
         const size_t NUM_MERKLE_CHECKS = 20;
         const size_t NUM_ECDSA_VERIFICATIONS = 2;
         const size_t NUM_SHA_HASHES = 1;

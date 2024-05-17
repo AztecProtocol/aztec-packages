@@ -99,7 +99,7 @@ TEST_F(ClientIVCTests, BasicFailure)
     Builder circuit_1 = create_mock_circuit(ivc);
     ivc.accumulate(circuit_1);
 
-    // Tamper with the fold proof to be recursively verified in the next call to accumulate
+    // Tamper with the fold proof just created in the last accumulation step
     for (auto& val : ivc.fold_output.proof) {
         if (val > 0) { // tamper by finding the first non-zero value and incrementing it by 1
             val += 1;
@@ -111,7 +111,7 @@ TEST_F(ClientIVCTests, BasicFailure)
     Builder circuit_2 = create_mock_circuit(ivc);
     ivc.accumulate(circuit_2);
 
-    // The bad fold proof should result in an invalid witness and the IVC should fail to verify
+    // The bad fold proof should result in an invalid witness in the final circuit and the IVC should fail to verify
     EXPECT_FALSE(prove_and_verify(ivc));
 };
 
@@ -175,9 +175,10 @@ TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
         circuits.emplace_back(create_mock_circuit(ivc));
     }
 
+    // Precompute the verification keys that will be needed for the IVC
     auto precomputed_vkeys = ivc.precompute_folding_verification_keys(circuits);
 
-    // Accumulate each circuit
+    // Accumulate each circuit using the precomputed VKs
     for (auto [circuit, precomputed_vk] : zip_view(circuits, precomputed_vkeys)) {
         ivc.accumulate(circuit, precomputed_vk);
     }
@@ -201,6 +202,7 @@ TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
         circuits.emplace_back(create_mock_circuit(ivc));
     }
 
+    // Precompute the (structured) verification keys that will be needed for the IVC
     auto precomputed_vkeys = ivc.precompute_folding_verification_keys(circuits);
 
     // Accumulate each circuit

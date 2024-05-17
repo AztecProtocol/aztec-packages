@@ -6,10 +6,11 @@ namespace bb {
  * @brief Accumulate a circuit into the IVC scheme
  * @details If this is the first circuit being accumulated, initialize the prover and verifier accumulators. Otherwise,
  * fold the instance for the provided circuit into the accumulator. If a previous fold proof exists, a recursive folding
- * verification is appended to the provided circuit prior to its accumulation.
+ * verification is appended to the provided circuit prior to its accumulation. If a merge proof exists, a recursive
+ * merge verifier is also appended to the circuit.
  *
  * @param circuit Circuit to be accumulated/folded
- * @return FoldProof
+ * @param precomputed_vk Optional precomputed VK (otherwise will be computed herein)
  */
 void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk)
 {
@@ -26,8 +27,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 
     // Construct the prover instance for circuit
     prover_instance = std::make_shared<ProverInstance>(circuit, structured_flag);
-    // info("num gates = ", circuit.get_num_gates());
-    // info("circ size = ", prover_instance->proving_key.circuit_size);
 
     // Set the instance verification key from precomputed if available, else compute it
     if (precomputed_vk) {
@@ -90,12 +89,12 @@ HonkProof ClientIVC::decider_prove() const
 
 /**
  * @brief Given a set of circuits, compute the verification keys that will be required by the IVC scheme
- * @details Recursive verifier circuits (merge and/or folding) may be appended to the incoming circuits as part
- * accumulation, thus the verification keys computed here are in general not the same as the verification keys for the
- * raw input circuits.
+ * @details The verification keys computed here are in general not the same as the verification keys for the
+ * raw input circuits because recursive verifier circuits (merge and/or folding) may be appended to the incoming
+ * circuits as part accumulation.
  * @note This method exists for convenience and is not not meant to be used in practice for IVC. Given a set of
- * circuits, it could be run once and for all to compute then save the required VKs. Its also convenient for simply
- * separating out the cost of computing VKs from a benchmark.
+ * circuits, it could be run once and for all to compute then save the required VKs. It also provides a convenient
+ * (albeit innefficient) way of separating out the cost of computing VKs from a benchmark.
  *
  * @param circuits A copy of the circuits to be accumulated
  * @return std::vector<std::shared_ptr<ClientIVC::VerificationKey>>

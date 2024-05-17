@@ -32,6 +32,8 @@ class ClientIVCBench : public benchmark::Fixture {
 
     /**
      * @brief Compute verification key for each circuit in the IVC based on the number of desired function circuits
+     * @details Assumes the following circuit ordering: one initial function circuit followed by pairs of {function,
+     * kernel} until the desired number of function circuits has been reached.
      *
      * @param ivc
      * @param num_function_circuits
@@ -67,11 +69,12 @@ class ClientIVCBench : public benchmark::Fixture {
      * we set the size of the function circuit to be 2^17. The first one should be 2^19 but we can't currently support
      * folding circuits of unequal size.
      *
+     * @param NUM_CIRCUITS Number of function circuits to accumulate
      */
     static void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS, ClientIVC& ivc, auto& precomputed_vks)
     {
-        size_t TOTAL_NUM_CIRCUITS = NUM_CIRCUITS * 2 - 1; // need one less kernel than number of function circuits
-        ASSERT(precomputed_vks.size() == TOTAL_NUM_CIRCUITS);
+        size_t TOTAL_NUM_CIRCUITS = NUM_CIRCUITS * 2 - 1;     // need one less kernel than number of function circuits
+        ASSERT(precomputed_vks.size() == TOTAL_NUM_CIRCUITS); // ensure presence of a precomputed VK for each circuit
 
         const size_t size_hint = 1 << 17; // Size hint for reserving wires/selector vector memory in builders
         std::vector<Builder> initial_function_circuits(2);
@@ -102,7 +105,6 @@ class ClientIVCBench : public benchmark::Fixture {
         initial_function_circuits.clear();
 
         for (size_t circuit_idx = 2; circuit_idx < TOTAL_NUM_CIRCUITS - 1; circuit_idx += 2) {
-            // for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
             Builder kernel_circuit{ size_hint, ivc.goblin.op_queue };
             Builder function_circuit{ size_hint };
             // Construct function and kernel circuits in parallel
