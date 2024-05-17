@@ -21,6 +21,7 @@ import {
   NULLIFIER_TREE_HEIGHT,
   type NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeafPreimage,
+  PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
@@ -30,6 +31,7 @@ import {
   PublicDataHint,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
+  PublicDataUpdateRequest,
   ROLLUP_VK_TREE_HEIGHT,
   RollupTypes,
   type RootParityInput,
@@ -41,6 +43,7 @@ import {
   type VerificationKey,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { HintsBuilder, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
@@ -320,7 +323,14 @@ export function makeEmptyMembershipWitness<N extends number>(height: N) {
 }
 
 export async function processPublicDataUpdateRequests(tx: ProcessedTx, db: MerkleTreeOperations) {
-  const allPublicDataUpdateRequests = [...tx.data.end.publicDataUpdateRequests, ...tx.protocolPublicDataUpdateRequests];
+  const allPublicDataUpdateRequests = [
+    ...tx.data.end.publicDataUpdateRequests,
+    ...padArrayEnd(
+      tx.protocolPublicDataUpdateRequests,
+      PublicDataUpdateRequest.empty(),
+      PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    ),
+  ];
   const allPublicDataWrites = allPublicDataUpdateRequests.map(
     ({ leafSlot, newValue }) => new PublicDataTreeLeaf(leafSlot, newValue),
   );
