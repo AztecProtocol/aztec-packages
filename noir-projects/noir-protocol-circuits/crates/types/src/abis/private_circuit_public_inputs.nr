@@ -15,8 +15,40 @@ use crate::{
 },
     header::Header, hash::pedersen_hash, messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Deserialize, Hash, Serialize, Empty}, utils::reader::Reader,
-    transaction::tx_context::TxContext
+    transaction::tx_context::TxContext, utils::arrays::validate_array
 };
+
+struct PrivateCircuitPublicInputsArrayLengths {
+    note_hash_read_requests: u64,
+    nullifier_read_requests: u64,
+    nullifier_key_validation_requests: u64,
+    new_note_hashes: u64,
+    new_nullifiers: u64,
+    new_l2_to_l1_msgs: u64,
+    private_call_requests: u64,
+    public_call_stack_hashes: u64,
+    note_encrypted_logs_hashes: u64,
+    encrypted_logs_hashes: u64,
+    unencrypted_logs_hashes: u64,
+}
+
+impl PrivateCircuitPublicInputsArrayLengths {
+    pub fn new(public_inputs: PrivateCircuitPublicInputs) -> Self {
+        PrivateCircuitPublicInputsArrayLengths {
+            note_hash_read_requests: validate_array(public_inputs.note_hash_read_requests),
+            nullifier_read_requests: validate_array(public_inputs.nullifier_read_requests),
+            nullifier_key_validation_requests: validate_array(public_inputs.nullifier_key_validation_requests),
+            new_note_hashes: validate_array(public_inputs.new_note_hashes),
+            new_nullifiers: validate_array(public_inputs.new_nullifiers),
+            new_l2_to_l1_msgs: validate_array(public_inputs.new_l2_to_l1_msgs),
+            private_call_requests: validate_array(public_inputs.private_call_requests),
+            public_call_stack_hashes: validate_array(public_inputs.public_call_stack_hashes),
+            note_encrypted_logs_hashes: validate_array(public_inputs.note_encrypted_logs_hashes),
+            encrypted_logs_hashes: validate_array(public_inputs.encrypted_logs_hashes),
+            unencrypted_logs_hashes: validate_array(public_inputs.unencrypted_logs_hashes)
+        }
+    }
+}
 
 struct PrivateCircuitPublicInputs {
     call_context: CallContext,

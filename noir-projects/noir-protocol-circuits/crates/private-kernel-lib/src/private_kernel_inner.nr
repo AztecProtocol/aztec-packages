@@ -41,6 +41,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
 
         PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(self.previous_kernel.public_inputs).compose(
             self.private_call.call_stack_item.public_inputs,
+            privateCallDataValidator.array_lengths,
             self.private_call.call_stack_item.contract_address,
             self.hints.note_hash_nullifier_counters,
             self.private_call.public_call_stack,

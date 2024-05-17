@@ -36,6 +36,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
         let private_call_public_inputs = self.private_call.call_stack_item.public_inputs;
         PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(self.tx_request, private_call_public_inputs).compose(
             private_call_public_inputs,
+            privateCallDataValidator.array_lengths,
             self.private_call.call_stack_item.contract_address,
             self.hints.note_hash_nullifier_counters,
             self.private_call.public_call_stack,

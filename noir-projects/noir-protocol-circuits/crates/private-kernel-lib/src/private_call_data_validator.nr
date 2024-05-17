@@ -3,32 +3,13 @@ use dep::types::{
     call_context::CallContext, call_request::CallRequest, caller_context::CallerContext,
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     private_call_request::ScopedPrivateCallRequest, private_call_stack_item::PrivateCallStackItem,
+    private_circuit_public_inputs::PrivateCircuitPublicInputsArrayLengths,
     private_kernel::private_call_data::PrivateCallData, side_effect::{Ordered, RangeOrdered}
 },
     address::{AztecAddress, PartialAddress}, contract_class_id::ContractClassId,
     hash::{private_functions_root_from_siblings, stdlib_recursion_verification_key_compress_native_vk},
-    traits::{is_empty, is_empty_array}, transaction::tx_request::TxRequest,
-    utils::arrays::{array_length, validate_array}
+    traits::is_empty, transaction::tx_request::TxRequest
 };
-
-fn validate_arrays(data: PrivateCallData) -> ArrayLengths {
-    let public_inputs = data.call_stack_item.public_inputs;
-
-    // Each of the following arrays is expected to be zero-padded.
-    ArrayLengths {
-        note_hash_read_requests: validate_array(public_inputs.note_hash_read_requests),
-        nullifier_read_requests: validate_array(public_inputs.nullifier_read_requests),
-        nullifier_key_validation_requests: validate_array(public_inputs.nullifier_key_validation_requests),
-        new_note_hashes: validate_array(public_inputs.new_note_hashes),
-        new_nullifiers: validate_array(public_inputs.new_nullifiers),
-        new_l2_to_l1_msgs: validate_array(public_inputs.new_l2_to_l1_msgs),
-        private_call_requests: validate_array(public_inputs.private_call_requests),
-        public_call_stack_hashes: validate_array(public_inputs.public_call_stack_hashes),
-        note_encrypted_logs_hashes: validate_array(public_inputs.note_encrypted_logs_hashes),
-        encrypted_logs_hashes: validate_array(public_inputs.encrypted_logs_hashes),
-        unencrypted_logs_hashes: validate_array(public_inputs.unencrypted_logs_hashes)
-    }
-}
 
 fn validate_caller_context(caller_context: CallerContext, this_context: CallContext) {
     let matching_caller_context = caller_context.msg_sender.eq(this_context.msg_sender)
@@ -115,28 +96,14 @@ fn validate_clean_split_ranges<T, N>(
     }
 }
 
-struct ArrayLengths {
-    note_hash_read_requests: u64,
-    nullifier_read_requests: u64,
-    nullifier_key_validation_requests: u64,
-    new_note_hashes: u64,
-    new_nullifiers: u64,
-    new_l2_to_l1_msgs: u64,
-    private_call_requests: u64,
-    public_call_stack_hashes: u64,
-    note_encrypted_logs_hashes: u64,
-    encrypted_logs_hashes: u64,
-    unencrypted_logs_hashes: u64,
-}
-
 struct PrivateCallDataValidator {
     data: PrivateCallData,
-    array_lengths: ArrayLengths,
+    array_lengths: PrivateCircuitPublicInputsArrayLengths,
 }
 
 impl PrivateCallDataValidator {
     pub fn new(data: PrivateCallData) -> Self {
-        let array_lengths = validate_arrays(data);
+        let array_lengths = PrivateCircuitPublicInputsArrayLengths::new(data.call_stack_item.public_inputs);
         PrivateCallDataValidator { data, array_lengths }
     }
 

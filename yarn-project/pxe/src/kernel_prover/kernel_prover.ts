@@ -73,7 +73,7 @@ export class KernelProver {
 
     while (executionStack.length) {
       const currentExecution = executionStack.pop()!;
-      executionStack.push(...currentExecution.nestedExecutions);
+      executionStack.push(...[...currentExecution.nestedExecutions].reverse());
 
       const publicCallRequests = currentExecution.enqueuedPublicFunctionCalls.map(result => result.toCallRequest());
       const publicTeardownCallRequest = currentExecution.publicTeardownFunctionCall.isEmpty()

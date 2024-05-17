@@ -3,7 +3,8 @@ use dep::types::{
     call_request::CallRequest, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
     max_block_number::MaxBlockNumber, nullifier::Nullifier, note_hash::ScopedNoteHash,
-    log_hash::NoteLogHash, private_circuit_public_inputs::PrivateCircuitPublicInputs
+    log_hash::NoteLogHash,
+    private_circuit_public_inputs::{PrivateCircuitPublicInputs, PrivateCircuitPublicInputsArrayLengths}
 },
     address::AztecAddress,
     constants::{
@@ -16,6 +17,7 @@ use dep::types::{
 
 struct DataSource {
     private_call_public_inputs: PrivateCircuitPublicInputs,
+    array_lengths: PrivateCircuitPublicInputsArrayLengths,
     contract_address: AztecAddress,
     storage_contract_address: AztecAddress,
     note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
@@ -79,6 +81,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
     pub fn compose(
         &mut self,
         private_call_public_inputs: PrivateCircuitPublicInputs,
+        array_lengths: PrivateCircuitPublicInputsArrayLengths,
         contract_address: AztecAddress,
         note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
         public_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
@@ -86,9 +89,10 @@ impl PrivateKernelCircuitPublicInputsComposer {
     ) -> Self {
         let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
         let source = DataSource {
+            private_call_public_inputs,
+            array_lengths,
             contract_address,
             storage_contract_address,
-            private_call_public_inputs,
             note_hash_nullifier_counters,
             public_call_requests,
             public_teardown_call_request
@@ -211,9 +215,13 @@ impl PrivateKernelCircuitPublicInputsComposer {
 
     fn propagate_private_call_requests(&mut self, source: DataSource) {
         let call_requests = source.private_call_public_inputs.private_call_requests;
+        let num_requests = source.array_lengths.private_call_requests;
+        let mut proceed = true;
         for i in 0..call_requests.len() {
-            let call_request = call_requests[i];
-            if !is_empty(call_request) {
+            proceed &= i != num_requests;
+            if proceed {
+                // Push the call requests to the stack in reverse order.
+                let call_request = call_requests[num_requests - i - 1];
                 self.public_inputs.end.private_call_stack.push(call_request.scope(source.contract_address));
             }
         }
