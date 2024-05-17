@@ -83,3 +83,25 @@ fn embedded_curve_add(
 
 #[foreign(embedded_curve_add)]
 fn embedded_curve_add_array_return(_point1: EmbeddedCurvePoint, _point2: EmbeddedCurvePoint) -> [Field; 3] {}
+
+mod test {
+    use crate::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
+
+    #[test]
+    fn test_infinite_point() {
+        let zero = EmbeddedCurvePoint::point_at_infinity();
+        let g1 = EmbeddedCurvePoint { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
+        let g2 = g1 + g1;
+        assert(g1 + zero == g1);
+        assert(g1 - g1 == zero);
+        assert(g1 - zero == g1);
+        assert(zero + zero == zero);
+        assert(
+            multi_scalar_mul([g1], [1], [0])
+            == [1, 17631683881184975370165255887551781615748388533673675138860, 0]
+        );
+        assert(multi_scalar_mul([g1, g1], [1, 1], [0, 0]) == [g2.x, g2.y, 0]);
+        assert(multi_scalar_mul([g1, zero], [2, 42], [0, 25]) == [g2.x, g2.y, 0]);
+        assert(multi_scalar_mul([g1, g1, zero], [1, 1, 42], [0, 0, 25]) == [g2.x, g2.y, 0]);
+    }
+}
