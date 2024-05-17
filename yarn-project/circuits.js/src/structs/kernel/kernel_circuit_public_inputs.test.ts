@@ -7,7 +7,6 @@ import { GasFees } from '../gas_fees.js';
 import { GasSettings } from '../gas_settings.js';
 import { GlobalVariables } from '../global_variables.js';
 import { Header } from '../header.js';
-import { AztecAddress } from '../index.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { RevertCode } from '../revert_code.js';
 import { RollupValidationRequests } from '../rollup_validation_requests.js';

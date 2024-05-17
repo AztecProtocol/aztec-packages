@@ -11,3 +11,5 @@ export function getCanonicalGasToken(l1Bridge: EthAddress): ProtocolContract {
 export function getCanonicalGasTokenAddress(l1Bridge: EthAddress): AztecAddress {
   return getCanonicalGasToken(l1Bridge).address;
 }
+
+export { GasTokenArtifact };

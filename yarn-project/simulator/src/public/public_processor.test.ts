@@ -109,6 +109,7 @@ describe('public_processor', () => {
         revertReason: undefined,
         publicKernelRequests: [],
         gasUsed: {},
+        protocolPublicDataUpdateRequests: [],
       };
 
       // Jest is complaining that the two objects are not equal, but they are.
