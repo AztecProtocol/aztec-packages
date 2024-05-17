@@ -48,12 +48,12 @@ jobs:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - name: "Test"
-        timeout-minutes: 15
+        timeout-minutes: 25
         uses: ./.github/ensure-builder
         with:
           runner_type: builder-arm
           run: |
-            sudo shutdown -P 15 # hack until core part of the scripts
+            sudo shutdown -P 25 # hack until core part of the scripts
             set -eux
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             scripts/earthly-ci -P --no-output ./yarn-project/end-to-end/+uniswap-trade-on-l1-from-l2
