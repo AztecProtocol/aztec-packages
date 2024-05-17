@@ -699,8 +699,8 @@ export function mapScopedReadRequestFromNoir(scoped: ScopedReadRequestNoir): Sco
  */
 export function mapKeyValidationRequestsToNoir(request: KeyValidationRequest): KeyValidationRequestsNoir {
   return {
-    master_nullifier_public_key: mapPointToNoir(request.masterNullifierPublicKey),
-    app_nullifier_secret_key: mapFieldToNoir(request.appNullifierSecretKey),
+    master_nullifier_public_key: mapPointToNoir(request.masterPublicKey),
+    app_nullifier_secret_key: mapFieldToNoir(request.appSecretKey),
   };
 }
 
