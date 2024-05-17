@@ -22,6 +22,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-docs/reference/reference/smart_contract_reference/aztec-nr
+docs/reference/aztec.js
+docs/reference/smart_contract_reference/aztec-nr
 
 /src/preprocess/AztecnrReferenceAutogenStructure.json

@@ -126,11 +126,11 @@ const config = {
     [
       "docusaurus-plugin-typedoc",
       {
-        id: "apis/pxe",
+        id: "aztec.js/pxe",
         entryPoints: ["../yarn-project/circuit-types/src/interfaces/pxe.ts"],
         tsconfig: "../yarn-project/circuit-types/tsconfig.json",
         entryPointStrategy: "expand",
-        out: "apis/pxe",
+        out: "reference/aztec.js/pxe",
         disableSources: true,
         frontmatter: { sidebar_label: "Private Execution Environment (PXE)" },
       },
@@ -138,21 +138,21 @@ const config = {
     [
       "docusaurus-plugin-typedoc",
       {
-        id: "apis/aztec-js",
+        id: "aztec.js/aztec-js",
         entryPoints: [
           "../yarn-project/aztec.js/src/contract/index.ts",
           "../yarn-project/aztec.js/src/account/index.ts",
         ],
         tsconfig: "../yarn-project/aztec.js/tsconfig.json",
         entryPointStrategy: "resolve",
-        out: "apis/aztec-js",
+        out: "reference/aztec.js/aztec-js",
         disableSources: true,
       },
     ],
     [
       "docusaurus-plugin-typedoc",
       {
-        id: "apis/accounts",
+        id: "aztec.js/accounts",
         entryPoints: [
           "../yarn-project/accounts/src/defaults/index.ts",
           "../yarn-project/accounts/src/ecdsa/index.ts",
@@ -162,7 +162,7 @@ const config = {
         ],
         tsconfig: "../yarn-project/accounts/tsconfig.json",
         entryPointStrategy: "resolve",
-        out: "apis/accounts",
+        out: "reference/aztec.js/accounts",
         disableSources: true,
       },
     ],
