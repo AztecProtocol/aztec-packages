@@ -211,7 +211,7 @@ function validateProcessedTxLogs(tx: ProcessedTx): void {
   }
   const noteEncryptedLogs = tx.noteEncryptedLogs || EncryptedTxL2Logs.empty();
   kernelHash = tx.data.end.noteEncryptedLogsHash;
-  referenceHash = Fr.fromBuffer(noteEncryptedLogs.hash());
+  referenceHash = Fr.fromBuffer(noteEncryptedLogs.hash(0));
   if (!referenceHash.equals(kernelHash)) {
     throw new Error(
       `Note encrypted logs hash mismatch. Expected ${referenceHash.toString()}, got ${kernelHash.toString()}.
