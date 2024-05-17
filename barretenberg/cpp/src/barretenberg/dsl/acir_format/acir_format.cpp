@@ -118,6 +118,7 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
         create_bigint_to_le_bytes_constraint(builder, constraint, dsl_bigints);
     }
 
+    // RecursionConstraint
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for UGH for now since we're not yet
     // dealing with proper recursion
     if constexpr (IsGoblinUltraBuilder<Builder>) {
@@ -207,6 +208,7 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
         }
     }
 
+    // HonkRecursionConstraint
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for UGH for now since we're not yet
     // dealing with proper recursion
     if constexpr (IsGoblinUltraBuilder<Builder>) {
@@ -221,10 +223,7 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
         // TODO(maxim): input_aggregation_object to be non-zero.
         // TODO(maxim): if not, we can add input_aggregation_object to the proof too for all recursive proofs
         // TODO(maxim): This might be the case for proof trees where the proofs are created on different machines
-        std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> current_input_aggregation_object = {
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-        };
-        std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> current_output_aggregation_object = {
+        std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> current_aggregation_object = {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         };
 
@@ -243,39 +242,35 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
             // proof is above the expected size (with public inputs stripped)
             std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object = {};
             // If the proof has public inputs attached to it, we should handle setting the nested aggregation object
-            if (constraint.proof.size() > proof_size_no_pub_inputs) {
-                // The public inputs attached to a proof should match the aggregation object in size
-                if (constraint.proof.size() - proof_size_no_pub_inputs !=
-                    HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE) {
-                    auto error_string = format(
-                        "Public inputs are always stripped from proofs unless we have a recursive proof.\n"
-                        "Thus, public inputs attached to a proof must match the recursive aggregation object in size "
-                        "which is {}\n",
-                        HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE);
-                    throw_or_abort(error_string);
-                }
-                for (size_t i = 0; i < HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
-                    // Set the nested aggregation object indices to the current size of the public inputs
-                    // This way we know that the nested aggregation object indices will always be the last
-                    // indices of the public inputs
-                    nested_aggregation_object[i] = static_cast<uint32_t>(constraint.public_inputs.size());
-                    // Attach the nested aggregation object to the end of the public inputs to fill in
-                    // the slot where the nested aggregation object index will point into
-                    constraint.public_inputs.emplace_back(constraint.proof[i]);
-                }
-                // Remove the aggregation object so that they can be handled as normal public inputs
-                // in they way taht the recursion constraint expects
-                constraint.proof.erase(
-                    constraint.proof.begin(),
-                    constraint.proof.begin() +
-                        static_cast<std::ptrdiff_t>(HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE));
+            // The public inputs attached to a proof should match the aggregation object in size
+            if (constraint.proof.size() - proof_size_no_pub_inputs !=
+                HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE) {
+                auto error_string = format(
+                    "Public inputs are always stripped from proofs unless we have a recursive proof.\n"
+                    "Thus, public inputs attached to a proof must match the recursive aggregation object in size "
+                    "which is ",
+                    HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE);
+                throw_or_abort(error_string);
             }
-            current_output_aggregation_object = create_honk_recursion_constraints(builder,
-                                                                                  constraint,
-                                                                                  current_input_aggregation_object,
-                                                                                  nested_aggregation_object,
-                                                                                  has_valid_witness_assignments);
-            current_input_aggregation_object = current_output_aggregation_object;
+            for (size_t i = 0; i < HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
+                // Set the nested aggregation object indices to the current size of the public inputs
+                // This way we know that the nested aggregation object indices will always be the last
+                // indices of the public inputs
+                nested_aggregation_object[i] = static_cast<uint32_t>(constraint.public_inputs.size());
+                // Attach the nested aggregation object to the end of the public inputs to fill in
+                // the slot where the nested aggregation object index will point into
+                constraint.public_inputs.emplace_back(constraint.proof[i]);
+            }
+            // Remove the aggregation object so that they can be handled as normal public inputs
+            // in they way taht the recursion constraint expects
+            constraint.proof.erase(constraint.proof.begin(),
+                                   constraint.proof.begin() +
+                                       static_cast<std::ptrdiff_t>(HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE));
+            current_aggregation_object = create_honk_recursion_constraints(builder,
+                                                                           constraint,
+                                                                           current_aggregation_object,
+                                                                           nested_aggregation_object,
+                                                                           has_valid_witness_assignments);
         }
 
         // Now that the circuit has been completely built, we add the output aggregation as public
@@ -285,14 +280,84 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
             // First add the output aggregation object as public inputs
             // Set the indices as public inputs because they are no longer being
             // created in ACIR
-            for (const auto& idx : current_output_aggregation_object) {
+            for (const auto& idx : current_aggregation_object) {
                 builder.set_public_input(idx);
             }
 
             // Make sure the verification key records the public input indices of the
             // final recursion output.
-            std::vector<uint32_t> proof_output_witness_indices(current_output_aggregation_object.begin(),
-                                                               current_output_aggregation_object.end());
+            std::vector<uint32_t> proof_output_witness_indices(current_aggregation_object.begin(),
+                                                               current_aggregation_object.end());
+            builder.set_recursive_proof(proof_output_witness_indices);
+        } else if (builder.is_recursive_circuit) { // Set a default aggregation object if we don't have one.
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from
+            // a valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
+            fq x0("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
+            fq x1("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
+            std::array<fq, 2> xs = { x0, x1 };
+
+            fq y0("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
+            fq y1("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
+            std::array<fq, 2> ys = { y0, y1 };
+            for (size_t i = 0; i < 2; ++i) {
+                const auto group_element = g1::element(xs[i], ys[i], 1);
+
+                // const auto x = bb::field_conversion::convert_to_bn254_frs(const T &val);
+                const uint256_t x = group_element.x;
+                const uint256_t y = group_element.y;
+                const bb::fr x_1 = x.slice(0, stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION);
+
+                const bb::fr x_2 =
+                    x.slice(stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION, stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2);
+                const bb::fr x_3 = x.slice(stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2,
+                                           stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3);
+                const bb::fr x_4 =
+                    x.slice(stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3, bb::stdlib::field_conversion::TOTAL_BITS);
+
+                const bb::fr y_1 = y.slice(0, stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION);
+                const bb::fr y_2 =
+                    y.slice(stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION, stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2);
+                const bb::fr y_3 = y.slice(stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2,
+                                           stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3);
+                const bb::fr y_4 =
+                    y.slice(stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3, bb::stdlib::field_conversion::TOTAL_BITS);
+
+                uint32_t idx = builder.add_variable(x_1);
+                builder.set_public_input(idx);
+                current_aggregation_object[i * 8] = idx;
+
+                idx = builder.add_variable(x_2);
+                builder.set_public_input(idx);
+                current_aggregation_object[i * 8 + 1] = idx;
+
+                idx = builder.add_variable(x_3);
+                builder.set_public_input(idx);
+                current_aggregation_object[i * 8 + 2] = idx;
+
+                idx = builder.add_variable(x_4);
+                builder.set_public_input(idx);
+                current_aggregation_object[i * 8 + 3] = idx;
+
+                idx = builder.add_variable(y_1);
+                builder.set_public_input(idx);
+                current_aggregation_object[i * 8 + 4] = idx;
+
+                idx = builder.add_variable(y_2);
+                builder.set_public_input(idx);
+                current_aggregation_object[i * 8 + 5] = idx;
+
+                idx = builder.add_variable(y_3);
+                builder.set_public_input(idx);
+                current_aggregation_object[i * 8 + 6] = idx;
+
+                idx = builder.add_variable(y_4);
+                builder.set_public_input(idx);
+                current_aggregation_object[i * 8 + 7] = idx;
+            }
+            // Make sure the verification key records the public input indices of the
+            // final recursion output.
+            std::vector<uint32_t> proof_output_witness_indices(current_aggregation_object.begin(),
+                                                               current_aggregation_object.end());
             builder.set_recursive_proof(proof_output_witness_indices);
         }
     }

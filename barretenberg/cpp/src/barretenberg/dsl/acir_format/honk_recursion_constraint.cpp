@@ -31,11 +31,7 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     bool has_valid_witness_assignments)
 {
     const auto& nested_aggregation_indices = nested_aggregation_object;
-    bool nested_aggregation_indices_all_zero = true;
-    for (const auto& idx : nested_aggregation_indices) {
-        nested_aggregation_indices_all_zero &= (idx == 0);
-    }
-    const bool inner_proof_contains_recursive_proof = !nested_aggregation_indices_all_zero;
+    const bool inner_proof_contains_recursive_proof = true;
 
     // If we do not have a witness, we must ensure that our dummy witness will not trigger
     // on-curve errors and inverting-zero errors
@@ -88,7 +84,7 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     const auto& aggregation_input = input_aggregation_object;
     aggregation_state_ct previous_aggregation;
 
-    // If we have previously recursively verified proofs, `is_aggregation_object_nonzero = true`
+    // If we have previously recursively verified proofs, `inner_aggregation_object_nonzero = true`
     // For now this is a complile-time constant i.e. whether this is true/false is fixed for the circuit!
     bool inner_aggregation_indices_all_zero = true;
     for (const auto& idx : aggregation_input) {
