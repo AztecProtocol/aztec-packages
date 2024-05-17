@@ -177,7 +177,7 @@ describe('e2e_key_rotation', () => {
 
       // We call the registry to rotate our key here
       await walletB.rotateNpkM(newNpkM).send().wait();
-      // We add it to our Pxe here
+      // We add it to our PXE here
       await walletB.rotateNskM(newNskM);
 
       await crossDelay();

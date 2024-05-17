@@ -106,7 +106,7 @@ export interface PXE {
   getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
-   * Rotates our master nullifier secret key by adding it to our keystore
+   * Rotates master nullifier keys.
    * @param address - The address of the account we want to rotate our key for.
    * @param newNskM - The new master nullifier secret key we want to use.
    * @remarks - This does not hinder our ability to spend notes tied to a previous master nullifier public key.
