@@ -18,16 +18,15 @@ import { ProverPool } from '../prover-pool/prover-pool.js';
 
 const logger = createDebugLogger('aztec:tx-prover');
 
+const PRIVATE_KERNEL = 'PrivateKernelTailArtifact';
+const PRIVATE_KERNEL_TO_PUBLIC = 'PrivateKernelTailToPublicArtifact';
+
 async function retrieveRealPrivateKernelVerificationKeys(config: BBProverConfig) {
   logger.info(`Retrieving private kernel verification keys`);
-  const bbVerifier = await BBCircuitVerifier.new(
-    config,
-    ['PrivateKernelTailArtifact', 'PrivateKernelTailToPublicArtifact'],
-    logger,
-  );
+  const bbVerifier = await BBCircuitVerifier.new(config, [PRIVATE_KERNEL, PRIVATE_KERNEL_TO_PUBLIC]);
   const vks: VerificationKeys = {
-    privateKernelCircuit: await bbVerifier.getVerificationKeyData('PublicKernelTailArtifact'),
-    privateKernelToPublicCircuit: await bbVerifier.getVerificationKeyData('PrivateKernelTailToPublicArtifact'),
+    privateKernelCircuit: await bbVerifier.getVerificationKeyData(PRIVATE_KERNEL),
+    privateKernelToPublicCircuit: await bbVerifier.getVerificationKeyData(PRIVATE_KERNEL_TO_PUBLIC),
   };
   return vks;
 }

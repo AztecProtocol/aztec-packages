@@ -1,4 +1,5 @@
 import {
+  CIRCUIT_PUBLIC_INPUTS_INDEX,
   Fr,
   type VERIFICATION_KEY_LENGTH_IN_FIELDS,
   VerificationKeyAsFields,
@@ -11,9 +12,6 @@ import * as fs from 'fs/promises';
 import { VK_FIELDS_FILENAME, VK_FILENAME } from '../bb/execute.js';
 
 export const AGGREGATION_OBJECT_SIZE = 16;
-export const CIRCUIT_SIZE_INDEX = 3;
-export const CIRCUIT_PUBLIC_INPUTS_INDEX = 4;
-export const CIRCUIT_RECURSIVE_INDEX = 5;
 
 /**
  * Reads the verification key data stored at the specified location and parses into a VerificationKeyData
@@ -34,13 +32,7 @@ export async function extractVkData(filePath: string): Promise<VerificationKeyDa
     actualVk as Tuple<Fr, typeof VERIFICATION_KEY_LENGTH_IN_FIELDS>,
     vkHash,
   );
-  const vk = new VerificationKeyData(
-    vkAsFields,
-    rawBinary,
-    Number(actualVk[CIRCUIT_PUBLIC_INPUTS_INDEX]),
-    Number(actualVk[CIRCUIT_SIZE_INDEX]),
-    actualVk[CIRCUIT_RECURSIVE_INDEX] == Fr.ONE,
-  );
+  const vk = new VerificationKeyData(vkAsFields, rawBinary);
   return vk;
 }
 

@@ -26,7 +26,7 @@ import {
   type RootRollupPublicInputs,
   type VerificationKeyAsFields,
   type VerificationKeyData,
-  makeEmptyRecursiveProof,
+  makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -243,8 +243,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     await this.verifyProof('RootRollupArtifact', proof);
 
     const result = convertRootRollupOutputsFromWitnessMap(outputWitness);
-    const recursiveProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
-    recursiveProof.binaryProof = proof;
+
+    const recursiveProof = makeRecursiveProofFromBinary(proof, NESTED_RECURSIVE_PROOF_LENGTH);
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('RootRollupArtifact');
 
@@ -468,7 +468,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     circuit: ServerProtocolArtifact,
     vk: VerificationKeyData,
   ) {
-    const numPublicInputs = getNumPublicInputsFromVKFields(vk.keyAsFields) - AGGREGATION_OBJECT_SIZE;
+    const numPublicInputs = vk.numPublicInputs - AGGREGATION_OBJECT_SIZE;
     // Create random directory to be used for temp files
     const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
     try {
@@ -476,7 +476,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       const proofFullFilename = `${bbWorkingDirectory}/${PROOF_FILENAME}`;
       const vkFullFilename = `${bbWorkingDirectory}/vk`;
 
-      logger.debug(`Converting proof to fields format for circuit ${circuit}, directory ${bbWorkingDirectory}`);
+      logger.debug(
+        `Converting proof to fields format for circuit ${circuit}, directory ${bbWorkingDirectory}, num public inputs: ${vk.numPublicInputs}, proof length ${proof.binaryProof.buffer.length}, vk length ${vk.keyAsBytes.length}`,
+      );
 
       await fs.writeFile(proofFullFilename, proof.binaryProof.buffer);
       await fs.writeFile(vkFullFilename, vk.keyAsBytes);

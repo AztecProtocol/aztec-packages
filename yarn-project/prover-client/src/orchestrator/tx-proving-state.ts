@@ -5,7 +5,7 @@ import {
   NESTED_RECURSIVE_PROOF_LENGTH,
   type Proof,
   type RecursiveProof,
-  makeEmptyRecursiveProof,
+  makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
 
 export enum TX_PROVING_CODE {
@@ -42,8 +42,7 @@ export class TxProvingState {
     public readonly treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
   ) {
     let previousKernelProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined =
-      makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
-    previousKernelProof.binaryProof = processedTx.proof;
+      makeRecursiveProofFromBinary(processedTx.proof, NESTED_RECURSIVE_PROOF_LENGTH);
     let previousProofType = PublicKernelType.NON_PUBLIC;
     for (const kernelRequest of processedTx.publicKernelRequests) {
       const publicFunction: PublicFunction = {

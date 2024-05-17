@@ -74,13 +74,17 @@ export class RecursiveProof<N extends number> {
  * @returns The empty "proof".
  */
 export function makeEmptyRecursiveProof<N extends number>(size: N) {
-  return new RecursiveProof(makeTuple<Fr, N>(size, Fr.zero), makeEmptyProof(), false);
+  return new RecursiveProof(makeTuple<Fr, N>(size, Fr.zero), makeEmptyProof(), true);
 }
 
 export function makeRecursiveProof<PROOF_LENGTH extends number>(size: PROOF_LENGTH, seed = 1) {
   return new RecursiveProof<PROOF_LENGTH>(
     makeTuple<Fr, PROOF_LENGTH>(size, (i: number) => new Fr(i), seed),
     makeEmptyProof(),
-    false,
+    true,
   );
+}
+
+export function makeRecursiveProofFromBinary<PROOF_LENGTH extends number>(proof: Proof, size: PROOF_LENGTH) {
+  return new RecursiveProof<PROOF_LENGTH>(makeTuple<Fr, PROOF_LENGTH>(size, Fr.zero), proof, false);
 }

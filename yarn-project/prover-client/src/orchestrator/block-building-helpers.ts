@@ -37,8 +37,8 @@ import {
   type StateReference,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
-  VerificationKeyData,
-  makeEmptyRecursiveProof,
+  type VerificationKeyData,
+  makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
@@ -287,8 +287,7 @@ export async function getTreeSnapshot(id: MerkleTreeId, db: MerkleTreeOperations
 }
 
 export function getKernelDataFor(tx: ProcessedTx, vk: VerificationKeyData): KernelData {
-  const recursiveProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
-  recursiveProof.binaryProof = tx.proof;
+  const recursiveProof = makeRecursiveProofFromBinary(tx.proof, NESTED_RECURSIVE_PROOF_LENGTH);
   return new KernelData(
     tx.data,
     recursiveProof,

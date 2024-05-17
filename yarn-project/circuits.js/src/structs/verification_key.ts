@@ -74,11 +74,27 @@ export class CommitmentMap {
   }
 }
 
+export const CIRCUIT_SIZE_INDEX = 3;
+export const CIRCUIT_PUBLIC_INPUTS_INDEX = 4;
+export const CIRCUIT_RECURSIVE_INDEX = 5;
+
 /**
  * Provides a 'fields' representation of a circuit's verification key
  */
 export class VerificationKeyAsFields {
   constructor(public key: Tuple<Fr, typeof VERIFICATION_KEY_LENGTH_IN_FIELDS>, public hash: Fr) {}
+
+  public get numPublicInputs() {
+    return Number(this.key[CIRCUIT_PUBLIC_INPUTS_INDEX]);
+  }
+
+  public get circuitSize() {
+    return Number(this.key[CIRCUIT_SIZE_INDEX]);
+  }
+
+  public get isRecursive() {
+    return this.key[CIRCUIT_RECURSIVE_INDEX] == Fr.ONE;
+  }
 
   /**
    * Serialize as a buffer.
@@ -193,22 +209,22 @@ export class VerificationKey {
 }
 
 export class VerificationKeyData {
-  constructor(
-    public readonly keyAsFields: VerificationKeyAsFields,
-    public readonly keyAsBytes: Buffer,
-    public readonly numPublicInputs: number,
-    public readonly circuitSize: number,
-    public readonly isRecursive: boolean,
-  ) {}
+  constructor(public readonly keyAsFields: VerificationKeyAsFields, public readonly keyAsBytes: Buffer) {}
+
+  public get numPublicInputs() {
+    return this.keyAsFields.numPublicInputs;
+  }
+
+  public get circuitSize() {
+    return this.keyAsFields.circuitSize;
+  }
+
+  public get isRecursive() {
+    return this.keyAsFields.isRecursive;
+  }
 
   static makeFake(): VerificationKeyData {
-    return new VerificationKeyData(
-      VerificationKeyAsFields.makeFake(),
-      VerificationKey.makeFake().toBuffer(),
-      8,
-      1024,
-      false,
-    );
+    return new VerificationKeyData(VerificationKeyAsFields.makeFake(), VerificationKey.makeFake().toBuffer());
   }
 
   /**
@@ -216,13 +232,7 @@ export class VerificationKeyData {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(
-      this.keyAsFields,
-      this.keyAsBytes,
-      this.numPublicInputs,
-      this.circuitSize,
-      this.isRecursive,
-    );
+    return serializeToBuffer(this.keyAsFields, this.keyAsBytes.length, this.keyAsBytes);
   }
 
   /**
@@ -230,13 +240,10 @@ export class VerificationKeyData {
    */
   static fromBuffer(buffer: Buffer | BufferReader): VerificationKeyData {
     const reader = BufferReader.asReader(buffer);
-    return new VerificationKeyData(
-      reader.readObject(VerificationKeyAsFields),
-      reader.readBuffer(),
-      reader.readNumber(),
-      reader.readNumber(),
-      reader.readBoolean(),
-    );
+    const verificationKeyAsFields = reader.readObject(VerificationKeyAsFields);
+    const length = reader.readNumber();
+    const bytes = reader.readBytes(length);
+    return new VerificationKeyData(verificationKeyAsFields, bytes);
   }
 
   public clone() {

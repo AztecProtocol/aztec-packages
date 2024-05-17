@@ -13,14 +13,7 @@ import {
   validateProcessedTx,
 } from '@aztec/circuit-types';
 import { type TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
-import {
-  type GlobalVariables,
-  type Header,
-  type KernelCircuitPublicInputs,
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  RecursiveProof,
-  makeEmptyRecursiveProof,
-} from '@aztec/circuits.js';
+import { type GlobalVariables, type Header, type KernelCircuitPublicInputs } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { PublicExecutor, type PublicStateDB, type SimulationProvider } from '@aztec/simulator';
