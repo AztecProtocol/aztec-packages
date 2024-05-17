@@ -155,7 +155,7 @@ export class PublicProcessor {
         returns.push(returnValues?.[0] ?? new NestedProcessReturnValues([]));
       } catch (err: any) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        this.log.warn(`Failed to process tx ${tx.getTxHash()}: ${errorMessage}`);
+        this.log.warn(`Failed to process tx ${tx.getTxHash()}: ${errorMessage} ${err?.stack}`);
 
         failed.push({
           tx,
