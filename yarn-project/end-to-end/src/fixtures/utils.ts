@@ -77,6 +77,7 @@ import { foundry } from 'viem/chains';
 
 import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
+import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
@@ -380,6 +381,12 @@ export async function setup(
   if (acvmConfig) {
     config.acvmWorkingDirectory = acvmConfig.acvmWorkingDirectory;
     config.acvmBinaryPath = acvmConfig.acvmBinaryPath;
+  }
+
+  const bbConfig = await getBBConfig(logger);
+  if (bbConfig) {
+    config.bbBinaryPath = bbConfig.bbBinaryPath;
+    config.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
   config.l1BlockPublishRetryIntervalMS = 100;
   const aztecNode = await AztecNodeService.createAndSync(config);
