@@ -10,6 +10,9 @@ import { Proof, makeEmptyProof } from './proof.js';
  * This is a list of fields, for which there are distinct lengths based on the level of recursion.
  * This 'fields' version does not contain the circuits public inputs
  * We also store the raw binary proof which van be directly verified.
+ *
+ * The 'fieldsValid' member is set to false in the case where this object is constructed solely from the 'binary' proof
+ * This is usually when the proof has been received from clients and signals to provers that the 'fields' version needs to be generated
  */
 export class RecursiveProof<N extends number> {
   constructor(
@@ -85,6 +88,10 @@ export function makeRecursiveProof<PROOF_LENGTH extends number>(size: PROOF_LENG
   );
 }
 
+/**
+ * Makes an instance of the recursive proof from a binary only proof
+ * @returns The proof object
+ */
 export function makeRecursiveProofFromBinary<PROOF_LENGTH extends number>(proof: Proof, size: PROOF_LENGTH) {
   return new RecursiveProof<PROOF_LENGTH>(makeTuple<Fr, PROOF_LENGTH>(size, Fr.zero), proof, false);
 }

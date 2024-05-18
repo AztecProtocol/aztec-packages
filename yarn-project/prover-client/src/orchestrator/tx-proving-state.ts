@@ -48,6 +48,7 @@ export class TxProvingState {
     let previousProofType = PublicKernelType.NON_PUBLIC;
     for (let i = 0; i < processedTx.publicKernelRequests.length; i++) {
       const kernelRequest = processedTx.publicKernelRequests[i];
+      // the first circuit has a valid previous proof, it came from private
       if (previousKernelProof) {
         kernelRequest.inputs.previousKernel.proof = previousKernelProof;
         kernelRequest.inputs.previousKernel.vk = privateKernelVk;
@@ -80,6 +81,8 @@ export class TxProvingState {
 
     // There is more work to do, are we ready?
     const nextFunction = this.publicFunctions[nextKernelIndex];
+
+    // pass both the proof and verification ker forward to the next circuit
     nextFunction.publicKernelRequest.inputs.previousKernel.proof = proof;
     nextFunction.publicKernelRequest.inputs.previousKernel.vk = verificationKey;
 

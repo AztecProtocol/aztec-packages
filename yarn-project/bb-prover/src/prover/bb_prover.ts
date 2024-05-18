@@ -151,6 +151,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     if (kernelOps === undefined) {
       throw new Error(`Unable to prove kernel type ${PublicKernelType[kernelRequest.type]}`);
     }
+
+    // We may need to convert the recursive proof into fields format
     kernelRequest.inputs.previousKernel.proof = await this.ensureValidProof(
       kernelRequest.inputs.previousKernel.proof,
       kernelOps.artifact,
@@ -199,6 +201,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   public async getBaseRollupProof(
     input: BaseRollupInputs,
   ): Promise<PublicInputsAndProof<BaseOrMergeRollupPublicInputs>> {
+    // We may need to convert the recursive proof into fields format
     input.kernelData.proof = await this.ensureValidProof(
       input.kernelData.proof,
       'BaseRollupArtifact',
@@ -500,6 +503,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     circuit: ServerProtocolArtifact,
     vk: VerificationKeyData,
   ) {
+    // If the 'fields' proof is already valid then simply return
+    // This will be false for proofs coming from clients
     if (proof.fieldsValid) {
       return proof;
     }

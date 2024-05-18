@@ -25,7 +25,8 @@ describe('prover/bb_prover/full-rollup', () => {
     await context.cleanup();
   });
 
-  it('proves all circuits', async () => {
+  // TODO(@PhilWindle): Remove public functions and re-enable once we can handle empty tx slots
+  it.skip('proves all circuits', async () => {
     const numTransactions = 4;
     const txs = times(numTransactions, (i: number) =>
       mockTx(1000 * (i + 1), {

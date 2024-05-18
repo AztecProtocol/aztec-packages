@@ -283,6 +283,8 @@ export class ProvingOrchestrator {
    * @param provingState - The proving state being worked on
    */
   private async startTransaction(tx: ProcessedTx, provingState: ProvingState) {
+    // Pass the private kernel tail vk here as the previous one.
+    // If there are public functions then this key will be overwritten once the public tail has been proven
     const previousKernelVerificationKey = provingState.privateKernelVerificationKeys.privateKernelCircuit;
     const txInputs = await this.prepareBaseRollupInputs(provingState, tx, previousKernelVerificationKey);
     if (!txInputs) {
@@ -702,6 +704,7 @@ export class ProvingOrchestrator {
         if (nextKernelRequest.code === TX_PROVING_CODE.COMPLETED) {
           // We must have completed all public function proving, we now move to the base rollup
           logger.debug(`Public functions completed for tx ${txIndex} enqueueing base rollup`);
+          // Take the final public tail proof and verification key and pass them to the base rollup
           txProvingState.baseRollupInputs.kernelData.proof = result.proof;
           txProvingState.baseRollupInputs.kernelData.vk = result.verificationKey;
           this.enqueueBaseRollup(provingState, BigInt(txIndex), txProvingState);

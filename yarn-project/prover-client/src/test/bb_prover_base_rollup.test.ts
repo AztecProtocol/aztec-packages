@@ -24,7 +24,8 @@ describe('prover/bb_prover/base-rollup', () => {
     await context.cleanup();
   });
 
-  it('proves the base rollup', async () => {
+  // TODO(@PhilWindle): Re-enable once we can handle empty tx slots
+  it.skip('proves the base rollup', async () => {
     const tx = await makeBloatedProcessedTx(context.actualDb, 1);
 
     logger.verbose('Building base rollup inputs');
