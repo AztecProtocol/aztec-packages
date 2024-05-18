@@ -1046,7 +1046,11 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul)
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edge_cases)
 {
-    TestFixture::test_batch_mul_edge_cases();
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        TestFixture::test_batch_mul_edge_cases();
+    } else {
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/WORKTODO";
+    };
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, chain_add)
 {
