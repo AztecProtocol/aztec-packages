@@ -763,6 +763,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     std::vector<Fr> scalars;
     element one = element::one(builder);
 
+    bool some_scalar_is_zero(false);
+
     for (auto [_point, _scalar] : zip_view(_points, _scalars)) {
         bool_ct is_point_at_infinity = _point.is_point_at_infinity();
         if (is_point_at_infinity.get_value() && static_cast<bool>(is_point_at_infinity.is_constant())) {
@@ -777,6 +779,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         Fq updated_y = Fq::conditional_assign(is_point_at_infinity, one.y, _point.y);
         element point(updated_x, updated_y);
         Fr scalar = Fr::conditional_assign(is_point_at_infinity, 0, _scalar);
+        if (scalar.get_value() == 0) {
+            some_scalar_is_zero = true;
+        }
 
         points.push_back(point);
         scalars.push_back(scalar);
@@ -798,6 +803,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         if constexpr (IsGoblinUltraBuilder<C> && std::same_as<G, bb::g1>) {
             return goblin_batch_mul(points, scalars);
         } else {
+            ASSERT(!some_scalar_is_zero);
             const size_t num_points = points.size();
             ASSERT(scalars.size() == num_points);
             batch_lookup_table point_table(points);
