@@ -98,30 +98,26 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element_ct a_negated = element_ct::from_witness(&builder, -input_a);
             element_ct b = element_ct::from_witness(&builder, input_b);
 
-            [[maybe_unused]] element_ct c = a + b;
-            [[maybe_unused]] element_ct d = b + a;
-            [[maybe_unused]] element_ct e = b + b;
-            [[maybe_unused]] element_ct f = a + a;
-            [[maybe_unused]] element_ct g = a + a_alternate;
-            [[maybe_unused]] element_ct h = a + a_negated;
+            element_ct c = a + b;
+            element_ct d = b + a;
+            element_ct e = b + b;
+            element_ct f = a + a;
+            element_ct g = a + a_alternate;
+            element_ct h = a + a_negated;
 
-            [[maybe_unused]] affine_element c_expected = affine_element(element(input_a) + element(input_b));
-            [[maybe_unused]] affine_element d_expected = affine_element(element(input_b) + element(input_a));
-            [[maybe_unused]] affine_element e_expected = affine_element(element(input_b) + element(input_b));
-            [[maybe_unused]] affine_element f_expected = affine_element(element(input_a) + element(input_a));
-            [[maybe_unused]] affine_element g_expected = affine_element(element(input_a) + element(input_a));
-            [[maybe_unused]] affine_element h_expected = affine_element(element(input_a) + element(-input_a));
+            affine_element c_expected = affine_element(element(input_a) + element(input_b));
+            affine_element d_expected = affine_element(element(input_b) + element(input_a));
+            affine_element e_expected = affine_element(element(input_b) + element(input_b));
+            affine_element f_expected = affine_element(element(input_a) + element(input_a));
+            affine_element g_expected = affine_element(element(input_a) + element(input_a));
+            affine_element h_expected = affine_element(element(input_a) + element(-input_a));
 
-            // EXPECT_EQ(c.get_value(), c_expected);
-            // EXPECT_EQ(d.get_value(), d_expected);
-            info("e.get_value() is infinity: ", e.get_value().is_point_at_infinity());
-            info("e_expected    is infinity: ", e_expected.is_point_at_infinity());
-            // EXPECT_EQ(e.get_value(), e_expected);
-            // EXPECT_EQ(f.get_value(), f_expected);
-            // EXPECT_EQ(g.get_value(), g_expected);
-            info("h.get_value() is infinity: ", h.get_value().is_point_at_infinity());
-            info("h_expected    is infinity: ", h_expected.is_point_at_infinity());
-            // EXPECT_EQ(h.get_value(), h_expected);
+            EXPECT_EQ(c.get_value(), c_expected);
+            EXPECT_EQ(d.get_value(), d_expected);
+            EXPECT_EQ(e.get_value(), e_expected);
+            EXPECT_EQ(f.get_value(), f_expected);
+            EXPECT_EQ(g.get_value(), g_expected);
+            EXPECT_EQ(h.get_value(), h_expected);
         }
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
@@ -169,26 +165,26 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element_ct a_negated = element_ct::from_witness(&builder, -input_a);
             element_ct b = element_ct::from_witness(&builder, input_b);
 
-            [[maybe_unused]] element_ct c = a - b;
-            [[maybe_unused]] element_ct d = b - a;
-            [[maybe_unused]] element_ct e = b - b;
-            [[maybe_unused]] element_ct f = a - a;
-            [[maybe_unused]] element_ct g = a - a_alternate;
-            [[maybe_unused]] element_ct h = a - a_negated;
+            element_ct c = a - b;
+            element_ct d = b - a;
+            element_ct e = b - b;
+            element_ct f = a - a;
+            element_ct g = a - a_alternate;
+            element_ct h = a - a_negated;
 
-            [[maybe_unused]] affine_element c_expected = affine_element(element(input_a) - element(input_b));
-            [[maybe_unused]] affine_element d_expected = affine_element(element(input_b) - element(input_a));
-            [[maybe_unused]] affine_element e_expected = affine_element(element(input_b) - element(input_b));
-            [[maybe_unused]] affine_element f_expected = affine_element(element(input_a) - element(input_a));
-            [[maybe_unused]] affine_element g_expected = affine_element(element(input_a) - element(input_a));
-            [[maybe_unused]] affine_element h_expected = affine_element(element(input_a) - element(-input_a));
+            affine_element c_expected = affine_element(element(input_a) - element(input_b));
+            affine_element d_expected = affine_element(element(input_b) - element(input_a));
+            affine_element e_expected = affine_element(element(input_b) - element(input_b));
+            affine_element f_expected = affine_element(element(input_a) - element(input_a));
+            affine_element g_expected = affine_element(element(input_a) - element(input_a));
+            affine_element h_expected = affine_element(element(input_a) - element(-input_a));
 
-            // EXPECT_EQ(c.get_value(), c_expected);
-            // EXPECT_EQ(d.get_value(), d_expected);
-            // EXPECT_EQ(e.get_value(), e_expected);
-            // EXPECT_EQ(f.get_value(), f_expected);
-            // EXPECT_EQ(g.get_value(), g_expected);
-            // EXPECT_EQ(h.get_value(), h_expected);
+            EXPECT_EQ(c.get_value(), c_expected);
+            EXPECT_EQ(d.get_value(), d_expected);
+            EXPECT_EQ(e.get_value(), e_expected);
+            EXPECT_EQ(f.get_value(), f_expected);
+            EXPECT_EQ(g.get_value(), g_expected);
+            EXPECT_EQ(h.get_value(), h_expected);
         }
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
