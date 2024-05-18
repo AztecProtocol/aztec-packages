@@ -77,6 +77,7 @@ describe('Kernel Prover', () => {
       partialWitness: new Map(),
       enqueuedPublicFunctionCalls: [],
       publicTeardownFunctionCall: PublicCallRequest.empty(),
+      noteEncryptedLogs: [],
       encryptedLogs: [],
       unencryptedLogs: [],
     };
@@ -163,6 +164,7 @@ describe('Kernel Prover', () => {
     );
     proofCreator.createProofInit.mockResolvedValue(createProofOutput([]));
     proofCreator.createProofInner.mockResolvedValue(createProofOutput([]));
+    proofCreator.createProofReset.mockResolvedValue(createProofOutput([]));
     proofCreator.createProofTail.mockResolvedValue(createProofOutputFinal([]));
     proofCreator.createAppCircuitProof.mockResolvedValue(createAppCircuitProofOutput());
 
