@@ -1,5 +1,5 @@
 import { type AppCircuitProofOutput, type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
-import { CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
+import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   Fr,
   NESTED_RECURSIVE_PROOF_LENGTH,
