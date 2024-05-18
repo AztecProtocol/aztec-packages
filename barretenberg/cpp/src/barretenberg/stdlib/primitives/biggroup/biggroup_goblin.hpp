@@ -89,18 +89,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::goblin_batch_mul(const std::vector<
     Fq point_x(x_lo, x_hi);
     Fq point_y(y_lo, y_hi);
 
-    // WORKTODO: this doesn't work
-    typename G::affine_element native_result(typename Fq::native(point_x.get_value()),
-                                             typename Fq::native(point_y.get_value()));
-    info("native result: ", native_result);
-    info("native result oo: ", native_result.is_point_at_infinity());
-    element result{ native_result };
-    if (native_result.is_point_at_infinity()) {
-        bool_ct is_point_at_infinity(true);
-        result.set_point_at_infinity(is_point_at_infinity);
-    }
-
-    return result;
+    return element(point_x, point_y);
 }
 
 } // namespace bb::stdlib

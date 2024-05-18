@@ -754,10 +754,34 @@ std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::c
  * scalars See `bn254_endo_batch_mul` for description of algorithm
  **/
 template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element>& points,
-                                                       const std::vector<Fr>& scalars,
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element>& _points,
+                                                       const std::vector<Fr>& _scalars,
                                                        const size_t max_num_bits)
 {
+    auto builder = _points[0].get_context();
+    std::vector<element> points;
+    std::vector<Fr> scalars;
+    element one = element::one(builder);
+
+    for (auto [_point, _scalar] : zip_view(_points, _scalars)) {
+        bool_ct is_point_at_infinity = _point.is_point_at_infinity();
+        if (is_point_at_infinity.get_value() && static_cast<bool>(is_point_at_infinity.is_constant())) {
+            // if point is at infinity and a circuit constant we can just skip.
+            continue;
+        }
+        if (_scalar.get_value() == 0 && _scalar.is_constant()) {
+            // if scalar multiplier is 0 and also a constant, we can skip
+            continue;
+        }
+        Fq updated_x = Fq::conditional_assign(is_point_at_infinity, one.x, _point.x);
+        Fq updated_y = Fq::conditional_assign(is_point_at_infinity, one.y, _point.y);
+        element point(updated_x, updated_y);
+        Fr scalar = Fr::conditional_assign(is_point_at_infinity, 0, _scalar);
+
+        points.push_back(point);
+        scalars.push_back(scalar);
+        // WORKTODO TODO: if both point and scalar are constant, don't bother adding constraints
+    }
     if constexpr (IsSimulator<C>) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/663)
         auto context = points[0].get_context();

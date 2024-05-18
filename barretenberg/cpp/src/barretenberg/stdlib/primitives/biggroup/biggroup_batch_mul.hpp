@@ -38,6 +38,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::wnaf_batch_mul(const std::vector<el
             continue;
         }
         element point(_point);
+        // if a point is the point at infinity, convert to a valid multiplication by 0
         point.x = Fq::conditional_assign(is_point_at_infinity, one.x, point.x);
         point.y = Fq::conditional_assign(is_point_at_infinity, one.y, point.y);
         Fr scalar = Fr::conditional_assign(is_point_at_infinity, 0, _scalar);
