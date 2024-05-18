@@ -124,6 +124,7 @@ describe('benchmarks/proving', () => {
     await ctx.aztecNode.setConfig({
       // stop the fake provers
       proverAgents: 0,
+      realProofs: true,
       // 4-tx blocks so that we have at least one merge level
       minTxsPerBlock: 4,
     });
