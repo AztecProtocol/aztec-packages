@@ -38,7 +38,7 @@ import {
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type ContractArtifact, type DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fq, Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -48,6 +48,7 @@ import {
   collectEnqueuedPublicFunctionCalls,
   collectPublicTeardownFunctionCall,
   collectSortedEncryptedLogs,
+  collectSortedNoteEncryptedLogs,
   collectSortedUnencryptedLogs,
   resolveOpcodeLocations,
 } from '@aztec/simulator';
@@ -189,6 +190,10 @@ export class PXEService implements PXE {
 
     await this.db.addCompleteAddress(accountCompleteAddress);
     return accountCompleteAddress;
+  }
+
+  public async rotateMasterNullifierKey(account: AztecAddress, secretKey: Fq = Fq.random()): Promise<void> {
+    await this.keyStore.rotateMasterNullifierKey(account, secretKey);
   }
 
   public async getRegisteredAccounts(): Promise<CompleteAddress[]> {
@@ -657,6 +662,7 @@ export class PXEService implements PXE {
     this.log.debug(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
 
+    const noteEncryptedLogs = new EncryptedTxL2Logs([collectSortedNoteEncryptedLogs(executionResult)]);
     const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(executionResult)]);
     const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(executionResult)]);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
@@ -669,6 +675,7 @@ export class PXEService implements PXE {
     const tx = new Tx(
       publicInputs,
       proof.binaryProof,
+      noteEncryptedLogs,
       encryptedLogs,
       unencryptedLogs,
       enqueuedPublicFunctions,

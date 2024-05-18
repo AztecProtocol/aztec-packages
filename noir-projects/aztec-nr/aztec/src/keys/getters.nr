@@ -1,10 +1,9 @@
 use dep::protocol_types::{
-    address::AztecAddress, constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint,
-    hash::poseidon2_hash
+    abis::nullifier_key_validation_request::NullifierKeyValidationRequest, address::AztecAddress,
+    constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint
 };
 use crate::{
-    context::PrivateContext,
-    oracle::keys::{get_public_keys_and_partial_address, get_public_keys_and_partial_address_with_npk_m_hash},
+    context::PrivateContext, oracle::{keys::get_public_keys_and_partial_address},
     keys::public_keys::{PublicKeys, NULLIFIER_INDEX, INCOMING_INDEX},
     state_vars::{
     map::derive_storage_slot_in_map,
@@ -20,7 +19,7 @@ pub fn get_npk_m(context: &mut PrivateContext, address: AztecAddress) -> Grumpki
 }
 
 pub fn get_npk_m_hash(context: &mut PrivateContext, address: AztecAddress) -> Field {
-    poseidon2_hash(get_master_key(context, address, NULLIFIER_INDEX).serialize())
+    get_master_key(context, address, NULLIFIER_INDEX).hash()
 }
 
 pub fn get_ivpk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
@@ -89,9 +88,4 @@ fn fetch_and_constrain_keys(address: AztecAddress) -> PublicKeys {
     assert(computed_address.eq(address));
 
     public_keys
-}
-
-pub fn get_ivpk_m_with_npk_m_hash(npk_m_hash: Field) -> GrumpkinPoint {
-    let result = get_public_keys_and_partial_address_with_npk_m_hash(npk_m_hash);
-    result.0.ivpk_m
 }
