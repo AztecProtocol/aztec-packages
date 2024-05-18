@@ -74,7 +74,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
         // Current gate count: 6398
         std::vector<element> points{ *this, other };
         std::vector<Fr> scalars{ 1, 1 };
-        return goblin_batch_mul(points, scalars);
+        return batch_mul(points, scalars);
     }
 
     // Adding in `x_coordinates_match` ensures that lambda will always be well-formed
@@ -136,7 +136,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
         // Current gate count: 6398
         std::vector<element> points{ *this, other };
         std::vector<Fr> scalars{ 1, -Fr(1) };
-        return goblin_batch_mul(points, scalars);
+        return batch_mul(points, scalars);
     }
 
     // if x_coordinates match, lambda triggers a divide by zero error.
