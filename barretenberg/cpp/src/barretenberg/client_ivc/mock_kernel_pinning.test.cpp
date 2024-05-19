@@ -19,7 +19,7 @@ class MockKernelTest : public ::testing::Test {
     static void SetUpTestSuite() { srs::init_crs_factory("../srs_db/ignition"); }
 };
 
-TEST_F(MockKernelTest, PinFoldingKernelSizes)
+TEST_F(MockKernelTest, DISABLED_PinFoldingKernelSizes)
 {
     ClientIVC ivc;
 

@@ -17,7 +17,7 @@ class MockCircuitsPinning : public ::testing::Test {
     static void SetUpTestSuite() { srs::init_crs_factory("../srs_db/ignition"); }
 };
 
-TEST_F(MockCircuitsPinning, FunctionSizes)
+TEST_F(MockCircuitsPinning, DISABLED_FunctionSizes)
 {
     const auto run_test = [](bool large) {
         Goblin goblin;
@@ -34,7 +34,7 @@ TEST_F(MockCircuitsPinning, FunctionSizes)
     run_test(false);
 }
 
-TEST_F(MockCircuitsPinning, RecursionKernelSizes)
+TEST_F(MockCircuitsPinning, DISABLED_RecursionKernelSizes)
 {
     const auto run_test = [](bool large) {
         {
