@@ -4,7 +4,10 @@ import {
   GeneratorIndex,
   INITIAL_L2_BLOCK_NUM,
   computeAppNullifierSecretKey,
+  computeAppSecretKey,
   deriveMasterNullifierSecretKey,
+  deriveMasterOutgoingViewingSecretKey,
+  derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
@@ -17,20 +20,25 @@ import { publicDeployAccounts, setup } from './fixtures/utils.js';
 const TIMEOUT = 120_000;
 
 describe('Key Registry', () => {
-  let pxe: PXE;
-  let aztecNode: AztecNode;
-  let testContract: TestContract;
   jest.setTimeout(TIMEOUT);
 
+  let aztecNode: AztecNode;
+  let pxe: PXE;
+  let teardown: () => Promise<void>;
   let wallets: AccountWallet[];
 
-  let teardown: () => Promise<void>;
+  let testContract: TestContract;
+
+  const secret = Fr.random();
+  let account: AccountWallet;
 
   beforeAll(async () => {
-    ({ aztecNode, teardown, pxe, wallets } = await setup(2));
+    ({ aztecNode, pxe, teardown, wallets } = await setup(2));
     testContract = await TestContract.deploy(wallets[0]).send().deployed();
 
     await publicDeployAccounts(wallets[0], wallets.slice(0, 2));
+
+    [account] = await createAccounts(pxe, 1, [secret]);
   });
 
   afterAll(() => teardown());
@@ -50,9 +58,6 @@ describe('Key Registry', () => {
     // instantly consume the note after creating it. In this case, the nullifier is never emitted and hence the action
     // is impossible to detect with this scheme.
     it('nsk_app and contract address are enough to detect note nullification', async () => {
-      const secret = Fr.random();
-      const [account] = await createAccounts(pxe, 1, [secret]);
-
       const masterNullifierSecretKey = deriveMasterNullifierSecretKey(secret);
       const nskApp = computeAppNullifierSecretKey(masterNullifierSecretKey, testContract.address);
 
@@ -92,5 +97,17 @@ describe('Key Registry', () => {
         return count;
       }, 0);
     };
+  });
+
+  it('gets ovsk_app', async () => {
+    const ovSkM = deriveMasterOutgoingViewingSecretKey(secret);
+    const ovPkMHash = derivePublicKeyFromSecretKey(ovSkM).hash();
+
+    const expectedOvskApp = computeAppSecretKey(ovSkM, testContract.address, 'ov');
+
+    const ovskAppBigInt = await testContract.methods.get_ovsk_app(ovPkMHash).simulate();
+    const ovskApp = new Fr(ovskAppBigInt);
+
+    expect(ovskApp).toEqual(expectedOvskApp);
   });
 });

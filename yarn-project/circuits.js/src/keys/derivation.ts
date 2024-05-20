@@ -46,6 +46,10 @@ export function deriveMasterIncomingViewingSecretKey(secretKey: Fr): GrumpkinSca
   return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
 }
 
+export function deriveMasterOutgoingViewingSecretKey(secretKey: Fr): GrumpkinScalar {
+  return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.OVSK_M]);
+}
+
 export function deriveSigningKey(secretKey: Fr): GrumpkinScalar {
   // TODO(#5837): come up with a standard signing key derivation scheme instead of using ivsk_m as signing keys here
   return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
@@ -71,7 +75,7 @@ export function deriveKeys(secretKey: Fr) {
   // in a circuit
   const masterNullifierSecretKey = deriveMasterNullifierSecretKey(secretKey);
   const masterIncomingViewingSecretKey = deriveMasterIncomingViewingSecretKey(secretKey);
-  const masterOutgoingViewingSecretKey = sha512ToGrumpkinScalar([secretKey, GeneratorIndex.OVSK_M]);
+  const masterOutgoingViewingSecretKey = deriveMasterOutgoingViewingSecretKey(secretKey);
   const masterTaggingSecretKey = sha512ToGrumpkinScalar([secretKey, GeneratorIndex.TSK_M]);
 
   // Then we derive master public keys
