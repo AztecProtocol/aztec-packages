@@ -30,7 +30,7 @@ describe('TestKeyStore', () => {
 
     const { masterPublicKey: masterNullifierPublicKey } = await keyStore.getKeyValidationRequest(
       computedMasterNullifierPublicKeyHash,
-      AztecAddress.random(),
+      AztecAddress.random(), // Address is random because we are not interested in the app secret key here
     );
     expect(masterNullifierPublicKey.toString()).toMatchInlineSnapshot(
       `"0x2ef5d15dd65d29546680ab72846fb071f41cb9f2a0212215e6c560e29df4ff650ce764818364b376be92dc2f49577fe440e64a16012584f7c4ee94f7edbc323a"`,
@@ -130,17 +130,17 @@ describe('TestKeyStore', () => {
     // We make sure we can get master nullifier public keys with master nullifier public key hashes
     const { masterPublicKey: masterNullifierPublicKey2 } = await keyStore.getKeyValidationRequest(
       newComputedMasterNullifierPublicKeyHashes[2],
-      AztecAddress.random(),
+      AztecAddress.random(), // Address is random because we are not interested in the app secret key here
     );
     expect(masterNullifierPublicKey2).toEqual(newDerivedMasterNullifierPublicKeys[2]);
     const { masterPublicKey: masterNullifierPublicKey1 } = await keyStore.getKeyValidationRequest(
       newComputedMasterNullifierPublicKeyHashes[1],
-      AztecAddress.random(),
+      AztecAddress.random(), // Address is random because we are not interested in the app secret key here
     );
     expect(masterNullifierPublicKey1).toEqual(newDerivedMasterNullifierPublicKeys[1]);
     const { masterPublicKey: masterNullifierPublicKey0 } = await keyStore.getKeyValidationRequest(
       newComputedMasterNullifierPublicKeyHashes[0],
-      AztecAddress.random(),
+      AztecAddress.random(), // Address is random because we are not interested in the app secret key here
     );
     expect(masterNullifierPublicKey0).toEqual(newDerivedMasterNullifierPublicKeys[0]);
 
