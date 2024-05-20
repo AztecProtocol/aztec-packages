@@ -59,18 +59,22 @@ namespace avm_main(256);
     // TODO(ISSUE_NUMBER): Opcode index will be constrained by the bytecode validation circuit
     pol commit opcode_idx;
 
-    pol commit l2_gas_left;
-    pol commit da_gas_left;
+    pol commit l2_gas_remaining;
+    pol commit da_gas_remaining;
 
     // TODO(ISSUE_NUMBER): allow lookups to evaluate expressions
     pol commit l2_gas_op;
     pol commit da_gas_op;
 
-    OP_SELECTOR {op_code_idx, l2_gas_op, da_gas_op} in {clk, avm_gas.l2_gas_fixed_table, avm_gas.da_gas_fixed_table};
+    #[LOOKUP_OPCODE_GAS]
+    opcode_active {opcode_idx, l2_gas_op, da_gas_op} in  avm_gas.add_to_gas_lookup_table {clk, avm_gas.l2_gas_fixed_table, avm_gas.da_gas_fixed_table};
 
     // Constrain that the gas decrements correctly per instruction
-    OP_SELECTOR * (l2_gas_left' - (l2_gas_left + l2_gas_op));
-    OP_SELECTOR * (da_gas_left' - (da_gas_left + da_gas_op));
+    opcode_active * (l2_gas_remaining - (l2_gas_remaining' + l2_gas_op));
+    opcode_active * (da_gas_remaining - (da_gas_remaining' + da_gas_op));
+
+    // TODO: constrain that it stays the same if an opcode selector is not active -> TODO: will this break when the opcode takes multiple rows
+    // So we also need to constrain that it is the first line of the opcodes execution
 
     //===== Gadget Selectors ======================================================
     pol commit sel_op_radix_le;
@@ -393,9 +397,12 @@ namespace avm_main(256);
     pol ALL_MEMORY_SEL = sel_cmov + sel_mov;
     pol OPCODE_SELECTORS = ALU_ALL_SEL + ALL_BINARY_SEL + ALL_MEMORY_SEL + ALL_GADGET_SEL + KERNEL_INPUT_SELECTORS + KERNEL_OUTPUT_SELECTORS;
 
+    pol commit opcode_active;
+    opcode_active - OPCODE_SELECTORS = 0;
+
     // Program counter must increment if not jumping or returning
     #[PC_INCREMENT]
-    (1 - first) * (1 - sel_halt) * OPCODE_SELECTORS * (pc' - (pc + 1)) = 0;
+    (1 - first) * (1 - sel_halt) * opcode_active * (pc' - (pc + 1)) = 0;
 
     // first == 0 && sel_internal_call == 0 && sel_internal_return == 0 && sel_halt == 0 ==> internal_return_ptr == internal_return_ptr'
     #[INTERNAL_RETURN_POINTER_CONSISTENCY]

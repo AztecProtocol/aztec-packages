@@ -16,6 +16,7 @@
 #include "avm_mem_trace.hpp"
 #include "avm_trace.hpp"
 #include "barretenberg/vm/avm_trace/avm_kernel_trace.hpp"
+#include "barretenberg/vm/avm_trace/avm_opcode.hpp"
 
 namespace bb::avm_trace {
 
@@ -28,6 +29,10 @@ AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs public_inputs)
     : kernel_trace_builder(public_inputs)
 {
     main_trace.reserve(AVM_TRACE_SIZE);
+
+    // TODO: think about cast
+    gas_trace_builder.set_initial_gas(static_cast<uint32_t>(kernel_inputs[L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET]),
+                                      static_cast<uint32_t>(kernel_inputs[DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET]));
 }
 
 /**
@@ -124,6 +129,9 @@ void AvmTraceBuilder::op_add(
     // Write into memory value c from intermediate register ic.
     mem_trace_builder.write_into_memory(call_ptr, clk, IntermRegister::IC, res.direct_c_offset, c, in_tag, in_tag);
 
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::ADD);
+
     main_trace.push_back(Row{
 
         .avm_main_clk = clk,
@@ -146,6 +154,7 @@ void AvmTraceBuilder::op_add(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
+        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -191,6 +200,9 @@ void AvmTraceBuilder::op_sub(
     // Write into memory value c from intermediate register ic.
     mem_trace_builder.write_into_memory(call_ptr, clk, IntermRegister::IC, res.direct_c_offset, c, in_tag, in_tag);
 
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::SUB);
+
     main_trace.push_back(Row{
         .avm_main_clk = clk,
         .avm_main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
@@ -211,6 +223,7 @@ void AvmTraceBuilder::op_sub(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
+        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -256,6 +269,9 @@ void AvmTraceBuilder::op_mul(
     // Write into memory value c from intermediate register ic.
     mem_trace_builder.write_into_memory(call_ptr, clk, IntermRegister::IC, res.direct_c_offset, c, in_tag, in_tag);
 
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::MUL);
+
     main_trace.push_back(Row{
         .avm_main_clk = clk,
         .avm_main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
@@ -276,6 +292,7 @@ void AvmTraceBuilder::op_mul(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
+        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -330,6 +347,9 @@ void AvmTraceBuilder::op_fdiv(uint8_t indirect, uint32_t a_offset, uint32_t b_of
     mem_trace_builder.write_into_memory(
         call_ptr, clk, IntermRegister::IC, res.direct_c_offset, c, AvmMemoryTag::FF, AvmMemoryTag::FF);
 
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::FDIV);
+
     main_trace.push_back(Row{
         .avm_main_clk = clk,
         .avm_main_call_ptr = call_ptr,
@@ -351,6 +371,7 @@ void AvmTraceBuilder::op_fdiv(uint8_t indirect, uint32_t a_offset, uint32_t b_of
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
         .avm_main_op_err = tag_match ? error : FF(1),
+        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .avm_main_rwc = FF(1),
@@ -422,6 +443,7 @@ void AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_o
         .avm_main_mem_idx_c = FF(direct_dst_offset),
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_c = FF(1),
+        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -487,6 +509,7 @@ void AvmTraceBuilder::op_eq(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
+        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -540,6 +563,7 @@ void AvmTraceBuilder::op_and(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
+        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -593,6 +617,7 @@ void AvmTraceBuilder::op_or(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
+        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -646,6 +671,7 @@ void AvmTraceBuilder::op_xor(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
+        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -699,6 +725,7 @@ void AvmTraceBuilder::op_lt(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
+        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -752,6 +779,7 @@ void AvmTraceBuilder::op_lte(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
+        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -805,6 +833,7 @@ void AvmTraceBuilder::op_shr(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
+        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -858,6 +887,7 @@ void AvmTraceBuilder::op_shl(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
+        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -907,6 +937,7 @@ void AvmTraceBuilder::op_set(uint8_t indirect, uint128_t val, uint32_t dst_offse
         .avm_main_internal_return_ptr = internal_return_ptr,
         .avm_main_mem_idx_c = direct_dst_offset,
         .avm_main_mem_op_c = 1,
+        .avm_main_opcode_active = FF(1),
         .avm_main_pc = pc++,
         .avm_main_rwc = 1,
         .avm_main_tag_err = static_cast<uint32_t>(!tag_match),
@@ -966,6 +997,7 @@ void AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst
         .avm_main_mem_idx_c = direct_dst_offset,
         .avm_main_mem_op_a = 1,
         .avm_main_mem_op_c = 1,
+        .avm_main_opcode_active = FF(1),
         .avm_main_pc = pc++,
         .avm_main_r_in_tag = static_cast<uint32_t>(tag),
         .avm_main_rwc = 1,
@@ -1075,6 +1107,7 @@ void AvmTraceBuilder::op_cmov(
         .avm_main_mem_op_b = 1,
         .avm_main_mem_op_c = 1,
         .avm_main_mem_op_d = 1,
+        .avm_main_opcode_active = FF(1),
         .avm_main_pc = pc++,
         .avm_main_r_in_tag = static_cast<uint32_t>(tag),
         .avm_main_rwc = 1,
@@ -1103,6 +1136,7 @@ Row AvmTraceBuilder::create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t s
         .avm_main_internal_return_ptr = internal_return_ptr,
         .avm_main_mem_idx_a = dst_offset,
         .avm_main_mem_op_a = 1,
+        .avm_main_opcode_active = FF(1),
         .avm_main_pc = pc++,
         .avm_main_q_kernel_lookup = 1,
         .avm_main_rwa = 1,
@@ -1449,6 +1483,7 @@ void AvmTraceBuilder::op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_
         .avm_main_mem_idx_c = FF(direct_dst_offset),
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_c = FF(1),
+        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(memEntry.tag)),
         .avm_main_rwc = FF(1),
@@ -1528,6 +1563,7 @@ void AvmTraceBuilder::op_div(
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
         .avm_main_op_err = tag_match ? error : FF(1),
+        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -2863,6 +2899,7 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
     auto keccak_trace = keccak_trace_builder.finalize();
     auto pedersen_trace = pedersen_trace_builder.finalize();
     auto bin_trace = bin_trace_builder.finalize();
+    auto gas_trace = gas_trace_builder.finalize();
     size_t mem_trace_size = mem_trace.size();
     size_t main_trace_size = main_trace.size();
     size_t alu_trace_size = alu_trace.size();
@@ -2872,6 +2909,7 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
     size_t keccak_trace_size = keccak_trace.size();
     size_t pedersen_trace_size = pedersen_trace.size();
     size_t bin_trace_size = bin_trace.size();
+    size_t gas_trace_size = gas_trace.size();
 
     // Get tag_err counts from the mem_trace_builder
     if (range_check_required) {
@@ -2888,9 +2926,9 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
     // 2**16 long)
     size_t const lookup_table_size = (bin_trace_size > 0 && range_check_required) ? 3 * (1 << 16) : 0;
     size_t const range_check_size = range_check_required ? UINT16_MAX + 1 : 0;
-    std::vector<size_t> trace_sizes = { mem_trace_size,        main_trace_size,      alu_trace_size,
-                                        lookup_table_size,     range_check_size,     conv_trace_size,
-                                        sha256_trace_size,     poseidon2_trace_size, pedersen_trace_size,
+    std::vector<size_t> trace_sizes = { mem_trace_size,        main_trace_size,  alu_trace_size,
+                                        lookup_table_size,     range_check_size, conv_trace_size,
+                                        sha256_trace_size,  poseidon2_trace_size, pedersen_trace_size,  gas_trace_size,   KERNEL_INPUTS_LENGTH,
                                         KERNEL_OUTPUTS_LENGTH, min_trace_size };
     auto trace_size = std::max_element(trace_sizes.begin(), trace_sizes.end());
 
@@ -3361,7 +3399,6 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
         main_trace.at(i).avm_kernel_kernel_inputs__is_public =
             std::get<KERNEL_INPUTS>(kernel_trace_builder.public_inputs).at(i);
     }
-
     // Copy the kernel outputs counts into the main trace,
     for (size_t i = 0; i < KERNEL_OUTPUTS_LENGTH; i++) {
         main_trace.at(i).avm_kernel_kernel_value_out__is_public =
@@ -3499,6 +3536,63 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
             dest.avm_kernel_side_effect_counter = prev.avm_kernel_side_effect_counter;
         }
     }
+    ////////// WORK IN PROGRESS //////////////////////////
+
+    // Add the gas cost table to the main trace
+    // TODO: do i need a way to produce an interupt that will stop the execution of the trace when the gas left becomes
+    // zero in the gas_trace_builder Does all of the gas trace information need to be added to this main machine?????
+
+    // Add the gas costs table to the main trace
+    // For each opcode idx we write it's l2 gas cost and da gas cost
+    auto gas_cost_lookup_table = gas_trace_builder.gas_lookup_table;
+    for (size_t i = 0; i < gas_cost_lookup_table.size(); i++) {
+        auto gas_table_entry = gas_cost_lookup_table.at(i);
+
+        auto& dest = main_trace.at(i);
+
+        dest.avm_gas_add_to_gas_lookup_table = FF(1);
+        dest.avm_gas_l2_gas_fixed_table = gas_table_entry.l2_fixed_gas_cost;
+        dest.avm_gas_da_gas_fixed_table = gas_table_entry.da_fixed_gas_cost;
+    }
+
+    // Write the
+
+    // Add the gas accounting for each row
+    // We can assume that the gas trace will never be larger than the main trace
+    // Set the initial gas
+    auto& first_main_trace_row = main_trace.at(0);
+    first_main_trace_row.avm_main_l2_gas_remaining = gas_trace_builder.initial_l2_gas;
+    first_main_trace_row.avm_main_da_gas_remaining = gas_trace_builder.initial_da_gas;
+
+    for (size_t i = 0; i < gas_trace.size(); i++) {
+        auto& gas_entry = gas_trace.at(i);
+
+        auto& dest = main_trace.at(gas_entry.clk);
+        auto& next = main_trace.at(gas_entry.clk + 1);
+        // Write each of the relevant gas accounting values
+
+        dest.avm_main_opcode_idx = gas_entry.opcode_idx;
+        dest.avm_main_l2_gas_op = gas_entry.l2_gas_cost;
+        dest.avm_main_da_gas_op = gas_entry.da_gas_cost;
+        next.avm_main_l2_gas_remaining = gas_entry.remaining_l2_gas;
+        next.avm_main_da_gas_remaining = gas_entry.remaining_da_gas;
+    }
+
+    // Finalise gas left lookup counts
+    for (auto const& [clk, count] : gas_trace_builder.gas_opcode_lookup_counter) {
+        main_trace.at(clk).lookup_opcode_gas_counts = count;
+    }
+
+    // Pad the rest of the trace with the same gas remaining
+    auto last_gas_trace = gas_trace.back();
+    for (size_t i = last_gas_trace.clk + 1; i < main_trace_size; i++) {
+        auto& dest = main_trace.at(i);
+        dest.avm_main_l2_gas_remaining = last_gas_trace.remaining_l2_gas;
+        dest.avm_main_da_gas_remaining = last_gas_trace.remaining_da_gas;
+    }
+
+    ////////// WORK IN PROGRESS //////////////////////////
+
     // Adding extra row for the shifted values at the top of the execution trace.
     Row first_row = Row{ .avm_main_first = FF(1), .avm_mem_lastAccess = FF(1) };
     main_trace.insert(main_trace.begin(), first_row);

@@ -24,7 +24,13 @@ template <typename FF> struct Avm_mainRow {
     FF avm_main_alu_sel{};
     FF avm_main_bin_op_id{};
     FF avm_main_bin_sel{};
+<<<<<<< HEAD
     FF avm_main_call_ptr{};
+=======
+    FF avm_main_da_gas_op{};
+    FF avm_main_da_gas_remaining{};
+    FF avm_main_da_gas_remaining_shift{};
+>>>>>>> 4bb44191bf (feat: simple gas decrement test)
     FF avm_main_first{};
     FF avm_main_ia{};
     FF avm_main_ib{};
@@ -38,6 +44,9 @@ template <typename FF> struct Avm_mainRow {
     FF avm_main_internal_return_ptr{};
     FF avm_main_internal_return_ptr_shift{};
     FF avm_main_inv{};
+    FF avm_main_l2_gas_op{};
+    FF avm_main_l2_gas_remaining{};
+    FF avm_main_l2_gas_remaining_shift{};
     FF avm_main_mem_idx_a{};
     FF avm_main_mem_idx_b{};
     FF avm_main_mem_op_a{};
@@ -45,6 +54,7 @@ template <typename FF> struct Avm_mainRow {
     FF avm_main_mem_op_c{};
     FF avm_main_mem_op_d{};
     FF avm_main_op_err{};
+    FF avm_main_opcode_active{};
     FF avm_main_pc{};
     FF avm_main_pc_shift{};
     FF avm_main_q_kernel_lookup{};
@@ -229,7 +239,7 @@ inline std::string get_relation_label_avm_main(int index)
     case 124:
         return "BIN_SEL_1";
 
-    case 125:
+    case 124:
         return "BIN_SEL_2";
     }
     return std::to_string(index);
@@ -239,11 +249,11 @@ template <typename FF_> class avm_mainImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 126> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr std::array<size_t, 125> SUBRELATION_PARTIAL_LENGTHS{
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3, 4, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -257,7 +267,8 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(0);
 
-            auto tmp = (avm_main_sel_op_sender * (-avm_main_sel_op_sender + FF(1)));
+            auto tmp = (avm_main_opcode_active *
+                        (avm_main_l2_gas_remaining - (avm_main_l2_gas_remaining_shift + avm_main_l2_gas_op)));
             tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
         }
@@ -265,7 +276,8 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(1);
 
-            auto tmp = (avm_main_sel_op_address * (-avm_main_sel_op_address + FF(1)));
+            auto tmp = (avm_main_opcode_active *
+                        (avm_main_da_gas_remaining - (avm_main_da_gas_remaining_shift + avm_main_da_gas_op)));
             tmp *= scaling_factor;
             std::get<1>(evals) += tmp;
         }
@@ -273,7 +285,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(2);
 
-            auto tmp = (avm_main_sel_op_chain_id * (-avm_main_sel_op_chain_id + FF(1)));
+            auto tmp = (avm_main_sel_op_portal * (-avm_main_sel_op_portal + FF(1)));
             tmp *= scaling_factor;
             std::get<2>(evals) += tmp;
         }
@@ -281,7 +293,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(3);
 
-            auto tmp = (avm_main_sel_op_version * (-avm_main_sel_op_version + FF(1)));
+            auto tmp = (avm_main_sel_op_chain_id * (-avm_main_sel_op_chain_id + FF(1)));
             tmp *= scaling_factor;
             std::get<3>(evals) += tmp;
         }
@@ -289,7 +301,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(4);
 
-            auto tmp = (avm_main_sel_op_block_number * (-avm_main_sel_op_block_number + FF(1)));
+            auto tmp = (avm_main_sel_op_version * (-avm_main_sel_op_version + FF(1)));
             tmp *= scaling_factor;
             std::get<4>(evals) += tmp;
         }
@@ -297,7 +309,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(5);
 
-            auto tmp = (avm_main_sel_op_coinbase * (-avm_main_sel_op_coinbase + FF(1)));
+            auto tmp = (avm_main_sel_op_block_number * (-avm_main_sel_op_block_number + FF(1)));
             tmp *= scaling_factor;
             std::get<5>(evals) += tmp;
         }
@@ -305,7 +317,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(6);
 
-            auto tmp = (avm_main_sel_op_timestamp * (-avm_main_sel_op_timestamp + FF(1)));
+            auto tmp = (avm_main_sel_op_coinbase * (-avm_main_sel_op_coinbase + FF(1)));
             tmp *= scaling_factor;
             std::get<6>(evals) += tmp;
         }
@@ -313,7 +325,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(7);
 
-            auto tmp = (avm_main_sel_op_fee_per_l2_gas * (-avm_main_sel_op_fee_per_l2_gas + FF(1)));
+            auto tmp = (avm_main_sel_op_timestamp * (-avm_main_sel_op_timestamp + FF(1)));
             tmp *= scaling_factor;
             std::get<7>(evals) += tmp;
         }
@@ -321,7 +333,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(8);
 
-            auto tmp = (avm_main_sel_op_fee_per_da_gas * (-avm_main_sel_op_fee_per_da_gas + FF(1)));
+            auto tmp = (avm_main_sel_op_fee_per_l2_gas * (-avm_main_sel_op_fee_per_l2_gas + FF(1)));
             tmp *= scaling_factor;
             std::get<8>(evals) += tmp;
         }
@@ -329,7 +341,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(9);
 
-            auto tmp = (avm_main_sel_op_transaction_fee * (-avm_main_sel_op_transaction_fee + FF(1)));
+            auto tmp = (avm_main_sel_op_fee_per_da_gas * (-avm_main_sel_op_fee_per_da_gas + FF(1)));
             tmp *= scaling_factor;
             std::get<9>(evals) += tmp;
         }
@@ -337,7 +349,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(10);
 
-            auto tmp = (avm_main_sel_op_note_hash_exists * (-avm_main_sel_op_note_hash_exists + FF(1)));
+            auto tmp = (avm_main_sel_op_transaction_fee * (-avm_main_sel_op_transaction_fee + FF(1)));
             tmp *= scaling_factor;
             std::get<10>(evals) += tmp;
         }
@@ -345,7 +357,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(11);
 
-            auto tmp = (avm_main_sel_op_emit_note_hash * (-avm_main_sel_op_emit_note_hash + FF(1)));
+            auto tmp = (avm_main_sel_op_note_hash_exists * (-avm_main_sel_op_note_hash_exists + FF(1)));
             tmp *= scaling_factor;
             std::get<11>(evals) += tmp;
         }
@@ -353,7 +365,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(12);
 
-            auto tmp = (avm_main_sel_op_nullifier_exists * (-avm_main_sel_op_nullifier_exists + FF(1)));
+            auto tmp = (avm_main_sel_op_emit_note_hash * (-avm_main_sel_op_emit_note_hash + FF(1)));
             tmp *= scaling_factor;
             std::get<12>(evals) += tmp;
         }
@@ -361,7 +373,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(13);
 
-            auto tmp = (avm_main_sel_op_emit_nullifier * (-avm_main_sel_op_emit_nullifier + FF(1)));
+            auto tmp = (avm_main_sel_op_nullifier_exists * (-avm_main_sel_op_nullifier_exists + FF(1)));
             tmp *= scaling_factor;
             std::get<13>(evals) += tmp;
         }
@@ -369,7 +381,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(14);
 
-            auto tmp = (avm_main_sel_op_l1_to_l2_msg_exists * (-avm_main_sel_op_l1_to_l2_msg_exists + FF(1)));
+            auto tmp = (avm_main_sel_op_emit_nullifier * (-avm_main_sel_op_emit_nullifier + FF(1)));
             tmp *= scaling_factor;
             std::get<14>(evals) += tmp;
         }
@@ -377,7 +389,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(15);
 
-            auto tmp = (avm_main_sel_op_emit_unencrypted_log * (-avm_main_sel_op_emit_unencrypted_log + FF(1)));
+            auto tmp = (avm_main_sel_op_l1_to_l2_msg_exists * (-avm_main_sel_op_l1_to_l2_msg_exists + FF(1)));
             tmp *= scaling_factor;
             std::get<15>(evals) += tmp;
         }
@@ -385,7 +397,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(16);
 
-            auto tmp = (avm_main_sel_op_emit_l2_to_l1_msg * (-avm_main_sel_op_emit_l2_to_l1_msg + FF(1)));
+            auto tmp = (avm_main_sel_op_emit_unencrypted_log * (-avm_main_sel_op_emit_unencrypted_log + FF(1)));
             tmp *= scaling_factor;
             std::get<16>(evals) += tmp;
         }
@@ -393,7 +405,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(17);
 
-            auto tmp = (avm_main_sel_op_sload * (-avm_main_sel_op_sload + FF(1)));
+            auto tmp = (avm_main_sel_op_emit_l2_to_l1_msg * (-avm_main_sel_op_emit_l2_to_l1_msg + FF(1)));
             tmp *= scaling_factor;
             std::get<17>(evals) += tmp;
         }
@@ -401,7 +413,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(18);
 
-            auto tmp = (avm_main_sel_op_sstore * (-avm_main_sel_op_sstore + FF(1)));
+            auto tmp = (avm_main_sel_op_sload * (-avm_main_sel_op_sload + FF(1)));
             tmp *= scaling_factor;
             std::get<18>(evals) += tmp;
         }
@@ -409,7 +421,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(19);
 
-            auto tmp = (avm_main_sel_op_radix_le * (-avm_main_sel_op_radix_le + FF(1)));
+            auto tmp = (avm_main_sel_op_sstore * (-avm_main_sel_op_sstore + FF(1)));
             tmp *= scaling_factor;
             std::get<19>(evals) += tmp;
         }
@@ -417,7 +429,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(20);
 
-            auto tmp = (avm_main_sel_op_sha256 * (-avm_main_sel_op_sha256 + FF(1)));
+            auto tmp = (avm_main_sel_op_add * (-avm_main_sel_op_add + FF(1)));
             tmp *= scaling_factor;
             std::get<20>(evals) += tmp;
         }
@@ -796,7 +808,16 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(67);
 
-            auto tmp = ((((((((((avm_main_sel_op_sender + avm_main_sel_op_address) + avm_main_sel_op_chain_id) +
+            auto tmp = (avm_main_op_err * ((avm_main_sel_op_fdiv + avm_main_sel_op_div) - FF(1)));
+            tmp *= scaling_factor;
+            std::get<63>(evals) += tmp;
+        }
+        // Contribution 64
+        {
+            Avm_DECLARE_VIEWS(64);
+
+            auto tmp = (((((((((((avm_main_sel_op_sender + avm_main_sel_op_address) + avm_main_sel_op_portal) +
+                                avm_main_sel_op_chain_id) +
                                avm_main_sel_op_version) +
                               avm_main_sel_op_block_number) +
                              avm_main_sel_op_coinbase) +
@@ -812,15 +833,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(68);
 
-            auto tmp = (((((((((avm_main_sel_op_note_hash_exists + avm_main_sel_op_emit_note_hash) +
-                               avm_main_sel_op_nullifier_exists) +
-                              avm_main_sel_op_emit_nullifier) +
-                             avm_main_sel_op_l1_to_l2_msg_exists) +
-                            avm_main_sel_op_emit_unencrypted_log) +
-                           avm_main_sel_op_emit_l2_to_l1_msg) +
-                          avm_main_sel_op_sload) +
-                         avm_main_sel_op_sstore) *
-                        (-avm_main_q_kernel_output_lookup + FF(1)));
+            auto tmp = (avm_main_sel_internal_return * (avm_main_pc_shift - avm_main_ia));
             tmp *= scaling_factor;
             std::get<68>(evals) += tmp;
         }
@@ -938,9 +951,8 @@ template <typename FF_> class avm_mainImpl {
                                avm_main_sel_op_cast) +
                               ((avm_main_sel_op_and + avm_main_sel_op_or) + avm_main_sel_op_xor)) +
                              (avm_main_sel_cmov + avm_main_sel_mov)) +
-                            ((((avm_main_sel_op_radix_le + avm_main_sel_op_sha256) + avm_main_sel_op_poseidon2) +
-                              avm_main_sel_op_keccak) +
-                             avm_main_sel_op_pedersen)) +
+                            (((avm_main_sel_op_radix_le + avm_main_sel_op_sha256) + avm_main_sel_op_poseidon2) +
+                             avm_main_sel_op_keccak)) +
                            (((((((((avm_main_sel_op_sender + avm_main_sel_op_address) + avm_main_sel_op_chain_id) +
                                   avm_main_sel_op_version) +
                                  avm_main_sel_op_block_number) +
@@ -965,10 +977,18 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(82);
 
-            auto tmp = ((-(((avm_main_first + avm_main_sel_internal_call) + avm_main_sel_internal_return) +
-                           avm_main_sel_halt) +
-                         FF(1)) *
-                        (avm_main_internal_return_ptr_shift - avm_main_internal_return_ptr));
+            auto tmp =
+                (avm_main_alu_sel -
+                 ((((((((((((avm_main_sel_op_add + avm_main_sel_op_sub) + avm_main_sel_op_mul) + avm_main_sel_op_div) +
+                          avm_main_sel_op_not) +
+                         avm_main_sel_op_eq) +
+                        avm_main_sel_op_lt) +
+                       avm_main_sel_op_lte) +
+                      avm_main_sel_op_shr) +
+                     avm_main_sel_op_shl) +
+                    avm_main_sel_op_cast) *
+                   (-avm_main_tag_err + FF(1))) *
+                  (-avm_main_op_err + FF(1))));
             tmp *= scaling_factor;
             std::get<82>(evals) += tmp;
         }
@@ -1078,18 +1098,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(92);
 
-            auto tmp =
-                (avm_main_alu_sel -
-                 ((((((((((((avm_main_sel_op_add + avm_main_sel_op_sub) + avm_main_sel_op_mul) + avm_main_sel_op_div) +
-                          avm_main_sel_op_not) +
-                         avm_main_sel_op_eq) +
-                        avm_main_sel_op_lt) +
-                       avm_main_sel_op_lte) +
-                      avm_main_sel_op_shr) +
-                     avm_main_sel_op_shl) +
-                    avm_main_sel_op_cast) *
-                   (-avm_main_tag_err + FF(1))) *
-                  (-avm_main_op_err + FF(1))));
+            auto tmp = ((avm_main_sel_mov + avm_main_sel_cmov) * (avm_main_r_in_tag - avm_main_w_in_tag));
             tmp *= scaling_factor;
             std::get<92>(evals) += tmp;
         }
@@ -1097,15 +1106,15 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(93);
 
-            auto tmp =
-                ((((((((((avm_main_sel_op_add + avm_main_sel_op_sub) + avm_main_sel_op_mul) + avm_main_sel_op_div) +
-                       avm_main_sel_op_not) +
-                      avm_main_sel_op_eq) +
-                     avm_main_sel_op_lt) +
-                    avm_main_sel_op_lte) +
-                   avm_main_sel_op_shr) +
-                  avm_main_sel_op_shl) *
-                 (avm_main_alu_in_tag - avm_main_r_in_tag));
+            auto tmp = (avm_main_sel_op_version * (avm_kernel_kernel_sel - FF(30)));
+            tmp *= scaling_factor;
+            std::get<88>(evals) += tmp;
+        }
+        // Contribution 89
+        {
+            Avm_DECLARE_VIEWS(89);
+
+            auto tmp = (avm_main_sel_op_block_number * (avm_kernel_kernel_sel - FF(31)));
             tmp *= scaling_factor;
             std::get<93>(evals) += tmp;
         }
@@ -1113,7 +1122,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(94);
 
-            auto tmp = (avm_main_sel_op_cast * (avm_main_alu_in_tag - avm_main_w_in_tag));
+            auto tmp = (avm_main_sel_op_sender * (avm_kernel_kernel_in_offset - FF(0)));
             tmp *= scaling_factor;
             std::get<94>(evals) += tmp;
         }
@@ -1121,7 +1130,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(95);
 
-            auto tmp = (avm_main_sel_op_sender * (avm_kernel_kernel_in_offset - FF(0)));
+            auto tmp = (avm_main_sel_op_address * (avm_kernel_kernel_in_offset - FF(1)));
             tmp *= scaling_factor;
             std::get<95>(evals) += tmp;
         }
@@ -1129,7 +1138,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(96);
 
-            auto tmp = (avm_main_sel_op_address * (avm_kernel_kernel_in_offset - FF(1)));
+            auto tmp = (avm_main_sel_op_fee_per_da_gas * (avm_kernel_kernel_in_offset - FF(38)));
             tmp *= scaling_factor;
             std::get<96>(evals) += tmp;
         }
@@ -1137,7 +1146,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(97);
 
-            auto tmp = (avm_main_sel_op_fee_per_da_gas * (avm_kernel_kernel_in_offset - FF(38)));
+            auto tmp = (avm_main_sel_op_fee_per_l2_gas * (avm_kernel_kernel_in_offset - FF(39)));
             tmp *= scaling_factor;
             std::get<97>(evals) += tmp;
         }
@@ -1145,7 +1154,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(98);
 
-            auto tmp = (avm_main_sel_op_fee_per_l2_gas * (avm_kernel_kernel_in_offset - FF(39)));
+            auto tmp = (avm_main_sel_op_transaction_fee * (avm_kernel_kernel_in_offset - FF(40)));
             tmp *= scaling_factor;
             std::get<98>(evals) += tmp;
         }
@@ -1153,7 +1162,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(99);
 
-            auto tmp = (avm_main_sel_op_transaction_fee * (avm_kernel_kernel_in_offset - FF(40)));
+            auto tmp = (avm_main_sel_op_chain_id * (avm_kernel_kernel_in_offset - FF(29)));
             tmp *= scaling_factor;
             std::get<99>(evals) += tmp;
         }
@@ -1161,7 +1170,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(100);
 
-            auto tmp = (avm_main_sel_op_chain_id * (avm_kernel_kernel_in_offset - FF(29)));
+            auto tmp = (avm_main_sel_op_version * (avm_kernel_kernel_in_offset - FF(30)));
             tmp *= scaling_factor;
             std::get<100>(evals) += tmp;
         }
@@ -1169,7 +1178,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(101);
 
-            auto tmp = (avm_main_sel_op_version * (avm_kernel_kernel_in_offset - FF(30)));
+            auto tmp = (avm_main_sel_op_block_number * (avm_kernel_kernel_in_offset - FF(31)));
             tmp *= scaling_factor;
             std::get<101>(evals) += tmp;
         }
@@ -1177,7 +1186,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(102);
 
-            auto tmp = (avm_main_sel_op_block_number * (avm_kernel_kernel_in_offset - FF(31)));
+            auto tmp = (avm_main_sel_op_coinbase * (avm_kernel_kernel_in_offset - FF(33)));
             tmp *= scaling_factor;
             std::get<102>(evals) += tmp;
         }
@@ -1185,7 +1194,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(103);
 
-            auto tmp = (avm_main_sel_op_coinbase * (avm_kernel_kernel_in_offset - FF(33)));
+            auto tmp = (avm_main_sel_op_timestamp * (avm_kernel_kernel_in_offset - FF(32)));
             tmp *= scaling_factor;
             std::get<103>(evals) += tmp;
         }
@@ -1193,7 +1202,8 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(104);
 
-            auto tmp = (avm_main_sel_op_timestamp * (avm_kernel_kernel_in_offset - FF(32)));
+            auto tmp = (avm_main_sel_op_note_hash_exists *
+                        (avm_kernel_kernel_out_offset - (avm_kernel_note_hash_exist_write_offset + FF(0))));
             tmp *= scaling_factor;
             std::get<104>(evals) += tmp;
         }
@@ -1201,8 +1211,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(105);
 
-            auto tmp = (avm_main_sel_op_note_hash_exists *
-                        (avm_kernel_kernel_out_offset - (avm_kernel_note_hash_exist_write_offset + FF(0))));
+            auto tmp = (avm_main_first * avm_kernel_note_hash_exist_write_offset);
             tmp *= scaling_factor;
             std::get<105>(evals) += tmp;
         }
@@ -1210,7 +1219,8 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(106);
 
-            auto tmp = (avm_main_first * avm_kernel_note_hash_exist_write_offset);
+            auto tmp = (avm_main_sel_op_emit_note_hash *
+                        (avm_kernel_kernel_out_offset - (avm_kernel_emit_note_hash_write_offset + FF(4))));
             tmp *= scaling_factor;
             std::get<106>(evals) += tmp;
         }
@@ -1218,8 +1228,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(107);
 
-            auto tmp = (avm_main_sel_op_emit_note_hash *
-                        (avm_kernel_kernel_out_offset - (avm_kernel_emit_note_hash_write_offset + FF(4))));
+            auto tmp = (avm_main_first * avm_kernel_emit_note_hash_write_offset);
             tmp *= scaling_factor;
             std::get<107>(evals) += tmp;
         }
@@ -1227,7 +1236,8 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(108);
 
-            auto tmp = (avm_main_first * avm_kernel_emit_note_hash_write_offset);
+            auto tmp = (avm_main_sel_op_nullifier_exists *
+                        (avm_kernel_kernel_out_offset - (avm_kernel_nullifier_exists_write_offset + FF(8))));
             tmp *= scaling_factor;
             std::get<108>(evals) += tmp;
         }
@@ -1235,8 +1245,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(109);
 
-            auto tmp = (avm_main_sel_op_nullifier_exists *
-                        (avm_kernel_kernel_out_offset - (avm_kernel_nullifier_exists_write_offset + FF(8))));
+            auto tmp = (avm_main_first * avm_kernel_nullifier_exists_write_offset);
             tmp *= scaling_factor;
             std::get<109>(evals) += tmp;
         }
@@ -1244,7 +1253,8 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(110);
 
-            auto tmp = (avm_main_first * avm_kernel_nullifier_exists_write_offset);
+            auto tmp = (avm_main_sel_op_emit_nullifier *
+                        (avm_kernel_kernel_out_offset - (avm_kernel_emit_nullifier_write_offset + FF(12))));
             tmp *= scaling_factor;
             std::get<110>(evals) += tmp;
         }
@@ -1252,8 +1262,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(111);
 
-            auto tmp = (avm_main_sel_op_emit_nullifier *
-                        (avm_kernel_kernel_out_offset - (avm_kernel_emit_nullifier_write_offset + FF(12))));
+            auto tmp = (avm_main_first * avm_kernel_emit_nullifier_write_offset);
             tmp *= scaling_factor;
             std::get<111>(evals) += tmp;
         }
@@ -1261,7 +1270,8 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(112);
 
-            auto tmp = (avm_main_first * avm_kernel_emit_nullifier_write_offset);
+            auto tmp = (avm_main_sel_op_l1_to_l2_msg_exists *
+                        (avm_kernel_kernel_out_offset - (avm_kernel_l1_to_l2_msg_exists_write_offset + FF(16))));
             tmp *= scaling_factor;
             std::get<112>(evals) += tmp;
         }
@@ -1269,8 +1279,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(113);
 
-            auto tmp = (avm_main_sel_op_l1_to_l2_msg_exists *
-                        (avm_kernel_kernel_out_offset - (avm_kernel_l1_to_l2_msg_exists_write_offset + FF(16))));
+            auto tmp = (avm_main_first * avm_kernel_l1_to_l2_msg_exists_write_offset);
             tmp *= scaling_factor;
             std::get<113>(evals) += tmp;
         }
@@ -1278,7 +1287,8 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(114);
 
-            auto tmp = (avm_main_first * avm_kernel_l1_to_l2_msg_exists_write_offset);
+            auto tmp = (avm_main_sel_op_emit_unencrypted_log *
+                        (avm_kernel_kernel_out_offset - (avm_kernel_emit_unencrypted_log_write_offset + FF(20))));
             tmp *= scaling_factor;
             std::get<114>(evals) += tmp;
         }
@@ -1286,8 +1296,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(115);
 
-            auto tmp = (avm_main_sel_op_emit_unencrypted_log *
-                        (avm_kernel_kernel_out_offset - (avm_kernel_emit_unencrypted_log_write_offset + FF(20))));
+            auto tmp = (avm_main_first * avm_kernel_emit_unencrypted_log_write_offset);
             tmp *= scaling_factor;
             std::get<115>(evals) += tmp;
         }
@@ -1295,7 +1304,8 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(116);
 
-            auto tmp = (avm_main_first * avm_kernel_emit_unencrypted_log_write_offset);
+            auto tmp = (avm_main_sel_op_emit_l2_to_l1_msg *
+                        (avm_kernel_kernel_out_offset - (avm_kernel_emit_l2_to_l1_msg_write_offset + FF(24))));
             tmp *= scaling_factor;
             std::get<116>(evals) += tmp;
         }
@@ -1303,8 +1313,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(117);
 
-            auto tmp = (avm_main_sel_op_emit_l2_to_l1_msg *
-                        (avm_kernel_kernel_out_offset - (avm_kernel_emit_l2_to_l1_msg_write_offset + FF(24))));
+            auto tmp = (avm_main_first * avm_kernel_emit_l2_to_l1_msg_write_offset);
             tmp *= scaling_factor;
             std::get<117>(evals) += tmp;
         }
@@ -1312,7 +1321,8 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(118);
 
-            auto tmp = (avm_main_first * avm_kernel_emit_l2_to_l1_msg_write_offset);
+            auto tmp =
+                (avm_main_sel_op_sload * (avm_kernel_kernel_out_offset - (avm_kernel_sload_write_offset + FF(28))));
             tmp *= scaling_factor;
             std::get<118>(evals) += tmp;
         }
@@ -1320,8 +1330,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(119);
 
-            auto tmp =
-                (avm_main_sel_op_sload * (avm_kernel_kernel_out_offset - (avm_kernel_sload_write_offset + FF(28))));
+            auto tmp = (avm_main_first * avm_kernel_sload_write_offset);
             tmp *= scaling_factor;
             std::get<119>(evals) += tmp;
         }
@@ -1329,7 +1338,8 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(120);
 
-            auto tmp = (avm_main_first * avm_kernel_sload_write_offset);
+            auto tmp =
+                (avm_main_sel_op_sstore * (avm_kernel_kernel_out_offset - (avm_kernel_sstore_write_offset + FF(32))));
             tmp *= scaling_factor;
             std::get<120>(evals) += tmp;
         }
@@ -1337,22 +1347,13 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(121);
 
-            auto tmp =
-                (avm_main_sel_op_sstore * (avm_kernel_kernel_out_offset - (avm_kernel_sstore_write_offset + FF(32))));
+            auto tmp = (avm_main_first * avm_kernel_sstore_write_offset);
             tmp *= scaling_factor;
             std::get<121>(evals) += tmp;
         }
         // Contribution 122
         {
             Avm_DECLARE_VIEWS(122);
-
-            auto tmp = (avm_main_first * avm_kernel_sstore_write_offset);
-            tmp *= scaling_factor;
-            std::get<122>(evals) += tmp;
-        }
-        // Contribution 123
-        {
-            Avm_DECLARE_VIEWS(123);
 
             auto tmp = (((((((((avm_main_sel_op_note_hash_exists + avm_main_sel_op_emit_note_hash) +
                                avm_main_sel_op_nullifier_exists) +
@@ -1364,23 +1365,23 @@ template <typename FF_> class avm_mainImpl {
                          avm_main_sel_op_sstore) *
                         (avm_kernel_side_effect_counter_shift - (avm_kernel_side_effect_counter + FF(1))));
             tmp *= scaling_factor;
+            std::get<122>(evals) += tmp;
+        }
+        // Contribution 123
+        {
+            Avm_DECLARE_VIEWS(123);
+
+            auto tmp = (avm_main_bin_op_id - (avm_main_sel_op_or + (avm_main_sel_op_xor * FF(2))));
+            tmp *= scaling_factor;
             std::get<123>(evals) += tmp;
         }
         // Contribution 124
         {
             Avm_DECLARE_VIEWS(124);
 
-            auto tmp = (avm_main_bin_op_id - (avm_main_sel_op_or + (avm_main_sel_op_xor * FF(2))));
-            tmp *= scaling_factor;
-            std::get<124>(evals) += tmp;
-        }
-        // Contribution 125
-        {
-            Avm_DECLARE_VIEWS(125);
-
             auto tmp = (avm_main_bin_sel - ((avm_main_sel_op_and + avm_main_sel_op_or) + avm_main_sel_op_xor));
             tmp *= scaling_factor;
-            std::get<125>(evals) += tmp;
+            std::get<124>(evals) += tmp;
         }
     }
 };
