@@ -164,11 +164,8 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
                                                                   RecursionConstraint::AGGREGATION_OBJECT_SIZE));
 
             std::vector<bb::fr> key_witnesses = verification_key->to_field_elements();
-            bb::fr key_hash = key_witnesses.back();
-            key_witnesses.pop_back();
 
-            const uint32_t key_hash_start_idx = static_cast<uint32_t>(witness_offset);
-            const uint32_t public_input_start_idx = key_hash_start_idx + 1;
+            const uint32_t public_input_start_idx = static_cast<uint32_t>(witness_offset);
             const uint32_t proof_indices_start_idx = static_cast<uint32_t>(
                 public_input_start_idx + num_inner_public_inputs - RecursionConstraint::AGGREGATION_OBJECT_SIZE);
             const uint32_t key_indices_start_idx =
@@ -195,11 +192,9 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
                 .key = key_indices,
                 .proof = proof_indices,
                 .public_inputs = inner_public_inputs,
-                .key_hash = key_hash_start_idx,
             };
             honk_recursion_constraints.push_back(honk_recursion_constraint);
 
-            witness.emplace_back(key_hash);
             for (size_t i = 0; i < proof_indices_start_idx - public_input_start_idx; ++i) {
                 witness.emplace_back(0);
             }

@@ -51,7 +51,6 @@ struct HonkRecursionConstraint {
     std::vector<uint32_t> key;
     std::vector<uint32_t> proof;
     std::vector<uint32_t> public_inputs;
-    uint32_t key_hash;
 
     friend bool operator==(HonkRecursionConstraint const& lhs, HonkRecursionConstraint const& rhs) = default;
 };
@@ -62,12 +61,5 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> input_aggregation_object,
     std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object,
     bool has_valid_witness_assignments = false);
-
-// std::vector<bb::fr> export_honk_key_in_recursion_format(std::shared_ptr<UltraFlavor::VerificationKey> const& vkey);
-// std::vector<bb::fr> export_dummy_honk_key_in_recursion_format(bool contains_recursive_proof = 0);
-
-// std::vector<bb::fr> export_honk_transcript_in_recursion_format(const HonkProof& proof);
-// std::vector<bb::fr> export_dummy_honk_proof_in_recursion_format(const bool contains_recursive_proof);
-// size_t recursion_honk_proof_size_without_public_inputs();
 
 } // namespace acir_format
