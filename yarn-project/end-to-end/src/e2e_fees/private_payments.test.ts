@@ -122,14 +122,14 @@ describe('e2e_fees private_payment', () => {
      * at present the user is paying DA gas for:
      * 3 nullifiers = 3 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE = 3 * 32 * 16 = 1536 DA gas
      * 2 note hashes =  2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE = 2 * 32 * 16 = 1024 DA gas
-     * 348 bytes of logs = 348 * DA_GAS_PER_BYTE = 348 * 16 = 5568 DA gas
+     * 1160 bytes of logs = 1160 * DA_GAS_PER_BYTE = 1160 * 16 = 5568 DA gas
      * tx overhead of 512 DA gas
-     * for a total of 12928 DA gas.
+     * for a total of 21632 DA gas.
      *
      * The default teardown gas allocation at present is
      * 100_000_000 for both DA and L2 gas.
      *
-     * That produces a grand total of 200012928n.
+     * That produces a grand total of 200021632n.
      *
      * This will change because:
      * 1. Gas use during public execution is not currently incorporated
@@ -137,7 +137,7 @@ describe('e2e_fees private_payment', () => {
      *    but we shouldn't.
      */
 
-    expect(tx.transactionFee).toEqual(200012928n);
+    expect(tx.transactionFee).toEqual(200021632n);
     await expect(t.getCoinbaseBalance()).resolves.toEqual(InitialSequencerL1Gas + tx.transactionFee!);
     const [feeAmount, refundAmount] = getFeeAndRefund(tx);
 
