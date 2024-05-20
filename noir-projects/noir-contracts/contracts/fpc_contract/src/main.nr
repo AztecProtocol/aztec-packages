@@ -6,9 +6,9 @@ contract FPC {
     use dep::aztec::context::gas::GasOpts;
 
     #[aztec(storage)]
-    struct Storage<Context> {
-        other_asset: SharedImmutable<AztecAddress, Context>,
-        gas_token_address: SharedImmutable<AztecAddress, Context>,
+    struct Storage {
+        other_asset: SharedImmutable<AztecAddress>,
+        gas_token_address: SharedImmutable<AztecAddress>,
     }
 
     #[aztec(public)]

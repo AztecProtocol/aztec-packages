@@ -7,8 +7,8 @@ contract Counter {
 
     // docs:start:storage_struct
     #[aztec(storage)]
-    struct Storage<Context> {
-        counters: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
+    struct Storage {
+        counters: Map<AztecAddress, EasyPrivateUint>,
     }
     // docs:end:storage_struct
 
