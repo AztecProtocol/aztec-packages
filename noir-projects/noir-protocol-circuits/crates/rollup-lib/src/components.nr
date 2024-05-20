@@ -164,7 +164,13 @@ pub fn compute_tx_effects_hash(
     let new_note_hashes = combined.new_note_hashes;
     let new_nullifiers = combined.new_nullifiers;
     let new_l2_to_l1_msgs = combined.new_l2_to_l1_msgs;
-    let public_data_update_requests = combined.public_data_update_requests;
+
+    // Public writes are the concatenation of all non-empty user update requests and protocol update requests, then padded with zeroes.
+    let public_data_update_requests = get_all_update_requests_for_tx_effects(
+        combined.public_data_update_requests,
+        protocol_public_data_update_requests
+    );
+
     let encrypted_logs_length = combined.encrypted_log_preimages_length;
     let unencrypted_logs_length = combined.unencrypted_log_preimages_length;
     let note_encrypted_logs_hash = combined.note_encrypted_logs_hash;
@@ -195,21 +201,13 @@ pub fn compute_tx_effects_hash(
     }
     offset += MAX_NEW_L2_TO_L1_MSGS_PER_TX;
 
-    for j in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
+    for j in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
         txs_effects_hash_input[offset + j * 2] =
                 public_data_update_requests[j].leaf_slot;
         txs_effects_hash_input[offset + j * 2 + 1] =
                 public_data_update_requests[j].new_value;
     }
-    offset += MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
-
-    for j in 0..PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-        txs_effects_hash_input[offset + j * 2] =
-                protocol_public_data_update_requests[j].leaf_slot;
-        txs_effects_hash_input[offset + j * 2 + 1] =
-                protocol_public_data_update_requests[j].new_value;
-    }
-    offset += PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
+    offset += MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
 
     txs_effects_hash_input[offset] = encrypted_logs_length;
 
@@ -242,6 +240,24 @@ pub fn compute_tx_effects_hash(
 
     let sha_digest = dep::types::hash::sha256_to_field(hash_input_flattened);
     sha_digest
+}
+
+fn get_all_update_requests_for_tx_effects(
+    public_data_update_requests: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    protocol_public_data_update_requests: [PublicDataUpdateRequest; PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]
+) -> [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
+    let mut all_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> = BoundedVec::new();
+    for update_request in public_data_update_requests {
+        if !update_request.is_empty() {
+            all_update_requests.push(update_request);
+        }
+    }
+    for update_request in protocol_public_data_update_requests {
+        if !update_request.is_empty() {
+            all_update_requests.push(update_request);
+        }
+    }
+    all_update_requests.storage
 }
 
 #[test]
