@@ -1,6 +1,5 @@
 import {
   type Fr,
-  GrumpkinScalar,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
@@ -9,6 +8,7 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MembershipWitness,
   NULLIFIER_TREE_HEIGHT,
+  NullifierKeyHint,
   PRIVATE_RESET_VARIANTS,
   type PrivateKernelData,
   PrivateKernelResetCircuitPrivateInputs,
@@ -67,10 +67,7 @@ async function getMasterNullifierSecretKeys(
   >,
   oracle: ProvingDataOracle,
 ) {
-  const keys = makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, () => ({
-    privateKey: GrumpkinScalar.zero(),
-    requestIndex: 0,
-  }));
+  const keys = makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyHint.empty);
 
   let keyIndex = 0;
   for (let i = 0; i < nullifierKeyValidationRequests.length; ++i) {
@@ -78,10 +75,10 @@ async function getMasterNullifierSecretKeys(
     if (request.isEmpty()) {
       break;
     }
-    keys[keyIndex] = {
-      privateKey: await oracle.getMasterNullifierSecretKey(request.masterNullifierPublicKey),
-      requestIndex: i,
-    };
+    keys[keyIndex] = new NullifierKeyHint(
+      await oracle.getMasterNullifierSecretKey(request.masterNullifierPublicKey),
+      i,
+    );
     keyIndex++;
   }
   return {

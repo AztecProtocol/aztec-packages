@@ -1,18 +1,17 @@
-import { GrumpkinScalar } from '@aztec/foundation/fields';
-import { BufferReader, type Tuple, mapTuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
-import { type GrumpkinPrivateKey } from '../../types/grumpkin_private_key.js';
 import { countAccumulatedItems } from '../../utils/index.js';
 import { NoteLogHash } from '../log_hash.js';
 import { ScopedNoteHash } from '../note_hash.js';
 import { ScopedNullifier } from '../nullifier.js';
 import {
   type NoteHashReadRequestHints,
+  NullifierKeyHint,
   type NullifierReadRequestHints,
   noteHashReadRequestHintsFromBuffer,
   nullifierReadRequestHintsFromBuffer,
@@ -72,7 +71,7 @@ export class PrivateKernelResetHints<
     /**
      * The master nullifier secret keys for the nullifier key validation requests.
      */
-    public masterNullifierSecretKeys: Tuple<{ privateKey: GrumpkinPrivateKey; requestIndex: number }, NLL_KEYS>,
+    public masterNullifierSecretKeys: Tuple<NullifierKeyHint, NLL_KEYS>,
   ) {}
 
   toBuffer() {
@@ -82,7 +81,7 @@ export class PrivateKernelResetHints<
       this.transientNoteHashIndexesForLogs,
       this.noteHashReadRequestHints,
       this.nullifierReadRequestHints,
-      mapTuple(this.masterNullifierSecretKeys, item => serializeToBuffer(item.privateKey, item.requestIndex)),
+      this.masterNullifierSecretKeys,
     );
   }
 
@@ -111,10 +110,7 @@ export class PrivateKernelResetHints<
       this.transientNoteHashIndexesForLogs,
       this.noteHashReadRequestHints.trimToSizes(numNoteHashReadRequestPending, numNoteHashReadRequestSettled),
       this.nullifierReadRequestHints.trimToSizes(numNullifierReadRequestPending, numNullifierReadRequestSettled),
-      this.masterNullifierSecretKeys.slice(0, numNullifierKeys) as Tuple<
-        { privateKey: GrumpkinPrivateKey; requestIndex: number },
-        NEW_NLL_KEYS
-      >,
+      this.masterNullifierSecretKeys.slice(0, numNullifierKeys) as Tuple<NullifierKeyHint, NEW_NLL_KEYS>,
     );
   }
   /**
@@ -149,15 +145,7 @@ export class PrivateKernelResetHints<
         fromBuffer: buf =>
           nullifierReadRequestHintsFromBuffer(buf, numNullifierReadRequestPending, numNullifierReadRequestSettled),
       }),
-      reader.readArray(numNullifierKeys, {
-        fromBuffer: buffer => {
-          const reader = BufferReader.asReader(buffer);
-          return {
-            privateKey: reader.readObject(GrumpkinScalar),
-            requestIndex: reader.readNumber(),
-          };
-        },
-      }),
+      reader.readArray(numNullifierKeys, NullifierKeyHint),
     );
   }
 }
