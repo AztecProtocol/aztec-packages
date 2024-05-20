@@ -116,7 +116,7 @@ impl PrivateAccumulatedDataBuilder {
         // unencrypted_logs_hash_gas
         for i in 0..self.unencrypted_logs_hashes.storage.len() {
             let log = self.unencrypted_logs_hashes.get_unchecked(i);
-            metered_bytes += log.length as u32;
+            metered_bytes += log.log_hash.length as u32;
         }
 
         Gas::new(DA_GAS_PER_BYTE * metered_bytes, 0)
@@ -463,20 +463,5 @@ mod tests {
         )
             + Gas::tx_overhead()
         );
-    }
-}
-
-impl Empty for PrivateAccumulatedDataBuilder {
-    fn empty() -> Self {
-        PrivateAccumulatedDataBuilder {
-            new_note_hashes: BoundedVec::new(),
-            new_nullifiers: BoundedVec::new(),
-            new_l2_to_l1_msgs: BoundedVec::new(),
-            note_encrypted_logs_hashes: BoundedVec::new(),
-            encrypted_logs_hashes: BoundedVec::new(),
-            unencrypted_logs_hashes: BoundedVec::new(),
-            private_call_stack: BoundedVec::new(),
-            public_call_stack: BoundedVec::new(),
-        }
     }
 }
