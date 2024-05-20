@@ -1,5 +1,6 @@
 #pragma once
 #include "acir_format.hpp"
+#include "barretenberg/bb/get_bytecode.hpp"
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/aes128_constraint.hpp"
@@ -593,6 +594,17 @@ WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf)
             std::make_pair(stack_item.index, witness_map_to_witness_vector(stack_item.witness)));
     }
     return witness_vector_stack;
+}
+
+acir_format::AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::string const& witness_path)
+{
+    auto bytecode = get_bytecode(bytecode_path);
+    auto constraint_systems = acir_format::program_buf_to_acir_format(bytecode);
+
+    auto witness_data = get_bytecode(witness_path);
+    auto witness_stack = acir_format::witness_buf_to_witness_stack(witness_data);
+
+    return { constraint_systems, witness_stack };
 }
 
 } // namespace acir_format
