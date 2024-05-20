@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #include "./eccvm_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
@@ -7,15 +6,6 @@
 namespace bb {
 
 template <typename Flavor>
-=======
-#include "./eccvm_verifier.hpp"
-#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
-#include "barretenberg/sumcheck/sumcheck.hpp"
-
-namespace bb {
-
-    template <typename Flavor>
->>>>>>> 927b78b2b6def848e5718b2df9e6a9695396b354
 ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
     Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_verifier_key)
     : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
@@ -28,7 +18,6 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
 template <typename Flavor>
 std::array<typename Flavor::GroupElement, 2> ECCVMRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
-<<<<<<< HEAD
 
     using ZeroMorph = ZeroMorphVerifier_<PCS>;
 
@@ -37,25 +26,13 @@ std::array<typename Flavor::GroupElement, 2> ECCVMRecursiveVerifier_<Flavor>::ve
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
     transcript = std::make_shared<Transcript>(stdlib_proof);
 
-=======
-    using ZeroMorph = ZeroMorphVerifier_<PCS>;
-
-    RelationParameters<FF> relation_parameters;
-    transcript = std::make_shared<Transcript>(proof);
->>>>>>> 927b78b2b6def848e5718b2df9e6a9695396b354
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
     const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
-    ASSERT(circuit_size == key->circuit_size);
-
-<<<<<<< HEAD
-    for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
-        comm = transcript->template receive_from_prover<Commitment>(label);
-    }
 
 =======
-    for(auto [comm, label]: zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
+    for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
     
@@ -64,11 +41,8 @@ std::array<typename Flavor::GroupElement, 2> ECCVMRecursiveVerifier_<Flavor>::ve
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
 
     // there is an issue somewhere to simplify this :-?
-<<<<<<< HEAD
     auto beta_sqr = beta * beta;
 
-=======
->>>>>>> 927b78b2b6def848e5718b2df9e6a9695396b354
     relation_parameters.gamma = gamma;
     relation_parameters.beta = beta;
     relation_parameters.beta_sqr = beta * beta;
@@ -79,14 +53,9 @@ std::array<typename Flavor::GroupElement, 2> ECCVMRecursiveVerifier_<Flavor>::ve
 
     // these are the derived stuff only
     // Get commitment to permutation and lookup grand products
-<<<<<<< HEAD
     commitments.lookup_inverses =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
-=======
-    commitments.lookup_inverses = receive_commitment(commitment_labels.lookup_inverses);
-    commitments.z_perm = receive_commitment(commitment_labels.z_perm);
->>>>>>> 927b78b2b6def848e5718b2df9e6a9695396b354
 
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
@@ -116,11 +85,7 @@ std::array<typename Flavor::GroupElement, 2> ECCVMRecursiveVerifier_<Flavor>::ve
     // TODO(#768): Find a better way to do this. See issue for details.
     bool univariate_opening_verified = false;
     {
-<<<<<<< HEAD
         auto hack_commitment = transcript->template receive_from_prover<Commitment>("Translation:hack_commitment");
-=======
-        auto hack_commitment = receive_commitment("Translation:hack_commitment");
->>>>>>> 927b78b2b6def848e5718b2df9e6a9695396b354
 
         FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
@@ -163,9 +128,5 @@ std::array<typename Flavor::GroupElement, 2> ECCVMRecursiveVerifier_<Flavor>::ve
 }
 
 template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
-<<<<<<< HEAD
 // template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
-=======
-template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
->>>>>>> 927b78b2b6def848e5718b2df9e6a9695396b354
 } // namespace bb
