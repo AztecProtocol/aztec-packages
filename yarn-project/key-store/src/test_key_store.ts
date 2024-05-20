@@ -151,6 +151,7 @@ export class TestKeyStore implements KeyStore {
         );
         if (foundPkM.hash().equals(pkMHash)) {
           pkM = foundPkM;
+          break;
         }
       }
 
