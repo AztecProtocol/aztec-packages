@@ -182,7 +182,7 @@ export function toTxEffect(tx: ProcessedTx): TxEffect {
     tx.data.end.newNoteHashes.filter(h => !h.isZero()),
     tx.data.end.newNullifiers.filter(h => !h.isZero()),
     tx.data.end.newL2ToL1Msgs.filter(h => !h.isZero()),
-    tx.data.end.publicDataUpdateRequests
+    [...tx.data.end.publicDataUpdateRequests, ...tx.protocolPublicDataUpdateRequests]
       .map(t => new PublicDataWrite(t.leafSlot, t.newValue))
       .filter(h => !h.isEmpty()),
     tx.data.end.encryptedLogPreimagesLength,
