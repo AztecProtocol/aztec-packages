@@ -8,6 +8,7 @@ import { GrumpkinPrivateKey } from '../types/grumpkin_private_key.js';
 import { type PublicKey } from '../types/public_key.js';
 import { PublicKeys } from '../types/public_keys.js';
 import { type KeyPrefix } from './key_types.js';
+import { getKeyGenerator } from './utils.js';
 
 const curve = new Grumpkin();
 
@@ -16,10 +17,7 @@ export function computeAppNullifierSecretKey(masterNullifierSecretKey: GrumpkinP
 }
 
 export function computeAppSecretKey(skM: GrumpkinPrivateKey, app: AztecAddress, keyPrefix: KeyPrefix): Fr {
-  // We get enum key by capitalizing key prefix and concatenating it with 'SK_M'
-  const enumKey = `${keyPrefix.toUpperCase()}SK_M`;
-  const generator = GeneratorIndex[enumKey as keyof typeof GeneratorIndex];
-  // Now that we have the generator index, we can compute the secret key
+  const generator = getKeyGenerator(keyPrefix);
   return poseidon2Hash([skM.high, skM.low, app, generator]);
 }
 

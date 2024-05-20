@@ -35,14 +35,6 @@ export interface KeyStore {
   getAccounts(): Promise<AztecAddress[]>;
 
   /**
-   * Gets the master nullifier public key for a given master nullifier public key hash.
-   * @throws If the account corresponding to the master nullifier public key hash does not exist in the key store.
-   * @param npkMHash - The master nullifier public key hash.
-   * @returns The master nullifier public key for the account.
-   */
-  getMasterNullifierPublicKey(npkMHash: Fr): Promise<PublicKey>;
-
-  /**
    * Gets the master incoming viewing public key for a given account.
    * @throws If the account does not exist in the key store.
    * @param account - The account address for which to retrieve the master incoming viewing public key.
@@ -102,14 +94,6 @@ export interface KeyStore {
    * @dev Used when feeding the master nullifier secret key to the kernel circuit for nullifier keys verification.
    */
   getMasterIncomingViewingSecretKeyForPublicKey(masterIncomingViewingPublicKey: PublicKey): Promise<GrumpkinPrivateKey>;
-
-  /**
-   * Retrieves public keys hash of the account
-   * @throws If the provided account address is not associated with any of the registered accounts.
-   * @param account - The account address to get public keys hash for.
-   * @returns A Promise that resolves to the public keys hash.
-   */
-  getPublicKeysHash(account: AztecAddress): Promise<Fr>;
 
   /**
    * Gets the key validation request for a given master public key hash and contract address.
