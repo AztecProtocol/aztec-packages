@@ -56,7 +56,7 @@ describe('TestKeyStore', () => {
     // Arbitrary app contract address
     const appAddress = AztecAddress.fromBigInt(624n);
 
-    const appNullifierSecretKey = await keyStore.getAppNullifierSecretKey(
+    const { appSecretKey: appNullifierSecretKey } = await keyStore.getKeyValidationRequest(
       computedMasterNullifierPublicKeyHash,
       appAddress,
     );
@@ -145,21 +145,21 @@ describe('TestKeyStore', () => {
     const appAddress = AztecAddress.fromBigInt(624n);
 
     // We make sure we can get app nullifier secret keys with master nullifier public key hashes
-    const appNullifierSecretKey0 = await keyStore.getAppNullifierSecretKey(
+    const { appSecretKey: appNullifierSecretKey0 } = await keyStore.getKeyValidationRequest(
       newComputedMasterNullifierPublicKeyHashes[0],
       appAddress,
     );
     expect(appNullifierSecretKey0.toString()).toMatchInlineSnapshot(
       `"0x296e42f1039b62290372d608fcab55b00a3f96c1c8aa347b2a830639c5a12757"`,
     );
-    const appNullifierSecretKey1 = await keyStore.getAppNullifierSecretKey(
+    const { appSecretKey: appNullifierSecretKey1 } = await keyStore.getKeyValidationRequest(
       newComputedMasterNullifierPublicKeyHashes[1],
       appAddress,
     );
     expect(appNullifierSecretKey1.toString()).toMatchInlineSnapshot(
       `"0x019f2a705b68683f1d86da639a543411fa779af41896c3920d0c2d5226c686dd"`,
     );
-    const appNullifierSecretKey2 = await keyStore.getAppNullifierSecretKey(
+    const { appSecretKey: appNullifierSecretKey2 } = await keyStore.getKeyValidationRequest(
       newComputedMasterNullifierPublicKeyHashes[2],
       appAddress,
     );

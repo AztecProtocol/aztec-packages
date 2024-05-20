@@ -14,7 +14,7 @@ import {
   type Fr,
   type FunctionSelector,
   type Header,
-  KeyValidationRequest,
+  type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
@@ -38,10 +38,8 @@ export class SimulatorOracle implements DBOracle {
     private log = createDebugLogger('aztec:pxe:simulator_oracle'),
   ) {}
 
-  async getKeyValidationRequest(npkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
-    const masterNullifierPublicKey = await this.keyStore.getMasterNullifierPublicKey(npkMHash);
-    const appNullifierSecretKey = await this.keyStore.getAppNullifierSecretKey(npkMHash, contractAddress);
-    return new KeyValidationRequest(masterNullifierPublicKey, appNullifierSecretKey);
+  getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
+    return this.keyStore.getKeyValidationRequest(pkMHash, contractAddress);
   }
 
   async getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {

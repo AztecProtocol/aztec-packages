@@ -5,6 +5,7 @@ import {
   type Fr,
   type GrumpkinPrivateKey,
   type KeyGenerator,
+  type KeyValidationRequest,
   type PartialAddress,
   type PublicKey,
 } from '@aztec/circuits.js';
@@ -66,15 +67,6 @@ export interface KeyStore {
   getMasterTaggingPublicKey(account: AztecAddress): Promise<PublicKey>;
 
   /**
-   * Derives and returns the application nullifier secret key for a given master nullifier public key hash.
-   * @throws If the account corresponding to the master nullifier public key hash does not exist in the key store.
-   * @param npkMHash - The master nullifier public key hash.
-   * @param app - The application address to retrieve the nullifier secret key for.
-   * @returns A Promise that resolves to the application nullifier secret key.
-   */
-  getAppNullifierSecretKey(npkMHash: Fr, app: AztecAddress): Promise<Fr>;
-
-  /**
    * Retrieves application incoming viewing secret key.
    * @throws If the account does not exist in the key store.
    * @param account - The account to retrieve the application incoming viewing secret key for.
@@ -118,6 +110,15 @@ export interface KeyStore {
    * @returns A Promise that resolves to the public keys hash.
    */
   getPublicKeysHash(account: AztecAddress): Promise<Fr>;
+
+  /**
+   * Gets the key validation request for a given master public key hash and contract address.
+   * @throws If the account corresponding to the master public key hash does not exist in the key store.
+   * @param pkMHash - The master public key hash.
+   * @param contractAddress - The contract address to silo the secret key in the the key validation request with.
+   * @returns The key validation request.
+   */
+  getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest>;
 
   rotateMasterNullifierKey(account: AztecAddress, secretKey: Fq): Promise<void>;
 }
