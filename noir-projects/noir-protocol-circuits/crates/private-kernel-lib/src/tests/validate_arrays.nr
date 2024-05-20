@@ -1,6 +1,9 @@
 use crate::tests::private_call_data_validator_builder::PrivateCallDataValidatorBuilder;
 use dep::types::{
-    abis::{note_hash::NoteHash, nullifier::Nullifier, read_request::ReadRequest, log_hash::{LogHash, NoteLogHash}},
+    abis::{
+    key_validation_request::KeyValidationRequest, note_hash::NoteHash, nullifier::Nullifier,
+    read_request::ReadRequest, log_hash::{LogHash, NoteLogHash}
+},
     address::EthAddress, grumpkin_point::GrumpkinPoint, messaging::l2_to_l1_message::L2ToL1Message
 };
 
@@ -32,20 +35,19 @@ fn validate_arrays_malformed_nullifier_read_requests_fails() {
     builder.validate();
 }
 
-// Enable this test if MAX_KEY_VALIDATION_REQUESTS_PER_CALL is greater than 1.
-// #[test(should_fail_with="invalid array")]
-// fn validate_arrays_malformed_key_validation_requests_fails() {
-//     let mut builder = PrivateCallDataValidatorBuilder::new();
+#[test(should_fail_with="invalid array")]
+fn validate_arrays_malformed_key_validation_requests_fails() {
+    let mut builder = PrivateCallDataValidatorBuilder::new();
 
-//     builder.private_call.public_inputs.key_validation_requests.extend_from_array(
-//         [
-//         KeyValidationRequest::empty(),
-//         KeyValidationRequest { pk_m: GrumpkinPoint { x: 12, y: 34 }, sk_app: 5 }
-//     ]
-//     );
+    builder.private_call.public_inputs.key_validation_requests.extend_from_array(
+        [
+        KeyValidationRequest::empty(),
+        KeyValidationRequest { pk_m: GrumpkinPoint { x: 12, y: 34 }, sk_app: 5 }
+    ]
+    );
 
-//     builder.validate();
-// }
+    builder.validate();
+}
 
 #[test(should_fail_with="invalid array")]
 fn validate_arrays_malformed_note_hashes_fails() {
