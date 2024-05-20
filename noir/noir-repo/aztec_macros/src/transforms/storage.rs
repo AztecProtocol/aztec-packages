@@ -48,6 +48,57 @@ pub fn check_for_storage_definition(
     Ok(result.iter().map(|&r#struct| r#struct.name.0.contents.clone()).next())
 }
 
+// Injects the Context generic in each of the Storage struct fields to avoid boilerplate,
+// taking maps into account (including nested maps)
+fn inject_context_in_storage_field(field: &mut UnresolvedType) -> Result<(), AztecMacroError> {
+    match &mut field.typ {
+        UnresolvedTypeData::Named(path, generics, _) => {
+            generics.push(make_type(UnresolvedTypeData::Named(
+                ident_path("Context"),
+                vec![],
+                false,
+            )));
+            match path.segments.last().unwrap().0.contents.as_str() {
+                "Map" => inject_context_in_storage_field(&mut generics[1]),
+                _ => Ok(()),
+            }
+        }
+        _ => Err(AztecMacroError::CouldNotInjectContextGenericInStorage {
+            secondary_message: Some(format!("Unsupported type: {:?}", field.typ)),
+        }),
+    }
+}
+
+// Injects the Context generic in the storage struct to avoid boilerplate
+// Transforms this:
+// struct Storage {
+//     a_var: SomeStoragePrimitive<ASerializableType>,
+//     a_map: Map<Field, SomeStoragePrimitive<ASerializableType>>,
+// }
+//
+// Into this:
+//
+// struct Storage<Context> {
+//     a_var: SomeStoragePrimitive<ASerializableType, Context>,
+//     a_map: Map<Field, SomeStoragePrimitive<ASerializableType, Context>, Context>,
+// }
+pub fn inject_context_in_storage(module: &mut SortedModule) -> Result<(), AztecMacroError> {
+    let storage_struct = module
+        .types
+        .iter_mut()
+        .find(|r#struct| {
+            r#struct.attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(storage)"))
+        })
+        .unwrap();
+    storage_struct.generics.push(ident("Context"));
+    storage_struct
+        .fields
+        .iter_mut()
+        .map(|(_, field)| inject_context_in_storage_field(field))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(())
+}
+
 // Check to see if the user has defined an impl for the storage struct
 pub fn check_for_storage_implementation(
     module: &SortedModule,

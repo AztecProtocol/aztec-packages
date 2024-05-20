@@ -63,6 +63,6 @@ impl NoteInterface<CARD_NOTE_LEN> for CardNote {
 
 impl Serialize<3> for CardNote {
     fn serialize(self) -> [Field; 3] {
-        [ self.points.to_field(), self.randomness, self.owner.to_field() ]
+        [ self.points.to_field(), self.randomness, self.npk_m_hash.to_field() ]
     }
 }
