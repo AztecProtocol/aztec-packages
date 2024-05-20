@@ -53,6 +53,12 @@ examples:
 
   ENV BACKEND=/usr/src/barretenberg/cpp/build/bin/bb
 
+  WORKDIR noir-repo/examples/codegen-verifier
+  RUN ./test.sh
+
+  WORKDIR ../prove_and_verify
+  RUN ./test.sh
+
   WORKDIR noir-repo/examples/recursion
   RUN ./test.sh
 

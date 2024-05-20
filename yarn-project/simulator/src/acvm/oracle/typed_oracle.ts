@@ -89,7 +89,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('unpackReturns');
   }
 
-  getNullifierKeys(_accountAddress: AztecAddress): Promise<NullifierKeys> {
+  getNullifierKeys(_npkMHash: Fr): Promise<NullifierKeys> {
     throw new OracleMethodNotAvailableError('getNullifierKeys');
   }
 
@@ -124,7 +124,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getHeader');
   }
 
-  getCompleteAddress(_address: AztecAddress): Promise<CompleteAddress> {
+  getCompleteAddress(_account: AztecAddress): Promise<CompleteAddress> {
     throw new OracleMethodNotAvailableError('getCompleteAddress');
   }
 
@@ -183,15 +183,22 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('storageWrite');
   }
 
-  emitEncryptedLog(
+  emitEncryptedLog(_encryptedNote: Buffer, _counter: number): void {
+    throw new OracleMethodNotAvailableError('emitEncryptedLog');
+  }
+
+  emitEncryptedNoteLog(_noteHash: Fr, _encryptedNote: Buffer, _counter: number): void {
+    throw new OracleMethodNotAvailableError('emitEncryptedNoteLog');
+  }
+
+  computeEncryptedLog(
     _contractAddress: AztecAddress,
     _storageSlot: Fr,
     _noteTypeId: Fr,
     _publicKey: PublicKey,
-    _log: Fr[],
-    _counter: number,
+    _preimage: Fr[],
   ): Buffer {
-    throw new OracleMethodNotAvailableError('emitEncryptedLog');
+    throw new OracleMethodNotAvailableError('computeEncryptedLog');
   }
 
   emitUnencryptedLog(_log: UnencryptedL2Log, _counter: number): void {
@@ -248,5 +255,9 @@ export abstract class TypedOracle {
 
   aes128Encrypt(_input: Buffer, _initializationVector: Buffer, _key: Buffer): Buffer {
     throw new OracleMethodNotAvailableError('encrypt');
+  }
+
+  debugLog(_message: string, _fields: Fr[]): void {
+    throw new OracleMethodNotAvailableError('debugLog');
   }
 }

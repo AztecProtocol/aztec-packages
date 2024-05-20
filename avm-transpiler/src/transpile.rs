@@ -275,11 +275,7 @@ pub fn brillig_to_avm(
                 source,
                 bit_size,
             } => {
-                avm_instrs.push(generate_cast_instruction(
-                    source.to_usize() as u32,
-                    destination.to_usize() as u32,
-                    tag_from_bit_size(*bit_size),
-                ));
+                handle_cast(&mut avm_instrs, source, destination, *bit_size);
             }
             BrilligOpcode::ForeignCall {
                 function,
@@ -359,6 +355,7 @@ fn handle_foreign_call(
         }
         "storageRead" => handle_storage_read(avm_instrs, destinations, inputs),
         "storageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
+        "debugLog" => handle_debug_log(avm_instrs, destinations, inputs),
         // Getters.
         _ if inputs.is_empty() && destinations.len() == 1 => {
             handle_getter_instruction(avm_instrs, function, destinations, inputs)
@@ -428,15 +425,17 @@ fn handle_external_call(
         _ => panic!("Call instruction's success destination should be a basic MemoryAddress",),
     };
     avm_instrs.push(AvmInstruction {
-        opcode: opcode,
+        opcode,
         // (left to right)
         //   * selector direct
+        //   * success offset direct
+        //   * (n/a) ret size is an immeadiate
         //   * ret offset INDIRECT
         //   * arg size offset direct
         //   * args offset INDIRECT
         //   * address offset direct
         //   * gas offset INDIRECT
-        indirect: Some(0b010101),
+        indirect: Some(0b00010101),
         operands: vec![
             AvmOperand::U32 { value: gas_offset },
             AvmOperand::U32 {
@@ -457,6 +456,45 @@ fn handle_external_call(
         ],
         ..Default::default()
     });
+}
+
+fn handle_cast(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    source: &MemoryAddress,
+    destination: &MemoryAddress,
+    bit_size: u32,
+) {
+    let source_offset = source.to_usize() as u32;
+    let dest_offset = destination.to_usize() as u32;
+
+    if bit_size == 1 {
+        assert!(
+            matches!(tag_from_bit_size(bit_size), AvmTypeTag::UINT8),
+            "If u1 doesn't map to u8 anymore, change this code!"
+        );
+        avm_instrs.extend([
+            // We cast to Field to be able to use toradix.
+            generate_cast_instruction(source_offset, dest_offset, AvmTypeTag::FIELD),
+            // Toradix with radix 2 and 1 limb is the same as modulo 2.
+            // We need to insert an instruction explicitly because we want to fine-tune 'indirect'.
+            AvmInstruction {
+                opcode: AvmOpcode::TORADIXLE,
+                indirect: Some(ALL_DIRECT),
+                tag: None,
+                operands: vec![
+                    AvmOperand::U32 { value: dest_offset },
+                    AvmOperand::U32 { value: dest_offset },
+                    AvmOperand::U32 { value: /*radix=*/ 2},
+                    AvmOperand::U32 { value: /*limbs=*/ 1},
+                ],
+            },
+            // Then we cast back to u8 (which is what we use for u1).
+            generate_cast_instruction(dest_offset, dest_offset, AvmTypeTag::UINT8),
+        ]);
+    } else {
+        let tag = tag_from_bit_size(bit_size);
+        avm_instrs.push(generate_cast_instruction(source_offset, dest_offset, tag));
+    }
 }
 
 /// Handle an AVM NOTEHASHEXISTS instruction
@@ -697,7 +735,7 @@ fn handle_send_l2_to_l1_msg(
     destinations: &Vec<ValueOrArray>,
     inputs: &Vec<ValueOrArray>,
 ) {
-    if destinations.len() != 0 || inputs.len() != 2 {
+    if !destinations.is_empty() || inputs.len() != 2 {
         panic!(
             "Transpiler expects ForeignCall::SENDL2TOL1MSG to have 0 destinations and 2 inputs, got {} and {}",
             destinations.len(),
@@ -977,9 +1015,9 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
             radix,
             output,
         } => {
-            let num_limbs = output.size;
-            let input_offset = input.0;
-            let output_offset = output.pointer.0;
+            let num_limbs = output.size as u32;
+            let input_offset = input.0 as u32;
+            let output_offset = output.pointer.0 as u32;
             assert!(radix <= &256u32, "Radix must be less than or equal to 256");
 
             avm_instrs.push(AvmInstruction {
@@ -988,21 +1026,70 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 tag: None,
                 operands: vec![
                     AvmOperand::U32 {
-                        value: input_offset as u32,
+                        value: input_offset,
                     },
                     AvmOperand::U32 {
-                        value: output_offset as u32,
+                        value: output_offset,
                     },
                     AvmOperand::U32 { value: *radix },
-                    AvmOperand::U32 {
-                        value: num_limbs as u32,
-                    },
+                    AvmOperand::U32 { value: num_limbs },
                 ],
-            })
+            });
         }
         _ => panic!("Transpiler doesn't know how to process {:?}", operation),
     }
 }
+
+fn handle_debug_log(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
+    if !destinations.is_empty() || inputs.len() != 3 {
+        panic!(
+            "Transpiler expects ForeignCall::DEBUGLOG to have 0 destinations and 3 inputs, got {} and {}",
+            destinations.len(),
+            inputs.len()
+        );
+    }
+    let (message_offset, message_size) = match &inputs[0] {
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0 as u32, *size as u32),
+        _ => panic!("Message for ForeignCall::DEBUGLOG should be a HeapArray."),
+    };
+    // The fields are a slice, and this is represented as a (length: Field, slice: HeapVector).
+    // The length field is redundant and we skipt it.
+    let (fields_offset_ptr, fields_size_ptr) = match &inputs[2] {
+        ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer.0 as u32, size.0 as u32),
+        _ => panic!("List of fields for ForeignCall::DEBUGLOG should be a HeapVector (slice)."),
+    };
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::DEBUGLOG,
+        // (left to right)
+        //  * fields_size_ptr direct
+        //  * fields_offset_ptr INDIRECT
+        //  * (N/A) message_size is an immediate
+        //  * message_offset direct
+        indirect: Some(0b011),
+        operands: vec![
+            AvmOperand::U32 {
+                value: message_offset,
+            },
+            AvmOperand::U32 {
+                value: message_size,
+            },
+            // indirect
+            AvmOperand::U32 {
+                value: fields_offset_ptr,
+            },
+            // indirect
+            AvmOperand::U32 {
+                value: fields_size_ptr,
+            },
+        ],
+        ..Default::default()
+    });
+}
+
 /// Emit a storage write opcode
 /// The current implementation writes an array of values into storage ( contiguous slots in memory )
 fn handle_storage_write(
@@ -1170,6 +1257,7 @@ pub fn map_brillig_pcs_to_avm_pcs(brillig_bytecode: &[BrilligOpcode]) -> Vec<usi
     for i in 0..brillig_bytecode.len() - 1 {
         let num_avm_instrs_for_this_brillig_instr = match &brillig_bytecode[i] {
             BrilligOpcode::Const { bit_size: 254, .. } => 2,
+            BrilligOpcode::Cast { bit_size: 1, .. } => 3,
             _ => 1,
         };
         // next Brillig pc will map to an AVM pc offset by the
@@ -1180,10 +1268,7 @@ pub fn map_brillig_pcs_to_avm_pcs(brillig_bytecode: &[BrilligOpcode]) -> Vec<usi
 }
 
 fn is_integral_bit_size(bit_size: u32) -> bool {
-    match bit_size {
-        1 | 8 | 16 | 32 | 64 | 128 => true,
-        _ => false,
-    }
+    matches!(bit_size, 1 | 8 | 16 | 32 | 64 | 128)
 }
 
 fn tag_from_bit_size(bit_size: u32) -> AvmTypeTag {

@@ -140,6 +140,11 @@ contract AvmTest {
         a + b
     }
 
+    #[aztec(public-vm)]
+    fn modulo2(a: u64) -> u64 {
+        a % 2
+    }
+
     /************************************************************************
      * Misc 
      ************************************************************************/
@@ -175,6 +180,14 @@ contract AvmTest {
     #[aztec(public-vm)]
     fn assertion_failure() {
         helper_with_failed_assertion()
+    }
+
+    #[aztec(public-vm)]
+    fn debug_logging() {
+        dep::aztec::oracle::debug_log::debug_log("just text");
+        dep::aztec::oracle::debug_log::debug_log_format("second: {1}", [1, 2, 3, 4]);
+        dep::aztec::oracle::debug_log::debug_log_format("whole array: {}", [1, 2, 3, 4]);
+        dep::aztec::oracle::debug_log::debug_log("tabs and newlines\n\t- first\n\t- second");
     }
 
     /************************************************************************
@@ -364,7 +377,7 @@ contract AvmTest {
      */
     #[aztec(private)]
     fn enqueue_public_from_private() {
-        AvmTest::at(context.this_address()).set_opcode_u8().static_enqueue(&mut context);
+        AvmTest::at(context.this_address()).set_opcode_u8().enqueue_view(&mut context);
         AvmTest::at(context.this_address()).set_read_storage_single(5).enqueue(&mut context);
     }
 }

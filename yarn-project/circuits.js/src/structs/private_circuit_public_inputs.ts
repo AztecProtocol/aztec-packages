@@ -17,6 +17,7 @@ import {
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_CALL,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
@@ -29,12 +30,13 @@ import { Header } from '../structs/header.js';
 import { isEmptyArray } from '../utils/index.js';
 import { CallContext } from './call_context.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
+import { LogHash, NoteLogHash } from './log_hash.js';
 import { MaxBlockNumber } from './max_block_number.js';
 import { NoteHash } from './note_hash.js';
 import { Nullifier } from './nullifier.js';
 import { NullifierKeyValidationRequest } from './nullifier_key_validation_request.js';
+import { PrivateCallRequest } from './private_call_request.js';
 import { ReadRequest } from './read_request.js';
-import { SideEffect } from './side_effects.js';
 import { TxContext } from './tx_context.js';
 
 /**
@@ -90,9 +92,9 @@ export class PrivateCircuitPublicInputs {
      */
     public newNullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
     /**
-     * Private call stack at the current kernel iteration.
+     * Private call requests made within the current kernel iteration.
      */
-    public privateCallStackHashes: Tuple<Fr, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    public privateCallRequests: Tuple<PrivateCallRequest, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * Public call stack at the current kernel iteration.
      */
@@ -114,25 +116,20 @@ export class PrivateCircuitPublicInputs {
      */
     public endSideEffectCounter: Fr,
     /**
+     * Hash of the encrypted note logs emitted in this function call.
+     * Note: Truncated to 31 bytes to fit in Fr.
+     */
+    public noteEncryptedLogsHashes: Tuple<NoteLogHash, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_CALL>,
+    /**
      * Hash of the encrypted logs emitted in this function call.
      * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public encryptedLogsHashes: Tuple<SideEffect, typeof MAX_ENCRYPTED_LOGS_PER_CALL>,
+    public encryptedLogsHashes: Tuple<LogHash, typeof MAX_ENCRYPTED_LOGS_PER_CALL>,
     /**
      * Hash of the unencrypted logs emitted in this function call.
      * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public unencryptedLogsHashes: Tuple<SideEffect, typeof MAX_UNENCRYPTED_LOGS_PER_CALL>,
-    /**
-     * Length of the encrypted log preimages emitted in this function call.
-     * Note: Here so that the gas cost of this request can be measured by circuits, without actually needing to feed
-     *       in the variable-length data.
-     */
-    public encryptedLogPreimagesLength: Fr,
-    /**
-     * Length of the unencrypted log preimages emitted in this function call.
-     */
-    public unencryptedLogPreimagesLength: Fr,
+    public unencryptedLogsHashes: Tuple<LogHash, typeof MAX_UNENCRYPTED_LOGS_PER_CALL>,
     /**
      * Header of a block whose state is used during private execution (not the block the transaction is included in).
      */
@@ -175,16 +172,15 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest),
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_CALL, NoteHash),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier),
-      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr),
+      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr),
       reader.readObject(Fr),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readObject(Fr),
       reader.readObject(Fr),
-      reader.readArray(MAX_ENCRYPTED_LOGS_PER_CALL, SideEffect),
-      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, SideEffect),
-      reader.readObject(Fr),
-      reader.readObject(Fr),
+      reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, NoteLogHash),
+      reader.readArray(MAX_ENCRYPTED_LOGS_PER_CALL, LogHash),
+      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash),
       reader.readObject(Header),
       reader.readObject(TxContext),
     );
@@ -204,16 +200,15 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest),
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_CALL, NoteHash),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier),
-      reader.readFieldArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
+      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
       reader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
       reader.readField(),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readField(),
       reader.readField(),
-      reader.readArray(MAX_ENCRYPTED_LOGS_PER_CALL, SideEffect),
-      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, SideEffect),
-      reader.readField(),
-      reader.readField(),
+      reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, NoteLogHash),
+      reader.readArray(MAX_ENCRYPTED_LOGS_PER_CALL, LogHash),
+      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash),
       reader.readObject(Header),
       reader.readObject(TxContext),
     );
@@ -236,16 +231,15 @@ export class PrivateCircuitPublicInputs {
       makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest.empty),
       makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, NoteHash.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier.empty),
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
+      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
       Fr.ZERO,
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
       Fr.ZERO,
       Fr.ZERO,
-      makeTuple(MAX_ENCRYPTED_LOGS_PER_CALL, SideEffect.empty),
-      makeTuple(MAX_UNENCRYPTED_LOGS_PER_CALL, SideEffect.empty),
-      Fr.ZERO,
-      Fr.ZERO,
+      makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, NoteLogHash.empty),
+      makeTuple(MAX_ENCRYPTED_LOGS_PER_CALL, LogHash.empty),
+      makeTuple(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash.empty),
       Header.empty(),
       TxContext.empty(),
     );
@@ -265,14 +259,13 @@ export class PrivateCircuitPublicInputs {
       isEmptyArray(this.nullifierKeyValidationRequests) &&
       isEmptyArray(this.newNoteHashes) &&
       isEmptyArray(this.newNullifiers) &&
-      isZeroArray(this.privateCallStackHashes) &&
+      isEmptyArray(this.privateCallRequests) &&
       isZeroArray(this.publicCallStackHashes) &&
       this.publicTeardownFunctionHash.isZero() &&
       isEmptyArray(this.newL2ToL1Msgs) &&
+      isEmptyArray(this.noteEncryptedLogsHashes) &&
       isEmptyArray(this.encryptedLogsHashes) &&
       isEmptyArray(this.unencryptedLogsHashes) &&
-      this.encryptedLogPreimagesLength.isZero() &&
-      this.unencryptedLogPreimagesLength.isZero() &&
       this.historicalHeader.isEmpty() &&
       this.txContext.isEmpty()
     );
@@ -296,16 +289,15 @@ export class PrivateCircuitPublicInputs {
       fields.nullifierKeyValidationRequests,
       fields.newNoteHashes,
       fields.newNullifiers,
-      fields.privateCallStackHashes,
+      fields.privateCallRequests,
       fields.publicCallStackHashes,
       fields.publicTeardownFunctionHash,
       fields.newL2ToL1Msgs,
       fields.startSideEffectCounter,
       fields.endSideEffectCounter,
+      fields.noteEncryptedLogsHashes,
       fields.encryptedLogsHashes,
       fields.unencryptedLogsHashes,
-      fields.encryptedLogPreimagesLength,
-      fields.unencryptedLogPreimagesLength,
       fields.historicalHeader,
       fields.txContext,
     ] as const;

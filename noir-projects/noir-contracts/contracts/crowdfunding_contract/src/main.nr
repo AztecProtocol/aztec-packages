@@ -4,8 +4,12 @@ contract Crowdfunding {
 
     // docs:start:all-deps
     use dep::aztec::{
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize},
-        state_vars::{PrivateSet, PublicImmutable, SharedImmutable}
+        protocol_types::{
+        abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize,
+        grumpkin_point::GrumpkinPoint
+    },
+        state_vars::{PrivateSet, PublicImmutable, SharedImmutable},
+        keys::getters::{get_npk_m_hash, get_ivpk_m}
     };
     use dep::value_note::value_note::ValueNote;
     use dep::token::Token;
@@ -56,6 +60,7 @@ contract Crowdfunding {
     // docs:start:deadline-header
     #[aztec(public)]
     #[aztec(internal)]
+    #[aztec(view)]
     fn _check_deadline() {
         // docs:end:deadline-header
         let deadline = storage.deadline.read();
@@ -68,7 +73,7 @@ contract Crowdfunding {
     #[aztec(private)]
     fn donate(amount: u64) {
         // 1) Check that the deadline has not passed
-        Crowdfunding::at(context.this_address())._check_deadline().static_enqueue(&mut context);
+        Crowdfunding::at(context.this_address())._check_deadline().enqueue_view(&mut context);
         // docs:end:call-check-deadline
 
         // docs:start:do-transfer
@@ -83,8 +88,10 @@ contract Crowdfunding {
 
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
-        let mut note = ValueNote::new(amount as Field, context.msg_sender());
-        storage.donation_receipts.insert(&mut note, true);
+        let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
+        let msg_sender_ivpk_m = get_ivpk_m(&mut context, context.msg_sender());
+        let mut note = ValueNote::new(amount as Field, msg_sender_npk_m_hash);
+        storage.donation_receipts.insert(&mut note, true, msg_sender_ivpk_m);
     }
     // docs:end:donate
 
