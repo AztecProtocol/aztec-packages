@@ -124,4 +124,18 @@ std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_f
     return vkeys;
 }
 
+/**
+ * @brief Construct and verify a proof for the IVC
+ * @details This is intended to be a development/testing only method since in general the prover and verifier will be
+ * different entities.
+ *
+ */
+bool ClientIVC::prove_and_verify()
+{
+    auto proof = prove();
+
+    auto verifier_inst = std::make_shared<VerifierInstance>(this->instance_vk);
+    return verify(proof, { this->verifier_accumulator, verifier_inst });
+}
+
 } // namespace bb
