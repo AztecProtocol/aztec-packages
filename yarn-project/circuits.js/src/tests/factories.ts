@@ -27,7 +27,6 @@ import {
   ConstantRollupData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
-  FUNCTION_TREE_HEIGHT,
   Fq,
   Fr,
   FunctionData,
@@ -91,7 +90,7 @@ import {
   PartialStateReference,
   Point,
   PreviousRollupData,
-  PrivateCallData,
+  PrivateCallRequest,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
@@ -339,8 +338,6 @@ export function makePublicAccumulatedData(seed = 1, full = false): PublicAccumul
     tupleGenerator(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, makeNoteLogHash, seed + 0x700, NoteLogHash.empty), // note encrypted logs hashes
     tupleGenerator(MAX_ENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x800, LogHash.empty), // encrypted logs hashes
     tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x900, LogHash.empty), // unencrypted logs hashes
-    fr(seed + 0xa00), // encrypted_log_preimages_length
-    fr(seed + 0xb00), // unencrypted_log_preimages_length
     tupleGenerator(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       makePublicDataUpdateRequest,
@@ -417,7 +414,6 @@ export function makePublicCircuitPublicInputs(
     fr(seed + 0xa00),
     fr(seed + 0xa01),
     tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_CALL, makeLogHash, seed + 0x901, LogHash.empty),
-    fr(seed + 0x902),
     makeHeader(seed + 0xa00, undefined),
     makeGlobalVariables(seed + 0xa01),
     makeAztecAddress(seed + 0xb01),
@@ -511,7 +507,7 @@ export function makePublicCallRequest(seed = 1): PublicCallRequest {
 
   return new PublicCallRequest(
     makeAztecAddress(seed),
-    new FunctionData(makeSelector(seed + 0x1), false),
+    new FunctionData(makeSelector(seed + 0x1), /*isPrivate=*/ false, /*isStatic=*/ false),
     childCallContext,
     parentCallContext,
     makeTuple(ARGS_LENGTH, fr, seed + 0x10),
@@ -619,7 +615,7 @@ export function makeProof(seed = 1) {
  * @returns A call stack item.
  */
 export function makeCallerContext(seed = 1): CallerContext {
-  return new CallerContext(makeAztecAddress(seed), makeAztecAddress(seed + 0x1));
+  return new CallerContext(makeAztecAddress(seed), makeAztecAddress(seed + 0x1), false);
 }
 
 /**
@@ -631,6 +627,10 @@ export function makeCallRequest(seed = 1): CallRequest {
   return new CallRequest(fr(seed), makeAztecAddress(seed + 0x1), makeCallerContext(seed + 0x2), fr(0), fr(0));
 }
 
+function makePrivateCallRequest(seed = 1): PrivateCallRequest {
+  return new PrivateCallRequest(fr(seed), makeCallerContext(seed + 0x2), seed + 0x10, seed + 0x11);
+}
+
 /**
  * Makes arbitrary public call stack item.
  * @param seed - The seed to use for generating the public call stack item.
@@ -640,7 +640,7 @@ export function makePublicCallStackItem(seed = 1, full = false): PublicCallStack
   const callStackItem = new PublicCallStackItem(
     makeAztecAddress(seed),
     // in the public kernel, function can't be a constructor or private
-    new FunctionData(makeSelector(seed + 0x1), false),
+    new FunctionData(makeSelector(seed + 0x1), /*isPrivate=*/ false, /*isStatic=*/ false),
     makePublicCircuitPublicInputs(seed + 0x10, undefined, full),
     false,
   );
@@ -726,31 +726,9 @@ export function makePublicKernelInputsWithTweak(
 export function makeTxRequest(seed = 1): TxRequest {
   return TxRequest.from({
     origin: makeAztecAddress(seed),
-    functionData: new FunctionData(makeSelector(seed + 0x100), true),
+    functionData: new FunctionData(makeSelector(seed + 0x100), /*isPrivate=*/ true, /*isStatic=*/ false),
     argsHash: fr(seed + 0x200),
     txContext: makeTxContext(seed + 0x400),
-  });
-}
-
-/**
- * Makes arbitrary private call data.
- * @param seed - The seed to use for generating the private call data.
- * @returns A private call data.
- */
-export function makePrivateCallData(seed = 1): PrivateCallData {
-  return PrivateCallData.from({
-    callStackItem: makePrivateCallStackItem(seed),
-    privateCallStack: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, makeCallRequest, seed + 0x10),
-    publicCallStack: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, makeCallRequest, seed + 0x20),
-    publicTeardownCallRequest: makeCallRequest(seed + 0x30),
-    proof: makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH, seed + 0x50),
-    vk: makeVerificationKeyAsFields(),
-    contractClassArtifactHash: fr(seed + 0x70),
-    contractClassPublicBytecodeCommitment: fr(seed + 0x71),
-    publicKeysHash: fr(seed + 0x72),
-    saltedInitializationHash: fr(seed + 0x73),
-    functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
-    acirHash: fr(seed + 0x60),
   });
 }
 
@@ -762,7 +740,7 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
 export function makePrivateCallStackItem(seed = 1): PrivateCallStackItem {
   return new PrivateCallStackItem(
     makeAztecAddress(seed),
-    new FunctionData(makeSelector(seed + 0x1), true),
+    new FunctionData(makeSelector(seed + 0x1), /*isPrivate=*/ true, /*isStatic=*/ false),
     makePrivateCircuitPublicInputs(seed + 0x10),
   );
 }
@@ -788,7 +766,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     ),
     newNoteHashes: makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, makeNoteHash, seed + 0x400),
     newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, makeNullifier, seed + 0x500),
-    privateCallStackHashes: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
+    privateCallRequests: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, makePrivateCallRequest, seed + 0x600),
     publicCallStackHashes: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x700),
     publicTeardownFunctionHash: fr(seed + 0x800),
     newL2ToL1Msgs: makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x800),
@@ -797,8 +775,6 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     noteEncryptedLogsHashes: makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, makeNoteLogHash, seed + 0x875),
     encryptedLogsHashes: makeTuple(MAX_ENCRYPTED_LOGS_PER_CALL, makeLogHash, seed + 0x900),
     unencryptedLogsHashes: makeTuple(MAX_UNENCRYPTED_LOGS_PER_CALL, makeLogHash, seed + 0xa00),
-    encryptedLogPreimagesLength: fr(seed + 0xb00),
-    unencryptedLogPreimagesLength: fr(seed + 0xc00),
     historicalHeader: makeHeader(seed + 0xd00, undefined),
     txContext: makeTxContext(seed + 0x1400),
     isFeePayer: false,

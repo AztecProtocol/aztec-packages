@@ -70,6 +70,7 @@ import {
   type PreviousRollupData,
   PrivateAccumulatedData,
   type PrivateCallData,
+  PrivateCallRequest,
   type PrivateCallStackItem,
   type PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
@@ -112,6 +113,7 @@ import {
   ScopedNoteHash,
   ScopedNullifier,
   ScopedNullifierKeyValidationRequest,
+  ScopedPrivateCallRequest,
   ScopedReadRequest,
   type SettledReadHint,
   type StateDiffHints,
@@ -177,6 +179,7 @@ import type {
   PreviousRollupData as PreviousRollupDataNoir,
   PrivateAccumulatedData as PrivateAccumulatedDataNoir,
   PrivateCallData as PrivateCallDataNoir,
+  PrivateCallRequest as PrivateCallRequestNoir,
   PrivateCallStackItem as PrivateCallStackItemNoir,
   PrivateCircuitPublicInputs as PrivateCircuitPublicInputsNoir,
   PrivateKernelCircuitPublicInputs as PrivateKernelCircuitPublicInputsNoir,
@@ -216,6 +219,7 @@ import type {
   ScopedNoteHash as ScopedNoteHashNoir,
   ScopedNullifierKeyValidationRequest as ScopedNullifierKeyValidationRequestNoir,
   ScopedNullifier as ScopedNullifierNoir,
+  ScopedPrivateCallRequest as ScopedPrivateCallRequestNoir,
   ScopedReadRequest as ScopedReadRequestNoir,
   StateDiffHints as StateDiffHintsNoir,
   StateReference as StateReferenceNoir,
@@ -406,6 +410,7 @@ export function mapFunctionDataToNoir(functionData: FunctionData): FunctionDataN
   return {
     selector: mapFunctionSelectorToNoir(functionData.selector),
     is_private: functionData.isPrivate,
+    is_static: functionData.isStatic,
   };
 }
 
@@ -415,7 +420,11 @@ export function mapFunctionDataToNoir(functionData: FunctionData): FunctionDataN
  * @returns The function data.
  */
 export function mapFunctionDataFromNoir(functionData: FunctionDataNoir): FunctionData {
-  return new FunctionData(mapFunctionSelectorFromNoir(functionData.selector), functionData.is_private);
+  return new FunctionData(
+    mapFunctionSelectorFromNoir(functionData.selector),
+    functionData.is_private,
+    functionData.is_static,
+  );
 }
 
 /**
@@ -491,6 +500,7 @@ export function mapCallerContextFromNoir(callerContext: CallerContextNoir): Call
   return new CallerContext(
     mapAztecAddressFromNoir(callerContext.msg_sender),
     mapAztecAddressFromNoir(callerContext.storage_contract_address),
+    callerContext.is_static_call,
   );
 }
 
@@ -503,6 +513,39 @@ export function mapCallerContextToNoir(callerContext: CallerContext): CallerCont
   return {
     msg_sender: mapAztecAddressToNoir(callerContext.msgSender),
     storage_contract_address: mapAztecAddressToNoir(callerContext.storageContractAddress),
+    is_static_call: callerContext.isStaticCall,
+  };
+}
+
+function mapPrivateCallRequestFromNoir(callRequest: PrivateCallRequestNoir) {
+  return new PrivateCallRequest(
+    mapFieldFromNoir(callRequest.hash),
+    mapCallerContextFromNoir(callRequest.caller_context),
+    mapNumberFromNoir(callRequest.start_side_effect_counter),
+    mapNumberFromNoir(callRequest.end_side_effect_counter),
+  );
+}
+
+function mapPrivateCallRequestToNoir(callRequest: PrivateCallRequest): PrivateCallRequestNoir {
+  return {
+    hash: mapFieldToNoir(callRequest.hash),
+    caller_context: mapCallerContextToNoir(callRequest.callerContext),
+    start_side_effect_counter: mapNumberToNoir(callRequest.startSideEffectCounter),
+    end_side_effect_counter: mapNumberToNoir(callRequest.endSideEffectCounter),
+  };
+}
+
+function mapScopedPrivateCallRequestFromNoir(callRequest: ScopedPrivateCallRequestNoir) {
+  return new ScopedPrivateCallRequest(
+    mapPrivateCallRequestFromNoir(callRequest.call_request),
+    mapAztecAddressFromNoir(callRequest.contract_address),
+  );
+}
+
+function mapScopedPrivateCallRequestToNoir(callRequest: ScopedPrivateCallRequest): ScopedPrivateCallRequestNoir {
+  return {
+    call_request: mapPrivateCallRequestToNoir(callRequest.callRequest),
+    contract_address: mapAztecAddressToNoir(callRequest.contractAddress),
   };
 }
 
@@ -789,7 +832,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     ),
     new_note_hashes: mapTuple(privateCircuitPublicInputs.newNoteHashes, mapNoteHashToNoir),
     new_nullifiers: mapTuple(privateCircuitPublicInputs.newNullifiers, mapNullifierToNoir),
-    private_call_stack_hashes: mapTuple(privateCircuitPublicInputs.privateCallStackHashes, mapFieldToNoir),
+    private_call_requests: mapTuple(privateCircuitPublicInputs.privateCallRequests, mapPrivateCallRequestToNoir),
     public_call_stack_hashes: mapTuple(privateCircuitPublicInputs.publicCallStackHashes, mapFieldToNoir),
     public_teardown_function_hash: mapFieldToNoir(privateCircuitPublicInputs.publicTeardownFunctionHash),
     new_l2_to_l1_msgs: mapTuple(privateCircuitPublicInputs.newL2ToL1Msgs, mapL2ToL1MessageToNoir),
@@ -798,8 +841,6 @@ export function mapPrivateCircuitPublicInputsToNoir(
     note_encrypted_logs_hashes: mapTuple(privateCircuitPublicInputs.noteEncryptedLogsHashes, mapNoteLogHashToNoir),
     encrypted_logs_hashes: mapTuple(privateCircuitPublicInputs.encryptedLogsHashes, mapLogHashToNoir),
     unencrypted_logs_hashes: mapTuple(privateCircuitPublicInputs.unencryptedLogsHashes, mapLogHashToNoir),
-    encrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.encryptedLogPreimagesLength),
-    unencrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.unencryptedLogPreimagesLength),
     historical_header: mapHeaderToNoir(privateCircuitPublicInputs.historicalHeader),
     tx_context: mapTxContextToNoir(privateCircuitPublicInputs.txContext),
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
@@ -828,7 +869,6 @@ export function mapPrivateCallStackItemToNoir(privateCallStackItem: PrivateCallS
 export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): PrivateCallDataNoir {
   return {
     call_stack_item: mapPrivateCallStackItemToNoir(privateCallData.callStackItem),
-    private_call_stack: mapTuple(privateCallData.privateCallStack, mapCallRequestToNoir),
     public_call_stack: mapTuple(privateCallData.publicCallStack, mapCallRequestToNoir),
     public_teardown_call_request: mapCallRequestToNoir(privateCallData.publicTeardownCallRequest),
     proof: mapRecursiveProofToNoir(privateCallData.proof),
@@ -1092,12 +1132,10 @@ export function mapPrivateAccumulatedDataFromNoir(
     ),
     mapTupleFromNoir(privateAccumulatedData.encrypted_logs_hashes, MAX_ENCRYPTED_LOGS_PER_TX, mapLogHashFromNoir),
     mapTupleFromNoir(privateAccumulatedData.unencrypted_logs_hashes, MAX_UNENCRYPTED_LOGS_PER_TX, mapLogHashFromNoir),
-    mapFieldFromNoir(privateAccumulatedData.encrypted_log_preimages_length),
-    mapFieldFromNoir(privateAccumulatedData.unencrypted_log_preimages_length),
     mapTupleFromNoir(
       privateAccumulatedData.private_call_stack,
       MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-      mapCallRequestFromNoir,
+      mapScopedPrivateCallRequestFromNoir,
     ),
     mapTupleFromNoir(
       privateAccumulatedData.public_call_stack,
@@ -1115,9 +1153,7 @@ export function mapPrivateAccumulatedDataToNoir(data: PrivateAccumulatedData): P
     note_encrypted_logs_hashes: mapTuple(data.noteEncryptedLogsHashes, mapNoteLogHashToNoir),
     encrypted_logs_hashes: mapTuple(data.encryptedLogsHashes, mapLogHashToNoir),
     unencrypted_logs_hashes: mapTuple(data.unencryptedLogsHashes, mapLogHashToNoir),
-    encrypted_log_preimages_length: mapFieldToNoir(data.encryptedLogPreimagesLength),
-    unencrypted_log_preimages_length: mapFieldToNoir(data.unencryptedLogPreimagesLength),
-    private_call_stack: mapTuple(data.privateCallStack, mapCallRequestToNoir),
+    private_call_stack: mapTuple(data.privateCallStack, mapScopedPrivateCallRequestToNoir),
     public_call_stack: mapTuple(data.publicCallStack, mapCallRequestToNoir),
   };
 }
@@ -1136,8 +1172,6 @@ export function mapPublicAccumulatedDataFromNoir(
     ),
     mapTupleFromNoir(publicAccumulatedData.encrypted_logs_hashes, MAX_ENCRYPTED_LOGS_PER_TX, mapLogHashFromNoir),
     mapTupleFromNoir(publicAccumulatedData.unencrypted_logs_hashes, MAX_UNENCRYPTED_LOGS_PER_TX, mapLogHashFromNoir),
-    mapFieldFromNoir(publicAccumulatedData.encrypted_log_preimages_length),
-    mapFieldFromNoir(publicAccumulatedData.unencrypted_log_preimages_length),
     mapTupleFromNoir(
       publicAccumulatedData.public_data_update_requests,
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -1162,8 +1196,6 @@ export function mapPublicAccumulatedDataToNoir(
     note_encrypted_logs_hashes: mapTuple(publicAccumulatedData.noteEncryptedLogsHashes, mapNoteLogHashToNoir),
     encrypted_logs_hashes: mapTuple(publicAccumulatedData.encryptedLogsHashes, mapLogHashToNoir),
     unencrypted_logs_hashes: mapTuple(publicAccumulatedData.unencryptedLogsHashes, mapLogHashToNoir),
-    encrypted_log_preimages_length: mapFieldToNoir(publicAccumulatedData.encryptedLogPreimagesLength),
-    unencrypted_log_preimages_length: mapFieldToNoir(publicAccumulatedData.unencryptedLogPreimagesLength),
     public_data_update_requests: mapTuple(
       publicAccumulatedData.publicDataUpdateRequests,
       mapPublicDataUpdateRequestToNoir,
@@ -1436,7 +1468,6 @@ function mapPrivateKernelInitHintsToNoir(inputs: PrivateKernelInitHints): Privat
   return {
     note_hash_nullifier_counters: mapTuple(inputs.noteHashNullifierCounters, mapNumberToNoir),
     first_revertible_private_call_request_index: mapNumberToNoir(inputs.firstRevertiblePrivateCallRequestIndex),
-    first_revertible_public_call_request_index: mapNumberToNoir(inputs.firstRevertiblePublicCallRequestIndex),
   };
 }
 
@@ -1681,7 +1712,6 @@ export function mapPublicCircuitPublicInputsToNoir(
     start_side_effect_counter: mapFieldToNoir(publicInputs.startSideEffectCounter),
     end_side_effect_counter: mapFieldToNoir(publicInputs.endSideEffectCounter),
     unencrypted_logs_hashes: mapTuple(publicInputs.unencryptedLogsHashes, mapLogHashToNoir),
-    unencrypted_log_preimages_length: mapFieldToNoir(publicInputs.unencryptedLogPreimagesLength),
     historical_header: mapHeaderToNoir(publicInputs.historicalHeader),
     global_variables: mapGlobalVariablesToNoir(publicInputs.globalVariables),
     prover_address: mapAztecAddressToNoir(publicInputs.proverAddress),

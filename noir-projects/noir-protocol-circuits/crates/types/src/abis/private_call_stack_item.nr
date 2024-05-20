@@ -85,6 +85,6 @@ fn empty_hash() {
     let hash = item.hash();
 
     // Value from private_call_stack_item.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x23e9b31fb9659181d8e6d941e95cc88a6d4d43c6b6ee316351528db772f419c0;
+    let test_data_empty_hash = 0x10d9feff1d02db424becc3399f496be13d0586ea5a62c85de302ea88a1f345c5;
     assert_eq(hash, test_data_empty_hash);
 }

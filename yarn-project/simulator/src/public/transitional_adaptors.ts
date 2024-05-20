@@ -10,6 +10,9 @@ import {
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
+import { promisify } from 'util';
+import { gunzip } from 'zlib';
+
 import { type AvmContext } from '../avm/avm_context.js';
 import { AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { type AvmContractCallResults } from '../avm/avm_message_call_result.js';
@@ -62,7 +65,11 @@ export function createPublicExecution(
     isStaticCall: avmEnvironment.isStaticCall,
     sideEffectCounter: startSideEffectCounter,
   });
-  const functionData = new FunctionData(avmEnvironment.temporaryFunctionSelector, /*isPrivate=*/ false);
+  const functionData = new FunctionData(
+    avmEnvironment.temporaryFunctionSelector,
+    /*isPrivate=*/ false,
+    /*isStatic=*/ false,
+  );
   const execution: PublicExecution = {
     contractAddress: avmEnvironment.address,
     callContext,
@@ -111,7 +118,19 @@ export function markBytecodeAsAvm(bytecode: Buffer): Buffer {
   return Buffer.concat([bytecode, AVM_MAGIC_SUFFIX]);
 }
 
-export function isAvmBytecode(bytecode: Buffer): boolean {
+// This is just a helper function for the AVM circuit.
+export async function decompressBytecodeIfCompressed(bytecode: Buffer): Promise<Buffer> {
+  try {
+    return await promisify(gunzip)(bytecode);
+  } catch {
+    // If the bytecode is not compressed, the gunzip call will throw an error
+    // In this case, we assume the bytecode is not compressed and continue.
+    return Promise.resolve(bytecode);
+  }
+}
+
+export async function isAvmBytecode(bytecode: Buffer): Promise<boolean> {
+  const decompressedBytecode = await decompressBytecodeIfCompressed(bytecode);
   const magicSize = AVM_MAGIC_SUFFIX.length;
-  return bytecode.subarray(-magicSize).equals(AVM_MAGIC_SUFFIX);
+  return decompressedBytecode.subarray(-magicSize).equals(AVM_MAGIC_SUFFIX);
 }
