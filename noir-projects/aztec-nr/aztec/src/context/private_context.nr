@@ -213,8 +213,8 @@ impl PrivateContext {
         self.request_sk_app(npk_m_hash, NULLIFIER_INDEX)
     }
 
-    pub fn request_osk_app(&mut self, opk_m_hash: Field) -> Field {
-        self.request_sk_app(opk_m_hash, OUTGOING_INDEX)
+    pub fn request_ovsk_app(&mut self, ovpk_m_hash: Field) -> Field {
+        self.request_sk_app(ovpk_m_hash, OUTGOING_INDEX)
     }
 
     fn request_sk_app(&mut self, pk_m_hash: Field, key_index: Field) -> Field {
