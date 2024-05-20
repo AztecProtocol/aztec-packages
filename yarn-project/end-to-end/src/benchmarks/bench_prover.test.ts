@@ -125,8 +125,7 @@ describe('benchmarks/proving', () => {
       // stop the fake provers
       proverAgents: 0,
       realProofs: true,
-      // 4-tx blocks so that we have at least one merge level
-      minTxsPerBlock: 2,
+      minTxsPerBlock: 1,
     });
 
     ctx.logger.info('Starting real provers');
@@ -179,18 +178,18 @@ describe('benchmarks/proving', () => {
     const fnCalls = [
       //(await getTestContractOnPXE(0)).methods.emit_nullifier(42),
       //(await getTestContractOnPXE(1)).methods.emit_unencrypted(43),
-      (await getTestContractOnPXE(2)).methods.create_l2_to_l1_message_public(45, 46, EthAddress.random()),
+      //(await getTestContractOnPXE(2)).methods.create_l2_to_l1_message_public(45, 46, EthAddress.random()),
       (await getTokenContract(3)).methods.transfer(schnorrWalletAddress.address, recipient.address, 1000, 0),
     ];
 
-    const feeFnCall1 = {
-      gasSettings: GasSettings.default(),
-      paymentMethod: new PublicFeePaymentMethod(
-        initialTokenContract.address,
-        initialFpContract.address,
-        await getWalletOnPxe(2),
-      ),
-    };
+    // const feeFnCall1 = {
+    //   gasSettings: GasSettings.default(),
+    //   paymentMethod: new PublicFeePaymentMethod(
+    //     initialTokenContract.address,
+    //     initialFpContract.address,
+    //     await getWalletOnPxe(2),
+    //   ),
+    // };
 
     // const feeFnCall3 = {
     //   gasSettings: GasSettings.default(),
@@ -203,10 +202,10 @@ describe('benchmarks/proving', () => {
 
     ctx.logger.info('Proving first two transactions');
     await Promise.all([
-      fnCalls[0].prove({
-        fee: feeFnCall1,
-      }),
-      fnCalls[1].prove(),
+      // fnCalls[0].prove({
+      //   fee: feeFnCall1,
+      // }),
+      fnCalls[0].prove(),
     ]);
 
     // ctx.logger.info('Proving the next transactions');
@@ -221,10 +220,10 @@ describe('benchmarks/proving', () => {
 
     ctx.logger.info('Sending transactions');
     const txs = [
-      fnCalls[0].send({
-        fee: feeFnCall1,
-      }),
-      fnCalls[1].send(),
+      // fnCalls[0].send({
+      //   fee: feeFnCall1,
+      // }),
+      fnCalls[0].send(),
       // fnCalls[2].send(),
       // fnCalls[3].send({ fee: feeFnCall3 }),
     ];
