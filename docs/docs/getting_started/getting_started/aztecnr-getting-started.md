@@ -92,7 +92,7 @@ Map is a private state variable that functions like a dictionary, relating Field
 
 `value_note`
 
-Notes are fundamental to how Aztec manages privacy. A note is a privacy-preserving representation of an amount of tokens associated with an address, while encrypting the amount and owner. In this contract, we are using the `value_note` library. This is a type of note interface for storing a single Field, eg a balance - or, in our case, a counter.
+Notes are fundamental to how Aztec manages privacy. A note is a privacy-preserving representation of an amount of tokens associated with a nullifier key (that can be owned by an owner), while encrypting the amount. In this contract, we are using the `value_note` library. This is a type of note interface for storing a single Field, eg a balance - or, in our case, a counter.
 
 We are also using `balance_utils` from this import, a useful library that allows us to utilize value notes as if they are simple balances.
 
