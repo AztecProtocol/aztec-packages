@@ -299,6 +299,7 @@ export class AccountWallet extends BaseWallet {
       isInitializer: false,
       functionType: FunctionType.OPEN,
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'address',
