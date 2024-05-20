@@ -1,5 +1,6 @@
 ---
 title: Concepts
+sidebar_position: 2
 ---
 
 import Image from "@theme/IdealImage";

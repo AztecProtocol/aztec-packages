@@ -1,5 +1,6 @@
 ---
 title: Sandbox Reference
+sidebar_position: 0
 ---
 
 The Aztec Sandbox is an environment for local development on the Aztec Network. It's easy to get setup with just a single, simple command, and contains all the components needed to develop and test Aztec contracts and applications.
