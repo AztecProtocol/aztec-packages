@@ -1,12 +1,13 @@
 use crate::{
     context::{inputs::PrivateContextInputs, interface::ContextInterface},
     messaging::process_l1_to_l2_message,
-    hash::{hash_args_array, ArgsHasher, compute_encrypted_log_hash, compute_unencrypted_log_hash},
+    hash::{hash_args_array, ArgsHasher, compute_unencrypted_log_hash},
     note::{note_interface::NoteInterface, utils::compute_note_hash_for_insertion},
     oracle::{
     nullifier_keys::get_nullifier_key_validation_request, arguments, returns,
     call_private_function::call_private_function_internal, header::get_header_at,
-    logs::emit_encrypted_log, logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog},
+    logs::{emit_encrypted_log, emit_encrypted_note_log, compute_encrypted_log},
+    logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog},
     enqueue_public_function_call::{
     enqueue_public_function_call_internal, set_public_teardown_function_call_internal,
     parse_public_call_stack_item_from_oracle
@@ -14,10 +15,11 @@ use crate::{
 }
 };
 use dep::protocol_types::{
+    hash::sha256_to_field,
     abis::{
-    function_selector::FunctionSelector, max_block_number::MaxBlockNumber,
-    nullifier_key_validation_request::NullifierKeyValidationRequest,
-    private_circuit_public_inputs::PrivateCircuitPublicInputs,
+    caller_context::CallerContext, function_selector::FunctionSelector,
+    max_block_number::MaxBlockNumber, nullifier_key_validation_request::NullifierKeyValidationRequest,
+    private_call_request::PrivateCallRequest, private_circuit_public_inputs::PrivateCircuitPublicInputs,
     public_call_stack_item::PublicCallStackItem, read_request::ReadRequest, note_hash::NoteHash,
     nullifier::Nullifier, log_hash::{LogHash, NoteLogHash}
 },
@@ -56,7 +58,7 @@ struct PrivateContext {
     new_note_hashes: BoundedVec<NoteHash, MAX_NEW_NOTE_HASHES_PER_CALL>,
     new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_CALL>,
 
-    private_call_stack_hashes : BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    private_call_requests : BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     public_call_stack_hashes : BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     public_teardown_function_hash: Field,
     new_l2_to_l1_msgs : BoundedVec<L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
@@ -122,7 +124,7 @@ impl PrivateContext {
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
             historical_header: inputs.historical_header,
-            private_call_stack_hashes: BoundedVec::new(),
+            private_call_requests: BoundedVec::new(),
             public_call_stack_hashes: BoundedVec::new(),
             public_teardown_function_hash: 0,
             new_l2_to_l1_msgs: BoundedVec::new(),
@@ -163,7 +165,7 @@ impl PrivateContext {
             nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
             new_note_hashes: self.new_note_hashes.storage,
             new_nullifiers: self.new_nullifiers.storage,
-            private_call_stack_hashes: self.private_call_stack_hashes.storage,
+            private_call_requests: self.private_call_requests.storage,
             public_call_stack_hashes: self.public_call_stack_hashes.storage,
             public_teardown_function_hash: self.public_teardown_function_hash,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
@@ -281,42 +283,34 @@ impl PrivateContext {
         let side_effect = LogHash { value: log_hash, counter, length: len };
         self.unencrypted_logs_hashes.push(side_effect);
     }
-    // TODO(1139): Convert to generic input once we encrypt inside the circuit
-    pub fn emit_encrypted_log<N, M, L>(
+
+    pub fn encrypt_and_emit_log<N, M>(
         &mut self,
         contract_address: AztecAddress,
         storage_slot: Field,
         note_type_id: Field,
         ivpk_m: GrumpkinPoint,
         preimage: [Field; N]
-    ) where [Field; N]: LensForEncryptedLog<N, M, L> {
-        // TODO(1139): perform encryption in the circuit
-        // The oracle call should come last, but we require the encrypted value for now
+    ) where [Field; N]: LensForEncryptedLog<N, M> {
+        // We are currently just encrypting it EXACTLY the same way as if it was a note.
         let counter = self.next_counter();
-        let encrypted_log: [Field; M] = emit_encrypted_log(
-            contract_address,
-            storage_slot,
-            note_type_id,
-            ivpk_m,
-            preimage,
-            counter
-        );
-        // = 32*all fields + bytes for encryption (112) + processed log len (4)
-        let len = 112 + 32 * (N + 3) + 4;
-        let log_hash = compute_encrypted_log_hash(encrypted_log);
+        let encrypted_log: [u8; M] = compute_encrypted_log(contract_address, storage_slot, note_type_id, ivpk_m, preimage);
+        emit_encrypted_log(encrypted_log, counter);
+        let len = 32 + 32 + 64 + 48 + 48 + 176 + 64 + (preimage.len() as Field * 32) + 16 + 4;
+        let log_hash = sha256_to_field(encrypted_log);
         let side_effect = LogHash { value: log_hash, counter, length: len };
         self.encrypted_logs_hashes.push(side_effect);
     }
 
-    pub fn emit_note_encrypted_log<Note, N, M, L>(
+    pub fn encrypt_and_emit_note<Note, N, M>(
         &mut self,
         contract_address: AztecAddress,
         storage_slot: Field,
         note_type_id: Field,
-        encryption_pub_key: GrumpkinPoint,
+        ivpk_m: GrumpkinPoint,
         note: Note
-    ) where Note: NoteInterface<N>, [Field; N]: LensForEncryptedLog<N, M, L> {
-        let note_hash = compute_note_hash_for_insertion(note);
+    ) where Note: NoteInterface<N>, [Field; N]: LensForEncryptedLog<N, M> {
+        let note_hash: Field = compute_note_hash_for_insertion(note);
         let note_exists_index = find_index(
             self.new_note_hashes.storage,
             |n: NoteHash| n.value == note_hash
@@ -327,19 +321,24 @@ impl PrivateContext {
         let note_hash_counter = self.new_note_hashes.storage[note_exists_index].counter;
         let preimage = note.serialize_content();
         let counter = self.next_counter();
-        // TODO(1139): perform encryption in the circuit
-        // The oracle call should come last, but we require the encrypted value for now
-        let encrypted_log: [Field; M] = emit_encrypted_log(
-            contract_address,
-            storage_slot,
-            note_type_id,
-            encryption_pub_key,
-            preimage,
-            counter
-        );
-        // = 32*all fields + bytes for encryption (112) + processed log len (4)
-        let len = 112 + 32 * (preimage.len() as Field + 3) + 4;
-        let log_hash = compute_encrypted_log_hash(encrypted_log);
+
+        // TODO(#1139 | #6408): perform encryption in the circuit
+        let encrypted_log: [u8; M] = compute_encrypted_log(contract_address, storage_slot, note_type_id, ivpk_m, preimage);
+        emit_encrypted_note_log(note_hash, encrypted_log, counter);
+
+        // Current unoptimized size of the encrypted log
+        // incoming_tag (32 bytes)
+        // outgoing_tag (32 bytes)
+        // eph_pk (64 bytes)
+        // incoming_header (48 bytes)
+        // outgoing_header (48 bytes)
+        // outgoing_body (176 bytes)
+        // incoming_body_fixed (64 bytes)
+        // incoming_body_variable (N * 32 bytes + 16 bytes padding) 
+        // len of processed log (4 bytes)
+        let len = 32 + 32 + 64 + 48 + 48 + 176 + 64 + (preimage.len() as Field * 32) + 16 + 4;
+
+        let log_hash = sha256_to_field(encrypted_log);
         let side_effect = NoteLogHash { value: log_hash, counter, length: len, note_hash_counter };
         self.note_encrypted_logs_hashes.push(side_effect);
     }
@@ -410,18 +409,20 @@ impl PrivateContext {
         is_delegate_call: bool
     ) -> PackedReturns {
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
+        let start_side_effect_counter = self.side_effect_counter;
         let item = call_private_function_internal(
             contract_address,
             function_selector,
             args_hash,
-            self.side_effect_counter,
+            start_side_effect_counter,
             is_static_call,
             is_delegate_call
         );
 
-        assert_eq(item.public_inputs.call_context.side_effect_counter, self.side_effect_counter);
-        assert_eq(item.public_inputs.start_side_effect_counter, self.side_effect_counter);
-        self.side_effect_counter = item.public_inputs.end_side_effect_counter + 1;
+        assert_eq(item.public_inputs.call_context.side_effect_counter, start_side_effect_counter);
+        assert_eq(item.public_inputs.start_side_effect_counter, start_side_effect_counter);
+        let end_side_effect_counter = item.public_inputs.end_side_effect_counter;
+        self.side_effect_counter = end_side_effect_counter + 1;
 
         // TODO (fees) figure out why this crashes the prover and enable it
         // we need this in order to pay fees inside child call contexts
@@ -441,7 +442,7 @@ impl PrivateContext {
 
         assert(args_hash == item.public_inputs.args_hash);
 
-        // Assert that the call context of the enqueued call generated by the oracle matches our request.
+        // Assert that the call context of the call generated by the oracle matches our request.
         assert(item.public_inputs.call_context.is_delegate_call == is_delegate_call);
         assert(item.public_inputs.call_context.is_static_call == is_static_call);
 
@@ -459,7 +460,15 @@ impl PrivateContext {
             );
         }
 
-        self.private_call_stack_hashes.push(item.hash());
+        let mut caller_context = CallerContext::empty();
+        caller_context.is_static_call = self.inputs.call_context.is_static_call;
+        if is_delegate_call {
+            caller_context.msg_sender = self.inputs.call_context.msg_sender;
+            caller_context.storage_contract_address = self.inputs.call_context.storage_contract_address;
+        }
+        self.private_call_requests.push(
+            PrivateCallRequest { hash: item.hash(), caller_context, start_side_effect_counter, end_side_effect_counter }
+        );
 
         PackedReturns::new(item.public_inputs.returns_hash)
     }
@@ -653,10 +662,10 @@ impl Empty for PrivateContext {
             nullifier_key_validation_requests: BoundedVec::new(),
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
-            private_call_stack_hashes : BoundedVec::new(),
-            public_call_stack_hashes : BoundedVec::new(),
+            private_call_requests: BoundedVec::new(),
+            public_call_stack_hashes: BoundedVec::new(),
             public_teardown_function_hash: 0,
-            new_l2_to_l1_msgs : BoundedVec::new(),
+            new_l2_to_l1_msgs: BoundedVec::new(),
             historical_header: Header::empty(),
             note_encrypted_logs_hashes: BoundedVec::new(),
             encrypted_logs_hashes: BoundedVec::new(),

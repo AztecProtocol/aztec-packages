@@ -230,6 +230,7 @@ export class AccountWallet extends BaseWallet {
       isInitializer: false,
       functionType: FunctionType.OPEN,
       isInternal: true,
+      isStatic: false,
       parameters: [
         {
           name: 'message_hash',
@@ -247,6 +248,7 @@ export class AccountWallet extends BaseWallet {
       isInitializer: false,
       functionType: FunctionType.SECRET,
       isInternal: true,
+      isStatic: false,
       parameters: [
         {
           name: 'message_hash',
@@ -264,6 +266,7 @@ export class AccountWallet extends BaseWallet {
       isInitializer: false,
       functionType: FunctionType.UNCONSTRAINED,
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'myself',
