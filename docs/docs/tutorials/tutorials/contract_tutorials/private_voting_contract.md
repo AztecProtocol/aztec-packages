@@ -126,7 +126,9 @@ The first thing we do here is assert that the vote has not ended.
 
 The code after the assertion will only run if the assertion is true. In this snippet, we read the current vote tally at the voteId, add 1 to it, and write this new number to the voteId. The `Field` element allows us to use `+` to add to an integer.
 
+:::danger
 Note that due to [key rotation](/aztec/aztec/concepts/accounts/keys.md#key-rotation), it would be possible for a user to rotate their nullifier secret key and be able to vote again. Refer to [common patterns](../../../guides/guides/smart_contracts/writing_contracts/common_patterns/key_rotation.md)
+:::
 
 ## Getting the number of votes
 
