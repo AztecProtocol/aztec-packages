@@ -30,59 +30,79 @@ class AcirIntegrationTests : public ::testing::Test {
         return file.good();
     }
 
-    struct AcirProgram {
-        acir_format::AcirFormat constraints;
-        acir_format::WitnessVector witness;
-    };
-
-    AcirProgram get_test_program_data(std::string test_program_name)
+    acir_format::AcirProgramStack get_program_stack_data_from_test_file(const std::string& test_program_name)
     {
         std::string base_path = "../../acir_tests/acir_tests/" + test_program_name + "/target";
         std::string bytecode_path = base_path + "/program.json";
         std::string witness_path = base_path + "/witness.gz";
 
-        EXPECT_TRUE(file_exists(bytecode_path));
-        EXPECT_TRUE(file_exists(witness_path));
+        return acir_format::get_acir_program_stack(bytecode_path, witness_path);
+    }
 
-        auto acir_buf = get_bytecode(bytecode_path);
-        acir_format::AcirFormat constraint_system = acir_format::circuit_buf_to_acir_format(acir_buf);
+    acir_format::AcirProgram get_program_data_from_test_file(const std::string& test_program_name)
+    {
+        auto program_stack = get_program_stack_data_from_test_file(test_program_name);
+        ASSERT(program_stack.size() == 1); // Otherwise this method will not return full stack data
 
-        auto witness_buf = get_bytecode(witness_path);
-        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(witness_buf);
+        return program_stack.back();
+    }
 
-        return { constraint_system, witness };
+    template <class Flavor> bool prove_and_verify_honk(Flavor::CircuitBuilder& builder)
+    {
+        using Prover = UltraProver_<Flavor>;
+        using Verifier = UltraVerifier_<Flavor>;
+        using VerificationKey = Flavor::VerificationKey;
+
+        Prover prover{ builder };
+        builder.blocks.summarize();
+        info("num gates = ", builder.get_num_gates());
+        info("circuit size = ", prover.instance->proving_key.circuit_size);
+        info("circuit size = ", prover.instance->proving_key.circuit_size);
+        auto proof = prover.construct_proof();
+
+        // Verify Honk proof
+        auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
+        Verifier verifier{ verification_key };
+
+        return verifier.verify_proof(proof);
     }
 
   protected:
     static void SetUpTestSuite() { srs::init_crs_factory("../srs_db/ignition"); }
 };
-TEST_F(AcirIntegrationTests, Basic)
+
+TEST_F(AcirIntegrationTests, ProveAndVerifyProgram)
 {
     using Flavor = GoblinUltraFlavor;
     using Builder = Flavor::CircuitBuilder;
-    using Prover = UltraProver_<Flavor>;
-    using Verifier = UltraVerifier_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
 
     std::string test_name = "6_array";
-    auto acir_data = get_test_program_data(test_name);
+    auto acir_program = get_program_data_from_test_file(test_name);
 
     // Construct a bberg circuit from the acir representation
-    auto builder = acir_format::create_circuit<Builder>(acir_data.constraints, 0, acir_data.witness);
+    auto builder = acir_format::create_circuit<Builder>(acir_program.constraints, 0, acir_program.witness);
 
-    // Construct Honk proof
-    Prover prover{ builder };
-    builder.blocks.summarize();
-    info("num gates = ", builder.get_num_gates());
-    info("circuit size = ", prover.instance->proving_key.circuit_size);
-    info("circuit size = ", prover.instance->proving_key.circuit_size);
-    auto proof = prover.construct_proof();
+    // Construct and verify Honk proof
+    EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
+}
 
-    // Verify Honk proof
-    auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
-    Verifier verifier{ verification_key };
+TEST_F(AcirIntegrationTests, ProveAndVerifyProgramStack)
+{
+    using Flavor = GoblinUltraFlavor;
+    using Builder = Flavor::CircuitBuilder;
 
-    EXPECT_TRUE(verifier.verify_proof(proof));
+    std::string test_name = "fold_basic";
+    auto program_stack = get_program_stack_data_from_test_file(test_name);
 
-    EXPECT_EQ(1, 1);
+    while (!program_stack.empty()) {
+        auto program = program_stack.back();
+
+        // Construct a bberg circuit from the acir representation
+        auto builder = acir_format::create_circuit<Builder>(program.constraints, 0, program.witness);
+
+        // Construct and verify Honk proof for the individidual circuit
+        EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
+
+        program_stack.pop_back();
+    }
 }

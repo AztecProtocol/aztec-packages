@@ -104,6 +104,11 @@ struct AcirFormat {
 using WitnessVector = std::vector<fr, ContainerSlabAllocator<fr>>;
 using WitnessVectorStack = std::vector<std::pair<uint32_t, WitnessVector>>;
 
+struct AcirProgram {
+    AcirFormat constraints;
+    WitnessVector witness;
+};
+
 /**
  * @brief Storage for constaint_systems/witnesses for a stack of acir programs
  * @details In general the number of items in the witness stack will be equal or greater than the number of constraint
@@ -114,13 +119,12 @@ struct AcirProgramStack {
     std::vector<AcirFormat> constraint_systems;
     WitnessVectorStack witness_stack;
 
-    struct AcirProgram {
-        AcirFormat constraints;
-        WitnessVector witness;
-    };
+    // WORKTODO: cant use the seriailzation bc of circular dependency. Resolve? or just leave as is?
+    // AcirProgramStack(std::string const& bytecode_path, std::string const& witness_path)
+    //     : constraint_systems(program_buf_to_acir_format(bytecode_path))
+    //     , witness_stack(witness_buf_to_witness_stack(witness_path)){};
 
     size_t size() const { return witness_stack.size(); }
-
     bool empty() const { return witness_stack.empty(); }
 
     AcirProgram back()
