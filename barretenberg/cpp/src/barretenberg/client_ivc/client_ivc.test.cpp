@@ -121,21 +121,28 @@ TEST_F(ClientIVCTests, BasicFailure)
  */
 TEST_F(ClientIVCTests, BasicLarge)
 {
-    ClientIVC ivc;
+    const auto run_test = []() {
+        ClientIVC ivc;
 
-    // Construct a set of arbitrary circuits
-    size_t NUM_CIRCUITS = 5;
-    std::vector<Builder> circuits;
-    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        circuits.emplace_back(create_mock_circuit(ivc));
+        // Construct a set of arbitrary circuits
+        size_t NUM_CIRCUITS = 5;
+        std::vector<Builder> circuits;
+        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+            circuits.emplace_back(create_mock_circuit(ivc));
+        }
+
+        // Accumulate each circuit
+        for (auto& circuit : circuits) {
+            ivc.accumulate(circuit);
+        }
+
+        EXPECT_TRUE(prove_and_verify(ivc));
+    };
+    for (size_t idx = 0; idx < 256; idx++) {
+        numeric::get_debug_randomness(true, idx);
+        info("run ", idx);
+        run_test();
     }
-
-    // Accumulate each circuit
-    for (auto& circuit : circuits) {
-        ivc.accumulate(circuit);
-    }
-
-    EXPECT_TRUE(prove_and_verify(ivc));
 };
 
 /**
