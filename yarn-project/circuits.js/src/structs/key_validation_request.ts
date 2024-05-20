@@ -10,11 +10,11 @@ import { KEY_VALIDATION_REQUEST_LENGTH, SCOPED_KEY_VALIDATION_REQUEST_LENGTH } f
 export class KeyValidationRequest {
   constructor(
     /**
-     * Public key of the key (pk_m).
+     * Master public key (pk_m) corresponding to the same underlying secret as app secret key bellow.
      */
     public readonly masterPublicKey: Point,
     /**
-     * App-siloed secret key (sk_app*).
+     * App-siloed secret key (sk_app) corresponding to the same underlying secret as master public key above.
      */
     public readonly appSecretKey: Fr,
   ) {}

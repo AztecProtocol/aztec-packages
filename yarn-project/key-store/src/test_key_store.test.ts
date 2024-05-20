@@ -54,13 +54,12 @@ describe('TestKeyStore', () => {
     // Arbitrary app contract address
     const appAddress = AztecAddress.fromBigInt(624n);
 
-    const { appSecretKey: appNullifierSecretKey } = await keyStore.getKeyValidationRequest(
-      computedMasterNullifierPublicKeyHash,
-      appAddress,
-    );
+    const { masterPublicKey: obtainedMasterNullifierPublicKey, appSecretKey: appNullifierSecretKey } =
+      await keyStore.getKeyValidationRequest(computedMasterNullifierPublicKeyHash, appAddress);
     expect(appNullifierSecretKey.toString()).toMatchInlineSnapshot(
       `"0x230a44dfe7cfec7a735c89f7289c5cb5d2c3dc0bf5d3505917fd2476f67873a8"`,
     );
+    expect(obtainedMasterNullifierPublicKey).toEqual(masterNullifierPublicKey);
 
     const appIncomingViewingSecretKey = await keyStore.getAppIncomingViewingSecretKey(accountAddress, appAddress);
     expect(appIncomingViewingSecretKey.toString()).toMatchInlineSnapshot(
