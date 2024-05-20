@@ -6,7 +6,7 @@ import { type FieldsOf } from '@aztec/foundation/types';
 export class CallerContext {
   constructor(
     /**
-     * Address of the caller contract.
+     * Message sender of the caller contract.
      */
     public msgSender: AztecAddress,
     /**
