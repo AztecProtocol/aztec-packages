@@ -1,6 +1,7 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { BufferReader, serializeToBuffer, type Tuple } from '@aztec/foundation/serialize';
+import { type Fr } from '@aztec/foundation/fields';
+import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
@@ -59,6 +60,10 @@ export class PublicKernelCircuitPublicInputs {
     );
   }
 
+  clone() {
+    return PublicKernelCircuitPublicInputs.fromBuffer(this.toBuffer());
+  }
+
   toString() {
     return this.toBuffer().toString('hex');
   }
@@ -106,6 +111,19 @@ export class PublicKernelCircuitPublicInputs {
       RevertCode.OK,
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       AztecAddress.ZERO,
+    );
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): PublicKernelCircuitPublicInputs {
+    const reader = FieldReader.asReader(fields);
+    return new PublicKernelCircuitPublicInputs(
+      ValidationRequests.fromFields(reader),
+      PublicAccumulatedData.fromFields(reader),
+      PublicAccumulatedData.fromFields(reader),
+      CombinedConstantData.fromFields(reader),
+      RevertCode.fromField(reader.readField()),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
+      AztecAddress.fromFields(reader),
     );
   }
 

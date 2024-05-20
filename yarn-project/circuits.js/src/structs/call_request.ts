@@ -1,7 +1,9 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
+
+import { type Ordered } from '../interfaces/index.js';
 
 /**
  * Caller context.
@@ -56,6 +58,11 @@ export class CallerContext {
     return new CallerContext(new AztecAddress(reader.readBytes(32)), new AztecAddress(reader.readBytes(32)));
   }
 
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return new CallerContext(AztecAddress.fromFields(reader), AztecAddress.fromFields(reader));
+  }
+
   equals(callerContext: CallerContext) {
     return (
       callerContext.msgSender.equals(this.msgSender) &&
@@ -67,7 +74,7 @@ export class CallerContext {
 /**
  * Call request.
  */
-export class CallRequest {
+export class CallRequest implements Ordered {
   constructor(
     /**
      * The hash of the call stack item.
@@ -101,6 +108,10 @@ export class CallRequest {
     );
   }
 
+  get counter() {
+    return this.startSideEffectCounter.toNumber();
+  }
+
   /**
    * Deserializes from a buffer or reader.
    * @param buffer - Buffer or reader to read from.
@@ -114,6 +125,17 @@ export class CallRequest {
       reader.readObject(CallerContext),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
+    );
+  }
+
+  public static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return new CallRequest(
+      reader.readField(),
+      reader.readObject(AztecAddress),
+      reader.readObject(CallerContext),
+      reader.readField(),
+      reader.readField(),
     );
   }
 
