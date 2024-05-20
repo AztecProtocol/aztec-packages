@@ -19,7 +19,7 @@ use dep::protocol_types::{
     hash::sha256_to_field,
     abis::{
     caller_context::CallerContext, function_selector::FunctionSelector,
-    max_block_number::MaxBlockNumber, nullifier_key_validation_request::KeyValidationRequest,
+    max_block_number::MaxBlockNumber, key_validation_request::KeyValidationRequest,
     private_call_request::PrivateCallRequest, private_circuit_public_inputs::PrivateCircuitPublicInputs,
     public_call_stack_item::PublicCallStackItem, read_request::ReadRequest, note_hash::NoteHash,
     nullifier::Nullifier, log_hash::{LogHash, NoteLogHash}

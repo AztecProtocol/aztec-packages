@@ -21,7 +21,7 @@ use crate::{
 struct PrivateCircuitPublicInputsArrayLengths {
     note_hash_read_requests: u64,
     nullifier_read_requests: u64,
-    nullifier_key_validation_requests: u64,
+    key_validation_requests: u64,
     new_note_hashes: u64,
     new_nullifiers: u64,
     new_l2_to_l1_msgs: u64,
@@ -37,7 +37,7 @@ impl PrivateCircuitPublicInputsArrayLengths {
         PrivateCircuitPublicInputsArrayLengths {
             note_hash_read_requests: validate_array(public_inputs.note_hash_read_requests),
             nullifier_read_requests: validate_array(public_inputs.nullifier_read_requests),
-            nullifier_key_validation_requests: validate_array(public_inputs.nullifier_key_validation_requests),
+            key_validation_requests: validate_array(public_inputs.key_validation_requests),
             new_note_hashes: validate_array(public_inputs.new_note_hashes),
             new_nullifiers: validate_array(public_inputs.new_nullifiers),
             new_l2_to_l1_msgs: validate_array(public_inputs.new_l2_to_l1_msgs),
