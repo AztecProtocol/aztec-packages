@@ -5,9 +5,6 @@ import {
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
 } from '../../constants.gen.js';
 import { type GrumpkinPrivateKey } from '../../types/grumpkin_private_key.js';
 import { countAccumulatedItems } from '../../utils/index.js';
@@ -245,70 +242,3 @@ export class PrivateKernelResetCircuitPrivateInputs<
     );
   }
 }
-
-export const PRIVATE_RESET_VARIANTS = {
-  small: {
-    NOTE_HASH_PENDING_AMOUNT: 16,
-    NOTE_HASH_SETTLED_AMOUNT: 16,
-    NULLIFIER_PENDING_AMOUNT: 4,
-    NULLIFIER_SETTLED_AMOUNT: 4,
-    NULLIFIER_KEYS: 2,
-  },
-  medium: {
-    NOTE_HASH_PENDING_AMOUNT: 32,
-    NOTE_HASH_SETTLED_AMOUNT: 32,
-    NULLIFIER_PENDING_AMOUNT: 8,
-    NULLIFIER_SETTLED_AMOUNT: 8,
-    NULLIFIER_KEYS: 4,
-  },
-  big: {
-    NOTE_HASH_PENDING_AMOUNT: 64,
-    NOTE_HASH_SETTLED_AMOUNT: 64,
-    NULLIFIER_PENDING_AMOUNT: 8,
-    NULLIFIER_SETTLED_AMOUNT: 8,
-    NULLIFIER_KEYS: 4,
-  },
-  full: {
-    NOTE_HASH_PENDING_AMOUNT: MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-    NOTE_HASH_SETTLED_AMOUNT: MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-    NULLIFIER_PENDING_AMOUNT: MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-    NULLIFIER_SETTLED_AMOUNT: MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-    NULLIFIER_KEYS: MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-  },
-} as const;
-
-export type PrivateKernelResetTags = keyof typeof PRIVATE_RESET_VARIANTS;
-
-export type PrivateKernelResetCircuitPrivateInputsVariants =
-  | PrivateKernelResetCircuitPrivateInputs<
-      (typeof PRIVATE_RESET_VARIANTS)['full']['NOTE_HASH_PENDING_AMOUNT'],
-      (typeof PRIVATE_RESET_VARIANTS)['full']['NOTE_HASH_SETTLED_AMOUNT'],
-      (typeof PRIVATE_RESET_VARIANTS)['full']['NULLIFIER_PENDING_AMOUNT'],
-      (typeof PRIVATE_RESET_VARIANTS)['full']['NULLIFIER_SETTLED_AMOUNT'],
-      (typeof PRIVATE_RESET_VARIANTS)['full']['NULLIFIER_KEYS'],
-      'full'
-    >
-  | PrivateKernelResetCircuitPrivateInputs<
-      (typeof PRIVATE_RESET_VARIANTS)['big']['NOTE_HASH_PENDING_AMOUNT'],
-      (typeof PRIVATE_RESET_VARIANTS)['big']['NOTE_HASH_SETTLED_AMOUNT'],
-      (typeof PRIVATE_RESET_VARIANTS)['big']['NULLIFIER_PENDING_AMOUNT'],
-      (typeof PRIVATE_RESET_VARIANTS)['big']['NULLIFIER_SETTLED_AMOUNT'],
-      (typeof PRIVATE_RESET_VARIANTS)['big']['NULLIFIER_KEYS'],
-      'big'
-    >
-  | PrivateKernelResetCircuitPrivateInputs<
-      (typeof PRIVATE_RESET_VARIANTS)['medium']['NOTE_HASH_PENDING_AMOUNT'],
-      (typeof PRIVATE_RESET_VARIANTS)['medium']['NOTE_HASH_SETTLED_AMOUNT'],
-      (typeof PRIVATE_RESET_VARIANTS)['medium']['NULLIFIER_PENDING_AMOUNT'],
-      (typeof PRIVATE_RESET_VARIANTS)['medium']['NULLIFIER_SETTLED_AMOUNT'],
-      (typeof PRIVATE_RESET_VARIANTS)['medium']['NULLIFIER_KEYS'],
-      'medium'
-    >
-  | PrivateKernelResetCircuitPrivateInputs<
-      (typeof PRIVATE_RESET_VARIANTS)['small']['NOTE_HASH_PENDING_AMOUNT'],
-      (typeof PRIVATE_RESET_VARIANTS)['small']['NOTE_HASH_SETTLED_AMOUNT'],
-      (typeof PRIVATE_RESET_VARIANTS)['small']['NULLIFIER_PENDING_AMOUNT'],
-      (typeof PRIVATE_RESET_VARIANTS)['small']['NULLIFIER_SETTLED_AMOUNT'],
-      (typeof PRIVATE_RESET_VARIANTS)['small']['NULLIFIER_KEYS'],
-      'small'
-    >;

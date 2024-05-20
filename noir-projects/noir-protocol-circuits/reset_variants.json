@@ -1,6 +1,7 @@
 [
   {
     "tag": "big",
+    "priority": 98,
     "replacements": {
       "NOTE_HASH_PENDING_AMOUNT": 64,
       "NOTE_HASH_SETTLED_AMOUNT": 64,
@@ -11,6 +12,7 @@
   },
   {
     "tag": "medium",
+    "priority": 99,
     "replacements": {
       "NOTE_HASH_PENDING_AMOUNT": 32,
       "NOTE_HASH_SETTLED_AMOUNT": 32,
@@ -21,6 +23,7 @@
   },
   {
     "tag": "small",
+    "priority": 100,
     "replacements": {
       "NOTE_HASH_PENDING_AMOUNT": 16,
       "NOTE_HASH_SETTLED_AMOUNT": 16,
