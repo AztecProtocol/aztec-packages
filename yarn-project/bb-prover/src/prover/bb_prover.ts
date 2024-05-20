@@ -29,7 +29,6 @@ import {
   makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { sha256 } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
@@ -160,18 +159,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       kernelRequest.inputs.previousKernel.vk,
     );
 
-    logger.info(`Verifying input proof for ${PublicKernelType[kernelRequest.type]}`);
-    logger.error(
-      `To public key hash: ${sha256(kernelRequest.inputs.previousKernel.vk.keyAsFields.hash.toBuffer()).toString(
-        'hex',
-      )}`,
-    );
     await this.verifyWithKey(
       kernelRequest.inputs.previousKernel.vk,
       kernelRequest.inputs.previousKernel.proof.binaryProof,
     );
-
-    logger.info(`Proof verified`);
 
     const [circuitOutput, proof] = await this.createRecursiveProof(
       kernelRequest.inputs,
@@ -277,7 +268,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return makePublicInputsAndProof(result, recursiveProof, verificationKey);
   }
 
-  // TODO(@PhilWindle): Delete when no longer required
   public async createProof<Input extends { toBuffer: () => Buffer }, Output extends { toBuffer: () => Buffer }>(
     input: Input,
     circuitType: ServerProtocolArtifact,
@@ -442,10 +432,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       // Read the proof and then cleanup up our temporary directory
       const proof = await this.readProofAsFields(provingResult.proofPath!, circuitType, proofLength);
 
-      logger.info(`VERIFYING PROOF FOR ${circuitType}`);
-
-      await this.verifyProof(circuitType, proof.binaryProof);
-
       logger.info(
         `Generated proof for ${circuitType} in ${provingResult.duration} ms, size: ${proof.proof.length} fields`,
         {
@@ -502,7 +488,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   /**
-   * Verifies a proof, will generate the verification key if one is not cached internally
+   * Verifies a proof using a provided verification key
    * @param circuitType - The type of circuit whose proof is to be verified
    * @param proof - The proof to be verified
    */

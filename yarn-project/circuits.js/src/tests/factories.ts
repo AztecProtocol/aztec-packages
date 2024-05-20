@@ -1,4 +1,4 @@
-import { type FieldsOf, makeHalfFullTuple, makeTuple, range } from '@aztec/foundation/array';
+import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -27,11 +27,9 @@ import {
   ContractStorageRead,
   ContractStorageUpdateRequest,
   FUNCTION_TREE_HEIGHT,
-  Fq,
   Fr,
   FunctionData,
   FunctionSelector,
-  G1AffineElement,
   type GrumpkinPrivateKey,
   GrumpkinScalar,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
