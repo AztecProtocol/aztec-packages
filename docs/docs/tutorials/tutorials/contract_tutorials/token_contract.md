@@ -215,7 +215,7 @@ For more detail on execution contexts, see [Contract Communication](/aztec/aztec
 
 We are also importing types from a `types.nr` file, which imports types from the `types` folder. You can view them [here](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src).
 
-The main thing to note from this types folder is the `TransparentNote` definition. This defines how the contract moves value from the public domain into the private domain. It is similar to the `value_note` that we imported, but with some modifications namely, instead of a defined `owner`, it allows anyone that can produce the pre-image to the stored `secret_hash` to spend the note.
+The main thing to note from this types folder is the `TransparentNote` definition. This defines how the contract moves value from the public domain into the private domain. It is similar to the `value_note` that we imported, but with some modifications namely, instead of a defined nullifier key, it allows anyone that can produce the pre-image to the stored `secret_hash` to spend the note.
 
 ### Note on private state
 
@@ -411,7 +411,7 @@ A getter function for checking the token `total_supply`.
 
 #### `balance_of_private`
 
-A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/yarn-project/pxe) must have access to the `owner`s decryption keys in order to decrypt their notes.
+A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/yarn-project/pxe) must have access to the nullifier secret key in order to decrypt the notes.
 
 #include_code balance_of_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
