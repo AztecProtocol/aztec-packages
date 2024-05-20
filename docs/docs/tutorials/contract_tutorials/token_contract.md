@@ -411,7 +411,7 @@ A getter function for checking the token `total_supply`.
 
 #### `balance_of_private`
 
-A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/yarn-project/pxe) must have `ivsk_app` ([app-specific secret key](../../../aztec/aztec/concepts/accounts/keys.md#scoped-keys)) in order to decrypt the notes.
+A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/yarn-project/pxe) must have `ivsk_app` ([app-specific secret key](../../aztec/concepts/accounts/keys.md#scoped-keys)) in order to decrypt the notes.
 
 #include_code balance_of_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
