@@ -1593,6 +1593,12 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
     auto lhs = get_value() % modulus_u512;
     auto rhs = other.get_value() % modulus_u512;
     bool is_equal_raw = (lhs == rhs);
+    if (!ctx) {
+        // null context _should_ mean that both are constant, but we check with an assertion to be sure.
+        // WORKTODO right? tag with issue on the semantics of nullptr here
+        ASSERT(is_constant() == other.is_constant());
+        return is_equal_raw;
+    }
     bool_t<Builder> is_equal = witness_t<Builder>(ctx, is_equal_raw);
 
     bigfield diff = (*this) - other;
