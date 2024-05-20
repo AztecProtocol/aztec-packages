@@ -104,5 +104,17 @@ export interface KeyStore {
    */
   getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest>;
 
+  /**
+   * Rotates the master nullifier key for the specified account.
+   *
+   * @dev This function updates the secret and public keys associated with the account.
+   * It appends a new secret key to the existing secret keys, derives the
+   * corresponding public key, and updates the stored keys accordingly.
+   *
+   * @param account - The account address for which the master nullifier key is being rotated.
+   * @param newSecretKey - (Optional) A new secret key of type Fq. If not provided, a random key is generated.
+   * @throws If the account does not have existing nullifier secret keys or public keys.
+   * @returns A Promise that resolves when the key rotation is complete.
+   */
   rotateMasterNullifierKey(account: AztecAddress, secretKey: Fq): Promise<void>;
 }

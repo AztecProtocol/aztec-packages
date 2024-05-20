@@ -366,10 +366,17 @@ export class TestKeyStore implements KeyStore {
     await this.#appendValue(`${account.toString()}-npk_m_hash`, newPublicKey.hash());
   }
 
+  /**
+   * Gets the key prefix and account address for a given value.
+   * @returns A tuple containing the key prefix and account address.
+   * @dev Note that this is quite inefficient but it should not matter because there should never be too many keys
+   * in the key store.
+   */
   #getKeyPrefixAndAccount(value: Bufferable): [KeyPrefix, AztecAddress] {
     const valueBuffer = serializeToBuffer(value);
     for (const [key, val] of this.#keys.entries()) {
-      // `val` can contain multiple values due to key rotation so we check if the value is in the buffer instead of equality
+      // `val` can contain multiple values due to key rotation so we check if the value is in the buffer instead
+      // of just calling `.equals(...)`
       if (val.includes(valueBuffer)) {
         for (const prefix of KEY_PREFIXES) {
           if (key.includes(`-${prefix}`)) {
