@@ -1,5 +1,5 @@
 import { type AppCircuitProofOutput, type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
-import { type CircuitSimulationStats } from '@aztec/circuit-types/stats';
+import { CircuitName, type CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   NESTED_RECURSIVE_PROOF_LENGTH,
   type PrivateCircuitPublicInputs,
@@ -72,7 +72,7 @@ export class TestProofCreator implements ProofCreator {
     const [duration, result] = await elapsed(() => executeReset(privateInputs));
     this.log.debug(`Simulated private kernel reset`, {
       eventName: 'circuit-simulation',
-      circuitName: 'private-kernel-reset',
+      circuitName: ('private-kernel-reset-' + privateInputs.sizeTag) as CircuitName,
       duration,
       inputSize: privateInputs.toBuffer().length,
       outputSize: result.toBuffer().length,
