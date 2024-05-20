@@ -50,7 +50,7 @@ export class SetupPhaseManager extends AbstractPhaseManager {
       kernelInputs,
       publicKernelOutput,
       revertReason,
-      returnValues: undefined,
+      returnValues: [],
       gasUsed,
     };
   }

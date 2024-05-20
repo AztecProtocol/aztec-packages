@@ -27,6 +27,8 @@ struct BaseOrMergeRollupPublicInputs {
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
     txs_effects_hash : Field,
     out_hash : Field, 
+
+    accumulated_fees: Field
 }
 
 impl Empty for BaseOrMergeRollupPublicInputs {
@@ -39,6 +41,7 @@ impl Empty for BaseOrMergeRollupPublicInputs {
             end: PartialStateReference::empty(),
             txs_effects_hash : 0,
             out_hash : 0, 
+            accumulated_fees: 0
         }
     }
 }
@@ -51,7 +54,8 @@ impl Eq for BaseOrMergeRollupPublicInputs {
     (self.start.eq(other.start)) &
     (self.end.eq(other.end)) &
     (self.txs_effects_hash == other.txs_effects_hash) &
-    (self.out_hash == other.out_hash)
+    (self.out_hash == other.out_hash) &
+    (self.accumulated_fees == other.accumulated_fees)
   }
 }
 
@@ -66,6 +70,7 @@ impl Serialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublicIn
     fields.extend_from_array(self.end.serialize());
     fields.push(self.txs_effects_hash as Field);
     fields.push(self.out_hash as Field);
+    fields.push(self.accumulated_fees as Field);
 
     assert_eq(fields.len(), BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH);
 
@@ -84,6 +89,7 @@ impl Deserialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublic
         end: reader.read_struct(PartialStateReference::deserialize),
         txs_effects_hash: reader.read(),
         out_hash: reader.read(),
+        accumulated_fees: reader.read()
     };
 
     reader.finish();

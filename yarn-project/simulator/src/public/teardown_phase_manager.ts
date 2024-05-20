@@ -58,7 +58,7 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
       kernelInputs,
       publicKernelOutput,
       revertReason,
-      returnValues: undefined,
+      returnValues: [],
       gasUsed,
     };
   }

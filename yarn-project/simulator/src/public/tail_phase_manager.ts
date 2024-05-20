@@ -60,7 +60,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
       publicKernelOutput: previousPublicKernelOutput,
       finalKernelOutput,
       revertReason: undefined,
-      returnValues: undefined,
+      returnValues: [],
       gasUsed: undefined,
     };
   }

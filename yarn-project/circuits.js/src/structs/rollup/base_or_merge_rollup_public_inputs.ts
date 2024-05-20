@@ -42,6 +42,11 @@ export class BaseOrMergeRollupPublicInputs {
      * Note: Truncated to 31 bytes to fit in Fr.
      */
     public outHash: Fr,
+
+    /**
+     * The summed `transaction_fee` of the constituent transactions.
+     */
+    public accumulatedFees: Fr,
   ) {}
 
   /**
@@ -59,6 +64,7 @@ export class BaseOrMergeRollupPublicInputs {
       reader.readObject(PartialStateReference),
       reader.readObject(PartialStateReference),
       //TODO check
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
     );
@@ -79,6 +85,8 @@ export class BaseOrMergeRollupPublicInputs {
 
       this.txsEffectsHash,
       this.outHash,
+
+      this.accumulatedFees,
     );
   }
 
