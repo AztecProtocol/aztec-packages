@@ -101,9 +101,9 @@ library Constants {
   uint256 internal constant CANONICAL_KEY_REGISTRY_ADDRESS =
     0x1585e564a60e6ec974bc151b62705292ebfc75c33341986a47fd9749cedb567e;
   uint256 internal constant DEPLOYER_CONTRACT_ADDRESS =
-    0x2e9c386f07e22a1d24e677ab70407b2dd0adbc7cafb9c822bf249685d6a2e4cc;
+    0x0097949bb96834550868230a1b6cc242d1f662f7c52946245e4e73da1b8b2165;
   uint256 internal constant GAS_TOKEN_ADDRESS =
-    0x1abc48077afea1bc908f39fac1c7c99b73c3eb764caa584f7dd1ee5b7527b887;
+    0x283353eafd3802181f7c1461a4b68332afc6c04e95097bc51b5458d8a8abf4f9;
   uint256 internal constant AZTEC_ADDRESS_LENGTH = 1;
   uint256 internal constant GAS_FEES_LENGTH = 2;
   uint256 internal constant GAS_LENGTH = 2;
