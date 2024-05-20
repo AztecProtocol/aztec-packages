@@ -230,31 +230,14 @@ void build_constraints(Builder& builder,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         };
 
-        // Get the size of proof with no public inputs prepended to it
-        // This is used while processing recursion constraints to determine whether
-        // the proof we are verifying contains a recursive proof itself
-        auto proof_size_no_pub_inputs = recursion_honk_proof_size_without_public_inputs();
-
         // Add recursion constraints
         for (auto constraint : constraint_system.honk_recursion_constraints) {
-            // A proof passed into the constraint should be stripped of its public inputs, except in the case where a
-            // proof contains an aggregation object itself. We refer to this as the `nested_aggregation_object`. The
-            // verifier circuit requires that the indices to a nested proof aggregation state are a circuit constant.
-            // The user tells us they how they want these constants set by keeping the nested aggregation object
-            // attached to the proof as public inputs. As this is the only object that can prepended to the proof if the
-            // proof is above the expected size (with public inputs stripped)
+            // A proof passed into the constraint should be stripped of its inner public inputs, but not the nested
+            // aggregation object itself. The verifier circuit requires that the indices to a nested proof aggregation
+            // state are a circuit constant. The user tells us they how they want these constants set by keeping the
+            // nested aggregation object attached to the proof as public inputs. As this is the only object that can
+            // prepended to the proof if the proof is above the expected size (with public inputs stripped)
             std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object = {};
-            // If the proof has public inputs attached to it, we should handle setting the nested aggregation object
-            // The public inputs attached to a proof should match the aggregation object in size
-            if (constraint.proof.size() - proof_size_no_pub_inputs !=
-                HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE) {
-                auto error_string = format(
-                    "Public inputs are always stripped from proofs unless we have a recursive proof.\n"
-                    "Thus, public inputs attached to a proof must match the recursive aggregation object in size "
-                    "which is ",
-                    HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE);
-                throw_or_abort(error_string);
-            }
             for (size_t i = 0; i < HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
                 // Set the nested aggregation object indices to the current size of the public inputs
                 // This way we know that the nested aggregation object indices will always be the last

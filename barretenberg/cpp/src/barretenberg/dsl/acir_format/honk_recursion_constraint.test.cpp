@@ -7,10 +7,16 @@
 #include <vector>
 
 using namespace acir_format;
-using namespace bb::plonk;
+using namespace bb;
 
 class AcirHonkRecursionConstraint : public ::testing::Test {
+
   public:
+    using ProverInstance = ProverInstance_<UltraFlavor>;
+    using Prover = bb::UltraProver;
+    using VerificationKey = UltraFlavor::VerificationKey;
+    using Verifier = bb::UltraVerifier;
+
     Builder create_inner_circuit()
     {
         /**
@@ -126,6 +132,8 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
      */
     Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
     {
+        using ProverInstance = ProverInstance_<UltraFlavor>;
+
         std::vector<HonkRecursionConstraint> honk_recursion_constraints;
 
         size_t witness_offset = 0;
@@ -133,18 +141,15 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
 
         for (auto& inner_circuit : inner_circuits) {
 
-            auto inner_composer = Composer();
-            auto inner_prover = inner_composer.create_prover(inner_circuit);
-            auto inner_proof = inner_prover.construct_proof();
-            auto inner_verifier = inner_composer.create_verifier(inner_circuit);
+            auto instance = std::make_shared<ProverInstance>(inner_circuit);
+            Prover prover(instance);
+            auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+            Verifier verifier(verification_key);
+            auto inner_proof = prover.construct_proof();
 
             const size_t num_inner_public_inputs = inner_circuit.get_public_inputs().size();
-            transcript::StandardTranscript transcript(inner_proof.proof_data,
-                                                      Composer::create_manifest(num_inner_public_inputs),
-                                                      transcript::HashType::PedersenBlake3s,
-                                                      16);
 
-            std::vector<fr> proof_witnesses = export_honk_transcript_in_recursion_format(transcript);
+            std::vector<fr> proof_witnesses = inner_proof;
             // - Save the public inputs so that we can set their values.
             // - Then truncate them from the proof because the ACIR API expects proofs without public inputs
             std::vector<fr> inner_public_input_values(
@@ -158,7 +163,7 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
                                       static_cast<std::ptrdiff_t>(num_inner_public_inputs -
                                                                   RecursionConstraint::AGGREGATION_OBJECT_SIZE));
 
-            std::vector<bb::fr> key_witnesses = export_honk_key_in_recursion_format(inner_verifier.key);
+            std::vector<bb::fr> key_witnesses = verification_key->to_field_elements();
             bb::fr key_hash = key_witnesses.back();
             key_witnesses.pop_back();
 

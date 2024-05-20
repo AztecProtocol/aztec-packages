@@ -26,7 +26,7 @@ template <typename Flavor> class UltraVerifier_ {
     bool verify_proof(const HonkProof& proof);
 
     std::shared_ptr<VerificationKey> key;
-    std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Transcript> transcript; // this seems useless
 };
 
 using UltraVerifier = UltraVerifier_<UltraFlavor>;
