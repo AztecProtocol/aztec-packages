@@ -1,5 +1,13 @@
 import { createAccounts } from '@aztec/accounts/testing';
-import { type AccountWallet, type AztecAddress, type AztecNode, Fr, type L2Block, type PXE } from '@aztec/aztec.js';
+import {
+  type AccountWallet,
+  type AztecAddress,
+  type AztecNode,
+  Fr,
+  type L2Block,
+  type PXE,
+  type Wallet,
+} from '@aztec/aztec.js';
 import {
   GeneratorIndex,
   INITIAL_L2_BLOCK_NUM,
@@ -15,7 +23,7 @@ import { TestContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
-import { publicDeployAccounts, setup } from './fixtures/utils.js';
+import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 120_000;
 
@@ -25,7 +33,6 @@ describe('Key Registry', () => {
   let aztecNode: AztecNode;
   let pxe: PXE;
   let teardown: () => Promise<void>;
-  let wallets: AccountWallet[];
 
   let testContract: TestContract;
 
@@ -33,10 +40,9 @@ describe('Key Registry', () => {
   let account: AccountWallet;
 
   beforeAll(async () => {
-    ({ aztecNode, pxe, teardown, wallets } = await setup(2));
-    testContract = await TestContract.deploy(wallets[0]).send().deployed();
-
-    await publicDeployAccounts(wallets[0], wallets.slice(0, 2));
+    let wallet: Wallet;
+    ({ aztecNode, pxe, teardown, wallet } = await setup(2));
+    testContract = await TestContract.deploy(wallet).send().deployed();
 
     [account] = await createAccounts(pxe, 1, [secret]);
   });
@@ -57,6 +63,9 @@ describe('Key Registry', () => {
     //    There are some examples where the action is fully hidden though. One of those examples is shielding where you
     // instantly consume the note after creating it. In this case, the nullifier is never emitted and hence the action
     // is impossible to detect with this scheme.
+    //    Another example is a withdraw is withdrawing from DeFi and then immediately spending the funds. In this case,
+    // we would need nsk_app and the contract address of the DeFi contract to detect the nullification of the initial
+    // note.
     it('nsk_app and contract address are enough to detect note nullification', async () => {
       const masterNullifierSecretKey = deriveMasterNullifierSecretKey(secret);
       const nskApp = computeAppNullifierSecretKey(masterNullifierSecretKey, testContract.address);
@@ -99,15 +108,21 @@ describe('Key Registry', () => {
     };
   });
 
-  it('gets ovsk_app', async () => {
-    const ovSkM = deriveMasterOutgoingViewingSecretKey(secret);
-    const ovPkMHash = derivePublicKeyFromSecretKey(ovSkM).hash();
+  describe('ovsk_app', () => {
+    it('gets ovsk_app', async () => {
+      // Derive the ovpk_m_hash from the account secret
+      const ovskM = deriveMasterOutgoingViewingSecretKey(secret);
+      const ovpkMHash = derivePublicKeyFromSecretKey(ovskM).hash();
 
-    const expectedOvskApp = computeAppSecretKey(ovSkM, testContract.address, 'ov');
+      // Compute the expected ovsk_app
+      const expectedOvskApp = computeAppSecretKey(ovskM, testContract.address, 'ov');
 
-    const ovskAppBigInt = await testContract.methods.get_ovsk_app(ovPkMHash).simulate();
-    const ovskApp = new Fr(ovskAppBigInt);
+      // Get the ovsk_app via the test contract
+      const ovskAppBigInt = await testContract.methods.get_ovsk_app(ovpkMHash).simulate();
+      const ovskApp = new Fr(ovskAppBigInt);
 
-    expect(ovskApp).toEqual(expectedOvskApp);
+      // Check that the ovsk_app is as expected
+      expect(ovskApp).toEqual(expectedOvskApp);
+    });
   });
 });
