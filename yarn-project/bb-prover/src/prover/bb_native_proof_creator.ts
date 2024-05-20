@@ -369,7 +369,10 @@ export class BBNativeProofCreator implements ProofCreator {
     }
 
     const vkData = await this.updateVerificationKeyAfterProof(directory, circuitType);
+
     const proof = await this.readProofAsFields<typeof NESTED_RECURSIVE_PROOF_LENGTH>(directory, circuitType, vkData);
+
+    await this.verifyProofForProtocolCircuit(circuitType, proof.binaryProof);
 
     this.log.debug(`Generated proof`, {
       circuitName: mapProtocolArtifactNameToCircuitName(circuitType),

@@ -29,6 +29,7 @@ import {
   makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { sha256 } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
@@ -158,6 +159,19 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       kernelOps.artifact,
       kernelRequest.inputs.previousKernel.vk,
     );
+
+    logger.info(`Verifying input proof for ${PublicKernelType[kernelRequest.type]}`);
+    logger.error(
+      `To public key hash: ${sha256(kernelRequest.inputs.previousKernel.vk.keyAsFields.hash.toBuffer()).toString(
+        'hex',
+      )}`,
+    );
+    await this.verifyWithKey(
+      kernelRequest.inputs.previousKernel.vk,
+      kernelRequest.inputs.previousKernel.proof.binaryProof,
+    );
+
+    logger.info(`Proof verified`);
 
     const [circuitOutput, proof] = await this.createRecursiveProof(
       kernelRequest.inputs,
@@ -428,6 +442,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       // Read the proof and then cleanup up our temporary directory
       const proof = await this.readProofAsFields(provingResult.proofPath!, circuitType, proofLength);
 
+      logger.info(`VERIFYING PROOF FOR ${circuitType}`);
+
+      await this.verifyProof(circuitType, proof.binaryProof);
+
       logger.info(
         `Generated proof for ${circuitType} in ${provingResult.duration} ms, size: ${proof.proof.length} fields`,
         {
@@ -481,6 +499,40 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     }
 
     logger.info(`Successfully verified ${circuitType} proof in ${result.duration} ms`);
+  }
+
+  /**
+   * Verifies a proof, will generate the verification key if one is not cached internally
+   * @param circuitType - The type of circuit whose proof is to be verified
+   * @param proof - The proof to be verified
+   */
+  public async verifyWithKey(verificationKey: VerificationKeyData, proof: Proof) {
+    // Create random directory to be used for temp files
+    const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
+    await fs.mkdir(bbWorkingDirectory, { recursive: true });
+
+    const proofFileName = `${bbWorkingDirectory}/proof`;
+    const verificationKeyPath = `${bbWorkingDirectory}/vk`;
+
+    logger.debug(`Verifying with key: ${verificationKey.keyAsFields.hash.toString()}`);
+
+    await fs.writeFile(proofFileName, proof.buffer);
+    await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
+
+    const logFunction = (message: string) => {
+      logger.debug(`BB out - ${message}`);
+    };
+
+    const result = await verifyProof(this.config.bbBinaryPath, proofFileName, verificationKeyPath!, logFunction);
+
+    await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
+
+    if (result.status === BB_RESULT.FAILURE) {
+      const errorMessage = `Failed to verify proof from key!`;
+      throw new Error(errorMessage);
+    }
+
+    logger.info(`Successfully verified proof from key in ${result.duration} ms`);
   }
 
   /**

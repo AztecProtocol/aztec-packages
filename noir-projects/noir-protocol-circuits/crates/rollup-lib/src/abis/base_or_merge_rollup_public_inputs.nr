@@ -1,7 +1,7 @@
 use dep::types::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     constants::BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH, partial_state_reference::PartialStateReference,
-    mocked::AggregationObject, traits::{Empty, Serialize, Deserialize}, utils::reader::Reader
+    traits::{Empty, Serialize, Deserialize}, utils::reader::Reader
 };
 use crate::abis::constant_rollup_data::ConstantRollupData;
 

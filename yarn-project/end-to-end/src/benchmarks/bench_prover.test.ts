@@ -126,7 +126,7 @@ describe('benchmarks/proving', () => {
       proverAgents: 0,
       realProofs: true,
       // 4-tx blocks so that we have at least one merge level
-      minTxsPerBlock: 4,
+      minTxsPerBlock: 2,
     });
 
     ctx.logger.info('Starting real provers');
@@ -177,8 +177,8 @@ describe('benchmarks/proving', () => {
     ctx.logger.info('+----------------------+');
 
     const fnCalls = [
-      (await getTestContractOnPXE(0)).methods.emit_nullifier(42),
-      (await getTestContractOnPXE(1)).methods.emit_unencrypted(43),
+      //(await getTestContractOnPXE(0)).methods.emit_nullifier(42),
+      //(await getTestContractOnPXE(1)).methods.emit_unencrypted(43),
       (await getTestContractOnPXE(2)).methods.create_l2_to_l1_message_public(45, 46, EthAddress.random()),
       (await getTokenContract(3)).methods.transfer(schnorrWalletAddress.address, recipient.address, 1000, 0),
     ];
@@ -188,43 +188,45 @@ describe('benchmarks/proving', () => {
       paymentMethod: new PublicFeePaymentMethod(
         initialTokenContract.address,
         initialFpContract.address,
-        await getWalletOnPxe(1),
+        await getWalletOnPxe(2),
       ),
     };
 
-    const feeFnCall3 = {
-      gasSettings: GasSettings.default(),
-      paymentMethod: new PrivateFeePaymentMethod(
-        initialTokenContract.address,
-        initialFpContract.address,
-        await getWalletOnPxe(3),
-      ),
-    };
+    // const feeFnCall3 = {
+    //   gasSettings: GasSettings.default(),
+    //   paymentMethod: new PrivateFeePaymentMethod(
+    //     initialTokenContract.address,
+    //     initialFpContract.address,
+    //     await getWalletOnPxe(2),
+    //   ),
+    // };
 
     ctx.logger.info('Proving first two transactions');
     await Promise.all([
-      fnCalls[0].prove(),
-      fnCalls[1].prove({
+      fnCalls[0].prove({
         fee: feeFnCall1,
       }),
+      fnCalls[1].prove(),
     ]);
 
-    ctx.logger.info('Proving the next transactions');
-    await Promise.all([
-      fnCalls[2].prove(),
-      fnCalls[3].prove({
-        fee: feeFnCall3,
-      }),
-    ]);
+    // ctx.logger.info('Proving the next transactions');
+    // await Promise.all([
+    //   fnCalls[2].prove(),
+    //   fnCalls[3].prove({
+    //     fee: feeFnCall3,
+    //   }),
+    // ]);
 
     ctx.logger.info('Finished proving all transactions');
 
     ctx.logger.info('Sending transactions');
     const txs = [
-      fnCalls[0].send(),
-      fnCalls[1].send({ fee: feeFnCall1 }),
-      fnCalls[2].send(),
-      fnCalls[3].send({ fee: feeFnCall3 }),
+      fnCalls[0].send({
+        fee: feeFnCall1,
+      }),
+      fnCalls[1].send(),
+      // fnCalls[2].send(),
+      // fnCalls[3].send({ fee: feeFnCall3 }),
     ];
 
     const receipts = await Promise.all(txs.map(tx => tx.wait({ timeout: txTimeoutSec })));

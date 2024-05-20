@@ -1,11 +1,10 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer, type Tuple } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
 import { MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX } from '../../constants.gen.js';
-import { AggregationObject } from '../aggregation_object.js';
 import { CallRequest } from '../call_request.js';
 import { RevertCode } from '../revert_code.js';
 import { ValidationRequests } from '../validation_requests.js';
@@ -18,10 +17,6 @@ import { PublicAccumulatedData } from './public_accumulated_data.js';
  */
 export class PublicKernelCircuitPublicInputs {
   constructor(
-    /**
-     * Aggregated proof of all the previous kernel iterations.
-     */
-    public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
     /**
      * Validation requests accumulated from public functions.
      */
@@ -54,7 +49,6 @@ export class PublicKernelCircuitPublicInputs {
 
   toBuffer() {
     return serializeToBuffer(
-      this.aggregationObject,
       this.validationRequests,
       this.endNonRevertibleData,
       this.end,
@@ -93,7 +87,6 @@ export class PublicKernelCircuitPublicInputs {
   static fromBuffer(buffer: Buffer | BufferReader): PublicKernelCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new PublicKernelCircuitPublicInputs(
-      reader.readObject(AggregationObject),
       reader.readObject(ValidationRequests),
       reader.readObject(PublicAccumulatedData),
       reader.readObject(PublicAccumulatedData),
@@ -106,7 +99,6 @@ export class PublicKernelCircuitPublicInputs {
 
   static empty() {
     return new PublicKernelCircuitPublicInputs(
-      AggregationObject.makeFake(),
       ValidationRequests.empty(),
       PublicAccumulatedData.empty(),
       PublicAccumulatedData.empty(),
@@ -119,7 +111,6 @@ export class PublicKernelCircuitPublicInputs {
 
   [inspect.custom]() {
     return `PublicKernelCircuitPublicInputs {
-      aggregationObject: ${this.aggregationObject},
       validationRequests: ${inspect(this.validationRequests)},
       endNonRevertibleData: ${inspect(this.endNonRevertibleData)},
       end: ${inspect(this.end)},

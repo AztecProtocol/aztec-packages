@@ -7,6 +7,7 @@ import {
   type ProvingTicket,
 } from '@aztec/circuit-types/interfaces';
 import { type Fr, type GlobalVariables, type VerificationKeys, getMockVerificationKeys } from '@aztec/circuits.js';
+import { sha256 } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type SimulationProvider } from '@aztec/simulator';
 import { type WorldStateSynchronizer } from '@aztec/world-state';
@@ -28,6 +29,9 @@ async function retrieveRealPrivateKernelVerificationKeys(config: BBProverConfig)
     privateKernelCircuit: await bbVerifier.getVerificationKeyData(PRIVATE_KERNEL),
     privateKernelToPublicCircuit: await bbVerifier.getVerificationKeyData(PRIVATE_KERNEL_TO_PUBLIC),
   };
+  logger.error(
+    `To public key hash: ${sha256(vks.privateKernelToPublicCircuit.keyAsFields.hash.toBuffer()).toString('hex')}`,
+  );
   return vks;
 }
 

@@ -25,7 +25,7 @@ use dep::types::{
     append_only_tree, assert_check_membership, calculate_empty_tree_root, calculate_subtree_root,
     indexed_tree, MembershipWitness
 },
-    mocked::{AggregationObject, Proof}, partial_state_reference::PartialStateReference,
+    partial_state_reference::PartialStateReference,
     public_data_tree_leaf::PublicDataTreeLeaf,
     public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage, traits::is_empty,
     utils::{field::{full_field_less_than, full_field_greater_than}, uint256::U256}

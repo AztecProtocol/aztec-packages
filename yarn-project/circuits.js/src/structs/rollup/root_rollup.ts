@@ -8,7 +8,6 @@ import {
   NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '../../constants.gen.js';
-import { AggregationObject } from '../aggregation_object.js';
 import { Header } from '../header.js';
 import { RootParityInput } from '../parity/root_parity_input.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
@@ -128,8 +127,6 @@ export class RootRollupInputs {
  */
 export class RootRollupPublicInputs {
   constructor(
-    /** Native aggregation state at the end of the rollup. */
-    public aggregationObject: AggregationObject,
     /** Snapshot of archive tree after this block/rollup been processed */
     public archive: AppendOnlyTreeSnapshot,
     /** A header of an L2 block. */
@@ -137,7 +134,7 @@ export class RootRollupPublicInputs {
   ) {}
 
   static getFields(fields: FieldsOf<RootRollupPublicInputs>) {
-    return [fields.aggregationObject, fields.archive, fields.header] as const;
+    return [fields.archive, fields.header] as const;
   }
 
   toBuffer() {
@@ -156,7 +153,6 @@ export class RootRollupPublicInputs {
   public static fromBuffer(buffer: Buffer | BufferReader): RootRollupPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new RootRollupPublicInputs(
-      reader.readObject(AggregationObject),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(Header),
     );

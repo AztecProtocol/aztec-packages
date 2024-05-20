@@ -7,7 +7,6 @@ use crate::{
     traits::{Empty, Eq, Serialize, Deserialize}, constants::KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
     utils::reader::Reader
 };
-use crate::mocked::AggregationObject;
 
 struct KernelCircuitPublicInputs {
     rollup_validation_requests: RollupValidationRequests,
@@ -93,7 +92,6 @@ mod tests {
     };
     use crate::address::AztecAddress;
     use crate::partial_state_reference::PartialStateReference;
-    use crate::mocked::AggregationObject;
 
     #[test]
     unconstrained fn empty_has_zero_gas_and_fee() {

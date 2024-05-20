@@ -1,7 +1,7 @@
 use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs;
 use crate::abis::previous_rollup_data::PreviousRollupData;
 use dep::types::{
-    mocked::AggregationObject, hash::accumulate_sha256,
+    hash::accumulate_sha256,
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
     NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, NUM_ENCRYPTED_LOGS_HASHES_PER_TX,

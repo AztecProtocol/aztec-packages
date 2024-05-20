@@ -14,7 +14,6 @@ import { SchnorrSignature } from '../barretenberg/index.js';
 import {
   ARCHIVE_HEIGHT,
   ARGS_LENGTH,
-  AggregationObject,
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
@@ -352,20 +351,6 @@ export function makePublicAccumulatedData(seed = 1, full = false): PublicAccumul
 }
 
 /**
- * Creates arbitrary aggregation object.
- * @param seed - The seed to use for generating the aggregation object.
- * @returns An aggregation object.
- */
-export function makeAggregationObject(seed = 1): AggregationObject {
-  return new AggregationObject(
-    new G1AffineElement(new Fq(BigInt(seed)), new Fq(BigInt(seed + 1))),
-    new G1AffineElement(new Fq(BigInt(seed + 0x100)), new Fq(BigInt(seed + 0x101))),
-    makeTuple(4, fr, seed + 2),
-    range(6, seed + 6),
-  );
-}
-
-/**
  * Creates arbitrary call context.
  * @param seed - The seed to use for generating the call context.
  * @param storageContractAddress - The storage contract address set on the call context.
@@ -437,7 +422,6 @@ export function makePublicKernelCircuitPublicInputs(
 ): PublicKernelCircuitPublicInputs {
   const tupleGenerator = fullAccumulatedData ? makeTuple : makeHalfFullTuple;
   return new PublicKernelCircuitPublicInputs(
-    makeAggregationObject(seed),
     makeValidationRequests(seed),
     makePublicAccumulatedData(seed, fullAccumulatedData),
     makePublicAccumulatedData(seed, fullAccumulatedData),
@@ -472,7 +456,6 @@ export function makePrivateKernelTailCircuitPublicInputs(
       )
     : undefined;
   return new PrivateKernelTailCircuitPublicInputs(
-    makeAggregationObject(seed),
     makeConstantData(seed + 0x300),
     RevertCode.OK,
     makeAztecAddress(seed + 0x700),
@@ -488,7 +471,6 @@ export function makePrivateKernelTailCircuitPublicInputs(
  */
 export function makeKernelCircuitPublicInputs(seed = 1, fullAccumulatedData = true): KernelCircuitPublicInputs {
   return new KernelCircuitPublicInputs(
-    makeAggregationObject(seed),
     makeRollupValidationRequests(seed),
     makeCombinedAccumulatedData(seed, fullAccumulatedData),
     makeConstantData(seed + 0x100),
@@ -914,7 +896,6 @@ export function makeBaseOrMergeRollupPublicInputs(
   return new BaseOrMergeRollupPublicInputs(
     RollupTypes.Base,
     new Fr(0n),
-    makeAggregationObject(seed + 0x100),
     makeConstantBaseRollupData(seed + 0x200, globalVariables),
     makePartialStateReference(seed + 0x300),
     makePartialStateReference(seed + 0x400),
@@ -1000,7 +981,6 @@ export function makeRootRollupPublicInputs(
   blockNumber: number | undefined = undefined,
 ): RootRollupPublicInputs {
   return RootRollupPublicInputs.from({
-    aggregationObject: makeAggregationObject(seed),
     archive: makeAppendOnlyTreeSnapshot(seed + 0x100),
     header: makeHeader(seed + 0x200, blockNumber),
   });
