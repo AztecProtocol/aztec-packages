@@ -845,13 +845,10 @@ class GoblinTranslatorFlavor {
      */
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        std::vector<FF> public_inputs;
-
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)
         {}
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
-            : public_inputs(proving_key->public_inputs)
         {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
             this->circuit_size = proving_key->circuit_size;
