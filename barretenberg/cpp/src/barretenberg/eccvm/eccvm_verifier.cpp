@@ -1,4 +1,4 @@
-#include "./eccvm_verifier.hpp"
+#include "./eccvm_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
@@ -12,7 +12,10 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     using ZeroMorph = ZeroMorphVerifier_<PCS>;
 
     RelationParameters<FF> relation_parameters;
-    transcript = std::make_shared<Transcript>(proof);
+
+    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
+    transcript = std::make_shared<Transcript>(stdlib_proof);
+
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
