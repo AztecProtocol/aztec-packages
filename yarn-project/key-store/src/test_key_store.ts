@@ -73,7 +73,7 @@ export class TestKeyStore implements KeyStore {
     await this.#keys.set(`${account.toString()}-ovpk_m`, publicKeys.masterOutgoingViewingPublicKey.toBuffer());
     await this.#keys.set(`${account.toString()}-tpk_m`, publicKeys.masterTaggingPublicKey.toBuffer());
 
-    // We store pk_m_hash under `account_address-{n/iv/ov/t}pk_m_hash` key to be able to obtain address and key prefix
+    // We store pk_m_hash under `account-{n/iv/ov/t}pk_m_hash` key to be able to obtain address and key prefix
     // using the #getKeyPrefixAndAccount function later on
     await this.#keys.set(`${account.toString()}-npk_m_hash`, publicKeys.masterNullifierPublicKey.hash().toBuffer());
     await this.#keys.set(
@@ -361,7 +361,7 @@ export class TestKeyStore implements KeyStore {
     const newPublicKey = derivePublicKeyFromSecretKey(newSecretKey);
     await this.#appendValue(`${account.toString()}-npk_m`, newPublicKey);
 
-    // At last we store npk_m_hash under `account_address-npk_m_hash` key to be able to obtain address and key prefix
+    // At last we store npk_m_hash under `account-npk_m_hash` key to be able to obtain address and key prefix
     // using the #getKeyPrefixAndAccount function later on
     await this.#appendValue(`${account.toString()}-npk_m_hash`, newPublicKey.hash());
   }
