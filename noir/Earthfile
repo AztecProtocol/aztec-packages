@@ -59,7 +59,7 @@ examples:
   WORKDIR ../prove_and_verify
   RUN ./test.sh
 
-  WORKDIR noir-repo/examples/recursion
+  WORKDIR ../recursion
   RUN ./test.sh
 
 format:
