@@ -69,7 +69,7 @@ function append(
 
 /** Processes an entry with event name 'acir-proof-generated' and updates results */
 function processAcirProofGenerated(entry: ProofConstructed, results: BenchmarkCollectedResults) {
-  if (entry.acir_test == 'sha256') {
+  if (entry.acir_test === 'sha256') {
     append(results, `proof_construction_time_sha256`, entry.threads, entry.value);
   }
 }
