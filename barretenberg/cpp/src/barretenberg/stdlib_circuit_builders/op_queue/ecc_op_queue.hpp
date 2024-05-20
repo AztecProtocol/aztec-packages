@@ -320,9 +320,9 @@ class ECCOpQueue {
      */
     UltraOp add_accumulate(const Point& to_add)
     {
-        if (raw_ops.size() == 137) {
-            info("about to append bad op! adding ", to_add);
-        }
+        // if (raw_ops.size() == 137) {
+        //     info("about to append bad op! adding ", to_add);
+        // }
         // Update the accumulator natively
         accumulator = accumulator + to_add;
 
@@ -353,9 +353,9 @@ class ECCOpQueue {
      */
     UltraOp mul_accumulate(const Point& to_mul, const Fr& scalar)
     {
-        if (raw_ops.size() == 137) {
-            info("about to append bad op! adding ", scalar, " * ", to_mul);
-        }
+        // if (raw_ops.size() == 137) {
+        //     info("about to append bad op! adding ", scalar, " * ", to_mul);
+        // }
 
         // Update the accumulator natively
         accumulator = accumulator + to_mul * scalar;
@@ -414,9 +414,9 @@ class ECCOpQueue {
      */
     UltraOp eq_and_reset()
     {
-        if (raw_ops.size() == 137) {
-            info("about to append bad op! eq and reset with ", accumulator);
-        }
+        // if (raw_ops.size() == 137) {
+        //     info("about to append bad op! eq and reset with ", accumulator);
+        // }
 
         auto expected = accumulator;
         accumulator.self_set_infinity();
