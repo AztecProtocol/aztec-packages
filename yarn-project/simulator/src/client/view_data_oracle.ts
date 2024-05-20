@@ -35,13 +35,13 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
-   * Retrieve nullifier keys associated with a specific master nullifier public key and app address.
-   * @param npkMHash - The master nullifier public key hash.
+   * Retrieve keys associated with a specific master public key and app address.
+   * @param pkMHash - The master public key hash.
    * @returns A Promise that resolves to nullifier keys.
-   * @throws If the nullifier keys are not registered in the key store.
+   * @throws If the keys are not registered in the key store.
    */
-  public override getKeyValidationRequest(npkMHash: Fr): Promise<KeyValidationRequest> {
-    return this.db.getKeyValidationRequest(npkMHash, this.contractAddress);
+  public override getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
+    return this.db.getKeyValidationRequest(pkMHash, this.contractAddress);
   }
 
   /**

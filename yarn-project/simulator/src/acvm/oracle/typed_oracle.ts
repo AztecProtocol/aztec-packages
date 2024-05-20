@@ -82,7 +82,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('unpackReturns');
   }
 
-  getKeyValidationRequest(_npkMHash: Fr): Promise<KeyValidationRequest> {
+  getKeyValidationRequest(_pkMHash: Fr): Promise<KeyValidationRequest> {
     throw new OracleMethodNotAvailableError('getKeyValidationRequest');
   }
 

@@ -66,12 +66,12 @@ export interface DBOracle extends CommitmentsDB {
   popCapsule(): Promise<Fr[]>;
 
   /**
-   * Retrieve nullifier keys associated with a specific master nullifier public key and app address.
-   * @param npkMHash - The master nullifier public key hash.
+   * Retrieve keys associated with a specific master public key and app address.
+   * @param pkMHash - The master public key hash.
    * @returns A Promise that resolves to nullifier keys.
-   * @throws If the nullifier keys are not registered in the key store.
+   * @throws If the keys are not registered in the key store.
    */
-  getKeyValidationRequest(npkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest>;
+  getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest>;
 
   /**
    * Retrieves a set of notes stored in the database for a given contract address and storage slot.

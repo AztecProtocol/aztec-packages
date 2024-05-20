@@ -68,7 +68,8 @@ export class PrivateKernelResetHints {
      */
     public masterSecretKeys: Tuple<GrumpkinPrivateKey, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
     /**
-     * Generators used to derive app secret keys from secret. In 1 to 1 correspondence with master secret keys.
+     * Generators used to derive app secret keys from secret. In 1 to 1 correspondence with `masterSecretKeys`
+     * (e.g. app secret key generator at index 2 corresponds to master secret key at the same index).
      */
     public appSecretKeysGenerators: Tuple<Fr, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
   ) {}
