@@ -183,10 +183,10 @@ describe('e2e_key_rotation', () => {
       // docs:end:create_keys
       // docs:start:rotateMasterNullifierKey
       await pxeB.rotateMasterNullifierKey(walletB.getAddress(), newNskM);
-       // docs:end:rotateMasterNullifierKey
-       // docs:start:rotate_npk_m
+      // docs:end:rotateMasterNullifierKey
+      // docs:start:rotate_npk_m
       await keyRegistryWithB.methods.rotate_npk_m(walletB.getAddress(), newNpkM, 0).send().wait();
-       // docs:end:rotate_npk_m
+      // docs:end:rotate_npk_m
       await crossDelay();
     }
 
