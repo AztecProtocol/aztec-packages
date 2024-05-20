@@ -16,9 +16,9 @@ It is still possible to nullify the notes with the old nullifier key even after 
 
 ## Things to consider
 
-* Do not associate a note directly with its owner, as keys can be rotated which will lose their access to the note
-* 'Owner' is arbitrary - as long as you know the nullifier secret, you can nullify a note
-* Consider how key rotation can affect account contracts, eg you can add additional security checks for who or how the key rotation is called
+- Do not associate a note directly with its owner, as keys can be rotated which will lose their access to the note
+- 'Owner' is arbitrary - as long as you know the nullifier secret, you can nullify a note
+- Consider how key rotation can affect account contracts, eg you can add additional security checks for who or how the key rotation is called
 
 ## Glossary
 
