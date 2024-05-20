@@ -1,4 +1,4 @@
-import { Note } from '@aztec/circuit-types';
+import { Note, type ProofCreator } from '@aztec/circuit-types';
 import {
   FunctionData,
   FunctionSelector,
@@ -28,7 +28,6 @@ import { type ExecutionResult, type NoteAndSlot } from '@aztec/simulator';
 
 import { mock } from 'jest-mock-extended';
 
-import { type ProofCreator } from './interface/proof_creator.js';
 import { KernelProver } from './kernel_prover.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
 
@@ -78,6 +77,7 @@ describe('Kernel Prover', () => {
       partialWitness: new Map(),
       enqueuedPublicFunctionCalls: [],
       publicTeardownFunctionCall: PublicCallRequest.empty(),
+      noteEncryptedLogs: [],
       encryptedLogs: [],
       unencryptedLogs: [],
     };
@@ -164,6 +164,7 @@ describe('Kernel Prover', () => {
     );
     proofCreator.createProofInit.mockResolvedValue(createProofOutput([]));
     proofCreator.createProofInner.mockResolvedValue(createProofOutput([]));
+    proofCreator.createProofReset.mockResolvedValue(createProofOutput([]));
     proofCreator.createProofTail.mockResolvedValue(createProofOutputFinal([]));
     proofCreator.createAppCircuitProof.mockResolvedValue(createAppCircuitProofOutput());
 

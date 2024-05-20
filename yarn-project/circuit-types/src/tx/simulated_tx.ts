@@ -1,7 +1,4 @@
-import { Fr, Gas } from '@aztec/circuits.js';
-
-import { PublicKernelType } from './processed_tx.js';
-import { type ProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
+import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
 
 // REFACTOR: Review what we need to expose to the user when running a simulation.
@@ -13,32 +10,9 @@ import { Tx } from './tx.js';
 export class SimulatedTx {
   constructor(
     public tx: Tx,
-    public privateReturnValues?: ProcessReturnValues,
+    public privateReturnValues?: NestedProcessReturnValues,
     public publicOutput?: PublicSimulationOutput,
   ) {}
-
-  /**
-   * Returns suggested total and teardown gas limits for the simulated tx.
-   * Note that public gas usage is only accounted for if the publicOutput is present.
-   * @param pad - Percentage to pad the suggested gas limits by, defaults to 10%.
-   */
-  public getGasLimits(pad = 0.1) {
-    const privateGasUsed = this.tx.data.publicInputs.end.gasUsed;
-    if (this.publicOutput) {
-      const publicGasUsed = Object.values(this.publicOutput.gasUsed).reduce(
-        (total, current) => total.add(current),
-        Gas.empty(),
-      );
-      const teardownGas = this.publicOutput.gasUsed[PublicKernelType.TEARDOWN] ?? Gas.empty();
-
-      return {
-        totalGas: privateGasUsed.add(publicGasUsed).mul(1 + pad),
-        teardownGas: teardownGas.mul(1 + pad),
-      };
-    }
-
-    return { totalGas: privateGasUsed.mul(1 + pad), teardownGas: Gas.empty() };
-  }
 
   /**
    * Convert a SimulatedTx class object to a plain JSON object.
@@ -47,7 +21,7 @@ export class SimulatedTx {
   public toJSON() {
     return {
       tx: this.tx.toJSON(),
-      privateReturnValues: this.privateReturnValues?.map(fr => fr.toString()),
+      privateReturnValues: this.privateReturnValues && this.privateReturnValues.toJSON(),
       publicOutput: this.publicOutput && this.publicOutput.toJSON(),
     };
   }
@@ -60,7 +34,9 @@ export class SimulatedTx {
   public static fromJSON(obj: any) {
     const tx = Tx.fromJSON(obj.tx);
     const publicOutput = obj.publicOutput ? PublicSimulationOutput.fromJSON(obj.publicOutput) : undefined;
-    const privateReturnValues = obj.privateReturnValues?.map(Fr.fromString);
+    const privateReturnValues = obj.privateReturnValues
+      ? NestedProcessReturnValues.fromJSON(obj.privateReturnValues)
+      : undefined;
 
     return new SimulatedTx(tx, privateReturnValues, publicOutput);
   }

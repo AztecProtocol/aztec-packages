@@ -11,6 +11,7 @@ import {
   MerkleTreeId,
   type NoteFilter,
   type PXE,
+  type ProofCreator,
   SimulatedTx,
   SimulationError,
   Tx,
@@ -37,16 +38,18 @@ import {
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type ContractArtifact, type DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fq, Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
   type AcirSimulator,
   type ExecutionResult,
+  accumulateReturnValues,
   collectEnqueuedPublicFunctionCalls,
   collectPublicTeardownFunctionCall,
   collectSortedEncryptedLogs,
+  collectSortedNoteEncryptedLogs,
   collectSortedUnencryptedLogs,
   resolveOpcodeLocations,
 } from '@aztec/simulator';
@@ -58,7 +61,6 @@ import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
-import { type ProofCreator } from '../kernel_prover/interface/proof_creator.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
@@ -191,6 +193,10 @@ export class PXEService implements PXE {
     return accountCompleteAddress;
   }
 
+  public async rotateMasterNullifierKey(account: AztecAddress, secretKey: Fq = Fq.random()): Promise<void> {
+    await this.keyStore.rotateMasterNullifierKey(account, secretKey);
+  }
+
   public async getRegisteredAccounts(): Promise<CompleteAddress[]> {
     // Get complete addresses of both the recipients and the accounts
     const completeAddresses = await this.db.getCompleteAddresses();
@@ -205,14 +211,6 @@ export class PXEService implements PXE {
     const result = await this.getRegisteredAccounts();
     const account = result.find(r => r.address.equals(address));
     return Promise.resolve(account);
-  }
-
-  public async getRegisteredAccountPublicKeysHash(address: AztecAddress): Promise<Fr | undefined> {
-    const accounts = await this.keyStore.getAccounts();
-    if (!accounts.some(account => account.equals(address))) {
-      return undefined;
-    }
-    return this.keyStore.getPublicKeysHash(address);
   }
 
   public async registerRecipient(recipient: CompleteAddress): Promise<void> {
@@ -468,7 +466,7 @@ export class PXEService implements PXE {
     return txHash;
   }
 
-  public async viewTx(
+  public async simulateUnconstrained(
     functionName: string,
     args: any[],
     to: AztecAddress,
@@ -665,6 +663,7 @@ export class PXEService implements PXE {
     this.log.debug(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
 
+    const noteEncryptedLogs = new EncryptedTxL2Logs([collectSortedNoteEncryptedLogs(executionResult)]);
     const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(executionResult)]);
     const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(executionResult)]);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
@@ -677,12 +676,14 @@ export class PXEService implements PXE {
     const tx = new Tx(
       publicInputs,
       proof.binaryProof,
+      noteEncryptedLogs,
       encryptedLogs,
       unencryptedLogs,
       enqueuedPublicFunctions,
       teardownPublicFunction,
     );
-    return new SimulatedTx(tx, executionResult.returnValues);
+
+    return new SimulatedTx(tx, accumulateReturnValues(executionResult));
   }
 
   /**
@@ -802,10 +803,6 @@ export class PXEService implements PXE {
 
   public getSyncStatus() {
     return Promise.resolve(this.synchronizer.getSyncStatus());
-  }
-
-  public getKeyStore() {
-    return this.keyStore;
   }
 
   public async isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {

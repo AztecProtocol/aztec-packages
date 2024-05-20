@@ -1,5 +1,16 @@
-import { type AccountWallet, AztecAddress, Fr, type PXE } from '@aztec/aztec.js';
-import { CompleteAddress, Point, PublicKeys } from '@aztec/circuits.js';
+import { createAccounts } from '@aztec/accounts/testing';
+import { type AccountWallet, AztecAddress, type AztecNode, Fr, type L2Block, type PXE } from '@aztec/aztec.js';
+import {
+  CompleteAddress,
+  GeneratorIndex,
+  INITIAL_L2_BLOCK_NUM,
+  Point,
+  PublicKeys,
+  computeAppNullifierSecretKey,
+  deriveMasterNullifierSecretKey,
+} from '@aztec/circuits.js';
+import { siloNullifier } from '@aztec/circuits.js/hash';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { KeyRegistryContract, TestContract } from '@aztec/noir-contracts.js';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 
@@ -15,6 +26,7 @@ describe('Key Registry', () => {
   let keyRegistry: KeyRegistryContract;
 
   let pxe: PXE;
+  let aztecNode: AztecNode;
   let testContract: TestContract;
   jest.setTimeout(TIMEOUT);
 
@@ -25,7 +37,7 @@ describe('Key Registry', () => {
   const account = CompleteAddress.random();
 
   beforeAll(async () => {
-    ({ teardown, pxe, wallets } = await setup(3));
+    ({ aztecNode, teardown, pxe, wallets } = await setup(2));
     keyRegistry = await KeyRegistryContract.at(getCanonicalKeyRegistryAddress(), wallets[0]);
 
     testContract = await TestContract.deploy(wallets[0]).send().deployed();
@@ -44,12 +56,16 @@ describe('Key Registry', () => {
 
   describe('failure cases', () => {
     it('throws when address preimage check fails', async () => {
-      const publicKeysBuf = account.publicKeys.toBuffer();
-      // We randomly invalidate some of the keys by overwriting random byte
-      const byteIndex = Math.floor(Math.random() * publicKeysBuf.length);
-      publicKeysBuf[byteIndex] = (publicKeysBuf[byteIndex] + 2) % 256;
+      // First we get invalid keys by replacing any of the 8 fields of public keys with a random value
+      let invalidPublicKeys: PublicKeys;
+      {
+        // We call toBuffer and fromBuffer first to ensure that we get a deep copy
+        const publicKeysFields = PublicKeys.fromBuffer(account.publicKeys.toBuffer()).toFields();
+        const randomIndex = Math.floor(Math.random() * publicKeysFields.length);
+        publicKeysFields[randomIndex] = Fr.random();
 
-      const publicKeys = PublicKeys.fromBuffer(publicKeysBuf);
+        invalidPublicKeys = PublicKeys.fromFields(publicKeysFields);
+      }
 
       await expect(
         keyRegistry
@@ -57,8 +73,8 @@ describe('Key Registry', () => {
           .methods.register(
             account,
             account.partialAddress,
-            // TODO(#6337): Directly dump account.publicKeys here
-            publicKeys.toNoirStruct(),
+            // TODO(#6337): Make calling `toNoirStruct()` unnecessary
+            invalidPublicKeys.toNoirStruct(),
           )
           .send()
           .wait(),
@@ -108,7 +124,7 @@ describe('Key Registry', () => {
         .methods.register(
           account,
           account.partialAddress,
-          // TODO(#6337): Directly dump account.publicKeys here
+          // TODO(#6337): Make calling `toNoirStruct()` unnecessary
           account.publicKeys.toNoirStruct(),
         )
         .send()
@@ -147,11 +163,13 @@ describe('Key Registry', () => {
     const secondNewMasterNullifierPublicKey = Point.random();
 
     it('rotates npk_m', async () => {
+      // docs:start:key-rotation
       await keyRegistry
         .withWallet(wallets[0])
         .methods.rotate_npk_m(wallets[0].getAddress(), firstNewMasterNullifierPublicKey, Fr.ZERO)
         .send()
         .wait();
+      // docs:end:key-rotation
 
       // We check if our rotated nullifier key is equal to the key obtained from the getter by reading our registry
       // contract from the test contract. We expect this to fail because the change has not been applied yet
@@ -207,5 +225,54 @@ describe('Key Registry', () => {
         .send()
         .wait();
     });
+  });
+
+  describe('using nsk_app to detect nullification', () => {
+    // This test checks that it possible to detect that a note has been nullified just by using nsk_app. Note that this
+    // only works for non-transient note as transient notes never emit a note hash which makes it impossible to brute
+    // force their nullifier. This makes this scheme a bit useless in practice.
+    it('nsk_app and contract address are enough to detect note nullification', async () => {
+      const secret = Fr.random();
+      const [account] = await createAccounts(pxe, 1, [secret]);
+
+      const masterNullifierSecretKey = deriveMasterNullifierSecretKey(secret);
+      const nskApp = computeAppNullifierSecretKey(masterNullifierSecretKey, testContract.address);
+
+      const noteValue = 5;
+      const noteOwner = account.getAddress();
+      const noteStorageSlot = 12;
+
+      await testContract.methods.call_create_note(noteValue, noteOwner, noteStorageSlot).send().wait();
+
+      expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(0);
+
+      await testContract.methods.call_destroy_note(noteStorageSlot).send().wait();
+
+      expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(1);
+    });
+
+    const getNumNullifiedNotes = async (nskApp: Fr, contractAddress: AztecAddress) => {
+      // 1. Get all the note hashes
+      const blocks = await aztecNode.getBlocks(INITIAL_L2_BLOCK_NUM, 1000);
+      const noteHashes = blocks.flatMap((block: L2Block) =>
+        block.body.txEffects.flatMap(txEffect => txEffect.noteHashes),
+      );
+      // 2. Get all the seen nullifiers
+      const nullifiers = blocks.flatMap((block: L2Block) =>
+        block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
+      );
+      // 3. Derive all the possible nullifiers using nskApp
+      const derivedNullifiers = noteHashes.map(noteHash => {
+        const innerNullifier = poseidon2Hash([noteHash, nskApp, GeneratorIndex.NOTE_NULLIFIER]);
+        return siloNullifier(contractAddress, innerNullifier);
+      });
+      // 4. Count the number of derived nullifiers that are in the nullifiers array
+      return derivedNullifiers.reduce((count, derived) => {
+        if (nullifiers.some(nullifier => nullifier.equals(derived))) {
+          count++;
+        }
+        return count;
+      }, 0);
+    };
   });
 });

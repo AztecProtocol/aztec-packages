@@ -385,8 +385,8 @@ export class KVPxeDatabase implements PxeDatabase {
     return value ? CompleteAddress.fromBuffer(value) : undefined;
   }
 
-  getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    return Promise.resolve(this.#getCompleteAddress(address));
+  getCompleteAddress(account: AztecAddress): Promise<CompleteAddress | undefined> {
+    return Promise.resolve(this.#getCompleteAddress(account));
   }
 
   getCompleteAddresses(): Promise<CompleteAddress[]> {

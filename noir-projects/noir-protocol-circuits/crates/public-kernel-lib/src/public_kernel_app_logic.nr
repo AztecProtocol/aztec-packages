@@ -1,5 +1,5 @@
 use dep::types::abis::public_call_data::PublicCallData;
-use dep::types::abis::kernel_data::PublicKernelData;
+use dep::types::abis::public_kernel_data::PublicKernelData;
 use dep::types::PublicKernelCircuitPublicInputs;
 use dep::types::abis::kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder;
 use dep::types::utils::arrays::array_to_bounded_vec;
@@ -186,23 +186,30 @@ mod tests {
     fn circuit_outputs_should_be_correctly_populated_with_previous_commitments() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         let contract_address = builder.public_call.contract_address;
-        // Setup 2 new note hashes on the previous kernel.
-        builder.previous_kernel.append_new_note_hashes(2);
+        // Setup 2 new note hashes and logs on the previous kernel.
+        builder.previous_kernel.append_new_note_hashes(2, true);
         let previous = builder.previous_kernel.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash);
         // Setup 2 new note hashes on the current public inputs.
         let current = [
-            NoteHash { value: previous[1].value + 1, counter: 3 },
-            NoteHash { value: previous[1].value + 2, counter: 4 }
+            NoteHash { value: previous[1].value + 1, counter: 5 },
+            NoteHash { value: previous[1].value + 2, counter: 6 }
         ];
+        let note_logs = builder.previous_kernel.note_encrypted_logs_hashes.storage;
         builder.public_call.public_inputs.new_note_hashes.extend_from_array(current);
         let siloed = current.map(|c: NoteHash| silo_note_hash(contract_address, c.value));
         let new_note_hashes = [
-            previous[0], previous[1], NoteHash { value: siloed[0], counter: 3 }, NoteHash { value: siloed[1], counter: 4 }
+            previous[0], previous[1], NoteHash { value: siloed[0], counter: 5 }, NoteHash { value: siloed[1], counter: 6 }
         ];
 
         let public_inputs = builder.execute();
 
         assert(array_eq(public_inputs.end.new_note_hashes, new_note_hashes));
+        assert(
+            array_eq(
+                public_inputs.end.note_encrypted_logs_hashes,
+                [note_logs[0], note_logs[1]]
+            )
+        );
     }
 
     #[test]
@@ -313,15 +320,25 @@ mod tests {
             prev_unencrypted_log_preimages_length
         );
 
+        let expected_unencrypted_logs = [
+            builder.previous_kernel.unencrypted_logs_hashes.storage[0], builder.public_call.public_inputs.unencrypted_logs_hashes.storage[0]
+        ];
+        let expected_encrypted_logs = [builder.previous_kernel.encrypted_logs_hashes.storage[0]];
+
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.end.encrypted_log_preimages_length, prev_encrypted_log_preimages_length);
-        assert_eq(
-            public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
+        assert(
+            array_eq(
+                public_inputs.end.encrypted_logs_hashes,
+                expected_encrypted_logs
+            )
         );
-        assert_eq(public_inputs.end.encrypted_logs_hashes[0].value, prev_encrypted_logs_hash);
-        assert_eq(public_inputs.end.unencrypted_logs_hashes[0].value, prev_unencrypted_logs_hash);
-        assert_eq(public_inputs.end.unencrypted_logs_hashes[1].value, unencrypted_logs_hash);
+        assert(
+            array_eq(
+                public_inputs.end.unencrypted_logs_hashes,
+                expected_unencrypted_logs
+            )
+        );
     }
 
     #[test(should_fail_with="No contract storage update requests are allowed for static calls")]
