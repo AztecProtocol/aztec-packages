@@ -665,6 +665,18 @@ export function mapLogHashFromNoir(logHash: LogHashNoir): LogHash {
 }
 
 /**
+ * Maps a ts ScopedLogHash to a noir ScopedLogHash.
+ * @param logHash - The ts LogHash.
+ * @returns The noir log hash.
+ */
+export function mapScopedLogHashToNoir(scopedLogHash: ScopedLogHash): ScopedLogHashNoir {
+  return {
+    log_hash: mapLogHashToNoir(scopedLogHash.logHash),
+    contract_address: mapAztecAddressToNoir(scopedLogHash.contractAddress),
+  };
+}
+
+/**
  * Maps a noir ScopedLogHash to a ts ScopedLogHash.
  * @param logHash - The noir LogHash.
  * @returns The TS log hash.
@@ -1170,7 +1182,7 @@ export function mapPrivateAccumulatedDataToNoir(data: PrivateAccumulatedData): P
     new_l2_to_l1_msgs: mapTuple(data.newL2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
     note_encrypted_logs_hashes: mapTuple(data.noteEncryptedLogsHashes, mapNoteLogHashToNoir),
     encrypted_logs_hashes: mapTuple(data.encryptedLogsHashes, mapLogHashToNoir),
-    unencrypted_logs_hashes: mapTuple(data.unencryptedLogsHashes, mapLogHashToNoir),
+    unencrypted_logs_hashes: mapTuple(data.unencryptedLogsHashes, mapScopedLogHashToNoir),
     private_call_stack: mapTuple(data.privateCallStack, mapScopedPrivateCallRequestToNoir),
     public_call_stack: mapTuple(data.publicCallStack, mapCallRequestToNoir),
   };
@@ -1535,7 +1547,7 @@ function mapPrivateKernelTailHintsToNoir(inputs: PrivateKernelTailHints): Privat
     sorted_note_encrypted_log_hashes_indexes: mapTuple(inputs.sortedNoteEncryptedLogHashesIndexes, mapNumberToNoir),
     sorted_encrypted_log_hashes: mapTuple(inputs.sortedEncryptedLogHashes, mapLogHashToNoir),
     sorted_encrypted_log_hashes_indexes: mapTuple(inputs.sortedEncryptedLogHashesIndexes, mapNumberToNoir),
-    sorted_unencrypted_log_hashes: mapTuple(inputs.sortedUnencryptedLogHashes, mapLogHashToNoir),
+    sorted_unencrypted_log_hashes: mapTuple(inputs.sortedUnencryptedLogHashes, mapScopedLogHashToNoir),
     sorted_unencrypted_log_hashes_indexes: mapTuple(inputs.sortedUnencryptedLogHashesIndexes, mapNumberToNoir),
   };
 }
