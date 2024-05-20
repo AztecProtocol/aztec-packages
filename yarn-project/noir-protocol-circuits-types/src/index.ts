@@ -410,7 +410,7 @@ export function convertPrivateKernelResetOutputsFromWitnessMap(
 ): PrivateKernelCircuitPublicInputs {
   // Decode the witness map into two fields, the return values and the inputs
   const artifact = ClientCircuitArtifacts[PrivateResetTagToArtifactName[sizeTag]];
-  const decodedInputs: DecodedInputs = abiDecode(artifact.abi, outputs);
+  const decodedInputs: DecodedInputs = abiDecode(artifact.abi as Abi, outputs);
 
   // Cast the inputs as the return type
   const returnType = decodedInputs.return_value as ResetReturnType;
