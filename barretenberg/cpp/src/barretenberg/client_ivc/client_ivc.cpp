@@ -25,6 +25,13 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     // Construct a merge proof (and add a recursive merge verifier to the circuit if a previous merge proof exists)
     goblin.merge(circuit);
 
+    // // DEBUG
+    // for (size_t idx = 0; idx < 5000; ++idx) {
+    //     FF val = FF::random_element();
+    //     auto wit_idx = circuit.add_variable(val);
+    //     circuit.create_add_gate({ wit_idx, circuit.zero_idx, circuit.zero_idx, 1, 0, 0, -val });
+    // }
+
     // Construct the prover instance for circuit
     prover_instance = std::make_shared<ProverInstance>(circuit, structured_flag);
 

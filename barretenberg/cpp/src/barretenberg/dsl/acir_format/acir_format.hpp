@@ -108,7 +108,8 @@ template <typename Builder = UltraCircuitBuilder>
 Builder create_circuit(const AcirFormat& constraint_system,
                        size_t size_hint = 0,
                        WitnessVector const& witness = {},
-                       bool honk_recursion = false);
+                       bool honk_recursion = false,
+                       std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>());
 
 template <typename Builder>
 void build_constraints(Builder& builder,

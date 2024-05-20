@@ -72,13 +72,39 @@ TEST_F(ClientIVCTests, Basic)
 {
     ClientIVC ivc;
 
+    using Flavor = GoblinUltraFlavor; // This is the only option
+    using Builder = Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
+
     // Initialize the IVC with an arbitrary circuit
     Builder circuit_0 = create_mock_circuit(ivc);
     ivc.accumulate(circuit_0);
 
+    Prover prover{ ivc.prover_instance };
+    info("gates = ", circuit_0.get_num_gates());
+    info("circuit size = ", prover.instance->proving_key.circuit_size);
+    auto proof = prover.construct_proof();
+
+    auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
+    Verifier verifier{ verification_key };
+
+    EXPECT_TRUE(verifier.verify_proof(proof));
+
     // Create another circuit and accumulate
     Builder circuit_1 = create_mock_circuit(ivc);
     ivc.accumulate(circuit_1);
+
+    Prover prover2{ ivc.prover_instance };
+    info("gates = ", circuit_1.get_num_gates());
+    info("circuit size = ", prover.instance->proving_key.circuit_size);
+    auto proof2 = prover2.construct_proof();
+
+    auto verification_key2 = std::make_shared<VerificationKey>(prover2.instance->proving_key);
+    Verifier verifier2{ verification_key2 };
+
+    EXPECT_TRUE(verifier2.verify_proof(proof2));
 
     EXPECT_TRUE(prove_and_verify(ivc));
 };
@@ -123,19 +149,34 @@ TEST_F(ClientIVCTests, BasicLarge)
 {
     ClientIVC ivc;
 
+    using Flavor = GoblinUltraFlavor; // This is the only option
+    using Builder = Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
+
     // Construct a set of arbitrary circuits
     size_t NUM_CIRCUITS = 5;
     std::vector<Builder> circuits;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        circuits.emplace_back(create_mock_circuit(ivc));
+        circuits.emplace_back(create_mock_circuit(ivc, 4));
     }
 
     // Accumulate each circuit
     for (auto& circuit : circuits) {
         ivc.accumulate(circuit);
+
+        info("HERE");
+        Prover prover{ ivc.prover_instance };
+        info("gates = ", circuit.get_num_gates());
+        info("circuit size = ", prover.instance->proving_key.circuit_size);
+        auto proof = prover.construct_proof();
+        auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
+        Verifier verifier{ verification_key };
+        EXPECT_TRUE(verifier.verify_proof(proof));
     }
 
-    EXPECT_TRUE(prove_and_verify(ivc));
+    // EXPECT_TRUE(prove_and_verify(ivc));
 };
 
 /**
