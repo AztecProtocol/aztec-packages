@@ -181,6 +181,7 @@ export function toTxEffect(tx: ProcessedTx): TxEffect {
     tx.data.end.publicDataUpdateRequests
       .map(t => new PublicDataWrite(t.leafSlot, t.newValue))
       .filter(h => !h.isEmpty()),
+    tx.data.end.noteEncryptedLogPreimagesLength,
     tx.data.end.encryptedLogPreimagesLength,
     tx.data.end.unencryptedLogPreimagesLength,
     tx.noteEncryptedLogs || EncryptedTxL2Logs.empty(),
@@ -190,14 +191,13 @@ export function toTxEffect(tx: ProcessedTx): TxEffect {
 }
 
 function validateProcessedTxLogs(tx: ProcessedTx): void {
-  const unencryptedLogs = tx.unencryptedLogs || UnencryptedTxL2Logs.empty();
-  let kernelHash = tx.data.end.unencryptedLogsHash;
-  let referenceHash = Fr.fromBuffer(unencryptedLogs.hash());
+  const noteEncryptedLogs = tx.noteEncryptedLogs || EncryptedTxL2Logs.empty();
+  let kernelHash = tx.data.end.noteEncryptedLogsHash;
+  let referenceHash = Fr.fromBuffer(noteEncryptedLogs.hash(0));
   if (!referenceHash.equals(kernelHash)) {
     throw new Error(
-      `Unencrypted logs hash mismatch. Expected ${referenceHash.toString()}, got ${kernelHash.toString()}.
-             Processed: ${JSON.stringify(unencryptedLogs.toJSON())}
-             Kernel Length: ${tx.data.end.unencryptedLogPreimagesLength}`,
+      `Note encrypted logs hash mismatch. Expected ${referenceHash.toString()}, got ${kernelHash.toString()}.
+             Processed: ${JSON.stringify(noteEncryptedLogs.toJSON())}`,
     );
   }
   const encryptedLogs = tx.encryptedLogs || EncryptedTxL2Logs.empty();
@@ -209,17 +209,26 @@ function validateProcessedTxLogs(tx: ProcessedTx): void {
              Processed: ${JSON.stringify(encryptedLogs.toJSON())}`,
     );
   }
-  const noteEncryptedLogs = tx.noteEncryptedLogs || EncryptedTxL2Logs.empty();
-  kernelHash = tx.data.end.noteEncryptedLogsHash;
-  referenceHash = Fr.fromBuffer(noteEncryptedLogs.hash(0));
+  const unencryptedLogs = tx.unencryptedLogs || UnencryptedTxL2Logs.empty();
+  kernelHash = tx.data.end.unencryptedLogsHash;
+  referenceHash = Fr.fromBuffer(unencryptedLogs.hash());
   if (!referenceHash.equals(kernelHash)) {
     throw new Error(
-      `Note encrypted logs hash mismatch. Expected ${referenceHash.toString()}, got ${kernelHash.toString()}.
+      `Unencrypted logs hash mismatch. Expected ${referenceHash.toString()}, got ${kernelHash.toString()}.
+             Processed: ${JSON.stringify(unencryptedLogs.toJSON())}
+             Kernel Length: ${tx.data.end.unencryptedLogPreimagesLength}`,
+    );
+  }
+  let referenceLength = new Fr(noteEncryptedLogs.getKernelLength());
+  let kernelLength = tx.data.end.noteEncryptedLogPreimagesLength;
+  if (!referenceLength.equals(kernelLength)) {
+    throw new Error(
+      `Note encrypted logs length mismatch. Expected ${referenceLength.toString()}, got ${kernelLength.toString()}.
              Processed: ${JSON.stringify(noteEncryptedLogs.toJSON())}`,
     );
   }
-  let referenceLength = new Fr(encryptedLogs.getKernelLength() + noteEncryptedLogs.getKernelLength());
-  let kernelLength = tx.data.end.encryptedLogPreimagesLength;
+  referenceLength = new Fr(encryptedLogs.getKernelLength());
+  kernelLength = tx.data.end.encryptedLogPreimagesLength;
   if (!referenceLength.equals(kernelLength)) {
     throw new Error(
       `Encrypted logs length mismatch. Expected ${referenceLength.toString()}, got ${kernelLength.toString()}.
@@ -231,7 +240,7 @@ function validateProcessedTxLogs(tx: ProcessedTx): void {
   if (!referenceLength.equals(kernelLength)) {
     throw new Error(
       `Unencrypted logs length mismatch. Expected ${referenceLength.toString()}, got ${kernelLength.toString()}.
-             Processed: ${JSON.stringify(encryptedLogs.toJSON())}`,
+             Processed: ${JSON.stringify(unencryptedLogs.toJSON())}`,
     );
   }
 }

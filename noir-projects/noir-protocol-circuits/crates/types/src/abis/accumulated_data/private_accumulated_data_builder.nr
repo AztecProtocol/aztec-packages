@@ -58,8 +58,8 @@ impl PrivateAccumulatedDataBuilder {
         let encrypted_logs_hash = compute_tx_logs_hash(self.encrypted_logs_hashes.storage);
         let unencrypted_logs_hash = compute_tx_logs_hash(self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.log_hash));
         let gas_used = self.to_metered_gas_used() + Gas::tx_overhead() + teardown_gas;
-        let encrypted_log_preimages_length = self.encrypted_logs_hashes.storage.fold(0, |a, b: LogHash| a + b.length)
-            + self.note_encrypted_logs_hashes.storage.fold(0, |a, b: NoteLogHash| a + b.length);
+        let note_encrypted_log_preimages_length = self.note_encrypted_logs_hashes.storage.fold(0, |a, b: NoteLogHash| a + b.length);
+        let encrypted_log_preimages_length = self.encrypted_logs_hashes.storage.fold(0, |a, b: LogHash| a + b.length);
         let unencrypted_log_preimages_length = self.unencrypted_logs_hashes.storage.fold(0, |a, b: ScopedLogHash| a + b.log_hash.length);
 
         CombinedAccumulatedData {
@@ -69,6 +69,7 @@ impl PrivateAccumulatedDataBuilder {
             note_encrypted_logs_hash,
             encrypted_logs_hash,
             unencrypted_logs_hash,
+            note_encrypted_log_preimages_length,
             encrypted_log_preimages_length,
             unencrypted_log_preimages_length,
             public_data_update_requests: [PublicDataUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],

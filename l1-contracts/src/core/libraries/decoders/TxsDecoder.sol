@@ -54,6 +54,7 @@ library TxsDecoder {
     uint256 nullifier;
     uint256 l2ToL1Msgs;
     uint256 publicData;
+    uint256 noteEncryptedLogsLength;
     uint256 encryptedLogsLength;
     uint256 unencryptedLogsLength;
   }
@@ -106,7 +107,10 @@ library TxsDecoder {
          *    newNullifiersKernel,
          *    newL2ToL1MsgsKernel,
          *    newPublicDataWritesKernel,
-         *    noteEncryptedLogsHash                                |
+         *    noteEncryptedLogsLength,
+         *    encryptedLogsLength,
+         *    unencryptedLogsLength,
+         *    noteEncryptedLogsHash,                               |
          *    encryptedLogsHash,                                   |
          *    unencryptedLogsHash,                             ____|=> Computed below from logs' preimages.
          * );
@@ -154,6 +158,8 @@ library TxsDecoder {
          * Compute encrypted and unencrypted logs hashes corresponding to the current leaf.
          * Note: will advance offsets by the number of bytes processed.
          */
+        offsets.noteEncryptedLogsLength = offset;
+        offset += 0x20;
         offsets.encryptedLogsLength = offset;
         offset += 0x20;
         offsets.unencryptedLogsLength = offset;
@@ -169,12 +175,21 @@ library TxsDecoder {
         // We throw to ensure that the byte len we charge for DA gas in the kernels matches the actual chargable log byte len
         // Without this check, the user may provide the kernels with a lower log len than reality
         if (
+          uint256(bytes32(slice(_body, offsets.noteEncryptedLogsLength, 0x20)))
+            != vars.kernelNoteEncryptedLogsLength
+        ) {
+          revert Errors.TxsDecoder__InvalidLogsLength(
+            uint256(bytes32(slice(_body, offsets.noteEncryptedLogsLength, 0x20))),
+            vars.kernelNoteEncryptedLogsLength
+          );
+        }
+        if (
           uint256(bytes32(slice(_body, offsets.encryptedLogsLength, 0x20)))
-            != vars.kernelNoteEncryptedLogsLength + vars.kernelEncryptedLogsLength
+            != vars.kernelEncryptedLogsLength
         ) {
           revert Errors.TxsDecoder__InvalidLogsLength(
             uint256(bytes32(slice(_body, offsets.encryptedLogsLength, 0x20))),
-            vars.kernelNoteEncryptedLogsLength + vars.kernelEncryptedLogsLength
+            vars.kernelEncryptedLogsLength
           );
         }
         if (
@@ -221,6 +236,7 @@ library TxsDecoder {
             )
           ),
           bytes.concat(
+            slice(_body, offsets.noteEncryptedLogsLength, 0x20),
             slice(_body, offsets.encryptedLogsLength, 0x20),
             slice(_body, offsets.unencryptedLogsLength, 0x20)
           ),
@@ -233,7 +249,7 @@ library TxsDecoder {
       // We pad base leaves with hashes of empty tx effect.
       for (uint256 i = numTxEffects; i < vars.baseLeaves.length; i++) {
         // Value taken from tx_effect.test.ts "hash of empty tx effect matches snapshot" test case
-        vars.baseLeaves[i] = hex"009f12fb98ebbf4e5deef4cf51ade63094a795b891880217958b226707c95f43";
+        vars.baseLeaves[i] = hex"003f2c7d671d4a2c210124550cf00f8e21727a0ae1a43e1758982a25725dde2b";
       }
     }
 
@@ -317,7 +333,6 @@ library TxsDecoder {
     }
 
     // padded to MAX_LOGS * 32 bytes
-    // NB: this assumes MAX_ENCRYPTED_LOGS_PER_TX == MAX_UNENCRYPTED_LOGS_PER_TX
     uint256 len;
     if (noteLogs) {
       len = Constants.MAX_NOTE_ENCRYPTED_LOGS_PER_TX * 32;

@@ -52,6 +52,7 @@ struct FixtureBuilder {
     note_encrypted_logs_hash: Field,
     encrypted_logs_hash: Field,
     unencrypted_logs_hash: Field,
+    note_encrypted_log_preimages_length: Field,
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
     public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
@@ -102,6 +103,7 @@ impl FixtureBuilder {
             note_encrypted_logs_hash: 0,
             encrypted_logs_hash: 0,
             unencrypted_logs_hash: 0,
+            note_encrypted_log_preimages_length: 0,
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
             public_data_update_requests: BoundedVec::new(),
@@ -172,6 +174,7 @@ impl FixtureBuilder {
             note_encrypted_logs_hash: self.note_encrypted_logs_hash,
             encrypted_logs_hash: self.encrypted_logs_hash,
             unencrypted_logs_hash: self.unencrypted_logs_hash,
+            note_encrypted_log_preimages_length: self.note_encrypted_log_preimages_length,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             public_data_update_requests: self.public_data_update_requests.storage,
@@ -285,7 +288,7 @@ impl FixtureBuilder {
         self.note_encrypted_logs_hashes.push(
             NoteLogHash { value: value + 1, counter: self.next_counter(), length: 64, note_hash_counter: self.counter - 2 }
         );
-        self.encrypted_log_preimages_length += 64;
+        self.note_encrypted_log_preimages_length += 64;
     }
 
     pub fn append_new_note_hashes(&mut self, num_new_note_hashes: u64, broadcast: bool) {
@@ -539,6 +542,7 @@ impl Empty for FixtureBuilder {
             note_encrypted_logs_hash: 0,
             encrypted_logs_hash: 0,
             unencrypted_logs_hash: 0,
+            note_encrypted_log_preimages_length: 0,
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
             public_data_update_requests: BoundedVec::new(),

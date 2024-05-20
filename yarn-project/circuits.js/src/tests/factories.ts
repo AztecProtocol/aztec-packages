@@ -307,8 +307,9 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
     fr(seed + 0x700), // note encrypted logs hash
     fr(seed + 0x800), // encrypted logs hash
     fr(seed + 0x900), // unencrypted logs hash
-    fr(seed + 0xa00), // encrypted_log_preimages_length
-    fr(seed + 0xb00), // unencrypted_log_preimages_length
+    fr(seed + 0xa00), // note_encrypted_log_preimages_length
+    fr(seed + 0xb00), // encrypted_log_preimages_length
+    fr(seed + 0xc00), // unencrypted_log_preimages_length
     tupleGenerator(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       makePublicDataUpdateRequest,
