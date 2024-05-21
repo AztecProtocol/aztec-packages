@@ -48,11 +48,7 @@ pub fn prove_note_is_nullified<Note, N, M>(
     _nullifier_inclusion(nullifier, context.historical_header);
 }
 
-pub fn prove_note_is_nullified_at<Note, N, M>(
-    note: Note,
-    block_number: u32,
-    context: &mut PrivateContext
-) where Note: NoteInterface<N, M> {
+pub fn prove_note_is_nullified_at<Note, N, M>(note: Note, block_number: u32, context: &mut PrivateContext) where Note: NoteInterface<N, M> {
     let nullifier = compute_siloed_nullifier(note, context);
     let header = context.get_header_at(block_number);
 

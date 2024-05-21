@@ -57,7 +57,10 @@ pub fn create_note_hash_from_public<Note, N, M>(
     context.push_new_note_hash(inner_note_hash);
 }
 
-pub fn destroy_note<Note, N, M>(context: &mut PrivateContext, note: Note) where Note: NoteInterface<N, M> {
+pub fn destroy_note<Note, N, M>(
+    context: &mut PrivateContext,
+    note: Note
+) where Note: NoteInterface<N, M> {
     let mut nullifier = 0;
     let mut consumed_note_hash: Field = 0;
     nullifier = note.compute_nullifier(context);
