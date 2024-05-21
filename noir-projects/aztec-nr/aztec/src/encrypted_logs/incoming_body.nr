@@ -66,9 +66,9 @@ mod test {
 
             let note_type_id_bytes = AddressNote::get_note_type_id().to_be_bytes(32);
 
-            // Leave 32 bytes for the storage slot
+            // Leave 32 bytes for the storage slot to be added later
             // This is weird, but until we have arithmetic over generics, this trait
-            // is the place to provide the length of the serialized note in bytes
+            // is the place to provide the length of the complete serialized note in bytes
             for i in 0..32 {
                 buffer[32 + i] = note_type_id_bytes[i];
             }

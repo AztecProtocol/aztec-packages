@@ -187,6 +187,7 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
             trait_impl.items.push(TraitImplItem::Function(get_header_fn));
         }
 
+        // Check whether the note implements ToBEBytes or not
         let has_to_be_bytes = module
             .trait_impls
             .iter()
@@ -200,7 +201,10 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
             })
             .is_some();
 
+        // We need to generate the to_be_bytes method if it doesn't already, since it's the only
+        // way to generate a proper byte array with correct length until we have arithmetic over generics
         if !has_to_be_bytes {
+            // NOTE_FIELDS * 32 (bytes per field) + 64 (32*2 for the note type id and storage slot)
             let byte_length = note_fields.len() * 32 + 64;
             let byte_length_str = byte_length.to_string();
             let to_be_bytes_src = generate_note_to_be_bytes(
@@ -241,6 +245,9 @@ fn generate_note_to_be_bytes(
 
             let note_type_id_bytes = {1}::get_note_type_id().to_be_bytes(32);
 
+            // Leave 32 bytes for the storage slot to be added later
+            // This is weird, but until we have arithmetic over generics, this trait
+            // is the place to provide the length of the complete serialized note in bytes
             for i in 0..32 {{
                 buffer[32 + i] = note_type_id_bytes[i];
             }}
