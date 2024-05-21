@@ -1,6 +1,5 @@
 use dep::aztec::{
-    context::PrivateContext,
-    protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint},
+    context::PrivateContext, protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint},
     note::note_getter_options::NoteGetterOptions, state_vars::PrivateSet,
     keys::getters::{get_npk_m_hash, get_ivpk_m}
 };

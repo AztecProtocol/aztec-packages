@@ -45,13 +45,7 @@ impl<Note> PrivateSet<Note, &mut PrivateContext> {
         broadcast: bool,
         ivpk_m: GrumpkinPoint
     ) where Note: NoteInterface<N> {
-        create_note(
-            self.context,
-            self.storage_slot,
-            note,
-            broadcast,
-            ivpk_m
-        );
+        create_note(self.context, self.storage_slot, note, broadcast, ivpk_m);
     }
     // docs:end:insert
 
