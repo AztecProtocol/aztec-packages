@@ -21,8 +21,6 @@ contract Auth {
     fn constructor(admin: AztecAddress) {
         assert(!admin.is_zero(), "invalid admin");
         storage.admin.initialize(admin);
-        // Note that we don't initialize authorized with any value: because storage defaults to 0 it'll have a 'post'
-        // value of 0 and block of change 0, meaning it is effectively autoinitialized at the zero address.
     }
 
     // docs:start:shared_mutable_schedule
@@ -33,12 +31,14 @@ contract Auth {
         // docs:end:shared_mutable_schedule
     }
 
+    // docs:start:public_getter
     #[aztec(public)]
     fn get_authorized() -> AztecAddress {
         // docs:start:shared_mutable_get_current_public
         storage.authorized.get_current_value_in_public()
         // docs:end:shared_mutable_get_current_public
     }
+    // docs:end:public_getter
 
     #[aztec(public)]
     fn get_scheduled_authorized() -> AztecAddress {

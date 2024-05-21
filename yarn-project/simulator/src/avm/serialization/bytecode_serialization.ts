@@ -11,6 +11,7 @@ import {
   CalldataCopy,
   Cast,
   ChainId,
+  DebugLog,
   Div,
   EmitNoteHash,
   EmitNullifier,
@@ -46,6 +47,7 @@ import {
   StorageAddress,
   Sub,
   Timestamp,
+  ToRadixLE,
   TransactionFee,
   Version,
   Xor,
@@ -131,11 +133,16 @@ const INSTRUCTION_SET = () =>
     [Return.opcode, Return],
     [Revert.opcode, Revert],
 
+    // Misc
+    [DebugLog.opcode, DebugLog],
+
     // //// Gadgets
     [Keccak.opcode, Keccak],
     [Poseidon2.opcode, Poseidon2],
     [Sha256.opcode, Sha256],
     [Pedersen.opcode, Pedersen],
+    // Conversions
+    [ToRadixLE.opcode, ToRadixLE],
   ]);
 
 interface Serializable {

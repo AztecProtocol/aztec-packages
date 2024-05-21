@@ -1,15 +1,15 @@
 use crate::address::{AztecAddress, EthAddress};
-use crate::mocked::VerificationKey;
+use crate::recursion::verification_key::VerificationKey;
 use crate::abis::function_selector::FunctionSelector;
 use crate::abis::contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage;
 use crate::contract_class_id::ContractClassId;
-use crate::abis::side_effect::SideEffect;
+use crate::abis::log_hash::{LogHash, NoteLogHash};
 use crate::traits::is_empty;
 use crate::utils::{uint256::U256, field::field_from_bytes_32_trunc};
 use crate::constants::{
     FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__OUTER_NULLIFIER,
     GENERATOR_INDEX__VK, GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__UNIQUE_NOTE_HASH,
-    MAX_ENCRYPTED_LOGS_PER_TX
+    MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 };
 use crate::traits::Hash;
 use crate::messaging::l2_to_l1_message::L2ToL1Message;
@@ -34,11 +34,31 @@ pub fn private_functions_root_from_siblings(
     root_from_sibling_path(function_leaf, function_leaf_index, function_leaf_sibling_path)
 }
 
-pub fn silo_note_hash(address: AztecAddress, inner_commitment: Field) -> Field {
+pub fn compute_note_hash_nonce(first_nullifier: Field, note_hash_index: u64) -> Field {
+    pedersen_hash(
+        [
+        first_nullifier,
+        note_hash_index as Field
+    ],
+        GENERATOR_INDEX__NOTE_HASH_NONCE
+    )
+}
+
+pub fn compute_unique_note_hash(nonce: Field, note_hash: Field) -> Field {
+    pedersen_hash(
+        [
+        nonce,
+        note_hash
+    ],
+        GENERATOR_INDEX__UNIQUE_NOTE_HASH
+    )
+}
+
+pub fn silo_note_hash(address: AztecAddress, unique_note_hash: Field) -> Field {
     pedersen_hash(
         [
         address.to_field(),
-        inner_commitment
+        unique_note_hash
     ],
         GENERATOR_INDEX__SILOED_NOTE_HASH
     )
@@ -122,7 +142,7 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
 // Computes the final logs hash for a tx.
 // NB: this assumes MAX_ENCRYPTED_LOGS_PER_TX == MAX_UNENCRYPTED_LOGS_PER_TX
 // to avoid doubling code, since we can't define the byte len to be 32*N directly. 
-pub fn compute_tx_logs_hash(logs: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field {
+pub fn compute_tx_logs_hash(logs: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field {
     // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
     let mut hash_input_flattened = [0; MAX_ENCRYPTED_LOGS_PER_TX * 32];
     for offset in 0..MAX_ENCRYPTED_LOGS_PER_TX {
@@ -143,24 +163,25 @@ pub fn compute_tx_logs_hash(logs: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX]) -> Fi
     hash
 }
 
-pub fn compute_note_hash_nonce(first_nullifier: Field, commitment_index: u64) -> Field {
-    pedersen_hash(
-        [
-        first_nullifier,
-        commitment_index as Field
-    ],
-        GENERATOR_INDEX__NOTE_HASH_NONCE
-    )
-}
-
-pub fn compute_unique_siloed_note_hash(nonce: Field, siloed_note_hash: Field) -> Field {
-    pedersen_hash(
-        [
-        nonce,
-        siloed_note_hash
-    ],
-        GENERATOR_INDEX__UNIQUE_NOTE_HASH
-    )
+pub fn compute_tx_note_logs_hash(logs: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX]) -> Field {
+    // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
+    let mut hash_input_flattened = [0; MAX_NOTE_ENCRYPTED_LOGS_PER_TX * 32];
+    for offset in 0..MAX_NOTE_ENCRYPTED_LOGS_PER_TX {
+        let input_as_bytes = logs[offset].value.to_be_bytes(32);
+        for byte_index in 0..32 {
+            hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
+        }
+    }
+    // Ideally we would push to a slice then hash, but there is no sha_slice
+    // Hardcode to 256 bytes for now
+    let mut hash = sha256_to_field(hash_input_flattened);
+    // Not having a 0 value hash for empty logs causes issues with empty txs
+    // used for padding. Returning early is currently unsupported.
+    // We always provide sorted logs here, so 0 being empty means all are empty.
+    if is_empty(logs[0]) {
+        hash = 0;
+    }
+    hash
 }
 
 pub fn pedersen_hash<N>(inputs: [Field; N], hash_index: u32) -> Field {
@@ -202,7 +223,7 @@ fn compute_l2_l1_hash() {
     assert(hash_result == 0xb393978842a0fa3d3e1470196f098f473f9678e72463cb65ec4ab5581856c2);
 
     // Non-zero case
-    let message = L2ToL1Message { recipient: EthAddress::from_field(3), content: 5 };
+    let message = L2ToL1Message { recipient: EthAddress::from_field(3), content: 5, counter: 1234 };
     let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(1), 2, 4, message);
     assert(hash_result == 0x3f88c1044a05e5340ed20466276500f6d45ca5603913b9091e957161734e16);
 }

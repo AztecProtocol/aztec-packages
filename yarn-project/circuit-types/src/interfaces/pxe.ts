@@ -1,4 +1,4 @@
-import { type AztecAddress, type CompleteAddress, type Fr, type PartialAddress, type Point } from '@aztec/circuits.js';
+import { type AztecAddress, type CompleteAddress, type Fq, type Fr, type PartialAddress } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
@@ -61,6 +61,8 @@ export interface PXE {
    */
   registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress>;
 
+  rotateMasterNullifierKey(account: AztecAddress, secretKey: Fq): Promise<void>;
+
   /**
    * Registers a recipient in PXE. This is required when sending encrypted notes to
    * a user who hasn't deployed their account contract yet. Since their account is not deployed, their
@@ -73,8 +75,7 @@ export interface PXE {
    * the recipient's notes. We can send notes to this account because we can encrypt them with the recipient's
    * public key.
    */
-  // TODO: #5834: Nuke publicKeys optional parameter after `CompleteAddress` refactor.
-  registerRecipient(recipient: CompleteAddress, publicKeys?: Point[]): Promise<void>;
+  registerRecipient(recipient: CompleteAddress): Promise<void>;
 
   /**
    * Retrieves the user accounts registered on this PXE Service.
@@ -90,15 +91,6 @@ export interface PXE {
    * @returns The complete address of the requested account if found.
    */
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
-
-  /**
-   * Retrieves the public keys hash of the account corresponding to the provided aztec address.
-   *
-   * @param address - The address of account.
-   * @returns The public keys hash of the requested account if found.
-   * TODO(#5834): refactor complete address and merge with getRegisteredAccount?
-   */
-  getRegisteredAccountPublicKeysHash(address: AztecAddress): Promise<Fr | undefined>;
 
   /**
    * Retrieves the recipients added to this PXE Service.
@@ -240,7 +232,7 @@ export interface PXE {
   getBlock(number: number): Promise<L2Block | undefined>;
 
   /**
-   * Simulate the execution of a view (read-only) function on a deployed contract without actually modifying state.
+   * Simulate the execution of an unconstrained function on a deployed contract without actually modifying state.
    * This is useful to inspect contract state, for example fetching a variable value or calling a getter function.
    * The function takes function name and arguments as parameters, along with the contract address
    * and optionally the sender's address.
@@ -251,7 +243,7 @@ export interface PXE {
    * @param from - (Optional) The msg sender to set for the call.
    * @returns The result of the view function call, structured based on the function ABI.
    */
-  viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<any>;
+  simulateUnconstrained(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<any>;
 
   /**
    * Gets unencrypted logs based on the provided filter.

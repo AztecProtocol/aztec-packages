@@ -16,24 +16,23 @@ contract Test {
     };
 
     use dep::aztec::encrypted_logs::header::EncryptedLogHeader;
+    use dep::aztec::encrypted_logs::incoming_body::EncryptedLogIncomingBody;
+    use dep::aztec::encrypted_logs::outgoing_body::EncryptedLogOutgoingBody;
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
 
     use dep::aztec::state_vars::{shared_mutable::SharedMutablePrivateGetter, map::derive_storage_slot_in_map};
 
     use dep::aztec::{
-        keys::getters::get_npk_m,
+        keys::getters::{get_npk_m, get_ivpk_m, get_npk_m_hash},
         context::{Context, inputs::private_context_inputs::PrivateContextInputs},
-        hash::{pedersen_hash, poseidon2_hash, compute_secret_hash, ArgsHasher},
+        hash::{pedersen_hash, compute_secret_hash, ArgsHasher},
         note::{
         lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
         note_getter_options::NoteStatus
     },
         deploy::deploy_contract as aztec_deploy_contract,
-        oracle::{
-        encryption::aes128_encrypt, get_public_key::get_public_key as get_public_key_oracle,
-        unsafe_rand::unsafe_rand
-    }
+        oracle::{encryption::aes128_encrypt, unsafe_rand::unsafe_rand}
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::value_note::value_note::ValueNote;
@@ -52,8 +51,8 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn get_public_key(address: AztecAddress) -> [Field; 2] {
-        let pub_key = get_public_key_oracle(address);
+    fn get_master_incoming_viewing_public_key(address: AztecAddress) -> [Field; 2] {
+        let pub_key = get_ivpk_m(&mut context, address);
 
         [pub_key.x, pub_key.y]
     }
@@ -83,8 +82,11 @@ contract Test {
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
         );
 
-        let mut note = ValueNote::new(value, owner);
-        create_note(&mut context, storage_slot, &mut note, true);
+        let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
+        let owner_ivpk_m = get_ivpk_m(&mut context, owner);
+
+        let mut note = ValueNote::new(value, owner_npk_m_hash);
+        create_note(&mut context, storage_slot, &mut note, true, owner_ivpk_m);
     }
 
     #[aztec(private)]
@@ -190,6 +192,20 @@ contract Test {
         args.hash()
     }
 
+    #[aztec(private)]
+    fn test_setting_teardown() {
+        context.set_public_teardown_function(
+            context.this_address(),
+            FunctionSelector::from_signature("dummy_public_call()"),
+            []
+        );
+    }
+
+    #[aztec(private)]
+    fn test_setting_fee_payer() {
+        context.set_as_fee_payer();
+    }
+
     // Purely exists for testing
     #[aztec(public)]
     fn create_l2_to_l1_message_public(amount: Field, secret_hash: Field, portal_address: EthAddress) {
@@ -214,12 +230,8 @@ contract Test {
 
     // Purely exists for testing
     #[aztec(public)]
-    fn create_nullifier_public(amount: Field, secret_hash: Field) {
-        // Create a commitment to the amount
-        let note = DummyNote::new(amount, secret_hash);
-
-        // Public oracle call to emit new commitment.
-        context.push_new_nullifier(note.get_commitment(), 0);
+    fn emit_nullifier_public(nullifier: Field) {
+        context.push_new_nullifier(nullifier, 0);
     }
 
     // Forcefully emits a nullifier (for testing purposes)
@@ -251,8 +263,12 @@ contract Test {
         let mut storage_slot = storage.example_constant.get_storage_slot() + 1;
         Test::at(context.this_address()).call_create_note(value, owner, storage_slot).call(&mut context);
         storage_slot += 1;
-        let mut note = ValueNote::new(value + 1, owner);
-        create_note(&mut context, storage_slot, &mut note, true);
+
+        let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
+        let owner_ivpk_m = get_ivpk_m(&mut context, owner);
+
+        let mut note = ValueNote::new(value + 1, owner_npk_m_hash);
+        create_note(&mut context, storage_slot, &mut note, true, owner_ivpk_m);
         storage_slot += 1;
         Test::at(context.this_address()).call_create_note(value + 2, owner, storage_slot).call(&mut context);
     }
@@ -326,7 +342,7 @@ contract Test {
     #[aztec(private)]
     fn set_constant(value: Field) {
         let mut note = TestNote::new(value);
-        storage.example_constant.initialize(&mut note, false);
+        storage.example_constant.initialize(&mut note, false, GrumpkinPoint::zero());
     }
 
     #[aztec(private)]
@@ -336,7 +352,7 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn encrypt(input: [u8; 64], iv: [u8; 16], key: [u8; 16]) -> [u8; 64] {
+    fn encrypt(input: [u8; 64], iv: [u8; 16], key: [u8; 16]) -> [u8; 80] {
         aes128_encrypt(input, iv, key)
     }
 
@@ -346,8 +362,31 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn compute_note_header_ciphertext(secret: GrumpkinPrivateKey, point: GrumpkinPoint) -> [u8; 32] {
+    fn compute_note_header_ciphertext(secret: GrumpkinPrivateKey, point: GrumpkinPoint) -> [u8; 48] {
         EncryptedLogHeader::new(context.this_address()).compute_ciphertext(secret, point)
+    }
+
+    // 64 bytes + 32 * #fields + 16 = 112 bytes
+    #[aztec(private)]
+    fn compute_incoming_log_body_ciphertext(
+        secret: GrumpkinPrivateKey,
+        point: GrumpkinPoint,
+        storage_slot: Field,
+        value: Field
+    ) -> [u8; 112] {
+        let note = TestNote::new(value);
+        EncryptedLogIncomingBody::new(storage_slot, TestNote::get_note_type_id(), note).compute_ciphertext(secret, point).as_array()
+    }
+
+    #[aztec(private)]
+    fn compute_outgoing_log_body_ciphertext(
+        eph_sk: GrumpkinPrivateKey,
+        recipient: AztecAddress,
+        recipient_ivpk_app: GrumpkinPoint,
+        ovsk_app: GrumpkinPrivateKey
+    ) -> [u8; 176] {
+        let eph_pk = eph_sk.derive_public_key();
+        EncryptedLogOutgoingBody::new(eph_sk, recipient, recipient_ivpk_app).compute_ciphertext(ovsk_app, eph_pk)
     }
 
     #[aztec(public)]
@@ -356,8 +395,6 @@ contract Test {
         version: Field,
         block_number: Field,
         timestamp: u64,
-        coinbase: EthAddress,
-        fee_recipient: AztecAddress,
         fee_per_da_gas: Field,
         fee_per_l2_gas: Field
     ) {
@@ -365,8 +402,6 @@ contract Test {
         assert(context.version() == version, "Invalid version");
         assert(context.block_number() == block_number, "Invalid block number");
         assert(context.timestamp() == timestamp, "Invalid timestamp");
-        assert(context.coinbase() == coinbase, "Invalid coinbase");
-        assert(context.fee_recipient() == fee_recipient, "Invalid fee recipient");
         assert(context.fee_per_da_gas() == fee_per_da_gas, "Invalid fee per da gas");
         assert(context.fee_per_l2_gas() == fee_per_l2_gas, "Invalid fee per l2 gas");
     }

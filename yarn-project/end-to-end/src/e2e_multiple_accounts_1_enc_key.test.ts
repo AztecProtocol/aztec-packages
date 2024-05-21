@@ -15,7 +15,7 @@ import {
 } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup } from './fixtures/utils.js';
+import { expectsNumOfNoteEncryptedLogsInTheLastBlockToBe, setup } from './fixtures/utils.js';
 
 describe('e2e_multiple_accounts_1_enc_key', () => {
   let aztecNode: AztecNode | undefined;
@@ -47,10 +47,10 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     logger.info('Account contracts deployed');
 
     // Verify that all accounts use the same encryption key
-    const encryptionPublicKey = deriveKeys(encryptionPrivateKey).masterIncomingViewingPublicKey;
+    const encryptionPublicKey = deriveKeys(encryptionPrivateKey).publicKeys.masterIncomingViewingPublicKey;
 
     for (const account of accounts) {
-      expect(account.publicKey).toEqual(encryptionPublicKey);
+      expect(account.publicKeys.masterIncomingViewingPublicKey).toEqual(encryptionPublicKey);
     }
 
     logger.info(`Deploying Token...`);
@@ -109,7 +109,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
       await expectBalance(i, expectedBalances[i]);
     }
 
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
+    await expectsNumOfNoteEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
 
     logger.info(`Transfer ${transferAmount} from ${sender} to ${receiver} successful`);
   };

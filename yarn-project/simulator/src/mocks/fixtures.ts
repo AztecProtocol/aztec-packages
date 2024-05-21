@@ -116,7 +116,6 @@ export class PublicExecutionResultBuilder {
       contractStorageReads: [],
       unencryptedLogsHashes: [],
       unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
-      unencryptedLogPreimagesLength: new Fr(4n), // empty logs have len 4
       allUnencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       startSideEffectCounter: Fr.ZERO,
       endSideEffectCounter: Fr.ZERO,
@@ -134,7 +133,7 @@ export const makeFunctionCall = (
   to = makeAztecAddress(30),
   selector = makeSelector(5),
   args = new Array(ARGS_LENGTH).fill(Fr.ZERO),
-) => ({ to, functionData: new FunctionData(selector, false), args });
+) => ({ to, functionData: new FunctionData(selector, /*isPrivate=*/ false, /*isStatic=*/ false), args });
 
 export function addKernelPublicCallStack(
   kernelOutput: PrivateKernelTailCircuitPublicInputs,

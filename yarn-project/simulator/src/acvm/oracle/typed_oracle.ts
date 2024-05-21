@@ -17,7 +17,7 @@ import {
 } from '@aztec/circuits.js';
 import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr, type Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
 
 /** Nullifier keys which both correspond to the same master nullifier secret key. */
@@ -89,12 +89,8 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('unpackReturns');
   }
 
-  getNullifierKeys(_accountAddress: AztecAddress): Promise<NullifierKeys> {
+  getNullifierKeys(_npkMHash: Fr): Promise<NullifierKeys> {
     throw new OracleMethodNotAvailableError('getNullifierKeys');
-  }
-
-  getPublicKeyAndPartialAddress(_address: AztecAddress): Promise<Fr[] | undefined> {
-    throw new OracleMethodNotAvailableError('getPublicKeyAndPartialAddress');
   }
 
   getContractInstance(_address: AztecAddress): Promise<ContractInstance> {
@@ -128,7 +124,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getHeader');
   }
 
-  getCompleteAddress(_address: AztecAddress): Promise<CompleteAddress> {
+  getCompleteAddress(_account: AztecAddress): Promise<CompleteAddress> {
     throw new OracleMethodNotAvailableError('getCompleteAddress');
   }
 
@@ -138,10 +134,6 @@ export abstract class TypedOracle {
 
   popCapsule(): Promise<Fr[]> {
     throw new OracleMethodNotAvailableError('popCapsule');
-  }
-
-  getPublicKeysForAddress(_address: AztecAddress): Promise<Point[]> {
-    throw new OracleMethodNotAvailableError('getPublicKeysForAddress');
   }
 
   getNotes(
@@ -191,15 +183,22 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('storageWrite');
   }
 
-  emitEncryptedLog(
+  emitEncryptedLog(_encryptedNote: Buffer, _counter: number): void {
+    throw new OracleMethodNotAvailableError('emitEncryptedLog');
+  }
+
+  emitEncryptedNoteLog(_noteHash: Fr, _encryptedNote: Buffer, _counter: number): void {
+    throw new OracleMethodNotAvailableError('emitEncryptedNoteLog');
+  }
+
+  computeEncryptedLog(
     _contractAddress: AztecAddress,
     _storageSlot: Fr,
     _noteTypeId: Fr,
     _publicKey: PublicKey,
-    _log: Fr[],
-    _counter: number,
+    _preimage: Fr[],
   ): Buffer {
-    throw new OracleMethodNotAvailableError('emitEncryptedLog');
+    throw new OracleMethodNotAvailableError('computeEncryptedLog');
   }
 
   emitUnencryptedLog(_log: UnencryptedL2Log, _counter: number): void {
@@ -243,7 +242,22 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('enqueuePublicFunctionCall');
   }
 
+  setPublicTeardownFunctionCall(
+    _targetContractAddress: AztecAddress,
+    _functionSelector: FunctionSelector,
+    _argsHash: Fr,
+    _sideEffectCounter: number,
+    _isStaticCall: boolean,
+    _isDelegateCall: boolean,
+  ): Promise<PublicCallRequest> {
+    throw new OracleMethodNotAvailableError('setPublicTeardownFunctionCall');
+  }
+
   aes128Encrypt(_input: Buffer, _initializationVector: Buffer, _key: Buffer): Buffer {
     throw new OracleMethodNotAvailableError('encrypt');
+  }
+
+  debugLog(_message: string, _fields: Fr[]): void {
+    throw new OracleMethodNotAvailableError('debugLog');
   }
 }

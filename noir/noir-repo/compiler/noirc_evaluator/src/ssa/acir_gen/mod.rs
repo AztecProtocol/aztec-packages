@@ -29,6 +29,7 @@ use crate::brillig::brillig_ir::BrilligContext;
 use crate::brillig::{brillig_gen::brillig_fn::FunctionContext as BrilligFunctionContext, Brillig};
 use crate::errors::{InternalError, InternalWarning, RuntimeError, SsaReport};
 pub(crate) use acir_ir::generated_acir::GeneratedAcir;
+use acvm::acir::circuit::opcodes::BlockType;
 use noirc_frontend::monomorphization::ast::InlineType;
 
 use acvm::acir::circuit::brillig::BrilligBytecode;
@@ -1683,7 +1684,18 @@ impl<'a> Context<'a> {
         len: usize,
         value: Option<AcirValue>,
     ) -> Result<(), InternalError> {
-        self.acir_context.initialize_array(array, len, value)?;
+        let databus = if self.data_bus.call_data.is_some()
+            && self.block_id(&self.data_bus.call_data.unwrap()) == array
+        {
+            BlockType::CallData
+        } else if self.data_bus.return_data.is_some()
+            && self.block_id(&self.data_bus.return_data.unwrap()) == array
+        {
+            BlockType::ReturnData
+        } else {
+            BlockType::Memory
+        };
+        self.acir_context.initialize_array(array, len, value, databus)?;
         self.initialized_arrays.insert(array);
         Ok(())
     }
@@ -1729,13 +1741,16 @@ impl<'a> Context<'a> {
         // will expand the array if there is one.
         let return_acir_vars = self.flatten_value_list(return_values, dfg)?;
         let mut warnings = Vec::new();
-        for acir_var in return_acir_vars {
+        for (acir_var, is_databus) in return_acir_vars {
             if self.acir_context.is_constant(&acir_var) {
                 warnings.push(SsaReport::Warning(InternalWarning::ReturnConstant {
                     call_stack: call_stack.clone(),
                 }));
             }
-            self.acir_context.return_var(acir_var)?;
+            if !is_databus {
+                // We do not return value for the data bus.
+                self.acir_context.return_var(acir_var)?;
+            }
         }
         Ok(warnings)
     }
@@ -1837,15 +1852,15 @@ impl<'a> Context<'a> {
 
         let binary_type = AcirType::from(binary_type);
         let bit_count = binary_type.bit_size();
-
-        match binary.operator {
+        let num_type = binary_type.to_numeric_type();
+        let result = match binary.operator {
             BinaryOp::Add => self.acir_context.add_var(lhs, rhs),
             BinaryOp::Sub => self.acir_context.sub_var(lhs, rhs),
             BinaryOp::Mul => self.acir_context.mul_var(lhs, rhs),
             BinaryOp::Div => self.acir_context.div_var(
                 lhs,
                 rhs,
-                binary_type,
+                binary_type.clone(),
                 self.current_side_effects_enabled_var,
             ),
             // Note: that this produces unnecessary constraints when
@@ -1869,7 +1884,71 @@ impl<'a> Context<'a> {
             BinaryOp::Shl | BinaryOp::Shr => unreachable!(
                 "ICE - bit shift operators do not exist in ACIR and should have been replaced"
             ),
+        }?;
+
+        if let NumericType::Unsigned { bit_size } = &num_type {
+            // Check for integer overflow
+            self.check_unsigned_overflow(
+                result,
+                *bit_size,
+                binary.lhs,
+                binary.rhs,
+                dfg,
+                binary.operator,
+            )?;
         }
+
+        Ok(result)
+    }
+
+    /// Adds a range check against the bit size of the result of addition, subtraction or multiplication
+    fn check_unsigned_overflow(
+        &mut self,
+        result: AcirVar,
+        bit_size: u32,
+        lhs: ValueId,
+        rhs: ValueId,
+        dfg: &DataFlowGraph,
+        op: BinaryOp,
+    ) -> Result<(), RuntimeError> {
+        // We try to optimize away operations that are guaranteed not to overflow
+        let max_lhs_bits = dfg.get_value_max_num_bits(lhs);
+        let max_rhs_bits = dfg.get_value_max_num_bits(rhs);
+
+        let msg = match op {
+            BinaryOp::Add => {
+                if std::cmp::max(max_lhs_bits, max_rhs_bits) < bit_size {
+                    // `lhs` and `rhs` have both been casted up from smaller types and so cannot overflow.
+                    return Ok(());
+                }
+                "attempt to add with overflow".to_string()
+            }
+            BinaryOp::Sub => {
+                if dfg.is_constant(lhs) && max_lhs_bits > max_rhs_bits {
+                    // `lhs` is a fixed constant and `rhs` is restricted such that `lhs - rhs > 0`
+                    // Note strict inequality as `rhs > lhs` while `max_lhs_bits == max_rhs_bits` is possible.
+                    return Ok(());
+                }
+                "attempt to subtract with overflow".to_string()
+            }
+            BinaryOp::Mul => {
+                if bit_size == 1 || max_lhs_bits + max_rhs_bits <= bit_size {
+                    // Either performing boolean multiplication (which cannot overflow),
+                    // or `lhs` and `rhs` have both been casted up from smaller types and so cannot overflow.
+                    return Ok(());
+                }
+                "attempt to multiply with overflow".to_string()
+            }
+            _ => return Ok(()),
+        };
+
+        let with_pred = self.acir_context.mul_var(result, self.current_side_effects_enabled_var)?;
+        self.acir_context.range_constrain_var(
+            with_pred,
+            &NumericType::Unsigned { bit_size },
+            Some(msg),
+        )?;
+        Ok(())
     }
 
     /// Operands in a binary operation are checked to have the same type.
@@ -2595,12 +2674,22 @@ impl<'a> Context<'a> {
         &mut self,
         arguments: &[ValueId],
         dfg: &DataFlowGraph,
-    ) -> Result<Vec<AcirVar>, InternalError> {
+    ) -> Result<Vec<(AcirVar, bool)>, InternalError> {
         let mut acir_vars = Vec::with_capacity(arguments.len());
         for value_id in arguments {
+            let is_databus = if let Some(return_databus) = self.data_bus.return_data {
+                dfg[*value_id] == dfg[return_databus]
+            } else {
+                false
+            };
             let value = self.convert_value(*value_id, dfg);
             acir_vars.append(
-                &mut self.acir_context.flatten(value)?.iter().map(|(var, _)| *var).collect(),
+                &mut self
+                    .acir_context
+                    .flatten(value)?
+                    .iter()
+                    .map(|(var, _)| (*var, is_databus))
+                    .collect(),
             );
         }
         Ok(acir_vars)
