@@ -554,7 +554,7 @@ class TranslatorFlavor {
                               ordered_range_constraints_4_shift,                  // column 84
                               z_perm_shift)                                       // column 85
     };
-    // TODO refine this
+
   public:
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during

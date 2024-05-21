@@ -25,7 +25,9 @@ namespace bb {
 template <typename BuilderType> class TranslatorRecursiveFlavor_ {
 
   public:
-    static constexpr size_t mini_circuit_size = 2048; // WORKTODO: is this needed?
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/990): Establish whether mini_circuit_size pattern is
+    // needed
+    static constexpr size_t mini_circuit_size = 2048;
     using CircuitBuilder = BuilderType;
     using Curve = stdlib::bn254<CircuitBuilder>;
     using PCS = KZG<Curve>;

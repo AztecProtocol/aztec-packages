@@ -74,7 +74,6 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
-    // ? BF
     const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
     ASSERT(static_cast<uint32_t>(circuit_size.get_value()) == key->circuit_size);
     evaluation_input_x = transcript->template receive_from_prover<BF>("evaluation_input_x");
