@@ -188,7 +188,7 @@ fn compile_programs(
                 parsed_files,
                 package,
                 compile_options,
-                load_cached_program(package)
+                load_cached_program(package),
             )?;
             let program = nargo::ops::transform_program(program, compile_options.expression_width);
             save_program_to_file(
