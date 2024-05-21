@@ -4,8 +4,8 @@ contract AvmInitializerTest {
     use dep::aztec::protocol_types::address::AztecAddress;
 
     #[aztec(storage)]
-    struct Storage<Context> {
-        immutable: PublicImmutable<Field, Context>,
+    struct Storage {
+        immutable: PublicImmutable<Field>,
     }
 
     /************************************************************************

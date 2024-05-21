@@ -28,25 +28,25 @@ contract Token {
 
     // docs:start:storage_struct
     #[aztec(storage)]
-    struct Storage<Context> {
+    struct Storage {
         // docs:start:storage_admin
-        admin: PublicMutable<AztecAddress, Context>,
+        admin: PublicMutable<AztecAddress>,
         // docs:end:storage_admin
         // docs:start:storage_minters
-        minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
+        minters: Map<AztecAddress, PublicMutable<bool>>,
         // docs:end:storage_minters
         // docs:start:storage_balances
-        balances: BalancesMap<TokenNote, Context>,
+        balances: BalancesMap<TokenNote>,
         // docs:end:storage_balances
-        total_supply: PublicMutable<U128, Context>,
+        total_supply: PublicMutable<U128>,
         // docs:start:storage_pending_shields
-        pending_shields: PrivateSet<TransparentNote, Context>,
+        pending_shields: PrivateSet<TransparentNote>,
         // docs:end:storage_pending_shields
-        public_balances: Map<AztecAddress, PublicMutable<U128, Context>, Context>,
-        symbol: SharedImmutable<FieldCompressedString, Context>,
-        name: SharedImmutable<FieldCompressedString, Context>,
+        public_balances: Map<AztecAddress, PublicMutable<U128>>,
+        symbol: SharedImmutable<FieldCompressedString>,
+        name: SharedImmutable<FieldCompressedString>,
         // docs:start:storage_decimals
-        decimals: SharedImmutable<u8, Context>,
+        decimals: SharedImmutable<u8>,
         // docs:end:storage_decimals
     }
     // docs:end:storage_struct

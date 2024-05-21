@@ -35,8 +35,8 @@ All state variables are generic over this `Context` type, and expose different m
 
 ```rust
 #[aztec(storage)]
-struct Storage<Context> {
-  variable: PublicImmutable<Field, Context>,
+struct Storage {
+  variable: PublicImmutable<Field>,
 }
 
 #[aztec(private)]
@@ -46,7 +46,7 @@ fn some_private_function() {
 }
 ```
 
-This does mean however that the storage struct must be generic over a `Context` type parameter, which must in turn be passed to all state variables (`PublicImmutable`, `Map`, etc.).
+The `Context` generic type parameter is not visible in the code above as it is automatically injected by the `#[aztec(storage)]` macro, in order to reduce boilerplate. Similarly, all state variables in that struct (e.g. `PublicImmutable`) similarly have that same type parameter automatically passed to them.
 
 ## Map
 

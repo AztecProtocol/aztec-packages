@@ -9,8 +9,8 @@ contract AvmNestedCallsTest {
     use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
 
     #[aztec(storage)]
-    struct Storage<Context> {
-        single: PublicMutable<Field, Context>,
+    struct Storage {
+        single: PublicMutable<Field>,
     }
 
     /************************************************************************

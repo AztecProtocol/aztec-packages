@@ -10,8 +10,8 @@ contract PendingNoteHashes {
     use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
 
     #[aztec(storage)]
-    struct Storage<Context> {
-        balances: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>,
+    struct Storage {
+        balances: Map<AztecAddress, PrivateSet<ValueNote>>,
     }
 
     // TODO(dbanks12): consolidate code into internal helper functions

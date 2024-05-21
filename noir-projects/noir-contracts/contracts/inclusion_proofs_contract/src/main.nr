@@ -27,10 +27,10 @@ contract InclusionProofs {
     use dep::value_note::value_note::ValueNote;
     // docs:end:value_note_imports
     #[aztec(storage)]
-    struct Storage<Context> {
-        private_values: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>,
-        public_value: PublicMutable<Field, Context>,
-        public_unused_value: PublicMutable<Field, Context>,
+    struct Storage {
+        private_values: Map<AztecAddress, PrivateSet<ValueNote>>,
+        public_value: PublicMutable<Field>,
+        public_unused_value: PublicMutable<Field>,
     }
 
     #[aztec(public)]

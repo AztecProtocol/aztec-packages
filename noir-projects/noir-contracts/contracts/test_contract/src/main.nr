@@ -45,9 +45,9 @@ contract Test {
     }
 
     #[aztec(storage)]
-    struct Storage<Context> {
-        example_constant: PrivateImmutable<TestNote, Context>,
-        example_set: PrivateSet<TestNote, Context>,
+    struct Storage {
+        example_constant: PrivateImmutable<TestNote>,
+        example_set: PrivateSet<TestNote>,
     }
 
     #[aztec(private)]

@@ -8,9 +8,9 @@ contract StatefulTest {
     };
 
     #[aztec(storage)]
-    struct Storage<Context> {
-        notes: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>,
-        public_values: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
+    struct Storage {
+        notes: Map<AztecAddress, PrivateSet<ValueNote>>,
+        public_values: Map<AztecAddress, PublicMutable<Field>>,
     }
 
     #[aztec(private)]

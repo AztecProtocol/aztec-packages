@@ -29,15 +29,15 @@ contract Crowdfunding {
 
     // docs:start:storage
     #[aztec(storage)]
-    struct Storage<Context> {
+    struct Storage {
         // Token used for donations (e.g. DAI)
-        donation_token: SharedImmutable<AztecAddress, Context>,
+        donation_token: SharedImmutable<AztecAddress>,
         // Crowdfunding campaign operator
-        operator: SharedImmutable<AztecAddress, Context>,
+        operator: SharedImmutable<AztecAddress>,
         // End of the crowdfunding campaign after which no more donations are accepted
-        deadline: PublicImmutable<u64, Context>,
+        deadline: PublicImmutable<u64>,
         // Notes emitted to donors when they donate (can be used as proof to obtain rewards, eg in Claim contracts)
-        donation_receipts: PrivateSet<ValueNote, Context>,
+        donation_receipts: PrivateSet<ValueNote>,
     }
     // docs:end:storage
 

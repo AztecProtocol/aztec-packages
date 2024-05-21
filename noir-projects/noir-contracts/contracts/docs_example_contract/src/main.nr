@@ -25,30 +25,30 @@ contract DocsExample {
     use crate::types::{card_note::{CardNote, CARD_NOTE_LEN}, leader::Leader};
 
     #[aztec(storage)]
-    struct Storage<Context> {
+    struct Storage {
         // Shows how to create a custom struct in PublicMutable
         // docs:start:storage-leader-declaration
-        leader: PublicMutable<Leader, Context>,
+        leader: PublicMutable<Leader>,
         // docs:end:storage-leader-declaration
         // docs:start:storage-private-mutable-declaration
-        legendary_card: PrivateMutable<CardNote, Context>,
+        legendary_card: PrivateMutable<CardNote>,
         // docs:end:storage-private-mutable-declaration
         // just used for docs example to show how to create a private mutable map. 
-        profiles: Map<AztecAddress, PrivateMutable<CardNote, Context>, Context>,
+        profiles: Map<AztecAddress, PrivateMutable<CardNote>>,
         // docs:start:storage-set-declaration
-        set: PrivateSet<CardNote, Context>,
+        set: PrivateSet<CardNote>,
         // docs:end:storage-set-declaration
         // docs:start:storage-private-immutable-declaration
-        private_immutable: PrivateImmutable<CardNote, Context>,
+        private_immutable: PrivateImmutable<CardNote>,
         // docs:end:storage-private-immutable-declaration
         // docs:start:storage-shared-immutable-declaration
-        shared_immutable: SharedImmutable<Leader, Context>,
+        shared_immutable: SharedImmutable<Leader>,
         // docs:end:storage-shared-immutable-declaration
         // docs:start:storage-minters-declaration
-        minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
+        minters: Map<AztecAddress, PublicMutable<bool>>,
         // docs:end:storage-minters-declaration
         // docs:start:storage-public-immutable-declaration
-        public_immutable: PublicImmutable<Leader, Context>,
+        public_immutable: PublicImmutable<Leader>,
         // docs:end:storage-public-immutable-declaration
     }
 

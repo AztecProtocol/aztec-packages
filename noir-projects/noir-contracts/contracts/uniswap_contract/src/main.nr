@@ -18,13 +18,13 @@ contract Uniswap {
     use crate::util::{compute_swap_private_content_hash, compute_swap_public_content_hash};
 
     #[aztec(storage)]
-    struct Storage<Context> {
+    struct Storage {
         // like with account contracts, stores the approval message on a slot and tracks if they are active
-        approved_action: Map<Field, PublicMutable<bool, Context>, Context>,
+        approved_action: Map<Field, PublicMutable<bool>>,
         // tracks the nonce used to create the approval message for burning funds
         // gets incremented each time after use to prevent replay attacks
-        nonce_for_burn_approval: PublicMutable<Field, Context>,
-        portal_address: SharedImmutable<EthAddress, Context>,
+        nonce_for_burn_approval: PublicMutable<Field>,
+        portal_address: SharedImmutable<EthAddress>,
     }
     // docs:end:uniswap_setup
 

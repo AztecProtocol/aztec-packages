@@ -18,11 +18,11 @@ contract SchnorrAccount {
     use crate::public_key_note::{PublicKeyNote, PUBLIC_KEY_NOTE_LEN};
 
     #[aztec(storage)]
-    struct Storage<Context> {
+    struct Storage {
         // docs:start:storage
-        signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
+        signing_public_key: PrivateImmutable<PublicKeyNote>,
         // docs:end:storage
-        approved_actions: Map<Field, PublicMutable<bool, Context>, Context>,
+        approved_actions: Map<Field, PublicMutable<bool>>,
     }
 
     // Constructs the contract

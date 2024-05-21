@@ -23,12 +23,12 @@ contract TokenBlacklist {
     global CHANGE_ROLES_DELAY_BLOCKS = 2;
 
     #[aztec(storage)]
-    struct Storage<Context> {
-        balances: BalancesMap<TokenNote, Context>,
-        total_supply: PublicMutable<U128, Context>,
-        pending_shields: PrivateSet<TransparentNote, Context>,
-        public_balances: Map<AztecAddress, PublicMutable<U128, Context>, Context>,
-        roles: Map<AztecAddress, SharedMutable<UserFlags, CHANGE_ROLES_DELAY_BLOCKS, Context>, Context>,
+    struct Storage {
+        balances: BalancesMap<TokenNote>,
+        total_supply: PublicMutable<U128>,
+        pending_shields: PrivateSet<TransparentNote>,
+        public_balances: Map<AztecAddress, PublicMutable<U128>>,
+        roles: Map<AztecAddress, SharedMutable<UserFlags, CHANGE_ROLES_DELAY_BLOCKS>>,
     }
 
     // docs:start:constructor

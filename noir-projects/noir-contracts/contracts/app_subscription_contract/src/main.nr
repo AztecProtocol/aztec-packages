@@ -17,17 +17,17 @@ contract AppSubscription {
     };
 
     #[aztec(storage)]
-    struct Storage<Context> {
+    struct Storage {
         // The following is only needed in private but we use ShareImmutable here instead of PrivateImmutable because
         // the value can be publicly known and SharedImmutable provides us with a better devex here because we don't
         // have to bother with sharing the note between pixies of users.
-        target_address: SharedImmutable<AztecAddress, Context>,
-        subscription_token_address: SharedImmutable<AztecAddress, Context>,
-        subscription_recipient_address: SharedImmutable<AztecAddress, Context>,
-        subscription_price: SharedImmutable<Field, Context>,
-        subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote, Context>, Context>,
-        gas_token_address: SharedImmutable<AztecAddress, Context>,
-        gas_token_limit_per_tx: SharedImmutable<Field, Context>,
+        target_address: SharedImmutable<AztecAddress>,
+        subscription_token_address: SharedImmutable<AztecAddress>,
+        subscription_recipient_address: SharedImmutable<AztecAddress>,
+        subscription_price: SharedImmutable<Field>,
+        subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote>>,
+        gas_token_address: SharedImmutable<AztecAddress>,
+        gas_token_limit_per_tx: SharedImmutable<Field>,
     }
 
     global SUBSCRIPTION_DURATION_IN_BLOCKS = 5;

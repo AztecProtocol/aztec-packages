@@ -8,9 +8,9 @@ contract DelegatedOn {
     use dep::value_note::value_note::ValueNote;
 
     #[aztec(storage)]
-    struct Storage<Context> {
-        current_value: PublicMutable<Field, Context>,
-        a_private_value: PrivateSet<ValueNote, Context>,
+    struct Storage {
+        current_value: PublicMutable<Field>,
+        a_private_value: PrivateSet<ValueNote>,
     }
 
     #[aztec(private)]

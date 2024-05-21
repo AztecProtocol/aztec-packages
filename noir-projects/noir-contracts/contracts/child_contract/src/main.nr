@@ -11,9 +11,9 @@ contract Child {
     use dep::value_note::value_note::ValueNote;
 
     #[aztec(storage)]
-    struct Storage<Context> {
-        current_value: PublicMutable<Field, Context>,
-        a_private_value: PrivateSet<ValueNote, Context>,
+    struct Storage {
+        current_value: PublicMutable<Field>,
+        a_private_value: PrivateSet<ValueNote>,
     }
 
     // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.

@@ -9,8 +9,8 @@ contract Escrow {
     use dep::token::Token;
 
     #[aztec(storage)]
-    struct Storage<Context> {
-        owner: PrivateImmutable<AddressNote, Context>,
+    struct Storage {
+        owner: PrivateImmutable<AddressNote>,
     }
 
     // Creates a new instance
