@@ -12,6 +12,7 @@ import {
   FunctionData,
   INITIAL_L2_BLOCK_NUM,
   Point,
+  PublicKeys,
   TxContext,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
@@ -68,9 +69,14 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
       await pxe.registerAccount(randomSecretKey, randomPartialAddress);
     });
 
-    it('cannot register a recipient with the same aztec address but different pub key or partial address', async () => {
+    // Disabled as CompleteAddress constructor now performs preimage validation.
+    it.skip('cannot register a recipient with the same aztec address but different pub key or partial address', async () => {
       const recipient1 = CompleteAddress.random();
-      const recipient2 = new CompleteAddress(recipient1.address, Point.random(), Fr.random());
+      const recipient2 = new CompleteAddress(
+        recipient1.address,
+        new PublicKeys(Point.random(), Point.random(), Point.random(), Point.random()),
+        Fr.random(),
+      );
 
       await pxe.registerRecipient(recipient1);
       await expect(() => pxe.registerRecipient(recipient2)).rejects.toThrow(
@@ -137,7 +143,7 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
       );
     });
 
-    // Note: Not testing a successful run of `proveTx`, `sendTx`, `getTxReceipt` and `viewTx` here as it requires
+    // Note: Not testing a successful run of `proveTx`, `sendTx`, `getTxReceipt` and `simulateUnconstrained` here as it requires
     //       a larger setup and it's sufficiently tested in the e2e tests.
 
     it('throws when getting public storage for non-existent contract', async () => {

@@ -184,7 +184,7 @@ describe('ACIR public execution simulator', () => {
 
       beforeEach(() => {
         transferArtifact = TokenContractArtifact.functions.find(f => f.name === 'transfer_public')!;
-        functionData = new FunctionData(FunctionSelector.empty(), false);
+        functionData = new FunctionData(FunctionSelector.empty(), /*isPrivate=*/ false, /*isStatic=*/ false);
         sender = AztecAddress.random();
         args = encodeArguments(transferArtifact, [sender, recipient, 140n, 0n]);
 
@@ -265,7 +265,7 @@ describe('ACIR public execution simulator', () => {
         parentEntryPointFn.name,
         parentEntryPointFn.parameters,
       );
-      functionData = new FunctionData(parentEntryPointFnSelector, false);
+      functionData = new FunctionData(parentEntryPointFnSelector, /*isPrivate=*/ false, /*isStatic=*/ false);
       childContractAddress = AztecAddress.random();
       callContext = makeCallContext(parentContractAddress);
     }, 10000);
@@ -338,8 +338,8 @@ describe('ACIR public execution simulator', () => {
       expect(Fr.fromBuffer(childExecutionResult.unencryptedLogs.logs[0].hash())).toEqual(
         childExecutionResult.unencryptedLogsHashes[0].value,
       );
-      expect(childExecutionResult.unencryptedLogPreimagesLength).toEqual(
-        new Fr(childExecutionResult.unencryptedLogs.getSerializedLength()),
+      expect(childExecutionResult.unencryptedLogsHashes[0].length).toEqual(
+        new Fr(childExecutionResult.unencryptedLogs.getKernelLength()),
       );
       expect(result.returnValues[0]).toEqual(new Fr(newValue));
     }, 20_000);
@@ -354,7 +354,7 @@ describe('ACIR public execution simulator', () => {
     beforeEach(async () => {
       contractAddress = AztecAddress.random();
       await mockInitializationNullifierCallback(contractAddress);
-      functionData = new FunctionData(FunctionSelector.empty(), false);
+      functionData = new FunctionData(FunctionSelector.empty(), /*isPrivate=*/ false, /*isStatic=*/ false);
       amount = new Fr(1);
       params = [amount, new Fr(1)];
     });
@@ -405,10 +405,11 @@ describe('ACIR public execution simulator', () => {
 
     it('Should be able to create a nullifier from the public context', async () => {
       const createNullifierPublicArtifact = TestContractArtifact.functions.find(
-        f => f.name === 'create_nullifier_public',
+        f => f.name === 'emit_nullifier_public',
       )!;
 
-      const args = encodeArguments(createNullifierPublicArtifact, params);
+      const nullifier = new Fr(1234);
+      const args = encodeArguments(createNullifierPublicArtifact, [nullifier]);
 
       const callContext = makeCallContext(contractAddress);
 
@@ -417,11 +418,7 @@ describe('ACIR public execution simulator', () => {
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
       const result = await simulate(execution, globalVariables);
 
-      // Assert the l2 to l1 message was created
-      expect(result.newNullifiers.length).toEqual(1);
-
-      const expectedNewMessageValue = pedersenHash(params);
-      expect(result.newNullifiers[0].value).toEqual(expectedNewMessageValue);
+      expect(result.newNullifiers).toEqual([expect.objectContaining({ value: nullifier })]);
     });
 
     describe('L1 to L2 messages', () => {
@@ -674,12 +671,6 @@ describe('ACIR public execution simulator', () => {
       { value: new Fr(1), invalidValue: Fr.random(), description: 'Version' },
       { value: new Fr(1), invalidValue: Fr.random(), description: 'Block number' },
       { value: new Fr(1), invalidValue: Fr.random(), description: 'Timestamp' },
-      { value: EthAddress.random(), invalidValue: EthAddress.random(), description: 'Coinbase' },
-      {
-        value: AztecAddress.random(),
-        invalidValue: AztecAddress.random(),
-        description: 'Fee recipient',
-      },
       { value: new Fr(1), invalidValue: Fr.random(), description: 'Fee per DA gas' },
       { value: new Fr(1), invalidValue: Fr.random(), description: 'Fee per L2 gas' },
     ];

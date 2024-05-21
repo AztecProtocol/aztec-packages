@@ -1,7 +1,7 @@
 use dep::std::cmp::Eq;
 use crate::{
     address::AztecAddress,
-    constants::{NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH, SCOPED_NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH},
+    constants::{SCOPED_NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH, NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH},
     traits::{Empty, Serialize, Deserialize}, grumpkin_point::GrumpkinPoint,
     utils::{arrays::array_concat, reader::Reader}
 };
@@ -84,10 +84,18 @@ impl Deserialize<SCOPED_NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH> for ScopedNulli
         let mut reader = Reader::new(fields);
         let res = Self {
             request: reader.read_struct(NullifierKeyValidationRequest::deserialize),
-            contract_address: AztecAddress::from_field(fields[3]),
+            contract_address: reader.read_struct(AztecAddress::deserialize),
         };
         reader.finish();
         res
     }
+}
+
+#[test]
+fn serialization_of_empty() {
+    let item = ScopedNullifierKeyValidationRequest::empty();
+    let serialized = item.serialize();
+    let deserialized = ScopedNullifierKeyValidationRequest::deserialize(serialized);
+    assert(item.eq(deserialized));
 }
 

@@ -1,14 +1,19 @@
 use crate::{
-    traits::{Empty, Serialize, Deserialize}, address::AztecAddress, constants::READ_REQUEST_LENGTH,
+    abis::side_effect::Ordered, traits::{Empty, Serialize, Deserialize}, address::AztecAddress,
+    constants::{READ_REQUEST_LENGTH, SCOPED_READ_REQUEST_LEN},
     utils::{arrays::array_concat, reader::Reader}
 };
 use dep::std::cmp::Eq;
 
-global SCOPED_READ_REQUEST_SERIALIZED_LEN = READ_REQUEST_LENGTH + 1;
-
 struct ReadRequest {
     value: Field,
     counter: u32,
+}
+
+impl Ordered for ReadRequest {
+    fn counter(self) -> u32 {
+        self.counter
+    }
 }
 
 impl Eq for ReadRequest {
@@ -69,18 +74,18 @@ impl Empty for ScopedReadRequest {
     }
 }
 
-impl Serialize<SCOPED_READ_REQUEST_SERIALIZED_LEN> for ScopedReadRequest {
-    fn serialize(self) -> [Field; SCOPED_READ_REQUEST_SERIALIZED_LEN] {
+impl Serialize<SCOPED_READ_REQUEST_LEN> for ScopedReadRequest {
+    fn serialize(self) -> [Field; SCOPED_READ_REQUEST_LEN] {
         array_concat(self.read_request.serialize(), [self.contract_address.to_field()])
     }
 }
 
-impl Deserialize<SCOPED_READ_REQUEST_SERIALIZED_LEN> for ScopedReadRequest {
-    fn deserialize(values: [Field; SCOPED_READ_REQUEST_SERIALIZED_LEN]) -> Self {
+impl Deserialize<SCOPED_READ_REQUEST_LEN> for ScopedReadRequest {
+    fn deserialize(values: [Field; SCOPED_READ_REQUEST_LEN]) -> Self {
         let mut reader = Reader::new(values);
         let res = Self {
             read_request: reader.read_struct(ReadRequest::deserialize),
-            contract_address: AztecAddress::from_field(values[2]),
+            contract_address: reader.read_struct(AztecAddress::deserialize),
         };
         reader.finish();
         res
@@ -94,4 +99,20 @@ impl ScopedReadRequest {
     pub fn counter(self) -> u32 {
         self.read_request.counter
     }
+}
+
+#[test]
+fn serialization_of_empty_read() {
+    let item = ReadRequest::empty();
+    let serialized = item.serialize();
+    let deserialized = ReadRequest::deserialize(serialized);
+    assert(item.eq(deserialized));
+}
+
+#[test]
+fn serialization_of_empty_scoped() {
+    let item = ScopedReadRequest::empty();
+    let serialized = item.serialize();
+    let deserialized = ScopedReadRequest::deserialize(serialized);
+    assert(item.eq(deserialized));
 }

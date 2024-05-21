@@ -59,9 +59,15 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
     // The lookup subrelations are "linearly dependent" in the sense that they establish the value of a sum across the
     // entire execution trace rather than a per-row identity.
-    static constexpr std::array<bool, NUM_BUS_COLUMNS* 2> SUBRELATION_LINEARLY_INDEPENDENT = {
+    static constexpr std::array<bool, NUM_BUS_COLUMNS * 2> SUBRELATION_LINEARLY_INDEPENDENT = {
         true, false, true, false
     };
+
+    template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
+    {
+        // Ensure the input does not contain a read gate or data that is being read
+        return in.q_busread.is_zero() && in.calldata_read_counts.is_zero() && in.return_data_read_counts.is_zero();
+    }
 
     // Interface for easy access of databus components by column (bus_idx)
     template <size_t bus_idx, typename AllEntities> struct BusData;
@@ -231,6 +237,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
                                                      const Parameters& params,
                                                      const FF& scaling_factor)
     {
+        BB_OP_COUNT_TIME_NAME("DatabusRead::accumulate");
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
 

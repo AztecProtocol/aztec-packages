@@ -118,11 +118,15 @@ export const GasCosts: Record<Opcode, Gas | typeof DynamicGasCost> = {
   [Opcode.DELEGATECALL]: TemporaryDefaultGasCost,
   [Opcode.RETURN]: TemporaryDefaultGasCost,
   [Opcode.REVERT]: TemporaryDefaultGasCost,
+  // Misc
+  [Opcode.DEBUGLOG]: TemporaryDefaultGasCost,
   // Gadgets
   [Opcode.KECCAK]: TemporaryDefaultGasCost,
   [Opcode.POSEIDON2]: TemporaryDefaultGasCost,
   [Opcode.SHA256]: TemporaryDefaultGasCost, // temp - may be removed, but alot of contracts rely on i: TemporaryDefaultGasCost,
   [Opcode.PEDERSEN]: TemporaryDefaultGasCost, // temp - may be removed, but alot of contracts rely on i: TemporaryDefaultGasCost,t
+  // Conversions
+  [Opcode.TORADIXLE]: TemporaryDefaultGasCost,
 };
 
 /** Returns the fixed base gas cost for a given opcode, or throws if set to dynamic. */

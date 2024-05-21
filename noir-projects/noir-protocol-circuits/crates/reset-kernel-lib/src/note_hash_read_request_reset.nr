@@ -36,10 +36,10 @@ impl SettledReadHint<NOTE_HASH_TREE_HEIGHT, NoteHashLeafPreimage> for NoteHashSe
     }
 }
 
-struct NoteHashReadRequestHints {
+struct NoteHashReadRequestHints<PENDING, SETTLED> {
     read_request_statuses: [ReadRequestStatus; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
-    pending_read_hints: [PendingReadHint; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
-    settled_read_hints: [NoteHashSettledReadHint; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
+    pending_read_hints: [PendingReadHint; PENDING],
+    settled_read_hints: [NoteHashSettledReadHint; SETTLED],
 }
 
 mod tests {
@@ -59,12 +59,11 @@ mod tests {
     global note_hashes = inner_note_hashes.map(|n| silo_note_hash(contract_address, n));
 
     // Create 5 read requests. 0 and 3 are reading settled note hashes. 1, 2 and 4 are reading pending note hashes.
-    // TODO(#2847): Read request values for settled note hashes shouldn't have been siloed by apps.
     global read_requests = [
-        ReadRequest { value: note_hashes[1], counter: 11 }.scope(contract_address), // settled
+        ReadRequest { value: inner_note_hashes[1], counter: 11 }.scope(contract_address), // settled
         ReadRequest { value: inner_note_hashes[3], counter: 13 }.scope(contract_address), // pending
         ReadRequest { value: inner_note_hashes[2], counter: 39 }.scope(contract_address), // pending
-        ReadRequest { value: note_hashes[0], counter: 46 }.scope(contract_address), // settled
+        ReadRequest { value: inner_note_hashes[0], counter: 46 }.scope(contract_address), // settled
         ReadRequest { value: inner_note_hashes[3], counter: 78 }.scope(contract_address), // pending
     ];
 

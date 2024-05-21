@@ -2,23 +2,27 @@ use dep::types::{
     abis::{
     call_request::CallRequest, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
-    max_block_number::MaxBlockNumber, nullifier::Nullifier,
-    private_circuit_public_inputs::PrivateCircuitPublicInputs
+    max_block_number::MaxBlockNumber, nullifier::Nullifier, note_hash::ScopedNoteHash,
+    log_hash::NoteLogHash,
+    private_circuit_public_inputs::{PrivateCircuitPublicInputs, PrivateCircuitPublicInputsArrayLengths}
 },
     address::AztecAddress,
     constants::{
-    MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+    MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_TX,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL
 },
-    traits::is_empty, transaction::tx_request::TxRequest, utils::arrays::array_to_bounded_vec
+    traits::is_empty, transaction::tx_request::TxRequest,
+    utils::arrays::{array_to_bounded_vec, find_index}
 };
 
 struct DataSource {
     private_call_public_inputs: PrivateCircuitPublicInputs,
+    array_lengths: PrivateCircuitPublicInputsArrayLengths,
+    contract_address: AztecAddress,
     storage_contract_address: AztecAddress,
     note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
-    private_call_requests: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
     public_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+    public_teardown_call_request: CallRequest,
 }
 
 struct PrivateKernelCircuitPublicInputsComposer {
@@ -51,6 +55,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
 
         public_inputs.constants = previous_kernel_public_inputs.constants;
         public_inputs.min_revertible_side_effect_counter = previous_kernel_public_inputs.min_revertible_side_effect_counter;
+        public_inputs.fee_payer = previous_kernel_public_inputs.fee_payer;
+        public_inputs.public_teardown_call_request = previous_kernel_public_inputs.public_teardown_call_request;
 
         let start = previous_kernel_public_inputs.validation_requests;
         public_inputs.validation_requests.max_block_number = start.for_rollup.max_block_number;
@@ -62,10 +68,9 @@ impl PrivateKernelCircuitPublicInputsComposer {
         public_inputs.end.new_note_hashes = array_to_bounded_vec(start.new_note_hashes);
         public_inputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
         public_inputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
+        public_inputs.end.note_encrypted_logs_hashes = array_to_bounded_vec(start.note_encrypted_logs_hashes);
         public_inputs.end.encrypted_logs_hashes = array_to_bounded_vec(start.encrypted_logs_hashes);
         public_inputs.end.unencrypted_logs_hashes = array_to_bounded_vec(start.unencrypted_logs_hashes);
-        public_inputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
-        public_inputs.end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
         public_inputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack);
         let _call_request = public_inputs.end.private_call_stack.pop();
         public_inputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
@@ -76,17 +81,21 @@ impl PrivateKernelCircuitPublicInputsComposer {
     pub fn compose(
         &mut self,
         private_call_public_inputs: PrivateCircuitPublicInputs,
+        array_lengths: PrivateCircuitPublicInputsArrayLengths,
+        contract_address: AztecAddress,
         note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
-        private_call_requests: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
-        public_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL]
+        public_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+        public_teardown_call_request: CallRequest
     ) -> Self {
         let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
         let source = DataSource {
-            storage_contract_address,
             private_call_public_inputs,
+            array_lengths,
+            contract_address,
+            storage_contract_address,
             note_hash_nullifier_counters,
-            private_call_requests,
-            public_call_requests
+            public_call_requests,
+            public_teardown_call_request
         };
 
         self.propagate_max_block_number(source);
@@ -99,6 +108,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         self.propagate_logs(source);
         self.propagate_private_call_requests(source);
         self.propagate_public_call_requests(source);
+        self.propagate_public_teardown_call_request(source);
+        self.propagate_fee_payer(source);
 
         *self
     }
@@ -179,18 +190,39 @@ impl PrivateKernelCircuitPublicInputsComposer {
     fn propagate_logs(&mut self, source: DataSource) {
         self.public_inputs.end.encrypted_logs_hashes.extend_from_bounded_vec(array_to_bounded_vec(source.private_call_public_inputs.encrypted_logs_hashes));
         self.public_inputs.end.unencrypted_logs_hashes.extend_from_bounded_vec(array_to_bounded_vec(source.private_call_public_inputs.unencrypted_logs_hashes));
+        let note_logs = source.private_call_public_inputs.note_encrypted_logs_hashes;
+        for i in 0..note_logs.len() {
+            if !is_empty(note_logs[i]) {
+                let note_index = self.match_log_to_note(note_logs[i]);
+                assert(
+                    note_index < MAX_NEW_NOTE_HASHES_PER_TX, "Could not find note hash linked to note log."
+                );
+                assert(
+                    note_logs[i].note_hash_counter
+                    == self.public_inputs.end.new_note_hashes.get_unchecked(note_index).counter(), "Could not find note hash linked to note log."
+                );
+                self.public_inputs.end.note_encrypted_logs_hashes.push(note_logs[i]);
+            }
+        }
+    }
 
-        // Add log preimages lengths from current iteration to accumulated lengths.
-        self.public_inputs.end.encrypted_log_preimages_length += source.private_call_public_inputs.encrypted_log_preimages_length;
-        self.public_inputs.end.unencrypted_log_preimages_length += source.private_call_public_inputs.unencrypted_log_preimages_length;
+    unconstrained fn match_log_to_note(self, note_log: NoteLogHash) -> u64 {
+        find_index(
+            self.public_inputs.end.new_note_hashes.storage,
+            |n: ScopedNoteHash| n.counter() == note_log.note_hash_counter
+        )
     }
 
     fn propagate_private_call_requests(&mut self, source: DataSource) {
-        let call_requests = source.private_call_requests;
+        let call_requests = source.private_call_public_inputs.private_call_requests;
+        let num_requests = source.array_lengths.private_call_requests;
+        let mut proceed = true;
         for i in 0..call_requests.len() {
-            let call_request = call_requests[i];
-            if !is_empty(call_request) {
-                self.public_inputs.end.private_call_stack.push(call_request);
+            proceed &= i != num_requests;
+            if proceed {
+                // Push the call requests to the stack in reverse order.
+                let call_request = call_requests[num_requests - i - 1];
+                self.public_inputs.end.private_call_stack.push(call_request.scope(source.contract_address));
             }
         }
     }
@@ -202,6 +234,23 @@ impl PrivateKernelCircuitPublicInputsComposer {
             if !is_empty(call_request) {
                 self.public_inputs.end.public_call_stack.push(call_request);
             }
+        }
+    }
+
+    fn propagate_public_teardown_call_request(&mut self, source: DataSource) {
+        let call_request = source.public_teardown_call_request;
+        if !is_empty(call_request) {
+            assert(
+                is_empty(self.public_inputs.public_teardown_call_request), "Public teardown call request already set"
+            );
+            self.public_inputs.public_teardown_call_request = call_request;
+        }
+    }
+
+    fn propagate_fee_payer(&mut self, source: DataSource) {
+        if (source.private_call_public_inputs.is_fee_payer) {
+            assert(self.public_inputs.fee_payer.is_zero(), "Cannot overwrite non-empty fee_payer");
+            self.public_inputs.fee_payer = source.storage_contract_address;
         }
     }
 }

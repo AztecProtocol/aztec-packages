@@ -6,16 +6,16 @@ use dep::reset_kernel_lib::{
 use dep::types::{
     abis::{
     accumulated_data::CombinedAccumulatedData, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-    kernel_data::PublicKernelData
+    public_kernel_data::PublicKernelData
 },
-    constants::MAX_PUBLIC_DATA_HINTS,
+    constants::{MAX_PUBLIC_DATA_HINTS, MAX_NULLIFIER_READ_REQUESTS_PER_TX},
     merkle_tree::{conditionally_assert_check_membership, MembershipWitness},
     partial_state_reference::PartialStateReference, utils::{arrays::array_length}
 };
 
 struct PublicKernelTailCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
-    nullifier_read_request_hints: NullifierReadRequestHints,
+    nullifier_read_request_hints: NullifierReadRequestHints<MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     nullifier_non_existent_read_request_hints: NullifierNonExistentReadRequestHints,
     public_data_hints: [PublicDataHint; MAX_PUBLIC_DATA_HINTS],
     public_data_read_request_hints: PublicDataReadRequestHints,
@@ -92,12 +92,12 @@ impl PublicKernelTailCircuitPrivateInputs {
         let end = self.propagate_accumulated_data();
 
         KernelCircuitPublicInputs {
-            aggregation_object: previous_public_inputs.aggregation_object,
             rollup_validation_requests: previous_public_inputs.validation_requests.for_rollup,
             end,
             constants: previous_public_inputs.constants,
             start_state: self.start_state,
-            revert_code: previous_public_inputs.revert_code
+            revert_code: previous_public_inputs.revert_code,
+            fee_payer: previous_public_inputs.fee_payer
         }
     }
 }
@@ -114,9 +114,10 @@ mod tests {
     };
     use dep::types::{
         abis::{
-        kernel_circuit_public_inputs::KernelCircuitPublicInputs, kernel_data::PublicKernelData,
+        kernel_circuit_public_inputs::KernelCircuitPublicInputs, public_kernel_data::PublicKernelData,
         nullifier::ScopedNullifier, nullifier_leaf_preimage::NullifierLeafPreimage
     },
+        address::AztecAddress,
         constants::{
         MAX_NEW_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_PUBLIC_DATA_HINTS,
         MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT,
@@ -127,7 +128,7 @@ mod tests {
         hash::{silo_nullifier, sha256_to_field},
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
         tests::{fixture_builder::FixtureBuilder, merkle_tree_utils::NonEmptyMerkleTree},
-        partial_state_reference::PartialStateReference, utils::arrays::array_merge,
+        traits::is_empty, partial_state_reference::PartialStateReference, utils::arrays::array_merge,
         merkle_tree::MembershipWitness
     };
 
@@ -541,5 +542,20 @@ mod tests {
         builder.previous_kernel.public_data_update_requests.push(public_data_write);
 
         builder.failed();
+    }
+
+    #[test]
+    unconstrained fn propagate_fee_payer() {
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
+        let fee_payer = AztecAddress::from_field(123);
+        builder.previous_kernel.set_fee_payer(fee_payer);
+        let public_inputs = builder.execute();
+        assert_eq(public_inputs.fee_payer, fee_payer);
+
+        // Check that the fee payer is not set if is_fee_payer is false
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
+        assert_eq(is_empty(builder.previous_kernel.fee_payer), true);
+        let public_inputs = builder.execute();
+        assert_eq(public_inputs.fee_payer, AztecAddress::empty());
     }
 }

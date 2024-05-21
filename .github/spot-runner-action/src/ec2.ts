@@ -4,6 +4,7 @@ import {
   CreateFleetInstance,
   CreateFleetRequest,
   CreateLaunchTemplateRequest,
+  DescribeInstancesResult,
   FleetLaunchTemplateConfigRequest,
 } from "aws-sdk/clients/ec2";
 import * as crypto from "crypto";
@@ -38,6 +39,9 @@ export class Ec2Instance {
     this.client = new AWS.EC2({
       credentials: this.credentials,
       region: this.config.awsRegion,
+      maxRetries: 3,
+      // base 10 seconds for the exponential backoff, up to 3 times
+      retryDelayOptions: { base: 10000 },
     });
 
     this.tags = this.getTags();
@@ -50,6 +54,9 @@ export class Ec2Instance {
       this.client = new AWS.EC2({
         credentials: credentials,
         region: this.config.awsRegion,
+        maxRetries: 3,
+        // base 10 seconds for the exponential backoff, up to 3 times
+        retryDelayOptions: {base: 10000}
       });
     }
     return this.client;
@@ -157,29 +164,30 @@ export class Ec2Instance {
 
   async getLaunchTemplate(): Promise<string> {
     const client = await this.getEc2Client();
-
-    const userData = await new UserData(this.config).getUserData();
+    const userData = await new UserData(
+      this.config
+    );
+    const userDataScript = await userData.getUserData();
     const ec2InstanceTypeHash = this.getHashOfStringArray(
-      this.config.ec2InstanceType.concat([userData, JSON.stringify(this.tags), this.config.ec2KeyName])
+      this.config.ec2InstanceType.concat([
+        userDataScript,
+        JSON.stringify(this.tags),
+        this.config.ec2KeyName,
+        this.config.ec2AmiId,
+      ])
     );
     const launchTemplateName =
-      "aztec-packages-spot-" + this.config.ec2AmiId + "-" + ec2InstanceTypeHash;
+      "aztec-packages-spot-" + ec2InstanceTypeHash;
 
     const launchTemplateParams: CreateLaunchTemplateRequest = {
       LaunchTemplateName: launchTemplateName,
+      ClientToken: launchTemplateName,
       LaunchTemplateData: {
         ImageId: this.config.ec2AmiId,
         InstanceInitiatedShutdownBehavior: "terminate",
-        InstanceRequirements: {
-          // We do not know what the instance types correspond to
-          // just let the user send a list of allowed instance types
-          VCpuCount: { Min: 0 },
-          MemoryMiB: { Min: 0 },
-          AllowedInstanceTypes: this.config.ec2InstanceType,
-        },
         SecurityGroupIds: [this.config.ec2SecurityGroupId],
         KeyName: this.config.ec2KeyName,
-        UserData: userData,
+        UserData: userDataScript,
         TagSpecifications: [
           {
             ResourceType: "instance",
@@ -191,19 +199,35 @@ export class Ec2Instance {
             DeviceName: "/dev/sda1",
             Ebs: {
               VolumeSize: 32,
+              VolumeType: 'gp3',
+              Throughput: 1000,
+              Iops: 5000
             },
           },
         ],
       },
     };
+    // core.info(JSON.stringify(launchTemplateParams, null, 2));
     core.info("Creating launch template: " + launchTemplateName);
-    await client.createLaunchTemplate(launchTemplateParams).promise();
+    try {
+      await client.createLaunchTemplate(launchTemplateParams).promise();
+    } catch (error) {
+      if (
+        error?.code &&
+        error.code === "InvalidLaunchTemplateName.AlreadyExistsException"
+      ) {
+        // Ignore if it is already created
+        return launchTemplateName;
+      }
+      throw error;
+    }
     return launchTemplateName;
   }
 
-  async requestMachine(useOnDemand: boolean): Promise<string|undefined> {
+  async requestMachine(useOnDemand: boolean): Promise<string> {
     // Note advice re max bid: "If you specify a maximum price, your instances will be interrupted more frequently than if you do not specify this parameter."
     const launchTemplateName = await this.getLaunchTemplate();
+    // Launch template name already in use
     const availabilityZone = await this.getSubnetAz();
     const fleetLaunchConfig: FleetLaunchTemplateConfigRequest = {
       LaunchTemplateSpecification: {
@@ -212,13 +236,18 @@ export class Ec2Instance {
       },
       Overrides: this.config.ec2InstanceType.map((instanceType) => ({
         InstanceType: instanceType,
-        AvailabilityZone: availabilityZone,
-        SubnetId: this.config.ec2SubnetId,
+        AvailabilityZone: this.config.githubActionRunnerConcurrency > 0 ? availabilityZone : undefined,
+        SubnetId: this.config.githubActionRunnerConcurrency > 0 ? this.config.ec2SubnetId : undefined,
       })),
     };
+    const clientToken = this.config.clientToken ?this.config.clientToken + ",spot=" + useOnDemand : undefined;
     const createFleetRequest: CreateFleetRequest = {
       Type: "instant",
       LaunchTemplateConfigs: [fleetLaunchConfig],
+      ClientToken: clientToken,
+      SpotOptions: {
+        AllocationStrategy: "capacity-optimized",
+      },
       TargetCapacitySpecification: {
         TotalTargetCapacity: 1,
         OnDemandTargetCapacity: useOnDemand ? 1 : 0,
@@ -228,12 +257,19 @@ export class Ec2Instance {
     };
     const client = await this.getEc2Client();
     const fleet = await client.createFleet(createFleetRequest).promise();
+    if (fleet.Errors && fleet.Errors.length > 0) {
+      core.warning(JSON.stringify(fleet.Errors, null, 2));
+      for (const error of fleet.Errors) {
+        if (
+          error.ErrorCode === "RequestLimitExceeded" ||
+          error.ErrorCode === "InsufficientInstanceCapacity"
+        ) {
+          return error.ErrorCode;
+        }
+      }
+    }
     const instances: CreateFleetInstance = (fleet?.Instances || [])[0] || {};
-    // cleanup
-    await client.deleteLaunchTemplate({
-      LaunchTemplateName: launchTemplateName,
-    });
-    return (instances.InstanceIds || [])[0];
+    return (instances.InstanceIds || [])[0] || "";
   }
 
   async getInstanceStatus(instanceId: string) {
@@ -251,7 +287,32 @@ export class Ec2Instance {
     }
   }
 
-  async getInstancesForTags(instanceStatus?: string): Promise<AWS.EC2.Instance[]> {
+  async getPublicIpFromInstanceId(
+    instanceId: string
+  ): Promise<string> {
+    const client = await this.getEc2Client();
+    try {
+      const instance: DescribeInstancesResult = await client.describeInstances({ InstanceIds: [instanceId] }).promise();
+      if (
+        !instance ||
+        !instance.Reservations ||
+        !instance.Reservations[0].Instances ||
+        instance.Reservations[0].Instances[0].State?.Name !== "running"
+      ) {
+        throw new Error("Could not find running instance:" + instanceId);
+      }
+      return instance.Reservations[0].Instances[0].PublicIpAddress!;
+    } catch (error) {
+      core.error(
+        `Failed to lookup instance for instance ID ${instanceId}`
+      );
+      throw error;
+    }
+  }
+
+  async getInstancesForTags(
+    instanceStatus?: string
+  ): Promise<AWS.EC2.Instance[]> {
     const client = await this.getEc2Client();
     const filters: FilterInterface[] = [
       {
