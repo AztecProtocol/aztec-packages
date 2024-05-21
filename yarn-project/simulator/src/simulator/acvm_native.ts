@@ -1,4 +1,3 @@
-import { randomBytes } from '@aztec/foundation/crypto';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';

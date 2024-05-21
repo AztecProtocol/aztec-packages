@@ -238,10 +238,10 @@ describe('benchmarks/proving', () => {
     return getSchnorrWallet(provingPxes[idx], schnorrWalletAddress.address, schnorrWalletSigningKey);
   }
 
-  async function getTestContractOnPXE(idx: number): Promise<TestContract> {
-    const wallet = await getWalletOnPxe(idx);
-    return TestContract.at(initialTestContract.address, wallet);
-  }
+  // async function getTestContractOnPXE(idx: number): Promise<TestContract> {
+  //   const wallet = await getWalletOnPxe(idx);
+  //   return TestContract.at(initialTestContract.address, wallet);
+  // }
 
   async function getTokenContract(idx: number): Promise<TokenContract> {
     const wallet = await getWalletOnPxe(idx);
