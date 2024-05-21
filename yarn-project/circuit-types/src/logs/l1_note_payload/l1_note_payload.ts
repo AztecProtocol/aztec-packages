@@ -6,7 +6,7 @@ import {
   computeIvskApp,
   computeOvskApp,
   derivePublicKeyFromSecretKey,
-  KeyValidationRequest,
+  type KeyValidationRequest,
 } from '@aztec/circuits.js';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
