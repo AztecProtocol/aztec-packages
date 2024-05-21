@@ -1,10 +1,8 @@
 // All code in this file needs to die once the public executor is phased out in favor of the AVM.
-import { type SimulationError, UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
+import { UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
 import {
-  type AztecAddress,
   CallContext,
   FunctionData,
-  type FunctionSelector,
   type Gas,
   type GasSettings,
   type GlobalVariables,
@@ -12,12 +10,14 @@ import {
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
-import { extractCallStack } from '../acvm/index.js';
+import { promisify } from 'util';
+import { gunzip } from 'zlib';
+
 import { type AvmContext } from '../avm/avm_context.js';
 import { AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { type AvmContractCallResults } from '../avm/avm_message_call_result.js';
 import { Mov } from '../avm/opcodes/memory.js';
-import { ExecutionError, createSimulationError } from '../common/errors.js';
+import { createSimulationError } from '../common/errors.js';
 import { type PublicExecution, type PublicExecutionResult } from './execution.js';
 
 /**
@@ -65,7 +65,11 @@ export function createPublicExecution(
     isStaticCall: avmEnvironment.isStaticCall,
     sideEffectCounter: startSideEffectCounter,
   });
-  const functionData = new FunctionData(avmEnvironment.temporaryFunctionSelector, /*isPrivate=*/ false);
+  const functionData = new FunctionData(
+    avmEnvironment.temporaryFunctionSelector,
+    /*isPrivate=*/ false,
+    /*isStatic=*/ false,
+  );
   const execution: PublicExecution = {
     contractAddress: avmEnvironment.address,
     callContext,
@@ -73,29 +77,6 @@ export function createPublicExecution(
     functionData,
   };
   return execution;
-}
-
-export function processRevertReason(
-  revertReason: Error | undefined,
-  contractAddress: AztecAddress,
-  functionSelector: FunctionSelector,
-): SimulationError | undefined {
-  if (!revertReason) {
-    return undefined;
-  }
-  if (revertReason instanceof Error) {
-    const ee = new ExecutionError(
-      revertReason.message,
-      {
-        contractAddress,
-        functionSelector,
-      },
-      extractCallStack(revertReason),
-      { cause: revertReason },
-    );
-
-    return createSimulationError(ee);
-  }
 }
 
 export function convertAvmResultsToPxResult(
@@ -119,11 +100,7 @@ export function convertAvmResultsToPxResult(
       endPersistableState.transitionalExecutionResult.allUnencryptedLogs,
     ),
     reverted: avmResult.reverted,
-    revertReason: processRevertReason(
-      avmResult.revertReason,
-      endAvmContext.environment.address,
-      fromPx.functionData.selector,
-    ),
+    revertReason: avmResult.revertReason ? createSimulationError(avmResult.revertReason) : undefined,
     startGasLeft: startGas,
     endGasLeft: endMachineState.gasLeft,
     transactionFee: endAvmContext.environment.transactionFee,
@@ -141,7 +118,19 @@ export function markBytecodeAsAvm(bytecode: Buffer): Buffer {
   return Buffer.concat([bytecode, AVM_MAGIC_SUFFIX]);
 }
 
-export function isAvmBytecode(bytecode: Buffer): boolean {
+// This is just a helper function for the AVM circuit.
+export async function decompressBytecodeIfCompressed(bytecode: Buffer): Promise<Buffer> {
+  try {
+    return await promisify(gunzip)(bytecode);
+  } catch {
+    // If the bytecode is not compressed, the gunzip call will throw an error
+    // In this case, we assume the bytecode is not compressed and continue.
+    return Promise.resolve(bytecode);
+  }
+}
+
+export async function isAvmBytecode(bytecode: Buffer): Promise<boolean> {
+  const decompressedBytecode = await decompressBytecodeIfCompressed(bytecode);
   const magicSize = AVM_MAGIC_SUFFIX.length;
-  return bytecode.subarray(-magicSize).equals(AVM_MAGIC_SUFFIX);
+  return decompressedBytecode.subarray(-magicSize).equals(AVM_MAGIC_SUFFIX);
 }

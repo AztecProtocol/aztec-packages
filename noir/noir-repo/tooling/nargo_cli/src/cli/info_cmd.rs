@@ -1,11 +1,10 @@
 use std::collections::HashMap;
 
 use acvm::acir::circuit::ExpressionWidth;
-use backend_interface::BackendError;
 use clap::Args;
 use iter_extended::vecmap;
 use nargo::{
-    artifacts::{contract::ContractArtifact, debug::DebugArtifact, program::ProgramArtifact},
+    artifacts::{debug::DebugArtifact, program::ProgramArtifact},
     package::Package,
 };
 use nargo_toml::{get_package_manifest, resolve_workspace_from_toml, PackageSelection};
@@ -16,13 +15,10 @@ use prettytable::{row, table, Row};
 use rayon::prelude::*;
 use serde::Serialize;
 
-use crate::backends::Backend;
 use crate::errors::CliError;
 
 use super::{
-    compile_cmd::compile_workspace_full,
-    fs::program::{read_contract_from_file, read_program_from_file},
-    NargoConfig,
+    compile_cmd::compile_workspace_full, fs::program::read_program_from_file, NargoConfig,
 };
 
 /// Provides detailed information on each of a program's function (represented by a single circuit)
@@ -52,11 +48,7 @@ pub(crate) struct InfoCommand {
     compile_options: CompileOptions,
 }
 
-pub(crate) fn run(
-    backend: &Backend,
-    args: InfoCommand,
-    config: NargoConfig,
-) -> Result<(), CliError> {
+pub(crate) fn run(args: InfoCommand, config: NargoConfig) -> Result<(), CliError> {
     let toml_path = get_package_manifest(&config.program_dir)?;
     let default_selection =
         if args.workspace { PackageSelection::All } else { PackageSelection::DefaultOrAll };
@@ -80,32 +72,12 @@ pub(crate) fn run(
         })
         .collect::<Result<_, _>>()?;
 
-    let compiled_contracts: Vec<ContractArtifact> = workspace
-        .into_iter()
-        .filter(|package| package.is_contract())
-        .map(|package| {
-            let contract_artifact_path = workspace.package_build_path(package);
-            read_contract_from_file(contract_artifact_path)
-        })
-        .collect::<Result<_, _>>()?;
-
     if args.profile_info {
         for (_, compiled_program) in &binary_packages {
             let debug_artifact = DebugArtifact::from(compiled_program.clone());
             for function_debug in compiled_program.debug_symbols.debug_infos.iter() {
                 let span_opcodes = function_debug.count_span_opcodes();
                 print_span_opcodes(span_opcodes, &debug_artifact);
-            }
-        }
-
-        for compiled_contract in &compiled_contracts {
-            let debug_artifact = DebugArtifact::from(compiled_contract.clone());
-            let functions = &compiled_contract.functions;
-            for contract_function in functions {
-                for function_debug in contract_function.debug_symbols.debug_infos.iter() {
-                    let span_opcodes = function_debug.count_span_opcodes();
-                    print_span_opcodes(span_opcodes, &debug_artifact);
-                }
             }
         }
     }
@@ -115,26 +87,14 @@ pub(crate) fn run(
         .par_bridge()
         .map(|(package, program)| {
             count_opcodes_and_gates_in_program(
-                backend,
                 program,
                 &package,
                 args.compile_options.expression_width,
             )
         })
-        .collect::<Result<_, _>>()?;
+        .collect();
 
-    let contract_info = compiled_contracts
-        .into_par_iter()
-        .map(|contract| {
-            count_opcodes_and_gates_in_contract(
-                backend,
-                contract,
-                args.compile_options.expression_width,
-            )
-        })
-        .collect::<Result<_, _>>()?;
-
-    let info_report = InfoReport { programs: program_info, contracts: contract_info };
+    let info_report = InfoReport { programs: program_info, contracts: Vec::new() };
 
     if args.json {
         // Expose machine-readable JSON data.
@@ -151,23 +111,6 @@ pub(crate) fn run(
                 }
             }
             program_table.printstd();
-        }
-        if !info_report.contracts.is_empty() {
-            let mut contract_table = table!([
-                Fm->"Contract",
-                Fm->"Function",
-                Fm->"Expression Width",
-                Fm->"ACIR Opcodes",
-                Fm->"Backend Circuit Size"
-            ]);
-            for contract_info in info_report.contracts {
-                let contract_rows: Vec<Row> = contract_info.into();
-                for row in contract_rows {
-                    contract_table.add_row(row);
-                }
-            }
-
-            contract_table.printstd();
         }
     }
 
@@ -245,7 +188,6 @@ impl From<ProgramInfo> for Vec<Row> {
                 Fc->format!("{}", function.name),
                 format!("{:?}", program_info.expression_width),
                 Fc->format!("{}", function.acir_opcodes),
-                Fc->format!("{}", function.circuit_size),
             ]
         })
     }
@@ -264,7 +206,6 @@ struct ContractInfo {
 struct FunctionInfo {
     name: String,
     acir_opcodes: usize,
-    circuit_size: u32,
 }
 
 impl From<ContractInfo> for Vec<Row> {
@@ -275,58 +216,26 @@ impl From<ContractInfo> for Vec<Row> {
                 Fc->format!("{}", function.name),
                 format!("{:?}", contract_info.expression_width),
                 Fc->format!("{}", function.acir_opcodes),
-                Fc->format!("{}", function.circuit_size),
             ]
         })
     }
 }
 
 fn count_opcodes_and_gates_in_program(
-    backend: &Backend,
-    mut compiled_program: ProgramArtifact,
+    compiled_program: ProgramArtifact,
     package: &Package,
     expression_width: ExpressionWidth,
-) -> Result<ProgramInfo, CliError> {
-    // Unconstrained functions do not matter to a backend circuit count so we clear them
-    // before sending a serialized program to the backend
-    compiled_program.bytecode.unconstrained_functions.clear();
-
-    let program_circuit_sizes = backend.get_exact_circuit_sizes(&compiled_program.bytecode)?;
+) -> ProgramInfo {
     let functions = compiled_program
         .bytecode
         .functions
         .into_par_iter()
         .enumerate()
-        .map(|(i, function)| -> Result<_, BackendError> {
-            Ok(FunctionInfo {
-                name: compiled_program.names[i].clone(),
-                // Required while mock backend doesn't return correct circuit size.
-                acir_opcodes: function.opcodes.len(),
-                circuit_size: program_circuit_sizes[i].circuit_size,
-            })
+        .map(|(i, function)| FunctionInfo {
+            name: compiled_program.names[i].clone(),
+            acir_opcodes: function.opcodes.len(),
         })
-        .collect::<Result<_, _>>()?;
+        .collect();
 
-    Ok(ProgramInfo { package_name: package.name.to_string(), expression_width, functions })
-}
-
-fn count_opcodes_and_gates_in_contract(
-    backend: &Backend,
-    contract: ContractArtifact,
-    expression_width: ExpressionWidth,
-) -> Result<ContractInfo, CliError> {
-    let functions = contract
-        .functions
-        .into_par_iter()
-        .map(|function| -> Result<_, BackendError> {
-            Ok(FunctionInfo {
-                name: function.name,
-                // TODO(https://github.com/noir-lang/noir/issues/4720)
-                acir_opcodes: function.bytecode.functions[0].opcodes.len(),
-                circuit_size: backend.get_exact_circuit_sizes(&function.bytecode)?[0].circuit_size,
-            })
-        })
-        .collect::<Result<_, _>>()?;
-
-    Ok(ContractInfo { name: contract.name, expression_width, functions })
+    ProgramInfo { package_name: package.name.to_string(), expression_width, functions }
 }

@@ -1,7 +1,7 @@
 use crate::common;
 use dep::types::abis::{
     kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder},
-    kernel_data::PublicKernelData, public_call_data::PublicCallData, gas_fees::GasFees
+    public_kernel_data::PublicKernelData, public_call_data::PublicCallData, gas_fees::GasFees
 };
 
 struct PublicKernelTeardownCircuitPrivateInputs {
@@ -120,7 +120,7 @@ mod tests {
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
         contrakt::storage_read::StorageRead,
         tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
-        utils::{arrays::{array_eq, array_length}}
+        utils::{arrays::{array_eq, array_length}}, traits::is_empty
     };
     use dep::types::constants::{
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
@@ -398,19 +398,25 @@ mod tests {
             prev_unencrypted_log_preimages_length
         );
 
+        let expected_unencrypted_logs = [
+            builder.previous_kernel.unencrypted_logs_hashes.storage[0], builder.public_call.public_inputs.unencrypted_logs_hashes.storage[0]
+        ];
+        let expected_encrypted_logs = [builder.previous_kernel.encrypted_logs_hashes.storage[0]];
+
         let public_inputs = builder.execute();
 
-        assert_eq(
-            public_inputs.end_non_revertible.encrypted_log_preimages_length, prev_encrypted_log_preimages_length
+        assert(
+            array_eq(
+                public_inputs.end_non_revertible.encrypted_logs_hashes,
+                expected_encrypted_logs
+            )
         );
-        assert_eq(
-            public_inputs.end_non_revertible.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
+        assert(
+            array_eq(
+                public_inputs.end_non_revertible.unencrypted_logs_hashes,
+                expected_unencrypted_logs
+            )
         );
-        assert_eq(public_inputs.end_non_revertible.encrypted_logs_hashes[0].value, prev_encrypted_logs_hash);
-        assert_eq(
-            public_inputs.end_non_revertible.unencrypted_logs_hashes[0].value, prev_unencrypted_logs_hash
-        );
-        assert_eq(public_inputs.end_non_revertible.unencrypted_logs_hashes[1].value, unencrypted_logs_hash);
     }
 
     #[test(should_fail_with="Public call cannot be reverted")]
@@ -458,5 +464,20 @@ mod tests {
         builder.public_call.public_inputs.global_variables.block_number = 11;
 
         builder.failed();
+    }
+
+    #[test]
+    unconstrained fn propagate_fee_payer() {
+        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
+        let fee_payer = AztecAddress::from_field(123);
+        builder.previous_kernel.set_fee_payer(fee_payer);
+        let public_inputs = builder.execute();
+        assert_eq(public_inputs.fee_payer, fee_payer);
+
+        // Check that the fee payer is not set if is_fee_payer is false
+        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
+        assert_eq(is_empty(builder.previous_kernel.fee_payer), true);
+        let public_inputs = builder.execute();
+        assert_eq(public_inputs.fee_payer, AztecAddress::empty());
     }
 }

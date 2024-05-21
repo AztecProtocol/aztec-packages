@@ -12,7 +12,7 @@ contract SchnorrSingleKeyAccount {
 
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts
     #[aztec(private)]
-    fn entrypoint(app_payload: pub AppPayload, fee_payload: pub FeePayload) {
+    fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload) {
         let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.entrypoint(app_payload, fee_payload);
     }
@@ -45,9 +45,7 @@ contract SchnorrSingleKeyAccount {
     #[contract_library_method]
     fn is_valid_impl(context: &mut PrivateContext, outer_hash: Field) -> bool {
         let witness = get_auth_witness(outer_hash);
-        // TODO(#5830): the following is currently broken because we are no longer able to compute public keys hash
-        // in recover_address(...) just from user public key.
-        // assert(recover_address(outer_hash, witness).eq(context.this_address()));
+        assert(recover_address(outer_hash, witness).eq(context.this_address()));
         true
     }
 }

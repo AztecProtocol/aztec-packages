@@ -1,5 +1,6 @@
 /// All AVM opcodes
 /// Keep updated with TS, cpp, and docs protocol specs!
+#[allow(clippy::upper_case_acronyms, dead_code)]
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum AvmOpcode {
     // Compute
@@ -64,11 +65,15 @@ pub enum AvmOpcode {
     DELEGATECALL,
     RETURN,
     REVERT,
+    // Misc
+    DEBUGLOG,
     // Gadgets
     KECCAK,
     POSEIDON2,
     SHA256,   // temp - may be removed, but alot of contracts rely on it
     PEDERSEN, // temp - may be removed, but alot of contracts rely on it
+    // Conversions
+    TORADIXLE,
 }
 
 impl AvmOpcode {
@@ -150,11 +155,16 @@ impl AvmOpcode {
             AvmOpcode::RETURN => "RETURN",
             AvmOpcode::REVERT => "REVERT",
 
+            // Misc
+            AvmOpcode::DEBUGLOG => "DEBUGLOG",
+
             // Gadgets
             AvmOpcode::KECCAK => "KECCAK",
             AvmOpcode::POSEIDON2 => "POSEIDON2",
             AvmOpcode::SHA256 => "SHA256 ",
             AvmOpcode::PEDERSEN => "PEDERSEN",
+            // Conversions
+            AvmOpcode::TORADIXLE => "TORADIXLE",
         }
     }
 }

@@ -1,7 +1,6 @@
 #include "barretenberg/stdlib/honk_recursion/verifier/protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
-#include "barretenberg/protogalaxy/decider_prover.hpp"
 #include "barretenberg/protogalaxy/decider_verifier.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
@@ -11,6 +10,7 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
+#include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -195,14 +195,14 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         OuterBuilder folding_circuit;
         auto verifier =
             FoldingRecursiveVerifier(&folding_circuit, verifier_instance_1, { verifier_instance_2->verification_key });
-        verifier.verify_folding_proof(folding_proof.folding_data);
+        verifier.verify_folding_proof(folding_proof.proof);
         info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
         EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
 
         // Perform native folding verification and ensure it returns the same result (either true or false) as
         // calling check_circuit on the recursive folding verifier
         InnerFoldingVerifier native_folding_verifier({ verifier_instance_1, verifier_instance_2 });
-        native_folding_verifier.verify_folding_proof(folding_proof.folding_data);
+        native_folding_verifier.verify_folding_proof(folding_proof.proof);
 
         // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
         // manifestsproduced by each agree.
@@ -259,7 +259,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         OuterBuilder folding_circuit;
         auto verifier =
             FoldingRecursiveVerifier(&folding_circuit, verifier_instance_1, { verifier_instance_2->verification_key });
-        auto recursive_verifier_accumulator = verifier.verify_folding_proof(folding_proof.folding_data);
+        auto recursive_verifier_accumulator = verifier.verify_folding_proof(folding_proof.proof);
         auto native_verifier_acc = std::make_shared<InnerVerifierInstance>(recursive_verifier_accumulator->get_value());
         info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
 
@@ -269,7 +269,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         // Perform native folding verification and ensure it returns the same result (either true or false) as
         // calling check_circuit on the recursive folding verifier
         InnerFoldingVerifier native_folding_verifier({ verifier_instance_1, verifier_instance_2 });
-        auto verifier_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.folding_data);
+        auto verifier_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.proof);
 
         // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
         // manifestsproduced by each agree.
@@ -359,7 +359,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         FoldingRecursiveVerifier verifier{ &folding_circuit,
                                            verifier_accumulator,
                                            { verifier_inst->verification_key } };
-        auto recursive_verifier_acc = verifier.verify_folding_proof(folding_proof.folding_data);
+        auto recursive_verifier_acc = verifier.verify_folding_proof(folding_proof.proof);
         // Validate that the target sum between prover and verifier is now different
         EXPECT_FALSE(folding_proof.accumulator->target_sum == recursive_verifier_acc->target_sum.get_value());
     };

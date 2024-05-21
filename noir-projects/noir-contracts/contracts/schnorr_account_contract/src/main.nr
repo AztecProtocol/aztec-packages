@@ -7,12 +7,13 @@ contract SchnorrAccount {
 
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, PrivateContext, PrivateImmutable};
     use dep::aztec::state_vars::{Map, PublicMutable};
-    use dep::aztec::{context::Context, oracle::get_public_key::get_public_key};
+    use dep::aztec::context::Context;
     use dep::authwit::{
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
         auth_witness::get_auth_witness
     };
     use dep::aztec::hash::compute_siloed_nullifier;
+    use dep::aztec::keys::getters::{get_ivpk_m, get_npk_m_hash};
     use dep::aztec::oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness;
 
     use crate::public_key_note::{PublicKeyNote, PUBLIC_KEY_NOTE_LEN};
@@ -28,11 +29,14 @@ contract SchnorrAccount {
     // Constructs the contract
     #[aztec(private)]
     #[aztec(initializer)]
-    fn constructor(signing_pub_key_x: pub Field, signing_pub_key_y: pub Field) {
+    fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let this = context.this_address();
+        let this_npk_m_hash = get_npk_m_hash(&mut context, this);
+        let this_ivpk_m = get_ivpk_m(&mut context, this);
+
         // docs:start:initialize
-        let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
-        storage.signing_public_key.initialize(&mut pub_key_note, true);
+        let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_npk_m_hash);
+        storage.signing_public_key.initialize(&mut pub_key_note, true, this_ivpk_m);
         // docs:end:initialize
     }
 

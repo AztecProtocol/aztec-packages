@@ -14,6 +14,8 @@
 #include "avm_helper.hpp"
 #include "avm_mem_trace.hpp"
 #include "avm_trace.hpp"
+#include "barretenberg/vm/avm_trace/avm_kernel_trace.hpp"
+#include "barretenberg/vm/avm_trace/aztec_constants.hpp"
 
 namespace bb::avm_trace {
 
@@ -21,7 +23,9 @@ namespace bb::avm_trace {
  * @brief Constructor of a trace builder of AVM. Only serves to set the capacity of the
  *        underlying traces.
  */
-AvmTraceBuilder::AvmTraceBuilder()
+AvmTraceBuilder::AvmTraceBuilder(std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs)
+    // NOTE: we initialise the environment builder here as it requires public inputs
+    : kernel_trace_builder(kernel_inputs)
 {
     main_trace.reserve(AVM_TRACE_SIZE);
 }
@@ -36,6 +40,7 @@ void AvmTraceBuilder::reset()
     mem_trace_builder.reset();
     alu_trace_builder.reset();
     bin_trace_builder.reset();
+    kernel_trace_builder.reset();
 }
 
 AvmTraceBuilder::IndirectThreeResolution AvmTraceBuilder::resolve_ind_three(
@@ -1052,6 +1057,128 @@ void AvmTraceBuilder::op_cmov(
     });
 }
 
+// Helper function to add kernel lookup operations into the main trace
+Row AvmTraceBuilder::create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t selector, FF value, AvmMemoryTag w_tag)
+{
+    auto const clk = static_cast<uint32_t>(main_trace.size());
+
+    AvmMemoryTag r_tag = AvmMemoryTag::U0;
+    mem_trace_builder.write_into_memory(clk, IntermRegister::IA, dst_offset, value, r_tag, w_tag);
+
+    return Row{
+        .avm_main_clk = clk,
+        .avm_kernel_kernel_sel = selector,
+        .avm_main_ia = value,
+        .avm_main_ind_a = 0,
+        .avm_main_internal_return_ptr = internal_return_ptr,
+        .avm_main_mem_idx_a = dst_offset,
+        .avm_main_mem_op_a = 1,
+        .avm_main_pc = pc++,
+        .avm_main_q_kernel_lookup = 1,
+        .avm_main_rwa = 1,
+        .avm_main_w_in_tag = static_cast<uint32_t>(w_tag),
+    };
+}
+
+void AvmTraceBuilder::op_sender(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_sender();
+    Row row = create_kernel_lookup_opcode(dst_offset, SENDER_SELECTOR, ia_value, AvmMemoryTag::FF);
+    row.avm_main_sel_op_sender = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_address(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_address();
+    Row row = create_kernel_lookup_opcode(dst_offset, ADDRESS_SELECTOR, ia_value, AvmMemoryTag::FF);
+    row.avm_main_sel_op_address = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_portal(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_portal();
+    Row row = create_kernel_lookup_opcode(dst_offset, PORTAL_SELECTOR, ia_value, AvmMemoryTag::FF);
+    row.avm_main_sel_op_portal = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_fee_per_da_gas(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_fee_per_da_gas();
+    Row row = create_kernel_lookup_opcode(dst_offset, FEE_PER_DA_GAS_SELECTOR, ia_value, AvmMemoryTag::FF);
+    row.avm_main_sel_op_fee_per_da_gas = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_fee_per_l2_gas(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_fee_per_l2_gas();
+    Row row = create_kernel_lookup_opcode(dst_offset, FEE_PER_L2_GAS_SELECTOR, ia_value, AvmMemoryTag::FF);
+    row.avm_main_sel_op_fee_per_l2_gas = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_transaction_fee(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_transaction_fee();
+    Row row = create_kernel_lookup_opcode(dst_offset, TRANSACTION_FEE_SELECTOR, ia_value, AvmMemoryTag::FF);
+    row.avm_main_sel_op_transaction_fee = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_chain_id(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_chain_id();
+    Row row = create_kernel_lookup_opcode(dst_offset, CHAIN_ID_SELECTOR, ia_value, AvmMemoryTag::FF);
+    row.avm_main_sel_op_chain_id = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_version(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_version();
+    Row row = create_kernel_lookup_opcode(dst_offset, VERSION_SELECTOR, ia_value, AvmMemoryTag::FF);
+    row.avm_main_sel_op_version = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_block_number(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_block_number();
+    Row row = create_kernel_lookup_opcode(dst_offset, BLOCK_NUMBER_SELECTOR, ia_value, AvmMemoryTag::FF);
+    row.avm_main_sel_op_block_number = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_coinbase(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_coinbase();
+    Row row = create_kernel_lookup_opcode(dst_offset, COINBASE_SELECTOR, ia_value, AvmMemoryTag::FF);
+    row.avm_main_sel_op_coinbase = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_timestamp(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_timestamp();
+    Row row = create_kernel_lookup_opcode(dst_offset, TIMESTAMP_SELECTOR, ia_value, AvmMemoryTag::U64);
+    row.avm_main_sel_op_timestamp = FF(1);
+
+    main_trace.push_back(row);
+}
+
 /**
  * @brief Cast an element pointed by the address a_offset into type specified by dst_tag and
           store the result in address given by dst_offset.
@@ -1559,6 +1686,154 @@ void AvmTraceBuilder::internal_return()
     internal_return_ptr--;
 }
 
+// TODO(ilyas: #6383): Temporary way to bulk write slices
+void write_slice_to_memory(AvmMemTraceBuilder& mem_trace,
+                           std::vector<Row>& main_trace,
+                           uint32_t clk,
+                           uint32_t dst_offset,
+                           AvmMemoryTag r_tag,
+                           AvmMemoryTag w_tag,
+                           FF internal_return_ptr,
+                           std::vector<FF> const& slice)
+{
+    // We have 4 registers that we are able to use to write to memory within a single main trace row
+    auto register_order = std::array{ IntermRegister::IA, IntermRegister::IB, IntermRegister::IC, IntermRegister::ID };
+    // If the slice size isnt a multiple of 4, we still need an extra row to write the remainder
+    uint32_t const num_main_rows =
+        static_cast<uint32_t>(slice.size()) / 4 + static_cast<uint32_t>(slice.size() % 4 != 0);
+    for (uint32_t i = 0; i < num_main_rows; i++) {
+        Row main_row{
+            .avm_main_clk = clk + i,
+            .avm_main_internal_return_ptr = FF(internal_return_ptr),
+            .avm_main_r_in_tag = FF(static_cast<uint32_t>(r_tag)),
+            .avm_main_w_in_tag = FF(static_cast<uint32_t>(w_tag)),
+        };
+        // Write 4 values to memory in each_row
+        for (uint32_t j = 0; j < 4; j++) {
+            auto offset = i * 4 + j;
+            // If we exceed the slice size, we break
+            if (offset >= slice.size()) {
+                break;
+            }
+            mem_trace.write_into_memory(
+                clk + i, register_order[j], dst_offset + offset, slice.at(offset), r_tag, w_tag);
+            // This looks a bit gross, but it is fine for now.
+            if (j == 0) {
+                main_row.avm_main_ia = slice.at(offset);
+                main_row.avm_main_mem_idx_a = FF(dst_offset + offset);
+                main_row.avm_main_mem_op_a = FF(1);
+                main_row.avm_main_rwa = FF(1);
+            } else if (j == 1) {
+                main_row.avm_main_ib = slice.at(offset);
+                main_row.avm_main_mem_idx_b = FF(dst_offset + offset);
+                main_row.avm_main_mem_op_b = FF(1);
+                main_row.avm_main_rwb = FF(1);
+            } else if (j == 2) {
+                main_row.avm_main_ic = slice.at(offset);
+                main_row.avm_main_mem_idx_c = FF(dst_offset + offset);
+                main_row.avm_main_mem_op_c = FF(1);
+                main_row.avm_main_rwc = FF(1);
+            } else {
+                main_row.avm_main_id = slice.at(offset);
+                main_row.avm_main_mem_idx_d = FF(dst_offset + offset);
+                main_row.avm_main_mem_op_d = FF(1);
+                main_row.avm_main_rwd = FF(1);
+            }
+        }
+        main_trace.emplace_back(main_row);
+    }
+}
+
+/**
+ * @brief To_Radix_LE with direct or indirect memory access.
+ *
+ * @param indirect A byte encoding information about indirect/direct memory access.
+ * @param src_offset An index in memory pointing to the input of the To_Radix_LE conversion.
+ * @param dst_offset An index in memory pointing to the output of the To_Radix_LE conversion.
+ * @param radix A strict upper bound of each converted limb, i.e., 0 <= limb < radix.
+ * @param num_limbs The number of limbs to the value into.
+ */
+void AvmTraceBuilder::op_to_radix_le(
+    uint8_t indirect, uint32_t src_offset, uint32_t dst_offset, uint32_t radix, uint32_t num_limbs)
+{
+    auto clk = static_cast<uint32_t>(main_trace.size());
+    bool tag_match = true;
+    uint32_t direct_src_offset = src_offset;
+    uint32_t direct_dst_offset = dst_offset;
+
+    bool indirect_src_flag = is_operand_indirect(indirect, 0);
+    bool indirect_dst_flag = is_operand_indirect(indirect, 1);
+
+    if (indirect_src_flag) {
+        auto read_ind_src =
+            mem_trace_builder.indirect_read_and_load_from_memory(clk, IndirectRegister::IND_A, src_offset);
+        direct_src_offset = uint32_t(read_ind_src.val);
+        tag_match = tag_match && read_ind_src.tag_match;
+    }
+
+    if (indirect_dst_flag) {
+        auto read_ind_dst =
+            mem_trace_builder.indirect_read_and_load_from_memory(clk, IndirectRegister::IND_B, dst_offset);
+        direct_dst_offset = uint32_t(read_ind_dst.val);
+        tag_match = tag_match && read_ind_dst.tag_match;
+    }
+
+    auto read_src = mem_trace_builder.read_and_load_from_memory(
+        clk, IntermRegister::IA, direct_src_offset, AvmMemoryTag::FF, AvmMemoryTag::U8);
+    // Read in the memory address of where the first limb should be stored (the read_tag must be U32 and write tag U8)
+    auto read_dst = mem_trace_builder.read_and_load_from_memory(
+        clk, IntermRegister::IB, direct_dst_offset, AvmMemoryTag::FF, AvmMemoryTag::U8);
+
+    FF input = read_src.val;
+    FF dst_addr = read_dst.val;
+
+    // In case of a memory tag error, we do not perform the computation.
+    // Therefore, we do not create any entry in gadget table and return a vector of 0
+    std::vector<uint8_t> res = tag_match ? conversion_trace_builder.op_to_radix_le(input, radix, num_limbs, clk)
+                                         : std::vector<uint8_t>(num_limbs, 0);
+
+    // This is the row that contains the selector to trigger the sel_op_radix_le
+    // In this row, we read the input value and the destination address into register A and B respectively
+    main_trace.push_back(Row{
+        .avm_main_clk = clk,
+        .avm_main_ia = input,
+        .avm_main_ib = dst_addr,
+        .avm_main_ic = radix,
+        .avm_main_id = num_limbs,
+        .avm_main_ind_a = indirect_src_flag ? src_offset : 0,
+        .avm_main_ind_b = indirect_dst_flag ? dst_offset : 0,
+        .avm_main_ind_op_a = FF(static_cast<uint32_t>(indirect_src_flag)),
+        .avm_main_ind_op_b = FF(static_cast<uint32_t>(indirect_dst_flag)),
+        .avm_main_internal_return_ptr = FF(internal_return_ptr),
+        .avm_main_mem_idx_a = FF(direct_src_offset),
+        .avm_main_mem_idx_b = FF(direct_dst_offset),
+        .avm_main_mem_op_a = FF(1),
+        .avm_main_mem_op_b = FF(1),
+        .avm_main_pc = FF(pc++),
+        .avm_main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
+        .avm_main_sel_op_radix_le = FF(1),
+        .avm_main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U8)),
+    });
+    // Increment the clock so we dont write at the same clock cycle
+    // Instead we temporarily encode the writes into the subsequent rows of the main trace
+    clk++;
+
+    // MemTrace, write into memory value b from intermediate register ib.
+    std::vector<FF> ff_res = {};
+    ff_res.reserve(res.size());
+    for (auto const& limb : res) {
+        ff_res.emplace_back(limb);
+    }
+    write_slice_to_memory(mem_trace_builder,
+                          main_trace,
+                          clk,
+                          direct_dst_offset,
+                          AvmMemoryTag::FF,
+                          AvmMemoryTag::U8,
+                          FF(internal_return_ptr),
+                          ff_res);
+}
+
 // Finalise Lookup Counts
 //
 // For log derivative lookups, we require a column that contains the number of times each lookup is consumed
@@ -1587,10 +1862,12 @@ std::vector<Row> AvmTraceBuilder::finalize()
     bool const range_check_required = true;
     auto mem_trace = mem_trace_builder.finalize();
     auto alu_trace = alu_trace_builder.finalize();
+    auto conv_trace = conversion_trace_builder.finalize();
     auto bin_trace = bin_trace_builder.finalize();
     size_t mem_trace_size = mem_trace.size();
     size_t main_trace_size = main_trace.size();
     size_t alu_trace_size = alu_trace.size();
+    size_t conv_trace_size = conv_trace.size();
     size_t bin_trace_size = bin_trace.size();
 
     // Get tag_err counts from the mem_trace_builder
@@ -1601,13 +1878,12 @@ std::vector<Row> AvmTraceBuilder::finalize()
     std::unordered_map<uint16_t, uint32_t> mem_rng_check_hi_counts;
 
     // Main Trace needs to be at least as big as the biggest subtrace.
-    // If the bin_trace_size has entries, we need the main_trace to be as big as our byte lookup table (3 * 2**16
-    // long)
+    // If the bin_trace_size has entries, we need the main_trace to be as big as our byte lookup table (3 *
+    // 2**16 long)
     size_t const lookup_table_size = bin_trace_size > 0 ? 3 * (1 << 16) : 0;
     size_t const range_check_size = range_check_required ? UINT16_MAX + 1 : 0;
-    std::vector<size_t> trace_sizes = {
-        mem_trace_size, main_trace_size, alu_trace_size, lookup_table_size, range_check_size
-    };
+    std::vector<size_t> trace_sizes = { mem_trace_size,   main_trace_size, alu_trace_size,      lookup_table_size,
+                                        range_check_size, conv_trace_size, KERNEL_INPUTS_LENGTH };
     auto trace_size = std::max_element(trace_sizes.begin(), trace_sizes.end());
 
     // We only need to pad with zeroes to the size to the largest trace here, pow_2 padding is handled in the
@@ -1919,6 +2195,17 @@ std::vector<Row> AvmTraceBuilder::finalize()
         }
     }
 
+    // Add Conversion Gadget table
+    for (size_t i = 0; i < conv_trace_size; i++) {
+        auto const& src = conv_trace.at(i);
+        auto& dest = main_trace.at(i);
+        dest.avm_conversion_to_radix_le_sel = FF(static_cast<uint8_t>(src.to_radix_le_sel));
+        dest.avm_conversion_clk = FF(src.conversion_clk);
+        dest.avm_conversion_input = src.input;
+        dest.avm_conversion_radix = FF(src.radix);
+        dest.avm_conversion_num_limbs = FF(src.num_limbs);
+    }
+
     // Add Binary Trace table
     for (size_t i = 0; i < bin_trace_size; i++) {
         auto const& src = bin_trace.at(i);
@@ -1970,12 +2257,28 @@ std::vector<Row> AvmTraceBuilder::finalize()
         // Generate ByteLength Lookup table of instruction tags to the number of bytes
         // {U8: 1, U16: 2, U32: 4, U64: 8, U128: 16}
         for (uint8_t avm_in_tag = 0; avm_in_tag < 5; avm_in_tag++) {
-            // The +1 here is because the instruction tags we care about (i.e excl U0 and FF) has the range [1,5]
+            // The +1 here is because the instruction tags we care about (i.e excl U0 and FF) has the range
+            // [1,5]
             main_trace.at(avm_in_tag).avm_byte_lookup_table_in_tags = avm_in_tag + 1;
             main_trace.at(avm_in_tag).avm_byte_lookup_table_byte_lengths = static_cast<uint8_t>(pow(2, avm_in_tag));
             main_trace.at(avm_in_tag).lookup_byte_lengths_counts =
                 bin_trace_builder.byte_length_counter[avm_in_tag + 1];
         }
+    }
+
+    // 1. Calculate the lookup counts for each environment access
+    // 2. Add public inputs into the kernel column
+
+    // We add the lookup counts in the index of the kernel inputs selectors that are active
+    for (uint32_t selector_index : KERNEL_INPUTS_SELECTORS) {
+        auto& dest = main_trace.at(selector_index);
+        dest.lookup_into_kernel_counts =
+            FF(kernel_trace_builder.kernel_selector_counter[static_cast<uint32_t>(selector_index)]);
+        dest.avm_kernel_q_public_input_kernel_add_to_table = FF(1);
+    }
+
+    for (size_t i = 0; i < KERNEL_INPUTS_LENGTH; i++) {
+        main_trace.at(i).avm_kernel_kernel_inputs__is_public = kernel_trace_builder.kernel_inputs.at(i);
     }
 
     // Adding extra row for the shifted values at the top of the execution trace.

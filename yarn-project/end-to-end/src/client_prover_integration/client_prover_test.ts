@@ -12,8 +12,9 @@ import {
   computeSecretHash,
   createDebugLogger,
 } from '@aztec/aztec.js';
+import { BBNativeProofCreator } from '@aztec/bb-prover';
 import { TokenContract } from '@aztec/noir-contracts.js';
-import { BBNativeProofCreator, type PXEService } from '@aztec/pxe';
+import { type PXEService } from '@aztec/pxe';
 
 import { waitRegisteredAccountSynced } from '../benchmarks/utils.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
@@ -130,7 +131,6 @@ export class ClientProverTest {
 
     this.logger.debug(`Main setup completed, initializing full prover PXE...`);
     ({ pxe: this.fullProverPXE, teardown: this.provenPXETeardown } = await setupPXEService(
-      0,
       this.aztecNode,
       {
         proverEnabled: false,

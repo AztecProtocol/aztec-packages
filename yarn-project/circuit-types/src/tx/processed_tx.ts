@@ -46,7 +46,7 @@ export type PublicKernelRequest = PublicKernelTailRequest | PublicKernelNonTailR
  * Represents a tx that has been processed by the sequencer public processor,
  * so its kernel circuit public inputs are filled in.
  */
-export type ProcessedTx = Pick<Tx, 'proof' | 'encryptedLogs' | 'unencryptedLogs'> & {
+export type ProcessedTx = Pick<Tx, 'proof' | 'noteEncryptedLogs' | 'encryptedLogs' | 'unencryptedLogs'> & {
   /**
    * Output of the private tail or public tail kernel circuit for this tx.
    */
@@ -134,6 +134,8 @@ export function makeProcessedTx(
     hash: tx.getTxHash(),
     data: kernelOutput,
     proof,
+    // TODO(4712): deal with non-revertible logs here
+    noteEncryptedLogs: revertReason ? EncryptedTxL2Logs.empty() : tx.noteEncryptedLogs,
     encryptedLogs: revertReason ? EncryptedTxL2Logs.empty() : tx.encryptedLogs,
     unencryptedLogs: revertReason ? UnencryptedTxL2Logs.empty() : tx.unencryptedLogs,
     isEmpty: false,
@@ -157,6 +159,7 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
   const hash = new TxHash(Fr.ZERO.toBuffer());
   return {
     hash,
+    noteEncryptedLogs: EncryptedTxL2Logs.empty(),
     encryptedLogs: EncryptedTxL2Logs.empty(),
     unencryptedLogs: UnencryptedTxL2Logs.empty(),
     data: emptyKernelOutput,
@@ -178,6 +181,9 @@ export function toTxEffect(tx: ProcessedTx): TxEffect {
     tx.data.end.publicDataUpdateRequests
       .map(t => new PublicDataWrite(t.leafSlot, t.newValue))
       .filter(h => !h.isEmpty()),
+    tx.data.end.encryptedLogPreimagesLength,
+    tx.data.end.unencryptedLogPreimagesLength,
+    tx.noteEncryptedLogs || EncryptedTxL2Logs.empty(),
     tx.encryptedLogs || EncryptedTxL2Logs.empty(),
     tx.unencryptedLogs || UnencryptedTxL2Logs.empty(),
   );
@@ -185,13 +191,47 @@ export function toTxEffect(tx: ProcessedTx): TxEffect {
 
 function validateProcessedTxLogs(tx: ProcessedTx): void {
   const unencryptedLogs = tx.unencryptedLogs || UnencryptedTxL2Logs.empty();
-  const kernelUnencryptedLogsHash = tx.data.end.unencryptedLogsHash;
-  const referenceHash = Fr.fromBuffer(unencryptedLogs.hash());
-  if (!referenceHash.equals(kernelUnencryptedLogsHash)) {
+  let kernelHash = tx.data.end.unencryptedLogsHash;
+  let referenceHash = Fr.fromBuffer(unencryptedLogs.hash());
+  if (!referenceHash.equals(kernelHash)) {
     throw new Error(
-      `Unencrypted logs hash mismatch. Expected ${referenceHash.toString()}, got ${kernelUnencryptedLogsHash.toString()}.
+      `Unencrypted logs hash mismatch. Expected ${referenceHash.toString()}, got ${kernelHash.toString()}.
              Processed: ${JSON.stringify(unencryptedLogs.toJSON())}
              Kernel Length: ${tx.data.end.unencryptedLogPreimagesLength}`,
+    );
+  }
+  const encryptedLogs = tx.encryptedLogs || EncryptedTxL2Logs.empty();
+  kernelHash = tx.data.end.encryptedLogsHash;
+  referenceHash = Fr.fromBuffer(encryptedLogs.hash());
+  if (!referenceHash.equals(kernelHash)) {
+    throw new Error(
+      `Encrypted logs hash mismatch. Expected ${referenceHash.toString()}, got ${kernelHash.toString()}.
+             Processed: ${JSON.stringify(encryptedLogs.toJSON())}`,
+    );
+  }
+  const noteEncryptedLogs = tx.noteEncryptedLogs || EncryptedTxL2Logs.empty();
+  kernelHash = tx.data.end.noteEncryptedLogsHash;
+  referenceHash = Fr.fromBuffer(noteEncryptedLogs.hash(0));
+  if (!referenceHash.equals(kernelHash)) {
+    throw new Error(
+      `Note encrypted logs hash mismatch. Expected ${referenceHash.toString()}, got ${kernelHash.toString()}.
+             Processed: ${JSON.stringify(noteEncryptedLogs.toJSON())}`,
+    );
+  }
+  let referenceLength = new Fr(encryptedLogs.getKernelLength() + noteEncryptedLogs.getKernelLength());
+  let kernelLength = tx.data.end.encryptedLogPreimagesLength;
+  if (!referenceLength.equals(kernelLength)) {
+    throw new Error(
+      `Encrypted logs length mismatch. Expected ${referenceLength.toString()}, got ${kernelLength.toString()}.
+             Processed: ${JSON.stringify(encryptedLogs.toJSON())}`,
+    );
+  }
+  referenceLength = new Fr(unencryptedLogs.getKernelLength());
+  kernelLength = tx.data.end.unencryptedLogPreimagesLength;
+  if (!referenceLength.equals(kernelLength)) {
+    throw new Error(
+      `Unencrypted logs length mismatch. Expected ${referenceLength.toString()}, got ${kernelLength.toString()}.
+             Processed: ${JSON.stringify(encryptedLogs.toJSON())}`,
     );
   }
 }
