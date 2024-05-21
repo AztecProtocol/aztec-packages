@@ -13,8 +13,10 @@ import {
   computeSecretHash,
   retryUntil,
 } from '@aztec/aztec.js';
+// docs:start:imports
 import { type PublicKey, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
 import { TestContract, TokenContract } from '@aztec/noir-contracts.js';
+// docs:end:imports
 
 import { jest } from '@jest/globals';
 
@@ -54,7 +56,6 @@ describe('e2e_key_rotation', () => {
     } = await setup(1));
 
     ({ pxe: pxeB, teardown: teardownB } = await setupPXEService(aztecNode, {}, undefined, true));
-
     [walletB] = await createAccounts(pxeB, 1);
 
     // We deploy test and token contracts
@@ -171,13 +172,18 @@ describe('e2e_key_rotation', () => {
     // 3. Rotates B key
     let newNpkM: PublicKey;
     {
+      // docs:start:create_keys
       const newNskM = Fq.random();
       newNpkM = derivePublicKeyFromSecretKey(newNskM);
+      // docs:end:create_keys
 
+      // docs:start:rotateMasterNullifierKey
+      // docs:start:rotate_npk_m
       // This function saves the new nullifier secret key for the account in our PXE,
       // and calls the key registry with the derived nullifier public key.
       await walletB.rotateNullifierKeys(newNskM);
-
+      // docs:end:rotate_npk_m
+      // docs:end:rotateMasterNullifierKey
       await crossDelay();
     }
 
