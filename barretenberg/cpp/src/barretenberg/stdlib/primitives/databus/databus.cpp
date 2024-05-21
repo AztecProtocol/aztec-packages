@@ -33,21 +33,6 @@ void databus<Builder>::bus_vector::set_values(const std::vector<field_pt>& entri
 }
 
 template <typename Builder>
-void databus<Builder>::bus_vector::set_values(const std::vector<field_pt>& entries_in)
-    requires IsNotGoblinUltraBuilder<Builder>
-{
-    ASSERT(entries_in.size() == size_t(-1));
-}
-
-template <typename Builder>
-field_t<Builder> databus<Builder>::bus_vector::operator[](const field_pt& index) const
-    requires IsNotGoblinUltraBuilder<Builder>
-{
-    ASSERT(index.witness_index == uint32_t(-1));
-    return index;
-}
-
-template <typename Builder>
 field_t<Builder> databus<Builder>::bus_vector::operator[](const field_pt& index) const
     requires IsGoblinUltraBuilder<Builder>
 {
@@ -71,5 +56,4 @@ field_t<Builder> databus<Builder>::bus_vector::operator[](const field_pt& index)
 }
 
 template class databus<bb::GoblinUltraCircuitBuilder>;
-template class databus<bb::UltraCircuitBuilder>;
 } // namespace bb::stdlib

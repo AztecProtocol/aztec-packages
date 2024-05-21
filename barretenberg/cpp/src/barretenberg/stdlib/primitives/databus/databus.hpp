@@ -28,8 +28,7 @@ template <typename Builder> class databus {
          */
         void set_values(const std::vector<field_pt>& entries_in)
             requires IsGoblinUltraBuilder<Builder>;
-        void set_values(const std::vector<field_pt>& entries_in)
-            requires IsNotGoblinUltraBuilder<Builder>;
+
         /**
          * @brief Read from the bus vector with a witness index value. Creates a read gate
          *
@@ -38,8 +37,7 @@ template <typename Builder> class databus {
          */
         field_pt operator[](const field_pt& index) const
             requires IsGoblinUltraBuilder<Builder>;
-        field_pt operator[](const field_pt& index) const
-            requires IsNotGoblinUltraBuilder<Builder>;
+
         size_t size() const { return length; }
         Builder* get_context() const { return context; }
 
