@@ -19,7 +19,7 @@ nargo-src:
       noir-repo
 
     # Fetch any dependencies so that they can be cached
-    RUN cd noir-repo && cargo fetch
+    RUN cd noir-repo && cargo fetch && cd ../
 
     # NOTE: we use a fake commit hash here
     # we don't want Noir to rebuild everytime the parent repo changes
