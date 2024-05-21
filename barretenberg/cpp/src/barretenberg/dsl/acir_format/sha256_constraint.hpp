@@ -15,15 +15,6 @@ struct Sha256Input {
     MSGPACK_FIELDS(witness, num_bits);
 };
 
-struct Sha256Constraint {
-    std::vector<Sha256Input> inputs;
-    std::array<uint32_t, 32> result;
-
-    friend bool operator==(Sha256Constraint const& lhs, Sha256Constraint const& rhs) = default;
-    // for serialization, update with any new fields
-    MSGPACK_FIELDS(inputs, result);
-};
-
 struct Sha256Compression {
     std::array<Sha256Input, 16> inputs;
     std::array<Sha256Input, 8> hash_values;
