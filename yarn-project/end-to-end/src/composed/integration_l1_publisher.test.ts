@@ -28,6 +28,7 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataUpdateRequest,
+  makeEmptyProof,
 } from '@aztec/circuits.js';
 import { fr, makeProof } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
@@ -407,7 +408,7 @@ describe('L1Publisher integration', () => {
 
       writeJson(`mixed_block_${i}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
 
-      await publisher.processL2Block(block);
+      await publisher.processL2Block(block, makeEmptyProof());
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
@@ -495,7 +496,7 @@ describe('L1Publisher integration', () => {
 
       writeJson(`empty_block_${i}`, block, [], AztecAddress.ZERO, deployerAccount.address);
 
-      await publisher.processL2Block(block);
+      await publisher.processL2Block(block, makeEmptyProof());
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,

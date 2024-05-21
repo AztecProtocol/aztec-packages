@@ -1,5 +1,6 @@
 import { type L2Block } from '@aztec/circuit-types';
 import { type L1PublishStats } from '@aztec/circuit-types/stats';
+import { type Proof } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 
@@ -118,7 +119,7 @@ export class L1Publisher implements L2BlockReceiver {
    * @param block - L2 block to publish.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
-  public async processL2Block(block: L2Block): Promise<boolean> {
+  public async processL2Block(block: L2Block, proof: Proof): Promise<boolean> {
     // TODO(#4148) Remove this block number check, it's here because we don't currently have proper genesis state on the contract
     const lastArchive = block.header.lastArchive.root.toBuffer();
     if (block.number != 1 && !(await this.checkLastArchiveHash(lastArchive))) {
@@ -166,7 +167,7 @@ export class L1Publisher implements L2BlockReceiver {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
       body: encodedBody,
-      proof: Buffer.alloc(0),
+      proof: proof.buffer,
     };
 
     // Process block

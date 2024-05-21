@@ -1,4 +1,5 @@
 import { type L2Block } from '@aztec/circuit-types';
+import { type Proof } from '@aztec/circuits.js';
 
 /**
  * Given the necessary rollup data, verifies it, and updates the underlying state accordingly to advance the state of the system.
@@ -9,5 +10,5 @@ export interface L2BlockReceiver {
    * Receive and L2 block and process it, returns true if successful.
    * @param l2BlockData - L2 block to process.
    */
-  processL2Block(l2BlockData: L2Block): Promise<boolean>;
+  processL2Block(l2BlockData: L2Block, proof: Proof): Promise<boolean>;
 }
