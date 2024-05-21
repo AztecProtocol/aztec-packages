@@ -13,10 +13,10 @@ import {
   LogType,
   MerkleTreeId,
   NullifierMembershipWitness,
-  type ProcessOutput,
   type ProverClient,
   type ProverConfig,
   PublicDataWitness,
+  PublicSimulationOutput,
   type SequencerConfig,
   type SiblingPath,
   type Tx,
@@ -33,8 +33,6 @@ import {
   type Header,
   INITIAL_L2_BLOCK_NUM,
   type L1_TO_L2_MSG_TREE_HEIGHT,
-  L2_TO_L1_MESSAGE_LENGTH,
-  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -45,7 +43,6 @@ import {
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
@@ -454,11 +451,7 @@ export class AztecNodeService implements AztecNode {
       throw new Error('Block is not defined');
     }
 
-    // We multiply the number of messages per block by the length of each message because each message occupies
-    // 2 leaves in the tree!
-    const l2ToL1Messages = block.body.txEffects.flatMap(txEffect =>
-      padArrayEnd(txEffect.l2ToL1Msgs, Fr.ZERO, MAX_NEW_L2_TO_L1_MSGS_PER_TX * L2_TO_L1_MESSAGE_LENGTH),
-    );
+    const l2ToL1Messages = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
     const indexOfL2ToL1Message = BigInt(
       l2ToL1Messages.findIndex(l2ToL1MessageInBlock => l2ToL1MessageInBlock.equals(l2ToL1Message)),
@@ -468,7 +461,8 @@ export class AztecNodeService implements AztecNode {
       throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
     }
 
-    const treeHeight = Math.ceil(Math.log2(l2ToL1Messages.length));
+    // Match how l2ToL1TreeHeight is calculated in Rollup.sol.
+    const treeHeight = block.header.contentCommitment.txTreeHeight.toNumber() + 1;
     // The root of this tree is the out_hash calculated in Noir => we truncate to match Noir's SHA
     const tree = new StandardTree(
       openTmpStore(true),
@@ -640,7 +634,7 @@ export class AztecNodeService implements AztecNode {
    * Simulates the public part of a transaction with the current state.
    * @param tx - The transaction to simulate.
    **/
-  public async simulatePublicCalls(tx: Tx): Promise<ProcessOutput> {
+  public async simulatePublicCalls(tx: Tx): Promise<PublicSimulationOutput> {
     this.log.info(`Simulating tx ${tx.getTxHash()}`);
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
 
@@ -668,6 +662,7 @@ export class AztecNodeService implements AztecNode {
     const processor = await publicProcessorFactory.create(prevHeader, newGlobalVariables);
     // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
     const [processedTxs, failedTxs, returns] = await processor.process([tx]);
+    // REFACTOR: Consider returning the error/revert rather than throwing
     if (failedTxs.length) {
       this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`);
       throw failedTxs[0].error;
@@ -679,14 +674,15 @@ export class AztecNodeService implements AztecNode {
     }
     this.log.debug(`Simulated tx ${tx.getTxHash()} succeeds`);
     const [processedTx] = processedTxs;
-    return {
-      constants: processedTx.data.constants,
-      encryptedLogs: processedTx.encryptedLogs,
-      unencryptedLogs: processedTx.unencryptedLogs,
-      end: processedTx.data.end,
-      revertReason: processedTx.revertReason,
-      publicReturnValues: returns[0],
-    };
+    return new PublicSimulationOutput(
+      processedTx.encryptedLogs,
+      processedTx.unencryptedLogs,
+      processedTx.revertReason,
+      processedTx.data.constants,
+      processedTx.data.end,
+      returns[0],
+      processedTx.gasUsed,
+    );
   }
 
   public async setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {

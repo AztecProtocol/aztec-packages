@@ -3,7 +3,7 @@
 
 namespace bb {
 
-template <typename FF_> class GoblinTranslatorOpcodeConstraintRelationImpl {
+template <typename FF_> class TranslatorOpcodeConstraintRelationImpl {
   public:
     using FF = FF_;
 
@@ -13,6 +13,11 @@ template <typename FF_> class GoblinTranslatorOpcodeConstraintRelationImpl {
         7 // opcode constraint relation
     };
 
+    /**
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
+     *
+     */
+    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.op.is_zero(); }
     /**
      * @brief Expression for enforcing the value of the Opcode to be {0,1,2,3,4,8}
      * @details This relation enforces the opcode to be one of described values. Since we don't care about even
@@ -31,7 +36,7 @@ template <typename FF_> class GoblinTranslatorOpcodeConstraintRelationImpl {
                            const FF& scaling_factor);
 };
 
-template <typename FF_> class GoblinTranslatorAccumulatorTransferRelationImpl {
+template <typename FF_> class TranslatorAccumulatorTransferRelationImpl {
   public:
     using FF = FF_;
 
@@ -54,6 +59,19 @@ template <typename FF_> class GoblinTranslatorAccumulatorTransferRelationImpl {
     };
 
     /**
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
+     *
+     * @details This has a negligible chance of failing in sumcheck (not in the first round) because effectively
+     * transfrom original coefficients into a random linear combination. But checking each individually is noticeably
+     * slower.
+     *
+     */
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return (in.lagrange_even_in_minicircuit + in.lagrange_second_to_last_in_minicircuit + in.lagrange_second)
+            .is_zero();
+    }
+    /**
      * @brief Relation enforcing non-arithmetic transitions of accumulator (value that is tracking the batched
      * evaluation of polynomials in non-native field)
      * @details This relation enforces three pieces of logic:
@@ -73,10 +91,9 @@ template <typename FF_> class GoblinTranslatorAccumulatorTransferRelationImpl {
                            const FF& scaling_factor);
 };
 
-template <typename FF>
-using GoblinTranslatorOpcodeConstraintRelation = Relation<GoblinTranslatorOpcodeConstraintRelationImpl<FF>>;
+template <typename FF> using TranslatorOpcodeConstraintRelation = Relation<TranslatorOpcodeConstraintRelationImpl<FF>>;
 
 template <typename FF>
-using GoblinTranslatorAccumulatorTransferRelation = Relation<GoblinTranslatorAccumulatorTransferRelationImpl<FF>>;
+using TranslatorAccumulatorTransferRelation = Relation<TranslatorAccumulatorTransferRelationImpl<FF>>;
 
 } // namespace bb

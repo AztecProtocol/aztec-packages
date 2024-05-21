@@ -18,7 +18,7 @@ export class FunctionData {
   static fromAbi(abi: FunctionAbi | ContractFunctionDao): FunctionData {
     return new FunctionData(
       FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
-      abi.functionType === FunctionType.SECRET,
+      abi.functionType === FunctionType.PRIVATE,
     );
   }
 
@@ -56,6 +56,8 @@ export class FunctionData {
   public static empty(args?: {
     /** Indicates whether the function is private or public. */
     isPrivate?: boolean;
+    /** Indicates whether the function can alter state or not. */
+    isStatic?: boolean;
   }): FunctionData {
     return new FunctionData(FunctionSelector.empty(), args?.isPrivate ?? false);
   }
@@ -67,7 +69,7 @@ export class FunctionData {
    */
   static fromBuffer(buffer: Buffer | BufferReader): FunctionData {
     const reader = BufferReader.asReader(buffer);
-    return new FunctionData(reader.readObject(FunctionSelector), reader.readBoolean());
+    return new FunctionData(reader.readObject(FunctionSelector), /*isPrivate=*/ reader.readBoolean());
   }
 
   static fromFields(fields: Fr[] | FieldReader): FunctionData {

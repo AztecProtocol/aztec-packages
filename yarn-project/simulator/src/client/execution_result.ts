@@ -5,7 +5,7 @@ import {
   UnencryptedFunctionL2Logs,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { type IsEmpty, type PrivateCallStackItem, type PublicCallRequest, sortByCounter } from '@aztec/circuits.js';
+import { type IsEmpty, type PrivateCallStackItem, PublicCallRequest, sortByCounter } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type ACVMField } from '../acvm/index.js';
@@ -56,6 +56,13 @@ export interface ExecutionResult {
   nestedExecutions: this[];
   /** Enqueued public function execution requests to be picked up by the sequencer. */
   enqueuedPublicFunctionCalls: PublicCallRequest[];
+  /** Public function execution requested for teardown */
+  publicTeardownFunctionCall: PublicCallRequest;
+  /**
+   * Encrypted note logs emitted during execution of this function call.
+   * Note: These are preimages to `noteEncryptedLogsHashes`.
+   */
+  noteEncryptedLogs: CountedLog<EncryptedL2Log>[];
   /**
    * Encrypted logs emitted during execution of this function call.
    * Note: These are preimages to `encryptedLogsHashes`.
@@ -85,8 +92,27 @@ export function collectNullifiedNoteHashCounters(execResult: ExecutionResult, ac
  * @param execResult - The topmost execution result.
  * @returns All encrypted logs.
  */
+function collectNoteEncryptedLogs(execResult: ExecutionResult): CountedLog<EncryptedL2Log>[] {
+  return [execResult.noteEncryptedLogs, ...execResult.nestedExecutions.flatMap(collectNoteEncryptedLogs)].flat();
+}
+
+/**
+ * Collect all encrypted logs across all nested executions and sorts by counter.
+ * @param execResult - The topmost execution result.
+ * @returns All encrypted logs.
+ */
+export function collectSortedNoteEncryptedLogs(execResult: ExecutionResult): EncryptedFunctionL2Logs {
+  const allLogs = collectNoteEncryptedLogs(execResult);
+  const sortedLogs = sortByCounter(allLogs);
+  return new EncryptedFunctionL2Logs(sortedLogs.map(l => l.log));
+}
+/**
+ * Collect all encrypted logs across all nested executions.
+ * @param execResult - The topmost execution result.
+ * @returns All encrypted logs.
+ */
 function collectEncryptedLogs(execResult: ExecutionResult): CountedLog<EncryptedL2Log>[] {
-  return [execResult.encryptedLogs, ...[...execResult.nestedExecutions].flatMap(collectEncryptedLogs)].flat();
+  return [execResult.encryptedLogs, ...execResult.nestedExecutions.flatMap(collectEncryptedLogs)].flat();
 }
 
 /**
@@ -106,7 +132,7 @@ export function collectSortedEncryptedLogs(execResult: ExecutionResult): Encrypt
  * @returns All unencrypted logs.
  */
 function collectUnencryptedLogs(execResult: ExecutionResult): CountedLog<UnencryptedL2Log>[] {
-  return [execResult.unencryptedLogs, ...[...execResult.nestedExecutions].flatMap(collectUnencryptedLogs)].flat();
+  return [execResult.unencryptedLogs, ...execResult.nestedExecutions.flatMap(collectUnencryptedLogs)].flat();
 }
 
 /**
@@ -130,6 +156,23 @@ export function collectEnqueuedPublicFunctionCalls(execResult: ExecutionResult):
   // as the kernel processes it like a stack, popping items off and pushing them to output
   return [
     ...execResult.enqueuedPublicFunctionCalls,
-    ...[...execResult.nestedExecutions].flatMap(collectEnqueuedPublicFunctionCalls),
+    ...execResult.nestedExecutions.flatMap(collectEnqueuedPublicFunctionCalls),
   ].sort((a, b) => b.callContext.sideEffectCounter - a.callContext.sideEffectCounter);
+}
+
+export function collectPublicTeardownFunctionCall(execResult: ExecutionResult): PublicCallRequest {
+  const teardownCalls = [
+    execResult.publicTeardownFunctionCall,
+    ...execResult.nestedExecutions.flatMap(collectPublicTeardownFunctionCall),
+  ].filter(call => !call.isEmpty());
+
+  if (teardownCalls.length === 1) {
+    return teardownCalls[0];
+  }
+
+  if (teardownCalls.length > 1) {
+    throw new Error('Multiple public teardown calls detected');
+  }
+
+  return PublicCallRequest.empty();
 }

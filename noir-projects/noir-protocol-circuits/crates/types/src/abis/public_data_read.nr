@@ -1,6 +1,6 @@
-use crate::constants::GENERATOR_INDEX__PUBLIC_DATA_READ;
+use crate::constants::{GENERATOR_INDEX__PUBLIC_DATA_READ, PUBLIC_DATA_READ_LENGTH};
 use dep::std::cmp::Eq;
-use crate::traits::{Empty, Hash};
+use crate::traits::{Empty, Hash, Serialize, Deserialize};
 
 struct PublicDataRead {
     leaf_slot : Field,
@@ -35,4 +35,27 @@ impl PublicDataRead {
     pub fn is_empty(self) -> bool {
         (self.leaf_slot == 0) & (self.value == 0)
     }
+}
+
+impl Serialize<PUBLIC_DATA_READ_LENGTH> for PublicDataRead {
+  fn serialize(self) -> [Field; PUBLIC_DATA_READ_LENGTH] {
+    [self.leaf_slot, self.value]
+  }
+}
+
+impl Deserialize<PUBLIC_DATA_READ_LENGTH> for PublicDataRead {
+  fn deserialize(fields: [Field; PUBLIC_DATA_READ_LENGTH]) -> Self {
+    PublicDataRead {
+      leaf_slot: fields[0],
+      value: fields[1],
+    }
+  }
+}
+
+#[test]
+fn serialization_of_empty() {
+    let item = PublicDataRead::empty();
+    let serialized = item.serialize();
+    let deserialized = PublicDataRead::deserialize(serialized);
+    assert(item.eq(deserialized));
 }

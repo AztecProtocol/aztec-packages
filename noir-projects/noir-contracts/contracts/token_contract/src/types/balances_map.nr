@@ -3,17 +3,17 @@ use dep::aztec::prelude::{
     PrivateSet, Map
 };
 use dep::aztec::{
-    context::{PublicContext, Context}, hash::pedersen_hash,
-    protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    note::{note_getter::view_notes, note_getter_options::SortOrder}
+    hash::pedersen_hash, protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+    note::{note_getter::view_notes, note_getter_options::SortOrder},
+    keys::getters::{get_npk_m_hash, get_ivpk_m}
 };
 use crate::types::token_note::{TokenNote, OwnedNote};
 
-struct BalancesMap<T> {
-    map: Map<AztecAddress, PrivateSet<T>>
+struct BalancesMap<T, Context> {
+    map: Map<AztecAddress, PrivateSet<T, Context>, Context>
 }
 
-impl<T> BalancesMap<T> {
+impl<T, Context> BalancesMap<T, Context> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self {
@@ -24,7 +24,9 @@ impl<T> BalancesMap<T> {
             )
         }
     }
+}
 
+impl<T> BalancesMap<T, ()> {
     unconstrained pub fn balance_of<T_SERIALIZED_LEN>(
         self: Self,
         owner: AztecAddress
@@ -54,16 +56,23 @@ impl<T> BalancesMap<T> {
 
         balance
     }
+}
 
+impl<T> BalancesMap<T, &mut PrivateContext> {
     pub fn add<T_SERIALIZED_LEN>(
         self: Self,
         owner: AztecAddress,
         addend: U128
     ) where T: NoteInterface<T_SERIALIZED_LEN> + OwnedNote {
-        let mut addend_note = T::new(addend, owner);
+        let context = self.map.context;
+        let owner_ivpk_m = get_ivpk_m(context, owner);
+
+        // We fetch the nullifier public key hash from the registry / from our PXE
+        let owner_npk_m_hash = get_npk_m_hash(context, owner);
+        let mut addend_note = T::new(addend, owner_npk_m_hash);
 
         // docs:start:insert
-        self.map.at(owner).insert(&mut addend_note, true);
+        self.map.at(owner).insert(&mut addend_note, true, owner_ivpk_m);
         // docs:end:insert
     }
 

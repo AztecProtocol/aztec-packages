@@ -1,7 +1,7 @@
 import {
   type BlockProver,
   type FailedTx,
-  type ProcessReturnValues,
+  NestedProcessReturnValues,
   type ProcessedTx,
   type PublicKernelRequest,
   type SimulationError,
@@ -20,7 +20,11 @@ import { PublicExecutor, type PublicStateDB, type SimulationProvider } from '@az
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { type AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
+import {
+  type AbstractPhaseManager,
+  PublicKernelPhase,
+  publicKernelPhaseToKernelType,
+} from './abstract_phase_manager.js';
 import { PhaseManagerFactory } from './phase_manager_factory.js';
 import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from './public_executor.js';
 import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
@@ -92,12 +96,12 @@ export class PublicProcessor {
     maxTransactions = txs.length,
     blockProver?: BlockProver,
     txValidator?: TxValidator<ProcessedTx>,
-  ): Promise<[ProcessedTx[], FailedTx[], ProcessReturnValues[]]> {
+  ): Promise<[ProcessedTx[], FailedTx[], NestedProcessReturnValues[]]> {
     // The processor modifies the tx objects in place, so we need to clone them.
     txs = txs.map(tx => Tx.clone(tx));
     const result: ProcessedTx[] = [];
     const failed: FailedTx[] = [];
-    const returns: ProcessReturnValues[] = [];
+    const returns: NestedProcessReturnValues[] = [];
 
     for (const tx of txs) {
       // only process up to the limit of the block
@@ -125,7 +129,7 @@ export class PublicProcessor {
           await blockProver.addNewTx(processedTx);
         }
         result.push(processedTx);
-        returns.push(returnValues);
+        returns.push(returnValues?.[0] ?? new NestedProcessReturnValues([]));
       } catch (err: any) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         this.log.warn(`Failed to process tx ${tx.getTxHash()}: ${errorMessage}`);
@@ -134,7 +138,7 @@ export class PublicProcessor {
           tx,
           error: err instanceof Error ? err : new Error(errorMessage),
         });
-        returns.push([]);
+        returns.push(new NestedProcessReturnValues([]));
       }
     }
 
@@ -150,8 +154,8 @@ export class PublicProcessor {
     return makeEmptyProcessedTx(this.historicalHeader.clone(), chainId, version);
   }
 
-  private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, ProcessReturnValues | undefined]> {
-    let returnValues: ProcessReturnValues = undefined;
+  private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
+    let returnValues: NestedProcessReturnValues[] = [];
     const publicRequests: PublicKernelRequest[] = [];
     let phase: AbstractPhaseManager | undefined = PhaseManagerFactory.phaseFromTx(
       tx,
@@ -169,8 +173,10 @@ export class PublicProcessor {
     let finalKernelOutput: KernelCircuitPublicInputs | undefined;
     let revertReason: SimulationError | undefined;
     const timer = new Timer();
+    const gasUsed: ProcessedTx['gasUsed'] = {};
     while (phase) {
       const output = await phase.handle(tx, publicKernelPublicInput, proof);
+      gasUsed[publicKernelPhaseToKernelType(phase.phase)] = output.gasUsed;
       if (phase.phase === PublicKernelPhase.APP_LOGIC) {
         returnValues = output.returnValues;
       }
@@ -196,7 +202,7 @@ export class PublicProcessor {
       throw new Error('Final public kernel was not executed.');
     }
 
-    const processedTx = makeProcessedTx(tx, finalKernelOutput, proof, publicRequests, revertReason);
+    const processedTx = makeProcessedTx(tx, finalKernelOutput, proof, publicRequests, revertReason, gasUsed);
 
     this.log.debug(`Processed public part of ${tx.getTxHash()}`, {
       eventName: 'tx-sequencer-processing',

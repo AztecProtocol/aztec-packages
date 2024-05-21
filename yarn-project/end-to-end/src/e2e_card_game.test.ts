@@ -102,10 +102,10 @@ describe('e2e_card_game', () => {
     const preRegisteredAccounts = await pxe.getRegisteredAccounts();
 
     const secretKeysToRegister = INITIAL_TEST_SECRET_KEYS.filter(key => {
-      const publicKey = deriveKeys(key).masterIncomingViewingPublicKey;
+      const publicKey = deriveKeys(key).publicKeys.masterIncomingViewingPublicKey;
       return (
         preRegisteredAccounts.find(preRegisteredAccount => {
-          return preRegisteredAccount.publicKey.equals(publicKey);
+          return preRegisteredAccount.publicKeys.masterIncomingViewingPublicKey.equals(publicKey);
         }) == undefined
       );
     });
@@ -144,7 +144,9 @@ describe('e2e_card_game', () => {
 
   it('should be able to buy packs', async () => {
     const seed = 27n;
+    // docs:start:send_tx
     await contract.methods.buy_pack(seed).send().wait();
+    // docs:end:send_tx
     const collection = await contract.methods.view_collection_cards(firstPlayer, 0).simulate({ from: firstPlayer });
     const expected = getPackedCards(0, seed);
     expect(unwrapOptions(collection)).toMatchObject(expected);

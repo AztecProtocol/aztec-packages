@@ -322,12 +322,7 @@ impl<'context> Elaborator<'context> {
                 let generics = method_call.generics.map(|option_inner| {
                     option_inner.into_iter().map(|generic| self.resolve_type(generic)).collect()
                 });
-                let method_call =
-                    HirMethodCallExpression { method, object, arguments, location, generics };
-
-                // Desugar the method call into a normal, resolved function call
-                // so that the backend doesn't need to worry about methods
-                // TODO: update object_type here?
+                let method_call =  HirMethodCallExpression { method, object, arguments, location, generics };
                 let ((function_id, function_name), function_call) = method_call.into_function_call(
                     &method_ref,
                     object_type,
