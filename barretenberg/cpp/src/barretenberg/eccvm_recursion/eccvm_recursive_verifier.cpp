@@ -15,8 +15,7 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
 /**
  * @brief This function verifies an ECCVM Honk proof for given program settings.
  */
-template <typename Flavor>
-std::array<typename Flavor::GroupElement, 2> ECCVMRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
+template <typename Flavor> bool ECCVMRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
 
     using ZeroMorph = ZeroMorphVerifier_<PCS>;
@@ -30,13 +29,10 @@ std::array<typename Flavor::GroupElement, 2> ECCVMRecursiveVerifier_<Flavor>::ve
     CommitmentLabels commitment_labels;
 
     const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
-
-=======
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
-    
->>>>>>> 927b78b2b6def848e5718b2df9e6a9695396b354
+
     // Get challenge for sorted list batching and wire four memory records
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
 
@@ -49,7 +45,7 @@ std::array<typename Flavor::GroupElement, 2> ECCVMRecursiveVerifier_<Flavor>::ve
     relation_parameters.beta_cube = beta_sqr * beta;
     relation_parameters.eccvm_set_permutation_delta =
         gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
-    relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
+    relation_parameters.eccvm_set_permutation_delta = FF::one() / relation_parameters.eccvm_set_permutation_delta;
 
     // these are the derived stuff only
     // Get commitment to permutation and lookup grand products

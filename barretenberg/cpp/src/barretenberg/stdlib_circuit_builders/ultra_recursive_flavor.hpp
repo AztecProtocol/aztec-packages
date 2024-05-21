@@ -55,11 +55,9 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     using FF = typename Curve::ScalarField;
     using NativeFlavor = UltraFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
+    using NativeVerifierCommitmentKey = NativeFlavor::VerifierCommitmentKey
 
-    // Note(luke): Eventually this may not be needed at all
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
-
-    static constexpr size_t NUM_WIRES = UltraFlavor::NUM_WIRES;
+        static constexpr size_t NUM_WIRES = UltraFlavor::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
@@ -262,6 +260,23 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     };
 
   public:
+    class VerifierCrs : public bb::srs::factories::VerifierCrs<Curve> {
+      public:
+        VerifierCrs(const std::shared_ptr<bb::srs::factories::VerifierCrs<NativeFlavor::Curve>>& native_verifier_crs)
+        {
+            num_points = native_verifier_crs->num_points;
+            native_points = native_verifier_crs->get_monomial_points();
+        }
+
+      private:
+        size_t num_points;
+        Curve::AffineElement first_g1;
+        std::shared_ptr<Curve::AffineElement[]> monomials_;
+    }
+    // WORKTODO: Should this
+    class VerifierCommitmentKey : public bb::VerifierCommitmentKey<Curve> {
+        VerifierCommitmentKey(const std::shared_ptr<NativeVerifierCommitmentKey> native_pcs_verification_key) {}
+    };
     /**
      * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
@@ -286,7 +301,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->pcs_verification_key = native_key->pcs_verification_key;
+            this->pcs_verification_key = VerifierCommitmentKey(native_key->pcs_verification_key);
             this->circuit_size = native_key->circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = native_key->num_public_inputs;

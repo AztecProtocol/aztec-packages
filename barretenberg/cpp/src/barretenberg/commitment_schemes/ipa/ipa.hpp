@@ -333,10 +333,9 @@ template <typename Curve_> class IPA {
      *10. Compute \f$C_{right}=a_{0}G_{s}+a_{0}b_{0}U\f$
      *11. Check that \f$C_{right} = C_0\f$. If they match, return true. Otherwise return false.
      */
-    template <typename Transcript>
     static VerifierAccumulator reduce_verify_internal(const std::shared_ptr<VK>& vk,
                                                       const OpeningClaim<Curve>& opening_claim,
-                                                      const std::shared_ptr<Transcript>& transcript)
+                                                      auto& transcript)
     {
         // Step 1.
         // Receive polynomial_degree + 1 = d from the prover
@@ -500,7 +499,7 @@ template <typename Curve_> class IPA {
     // implemented
     static VerifierAccumulator reduce_verify(const std::shared_ptr<VK>& vk,
                                              const OpeningClaim<Curve>& opening_claim,
-                                             const std::shared_ptr<NativeTranscript>& transcript)
+                                             const auto& transcript)
     {
         return reduce_verify_internal(vk, opening_claim, transcript);
     }

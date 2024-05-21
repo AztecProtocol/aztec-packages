@@ -4,6 +4,7 @@
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254SimulatingGrumpkin.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
 namespace bb::scalar_multiplication {
@@ -204,8 +205,14 @@ template <typename Curve> pippenger_runtime_state<Curve>::~pippenger_runtime_sta
 
 template struct affine_product_runtime_state<curve::BN254>;
 template struct affine_product_runtime_state<curve::Grumpkin>;
+template struct affine_product_runtime_state<stdlib::bn254SimulatingGrumpkin<UltraCircuitBuilder>>;
+template struct affine_product_runtime_state<stdlib::bn254SimulatingGrumpkin<GoblinUltraCircuitBuilder>>;
+
 template struct pippenger_runtime_state<curve::BN254>;
 template struct pippenger_runtime_state<curve::Grumpkin>;
+template struct pippenger_runtime_state<stdlib::bn254SimulatingGrumpkin<UltraCircuitBuilder>>;
+template struct pippenger_runtime_state<stdlib::bn254SimulatingGrumpkin<GoblinUltraCircuitBuilder>>;
+
 } // namespace bb::scalar_multiplication
 
 // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)

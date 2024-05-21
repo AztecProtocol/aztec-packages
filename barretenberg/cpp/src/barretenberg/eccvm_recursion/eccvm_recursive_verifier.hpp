@@ -14,13 +14,12 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
     using PCS = typename Flavor::PCS;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using GroupElement = typename Flavor::GroupElement;
-    using PairingPoints = std::array<GroupElement, 2>;
     using VerifierCommitments = typename Flavor::VerifierCommitments; // dunno if I need thos
   public:
     explicit ECCVMRecursiveVerifier_(Builder* builder,
                                      const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
 
-    PairingPoints verify_proof(const HonkProof& proof);
+    bool verify_proof(const HonkProof& proof); // return type?!
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;

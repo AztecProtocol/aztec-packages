@@ -176,6 +176,7 @@ class ProvingKeyAvm_ : public PrecomputedPolynomials, public WitnessPolynomials 
  * @brief Base verification key class.
  *
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
+ * @tparam VerifierCommitmentKey The PCS verification key (should this really be here??)
  */
 template <typename PrecomputedCommitments, typename VerifierCommitmentKey>
 class VerificationKey_ : public PrecomputedCommitments {
