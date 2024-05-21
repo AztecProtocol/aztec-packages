@@ -14,15 +14,18 @@ import {
   PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelResetCircuitPrivateInputsVariants,
   PrivateKernelResetHints,
+  type ReadRequest,
   type ScopedNullifier,
   type ScopedNullifierKeyValidationRequest,
-  type ScopedReadRequest,
+  ScopedReadRequest,
   buildNoteHashReadRequestHints,
   buildNullifierReadRequestHints,
   buildTransientDataHints,
+  getNonEmptyItems,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
+import type { ExecutionResult } from '@aztec/simulator';
 
 import { type ProvingDataOracle } from '../proving_data_oracle.js';
 import { buildPrivateKernelResetOutputs } from './build_private_kernel_reset_outputs.js';
@@ -88,10 +91,19 @@ async function getMasterNullifierSecretKeys(
 }
 
 export async function buildPrivateKernelResetInputs(
+  executionStack: ExecutionResult[],
   previousKernelData: PrivateKernelData,
   noteHashLeafIndexMap: Map<bigint, bigint>,
   oracle: ProvingDataOracle,
 ) {
+  const futureNoteHashReads = collectNestedReadRequests(
+    executionStack,
+    executionResult => executionResult.callStackItem.publicInputs.noteHashReadRequests,
+  );
+  const futureNullifierReads = collectNestedReadRequests(
+    executionStack,
+    executionResult => executionResult.callStackItem.publicInputs.nullifierReadRequests,
+  );
   const publicInputs = previousKernelData.publicInputs;
   // Use max sizes, they will be trimmed down later.
   const {
@@ -132,6 +144,8 @@ export async function buildPrivateKernelResetInputs(
     publicInputs.end.newNoteHashes,
     publicInputs.end.newNullifiers,
     publicInputs.end.noteEncryptedLogsHashes,
+    futureNoteHashReads,
+    futureNullifierReads,
     MAX_NEW_NOTE_HASHES_PER_TX,
     MAX_NEW_NULLIFIERS_PER_TX,
     MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
@@ -141,6 +155,8 @@ export async function buildPrivateKernelResetInputs(
     previousKernelData.publicInputs.end.newNoteHashes,
     previousKernelData.publicInputs.end.newNullifiers,
     previousKernelData.publicInputs.end.noteEncryptedLogsHashes,
+    transientNullifierIndexesForNoteHashes,
+    transientNoteHashIndexesForNullifiers,
   );
 
   let privateInputs;
@@ -181,4 +197,31 @@ export async function buildPrivateKernelResetInputs(
   }
 
   return privateInputs as PrivateKernelResetCircuitPrivateInputsVariants;
+}
+
+function collectNested<T>(
+  executionStack: ExecutionResult[],
+  extractExecutionItems: (execution: ExecutionResult) => T[],
+): T[] {
+  const thisExecutionReads = executionStack.flatMap(extractExecutionItems);
+
+  return thisExecutionReads.concat(
+    executionStack.flatMap(({ nestedExecutions }) => collectNested(nestedExecutions, extractExecutionItems)),
+  );
+}
+
+function collectNestedReadRequests(
+  executionStack: ExecutionResult[],
+  extractReadRequests: (execution: ExecutionResult) => ReadRequest[],
+): ScopedReadRequest[] {
+  return collectNested(executionStack, executionResult => {
+    const nonEmptyReadRequests = getNonEmptyItems(extractReadRequests(executionResult));
+    return nonEmptyReadRequests.map(
+      readRequest =>
+        new ScopedReadRequest(
+          readRequest,
+          executionResult.callStackItem.publicInputs.callContext.storageContractAddress,
+        ),
+    );
+  });
 }
