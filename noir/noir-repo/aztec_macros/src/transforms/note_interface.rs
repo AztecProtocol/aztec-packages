@@ -76,40 +76,27 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
         // Identify the note type (struct name), its fields and its serialized length (generic param of NoteInterface trait impl)
         let note_type = note_struct.name.0.contents.to_string();
         let mut note_fields = vec![];
-        let note_serialized_len =
-            match &trait_impl.trait_generics.first().and_then(|gen| Some(gen.typ.clone())) {
-                Some(UnresolvedTypeData::Named(path, _, _)) => {
+        let note_interface_generics = trait_impl
+            .trait_generics
+            .iter()
+            .map(|gen| match gen.typ.clone() {
+                UnresolvedTypeData::Named(path, _, _) => {
                     Ok(path.last_segment().0.contents.to_string())
                 }
-                Some(UnresolvedTypeData::Expression(UnresolvedTypeExpression::Constant(
-                    val,
-                    _,
-                ))) => Ok(val.to_string()),
+                UnresolvedTypeData::Expression(UnresolvedTypeExpression::Constant(val, _)) => {
+                    Ok(val.to_string())
+                }
                 _ => Err(AztecMacroError::CouldNotImplementNoteInterface {
                     span: trait_impl.object_type.span,
                     secondary_message: Some(format!(
-                        "Cannot find note serialization length for: {}",
+                        "NoteInterface must be generic over NOTE_LEN and NOTE_BYTES_LEN: {}",
                         note_type
                     )),
                 }),
-            }?;
-        let note_bytes_len =
-            match &trait_impl.trait_generics.get(1).and_then(|gen| Some(gen.typ.clone())) {
-                Some(UnresolvedTypeData::Named(path, _, _)) => {
-                    Ok(path.last_segment().0.contents.to_string())
-                }
-                Some(UnresolvedTypeData::Expression(UnresolvedTypeExpression::Constant(
-                    val,
-                    _,
-                ))) => Ok(val.to_string()),
-                _ => Err(AztecMacroError::CouldNotImplementNoteInterface {
-                    span: trait_impl.object_type.span,
-                    secondary_message: Some(format!(
-                        "Cannot find note bytes length for: {}",
-                        note_type
-                    )),
-                }),
-            }?;
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let [note_serialized_len, note_bytes_len]: [_; 2] =
+            note_interface_generics.try_into().unwrap();
         let note_type_id = note_type_id(&note_type);
 
         // Automatically inject the header field if it's not present
