@@ -1,25 +1,24 @@
 import {
-  type Fr,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MembershipWitness,
   NULLIFIER_TREE_HEIGHT,
-  NullifierKeyHint,
+  KeyValidationHint,
   PRIVATE_RESET_VARIANTS,
-  type PrivateKernelData,
   PrivateKernelResetCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputsVariants,
   PrivateKernelResetHints,
-  type ScopedKeyValidationRequest,
-  type ScopedNullifier,
-  type ScopedReadRequest,
   buildNoteHashReadRequestHints,
   buildNullifierReadRequestHints,
   buildTransientDataHints,
+  type Fr,
+  type PrivateKernelData,
+  type PrivateKernelResetCircuitPrivateInputsVariants,
+  type ScopedKeyValidationRequest,
+  type ScopedNullifier,
+  type ScopedReadRequest
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
@@ -64,7 +63,7 @@ async function getMasterSecretKeysAndAppKeyGenerators(
   keyValidationRequests: Tuple<ScopedKeyValidationRequest, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
   oracle: ProvingDataOracle,
 ) {
-  const keysHints = makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyHint.empty);
+  const keysHints = makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, KeyValidationHint.empty);
 
   let keyIndex = 0;
   for (let i = 0; i < keyValidationRequests.length; ++i) {
@@ -73,7 +72,7 @@ async function getMasterSecretKeysAndAppKeyGenerators(
       break;
     }
     const [secretKeys, appKeyGenerator] = await oracle.getMasterSecretKeyAndAppKeyGenerator(request.masterPublicKey);
-    keysHints[keyIndex] = new NullifierKeyHint(
+    keysHints[keyIndex] = new KeyValidationHint(
       secretKeys,
       appKeyGenerator,
       i,
@@ -161,7 +160,7 @@ export async function buildPrivateKernelResetInputs(
           transientNoteHashIndexesForLogs,
           noteHashReadRequestHints,
           nullifierReadRequestHints,
-          masterNullifierSecretKeys,
+          keysHints,
         ).trimToSizes(
           hintSizes.NOTE_HASH_PENDING_AMOUNT,
           hintSizes.NOTE_HASH_SETTLED_AMOUNT,

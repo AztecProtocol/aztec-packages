@@ -122,6 +122,7 @@ import {
   type TxRequest,
   ValidationRequests,
   type VerificationKeyAsFields,
+  KeyValidationHint,
 } from '@aztec/circuits.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
@@ -166,7 +167,7 @@ import type {
   NoteHashReadRequestHints as NoteHashReadRequestHintsNoir,
   NoteHashSettledReadHint as NoteHashSettledReadHintNoir,
   NoteLogHash as NoteLogHashNoir,
-  NullifierKeyHint as NullifierKeyHintNoir,
+  KeyValidationHint as KeyValidationHintNoir,
   KeyValidationRequest as KeyValidationRequestNoir,
   NullifierLeafPreimage as NullifierLeafPreimageNoir,
   Nullifier as NullifierNoir,
@@ -309,16 +310,14 @@ export function mapGrumpkinPrivateKeyToNoir(privateKey: GrumpkinPrivateKey): Gru
 }
 
 /**
- * Maps a NullifierKeyHint to noir.
+ * Maps a KeyValidationHint to noir.
  * @param hint - The nullifier key hint.
  * @returns The nullifier key hint mapped to noir types.
  */
-export function mapNullifierKeyHintToNoir(hint: {
-  privateKey: GrumpkinPrivateKey;
-  requestIndex: number;
-}): NullifierKeyHintNoir {
+export function mapKeyValidationHintToNoir(hint: KeyValidationHint): KeyValidationHintNoir {
   return {
-    private_key: mapGrumpkinPrivateKeyToNoir(hint.privateKey),
+    sk_m: mapGrumpkinPrivateKeyToNoir(hint.skM),
+    sk_app_generator_index: mapFieldToNoir(hint.skAppGeneratorIndex),
     request_index: mapNumberToNoir(hint.requestIndex),
   };
 }
@@ -1542,10 +1541,10 @@ function mapPrivateKernelResetHintsToNoir<
   NH_RR_SETTLED extends number,
   NLL_RR_PENDING extends number,
   NLL_RR_SETTLED extends number,
-  NLL_KEYS extends number,
+  KEY_VALIDATION_REQUESTS extends number,
 >(
-  inputs: PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, NLL_KEYS>,
-): PrivateKernelResetHintsNoir<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, NLL_KEYS> {
+  inputs: PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
+): PrivateKernelResetHintsNoir<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
   return {
     transient_nullifier_indexes_for_note_hashes: mapTuple(
       inputs.transientNullifierIndexesForNoteHashes,
@@ -1555,11 +1554,10 @@ function mapPrivateKernelResetHintsToNoir<
     transient_note_hash_indexes_for_logs: mapTuple(inputs.transientNoteHashIndexesForLogs, mapNumberToNoir),
     note_hash_read_request_hints: mapNoteHashReadRequestHintsToNoir(inputs.noteHashReadRequestHints),
     nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
-    master_secret_keys: inputs.masterSecretKeys.map(mapNullifierKeyHintToNoir) as FixedLengthArray<
-      NullifierKeyHintNoir,
-      NLL_KEYS
+    key_validation_hints: inputs.keyValidationHints.map(mapKeyValidationHintToNoir) as FixedLengthArray<
+      KeyValidationHintNoir,
+      KEY_VALIDATION_REQUESTS
     >,
-    app_secret_keys_generators: mapTuple(inputs.appSecretKeysGenerators, mapFieldToNoir),
   };
 }
 
@@ -1568,7 +1566,7 @@ export function mapPrivateKernelResetCircuitPrivateInputsToNoir<
   NH_RR_SETTLED extends number,
   NLL_RR_PENDING extends number,
   NLL_RR_SETTLED extends number,
-  NLL_KEYS extends number,
+  KEY_VALIDATION_REQUESTS extends number,
   TAG extends string,
 >(
   inputs: PrivateKernelResetCircuitPrivateInputs<
@@ -1576,10 +1574,10 @@ export function mapPrivateKernelResetCircuitPrivateInputsToNoir<
     NH_RR_SETTLED,
     NLL_RR_PENDING,
     NLL_RR_SETTLED,
-    NLL_KEYS,
+    KEY_VALIDATION_REQUESTS,
     TAG
   >,
-): PrivateKernelResetCircuitPrivateInputsNoir<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, NLL_KEYS> {
+): PrivateKernelResetCircuitPrivateInputsNoir<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
   return {
     previous_kernel: mapPrivateKernelDataToNoir(inputs.previousKernel),
     outputs: mapPrivateKernelResetOutputsToNoir(inputs.outputs),
