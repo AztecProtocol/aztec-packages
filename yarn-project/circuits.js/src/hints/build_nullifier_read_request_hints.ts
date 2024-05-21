@@ -33,6 +33,7 @@ export async function buildNullifierReadRequestHints<PENDING extends number, SET
   nullifiers: Tuple<ScopedNullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
   sizePending: PENDING,
   sizeSettled: SETTLED,
+  futureNullifiers: ScopedNullifier[],
   siloed = false,
 ) {
   const builder = new NullifierReadRequestHintsBuilder(sizePending, sizeSettled);
@@ -47,6 +48,15 @@ export async function buildNullifierReadRequestHints<PENDING extends number, SET
     nullifierMap.set(value, arr);
   });
 
+  // Build a map of future nullifiers indexed by nullifier value to go faster
+  const futureNullifiersMap: Map<bigint, ScopedNullifier[]> = new Map();
+  futureNullifiers.forEach(futureNullifier => {
+    const value = futureNullifier.value.toBigInt();
+    const arr = futureNullifiersMap.get(value) ?? [];
+    arr.push(futureNullifier);
+    futureNullifiersMap.set(value, arr);
+  });
+
   for (let i = 0; i < numReadRequests; ++i) {
     const readRequest = nullifierReadRequests[i];
     const pendingNullifier = nullifierMap
@@ -58,7 +68,15 @@ export async function buildNullifierReadRequestHints<PENDING extends number, SET
 
     if (pendingNullifier !== undefined) {
       builder.addPendingReadRequest(i, pendingNullifier.index);
-    } else {
+    } else if (
+      !futureNullifiersMap
+        .get(readRequest.value.toBigInt())
+        ?.some(
+          futureNullifier =>
+            futureNullifier.contractAddress.equals(readRequest.contractAddress) &&
+            readRequest.counter > futureNullifier.counter,
+        )
+    ) {
       const siloedValue = siloed ? readRequest.value : siloNullifier(readRequest.contractAddress, readRequest.value);
       const membershipWitnessWithPreimage = await oracle.getNullifierMembershipWitness(siloedValue);
       builder.addSettledReadRequest(
@@ -94,5 +112,13 @@ export function buildSiloedNullifierReadRequestHints<PENDING extends number, SET
     new Nullifier(n.value, n.counter, n.noteHash).scope(AztecAddress.ZERO),
   ) as Tuple<ScopedNullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>;
 
-  return buildNullifierReadRequestHints(oracle, siloedReadRequests, scopedNullifiers, sizePending, sizeSettled, true);
+  return buildNullifierReadRequestHints(
+    oracle,
+    siloedReadRequests,
+    scopedNullifiers,
+    sizePending,
+    sizeSettled,
+    [],
+    true,
+  );
 }

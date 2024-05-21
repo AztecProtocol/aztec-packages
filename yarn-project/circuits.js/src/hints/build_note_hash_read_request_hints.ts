@@ -31,6 +31,7 @@ export async function buildNoteHashReadRequestHints<PENDING extends number, SETT
   noteHashLeafIndexMap: Map<bigint, bigint>,
   sizePending: PENDING,
   sizeSettled: SETTLED,
+  futureNoteHashes: ScopedNoteHash[],
 ) {
   const builder = new NoteHashReadRequestHintsBuilder(sizePending, sizeSettled);
 
@@ -44,16 +45,30 @@ export async function buildNoteHashReadRequestHints<PENDING extends number, SETT
     noteHashMap.set(value, arr);
   });
 
+  const futureNoteHashMap: Map<bigint, ScopedNoteHash[]> = new Map();
+  futureNoteHashes.forEach(futureNoteHash => {
+    const value = futureNoteHash.value.toBigInt();
+    const arr = futureNoteHashMap.get(value) ?? [];
+    arr.push(futureNoteHash);
+    futureNoteHashMap.set(value, arr);
+  });
+
   for (let i = 0; i < numReadRequests; ++i) {
     const readRequest = noteHashReadRequests[i];
+
     const value = readRequest.value;
 
     const pendingNoteHash = noteHashMap
       .get(value.toBigInt())
       ?.find(n => isValidNoteHashReadRequest(readRequest, n.noteHash));
+
     if (pendingNoteHash !== undefined) {
       builder.addPendingReadRequest(i, pendingNoteHash.index);
-    } else {
+    } else if (
+      !futureNoteHashMap
+        .get(value.toBigInt())
+        ?.find(futureNoteHash => isValidNoteHashReadRequest(readRequest, futureNoteHash))
+    ) {
       const siloedValue = siloNoteHash(readRequest.contractAddress, value);
       const leafIndex = noteHashLeafIndexMap.get(siloedValue.toBigInt());
       if (leafIndex === undefined) {

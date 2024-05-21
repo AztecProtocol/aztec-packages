@@ -80,6 +80,7 @@ describe('buildNullifierReadRequestHints', () => {
         nullifiers,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+        [],
       )
     ).hints;
 

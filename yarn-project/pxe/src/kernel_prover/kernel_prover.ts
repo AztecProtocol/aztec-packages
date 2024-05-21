@@ -70,6 +70,9 @@ export class KernelProver {
     const noteHashNullifierCounterMap = collectNullifiedNoteHashCounters(executionResult);
 
     while (executionStack.length) {
+      if (!firstIteration) {
+        output = await this.runReset(executionStack, output, noteHashLeafIndexMap);
+      }
       const currentExecution = executionStack.pop()!;
       executionStack.push(...[...currentExecution.nestedExecutions].reverse());
 
@@ -107,7 +110,6 @@ export class KernelProver {
         pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.createProofInit(proofInput);
       } else {
-        output = await this.runReset(executionStack, output, noteHashLeafIndexMap);
         const hints = buildPrivateKernelInnerHints(
           currentExecution.callStackItem.publicInputs,
           noteHashNullifierCounterMap,

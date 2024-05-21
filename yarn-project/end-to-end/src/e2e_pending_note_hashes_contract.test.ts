@@ -217,4 +217,14 @@ describe('e2e_pending_note_hashes_contract', () => {
     // There is a single new nullifier.
     await expectNullifiersSquashedExcept(1);
   });
+
+  it('Should handle nullifying in a parent call to a read', async () => {
+    const deployedContract = await deployContract();
+    await deployedContract.methods.test_read_in_nested_nullify_in_parent(65n, owner).send().wait();
+  });
+
+  it('Should handle reading in a parent call a note created in a nested call', async () => {
+    const deployedContract = await deployContract();
+    await deployedContract.methods.test_create_in_nested_read_in_parent(65n, owner).send().wait();
+  });
 });

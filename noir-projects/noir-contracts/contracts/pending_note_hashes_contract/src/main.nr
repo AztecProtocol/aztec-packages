@@ -88,6 +88,20 @@ contract PendingNoteHashes {
 
     // Nested/inner function to get a note and confirm it matches the expected value
     #[aztec(private)]
+    fn get_note(expected_value: Field, owner: AztecAddress) -> Field {
+        let owner_balance = storage.balances.at(owner);
+
+        let mut options = NoteGetterOptions::new();
+        options = options.set_limit(1);
+        let note = owner_balance.get_notes(options)[0].unwrap();
+
+        assert(expected_value == note.value);
+
+        expected_value
+    }
+
+    // Nested/inner function to get a note and confirm it matches the expected value
+    #[aztec(private)]
     fn get_then_nullify_note(expected_value: Field, owner: AztecAddress) -> Field {
         let owner_balance = storage.balances.at(owner);
 
@@ -251,4 +265,50 @@ contract PendingNoteHashes {
     //    get_then_nullify_fn_selector: FunctionSelector,
     //) {
     //}
+
+    // This test will create a note, read it in a nested call and then nullify it in the parent.
+    // The parent will be processed first so if the note is squashed too soon, the nested will fail to verify
+    #[aztec(private)]
+    fn test_read_in_nested_nullify_in_parent(amount: Field, owner: AztecAddress) {
+        let owner_balance = storage.balances.at(owner);
+
+        let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
+        let owner_ivpk_m = get_ivpk_m(&mut context, owner);
+
+        let mut note = ValueNote::new(amount, owner_npk_m_hash);
+
+        // Insert note
+        owner_balance.insert(&mut note, true, owner_ivpk_m);
+
+        // Now read the note to avoid the check "Can only remove a note that has been read from the set."
+        let mut options = NoteGetterOptions::new();
+        options = options.set_limit(1);
+        let read_note = owner_balance.get_notes(options)[0].unwrap();
+        assert((read_note.value == note.value) & (read_note.randomness == note.randomness));
+
+        // Read the note in a nested call
+        assert_eq(
+            amount, PendingNoteHashes::at(context.this_address()).get_note(amount, owner).call(&mut context)
+        );
+
+        // Delete the note
+        owner_balance.remove(read_note);
+    }
+
+    // This test will create a note in a nested call and then try to read it. 
+    // The parent will be processed first, so our reset hints builder needs to account for the possibility
+    // That it has to delay fulfilling the read request until later.
+    #[aztec(private)]
+    fn test_create_in_nested_read_in_parent(amount: Field, owner: AztecAddress) {
+        // Nested call to create note
+        PendingNoteHashes::at(context.this_address()).insert_note(amount, owner).call(&mut context);
+        // Now read it
+        let owner_balance = storage.balances.at(owner);
+
+        let mut options = NoteGetterOptions::new();
+        options = options.set_limit(1);
+        let note = owner_balance.get_notes(options)[0].unwrap();
+
+        assert(amount == note.value);
+    }
 }

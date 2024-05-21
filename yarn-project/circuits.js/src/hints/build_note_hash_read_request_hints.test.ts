@@ -76,6 +76,7 @@ describe('buildNoteHashReadRequestHints', () => {
         noteHashLeafIndexMap,
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+        [],
       )
     ).hints;
 
