@@ -14,7 +14,6 @@ use dep::types::{
 struct PrivateKernelInitHints {
     note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
     first_revertible_private_call_request_index: u64,
-    first_revertible_public_call_request_index: u64
 }
 
 // Initialization struct for private inputs to the private kernel
@@ -31,17 +30,15 @@ impl PrivateKernelInitCircuitPrivateInputs {
 
         let privateCallDataValidator = PrivateCallDataValidator::new(self.private_call);
         privateCallDataValidator.validate();
-        privateCallDataValidator.validate_as_first_call(
-            self.hints.first_revertible_private_call_request_index,
-            self.hints.first_revertible_public_call_request_index
-        );
+        privateCallDataValidator.validate_as_first_call(self.hints.first_revertible_private_call_request_index);
         privateCallDataValidator.validate_against_tx_request(self.tx_request);
 
         let private_call_public_inputs = self.private_call.call_stack_item.public_inputs;
         PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(self.tx_request, private_call_public_inputs).compose(
             private_call_public_inputs,
+            privateCallDataValidator.array_lengths,
+            self.private_call.call_stack_item.contract_address,
             self.hints.note_hash_nullifier_counters,
-            self.private_call.private_call_stack,
             self.private_call.public_call_stack,
             self.private_call.public_teardown_call_request
         ).finish()
@@ -53,14 +50,14 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::NoteHash,
-        nullifier_key_validation_request::NullifierKeyValidationRequest,
+        key_validation_request::KeyValidationRequest,
         private_kernel::private_call_data::PrivateCallData, read_request::ReadRequest,
         nullifier::Nullifier, log_hash::{LogHash, NoteLogHash}
     },
         address::{AztecAddress, EthAddress}, constants::MAX_NEW_NOTE_HASHES_PER_CALL,
         grumpkin_point::GrumpkinPoint, messaging::l2_to_l1_message::L2ToL1Message,
         tests::private_call_data_builder::PrivateCallDataBuilder, transaction::tx_request::TxRequest,
-        utils::arrays::array_length
+        utils::arrays::{array_length, array_eq}
     };
 
     struct PrivateKernelInitInputsBuilder {
@@ -75,8 +72,7 @@ mod tests {
             let tx_request = private_call.build_tx_request();
             let hints = PrivateKernelInitHints {
                 note_hash_nullifier_counters: [0; MAX_NEW_NOTE_HASHES_PER_CALL],
-                first_revertible_private_call_request_index: 0,
-                first_revertible_public_call_request_index: 0
+                first_revertible_private_call_request_index: 0
             };
 
             PrivateKernelInitInputsBuilder { tx_request, private_call, hints }
@@ -113,23 +109,30 @@ mod tests {
             unencrypted_log_preimages_length[1]
         );
 
+        let expected_unencrypted_logs = [
+            builder.private_call.public_inputs.unencrypted_logs_hashes.storage[0], builder.private_call.public_inputs.unencrypted_logs_hashes.storage[1]
+        ];
+        let expected_encrypted_logs = [
+            builder.private_call.public_inputs.encrypted_logs_hashes.storage[0], builder.private_call.public_inputs.encrypted_logs_hashes.storage[1]
+        ];
+
         let public_inputs = builder.execute();
 
         // Check the first nullifier is hash of the signed tx request
         let tx_hash = builder.tx_request.hash();
         assert_eq(public_inputs.end.new_nullifiers[0].value(), tx_hash);
-
-        // Log preimages length should increase by `(un)encrypted_log_preimages_length` from private input
-        assert_eq(
-            public_inputs.end.encrypted_log_preimages_length, encrypted_log_preimages_length.reduce(|a, b| a + b)
+        assert(
+            array_eq(
+                public_inputs.end.encrypted_logs_hashes,
+                expected_encrypted_logs
+            )
         );
-        assert_eq(
-            public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length.reduce(|a, b| a + b)
+        assert(
+            array_eq(
+                public_inputs.end.unencrypted_logs_hashes,
+                expected_unencrypted_logs
+            )
         );
-        assert_eq(public_inputs.end.encrypted_logs_hashes[0].value, encrypted_logs_hashes[0]);
-        assert_eq(public_inputs.end.unencrypted_logs_hashes[0].value, unencrypted_logs_hashes[0]);
-        assert_eq(public_inputs.end.encrypted_logs_hashes[1].value, encrypted_logs_hashes[1]);
-        assert_eq(public_inputs.end.unencrypted_logs_hashes[1].value, unencrypted_logs_hashes[1]);
     }
 
     #[test]
@@ -194,17 +197,17 @@ mod tests {
     }
 
     #[test]
-    fn propagate_nullifier_key_validation_requests() {
+    fn propagate_key_validation_requests() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        let request_0 = NullifierKeyValidationRequest { master_nullifier_public_key: GrumpkinPoint { x: 1, y: 2 }, app_nullifier_secret_key: 3 };
-        builder.private_call.public_inputs.nullifier_key_validation_requests.push(request_0);
+        let request_0 = KeyValidationRequest { pk_m: GrumpkinPoint { x: 1, y: 2 }, sk_app: 3 };
+        builder.private_call.public_inputs.key_validation_requests.push(request_0);
 
         let public_inputs = builder.execute();
 
-        assert_eq(array_length(public_inputs.validation_requests.nullifier_key_validation_requests), 1);
+        assert_eq(array_length(public_inputs.validation_requests.key_validation_requests), 1);
 
-        let request = public_inputs.validation_requests.nullifier_key_validation_requests[0];
+        let request = public_inputs.validation_requests.key_validation_requests[0];
         assert_eq(request.request, request_0);
         assert_eq(
             request.contract_address, builder.private_call.public_inputs.call_context.storage_contract_address
