@@ -188,7 +188,7 @@ export abstract class TypedOracle {
     _contractAddress: AztecAddress,
     _storageSlot: Fr,
     _noteTypeId: Fr,
-    _publicKey: PublicKey,
+    _ivpkM: PublicKey,
     _preimage: Fr[],
   ): Buffer {
     throw new OracleMethodNotAvailableError('computeEncryptedLog');

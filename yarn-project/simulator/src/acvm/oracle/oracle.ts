@@ -306,16 +306,16 @@ export class Oracle {
     [contractAddress]: ACVMField[],
     [storageSlot]: ACVMField[],
     [noteTypeId]: ACVMField[],
-    [publicKeyX]: ACVMField[],
-    [publicKeyY]: ACVMField[],
+    [ivpkMX]: ACVMField[],
+    [ivpkMY]: ACVMField[],
     preimage: ACVMField[],
   ): ACVMField[] {
-    const publicKey = new Point(fromACVMField(publicKeyX), fromACVMField(publicKeyY));
+    const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY));
     const encLog = this.typedOracle.computeEncryptedLog(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(storageSlot),
       Fr.fromString(noteTypeId),
-      publicKey,
+      ivpkM,
       preimage.map(fromACVMField),
     );
     const bytes: ACVMField[] = [];

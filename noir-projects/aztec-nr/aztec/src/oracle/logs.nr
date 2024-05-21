@@ -35,7 +35,8 @@ fn compute_encrypted_log_oracle<N, M>(
     _contract_address: AztecAddress,
     _storage_slot: Field,
     _note_type_id: Field,
-    _encryption_pub_key: GrumpkinPoint,
+    _ivpk_m: GrumpkinPoint,
+    _ovsk_app: Field,
     _preimage: [Field; N]
 ) -> [u8; M] {}
 
@@ -44,7 +45,8 @@ unconstrained pub fn compute_encrypted_log<N, M>(
     storage_slot: Field,
     note_type_id: Field,
     ivpk_m: GrumpkinPoint,
+    ovsk_app: Field,
     preimage: [Field; N]
 ) -> [u8; M] {
-    compute_encrypted_log_oracle(contract_address, storage_slot, note_type_id, ivpk_m, preimage)
+    compute_encrypted_log_oracle(contract_address, storage_slot, note_type_id, ivpk_m, ovsk_app, preimage)
 }

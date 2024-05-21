@@ -387,14 +387,14 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param contractAddress - The contract address of the note.
    * @param storageSlot - The storage slot the note is at.
    * @param noteTypeId - The type ID of the note.
-   * @param ivpk - The master incoming viewing public key.
+   * @param ivpkM - The master incoming viewing public key.
    * @param preimage - The note preimage.
    */
   public override computeEncryptedLog(
     contractAddress: AztecAddress,
     storageSlot: Fr,
     noteTypeId: Fr,
-    ivpk: Point,
+    ivpkM: Point,
     preimage: Fr[],
   ) {
     const note = new Note(preimage);
@@ -407,7 +407,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const ovsk = GrumpkinScalar.random();
     const recipient = AztecAddress.random();
 
-    return taggedNote.encrypt(ephSk, recipient, ivpk, ovsk);
+    return taggedNote.encrypt(ephSk, recipient, ivpkM, ovsk);
   }
 
   /**

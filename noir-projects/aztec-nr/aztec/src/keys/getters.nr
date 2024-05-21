@@ -6,7 +6,7 @@ use dep::protocol_types::{
 use crate::{
     context::PrivateContext,
     oracle::{keys::get_public_keys_and_partial_address, key_validation_request::get_key_validation_request},
-    keys::{public_keys::PublicKeys, constants::{NULLIFIER_INDEX, INCOMING_INDEX}},
+    keys::{public_keys::PublicKeys, constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX}},
     state_vars::{shared_mutable::shared_mutable_private_getter::SharedMutablePrivateGetter}
 };
 
@@ -25,11 +25,10 @@ pub fn get_ivpk_m(context: &mut PrivateContext, address: AztecAddress) -> Grumpk
     get_master_key(context, address, INCOMING_INDEX)
 }
 
-// Commented out as it's currently not enabled in key registry
-// pub fn get_ovpk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
-//     get_master_key(context, address, OUTGOING_INDEX)
-// }
-// 
+pub fn get_ovpk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
+    get_master_key(context, address, OUTGOING_INDEX)
+}
+
 // pub fn get_tpk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
 //     get_master_key(context, address, TAGGING_INDEX)
 // }

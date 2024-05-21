@@ -6,6 +6,7 @@ import {
   computeIvskApp,
   computeOvskApp,
   derivePublicKeyFromSecretKey,
+  KeyValidationRequest,
 } from '@aztec/circuits.js';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -86,17 +87,16 @@ export class L1NotePayload {
    * @param ephSk - An ephemeral secret key used for the encryption
    * @param recipient - The recipient address, retrievable by the sender for his logs
    * @param ivpk - The incoming viewing public key of the recipient
-   * @param ovsk - The outgoing viewing secret key of the sender
+   * @param ovKeys - The outgoing viewing secret key of the sender
    * @returns A buffer containing the encrypted log payload
    */
-  public encrypt(ephSk: GrumpkinPrivateKey, recipient: AztecAddress, ivpk: PublicKey, ovsk: GrumpkinPrivateKey) {
+  public encrypt(ephSk: GrumpkinPrivateKey, recipient: AztecAddress, ivpk: PublicKey, ovKeys: KeyValidationRequest) {
     const ephPk = derivePublicKeyFromSecretKey(ephSk);
-    const ovpk = derivePublicKeyFromSecretKey(ovsk);
 
     const header = new EncryptedLogHeader(this.contractAddress);
 
     const incomingHeaderCiphertext = header.computeCiphertext(ephSk, ivpk);
-    const outgoingHeaderCiphertext = header.computeCiphertext(ephSk, ovpk);
+    const outgoingHeaderCiphertext = header.computeCiphertext(ephSk, ovKeys.masterPublicKey);
 
     const ivpkApp = computeIvpkApp(ivpk, this.contractAddress);
 
@@ -106,10 +106,8 @@ export class L1NotePayload {
       this.note,
     ).computeCiphertext(ephSk, ivpkApp);
 
-    const ovskApp = computeOvskApp(ovsk, this.contractAddress);
-
     const outgoingBodyCiphertext = new EncryptedLogOutgoingBody(ephSk, recipient, ivpkApp).computeCiphertext(
-      ovskApp,
+      ovKeys.appSecretKey,
       ephPk,
     );
 
