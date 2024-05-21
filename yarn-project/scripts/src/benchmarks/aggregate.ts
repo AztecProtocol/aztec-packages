@@ -69,8 +69,18 @@ function append(
 
 /** Processes an entry with event name 'acir-proof-generated' and updates results */
 function processAcirProofGenerated(entry: ProofConstructed, results: BenchmarkCollectedResults) {
-  if (entry.acir_test === 'sha256') {
-    append(results, `proof_construction_time_sha256`, entry.threads, entry.value);
+  if (entry.acir_test === 'bench_sha256') {
+    append(results, 'proof_construction_time_sha256', entry.threads, entry.value);
+  } else if (entry.acir_test === 'bench_sha256_30') {
+    append(results, 'proof_construction_time_sha256_30', entry.threads, entry.value);
+  } else if (entry.acir_test === 'bench_sha256_100') {
+    append(results, 'proof_construction_time_sha256_100', entry.threads, entry.value);
+  } else if (entry.acir_test === 'bench_poseidon_hash') {
+    append(results, 'proof_construction_time_poseidon_hash', entry.threads, entry.value);
+  } else if (entry.acir_test === 'bench_poseidon_hash_30') {
+    append(results, 'proof_construction_time_poseidon_hash_30', entry.threads, entry.value);
+  } else if (entry.acir_test === 'bench_poseidon_hash_100') {
+    append(results, 'proof_construction_time_poseidon_hash_100', entry.threads, entry.value);
   }
 }
 

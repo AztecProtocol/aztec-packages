@@ -33,6 +33,36 @@ export const Metrics = [
     events: ['proof_construction_time'],
   },
   {
+    name: 'proof_construction_time_sha256_30',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
+  {
+    name: 'proof_construction_time_sha256_100',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
+  {
+    name: 'proof_construction_time_poseidon_hash',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
+  {
+    name: 'proof_construction_time_poseidon_hash_30',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
+  {
+    name: 'proof_construction_time_poseidon_hash_100',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
+  {
     name: 'l1_rollup_calldata_size_in_bytes',
     groupBy: 'block-size',
     description: 'Size in bytes of the tx calldata posted to L1 when submitting a block.',
