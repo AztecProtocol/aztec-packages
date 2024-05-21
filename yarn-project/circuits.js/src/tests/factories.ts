@@ -681,7 +681,7 @@ export function makePublicKernelCircuitPrivateInputs(seed = 1): PublicKernelCirc
 export function makePublicKernelTailCircuitPrivateInputs(seed = 1): PublicKernelTailCircuitPrivateInputs {
   return new PublicKernelTailCircuitPrivateInputs(
     makePublicKernelData(seed),
-    NullifierReadRequestHintsBuilder.empty(),
+    NullifierReadRequestHintsBuilder.empty(MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX),
     NullifierNonExistentReadRequestHintsBuilder.empty(),
     makeTuple(MAX_PUBLIC_DATA_HINTS, PublicDataHint.empty, seed + 0x100),
     PublicDataReadRequestHintsBuilder.empty(),
@@ -896,6 +896,7 @@ export function makeBaseOrMergeRollupPublicInputs(
     makePartialStateReference(seed + 0x400),
     fr(seed + 0x901),
     fr(seed + 0x902),
+    fr(seed + 0x903),
   );
 }
 
@@ -1007,6 +1008,7 @@ export function makeHeader(
     makeContentCommitment(seed + 0x200, txsEffectsHash),
     makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), blockNumber),
+    fr(seed + 0x800),
   );
 }
 
