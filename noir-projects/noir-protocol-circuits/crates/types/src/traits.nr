@@ -106,3 +106,7 @@ trait Deserialize<N> {
     fn deserialize(fields: [Field; N]) -> Self;
 }
 // docs:end:deserialize
+
+trait ToBEBytes<N> {
+    fn to_be_bytes(self) -> [u8; N];
+}

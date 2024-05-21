@@ -1,31 +1,31 @@
 use crate::note::{note_interface::NoteInterface};
-use dep::protocol_types::{grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint};
+use dep::protocol_types::{grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint, traits::ToBEBytes};
 
 use dep::std::aes128::aes128_encrypt;
 use dep::std::println;
 use crate::keys::point_to_symmetric_key::point_to_symmetric_key;
 
-trait ToBytes<N> {
-    fn to_bytes(self, storage_slot: Field) -> [u8; N];
+struct EncryptedLogIncomingBody<T, N> {
+    data: T,
+    plaintext: [u8; N]
 }
 
-struct EncryptedLogIncomingBody<Note> {
-    storage_slot: Field,
-    note: Note,
-}
+impl<T, N> EncryptedLogIncomingBody<T, N> {
+    pub fn from_note<M>(
+        note: T,
+        storage_slot: Field
+    ) -> Self where T: NoteInterface<M>, T: ToBEBytes<N> {
+        let mut plaintext = note.to_be_bytes();
+        let storage_slot_bytes = storage_slot.to_be_bytes(32);
 
-impl<Note> EncryptedLogIncomingBody<Note> {
-    pub fn new<N>(storage_slot: Field, note: Note) -> Self where Note: NoteInterface<N> {
-        Self { storage_slot, note }
+        for i in 0..32 {
+            plaintext[i] = storage_slot_bytes[i];
+        }
+
+        EncryptedLogIncomingBody { data: note, plaintext }
     }
 
-    pub fn compute_ciphertext<N, M>(
-        self,
-        eph_sk: GrumpkinPrivateKey,
-        ivpk_app: GrumpkinPoint
-    ) -> [u8] where Note: NoteInterface<N>, Note: ToBytes<M> {
-        let buffer = self.note.to_bytes(self.storage_slot);
-
+    pub fn compute_ciphertext(self, eph_sk: GrumpkinPrivateKey, ivpk_app: GrumpkinPoint) -> [u8] {
         let full_key = point_to_symmetric_key(eph_sk, ivpk_app);
         let mut sym_key = [0; 16];
         let mut iv = [0; 16];
@@ -34,16 +34,15 @@ impl<Note> EncryptedLogIncomingBody<Note> {
             sym_key[i] = full_key[i];
             iv[i] = full_key[i + 16];
         }
-        aes128_encrypt(buffer, iv, sym_key)
+        aes128_encrypt(self.plaintext, iv, sym_key)
     }
 }
 
 mod test {
     use crate::encrypted_logs::incoming_body::EncryptedLogIncomingBody;
-    use crate::encrypted_logs::incoming_body::ToBytes;
     use dep::protocol_types::{
         address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint
+        grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint, traits::ToBEBytes
     };
 
     use crate::{
@@ -59,19 +58,19 @@ mod test {
     }
 
     global ADDRESS_NOTE_LEN: Field = 3;
-    global ENCRYPTED_ADDRESS_NOTE_LEN: u64 = 3 * 32 + 64 + 16;
 
-    impl ToBytes<ENCRYPTED_ADDRESS_NOTE_LEN> for AddressNote {
-        fn to_bytes(self, storage_slot: Field) -> [u8; ENCRYPTED_ADDRESS_NOTE_LEN] {
-            let serialized_note: [Field; ADDRESS_NOTE_LEN] = self.serialize_content();
+    impl ToBEBytes<160> for AddressNote {
+        fn to_be_bytes(self) -> [u8; 160] {
+            let serialized_note = self.serialize_content();
 
-            let mut buffer: [u8; ENCRYPTED_ADDRESS_NOTE_LEN] = [0; ENCRYPTED_ADDRESS_NOTE_LEN];
+            let mut buffer: [u8; 160] = [0; 160];
 
-            let storage_slot_bytes = storage_slot.to_be_bytes(32);
             let note_type_id_bytes = AddressNote::get_note_type_id().to_be_bytes(32);
 
+            // Leave 32 bytes for the storage slot
+            // This is weird, but until we have arithmetic over generics, this trait
+            // is the place to provide the length of the serialized note in bytes
             for i in 0..32 {
-                buffer[i] = storage_slot_bytes[i];
                 buffer[32 + i] = note_type_id_bytes[i];
             }
 
@@ -88,7 +87,7 @@ mod test {
     impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
         fn compute_note_content_hash(self) -> Field {1}
 
-        fn get_note_type_id() -> Field {2}
+        fn get_note_type_id() -> Field {1}
 
         fn get_header(self) -> NoteHeader { self.header}
 
@@ -122,7 +121,6 @@ mod test {
         );
 
         let storage_slot = 2;
-        let body = EncryptedLogIncomingBody::new(storage_slot, note);
 
         let eph_sk = GrumpkinPrivateKey::new(
             0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06,
@@ -133,15 +131,21 @@ mod test {
             0x1e96887b117afca01c00468264f4f80b5bb16d94c1808a448595f115556e5c8e
         );
 
+        let body = EncryptedLogIncomingBody::from_note(note, storage_slot);
+
         let ciphertext = body.compute_ciphertext(eph_sk, ivpk_app);
 
         let expected_body_ciphertext = [
             131, 119, 105, 129, 244, 32, 151, 205, 12, 99, 93, 62, 10, 180, 72, 21, 47, 232, 95, 17, 240, 230, 80, 129, 174, 158, 23, 76, 114, 185, 43, 18, 254, 148, 147, 230, 66, 216, 167, 62, 180, 213, 238, 33, 108, 29, 84, 139, 99, 206, 212, 253, 92, 116, 137, 31, 0, 104, 45, 91, 250, 109, 141, 114, 189, 53, 35, 60, 108, 156, 170, 206, 150, 114, 150, 187, 198, 13, 62, 153, 133, 13, 169, 167, 242, 221, 40, 168, 186, 203, 104, 82, 47, 238, 142, 179, 90, 37, 9, 70, 245, 176, 122, 247, 42, 87, 75, 7, 20, 89, 166, 123, 14, 26, 230, 156, 49, 94, 0, 94, 72, 58, 171, 239, 115, 174, 155, 7, 151, 17, 60, 206, 193, 134, 70, 87, 215, 88, 21, 194, 63, 26, 106, 105, 124, 213, 252, 152, 192, 71, 115, 13, 181, 5, 169, 15, 170, 196, 174, 228, 170, 192, 91, 76, 110, 220, 89, 47, 248, 144, 189, 251, 167, 149, 248, 226
         ];
 
+        println(expected_body_ciphertext.len());
+        println(ciphertext.len());
+
+        assert_eq(expected_body_ciphertext.len(), ciphertext.len());
+
         for i in 0..expected_body_ciphertext.len() {
             assert_eq(ciphertext[i], expected_body_ciphertext[i]);
         }
-        assert_eq(expected_body_ciphertext.len(), ciphertext.len());
     }
 }

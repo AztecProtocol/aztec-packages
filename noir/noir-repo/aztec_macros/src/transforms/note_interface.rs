@@ -1,7 +1,7 @@
 use noirc_errors::Span;
 use noirc_frontend::ast::{
-    ItemVisibility, LetStatement, NoirFunction, NoirStruct, PathKind, TraitImplItem, TypeImpl,
-    UnresolvedTypeData, UnresolvedTypeExpression,
+    ItemVisibility, LetStatement, NoirFunction, NoirStruct, NoirTraitImpl, PathKind, TraitImplItem,
+    TypeImpl, UnresolvedTypeData, UnresolvedTypeExpression,
 };
 use noirc_frontend::{
     graph::CrateId,
@@ -186,10 +186,92 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
                 generate_compute_note_content_hash(&note_type, note_interface_impl_span)?;
             trait_impl.items.push(TraitImplItem::Function(get_header_fn));
         }
+
+        let has_to_be_bytes = module
+            .trait_impls
+            .iter()
+            .find(|trait_impl| {
+                if let UnresolvedTypeData::Named(struct_path, _, _) = &trait_impl.object_type.typ {
+                    struct_path.last_segment() == note_struct.name
+                        && trait_impl.trait_name.last_segment().0.contents == "ToBEBytes"
+                } else {
+                    false
+                }
+            })
+            .is_some();
+
+        if !has_to_be_bytes {
+            let byte_length = note_fields.len() * 32 + 64;
+            let byte_length_str = byte_length.to_string();
+            let to_be_bytes_src = generate_note_to_be_bytes(
+                &note_type,
+                byte_length_str.as_str(),
+                note_interface_impl_span,
+            )?;
+            let to_be_bytes_trait_impl = NoirTraitImpl {
+                impl_generics: vec![ident(byte_length_str.as_str())],
+                trait_name: chained_dep!("aztec", "protocol_types", "traits", "ToBEBytes"),
+                trait_generics: vec![make_type(UnresolvedTypeData::Expression(
+                    UnresolvedTypeExpression::Constant(byte_length as u64, Span::default()),
+                ))],
+                object_type: note_impl.object_type.clone(),
+                where_clause: vec![],
+                items: vec![TraitImplItem::Function(to_be_bytes_src)],
+            };
+
+            module.trait_impls.push(to_be_bytes_trait_impl);
+        }
     }
 
     module.types.extend(structs_to_inject);
     Ok(())
+}
+
+fn generate_note_to_be_bytes(
+    note_type: &String,
+    byte_length: &str,
+    impl_span: Option<Span>,
+) -> Result<NoirFunction, AztecMacroError> {
+    let function_source = format!(
+        "
+        fn to_be_bytes(self: {1}) -> [u8; {0}] {{
+            let serialized_note = self.serialize_content();
+
+            let mut buffer: [u8; {0}] = [0; {0}];
+
+            let note_type_id_bytes = {1}::get_note_type_id().to_be_bytes(32);
+
+            for i in 0..32 {{
+                buffer[32 + i] = note_type_id_bytes[i];
+            }}
+
+            for i in 0..serialized_note.len() {{
+                let bytes = serialized_note[i].to_be_bytes(32);
+                for j in 0..32 {{
+                    buffer[64 + i * 32 + j] = bytes[j];
+                }}
+            }}
+            buffer
+        }}
+    ",
+        byte_length, note_type
+    )
+    .to_string();
+
+    let (function_ast, errors) = parse_program(&function_source);
+    if !errors.is_empty() {
+        dbg!(errors);
+        return Err(AztecMacroError::CouldNotImplementNoteInterface {
+            secondary_message: Some("Failed to parse Noir macro code (fn to_be_bytes). This is either a bug in the compiler or the Noir macro code".to_string()),
+            span: impl_span
+        });
+    }
+
+    let mut function_ast = function_ast.into_sorted();
+    let mut noir_fn = function_ast.functions.remove(0);
+    noir_fn.def.span = impl_span.unwrap();
+    noir_fn.def.visibility = ItemVisibility::Public;
+    Ok(noir_fn)
 }
 
 fn generate_note_get_header(
@@ -209,6 +291,7 @@ fn generate_note_get_header(
 
     let (function_ast, errors) = parse_program(&function_source);
     if !errors.is_empty() {
+        dbg!(errors);
         return Err(AztecMacroError::CouldNotImplementNoteInterface {
             secondary_message: Some("Failed to parse Noir macro code (fn get_header). This is either a bug in the compiler or the Noir macro code".to_string()),
             span: impl_span
