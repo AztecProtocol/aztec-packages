@@ -4,7 +4,7 @@ use dep::aztec::{
     grumpkin_point::GrumpkinPoint, hash::poseidon2_hash
 },
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
-    oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app, context::PrivateContext
+    oracle::unsafe_rand::unsafe_rand, oracle::nullifier_keys::get_nsk_app, context::PrivateContext
 };
 
 global ADDRESS_NOTE_LEN: Field = 3;
@@ -44,7 +44,7 @@ impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field, ivpk_m: GrumpkinPoint) {
         // docs:start:encrypted
-        context.emit_note_encrypted_log(
+        context.encrypt_and_emit_note(
             (*context).this_address(),
             slot,
             Self::get_note_type_id(),

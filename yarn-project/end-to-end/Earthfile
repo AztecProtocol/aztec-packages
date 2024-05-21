@@ -127,6 +127,9 @@ e2e-pending-note-hashes-contract:
 e2e-private-voting-contract:
   DO +E2E_TEST --test=./src/e2e_private_voting_contract.test.ts
 
+e2e-private-payments:
+  DO +E2E_TEST --test=./src/e2e_fees/private_payments.test.ts
+
 e2e-public-cross-chain-messaging:
   DO +E2E_TEST --test=./src/e2e_public_cross_chain_messaging
 
@@ -198,9 +201,9 @@ bench-tx-size:
   DO +E2E_COMPOSE_TEST --test=benchmarks/bench_tx_size_fees.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml
   DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
-bench-proving:
+bench-prover:
   ARG PULL_REQUEST
   ARG BRANCH
   ARG COMMIT_HASH
-  DO +E2E_COMPOSE_TEST --test=bench_proving --debug="aztec:benchmarks:*,aztec:prover*,aztec:bb*" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml
+  DO +E2E_COMPOSE_TEST --test=bench_prover --debug="aztec:benchmarks:*,aztec:prover*,aztec:bb*,aztec:pxe*" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml
   DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH

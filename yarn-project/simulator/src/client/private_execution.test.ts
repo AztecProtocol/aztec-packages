@@ -154,6 +154,7 @@ describe('Private Execution test suite', () => {
           ),
         ),
         header.globalVariables,
+        header.totalFees,
       );
     } else {
       header = new Header(
@@ -161,6 +162,7 @@ describe('Private Execution test suite', () => {
         header.contentCommitment,
         new StateReference(newSnap, header.state.partial),
         header.globalVariables,
+        header.totalFees,
       );
     }
 
@@ -169,8 +171,7 @@ describe('Private Execution test suite', () => {
 
   const getEncryptedNoteSerializedLength = (result: ExecutionResult) => {
     const fnLogs = new EncryptedFunctionL2Logs(result.noteEncryptedLogs.map(l => l.log));
-    // We take 4 to avoid counting the extra 4 bytes used to store len for L1
-    return fnLogs.getSerializedLength() - 4;
+    return fnLogs.getKernelLength();
   };
 
   beforeAll(() => {
@@ -248,10 +249,7 @@ describe('Private Execution test suite', () => {
 
       const [unencryptedLog] = newUnencryptedLogs;
       expect(unencryptedLog.value).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
-      // We take 4 to avoid counting the extra 4 bytes used to store len for L1
-      expect(result.callStackItem.publicInputs.unencryptedLogPreimagesLength).toEqual(
-        new Fr(functionLogs.getSerializedLength() - 4),
-      );
+      expect(unencryptedLog.length).toEqual(new Fr(functionLogs.getKernelLength()));
       // Test that the log payload (ie ignoring address, selector, and header) matches what we emitted
       expect(functionLogs.logs[0].data.subarray(-32).toString('hex')).toEqual(owner.toBuffer().toString('hex'));
     });
@@ -268,10 +266,7 @@ describe('Private Execution test suite', () => {
 
       const [unencryptedLog] = newUnencryptedLogs;
       expect(unencryptedLog.value).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
-      // We take 4 to avoid counting the extra 4 bytes used to store len for L1
-      expect(result.callStackItem.publicInputs.unencryptedLogPreimagesLength).toEqual(
-        new Fr(functionLogs.getSerializedLength() - 4),
-      );
+      expect(unencryptedLog.length).toEqual(new Fr(functionLogs.getKernelLength()));
       // Test that the log payload (ie ignoring address, selector, and header) matches what we emitted
       const expected = Buffer.concat(args[0].map(arg => arg.toBuffer())).toString('hex');
       expect(functionLogs.logs[0].data.subarray(-32 * 5).toString('hex')).toEqual(expected);
@@ -348,9 +343,7 @@ describe('Private Execution test suite', () => {
       const [encryptedLog] = newEncryptedLogs;
       expect(encryptedLog.noteHashCounter).toEqual(newNoteHashes[0].counter);
       expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[0].log.hash()));
-      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
-        new Fr(getEncryptedNoteSerializedLength(result)),
-      );
+      expect(encryptedLog.length).toEqual(new Fr(getEncryptedNoteSerializedLength(result)));
     });
 
     it('should run the create_note function', async () => {
@@ -380,9 +373,7 @@ describe('Private Execution test suite', () => {
       const [encryptedLog] = newEncryptedLogs;
       expect(encryptedLog.noteHashCounter).toEqual(newNoteHashes[0].counter);
       expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[0].log.hash()));
-      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
-        new Fr(getEncryptedNoteSerializedLength(result)),
-      );
+      expect(encryptedLog.length).toEqual(new Fr(getEncryptedNoteSerializedLength(result)));
     });
 
     it('should run the destroy_and_create function', async () => {
@@ -442,7 +433,7 @@ describe('Private Execution test suite', () => {
       expect(encryptedChangeLog.noteHashCounter).toEqual(changeNoteHash.counter);
       expect(encryptedRecipientLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[1].log.hash()));
       expect(encryptedRecipientLog.noteHashCounter).toEqual(recipientNoteHash.counter);
-      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
+      expect(encryptedChangeLog.length.add(encryptedRecipientLog.length)).toEqual(
         new Fr(getEncryptedNoteSerializedLength(result)),
       );
 
@@ -487,7 +478,7 @@ describe('Private Execution test suite', () => {
       expect(encryptedChangeLog.noteHashCounter).toEqual(result.callStackItem.publicInputs.newNoteHashes[0].counter);
       expect(encryptedRecipientLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[1].log.hash()));
       expect(encryptedRecipientLog.noteHashCounter).toEqual(result.callStackItem.publicInputs.newNoteHashes[1].counter);
-      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
+      expect(encryptedChangeLog.length.add(encryptedRecipientLog.length)).toEqual(
         new Fr(getEncryptedNoteSerializedLength(result)),
       );
     });
@@ -527,7 +518,7 @@ describe('Private Execution test suite', () => {
 
       // check that Aztec.nr calculated the call stack item hash like cpp does
       const expectedCallStackItemHash = result.nestedExecutions[0].callStackItem.hash();
-      expect(result.callStackItem.publicInputs.privateCallStackHashes[0]).toEqual(expectedCallStackItemHash);
+      expect(result.callStackItem.publicInputs.privateCallRequests[0].hash).toEqual(expectedCallStackItemHash);
     });
   });
 
