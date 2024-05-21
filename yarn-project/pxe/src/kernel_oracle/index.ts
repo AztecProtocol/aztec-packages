@@ -1,8 +1,10 @@
-import { type AztecNode, type KeyStore } from '@aztec/circuit-types';
+import { type AztecNode } from '@aztec/circuit-types';
 import {
   type AztecAddress,
   type Fr,
   type FunctionSelector,
+  type GrumpkinPrivateKey,
+  type KeyGenerator,
   MembershipWitness,
   type NOTE_HASH_TREE_HEIGHT,
   type Point,
@@ -11,6 +13,7 @@ import {
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
+import { type KeyStore } from '@aztec/key-store';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
@@ -67,8 +70,8 @@ export class KernelOracle implements ProvingDataOracle {
     return header.state.partial.noteHashTree.root;
   }
 
-  public getMasterNullifierSecretKey(nullifierPublicKey: Point) {
-    return this.keyStore.getMasterNullifierSecretKeyForPublicKey(nullifierPublicKey);
+  public getMasterSecretKeyAndAppKeyGenerator(masterPublicKey: Point): Promise<[GrumpkinPrivateKey, KeyGenerator]> {
+    return this.keyStore.getMasterSecretKeyAndAppKeyGenerator(masterPublicKey);
   }
 
   public async getFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {

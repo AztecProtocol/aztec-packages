@@ -5,7 +5,6 @@ import {
   ExtendedNote,
   type FunctionCall,
   type GetUnencryptedLogsResponse,
-  type KeyStore,
   type L2Block,
   type LogFilter,
   MerkleTreeId,
@@ -42,9 +41,11 @@ import { Fq, Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { type KeyStore } from '@aztec/key-store';
 import {
   type AcirSimulator,
   type ExecutionResult,
+  accumulateReturnValues,
   collectEnqueuedPublicFunctionCalls,
   collectPublicTeardownFunctionCall,
   collectSortedEncryptedLogs,
@@ -465,7 +466,7 @@ export class PXEService implements PXE {
     return txHash;
   }
 
-  public async viewTx(
+  public async simulateUnconstrained(
     functionName: string,
     args: any[],
     to: AztecAddress,
@@ -681,7 +682,8 @@ export class PXEService implements PXE {
       enqueuedPublicFunctions,
       teardownPublicFunction,
     );
-    return new SimulatedTx(tx, executionResult.returnValues);
+
+    return new SimulatedTx(tx, accumulateReturnValues(executionResult));
   }
 
   /**
