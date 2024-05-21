@@ -5,8 +5,7 @@ NARGO=${NARGO:-nargo}
 TRANSPILER=${TRANSPILER:-avm-transpiler}
 
 if [ "${1:-}" != "compile" ]; then
-	echo "Usage: $0 compile"
-	exit 1
+  $NARGO $@
 fi
 shift # remove the compile arg so we can inject --show-artifact-paths
 
@@ -20,13 +19,13 @@ rm "$tmpfile"
 
 # Forward all arguments to nargo, tee output to the tmp file
 echo "Running nargo ($NARGO compile --show-artifact-paths) with args: $@"
-$NARGO compile --show-artifact-paths "$@" | tee /dev/fd/3
+$NARGO compile --show-artifact-paths $@ | tee /dev/fd/3
 
 # Parse nargo's output (captured in the tmp file) to determine which artifacts to transpile
 artifacts_to_transpile=$(grep -oP 'Saved contract artifact to: \K.*' <&4)
 
 # Transpile each artifact
 for artifact in "$artifacts_to_transpile"; do
-	# transpiler input and output files are the same (modify in-place)
-	$TRANSPILER "$artifact" "$artifact"
+  # transpiler input and output files are the same (modify in-place)
+  $TRANSPILER "$artifact" "$artifact"
 done
