@@ -73,7 +73,7 @@ export class ValidationRequests {
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest),
       reader.readArray(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, ScopedReadRequest),
-      reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, ScopedNullifierKeyValidationRequest),
+      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_TX, ScopedKeyValidationRequest),
       reader.readArray(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead),
     );
   }
