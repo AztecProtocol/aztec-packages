@@ -3,8 +3,8 @@ use crate::{
     call_context::CallContext, call_request::CallRequest, caller_context::CallerContext,
     gas_settings::GasSettings, gas::Gas, max_block_number::MaxBlockNumber, note_hash::NoteHash,
     nullifier::Nullifier, nullifier_key_validation_request::NullifierKeyValidationRequest,
-    private_circuit_public_inputs::PrivateCircuitPublicInputs, read_request::ReadRequest,
-    log_hash::{LogHash, NoteLogHash}
+    private_call_request::PrivateCallRequest, private_circuit_public_inputs::PrivateCircuitPublicInputs,
+    read_request::ReadRequest, log_hash::{LogHash, NoteLogHash}
 },
     address::{AztecAddress, compute_initialization_hash}, header::Header,
     messaging::l2_to_l1_message::L2ToL1Message, tests::fixtures, transaction::tx_context::TxContext
@@ -39,7 +39,7 @@ struct PrivateCircuitPublicInputsBuilder {
     new_note_hashes: BoundedVec<NoteHash, MAX_NEW_NOTE_HASHES_PER_CALL>,
     new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_CALL>,
 
-    private_call_stack_hashes: BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     public_teardown_function_hash: Field,
     new_l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
@@ -47,9 +47,6 @@ struct PrivateCircuitPublicInputsBuilder {
     note_encrypted_logs_hashes: BoundedVec<NoteLogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL>,
     encrypted_logs_hashes: BoundedVec<LogHash, MAX_ENCRYPTED_LOGS_PER_CALL>,
     unencrypted_logs_hashes: BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_CALL>,
-
-    encrypted_log_preimages_length: Field,
-    unencrypted_log_preimages_length: Field,
 
     historical_header: Header,
 
@@ -86,9 +83,9 @@ impl PrivateCircuitPublicInputsBuilder {
             side_effect_counter: counter
         };
 
-        public_inputs.chain_id = 0;
-        public_inputs.version = 1;
-        public_inputs.gas_settings = GasSettings::default();
+        public_inputs.chain_id = fixtures::CHAIN_ID;
+        public_inputs.version = fixtures::VERSION;
+        public_inputs.gas_settings = GasSettings::empty();
         public_inputs.counter_start = counter;
         public_inputs.counter_end = counter + 1;
 
@@ -156,13 +153,11 @@ impl PrivateCircuitPublicInputsBuilder {
     pub fn add_encrypted_log(&mut self, hash: Field, preimages_length: Field) {
         let side_effect = LogHash { value: hash, counter: self.next_counter(), length: preimages_length };
         self.encrypted_logs_hashes.push(side_effect);
-        self.encrypted_log_preimages_length += preimages_length;
     }
 
     pub fn add_unencrypted_log(&mut self, hash: Field, preimages_length: Field) {
         let side_effect = LogHash { value: hash, counter: self.next_counter(), length: preimages_length };
         self.unencrypted_logs_hashes.push(side_effect);
-        self.unencrypted_log_preimages_length += preimages_length;
     }
 
     pub fn generate_call_request(self, hash: Field, is_delegate_call: bool) -> CallRequest {
@@ -180,10 +175,31 @@ impl PrivateCircuitPublicInputsBuilder {
         }
     }
 
-    pub fn add_private_call_request(&mut self, hash: Field) {
-        let _ = self.next_counter(); // Increment for creating the call.
-        self.private_call_stack_hashes.push(hash);
-        let _ = self.next_counter(); // Increment for ending the call.
+    pub fn add_private_call_request(&mut self, hash: Field, is_delegate_call: bool) {
+        let mut caller_context = CallerContext::empty();
+        caller_context.is_static_call = self.call_context.is_static_call;
+        if is_delegate_call {
+            caller_context.msg_sender = self.call_context.msg_sender;
+            caller_context.storage_contract_address = self.call_context.storage_contract_address;
+        }
+        self.private_call_requests.push(
+            PrivateCallRequest {
+            hash,
+            caller_context,
+            start_side_effect_counter: self.next_counter(),
+            end_side_effect_counter: self.next_counter()
+        }
+        );
+    }
+
+    pub fn append_private_call_requests(&mut self, num_requests: u64, is_delegate_call: bool) {
+        let hash_offset = 7070 + self.private_call_requests.len();
+        for i in 0..self.private_call_requests.max_len() {
+            if i < num_requests {
+                let hash = (hash_offset + i) as Field;
+                self.add_private_call_request(hash, is_delegate_call);
+            }
+        }
     }
 
     pub fn add_public_call_request(&mut self, hash: Field) {
@@ -211,7 +227,7 @@ impl PrivateCircuitPublicInputsBuilder {
             nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
             new_note_hashes: self.new_note_hashes.storage,
             new_nullifiers: self.new_nullifiers.storage,
-            private_call_stack_hashes: self.private_call_stack_hashes.storage,
+            private_call_requests: self.private_call_requests.storage,
             public_call_stack_hashes: self.public_call_stack_hashes.storage,
             public_teardown_function_hash: self.public_teardown_function_hash,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
@@ -220,8 +236,6 @@ impl PrivateCircuitPublicInputsBuilder {
             note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage,
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
-            encrypted_log_preimages_length: self.encrypted_log_preimages_length,
-            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             historical_header: self.historical_header,
             tx_context: self.build_tx_context()
         }
@@ -249,15 +263,13 @@ impl Empty for PrivateCircuitPublicInputsBuilder {
             nullifier_key_validation_requests: BoundedVec::new(),
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
-            private_call_stack_hashes: BoundedVec::new(),
+            private_call_requests: BoundedVec::new(),
             public_call_stack_hashes: BoundedVec::new(),
             public_teardown_function_hash: 0,
             new_l2_to_l1_msgs: BoundedVec::new(),
             note_encrypted_logs_hashes: BoundedVec::new(),
             encrypted_logs_hashes: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
-            encrypted_log_preimages_length: 0,
-            unencrypted_log_preimages_length: 0,
             historical_header: Header::empty(),
             chain_id: 0,
             version: 0,

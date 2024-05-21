@@ -89,11 +89,6 @@ mod tests {
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailToPublicInputs and PrivateKernelTailInputs.
     struct PrivateKernelTailToPublicInputsBuilder {
         previous_kernel: FixtureBuilder,
-        transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-        transient_note_hash_indexes_for_nullifiers: [u64; MAX_NEW_NULLIFIERS_PER_TX],
-        transient_note_hash_indexes_for_logs: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-        note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder,
-        nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder,
     }
 
     impl PrivateKernelTailToPublicInputsBuilder {
@@ -103,14 +98,7 @@ mod tests {
             previous_kernel.append_new_nullifiers(1);
             previous_kernel.push_public_call_request(1, false);
 
-            PrivateKernelTailToPublicInputsBuilder {
-                previous_kernel,
-                transient_nullifier_indexes_for_note_hashes: [MAX_NEW_NULLIFIERS_PER_TX; MAX_NEW_NOTE_HASHES_PER_TX],
-                transient_note_hash_indexes_for_nullifiers: [MAX_NEW_NOTE_HASHES_PER_TX; MAX_NEW_NULLIFIERS_PER_TX],
-                transient_note_hash_indexes_for_logs: [MAX_NEW_NOTE_HASHES_PER_TX; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-                note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder::new(MAX_NOTE_HASH_READ_REQUESTS_PER_TX),
-                nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(MAX_NULLIFIER_READ_REQUESTS_PER_TX)
-            }
+            PrivateKernelTailToPublicInputsBuilder { previous_kernel }
         }
 
         // A helper function that uses the first nullifer in the previous kernel to compute the unique siloed
@@ -361,16 +349,12 @@ mod tests {
                 0
             )
         );
-        assert_eq(public_inputs.end.encrypted_log_preimages_length as u32, revertible_logs_len);
         assert_eq(
             public_inputs.end_non_revertible.gas_used, Gas::new(
             (3 * DA_BYTES_PER_FIELD + non_revertible_logs_len) * DA_GAS_PER_BYTE,
             0
         )
             + Gas::tx_overhead()
-        );
-        assert_eq(
-            public_inputs.end_non_revertible.encrypted_log_preimages_length as u32, non_revertible_logs_len
         );
     }
 
