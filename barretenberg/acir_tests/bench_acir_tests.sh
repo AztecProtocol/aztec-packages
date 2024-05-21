@@ -3,6 +3,8 @@ set -e
 
 cd "$(dirname "$0")"
 
+./clone_test_vectors.sh
+
 TEST_NAMES=("$@")
 THREADS=(1 4 16 32 64)
 BENCHMARKS=$LOG_FILE
@@ -12,7 +14,7 @@ if [[ -z "${LOG_FILE}" ]]; then
 fi
 
 if [ "${#TEST_NAMES[@]}" -eq 0 ]; then
-    TEST_NAMES=(bench_poseidon_hash bench_poseidon_hash_30 bench_poseidon_hash_100)
+    TEST_NAMES=$(find acir_tests/bench_* -maxdepth 0 -type d -printf '%f ')
 fi
 
 for TEST in ${TEST_NAMES[@]}; do

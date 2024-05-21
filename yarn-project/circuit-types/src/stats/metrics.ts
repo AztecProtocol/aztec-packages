@@ -63,6 +63,12 @@ export const Metrics = [
     events: ['proof_construction_time'],
   },
   {
+    name: 'proof_construction_time_eddsa',
+    groupBy: 'threads',
+    description: 'Time needed to generate a proof of an ACIR program.',
+    events: ['proof_construction_time'],
+  },
+  {
     name: 'l1_rollup_calldata_size_in_bytes',
     groupBy: 'block-size',
     description: 'Size in bytes of the tx calldata posted to L1 when submitting a block.',

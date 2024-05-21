@@ -81,6 +81,8 @@ function processAcirProofGenerated(entry: ProofConstructed, results: BenchmarkCo
     append(results, 'proof_construction_time_poseidon_hash_30', entry.threads, entry.value);
   } else if (entry.acir_test === 'bench_poseidon_hash_100') {
     append(results, 'proof_construction_time_poseidon_hash_100', entry.threads, entry.value);
+  }else if (entry.acir_test === 'bench_eddsa') {
+    append(results, 'proof_construction_time_eddsa', entry.threads, entry.value);
   }
 }
 
