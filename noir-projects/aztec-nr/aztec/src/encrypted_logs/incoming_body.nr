@@ -2,7 +2,6 @@ use crate::note::{note_interface::NoteInterface};
 use dep::protocol_types::{grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint, traits::ToBEBytes};
 
 use dep::std::aes128::aes128_encrypt;
-use dep::std::println;
 use crate::keys::point_to_symmetric_key::point_to_symmetric_key;
 
 struct EncryptedLogIncomingBody<T, N> {
@@ -138,9 +137,6 @@ mod test {
         let expected_body_ciphertext = [
             131, 119, 105, 129, 244, 32, 151, 205, 12, 99, 93, 62, 10, 180, 72, 21, 47, 232, 95, 17, 240, 230, 80, 129, 174, 158, 23, 76, 114, 185, 43, 18, 254, 148, 147, 230, 66, 216, 167, 62, 180, 213, 238, 33, 108, 29, 84, 139, 99, 206, 212, 253, 92, 116, 137, 31, 0, 104, 45, 91, 250, 109, 141, 114, 189, 53, 35, 60, 108, 156, 170, 206, 150, 114, 150, 187, 198, 13, 62, 153, 133, 13, 169, 167, 242, 221, 40, 168, 186, 203, 104, 82, 47, 238, 142, 179, 90, 37, 9, 70, 245, 176, 122, 247, 42, 87, 75, 7, 20, 89, 166, 123, 14, 26, 230, 156, 49, 94, 0, 94, 72, 58, 171, 239, 115, 174, 155, 7, 151, 17, 60, 206, 193, 134, 70, 87, 215, 88, 21, 194, 63, 26, 106, 105, 124, 213, 252, 152, 192, 71, 115, 13, 181, 5, 169, 15, 170, 196, 174, 228, 170, 192, 91, 76, 110, 220, 89, 47, 248, 144, 189, 251, 167, 149, 248, 226
         ];
-
-        println(expected_body_ciphertext.len());
-        println(ciphertext.len());
 
         assert_eq(expected_body_ciphertext.len(), ciphertext.len());
 
