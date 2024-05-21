@@ -5,7 +5,6 @@ import {
   ExtendedNote,
   type FunctionCall,
   type GetUnencryptedLogsResponse,
-  type KeyStore,
   type L2Block,
   type LogFilter,
   MerkleTreeId,
@@ -42,6 +41,7 @@ import { Fq, Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { type KeyStore } from '@aztec/key-store';
 import {
   type AcirSimulator,
   type ExecutionResult,
@@ -521,6 +521,7 @@ export class PXEService implements PXE {
       args: encodeArguments(functionDao, args),
       functionData: FunctionData.fromAbi(functionDao),
       to,
+      isStatic: functionDao.isStatic,
     };
   }
 

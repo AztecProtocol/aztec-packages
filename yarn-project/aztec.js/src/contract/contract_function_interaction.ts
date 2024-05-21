@@ -62,7 +62,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   public request(): FunctionCall {
     const args = encodeArguments(this.functionDao, this.args);
     const functionData = FunctionData.fromAbi(this.functionDao);
-    return { args, functionData, to: this.contractAddress };
+    return { args, functionData, to: this.contractAddress, isStatic: this.functionDao.isStatic };
   }
 
   /**
@@ -81,7 +81,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
 
     const txRequest = await this.create();
     // const from =
-    //   this.functionDao.functionType == FunctionType.SECRET ? options.from ?? this.wallet.getAddress() : undefined;
+    //   this.functionDao.functionType == FunctionType.PRIVATE ? options.from ?? this.wallet.getAddress() : undefined;
 
     const simulatedTx = await this.wallet.simulateTx(txRequest, true, options?.from);
 
@@ -89,7 +89,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     // since we're interested in the first set of values AFTER the account entrypoint
     // For public functions we retrieve the first values directly from the public output.
     const rawReturnValues =
-      this.functionDao.functionType == FunctionType.SECRET
+      this.functionDao.functionType == FunctionType.PRIVATE
         ? simulatedTx.privateReturnValues?.nested?.[0].values
         : simulatedTx.publicOutput?.publicReturnValues?.values;
 
