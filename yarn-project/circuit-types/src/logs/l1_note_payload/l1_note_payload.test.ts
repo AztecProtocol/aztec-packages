@@ -1,6 +1,6 @@
-import { AztecAddress } from '@aztec/circuits.js';
+import { AztecAddress, KeyValidationRequest, computeOvskApp, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 
 import { L1NotePayload } from './l1_note_payload.js';
 
@@ -28,13 +28,22 @@ describe('L1 Note Payload', () => {
       ovsk = GrumpkinScalar.random();
       ivsk = GrumpkinScalar.random();
 
+      const app = AztecAddress.random();
+
+      const ovskApp = computeOvskApp(ovsk, app);
+      const ovpkM = derivePublicKeyFromSecretKey(ovskApp);
+      
+      // TODO(benesjan): get rid of this ugly conversion
+      const ovskAppFr = Fr.fromBuffer(ovskApp.toBuffer());
+      const ovKeys = new KeyValidationRequest(ovpkM, ovskAppFr);
+
       const ephSk = GrumpkinScalar.random();
 
       const recipientAddress = AztecAddress.random();
       const ivpk = grumpkin.mul(Grumpkin.generator, ivsk);
 
       payload = L1NotePayload.random();
-      encrypted = payload.encrypt(ephSk, recipientAddress, ivpk, ovsk);
+      encrypted = payload.encrypt(ephSk, recipientAddress, ivpk, ovKeys);
     });
 
     it('decrypt a log as incoming', () => {

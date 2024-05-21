@@ -7,6 +7,7 @@ import { type ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField } from '../deserialize.js';
 import { toACVMField, toAcvmEnqueuePublicFunctionResult } from '../serialize.js';
 import { type TypedOracle } from './typed_oracle.js';
+import { KeyValidationRequest } from '@aztec/circuits.js';
 
 /**
  * A data source that has all the apis required by Aztec.nr.
@@ -308,14 +309,20 @@ export class Oracle {
     [noteTypeId]: ACVMField[],
     [ivpkMX]: ACVMField[],
     [ivpkMY]: ACVMField[],
+    [ovpkMX]: ACVMField[],
+    [ovpkMY]: ACVMField[],
+    [ovskApp]: ACVMField[],
     preimage: ACVMField[],
   ): ACVMField[] {
     const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY));
+    const ovpkM = new Point(fromACVMField(ovpkMX), fromACVMField(ovpkMY));
+    const ovKeys = new KeyValidationRequest(ovpkM, Fr.fromString(ovskApp));
     const encLog = this.typedOracle.computeEncryptedLog(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(storageSlot),
       Fr.fromString(noteTypeId),
       ivpkM,
+      ovKeys,
       preimage.map(fromACVMField),
     );
     const bytes: ACVMField[] = [];

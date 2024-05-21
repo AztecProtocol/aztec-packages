@@ -2,10 +2,7 @@ use crate::{
     context::{inputs::PrivateContextInputs, interface::ContextInterface},
     messaging::process_l1_to_l2_message,
     hash::{hash_args_array, ArgsHasher, compute_unencrypted_log_hash},
-    keys::{
-        constants::{NULLIFIER_INDEX, OUTGOING_INDEX, NUM_KEY_TYPES, sk_generators},
-        getters::get_ovpk_m,
-    },
+    keys::{constants::{NULLIFIER_INDEX, OUTGOING_INDEX, NUM_KEY_TYPES, sk_generators}, getters::get_ovpk_m},
     note::{note_interface::NoteInterface, utils::compute_note_hash_for_insertion},
     oracle::{
     key_validation_request::get_key_validation_request, arguments, returns,
@@ -315,7 +312,7 @@ impl PrivateContext {
         // it is expensive.
         let ovpk_m = get_ovpk_m(self, self.msg_sender());
         let ovsk_app = self.request_ovsk_app(ovpk_m.hash());
-        
+
         // We are currently just encrypting it EXACTLY the same way as if it was a note.
         let counter = self.next_counter();
         let encrypted_log: [u8; M] = compute_encrypted_log(contract_address, randomness, event_type_id, ivpk_m, preimage);
@@ -353,7 +350,15 @@ impl PrivateContext {
         let ovsk_app = self.request_ovsk_app(ovpk_m.hash());
 
         // TODO(#1139 | #6408): perform encryption in the circuit
-        let encrypted_log: [u8; M] = compute_encrypted_log(contract_address, storage_slot, note_type_id, ivpk_m, ovsk_app, preimage);
+        let encrypted_log: [u8; M] = compute_encrypted_log(
+            contract_address,
+            storage_slot,
+            note_type_id,
+            ivpk_m,
+            ovpk_m,
+            ovsk_app,
+            preimage
+        );
         emit_encrypted_note_log(note_hash, encrypted_log, counter);
 
         // Current unoptimized size of the encrypted log
