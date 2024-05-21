@@ -17,7 +17,7 @@ import {
   type VerificationKeyData,
 } from '@aztec/circuits.js';
 import { siloNoteHash } from '@aztec/circuits.js/hash';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { runInDirectory } from '@aztec/foundation/fs';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
@@ -135,10 +135,7 @@ export class BBNativeProofCreator implements ProofCreator {
     bytecode: Buffer,
     appCircuitName?: string,
   ): Promise<AppCircuitProofOutput> {
-    const directory = `${this.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
-    await fs.mkdir(directory, { recursive: true });
-    this.log.debug(`Created directory: ${directory}`);
-    try {
+    const operation = async (directory: string) => {
       this.log.debug(`Proving app circuit`);
       const proofOutput = await this.createProof(directory, partialWitness, bytecode, 'App', 0, 0, appCircuitName);
       if (proofOutput.proof.proof.length != RECURSIVE_PROOF_LENGTH) {
@@ -150,10 +147,9 @@ export class BBNativeProofCreator implements ProofCreator {
         verificationKey: proofOutput.verificationKey,
       };
       return output;
-    } finally {
-      await fs.rm(directory, { recursive: true, force: true });
-      this.log.debug(`Deleted directory: ${directory}`);
-    }
+    };
+
+    return await runInDirectory(this.bbWorkingDirectory, operation);
   }
 
   /**
@@ -185,21 +181,15 @@ export class BBNativeProofCreator implements ProofCreator {
     proof: Proof,
     logFunction: (message: string) => void = () => {},
   ) {
-    // Create random directory to be used for temp files
-    const bbWorkingDirectory = `${this.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
-    await fs.mkdir(bbWorkingDirectory, { recursive: true });
+    const operation = async (bbWorkingDirectory: string) => {
+      const proofFileName = `${bbWorkingDirectory}/proof`;
+      const verificationKeyPath = `${bbWorkingDirectory}/vk`;
 
-    const proofFileName = `${bbWorkingDirectory}/proof`;
-    const verificationKeyPath = `${bbWorkingDirectory}/vk`;
-
-    await fs.writeFile(proofFileName, proof.buffer);
-    await fs.writeFile(verificationKeyPath, verificationKey);
-
-    try {
+      await fs.writeFile(proofFileName, proof.buffer);
+      await fs.writeFile(verificationKeyPath, verificationKey);
       return await verifyProof(this.bbBinaryPath, proofFileName, verificationKeyPath!, logFunction);
-    } finally {
-      await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
-    }
+    };
+    return await runInDirectory(this.bbWorkingDirectory, operation);
   }
 
   /**
@@ -249,15 +239,10 @@ export class BBNativeProofCreator implements ProofCreator {
     convertInputs: (inputs: I) => WitnessMap,
     convertOutputs: (outputs: WitnessMap) => O,
   ): Promise<KernelProofOutput<O>> {
-    const directory = `${this.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
-    await fs.mkdir(directory, { recursive: true });
-    this.log.debug(`Created directory: ${directory}`);
-    try {
+    const operation = async (directory: string) => {
       return await this.generateWitnessAndCreateProof(inputs, circuitType, directory, convertInputs, convertOutputs);
-    } finally {
-      await fs.rm(directory, { recursive: true, force: true });
-      this.log.debug(`Deleted directory: ${directory}`);
-    }
+    };
+    return await runInDirectory(this.bbWorkingDirectory, operation);
   }
 
   private async generateWitnessAndCreateProof<
