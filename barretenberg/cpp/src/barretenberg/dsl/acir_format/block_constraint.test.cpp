@@ -1,8 +1,6 @@
 #include "block_constraint.hpp"
 #include "acir_format.hpp"
 
-#include "barretenberg/dsl/acir_proofs/goblin_acir_composer.hpp"
-
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 
@@ -16,9 +14,28 @@ class UltraPlonkRAM : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
 
-class GoblinPlonk : public ::testing::Test {
+class UltraGoblinHonk : public ::testing::Test {
+  public:
+    using Flavor = GoblinUltraFlavor;
+    using Builder = Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
+
+    // Construct and verify an UltraGoblinHonk proof for the provided circuit
+    static bool prove_and_verify(Builder& circuit)
+    {
+        Prover prover{ circuit };
+        auto proof = prover.construct_proof();
+
+        auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
+        Verifier verifier{ verification_key };
+
+        return verifier.verify_proof(proof);
+    }
+
   protected:
-    static void SetUpTestSuite() { bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
 size_t generate_block_constraint(BlockConstraint& constraint, WitnessVector& witness_values)
 {
@@ -158,7 +175,7 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
-TEST_F(GoblinPlonk, TestDatabus)
+TEST_F(UltraGoblinHonk, Databus)
 {
     BlockConstraint block;
     WitnessVector witness_values;
@@ -196,18 +213,13 @@ TEST_F(GoblinPlonk, TestDatabus)
         .block_constraints = { block },
     };
 
-    acir_proofs::GoblinAcirComposer acir_composer;
-    acir_composer.create_circuit(constraint_system, witness_values);
+    // Construct a bberg circuit from the acir representation
+    auto circuit = acir_format::create_circuit<Builder>(constraint_system, 0, witness_values);
 
-    // Generate a GoblinUltraHonk proof and a full Goblin proof
-    auto proof = acir_composer.accumulate_and_prove();
-
-    // Verify the GoblinUltraHonk proof and the full Goblin proof
-    auto verified = acir_composer.verify(proof);
-    EXPECT_EQ(verified, true);
+    EXPECT_TRUE(prove_and_verify(circuit));
 }
 
-TEST_F(GoblinPlonk, TestDatabusReturn)
+TEST_F(UltraGoblinHonk, DatabusReturn)
 {
     BlockConstraint block;
     WitnessVector witness_values;
@@ -304,13 +316,8 @@ TEST_F(GoblinPlonk, TestDatabusReturn)
         .block_constraints = { block },
     };
 
-    acir_proofs::GoblinAcirComposer acir_composer;
-    acir_composer.create_circuit(constraint_system, witness_values);
+    // Construct a bberg circuit from the acir representation
+    auto circuit = acir_format::create_circuit<Builder>(constraint_system, 0, witness_values);
 
-    // Generate a GoblinUltraHonk proof and a full Goblin proof
-    auto proof = acir_composer.accumulate_and_prove();
-
-    // Verify the GoblinUltraHonk proof and the full Goblin proof
-    auto verified = acir_composer.verify(proof);
-    EXPECT_EQ(verified, true);
+    EXPECT_TRUE(prove_and_verify(circuit));
 }
