@@ -3,7 +3,7 @@ contract Child {
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, PublicMutable, PrivateSet, PrivateContext, Deserialize};
 
     use dep::aztec::{
-        context::{PublicContext, Context, gas::GasOpts},
+        context::gas::GasOpts,
         protocol_types::{abis::call_context::CallContext, grumpkin_point::GrumpkinPoint},
         note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader},
         keys::getters::{get_npk_m_hash, get_ivpk_m}
@@ -64,6 +64,7 @@ contract Child {
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
         let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
 
+        // TODO (#6312): This will break with key rotation. Fix this. Will not be able to find any notes after rotating key.
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, amount, Option::none()).select(
             ValueNote::properties().npk_m_hash,

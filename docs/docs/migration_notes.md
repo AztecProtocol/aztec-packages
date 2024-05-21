@@ -6,7 +6,58 @@ keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## 0.X.X
+## 0.41.0
+
+
+
+### [Aztec.nr] State variable rework
+
+Aztec.nr state variables have been reworked so that calling private functions in public and vice versa is detected as an error during compilation instead of at runtime. This affects users in a number of ways:
+
+#### New compile time errors
+
+It used to be that calling a state variable method only available in public from a private function resulted in obscure runtime errors in the form of a failed `_is_some` assertion.
+
+Incorrect usage of the state variable methods now results in compile time errors. For example, given the following function:
+
+```rust
+#[aztec(public)]
+fn get_decimals() -> pub u8 {
+    storage.decimals.read_private()
+}
+```
+
+The compiler will now error out with 
+```
+Expected type SharedImmutable<_, &mut PrivateContext>, found type SharedImmutable<u8, &mut PublicContext>
+```
+
+The key component is the second generic parameter: the compiler expects a `PrivateContext` (becuse `read_private` is only available during private execution), but a `PublicContext` is being used instead (because of the `#[aztec(public)]` attribute).
+
+#### Generic parameters in `Storage`
+
+The `Storage` struct (the one marked with `#[aztec(storage)]`) should now be generic over a `Context` type, which matches the new generic parameter of all Aztec.nr libraries. This parameter is always the last generic parameter.
+
+This means that, without any additional features, we'd end up with some extra boilerplate when declaring this struct:
+
+```diff
+#[aztec(storage)]
+- struct Storage {
++ struct Storage<Context> {
+-   nonce_for_burn_approval: PublicMutable<Field>,    
++   nonce_for_burn_approval: PublicMutable<Field, Context>,
+-   portal_address: SharedImmutable<EthAddress>,
++   portal_address: SharedImmutable<EthAddress, Context>,
+-   approved_action: Map<Field, PublicMutable<bool>>,
++   approved_action: Map<Field, PublicMutable<bool, Context>, Context>,
+}
+```
+
+Because of this, the `#[aztec(storage)]` macro has been updated to **automatically inject** this `Context` generic parameter. The storage declaration does not require any changes.
+
+#### Removal of `Context`
+
+The `Context` type no longer exists. End users typically didn't use it, but if imported it needs to be deleted.
 
 ### [Aztec.nr] View functions and interface navigation
 
@@ -23,15 +74,15 @@ It is now possible to explicitly state a function doesn't perform any state alte
 View functions only generate a `StaticCallInterface` that doesn't include `.call` or `.enqueue` methods. Also, the denomination `static` has been completely removed from the interfaces, in favor of the more familiar `view`
 
 ```diff
-+ let price = PriceFeed::at(asset.oracle).get_price(0).view(&mut context).price;
 - let price = PriceFeed::at(asset.oracle).get_price(0).static_call(&mut context).price;
++ let price = PriceFeed::at(asset.oracle).get_price(0).view(&mut context).price;
 ```
 
 ```diff
 #[aztec(private)]
 fn enqueue_public_get_value_from_child(target_contract: AztecAddress, value: Field) {
-+   StaticChild::at(target_contract).pub_get_value(value).enqueue_view(&mut context);
 -   StaticChild::at(target_contract).pub_get_value(value).static_enqueue(&mut context);
++   StaticChild::at(target_contract).pub_get_value(value).enqueue_view(&mut context);
 }
 ```
 
@@ -41,8 +92,6 @@ Additionally, the Noir LSP will now honor "go to definitions" requests for contr
 
 * `.simulate()` now tracks closer the process performed by `.send().wait()`, specifically going through the account contract entrypoint instead of directly calling the intended function.
 * `wallet.viewTx(...)` has been renamed to `wallet.simulateUnconstrained(...)` to better clarify what it does.
-
-## 0.41.0
 
 ### [Aztec.nr] Keys: Token note now stores an owner master nullifying public key hash instead of an owner address
 
@@ -57,7 +106,19 @@ struct TokenNote {
 }
 ```
 
+Creating a token note and adding it to storage now looks like this:
+
+```diff
+- let mut note = ValueNote::new(new_value, owner);
+- storage.a_private_value.insert(&mut note, true);
++ let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
++ let owner_ivpk_m = get_ivpk_m(&mut context, owner);
++ let mut note = ValueNote::new(new_value, owner_npk_m_hash);
++ storage.a_private_value.insert(&mut note, true, owner_ivpk_m);
+```
+
 Computing the nullifier similarly changes to use this master nullifying public key hash.
+
 
 ## 0.40.0
 
