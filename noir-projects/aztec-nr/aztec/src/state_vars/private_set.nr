@@ -28,12 +28,12 @@ impl<Note> PrivateSet<Note> {
     }
     // docs:end:new
     // docs:start:insert
-    pub fn insert<N>(
+    pub fn insert<N, M>(
         self,
         note: &mut Note,
         broadcast: bool,
         ivpk_m: GrumpkinPoint
-    ) where Note: NoteInterface<N> {
+    ) where Note: NoteInterface<N, M> {
         create_note(
             self.context.private.unwrap(),
             self.storage_slot,
@@ -45,7 +45,7 @@ impl<Note> PrivateSet<Note> {
     // docs:end:insert
 
     // docs:start:insert_from_public
-    pub fn insert_from_public<N>(self, note: &mut Note) where Note: NoteInterface<N> {
+    pub fn insert_from_public<N, M>(self, note: &mut Note) where Note: NoteInterface<N, M> {
         create_note_hash_from_public(self.context.public.unwrap(), self.storage_slot, note);
     }
     // docs:end:insert_from_public
@@ -65,7 +65,7 @@ impl<Note> PrivateSet<Note> {
     }
 
     // docs:start:remove
-    pub fn remove<N>(self, note: Note) where Note: NoteInterface<N> {
+    pub fn remove<N, M>(self, note: Note) where Note: NoteInterface<N, M> {
         let context = self.context.private.unwrap();
         let note_hash = compute_note_hash_for_read_request(note);
         let has_been_read = context.note_hash_read_requests.any(|r: ReadRequest| r.value == note_hash);
@@ -76,10 +76,10 @@ impl<Note> PrivateSet<Note> {
     // docs:end:remove
 
     // docs:start:get_notes
-    pub fn get_notes<N, FILTER_ARGS>(
+    pub fn get_notes<N, M, FILTER_ARGS>(
         self,
-        options: NoteGetterOptions<Note, N, FILTER_ARGS>
-    ) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
+        options: NoteGetterOptions<Note, N, M, FILTER_ARGS>
+    ) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N, M> {
         let storage_slot = self.storage_slot;
         let opt_notes = get_notes(self.context.private.unwrap(), storage_slot, options);
         opt_notes
@@ -87,10 +87,10 @@ impl<Note> PrivateSet<Note> {
     // docs:end:get_notes
 
     // docs:start:view_notes
-    unconstrained pub fn view_notes<N>(
+    unconstrained pub fn view_notes<N, M>(
         self,
-        options: NoteViewerOptions<Note, N>
-    ) -> [Option<Note>; MAX_NOTES_PER_PAGE] where Note: NoteInterface<N> {
+        options: NoteViewerOptions<Note, N, M>
+    ) -> [Option<Note>; MAX_NOTES_PER_PAGE] where Note: NoteInterface<N, M> {
         view_notes(self.storage_slot, options)
     }
     // docs:end:view_notes

@@ -49,12 +49,12 @@ impl<Note> PrivateImmutable<Note> {
     // docs:end:is_initialized
 
     // docs:start:initialize
-    pub fn initialize<N>(
+    pub fn initialize<N, M>(
         self,
         note: &mut Note,
         broadcast: bool,
         ivpk_m: GrumpkinPoint
-    ) where Note: NoteInterface<N> {
+    ) where Note: NoteInterface<N, M> {
         let context = self.context.unwrap();
 
         // Nullify the storage slot.
@@ -66,7 +66,7 @@ impl<Note> PrivateImmutable<Note> {
     // docs:end:initialize
 
     // docs:start:get_note
-    pub fn get_note<N>(self) -> Note where Note: NoteInterface<N> {
+    pub fn get_note<N, M>(self) -> Note where Note: NoteInterface<N, M> {
         let context = self.context.unwrap();
         let storage_slot = self.storage_slot;
         get_note(context, storage_slot)
@@ -74,7 +74,7 @@ impl<Note> PrivateImmutable<Note> {
     // docs:end:get_note
 
     // docs:start:view_note
-    unconstrained pub fn view_note<N>(self) -> Note  where Note: NoteInterface<N> {
+    unconstrained pub fn view_note<N, M>(self) -> Note  where Note: NoteInterface<N, M> {
         let mut options = NoteViewerOptions::new();
         view_notes(self.storage_slot, options.set_limit(1))[0].unwrap()
     }

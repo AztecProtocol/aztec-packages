@@ -1,20 +1,17 @@
 use crate::note::{note_interface::NoteInterface};
-use dep::protocol_types::{grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint, traits::ToBEBytes};
+use dep::protocol_types::{grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint};
 
 use dep::std::aes128::aes128_encrypt;
 use crate::keys::point_to_symmetric_key::point_to_symmetric_key;
 
-struct EncryptedLogIncomingBody<T, N> {
+struct EncryptedLogIncomingBody<T, M> {
     data: T,
-    plaintext: [u8; N]
+    plaintext: [u8; M]
 }
 
-impl<T, N> EncryptedLogIncomingBody<T, N> {
-    pub fn from_note<M>(
-        note: T,
-        storage_slot: Field
-    ) -> Self where T: NoteInterface<M>, T: ToBEBytes<N> {
-        let mut plaintext = note.to_be_bytes();
+impl<T, M> EncryptedLogIncomingBody<T, M> {
+    pub fn from_note<N>(note: T, storage_slot: Field) -> Self where T: NoteInterface<N, M> {
+        let mut plaintext = note.to_be_bytes(storage_slot);
         let storage_slot_bytes = storage_slot.to_be_bytes(32);
 
         for i in 0..32 {
@@ -41,7 +38,7 @@ mod test {
     use crate::encrypted_logs::incoming_body::EncryptedLogIncomingBody;
     use dep::protocol_types::{
         address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint, traits::ToBEBytes
+        grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint
     };
 
     use crate::{
@@ -57,33 +54,9 @@ mod test {
     }
 
     global ADDRESS_NOTE_LEN: Field = 3;
+    global ADDRESS_NOTE_BYTES_LEN = 32 * 3 + 64;
 
-    impl ToBEBytes<160> for AddressNote {
-        fn to_be_bytes(self) -> [u8; 160] {
-            let serialized_note = self.serialize_content();
-
-            let mut buffer: [u8; 160] = [0; 160];
-
-            let note_type_id_bytes = AddressNote::get_note_type_id().to_be_bytes(32);
-
-            // Leave 32 bytes for the storage slot to be added later
-            // This is weird, but until we have arithmetic over generics, this trait
-            // is the place to provide the length of the complete serialized note in bytes
-            for i in 0..32 {
-                buffer[32 + i] = note_type_id_bytes[i];
-            }
-
-            for i in 0..serialized_note.len() {
-                let bytes = serialized_note[i].to_be_bytes(32);
-                for j in 0..32 {
-                    buffer[64 + i * 32 + j] = bytes[j];
-                }
-            }
-            buffer
-        }
-    }
-
-    impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
+    impl NoteInterface<ADDRESS_NOTE_LEN, ADDRESS_NOTE_BYTES_LEN> for AddressNote {
         fn compute_note_content_hash(self) -> Field {1}
 
         fn get_note_type_id() -> Field {1}
@@ -102,6 +75,28 @@ mod test {
 
         fn deserialize_content(fields: [Field; ADDRESS_NOTE_LEN]) -> Self {
             AddressNote { address: AztecAddress::from_field(fields[0]), owner: AztecAddress::from_field(fields[1]), randomness: fields[2], header: NoteHeader::empty() }
+        }
+
+        fn to_be_bytes(self, storage_slot: Field) -> [u8; ADDRESS_NOTE_BYTES_LEN] {
+            let serialized_note = self.serialize_content();
+
+            let mut buffer: [u8; ADDRESS_NOTE_BYTES_LEN] = [0; ADDRESS_NOTE_BYTES_LEN];
+
+            let storage_slot_bytes = storage_slot.to_be_bytes(32);
+            let note_type_id_bytes = AddressNote::get_note_type_id().to_be_bytes(32);
+
+            for i in 0..32 {
+                buffer[i] = storage_slot_bytes[i];
+                buffer[32 + i] = note_type_id_bytes[i];
+            }
+
+            for i in 0..serialized_note.len() {
+                let bytes = serialized_note[i].to_be_bytes(32);
+                for j in 0..32 {
+                    buffer[64 + i * 32 + j] = bytes[j];
+                }
+            }
+            buffer
         }
     }
 

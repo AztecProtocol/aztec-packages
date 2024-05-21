@@ -1,7 +1,7 @@
 use noirc_errors::Span;
 use noirc_frontend::ast::{
-    ItemVisibility, LetStatement, NoirFunction, NoirStruct, NoirTraitImpl, PathKind, TraitImplItem,
-    TypeImpl, UnresolvedTypeData, UnresolvedTypeExpression,
+    ItemVisibility, LetStatement, NoirFunction, NoirStruct, PathKind, TraitImplItem, TypeImpl,
+    UnresolvedTypeData, UnresolvedTypeExpression,
 };
 use noirc_frontend::{
     graph::CrateId,
@@ -76,19 +76,40 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
         // Identify the note type (struct name), its fields and its serialized length (generic param of NoteInterface trait impl)
         let note_type = note_struct.name.0.contents.to_string();
         let mut note_fields = vec![];
-        let note_serialized_len = match &trait_impl.trait_generics[0].typ {
-            UnresolvedTypeData::Named(path, _, _) => Ok(path.last_segment().0.contents.to_string()),
-            UnresolvedTypeData::Expression(UnresolvedTypeExpression::Constant(val, _)) => {
-                Ok(val.to_string())
-            }
-            _ => Err(AztecMacroError::CouldNotImplementNoteInterface {
-                span: trait_impl.object_type.span,
-                secondary_message: Some(format!(
-                    "Cannot find note serialization length for: {}",
-                    note_type
-                )),
-            }),
-        }?;
+        let note_serialized_len =
+            match &trait_impl.trait_generics.first().and_then(|gen| Some(gen.typ.clone())) {
+                Some(UnresolvedTypeData::Named(path, _, _)) => {
+                    Ok(path.last_segment().0.contents.to_string())
+                }
+                Some(UnresolvedTypeData::Expression(UnresolvedTypeExpression::Constant(
+                    val,
+                    _,
+                ))) => Ok(val.to_string()),
+                _ => Err(AztecMacroError::CouldNotImplementNoteInterface {
+                    span: trait_impl.object_type.span,
+                    secondary_message: Some(format!(
+                        "Cannot find note serialization length for: {}",
+                        note_type
+                    )),
+                }),
+            }?;
+        let note_bytes_len =
+            match &trait_impl.trait_generics.get(1).and_then(|gen| Some(gen.typ.clone())) {
+                Some(UnresolvedTypeData::Named(path, _, _)) => {
+                    Ok(path.last_segment().0.contents.to_string())
+                }
+                Some(UnresolvedTypeData::Expression(UnresolvedTypeExpression::Constant(
+                    val,
+                    _,
+                ))) => Ok(val.to_string()),
+                _ => Err(AztecMacroError::CouldNotImplementNoteInterface {
+                    span: trait_impl.object_type.span,
+                    secondary_message: Some(format!(
+                        "Cannot find note bytes length for: {}",
+                        note_type
+                    )),
+                }),
+            }?;
         let note_type_id = note_type_id(&note_type);
 
         // Automatically inject the header field if it's not present
@@ -187,44 +208,53 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
             trait_impl.items.push(TraitImplItem::Function(get_header_fn));
         }
 
-        // Check whether the note implements ToBEBytes or not
-        let has_to_be_bytes = module
-            .trait_impls
-            .iter()
-            .find(|trait_impl| {
-                if let UnresolvedTypeData::Named(struct_path, _, _) = &trait_impl.object_type.typ {
-                    struct_path.last_segment() == note_struct.name
-                        && trait_impl.trait_name.last_segment().0.contents == "ToBEBytes"
-                } else {
-                    false
-                }
-            })
-            .is_some();
-
-        // We need to generate the to_be_bytes method if it doesn't already, since it's the only
-        // way to generate a proper byte array with correct length until we have arithmetic over generics
-        if !has_to_be_bytes {
-            // NOTE_FIELDS * 32 (bytes per field) + 64 (32*2 for the note type id and storage slot)
-            let byte_length = note_fields.len() * 32 + 64;
-            let byte_length_str = byte_length.to_string();
-            let to_be_bytes_src = generate_note_to_be_bytes(
+        if !check_trait_method_implemented(trait_impl, "to_be_bytes") {
+            let get_header_fn = generate_note_to_be_bytes(
                 &note_type,
-                byte_length_str.as_str(),
+                note_bytes_len.as_str(),
                 note_interface_impl_span,
             )?;
-            let to_be_bytes_trait_impl = NoirTraitImpl {
-                impl_generics: vec![ident(byte_length_str.as_str())],
-                trait_name: chained_dep!("aztec", "protocol_types", "traits", "ToBEBytes"),
-                trait_generics: vec![make_type(UnresolvedTypeData::Expression(
-                    UnresolvedTypeExpression::Constant(byte_length as u64, Span::default()),
-                ))],
-                object_type: note_impl.object_type.clone(),
-                where_clause: vec![],
-                items: vec![TraitImplItem::Function(to_be_bytes_src)],
-            };
-
-            module.trait_impls.push(to_be_bytes_trait_impl);
+            trait_impl.items.push(TraitImplItem::Function(get_header_fn));
         }
+
+        // // Check whether the note implements ToBEBytes or not
+        // let has_to_be_bytes = module
+        //     .trait_impls
+        //     .iter()
+        //     .find(|trait_impl| {
+        //         if let UnresolvedTypeData::Named(struct_path, _, _) = &trait_impl.object_type.typ {
+        //             struct_path.last_segment() == note_struct.name
+        //                 && trait_impl.trait_name.last_segment().0.contents == "ToBEBytes"
+        //         } else {
+        //             false
+        //         }
+        //     })
+        //     .is_some();
+
+        // // We need to generate the to_be_bytes method if it doesn't already, since it's the only
+        // // way to generate a proper byte array with correct length until we have arithmetic over generics
+        // if !has_to_be_bytes {
+        //     // NOTE_FIELDS * 32 (bytes per field) + 64 (32*2 for the note type id and storage slot)
+        //     let byte_length = note_fields.len() * 32 + 64;
+        //     let byte_length_str = byte_length.to_string();
+        //     let to_be_bytes_src = generate_note_to_be_bytes(
+        //         &note_type,
+        //         byte_length_str.as_str(),
+        //         note_interface_impl_span,
+        //     )?;
+        //     let to_be_bytes_trait_impl = NoirTraitImpl {
+        //         impl_generics: vec![ident(byte_length_str.as_str())],
+        //         trait_name: chained_dep!("aztec", "protocol_types", "traits", "ToBEBytes"),
+        //         trait_generics: vec![make_type(UnresolvedTypeData::Expression(
+        //             UnresolvedTypeExpression::Constant(byte_length as u64, Span::default()),
+        //         ))],
+        //         object_type: note_impl.object_type.clone(),
+        //         where_clause: vec![],
+        //         items: vec![TraitImplItem::Function(to_be_bytes_src)],
+        //     };
+
+        //     module.trait_impls.push(to_be_bytes_trait_impl);
+        //}
     }
 
     module.types.extend(structs_to_inject);
@@ -238,17 +268,16 @@ fn generate_note_to_be_bytes(
 ) -> Result<NoirFunction, AztecMacroError> {
     let function_source = format!(
         "
-        fn to_be_bytes(self: {1}) -> [u8; {0}] {{
+        fn to_be_bytes(self: {1}, storage_slot: Field) -> [u8; {0}] {{
             let serialized_note = self.serialize_content();
 
             let mut buffer: [u8; {0}] = [0; {0}];
 
+            let storage_slot_bytes = storage_slot.to_be_bytes(32);
             let note_type_id_bytes = {1}::get_note_type_id().to_be_bytes(32);
 
-            // Leave 32 bytes for the storage slot to be added later
-            // This is weird, but until we have arithmetic over generics, this trait
-            // is the place to provide the length of the complete serialized note in bytes
             for i in 0..32 {{
+                buffer[i] = storage_slot_bytes[i];
                 buffer[32 + i] = note_type_id_bytes[i];
             }}
 
