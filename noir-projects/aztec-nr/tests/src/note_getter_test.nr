@@ -106,11 +106,12 @@ fn invalid_note_order() {
     let returned = _get_notes_constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
 }
 
-#[test]
+#[test(should_fail)]
 fn sparse_notes_array() {
     let mut context = PrivateContext::empty();
 
     let mut opt_notes: [Option<TestNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
+    // The following array has gaps with Option::none values - this is not allowed.
     opt_notes[1] = Option::some(TestNote::new(0));
     opt_notes[2] = Option::some(TestNote::new(1));
     opt_notes[3] = Option::some(TestNote::new(2));
@@ -122,9 +123,5 @@ fn sparse_notes_array() {
     let storage_slot: Field = 0;
 
     let mut options = NoteGetterOptions::new();
-    let returned = _get_notes_constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
-
-    for i in 0..7 {
-        assert(returned[i].unwrap().value == i as Field);
-    }
+    let _ = _get_notes_constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
 }

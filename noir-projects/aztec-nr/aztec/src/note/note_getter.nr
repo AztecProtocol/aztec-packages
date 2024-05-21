@@ -114,13 +114,18 @@ pub fn _get_notes_constrain_get_notes_internal<Note, N, FILTER_ARGS>(
     opt_notes: [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     options: NoteGetterOptions<Note, N, FILTER_ARGS>
 ) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
-    let mut returned_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
-
     let mut num_notes = 0;
     let mut prev_fields = [0; N];
     for i in 0..opt_notes.len() {
         let opt_note = opt_notes[i];
         if opt_note.is_some() {
+            // Because i is a zero-based index, it matches the number of notes we've seen so far. By requiring that 
+            // these two values are always the same we require that there are no Option::none() gaps in the array (i.e.
+            // that num_notes is incremented in all loop iterations, just like i).
+            // This can be useful e.g. when setting a limit value of 1, as the first note is guaranteed to not be none
+            // and hence we can do opt_notes[0].unwrap() safely.
+            assert_eq(i, num_notes as u64, "All notes must be at the beginning of the array");
+
             let note = opt_note.unwrap_unchecked();
             let fields = note.serialize_content();
             check_note_header(*context, storage_slot, note);
@@ -135,9 +140,6 @@ pub fn _get_notes_constrain_get_notes_internal<Note, N, FILTER_ARGS>(
             // failure if malicious oracle injects 0 nonce here for a "pre-existing" note.
             context.push_note_hash_read_request(note_hash_for_read_request);
 
-            // The below code is used to collapse a sparse array into one where the values are guaranteed to be at the front of the array
-            // We write at returned_notes[num_notes] because num_notes is only advanced when we have a value in opt_notes
-            returned_notes[num_notes] = Option::some(note);
             num_notes += 1;
         };
     }
@@ -147,7 +149,7 @@ pub fn _get_notes_constrain_get_notes_internal<Note, N, FILTER_ARGS>(
 
     assert(num_notes != 0, "Cannot return zero notes");
 
-    returned_notes
+    opt_notes
 }
 
 unconstrained fn get_note_internal<Note, N>(storage_slot: Field) -> Note where Note: NoteInterface<N> {
