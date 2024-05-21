@@ -269,17 +269,29 @@ class ECCVMTranscriptBuilder {
             if (entry.add || msm_transition) {
                 Element lhs = entry.add ? Element(entry.base_point) : intermediate_accumulator_trace[i];
                 Element rhs = accumulator_trace[i];
+                FF lhs_y = lhs.y;
+                FF lhs_x = lhs.x;
+                FF rhs_y = rhs.y;
+                FF rhs_x = rhs.x;
+                if (rhs.is_point_at_infinity()) {
+                    rhs_y = 0;
+                    rhs_x = 0;
+                }
+                if (lhs.is_point_at_infinity()) {
+                    lhs_y = 0;
+                    lhs_x = 0;
+                }
                 row.transcript_add_x_equal =
-                    lhs.x == rhs.x || (lhs.is_point_at_infinity() && rhs.is_point_at_infinity()); // check infinity?
+                    lhs_x == rhs_x || (lhs.is_point_at_infinity() && rhs.is_point_at_infinity()); // check infinity?
                 row.transcript_add_y_equal =
-                    lhs.y == rhs.y || (lhs.is_point_at_infinity() && rhs.is_point_at_infinity());
-                if ((lhs.x == rhs.x) && (lhs.y == rhs.y) && !lhs.is_point_at_infinity() &&
+                    lhs_y == rhs_y || (lhs.is_point_at_infinity() && rhs.is_point_at_infinity());
+                if ((lhs_x == rhs_x) && (lhs_y == rhs_y) && !lhs.is_point_at_infinity() &&
                     !rhs.is_point_at_infinity()) {
-                    add_lambda_denominator[i] = lhs.y + lhs.y;
-                    add_lambda_numerator[i] = lhs.x * lhs.x * 3;
-                } else if ((lhs.x != rhs.x) && !lhs.is_point_at_infinity() && !rhs.is_point_at_infinity()) {
-                    add_lambda_denominator[i] = rhs.x - lhs.x;
-                    add_lambda_numerator[i] = rhs.y - lhs.y;
+                    add_lambda_denominator[i] = lhs_y + lhs_y;
+                    add_lambda_numerator[i] = lhs_x * lhs_x * 3;
+                } else if ((lhs_x != rhs_x) && !lhs.is_point_at_infinity() && !rhs.is_point_at_infinity()) {
+                    add_lambda_denominator[i] = rhs_x - lhs_x;
+                    add_lambda_numerator[i] = rhs_y - lhs_y;
                 } else {
                     add_lambda_numerator[i] = 0;
                     add_lambda_denominator[i] = 0;

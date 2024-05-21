@@ -380,7 +380,6 @@ class ECCOpQueue {
      */
     UltraOp no_op()
     {
-
         // Construct and store the operation in the ultra op format
         auto ultra_op = construct_and_populate_ultra_ops(NULL_OP, accumulator);
 
