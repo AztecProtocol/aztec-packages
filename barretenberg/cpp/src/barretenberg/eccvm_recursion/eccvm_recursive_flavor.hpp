@@ -38,8 +38,6 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     using NativeFlavor = ECCVMFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
 
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
-
     static constexpr size_t NUM_WIRES = ECCVMFlavor::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
@@ -69,7 +67,6 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     // Instantiate the BarycentricData needed to extend each Relation Univariate
 
     // define the containers for storing the contributions from each relation in Sumcheck
-    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
   public:
@@ -83,12 +80,16 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
         using Base::Base;
     };
 
+    class VerifierCommitmentKey : public bb::VerifierCommitmentKey<Curve> {
+        VerifierCommitmentKey(const std::shared_ptr<ECCVMFlavor::VerifierCommitmentKey> native_pcs_verifiaction_key) {}
+    };
+
     /**
      * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
      *
      * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to
-     * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
+     * resolve that, and split out separate PrecomputedPolynom    ials/Commitments data for clarity but also for
      * portability of our circuits.
      */
     class VerificationKey
@@ -111,7 +112,7 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
 
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->pcs_verification_key = native_key->pcs_verification_key;
+            this->pcs_verification_key = VerifierCommitmentKey(native_key->pcs_verification_key);
             this->circuit_size = native_key->circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = native_key->num_public_inputs;
