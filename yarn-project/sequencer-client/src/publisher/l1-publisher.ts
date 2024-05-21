@@ -171,7 +171,7 @@ export class L1Publisher implements L2BlockReceiver {
       archive: block.archive.root.toBuffer(),
       body: encodedBody,
       aggregationObject: serializeToBuffer(aggregationObject),
-      proof: proof.buffer,
+      proof: proof.withoutPublicInputs(),
     };
 
     // Process block

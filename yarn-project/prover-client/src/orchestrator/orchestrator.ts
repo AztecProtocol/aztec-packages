@@ -27,7 +27,7 @@ import {
   type NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
-  Proof,
+  type Proof,
   type PublicKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
@@ -45,6 +45,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
 import { sleep } from '@aztec/foundation/sleep';
+import { pushTestData } from '@aztec/foundation/testing';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
@@ -282,6 +283,12 @@ export class ProvingOrchestrator {
       aggregationObject: this.provingState.finalAggregationObject,
       block: l2Block,
     };
+
+    pushTestData('blockResults', {
+      block: l2Block.toString(),
+      proof: this.provingState.finalProof.toString(),
+      aggregationObject: blockResult.aggregationObject.map(x => x.toString()),
+    });
 
     return blockResult;
   }
@@ -548,7 +555,7 @@ export class ProvingOrchestrator {
           result.proof.binaryProof,
           result.verificationKey.numPublicInputs,
         );
-        provingState.finalProof = removePublicInputs(result.proof.binaryProof, result.verificationKey.numPublicInputs);
+        provingState.finalProof = result.proof.binaryProof;
 
         const provingResult: ProvingResult = {
           status: PROVING_STATUS.SUCCESS,
@@ -734,11 +741,6 @@ export class ProvingOrchestrator {
       },
     );
   }
-}
-
-function removePublicInputs(proof: Proof, numPublicInputs: number): Proof {
-  const buffer = proof.buffer.subarray(Fr.SIZE_IN_BYTES * numPublicInputs);
-  return new Proof(buffer);
 }
 
 function extractAggregationObject(proof: Proof, numPublicInputs: number): Fr[] {

@@ -3,7 +3,7 @@ import { BBCircuitVerifier } from '@aztec/bb-prover';
 import { Fr, HEADER_LENGTH, Proof } from '@aztec/circuits.js';
 import { type L1ContractAddresses } from '@aztec/ethereum';
 import { type Logger } from '@aztec/foundation/log';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { AvailabilityOracleAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import { type Anvil } from '@viem/anvil';
@@ -28,9 +28,17 @@ import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import { getLogger, setupL1Contracts, startAnvil } from '../fixtures/utils.js';
 
+/**
+ * README
+ *
+ * If this test starts failing, regenerate its fixture with
+ * AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/end-to-end test e2e_prover
+ */
+
 describe('proof_verification', () => {
   let proof: Proof;
   let block: L2Block;
+  let aggregationObject: Fr[];
   let anvil: Anvil | undefined;
   let rpcUrl: string;
   let walletClient: WalletClient<HttpTransport, Chain, Account>;
@@ -112,12 +120,15 @@ describe('proof_verification', () => {
   });
 
   beforeEach(async () => {
-    proof = Proof.fromString(
-      await readFile(join(fileURLToPath(import.meta.url), '../../fixtures/dumps/proof.txt'), 'utf-8'),
+    // regenerate with
+    // AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/end-to-end test e2e_prover
+    const blockResult = JSON.parse(
+      await readFile(join(fileURLToPath(import.meta.url), '../../fixtures/dumps/block_result.json'), 'utf-8'),
     );
-    block = L2Block.fromString(
-      await readFile(join(fileURLToPath(import.meta.url), '../../fixtures/dumps/block.txt'), 'utf-8'),
-    );
+
+    block = L2Block.fromString(blockResult.block);
+    proof = Proof.fromString(blockResult.proof);
+    aggregationObject = blockResult.aggregationObject.map((x: string) => Fr.fromString(x));
   });
 
   describe('bb', () => {
@@ -127,7 +138,7 @@ describe('proof_verification', () => {
   });
 
   describe('UltraVerifier', () => {
-    it('verifies proof', async () => {
+    it('verifies full proof', async () => {
       const reader = BufferReader.asReader(proof.buffer);
       // +2 fields for archive
       const archive = reader.readArray(2, Fr);
@@ -144,22 +155,12 @@ describe('proof_verification', () => {
     });
 
     it('verifies proof taking public inputs from block', async () => {
-      const aggObject = proof.buffer.subarray(
-        Fr.SIZE_IN_BYTES * (HEADER_LENGTH + 2),
-        Fr.SIZE_IN_BYTES * (HEADER_LENGTH + 2 + AGGREGATION_OBJECT_SIZE),
+      const proofStr = `0x${proof.withoutPublicInputs().toString('hex')}`;
+      const publicInputs = [...block.archive.toFields(), ...block.header.toFields(), ...aggregationObject].map(x =>
+        x.toString(),
       );
 
-      const justTheProof = `0x${proof.buffer
-        .subarray(Fr.SIZE_IN_BYTES * (AGGREGATION_OBJECT_SIZE + HEADER_LENGTH + 2))
-        .toString('hex')}` as const;
-
-      const publicInputs = [
-        ...block.archive.toFields(),
-        ...block.header.toFields(),
-        ...BufferReader.asReader(aggObject).readArray(16, Fr),
-      ].map(x => x.toString());
-
-      await expect(verifierContract.read.verify([justTheProof, publicInputs])).resolves.toBeTruthy();
+      await expect(verifierContract.read.verify([proofStr, publicInputs])).resolves.toBeTruthy();
     });
   });
 
@@ -184,20 +185,14 @@ describe('proof_verification', () => {
     });
 
     it('verifies proof', async () => {
-      const aggregationObject = proof.buffer.subarray(
-        Fr.SIZE_IN_BYTES * (HEADER_LENGTH + 2),
-        Fr.SIZE_IN_BYTES * (HEADER_LENGTH + 2 + AGGREGATION_OBJECT_SIZE),
-      );
-      const proofBuffer = proof.buffer.subarray(Fr.SIZE_IN_BYTES * (HEADER_LENGTH + 2 + AGGREGATION_OBJECT_SIZE));
-
       await availabilityContract.write.publish([`0x${block.body.toBuffer().toString('hex')}`]);
 
       await expect(
         rollupContract.write.process([
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x${aggregationObject.toString('hex')}`,
-          `0x${proofBuffer.toString('hex')}`,
+          `0x${serializeToBuffer(aggregationObject).toString('hex')}`,
+          `0x${proof.withoutPublicInputs().toString('hex')}`,
         ]),
       ).resolves.toBeDefined();
     });

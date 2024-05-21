@@ -349,7 +349,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       // Read the binary proof
       const rawProof = await fs.readFile(`${provingResult.proofPath!}/${PROOF_FILENAME}`);
 
-      const proof = new Proof(rawProof);
+      const proof = new Proof(rawProof, vkData.numPublicInputs);
       logger.info(
         `Generated proof for ${circuitType} in ${provingResult.duration} ms, size: ${proof.buffer.length} fields`,
         {
