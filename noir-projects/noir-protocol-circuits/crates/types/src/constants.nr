@@ -48,6 +48,8 @@ global MAX_NEW_L2_TO_L1_MSGS_PER_TX: u64 = 2;
 global MAX_NOTE_HASH_READ_REQUESTS_PER_TX: u64 = 128;
 global MAX_NULLIFIER_READ_REQUESTS_PER_TX: u64 = 128;
 global MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX: u64 = 128;
+// TODO: for large multisends we might run out of key validation requests here but not dealing with this now as
+// databus will hopefully make the issue go away.
 global MAX_KEY_VALIDATION_REQUESTS_PER_TX: u64 = 64;
 global MAX_NOTE_ENCRYPTED_LOGS_PER_TX: u64 = 64;
 global MAX_ENCRYPTED_LOGS_PER_TX: u64 = 8;
