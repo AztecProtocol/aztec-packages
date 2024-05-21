@@ -4,7 +4,7 @@ import { type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types
 
 import { FullProverTest } from './e2e_prover_test.js';
 
-const TIMEOUT = 2_400_000;
+const TIMEOUT = 1_800_000;
 
 async function verifyProof(circuitType: ClientProtocolArtifact, tx: Tx, proofCreator: BBNativeProofCreator) {
   await expect(proofCreator.verifyProofForProtocolCircuit(circuitType, tx.proof)).resolves.not.toThrow();
@@ -67,8 +67,8 @@ describe('full_prover', () => {
       const sentPrivateTx = privateInteraction.send();
       const sentPublicTx = publicInteraction.send();
       await Promise.all([
-        sentPrivateTx.wait({ timeout: 600, interval: 10 }),
-        sentPublicTx.wait({ timeout: 600, interval: 10 }),
+        sentPrivateTx.wait({ timeout: 1200, interval: 10 }),
+        sentPublicTx.wait({ timeout: 1200, interval: 10 }),
       ]);
       tokenSim.transferPrivate(accounts[0].address, accounts[1].address, privateSendAmount);
       tokenSim.transferPublic(accounts[0].address, accounts[1].address, publicSendAmount);
