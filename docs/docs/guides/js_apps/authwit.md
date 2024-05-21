@@ -24,7 +24,7 @@ You may not need all of these.
 
 :::note
 This is only required if you are using authwits in public
-:::note
+:::
 
 If you are using public authwit (ie using `assert_current_call_valid_authwit_public` in your contract), you will need to deploy the following accounts publicly:
 
@@ -41,7 +41,7 @@ You would then call this like so:
 
 ## Define the action
 
-When creating an authwit, you will need to pass the authwit givier, the authwit receiver (who will perform the action), and the action that is being authorized. The action can be a smart contract function call, or alternatively arbitrary data.
+When creating an authwit, you will need to pass the authwit giver, the authwit receiver (who will perform the action), and the action that is being authorized. The action can be a smart contract function call, or alternatively, arbitrary data.
 
 ### When the action is a function call
 
@@ -68,7 +68,11 @@ Then create the outer hash by hashing the inner hash with the authwit receiver a
 
 ## Create the authwit
 
-These are slightly different interfaces depending on whether your contract is checking the authwit in private or public. As public authwits are stored in the account contract and batched with the authwit action call, it is done with one transaction. Private execution uses oracles, so the authwit needs to be created by the authwit giver and then added to the receiver's wallet.
+There are slightly different interfaces depending on whether your contract is checking the authwit in private or public. 
+
+Public authwits are stored in the account contract and batched with the authwit action call, so a user must send a transaction to update their account contract, authorizing an action before the authorized contract's public call will succeed. 
+
+Private execution uses oracles and are executed locally by the PXE, so the authwit needs to be created by the authwit giver and then added to the authwit receiver's PXE.
 
 ### Private
 
