@@ -5,6 +5,7 @@ import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import * as proc from 'child_process';
 import * as fs from 'fs/promises';
+import { dirname } from 'path';
 
 export const VK_FILENAME = 'vk';
 export const VK_FIELDS_FILENAME = 'vk_fields.json';
@@ -23,6 +24,7 @@ export type BBSuccess = {
   pkPath?: string;
   vkPath?: string;
   proofPath?: string;
+  contractPath?: string;
 };
 
 export type BBFailure = {
@@ -372,6 +374,41 @@ export async function writeProofAsFields(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to create proof as fields. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+    };
+  } catch (error) {
+    return { status: BB_RESULT.FAILURE, reason: `${error}` };
+  }
+}
+
+export async function generateContractForVerificationKey(
+  pathToBB: string,
+  vkFilePath: string,
+  contractPath: string,
+  log: LogFn,
+): Promise<BBFailure | BBSuccess> {
+  const binaryPresent = await fs
+    .access(pathToBB, fs.constants.R_OK)
+    .then(_ => true)
+    .catch(_ => false);
+
+  if (!binaryPresent) {
+    return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
+  }
+
+  try {
+    await fs.mkdir(dirname(contractPath), { recursive: true });
+
+    const args = ['-k', vkFilePath, '-o', contractPath, '-v'];
+    const timer = new Timer();
+    const result = await executeBB(pathToBB, 'contract', args, log);
+    const duration = timer.ms();
+    if (result.status == BB_RESULT.SUCCESS) {
+      return { status: BB_RESULT.SUCCESS, duration, contractPath };
+    }
+    // Not a great error message here but it is difficult to decipher what comes from bb
+    return {
+      status: BB_RESULT.FAILURE,
+      reason: `Failed to write verifier contract. Exit code ${result.exitCode}. Signal ${result.signal}.`,
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };

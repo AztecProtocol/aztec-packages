@@ -333,7 +333,9 @@ export class BBNativeProofCreator implements ProofCreator {
       throw new Error(provingResult.reason);
     }
 
-    this.log.info(`Generated ${circuitType} circuit proof in ${timer.ms()} ms`);
+    this.log.info(
+      `Generated ${circuitType === 'App' ? appCircuitName : circuitType} circuit proof in ${timer.ms()} ms`,
+    );
 
     if (circuitType === 'App') {
       const vkData = await extractVkData(directory);

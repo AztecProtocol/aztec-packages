@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import {
@@ -139,6 +139,10 @@ export class RootRollupPublicInputs {
 
   toBuffer() {
     return serializeToBuffer(...RootRollupPublicInputs.getFields(this));
+  }
+
+  toFields(): Fr[] {
+    return serializeToFields(...RootRollupPublicInputs.getFields(this));
   }
 
   static from(fields: FieldsOf<RootRollupPublicInputs>): RootRollupPublicInputs {
