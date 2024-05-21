@@ -44,13 +44,18 @@ jobs:
           concurrency_key: build-release-artifacts-${{ github.actor }}-${{ matrix.arch }}
       - name: "Build images"
         timeout-minutes: 40
+        # Run the build steps for each image with version and arch, push to dockerhub
         run: |
-          earthly-ci --no-output --build-arg DIST_TAG=latest --build-arg ARCH=${{ matrix.arch }} ./yarn-project+export-aztec-arch
-          earthly-ci --no-output --build-arg DIST_TAG=latest --build-arg ARCH=${{ matrix.arch }} ./noir+export-noir
+          earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ inputs.tag }} --ARCH=${{ matrix.arch }}
+          earthly-ci --no-output --push ./yarn-project+export-aztec-builder --DIST_TAG=${{ inputs.tag }} --ARCH=${{ matrix.arch }}
+          earthly-ci --no-output --push ./noir+export-noir --DIST_TAG=${{ inputs.tag }} --ARCH=${{ matrix.arch }}
 
-  publish:
+  publish-dockerhub:
     needs: build
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image_name: [aztec, aztec-builder, noir]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,32 +65,34 @@ jobs:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: publish-public-artifacts-${{ github.actor }}-x86
 
-      - name: Publish aztec to Dockerhub
+      - name: Publish versioned manifests to Dockerhub
         uses: ./github/ensure-builder
         with:
           run: |
-            docker manifest create aztecprotocol/aztec:latest \
-              --amend aztecprotocol/aztec:latest-x86_64 \
-              --amend aztecprotocol/aztec:latest-arm64
-            docker manifest push aztecprotocol/aztec:latest
+            docker manifest create aztecprotocol/${{ matrix.image_name }}:${{ inputs.tag }} \
+              --amend aztecprotocol/${{ matrix.image_name }}:${{ inputs.tag }}-x86_64 \
+              --amend aztecprotocol/${{ matrix.image_name }}:${{ inputs.tag }}-arm64
+            docker manifest push --purge aztecprotocol/${{ matrix.image_name }}:${{ inputs.tag }}
 
-      - name: Publish aztec-builder to Dockerhub
+      - name: Publish latest manifests to Dockerhub
         uses: ./github/ensure-builder
         with:
           run: |
-            docker manifest create aztecprotocol/aztec-builder:latest \
-              --amend aztecprotocol/aztec-builder:latest-x86_64 \
-              --amend aztecprotocol/aztec-builder:latest-arm64
-            docker manifest push aztecprotocol/aztec-builder:latest
+            docker pull aztecprotocol/${{ matrix.image_name }}:${{ inputs.tag }}
+            docker tag aztecprotocol/${{ matrix.image_name }}:${{ inputs.tag }} aztecprotocol/${{ matrix.image_name }}:latest
+            docker push aztecprotocol/${{ matrix.image_name }}:latest
 
-      - name: Publish noir to Dockerhub
-        uses: ./github/ensure-builder
+  publish-npm:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
         with:
-          run: |
-            docker manifest create aztecprotocol/noir:latest \
-              --amend aztecprotocol/noir:latest-x86_64 \
-              --amend aztecprotocol/noir:latest-arm64
-            docker manifest push aztecprotocol/noir:latest
+          ref: ${{ github.ref }}
+      - uses: ./.github/ci-setup-action
+        with:
+          NPM_TOKEN: "${{ secrets.NPM_TOKEN }}"
+          concurrency_key: publish-public-artifacts-${{ github.actor }}-x86
 
       - name: Publish to NPM
         uses: ./github/ensure-builder

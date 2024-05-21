@@ -1,4 +1,3 @@
-
 # Start cheap (~1/8th the cost of on demand, ~13th the cost of large GA runners) spot builders
 # just for the CI job. These are specced per user and run the entire CI.
 # TODO These have a persistent EBS volume that forms a fast-online docker image cache (used by Earthly), meaning
@@ -32,6 +31,7 @@ concurrency:
   group: ci-${{ inputs.username }}-${{ inputs.runner_type }}-${{ inputs.runner_action }}
 env:
   DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
+  NPM_TOKEN: "${{ secrets.NPM_TOKEN }}"
   RUN_ID: ${{ github.run_id }}
   RUN_ATTEMPT: ${{ github.run_attempt }}
   USERNAME: ${{ inputs.username }}
