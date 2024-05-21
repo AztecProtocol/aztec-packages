@@ -317,6 +317,29 @@ export class Oracle {
     return bytes;
   }
 
+  computeEncryptedNoteLog(
+    [contractAddress]: ACVMField[],
+    [storageSlot]: ACVMField[],
+    [noteTypeId]: ACVMField[],
+    [publicKeyX]: ACVMField[],
+    [publicKeyY]: ACVMField[],
+    preimage: ACVMField[],
+  ): ACVMField[] {
+    const publicKey = new Point(fromACVMField(publicKeyX), fromACVMField(publicKeyY));
+    const encLog = this.typedOracle.computeEncryptedNoteLog(
+      AztecAddress.fromString(contractAddress),
+      Fr.fromString(storageSlot),
+      Fr.fromString(noteTypeId),
+      publicKey,
+      preimage.map(fromACVMField),
+    );
+    const bytes: ACVMField[] = [];
+    encLog.forEach(v => {
+      bytes.push(toACVMField(v));
+    });
+    return bytes;
+  }
+
   emitUnencryptedLog(
     [contractAddress]: ACVMField[],
     [eventSelector]: ACVMField[],

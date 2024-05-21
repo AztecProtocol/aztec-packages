@@ -375,6 +375,34 @@ export class ClientExecutionContext extends ViewDataOracle {
     this.noteCache.addNewLog(encryptedLog, noteHash);
   }
 
+    /**
+   * Encrypt a note
+   * @param contractAddress - The contract address of the note.
+   * @param storageSlot - The storage slot the note is at.
+   * @param noteTypeId - The type ID of the note.
+   * @param ivpk - The master incoming viewing public key.
+   * @param preimage - The note preimage.
+   */
+    public override computeEncryptedNoteLog(
+      contractAddress: AztecAddress,
+      storageSlot: Fr,
+      noteTypeId: Fr,
+      ivpk: Point,
+      preimage: Fr[],
+    ) {
+      const note = new Note(preimage);
+      const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
+      const taggedNote = new TaggedNote(l1NotePayload);
+  
+      const ephSk = GrumpkinScalar.random();
+  
+      // @todo Issue(#6410) Right now we are completely ignoring the outgoing log. Just drawing random data.
+      const ovsk = GrumpkinScalar.random();
+      const recipient = AztecAddress.random();
+  
+      return taggedNote.encrypt(ephSk, recipient, ivpk, ovsk);
+    }
+
   /**
    * Encrypt a note
    * @param contractAddress - The contract address of the note.

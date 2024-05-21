@@ -194,6 +194,16 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('computeEncryptedLog');
   }
 
+  computeEncryptedNoteLog(
+    _contractAddress: AztecAddress,
+    _storageSlot: Fr,
+    _noteTypeId: Fr,
+    _publicKey: PublicKey,
+    _preimage: Fr[],
+  ): Buffer {
+    throw new OracleMethodNotAvailableError('computeEncryptedNoteLog');
+  }
+
   emitUnencryptedLog(_log: UnencryptedL2Log, _counter: number): void {
     throw new OracleMethodNotAvailableError('emitUnencryptedLog');
   }

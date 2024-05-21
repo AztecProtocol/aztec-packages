@@ -7,7 +7,7 @@ use crate::{
     oracle::{
     key_validation_request::get_key_validation_request, arguments, returns,
     call_private_function::call_private_function_internal, header::get_header_at,
-    logs::{emit_encrypted_log, emit_encrypted_note_log, compute_encrypted_log},
+    logs::{emit_encrypted_log, emit_encrypted_note_log, compute_encrypted_note_log, compute_encrypted_log},
     logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog},
     enqueue_public_function_call::{
     enqueue_public_function_call_internal, set_public_teardown_function_call_internal,
@@ -338,7 +338,7 @@ impl PrivateContext {
         let counter = self.next_counter();
 
         // TODO(#1139 | #6408): perform encryption in the circuit
-        let encrypted_log: [u8; M] = compute_encrypted_log(contract_address, storage_slot, note_type_id, ivpk_m, preimage);
+        let encrypted_log: [u8; M] = compute_encrypted_note_log(contract_address, storage_slot, note_type_id, ivpk_m, preimage);
         emit_encrypted_note_log(note_hash, encrypted_log, counter);
 
         // Current unoptimized size of the encrypted log
