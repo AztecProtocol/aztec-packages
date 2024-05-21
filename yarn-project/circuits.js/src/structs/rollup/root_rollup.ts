@@ -152,10 +152,7 @@ export class RootRollupPublicInputs {
    */
   public static fromBuffer(buffer: Buffer | BufferReader): RootRollupPublicInputs {
     const reader = BufferReader.asReader(buffer);
-    return new RootRollupPublicInputs(
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(Header),
-    );
+    return new RootRollupPublicInputs(reader.readObject(AppendOnlyTreeSnapshot), reader.readObject(Header));
   }
 
   toString() {

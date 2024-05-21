@@ -143,7 +143,6 @@ jobs:
           # command to produce the images in case they don't exist
           builder_command: cd yarn-project/end-to-end/ && ../../scripts/earthly-ci +${{ matrix.test }}
           run: |
-            sudo shutdown -P 60
             set -eux
             cd ./yarn-project/end-to-end/
             export FORCE_COLOR=1

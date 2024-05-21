@@ -82,7 +82,7 @@ export class TxProvingState {
     // There is more work to do, are we ready?
     const nextFunction = this.publicFunctions[nextKernelIndex];
 
-    // pass both the proof and verification ker forward to the next circuit
+    // pass both the proof and verification key forward to the next circuit
     nextFunction.publicKernelRequest.inputs.previousKernel.proof = proof;
     nextFunction.publicKernelRequest.inputs.previousKernel.vk = verificationKey;
 
