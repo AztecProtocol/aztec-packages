@@ -2,9 +2,9 @@
 title: How to use authentication witnesses (authwit)
 ---
 
-This page assumes you have authwit set up correctly in your contract. To learn how to do that, [go here](../../contracts/writing_contracts/accounts/how_to_authwit.md).
+This page assumes you have authwit set up correctly in your contract. To learn how to do that, [go here](../smart_contracts/writing_contracts/authwit.md).
 
-For an introduction to authentication witnesses on Aztec, [read this explainer](../../../learn/concepts/accounts/authwit.md).
+For an introduction to authentication witnesses on Aztec, [read this explainer](../../aztec/concepts/accounts/authwit.md).
 
 ## Import libraries
 
@@ -72,7 +72,7 @@ These are slightly different interfaces depending on whether your contract is ch
 
 ### Private
 
-This is expected to be used alongside [private authwits in Aztec.nr contract](../../contracts/writing_contracts/accounts/how_to_authwit.md#private-functions).
+This is expected to be used alongside [private authwits in Aztec.nr contract](../smart_contracts/writing_contracts/authwit.md#private-functions).
 
 Create a private authwit like this:
 
@@ -94,7 +94,7 @@ Then add it to the wallet of the authwit receiver (the caller of the transaction
 
 ### Public
 
-This is expected to be used alongside [public authwits in Aztec.nr contract](../../contracts/writing_contracts/accounts/how_to_authwit.md#public-functions).
+This is expected to be used alongside [public authwits in Aztec.nr contract](../smart_contracts/writing_contracts/authwit.md#public-functions).
 
 Set a public authwit like this:
 
@@ -113,5 +113,5 @@ If you created an arbitrary message, you would replace the first param struct wi
 
 ## Further reading
 
-- [An explainer of authentication witnesses](../../../learn/concepts/accounts/authwit.md)
-- [Authwits in Aztec.nr](../../contracts/writing_contracts/accounts/how_to_authwit.md)
+- [An explainer of authentication witnesses](../../aztec/concepts/accounts/authwit.md)
+- [Authwits in Aztec.nr](../smart_contracts/writing_contracts/authwit.md)
