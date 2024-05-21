@@ -67,6 +67,6 @@ fn empty_hash() {
     let hash = data.hash();
 
     // Value from function_data.test.ts "computes empty function data hash" test
-    let test_data_empty_hash = 0x066e6cdc4a6ba5e4781deda650b0be6c12f975f064fc38df72c1060716759b17;
+    let test_data_empty_hash = 0x27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed;
     assert_eq(hash, test_data_empty_hash);
 }
