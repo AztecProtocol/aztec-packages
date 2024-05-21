@@ -7,7 +7,7 @@ import {
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputs,
+  type PrivateKernelResetCircuitPrivateInputsVariants,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   Proof,
@@ -23,6 +23,7 @@ import { Timer } from '@aztec/foundation/timer';
 import {
   ClientCircuitArtifacts,
   type ClientProtocolArtifact,
+  PrivateResetTagToArtifactName,
   convertPrivateKernelInitInputsToWitnessMap,
   convertPrivateKernelInitOutputsFromWitnessMap,
   convertPrivateKernelInnerInputsToWitnessMap,
@@ -101,13 +102,13 @@ export class BBNativeProofCreator implements ProofCreator {
   }
 
   public async createProofReset(
-    inputs: PrivateKernelResetCircuitPrivateInputs,
+    inputs: PrivateKernelResetCircuitPrivateInputsVariants,
   ): Promise<KernelProofOutput<PrivateKernelCircuitPublicInputs>> {
     return await this.createSafeProof(
       inputs,
-      'PrivateKernelResetArtifact',
+      PrivateResetTagToArtifactName[inputs.sizeTag],
       convertPrivateKernelResetInputsToWitnessMap,
-      convertPrivateKernelResetOutputsFromWitnessMap,
+      output => convertPrivateKernelResetOutputsFromWitnessMap(output, inputs.sizeTag),
     );
   }
 
