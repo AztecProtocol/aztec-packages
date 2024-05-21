@@ -297,7 +297,7 @@ export class AccountWallet extends BaseWallet {
     return {
       name: 'rotate_npk_m',
       isInitializer: false,
-      functionType: FunctionType.OPEN,
+      functionType: FunctionType.PUBLIC,
       isInternal: false,
       isStatic: false,
       parameters: [
