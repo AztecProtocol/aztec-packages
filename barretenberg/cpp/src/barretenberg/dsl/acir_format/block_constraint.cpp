@@ -35,7 +35,7 @@ void create_block_constraints(Builder& builder, const BlockConstraint constraint
         field_ct value = poly_to_field_ct(i, builder);
         init.push_back(value);
     }
-    info("CREAT block constraints");
+
     switch (constraint.type) {
     case BlockType::ROM: {
         rom_table_ct table(init);
@@ -79,11 +79,9 @@ void create_block_constraints(Builder& builder, const BlockConstraint constraint
         }
     } break;
     case BlockType::CallData: {
-        info("CALLDATA !!!");
         databus_ct databus;
         // Populate the calldata in the databus
         databus.calldata.set_values(init);
-        info("CALLDATA is initialised");
         for (const auto& op : constraint.trace) {
             ASSERT(op.access_type == 0);
             field_ct value = poly_to_field_ct(op.value, builder);
@@ -91,17 +89,14 @@ void create_block_constraints(Builder& builder, const BlockConstraint constraint
             fr w_value = 0;
             if (has_valid_witness_assignments) {
                 // If witness are assigned, we use the correct value for w
-                info("reading from calldata");
                 w_value = index.get_value();
             }
             field_ct w = field_ct::from_witness(&builder, w_value);
-            info("assert equal du calldata");
             value.assert_equal(databus.calldata[w]);
             w.assert_equal(index);
         }
     } break;
     case BlockType::ReturnData: {
-        info("RETURNDATA !!!");
         databus_ct databus;
         // Populate the returndata in the databus
         databus.return_data.set_values(init);
