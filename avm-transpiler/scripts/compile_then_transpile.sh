@@ -18,7 +18,7 @@ exec 4<"$tmpfile"
 rm "$tmpfile"
 
 # Forward all arguments to nargo, tee output to the tmp file
-echo "Running nargo ($NARGO compile --show-artifact-paths) with args: $@"
+#echo "Running nargo ($NARGO compile --show-artifact-paths) with args: $@"
 $NARGO compile --show-artifact-paths $@ | tee /dev/fd/3
 
 # Parse nargo's output (captured in the tmp file) to determine which artifacts to transpile

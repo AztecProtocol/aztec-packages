@@ -100,7 +100,7 @@ done
 
 # Dynamic port assignment based on IMAGE containing '/aztec' and not containing 'builder' (to exclude aztec-builder)
 port_assignment=""
-if [[ "$IMAGE" == *"/aztec"* ]] && [[ "$IMAGE" != *"builder"* ]]; then
+if [[ "$IMAGE" == *"/aztec"* ]] && [[ "$IMAGE" != *"builder"* ]] && [[ "$IMAGE" != *"aztec-nargo"* ]] ; then
   port_assignment="-p $AZTEC_PORT:$AZTEC_PORT"
 fi
 

@@ -18,4 +18,4 @@ COPY --from=built-transpiler /usr/src/avm-transpiler/target/release/avm-transpil
 WORKDIR /usr/src
 COPY ./avm-transpiler/scripts/compile_then_transpile.sh ./avm-transpiler/scripts/compile_then_transpile.sh
 
-ENTRYPOINT ["/usr/bin/tini", "--", "/usr/src/avm-transpiler/scripts/avm-transpiler/scripts/compile_then_transpile.sh"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/src/avm-transpiler/scripts/compile_then_transpile.sh"]
