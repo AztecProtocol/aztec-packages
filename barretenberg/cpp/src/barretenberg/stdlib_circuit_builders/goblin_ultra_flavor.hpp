@@ -329,7 +329,7 @@ class GoblinUltraFlavor {
 
         ProvingKey(const size_t circuit_size, const size_t num_public_inputs)
             : Base(circuit_size, num_public_inputs)
-            , polynomials(circuit_size) {};
+            , polynomials(circuit_size){};
 
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;

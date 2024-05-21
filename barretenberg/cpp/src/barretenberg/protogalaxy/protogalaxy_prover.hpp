@@ -82,7 +82,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     ProtoGalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts)
         : instances(ProverInstances(insts))
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/878)
-        , commitment_key(instances[1]->proving_key.commitment_key) {};
+        , commitment_key(instances[1]->proving_key.commitment_key){};
     ~ProtoGalaxyProver_() = default;
 
     /**
