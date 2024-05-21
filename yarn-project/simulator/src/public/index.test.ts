@@ -184,7 +184,7 @@ describe('ACIR public execution simulator', () => {
 
       beforeEach(() => {
         transferArtifact = TokenContractArtifact.functions.find(f => f.name === 'transfer_public')!;
-        functionData = new FunctionData(FunctionSelector.empty(), false);
+        functionData = new FunctionData(FunctionSelector.empty(), /*isPrivate=*/ false, /*isStatic=*/ false);
         sender = AztecAddress.random();
         args = encodeArguments(transferArtifact, [sender, recipient, 140n, 0n]);
 
@@ -265,7 +265,7 @@ describe('ACIR public execution simulator', () => {
         parentEntryPointFn.name,
         parentEntryPointFn.parameters,
       );
-      functionData = new FunctionData(parentEntryPointFnSelector, false);
+      functionData = new FunctionData(parentEntryPointFnSelector, /*isPrivate=*/ false, /*isStatic=*/ false);
       childContractAddress = AztecAddress.random();
       callContext = makeCallContext(parentContractAddress);
     }, 10000);
@@ -338,9 +338,8 @@ describe('ACIR public execution simulator', () => {
       expect(Fr.fromBuffer(childExecutionResult.unencryptedLogs.logs[0].hash())).toEqual(
         childExecutionResult.unencryptedLogsHashes[0].value,
       );
-      // We take 4 to avoid counting the extra 4 bytes used to store len for L1
-      expect(childExecutionResult.unencryptedLogPreimagesLength).toEqual(
-        new Fr(childExecutionResult.unencryptedLogs.getSerializedLength() - 4),
+      expect(childExecutionResult.unencryptedLogsHashes[0].length).toEqual(
+        new Fr(childExecutionResult.unencryptedLogs.getKernelLength()),
       );
       expect(result.returnValues[0]).toEqual(new Fr(newValue));
     }, 20_000);
@@ -355,7 +354,7 @@ describe('ACIR public execution simulator', () => {
     beforeEach(async () => {
       contractAddress = AztecAddress.random();
       await mockInitializationNullifierCallback(contractAddress);
-      functionData = new FunctionData(FunctionSelector.empty(), false);
+      functionData = new FunctionData(FunctionSelector.empty(), /*isPrivate=*/ false, /*isStatic=*/ false);
       amount = new Fr(1);
       params = [amount, new Fr(1)];
     });

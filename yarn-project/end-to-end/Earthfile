@@ -94,6 +94,9 @@ e2e-escrow-contract:
 e2e-key-registry:
   DO +E2E_TEST --test=./src/e2e_key_registry.test.ts
 
+e2e-keys:
+  DO +E2E_TEST --test=./src/e2e_keys.test.ts
+
 e2e-lending-contract:
   DO +E2E_TEST --test=./src/e2e_lending_contract.test.ts
 
@@ -126,6 +129,9 @@ e2e-pending-note-hashes-contract:
 
 e2e-private-voting-contract:
   DO +E2E_TEST --test=./src/e2e_private_voting_contract.test.ts
+
+e2e-private-payments:
+  DO +E2E_TEST --test=./src/e2e_fees/private_payments.test.ts
 
 e2e-public-cross-chain-messaging:
   DO +E2E_TEST --test=./src/e2e_public_cross_chain_messaging
