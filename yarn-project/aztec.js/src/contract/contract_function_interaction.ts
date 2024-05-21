@@ -86,7 +86,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     // since we're interested in the first set of values AFTER the account entrypoint
     // For public functions we retrieve the first values directly from the public output.
     const rawReturnValues =
-      this.functionDao.functionType == FunctionType.SECRET
+      this.functionDao.functionType == FunctionType.PRIVATE
         ? simulatedTx.privateReturnValues?.nested?.[0].values
         : simulatedTx.publicOutput?.publicReturnValues?.values;
 
