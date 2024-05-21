@@ -43,6 +43,7 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
 {
     auto& public_calldata = proving_key.polynomials.calldata;
     auto& calldata_read_counts = proving_key.polynomials.calldata_read_counts;
+    auto& calldata_read_tags = proving_key.polynomials.calldata_read_tags;
     auto& public_return_data = proving_key.polynomials.return_data;
     auto& return_data_read_counts = proving_key.polynomials.return_data_read_counts;
 
@@ -58,6 +59,9 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
         public_return_data[idx] = circuit.get_variable(return_data[idx]);
         return_data_read_counts[idx] = return_data.get_read_count(idx);
     }
+
+    calldata_read_tags[0] = 1; // This causes failure in UGH recursion with U arith
+    // calldata_read_tags[0] = 2; // This causes the tests to pass
 
     auto& databus_id = proving_key.polynomials.databus_id;
     // Compute a simple identity polynomial for use in the databus lookup argument

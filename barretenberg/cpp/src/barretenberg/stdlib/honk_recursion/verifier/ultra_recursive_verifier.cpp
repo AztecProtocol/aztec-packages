@@ -68,6 +68,8 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
         commitments.calldata = transcript->template receive_from_prover<Commitment>(commitment_labels.calldata);
         commitments.calldata_read_counts =
             transcript->template receive_from_prover<Commitment>(commitment_labels.calldata_read_counts);
+        commitments.calldata_read_tags =
+            transcript->template receive_from_prover<Commitment>(commitment_labels.calldata_read_tags);
         commitments.return_data = transcript->template receive_from_prover<Commitment>(commitment_labels.return_data);
         commitments.return_data_read_counts =
             transcript->template receive_from_prover<Commitment>(commitment_labels.return_data_read_counts);
