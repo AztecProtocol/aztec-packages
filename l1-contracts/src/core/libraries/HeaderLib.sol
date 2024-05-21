@@ -197,4 +197,37 @@ library HeaderLib {
 
     return header;
   }
+
+
+  // must match the order in the Header.getFields
+  function toFields(Header memory _header)
+    internal
+    pure
+    returns (bytes32[22] memory)
+  {
+    return [
+      _header.lastArchive.root,
+      bytes32(uint256(_header.lastArchive.nextAvailableLeafIndex)),
+      bytes32(_header.contentCommitment.txTreeHeight),
+      _header.contentCommitment.txsEffectsHash,
+      _header.contentCommitment.inHash,
+      _header.contentCommitment.outHash,
+      _header.stateReference.l1ToL2MessageTree.root,
+      bytes32(uint256(_header.stateReference.l1ToL2MessageTree.nextAvailableLeafIndex)),
+      _header.stateReference.partialStateReference.noteHashTree.root,
+      bytes32(uint256(_header.stateReference.partialStateReference.noteHashTree.nextAvailableLeafIndex)),
+      _header.stateReference.partialStateReference.nullifierTree.root,
+      bytes32(uint256(_header.stateReference.partialStateReference.nullifierTree.nextAvailableLeafIndex)),
+      _header.stateReference.partialStateReference.publicDataTree.root,
+      bytes32(uint256(_header.stateReference.partialStateReference.publicDataTree.nextAvailableLeafIndex)),
+      bytes32(_header.globalVariables.chainId),
+      bytes32(_header.globalVariables.version),
+      bytes32(_header.globalVariables.blockNumber),
+      bytes32(_header.globalVariables.timestamp),
+      bytes32(uint256(uint160(_header.globalVariables.coinbase))),
+      bytes32(_header.globalVariables.feeRecipient),
+      bytes32(_header.globalVariables.gasFees.feePerDaGas),
+      bytes32(_header.globalVariables.gasFees.feePerL2Gas)
+    ];
+  }
 }

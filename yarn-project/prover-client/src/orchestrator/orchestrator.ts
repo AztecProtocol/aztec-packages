@@ -27,6 +27,7 @@ import {
   type NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
+  Proof,
   type PublicKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
@@ -535,7 +536,7 @@ export class ProvingOrchestrator {
       signal => this.prover.getRootRollupProof(inputs, signal),
       result => {
         provingState.rootRollupPublicInputs = result.inputs;
-        provingState.finalProof = result.proof.binaryProof;
+        provingState.finalProof = removePublicInputs(result.proof.binaryProof, result.inputs.toFields());
 
         const provingResult: ProvingResult = {
           status: PROVING_STATUS.SUCCESS,
@@ -721,4 +722,11 @@ export class ProvingOrchestrator {
       },
     );
   }
+}
+
+function removePublicInputs(proof: Proof, publicInputs: Fr[]): Proof {
+  const _publicInputsInProof = proof.buffer.subarray(0, Fr.SIZE_IN_BYTES * publicInputs.length);
+  // TODO (alexg) assert publicInputs matches the start of the proof
+  const proofWithoutPublicInputs = proof.buffer.subarray(Fr.SIZE_IN_BYTES * publicInputs.length);
+  return new Proof(proofWithoutPublicInputs);
 }

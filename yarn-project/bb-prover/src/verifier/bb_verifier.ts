@@ -5,7 +5,7 @@ import { type ProtocolArtifact, ProtocolCircuitArtifacts } from '@aztec/noir-pro
 
 import * as fs from 'fs/promises';
 
-import { BB_RESULT, generateKeyForNoirCircuit, verifyProof } from '../bb/execute.js';
+import { BB_RESULT, generateContractForCircuit, generateKeyForNoirCircuit, verifyProof } from '../bb/execute.js';
 import { type BBProverConfig } from '../prover/bb_prover.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
 
@@ -94,5 +94,22 @@ export class BBCircuitVerifier {
       }
     };
     await runInDirectory(this.config.bbWorkingDirectory, operation);
+  }
+
+  public async generateSolidityContract(circuit: ProtocolArtifact, contractName: string) {
+    const result = await generateContractForCircuit(
+      this.config.bbBinaryPath,
+      this.config.bbWorkingDirectory,
+      circuit,
+      ProtocolCircuitArtifacts[circuit],
+      contractName,
+      this.logger.debug,
+    );
+
+    if (result.status === BB_RESULT.FAILURE) {
+      throw new Error(`Failed to create verifier contract for ${circuit}, ${result.reason}`);
+    }
+
+    return fs.readFile(result.contractPath!, 'utf-8');
   }
 }

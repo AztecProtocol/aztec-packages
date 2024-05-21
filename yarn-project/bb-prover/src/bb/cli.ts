@@ -3,9 +3,8 @@ import { type ProtocolArtifact, ProtocolCircuitArtifacts } from '@aztec/noir-pro
 
 import { Command } from 'commander';
 import * as fs from 'fs/promises';
-import { join } from 'path';
 
-import { BB_RESULT, VK_FILENAME, generateContractForVerificationKey, generateKeyForNoirCircuit } from './execute.js';
+import { generateContractForCircuit, generateKeyForNoirCircuit } from './execute.js';
 
 const { BB_WORKING_DIRECTORY, BB_BINARY_PATH } = process.env;
 
@@ -100,6 +99,7 @@ export function getProgram(log: LogFn): Command {
     )
     .requiredOption('-b, --bb-path <string>', 'The path to the BB binary', BB_BINARY_PATH)
     .requiredOption('-c, --circuit <string>', 'The name of a protocol circuit')
+    .requiredOption('-cn --contract-name <string>', 'The name of the contract to generate', 'contract.sol')
     .action(async options => {
       const compiledCircuit = ProtocolCircuitArtifacts[options.circuit as ProtocolArtifact];
       if (!compiledCircuit) {
@@ -113,23 +113,12 @@ export function getProgram(log: LogFn): Command {
         return;
       }
 
-      const vkResult = await generateKeyForNoirCircuit(
+      await generateContractForCircuit(
         options.bbPath,
         options.workingDirectory,
         options.circuit,
         compiledCircuit,
-        'vk',
-        log,
-      );
-
-      if (vkResult.status === BB_RESULT.FAILURE) {
-        return;
-      }
-
-      await generateContractForVerificationKey(
-        options.bbPath,
-        join(vkResult.vkPath!, VK_FILENAME),
-        join(options.workingDirectory, 'contract', options.circuit, 'contract.sol'),
+        options.contractName,
         log,
       );
     });

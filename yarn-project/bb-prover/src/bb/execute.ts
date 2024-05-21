@@ -5,7 +5,7 @@ import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import * as proc from 'child_process';
 import * as fs from 'fs/promises';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
 
 export const VK_FILENAME = 'vk';
 export const VK_FIELDS_FILENAME = 'vk_fields.json';
@@ -413,4 +413,34 @@ export async function generateContractForVerificationKey(
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
   }
+}
+
+export async function generateContractForCircuit(
+  pathToBB: string,
+  workingDirectory: string,
+  circuitName: string,
+  compiledCircuit: NoirCompiledCircuit,
+  contractName: string,
+  log: LogFn,
+  force = false,
+) {
+  const vkResult = await generateKeyForNoirCircuit(
+    pathToBB,
+    workingDirectory,
+    circuitName,
+    compiledCircuit,
+    'vk',
+    log,
+    force,
+  );
+  if (vkResult.status === BB_RESULT.FAILURE) {
+    return vkResult;
+  }
+
+  return generateContractForVerificationKey(
+    pathToBB,
+    join(vkResult.vkPath!, VK_FILENAME),
+    join(workingDirectory, 'contract', circuitName, contractName),
+    log,
+  );
 }

@@ -8,6 +8,7 @@ import {IAvailabilityOracle} from "./interfaces/IAvailabilityOracle.sol";
 import {IInbox} from "./interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "./interfaces/messagebridge/IOutbox.sol";
 import {IRegistry} from "./interfaces/messagebridge/IRegistry.sol";
+import {IVerifier} from "./interfaces/IVerifier.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 // Libraries
@@ -28,7 +29,7 @@ import {Outbox} from "./messagebridge/Outbox.sol";
  * not giving a damn about gas costs.
  */
 contract Rollup is IRollup {
-  MockVerifier public immutable VERIFIER;
+  IVerifier public verifier;
   IRegistry public immutable REGISTRY;
   IAvailabilityOracle public immutable AVAILABILITY_ORACLE;
   IInbox public immutable INBOX;
@@ -42,8 +43,10 @@ contract Rollup is IRollup {
   // See https://github.com/AztecProtocol/aztec-packages/issues/1614
   uint256 public lastWarpedBlockTs;
 
+  error PUBLIC_INPUT_COUNT_INVALID(uint256 expected, uint256 actual);
+
   constructor(IRegistry _registry, IAvailabilityOracle _availabilityOracle, IERC20 _gasToken) {
-    VERIFIER = new MockVerifier();
+    verifier = new MockVerifier();
     REGISTRY = _registry;
     AVAILABILITY_ORACLE = _availabilityOracle;
     GAS_TOKEN = _gasToken;
@@ -52,13 +55,18 @@ contract Rollup is IRollup {
     VERSION = 1;
   }
 
+  function setVerifier(address _verifier) external override(IRollup) {
+    // TODO check auth
+    verifier = IVerifier(_verifier);
+  }
+
   /**
    * @notice Process an incoming L2 block and progress the state
    * @param _header - The L2 block header
    * @param _archive - A root of the archive tree after the L2 block is applied
    * @param _proof - The proof of correct execution
    */
-  function process(bytes calldata _header, bytes32 _archive, bytes memory _proof)
+  function process(bytes calldata _header, bytes32 _archive, bytes calldata _proof)
     external
     override(IRollup)
   {
@@ -71,12 +79,27 @@ contract Rollup is IRollup {
       revert Errors.Rollup__UnavailableTxs(header.contentCommitment.txsEffectsHash);
     }
 
-    bytes32[] memory publicInputs = new bytes32[](1);
-    publicInputs[0] = _computePublicInputHash(_header, _archive);
+    bytes32[] memory publicInputs = new bytes32[](40);
+    publicInputs[0] = _archive;
+    publicInputs[1] = bytes32(header.globalVariables.blockNumber + 1);
+
+    bytes32[22] memory headerFields = HeaderLib.toFields(header);
+    for (uint256 i = 0; i <  headerFields.length; i++) {
+      publicInputs[i + 2] = headerFields[i];
+    }
+
+    bytes calldata proof = _proof;
+    // copy the aggregation object into the public inputs
+    if (_proof.length > 512) {
+      for (uint256 i = 0; i < 16; i++) {
+        publicInputs[i + 24] = bytes32(_proof[i * 32: (i + 1) * 32]);
+      }
+      proof = proof[512:];
+    }
 
     // @todo @benesjan We will need `nextAvailableLeafIndex` of archive to verify the proof. This value is equal to
     // current block number which is stored in the header (header.globalVariables.blockNumber).
-    if (!VERIFIER.verify(_proof, publicInputs)) {
+    if (!verifier.verify(proof, publicInputs)) {
       revert Errors.Rollup__InvalidProof();
     }
 

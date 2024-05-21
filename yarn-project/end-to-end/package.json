@@ -91,6 +91,7 @@
     "concurrently": "^7.6.0",
     "jest": "^29.5.0",
     "jest-extended": "^4.0.2",
+    "solc": "^0.8.25",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4"
   },
