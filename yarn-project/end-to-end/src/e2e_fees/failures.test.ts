@@ -27,6 +27,7 @@ describe('e2e_fees failures', () => {
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
+    await t.applyFPCSetupSnapshot();
     ({ aliceWallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = await t.setup());
   });
 

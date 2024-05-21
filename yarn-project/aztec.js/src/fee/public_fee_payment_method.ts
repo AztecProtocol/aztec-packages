@@ -44,6 +44,10 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
     return this.paymentContract;
   }
 
+  isFeePayer(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
   /**
    * Creates a function call to pay the fee in the given asset.
    * @param gasSettings - The gas settings.

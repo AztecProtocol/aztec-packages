@@ -51,6 +51,10 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     return this.paymentContract;
   }
 
+  isFeePayer(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
   /**
    * Creates a function call to pay the fee in the given asset.
    * @param gasSettings - The gas settings.
@@ -80,7 +84,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     return [
       {
         name: 'fee_entrypoint_private',
-        to: this.getPaymentContract(),
+        to: this.paymentContract,
         selector: FunctionSelector.fromSignature('fee_entrypoint_private(Field,(Field),Field,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,

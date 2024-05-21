@@ -132,6 +132,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
                 },
               },
               { name: 'nonce', type: { kind: 'field' } },
+              { name: 'is_fee_payer', type: { kind: 'boolean' } },
             ],
           },
           visibility: 'public',

@@ -44,6 +44,7 @@ describe('e2e_fees dapp_subscription', () => {
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
+    await t.applyFPCSetupSnapshot();
     await t.applyFundAliceWithBananas();
     await t.applySetupSubscription();
 
@@ -103,8 +104,7 @@ describe('e2e_fees dapp_subscription', () => {
     we then privately transfer `SUBSCRIPTION_AMOUNT` BC from alice to bob's subscription contract
 
     PUBLIC TEARDOWN
-    then the FPC calls `pay_fee`, reducing its gas balance by `FEE_AMOUNT`, and increasing the sequencer's gas balance by `FEE_AMOUNT`
-    the FPC also publicly sends `REFUND` BC to alice
+    the FPC publicly sends `REFUND` BC to alice
     */
 
     const { transactionFee } = await subscribe(
@@ -133,8 +133,7 @@ describe('e2e_fees dapp_subscription', () => {
     we then privately transfer `SUBSCRIPTION_AMOUNT` BC from alice to bob's subscription contract
 
     PUBLIC TEARDOWN
-    then the FPC calls `pay_fee`, reducing its gas balance by `FEE_AMOUNT`, and increasing the sequencer's gas balance by `FEE_AMOUNT`
-    the FPC also publicly sends `REFUND` BC to alice
+    the FPC publicly sends `REFUND` BC to alice
     */
     const { transactionFee } = await subscribe(
       new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),

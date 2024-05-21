@@ -23,6 +23,7 @@ describe('e2e_fees gas_estimation', () => {
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
+    await t.applyFPCSetupSnapshot();
     await t.applyFundAliceWithBananas();
     await t.applyFundAliceWithGasToken();
     ({ aliceWallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings } = await t.setup());
