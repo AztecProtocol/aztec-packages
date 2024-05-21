@@ -1,10 +1,10 @@
 ---
-title: How to Test Aztec.nr Contracts with Typescript
+title: Testing Aztec.nr contracts with TypeScript
 ---
 
 In this guide we will cover how to interact with your Aztec.nr smart contracts in a testing environment to write automated tests for your apps.
 
-To write your first smart contract, check out the [Aztec.nr getting started guide](../../getting_started/aztecnr-getting-started.md).
+To write your first smart contract, check out the [Aztec.nr getting started guide](../../getting_started.md).
 
 ## Compile your contract and generate TS interface
 
@@ -85,7 +85,7 @@ This debug information will be populated in the transaction receipt. You can log
 
 #include_code debug /yarn-project/end-to-end/src/e2e_token_contract/minting.test.ts typescript
 
-You can also log directly from Aztec contracts. Read [this guide](../debugging/main.md) for some more information.
+You can also log directly from Aztec contracts. Read [this guide](/reference/debugging.md##logging-in-aztecnr) for some more information.
 
 ### Examples
 
@@ -125,25 +125,25 @@ WARN Error processing tx 06dc87c4d64462916ea58426ffcfaf20017880b353c9ec3e0f0ee5f
 
 We can check private or public state directly rather than going through view-only methods, as we did in the initial example by calling `token.methods.balance().simulate()`.
 
-To query storage directly, you'll need to know the slot you want to access. This can be checked in the [contract's `Storage` definition](../contracts/writing_contracts/storage/main.md) directly for most data types. However, when it comes to mapping types, as in most EVM languages, we'll need to calculate the slot for a given key. To do this, we'll use the [`CheatCodes`](../sandbox/references/cheat_codes.md) utility class:
+To query storage directly, you'll need to know the slot you want to access. This can be checked in the [contract's `Storage` definition](../../reference/smart_contract_reference/storage/index.md) directly for most data types. However, when it comes to mapping types, as in most EVM languages, we'll need to calculate the slot for a given key. To do this, we'll use the [`CheatCodes`](../../reference/sandbox_reference/cheat_codes.md) utility class:
 
 #include_code calc-slot /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
 #### Querying private state
 
-Private state in the Aztec is represented via sets of [private notes](../../learn/concepts/hybrid_state/main.md#private-state). We can query the Private Execution Environment (PXE) for all notes encrypted for a given user in a contract slot. For example, this gets all notes encrypted for the `owner` user that are stored on the token contract address and on the slot that was calculated earlier. To calculate the actual balance, it extracts the `value` of each note, which is the first element, and sums them up.
+Private state in the Aztec is represented via sets of [private notes](../../aztec/concepts/state_model/index.md#private-state). We can query the Private Execution Environment (PXE) for all notes encrypted for a given user in a contract slot. For example, this gets all notes encrypted for the `owner` user that are stored on the token contract address and on the slot that was calculated earlier. To calculate the actual balance, it extracts the `value` of each note, which is the first element, and sums them up.
 
 #include_code private-storage /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
 #### Querying public state
 
-[Public state](../../learn/concepts/hybrid_state/main.md#public-state) behaves as a key-value store, much like in the EVM. We can directly query the target slot and get the result back as a buffer. Note that we use the [`TokenContract`](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) in this example, which defines a mapping of public balances on slot 6.
+[Public state](../../aztec/concepts/state_model/index.md#public-state) behaves as a key-value store, much like in the EVM. We can directly query the target slot and get the result back as a buffer. Note that we use the [`TokenContract`](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) in this example, which defines a mapping of public balances on slot 6.
 
 #include_code public-storage /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
 ### Logs
 
-You can check the logs of [events](../contracts/writing_contracts/events/emit_event.md) emitted by contracts. Contracts in Aztec can emit both [encrypted](../contracts/writing_contracts/events/emit_event.md#encrypted-events) and [unencrypted](../contracts/writing_contracts/events/emit_event.md#unencrypted-events) events.
+You can check the logs of [events](../smart_contracts/writing_contracts/how_to_emit_event.md) emitted by contracts. Contracts in Aztec can emit both [encrypted](../smart_contracts/writing_contracts/how_to_emit_event.md#call-emit_encrypted_log) and [unencrypted](../smart_contracts/writing_contracts/how_to_emit_event.md#call-emit_unencrypted_log) events.
 
 #### Querying unencrypted logs
 
@@ -153,7 +153,7 @@ We can query the PXE for the unencrypted logs emitted in the block where our tra
 
 ## Cheats
 
-The [`CheatCodes`](../sandbox/references/cheat_codes.md) class, which we used for [calculating the storage slot above](#state), also includes a set of cheat methods for modifying the chain state that can be handy for testing.
+The [`CheatCodes`](../../reference/sandbox_reference/cheat_codes.md) class, which we used for [calculating the storage slot above](#state), also includes a set of cheat methods for modifying the chain state that can be handy for testing.
 
 ### Set next block timestamp
 
@@ -167,9 +167,9 @@ We can then call `warp` and rely on the `isTimeEqual` function to check that the
 
 ## Further reading
 
-* [How to call a view transactions in Aztec.js]()
-* [How to send a transactions in Aztec.js]()
-* [How to deploy a contract in Aztec.js]()
-* [How to create an account in Aztec.js]()
-* [Cheat codes](../../sandbox/references/cheat_codes.md)
-* [How to compile a contract](../../contracts/compiling_contracts/how_to_compile_contract.md).
+* [How to call a view transactions in Aztec.js](./call_view_function.md)
+* [How to send a transactions in Aztec.js](./send_transaction.md)
+* [How to deploy a contract in Aztec.js](./deploy_contract.md)
+* [How to create an account in Aztec.js](./create_account.md)
+* [Cheat codes](../../reference/sandbox_reference/cheat_codes.md)
+* [How to compile a contract](../smart_contracts/how_to_compile_contract.md).
