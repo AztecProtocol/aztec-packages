@@ -18,7 +18,7 @@ export class FunctionData {
   static fromAbi(abi: FunctionAbi | ContractFunctionDao): FunctionData {
     return new FunctionData(
       FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
-      abi.functionType === FunctionType.SECRET,
+      abi.functionType === FunctionType.PRIVATE,
     );
   }
 
