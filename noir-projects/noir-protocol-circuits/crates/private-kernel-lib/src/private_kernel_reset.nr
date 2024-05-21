@@ -31,7 +31,7 @@ struct PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL
     transient_note_hash_indexes_for_logs: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
     note_hash_read_request_hints: NoteHashReadRequestHints<NH_RR_PENDING, NH_RR_SETTLED>,
     nullifier_read_request_hints: NullifierReadRequestHints<NLL_RR_PENDING, NLL_RR_SETTLED>,
-    key_validation_hints: [KeyValidationHint; MAX_KEY_VALIDATION_REQUESTS_PER_TX],
+    key_validation_hints: [KeyValidationHint; KEY_VALIDATION_REQUESTS],
 }
 
 struct PrivateKernelResetCircuitPrivateInputs<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {

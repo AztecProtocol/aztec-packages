@@ -122,7 +122,7 @@ import {
   type TxRequest,
   ValidationRequests,
   type VerificationKeyAsFields,
-  KeyValidationHint,
+  type KeyValidationHint,
 } from '@aztec/circuits.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
@@ -311,13 +311,13 @@ export function mapGrumpkinPrivateKeyToNoir(privateKey: GrumpkinPrivateKey): Gru
 
 /**
  * Maps a KeyValidationHint to noir.
- * @param hint - The nullifier key hint.
- * @returns The nullifier key hint mapped to noir types.
+ * @param hint - The key validation hint.
+ * @returns The key validation hint mapped to noir types.
  */
 export function mapKeyValidationHintToNoir(hint: KeyValidationHint): KeyValidationHintNoir {
   return {
     sk_m: mapGrumpkinPrivateKeyToNoir(hint.skM),
-    sk_app_generator_index: mapFieldToNoir(hint.skAppGeneratorIndex),
+    sk_app_generator_index: mapFieldToNoir(new Fr(hint.skAppGeneratorIndex)),
     request_index: mapNumberToNoir(hint.requestIndex),
   };
 }

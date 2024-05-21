@@ -1,4 +1,7 @@
 import {
+  type Fr,
+  KeyValidationHint,
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
@@ -6,19 +9,17 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MembershipWitness,
   NULLIFIER_TREE_HEIGHT,
-  KeyValidationHint,
   PRIVATE_RESET_VARIANTS,
+  type PrivateKernelData,
   PrivateKernelResetCircuitPrivateInputs,
+  type PrivateKernelResetCircuitPrivateInputsVariants,
   PrivateKernelResetHints,
+  type ScopedKeyValidationRequest,
+  type ScopedNullifier,
+  type ScopedReadRequest,
   buildNoteHashReadRequestHints,
   buildNullifierReadRequestHints,
   buildTransientDataHints,
-  type Fr,
-  type PrivateKernelData,
-  type PrivateKernelResetCircuitPrivateInputsVariants,
-  type ScopedKeyValidationRequest,
-  type ScopedNullifier,
-  type ScopedReadRequest
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
@@ -72,11 +73,7 @@ async function getMasterSecretKeysAndAppKeyGenerators(
       break;
     }
     const [secretKeys, appKeyGenerator] = await oracle.getMasterSecretKeyAndAppKeyGenerator(request.masterPublicKey);
-    keysHints[keyIndex] = new KeyValidationHint(
-      secretKeys,
-      appKeyGenerator,
-      i,
-    );
+    keysHints[keyIndex] = new KeyValidationHint(secretKeys, appKeyGenerator, i);
     keyIndex++;
   }
   return {

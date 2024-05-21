@@ -1,9 +1,9 @@
-import { BufferReader, serializeToBuffer, type Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_NOTE_ENCRYPTED_LOGS_PER_TX
+  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { countAccumulatedItems } from '../../utils/index.js';
 import { NoteLogHash } from '../log_hash.js';
@@ -11,10 +11,10 @@ import { ScopedNoteHash } from '../note_hash.js';
 import { ScopedNullifier } from '../nullifier.js';
 import {
   KeyValidationHint,
-  noteHashReadRequestHintsFromBuffer,
-  nullifierReadRequestHintsFromBuffer,
   type NoteHashReadRequestHints,
   type NullifierReadRequestHints,
+  noteHashReadRequestHintsFromBuffer,
+  nullifierReadRequestHintsFromBuffer,
 } from '../read_request_hints/index.js';
 import { PrivateKernelData } from './private_kernel_data.js';
 
@@ -109,7 +109,10 @@ export class PrivateKernelResetHints<
       this.transientNoteHashIndexesForLogs,
       this.noteHashReadRequestHints.trimToSizes(numNoteHashReadRequestPending, numNoteHashReadRequestSettled),
       this.nullifierReadRequestHints.trimToSizes(numNullifierReadRequestPending, numNullifierReadRequestSettled),
-      this.keyValidationHints.slice(0, numKeyValidationRequests) as Tuple<KeyValidationHint, NEW_KEY_VALIDATION_REQUESTS>,
+      this.keyValidationHints.slice(0, numKeyValidationRequests) as Tuple<
+        KeyValidationHint,
+        NEW_KEY_VALIDATION_REQUESTS
+      >,
     );
   }
   /**
@@ -166,7 +169,13 @@ export class PrivateKernelResetCircuitPrivateInputs<
      */
     public previousKernel: PrivateKernelData,
     public outputs: PrivateKernelResetOutputs,
-    public hints: PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
+    public hints: PrivateKernelResetHints<
+      NH_RR_PENDING,
+      NH_RR_SETTLED,
+      NLL_RR_PENDING,
+      NLL_RR_SETTLED,
+      KEY_VALIDATION_REQUESTS
+    >,
     public sizeTag: TAG,
   ) {}
 

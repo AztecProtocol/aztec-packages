@@ -2,8 +2,8 @@ import fs from 'fs';
 import path from 'path';
 
 import {
-  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
 } from '../constants.gen.js';
 
