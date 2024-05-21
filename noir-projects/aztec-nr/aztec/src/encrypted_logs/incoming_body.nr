@@ -4,21 +4,14 @@ use dep::protocol_types::{grumpkin_private_key::GrumpkinPrivateKey, grumpkin_poi
 use dep::std::aes128::aes128_encrypt;
 use crate::keys::point_to_symmetric_key::point_to_symmetric_key;
 
-struct EncryptedLogIncomingBody<T, M> {
-    data: T,
+struct EncryptedLogIncomingBody<M> {
     plaintext: [u8; M]
 }
 
-impl<T, M> EncryptedLogIncomingBody<T, M> {
-    pub fn from_note<N>(note: T, storage_slot: Field) -> Self where T: NoteInterface<N, M> {
+impl<M> EncryptedLogIncomingBody<M> {
+    pub fn from_note<T, N>(note: T, storage_slot: Field) -> Self where T: NoteInterface<N, M> {
         let mut plaintext = note.to_be_bytes(storage_slot);
-        let storage_slot_bytes = storage_slot.to_be_bytes(32);
-
-        for i in 0..32 {
-            plaintext[i] = storage_slot_bytes[i];
-        }
-
-        EncryptedLogIncomingBody { data: note, plaintext }
+        EncryptedLogIncomingBody { plaintext }
     }
 
     pub fn compute_ciphertext(self, eph_sk: GrumpkinPrivateKey, ivpk_app: GrumpkinPoint) -> [u8] {
