@@ -16,8 +16,8 @@ import {
 // docs:start:imports
 import { type PublicKey, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
 import { TestContract, TokenContract } from '@aztec/noir-contracts.js';
-// docs:end:imports
 
+// docs:end:imports
 import { jest } from '@jest/globals';
 
 import { expectsNumOfNoteEncryptedLogsInTheLastBlockToBe, setup, setupPXEService } from './fixtures/utils.js';
