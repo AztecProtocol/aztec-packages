@@ -182,13 +182,13 @@ void TranslatorProver::execute_zeromorph_rounds()
                      key->polynomials.get_concatenation_groups());
 }
 
-HonkProof& TranslatorProver::export_proof()
+HonkProof TranslatorProver::export_proof()
 {
     proof = transcript->export_proof();
     return proof;
 }
 
-HonkProof& TranslatorProver::construct_proof()
+HonkProof TranslatorProver::construct_proof()
 {
     BB_OP_COUNT_TIME_NAME("TranslatorProver::construct_proof");
 
