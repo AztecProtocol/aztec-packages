@@ -2,7 +2,6 @@ import { type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types'
 import {
   CallRequest,
   Fr,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   NESTED_RECURSIVE_PROOF_LENGTH,
   PrivateCallData,
@@ -10,7 +9,6 @@ import {
   PrivateKernelData,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
-  PrivateKernelResetCircuitPrivateInputs,
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
@@ -29,8 +27,7 @@ import { type ExecutionResult, collectNoteHashLeafIndexMap, collectNullifiedNote
 import {
   buildPrivateKernelInitHints,
   buildPrivateKernelInnerHints,
-  buildPrivateKernelResetHints,
-  buildPrivateKernelResetOutputs,
+  buildPrivateKernelResetInputs,
   buildPrivateKernelTailHints,
 } from './private_inputs_builders/index.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
@@ -74,11 +71,8 @@ export class KernelProver {
 
     while (executionStack.length) {
       const currentExecution = executionStack.pop()!;
-      executionStack.push(...currentExecution.nestedExecutions);
+      executionStack.push(...[...currentExecution.nestedExecutions].reverse());
 
-      const privateCallRequests = currentExecution.nestedExecutions.map(result =>
-        result.callStackItem.toCallRequest(currentExecution.callStackItem.publicInputs.callContext),
-      );
       const publicCallRequests = currentExecution.enqueuedPublicFunctionCalls.map(result => result.toCallRequest());
       const publicTeardownCallRequest = currentExecution.publicTeardownFunctionCall.isEmpty()
         ? CallRequest.empty()
@@ -97,7 +91,6 @@ export class KernelProver {
 
       const privateCallData = await this.createPrivateCallData(
         currentExecution,
-        privateCallRequests,
         publicCallRequests,
         publicTeardownCallRequest,
         proofOutput.proof,
@@ -108,8 +101,7 @@ export class KernelProver {
         const hints = buildPrivateKernelInitHints(
           currentExecution.callStackItem.publicInputs,
           noteHashNullifierCounterMap,
-          privateCallRequests,
-          publicCallRequests,
+          currentExecution.callStackItem.publicInputs.privateCallRequests,
         );
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(txRequest, privateCallData, hints);
         pushTestData('private-kernel-inputs-init', proofInput);
@@ -143,18 +135,8 @@ export class KernelProver {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
-    const expectedOutputs = buildPrivateKernelResetOutputs(
-      output.publicInputs.end.newNoteHashes,
-      output.publicInputs.end.newNullifiers,
-      output.publicInputs.end.noteEncryptedLogsHashes,
-    );
-
     output = await this.proofCreator.createProofReset(
-      new PrivateKernelResetCircuitPrivateInputs(
-        previousKernelData,
-        expectedOutputs,
-        await buildPrivateKernelResetHints(output.publicInputs, noteHashLeafIndexMap, this.oracle),
-      ),
+      await buildPrivateKernelResetInputs(previousKernelData, noteHashLeafIndexMap, this.oracle),
     );
 
     previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
@@ -180,7 +162,6 @@ export class KernelProver {
 
   private async createPrivateCallData(
     { callStackItem }: ExecutionResult,
-    privateCallRequests: CallRequest[],
     publicCallRequests: CallRequest[],
     publicTeardownCallRequest: CallRequest,
     proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>,
@@ -188,12 +169,6 @@ export class KernelProver {
   ) {
     const { contractAddress, functionData } = callStackItem;
 
-    // Pad with empty items to reach max/const length expected by circuit.
-    const privateCallStack = padArrayEnd(
-      privateCallRequests,
-      CallRequest.empty(),
-      MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-    );
     const publicCallStack = padArrayEnd(publicCallRequests, CallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
 
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
@@ -212,7 +187,6 @@ export class KernelProver {
 
     return PrivateCallData.from({
       callStackItem,
-      privateCallStack,
       publicCallStack,
       publicTeardownCallRequest,
       proof,

@@ -15,7 +15,7 @@ env:
   DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
   RUN_ID: ${{ github.run_id }}
   RUN_ATTEMPT: ${{ github.run_attempt }}
-  USERNAME: ubuntu-latest
+  USERNAME: ${{ github.event.pull_request.user.login || github.actor }}
   GITHUB_TOKEN: ${{ github.token }}
   GH_SELF_HOSTED_RUNNER_TOKEN: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -26,6 +26,14 @@ env:
   WAIT_FOR_RUNNERS: false
 
 jobs:
+  setup:
+    uses: ./.github/workflows/setup-runner.yml
+    with:
+      username: ${{ github.event.pull_request.user.login || github.actor }}
+      runner_type: builder-x86
+    secrets: inherit
+  # job just to alert that you *might* hit missing CI files, but if not you can continue
+
   ci-consistency:
     runs-on: ubuntu-latest
     # Only check PRs for consistency (not master)
@@ -58,7 +66,8 @@ jobs:
           fi
 
   build:
-    runs-on: ubuntu-latest-x86
+    needs: setup
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
       bench_list: ${{ steps.bench_list.outputs.list }}
@@ -144,9 +153,40 @@ jobs:
               --no-output \
               +${{ matrix.test }}
 
-  bench-summary:
-    needs: bench-e2e
+  acir-bench:
     runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+      - name: Setup and Test
+        uses: ./.github/ensure-tester-with-images
+        timeout-minutes: 40
+        with:
+          runner_type: 16core-tester-x86
+          builder_type: builder-x86
+          # these are copied to the tester and expected by the earthly command below
+          # if they fail to copy, it will try to build them on the tester and fail
+          builder_images_to_copy: aztecprotocol/barretenberg-acir-benches:${{ env.GIT_COMMIT }}
+          # command to produce the images in case they don't exist
+          builder_command: cd noir && ../scripts/earthly-ci +export-bench-acir-bb
+          run: |
+            set -eux
+            cd ./noir/
+            export FORCE_COLOR=1
+            export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
+            ../scripts/earthly-ci -P \
+              --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+              --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+              --no-output \
+              +bench-publish-acir-bb         
+
+  bench-summary:
+    needs: 
+      - acir-bench
+      - bench-e2e
+    runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with:
@@ -172,27 +212,11 @@ jobs:
         working-directory: ./yarn-project/scripts
         run: earthly-ci -P --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} +bench-comment
 
-  noir-format:
-    runs-on: ubuntu-latest-x86
-    steps:
-      - uses: actions/checkout@v4
-        with: { ref: "${{ env.GIT_COMMIT }}" }
-      - uses: ./.github/ci-setup-action
-        with:
-          concurrency_key: noir-format-x86
-      - name: "Format Noir"
-        working-directory: ./noir/
-        timeout-minutes: 40
-        run: earthly-ci --no-output ./+format
-      - name: "Format noir-projects"
-        working-directory: ./noir-projects/
-        timeout-minutes: 40
-        run: earthly-ci --no-output ./+format
-
   # barretenberg (prover) native and AVM (public VM) tests
   # only ran on x86 for resource reasons (memory intensive)
   bb-native-tests:
-    runs-on: ubuntu-latest-x86
+    needs: setup
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -208,7 +232,8 @@ jobs:
         run: earthly-ci --no-output +test --hardware_concurrency=64
 
   bb-js-test:
-    runs-on: ubuntu-latest-x86
+    needs: setup
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -220,8 +245,27 @@ jobs:
         timeout-minutes: 40
         run: earthly-ci --no-output ./+test
 
+  noir-format:
+    needs: setup
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: noir-format-x86
+      - name: "Format Noir"
+        working-directory: ./noir/
+        timeout-minutes: 40
+        run: earthly-ci --no-output ./+format
+      - name: "Format noir-projects"
+        working-directory: ./noir-projects/
+        timeout-minutes: 40
+        run: earthly-ci --no-output ./+format
+
   noir-test:
-    runs-on: ubuntu-latest-x86
+    needs: setup
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -232,7 +276,8 @@ jobs:
         run: earthly-ci --no-output ./noir+test
 
   noir-examples:
-    runs-on: ubuntu-latest-x86
+    needs: setup
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -243,7 +288,8 @@ jobs:
         run: earthly-ci --no-output ./noir+examples
 
   noir-packages-test:
-    runs-on: ubuntu-latest-x86
+    needs: setup
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -254,7 +300,8 @@ jobs:
         run: earthly-ci --no-output ./noir+packages-test
 
   noir-projects:
-    runs-on: ubuntu-latest-x86
+    needs: setup
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -267,7 +314,7 @@ jobs:
 
   yarn-project-formatting:
     needs: noir-projects
-    runs-on: ubuntu-latest-x86
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -282,7 +329,7 @@ jobs:
   yarn-project-test:
     # quiet machine
     needs: [noir-projects, build, bb-native-tests]
-    runs-on: ubuntu-latest-x86
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -296,7 +343,7 @@ jobs:
 
   prover-client-test:
     needs: noir-projects
-    runs-on: ubuntu-latest-x86
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -309,7 +356,7 @@ jobs:
 
   build-acir-tests:
     needs: build
-    runs-on: ubuntu-latest-x86
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -322,7 +369,7 @@ jobs:
 
   barretenberg-acir-tests-bb:
     needs: build-acir-tests
-    runs-on: ubuntu-latest-x86
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -336,7 +383,7 @@ jobs:
 
   barretenberg-acir-tests-sol:
     needs: build-acir-tests
-    runs-on: ubuntu-latest-x86
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -350,7 +397,7 @@ jobs:
 
   barretenberg-acir-tests-bb-js:
     needs: build-acir-tests
-    runs-on: ubuntu-latest-x86
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -363,19 +410,20 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb.js
 
   l1-contracts-test:
-    runs-on: ubuntu-latest-x86
+    needs: setup
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: l1-contracts-ubuntu-latest-x86
+          concurrency_key: l1-contracts-${{ github.event.pull_request.user.login || github.actor }}-x86
       - name: "Test l1 contracts"
         run: earthly-ci --no-output ./l1-contracts+test
 
   docs-preview:
     needs: build
-    runs-on: ubuntu-latest-x86
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: github.event.number
     steps:
       - uses: actions/checkout@v4
@@ -389,6 +437,7 @@ jobs:
 
   bb-bench:
     runs-on: ubuntu-latest
+    needs: setup
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -411,7 +460,8 @@ jobs:
             scripts/earthly-ci --no-output ./barretenberg/cpp/+bench-ultra-honk --bench_mode=cache
 
   protocol-circuits-gates-report:
-    runs-on: ubuntu-latest-x86
+    needs: setup
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     permissions:
       pull-requests: write
     steps:
@@ -446,8 +496,10 @@ jobs:
   merge-check:
     runs-on: ubuntu-latest
     needs:
+      - setup
       - e2e
       - bb-native-tests
+      - acir-bench
       - bb-bench
       - yarn-project-formatting
       - yarn-project-test
