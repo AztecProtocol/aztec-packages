@@ -27,6 +27,7 @@ import {
   Header,
   KernelCircuitPublicInputs,
   type KernelData,
+  type KeyValidationHint,
   KeyValidationRequest,
   L2ToL1Message,
   type LeafDataReadHint,
@@ -122,7 +123,6 @@ import {
   type TxRequest,
   ValidationRequests,
   type VerificationKeyAsFields,
-  type KeyValidationHint,
 } from '@aztec/circuits.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
@@ -151,6 +151,7 @@ import type {
   Header as HeaderNoir,
   KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
   KernelData as KernelDataNoir,
+  KeyValidationHint as KeyValidationHintNoir,
   KeyValidationRequest as KeyValidationRequestsNoir,
   L2ToL1Message as L2ToL1MessageNoir,
   LeafDataReadHint as LeafDataReadHintNoir,
@@ -167,8 +168,6 @@ import type {
   NoteHashReadRequestHints as NoteHashReadRequestHintsNoir,
   NoteHashSettledReadHint as NoteHashSettledReadHintNoir,
   NoteLogHash as NoteLogHashNoir,
-  KeyValidationHint as KeyValidationHintNoir,
-  KeyValidationRequest as KeyValidationRequestNoir,
   NullifierLeafPreimage as NullifierLeafPreimageNoir,
   Nullifier as NullifierNoir,
   NullifierNonExistentReadRequestHints as NullifierNonExistentReadRequestHintsNoir,
@@ -1543,7 +1542,13 @@ function mapPrivateKernelResetHintsToNoir<
   NLL_RR_SETTLED extends number,
   KEY_VALIDATION_REQUESTS extends number,
 >(
-  inputs: PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
+  inputs: PrivateKernelResetHints<
+    NH_RR_PENDING,
+    NH_RR_SETTLED,
+    NLL_RR_PENDING,
+    NLL_RR_SETTLED,
+    KEY_VALIDATION_REQUESTS
+  >,
 ): PrivateKernelResetHintsNoir<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
   return {
     transient_nullifier_indexes_for_note_hashes: mapTuple(
@@ -1577,7 +1582,13 @@ export function mapPrivateKernelResetCircuitPrivateInputsToNoir<
     KEY_VALIDATION_REQUESTS,
     TAG
   >,
-): PrivateKernelResetCircuitPrivateInputsNoir<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
+): PrivateKernelResetCircuitPrivateInputsNoir<
+  NH_RR_PENDING,
+  NH_RR_SETTLED,
+  NLL_RR_PENDING,
+  NLL_RR_SETTLED,
+  KEY_VALIDATION_REQUESTS
+> {
   return {
     previous_kernel: mapPrivateKernelDataToNoir(inputs.previousKernel),
     outputs: mapPrivateKernelResetOutputsToNoir(inputs.outputs),
