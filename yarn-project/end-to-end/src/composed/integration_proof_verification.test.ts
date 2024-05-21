@@ -180,25 +180,24 @@ describe('proof_verification', () => {
         client: walletClient,
       });
 
-      await rollupContract.write.setVerifier([verifierContract.address]);
+      await availabilityContract.write.publish([`0x${block.body.toBuffer().toString('hex')}`]);
     });
 
     it('verifies proof', async () => {
-      const proofWithoutPublicInputs = proof.buffer.subarray(Fr.SIZE_IN_BYTES * (HEADER_LENGTH + 2)); // 22 fields for header, 2 fields for header
-      const data = {
-        header: block.header.toBuffer(),
-        archive: block.archive.root.toBuffer(),
-        body: block.body.toBuffer(),
-        proof: proofWithoutPublicInputs,
-      };
+      const aggregationObject = proof.buffer.subarray(
+        Fr.SIZE_IN_BYTES * (HEADER_LENGTH + 2),
+        Fr.SIZE_IN_BYTES * (HEADER_LENGTH + 2 + AGGREGATION_OBJECT_SIZE),
+      );
+      const proofBuffer = proof.buffer.subarray(Fr.SIZE_IN_BYTES * (HEADER_LENGTH + 2 + AGGREGATION_OBJECT_SIZE));
 
-      await availabilityContract.write.publish([`0x${data.body.toString('hex')}`]);
+      await availabilityContract.write.publish([`0x${block.body.toBuffer().toString('hex')}`]);
 
       await expect(
         rollupContract.write.process([
-          `0x${data.header.toString('hex')}`,
-          `0x${data.archive.toString('hex')}`,
-          `0x${data.proof.toString('hex')}`,
+          `0x${block.header.toBuffer().toString('hex')}`,
+          `0x${block.archive.root.toBuffer().toString('hex')}`,
+          `0x${aggregationObject.toString('hex')}`,
+          `0x${proofBuffer.toString('hex')}`,
         ]),
       ).resolves.toBeDefined();
     });

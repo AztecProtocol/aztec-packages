@@ -66,7 +66,7 @@ contract Rollup is IRollup {
    * @param _archive - A root of the archive tree after the L2 block is applied
    * @param _proof - The proof of correct execution
    */
-  function process(bytes calldata _header, bytes32 _archive, bytes calldata _proof)
+  function process(bytes calldata _header, bytes32 _archive, bytes calldata _aggregationObject, bytes calldata _proof)
     external
     override(IRollup)
   {
@@ -81,6 +81,7 @@ contract Rollup is IRollup {
 
     bytes32[] memory publicInputs = new bytes32[](40);
     publicInputs[0] = _archive;
+    // TODO why is this +1?
     publicInputs[1] = bytes32(header.globalVariables.blockNumber + 1);
 
     bytes32[22] memory headerFields = HeaderLib.toFields(header);
@@ -88,18 +89,13 @@ contract Rollup is IRollup {
       publicInputs[i + 2] = headerFields[i];
     }
 
-    bytes calldata proof = _proof;
-    // copy the aggregation object into the public inputs
-    if (_proof.length > 512) {
-      for (uint256 i = 0; i < 16; i++) {
-        publicInputs[i + 24] = bytes32(_proof[i * 32: (i + 1) * 32]);
-      }
-      proof = proof[512:];
+    for (uint256 i = 0; i < 16 && i * 32 < _aggregationObject.length; i++) {
+      publicInputs[i + 24] = bytes32(_aggregationObject[i * 32 : (i + 1) * 32]);
     }
 
     // @todo @benesjan We will need `nextAvailableLeafIndex` of archive to verify the proof. This value is equal to
     // current block number which is stored in the header (header.globalVariables.blockNumber).
-    if (!verifier.verify(proof, publicInputs)) {
+    if (!verifier.verify(_proof, publicInputs)) {
       revert Errors.Rollup__InvalidProof();
     }
 

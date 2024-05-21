@@ -43,7 +43,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { AbortedError } from '@aztec/foundation/error';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { type Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
 import { sleep } from '@aztec/foundation/sleep';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
@@ -61,6 +61,8 @@ import {
 } from './block-building-helpers.js';
 import { type MergeRollupInputData, ProvingState, type TreeSnapshots } from './proving-state.js';
 import { TX_PROVING_CODE, TxProvingState } from './tx-proving-state.js';
+
+const AGGREGATION_OBJECT_LEN = 16; // fields
 
 const logger = createDebugLogger('aztec:prover:proving-orchestrator');
 
@@ -231,7 +233,12 @@ export class ProvingOrchestrator {
    * @returns The fully proven block and proof.
    */
   public async finaliseBlock() {
-    if (!this.provingState || !this.provingState.rootRollupPublicInputs || !this.provingState.finalProof) {
+    if (
+      !this.provingState ||
+      !this.provingState.rootRollupPublicInputs ||
+      !this.provingState.finalProof ||
+      !this.provingState.finalAggregationObject
+    ) {
       throw new Error(`Invalid proving state, a block must be proven before it can be finalised`);
     }
     if (this.provingState.block) {
@@ -272,6 +279,7 @@ export class ProvingOrchestrator {
 
     const blockResult: BlockResult = {
       proof: this.provingState.finalProof,
+      aggregationObject: this.provingState.finalAggregationObject,
       block: l2Block,
     };
 
@@ -536,7 +544,11 @@ export class ProvingOrchestrator {
       signal => this.prover.getRootRollupProof(inputs, signal),
       result => {
         provingState.rootRollupPublicInputs = result.inputs;
-        provingState.finalProof = removePublicInputs(result.proof.binaryProof, result.inputs.toFields());
+        provingState.finalAggregationObject = extractAggregationObject(
+          result.proof.binaryProof,
+          result.verificationKey.numPublicInputs,
+        );
+        provingState.finalProof = removePublicInputs(result.proof.binaryProof, result.verificationKey.numPublicInputs);
 
         const provingResult: ProvingResult = {
           status: PROVING_STATUS.SUCCESS,
@@ -724,9 +736,15 @@ export class ProvingOrchestrator {
   }
 }
 
-function removePublicInputs(proof: Proof, publicInputs: Fr[]): Proof {
-  const _publicInputsInProof = proof.buffer.subarray(0, Fr.SIZE_IN_BYTES * publicInputs.length);
-  // TODO (alexg) assert publicInputs matches the start of the proof
-  const proofWithoutPublicInputs = proof.buffer.subarray(Fr.SIZE_IN_BYTES * publicInputs.length);
-  return new Proof(proofWithoutPublicInputs);
+function removePublicInputs(proof: Proof, numPublicInputs: number): Proof {
+  const buffer = proof.buffer.subarray(Fr.SIZE_IN_BYTES * numPublicInputs);
+  return new Proof(buffer);
+}
+
+function extractAggregationObject(proof: Proof, numPublicInputs: number): Fr[] {
+  const buffer = proof.buffer.subarray(
+    Fr.SIZE_IN_BYTES * (numPublicInputs - AGGREGATION_OBJECT_LEN),
+    Fr.SIZE_IN_BYTES * numPublicInputs,
+  );
+  return BufferReader.asReader(buffer).readArray(AGGREGATION_OBJECT_LEN, Fr);
 }
