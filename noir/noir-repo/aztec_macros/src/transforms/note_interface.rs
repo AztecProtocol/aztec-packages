@@ -216,45 +216,6 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
             )?;
             trait_impl.items.push(TraitImplItem::Function(get_header_fn));
         }
-
-        // // Check whether the note implements ToBEBytes or not
-        // let has_to_be_bytes = module
-        //     .trait_impls
-        //     .iter()
-        //     .find(|trait_impl| {
-        //         if let UnresolvedTypeData::Named(struct_path, _, _) = &trait_impl.object_type.typ {
-        //             struct_path.last_segment() == note_struct.name
-        //                 && trait_impl.trait_name.last_segment().0.contents == "ToBEBytes"
-        //         } else {
-        //             false
-        //         }
-        //     })
-        //     .is_some();
-
-        // // We need to generate the to_be_bytes method if it doesn't already, since it's the only
-        // // way to generate a proper byte array with correct length until we have arithmetic over generics
-        // if !has_to_be_bytes {
-        //     // NOTE_FIELDS * 32 (bytes per field) + 64 (32*2 for the note type id and storage slot)
-        //     let byte_length = note_fields.len() * 32 + 64;
-        //     let byte_length_str = byte_length.to_string();
-        //     let to_be_bytes_src = generate_note_to_be_bytes(
-        //         &note_type,
-        //         byte_length_str.as_str(),
-        //         note_interface_impl_span,
-        //     )?;
-        //     let to_be_bytes_trait_impl = NoirTraitImpl {
-        //         impl_generics: vec![ident(byte_length_str.as_str())],
-        //         trait_name: chained_dep!("aztec", "protocol_types", "traits", "ToBEBytes"),
-        //         trait_generics: vec![make_type(UnresolvedTypeData::Expression(
-        //             UnresolvedTypeExpression::Constant(byte_length as u64, Span::default()),
-        //         ))],
-        //         object_type: note_impl.object_type.clone(),
-        //         where_clause: vec![],
-        //         items: vec![TraitImplItem::Function(to_be_bytes_src)],
-        //     };
-
-        //     module.trait_impls.push(to_be_bytes_trait_impl);
-        //}
     }
 
     module.types.extend(structs_to_inject);
