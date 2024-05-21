@@ -330,6 +330,7 @@ mod tests {
         let not_not_num = not_num.not();
         assert_eq(num, not_not_num);
     }
+
     #[test]
     fn test_construction() {
         // Check little-endian u64 is inversed with big-endian u64 construction
@@ -341,6 +342,7 @@ mod tests {
         let d = U128::from_u64s_le(0x0706050403020100, 0x0f0e0d0c0b0a0908);
         assert_eq(c, d);
     }
+
     #[test]
     fn test_byte_decomposition() {
         let a = U128::from_u64s_le(0x0706050403020100, 0x0f0e0d0c0b0a0908);
@@ -357,6 +359,7 @@ mod tests {
         // Check that it's the same element
         assert_eq(a, b);
     }
+
     #[test]
     fn test_hex_constuction() {
         let a = U128::from_u64s_le(0x1, 0x2);
@@ -397,6 +400,7 @@ mod tests {
     fn test_ascii_decode_range_less_than_48_fails_0() {
         crate::println(U128::decode_ascii(0));
     }
+
     #[test(should_fail)]
     fn test_ascii_decode_range_less_than_48_fails_1() {
         crate::println(U128::decode_ascii(47));
@@ -406,18 +410,22 @@ mod tests {
     fn test_ascii_decode_range_58_64_fails_0() {
         let _ = U128::decode_ascii(58);
     }
+
     #[test(should_fail)]
     fn test_ascii_decode_range_58_64_fails_1() {
         let _ = U128::decode_ascii(64);
     }
+
     #[test(should_fail)]
     fn test_ascii_decode_range_71_96_fails_0() {
         let _ = U128::decode_ascii(71);
     }
+
     #[test(should_fail)]
     fn test_ascii_decode_range_71_96_fails_1() {
         let _ = U128::decode_ascii(96);
     }
+
     #[test(should_fail)]
     fn test_ascii_decode_range_greater_than_102_fails() {
         let _ = U128::decode_ascii(103);
