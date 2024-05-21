@@ -14,7 +14,7 @@ import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import { type EndToEndContext, setup } from '../fixtures/utils.js';
 
-jest.setTimeout(3_600_000);
+jest.setTimeout(1_800_000);
 
 const txTimeoutSec = 3600;
 
@@ -125,7 +125,7 @@ describe('benchmarks/proving', () => {
       // stop the fake provers
       proverAgents: 0,
       realProofs: true,
-      minTxsPerBlock: 1,
+      minTxsPerBlock: 2,
     });
 
     ctx.logger.info('Starting real provers');
@@ -176,10 +176,10 @@ describe('benchmarks/proving', () => {
     ctx.logger.info('+----------------------+');
 
     const fnCalls = [
-      (await getTestContractOnPXE(0)).methods.emit_nullifier(42),
       //(await getTestContractOnPXE(1)).methods.emit_unencrypted(43),
       //(await getTestContractOnPXE(2)).methods.create_l2_to_l1_message_public(45, 46, EthAddress.random()),
-      (await getTokenContract(3)).methods.transfer(schnorrWalletAddress.address, recipient.address, 1000, 0),
+      (await getTokenContract(0)).methods.transfer_public(schnorrWalletAddress.address, recipient.address, 1000, 0),
+      (await getTokenContract(1)).methods.transfer(schnorrWalletAddress.address, recipient.address, 1000, 0),
     ];
 
     // const feeFnCall1 = {
