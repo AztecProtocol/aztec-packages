@@ -2,7 +2,6 @@ import {
   type AccountWalletWithSecretKey,
   type AztecAddress,
   type FeePaymentMethod,
-  NativeFeePaymentMethod,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   TxStatus,
