@@ -462,7 +462,6 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
  */
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-(const cycle_group& other) const
 {
-
     Builder* context = get_context(other);
     const bool_t x_coordinates_match = (x == other.x);
     const bool_t y_coordinates_match = (y == other.y);
@@ -589,7 +588,6 @@ typename cycle_group<Builder>::cycle_scalar cycle_group<Builder>::cycle_scalar::
  */
 template <typename Builder>
 typename cycle_group<Builder>::cycle_scalar cycle_group<Builder>::cycle_scalar::from_witness_bitstring(
-
     Builder* context, const uint256_t& bitstring, const size_t num_bits)
 {
     ASSERT(bitstring.get_msb() < num_bits);
