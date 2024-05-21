@@ -228,8 +228,7 @@ template <typename Builder> class cycle_group {
         requires IsNotUltraArithmetic<Builder>;
 };
 
-template <typename BuilderContext>
-inline std::ostream& operator<<(std::ostream& os, cycle_group<BuilderContext> const& v)
+template <typename Builder> inline std::ostream& operator<<(std::ostream& os, cycle_group<Builder> const& v)
 {
     return os << v.get_value();
 }
