@@ -1,5 +1,5 @@
 import { FunctionCall, PackedValues } from '@aztec/circuit-types';
-import { Fr, type GasSettings, GeneratorIndex } from '@aztec/circuits.js';
+import { type AztecAddress, Fr, type GasSettings, GeneratorIndex } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
@@ -138,12 +138,14 @@ export abstract class EntrypointPayload {
 
   /**
    * Creates an execution payload to pay the fee for a transaction
+   * @param sender - The address sending this payload
    * @param feeOpts - The fee payment options
    * @returns The execution payload
    */
-  static async fromFeeOptions(feeOpts?: FeeOptions) {
-    const calls = feeOpts ? await feeOpts.paymentMethod.getFunctionCalls(feeOpts?.gasSettings) : [];
-    const isFeePayer = feeOpts ? await feeOpts.paymentMethod.isFeePayer(feeOpts?.gasSettings) : false;
+  static async fromFeeOptions(sender: AztecAddress, feeOpts?: FeeOptions) {
+    const calls = (await feeOpts?.paymentMethod.getFunctionCalls(feeOpts?.gasSettings)) ?? [];
+    const feePayer = await feeOpts?.paymentMethod.getFeePayer(feeOpts?.gasSettings);
+    const isFeePayer = !!feePayer && feePayer.equals(sender);
     const paddedCalls = padArrayEnd(calls, FunctionCall.empty(), FEE_MAX_CALLS);
     return new FeeEntrypointPayload(paddedCalls, GeneratorIndex.FEE_PAYLOAD, isFeePayer);
   }

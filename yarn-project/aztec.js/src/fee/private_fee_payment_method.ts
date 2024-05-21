@@ -43,16 +43,8 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     return this.asset;
   }
 
-  /**
-   * The address which will facilitate the fee payment.
-   * @returns The contract address responsible for holding the fee payment.
-   */
-  getPaymentContract() {
-    return this.paymentContract;
-  }
-
-  isFeePayer(): Promise<boolean> {
-    return Promise.resolve(false);
+  getFeePayer(): Promise<AztecAddress> {
+    return Promise.resolve(this.paymentContract);
   }
 
   /**

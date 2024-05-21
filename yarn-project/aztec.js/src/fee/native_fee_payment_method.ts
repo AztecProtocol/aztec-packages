@@ -10,7 +10,7 @@ import { type FeePaymentMethod } from './fee_payment_method.js';
 export class NativeFeePaymentMethod implements FeePaymentMethod {
   #gasTokenAddress: AztecAddress;
 
-  constructor() {
+  constructor(private sender: AztecAddress) {
     this.#gasTokenAddress = GasTokenAddress;
   }
 
@@ -30,7 +30,7 @@ export class NativeFeePaymentMethod implements FeePaymentMethod {
     return Promise.resolve([]);
   }
 
-  isFeePayer(): Promise<boolean> {
-    return Promise.resolve(true);
+  getFeePayer(): Promise<AztecAddress> {
+    return Promise.resolve(this.sender);
   }
 }

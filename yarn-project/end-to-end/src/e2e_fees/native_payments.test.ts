@@ -25,7 +25,7 @@ describe('e2e_fees native_payments', () => {
   });
 
   it('sends tx with native fee payment method', async () => {
-    const paymentMethod = new NativeFeePaymentMethod();
+    const paymentMethod = new NativeFeePaymentMethod(aliceAddress);
     const initialBalance = await gasTokenContract.methods.balance_of_public(aliceAddress).simulate();
     await bananaCoin.methods
       .transfer_public(aliceAddress, bobAddress, 1n, 0n)

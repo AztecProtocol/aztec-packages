@@ -15,8 +15,8 @@ export interface FeePaymentMethod {
    */
   getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]>;
   /**
-   * Whether the sender should be appointed as fee payer.
+   * The expected fee payer for this tx.
    * @param gasSettings - The gas limits and max fees.
    */
-  isFeePayer(gasSettings: GasSettings): Promise<boolean>;
+  getFeePayer(gasSettings: GasSettings): Promise<AztecAddress>;
 }

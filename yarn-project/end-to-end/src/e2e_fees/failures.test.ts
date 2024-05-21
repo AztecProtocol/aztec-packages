@@ -255,7 +255,7 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
       this.wallet.setPublicAuthWit(messageHash, true).request(),
       {
         name: 'fee_entrypoint_public',
-        to: this.getPaymentContract(),
+        to: this.paymentContract,
         selector: FunctionSelector.fromSignature('fee_entrypoint_public(Field,(Field),Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,

@@ -61,7 +61,7 @@ describe('benchmarks/tx_size_fees', () => {
     ['no', () => undefined, 200021120n],
     [
       'native fee',
-      () => new NativeFeePaymentMethod(),
+      () => new NativeFeePaymentMethod(aliceWallet.getAddress()),
       // DA:
       // non-rev: 1 nullifiers, overhead; rev: 2 note hashes, 1 nullifier, 1168 B enc note logs, 0 B enc logs, 0 B unenc logs, teardown
       // L2:
