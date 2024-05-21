@@ -1,5 +1,5 @@
 import {
-  type Fr,
+  Fr,
   KeyValidationHint,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
@@ -73,7 +73,7 @@ async function getMasterSecretKeysAndAppKeyGenerators(
       break;
     }
     const [secretKeys, appKeyGenerator] = await oracle.getMasterSecretKeyAndAppKeyGenerator(request.masterPublicKey);
-    keysHints[keyIndex] = new KeyValidationHint(secretKeys, appKeyGenerator, i);
+    keysHints[keyIndex] = new KeyValidationHint(secretKeys, new Fr(appKeyGenerator), i);
     keyIndex++;
   }
   return {
