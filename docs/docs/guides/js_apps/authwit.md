@@ -92,7 +92,7 @@ If you created an artbitrary message, you can create the authwit by replacing th
 
 #include_code compute_outer_authwit_hash yarn-project/end-to-end/src/e2e_authwit.test.ts typescript
 
-Then add it to the wallet of the authwit receiver (the caller of the transaction):
+Then add it to the wallet of the authwit receiver (the caller of the function):
 
 #include_code add_authwit yarn-project/end-to-end/src/e2e_blacklist_token_contract/transfer_private.test.ts typescript
 
