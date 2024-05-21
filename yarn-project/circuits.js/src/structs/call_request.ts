@@ -2,13 +2,12 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { type Ordered } from '../interfaces/index.js';
 import { CallerContext } from './caller_context.js';
 
 /**
  * Call request.
  */
-export class CallRequest implements Ordered {
+export class CallRequest {
   constructor(
     /**
      * The hash of the call stack item.
@@ -40,10 +39,6 @@ export class CallRequest implements Ordered {
       this.startSideEffectCounter,
       this.endSideEffectCounter,
     );
-  }
-
-  get counter() {
-    return this.startSideEffectCounter.toNumber();
   }
 
   /**
