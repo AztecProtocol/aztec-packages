@@ -98,8 +98,6 @@ enum class OpCode : uint8_t {
     // Gadgets
     KECCAK,
     POSEIDON2,
-    SHA256,
-    PEDERSEN,
 
     // Conversions
     TORADIXLE,
