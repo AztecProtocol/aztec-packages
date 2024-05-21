@@ -53,35 +53,40 @@ export function buildTransientDataHints<
   const numNoteHashes = countAccumulatedItems(noteHashes);
   for (let i = 0; i < numNoteHashes; i++) {
     const noteHash = noteHashes[i];
-    if (noteHash.nullifierCounter > 0) {
-      const nullifierIndex = nullifierIndexMap.get(noteHash.nullifierCounter);
-      if (nullifierIndex === undefined) {
-        throw new Error('Unknown nullifier counter.');
-      }
-
-      const nullifier = nullifiers[nullifierIndex];
-      if (!nullifier.nullifiedNoteHash.equals(noteHash.value)) {
-        throw new Error('Hinted note hash does not match.');
-      }
-      if (!nullifier.contractAddress.equals(noteHash.contractAddress)) {
-        throw new Error('Contract address of hinted note hash does not match.');
-      }
-
-      if (
-        !futureNullifierReadsSet.has(scopedValueId(nullifier)) &&
-        !futureNoteHashReadsSet.has(scopedValueId(noteHash))
-      ) {
-        const logIndices = logNoteHashMap.get(noteHash.counter);
-        if (logIndices) {
-          logIndices.forEach(logIndex => {
-            noteHashIndexesForLogs[logIndex] = i;
-          });
-        }
-
-        nullifierIndexesForNoteHashes[i] = nullifierIndex;
-        noteHashIndexesForNullifiers[nullifierIndex] = i;
-      }
+    // The note hash might not be linked to a nullifier or it might be read in the future
+    if (noteHash.nullifierCounter == 0 || futureNoteHashReadsSet.has(scopedValueId(noteHash))) {
+      continue;
     }
+    const nullifierIndex = nullifierIndexMap.get(noteHash.nullifierCounter);
+
+    // We might not have the corresponding nullifier yet
+    if (nullifierIndex === undefined) {
+      continue;
+    }
+
+    const nullifier = nullifiers[nullifierIndex];
+
+    if (!nullifier.nullifiedNoteHash.equals(noteHash.value)) {
+      throw new Error('Hinted note hash does not match.');
+    }
+    if (!nullifier.contractAddress.equals(noteHash.contractAddress)) {
+      throw new Error('Contract address of hinted note hash does not match.');
+    }
+
+    // The nullifier might be read in the future
+    if (futureNullifierReadsSet.has(scopedValueId(nullifier))) {
+      continue;
+    }
+
+    const logIndices = logNoteHashMap.get(noteHash.counter);
+    if (logIndices) {
+      logIndices.forEach(logIndex => {
+        noteHashIndexesForLogs[logIndex] = i;
+      });
+    }
+
+    nullifierIndexesForNoteHashes[i] = nullifierIndex;
+    noteHashIndexesForNullifiers[nullifierIndex] = i;
   }
 
   return [nullifierIndexesForNoteHashes, noteHashIndexesForNullifiers, noteHashIndexesForLogs];
