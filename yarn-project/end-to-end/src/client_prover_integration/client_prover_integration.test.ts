@@ -1,11 +1,11 @@
 import { type Tx } from '@aztec/aztec.js';
+import { type BBNativeProofCreator } from '@aztec/bb-prover';
 import { type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
-import { type BBNativeProofCreator } from '@aztec/pxe';
 
 import { ClientProverTest } from './client_prover_test.js';
 
 async function verifyProof(circuitType: ClientProtocolArtifact, tx: Tx, proofCreator: BBNativeProofCreator) {
-  await expect(proofCreator.verifyProof(circuitType, tx.proof)).resolves.not.toThrow();
+  await expect(proofCreator.verifyProofForProtocolCircuit(circuitType, tx.proof)).resolves.not.toThrow();
 }
 
 describe('client_prover_integration', () => {

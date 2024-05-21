@@ -2,13 +2,13 @@ import {
   AztecAddress,
   CallRequest,
   GasSettings,
+  LogHash,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   Nullifier,
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
   Proof,
   PublicCallRequest,
-  SideEffect,
   computeContractClassId,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
@@ -27,7 +27,7 @@ import { type ContractInstanceWithAddress, SerializableContractInstance } from '
 import { EncryptedL2Log } from './logs/encrypted_l2_log.js';
 import { EncryptedFunctionL2Logs, EncryptedTxL2Logs, Note, UnencryptedTxL2Logs } from './logs/index.js';
 import { ExtendedNote } from './notes/index.js';
-import { type ProcessOutput, type ProcessReturnValues, SimulatedTx, Tx, TxHash } from './tx/index.js';
+import { NestedProcessReturnValues, PublicSimulationOutput, SimulatedTx, Tx, TxHash } from './tx/index.js';
 
 /**
  * Testing utility to create empty logs composed from a single empty log.
@@ -47,12 +47,14 @@ export const mockTx = (
     numberOfRevertiblePublicCallRequests = MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX / 2,
     publicCallRequests = [],
     publicTeardownCallRequest = PublicCallRequest.empty(),
+    feePayer = AztecAddress.ZERO,
   }: {
     hasLogs?: boolean;
     numberOfNonRevertiblePublicCallRequests?: number;
     numberOfRevertiblePublicCallRequests?: number;
     publicCallRequests?: PublicCallRequest[];
     publicTeardownCallRequest?: PublicCallRequest;
+    feePayer?: AztecAddress;
   } = {},
 ) => {
   const totalPublicCallRequests =
@@ -66,9 +68,11 @@ export const mockTx = (
   const isForPublic = totalPublicCallRequests > 0;
   const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), 0, Fr.ZERO);
+  const noteEncryptedLogs = EncryptedTxL2Logs.empty(); // Mock seems to have no new notes => no note logs
   const encryptedLogs = hasLogs ? EncryptedTxL2Logs.random(2, 3) : EncryptedTxL2Logs.empty(); // 2 priv function invocations creating 3 encrypted logs each
   const unencryptedLogs = hasLogs ? UnencryptedTxL2Logs.random(2, 1) : UnencryptedTxL2Logs.empty(); // 2 priv function invocations creating 1 unencrypted log each
   data.constants.txContext.gasSettings = GasSettings.default();
+  data.feePayer = feePayer;
 
   if (isForPublic) {
     data.forRollup = undefined;
@@ -89,24 +93,36 @@ export const mockTx = (
         : CallRequest.empty(),
     );
 
-    data.forPublic.publicTeardownCallRequest = publicTeardownCallRequest.toCallRequest();
+    data.forPublic.publicTeardownCallStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, () => CallRequest.empty());
+    data.forPublic.publicTeardownCallStack[0] = publicTeardownCallRequest.isEmpty()
+      ? CallRequest.empty()
+      : publicTeardownCallRequest.toCallRequest();
 
     if (hasLogs) {
       let i = 1; // 0 used in first nullifier
       encryptedLogs.functionLogs.forEach((log, j) => {
         // ts complains if we dont check .forPublic here, even though it is defined ^
         if (data.forPublic) {
-          data.forPublic.end.encryptedLogsHashes[j] = new SideEffect(Fr.fromBuffer(log.hash()), new Fr(i++));
+          data.forPublic.end.encryptedLogsHashes[j] = new LogHash(
+            Fr.fromBuffer(log.hash()),
+            i++,
+            new Fr(log.toBuffer().length),
+          );
         }
       });
       unencryptedLogs.functionLogs.forEach((log, j) => {
         if (data.forPublic) {
-          data.forPublic.end.unencryptedLogsHashes[j] = new SideEffect(Fr.fromBuffer(log.hash()), new Fr(i++));
+          data.forPublic.end.unencryptedLogsHashes[j] = new LogHash(
+            Fr.fromBuffer(log.hash()),
+            i++,
+            new Fr(log.toBuffer().length),
+          );
         }
       });
     }
   } else {
     data.forRollup!.end.newNullifiers[0] = firstNullifier.value;
+    data.forRollup!.end.noteEncryptedLogsHash = Fr.fromBuffer(noteEncryptedLogs.hash(0));
     data.forRollup!.end.encryptedLogsHash = Fr.fromBuffer(encryptedLogs.hash());
     data.forRollup!.end.unencryptedLogsHash = Fr.fromBuffer(unencryptedLogs.hash());
   }
@@ -114,6 +130,7 @@ export const mockTx = (
   const tx = new Tx(
     data,
     new Proof(Buffer.alloc(0)),
+    noteEncryptedLogs,
     encryptedLogs,
     unencryptedLogs,
     publicCallRequests,
@@ -128,15 +145,16 @@ export const mockTxForRollup = (seed = 1, { hasLogs = false }: { hasLogs?: boole
 
 export const mockSimulatedTx = (seed = 1, hasLogs = true) => {
   const tx = mockTx(seed, { hasLogs });
-  const dec: ProcessReturnValues = [new Fr(1n), new Fr(2n), new Fr(3n), new Fr(4n)];
-  const output: ProcessOutput = {
-    constants: makeCombinedConstantData(),
-    encryptedLogs: tx.encryptedLogs,
-    unencryptedLogs: tx.unencryptedLogs,
-    end: makeCombinedAccumulatedData(),
-    revertReason: undefined,
-    publicReturnValues: dec,
-  };
+  const dec = new NestedProcessReturnValues([new Fr(1n), new Fr(2n), new Fr(3n), new Fr(4n)]);
+  const output = new PublicSimulationOutput(
+    tx.encryptedLogs,
+    tx.unencryptedLogs,
+    undefined,
+    makeCombinedConstantData(),
+    makeCombinedAccumulatedData(),
+    dec,
+    {},
+  );
   return new SimulatedTx(tx, dec, output);
 };
 

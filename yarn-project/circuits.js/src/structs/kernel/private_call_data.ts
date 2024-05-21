@@ -4,14 +4,14 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import {
   FUNCTION_TREE_HEIGHT,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+  RECURSIVE_PROOF_LENGTH,
 } from '../../constants.gen.js';
 import { CallRequest } from '../call_request.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { PrivateCallStackItem } from '../private_call_stack_item.js';
-import { Proof } from '../proof.js';
-import { VerificationKey } from '../verification_key.js';
+import { RecursiveProof } from '../recursive_proof.js';
+import { VerificationKeyAsFields } from '../verification_key.js';
 
 /**
  * Private call data.
@@ -23,21 +23,21 @@ export class PrivateCallData {
      */
     public callStackItem: PrivateCallStackItem,
     /**
-     * Other private call stack items to be processed.
-     */
-    public privateCallStack: Tuple<CallRequest, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
-    /**
      * Other public call stack items to be processed.
      */
     public publicCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     /**
+     * The public call request for the teardown function.
+     */
+    public publicTeardownCallRequest: CallRequest,
+    /**
      * The proof of the execution of this private call.
      */
-    public proof: Proof,
+    public proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>,
     /**
      * The verification key for the function being invoked.
      */
-    public vk: VerificationKey,
+    public vk: VerificationKeyAsFields,
     /**
      * Artifact hash of the contract class for this private call.
      */
@@ -72,8 +72,8 @@ export class PrivateCallData {
   static getFields(fields: FieldsOf<PrivateCallData>) {
     return [
       fields.callStackItem,
-      fields.privateCallStack,
       fields.publicCallStack,
+      fields.publicTeardownCallRequest,
       fields.proof,
       fields.vk,
       fields.contractClassArtifactHash,
@@ -106,10 +106,10 @@ export class PrivateCallData {
     const reader = BufferReader.asReader(buffer);
     return new PrivateCallData(
       reader.readObject(PrivateCallStackItem),
-      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, CallRequest),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, CallRequest),
-      reader.readObject(Proof),
-      reader.readObject(VerificationKey),
+      reader.readObject(CallRequest),
+      RecursiveProof.fromBuffer(reader, RECURSIVE_PROOF_LENGTH),
+      reader.readObject(VerificationKeyAsFields),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Fr),

@@ -14,13 +14,13 @@ import {
   type Fr,
   type FunctionSelector,
   type Header,
+  type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
-  type Point,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type DBOracle, MessageLoadOracleInputs, type NullifierKeys } from '@aztec/simulator';
+import { type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
 import { type ContractInstance } from '@aztec/types/contracts';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -38,18 +38,16 @@ export class SimulatorOracle implements DBOracle {
     private log = createDebugLogger('aztec:pxe:simulator_oracle'),
   ) {}
 
-  async getNullifierKeys(accountAddress: AztecAddress, contractAddress: AztecAddress): Promise<NullifierKeys> {
-    const masterNullifierPublicKey = await this.keyStore.getMasterNullifierPublicKey(accountAddress);
-    const appNullifierSecretKey = await this.keyStore.getAppNullifierSecretKey(accountAddress, contractAddress);
-    return { masterNullifierPublicKey, appNullifierSecretKey };
+  getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
+    return this.keyStore.getKeyValidationRequest(pkMHash, contractAddress);
   }
 
-  // TODO: #5834
-  async getCompleteAddress(address: AztecAddress): Promise<CompleteAddress> {
-    const completeAddress = await this.db.getCompleteAddress(address);
+  async getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
+    const completeAddress = await this.db.getCompleteAddress(account);
     if (!completeAddress) {
       throw new Error(
-        `No public key registered for address ${address.toString()}. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/developers/debugging/aztecnr-errors#simulation-error-No-public-key-registered-for-address-0x0-Register-it-by-calling-pxeregisterRecipient-or-pxeregisterAccount`,
+        `No public key registered for address ${account}.
+        Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/developers/debugging/aztecnr-errors#simulation-error-No-public-key-registered-for-address-0x0-Register-it-by-calling-pxeregisterRecipient-or-pxeregisterAccount`,
       );
     }
     return completeAddress;
@@ -77,16 +75,6 @@ export class SimulatorOracle implements DBOracle {
       throw new Error(`No capsules available`);
     }
     return capsule;
-  }
-
-  // TODO: #5834
-  async getPublicKeysForAddress(address: AztecAddress): Promise<Point[]> {
-    const nullifierPublicKey = await this.keyStore.getMasterNullifierPublicKey(address);
-    const incomingViewingPublicKey = await this.keyStore.getMasterIncomingViewingPublicKey(address);
-    const outgoingViewingPublicKey = await this.keyStore.getMasterOutgoingViewingPublicKey(address);
-    const taggingPublicKey = await this.keyStore.getMasterTaggingPublicKey(address);
-
-    return [nullifierPublicKey, incomingViewingPublicKey, outgoingViewingPublicKey, taggingPublicKey];
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus) {

@@ -111,6 +111,7 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .recursive = false,
+        .num_acir_opcodes = 7,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
@@ -130,6 +131,7 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
         .recursion_constraints = {},
+        .honk_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},

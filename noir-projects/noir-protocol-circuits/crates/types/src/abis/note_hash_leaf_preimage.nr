@@ -1,8 +1,8 @@
 global NOTE_HASH_LEAF_PREIMAGE_LENGTH: u64 = 1;
 
 use crate::{
-    abis::{read_request::ReadRequestContext, side_effect::Readable}, hash::silo_note_hash,
-    merkle_tree::leaf_preimage::LeafPreimage, traits::{Empty, Hash}
+    abis::{read_request::ScopedReadRequest, side_effect::Readable}, hash::silo_note_hash,
+    merkle_tree::leaf_preimage::LeafPreimage, traits::{Empty, Hash, Eq}
 };
 
 struct NoteHashLeafPreimage {
@@ -28,11 +28,9 @@ impl LeafPreimage for NoteHashLeafPreimage {
 }
 
 impl Readable for NoteHashLeafPreimage {
-    fn assert_match_read_request(self, read_request: ReadRequestContext) {
-        // TODO(#2847): Read request value shouldn't have been siloed by apps.
-        // let siloed_value = silo_note_hash(read_request.contract_address, read_request.value);
-        // assert_eq(self.value, siloed_value, "Value of the note hash leaf does not match read request");
-        assert_eq(self.value, read_request.value, "Value of the note hash leaf does not match read request");
+    fn assert_match_read_request(self, read_request: ScopedReadRequest) {
+        let siloed_value = silo_note_hash(read_request.contract_address, read_request.value());
+        assert_eq(self.value, siloed_value, "Value of the note hash leaf does not match read request");
     }
 }
 
@@ -48,4 +46,18 @@ impl NoteHashLeafPreimage {
     pub fn deserialize(fields: [Field; NOTE_HASH_LEAF_PREIMAGE_LENGTH]) -> Self {
         Self { value: fields[0] }
     }
+}
+
+impl Eq for NoteHashLeafPreimage{
+  fn eq(self, other: Self) -> bool {
+    self.value == other.value
+  }
+}
+
+#[test]
+fn serialization_of_empty() {
+    let item = NoteHashLeafPreimage::empty();
+    let serialized = item.serialize();
+    let deserialized = NoteHashLeafPreimage::deserialize(serialized);
+    assert(item.eq(deserialized));
 }

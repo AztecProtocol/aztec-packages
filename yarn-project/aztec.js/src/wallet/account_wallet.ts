@@ -16,10 +16,6 @@ export class AccountWallet extends BaseWallet {
     super(pxe);
   }
 
-  getPublicKeysHash(): Fr {
-    return this.account.getPublicKeysHash();
-  }
-
   createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
     return this.account.createTxExecutionRequest(exec);
   }
@@ -210,6 +206,7 @@ export class AccountWallet extends BaseWallet {
       isInitializer: false,
       functionType: FunctionType.OPEN,
       isInternal: true,
+      isStatic: false,
       parameters: [
         {
           name: 'message_hash',
@@ -227,6 +224,7 @@ export class AccountWallet extends BaseWallet {
       isInitializer: false,
       functionType: FunctionType.SECRET,
       isInternal: true,
+      isStatic: false,
       parameters: [
         {
           name: 'message_hash',
@@ -244,6 +242,7 @@ export class AccountWallet extends BaseWallet {
       isInitializer: false,
       functionType: FunctionType.UNCONSTRAINED,
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'myself',

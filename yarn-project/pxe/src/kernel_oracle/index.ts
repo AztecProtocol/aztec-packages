@@ -3,12 +3,15 @@ import {
   type AztecAddress,
   type Fr,
   type FunctionSelector,
+  type GrumpkinPrivateKey,
+  type KeyGenerator,
   MembershipWitness,
   type NOTE_HASH_TREE_HEIGHT,
   type Point,
   computeContractClassIdPreimage,
   computeSaltedInitializationHash,
 } from '@aztec/circuits.js';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -20,7 +23,12 @@ import { type ProvingDataOracle } from './../kernel_prover/proving_data_oracle.j
  * A data oracle that provides information needed for simulating a transaction.
  */
 export class KernelOracle implements ProvingDataOracle {
-  constructor(private contractDataOracle: ContractDataOracle, private keyStore: KeyStore, private node: AztecNode) {}
+  constructor(
+    private contractDataOracle: ContractDataOracle,
+    private keyStore: KeyStore,
+    private node: AztecNode,
+    private log = createDebugLogger('aztec:pxe:kernel_oracle'),
+  ) {}
 
   public async getContractAddressPreimage(address: AztecAddress) {
     const instance = await this.contractDataOracle.getContractInstance(address);
@@ -61,7 +69,23 @@ export class KernelOracle implements ProvingDataOracle {
     return header.state.partial.noteHashTree.root;
   }
 
-  public getMasterNullifierSecretKey(nullifierPublicKey: Point) {
-    return this.keyStore.getMasterNullifierSecretKeyForPublicKey(nullifierPublicKey);
+  public getMasterSecretKeyAndAppKeyGenerator(masterPublicKey: Point): Promise<[GrumpkinPrivateKey, KeyGenerator]> {
+    return this.keyStore.getMasterSecretKeyAndAppKeyGenerator(masterPublicKey);
+  }
+
+  public async getFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    try {
+      const contractInstance = await this.contractDataOracle.getContractInstance(contractAddress);
+
+      const [contractArtifact, functionArtifact] = await Promise.all([
+        this.contractDataOracle.getContractArtifact(contractInstance.contractClassId),
+        this.contractDataOracle.getFunctionArtifact(contractAddress, selector),
+      ]);
+
+      return `${contractArtifact.name}:${functionArtifact.name}`;
+    } catch (e) {
+      this.log.error(`Failed to get function name for contract ${contractAddress} and selector ${selector}: ${e}`);
+      return 'Unknown';
+    }
   }
 }

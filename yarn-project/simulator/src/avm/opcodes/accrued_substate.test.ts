@@ -7,7 +7,7 @@ import { mock } from 'jest-mock-extended';
 import { type CommitmentsDB } from '../../index.js';
 import { type AvmContext } from '../avm_context.js';
 import { Field, Uint8 } from '../avm_memory_types.js';
-import { InstructionExecutionError } from '../errors.js';
+import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
 import { initContext, initExecutionEnvironment, initHostStorage } from '../fixtures/index.js';
 import { AvmPersistableStateManager } from '../journal/journal.js';
 import {
@@ -19,7 +19,6 @@ import {
   NullifierExists,
   SendL2ToL1Message,
 } from './accrued_substate.js';
-import { StaticCallStorageAlterError } from './storage.js';
 
 describe('Accrued Substate', () => {
   let context: AvmContext;
@@ -465,7 +464,9 @@ describe('Accrued Substate', () => {
       ).execute(context);
 
       const journalState = context.persistableState.flush();
-      expect(journalState.newL1Messages).toEqual([{ recipient: EthAddress.fromField(recipient), content }]);
+      expect(journalState.newL1Messages).toEqual([
+        expect.objectContaining({ recipient: EthAddress.fromField(recipient), content }),
+      ]);
     });
   });
 
@@ -480,7 +481,7 @@ describe('Accrued Substate', () => {
     ];
 
     for (const instruction of instructions) {
-      await expect(instruction.execute(context)).rejects.toThrow(StaticCallStorageAlterError);
+      await expect(instruction.execute(context)).rejects.toThrow(StaticCallAlterationError);
     }
   });
 });

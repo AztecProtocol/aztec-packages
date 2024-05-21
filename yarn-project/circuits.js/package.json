@@ -30,12 +30,13 @@
   },
   "scripts": {
     "build": "yarn clean && yarn generate && tsc -b",
-    "generate": "./scripts/copy-contracts.sh",
+    "generate": "./scripts/copy-contracts.sh && yarn generate:reset-variants",
+    "generate:reset-variants": "node --no-warnings --loader ts-node/esm src/scripts/generate_reset_variants.ts && prettier -w src/structs/kernel/private_kernel_reset_circuit_private_inputs_variants.ts",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "remake-constants": "node --loader ts-node/esm src/scripts/constants.in.ts && prettier -w src/constants.gen.ts && cd ../../l1-contracts && ../foundry/bin/forge fmt",
+    "remake-constants": "node --loader ts-node/esm src/scripts/constants.in.ts && prettier -w src/constants.gen.ts && cd ../../l1-contracts && forge fmt",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests"
   },
   "dependencies": {

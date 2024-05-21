@@ -183,9 +183,11 @@ export function getMarkdown(prNumber: number) {
   const benchmark = JSON.parse(fs.readFileSync(inputFile, 'utf-8'));
   const baseBenchmark = getBaseBenchmark();
 
+  const metricsByThreads = Metrics.filter(m => m.groupBy === 'threads').map(m => m.name);
   const metricsByBlockSize = Metrics.filter(m => m.groupBy === 'block-size').map(m => m.name);
   const metricsByChainLength = Metrics.filter(m => m.groupBy === 'chain-length').map(m => m.name);
-  const metricsByCircuitName = Metrics.filter(m => m.groupBy === 'circuit-name').map(m => m.name);
+  const kernelCircuitMetrics = Metrics.filter(m => m.groupBy === 'protocol-circuit-name').map(m => m.name);
+  const appCircuitMetrics = Metrics.filter(m => m.groupBy === 'app-circuit-name').map(m => m.name);
   const metricsByClassesRegistered = Metrics.filter(m => m.groupBy === 'classes-registered').map(m => m.name);
   const metricsByFeePaymentMethod = Metrics.filter(m => m.groupBy === 'fee-payment-method').map(m => m.name);
   const metricsByLeafCount = Metrics.filter(m => m.groupBy === 'leaf-count').map(m => m.name);
@@ -217,6 +219,11 @@ All benchmarks are run on txs on the \`Benchmarking\` contract on the repository
 ${prSourceDataText}
 ${baseCommitText}
 
+### Proof generation
+
+Each column represents the number of threads used in proof generation.
+${getTableContent(pick(benchmark, metricsByThreads), baseBenchmark, 'threads')}
+
 ### L2 block published to L1
 
 Each column represents the number of txs on an L2 block published to L1.
@@ -229,8 +236,11 @@ ${getTableContent(pick(benchmark, metricsByChainLength), baseBenchmark, 'blocks'
 
 ### Circuits stats
 
-Stats on running time and I/O sizes collected for every circuit run across all benchmarks.
-${getTableContent(transpose(pick(benchmark, metricsByCircuitName)), transpose(baseBenchmark), '', 'Circuit')}
+Stats on running time and I/O sizes collected for every kernel circuit run across all benchmarks.
+${getTableContent(transpose(pick(benchmark, kernelCircuitMetrics)), transpose(baseBenchmark), '', 'Circuit')}
+
+Stats on running time collected for app circuits
+${getTableContent(transpose(pick(benchmark, appCircuitMetrics)), transpose(baseBenchmark), '', 'Function')}
 
 ### Tree insertion stats
 
