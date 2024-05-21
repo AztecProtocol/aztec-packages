@@ -66,10 +66,12 @@ contract Rollup is IRollup {
    * @param _archive - A root of the archive tree after the L2 block is applied
    * @param _proof - The proof of correct execution
    */
-  function process(bytes calldata _header, bytes32 _archive, bytes calldata _aggregationObject, bytes calldata _proof)
-    external
-    override(IRollup)
-  {
+  function process(
+    bytes calldata _header,
+    bytes32 _archive,
+    bytes calldata _aggregationObject,
+    bytes calldata _proof
+  ) external override(IRollup) {
     // Decode and validate header
     HeaderLib.Header memory header = HeaderLib.decode(_header);
     HeaderLib.validate(header, VERSION, lastBlockTs, archive);
@@ -85,12 +87,12 @@ contract Rollup is IRollup {
     publicInputs[1] = bytes32(header.globalVariables.blockNumber + 1);
 
     bytes32[22] memory headerFields = HeaderLib.toFields(header);
-    for (uint256 i = 0; i <  headerFields.length; i++) {
+    for (uint256 i = 0; i < headerFields.length; i++) {
       publicInputs[i + 2] = headerFields[i];
     }
 
     for (uint256 i = 0; i < 16 && i * 32 < _aggregationObject.length; i++) {
-      publicInputs[i + 24] = bytes32(_aggregationObject[i * 32 : (i + 1) * 32]);
+      publicInputs[i + 24] = bytes32(_aggregationObject[i * 32:(i + 1) * 32]);
     }
 
     // @todo @benesjan We will need `nextAvailableLeafIndex` of archive to verify the proof. This value is equal to
