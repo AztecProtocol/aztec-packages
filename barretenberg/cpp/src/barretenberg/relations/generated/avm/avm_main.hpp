@@ -119,7 +119,11 @@ template <typename FF> struct Avm_mainRow {
 inline std::string get_relation_label_avm_main(int index)
 {
     switch (index) {
+<<<<<<< HEAD
     case 60:
+=======
+    case 57:
+>>>>>>> ddd6d0c4d1 (6542: some renaming and comments)
         return "OUTPUT_U8";
 
     case 61:
@@ -1036,13 +1040,44 @@ template <typename FF_> class avm_mainImpl {
                           avm_main_sel_op_sstore)) *
                         (avm_main_call_ptr - avm_main_space_id));
             tmp *= scaling_factor;
+<<<<<<< HEAD
+=======
+            std::get<81>(evals) += tmp;
+        }
+        // Contribution 82
+        {
+            Avm_DECLARE_VIEWS(82);
+
+            auto tmp = (avm_main_sel_cmov * (((avm_main_id * avm_main_inv) - FF(1)) + avm_main_id_zero));
+            tmp *= scaling_factor;
+            std::get<82>(evals) += tmp;
+        }
+        // Contribution 83
+        {
+            Avm_DECLARE_VIEWS(83);
+
+            auto tmp = ((avm_main_sel_cmov * avm_main_id_zero) * (-avm_main_inv + FF(1)));
+            tmp *= scaling_factor;
+            std::get<83>(evals) += tmp;
+        }
+        // Contribution 84
+        {
+            Avm_DECLARE_VIEWS(84);
+
+            auto tmp = (avm_main_sel_mov_a - (avm_main_sel_mov + (avm_main_sel_cmov * (-avm_main_id_zero + FF(1)))));
+            tmp *= scaling_factor;
+>>>>>>> ddd6d0c4d1 (6542: some renaming and comments)
             std::get<84>(evals) += tmp;
         }
         // Contribution 85
         {
             Avm_DECLARE_VIEWS(85);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_cmov * (((avm_main_id * avm_main_inv) - FF(1)) + avm_main_id_zero));
+=======
+            auto tmp = (avm_main_sel_mov_b - (avm_main_sel_cmov * avm_main_id_zero));
+>>>>>>> ddd6d0c4d1 (6542: some renaming and comments)
             tmp *= scaling_factor;
             std::get<85>(evals) += tmp;
         }
@@ -1050,7 +1085,11 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(86);
 
+<<<<<<< HEAD
             auto tmp = ((avm_main_sel_cmov * avm_main_id_zero) * (-avm_main_inv + FF(1)));
+=======
+            auto tmp = (avm_main_sel_mov_a * (avm_main_ia - avm_main_ic));
+>>>>>>> ddd6d0c4d1 (6542: some renaming and comments)
             tmp *= scaling_factor;
             std::get<86>(evals) += tmp;
         }
@@ -1058,7 +1097,11 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(87);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_mov_a - (avm_main_sel_mov + (avm_main_sel_cmov * (-avm_main_id_zero + FF(1)))));
+=======
+            auto tmp = (avm_main_sel_mov_b * (avm_main_ib - avm_main_ic));
+>>>>>>> ddd6d0c4d1 (6542: some renaming and comments)
             tmp *= scaling_factor;
             std::get<87>(evals) += tmp;
         }
@@ -1066,7 +1109,11 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(88);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_mov_b - (avm_main_sel_cmov * avm_main_id_zero));
+=======
+            auto tmp = ((avm_main_sel_mov + avm_main_sel_cmov) * (avm_main_r_in_tag - avm_main_w_in_tag));
+>>>>>>> ddd6d0c4d1 (6542: some renaming and comments)
             tmp *= scaling_factor;
             std::get<88>(evals) += tmp;
         }
@@ -1074,7 +1121,11 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(89);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_mov_a * (avm_main_ia - avm_main_ic));
+=======
+            auto tmp = ((avm_main_sel_mov + avm_main_sel_cmov) * (avm_main_r_in_tag - avm_main_w_in_tag));
+>>>>>>> ddd6d0c4d1 (6542: some renaming and comments)
             tmp *= scaling_factor;
             std::get<89>(evals) += tmp;
         }
@@ -1082,6 +1133,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(90);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_mov_b * (avm_main_ib - avm_main_ic));
             tmp *= scaling_factor;
             std::get<90>(evals) += tmp;
@@ -1106,6 +1158,8 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(93);
 
+=======
+>>>>>>> ddd6d0c4d1 (6542: some renaming and comments)
             auto tmp = (avm_main_sel_op_version * (avm_kernel_kernel_sel - FF(30)));
             tmp *= scaling_factor;
             std::get<88>(evals) += tmp;
@@ -1116,6 +1170,60 @@ template <typename FF_> class avm_mainImpl {
 
             auto tmp = (avm_main_sel_op_block_number * (avm_kernel_kernel_sel - FF(31)));
             tmp *= scaling_factor;
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+            std::get<89>(evals) += tmp;
+        }
+        // Contribution 90
+        {
+            Avm_DECLARE_VIEWS(90);
+
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_cast * (avm_main_alu_in_tag - avm_main_w_in_tag));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_block_number * (avm_kernel_kernel_sel - FF(31)));
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_block_number * (avm_kernel_kernel_sel - FF(31)));
+=======
+            auto tmp = (avm_main_sel_op_timestamp * (avm_kernel_kernel_sel - FF(31)));
+>>>>>>> 4bb44191bf (feat: simple gas decrement test)
+=======
+            auto tmp = (avm_main_sel_op_version * (avm_kernel_kernel_sel - FF(30)));
+>>>>>>> 9bcbc00a00 (6542: some renaming and comments)
+>>>>>>> df5862de90 (6542: some renaming and comments)
+>>>>>>> f185c1b5d5 (6542: some renaming and comments)
+            tmp *= scaling_factor;
+>>>>>>> a752a9a655 (6542: some renaming and comments)
+            std::get<90>(evals) += tmp;
+        }
+        // Contribution 91
+        {
+            Avm_DECLARE_VIEWS(91);
+
+            auto tmp = (avm_main_sel_op_cast * (avm_main_alu_in_tag - avm_main_w_in_tag));
+            tmp *= scaling_factor;
+            std::get<91>(evals) += tmp;
+        }
+        // Contribution 92
+        {
+            Avm_DECLARE_VIEWS(92);
+
+            auto tmp = (avm_main_sel_op_sender * (avm_kernel_kernel_in_offset - FF(0)));
+            tmp *= scaling_factor;
+            std::get<92>(evals) += tmp;
+        }
+        // Contribution 93
+        {
+            Avm_DECLARE_VIEWS(93);
+
+            auto tmp = (avm_main_sel_op_address * (avm_kernel_kernel_in_offset - FF(1)));
+            tmp *= scaling_factor;
+>>>>>>> ddd6d0c4d1 (6542: some renaming and comments)
             std::get<93>(evals) += tmp;
         }
         // Contribution 94

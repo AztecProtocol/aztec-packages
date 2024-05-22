@@ -410,6 +410,7 @@ class AvmFlavor {
                               avm_conversion_radix,
                               avm_conversion_to_radix_le_sel,
 <<<<<<< HEAD
+<<<<<<< HEAD
                               avm_keccakf1600_clk,
                               avm_keccakf1600_input,
                               avm_keccakf1600_keccakf1600_sel,
@@ -417,6 +418,9 @@ class AvmFlavor {
 =======
 <<<<<<< HEAD
 >>>>>>> 961bb36ff6 (feat: simple gas decrement test)
+=======
+<<<<<<< HEAD
+>>>>>>> 60d1f31c9b (6542: some renaming and comments)
                               avm_kernel_emit_l2_to_l1_msg_write_offset,
                               avm_kernel_emit_note_hash_write_offset,
                               avm_kernel_emit_nullifier_write_offset,
@@ -424,7 +428,10 @@ class AvmFlavor {
                               avm_kernel_kernel_in_offset,
 =======
                               avm_gas_add_to_gas_lookup_table,
+=======
+>>>>>>> df5862de90 (6542: some renaming and comments)
                               avm_gas_da_gas_fixed_table,
+                              avm_gas_gas_cost_sel,
                               avm_gas_l2_gas_fixed_table,
 >>>>>>> 40e0367df1 (feat: simple gas decrement test)
                               avm_kernel_kernel_inputs__is_public,
@@ -478,7 +485,7 @@ class AvmFlavor {
                               avm_main_mem_op_d,
                               avm_main_op_err,
                               avm_main_opcode_active,
-                              avm_main_opcode_idx,
+                              avm_main_opcode_val,
                               avm_main_pc,
                               avm_main_q_kernel_lookup,
                               avm_main_q_kernel_output_lookup,
@@ -789,6 +796,7 @@ class AvmFlavor {
                      avm_conversion_radix,
                      avm_conversion_to_radix_le_sel,
 <<<<<<< HEAD
+<<<<<<< HEAD
                      avm_keccakf1600_clk,
                      avm_keccakf1600_input,
                      avm_keccakf1600_keccakf1600_sel,
@@ -796,6 +804,9 @@ class AvmFlavor {
 =======
 <<<<<<< HEAD
 >>>>>>> 961bb36ff6 (feat: simple gas decrement test)
+=======
+<<<<<<< HEAD
+>>>>>>> 60d1f31c9b (6542: some renaming and comments)
                      avm_kernel_emit_l2_to_l1_msg_write_offset,
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
@@ -803,7 +814,10 @@ class AvmFlavor {
                      avm_kernel_kernel_in_offset,
 =======
                      avm_gas_add_to_gas_lookup_table,
+=======
+>>>>>>> df5862de90 (6542: some renaming and comments)
                      avm_gas_da_gas_fixed_table,
+                     avm_gas_gas_cost_sel,
                      avm_gas_l2_gas_fixed_table,
 >>>>>>> 40e0367df1 (feat: simple gas decrement test)
                      avm_kernel_kernel_inputs__is_public,
@@ -857,7 +871,7 @@ class AvmFlavor {
                      avm_main_mem_op_d,
                      avm_main_op_err,
                      avm_main_opcode_active,
-                     avm_main_opcode_idx,
+                     avm_main_opcode_val,
                      avm_main_pc,
                      avm_main_q_kernel_lookup,
                      avm_main_q_kernel_output_lookup,
@@ -1173,6 +1187,7 @@ class AvmFlavor {
                               avm_conversion_radix,
                               avm_conversion_to_radix_le_sel,
 <<<<<<< HEAD
+<<<<<<< HEAD
                               avm_keccakf1600_clk,
                               avm_keccakf1600_input,
                               avm_keccakf1600_keccakf1600_sel,
@@ -1180,6 +1195,9 @@ class AvmFlavor {
 =======
 <<<<<<< HEAD
 >>>>>>> 961bb36ff6 (feat: simple gas decrement test)
+=======
+<<<<<<< HEAD
+>>>>>>> 60d1f31c9b (6542: some renaming and comments)
                               avm_kernel_emit_l2_to_l1_msg_write_offset,
                               avm_kernel_emit_note_hash_write_offset,
                               avm_kernel_emit_nullifier_write_offset,
@@ -1187,7 +1205,10 @@ class AvmFlavor {
                               avm_kernel_kernel_in_offset,
 =======
                               avm_gas_add_to_gas_lookup_table,
+=======
+>>>>>>> df5862de90 (6542: some renaming and comments)
                               avm_gas_da_gas_fixed_table,
+                              avm_gas_gas_cost_sel,
                               avm_gas_l2_gas_fixed_table,
 >>>>>>> 40e0367df1 (feat: simple gas decrement test)
                               avm_kernel_kernel_inputs__is_public,
@@ -1241,7 +1262,7 @@ class AvmFlavor {
                               avm_main_mem_op_d,
                               avm_main_op_err,
                               avm_main_opcode_active,
-                              avm_main_opcode_idx,
+                              avm_main_opcode_val,
                               avm_main_pc,
                               avm_main_q_kernel_lookup,
                               avm_main_q_kernel_output_lookup,
@@ -1621,6 +1642,7 @@ class AvmFlavor {
                      avm_conversion_radix,
                      avm_conversion_to_radix_le_sel,
 <<<<<<< HEAD
+<<<<<<< HEAD
                      avm_keccakf1600_clk,
                      avm_keccakf1600_input,
                      avm_keccakf1600_keccakf1600_sel,
@@ -1628,6 +1650,9 @@ class AvmFlavor {
 =======
 <<<<<<< HEAD
 >>>>>>> 961bb36ff6 (feat: simple gas decrement test)
+=======
+<<<<<<< HEAD
+>>>>>>> 60d1f31c9b (6542: some renaming and comments)
                      avm_kernel_emit_l2_to_l1_msg_write_offset,
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
@@ -1635,7 +1660,10 @@ class AvmFlavor {
                      avm_kernel_kernel_in_offset,
 =======
                      avm_gas_add_to_gas_lookup_table,
+=======
+>>>>>>> df5862de90 (6542: some renaming and comments)
                      avm_gas_da_gas_fixed_table,
+                     avm_gas_gas_cost_sel,
                      avm_gas_l2_gas_fixed_table,
 >>>>>>> 40e0367df1 (feat: simple gas decrement test)
                      avm_kernel_kernel_inputs__is_public,
@@ -1689,7 +1717,7 @@ class AvmFlavor {
                      avm_main_mem_op_d,
                      avm_main_op_err,
                      avm_main_opcode_active,
-                     avm_main_opcode_idx,
+                     avm_main_opcode_val,
                      avm_main_pc,
                      avm_main_q_kernel_lookup,
                      avm_main_q_kernel_output_lookup,
@@ -2069,6 +2097,7 @@ class AvmFlavor {
                      avm_conversion_radix,
                      avm_conversion_to_radix_le_sel,
 <<<<<<< HEAD
+<<<<<<< HEAD
                      avm_keccakf1600_clk,
                      avm_keccakf1600_input,
                      avm_keccakf1600_keccakf1600_sel,
@@ -2076,6 +2105,9 @@ class AvmFlavor {
 =======
 <<<<<<< HEAD
 >>>>>>> 961bb36ff6 (feat: simple gas decrement test)
+=======
+<<<<<<< HEAD
+>>>>>>> 60d1f31c9b (6542: some renaming and comments)
                      avm_kernel_emit_l2_to_l1_msg_write_offset,
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
@@ -2083,7 +2115,10 @@ class AvmFlavor {
                      avm_kernel_kernel_in_offset,
 =======
                      avm_gas_add_to_gas_lookup_table,
+=======
+>>>>>>> df5862de90 (6542: some renaming and comments)
                      avm_gas_da_gas_fixed_table,
+                     avm_gas_gas_cost_sel,
                      avm_gas_l2_gas_fixed_table,
 >>>>>>> 40e0367df1 (feat: simple gas decrement test)
                      avm_kernel_kernel_inputs__is_public,
@@ -2137,7 +2172,7 @@ class AvmFlavor {
                      avm_main_mem_op_d,
                      avm_main_op_err,
                      avm_main_opcode_active,
-                     avm_main_opcode_idx,
+                     avm_main_opcode_val,
                      avm_main_pc,
                      avm_main_q_kernel_lookup,
                      avm_main_q_kernel_output_lookup,
@@ -2871,6 +2906,7 @@ class AvmFlavor {
             Base::avm_conversion_radix = "AVM_CONVERSION_RADIX";
             Base::avm_conversion_to_radix_le_sel = "AVM_CONVERSION_TO_RADIX_LE_SEL";
 <<<<<<< HEAD
+<<<<<<< HEAD
             Base::avm_keccakf1600_clk = "AVM_KECCAKF1600_CLK";
             Base::avm_keccakf1600_input = "AVM_KECCAKF1600_INPUT";
             Base::avm_keccakf1600_keccakf1600_sel = "AVM_KECCAKF1600_KECCAKF1600_SEL";
@@ -2878,6 +2914,9 @@ class AvmFlavor {
 =======
 <<<<<<< HEAD
 >>>>>>> 961bb36ff6 (feat: simple gas decrement test)
+=======
+<<<<<<< HEAD
+>>>>>>> 60d1f31c9b (6542: some renaming and comments)
             Base::avm_kernel_emit_l2_to_l1_msg_write_offset = "AVM_KERNEL_EMIT_L2_TO_L1_MSG_WRITE_OFFSET";
             Base::avm_kernel_emit_note_hash_write_offset = "AVM_KERNEL_EMIT_NOTE_HASH_WRITE_OFFSET";
             Base::avm_kernel_emit_nullifier_write_offset = "AVM_KERNEL_EMIT_NULLIFIER_WRITE_OFFSET";
@@ -2885,7 +2924,10 @@ class AvmFlavor {
             Base::avm_kernel_kernel_in_offset = "AVM_KERNEL_KERNEL_IN_OFFSET";
 =======
             Base::avm_gas_add_to_gas_lookup_table = "AVM_GAS_ADD_TO_GAS_LOOKUP_TABLE";
+=======
+>>>>>>> df5862de90 (6542: some renaming and comments)
             Base::avm_gas_da_gas_fixed_table = "AVM_GAS_DA_GAS_FIXED_TABLE";
+            Base::avm_gas_gas_cost_sel = "AVM_GAS_GAS_COST_SEL";
             Base::avm_gas_l2_gas_fixed_table = "AVM_GAS_L2_GAS_FIXED_TABLE";
 >>>>>>> 40e0367df1 (feat: simple gas decrement test)
             Base::avm_kernel_kernel_inputs__is_public = "AVM_KERNEL_KERNEL_INPUTS__IS_PUBLIC";
@@ -2940,7 +2982,7 @@ class AvmFlavor {
             Base::avm_main_mem_op_d = "AVM_MAIN_MEM_OP_D";
             Base::avm_main_op_err = "AVM_MAIN_OP_ERR";
             Base::avm_main_opcode_active = "AVM_MAIN_OPCODE_ACTIVE";
-            Base::avm_main_opcode_idx = "AVM_MAIN_OPCODE_IDX";
+            Base::avm_main_opcode_val = "AVM_MAIN_OPCODE_VAL";
             Base::avm_main_pc = "AVM_MAIN_PC";
             Base::avm_main_q_kernel_lookup = "AVM_MAIN_Q_KERNEL_LOOKUP";
             Base::avm_main_q_kernel_output_lookup = "AVM_MAIN_Q_KERNEL_OUTPUT_LOOKUP";
@@ -3267,6 +3309,7 @@ class AvmFlavor {
         Commitment avm_conversion_radix;
         Commitment avm_conversion_to_radix_le_sel;
 <<<<<<< HEAD
+<<<<<<< HEAD
         Commitment avm_keccakf1600_clk;
         Commitment avm_keccakf1600_input;
         Commitment avm_keccakf1600_keccakf1600_sel;
@@ -3274,6 +3317,9 @@ class AvmFlavor {
 =======
 <<<<<<< HEAD
 >>>>>>> 961bb36ff6 (feat: simple gas decrement test)
+=======
+<<<<<<< HEAD
+>>>>>>> 60d1f31c9b (6542: some renaming and comments)
         Commitment avm_kernel_emit_l2_to_l1_msg_write_offset;
         Commitment avm_kernel_emit_note_hash_write_offset;
         Commitment avm_kernel_emit_nullifier_write_offset;
@@ -3281,7 +3327,10 @@ class AvmFlavor {
         Commitment avm_kernel_kernel_in_offset;
 =======
         Commitment avm_gas_add_to_gas_lookup_table;
+=======
+>>>>>>> df5862de90 (6542: some renaming and comments)
         Commitment avm_gas_da_gas_fixed_table;
+        Commitment avm_gas_gas_cost_sel;
         Commitment avm_gas_l2_gas_fixed_table;
 >>>>>>> 40e0367df1 (feat: simple gas decrement test)
         Commitment avm_kernel_kernel_inputs__is_public;
@@ -3335,7 +3384,7 @@ class AvmFlavor {
         Commitment avm_main_mem_op_d;
         Commitment avm_main_op_err;
         Commitment avm_main_opcode_active;
-        Commitment avm_main_opcode_idx;
+        Commitment avm_main_opcode_val;
         Commitment avm_main_pc;
         Commitment avm_main_q_kernel_lookup;
         Commitment avm_main_q_kernel_output_lookup;
@@ -3663,6 +3712,7 @@ class AvmFlavor {
             avm_conversion_radix = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_conversion_to_radix_le_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
 <<<<<<< HEAD
+<<<<<<< HEAD
             avm_keccakf1600_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_keccakf1600_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_keccakf1600_keccakf1600_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3670,6 +3720,9 @@ class AvmFlavor {
 =======
 <<<<<<< HEAD
 >>>>>>> 961bb36ff6 (feat: simple gas decrement test)
+=======
+<<<<<<< HEAD
+>>>>>>> 60d1f31c9b (6542: some renaming and comments)
             avm_kernel_emit_l2_to_l1_msg_write_offset =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_kernel_emit_note_hash_write_offset =
@@ -3681,7 +3734,10 @@ class AvmFlavor {
             avm_kernel_kernel_in_offset = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
 =======
             avm_gas_add_to_gas_lookup_table = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+=======
+>>>>>>> df5862de90 (6542: some renaming and comments)
             avm_gas_da_gas_fixed_table = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_gas_gas_cost_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_gas_l2_gas_fixed_table = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
 >>>>>>> 40e0367df1 (feat: simple gas decrement test)
             avm_kernel_kernel_inputs__is_public =
@@ -3744,7 +3800,7 @@ class AvmFlavor {
             avm_main_mem_op_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_op_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_opcode_active = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_main_opcode_idx = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_opcode_val = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_pc = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_q_kernel_lookup = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_q_kernel_output_lookup = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -4081,6 +4137,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_conversion_radix, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_conversion_to_radix_le_sel, Transcript::proof_data);
 <<<<<<< HEAD
+<<<<<<< HEAD
             serialize_to_buffer<Commitment>(avm_keccakf1600_clk, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_keccakf1600_input, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_keccakf1600_keccakf1600_sel, Transcript::proof_data);
@@ -4088,6 +4145,9 @@ class AvmFlavor {
 =======
 <<<<<<< HEAD
 >>>>>>> 961bb36ff6 (feat: simple gas decrement test)
+=======
+<<<<<<< HEAD
+>>>>>>> 60d1f31c9b (6542: some renaming and comments)
             serialize_to_buffer<Commitment>(avm_kernel_emit_l2_to_l1_msg_write_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_emit_note_hash_write_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_emit_nullifier_write_offset, Transcript::proof_data);
@@ -4095,7 +4155,10 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_kernel_kernel_in_offset, Transcript::proof_data);
 =======
             serialize_to_buffer<Commitment>(avm_gas_add_to_gas_lookup_table, Transcript::proof_data);
+=======
+>>>>>>> df5862de90 (6542: some renaming and comments)
             serialize_to_buffer<Commitment>(avm_gas_da_gas_fixed_table, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_gas_gas_cost_sel, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_gas_l2_gas_fixed_table, Transcript::proof_data);
 >>>>>>> 40e0367df1 (feat: simple gas decrement test)
             serialize_to_buffer<Commitment>(avm_kernel_kernel_inputs__is_public, Transcript::proof_data);
@@ -4149,7 +4212,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_mem_op_d, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_op_err, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_opcode_active, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_main_opcode_idx, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_opcode_val, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_pc, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_q_kernel_lookup, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_q_kernel_output_lookup, Transcript::proof_data);

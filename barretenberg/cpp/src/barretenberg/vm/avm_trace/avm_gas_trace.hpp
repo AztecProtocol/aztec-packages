@@ -7,14 +7,14 @@ namespace bb::avm_trace {
 class AvmGasTraceBuilder {
   public:
     struct GasTableEntry {
-        uint32_t opcode_idx = 0;
+        uint32_t opcode_val = 0;
         uint32_t l2_fixed_gas_cost = 0;
         uint32_t da_fixed_gas_cost = 0;
     };
 
     struct GasTraceEntry {
         uint32_t clk = 0;
-        uint32_t opcode_idx = 0;
+        uint32_t opcode_val = 0;
         uint32_t l2_gas_cost = 0;
         uint32_t da_gas_cost = 0;
         uint32_t remaining_l2_gas = 0;
@@ -22,7 +22,7 @@ class AvmGasTraceBuilder {
     };
 
     // Counts each time an opcode is read
-    // opcode_idx -> count
+    // opcode_val -> count
     std::unordered_map<uint32_t, uint32_t> gas_opcode_lookup_counter;
 
     // Constructor receives copy of kernel_inputs from the main trace builder

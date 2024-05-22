@@ -2,7 +2,6 @@
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_kernel_trace.hpp"
 #include "barretenberg/vm/avm_trace/constants.hpp"
-
 namespace tests_avm {
 using namespace bb::avm_trace;
 
@@ -85,7 +84,7 @@ TEST_F(AvmGasPositiveTests, gasAdd)
         info("\n");
         info("\n");
         for (size_t i = 1; i < 5; i++) {
-            info("opcode idx ", trace[i].avm_main_opcode_idx);
+            info("opcode val ", trace[i].avm_main_opcode_val);
             info("Row ",
                  i,
                  " l2_gas ",

@@ -46,7 +46,7 @@ void AvmGasTraceBuilder::constrain_gas_lookup(uint32_t clk, OpCode opcode)
     // Create a gas trace entry
     GasTraceEntry entry = {
         .clk = clk,
-        .opcode_idx = opcode_idx,
+        .opcode_val = opcode_idx,
         .l2_gas_cost = l2_gas_cost,
         .da_gas_cost = da_gas_cost,
         .remaining_l2_gas = remaining_l2_gas,
@@ -62,7 +62,7 @@ std::vector<AvmGasTraceBuilder::GasTableEntry> AvmGasTraceBuilder::construct_gas
     // For now we construct a table that has a constant l2 and da gas cost
     for (uint32_t i = 0; i < static_cast<uint32_t>(OpCode::LAST_OPCODE_SENTINEL); i++) {
         GasTableEntry entry = {
-            .opcode_idx = i,
+            .opcode_val = i,
             .l2_fixed_gas_cost = L2_GAS_PER_OPCODE,
             .da_fixed_gas_cost = DA_GAS_PER_OPCODE,
         };

@@ -249,6 +249,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     commitments.avm_conversion_to_radix_le_sel =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_conversion_to_radix_le_sel);
 <<<<<<< HEAD
+<<<<<<< HEAD
     commitments.avm_keccakf1600_clk =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_keccakf1600_clk);
     commitments.avm_keccakf1600_input =
@@ -260,6 +261,9 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 =======
 <<<<<<< HEAD
 >>>>>>> 961bb36ff6 (feat: simple gas decrement test)
+=======
+<<<<<<< HEAD
+>>>>>>> 60d1f31c9b (6542: some renaming and comments)
     commitments.avm_kernel_emit_l2_to_l1_msg_write_offset = transcript->template receive_from_prover<Commitment>(
         commitment_labels.avm_kernel_emit_l2_to_l1_msg_write_offset);
     commitments.avm_kernel_emit_note_hash_write_offset =
@@ -273,8 +277,12 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 =======
     commitments.avm_gas_add_to_gas_lookup_table =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_gas_add_to_gas_lookup_table);
+=======
+>>>>>>> df5862de90 (6542: some renaming and comments)
     commitments.avm_gas_da_gas_fixed_table =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_gas_da_gas_fixed_table);
+    commitments.avm_gas_gas_cost_sel =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_gas_gas_cost_sel);
     commitments.avm_gas_l2_gas_fixed_table =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_gas_l2_gas_fixed_table);
 >>>>>>> 40e0367df1 (feat: simple gas decrement test)
@@ -368,8 +376,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_op_err);
     commitments.avm_main_opcode_active =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_opcode_active);
-    commitments.avm_main_opcode_idx =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_opcode_idx);
+    commitments.avm_main_opcode_val =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_opcode_val);
     commitments.avm_main_pc = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_pc);
     commitments.avm_main_q_kernel_lookup =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_q_kernel_lookup);

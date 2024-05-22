@@ -3550,7 +3550,7 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
 
         auto& dest = main_trace.at(i);
 
-        dest.avm_gas_add_to_gas_lookup_table = FF(1);
+        dest.avm_gas_gas_cost_sel = FF(1);
         dest.avm_gas_l2_gas_fixed_table = gas_table_entry.l2_fixed_gas_cost;
         dest.avm_gas_da_gas_fixed_table = gas_table_entry.da_fixed_gas_cost;
     }
@@ -3571,7 +3571,7 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
         auto& next = main_trace.at(gas_entry.clk + 1);
         // Write each of the relevant gas accounting values
 
-        dest.avm_main_opcode_idx = gas_entry.opcode_idx;
+        dest.avm_main_opcode_val = gas_entry.opcode_val;
         dest.avm_main_l2_gas_op = gas_entry.l2_gas_cost;
         dest.avm_main_da_gas_op = gas_entry.da_gas_cost;
         next.avm_main_l2_gas_remaining = gas_entry.remaining_l2_gas;

@@ -52,26 +52,32 @@ namespace avm_main(256);
     pol commit sel_op_sstore;
 
     //===== GAS ACCOUNTING ========================================================
-    // 1. Give each opcode an index to lookup into the table
-    // 2. Read gas_op from gas table based on the opcode idx
-    // 3. TODO(ISSUE_NUMBER): constrain gas start and gas end
+    // 1. The gas lookup table (in avm_gas.pil) is constant and maps the opcode value to L2/DA gas (fixed) cost.
+    // 2. Read gas_op from gas table based on the opcode value
+    // 3. TODO(#6588): constrain gas start and gas end
 
-    // TODO(ISSUE_NUMBER): Opcode index will be constrained by the bytecode validation circuit
-    pol commit opcode_idx;
+    // TODO: Opcode value (byte) will be constrained by the bytecode validation circuit
+    pol commit opcode_val;
 
+    // "gas_remaining" values correspond to the gas quantity which remains AFTER the execution of the opcode
+    // of the pertaining line. This means that these values will have to be initialized on row first.
     pol commit l2_gas_remaining;
     pol commit da_gas_remaining;
 
-    // TODO(ISSUE_NUMBER): allow lookups to evaluate expressions
+    // TODO: allow lookups to evaluate expressions
     pol commit l2_gas_op;
     pol commit da_gas_op;
 
     #[LOOKUP_OPCODE_GAS]
-    opcode_active {opcode_idx, l2_gas_op, da_gas_op} in  avm_gas.add_to_gas_lookup_table {clk, avm_gas.l2_gas_fixed_table, avm_gas.da_gas_fixed_table};
+    opcode_active {opcode_val, l2_gas_op, da_gas_op}
+    in
+    avm_gas.gas_cost_sel {clk, avm_gas.l2_gas_fixed_table, avm_gas.da_gas_fixed_table};
 
     // Constrain that the gas decrements correctly per instruction
-    opcode_active * (l2_gas_remaining - (l2_gas_remaining' + l2_gas_op));
-    opcode_active * (da_gas_remaining - (da_gas_remaining' + da_gas_op));
+    #[L2_GAS_REMAINING_DECREMENT]
+    opcode_active * (l2_gas_remaining - (l2_gas_remaining' + l2_gas_op)) = 0;
+    #[DA_GAS_REMAINING_DECREMENT]
+    opcode_active * (da_gas_remaining - (da_gas_remaining' + da_gas_op)) = 0;
 
     // TODO: constrain that it stays the same if an opcode selector is not active -> TODO: will this break when the opcode takes multiple rows
     // So we also need to constrain that it is the first line of the opcodes execution

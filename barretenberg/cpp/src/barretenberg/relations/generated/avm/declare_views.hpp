@@ -113,6 +113,7 @@
     [[maybe_unused]] auto avm_conversion_radix = View(new_term.avm_conversion_radix);                                  \
     [[maybe_unused]] auto avm_conversion_to_radix_le_sel = View(new_term.avm_conversion_to_radix_le_sel);              \
 <<<<<<< HEAD
+<<<<<<< HEAD
     [[maybe_unused]] auto avm_keccakf1600_clk = View(new_term.avm_keccakf1600_clk);                                    \
     [[maybe_unused]] auto avm_keccakf1600_input = View(new_term.avm_keccakf1600_input);                                \
     [[maybe_unused]] auto avm_keccakf1600_keccakf1600_sel = View(new_term.avm_keccakf1600_keccakf1600_sel);            \
@@ -128,6 +129,13 @@
     [[maybe_unused]] auto avm_kernel_kernel_in_offset = View(new_term.avm_kernel_kernel_in_offset);                    \
 =======
 >>>>>>> 961bb36ff6 (feat: simple gas decrement test)
+=======
+=======
+    [[maybe_unused]] auto avm_gas_da_gas_fixed_table = View(new_term.avm_gas_da_gas_fixed_table);                      \
+    [[maybe_unused]] auto avm_gas_gas_cost_sel = View(new_term.avm_gas_gas_cost_sel);                                  \
+    [[maybe_unused]] auto avm_gas_l2_gas_fixed_table = View(new_term.avm_gas_l2_gas_fixed_table);                      \
+>>>>>>> df5862de90 (6542: some renaming and comments)
+>>>>>>> 60d1f31c9b (6542: some renaming and comments)
     [[maybe_unused]] auto avm_kernel_kernel_inputs__is_public = View(new_term.avm_kernel_kernel_inputs__is_public);    \
     [[maybe_unused]] auto avm_kernel_kernel_metadata_out__is_public =                                                  \
         View(new_term.avm_kernel_kernel_metadata_out__is_public);                                                      \
@@ -187,7 +195,7 @@
     [[maybe_unused]] auto avm_main_mem_op_d = View(new_term.avm_main_mem_op_d);                                        \
     [[maybe_unused]] auto avm_main_op_err = View(new_term.avm_main_op_err);                                            \
     [[maybe_unused]] auto avm_main_opcode_active = View(new_term.avm_main_opcode_active);                              \
-    [[maybe_unused]] auto avm_main_opcode_idx = View(new_term.avm_main_opcode_idx);                                    \
+    [[maybe_unused]] auto avm_main_opcode_val = View(new_term.avm_main_opcode_val);                                    \
     [[maybe_unused]] auto avm_main_pc = View(new_term.avm_main_pc);                                                    \
     [[maybe_unused]] auto avm_main_q_kernel_lookup = View(new_term.avm_main_q_kernel_lookup);                          \
     [[maybe_unused]] auto avm_main_q_kernel_output_lookup = View(new_term.avm_main_q_kernel_output_lookup);            \
