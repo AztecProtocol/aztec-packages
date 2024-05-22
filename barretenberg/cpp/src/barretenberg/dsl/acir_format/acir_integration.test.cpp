@@ -202,7 +202,6 @@ TEST_F(AcirIntegrationTests, UpdateAcirCircuit)
 {
     using Flavor = GoblinUltraFlavor;
     using Builder = Flavor::CircuitBuilder;
-    // using FF = Flavor::FF;
 
     std::string test_name = "6_array";
     auto acir_program = get_program_data_from_test_file(test_name);
@@ -212,30 +211,19 @@ TEST_F(AcirIntegrationTests, UpdateAcirCircuit)
 
     EXPECT_TRUE(CircuitChecker::check(circuit));
 
-    // Manually append some RAM gates
+    // Now we'll append some addition gates onto the circuit generated from acir and confirm that its still valid.
+    // First, check that the simple circuit is valid in isolation
+    {
+        Builder simple_circuit;
+        add_some_simple_RAM_gates(circuit);
+        EXPECT_TRUE(CircuitChecker::check(simple_circuit));
+        EXPECT_TRUE(prove_and_verify_honk<Flavor>(simple_circuit));
+    }
+
+    // Now manually append the simple RAM circuit to the circuit generated from acir
     add_some_simple_RAM_gates(circuit);
 
+    // Confirm that the result is still valid
     EXPECT_TRUE(CircuitChecker::check(circuit));
-
-    // Construct and verify Honk proof
-    EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
-}
-
-TEST_F(AcirIntegrationTests, SimpleCircuit)
-{
-    using Flavor = GoblinUltraFlavor;
-    using Builder = Flavor::CircuitBuilder;
-
-    // Construct a bberg circuit from the acir representation
-    Builder circuit;
-
-    add_some_simple_RAM_gates(circuit);
-    add_some_simple_RAM_gates(circuit);
-    add_some_simple_RAM_gates(circuit);
-    circuit.blocks.summarize();
-
-    EXPECT_TRUE(CircuitChecker::check(circuit));
-
-    // Construct and verify Honk proof
     EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
 }

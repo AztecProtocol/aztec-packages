@@ -350,8 +350,6 @@ UltraCircuitBuilder create_circuit(const AcirFormat& constraint_system,
     bool has_valid_witness_assignments = !witness.empty();
     build_constraints(builder, constraint_system, has_valid_witness_assignments, honk_recursion);
 
-    builder.finalize_circuit();
-
     return builder;
 };
 
@@ -378,8 +376,6 @@ GoblinUltraCircuitBuilder create_circuit(const AcirFormat& constraint_system,
     // Populate constraints in the builder via the data in constraint_system
     bool has_valid_witness_assignments = !witness.empty();
     acir_format::build_constraints(builder, constraint_system, has_valid_witness_assignments, honk_recursion);
-
-    builder.finalize_circuit();
 
     return builder;
 };
