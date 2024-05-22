@@ -30,9 +30,6 @@ std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> v
 
 void prove_and_verify(auto& circuit_builder, bool expected_result)
 {
-    auto num_added = circuit_builder.get_num_gates_added_to_ensure_nonzero_polynomials();
-    info("num added = ", num_added);
-
     auto instance = std::make_shared<ProverInstance>(circuit_builder);
     UltraProver prover(instance);
     auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
