@@ -195,4 +195,4 @@ test:
     IF [ "$HARDWARE_CONCURRENCY" != "" ]
         ENV HARDWARE_CONCURRENCY=$hardware_concurrency
     END
-    RUN cd build && GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure -R AcirIntegration
+    RUN cd build && GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure
