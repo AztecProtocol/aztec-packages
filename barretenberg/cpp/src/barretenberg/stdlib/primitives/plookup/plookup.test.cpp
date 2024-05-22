@@ -2,6 +2,7 @@
 #include "../byte_array/byte_array.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/bitop/rotate.hpp"
+#include "barretenberg/numeric/bitop/sparse_form.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
@@ -191,7 +192,7 @@ TEST(stdlib_plookup, uint32_xor)
 
     const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::UINT32_XOR, left, right, true);
 
-    const auto left_slices = numeric::slice_input(left_value, 1 << 6, num_lookups);
+    const auto left_slices = numeric::slice_input(left_value, 2 << 6, num_lookups);
     const auto right_slices = numeric::slice_input(right_value, 1 << 6, num_lookups);
 
     std::vector<uint256_t> out_expected(num_lookups);
