@@ -223,12 +223,9 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.avm_main_alu_sel = commitment_key->commit(key->avm_main_alu_sel);
     witness_commitments.avm_main_bin_op_id = commitment_key->commit(key->avm_main_bin_op_id);
     witness_commitments.avm_main_bin_sel = commitment_key->commit(key->avm_main_bin_sel);
-<<<<<<< HEAD
     witness_commitments.avm_main_call_ptr = commitment_key->commit(key->avm_main_call_ptr);
-=======
     witness_commitments.avm_main_da_gas_op = commitment_key->commit(key->avm_main_da_gas_op);
     witness_commitments.avm_main_da_gas_remaining = commitment_key->commit(key->avm_main_da_gas_remaining);
->>>>>>> 4bb44191bf (feat: simple gas decrement test)
     witness_commitments.avm_main_ia = commitment_key->commit(key->avm_main_ia);
     witness_commitments.avm_main_ib = commitment_key->commit(key->avm_main_ib);
     witness_commitments.avm_main_ic = commitment_key->commit(key->avm_main_ic);
@@ -599,13 +596,10 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.avm_main_alu_sel, witness_commitments.avm_main_alu_sel);
     transcript->send_to_verifier(commitment_labels.avm_main_bin_op_id, witness_commitments.avm_main_bin_op_id);
     transcript->send_to_verifier(commitment_labels.avm_main_bin_sel, witness_commitments.avm_main_bin_sel);
-<<<<<<< HEAD
     transcript->send_to_verifier(commitment_labels.avm_main_call_ptr, witness_commitments.avm_main_call_ptr);
-=======
     transcript->send_to_verifier(commitment_labels.avm_main_da_gas_op, witness_commitments.avm_main_da_gas_op);
     transcript->send_to_verifier(commitment_labels.avm_main_da_gas_remaining,
                                  witness_commitments.avm_main_da_gas_remaining);
->>>>>>> 4bb44191bf (feat: simple gas decrement test)
     transcript->send_to_verifier(commitment_labels.avm_main_ia, witness_commitments.avm_main_ia);
     transcript->send_to_verifier(commitment_labels.avm_main_ib, witness_commitments.avm_main_ib);
     transcript->send_to_verifier(commitment_labels.avm_main_ic, witness_commitments.avm_main_ic);

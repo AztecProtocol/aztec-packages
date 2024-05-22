@@ -321,15 +321,12 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_bin_op_id);
     commitments.avm_main_bin_sel =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_bin_sel);
-<<<<<<< HEAD
     commitments.avm_main_call_ptr =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_call_ptr);
-=======
     commitments.avm_main_da_gas_op =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_da_gas_op);
     commitments.avm_main_da_gas_remaining =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_da_gas_remaining);
->>>>>>> 4bb44191bf (feat: simple gas decrement test)
     commitments.avm_main_ia = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ia);
     commitments.avm_main_ib = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ib);
     commitments.avm_main_ic = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ic);

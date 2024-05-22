@@ -161,12 +161,9 @@
     [[maybe_unused]] auto avm_main_alu_sel = View(new_term.avm_main_alu_sel);                                          \
     [[maybe_unused]] auto avm_main_bin_op_id = View(new_term.avm_main_bin_op_id);                                      \
     [[maybe_unused]] auto avm_main_bin_sel = View(new_term.avm_main_bin_sel);                                          \
-<<<<<<< HEAD
     [[maybe_unused]] auto avm_main_call_ptr = View(new_term.avm_main_call_ptr);                                        \
-=======
     [[maybe_unused]] auto avm_main_da_gas_op = View(new_term.avm_main_da_gas_op);                                      \
     [[maybe_unused]] auto avm_main_da_gas_remaining = View(new_term.avm_main_da_gas_remaining);                        \
->>>>>>> 4bb44191bf (feat: simple gas decrement test)
     [[maybe_unused]] auto avm_main_ia = View(new_term.avm_main_ia);                                                    \
     [[maybe_unused]] auto avm_main_ib = View(new_term.avm_main_ib);                                                    \
     [[maybe_unused]] auto avm_main_ic = View(new_term.avm_main_ic);                                                    \
