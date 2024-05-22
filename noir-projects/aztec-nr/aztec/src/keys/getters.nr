@@ -1,17 +1,24 @@
-use dep::protocol_types::{address::AztecAddress, constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint};
+use dep::protocol_types::{
+    abis::key_validation_request::KeyValidationRequest, address::AztecAddress,
+    constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint,
+    storage::map::derive_storage_slot_in_map
+};
 use crate::{
-    context::PrivateContext, oracle::keys::get_public_keys_and_partial_address,
-    keys::public_keys::{PublicKeys, NULLIFIER_INDEX, INCOMING_INDEX},
-    state_vars::{
-    map::derive_storage_slot_in_map,
-    shared_mutable::shared_mutable_private_getter::SharedMutablePrivateGetter
-}
+    context::PrivateContext,
+    oracle::{keys::get_public_keys_and_partial_address, key_validation_request::get_key_validation_request},
+    keys::{public_keys::PublicKeys, constants::{NULLIFIER_INDEX, INCOMING_INDEX}},
+    state_vars::{shared_mutable::shared_mutable_private_getter::SharedMutablePrivateGetter}
 };
 
 global DELAY = 5;
 
+// docs:start:key-getters
 pub fn get_npk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
     get_master_key(context, address, NULLIFIER_INDEX)
+}
+
+pub fn get_npk_m_hash(context: &mut PrivateContext, address: AztecAddress) -> Field {
+    get_master_key(context, address, NULLIFIER_INDEX).hash()
 }
 
 pub fn get_ivpk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
@@ -26,6 +33,7 @@ pub fn get_ivpk_m(context: &mut PrivateContext, address: AztecAddress) -> Grumpk
 // pub fn get_tpk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
 //     get_master_key(context, address, TAGGING_INDEX)
 // }
+// docs:end:key-getters
 
 fn get_master_key(
     context: &mut PrivateContext,
@@ -79,4 +87,10 @@ fn fetch_and_constrain_keys(address: AztecAddress) -> PublicKeys {
     assert(computed_address.eq(address));
 
     public_keys
+}
+
+// A helper function since requesting nsk_app is very common
+// TODO(#6543)
+pub fn get_nsk_app(npk_m_hash: Field) -> Field {
+    get_key_validation_request(npk_m_hash, NULLIFIER_INDEX).sk_app
 }

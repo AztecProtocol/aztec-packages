@@ -92,9 +92,14 @@ enum class OpCode : uint8_t {
     RETURN,
     REVERT,
 
+    // Misc
+    DEBUGLOG,
+
     // Gadgets
     KECCAK,
     POSEIDON2,
+    SHA256,
+    PEDERSEN,
 
     // Conversions
     TORADIXLE,

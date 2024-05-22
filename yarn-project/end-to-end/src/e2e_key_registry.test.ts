@@ -25,7 +25,7 @@ describe('Key Registry', () => {
   const account = CompleteAddress.random();
 
   beforeAll(async () => {
-    ({ teardown, pxe, wallets } = await setup(3));
+    ({ teardown, pxe, wallets } = await setup(2));
     keyRegistry = await KeyRegistryContract.at(getCanonicalKeyRegistryAddress(), wallets[0]);
 
     testContract = await TestContract.deploy(wallets[0]).send().deployed();
@@ -44,12 +44,16 @@ describe('Key Registry', () => {
 
   describe('failure cases', () => {
     it('throws when address preimage check fails', async () => {
-      const publicKeysBuf = account.publicKeys.toBuffer();
-      // We randomly invalidate some of the keys by overwriting random byte
-      const byteIndex = Math.floor(Math.random() * publicKeysBuf.length);
-      publicKeysBuf[byteIndex] = (publicKeysBuf[byteIndex] + 2) % 256;
+      // First we get invalid keys by replacing any of the 8 fields of public keys with a random value
+      let invalidPublicKeys: PublicKeys;
+      {
+        // We call toBuffer and fromBuffer first to ensure that we get a deep copy
+        const publicKeysFields = PublicKeys.fromBuffer(account.publicKeys.toBuffer()).toFields();
+        const randomIndex = Math.floor(Math.random() * publicKeysFields.length);
+        publicKeysFields[randomIndex] = Fr.random();
 
-      const publicKeys = PublicKeys.fromBuffer(publicKeysBuf);
+        invalidPublicKeys = PublicKeys.fromFields(publicKeysFields);
+      }
 
       await expect(
         keyRegistry
@@ -57,8 +61,8 @@ describe('Key Registry', () => {
           .methods.register(
             account,
             account.partialAddress,
-            // TODO(#6337): Directly dump account.publicKeys here
-            publicKeys.toNoirStruct(),
+            // TODO(#6337): Make calling `toNoirStruct()` unnecessary
+            invalidPublicKeys.toNoirStruct(),
           )
           .send()
           .wait(),
@@ -108,7 +112,7 @@ describe('Key Registry', () => {
         .methods.register(
           account,
           account.partialAddress,
-          // TODO(#6337): Directly dump account.publicKeys here
+          // TODO(#6337): Make calling `toNoirStruct()` unnecessary
           account.publicKeys.toNoirStruct(),
         )
         .send()
@@ -147,11 +151,13 @@ describe('Key Registry', () => {
     const secondNewMasterNullifierPublicKey = Point.random();
 
     it('rotates npk_m', async () => {
+      // docs:start:key-rotation
       await keyRegistry
         .withWallet(wallets[0])
         .methods.rotate_npk_m(wallets[0].getAddress(), firstNewMasterNullifierPublicKey, Fr.ZERO)
         .send()
         .wait();
+      // docs:end:key-rotation
 
       // We check if our rotated nullifier key is equal to the key obtained from the getter by reading our registry
       // contract from the test contract. We expect this to fail because the change has not been applied yet

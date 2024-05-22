@@ -4,6 +4,7 @@ import {
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
+  type PrivateKernelResetCircuitPrivateInputsVariants,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
@@ -78,6 +79,16 @@ export interface ProofCreator {
   ): Promise<KernelProofOutput<PrivateKernelCircuitPublicInputs>>;
 
   /**
+   * Creates a proof output by resetting the arrays using the reset circuit.
+   *
+   * @param privateKernelInputsTail - The private input data structure for the reset circuit.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
+   */
+  createProofReset(
+    privateKernelInputsReset: PrivateKernelResetCircuitPrivateInputsVariants,
+  ): Promise<KernelProofOutput<PrivateKernelCircuitPublicInputs>>;
+
+  /**
    * Creates a proof output based on the last inner kernel iteration kernel data for the final ordering iteration.
    *
    * @param privateKernelInputsTail - The private input data structure for the final ordering iteration.
@@ -92,7 +103,12 @@ export interface ProofCreator {
    *
    * @param partialWitness - The witness produced via circuit simulation
    * @param bytecode - The circuit bytecode in gzipped bincode format
+   * @param appCircuitName - Optionally specify the name of the app circuit
    * @returns A Promise resolving to a Proof object
    */
-  createAppCircuitProof(partialWitness: WitnessMap, bytecode: Buffer): Promise<AppCircuitProofOutput>;
+  createAppCircuitProof(
+    partialWitness: WitnessMap,
+    bytecode: Buffer,
+    appCircuitName?: string,
+  ): Promise<AppCircuitProofOutput>;
 }

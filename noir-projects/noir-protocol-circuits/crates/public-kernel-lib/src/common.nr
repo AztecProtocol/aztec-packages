@@ -4,7 +4,7 @@ use dep::types::{
     kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder,
     public_kernel_data::PublicKernelData, note_hash::NoteHash, nullifier::Nullifier,
     public_call_data::PublicCallData, public_data_read::PublicDataRead,
-    public_data_update_request::PublicDataUpdateRequest, side_effect::SideEffect,
+    public_data_update_request::PublicDataUpdateRequest, log_hash::LogHash,
     global_variables::GlobalVariables, combined_constant_data::CombinedConstantData
 },
     address::AztecAddress,
@@ -18,7 +18,6 @@ use dep::types::{
     hash::{silo_note_hash, silo_nullifier, compute_l2_to_l1_hash, accumulate_sha256},
     utils::{arrays::{array_length, array_to_bounded_vec}}, traits::{is_empty, is_empty_array}
 };
-use crate::hash::{compute_public_data_tree_index, compute_public_data_tree_value};
 
 // Validates inputs to the kernel circuit that are common to all invocation scenarios.
 pub fn validate_inputs(public_call: PublicCallData) {
@@ -94,9 +93,8 @@ pub fn initialize_emitted_end_values(
         circuit_outputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
         circuit_outputs.end.public_data_update_requests = array_to_bounded_vec(start.public_data_update_requests);
         circuit_outputs.end.unencrypted_logs_hashes = array_to_bounded_vec(start.unencrypted_logs_hashes);
-        circuit_outputs.end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
+        circuit_outputs.end.note_encrypted_logs_hashes = array_to_bounded_vec(start.note_encrypted_logs_hashes);
         circuit_outputs.end.encrypted_logs_hashes = array_to_bounded_vec(start.encrypted_logs_hashes);
-        circuit_outputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
     }
 
     let start_non_revertible = previous_kernel.public_inputs.end_non_revertible;
@@ -105,9 +103,8 @@ pub fn initialize_emitted_end_values(
     circuit_outputs.end_non_revertible.new_l2_to_l1_msgs = array_to_bounded_vec(start_non_revertible.new_l2_to_l1_msgs);
     circuit_outputs.end_non_revertible.public_data_update_requests = array_to_bounded_vec(start_non_revertible.public_data_update_requests);
     circuit_outputs.end_non_revertible.unencrypted_logs_hashes = array_to_bounded_vec(start_non_revertible.unencrypted_logs_hashes);
-    circuit_outputs.end_non_revertible.unencrypted_log_preimages_length = start_non_revertible.unencrypted_log_preimages_length;
+    circuit_outputs.end_non_revertible.note_encrypted_logs_hashes = array_to_bounded_vec(start_non_revertible.note_encrypted_logs_hashes);
     circuit_outputs.end_non_revertible.encrypted_logs_hashes = array_to_bounded_vec(start_non_revertible.encrypted_logs_hashes);
-    circuit_outputs.end_non_revertible.encrypted_log_preimages_length = start_non_revertible.encrypted_log_preimages_length;
 
     let start = previous_kernel.public_inputs.validation_requests;
     circuit_outputs.validation_requests.max_block_number = start.for_rollup.max_block_number;
@@ -160,11 +157,8 @@ fn perform_static_call_checks(public_call: PublicCallData) {
         let new_l2_to_l1_msgs_length = array_length(public_inputs.new_l2_to_l1_msgs);
         assert(new_l2_to_l1_msgs_length == 0, "new_l2_to_l1_msgs must be empty for static calls");
 
-        // TODO: reevaluate when implementing https://github.com/AztecProtocol/aztec-packages/issues/1165
-        // This 4 magical number is the minimum size of the buffer, since it has to store the total length of all the serialized logs.
-        assert(
-            public_inputs.unencrypted_log_preimages_length == 4, "No unencrypted logs are allowed for static calls"
-        );
+        let new_unencrypted_logs_length = array_length(public_inputs.unencrypted_logs_hashes);
+        assert(new_unencrypted_logs_length == 0, "No unencrypted logs are allowed for static calls");
     }
 }
 
@@ -375,11 +369,7 @@ fn propagate_valid_public_data_update_requests(
     for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
         let update_request = update_requests[i];
         if (!update_request.is_empty()) {
-            let public_data_update_request = PublicDataUpdateRequest {
-                leaf_slot: compute_public_data_tree_index(contract_address, update_request.storage_slot),
-                new_value: compute_public_data_tree_value(update_request.new_value)
-            };
-
+            let public_data_update_request = PublicDataUpdateRequest::from_contract_storage_update_request(contract_address, update_request);
             public_data_update_requests.push(public_data_update_request);
         }
     }
@@ -398,10 +388,7 @@ fn propagate_valid_non_revertible_public_data_update_requests(
     for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
         let update_request = update_requests[i];
         if (!update_request.is_empty()) {
-            let public_data_update_request = PublicDataUpdateRequest {
-                leaf_slot: compute_public_data_tree_index(contract_address, update_request.storage_slot),
-                new_value: compute_public_data_tree_value(update_request.new_value)
-            };
+            let public_data_update_request = PublicDataUpdateRequest::from_contract_storage_update_request(contract_address, update_request);
 
             public_data_update_requests.push(public_data_update_request);
         }
@@ -418,10 +405,7 @@ fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_output
     for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
         let read_request: StorageRead = read_requests[i];
         if !read_request.is_empty() {
-            let public_data_read = PublicDataRead {
-                leaf_slot: compute_public_data_tree_index(contract_address, read_request.storage_slot),
-                value: compute_public_data_tree_value(read_request.current_value)
-            };
+            let public_data_read = PublicDataRead::from_contract_storage_read(contract_address, read_request);
             public_data_reads.push(public_data_read);
         }
     }
@@ -571,7 +555,7 @@ pub fn propagate_new_unencrypted_logs(public_call: PublicCallData, public_inputs
     // new unencrypted logs
     let new_logs = public_call.call_stack_item.public_inputs.unencrypted_logs_hashes;
     // TODO(Miranda): silo logs here once we have finalised struct
-    let mut new_logs_to_insert : BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_CALL> = BoundedVec::new();
+    let mut new_logs_to_insert : BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_UNENCRYPTED_LOGS_PER_CALL {
         let new_log = new_logs[i];
         if new_log.value != 0 {
@@ -580,7 +564,6 @@ pub fn propagate_new_unencrypted_logs(public_call: PublicCallData, public_inputs
         }
     }
     public_inputs.end.unencrypted_logs_hashes.extend_from_bounded_vec(new_logs_to_insert);
-    public_inputs.end.unencrypted_log_preimages_length += public_call.call_stack_item.public_inputs.unencrypted_log_preimages_length;
 }
 
 pub fn propagate_new_unencrypted_logs_non_revertible(
@@ -590,7 +573,7 @@ pub fn propagate_new_unencrypted_logs_non_revertible(
     // new unencrypted logs
     let new_logs = public_call.call_stack_item.public_inputs.unencrypted_logs_hashes;
     // TODO(Miranda): silo logs here once we have finalised struct
-    let mut new_logs_to_insert : BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_CALL> = BoundedVec::new();
+    let mut new_logs_to_insert : BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_UNENCRYPTED_LOGS_PER_CALL {
         let new_log = new_logs[i];
         if new_log.value != 0 {
@@ -599,7 +582,6 @@ pub fn propagate_new_unencrypted_logs_non_revertible(
         }
     }
     public_inputs.end_non_revertible.unencrypted_logs_hashes.extend_from_bounded_vec(new_logs_to_insert);
-    public_inputs.end_non_revertible.unencrypted_log_preimages_length += public_call.call_stack_item.public_inputs.unencrypted_log_preimages_length;
 }
 
 /**

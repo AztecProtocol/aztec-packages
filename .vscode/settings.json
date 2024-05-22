@@ -166,5 +166,5 @@
     "**/l1-contracts/lib/**": true,
     "**/barretenberg/cpp/build*/**": true
   },
-  "cmake.sourceDirectory": "/workspaces/aztec-packages/barretenberg/cpp"
+  "cmake.sourceDirectory": "${workspaceFolder}/barretenberg/cpp"
 }

@@ -342,15 +342,19 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg, Aci
                     .scalars = map(arg.scalars, [](auto& e) { return e.witness.value; }),
                     .out_point_x = arg.outputs[0].value,
                     .out_point_y = arg.outputs[1].value,
+                    .out_point_is_infinite = arg.outputs[2].value,
                 });
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::EmbeddedCurveAdd>) {
                 af.ec_add_constraints.push_back(EcAdd{
-                    .input1_x = arg.input1_x.witness.value,
-                    .input1_y = arg.input1_y.witness.value,
-                    .input2_x = arg.input2_x.witness.value,
-                    .input2_y = arg.input2_y.witness.value,
+                    .input1_x = arg.input1[0].witness.value,
+                    .input1_y = arg.input1[1].witness.value,
+                    .input1_infinite = arg.input1[2].witness.value,
+                    .input2_x = arg.input2[0].witness.value,
+                    .input2_y = arg.input2[1].witness.value,
+                    .input2_infinite = arg.input2[2].witness.value,
                     .result_x = arg.outputs[0].value,
                     .result_y = arg.outputs[1].value,
+                    .result_infinite = arg.outputs[2].value,
                 });
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Keccak256>) {
                 af.keccak_constraints.push_back(KeccakConstraint{
@@ -446,6 +450,16 @@ BlockConstraint handle_memory_init(Program::Opcode::MemoryInit const& mem_init)
             .q_c = 0,
         });
     }
+
+    // Databus is only supported for Goblin, non Goblin builders will treat call_data and return_data as normal array.
+    if (IsGoblinUltraBuilder<Builder>) {
+        if (std::holds_alternative<Program::BlockType::CallData>(mem_init.block_type.value)) {
+            block.type = BlockType::CallData;
+        } else if (std::holds_alternative<Program::BlockType::ReturnData>(mem_init.block_type.value)) {
+            block.type = BlockType::ReturnData;
+        }
+    }
+
     return block;
 }
 
@@ -461,7 +475,9 @@ void handle_memory_op(Program::Opcode::MemoryOp const& mem_op, BlockConstraint& 
     if (is_rom(mem_op.op)) {
         access_type = 0;
     }
-    if (block.type == BlockType::ROM && access_type == 1) {
+    if (access_type == 1) {
+        // We are not allowed to write on the databus
+        ASSERT((block.type != BlockType::CallData) && (block.type != BlockType::ReturnData));
         block.type = BlockType::RAM;
     }
 

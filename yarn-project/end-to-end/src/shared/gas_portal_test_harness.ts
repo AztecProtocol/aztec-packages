@@ -10,7 +10,7 @@ import {
 } from '@aztec/aztec.js';
 import { GasPortalAbi, OutboxAbi, PortalERC20Abi } from '@aztec/l1-artifacts';
 import { GasTokenContract } from '@aztec/noir-contracts.js';
-import { getCanonicalGasToken, getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
+import { GasTokenAddress, getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 
 import {
   type Account,
@@ -23,8 +23,10 @@ import {
 } from 'viem';
 
 export interface IGasBridgingTestHarness {
+  getL1GasTokenBalance(address: EthAddress): Promise<bigint>;
   bridgeFromL1ToL2(l1TokenBalance: bigint, bridgeAmount: bigint, owner: AztecAddress): Promise<void>;
   l2Token: GasTokenContract;
+  l1GasTokenAddress: EthAddress;
 }
 
 export interface GasPortalTestingHarnessFactoryConfig {
@@ -44,12 +46,10 @@ export class GasPortalTestingHarnessFactory {
     const wallet = this.config.wallet;
 
     // In this case we are not using a portal we just yolo it.
-    const gasL2 = await GasTokenContract.deploy(wallet, EthAddress.ZERO)
-      .send({
-        contractAddressSalt: getCanonicalGasToken(EthAddress.ZERO).instance.salt,
-      })
+    const gasL2 = await GasTokenContract.deploy(wallet)
+      .send({ contractAddressSalt: getCanonicalGasToken().instance.salt })
       .deployed();
-    return Promise.resolve(new MockGasBridgingTestHarness(gasL2));
+    return Promise.resolve(new MockGasBridgingTestHarness(gasL2, EthAddress.ZERO));
   }
 
   private async createReal() {
@@ -83,7 +83,7 @@ export class GasPortalTestingHarnessFactory {
       client: walletClient,
     });
 
-    const gasL2 = await GasTokenContract.at(getCanonicalGasTokenAddress(gasPortalAddress), wallet);
+    const gasL2 = await GasTokenContract.at(GasTokenAddress, wallet);
 
     return new GasBridgingTestHarness(
       aztecNode,
@@ -111,9 +111,12 @@ export class GasPortalTestingHarnessFactory {
 }
 
 class MockGasBridgingTestHarness implements IGasBridgingTestHarness {
-  constructor(public l2Token: GasTokenContract) {}
+  constructor(public l2Token: GasTokenContract, public l1GasTokenAddress: EthAddress) {}
   async bridgeFromL1ToL2(_l1TokenBalance: bigint, bridgeAmount: bigint, owner: AztecAddress): Promise<void> {
     await this.l2Token.methods.mint_public(owner, bridgeAmount).send().wait();
+  }
+  getL1GasTokenBalance(_address: EthAddress): Promise<bigint> {
+    throw new Error('Cannot get gas token balance on mocked L1.');
   }
 }
 
@@ -150,6 +153,10 @@ class GasBridgingTestHarness implements IGasBridgingTestHarness {
     public walletClient: WalletClient,
   ) {}
 
+  get l1GasTokenAddress() {
+    return EthAddress.fromString(this.underlyingERC20.address);
+  }
+
   generateClaimSecret(): [Fr, Fr] {
     this.logger.debug("Generating a claim secret using pedersen's hash function");
     const secret = Fr.random();
@@ -166,7 +173,7 @@ class GasBridgingTestHarness implements IGasBridgingTestHarness {
     expect(await this.underlyingERC20.read.balanceOf([this.ethAccount.toString()])).toBe(amount);
   }
 
-  async getL1BalanceOf(address: EthAddress) {
+  async getL1GasTokenBalance(address: EthAddress) {
     return await this.underlyingERC20.read.balanceOf([address.toString()]);
   }
 
@@ -211,7 +218,7 @@ class GasBridgingTestHarness implements IGasBridgingTestHarness {
 
     // 2. Deposit tokens to the TokenPortal
     const msgHash = await this.sendTokensToPortalPublic(bridgeAmount, owner, secretHash);
-    expect(await this.getL1BalanceOf(this.ethAccount)).toBe(l1TokenBalance - bridgeAmount);
+    expect(await this.getL1GasTokenBalance(this.ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     // Perform an unrelated transactions on L2 to progress the rollup by 2 blocks.
     await this.l2Token.methods.check_balance(0).send().wait();

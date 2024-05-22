@@ -1,10 +1,13 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
-const lightCodeTheme = require("prism-react-renderer/themes/github");
-const darkCodeTheme = require("prism-react-renderer/themes/dracula");
-const math = require("remark-math");
-const katex = require("rehype-katex");
+const { themes } = require("prism-react-renderer");
+const lightTheme = themes.github;
+const darkTheme = themes.dracula;
+
+import math from "remark-math";
+import katex from "rehype-katex";
+
 const path = require("path");
 const fs = require("fs");
 const macros = require("./src/katex-macros.js");
@@ -18,7 +21,7 @@ const config = {
   baseUrl: "/",
   trailingSlash: false,
   onBrokenLinks: "throw",
-  onBrokenMarkdownLinks: "throw",
+  onBrokenMarkdownLinks: process.env.ENV === "dev" ? "warn" : "throw",
   favicon: "img/Aztec_docs_icons-02.svg",
 
   // GitHub pages deployment config.
@@ -41,10 +44,10 @@ const config = {
     [
       "@docusaurus/preset-classic",
       /** @type {import('@docusaurus/preset-classic').Options} */
-      ({
+      {
         docs: {
           path: process.env.ENV === "dev" ? "docs" : "processed-docs",
-          sidebarPath: require.resolve("./sidebars.js"),
+          sidebarPath: "./sidebars.js",
           editUrl: (params) => {
             return (
               `https://github.com/AztecProtocol/aztec-packages/edit/master/docs/docs/` +
@@ -68,12 +71,7 @@ const config = {
         theme: {
           customCss: require.resolve("./src/css/custom.css"),
         },
-        // removed until approved by legal (GDPR)
-        //         gtag: {
-        //           trackingID: "G-WSBTSFJCSF",
-        //           anonymizeIP: true,
-        //         }
-      }),
+      },
     ],
   ],
   stylesheets: [
@@ -128,33 +126,40 @@ const config = {
     [
       "docusaurus-plugin-typedoc",
       {
-        id: "apis/pxe",
+        id: "aztecjs/pxe",
         entryPoints: ["../yarn-project/circuit-types/src/interfaces/pxe.ts"],
         tsconfig: "../yarn-project/circuit-types/tsconfig.json",
         entryPointStrategy: "expand",
-        out: "apis/pxe",
+        out: "reference/aztecjs/pxe",
+        readme: "none",
+        sidebar: {
+          categoryLabel: "Private Execution Environment (PXE)",
+        },
         disableSources: true,
-        frontmatter: { sidebar_label: "Private Execution Environment (PXE)" },
       },
     ],
     [
       "docusaurus-plugin-typedoc",
       {
-        id: "apis/aztec-js",
+        id: "aztecjs/aztec-js",
         entryPoints: [
           "../yarn-project/aztec.js/src/contract/index.ts",
           "../yarn-project/aztec.js/src/account/index.ts",
         ],
         tsconfig: "../yarn-project/aztec.js/tsconfig.json",
         entryPointStrategy: "resolve",
-        out: "apis/aztec-js",
+        out: "reference/aztecjs/aztec-js",
+        readme: "none",
+        sidebar: {
+          categoryLabel: "Aztec.js",
+        },
         disableSources: true,
       },
     ],
     [
       "docusaurus-plugin-typedoc",
       {
-        id: "apis/accounts",
+        id: "aztecjs/accounts",
         entryPoints: [
           "../yarn-project/accounts/src/defaults/index.ts",
           "../yarn-project/accounts/src/ecdsa/index.ts",
@@ -164,12 +169,19 @@ const config = {
         ],
         tsconfig: "../yarn-project/accounts/tsconfig.json",
         entryPointStrategy: "resolve",
-        out: "apis/accounts",
+        out: "reference/aztecjs/accounts",
+        readme: "none",
+        sidebar: {
+          categoryLabel: "Accounts",
+        },
         disableSources: true,
       },
     ],
     // ["./src/plugins/plugin-embed-code", {}],
   ],
+  customFields: {
+    MATOMO_ENV: process.env.ENV,
+  },
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
@@ -190,22 +202,23 @@ const config = {
         disableSwitch: false,
         respectPrefersColorScheme: false,
       },
-      docs: {
-        sidebar: {
-          hideable: true,
-          autoCollapseCategories: false,
-        },
-      },
+      // docs: {
+      //   sidebar: {
+      //     hideable: true,
+      //     autoCollapseCategories: false,
+      //   },
+      // },
       navbar: {
         logo: {
           alt: "Aztec Logo",
           srcDark: "img/new_logo-01.svg",
+          href: "/",
           src: "img/Aztec_logo_dark-01.svg",
         },
         items: [
           {
             type: "doc",
-            docId: "welcome",
+            docId: "index",
             position: "left",
             label: "Aztec Protocol",
           },
@@ -229,7 +242,7 @@ const config = {
               },
               {
                 label: "Developer Quickstart",
-                to: "/developers/getting_started/quickstart",
+                to: "/getting_started",
               },
               {
                 label: "Aztec.nr",
@@ -279,8 +292,8 @@ const config = {
         copyright: `Copyright © ${new Date().getFullYear()} Aztec, built with Docusaurus, powered by <a target="_blank" href="https://netlify.com">Netlify.</a>`,
       },
       prism: {
-        theme: lightCodeTheme,
-        darkTheme: darkCodeTheme,
+        theme: lightTheme,
+        darkTheme: darkTheme,
         // https://prismjs.com/#supported-languages
         // Commented-out languages exists in `node_modules/prismjs/components/` so I'm not sure why they don't work.
         additionalLanguages: [

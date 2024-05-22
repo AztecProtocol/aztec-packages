@@ -1,6 +1,9 @@
-use dep::protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::pedersen_hash};
+use dep::protocol_types::{
+    address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
+    grumpkin_point::GrumpkinPoint, hash::pedersen_hash
+};
 
-use crate::context::{PrivateContext, PublicContext, Context};
+use crate::context::PrivateContext;
 use crate::note::{
     lifecycle::{create_note, destroy_note}, note_getter::{get_note, view_notes},
     note_interface::NoteInterface, note_viewer_options::NoteViewerOptions
@@ -9,21 +12,25 @@ use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::Storage;
 
 // docs:start:struct
-struct PrivateMutable<Note> {
-    context: Option<&mut PrivateContext>,
+struct PrivateMutable<Note, Context> {
+    context: Context,
     storage_slot: Field
 }
 // docs:end:struct
 
-impl<T> Storage<T> for PrivateMutable<T> {}
+impl<T, Context> Storage<T> for PrivateMutable<T, Context> {}
 
-impl<Note> PrivateMutable<Note> {
+impl<Note, Context> PrivateMutable<Note, Context> {
     // docs:start:new
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
-        Self { context: context.private, storage_slot }
+        Self { context, storage_slot }
     }
     // docs:end:new
+
+    pub fn to_unconstrained(self) -> PrivateMutable<Note, ()> {
+        PrivateMutable { context: (), storage_slot: self.storage_slot }
+    }
 
     // The following computation is leaky, in that it doesn't hide the storage slot that has been initialized, nor does it hide the contract address of this contract.
     // When this initialization nullifier is emitted, an observer could do a dictionary or rainbow attack to learn the preimage of this nullifier to deduce the storage slot and contract address.
@@ -39,57 +46,69 @@ impl<Note> PrivateMutable<Note> {
             GENERATOR_INDEX__INITIALIZATION_NULLIFIER
         )
     }
+}
 
-    // docs:start:is_initialized
-    unconstrained pub fn is_initialized(self) -> bool {
-        let nullifier = self.compute_initialization_nullifier();
-        check_nullifier_exists(nullifier)
-    }
-    // docs:end:is_initialized
-
+impl<Note> PrivateMutable<Note, &mut PrivateContext> {
     // docs:start:initialize
-    pub fn initialize<N>(self, note: &mut Note, broadcast: bool) where Note: NoteInterface<N> {
-        let context = self.context.unwrap();
-
+    pub fn initialize<N, M>(
+        self,
+        note: &mut Note,
+        broadcast: bool,
+        ivpk_m: GrumpkinPoint
+    ) where Note: NoteInterface<N, M> {
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
-        context.push_new_nullifier(nullifier, 0);
+        self.context.push_new_nullifier(nullifier, 0);
 
-        create_note(context, self.storage_slot, note, broadcast);
+        create_note(self.context, self.storage_slot, note, broadcast, ivpk_m);
     }
     // docs:end:initialize
 
     // docs:start:replace
-    pub fn replace<N>(self, new_note: &mut Note, broadcast: bool) where Note: NoteInterface<N> {
-        let context = self.context.unwrap();
-        let prev_note: Note = get_note(context, self.storage_slot);
+    pub fn replace<N, M>(
+        self,
+        new_note: &mut Note,
+        broadcast: bool,
+        ivpk_m: GrumpkinPoint
+    ) where Note: NoteInterface<N, M> {
+        let prev_note: Note = get_note(self.context, self.storage_slot);
 
         // Nullify previous note.
-        destroy_note(context, prev_note);
+        destroy_note(self.context, prev_note);
 
         // Add replacement note.
-        create_note(context, self.storage_slot, new_note, broadcast);
+        create_note(self.context, self.storage_slot, new_note, broadcast, ivpk_m);
     }
     // docs:end:replace
 
     // docs:start:get_note
-    pub fn get_note<N>(self, broadcast: bool) -> Note where Note: NoteInterface<N> {
-        let context = self.context.unwrap();
-        let mut note = get_note(context, self.storage_slot);
+    pub fn get_note<N, M>(
+        self,
+        broadcast: bool,
+        ivpk_m: GrumpkinPoint
+    ) -> Note where Note: NoteInterface<N, M> {
+        let mut note = get_note(self.context, self.storage_slot);
 
         // Nullify current note to make sure it's reading the latest note.
-        destroy_note(context, note);
+        destroy_note(self.context, note);
 
         // Add the same note again.
         // Because a nonce is added to every note in the kernel, its nullifier will be different.
-        create_note(context, self.storage_slot, &mut note, broadcast);
+        create_note(self.context, self.storage_slot, &mut note, broadcast, ivpk_m);
 
         note
     }
     // docs:end:get_note
+}
+
+impl<Note> PrivateMutable<Note, ()> {
+    unconstrained pub fn is_initialized(self) -> bool {
+        let nullifier = self.compute_initialization_nullifier();
+        check_nullifier_exists(nullifier)
+    }
 
     // docs:start:view_note
-    unconstrained pub fn view_note<N>(self) -> Note where Note: NoteInterface<N> {
+    unconstrained pub fn view_note<N, M>(self) -> Note where Note: NoteInterface<N, M> {
         let mut options = NoteViewerOptions::new();
         view_notes(self.storage_slot, options.set_limit(1))[0].unwrap()
     }

@@ -3,7 +3,9 @@ use crate::{
     accumulated_data::CombinedAccumulatedData, combined_constant_data::CombinedConstantData,
     validation_requests::RollupValidationRequests, gas::Gas
 },
-    address::AztecAddress, partial_state_reference::PartialStateReference, traits::Empty
+    address::AztecAddress, partial_state_reference::PartialStateReference,
+    traits::{Empty, Eq, Serialize, Deserialize}, constants::KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    utils::reader::Reader
 };
 use crate::mocked::AggregationObject;
 
@@ -17,7 +19,6 @@ struct KernelCircuitPublicInputs {
 }
 
 impl KernelCircuitPublicInputs {
-
     pub fn compute_transaction_fee(self) -> Field {
         let gas_fees = self.constants.global_variables.gas_fees;
         let inclusion_fee = self.constants.tx_context.gas_settings.inclusion_fee;
@@ -38,15 +39,58 @@ impl Empty for KernelCircuitPublicInputs {
     }
 }
 
+impl Eq for KernelCircuitPublicInputs {
+  fn eq(self, other: Self) -> bool {
+    (self.rollup_validation_requests.eq(other.rollup_validation_requests)) &
+    (self.end.eq(other.end)) &
+    (self.constants.eq(other.constants)) &
+    (self.start_state.eq(other.start_state)) &
+    (self.revert_code == other.revert_code) &
+    (self.fee_payer.eq(other.fee_payer))
+  }
+}
+
+impl Serialize<KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for KernelCircuitPublicInputs {
+  fn serialize(self) -> [Field; KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
+    let mut fields: BoundedVec<Field, KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new();
+
+    fields.extend_from_array(self.rollup_validation_requests.serialize());
+    fields.extend_from_array(self.end.serialize());
+    fields.extend_from_array(self.constants.serialize());
+    fields.extend_from_array(self.start_state.serialize());
+    fields.push(self.revert_code as Field);
+    fields.extend_from_array(self.fee_payer.serialize());
+
+    assert_eq(fields.len(), KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
+
+    fields.storage
+  }
+}
+
+impl Deserialize<KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for KernelCircuitPublicInputs {
+  fn deserialize(fields: [Field; KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH]) -> KernelCircuitPublicInputs {
+    let mut reader = Reader::new(fields);
+    let item = Self {
+        rollup_validation_requests: reader.read_struct(RollupValidationRequests::deserialize),
+        end: reader.read_struct(CombinedAccumulatedData::deserialize),
+        constants: reader.read_struct(CombinedConstantData::deserialize),
+        start_state: reader.read_struct(PartialStateReference::deserialize),
+        revert_code: reader.read() as u8,
+        fee_payer: reader.read_struct(AztecAddress::deserialize),
+    };
+
+    reader.finish();
+    item
+  }
+}
+
 mod tests {
     use crate::abis::{
         kernel_circuit_public_inputs::kernel_circuit_public_inputs::KernelCircuitPublicInputs,
         accumulated_data::CombinedAccumulatedData, combined_constant_data::CombinedConstantData,
         validation_requests::RollupValidationRequests, gas::Gas, gas_fees::GasFees
     };
-    use crate::address::AztecAddress;
-    use crate::partial_state_reference::PartialStateReference;
-    use crate::mocked::AggregationObject;
+    use crate::{address::AztecAddress, partial_state_reference::PartialStateReference, mocked::AggregationObject};
 
     #[test]
     unconstrained fn empty_has_zero_gas_and_fee() {
@@ -79,5 +123,13 @@ mod tests {
 
         let transaction_fee = inputs.compute_transaction_fee();
         assert_eq(transaction_fee, 42 + 2 * 10 + 3 * 20);
+    }
+
+    #[test]
+    fn serialization_of_empty() {
+        let item = KernelCircuitPublicInputs::empty();
+        let serialized = item.serialize();
+        let deserialized = KernelCircuitPublicInputs::deserialize(serialized);
+        assert(item.eq(deserialized));
     }
 }
