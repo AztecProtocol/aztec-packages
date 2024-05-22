@@ -11,7 +11,7 @@ use dep::types::{
     abis::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot, nullifier_leaf_preimage::NullifierLeafPreimage,
     public_data_update_request::PublicDataUpdateRequest, public_data_read::PublicDataRead,
-    kernel_data::{KernelData, verify_kernel_proof}
+    kernel_data::KernelData
 },
     constants::{
     NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
@@ -51,7 +51,7 @@ struct BaseRollupInputs {
 impl BaseRollupInputs {
     pub fn base_rollup_circuit(self) -> BaseOrMergeRollupPublicInputs {
         // Verify the kernel circuit proof
-        verify_kernel_proof(self.kernel_data);
+        self.kernel_data.verify();
 
         // Verify the kernel chain_id and versions
         assert(

@@ -1,8 +1,7 @@
 use crate::common;
 use dep::types::abis::{
     kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder},
-    public_kernel_data::{PublicKernelData, verify_public_kernel}, public_call_data::PublicCallData,
-    gas_fees::GasFees
+    public_kernel_data::PublicKernelData, public_call_data::PublicCallData, gas_fees::GasFees
 };
 
 struct PublicKernelTeardownCircuitPrivateInputs {
@@ -71,7 +70,7 @@ impl PublicKernelTeardownCircuitPrivateInputs {
 
     fn public_kernel_teardown(self) -> PublicKernelCircuitPublicInputs {
         // verify the previous kernel proof
-        verify_public_kernel(self.previous_kernel);
+        self.previous_kernel.verify();
 
         // construct the circuit outputs
         let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();

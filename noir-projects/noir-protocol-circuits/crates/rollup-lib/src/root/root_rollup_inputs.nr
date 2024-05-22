@@ -1,8 +1,5 @@
 use crate::{
-    abis::{
-    previous_rollup_data::{PreviousRollupData, verify_rollup_proof},
-    constant_rollup_data::ConstantRollupData
-},
+    abis::{previous_rollup_data::PreviousRollupData, constant_rollup_data::ConstantRollupData},
     components, root::{root_rollup_public_inputs::RootRollupPublicInputs}
 };
 use dep::{
@@ -39,8 +36,11 @@ struct RootRollupInputs {
 impl RootRollupInputs {
     pub fn root_rollup_circuit(self) -> RootRollupPublicInputs {
         // Verify the previous rollup proofs
-        verify_rollup_proof(self.previous_rollup_data[0]);
-        verify_rollup_proof(self.previous_rollup_data[1]);
+        self.previous_rollup_data[0].verify();
+        self.previous_rollup_data[1].verify();
+
+        // verify the root parity
+        self.l1_to_l2_roots.verify();
 
         let left = self.previous_rollup_data[0].base_or_merge_rollup_public_inputs;
         let right = self.previous_rollup_data[1].base_or_merge_rollup_public_inputs;
@@ -93,20 +93,7 @@ impl RootRollupInputs {
             0
         );
 
-        self.verify_root_parity();
-
         RootRollupPublicInputs { archive, header }
-    }
-
-    fn verify_root_parity(self) {
-        // TODO: Verify that self.l1_to_l2_roots.verification_key.hash is the hash of the RootParityCircuit
-        //assert(self.l1_to_l2_roots.verification_key.hash == ROOT_PARITY_CIRCUIT_HASH) 
-        std::verify_proof(
-            self.l1_to_l2_roots.verification_key.key.as_slice(),
-            self.l1_to_l2_roots.proof.fields.as_slice(),
-            ParityPublicInputs::serialize(self.l1_to_l2_roots.public_inputs).as_slice(),
-            self.l1_to_l2_roots.verification_key.hash
-        );
     }
 }
 

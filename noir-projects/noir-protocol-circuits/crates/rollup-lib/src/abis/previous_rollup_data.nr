@@ -1,8 +1,8 @@
 use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs;
 use dep::types::{
     constants::ROLLUP_VK_TREE_HEIGHT,
-    recursion::{proof::NestedRecursiveProof, verification_key::VerificationKey}, traits::Empty,
-    merkle_tree::MembershipWitness
+    recursion::{proof::NestedRecursiveProof, verification_key::VerificationKey, traits::Verifiable},
+    traits::Empty, merkle_tree::MembershipWitness
 };
 
 struct PreviousRollupData{
@@ -13,14 +13,16 @@ struct PreviousRollupData{
     vk_sibling_path : MembershipWitness<ROLLUP_VK_TREE_HEIGHT>,
 }
 
-fn verify_rollup_proof(previous_rollup_data: PreviousRollupData) {
-    let inputs = BaseOrMergeRollupPublicInputs::serialize(previous_rollup_data.base_or_merge_rollup_public_inputs);
+impl Verifiable for PreviousRollupData {
+  fn verify(self) {
+    let inputs = BaseOrMergeRollupPublicInputs::serialize(self.base_or_merge_rollup_public_inputs);
     dep::std::verify_proof(
-        previous_rollup_data.vk.key.as_slice(),
-        previous_rollup_data.proof.fields.as_slice(),
+        self.vk.key.as_slice(),
+        self.proof.fields.as_slice(),
         inputs.as_slice(),
-        previous_rollup_data.vk.hash
+        self.vk.hash
     );
+  }
 }
 
 impl Empty for PreviousRollupData {

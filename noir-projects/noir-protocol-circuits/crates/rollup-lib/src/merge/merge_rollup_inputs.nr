@@ -1,5 +1,5 @@
 use dep::types::traits::Empty;
-use crate::abis::previous_rollup_data::{PreviousRollupData, verify_rollup_proof};
+use crate::abis::previous_rollup_data::PreviousRollupData;
 use crate::abis::base_or_merge_rollup_public_inputs::{BaseOrMergeRollupPublicInputs, MERGE_ROLLUP_TYPE};
 use crate::components;
 
@@ -22,8 +22,8 @@ impl MergeRollupInputs {
         // we don't have a set of permitted kernel vks yet.
 
         // Verify the previous rollup proofs
-        verify_rollup_proof(self.previous_rollup_data[0]);
-        verify_rollup_proof(self.previous_rollup_data[1]);
+        self.previous_rollup_data[0].verify();
+        self.previous_rollup_data[1].verify();
 
         let left = self.previous_rollup_data[0].base_or_merge_rollup_public_inputs;
         let right = self.previous_rollup_data[1].base_or_merge_rollup_public_inputs;
