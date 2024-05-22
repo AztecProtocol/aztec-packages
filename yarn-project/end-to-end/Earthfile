@@ -5,9 +5,11 @@ E2E_COMPOSE_TEST:
   ARG test
   ARG compose_file=./scripts/docker-compose.yml
   ARG debug="aztec:*"
+  ARG HARDWARE_CONCURRENCY=""
   LOCALLY
   ENV TEST=$test
   ENV DEBUG=$debug
+  ENV HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY
   LET project_name=$(echo $test | sed 's/\./_/g' | sed 's/\//_/g')
   IF docker compose > /dev/null 2>&1
     LET CMD="docker compose"
@@ -29,6 +31,7 @@ E2E_COMPOSE_TEST:
 
 E2E_TEST:
   FUNCTION
+  ARG HARDWARE_CONCURRENCY=""
   ARG test
   ARG allow_fail=false
   LOCALLY
@@ -41,13 +44,13 @@ E2E_TEST:
     END
   END
   # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
-  RUN docker run --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $test || $allow_fail
+  RUN docker run -e HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $test || $allow_fail
 
 e2e-2-pxes:
   DO +E2E_TEST --test=./src/e2e_2_pxes.test.ts
 
 e2e-prover:
-  DO +E2E_TEST --test=./src/e2e_prover
+  DO +E2E_TEST --test=./src/e2e_prover --HARDWARE_CONCURRENCY=32
 
 e2e-account-contracts:
   DO +E2E_TEST --test=./src/e2e_account_contracts.test.ts
@@ -208,5 +211,5 @@ bench-prover:
   ARG PULL_REQUEST
   ARG BRANCH
   ARG COMMIT_HASH
-  DO +E2E_COMPOSE_TEST --test=bench_prover --debug="aztec:benchmarks:*,aztec:prover*,aztec:bb*,aztec:pxe*" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml
+  DO +E2E_COMPOSE_TEST --test=bench_prover --debug="aztec:benchmarks:*,aztec:prover*,aztec:bb*,aztec:pxe*" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml --HARDWARE_CONCURRENCY=32
   DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
