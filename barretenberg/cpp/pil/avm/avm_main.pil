@@ -59,8 +59,9 @@ namespace avm_main(256);
     // TODO: Opcode value (byte) will be constrained by the bytecode validation circuit
     pol commit opcode_val;
 
-    // "gas_remaining" values correspond to the gas quantity which remains AFTER the execution of the opcode
-    // of the pertaining line. This means that these values will have to be initialized on row first.
+    // "gas_remaining" values correspond to the gas quantity which remains BEFORE the execution of the opcode
+    // of the pertaining line. This means that the last value will be written on the row following the last
+    // opcode execution.
     pol commit l2_gas_remaining;
     pol commit da_gas_remaining;
 
@@ -75,9 +76,15 @@ namespace avm_main(256);
 
     // Constrain that the gas decrements correctly per instruction
     #[L2_GAS_REMAINING_DECREMENT]
-    opcode_active * (l2_gas_remaining - (l2_gas_remaining' + l2_gas_op)) = 0;
+    opcode_active * (l2_gas_remaining' - l2_gas_remaining + l2_gas_op) = 0;
     #[DA_GAS_REMAINING_DECREMENT]
-    opcode_active * (da_gas_remaining - (da_gas_remaining' + da_gas_op)) = 0;
+    opcode_active * (da_gas_remaining' - da_gas_remaining + da_gas_op) = 0;
+
+    // Constrain that the remaining gas is unchanged otherwise (multi-line operations)
+    #[L2_GAS_INACTIVE]
+    (1 - opcode_active) * l2_gas_op = 0;
+    #[DA_GAS_INACTIVE]
+    (1 - opcode_active) * da_gas_op = 0;
 
     // TODO: constrain that it stays the same if an opcode selector is not active -> TODO: will this break when the opcode takes multiple rows
     // So we also need to constrain that it is the first line of the opcodes execution

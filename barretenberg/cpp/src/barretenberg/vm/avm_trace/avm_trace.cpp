@@ -22,7 +22,7 @@ namespace bb::avm_trace {
 
 /**
  * @brief Constructor of a trace builder of AVM. Only serves to set the capacity of the
- *        underlying traces.
+ *        underlying traces and initialize gas values.
  */
 AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs public_inputs)
     // NOTE: we initialise the environment builder here as it requires public inputs
@@ -3555,21 +3555,43 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
 
     // Add the gas accounting for each row
     // We can assume that the gas trace will never be larger than the main trace
+    // We infer that a row is active for gas (.avm_main_opcode_active = 1) based on the presence
+    // of a gas entry row.
     // Set the initial gas
-    auto& first_main_trace_row = main_trace.at(0);
-    first_main_trace_row.avm_main_l2_gas_remaining = gas_trace_builder.initial_l2_gas;
-    first_main_trace_row.avm_main_da_gas_remaining = gas_trace_builder.initial_da_gas;
+    auto& first_opcode_row = main_trace.at(0);
+    first_opcode_row.avm_main_l2_gas_remaining = gas_trace_builder.initial_l2_gas;
+    first_opcode_row.avm_main_da_gas_remaining = gas_trace_builder.initial_da_gas;
+    uint32_t current_clk = 0;
+    uint32_t current_l2_gas_remaining = gas_trace_builder.initial_l2_gas;
+    uint32_t current_da_gas_remaining = gas_trace_builder.initial_da_gas;
 
+    // Assume that gas_trace entries are ordered by a strictly increasing clk sequence.
     for (auto const& gas_entry : gas_trace) {
+
+        // Filling potential gap between two gas_trace entries
+        // Remaining gas values remain unchanged.
+        while (gas_entry.clk > current_clk) {
+            auto& next = main_trace.at(current_clk + 1);
+            next.avm_main_l2_gas_remaining = current_l2_gas_remaining;
+            next.avm_main_da_gas_remaining = current_da_gas_remaining;
+            current_clk++;
+        }
+
         auto& dest = main_trace.at(gas_entry.clk);
         auto& next = main_trace.at(gas_entry.clk + 1);
+        dest.avm_main_opcode_active = FF(1);
 
         // Write each of the relevant gas accounting values
         dest.avm_main_opcode_val = static_cast<uint8_t>(gas_entry.opcode);
         dest.avm_main_l2_gas_op = gas_entry.l2_gas_cost;
         dest.avm_main_da_gas_op = gas_entry.da_gas_cost;
-        next.avm_main_l2_gas_remaining = gas_entry.remaining_l2_gas;
-        next.avm_main_da_gas_remaining = gas_entry.remaining_da_gas;
+
+        current_l2_gas_remaining -= gas_entry.l2_gas_cost;
+        current_da_gas_remaining -= gas_entry.da_gas_cost;
+        next.avm_main_l2_gas_remaining = current_l2_gas_remaining;
+        next.avm_main_da_gas_remaining = current_da_gas_remaining;
+
+        current_clk++;
     }
 
     // Finalise gas left lookup counts

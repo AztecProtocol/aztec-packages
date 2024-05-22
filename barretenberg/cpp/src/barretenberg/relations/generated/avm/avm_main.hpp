@@ -120,7 +120,27 @@ inline std::string get_relation_label_avm_main(int index)
     case 60:
 =======
     case 57:
+<<<<<<< HEAD
 >>>>>>> ddd6d0c4d1 (6542: some renaming and comments)
+=======
+<<<<<<< HEAD
+=======
+=======
+<<<<<<< HEAD
+    case 48:
+=======
+    case 0:
+        return "L2_GAS_REMAINING_DECREMENT";
+
+    case 1:
+        return "DA_GAS_REMAINING_DECREMENT";
+
+<<<<<<< HEAD
+    case 50:
+>>>>>>> df5862de90 (6542: some renaming and comments)
+>>>>>>> f185c1b5d5 (6542: some renaming and comments)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
         return "OUTPUT_U8";
 
     case 61:
@@ -162,7 +182,12 @@ inline std::string get_relation_label_avm_main(int index)
     case 82:
         return "SPACE_ID_INTERNAL";
 
+<<<<<<< HEAD
     case 84:
+=======
+    case 83:
+<<<<<<< HEAD
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
         return "SPACE_ID_STANDARD_OPCODES";
 
     case 85:
@@ -240,7 +265,208 @@ inline std::string get_relation_label_avm_main(int index)
     case 124:
         return "BIN_SEL_1";
 
+<<<<<<< HEAD
     case 122:
+=======
+    case 121:
+=======
+        return "CMOV_CONDITION_RES_2";
+
+    case 86:
+        return "MOV_SAME_VALUE_A";
+
+    case 87:
+        return "MOV_SAME_VALUE_B";
+
+    case 88:
+        return "MOV_MAIN_SAME_TAG";
+
+    case 92:
+        return "SENDER_KERNEL";
+
+    case 93:
+        return "ADDRESS_KERNEL";
+
+    case 94:
+        return "FEE_DA_GAS_KERNEL";
+
+    case 95:
+        return "FEE_L2_GAS_KERNEL";
+
+    case 96:
+        return "FEE_TRANSACTION_FEE_KERNEL";
+
+    case 97:
+        return "CHAIN_ID_KERNEL";
+
+    case 98:
+        return "VERSION_KERNEL";
+
+    case 99:
+        return "BLOCK_NUMBER_KERNEL";
+
+    case 100:
+        return "COINBASE_KERNEL";
+
+    case 101:
+        return "TIMESTAMP_KERNEL";
+
+    case 102:
+        return "NOTE_HASH_KERNEL_OUTPUT";
+
+    case 104:
+        return "EMIT_NOTE_HASH_KERNEL_OUTPUT";
+
+    case 106:
+        return "NULLIFIER_EXISTS_KERNEL_OUTPUT";
+
+    case 108:
+        return "EMIT_NULLIFIER_KERNEL_OUTPUT";
+
+    case 110:
+        return "L1_TO_L2_MSG_EXISTS_KERNEL_OUTPUT";
+
+    case 112:
+        return "EMIT_UNENCRYPTED_LOG_KERNEL_OUTPUT";
+
+    case 114:
+        return "EMIT_L2_TO_L1_MSGS_KERNEL_OUTPUT";
+
+    case 116:
+        return "SLOAD_KERNEL_OUTPUT";
+
+    case 118:
+        return "SSTORE_KERNEL_OUTPUT";
+
+    case 121:
+        return "BIN_SEL_1";
+
+<<<<<<< HEAD
+    case 121:
+=======
+<<<<<<< HEAD
+    case 123:
+=======
+    case 94:
+=======
+    case 73:
+=======
+    case 2:
+        return "L2_GAS_INACTIVE";
+
+    case 3:
+        return "DA_GAS_INACTIVE";
+
+    case 52:
+        return "OUTPUT_U8";
+
+    case 53:
+        return "SUBOP_FDIV";
+
+    case 54:
+        return "SUBOP_FDIV_ZERO_ERR1";
+
+    case 55:
+        return "SUBOP_FDIV_ZERO_ERR2";
+
+    case 56:
+        return "SUBOP_FDIV_R_IN_TAG_FF";
+
+    case 57:
+        return "SUBOP_FDIV_W_IN_TAG_FF";
+
+    case 58:
+        return "SUBOP_ERROR_RELEVANT_OP";
+
+    case 59:
+        return "KERNEL_ACTIVE_CHECK";
+
+    case 61:
+        return "RETURN_POINTER_INCREMENT";
+
+    case 67:
+        return "RETURN_POINTER_DECREMENT";
+
+    case 73:
+        return "PC_INCREMENT";
+
+    case 74:
+        return "INTERNAL_RETURN_POINTER_CONSISTENCY";
+
+    case 75:
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+        return "SPACE_ID_INTERNAL";
+
+    case 76:
+        return "SPACE_ID_STANDARD_OPCODES";
+
+    case 77:
+        return "CMOV_CONDITION_RES_1";
+
+    case 78:
+        return "CMOV_CONDITION_RES_2";
+
+    case 81:
+        return "MOV_SAME_VALUE_A";
+
+    case 82:
+        return "MOV_SAME_VALUE_B";
+
+    case 83:
+        return "MOV_MAIN_SAME_TAG";
+
+    case 87:
+        return "SENDER_KERNEL";
+
+    case 88:
+        return "ADDRESS_KERNEL";
+
+    case 89:
+        return "PORTAL_KERNEL";
+
+    case 90:
+        return "FEE_DA_GAS_KERNEL";
+
+    case 91:
+        return "FEE_L2_GAS_KERNEL";
+
+    case 92:
+        return "FEE_TRANSACTION_FEE_KERNEL";
+
+    case 93:
+        return "CHAIN_ID_KERNEL";
+
+    case 94:
+        return "VERSION_KERNEL";
+
+    case 95:
+        return "BLOCK_NUMBER_KERNEL";
+
+    case 96:
+        return "COINBASE_KERNEL";
+
+    case 97:
+        return "TIMESTAMP_KERNEL";
+
+    case 98:
+        return "BIN_SEL_1";
+
+<<<<<<< HEAD
+    case 97:
+>>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
+>>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
+>>>>>>> 221f3ac2d7 (6542: fix conflicts after rebase to master)
+=======
+=======
+=======
+    case 99:
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 31cb381a44 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
         return "BIN_SEL_2";
     }
     return std::to_string(index);
@@ -250,11 +476,57 @@ template <typename FF_> class avm_mainImpl {
   public:
     using FF = FF_;
 
+<<<<<<< HEAD
     static constexpr std::array<size_t, 123> SUBRELATION_PARTIAL_LENGTHS{
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4, 3,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3, 4, 3, 3, 3,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+    static constexpr std::array<size_t, 122> SUBRELATION_PARTIAL_LENGTHS{
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
+<<<<<<< HEAD
+=======
+=======
+=======
+>>>>>>> 31cb381a44 (6542: work in progress witness gen and unit tests fixing)
+<<<<<<< HEAD
+    static constexpr std::array<size_t, 124> SUBRELATION_PARTIAL_LENGTHS{
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3, 4, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
+=======
+=======
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+<<<<<<< HEAD
+    static constexpr std::array<size_t, 95> SUBRELATION_PARTIAL_LENGTHS{
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 5, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
+=======
+    static constexpr std::array<size_t, 98> SUBRELATION_PARTIAL_LENGTHS{
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+=======
+    static constexpr std::array<size_t, 100> SUBRELATION_PARTIAL_LENGTHS{
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+        3, 3, 3, 3, 2, 5, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
+>>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
+>>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+>>>>>>> 221f3ac2d7 (6542: fix conflicts after rebase to master)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -269,7 +541,7 @@ template <typename FF_> class avm_mainImpl {
             Avm_DECLARE_VIEWS(0);
 
             auto tmp = (avm_main_opcode_active *
-                        (avm_main_l2_gas_remaining - (avm_main_l2_gas_remaining_shift + avm_main_l2_gas_op)));
+                        ((avm_main_l2_gas_remaining_shift - avm_main_l2_gas_remaining) + avm_main_l2_gas_op));
             tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
         }
@@ -278,7 +550,7 @@ template <typename FF_> class avm_mainImpl {
             Avm_DECLARE_VIEWS(1);
 
             auto tmp = (avm_main_opcode_active *
-                        (avm_main_da_gas_remaining - (avm_main_da_gas_remaining_shift + avm_main_da_gas_op)));
+                        ((avm_main_da_gas_remaining_shift - avm_main_da_gas_remaining) + avm_main_da_gas_op));
             tmp *= scaling_factor;
             std::get<1>(evals) += tmp;
         }
@@ -286,7 +558,11 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(2);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_portal * (-avm_main_sel_op_portal + FF(1)));
+=======
+            auto tmp = ((-avm_main_opcode_active + FF(1)) * avm_main_l2_gas_op);
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<2>(evals) += tmp;
         }
@@ -294,7 +570,11 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(3);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_chain_id * (-avm_main_sel_op_chain_id + FF(1)));
+=======
+            auto tmp = ((-avm_main_opcode_active + FF(1)) * avm_main_da_gas_op);
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<3>(evals) += tmp;
         }
@@ -302,7 +582,11 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(4);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_version * (-avm_main_sel_op_version + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_sender * (-avm_main_sel_op_sender + FF(1)));
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<4>(evals) += tmp;
         }
@@ -310,7 +594,11 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(5);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_block_number * (-avm_main_sel_op_block_number + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_address * (-avm_main_sel_op_address + FF(1)));
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<5>(evals) += tmp;
         }
@@ -318,7 +606,11 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(6);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_coinbase * (-avm_main_sel_op_coinbase + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_portal * (-avm_main_sel_op_portal + FF(1)));
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<6>(evals) += tmp;
         }
@@ -326,7 +618,11 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(7);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_timestamp * (-avm_main_sel_op_timestamp + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_chain_id * (-avm_main_sel_op_chain_id + FF(1)));
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<7>(evals) += tmp;
         }
@@ -334,7 +630,11 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(8);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_fee_per_l2_gas * (-avm_main_sel_op_fee_per_l2_gas + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_version * (-avm_main_sel_op_version + FF(1)));
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<8>(evals) += tmp;
         }
@@ -342,7 +642,11 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(9);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_fee_per_da_gas * (-avm_main_sel_op_fee_per_da_gas + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_block_number * (-avm_main_sel_op_block_number + FF(1)));
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<9>(evals) += tmp;
         }
@@ -350,7 +654,11 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(10);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_transaction_fee * (-avm_main_sel_op_transaction_fee + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_coinbase * (-avm_main_sel_op_coinbase + FF(1)));
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<10>(evals) += tmp;
         }
@@ -358,7 +666,15 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(11);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_note_hash_exists * (-avm_main_sel_op_note_hash_exists + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_radix_le * (-avm_main_sel_op_radix_le + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_timestamp * (-avm_main_sel_op_timestamp + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<11>(evals) += tmp;
         }
@@ -366,7 +682,15 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(12);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_emit_note_hash * (-avm_main_sel_op_emit_note_hash + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_add * (-avm_main_sel_op_add + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_fee_per_l2_gas * (-avm_main_sel_op_fee_per_l2_gas + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<12>(evals) += tmp;
         }
@@ -374,7 +698,15 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(13);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_nullifier_exists * (-avm_main_sel_op_nullifier_exists + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_sub * (-avm_main_sel_op_sub + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_fee_per_da_gas * (-avm_main_sel_op_fee_per_da_gas + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<13>(evals) += tmp;
         }
@@ -382,7 +714,15 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(14);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_emit_nullifier * (-avm_main_sel_op_emit_nullifier + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_mul * (-avm_main_sel_op_mul + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_transaction_fee * (-avm_main_sel_op_transaction_fee + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<14>(evals) += tmp;
         }
@@ -390,7 +730,15 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(15);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_l1_to_l2_msg_exists * (-avm_main_sel_op_l1_to_l2_msg_exists + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_div * (-avm_main_sel_op_div + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_radix_le * (-avm_main_sel_op_radix_le + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<15>(evals) += tmp;
         }
@@ -398,7 +746,15 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(16);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_emit_unencrypted_log * (-avm_main_sel_op_emit_unencrypted_log + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_fdiv * (-avm_main_sel_op_fdiv + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_add * (-avm_main_sel_op_add + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<16>(evals) += tmp;
         }
@@ -406,7 +762,15 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(17);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_emit_l2_to_l1_msg * (-avm_main_sel_op_emit_l2_to_l1_msg + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_not * (-avm_main_sel_op_not + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_sub * (-avm_main_sel_op_sub + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<17>(evals) += tmp;
         }
@@ -414,7 +778,15 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(18);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_sload * (-avm_main_sel_op_sload + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_eq * (-avm_main_sel_op_eq + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_mul * (-avm_main_sel_op_mul + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<18>(evals) += tmp;
         }
@@ -422,7 +794,15 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(19);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_sstore * (-avm_main_sel_op_sstore + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_and * (-avm_main_sel_op_and + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_div * (-avm_main_sel_op_div + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<19>(evals) += tmp;
         }
@@ -430,7 +810,19 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(20);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_add * (-avm_main_sel_op_add + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_radix_le * (-avm_main_sel_op_radix_le + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_or * (-avm_main_sel_op_or + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_fdiv * (-avm_main_sel_op_fdiv + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 31cb381a44 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<20>(evals) += tmp;
         }
@@ -438,7 +830,19 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(21);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_poseidon2 * (-avm_main_sel_op_poseidon2 + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_add * (-avm_main_sel_op_add + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_xor * (-avm_main_sel_op_xor + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_not * (-avm_main_sel_op_not + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<21>(evals) += tmp;
         }
@@ -446,7 +850,19 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(22);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_keccak * (-avm_main_sel_op_keccak + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_sub * (-avm_main_sel_op_sub + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_cast * (-avm_main_sel_op_cast + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_eq * (-avm_main_sel_op_eq + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<22>(evals) += tmp;
         }
@@ -454,7 +870,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(23);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_pedersen * (-avm_main_sel_op_pedersen + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_add * (-avm_main_sel_op_add + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_mul * (-avm_main_sel_op_mul + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_lt * (-avm_main_sel_op_lt + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_and * (-avm_main_sel_op_and + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<23>(evals) += tmp;
         }
@@ -462,7 +894,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(24);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_add * (-avm_main_sel_op_add + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_sub * (-avm_main_sel_op_sub + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_div * (-avm_main_sel_op_div + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_lte * (-avm_main_sel_op_lte + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_or * (-avm_main_sel_op_or + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<24>(evals) += tmp;
         }
@@ -470,7 +918,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(25);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_sub * (-avm_main_sel_op_sub + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_mul * (-avm_main_sel_op_mul + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_fdiv * (-avm_main_sel_op_fdiv + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_shl * (-avm_main_sel_op_shl + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_xor * (-avm_main_sel_op_xor + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<25>(evals) += tmp;
         }
@@ -478,7 +942,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(26);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_mul * (-avm_main_sel_op_mul + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_div * (-avm_main_sel_op_div + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_not * (-avm_main_sel_op_not + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_shr * (-avm_main_sel_op_shr + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_cast * (-avm_main_sel_op_cast + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<26>(evals) += tmp;
         }
@@ -486,7 +966,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(27);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_div * (-avm_main_sel_op_div + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_fdiv * (-avm_main_sel_op_fdiv + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_eq * (-avm_main_sel_op_eq + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_call * (-avm_main_sel_internal_call + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_lt * (-avm_main_sel_op_lt + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<27>(evals) += tmp;
         }
@@ -494,7 +990,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(28);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_fdiv * (-avm_main_sel_op_fdiv + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_not * (-avm_main_sel_op_not + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_and * (-avm_main_sel_op_and + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_return * (-avm_main_sel_internal_return + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_lte * (-avm_main_sel_op_lte + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<28>(evals) += tmp;
         }
@@ -502,7 +1014,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(29);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_not * (-avm_main_sel_op_not + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_eq * (-avm_main_sel_op_eq + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_or * (-avm_main_sel_op_or + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_jump * (-avm_main_sel_jump + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_shl * (-avm_main_sel_op_shl + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<29>(evals) += tmp;
         }
@@ -510,7 +1038,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(30);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_eq * (-avm_main_sel_op_eq + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_and * (-avm_main_sel_op_and + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_xor * (-avm_main_sel_op_xor + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_halt * (-avm_main_sel_halt + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_shr * (-avm_main_sel_op_shr + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<30>(evals) += tmp;
         }
@@ -518,7 +1062,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(31);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_and * (-avm_main_sel_op_and + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_or * (-avm_main_sel_op_or + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_cast * (-avm_main_sel_op_cast + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_mov * (-avm_main_sel_mov + FF(1)));
+=======
+            auto tmp = (avm_main_sel_internal_call * (-avm_main_sel_internal_call + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<31>(evals) += tmp;
         }
@@ -526,7 +1086,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(32);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_or * (-avm_main_sel_op_or + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_xor * (-avm_main_sel_op_xor + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_lt * (-avm_main_sel_op_lt + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_cmov * (-avm_main_sel_cmov + FF(1)));
+=======
+            auto tmp = (avm_main_sel_internal_return * (-avm_main_sel_internal_return + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<32>(evals) += tmp;
         }
@@ -534,7 +1110,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(33);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_xor * (-avm_main_sel_op_xor + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_cast * (-avm_main_sel_op_cast + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_lte * (-avm_main_sel_op_lte + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_op_err * (-avm_main_op_err + FF(1)));
+=======
+            auto tmp = (avm_main_sel_jump * (-avm_main_sel_jump + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<33>(evals) += tmp;
         }
@@ -542,7 +1134,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(34);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_cast * (-avm_main_sel_op_cast + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_lt * (-avm_main_sel_op_lt + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_shl * (-avm_main_sel_op_shl + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_tag_err * (-avm_main_tag_err + FF(1)));
+=======
+            auto tmp = (avm_main_sel_halt * (-avm_main_sel_halt + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<34>(evals) += tmp;
         }
@@ -550,7 +1158,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(35);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_lt * (-avm_main_sel_op_lt + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_lte * (-avm_main_sel_op_lte + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_shr * (-avm_main_sel_op_shr + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_id_zero * (-avm_main_id_zero + FF(1)));
+=======
+            auto tmp = (avm_main_sel_mov * (-avm_main_sel_mov + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<35>(evals) += tmp;
         }
@@ -558,7 +1182,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(36);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_lte * (-avm_main_sel_op_lte + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_shl * (-avm_main_sel_op_shl + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_call * (-avm_main_sel_internal_call + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_mem_op_a * (-avm_main_mem_op_a + FF(1)));
+=======
+            auto tmp = (avm_main_sel_cmov * (-avm_main_sel_cmov + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<36>(evals) += tmp;
         }
@@ -566,7 +1206,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(37);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_shl * (-avm_main_sel_op_shl + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_shr * (-avm_main_sel_op_shr + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_return * (-avm_main_sel_internal_return + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_mem_op_b * (-avm_main_mem_op_b + FF(1)));
+=======
+            auto tmp = (avm_main_op_err * (-avm_main_op_err + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<37>(evals) += tmp;
         }
@@ -574,7 +1230,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(38);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_shr * (-avm_main_sel_op_shr + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_call * (-avm_main_sel_internal_call + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_jump * (-avm_main_sel_jump + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_mem_op_c * (-avm_main_mem_op_c + FF(1)));
+=======
+            auto tmp = (avm_main_tag_err * (-avm_main_tag_err + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<38>(evals) += tmp;
         }
@@ -582,7 +1254,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(39);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_internal_call * (-avm_main_sel_internal_call + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_return * (-avm_main_sel_internal_return + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_halt * (-avm_main_sel_halt + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_mem_op_d * (-avm_main_mem_op_d + FF(1)));
+=======
+            auto tmp = (avm_main_id_zero * (-avm_main_id_zero + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<39>(evals) += tmp;
         }
@@ -590,7 +1278,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(40);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_internal_return * (-avm_main_sel_internal_return + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_jump * (-avm_main_sel_jump + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_mov * (-avm_main_sel_mov + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_rwa * (-avm_main_rwa + FF(1)));
+=======
+            auto tmp = (avm_main_mem_op_a * (-avm_main_mem_op_a + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<40>(evals) += tmp;
         }
@@ -598,7 +1302,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(41);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_jump * (-avm_main_sel_jump + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_halt * (-avm_main_sel_halt + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_cmov * (-avm_main_sel_cmov + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_rwb * (-avm_main_rwb + FF(1)));
+=======
+            auto tmp = (avm_main_mem_op_b * (-avm_main_mem_op_b + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<41>(evals) += tmp;
         }
@@ -606,7 +1326,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(42);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_halt * (-avm_main_sel_halt + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_mov * (-avm_main_sel_mov + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_op_err * (-avm_main_op_err + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_rwc * (-avm_main_rwc + FF(1)));
+=======
+            auto tmp = (avm_main_mem_op_c * (-avm_main_mem_op_c + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<42>(evals) += tmp;
         }
@@ -614,7 +1350,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(43);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_mov * (-avm_main_sel_mov + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_cmov * (-avm_main_sel_cmov + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_tag_err * (-avm_main_tag_err + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_rwd * (-avm_main_rwd + FF(1)));
+=======
+            auto tmp = (avm_main_mem_op_d * (-avm_main_mem_op_d + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<43>(evals) += tmp;
         }
@@ -622,7 +1374,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(44);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_cmov * (-avm_main_sel_cmov + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_op_err * (-avm_main_op_err + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_id_zero * (-avm_main_id_zero + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_ind_op_a * (-avm_main_ind_op_a + FF(1)));
+=======
+            auto tmp = (avm_main_rwa * (-avm_main_rwa + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<44>(evals) += tmp;
         }
@@ -630,7 +1398,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(45);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_op_err * (-avm_main_op_err + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_tag_err * (-avm_main_tag_err + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_mem_op_a * (-avm_main_mem_op_a + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_ind_op_b * (-avm_main_ind_op_b + FF(1)));
+=======
+            auto tmp = (avm_main_rwb * (-avm_main_rwb + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<45>(evals) += tmp;
         }
@@ -638,7 +1422,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(46);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_tag_err * (-avm_main_tag_err + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_id_zero * (-avm_main_id_zero + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_mem_op_b * (-avm_main_mem_op_b + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_ind_op_c * (-avm_main_ind_op_c + FF(1)));
+=======
+            auto tmp = (avm_main_rwc * (-avm_main_rwc + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<46>(evals) += tmp;
         }
@@ -646,7 +1446,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(47);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_id_zero * (-avm_main_id_zero + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_mem_op_a * (-avm_main_mem_op_a + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_mem_op_c * (-avm_main_mem_op_c + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_ind_op_d * (-avm_main_ind_op_d + FF(1)));
+=======
+            auto tmp = (avm_main_rwd * (-avm_main_rwd + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<47>(evals) += tmp;
         }
@@ -654,7 +1470,24 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(48);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_mem_op_a * (-avm_main_mem_op_a + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_mem_op_b * (-avm_main_mem_op_b + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_mem_op_d * (-avm_main_mem_op_d + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp =
+                (((avm_main_sel_op_eq + avm_main_sel_op_lte) + avm_main_sel_op_lt) * (avm_main_w_in_tag - FF(1)));
+=======
+            auto tmp = (avm_main_ind_op_a * (-avm_main_ind_op_a + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<48>(evals) += tmp;
         }
@@ -662,7 +1495,24 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(49);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_mem_op_b * (-avm_main_mem_op_b + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_mem_op_c * (-avm_main_mem_op_c + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_rwa * (-avm_main_rwa + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp =
+                ((avm_main_sel_op_fdiv * (-avm_main_op_err + FF(1))) * ((avm_main_ic * avm_main_ib) - avm_main_ia));
+=======
+            auto tmp = (avm_main_ind_op_b * (-avm_main_ind_op_b + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<49>(evals) += tmp;
         }
@@ -670,7 +1520,24 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(50);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_mem_op_c * (-avm_main_mem_op_c + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_mem_op_d * (-avm_main_mem_op_d + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_rwb * (-avm_main_rwb + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = ((avm_main_sel_op_fdiv + avm_main_sel_op_div) *
+                        (((avm_main_ib * avm_main_inv) - FF(1)) + avm_main_op_err));
+=======
+            auto tmp = (avm_main_ind_op_c * (-avm_main_ind_op_c + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<50>(evals) += tmp;
         }
@@ -678,7 +1545,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(51);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_mem_op_d * (-avm_main_mem_op_d + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_rwa * (-avm_main_rwa + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_rwc * (-avm_main_rwc + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (((avm_main_sel_op_fdiv + avm_main_sel_op_div) * avm_main_op_err) * (-avm_main_inv + FF(1)));
+=======
+            auto tmp = (avm_main_ind_op_d * (-avm_main_ind_op_d + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<51>(evals) += tmp;
         }
@@ -686,7 +1569,24 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(52);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_rwa * (-avm_main_rwa + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_rwb * (-avm_main_rwb + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_rwd * (-avm_main_rwd + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_fdiv * (avm_main_r_in_tag - FF(6)));
+=======
+            auto tmp =
+                (((avm_main_sel_op_eq + avm_main_sel_op_lte) + avm_main_sel_op_lt) * (avm_main_w_in_tag - FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<52>(evals) += tmp;
         }
@@ -694,7 +1594,24 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(53);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_rwb * (-avm_main_rwb + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_rwc * (-avm_main_rwc + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_ind_op_a * (-avm_main_ind_op_a + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_fdiv * (avm_main_w_in_tag - FF(6)));
+=======
+            auto tmp =
+                ((avm_main_sel_op_fdiv * (-avm_main_op_err + FF(1))) * ((avm_main_ic * avm_main_ib) - avm_main_ia));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<53>(evals) += tmp;
         }
@@ -702,7 +1619,24 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(54);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_rwc * (-avm_main_rwc + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_rwd * (-avm_main_rwd + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_ind_op_b * (-avm_main_ind_op_b + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_op_err * ((avm_main_sel_op_fdiv + avm_main_sel_op_div) - FF(1)));
+=======
+            auto tmp = ((avm_main_sel_op_fdiv + avm_main_sel_op_div) *
+                        (((avm_main_ib * avm_main_inv) - FF(1)) + avm_main_op_err));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<54>(evals) += tmp;
         }
@@ -710,7 +1644,21 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(55);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_rwd * (-avm_main_rwd + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_ind_op_a * (-avm_main_ind_op_a + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_ind_op_c * (-avm_main_ind_op_c + FF(1)));
+=======
+<<<<<<< HEAD
+=======
+            auto tmp = (((avm_main_sel_op_fdiv + avm_main_sel_op_div) * avm_main_op_err) * (-avm_main_inv + FF(1)));
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<55>(evals) += tmp;
         }
@@ -718,7 +1666,19 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(56);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_ind_op_a * (-avm_main_ind_op_a + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_ind_op_b * (-avm_main_ind_op_b + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_ind_op_d * (-avm_main_ind_op_d + FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_fdiv * (avm_main_r_in_tag - FF(6)));
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<56>(evals) += tmp;
         }
@@ -726,7 +1686,20 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(57);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_ind_op_b * (-avm_main_ind_op_b + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_ind_op_c * (-avm_main_ind_op_c + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp =
+                (((avm_main_sel_op_eq + avm_main_sel_op_lte) + avm_main_sel_op_lt) * (avm_main_w_in_tag - FF(1)));
+=======
+            auto tmp = (avm_main_sel_op_fdiv * (avm_main_w_in_tag - FF(6)));
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<57>(evals) += tmp;
         }
@@ -734,7 +1707,20 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(58);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_ind_op_c * (-avm_main_ind_op_c + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_ind_op_d * (-avm_main_ind_op_d + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp =
+                ((avm_main_sel_op_fdiv * (-avm_main_op_err + FF(1))) * ((avm_main_ic * avm_main_ib) - avm_main_ia));
+=======
+            auto tmp = (avm_main_op_err * ((avm_main_sel_op_fdiv + avm_main_sel_op_div) - FF(1)));
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<58>(evals) += tmp;
         }
@@ -742,7 +1728,18 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(59);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_ind_op_d * (-avm_main_ind_op_d + FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp =
+                (((avm_main_sel_op_eq + avm_main_sel_op_lte) + avm_main_sel_op_lt) * (avm_main_w_in_tag - FF(1)));
+=======
+<<<<<<< HEAD
+            auto tmp = ((avm_main_sel_op_fdiv + avm_main_sel_op_div) *
+                        (((avm_main_ib * avm_main_inv) - FF(1)) + avm_main_op_err));
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<59>(evals) += tmp;
         }
@@ -785,7 +1782,12 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(64);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_fdiv * (avm_main_r_in_tag - FF(6)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_fdiv * (avm_main_w_in_tag - FF(6)));
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<64>(evals) += tmp;
         }
@@ -801,6 +1803,9 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(66);
 
+=======
+<<<<<<< HEAD
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
             auto tmp = (avm_main_op_err * ((avm_main_sel_op_fdiv + avm_main_sel_op_div) - FF(1)));
             tmp *= scaling_factor;
             std::get<66>(evals) += tmp;
@@ -817,6 +1822,11 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(64);
 
+=======
+=======
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 31cb381a44 (6542: work in progress witness gen and unit tests fixing)
             auto tmp = (((((((((((avm_main_sel_op_sender + avm_main_sel_op_address) + avm_main_sel_op_portal) +
                                 avm_main_sel_op_chain_id) +
                                avm_main_sel_op_version) +
@@ -828,13 +1838,220 @@ template <typename FF_> class avm_mainImpl {
                          avm_main_sel_op_transaction_fee) *
                         (-avm_main_q_kernel_lookup + FF(1)));
             tmp *= scaling_factor;
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+            std::get<55>(evals) += tmp;
+        }
+        // Contribution 56
+        {
+            Avm_DECLARE_VIEWS(56);
+
+            auto tmp = (avm_main_sel_jump * (avm_main_pc_shift - avm_main_ia));
+            tmp *= scaling_factor;
+            std::get<56>(evals) += tmp;
+        }
+        // Contribution 57
+        {
+            Avm_DECLARE_VIEWS(57);
+
+            auto tmp = (avm_main_sel_internal_call *
+                        (avm_main_internal_return_ptr_shift - (avm_main_internal_return_ptr + FF(1))));
+            tmp *= scaling_factor;
+            std::get<57>(evals) += tmp;
+        }
+        // Contribution 58
+        {
+            Avm_DECLARE_VIEWS(58);
+
+            auto tmp = (avm_main_sel_internal_call * (avm_main_internal_return_ptr - avm_main_mem_idx_b));
+            tmp *= scaling_factor;
+            std::get<58>(evals) += tmp;
+        }
+        // Contribution 59
+        {
+            Avm_DECLARE_VIEWS(59);
+
+            auto tmp = (avm_main_sel_internal_call * (avm_main_pc_shift - avm_main_ia));
+            tmp *= scaling_factor;
+=======
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+            std::get<59>(evals) += tmp;
+        }
+        // Contribution 60
+        {
+            Avm_DECLARE_VIEWS(60);
+
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_call * ((avm_main_pc + FF(1)) - avm_main_ib));
+=======
+            auto tmp = (avm_main_sel_jump * (avm_main_pc_shift - avm_main_ia));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+            tmp *= scaling_factor;
+            std::get<60>(evals) += tmp;
+        }
+        // Contribution 61
+        {
+            Avm_DECLARE_VIEWS(61);
+
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_call * (avm_main_rwb - FF(1)));
+=======
+            auto tmp = (avm_main_sel_internal_call *
+                        (avm_main_internal_return_ptr_shift - (avm_main_internal_return_ptr + FF(1))));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+            tmp *= scaling_factor;
+            std::get<61>(evals) += tmp;
+        }
+        // Contribution 62
+        {
+            Avm_DECLARE_VIEWS(62);
+
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_call * (avm_main_mem_op_b - FF(1)));
+=======
+            auto tmp = (avm_main_sel_internal_call * (avm_main_internal_return_ptr - avm_main_mem_idx_b));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+            tmp *= scaling_factor;
+            std::get<62>(evals) += tmp;
+        }
+        // Contribution 63
+        {
+            Avm_DECLARE_VIEWS(63);
+
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_return *
+                        (avm_main_internal_return_ptr_shift - (avm_main_internal_return_ptr - FF(1))));
+=======
+            auto tmp = (avm_main_sel_internal_call * (avm_main_pc_shift - avm_main_ia));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+            tmp *= scaling_factor;
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+            std::get<63>(evals) += tmp;
+        }
+        // Contribution 64
+        {
+            Avm_DECLARE_VIEWS(64);
+
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_return * (avm_main_pc_shift - avm_main_ia));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_return * ((avm_main_internal_return_ptr - FF(1)) - avm_main_mem_idx_a));
+=======
+            auto tmp = (avm_main_sel_internal_call * ((avm_main_pc + FF(1)) - avm_main_ib));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+            tmp *= scaling_factor;
+>>>>>>> 31cb381a44 (6542: work in progress witness gen and unit tests fixing)
+            std::get<64>(evals) += tmp;
+        }
+        // Contribution 65
+        {
+            Avm_DECLARE_VIEWS(65);
+
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_return * (avm_main_pc_shift - avm_main_ia));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_jump * (avm_main_pc_shift - avm_main_ia));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_return * (avm_main_pc_shift - avm_main_ia));
+=======
+            auto tmp = (avm_main_sel_internal_call * (avm_main_rwb - FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 31cb381a44 (6542: work in progress witness gen and unit tests fixing)
+            tmp *= scaling_factor;
+            std::get<65>(evals) += tmp;
+        }
+        // Contribution 66
+        {
+            Avm_DECLARE_VIEWS(66);
+
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_jump * (avm_main_pc_shift - avm_main_ia));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_return * avm_main_rwa);
+=======
+            auto tmp = (avm_main_sel_internal_call * (avm_main_mem_op_b - FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+            tmp *= scaling_factor;
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+            std::get<66>(evals) += tmp;
+        }
+        // Contribution 67
+        {
+            Avm_DECLARE_VIEWS(67);
+
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_return * (avm_main_pc_shift - avm_main_ia));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_call *
+                        (avm_main_internal_return_ptr_shift - (avm_main_internal_return_ptr + FF(1))));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_return * (avm_main_mem_op_a - FF(1)));
+=======
+            auto tmp = (avm_main_sel_internal_return *
+                        (avm_main_internal_return_ptr_shift - (avm_main_internal_return_ptr - FF(1))));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+            tmp *= scaling_factor;
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             std::get<67>(evals) += tmp;
         }
         // Contribution 68
         {
             Avm_DECLARE_VIEWS(68);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_internal_return * (avm_main_pc_shift - avm_main_ia));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_jump * (avm_main_pc_shift - avm_main_ia));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_call * (avm_main_internal_return_ptr - avm_main_mem_idx_b));
+=======
+<<<<<<< HEAD
+            auto tmp =
+                ((((-avm_main_first + FF(1)) * (-avm_main_sel_halt + FF(1))) *
+                  (((((((((((avm_main_sel_op_add + avm_main_sel_op_sub) + avm_main_sel_op_div) + avm_main_sel_op_fdiv) +
+                          avm_main_sel_op_mul) +
+                         avm_main_sel_op_not) +
+                        avm_main_sel_op_eq) +
+                       avm_main_sel_op_and) +
+                      avm_main_sel_op_or) +
+                     avm_main_sel_op_xor) +
+                    avm_main_sel_op_cast) +
+                   ((((((((((avm_main_sel_op_sender + avm_main_sel_op_address) + avm_main_sel_op_portal) +
+                           avm_main_sel_op_chain_id) +
+                          avm_main_sel_op_version) +
+                         avm_main_sel_op_block_number) +
+                        avm_main_sel_op_coinbase) +
+                       avm_main_sel_op_timestamp) +
+                      avm_main_sel_op_fee_per_l2_gas) +
+                     avm_main_sel_op_fee_per_da_gas) +
+                    avm_main_sel_op_transaction_fee))) *
+                 (avm_main_pc_shift - (avm_main_pc + FF(1))));
+=======
+            auto tmp = (avm_main_sel_internal_return * ((avm_main_internal_return_ptr - FF(1)) - avm_main_mem_idx_a));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<68>(evals) += tmp;
         }
@@ -842,7 +2059,27 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(69);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_jump * (avm_main_pc_shift - avm_main_ia));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_call *
+                        (avm_main_internal_return_ptr_shift - (avm_main_internal_return_ptr + FF(1))));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_call * (avm_main_pc_shift - avm_main_ia));
+=======
+<<<<<<< HEAD
+            auto tmp = ((-(((avm_main_first + avm_main_sel_internal_call) + avm_main_sel_internal_return) +
+                           avm_main_sel_halt) +
+                         FF(1)) *
+                        (avm_main_internal_return_ptr_shift - avm_main_internal_return_ptr));
+=======
+            auto tmp = (avm_main_sel_internal_return * (avm_main_pc_shift - avm_main_ia));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<69>(evals) += tmp;
         }
@@ -850,7 +2087,24 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(70);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_internal_call * (avm_main_internal_return_ptr - avm_main_mem_idx_b));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_call * ((avm_main_pc + FF(1)) - avm_main_ib));
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_call * ((avm_main_pc + FF(1)) - avm_main_ib));
+=======
+=======
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+<<<<<<< HEAD
+            auto tmp = ((avm_main_sel_internal_call + avm_main_sel_internal_return) * (avm_main_space_id - FF(255)));
+=======
+=======
+            auto tmp = (avm_main_sel_internal_return * avm_main_rwa);
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<70>(evals) += tmp;
         }
@@ -858,7 +2112,50 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(71);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_internal_call * (avm_main_pc_shift - avm_main_ia));
+=======
+            auto tmp = (avm_main_sel_internal_return * (avm_main_mem_op_a - FF(1)));
+            tmp *= scaling_factor;
+            std::get<71>(evals) += tmp;
+        }
+        // Contribution 72
+        {
+            Avm_DECLARE_VIEWS(72);
+
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+            auto tmp =
+                (avm_main_opcode_active -
+                 (((((((((((avm_main_sel_op_add + avm_main_sel_op_sub) + avm_main_sel_op_div) + avm_main_sel_op_fdiv) +
+                         avm_main_sel_op_mul) +
+                        avm_main_sel_op_not) +
+                       avm_main_sel_op_eq) +
+                      avm_main_sel_op_and) +
+                     avm_main_sel_op_or) +
+                    avm_main_sel_op_xor) +
+                   avm_main_sel_op_cast) +
+                  ((((((((((avm_main_sel_op_sender + avm_main_sel_op_address) + avm_main_sel_op_portal) +
+                          avm_main_sel_op_chain_id) +
+                         avm_main_sel_op_version) +
+                        avm_main_sel_op_block_number) +
+                       avm_main_sel_op_coinbase) +
+                      avm_main_sel_op_timestamp) +
+                     avm_main_sel_op_fee_per_l2_gas) +
+                    avm_main_sel_op_fee_per_da_gas) +
+                   avm_main_sel_op_transaction_fee)));
+>>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
+>>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+            tmp *= scaling_factor;
+<<<<<<< HEAD
+            std::get<70>(evals) += tmp;
+        }
+        // Contribution 71
+        {
+            Avm_DECLARE_VIEWS(71);
+
+            auto tmp = (avm_main_sel_internal_call * (avm_main_rwb - FF(1)));
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<71>(evals) += tmp;
         }
@@ -868,13 +2165,24 @@ template <typename FF_> class avm_mainImpl {
 
             auto tmp = (avm_main_sel_internal_call * (avm_main_pc_shift - avm_main_ia));
             tmp *= scaling_factor;
+=======
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
             std::get<72>(evals) += tmp;
         }
         // Contribution 73
         {
             Avm_DECLARE_VIEWS(73);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_internal_call * ((avm_main_pc + FF(1)) - avm_main_ib));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_call * (avm_main_rwb - FF(1)));
+=======
+            auto tmp = ((((-avm_main_first + FF(1)) * (-avm_main_sel_halt + FF(1))) * avm_main_opcode_active) *
+                        (avm_main_pc_shift - (avm_main_pc + FF(1))));
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<73>(evals) += tmp;
         }
@@ -882,8 +2190,85 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(74);
 
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_call * (avm_main_mem_op_b - FF(1)));
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
+=======
+            auto tmp = ((-(((avm_main_first + avm_main_sel_internal_call) + avm_main_sel_internal_return) +
+                           avm_main_sel_halt) +
+                         FF(1)) *
+                        (avm_main_internal_return_ptr_shift - avm_main_internal_return_ptr));
+            tmp *= scaling_factor;
+            std::get<74>(evals) += tmp;
+        }
+        // Contribution 75
+        {
+            Avm_DECLARE_VIEWS(75);
+
+            auto tmp = ((avm_main_sel_internal_call + avm_main_sel_internal_return) * (avm_main_space_id - FF(255)));
+            tmp *= scaling_factor;
+            std::get<75>(evals) += tmp;
+        }
+        // Contribution 76
+        {
+            Avm_DECLARE_VIEWS(76);
+
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+            auto tmp =
+                ((((((((((((avm_main_sel_op_add + avm_main_sel_op_sub) + avm_main_sel_op_div) + avm_main_sel_op_fdiv) +
+                         avm_main_sel_op_mul) +
+                        avm_main_sel_op_not) +
+                       avm_main_sel_op_eq) +
+                      avm_main_sel_op_and) +
+                     avm_main_sel_op_or) +
+                    avm_main_sel_op_xor) +
+                   avm_main_sel_op_cast) +
+                  ((((((((((avm_main_sel_op_sender + avm_main_sel_op_address) + avm_main_sel_op_portal) +
+                          avm_main_sel_op_chain_id) +
+                         avm_main_sel_op_version) +
+                        avm_main_sel_op_block_number) +
+                       avm_main_sel_op_coinbase) +
+                      avm_main_sel_op_timestamp) +
+                     avm_main_sel_op_fee_per_l2_gas) +
+                    avm_main_sel_op_fee_per_da_gas) +
+                   avm_main_sel_op_transaction_fee)) *
+                 (avm_main_call_ptr - avm_main_space_id));
+<<<<<<< HEAD
+>>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+            tmp *= scaling_factor;
+            std::get<71>(evals) += tmp;
+        }
+        // Contribution 72
+        {
+            Avm_DECLARE_VIEWS(72);
+
             auto tmp = (avm_main_sel_internal_call * (avm_main_mem_op_b - FF(1)));
             tmp *= scaling_factor;
+            std::get<72>(evals) += tmp;
+        }
+        // Contribution 73
+        {
+            Avm_DECLARE_VIEWS(73);
+
+            auto tmp = (avm_main_sel_internal_return *
+                        (avm_main_internal_return_ptr_shift - (avm_main_internal_return_ptr - FF(1))));
+            tmp *= scaling_factor;
+            std::get<73>(evals) += tmp;
+        }
+        // Contribution 74
+        {
+            Avm_DECLARE_VIEWS(74);
+
+<<<<<<< HEAD
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+            auto tmp = (avm_main_sel_internal_return * ((avm_main_internal_return_ptr - FF(1)) - avm_main_mem_idx_a));
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
+            tmp *= scaling_factor;
+<<<<<<< HEAD
             std::get<74>(evals) += tmp;
         }
         // Contribution 75
@@ -901,13 +2286,40 @@ template <typename FF_> class avm_mainImpl {
 
             auto tmp = (avm_main_sel_internal_return * ((avm_main_internal_return_ptr - FF(1)) - avm_main_mem_idx_a));
             tmp *= scaling_factor;
+=======
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
             std::get<76>(evals) += tmp;
         }
         // Contribution 77
         {
             Avm_DECLARE_VIEWS(77);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_internal_return * (avm_main_pc_shift - avm_main_ia));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_return * (avm_main_mem_op_a - FF(1)));
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_internal_return * (avm_main_mem_op_a - FF(1)));
+=======
+=======
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_mov_b * (avm_main_ib - avm_main_ic));
+=======
+            auto tmp = (avm_main_sel_mov_a - (avm_main_sel_mov + (avm_main_sel_cmov * (-avm_main_id_zero + FF(1)))));
+>>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
+>>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+=======
+=======
+            auto tmp = (avm_main_sel_cmov * (((avm_main_id * avm_main_inv) - FF(1)) + avm_main_id_zero));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<77>(evals) += tmp;
         }
@@ -939,6 +2351,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(81);
 
+<<<<<<< HEAD
 <<<<<<< HEAD
             auto tmp = ((((-avm_main_first + FF(1)) * (-avm_main_sel_halt + FF(1))) *
                          (((((((((((((((avm_main_sel_op_add + avm_main_sel_op_sub) + avm_main_sel_op_mul) +
@@ -972,12 +2385,20 @@ template <typename FF_> class avm_mainImpl {
                            avm_main_sel_op_sstore))) *
                         (avm_main_pc_shift - (avm_main_pc + FF(1))));
 =======
+=======
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
 <<<<<<< HEAD
             auto tmp = ((avm_main_sel_mov + avm_main_sel_cmov) * (avm_main_r_in_tag - avm_main_w_in_tag));
 =======
             auto tmp = (avm_main_sel_mov_b - (avm_main_sel_cmov * avm_main_id_zero));
 >>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
 >>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+=======
+=======
+            auto tmp = ((avm_main_sel_cmov * avm_main_id_zero) * (-avm_main_inv + FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<81>(evals) += tmp;
         }
@@ -986,8 +2407,12 @@ template <typename FF_> class avm_mainImpl {
             Avm_DECLARE_VIEWS(82);
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
             auto tmp = (avm_main_sel_mov_a * (avm_main_ia - avm_main_ic));
+=======
+            auto tmp = (avm_main_sel_mov_a - (avm_main_sel_mov + (avm_main_sel_cmov * (-avm_main_id_zero + FF(1)))));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<79>(evals) += tmp;
         }
@@ -995,7 +2420,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(80);
 
-            auto tmp = (avm_main_sel_mov_b * (avm_main_ib - avm_main_ic));
+            auto tmp = (avm_main_sel_mov_b - (avm_main_sel_cmov * avm_main_id_zero));
             tmp *= scaling_factor;
             std::get<80>(evals) += tmp;
         }
@@ -1003,7 +2428,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(81);
 
-            auto tmp = ((avm_main_sel_mov + avm_main_sel_cmov) * (avm_main_r_in_tag - avm_main_w_in_tag));
+            auto tmp = (avm_main_sel_mov_a * (avm_main_ia - avm_main_ic));
             tmp *= scaling_factor;
             std::get<81>(evals) += tmp;
         }
@@ -1011,7 +2436,26 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(82);
 
+<<<<<<< HEAD
 >>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
+=======
+            auto tmp = (avm_main_sel_mov_b * (avm_main_ib - avm_main_ic));
+            tmp *= scaling_factor;
+            std::get<82>(evals) += tmp;
+        }
+        // Contribution 83
+        {
+            Avm_DECLARE_VIEWS(83);
+
+            auto tmp = ((avm_main_sel_mov + avm_main_sel_cmov) * (avm_main_r_in_tag - avm_main_w_in_tag));
+            tmp *= scaling_factor;
+            std::get<83>(evals) += tmp;
+        }
+        // Contribution 84
+        {
+            Avm_DECLARE_VIEWS(84);
+
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
             auto tmp =
                 (avm_main_alu_sel -
                  ((((((((((((avm_main_sel_op_add + avm_main_sel_op_sub) + avm_main_sel_op_mul) + avm_main_sel_op_div) +
@@ -1025,10 +2469,31 @@ template <typename FF_> class avm_mainImpl {
                    (-avm_main_tag_err + FF(1))) *
                   (-avm_main_op_err + FF(1))));
             tmp *= scaling_factor;
+<<<<<<< HEAD
             std::get<81>(evals) += tmp;
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+            std::get<79>(evals) += tmp;
         }
-        // Contribution 83
+        // Contribution 82
         {
+            Avm_DECLARE_VIEWS(82);
+
+            auto tmp = ((avm_main_sel_internal_call + avm_main_sel_internal_return) * (avm_main_space_id - FF(255)));
+            tmp *= scaling_factor;
+            std::get<82>(evals) += tmp;
+=======
+            std::get<84>(evals) += tmp;
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
+        }
+        // Contribution 85
+        {
+<<<<<<< HEAD
             Avm_DECLARE_VIEWS(83);
 
             auto tmp = ((avm_main_sel_internal_call + avm_main_sel_internal_return) * (avm_main_space_id - FF(255)));
@@ -1038,6 +2503,23 @@ template <typename FF_> class avm_mainImpl {
         // Contribution 84
         {
             Avm_DECLARE_VIEWS(83);
+=======
+<<<<<<< HEAD
+=======
+            Avm_DECLARE_VIEWS(85);
+
+            auto tmp = ((avm_main_sel_internal_call + avm_main_sel_internal_return) * (avm_main_space_id - FF(255)));
+            tmp *= scaling_factor;
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+            std::get<80>(evals) += tmp;
+        }
+        // Contribution 81
+        {
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+            Avm_DECLARE_VIEWS(81);
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
 
             auto tmp = ((((((((((((((((avm_main_sel_op_add + avm_main_sel_op_sub) + avm_main_sel_op_mul) +
                                      avm_main_sel_op_div) +
@@ -1124,13 +2606,60 @@ template <typename FF_> class avm_mainImpl {
 
             auto tmp = (avm_main_sel_mov_b - (avm_main_sel_cmov * avm_main_id_zero));
             tmp *= scaling_factor;
+=======
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
             std::get<85>(evals) += tmp;
         }
         // Contribution 86
         {
             Avm_DECLARE_VIEWS(86);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_mov_a * (avm_main_ia - avm_main_ic));
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_mov_a * (avm_main_ia - avm_main_ic));
+=======
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_mov_a * (avm_main_ia - avm_main_ic));
+=======
+=======
+>>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+=======
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_fee_per_l2_gas * (avm_kernel_kernel_sel - FF(39)));
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_fee_per_l2_gas * (avm_kernel_kernel_sel - FF(39)));
+=======
+            auto tmp = (avm_main_sel_op_chain_id * (avm_kernel_kernel_sel - FF(28)));
+>>>>>>> 4bb44191bf (feat: simple gas decrement test)
+=======
+            auto tmp = (avm_main_sel_op_fee_per_da_gas * (avm_kernel_kernel_sel - FF(38)));
+>>>>>>> 9bcbc00a00 (6542: some renaming and comments)
+>>>>>>> df5862de90 (6542: some renaming and comments)
+>>>>>>> f185c1b5d5 (6542: some renaming and comments)
+<<<<<<< HEAD
+=======
+=======
+=======
+            auto tmp = (avm_main_sel_op_address * (avm_kernel_kernel_sel - FF(1)));
+>>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
+>>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+=======
+=======
+            auto tmp = (avm_main_sel_op_cast * (avm_main_alu_in_tag - avm_main_w_in_tag));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<86>(evals) += tmp;
         }
@@ -1138,7 +2667,52 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(87);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_mov_b * (avm_main_ib - avm_main_ic));
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_mov_b * (avm_main_ib - avm_main_ic));
+=======
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_mov_b * (avm_main_ib - avm_main_ic));
+=======
+=======
+>>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+=======
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_transaction_fee * (avm_kernel_kernel_sel - FF(40)));
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_transaction_fee * (avm_kernel_kernel_sel - FF(40)));
+=======
+            auto tmp = (avm_main_sel_op_version * (avm_kernel_kernel_sel - FF(29)));
+>>>>>>> 4bb44191bf (feat: simple gas decrement test)
+=======
+            auto tmp = (avm_main_sel_op_fee_per_l2_gas * (avm_kernel_kernel_sel - FF(39)));
+>>>>>>> 9bcbc00a00 (6542: some renaming and comments)
+>>>>>>> df5862de90 (6542: some renaming and comments)
+>>>>>>> f185c1b5d5 (6542: some renaming and comments)
+<<<<<<< HEAD
+=======
+=======
+=======
+            auto tmp = (avm_main_sel_op_portal * (avm_kernel_kernel_sel - FF(2)));
+>>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
+>>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+=======
+=======
+            auto tmp = (avm_main_sel_op_sender * (avm_kernel_kernel_sel - FF(0)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<87>(evals) += tmp;
         }
@@ -1146,7 +2720,52 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(88);
 
+<<<<<<< HEAD
             auto tmp = ((avm_main_sel_mov + avm_main_sel_cmov) * (avm_main_r_in_tag - avm_main_w_in_tag));
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+            auto tmp = ((avm_main_sel_mov + avm_main_sel_cmov) * (avm_main_r_in_tag - avm_main_w_in_tag));
+=======
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+            auto tmp = ((avm_main_sel_mov + avm_main_sel_cmov) * (avm_main_r_in_tag - avm_main_w_in_tag));
+=======
+=======
+>>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+=======
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_chain_id * (avm_kernel_kernel_sel - FF(29)));
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_chain_id * (avm_kernel_kernel_sel - FF(29)));
+=======
+            auto tmp = (avm_main_sel_op_block_number * (avm_kernel_kernel_sel - FF(30)));
+>>>>>>> 4bb44191bf (feat: simple gas decrement test)
+=======
+            auto tmp = (avm_main_sel_op_transaction_fee * (avm_kernel_kernel_sel - FF(40)));
+>>>>>>> 9bcbc00a00 (6542: some renaming and comments)
+>>>>>>> df5862de90 (6542: some renaming and comments)
+>>>>>>> f185c1b5d5 (6542: some renaming and comments)
+<<<<<<< HEAD
+=======
+=======
+=======
+            auto tmp = (avm_main_sel_op_fee_per_da_gas * (avm_kernel_kernel_sel - FF(38)));
+>>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
+>>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+=======
+=======
+            auto tmp = (avm_main_sel_op_address * (avm_kernel_kernel_sel - FF(1)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<88>(evals) += tmp;
         }
@@ -1154,6 +2773,15 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(89);
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             auto tmp = ((avm_main_sel_mov + avm_main_sel_cmov) * (avm_main_r_in_tag - avm_main_w_in_tag));
 >>>>>>> ddd6d0c4d1 (6542: some renaming and comments)
             tmp *= scaling_factor;
@@ -1163,6 +2791,21 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(90);
 
+<<<<<<< HEAD
+=======
+=======
+<<<<<<< HEAD
+>>>>>>> a752a9a655 (6542: some renaming and comments)
+<<<<<<< HEAD
+=======
+=======
+<<<<<<< HEAD
+>>>>>>> 221f3ac2d7 (6542: fix conflicts after rebase to master)
+=======
+<<<<<<< HEAD
+>>>>>>> 31cb381a44 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             auto tmp = (avm_main_sel_op_version * (avm_kernel_kernel_sel - FF(30)));
 =======
 <<<<<<< HEAD
@@ -1175,6 +2818,15 @@ template <typename FF_> class avm_mainImpl {
             auto tmp = (avm_main_sel_op_chain_id * (avm_kernel_kernel_sel - FF(29)));
 >>>>>>> 9bcbc00a00 (6542: some renaming and comments)
 >>>>>>> df5862de90 (6542: some renaming and comments)
+<<<<<<< HEAD
+=======
+=======
+            auto tmp = (avm_main_sel_op_fee_per_l2_gas * (avm_kernel_kernel_sel - FF(39)));
+>>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
+=======
+            auto tmp = (avm_main_sel_op_portal * (avm_kernel_kernel_sel - FF(2)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<88>(evals) += tmp;
         }
@@ -1196,10 +2848,13 @@ template <typename FF_> class avm_mainImpl {
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_cast * (avm_main_alu_in_tag - avm_main_w_in_tag));
 =======
 =======
 >>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+=======
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
 <<<<<<< HEAD
             auto tmp = (avm_main_sel_op_block_number * (avm_kernel_kernel_sel - FF(31)));
 =======
@@ -1219,7 +2874,13 @@ template <typename FF_> class avm_mainImpl {
 =======
             auto tmp = (avm_main_sel_op_transaction_fee * (avm_kernel_kernel_sel - FF(40)));
 >>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
 >>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+=======
+=======
+            auto tmp = (avm_main_sel_op_fee_per_da_gas * (avm_kernel_kernel_sel - FF(38)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
 >>>>>>> a752a9a655 (6542: some renaming and comments)
             std::get<90>(evals) += tmp;
@@ -1229,8 +2890,19 @@ template <typename FF_> class avm_mainImpl {
             Avm_DECLARE_VIEWS(91);
 
 <<<<<<< HEAD
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_cast * (avm_main_alu_in_tag - avm_main_w_in_tag));
 =======
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_cast * (avm_main_alu_in_tag - avm_main_w_in_tag));
+=======
+=======
+>>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+=======
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
 <<<<<<< HEAD
             auto tmp = (avm_main_sel_op_coinbase * (avm_kernel_kernel_sel - FF(33)));
 =======
@@ -1245,6 +2917,20 @@ template <typename FF_> class avm_mainImpl {
 >>>>>>> 9bcbc00a00 (6542: some renaming and comments)
 >>>>>>> df5862de90 (6542: some renaming and comments)
 >>>>>>> f185c1b5d5 (6542: some renaming and comments)
+<<<<<<< HEAD
+=======
+=======
+=======
+            auto tmp = (avm_main_sel_op_chain_id * (avm_kernel_kernel_sel - FF(29)));
+>>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
+>>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+=======
+=======
+            auto tmp = (avm_main_sel_op_fee_per_l2_gas * (avm_kernel_kernel_sel - FF(39)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<91>(evals) += tmp;
         }
@@ -1253,8 +2939,19 @@ template <typename FF_> class avm_mainImpl {
             Avm_DECLARE_VIEWS(92);
 
 <<<<<<< HEAD
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_sender * (avm_kernel_kernel_in_offset - FF(0)));
 =======
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_sender * (avm_kernel_kernel_in_offset - FF(0)));
+=======
+=======
+>>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+=======
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
 <<<<<<< HEAD
             auto tmp = (avm_main_sel_op_timestamp * (avm_kernel_kernel_sel - FF(32)));
 =======
@@ -1269,6 +2966,20 @@ template <typename FF_> class avm_mainImpl {
 >>>>>>> 9bcbc00a00 (6542: some renaming and comments)
 >>>>>>> df5862de90 (6542: some renaming and comments)
 >>>>>>> f185c1b5d5 (6542: some renaming and comments)
+<<<<<<< HEAD
+=======
+=======
+=======
+            auto tmp = (avm_main_sel_op_version * (avm_kernel_kernel_sel - FF(30)));
+>>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
+>>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+=======
+=======
+            auto tmp = (avm_main_sel_op_transaction_fee * (avm_kernel_kernel_sel - FF(40)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<92>(evals) += tmp;
         }
@@ -1277,8 +2988,19 @@ template <typename FF_> class avm_mainImpl {
             Avm_DECLARE_VIEWS(93);
 
 <<<<<<< HEAD
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_address * (avm_kernel_kernel_in_offset - FF(1)));
 =======
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_address * (avm_kernel_kernel_in_offset - FF(1)));
+=======
+=======
+>>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+=======
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
 <<<<<<< HEAD
             auto tmp = (avm_main_bin_op_id - (avm_main_sel_op_or + (avm_main_sel_op_xor * FF(2))));
 =======
@@ -1293,6 +3015,20 @@ template <typename FF_> class avm_mainImpl {
 >>>>>>> 9bcbc00a00 (6542: some renaming and comments)
 >>>>>>> df5862de90 (6542: some renaming and comments)
 >>>>>>> f185c1b5d5 (6542: some renaming and comments)
+<<<<<<< HEAD
+=======
+=======
+=======
+            auto tmp = (avm_main_sel_op_block_number * (avm_kernel_kernel_sel - FF(31)));
+>>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
+>>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+=======
+=======
+            auto tmp = (avm_main_sel_op_chain_id * (avm_kernel_kernel_sel - FF(29)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
 >>>>>>> ddd6d0c4d1 (6542: some renaming and comments)
             std::get<93>(evals) += tmp;
@@ -1301,11 +3037,29 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(94);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_fee_per_da_gas * (avm_kernel_kernel_in_offset - FF(38)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_fee_per_l2_gas * (avm_kernel_kernel_in_offset - FF(39)));
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_fee_per_l2_gas * (avm_kernel_kernel_in_offset - FF(39)));
+=======
+=======
+>>>>>>> 31cb381a44 (6542: work in progress witness gen and unit tests fixing)
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_portal * (avm_kernel_kernel_in_offset - FF(2)));
+>>>>>>> 221f3ac2d7 (6542: fix conflicts after rebase to master)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<94>(evals) += tmp;
         }
 =======
+=======
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
 <<<<<<< HEAD
             auto tmp = (avm_main_bin_sel - ((avm_main_sel_op_and + avm_main_sel_op_or) + avm_main_sel_op_xor));
             tmp *= scaling_factor;
@@ -1313,6 +3067,9 @@ template <typename FF_> class avm_mainImpl {
         }
 =======
             auto tmp = (avm_main_sel_op_coinbase * (avm_kernel_kernel_sel - FF(33)));
+=======
+            auto tmp = (avm_main_sel_op_version * (avm_kernel_kernel_sel - FF(30)));
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<94>(evals) += tmp;
         }
@@ -1321,7 +3078,32 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(95);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_fee_per_l2_gas * (avm_kernel_kernel_in_offset - FF(39)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_transaction_fee * (avm_kernel_kernel_in_offset - FF(40)));
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_transaction_fee * (avm_kernel_kernel_in_offset - FF(40)));
+=======
+=======
+>>>>>>> 31cb381a44 (6542: work in progress witness gen and unit tests fixing)
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_fee_per_da_gas * (avm_kernel_kernel_in_offset - FF(38)));
+=======
+            auto tmp = (avm_main_sel_op_timestamp * (avm_kernel_kernel_sel - FF(32)));
+>>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
+>>>>>>> 221f3ac2d7 (6542: fix conflicts after rebase to master)
+=======
+=======
+            auto tmp = (avm_main_sel_op_block_number * (avm_kernel_kernel_sel - FF(31)));
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 31cb381a44 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<95>(evals) += tmp;
         }
@@ -1329,7 +3111,32 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(96);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_transaction_fee * (avm_kernel_kernel_in_offset - FF(40)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_chain_id * (avm_kernel_kernel_in_offset - FF(29)));
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_chain_id * (avm_kernel_kernel_in_offset - FF(29)));
+=======
+=======
+>>>>>>> 31cb381a44 (6542: work in progress witness gen and unit tests fixing)
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_fee_per_l2_gas * (avm_kernel_kernel_in_offset - FF(39)));
+=======
+            auto tmp = (avm_main_bin_op_id - (avm_main_sel_op_or + (avm_main_sel_op_xor * FF(2))));
+>>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
+>>>>>>> 221f3ac2d7 (6542: fix conflicts after rebase to master)
+=======
+=======
+            auto tmp = (avm_main_sel_op_coinbase * (avm_kernel_kernel_sel - FF(33)));
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 31cb381a44 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<96>(evals) += tmp;
         }
@@ -1337,7 +3144,23 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(97);
 
+<<<<<<< HEAD
             auto tmp = (avm_main_sel_op_chain_id * (avm_kernel_kernel_in_offset - FF(29)));
+=======
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_version * (avm_kernel_kernel_in_offset - FF(30)));
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_version * (avm_kernel_kernel_in_offset - FF(30)));
+=======
+=======
+>>>>>>> 31cb381a44 (6542: work in progress witness gen and unit tests fixing)
+<<<<<<< HEAD
+            auto tmp = (avm_main_sel_op_transaction_fee * (avm_kernel_kernel_in_offset - FF(40)));
+>>>>>>> 221f3ac2d7 (6542: fix conflicts after rebase to master)
+>>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<97>(evals) += tmp;
         }
@@ -1576,11 +3399,36 @@ template <typename FF_> class avm_mainImpl {
         }
 =======
             auto tmp = (avm_main_bin_sel - ((avm_main_sel_op_and + avm_main_sel_op_or) + avm_main_sel_op_xor));
+=======
+            auto tmp = (avm_main_sel_op_timestamp * (avm_kernel_kernel_sel - FF(32)));
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
             std::get<97>(evals) += tmp;
         }
+<<<<<<< HEAD
 >>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
 >>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+=======
+=======
+        // Contribution 98
+        {
+            Avm_DECLARE_VIEWS(98);
+
+            auto tmp = (avm_main_bin_op_id - (avm_main_sel_op_or + (avm_main_sel_op_xor * FF(2))));
+            tmp *= scaling_factor;
+            std::get<98>(evals) += tmp;
+        }
+        // Contribution 99
+        {
+            Avm_DECLARE_VIEWS(99);
+
+            auto tmp = (avm_main_bin_sel - ((avm_main_sel_op_and + avm_main_sel_op_or) + avm_main_sel_op_xor));
+            tmp *= scaling_factor;
+            std::get<99>(evals) += tmp;
+        }
+>>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
+>>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
     }
 };
 

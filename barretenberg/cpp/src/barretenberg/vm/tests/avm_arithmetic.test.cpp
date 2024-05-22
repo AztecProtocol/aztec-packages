@@ -1,7 +1,9 @@
 #include "avm_common.test.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
+#include "barretenberg/vm/avm_trace/avm_trace.hpp"
 #include "barretenberg/vm/tests/helpers.test.hpp"
+#include <array>
 #include <cstdint>
 
 namespace tests_avm {
@@ -301,10 +303,17 @@ std::vector<Row> gen_mutated_trace_eq(
 class AvmArithmeticTests : public ::testing::Test {
   public:
     AvmTraceBuilder trace_builder;
+    std::array<FF, KERNEL_INPUTS_LENGTH> public_inputs{};
 
   protected:
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
-    void SetUp() override { srs::init_crs_factory("../srs_db/ignition"); };
+    void SetUp() override
+    {
+        srs::init_crs_factory("../srs_db/ignition");
+        public_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000;
+        public_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000;
+        trace_builder = AvmTraceBuilder(public_inputs);
+    };
 };
 
 class AvmArithmeticTestsFF : public AvmArithmeticTests {};
@@ -378,7 +387,7 @@ TEST_F(AvmArithmeticTestsFF, addition)
     EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
     EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0));
 
-    validate_trace(std::move(trace), {}, true);
+    validate_trace(std::move(trace), public_inputs, true);
 }
 
 // Test on basic subtraction over finite field type.
@@ -555,7 +564,7 @@ TEST_F(AvmArithmeticTestsFF, mixedOperationsWithError)
     trace_builder.halt();
 
     auto trace = trace_builder.finalize();
-    validate_trace(std::move(trace), {}, true);
+    validate_trace(std::move(trace), public_inputs, true);
 }
 
 // Test of equality on FF elements
