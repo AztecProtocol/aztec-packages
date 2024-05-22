@@ -54,6 +54,8 @@ export abstract class BaseWallet implements Wallet {
         },
   ): Promise<AuthWitness>;
 
+  abstract rotateNullifierKeys(newNskM: Fq): Promise<void>;
+
   getAddress() {
     return this.getCompleteAddress().address;
   }
@@ -69,8 +71,8 @@ export abstract class BaseWallet implements Wallet {
   registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     return this.pxe.registerAccount(secretKey, partialAddress);
   }
-  rotateMasterNullifierKey(account: AztecAddress, secretKey: Fq): Promise<void> {
-    return this.pxe.rotateMasterNullifierKey(account, secretKey);
+  rotateNskM(address: AztecAddress, secretKey: Fq) {
+    return this.pxe.rotateNskM(address, secretKey);
   }
   registerRecipient(account: CompleteAddress): Promise<void> {
     return this.pxe.registerRecipient(account);
@@ -130,8 +132,13 @@ export abstract class BaseWallet implements Wallet {
   getBlock(number: number): Promise<L2Block | undefined> {
     return this.pxe.getBlock(number);
   }
-  viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress | undefined): Promise<any> {
-    return this.pxe.viewTx(functionName, args, to, from);
+  simulateUnconstrained(
+    functionName: string,
+    args: any[],
+    to: AztecAddress,
+    from?: AztecAddress | undefined,
+  ): Promise<any> {
+    return this.pxe.simulateUnconstrained(functionName, args, to, from);
   }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     return this.pxe.getUnencryptedLogs(filter);

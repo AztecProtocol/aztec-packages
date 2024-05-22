@@ -1,6 +1,10 @@
 use crate::tests::private_call_data_validator_builder::PrivateCallDataValidatorBuilder;
 use dep::types::{
-    abis::{note_hash::NoteHash, nullifier::Nullifier, read_request::ReadRequest, side_effect::SideEffect},
+    abis::{
+    key_validation_request::KeyValidationRequest, caller_context::CallerContext, note_hash::NoteHash,
+    nullifier::Nullifier, private_call_request::PrivateCallRequest, read_request::ReadRequest,
+    log_hash::{LogHash, NoteLogHash}
+},
     address::EthAddress, grumpkin_point::GrumpkinPoint, messaging::l2_to_l1_message::L2ToL1Message
 };
 
@@ -32,20 +36,19 @@ fn validate_arrays_malformed_nullifier_read_requests_fails() {
     builder.validate();
 }
 
-// Enable this test if MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL is greater than 1.
-// #[test(should_fail_with="invalid array")]
-// fn validate_arrays_malformed_nullifier_key_validation_requests_fails() {
-//     let mut builder = PrivateCallDataValidatorBuilder::new();
+#[test(should_fail_with="invalid array")]
+fn validate_arrays_malformed_key_validation_requests_fails() {
+    let mut builder = PrivateCallDataValidatorBuilder::new();
 
-//     builder.private_call.public_inputs.nullifier_key_validation_requests.extend_from_array(
-//         [
-//         NullifierKeyValidationRequest::empty(),
-//         NullifierKeyValidationRequest { master_nullifier_public_key: GrumpkinPoint { x: 12, y: 34 }, app_nullifier_secret_key: 5 }
-//     ]
-//     );
+    builder.private_call.public_inputs.key_validation_requests.extend_from_array(
+        [
+        KeyValidationRequest::empty(),
+        KeyValidationRequest { pk_m: GrumpkinPoint { x: 12, y: 34 }, sk_app: 5 }
+    ]
+    );
 
-//     builder.validate();
-// }
+    builder.validate();
+}
 
 #[test(should_fail_with="invalid array")]
 fn validate_arrays_malformed_note_hashes_fails() {
@@ -90,10 +93,19 @@ fn validate_arrays_malformed_l2_to_l1_msgs_fails() {
 }
 
 #[test(should_fail_with="invalid array")]
-fn validate_arrays_malformed_private_call_stack_fails() {
+fn validate_arrays_malformed_private_call_requests_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
-    builder.private_call.public_inputs.private_call_stack_hashes.extend_from_array([0, 9123]);
+    builder.private_call.public_inputs.private_call_requests.extend_from_array(
+        [
+        PrivateCallRequest::empty(), PrivateCallRequest {
+            hash: 9123,
+            start_side_effect_counter: 1,
+            end_side_effect_counter: 2,
+            caller_context: CallerContext::empty()
+        }
+    ]
+    );
 
     builder.validate();
 }
@@ -113,8 +125,8 @@ fn validate_arrays_malformed_encrypted_logs_hashes_fails() {
 
     builder.private_call.public_inputs.encrypted_logs_hashes.extend_from_array(
         [
-        SideEffect { value: 0, counter: 0 },
-        SideEffect { value: 9123, counter: 1 }
+        LogHash { value: 0, counter: 0, length: 0 },
+        LogHash { value: 9123, counter: 1, length: 2 }
     ]
     );
 
@@ -127,8 +139,22 @@ fn validate_arrays_malformed_unencrypted_logs_hashes_fails() {
 
     builder.private_call.public_inputs.unencrypted_logs_hashes.extend_from_array(
         [
-        SideEffect { value: 0, counter: 0 },
-        SideEffect { value: 9123, counter: 1 }
+        LogHash { value: 0, counter: 0, length: 0 },
+        LogHash { value: 9123, counter: 1, length: 2 }
+    ]
+    );
+
+    builder.validate();
+}
+
+#[test(should_fail_with="invalid array")]
+fn validate_arrays_malformed_note_encrypted_logs_hashes() {
+    let mut builder = PrivateCallDataValidatorBuilder::new();
+
+    builder.private_call.public_inputs.note_encrypted_logs_hashes.extend_from_array(
+        [
+        NoteLogHash { value: 0, counter: 0, length: 0, note_hash_counter: 0 },
+        NoteLogHash { value: 9123, counter: 2, length: 2, note_hash_counter: 1 }
     ]
     );
 

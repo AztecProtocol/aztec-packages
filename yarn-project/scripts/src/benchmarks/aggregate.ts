@@ -24,6 +24,7 @@ import {
   type MetricName,
   type NodeSyncedChainHistoryStats,
   type NoteProcessorCaughtUpStats,
+  type ProofConstructed,
   type Stats,
   type TreeInsertionStats,
   type TxAddedToPoolStats,
@@ -66,6 +67,13 @@ function append(
   results[metric]![bucket].push(numeric);
 }
 
+/** Processes an entry with event name 'acir-proof-generated' and updates results */
+function processAcirProofGenerated(entry: ProofConstructed, results: BenchmarkCollectedResults) {
+  if (entry.acir_test === 'sha256') {
+    append(results, `proof_construction_time_sha256`, entry.threads, entry.value);
+  }
+}
+
 /** Processes an entry with event name 'rollup-published-to-l1' and updates results */
 function processRollupPublished(entry: L1PublishStats, results: BenchmarkCollectedResults) {
   const bucket = entry.txCount;
@@ -97,13 +105,20 @@ function processRollupBlockSynced(entry: L2BlockHandledStats, results: Benchmark
  * Buckets are circuit names
  */
 function processCircuitSimulation(entry: CircuitSimulationStats, results: BenchmarkCollectedResults) {
-  const bucket = entry.circuitName;
-  if (!bucket) {
-    return;
+  if (entry.circuitName === 'app-circuit') {
+    const bucket = entry.appCircuitName;
+    if (!bucket) {
+      return;
+    }
+    append(results, 'app_circuit_simulation_time_in_ms', bucket, entry.duration);
+    append(results, 'app_circuit_input_size_in_bytes', bucket, entry.inputSize);
+    append(results, 'app_circuit_output_size_in_bytes', bucket, entry.outputSize);
+  } else {
+    const bucket = entry.circuitName;
+    append(results, 'protocol_circuit_simulation_time_in_ms', bucket, entry.duration);
+    append(results, 'protocol_circuit_input_size_in_bytes', bucket, entry.inputSize);
+    append(results, 'protocol_circuit_output_size_in_bytes', bucket, entry.outputSize);
   }
-  append(results, 'circuit_simulation_time_in_ms', bucket, entry.duration);
-  append(results, 'circuit_input_size_in_bytes', bucket, entry.inputSize);
-  append(results, 'circuit_output_size_in_bytes', bucket, entry.outputSize);
 }
 
 /**
@@ -111,12 +126,22 @@ function processCircuitSimulation(entry: CircuitSimulationStats, results: Benchm
  * Buckets are circuit names
  */
 function processCircuitProving(entry: CircuitProvingStats, results: BenchmarkCollectedResults) {
-  const bucket = entry.circuitName;
-  if (!bucket) {
-    return;
+  if (entry.circuitName === 'app-circuit') {
+    const bucket = entry.appCircuitName;
+    if (!bucket) {
+      return;
+    }
+    append(results, 'app_circuit_proving_time_in_ms', bucket, entry.duration);
+    append(results, 'app_circuit_proof_size_in_bytes', bucket, entry.proofSize);
+    append(results, 'app_circuit_size_in_gates', bucket, entry.circuitSize);
+    append(results, 'app_circuit_num_public_inputs', bucket, entry.numPublicInputs);
+  } else {
+    const bucket = entry.circuitName;
+    append(results, 'protocol_circuit_proving_time_in_ms', bucket, entry.duration);
+    append(results, 'protocol_circuit_proof_size_in_bytes', bucket, entry.proofSize);
+    append(results, 'protocol_circuit_size_in_gates', bucket, entry.circuitSize);
+    append(results, 'protocol_circuit_num_public_inputs', bucket, entry.numPublicInputs);
   }
-  append(results, 'circuit_proving_time_in_ms', bucket, entry.duration);
-  append(results, 'circuit_proof_size_in_bytes', bucket, entry.proofSize);
 }
 
 /**
@@ -124,11 +149,16 @@ function processCircuitProving(entry: CircuitProvingStats, results: BenchmarkCol
  * Buckets are circuit names
  */
 function processCircuitWitnessGeneration(entry: CircuitWitnessGenerationStats, results: BenchmarkCollectedResults) {
-  const bucket = entry.circuitName;
-  if (!bucket) {
-    return;
+  if (entry.circuitName === 'app-circuit') {
+    const bucket = entry.appCircuitName;
+    if (!bucket) {
+      return;
+    }
+    append(results, 'app_circuit_witness_generation_time_in_ms', bucket, entry.duration);
+  } else {
+    const bucket = entry.circuitName;
+    append(results, 'protocol_circuit_witness_generation_time_in_ms', bucket, entry.duration);
   }
-  append(results, 'circuit_witness_generation_time_in_ms', bucket, entry.duration);
 }
 /**
  * Processes an entry with event name 'note-processor-caught-up' and updates results
@@ -218,6 +248,8 @@ function processTreeInsertion(entry: TreeInsertionStats, results: BenchmarkColle
 /** Processes a parsed entry from a log-file and updates results */
 function processEntry(entry: Stats, results: BenchmarkCollectedResults, fileName: string) {
   switch (entry.eventName) {
+    case 'proof_construction_time':
+      return processAcirProofGenerated(entry, results);
     case 'rollup-published-to-l1':
       return processRollupPublished(entry, results);
     case 'l2-block-handled':

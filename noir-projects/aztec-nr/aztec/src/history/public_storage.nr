@@ -6,7 +6,7 @@ use dep::std::merkle::compute_merkle_root;
 
 use crate::{context::PrivateContext, oracle::get_public_data_witness::get_public_data_witness};
 
-fn _public_storage_historical_read(storage_slot: Field, contract_address: AztecAddress, header: Header) -> Field {
+pub fn _public_storage_historical_read(storage_slot: Field, contract_address: AztecAddress, header: Header) -> Field {
     // 1) Compute the leaf slot by siloing the storage slot with the contract address
     let public_value_leaf_slot = pedersen_hash(
         [contract_address.to_field(), storage_slot],

@@ -19,7 +19,6 @@ import { ClientExecutionContext } from './client_execution_context.js';
 import { type DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { type ExecutionResult } from './execution_result.js';
-import { LogsCache } from './logs_cache.js';
 import { executePrivateFunction } from './private_execution.js';
 import { executeUnconstrainedFunction } from './unconstrained_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -69,8 +68,8 @@ export class AcirSimulator {
     contractAddress: AztecAddress,
     msgSender = AztecAddress.ZERO,
   ): Promise<ExecutionResult> {
-    if (entryPointArtifact.functionType !== FunctionType.SECRET) {
-      throw new Error(`Cannot run ${entryPointArtifact.functionType} function as secret`);
+    if (entryPointArtifact.functionType !== FunctionType.PRIVATE) {
+      throw new Error(`Cannot run ${entryPointArtifact.functionType} function as private`);
     }
 
     if (request.origin !== contractAddress) {
@@ -89,7 +88,7 @@ export class AcirSimulator {
       contractAddress,
       FunctionSelector.fromNameAndParameters(entryPointArtifact.name, entryPointArtifact.parameters),
       false,
-      false,
+      entryPointArtifact.isStatic,
       startSideEffectCounter,
     );
     const context = new ClientExecutionContext(
@@ -101,7 +100,6 @@ export class AcirSimulator {
       request.authWitnesses,
       PackedValuesCache.create(request.argsOfCalls),
       new ExecutionNoteCache(),
-      new LogsCache(),
       this.db,
       this.node,
       startSideEffectCounter,
@@ -197,6 +195,7 @@ export class AcirSimulator {
     const execRequest: FunctionCall = {
       to: contractAddress,
       functionData: FunctionData.empty(),
+      isStatic: artifact.isStatic,
       args: encodeArguments(artifact, [contractAddress, nonce, storageSlot, noteTypeId, extendedNoteItems]),
     };
 

@@ -39,6 +39,9 @@ export class Ec2Instance {
     this.client = new AWS.EC2({
       credentials: this.credentials,
       region: this.config.awsRegion,
+      maxRetries: 3,
+      // base 10 seconds for the exponential backoff, up to 3 times
+      retryDelayOptions: { base: 10000 },
     });
 
     this.tags = this.getTags();
@@ -51,6 +54,9 @@ export class Ec2Instance {
       this.client = new AWS.EC2({
         credentials: credentials,
         region: this.config.awsRegion,
+        maxRetries: 3,
+        // base 10 seconds for the exponential backoff, up to 3 times
+        retryDelayOptions: {base: 10000}
       });
     }
     return this.client;
@@ -192,7 +198,7 @@ export class Ec2Instance {
           {
             DeviceName: "/dev/sda1",
             Ebs: {
-              VolumeSize: 32,
+              VolumeSize: 64,
               VolumeType: 'gp3',
               Throughput: 1000,
               Iops: 5000
@@ -213,7 +219,7 @@ export class Ec2Instance {
         // Ignore if it is already created
         return launchTemplateName;
       }
-      throw error;
+      core.warning("Ignoring:" + JSON.stringify(error));
     }
     return launchTemplateName;
   }
@@ -240,7 +246,7 @@ export class Ec2Instance {
       LaunchTemplateConfigs: [fleetLaunchConfig],
       ClientToken: clientToken,
       SpotOptions: {
-        AllocationStrategy: "capacity-optimized",
+        AllocationStrategy: "price-capacity-optimized",
       },
       TargetCapacitySpecification: {
         TotalTargetCapacity: 1,
