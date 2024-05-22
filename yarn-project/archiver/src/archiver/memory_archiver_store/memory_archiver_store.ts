@@ -1,5 +1,6 @@
 import {
   type Body,
+  type EncryptedEventL2BlockL2Logs,
   type EncryptedL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
   type FromLogType,
@@ -192,7 +193,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   addLogs(
     noteEncryptedLogs: EncryptedL2BlockL2Logs,
-    encryptedLogs: EncryptedL2BlockL2Logs,
+    encryptedLogs: EncryptedEventL2BlockL2Logs,
     unencryptedLogs: UnencryptedL2BlockL2Logs,
     blockNumber: number,
   ): Promise<boolean> {

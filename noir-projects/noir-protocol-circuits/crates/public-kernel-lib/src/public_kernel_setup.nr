@@ -441,8 +441,8 @@ mod tests {
         ];
         // silo the new log hash
         expected_unencrypted_logs[1].value = silo_unencrypted_log(builder.public_call.contract_address, expected_unencrypted_logs[1].value);
-
-        let expected_encrypted_logs = [builder.previous_kernel.encrypted_logs_hashes.storage[0]];
+        // we assume the encrypted log is already siloed from private kernels
+        let expected_encrypted_logs = [builder.previous_kernel.encrypted_logs_hashes.storage[0].expose_to_public()];
 
         let public_inputs = builder.execute();
 

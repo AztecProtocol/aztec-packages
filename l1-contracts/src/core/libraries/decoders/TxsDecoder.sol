@@ -166,9 +166,9 @@ library TxsDecoder {
         offset += 0x20;
 
         (vars.noteEncryptedLogsHash, offset, vars.kernelNoteEncryptedLogsLength) =
-          computeKernelLogsHash(offset, _body, true);
+          computeKernelNoteEncryptedLogsHash(offset, _body);
         (vars.encryptedLogsHash, offset, vars.kernelEncryptedLogsLength) =
-          computeKernelLogsHash(offset, _body, false);
+          computeKernelEncryptedLogsHash(offset, _body);
         (vars.unencryptedLogsHash, offset, vars.kernelUnencryptedLogsLength) =
           computeKernelUnencryptedLogsHash(offset, _body);
 
@@ -291,7 +291,7 @@ library TxsDecoder {
    * @dev Link to a relevant discussion:
    *      https://discourse.aztec.network/t/proposal-forcing-the-sequencer-to-actually-submit-data-to-l1/426/9
    */
-  function computeKernelLogsHash(uint256 _offsetInBlock, bytes calldata _body, bool noteLogs)
+  function computeKernelNoteEncryptedLogsHash(uint256 _offsetInBlock, bytes calldata _body)
     internal
     pure
     returns (bytes32, uint256, uint256)
@@ -333,14 +333,85 @@ library TxsDecoder {
     }
 
     // padded to MAX_LOGS * 32 bytes
-    uint256 len;
-    if (noteLogs) {
-      len = Constants.MAX_NOTE_ENCRYPTED_LOGS_PER_TX * 32;
-    } else {
-      len = Constants.MAX_ENCRYPTED_LOGS_PER_TX * 32;
+    flattenedLogHashes = bytes.concat(
+      flattenedLogHashes,
+      new bytes(Constants.MAX_NOTE_ENCRYPTED_LOGS_PER_TX * 32 - flattenedLogHashes.length)
+    );
+
+    bytes32 kernelPublicInputsLogsHash = Hash.sha256ToField(flattenedLogHashes);
+
+    return (kernelPublicInputsLogsHash, offset, kernelLogsLength);
+  }
+
+  /**
+   * @notice Computes encrypted logs hash as is done in the kernel circuits.
+   * @param _offsetInBlock - The offset of kernel's logs in a block.
+   * @param _body - The L2 block calldata.
+   * @return The hash of the logs and offset in a block after processing the logs.
+   * @dev See above for full details. Non-note encrypted logs hashes are siloed with
+   * their (hidden) contract address:
+   * singleLogsHash = sha256ToField(encryptedBuffer)
+   * siloedLogsHash = sha256ToField(maskedContractAddress, singleLogsHash)
+   * where maskedContractAddress = pedersen(contract_address, randomness) is provided as part
+   * of the block bytes, prepended to each encrypted log.
+   * We don't currently count the maskedContractAddress as part of the
+   * chargable DA length of the log.
+   */
+  function computeKernelEncryptedLogsHash(uint256 _offsetInBlock, bytes calldata _body)
+    internal
+    pure
+    returns (bytes32, uint256, uint256)
+  {
+    uint256 offset = _offsetInBlock;
+    uint256 remainingLogsLength = read4(_body, offset);
+    uint256 kernelLogsLength = remainingLogsLength;
+    offset += 0x4;
+
+    bytes memory flattenedLogHashes; // The hash input
+
+    // Iterate until all the logs were processed
+    while (remainingLogsLength > 0) {
+      // The length of the logs emitted by Aztec.nr from the function call corresponding to this kernel iteration
+      uint256 privateCircuitPublicInputLogsLength = read4(_body, offset);
+      offset += 0x4;
+
+      // Decrease remaining logs length by this privateCircuitPublicInputsLogs's length (len(I?_LOGS)) and 4 bytes for I?_LOGS_LEN
+      remainingLogsLength -= (privateCircuitPublicInputLogsLength + 0x4);
+
+      kernelLogsLength -= 0x4;
+
+      while (privateCircuitPublicInputLogsLength > 0) {
+        uint256 singleCallLogsLengthWithMaskedAddress = read4(_body, offset);
+        offset += 0x4;
+        // The first 32 bytes of the provided encrypted log are its masked address (see EncryptedL2Log.toBuffer())
+        bytes32 maskedContractAddress = bytes32(slice(_body, offset, 0x20));
+        offset += 0x20;
+        // We don't currently include the masked contract address as part of the DA length
+        kernelLogsLength -= 0x20;
+        uint256 singleCallLogsLength = singleCallLogsLengthWithMaskedAddress - 0x20;
+
+        bytes32 singleLogHash = Hash.sha256ToField(slice(_body, offset, singleCallLogsLength));
+
+        bytes32 siloedLogHash =
+          Hash.sha256ToField(bytes.concat(maskedContractAddress, singleLogHash));
+        offset += singleCallLogsLength;
+
+        flattenedLogHashes = bytes.concat(flattenedLogHashes, siloedLogHash);
+
+        privateCircuitPublicInputLogsLength -= (singleCallLogsLengthWithMaskedAddress + 0x4);
+      }
     }
-    flattenedLogHashes =
-      bytes.concat(flattenedLogHashes, new bytes(len - flattenedLogHashes.length));
+
+    // Not having a 0 value hash for empty logs causes issues with empty txs used for padding.
+    if (flattenedLogHashes.length == 0) {
+      return (0, offset, 0);
+    }
+
+    // padded to MAX_LOGS * 32 bytes
+    flattenedLogHashes = bytes.concat(
+      flattenedLogHashes,
+      new bytes(Constants.MAX_ENCRYPTED_LOGS_PER_TX * 32 - flattenedLogHashes.length)
+    );
 
     bytes32 kernelPublicInputsLogsHash = Hash.sha256ToField(flattenedLogHashes);
 

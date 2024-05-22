@@ -3,7 +3,7 @@ use dep::types::{
     private_kernel_data::PrivateKernelData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder, PublicKernelCircuitPublicInputs},
     note_hash::ScopedNoteHash, nullifier::ScopedNullifier, side_effect::Ordered,
-    log_hash::{LogHash, NoteLogHash, ScopedLogHash}, gas::Gas
+    log_hash::{NoteLogHash, ScopedLogHash, ScopedEncryptedLogHash}, gas::Gas
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
@@ -11,7 +11,7 @@ use dep::types::{
 },
     hash::{
     compute_l2_to_l1_hash, compute_note_hash_nonce, compute_unique_note_hash, silo_note_hash,
-    silo_nullifier, silo_unencrypted_log
+    silo_nullifier, silo_encrypted_log, silo_unencrypted_log
 },
     utils::arrays::{array_length, array_to_bounded_vec, assert_sorted_array}
 };
@@ -33,7 +33,7 @@ struct KernelCircuitPublicInputsComposer {
     sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_note_encrypted_log_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
     sorted_note_encrypted_log_hashes_indexes: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-    sorted_encrypted_log_hashes: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX],
+    sorted_encrypted_log_hashes: [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_unencrypted_log_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
     sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX],
@@ -48,7 +48,7 @@ impl KernelCircuitPublicInputsComposer {
         sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
         sorted_note_encrypted_log_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
         sorted_note_encrypted_log_hashes_indexes: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-        sorted_encrypted_log_hashes: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX],
+        sorted_encrypted_log_hashes: [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
         sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
         sorted_unencrypted_log_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
         sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX]
@@ -123,6 +123,7 @@ impl KernelCircuitPublicInputsComposer {
         self.silo_note_hashes();
         self.silo_nullifiers();
         self.silo_l2_to_l1_messages();
+        self.silo_encrypted_logs();
         self.silo_unencrypted_logs();
     }
 
@@ -168,6 +169,17 @@ impl KernelCircuitPublicInputsComposer {
                     msg.message
                 );
                 self.public_inputs.end.new_l2_to_l1_msgs.storage[i].message.content = siloed;
+            }
+        }
+    }
+
+    fn silo_encrypted_logs(&mut self) {
+        let logs = self.public_inputs.end.encrypted_logs_hashes.storage;
+        for i in 0..logs.len() {
+            let log = logs[i];
+            if log.value() != 0 {
+                let siloed = silo_encrypted_log(log.contract_address, log.log_hash.randomness, log.value());
+                self.public_inputs.end.encrypted_logs_hashes.storage[i].log_hash.value = siloed;
             }
         }
     }

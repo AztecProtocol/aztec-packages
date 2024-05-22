@@ -74,6 +74,12 @@ pub fn silo_nullifier(address: AztecAddress, nullifier: Field) -> Field {
     )
 }
 
+pub fn silo_encrypted_log(address: AztecAddress, randomness: Field, log_hash: Field) -> Field {
+    // TODO(Miranda): What generator index here?
+    let masked_contract_address = pedersen_hash([address.to_field(), randomness], 0);
+    accumulate_sha256([masked_contract_address, log_hash])
+}
+
 pub fn silo_unencrypted_log(address: AztecAddress, log_hash: Field) -> Field {
     accumulate_sha256([address.to_field(), log_hash])
 }

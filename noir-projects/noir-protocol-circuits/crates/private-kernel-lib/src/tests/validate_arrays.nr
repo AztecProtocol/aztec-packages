@@ -3,7 +3,7 @@ use dep::types::{
     abis::{
     caller_context::CallerContext, note_hash::NoteHash, nullifier::Nullifier,
     private_call_request::PrivateCallRequest, read_request::ReadRequest,
-    log_hash::{LogHash, NoteLogHash}
+    log_hash::{LogHash, EncryptedLogHash, NoteLogHash}
 },
     address::EthAddress, grumpkin_point::GrumpkinPoint, messaging::l2_to_l1_message::L2ToL1Message
 };
@@ -126,8 +126,8 @@ fn validate_arrays_malformed_encrypted_logs_hashes_fails() {
 
     builder.private_call.public_inputs.encrypted_logs_hashes.extend_from_array(
         [
-        LogHash { value: 0, counter: 0, length: 0 },
-        LogHash { value: 9123, counter: 1, length: 2 }
+        EncryptedLogHash { value: 0, counter: 0, length: 0, randomness: 0 },
+        EncryptedLogHash { value: 9123, counter: 1, length: 2, randomness: 4 }
     ]
     );
 

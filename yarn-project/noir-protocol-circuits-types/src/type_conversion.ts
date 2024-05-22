@@ -14,6 +14,7 @@ import {
   ContentCommitment,
   type ContractStorageRead,
   type ContractStorageUpdateRequest,
+  EncryptedLogHash,
   EthAddress,
   Fr,
   FunctionData,
@@ -109,6 +110,7 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   RootRollupPublicInputs,
+  ScopedEncryptedLogHash,
   ScopedL2ToL1Message,
   ScopedLogHash,
   ScopedNoteHash,
@@ -139,6 +141,7 @@ import type {
   CombinedConstantData as CombinedConstantDataNoir,
   ConstantRollupData as ConstantRollupDataNoir,
   ContentCommitment as ContentCommitmentNoir,
+  EncryptedLogHash as EncryptedLogHashNoir,
   Field,
   FixedLengthArray,
   FunctionData as FunctionDataNoir,
@@ -216,6 +219,7 @@ import type {
   RootRollupInputs as RootRollupInputsNoir,
   RootRollupParityInput as RootRollupParityInputNoir,
   RootRollupPublicInputs as RootRollupPublicInputsNoir,
+  ScopedEncryptedLogHash as ScopedEncryptedLogHashNoir,
   ScopedL2ToL1Message as ScopedL2ToL1MessageNoir,
   ScopedLogHash as ScopedLogHashNoir,
   ScopedNoteHash as ScopedNoteHashNoir,
@@ -665,6 +669,58 @@ export function mapLogHashFromNoir(logHash: LogHashNoir): LogHash {
 }
 
 /**
+ * Maps a LogHash to a noir LogHash.
+ * @param logHash - The LogHash.
+ * @returns The noir log hash.
+ */
+export function mapEncryptedLogHashToNoir(logHash: EncryptedLogHash): EncryptedLogHashNoir {
+  return {
+    value: mapFieldToNoir(logHash.value),
+    counter: mapNumberToNoir(logHash.counter),
+    length: mapFieldToNoir(logHash.length),
+    randomness: mapFieldToNoir(logHash.randomness),
+  };
+}
+
+/**
+ * Maps a noir LogHash to a LogHash.
+ * @param logHash - The noir LogHash.
+ * @returns The TS log hash.
+ */
+export function mapEncryptedLogHashFromNoir(logHash: EncryptedLogHashNoir): EncryptedLogHash {
+  return new EncryptedLogHash(
+    mapFieldFromNoir(logHash.value),
+    mapNumberFromNoir(logHash.counter),
+    mapFieldFromNoir(logHash.length),
+    mapFieldFromNoir(logHash.randomness),
+  );
+}
+
+/**
+ * Maps a ts ScopedLogHash to a noir ScopedLogHash.
+ * @param logHash - The ts LogHash.
+ * @returns The noir log hash.
+ */
+export function mapScopedEncryptedLogHashToNoir(scopedLogHash: ScopedEncryptedLogHash): ScopedEncryptedLogHashNoir {
+  return {
+    log_hash: mapEncryptedLogHashToNoir(scopedLogHash.logHash),
+    contract_address: mapAztecAddressToNoir(scopedLogHash.contractAddress),
+  };
+}
+
+/**
+ * Maps a noir ScopedLogHash to a ts ScopedLogHash.
+ * @param logHash - The noir LogHash.
+ * @returns The TS log hash.
+ */
+export function mapScopedEncryptedLogHashFromNoir(scopedLogHash: ScopedEncryptedLogHashNoir): ScopedEncryptedLogHash {
+  return new ScopedEncryptedLogHash(
+    mapEncryptedLogHashFromNoir(scopedLogHash.log_hash),
+    mapAztecAddressFromNoir(scopedLogHash.contract_address),
+  );
+}
+
+/**
  * Maps a ts ScopedLogHash to a noir ScopedLogHash.
  * @param logHash - The ts LogHash.
  * @returns The noir log hash.
@@ -865,7 +921,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     start_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.startSideEffectCounter),
     end_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.endSideEffectCounter),
     note_encrypted_logs_hashes: mapTuple(privateCircuitPublicInputs.noteEncryptedLogsHashes, mapNoteLogHashToNoir),
-    encrypted_logs_hashes: mapTuple(privateCircuitPublicInputs.encryptedLogsHashes, mapLogHashToNoir),
+    encrypted_logs_hashes: mapTuple(privateCircuitPublicInputs.encryptedLogsHashes, mapEncryptedLogHashToNoir),
     unencrypted_logs_hashes: mapTuple(privateCircuitPublicInputs.unencryptedLogsHashes, mapLogHashToNoir),
     historical_header: mapHeaderToNoir(privateCircuitPublicInputs.historicalHeader),
     tx_context: mapTxContextToNoir(privateCircuitPublicInputs.txContext),
@@ -1156,7 +1212,11 @@ export function mapPrivateAccumulatedDataFromNoir(
       MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
       mapNoteLogHashFromNoir,
     ),
-    mapTupleFromNoir(privateAccumulatedData.encrypted_logs_hashes, MAX_ENCRYPTED_LOGS_PER_TX, mapLogHashFromNoir),
+    mapTupleFromNoir(
+      privateAccumulatedData.encrypted_logs_hashes,
+      MAX_ENCRYPTED_LOGS_PER_TX,
+      mapScopedEncryptedLogHashFromNoir,
+    ),
     mapTupleFromNoir(
       privateAccumulatedData.unencrypted_logs_hashes,
       MAX_UNENCRYPTED_LOGS_PER_TX,
@@ -1181,7 +1241,7 @@ export function mapPrivateAccumulatedDataToNoir(data: PrivateAccumulatedData): P
     new_nullifiers: mapTuple(data.newNullifiers, mapScopedNullifierToNoir),
     new_l2_to_l1_msgs: mapTuple(data.newL2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
     note_encrypted_logs_hashes: mapTuple(data.noteEncryptedLogsHashes, mapNoteLogHashToNoir),
-    encrypted_logs_hashes: mapTuple(data.encryptedLogsHashes, mapLogHashToNoir),
+    encrypted_logs_hashes: mapTuple(data.encryptedLogsHashes, mapScopedEncryptedLogHashToNoir),
     unencrypted_logs_hashes: mapTuple(data.unencryptedLogsHashes, mapScopedLogHashToNoir),
     private_call_stack: mapTuple(data.privateCallStack, mapScopedPrivateCallRequestToNoir),
     public_call_stack: mapTuple(data.publicCallStack, mapCallRequestToNoir),
@@ -1545,7 +1605,7 @@ function mapPrivateKernelTailHintsToNoir(inputs: PrivateKernelTailHints): Privat
     sorted_new_nullifiers_indexes: mapTuple(inputs.sortedNewNullifiersIndexes, mapNumberToNoir),
     sorted_note_encrypted_log_hashes: mapTuple(inputs.sortedNoteEncryptedLogHashes, mapNoteLogHashToNoir),
     sorted_note_encrypted_log_hashes_indexes: mapTuple(inputs.sortedNoteEncryptedLogHashesIndexes, mapNumberToNoir),
-    sorted_encrypted_log_hashes: mapTuple(inputs.sortedEncryptedLogHashes, mapLogHashToNoir),
+    sorted_encrypted_log_hashes: mapTuple(inputs.sortedEncryptedLogHashes, mapScopedEncryptedLogHashToNoir),
     sorted_encrypted_log_hashes_indexes: mapTuple(inputs.sortedEncryptedLogHashesIndexes, mapNumberToNoir),
     sorted_unencrypted_log_hashes: mapTuple(inputs.sortedUnencryptedLogHashes, mapScopedLogHashToNoir),
     sorted_unencrypted_log_hashes_indexes: mapTuple(inputs.sortedUnencryptedLogHashesIndexes, mapNumberToNoir),

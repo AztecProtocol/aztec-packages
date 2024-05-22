@@ -3,7 +3,7 @@ use dep::types::{
     abis::{
     private_kernel_data::{PrivateKernelData, verify_previous_kernel_proof},
     kernel_circuit_public_inputs::KernelCircuitPublicInputs, note_hash::ScopedNoteHash,
-    nullifier::ScopedNullifier, log_hash::{LogHash, NoteLogHash, ScopedLogHash}
+    nullifier::ScopedNullifier, log_hash::{NoteLogHash, ScopedLogHash, ScopedEncryptedLogHash}
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
@@ -20,7 +20,7 @@ struct PrivateKernelTailHints {
     sorted_new_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_note_encrypted_log_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
     sorted_note_encrypted_log_hashes_indexes: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-    sorted_encrypted_log_hashes: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX],
+    sorted_encrypted_log_hashes: [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_unencrypted_log_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
     sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX],
@@ -80,12 +80,12 @@ mod tests {
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
         note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
-        log_hash::{LogHash, NoteLogHash, ScopedLogHash}, gas::Gas
+        log_hash::{NoteLogHash, ScopedLogHash, ScopedEncryptedLogHash}, gas::Gas
     },
         address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey,
         hash::{
         compute_note_hash_nonce, compute_unique_note_hash, sha256_to_field, silo_note_hash,
-        silo_nullifier, silo_unencrypted_log
+        silo_nullifier, silo_unencrypted_log, silo_encrypted_log
     },
         tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
         utils::{arrays::{array_eq, array_length}}, traits::{Empty, is_empty, is_empty_array},
@@ -168,7 +168,7 @@ mod tests {
 
             let sorted = sort_get_sorted_hints(
                 self.previous_kernel.encrypted_logs_hashes.storage,
-                |a: LogHash, b: LogHash| a.counter < b.counter
+                |a: ScopedEncryptedLogHash, b: ScopedEncryptedLogHash| a.counter() < b.counter()
             );
             let sorted_encrypted_log_hashes = sorted.sorted_array;
             let sorted_encrypted_log_hashes_indexes = sorted.sorted_index_hints;
@@ -266,8 +266,14 @@ mod tests {
             public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
         );
 
+        let siloed_encrypted_logs_hash = silo_encrypted_log(
+            builder.previous_kernel.storage_contract_address,
+            builder.previous_kernel.encrypted_logs_hashes.storage[0].log_hash.randomness,
+            prev_encrypted_logs_hash
+        );
+
         // noir-fmt:ignore
-        let hash_bytes: [u8; MAX_ENCRYPTED_LOGS_PER_TX * 32] = prev_encrypted_logs_hash
+        let hash_bytes: [u8; MAX_ENCRYPTED_LOGS_PER_TX * 32] = siloed_encrypted_logs_hash
             .to_be_bytes(32)
             .append(&[0; MAX_ENCRYPTED_LOGS_PER_TX * 32 - 32])
             .as_array();

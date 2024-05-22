@@ -1,4 +1,5 @@
 import {
+  EncryptedEventL2BlockL2Logs,
   EncryptedL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
   type FromLogType,
@@ -43,7 +44,7 @@ export class LogStore {
    */
   addLogs(
     noteEncryptedLogs: EncryptedL2BlockL2Logs | undefined,
-    encryptedLogs: EncryptedL2BlockL2Logs | undefined,
+    encryptedLogs: EncryptedEventL2BlockL2Logs | undefined,
     unencryptedLogs: UnencryptedL2BlockL2Logs | undefined,
     blockNumber: number,
   ): Promise<boolean> {
@@ -87,7 +88,18 @@ export class LogStore {
           return this.#unencryptedLogs;
       }
     })();
-    const L2BlockL2Logs = logType === LogType.UNENCRYPTED ? UnencryptedL2BlockL2Logs : EncryptedL2BlockL2Logs;
+    const logTypeMap = (() => {
+      switch (logType) {
+        case LogType.ENCRYPTED:
+          return EncryptedEventL2BlockL2Logs;
+        case LogType.NOTEENCRYPTED:
+          return EncryptedL2BlockL2Logs;
+        case LogType.UNENCRYPTED:
+        default:
+          return UnencryptedL2BlockL2Logs;
+      }
+    })();
+    const L2BlockL2Logs = logTypeMap;
     for (const buffer of logMap.values({ start, limit })) {
       yield L2BlockL2Logs.fromBuffer(buffer) as L2BlockL2Logs<FromLogType<TLogType>>;
     }

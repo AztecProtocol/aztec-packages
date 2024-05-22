@@ -240,6 +240,31 @@ contract Test {
         context.push_new_nullifier(nullifier, 0);
     }
 
+    // For testing non-note encrypted logs
+    #[aztec(private)]
+    fn emit_array_as_encrypted_log(fields: [Field; 5], owner: AztecAddress, nest: bool) {
+        let owner_ivpk_m = get_ivpk_m(&mut context, owner);
+        context.encrypt_and_emit_log(
+            context.this_address(),
+            5, // testing only - this should be a secret random value to salt the addr
+            1,
+            owner_ivpk_m,
+            fields
+        );
+        // this contract has reached max number of functions, so using this one fn
+        // to test nested and non nested encrypted logs
+        if nest {
+            Test::at(context.this_address()).emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, false).call(&mut context);
+            context.encrypt_and_emit_log(
+                context.this_address(),
+                6, // testing only - this should be a secret random value to salt the addr
+                1,
+                owner_ivpk_m,
+                [1, 2, 3, 4, 5]
+            );
+        }
+    }
+
     #[aztec(private)]
     fn emit_msg_sender() {
         // Note: don't use emit_unencrypted_log from private in production code

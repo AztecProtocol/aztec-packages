@@ -27,6 +27,7 @@ import {
   ConstantRollupData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
+  EncryptedLogHash,
   Fq,
   Fr,
   FunctionData,
@@ -151,6 +152,10 @@ import { ValidationRequests } from '../structs/validation_requests.js';
  */
 function makeLogHash(seed: number) {
   return new LogHash(fr(seed), seed + 1, fr(seed + 2));
+}
+
+function makeEncryptedLogHash(seed: number) {
+  return new EncryptedLogHash(fr(seed), seed + 1, fr(seed + 2), fr(seed + 3));
 }
 
 function makeNoteLogHash(seed: number) {
@@ -774,7 +779,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     startSideEffectCounter: fr(seed + 0x849),
     endSideEffectCounter: fr(seed + 0x850),
     noteEncryptedLogsHashes: makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, makeNoteLogHash, seed + 0x875),
-    encryptedLogsHashes: makeTuple(MAX_ENCRYPTED_LOGS_PER_CALL, makeLogHash, seed + 0x900),
+    encryptedLogsHashes: makeTuple(MAX_ENCRYPTED_LOGS_PER_CALL, makeEncryptedLogHash, seed + 0x900),
     unencryptedLogsHashes: makeTuple(MAX_UNENCRYPTED_LOGS_PER_CALL, makeLogHash, seed + 0xa00),
     historicalHeader: makeHeader(seed + 0xd00, undefined),
     txContext: makeTxContext(seed + 0x1400),

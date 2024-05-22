@@ -1,4 +1,10 @@
-import { EncryptedTxL2Logs, PublicDataWrite, TxHash, UnencryptedTxL2Logs } from '@aztec/circuit-types';
+import {
+  EncryptedEventTxL2Logs,
+  EncryptedTxL2Logs,
+  PublicDataWrite,
+  TxHash,
+  UnencryptedTxL2Logs,
+} from '@aztec/circuit-types';
 import {
   Fr,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
@@ -47,7 +53,7 @@ export class TxEffect {
     public encryptedLogsLength: Fr,
     public unencryptedLogsLength: Fr,
     public noteEncryptedLogs: EncryptedTxL2Logs,
-    public encryptedLogs: EncryptedTxL2Logs,
+    public encryptedLogs: EncryptedEventTxL2Logs,
     public unencryptedLogs: UnencryptedTxL2Logs,
   ) {
     // TODO(#4638): Clean this up once we have isDefault() everywhere --> then we don't have to deal with 2 different
@@ -127,7 +133,7 @@ export class TxEffect {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readObject(EncryptedTxL2Logs),
-      reader.readObject(EncryptedTxL2Logs),
+      reader.readObject(EncryptedEventTxL2Logs),
       reader.readObject(UnencryptedTxL2Logs),
     );
   }
@@ -157,7 +163,7 @@ export class TxEffect {
       PublicDataWrite.SIZE_IN_BYTES * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );
 
-    const noteEncryptedLogsHashKernel0 = this.noteEncryptedLogs.hash(0);
+    const noteEncryptedLogsHashKernel0 = this.noteEncryptedLogs.hash();
     const encryptedLogsHashKernel0 = this.encryptedLogs.hash();
     const unencryptedLogsHashKernel0 = this.unencryptedLogs.hash();
 
@@ -186,7 +192,7 @@ export class TxEffect {
     numUnencryptedLogsPerCall = 1,
   ): TxEffect {
     const noteEncryptedLogs = EncryptedTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall);
-    const encryptedLogs = EncryptedTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall);
+    const encryptedLogs = EncryptedEventTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall);
     const unencryptedLogs = UnencryptedTxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall);
     return new TxEffect(
       RevertCode.random(),
@@ -216,7 +222,7 @@ export class TxEffect {
       Fr.ZERO,
       Fr.ZERO,
       EncryptedTxL2Logs.empty(),
-      EncryptedTxL2Logs.empty(),
+      EncryptedEventTxL2Logs.empty(),
       UnencryptedTxL2Logs.empty(),
     );
   }

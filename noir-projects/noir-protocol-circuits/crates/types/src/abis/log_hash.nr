@@ -1,6 +1,9 @@
 use crate::{
     abis::side_effect::{Ordered, OrderedValue}, address::AztecAddress,
-    constants::{LOG_HASH_LENGTH, NOTE_LOG_HASH_LENGTH, SCOPED_LOG_HASH_LENGTH},
+    constants::{
+    LOG_HASH_LENGTH, NOTE_LOG_HASH_LENGTH, ENCRYPTED_LOG_HASH_LENGTH, SCOPED_LOG_HASH_LENGTH,
+    SCOPED_ENCRYPTED_LOG_HASH_LENGTH
+},
     traits::{Empty, Serialize, Deserialize}, utils::{arrays::array_concat, reader::Reader}
 };
 
@@ -112,6 +115,134 @@ impl Deserialize<SCOPED_LOG_HASH_LENGTH> for ScopedLogHash {
         let mut reader = Reader::new(values);
         let res = Self {
             log_hash: reader.read_struct(LogHash::deserialize),
+            contract_address: reader.read_struct(AztecAddress::deserialize),
+        };
+        reader.finish();
+        res
+    }
+}
+
+struct EncryptedLogHash {
+    value: Field,
+    counter: u32,
+    length: Field,
+    randomness: Field,
+}
+
+impl Ordered for EncryptedLogHash {
+    fn counter(self) -> u32 {
+        self.counter
+    }
+}
+
+impl OrderedValue<Field> for EncryptedLogHash {
+    fn value(self) -> Field {
+        self.value
+    }
+    fn counter(self) -> u32 {
+        self.counter
+    }
+}
+
+impl Eq for EncryptedLogHash {
+    fn eq(self, other: EncryptedLogHash) -> bool {
+        (self.value == other.value)
+            & (self.counter == other.counter)
+            & (self.length == other.length) 
+            & (self.randomness == other.randomness) 
+    }
+}
+
+impl Empty for EncryptedLogHash {
+    fn empty() -> Self {
+        EncryptedLogHash {
+            value: 0,
+            counter: 0,
+            length: 0,
+            randomness: 0,
+        }
+    }
+}
+
+impl Serialize<ENCRYPTED_LOG_HASH_LENGTH> for EncryptedLogHash {
+    fn serialize(self) -> [Field; ENCRYPTED_LOG_HASH_LENGTH] {
+        [self.value, self.counter as Field, self.length, self.randomness]
+    }
+}
+
+impl Deserialize<ENCRYPTED_LOG_HASH_LENGTH> for EncryptedLogHash {
+    fn deserialize(values: [Field; ENCRYPTED_LOG_HASH_LENGTH]) -> Self {
+        Self {
+            value: values[0],
+            counter: values[1] as u32,
+            length: values[2],
+            randomness: values[3],
+        }
+    }
+}
+
+impl EncryptedLogHash {
+    pub fn scope(self, contract_address: AztecAddress) -> ScopedEncryptedLogHash {
+        ScopedEncryptedLogHash { log_hash: self, contract_address }
+    }
+}
+
+struct ScopedEncryptedLogHash {
+    log_hash: EncryptedLogHash,
+    contract_address: AztecAddress,
+}
+
+impl ScopedEncryptedLogHash {
+    pub fn expose_to_public(self) -> LogHash {
+        // Hide the secret randomness and counter when exposing to public
+        // Expose as a LogHash rather than EncryptedLogHash to avoid bringing an unnec. 0 value around?
+        // The log hash will already be silo'd when we call this
+        LogHash { value: self.log_hash.value, counter: 0, length: self.log_hash.length }
+    }
+}
+
+impl Ordered for ScopedEncryptedLogHash {
+    fn counter(self) -> u32 {
+        self.log_hash.counter
+    }
+}
+
+impl OrderedValue<Field> for ScopedEncryptedLogHash {
+    fn value(self) -> Field {
+        self.log_hash.value
+    }
+    fn counter(self) -> u32 {
+        self.log_hash.counter
+    }
+}
+
+impl Eq for ScopedEncryptedLogHash {
+    fn eq(self, other: ScopedEncryptedLogHash) -> bool {
+        (self.log_hash == other.log_hash)
+            & (self.contract_address == other.contract_address) 
+    }
+}
+
+impl Empty for ScopedEncryptedLogHash {
+    fn empty() -> Self {
+        ScopedEncryptedLogHash {
+            log_hash: EncryptedLogHash::empty(),
+            contract_address: AztecAddress::empty(),
+        }
+    }
+}
+
+impl Serialize<SCOPED_ENCRYPTED_LOG_HASH_LENGTH> for ScopedEncryptedLogHash {
+    fn serialize(self) -> [Field; SCOPED_ENCRYPTED_LOG_HASH_LENGTH] {
+       array_concat(self.log_hash.serialize(), [self.contract_address.to_field()])
+    }
+}
+
+impl Deserialize<SCOPED_ENCRYPTED_LOG_HASH_LENGTH> for ScopedEncryptedLogHash {
+    fn deserialize(values: [Field; SCOPED_ENCRYPTED_LOG_HASH_LENGTH]) -> Self {
+        let mut reader = Reader::new(values);
+        let res = Self {
+            log_hash: reader.read_struct(EncryptedLogHash::deserialize),
             contract_address: reader.read_struct(AztecAddress::deserialize),
         };
         reader.finish();

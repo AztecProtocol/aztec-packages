@@ -1,7 +1,7 @@
 import { CombinedAccumulatedData, CombinedConstantData, Fr, Gas } from '@aztec/circuits.js';
 import { mapValues } from '@aztec/foundation/collection';
 
-import { EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../logs/tx_l2_logs.js';
+import { EncryptedEventTxL2Logs, UnencryptedTxL2Logs } from '../logs/tx_l2_logs.js';
 import { type SimulationError } from '../simulation_error.js';
 import { type PublicKernelType } from './processed_tx.js';
 
@@ -38,7 +38,7 @@ export class NestedProcessReturnValues {
  */
 export class PublicSimulationOutput {
   constructor(
-    public encryptedLogs: EncryptedTxL2Logs,
+    public encryptedLogs: EncryptedEventTxL2Logs,
     public unencryptedLogs: UnencryptedTxL2Logs,
     public revertReason: SimulationError | undefined,
     public constants: CombinedConstantData,
@@ -61,7 +61,7 @@ export class PublicSimulationOutput {
 
   static fromJSON(json: any): PublicSimulationOutput {
     return new PublicSimulationOutput(
-      EncryptedTxL2Logs.fromJSON(json.encryptedLogs),
+      EncryptedEventTxL2Logs.fromJSON(json.encryptedLogs),
       UnencryptedTxL2Logs.fromJSON(json.unencryptedLogs),
       json.revertReason,
       CombinedConstantData.fromBuffer(Buffer.from(json.constants, 'hex')),

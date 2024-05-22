@@ -8,15 +8,20 @@ import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serializ
 
 import isEqual from 'lodash.isequal';
 
+import { type EncryptedL2EventLog } from './encrypted_l2_event_log.js';
 import { type EncryptedL2Log } from './encrypted_l2_log.js';
-import { EncryptedFunctionL2Logs, type FunctionL2Logs, UnencryptedFunctionL2Logs } from './function_l2_logs.js';
-import { LogType } from './log_type.js';
+import {
+  EncryptedEventFunctionL2Logs,
+  EncryptedFunctionL2Logs,
+  type FunctionL2Logs,
+  UnencryptedFunctionL2Logs,
+} from './function_l2_logs.js';
 import { type UnencryptedL2Log } from './unencrypted_l2_log.js';
 
 /**
  * Data container of logs emitted in 1 tx.
  */
-export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2Log> {
+export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2Log | EncryptedL2EventLog> {
   constructor(
     /** * An array containing logs emitted in individual function invocations in this tx. */
     public readonly functionLogs: FunctionL2Logs<TLog>[],
@@ -200,9 +205,9 @@ export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
    * @returns A new `TxL2Logs` object.
    */
   public static random(numCalls: number, numLogsPerCall: number): EncryptedTxL2Logs {
-    if (numCalls * numLogsPerCall > MAX_ENCRYPTED_LOGS_PER_TX) {
+    if (numCalls * numLogsPerCall > MAX_NOTE_ENCRYPTED_LOGS_PER_TX) {
       throw new Error(
-        `Trying to create ${numCalls * numLogsPerCall} logs for one tx (max: ${MAX_ENCRYPTED_LOGS_PER_TX})`,
+        `Trying to create ${numCalls * numLogsPerCall} logs for one tx (max: ${MAX_NOTE_ENCRYPTED_LOGS_PER_TX})`,
       );
     }
     const functionLogs: EncryptedFunctionL2Logs[] = [];
@@ -226,10 +231,10 @@ export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
    * Computes encrypted logs hash as is done in the kernel and decoder contract.
    * @param logs - Logs to be hashed.
    * @returns The hash of the logs.
-   * Note: This is a TS implementation of `computeKernelLogsHash` function in Decoder.sol. See that function documentation
+   * Note: This is a TS implementation of `computeKernelNoteEncryptedLogsHash` function in Decoder.sol. See that function documentation
    *       for more details.
    */
-  public hash(logType: LogType = LogType.ENCRYPTED): Buffer {
+  public hash(): Buffer {
     if (this.unrollLogs().length == 0) {
       return Buffer.alloc(32);
     }
@@ -239,8 +244,85 @@ export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
       flattenedLogs = Buffer.concat([flattenedLogs, logsFromSingleFunctionCall.hash()]);
     }
     // pad the end of logs with 0s
-    const pad = logType == LogType.NOTEENCRYPTED ? MAX_NOTE_ENCRYPTED_LOGS_PER_TX : MAX_ENCRYPTED_LOGS_PER_TX;
-    for (let i = 0; i < pad - this.unrollLogs().length; i++) {
+    for (let i = 0; i < MAX_NOTE_ENCRYPTED_LOGS_PER_TX - this.unrollLogs().length; i++) {
+      flattenedLogs = Buffer.concat([flattenedLogs, Buffer.alloc(32)]);
+    }
+
+    return sha256Trunc(flattenedLogs);
+  }
+}
+
+export class EncryptedEventTxL2Logs extends TxL2Logs<EncryptedL2EventLog> {
+  /** Creates an empty instance. */
+  public static empty() {
+    return new EncryptedEventTxL2Logs([]);
+  }
+
+  /**
+   * Deserializes logs from a buffer.
+   * @param buf - The buffer containing the serialized logs.
+   * @param isLengthPrefixed - Whether the buffer is prefixed with 4 bytes for its total length.
+   * @returns A new L2Logs object.
+   */
+  public static fromBuffer(buf: Buffer | BufferReader, isLengthPrefixed = true): EncryptedEventTxL2Logs {
+    const reader = BufferReader.asReader(buf);
+
+    // If the buffer is length prefixed use the length to read the array. Otherwise, the entire buffer is consumed.
+    const logsBufLength = isLengthPrefixed ? reader.readNumber() : -1;
+    const serializedFunctionLogs = reader.readBufferArray(logsBufLength);
+
+    const functionLogs = serializedFunctionLogs.map(logs => EncryptedEventFunctionL2Logs.fromBuffer(logs, false));
+    return new EncryptedEventTxL2Logs(functionLogs);
+  }
+
+  /**
+   * Creates a new `TxL2Logs` object with `numCalls` function logs and `numLogsPerCall` logs in each invocation.
+   * @param numCalls - The number of function calls in the tx.
+   * @param numLogsPerCall - The number of logs emitted in each function call.
+   * @param logType - The type of logs to generate.
+   * @returns A new `TxL2Logs` object.
+   */
+  public static random(numCalls: number, numLogsPerCall: number): EncryptedEventTxL2Logs {
+    if (numCalls * numLogsPerCall > MAX_ENCRYPTED_LOGS_PER_TX) {
+      throw new Error(
+        `Trying to create ${numCalls * numLogsPerCall} logs for one tx (max: ${MAX_ENCRYPTED_LOGS_PER_TX})`,
+      );
+    }
+    const functionLogs: EncryptedEventFunctionL2Logs[] = [];
+    for (let i = 0; i < numCalls; i++) {
+      functionLogs.push(EncryptedEventFunctionL2Logs.random(numLogsPerCall));
+    }
+    return new EncryptedEventTxL2Logs(functionLogs);
+  }
+
+  /**
+   * Convert a plain JSON object to a TxL2Logs class object.
+   * @param obj - A plain TxL2Logs JSON object.
+   * @returns A TxL2Logs class object.
+   */
+  public static fromJSON(obj: any) {
+    const functionLogs = obj.functionLogs.map((log: any) => EncryptedEventFunctionL2Logs.fromJSON(log));
+    return new EncryptedEventTxL2Logs(functionLogs);
+  }
+
+  /**
+   * Computes encrypted logs hash as is done in the kernel and decoder contract.
+   * @param logs - Logs to be hashed.
+   * @returns The hash of the logs.
+   * Note: This is a TS implementation of `computeKernelEncryptedLogsHash` function in Decoder.sol. See that function documentation
+   *       for more details.
+   */
+  public hash(): Buffer {
+    if (this.unrollLogs().length == 0) {
+      return Buffer.alloc(32);
+    }
+
+    let flattenedLogs = Buffer.alloc(0);
+    for (const logsFromSingleFunctionCall of this.unrollLogs()) {
+      flattenedLogs = Buffer.concat([flattenedLogs, logsFromSingleFunctionCall.getSiloedHash()]);
+    }
+    // pad the end of logs with 0s
+    for (let i = 0; i < MAX_ENCRYPTED_LOGS_PER_TX - this.unrollLogs().length; i++) {
       flattenedLogs = Buffer.concat([flattenedLogs, Buffer.alloc(32)]);
     }
 

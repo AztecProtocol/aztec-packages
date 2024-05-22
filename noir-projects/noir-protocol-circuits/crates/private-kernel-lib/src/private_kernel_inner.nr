@@ -236,7 +236,7 @@ mod tests {
             builder.previous_kernel.unencrypted_logs_hashes.storage[0], builder.private_call.public_inputs.unencrypted_logs_hashes.storage[0].scope(builder.private_call.contract_address)
         ];
         let expected_encrypted_logs = [
-            builder.previous_kernel.encrypted_logs_hashes.storage[0], builder.private_call.public_inputs.encrypted_logs_hashes.storage[0]
+            builder.previous_kernel.encrypted_logs_hashes.storage[0], builder.private_call.public_inputs.encrypted_logs_hashes.storage[0].scope(builder.private_call.contract_address)
         ];
 
         let public_inputs = builder.execute();

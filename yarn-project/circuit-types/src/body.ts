@@ -1,4 +1,9 @@
-import { EncryptedL2BlockL2Logs, TxEffect, UnencryptedL2BlockL2Logs } from '@aztec/circuit-types';
+import {
+  EncryptedEventL2BlockL2Logs,
+  EncryptedL2BlockL2Logs,
+  TxEffect,
+  UnencryptedL2BlockL2Logs,
+} from '@aztec/circuit-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -82,10 +87,10 @@ export class Body {
     return new EncryptedL2BlockL2Logs(logs);
   }
 
-  get encryptedLogs(): EncryptedL2BlockL2Logs {
+  get encryptedLogs(): EncryptedEventL2BlockL2Logs {
     const logs = this.txEffects.map(txEffect => txEffect.encryptedLogs);
 
-    return new EncryptedL2BlockL2Logs(logs);
+    return new EncryptedEventL2BlockL2Logs(logs);
   }
 
   get unencryptedLogs(): UnencryptedL2BlockL2Logs {
