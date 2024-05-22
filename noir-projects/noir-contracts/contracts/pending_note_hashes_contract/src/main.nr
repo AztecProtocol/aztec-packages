@@ -88,20 +88,6 @@ contract PendingNoteHashes {
 
     // Nested/inner function to get a note and confirm it matches the expected value
     #[aztec(private)]
-    fn get_note(expected_value: Field, owner: AztecAddress) -> Field {
-        let owner_balance = storage.balances.at(owner);
-
-        let mut options = NoteGetterOptions::new();
-        options = options.set_limit(1);
-        let note = owner_balance.get_notes(options)[0].unwrap();
-
-        assert(expected_value == note.value);
-
-        expected_value
-    }
-
-    // Nested/inner function to get a note and confirm it matches the expected value
-    #[aztec(private)]
     fn get_then_nullify_note(expected_value: Field, owner: AztecAddress) -> Field {
         let owner_balance = storage.balances.at(owner);
 
