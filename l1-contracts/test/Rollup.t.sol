@@ -128,7 +128,7 @@ contract RollupTest is DecoderBase {
     bytes memory body = data.body;
 
     // Overwrite in the rollup contract
-    vm.store(address(rollup), bytes32(uint256(1)), bytes32(uint256(block.timestamp)));
+    vm.store(address(rollup), bytes32(uint256(2)), bytes32(uint256(block.timestamp)));
 
     availabilityOracle.publish(body);
 

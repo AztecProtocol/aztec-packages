@@ -27,6 +27,7 @@ import {
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  type Proof,
   PublicDataUpdateRequest,
   makeEmptyProof,
 } from '@aztec/circuits.js';
@@ -87,7 +88,7 @@ describe('L1Publisher integration', () => {
   let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
-  let l2Proof: Buffer;
+  let l2Proof: Proof;
 
   let builder: TxProver;
   let builderDb: MerkleTrees;
@@ -145,7 +146,7 @@ describe('L1Publisher integration', () => {
     const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
     builder = await TxProver.new(config, new WASMSimulator(), worldStateSynchronizer);
-    l2Proof = Buffer.alloc(0);
+    l2Proof = makeEmptyProof();
 
     publisher = getL1Publisher({
       rpcUrl: config.rpcUrl,
@@ -408,7 +409,7 @@ describe('L1Publisher integration', () => {
 
       writeJson(`mixed_block_${i}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
 
-      await publisher.processL2Block(block, [], makeEmptyProof());
+      await publisher.processL2Block(block, [], l2Proof);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
@@ -432,7 +433,7 @@ describe('L1Publisher integration', () => {
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
           `0x`, // empty aggregation object
-          `0x${l2Proof.toString('hex')}`,
+          `0x${l2Proof.withoutPublicInputs().toString('hex')}`,
         ],
       });
       expect(ethTx.input).toEqual(expectedData);
@@ -497,7 +498,7 @@ describe('L1Publisher integration', () => {
 
       writeJson(`empty_block_${i}`, block, [], AztecAddress.ZERO, deployerAccount.address);
 
-      await publisher.processL2Block(block, [], makeEmptyProof());
+      await publisher.processL2Block(block, [], l2Proof);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
@@ -521,7 +522,7 @@ describe('L1Publisher integration', () => {
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
           `0x`, // empty aggregation object
-          `0x${l2Proof.toString('hex')}`,
+          `0x${l2Proof.withoutPublicInputs().toString('hex')}`,
         ],
       });
       expect(ethTx.input).toEqual(expectedData);
