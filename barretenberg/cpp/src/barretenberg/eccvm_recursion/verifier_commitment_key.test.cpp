@@ -24,9 +24,9 @@ template <typename Builder> class RecursiveVeriferCommitmentKeyTest : public tes
         auto recursive_vk = std::make_shared<VK>(&builder, num_points, native_vk);
         EXPECT_EQ(native_vk->get_first_g1(), recursive_vk->get_first_g1().get_value());
         auto* native_monomial_points = native_vk->get_monomial_points();
-        auto recursive_monomial_ponts = recursive_vk->get_monomial_points();
+        auto recursive_monomial_points = recursive_vk->get_monomial_points();
         for (size_t i = 0; i < num_points; i++) {
-            EXPECT_EQ(native_monomial_points[i], recursive_monomial_ponts[i].get_value());
+            EXPECT_EQ(native_monomial_points[i], recursive_monomial_points[i].get_value());
         }
     }
 };
