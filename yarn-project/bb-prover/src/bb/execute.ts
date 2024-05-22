@@ -61,8 +61,15 @@ export function executeBB(
     const { HARDWARE_CONCURRENCY: _, ...envWithoutConcurrency } = process.env;
     const env = process.env.HARDWARE_CONCURRENCY ? process.env : envWithoutConcurrency;
     const bb = proc.spawn(pathToBB, [command, ...args], {
-      stdio: 'pipe',
       env,
+    });
+    bb.stdout.on('data', data => {
+      const message = data.toString('utf-8').replace(/\n$/, '');
+      logger(message);
+    });
+    bb.stderr.on('data', data => {
+      const message = data.toString('utf-8').replace(/\n$/, '');
+      logger(message);
     });
     bb.on('close', (exitCode: number, signal?: string) => {
       if (resultParser(exitCode)) {
