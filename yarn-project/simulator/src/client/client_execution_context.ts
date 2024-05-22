@@ -13,10 +13,10 @@ import {
   CallContext,
   FunctionSelector,
   type Header,
+  type KeyValidationRequest,
   PrivateContextInputs,
   PublicCallRequest,
   type TxContext,
-  KeyValidationRequest,
 } from '@aztec/circuits.js';
 import { Aes128 } from '@aztec/circuits.js/barretenberg';
 import { computePublicDataTreeLeafSlot, computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';

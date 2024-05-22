@@ -1,4 +1,5 @@
 import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
+import { KeyValidationRequest } from '@aztec/circuits.js';
 import { EventSelector, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
@@ -7,7 +8,6 @@ import { type ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField } from '../deserialize.js';
 import { toACVMField, toAcvmEnqueuePublicFunctionResult } from '../serialize.js';
 import { type TypedOracle } from './typed_oracle.js';
-import { KeyValidationRequest } from '@aztec/circuits.js';
 
 /**
  * A data source that has all the apis required by Aztec.nr.

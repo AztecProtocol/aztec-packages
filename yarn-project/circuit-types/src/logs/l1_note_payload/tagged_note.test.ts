@@ -34,7 +34,7 @@ describe('L1 Note Payload', () => {
 
       const ovskApp = computeOvskApp(ovsk, app);
       const ovpkM = derivePublicKeyFromSecretKey(ovskApp);
-      
+
       // TODO(benesjan): get rid of this ugly conversion
       const ovskAppFr = Fr.fromBuffer(ovskApp.toBuffer());
       const ovKeys = new KeyValidationRequest(ovpkM, ovskAppFr);

@@ -1,12 +1,12 @@
 import {
   AztecAddress,
   GrumpkinPrivateKey,
+  type KeyValidationRequest,
   type PublicKey,
   computeIvpkApp,
   computeIvskApp,
   computeOvskApp,
   derivePublicKeyFromSecretKey,
-  type KeyValidationRequest,
 } from '@aztec/circuits.js';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -87,7 +87,7 @@ export class L1NotePayload {
    * @param ephSk - An ephemeral secret key used for the encryption
    * @param recipient - The recipient address, retrievable by the sender for his logs
    * @param ivpk - The incoming viewing public key of the recipient
-   * @param ovKeys - The outgoing viewing secret key of the sender
+   * @param ovKeys - The outgoing viewing keys of the sender
    * @returns A buffer containing the encrypted log payload
    */
   public encrypt(ephSk: GrumpkinPrivateKey, recipient: AztecAddress, ivpk: PublicKey, ovKeys: KeyValidationRequest) {
