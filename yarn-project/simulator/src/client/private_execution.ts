@@ -24,19 +24,17 @@ export async function executePrivateFunction(
   const acir = artifact.bytecode;
   const initialWitness = context.getInitialWitness(artifact);
   const acvmCallback = new Oracle(context);
-  const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch(
-    (err: Error) => {
-      throw new ExecutionError(
-        err.message,
-        {
-          contractAddress,
-          functionSelector,
-        },
-        extractCallStack(err, artifact.debug),
-        { cause: err },
-      );
-    },
-  );
+  const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
+    throw new ExecutionError(
+      err.message,
+      {
+        contractAddress,
+        functionSelector,
+      },
+      extractCallStack(err, artifact.debug),
+      { cause: err },
+    );
+  });
   const partialWitness = acirExecutionResult.partialWitness;
   const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
   const publicInputs = PrivateCircuitPublicInputs.fromFields(returnWitness);
