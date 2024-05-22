@@ -132,6 +132,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
 
     /**
      * @brief Dynamically compute the number of gates added by the "add_gates_to_ensure_all_polys_are_non_zero" method
+     * @note This does NOT add the gates to the present builder
      *
      */
     size_t get_num_gates_added_to_ensure_nonzero_polynomials()
