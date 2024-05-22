@@ -1,6 +1,7 @@
 dest
 node_modules
 .cache
+scripts/.earthly
 .pnp.cjs
 .pnp.loader.mjs
 build/
@@ -12,3 +13,12 @@ cmake-build-debug
 
 # Local Netlify folder
 .netlify
+
+.graphite*
+.DS_Store
+
+**/*.dockerignore
+
+# Earthly
+.arg
+.secret

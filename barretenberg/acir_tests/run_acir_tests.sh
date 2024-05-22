@@ -29,6 +29,7 @@ fi
 
 export BIN CRS_PATH VERBOSE BRANCH
 
+# copy the gzipped acir test data from noir/noir-repo/test_programs to barretenberg/acir_tests
 ./clone_test_vectors.sh
 
 cd acir_tests
@@ -72,7 +73,7 @@ else
       continue
     fi
 
-    if [[ ! -f ./$TEST_NAME/target/acir.gz || ! -f ./$TEST_NAME/target/witness.gz ]]; then
+    if [[ ! -f ./$TEST_NAME/target/program.json || ! -f ./$TEST_NAME/target/witness.gz ]]; then
       echo -e "\033[33mSKIPPED\033[0m (uncompiled)"
       continue
     fi

@@ -1,27 +1,30 @@
-import levelup, { LevelUp } from 'levelup';
+import { Fr } from '@aztec/foundation/fields';
+import { type FromBuffer } from '@aztec/foundation/serialize';
+import { type AztecKVStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/utils';
 
 import { Pedersen, StandardTree, newTree } from '../index.js';
-import { createMemDown } from '../test/utils/create_mem_down.js';
 import { AppendOnlySnapshotBuilder } from './append_only_snapshot.js';
 import { describeSnapshotBuilderTestSuite } from './snapshot_builder_test_suite.js';
 
 describe('AppendOnlySnapshot', () => {
   let tree: StandardTree;
-  let snapshotBuilder: AppendOnlySnapshotBuilder;
-  let db: LevelUp;
+  let snapshotBuilder: AppendOnlySnapshotBuilder<Buffer>;
+  let db: AztecKVStore;
 
   beforeEach(async () => {
-    db = levelup(createMemDown());
+    db = openTmpStore();
     const hasher = new Pedersen();
-    tree = await newTree(StandardTree, db, hasher, 'test', 4);
-    snapshotBuilder = new AppendOnlySnapshotBuilder(db, tree, hasher);
+    const deserializer: FromBuffer<Buffer> = { fromBuffer: b => b };
+    tree = await newTree(StandardTree, db, hasher, 'test', deserializer, 4);
+    snapshotBuilder = new AppendOnlySnapshotBuilder(db, tree, hasher, deserializer);
   });
 
   describeSnapshotBuilderTestSuite(
     () => tree,
     () => snapshotBuilder,
     async tree => {
-      const newLeaves = Array.from({ length: 2 }).map(() => Buffer.from(Math.random().toString()));
+      const newLeaves = Array.from({ length: 2 }).map(() => Fr.random().toBuffer());
       await tree.appendLeaves(newLeaves);
     },
   );

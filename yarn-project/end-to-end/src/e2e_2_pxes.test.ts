@@ -1,27 +1,24 @@
+import { getUnsafeSchnorrAccount } from '@aztec/accounts/single_key';
+import { createAccounts } from '@aztec/accounts/testing';
 import {
-  AztecAddress,
-  AztecNode,
-  CompleteAddress,
-  DebugLogger,
-  EthAddress,
+  type AztecAddress,
+  type AztecNode,
+  type DebugLogger,
   ExtendedNote,
   Fr,
-  GrumpkinScalar,
   Note,
-  PXE,
-  TxStatus,
-  Wallet,
-  computeMessageSecretHash,
-  getUnsafeSchnorrAccount,
+  type PXE,
+  type Wallet,
+  computeSecretHash,
   retryUntil,
 } from '@aztec/aztec.js';
-import { ChildContract, TokenContract } from '@aztec/noir-contracts';
+import { ChildContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
-import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup, setupPXEService } from './fixtures/utils.js';
+import { expectsNumOfNoteEncryptedLogsInTheLastBlockToBe, setup, setupPXEService } from './fixtures/utils.js';
 
-const TIMEOUT = 60_000;
+const TIMEOUT = 120_000;
 
 describe('e2e_2_pxes', () => {
   jest.setTimeout(TIMEOUT);
@@ -31,36 +28,27 @@ describe('e2e_2_pxes', () => {
   let pxeB: PXE;
   let walletA: Wallet;
   let walletB: Wallet;
-  let userA: CompleteAddress;
-  let userB: CompleteAddress;
   let logger: DebugLogger;
   let teardownA: () => Promise<void>;
+  let teardownB: () => Promise<void>;
 
   beforeEach(async () => {
-    let accounts: CompleteAddress[] = [];
     ({
       aztecNode,
       pxe: pxeA,
-      accounts,
       wallets: [walletA],
       logger,
       teardown: teardownA,
     } = await setup(1));
-    [userA] = accounts;
 
-    ({
-      pxe: pxeB,
-      accounts: accounts,
-      wallets: [walletB],
-    } = await setupPXEService(1, aztecNode!, undefined, true));
-    [userB] = accounts;
-  }, 100_000);
+    ({ pxe: pxeB, teardown: teardownB } = await setupPXEService(aztecNode!, {}, undefined, true));
+
+    [walletB] = await createAccounts(pxeB, 1);
+  });
 
   afterEach(async () => {
+    await teardownB();
     await teardownA();
-    if ((pxeB as any).stop) {
-      await (pxeB as any).stop();
-    }
   });
 
   const awaitUserSynchronized = async (wallet: Wallet, owner: AztecAddress) => {
@@ -84,39 +72,42 @@ describe('e2e_2_pxes', () => {
 
     // Then check the balance
     const contractWithWallet = await TokenContract.at(tokenAddress, wallet);
-    const balance = await contractWithWallet.methods.balance_of_private(owner).view({ from: owner });
-    logger(`Account ${owner} balance: ${balance}`);
+    const balance = await contractWithWallet.methods.balance_of_private(owner).simulate({ from: owner });
+    logger.info(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
 
   const deployTokenContract = async (initialAdminBalance: bigint, admin: AztecAddress, pxe: PXE) => {
-    logger(`Deploying Token contract...`);
-    const contract = await TokenContract.deploy(walletA, admin).send().deployed();
+    logger.info(`Deploying Token contract...`);
+    const contract = await TokenContract.deploy(walletA, admin, 'TokenName', 'TokenSymbol', 18).send().deployed();
 
     if (initialAdminBalance > 0n) {
       await mintTokens(contract, admin, initialAdminBalance, pxe);
     }
 
-    logger('L2 contract deployed');
+    logger.info('L2 contract deployed');
 
-    return contract.completeAddress;
+    return contract.instance;
   };
 
   const mintTokens = async (contract: TokenContract, recipient: AztecAddress, balance: bigint, pxe: PXE) => {
     const secret = Fr.random();
-    const secretHash = computeMessageSecretHash(secret);
+    const secretHash = computeSecretHash(secret);
 
     const receipt = await contract.methods.mint_private(balance, secretHash).send().wait();
-    expect(receipt.status).toEqual(TxStatus.MINED);
 
-    const storageSlot = new Fr(5);
     const note = new Note([new Fr(balance), secretHash]);
-    const extendedNote = new ExtendedNote(note, recipient, contract.address, storageSlot, receipt.txHash);
+    const extendedNote = new ExtendedNote(
+      note,
+      recipient,
+      contract.address,
+      TokenContract.storage.pending_shields.slot,
+      TokenContract.notes.TransparentNote.id,
+      receipt.txHash,
+    );
     await pxe.addNote(extendedNote);
 
-    expect((await contract.methods.redeem_shield(recipient, balance, secret).send().wait()).status).toEqual(
-      TxStatus.MINED,
-    );
+    await contract.methods.redeem_shield(recipient, balance, secret).send().wait();
   };
 
   it('transfers funds from user A to B via PXE A followed by transfer from B to A via PXE B', async () => {
@@ -124,60 +115,61 @@ describe('e2e_2_pxes', () => {
     const transferAmount1 = 654n;
     const transferAmount2 = 323n;
 
-    const completeTokenAddress = await deployTokenContract(initialBalance, userA.address, pxeA);
-    const tokenAddress = completeTokenAddress.address;
+    const tokenInstance = await deployTokenContract(initialBalance, walletA.getAddress(), pxeA);
+    const tokenAddress = tokenInstance.address;
 
     // Add account B to wallet A
-    await pxeA.registerRecipient(userB);
+    await pxeA.registerRecipient(walletB.getCompleteAddress());
     // Add account A to wallet B
-    await pxeB.registerRecipient(userA);
+    await pxeB.registerRecipient(walletA.getCompleteAddress());
 
     // Add token to PXE B (PXE A already has it because it was deployed through it)
-    await pxeB.addContracts([
-      {
-        artifact: TokenContract.artifact,
-        completeAddress: completeTokenAddress,
-        portalContract: EthAddress.ZERO,
-      },
-    ]);
+    await pxeB.registerContract({
+      artifact: TokenContract.artifact,
+      instance: tokenInstance,
+    });
 
     // Check initial balances and logs are as expected
-    await expectTokenBalance(walletA, tokenAddress, userA.address, initialBalance);
-    await expectTokenBalance(walletB, tokenAddress, userB.address, 0n);
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 1);
+    await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance);
+    await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), 0n);
+    await expectsNumOfNoteEncryptedLogsInTheLastBlockToBe(aztecNode, 1);
 
     // Transfer funds from A to B via PXE A
     const contractWithWalletA = await TokenContract.at(tokenAddress, walletA);
-    const receiptAToB = await contractWithWalletA.methods
-      .transfer(userA.address, userB.address, transferAmount1, 0)
+    await contractWithWalletA.methods
+      .transfer(walletA.getAddress(), walletB.getAddress(), transferAmount1, 0)
       .send()
       .wait();
-    expect(receiptAToB.status).toBe(TxStatus.MINED);
 
     // Check balances and logs are as expected
-    await expectTokenBalance(walletA, tokenAddress, userA.address, initialBalance - transferAmount1);
-    await expectTokenBalance(walletB, tokenAddress, userB.address, transferAmount1);
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
+    await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance - transferAmount1);
+    await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), transferAmount1);
+    await expectsNumOfNoteEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
 
     // Transfer funds from B to A via PXE B
     const contractWithWalletB = await TokenContract.at(tokenAddress, walletB);
     await contractWithWalletB.methods
-      .transfer(userB.address, userA.address, transferAmount2, 0)
+      .transfer(walletB.getAddress(), walletA.getAddress(), transferAmount2, 0)
       .send()
       .wait({ interval: 0.1 });
 
     // Check balances and logs are as expected
-    await expectTokenBalance(walletA, tokenAddress, userA.address, initialBalance - transferAmount1 + transferAmount2);
-    await expectTokenBalance(walletB, tokenAddress, userB.address, transferAmount1 - transferAmount2);
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
-  }, 120_000);
+    await expectTokenBalance(
+      walletA,
+      tokenAddress,
+      walletA.getAddress(),
+      initialBalance - transferAmount1 + transferAmount2,
+    );
+    await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), transferAmount1 - transferAmount2);
+    await expectsNumOfNoteEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
+  });
 
   const deployChildContractViaServerA = async () => {
-    logger(`Deploying Child contract...`);
+    logger.info(`Deploying Child contract...`);
     const contract = await ChildContract.deploy(walletA).send().deployed();
-    logger('Child contract deployed');
+    logger.info('Child contract deployed');
 
-    return contract.completeAddress;
+    return contract.instance;
   };
 
   const awaitServerSynchronized = async (server: PXE) => {
@@ -196,71 +188,68 @@ describe('e2e_2_pxes', () => {
     await awaitServerSynchronized(pxeA);
 
     // Add Child to PXE B
-    await pxeB.addContracts([
-      {
-        artifact: ChildContract.artifact,
-        completeAddress: childCompleteAddress,
-        portalContract: EthAddress.ZERO,
-      },
-    ]);
+    await pxeB.registerContract({
+      artifact: ChildContract.artifact,
+      instance: childCompleteAddress,
+    });
 
     const newValueToSet = new Fr(256n);
 
     const childContractWithWalletB = await ChildContract.at(childCompleteAddress.address, walletB);
-    await childContractWithWalletB.methods.pubIncValue(newValueToSet).send().wait({ interval: 0.1 });
+    await childContractWithWalletB.methods.pub_inc_value(newValueToSet).send().wait({ interval: 0.1 });
 
     await awaitServerSynchronized(pxeA);
 
-    const storedValue = await getChildStoredValue(childCompleteAddress, pxeB);
-    expect(storedValue).toEqual(newValueToSet);
+    const storedValueOnB = await getChildStoredValue(childCompleteAddress, pxeB);
+    expect(storedValueOnB).toEqual(newValueToSet);
+
+    const storedValueOnA = await getChildStoredValue(childCompleteAddress, pxeA);
+    expect(storedValueOnA).toEqual(newValueToSet);
   });
 
   it('private state is "zero" when Private eXecution Environment (PXE) does not have the account private key', async () => {
     const userABalance = 100n;
     const userBBalance = 150n;
 
-    const completeTokenAddress = await deployTokenContract(userABalance, userA.address, pxeA);
-    const contractWithWalletA = await TokenContract.at(completeTokenAddress.address, walletA);
+    const tokenInstance = await deployTokenContract(userABalance, walletA.getAddress(), pxeA);
+    const contractWithWalletA = await TokenContract.at(tokenInstance.address, walletA);
 
     // Add account B to wallet A
-    await pxeA.registerRecipient(userB);
+    await pxeA.registerRecipient(walletB.getCompleteAddress());
     // Add account A to wallet B
-    await pxeB.registerRecipient(userA);
+    await pxeB.registerRecipient(walletA.getCompleteAddress());
 
     // Add token to PXE B (PXE A already has it because it was deployed through it)
-    await pxeB.addContracts([
-      {
-        artifact: TokenContract.artifact,
-        completeAddress: completeTokenAddress,
-        portalContract: EthAddress.ZERO,
-      },
-    ]);
+    await pxeB.registerContract({
+      artifact: TokenContract.artifact,
+      instance: tokenInstance,
+    });
 
     // Mint tokens to user B
-    await mintTokens(contractWithWalletA, userB.address, userBBalance, pxeA);
+    await mintTokens(contractWithWalletA, walletB.getAddress(), userBBalance, pxeA);
 
     // Check that user A balance is 100 on server A
-    await expectTokenBalance(walletA, completeTokenAddress.address, userA.address, userABalance);
+    await expectTokenBalance(walletA, tokenInstance.address, walletA.getAddress(), userABalance);
     // Check that user B balance is 150 on server B
-    await expectTokenBalance(walletB, completeTokenAddress.address, userB.address, userBBalance);
+    await expectTokenBalance(walletB, tokenInstance.address, walletB.getAddress(), userBBalance);
 
     // CHECK THAT PRIVATE BALANCES ARE 0 WHEN ACCOUNT'S PRIVATE KEYS ARE NOT REGISTERED
     // Note: Not checking if the account is synchronized because it is not registered as an account (it would throw).
     const checkIfSynchronized = false;
     // Check that user A balance is 0 on server B
-    await expectTokenBalance(walletB, completeTokenAddress.address, userA.address, 0n, checkIfSynchronized);
+    await expectTokenBalance(walletB, tokenInstance.address, walletA.getAddress(), 0n, checkIfSynchronized);
     // Check that user B balance is 0 on server A
-    await expectTokenBalance(walletA, completeTokenAddress.address, userB.address, 0n, checkIfSynchronized);
+    await expectTokenBalance(walletA, tokenInstance.address, walletB.getAddress(), 0n, checkIfSynchronized);
   });
 
   it('permits migrating an account from one PXE to another', async () => {
-    const privateKey = GrumpkinScalar.random();
-    const account = getUnsafeSchnorrAccount(pxeA, privateKey, Fr.random());
+    const secretKey = Fr.random();
+    const account = getUnsafeSchnorrAccount(pxeA, secretKey, Fr.random());
     const completeAddress = account.getCompleteAddress();
-    const wallet = await account.waitDeploy();
+    const wallet = await account.waitSetup();
 
     await expect(wallet.isAccountStateSynchronized(completeAddress.address)).resolves.toBe(true);
-    const accountOnB = getUnsafeSchnorrAccount(pxeB, privateKey, completeAddress);
+    const accountOnB = getUnsafeSchnorrAccount(pxeB, secretKey, account.salt);
     const walletOnB = await accountOnB.getWallet();
 
     // need to register first otherwise the new PXE won't know about the account
@@ -269,5 +258,104 @@ describe('e2e_2_pxes', () => {
     await accountOnB.register();
     // registering should wait for the account to be synchronized
     await expect(walletOnB.isAccountStateSynchronized(completeAddress.address)).resolves.toBe(true);
+  });
+
+  it('permits sending funds to a user before they have registered the contract', async () => {
+    const initialBalance = 987n;
+    const transferAmount1 = 654n;
+
+    const tokenInstance = await deployTokenContract(initialBalance, walletA.getAddress(), pxeA);
+    const tokenAddress = tokenInstance.address;
+
+    // Add account B to wallet A
+    await pxeA.registerRecipient(walletB.getCompleteAddress());
+    // Add account A to wallet B
+    await pxeB.registerRecipient(walletA.getCompleteAddress());
+
+    // Check initial balances and logs are as expected
+    await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance);
+    // don't check userB yet
+
+    await expectsNumOfNoteEncryptedLogsInTheLastBlockToBe(aztecNode, 1);
+
+    // Transfer funds from A to B via PXE A
+    const contractWithWalletA = await TokenContract.at(tokenAddress, walletA);
+    await contractWithWalletA.methods
+      .transfer(walletA.getAddress(), walletB.getAddress(), transferAmount1, 0)
+      .send()
+      .wait();
+
+    // now add the contract and check balances
+    await pxeB.registerContract({
+      artifact: TokenContract.artifact,
+      instance: tokenInstance,
+    });
+    await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance - transferAmount1);
+    await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), transferAmount1);
+  });
+
+  it('permits sending funds to a user, and spending them, before they have registered the contract', async () => {
+    const initialBalance = 987n;
+    const transferAmount1 = 654n;
+    const transferAmount2 = 323n;
+
+    // setup an account that is shared across PXEs
+    const sharedSecretKey = Fr.random();
+    const sharedAccountOnA = getUnsafeSchnorrAccount(pxeA, sharedSecretKey, Fr.random());
+    const sharedAccountAddress = sharedAccountOnA.getCompleteAddress();
+    const sharedWalletOnA = await sharedAccountOnA.waitSetup();
+    await expect(sharedWalletOnA.isAccountStateSynchronized(sharedAccountAddress.address)).resolves.toBe(true);
+
+    const sharedAccountOnB = getUnsafeSchnorrAccount(pxeB, sharedSecretKey, sharedAccountOnA.salt);
+    await sharedAccountOnB.register();
+    const sharedWalletOnB = await sharedAccountOnB.getWallet();
+
+    // Register wallet B in the pxe of wallet A
+    await pxeA.registerRecipient(walletB.getCompleteAddress());
+
+    // deploy the contract on PXE A
+    const tokenInstance = await deployTokenContract(initialBalance, walletA.getAddress(), pxeA);
+    const tokenAddress = tokenInstance.address;
+
+    // Transfer funds from A to Shared Wallet via PXE A
+    const contractWithWalletA = await TokenContract.at(tokenAddress, walletA);
+    await contractWithWalletA.methods
+      .transfer(walletA.getAddress(), sharedAccountAddress.address, transferAmount1, 0)
+      .send()
+      .wait();
+
+    // Now send funds from Shared Wallet to B via PXE A
+    const contractWithSharedWalletA = await TokenContract.at(tokenAddress, sharedWalletOnA);
+    await contractWithSharedWalletA.methods
+      .transfer(sharedAccountAddress.address, walletB.getAddress(), transferAmount2, 0)
+      .send()
+      .wait();
+
+    // check balances from PXE-A's perspective
+    await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance - transferAmount1);
+    await expectTokenBalance(
+      sharedWalletOnA,
+      tokenAddress,
+      sharedAccountAddress.address,
+      transferAmount1 - transferAmount2,
+    );
+
+    // now add the contract and check balances from PXE-B's perspective.
+    // The process should be:
+    // PXE-B had previously deferred the notes from A -> Shared, and Shared -> B
+    // PXE-B adds the contract
+    // PXE-B reprocesses the deferred notes, and sees the nullifier for A -> Shared
+    await pxeB.registerContract({
+      artifact: TokenContract.artifact,
+      instance: tokenInstance,
+    });
+    await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), transferAmount2);
+    await expect(sharedWalletOnB.isAccountStateSynchronized(sharedAccountAddress.address)).resolves.toBe(true);
+    await expectTokenBalance(
+      sharedWalletOnB,
+      tokenAddress,
+      sharedAccountAddress.address,
+      transferAmount1 - transferAmount2,
+    );
   });
 });

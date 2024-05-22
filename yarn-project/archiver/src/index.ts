@@ -8,6 +8,7 @@ import { Archiver, getConfigEnvVars } from './archiver/index.js';
 import { MemoryArchiverStore } from './archiver/memory_archiver_store/memory_archiver_store.js';
 
 export * from './archiver/index.js';
+export * from './rpc/index.js';
 
 const log = createDebugLogger('aztec:archiver');
 
@@ -29,9 +30,9 @@ async function main() {
   const archiver = new Archiver(
     publicClient,
     l1Contracts.rollupAddress,
+    l1Contracts.availabilityOracleAddress,
     l1Contracts.inboxAddress,
     l1Contracts.registryAddress,
-    l1Contracts.contractDeploymentEmitterAddress,
     archiverStore,
   );
 

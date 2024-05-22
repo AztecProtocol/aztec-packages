@@ -1,33 +1,35 @@
-import { ExecutionResult, NoteAndSlot } from '@aztec/acir-simulator';
+import { Note, type ProofCreator } from '@aztec/circuit-types';
 import {
   FunctionData,
   FunctionSelector,
-  KernelCircuitPublicInputs,
-  MAX_NEW_COMMITMENTS_PER_CALL,
-  MAX_NEW_COMMITMENTS_PER_TX,
-  MAX_READ_REQUESTS_PER_CALL,
+  MAX_NEW_NOTE_HASHES_PER_CALL,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MembershipWitness,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  NoteHash,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
-  ReadRequestMembershipWitness,
-  SideEffect,
-  TxRequest,
+  PrivateKernelCircuitPublicInputs,
+  PrivateKernelTailCircuitPublicInputs,
+  PublicCallRequest,
+  RECURSIVE_PROOF_LENGTH,
+  ScopedNoteHash,
+  type TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
-  makeEmptyProof,
-  makeTuple,
+  VerificationKeyAsFields,
+  makeRecursiveProof,
 } from '@aztec/circuits.js';
-import { makeTxRequest } from '@aztec/circuits.js/factories';
+import { makeTxRequest } from '@aztec/circuits.js/testing';
+import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { Tuple } from '@aztec/foundation/serialize';
-import { FunctionL2Logs, Note } from '@aztec/types';
+import { type ExecutionResult, type NoteAndSlot } from '@aztec/simulator';
 
 import { mock } from 'jest-mock-extended';
 
-import { KernelProver, OutputNoteData } from './kernel_prover.js';
-import { ProofCreator } from './proof_creator.js';
-import { ProvingDataOracle } from './proving_data_oracle.js';
+import { KernelProver } from './kernel_prover.js';
+import { type ProvingDataOracle } from './proving_data_oracle.js';
 
 describe('Kernel Prover', () => {
   let txRequest: TxRequest;
@@ -36,11 +38,14 @@ describe('Kernel Prover', () => {
   let prover: KernelProver;
   let dependencies: { [name: string]: string[] } = {};
 
+  const contractAddress = AztecAddress.fromBigInt(987654n);
+
   const notesAndSlots: NoteAndSlot[] = Array(10)
     .fill(null)
     .map(() => ({
       note: new Note([Fr.random(), Fr.random(), Fr.random()]),
       storageSlot: Fr.random(),
+      noteTypeId: Fr.random(),
       owner: { x: Fr.random(), y: Fr.random() },
     }));
 
@@ -50,45 +55,71 @@ describe('Kernel Prover', () => {
 
   const createExecutionResult = (fnName: string, newNoteIndices: number[] = []): ExecutionResult => {
     const publicInputs = PrivateCircuitPublicInputs.empty();
-    publicInputs.newCommitments = makeTuple(
-      MAX_NEW_COMMITMENTS_PER_CALL,
+    publicInputs.newNoteHashes = makeTuple(
+      MAX_NEW_NOTE_HASHES_PER_CALL,
       i =>
         i < newNoteIndices.length
-          ? new SideEffect(generateFakeCommitment(notesAndSlots[newNoteIndices[i]]), Fr.ZERO)
-          : SideEffect.empty(),
+          ? new NoteHash(generateFakeCommitment(notesAndSlots[newNoteIndices[i]]), 0)
+          : NoteHash.empty(),
       0,
     );
     const functionData = FunctionData.empty();
     functionData.selector = new FunctionSelector(fnName.charCodeAt(0));
     return {
-      callStackItem: new PrivateCallStackItem(AztecAddress.ZERO, functionData, publicInputs, false),
+      callStackItem: new PrivateCallStackItem(AztecAddress.ZERO, functionData, publicInputs),
       nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
       vk: VerificationKey.makeFake().toBuffer(),
       newNotes: newNoteIndices.map(idx => notesAndSlots[idx]),
-      // TODO(dbanks12): should test kernel prover with non-transient reads.
-      // This will be necessary once kernel actually checks (attempts to match) transient reads.
-      readRequestPartialWitnesses: Array.from({ length: MAX_READ_REQUESTS_PER_CALL }, () =>
-        ReadRequestMembershipWitness.emptyTransient(),
-      ),
+      nullifiedNoteHashCounters: new Map(),
+      noteHashLeafIndexMap: new Map(),
       returnValues: [],
       acir: Buffer.alloc(0),
       partialWitness: new Map(),
       enqueuedPublicFunctionCalls: [],
-      encryptedLogs: new FunctionL2Logs([]),
-      unencryptedLogs: new FunctionL2Logs([]),
+      publicTeardownFunctionCall: PublicCallRequest.empty(),
+      noteEncryptedLogs: [],
+      encryptedLogs: [],
+      unencryptedLogs: [],
     };
   };
 
   const createProofOutput = (newNoteIndices: number[]) => {
-    const publicInputs = KernelCircuitPublicInputs.empty();
-    const commitments = newNoteIndices.map(
-      idx => new SideEffect(generateFakeSiloedCommitment(notesAndSlots[idx]), Fr.ZERO),
-    );
-    // TODO(AD) FIXME(AD) This cast is bad. Why is this not the correct length when this is called?
-    publicInputs.end.newCommitments = commitments as Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>;
+    const publicInputs = PrivateKernelCircuitPublicInputs.empty();
+    const noteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash.empty);
+    for (let i = 0; i < newNoteIndices.length; i++) {
+      noteHashes[i] = new NoteHash(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), 0).scope(
+        0,
+        contractAddress,
+      );
+    }
+
+    publicInputs.end.newNoteHashes = noteHashes;
     return {
       publicInputs,
-      proof: makeEmptyProof(),
+      proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
+      verificationKey: VerificationKeyAsFields.makeEmpty(),
+    };
+  };
+
+  const createProofOutputFinal = (newNoteIndices: number[]) => {
+    const publicInputs = PrivateKernelTailCircuitPublicInputs.empty();
+    const noteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, () => Fr.ZERO);
+    for (let i = 0; i < newNoteIndices.length; i++) {
+      noteHashes[i] = generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]);
+    }
+    publicInputs.forRollup!.end.newNoteHashes = noteHashes;
+
+    return {
+      publicInputs,
+      proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
+      verificationKey: VerificationKeyAsFields.makeEmpty(),
+    };
+  };
+
+  const createAppCircuitProofOutput = () => {
+    return {
+      proof: makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH),
+      verificationKey: VerificationKeyAsFields.makeEmpty(),
     };
   };
 
@@ -107,13 +138,6 @@ describe('Kernel Prover', () => {
     proofCreator.createProofInit.mockClear();
   };
 
-  const expectOutputNotes = (outputNotes: OutputNoteData[], expectedNoteIndices: number[]) => {
-    expect(outputNotes.length).toBe(expectedNoteIndices.length);
-    outputNotes.forEach((n, i) => {
-      expect(n.data).toEqual(notesAndSlots[expectedNoteIndices[i]]);
-    });
-  };
-
   const prove = (executionResult: ExecutionResult) => prover.prove(txRequest, executionResult);
 
   beforeEach(() => {
@@ -123,13 +147,26 @@ describe('Kernel Prover', () => {
     // TODO(dbanks12): will need to mock oracle.getNoteMembershipWitness() to test non-transient reads
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));
 
+    oracle.getContractAddressPreimage.mockResolvedValue({
+      contractClassId: Fr.random(),
+      publicKeysHash: Fr.random(),
+      saltedInitializationHash: Fr.random(),
+    });
+    oracle.getContractClassIdPreimage.mockResolvedValue({
+      artifactHash: Fr.random(),
+      publicBytecodeCommitment: Fr.random(),
+      privateFunctionsRoot: Fr.random(),
+    });
+
     proofCreator = mock<ProofCreator>();
     proofCreator.getSiloedCommitments.mockImplementation(publicInputs =>
-      Promise.resolve(publicInputs.newCommitments.map(com => createFakeSiloedCommitment(com.value))),
+      Promise.resolve(publicInputs.newNoteHashes.map(com => createFakeSiloedCommitment(com.value))),
     );
     proofCreator.createProofInit.mockResolvedValue(createProofOutput([]));
     proofCreator.createProofInner.mockResolvedValue(createProofOutput([]));
-    proofCreator.createProofOrdering.mockResolvedValue(createProofOutput([]));
+    proofCreator.createProofReset.mockResolvedValue(createProofOutput([]));
+    proofCreator.createProofTail.mockResolvedValue(createProofOutputFinal([]));
+    proofCreator.createAppCircuitProof.mockResolvedValue(createAppCircuitProofOutput());
 
     prover = new KernelProver(oracle, proofCreator);
   });
@@ -149,7 +186,7 @@ describe('Kernel Prover', () => {
       };
       const executionResult = createExecutionResult('a');
       await prove(executionResult);
-      expectExecution(['a', 'd', 'b', 'c']);
+      expectExecution(['a', 'b', 'c', 'd']);
     }
 
     {
@@ -160,25 +197,7 @@ describe('Kernel Prover', () => {
       };
       const executionResult = createExecutionResult('k');
       await prove(executionResult);
-      expectExecution(['k', 'o', 'r', 'p', 'n', 'm', 'q']);
+      expectExecution(['k', 'm', 'q', 'o', 'n', 'p', 'r']);
     }
-  });
-
-  it('should only return notes that are outputted from the final proof', async () => {
-    const resultA = createExecutionResult('a', [1, 2, 3]);
-    const resultB = createExecutionResult('b', [4]);
-    const resultC = createExecutionResult('c', [5, 6]);
-    proofCreator.createProofInit.mockResolvedValueOnce(createProofOutput([1, 2, 3]));
-    proofCreator.createProofInner.mockResolvedValueOnce(createProofOutput([1, 3, 4]));
-    proofCreator.createProofInner.mockResolvedValueOnce(createProofOutput([1, 3, 5, 6]));
-    proofCreator.createProofOrdering.mockResolvedValueOnce(createProofOutput([1, 3, 5, 6]));
-
-    const executionResult = {
-      ...resultA,
-      nestedExecutions: [resultB, resultC],
-    };
-    const { outputNotes } = await prove(executionResult);
-    expectExecution(['a', 'c', 'b']);
-    expectOutputNotes(outputNotes, [1, 3, 5, 6]);
   });
 });

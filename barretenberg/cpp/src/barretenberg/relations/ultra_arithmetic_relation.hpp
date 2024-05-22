@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace proof_system {
+namespace bb {
 
 template <typename FF_> class UltraArithmeticRelationImpl {
   public:
@@ -11,6 +11,12 @@ template <typename FF_> class UltraArithmeticRelationImpl {
         6, // primary arithmetic sub-relation
         5  // secondary arithmetic sub-relation
     };
+
+    /**
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
+     *
+     */
+    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_arith.is_zero(); }
 
     /**
      * @brief Expression for the Ultra Arithmetic gate.
@@ -69,6 +75,7 @@ template <typename FF_> class UltraArithmeticRelationImpl {
                                   const Parameters&,
                                   const FF& scaling_factor)
     {
+        BB_OP_COUNT_TIME_NAME("Arithmetic::accumulate");
         {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
@@ -114,4 +121,4 @@ template <typename FF_> class UltraArithmeticRelationImpl {
 };
 
 template <typename FF> using UltraArithmeticRelation = Relation<UltraArithmeticRelationImpl<FF>>;
-} // namespace proof_system
+} // namespace bb

@@ -11,8 +11,8 @@
 #include "barretenberg/plonk/work_queue/work_queue.hpp"
 #include "barretenberg/polynomials/iterate_over_domain.hpp"
 
-using namespace proof_system;
-namespace proof_system::plonk {
+using namespace bb;
+namespace bb::plonk {
 
 namespace widget {
 enum ChallengeIndex {
@@ -116,7 +116,7 @@ template <class Field, class Transcript, class Settings, size_t num_widget_relat
                 ASSERT(index < transcript.get_num_challenges(label));
                 result.elements[tag] = transcript.get_challenge_field_element(label, index);
             } else {
-                result.elements[tag] = barretenberg::fr::random_element();
+                result.elements[tag] = bb::fr::random_element();
             }
         };
         add_challenge("alpha", ALPHA, required_challenges & CHALLENGE_BIT_ALPHA);
@@ -378,4 +378,4 @@ class GenericVerifierWidget {
     }
 };
 } // namespace widget
-} // namespace proof_system::plonk
+} // namespace bb::plonk

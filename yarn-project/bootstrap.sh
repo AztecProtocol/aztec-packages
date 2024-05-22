@@ -1,45 +1,40 @@
 #!/usr/bin/env bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
-# Check node version.
-node_version=$(node -v | tr -d 'v')
-major=${node_version%%.*}
-rest=${node_version#*.}
-minor=${rest%%.*}
-
-if (( major < 18 || ( major == 18 && minor < 19 ) )); then
-    echo "Node.js version is less than 18.19. Exiting."
-    exit 1
-fi
+YELLOW="\033[93m"
+BLUE="\033[34m"
+GREEN="\033[32m"
+BOLD="\033[1m"
+RESET="\033[0m"
 
 cd "$(dirname "$0")"
 
 CMD=${1:-}
 
-if [ -n "$CMD" ]; then
-  if [ "$CMD" = "clean" ]; then
-    git clean -fdx
-    exit 0
-  else
-    echo "Unknown command: $CMD"
-    exit 1
-  fi
+if [ "$CMD" = "clean" ]; then
+  git clean -fdx
+  exit 0
+elif [ "$CMD" = "full" ]; then
+  yarn install --immutable
+  yarn build
+  exit 0
+elif [[ -n "$CMD" && "$CMD" != "fast" ]]; then
+  echo "Unknown command: $CMD"
+  exit 1
 fi
 
+# Fast build does not delete everything first.
+# It regenerates all generated code, then performs an incremental tsc build.
+echo -e "${BLUE}${BOLD}Attempting fast incremental build...${RESET}"
+echo
 yarn install --immutable
 
-# Run remake constants before building Aztec.nr contracts or l1 contracts as they depend on files created by it.
-yarn workspace @aztec/circuits.js remake-constants
-# This is actually our code generation tool. Needed to build contract typescript wrappers.
-yarn workspace @aztec/noir-compiler build
-# Builds noir contracts (TODO: move this stage pre yarn-project). Generates typescript wrappers.
-yarn workspace @aztec/noir-contracts build:contracts
-# TODO: Contracts should not be baked into aztec.js.
-yarn workspace @aztec/aztec.js build:copy-contracts
-# Build protocol circuits. TODO: move pre yarn-project.
-yarn workspace @aztec/noir-protocol-circuits noir:build
-
-yarn build
+if ! yarn build:fast; then
+  echo -e "${YELLOW}${BOLD}Incremental build failed for some reason, attempting full build...${RESET}"
+  echo
+  yarn build
+fi
 
 echo
-echo "Success! You can now e.g. run anvil and end-to-end tests"
+echo -e "${GREEN}Yarn project successfully built!${RESET}"

@@ -1,4 +1,4 @@
-import { GlobalVariables } from '@aztec/circuits.js';
+import { type AztecAddress, type EthAddress, GasFees, GlobalVariables } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -42,9 +42,11 @@ export interface GlobalVariableBuilder {
   /**
    * Builds global variables.
    * @param blockNumber - The block number to build global variables for.
+   * @param coinbase - The address to receive block reward.
+   * @param feeRecipient - The address to receive fees.
    * @returns The global variables for the given block number.
    */
-  buildGlobalVariables(blockNumber: Fr): Promise<GlobalVariables>;
+  buildGlobalVariables(blockNumber: Fr, coinbase: EthAddress, feeRecipient: AztecAddress): Promise<GlobalVariables>;
 }
 
 /**
@@ -58,9 +60,15 @@ export class SimpleTestGlobalVariableBuilder implements GlobalVariableBuilder {
   /**
    * Simple builder of global variables that use the minimum time possible.
    * @param blockNumber - The block number to build global variables for.
+   * @param coinbase - The address to receive block reward.
+   * @param feeRecipient - The address to receive fees.
    * @returns The global variables for the given block number.
    */
-  public async buildGlobalVariables(blockNumber: Fr): Promise<GlobalVariables> {
+  public async buildGlobalVariables(
+    blockNumber: Fr,
+    coinbase: EthAddress,
+    feeRecipient: AztecAddress,
+  ): Promise<GlobalVariables> {
     let lastTimestamp = new Fr(await this.reader.getLastTimestamp());
     const version = new Fr(await this.reader.getVersion());
     const chainId = new Fr(await this.reader.getChainId());
@@ -78,10 +86,17 @@ export class SimpleTestGlobalVariableBuilder implements GlobalVariableBuilder {
       lastTimestamp = new Fr(lastTimestamp.value + 1n);
     }
 
-    this.log(
-      `Built global variables for block ${blockNumber}: (${chainId}, ${version}, ${blockNumber}, ${lastTimestamp})`,
+    const gasFees = GasFees.default();
+    const globalVariables = new GlobalVariables(
+      chainId,
+      version,
+      blockNumber,
+      lastTimestamp,
+      coinbase,
+      feeRecipient,
+      gasFees,
     );
-
-    return new GlobalVariables(chainId, version, blockNumber, lastTimestamp);
+    this.log.debug(`Built global variables for block ${blockNumber}`, globalVariables.toJSON());
+    return new GlobalVariables(chainId, version, blockNumber, lastTimestamp, coinbase, feeRecipient, gasFees);
   }
 }

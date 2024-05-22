@@ -1,4 +1,4 @@
-import { L1ContractAddresses } from '@aztec/ethereum';
+import { type L1ContractAddresses } from '@aztec/ethereum';
 
 /**
  * Provides basic information about the running node.
@@ -7,11 +7,7 @@ export interface NodeInfo {
   /**
    * Version as tracked in the aztec-packages repository.
    */
-  sandboxVersion: string;
-  /**
-   * The nargo version compatible with this sandbox version
-   */
-  compatibleNargoVersion: string;
+  nodeVersion: string;
   /**
    * L1 chain id.
    */

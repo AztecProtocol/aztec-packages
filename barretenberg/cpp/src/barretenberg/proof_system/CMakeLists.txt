@@ -1,1 +1,0 @@
-barretenberg_module(proof_system relations crypto_pedersen_commitment crypto_pedersen_hash)

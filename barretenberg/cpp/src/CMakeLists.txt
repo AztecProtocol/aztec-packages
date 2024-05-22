@@ -12,7 +12,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # Specifying `-Wno-${ERROR_NAME}` will silence the error completely.
 # To preserve the warning, but prevent them from causing the build to fail,
 # use the flag `-Wno-error=${ERROR_NAME}`
-add_compile_options(-Werror -Wall -Wextra -Wconversion -Wsign-conversion)
+add_compile_options(-Werror -Wall -Wextra -Wconversion -Wsign-conversion -Wfatal-errors)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-fcolor-diagnostics -fconstexpr-steps=100000000)
@@ -21,10 +21,14 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         message(STATUS "Compiling with memory checks.")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
     endif()
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 18)
+        # We target clang18 and need this, eventually warning should be fixed or this will be unconditional.
+        add_compile_options(-Wno-vla-cxx-extension)
+    endif()
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    add_compile_options(-fconstexpr-ops-limit=100000000)
+    add_compile_options(-fconstexpr-ops-limit=100000000 -Wno-psabi)
 endif()
 
 # We enable -O1 level optimsations, even when compiling debug wasm, otherwise we get "local count too large" at runtime.
@@ -40,15 +44,17 @@ endif()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${MSGPACK_INCLUDE})
 
 # I feel this should be limited to ecc, however it's currently used in headers that go across libraries,
-# and there currently isn't an easy way to inherit the DDISABLE_SHENANIGANS parameter.
+# and there currently isn't an easy way to inherit the DDISABLE_ASM parameter.
 if(DISABLE_ASM)
     message("Using fallback non-assembly methods for field multiplications.")
-    add_definitions(-DDISABLE_SHENANIGANS=1)
+    add_definitions(-DDISABLE_ASM=1)
 else()
     message(STATUS "Using optimized assembly for field arithmetic.")
 endif()
 
 add_subdirectory(barretenberg/bb)
+add_subdirectory(barretenberg/circuit_checker)
+add_subdirectory(barretenberg/client_ivc)
 add_subdirectory(barretenberg/commitment_schemes)
 add_subdirectory(barretenberg/common)
 add_subdirectory(barretenberg/crypto)
@@ -56,38 +62,37 @@ add_subdirectory(barretenberg/dsl)
 add_subdirectory(barretenberg/ecc)
 add_subdirectory(barretenberg/eccvm)
 add_subdirectory(barretenberg/env)
+add_subdirectory(barretenberg/execution_trace)
 add_subdirectory(barretenberg/examples)
 add_subdirectory(barretenberg/flavor)
 add_subdirectory(barretenberg/goblin)
 add_subdirectory(barretenberg/grumpkin_srs_gen)
 add_subdirectory(barretenberg/honk)
-add_subdirectory(barretenberg/join_split_example)
 add_subdirectory(barretenberg/numeric)
 add_subdirectory(barretenberg/plonk)
+add_subdirectory(barretenberg/plonk_honk_shared)
 add_subdirectory(barretenberg/polynomials)
-add_subdirectory(barretenberg/proof_system)
 add_subdirectory(barretenberg/protogalaxy)
 add_subdirectory(barretenberg/relations)
 add_subdirectory(barretenberg/serialize)
 add_subdirectory(barretenberg/solidity_helpers)
 add_subdirectory(barretenberg/srs)
 add_subdirectory(barretenberg/stdlib)
+add_subdirectory(barretenberg/stdlib_circuit_builders)
 add_subdirectory(barretenberg/sumcheck)
 add_subdirectory(barretenberg/transcript)
 add_subdirectory(barretenberg/translator_vm)
+add_subdirectory(barretenberg/translator_vm_recursion)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm)
 add_subdirectory(barretenberg/wasi)
 
 
 if(SMT)
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR} $ENV{HOME}/cvc5/tmp-lib/include)
     add_subdirectory(barretenberg/smt_verification)
 endif()
 
-if(BENCHMARKS)
-    add_subdirectory(barretenberg/benchmark)
-endif()
+add_subdirectory(barretenberg/benchmark)
 
 include(GNUInstallDirs)
 
@@ -97,7 +102,7 @@ include(GNUInstallDirs)
 # libbarretenberg + env = a wasi "command" that expects a full wasi runtime (e.g. wasmtime), e.g. test binaries.
 message(STATUS "Compiling all-in-one barretenberg archive")
 
-set(BARRETENBERG_TARGET_OBJECTS 
+set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:commitment_schemes_objects>
     $<TARGET_OBJECTS:common_objects>
     $<TARGET_OBJECTS:crypto_aes128_objects>
@@ -107,37 +112,44 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:crypto_keccak_objects>
     $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
     $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
+    $<TARGET_OBJECTS:crypto_poseidon2_objects>
     $<TARGET_OBJECTS:crypto_schnorr_objects>
     $<TARGET_OBJECTS:crypto_sha256_objects>
     $<TARGET_OBJECTS:dsl_objects>
     $<TARGET_OBJECTS:ecc_objects>
     $<TARGET_OBJECTS:eccvm_objects>
-    $<TARGET_OBJECTS:examples_objects>
+    $<TARGET_OBJECTS:execution_trace_objects>
+    $<TARGET_OBJECTS:simple_example_objects>
     $<TARGET_OBJECTS:flavor_objects>
     $<TARGET_OBJECTS:goblin_objects>
     $<TARGET_OBJECTS:honk_objects>
     $<TARGET_OBJECTS:numeric_objects>
     $<TARGET_OBJECTS:plonk_objects>
+    $<TARGET_OBJECTS:plonk_honk_shared_objects>
     $<TARGET_OBJECTS:polynomials_objects>
-    $<TARGET_OBJECTS:proof_system_objects>
     $<TARGET_OBJECTS:protogalaxy_objects>
     $<TARGET_OBJECTS:relations_objects>
     $<TARGET_OBJECTS:srs_objects>
     $<TARGET_OBJECTS:stdlib_aes128_objects>
     $<TARGET_OBJECTS:stdlib_blake2s_objects>
     $<TARGET_OBJECTS:stdlib_blake3s_objects>
+    $<TARGET_OBJECTS:stdlib_circuit_builders_objects>
     $<TARGET_OBJECTS:stdlib_keccak_objects>
-    $<TARGET_OBJECTS:stdlib_merkle_tree_objects>
+    $<TARGET_OBJECTS:crypto_merkle_tree_objects>
     $<TARGET_OBJECTS:stdlib_pedersen_commitment_objects>
     $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
+    $<TARGET_OBJECTS:stdlib_poseidon2_objects>
     $<TARGET_OBJECTS:stdlib_primitives_objects>
-    $<TARGET_OBJECTS:stdlib_recursion_objects>
+    $<TARGET_OBJECTS:stdlib_honk_recursion_objects>
+    $<TARGET_OBJECTS:stdlib_plonk_recursion_objects>
     $<TARGET_OBJECTS:stdlib_schnorr_objects>
     $<TARGET_OBJECTS:stdlib_sha256_objects>
     $<TARGET_OBJECTS:sumcheck_objects>
     $<TARGET_OBJECTS:transcript_objects>
     $<TARGET_OBJECTS:translator_vm_objects>
-    $<TARGET_OBJECTS:ultra_honk_objects>)
+    $<TARGET_OBJECTS:translator_vm_recursion_objects>
+    $<TARGET_OBJECTS:ultra_honk_objects>
+    $<TARGET_OBJECTS:vm_objects>)
 
 add_library(
     barretenberg
@@ -169,6 +181,7 @@ if(WASM)
         $<TARGET_OBJECTS:common_objects>
         $<TARGET_OBJECTS:numeric_objects>
         $<TARGET_OBJECTS:ecc_objects>
+        $<TARGET_OBJECTS:crypto_aes128_objects>
         $<TARGET_OBJECTS:crypto_blake2s_objects>
         $<TARGET_OBJECTS:crypto_keccak_objects>
         $<TARGET_OBJECTS:crypto_schnorr_objects>

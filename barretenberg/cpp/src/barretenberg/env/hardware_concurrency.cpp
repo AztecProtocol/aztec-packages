@@ -1,12 +1,22 @@
 #include "hardware_concurrency.hpp"
 #include <barretenberg/common/throw_or_abort.hpp>
 #include <cstdlib>
+#include <iostream>
 #include <stdexcept>
 #include <string>
+
+#ifndef NO_MULTITHREADING
 #include <thread>
+#endif
 
 extern "C" {
 
+#ifdef NO_MULTITHREADING
+uint32_t env_hardware_concurrency()
+{
+    return 1;
+}
+#else
 uint32_t env_hardware_concurrency()
 {
 #ifndef __wasm__
@@ -21,4 +31,5 @@ uint32_t env_hardware_concurrency()
     }
 #endif
 }
+#endif
 }

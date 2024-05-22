@@ -7,22 +7,28 @@
   },
   "references": [
     {
+      "path": "../accounts"
+    },
+    {
       "path": "../archiver"
     },
     {
       "path": "../aztec-node"
     },
     {
-      "path": "../aztec-sandbox"
+      "path": "../aztec.js"
     },
     {
-      "path": "../aztec.js"
+      "path": "../bb-prover"
+    },
+    {
+      "path": "../circuit-types"
     },
     {
       "path": "../circuits.js"
     },
     {
-      "path": "../cli"
+      "path": "../entrypoints"
     },
     {
       "path": "../ethereum"
@@ -31,22 +37,34 @@
       "path": "../foundation"
     },
     {
+      "path": "../kv-store"
+    },
+    {
       "path": "../l1-artifacts"
     },
     {
       "path": "../merkle-tree"
     },
     {
-      "path": "../noir-contracts"
+      "path": "../noir-contracts.js"
     },
     {
       "path": "../p2p"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../prover-client"
     },
     {
       "path": "../pxe"
     },
     {
       "path": "../sequencer-client"
+    },
+    {
+      "path": "../simulator"
     },
     {
       "path": "../types"

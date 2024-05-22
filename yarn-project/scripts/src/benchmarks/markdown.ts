@@ -1,7 +1,7 @@
 // Generate a markdown file with a table summary of the aggregated benchmarks.
 // If a benchmark-base file is available, shows the comparison against base (ie master in a PR).
+import { BENCHMARK_HISTORY_BLOCK_SIZE, Metrics } from '@aztec/circuit-types/stats';
 import { createConsoleLogger } from '@aztec/foundation/log';
-import { BENCHMARK_HISTORY_BLOCK_SIZE, Metrics } from '@aztec/types/stats';
 
 import * as fs from 'fs';
 import pick from 'lodash.pick';
@@ -95,10 +95,13 @@ function getCell(
   row: string,
   col: string,
 ) {
-  const value = data[row][col];
+  const value: number | undefined = data[row][col];
   const formattedValue = formatValue(value);
-  const baseValue = base ? (base[row] ?? {})[col] : undefined;
-  const percentDiff = baseValue ? Math.round(((value - baseValue) / baseValue) * 100) : undefined;
+  const baseValue: number | undefined = base?.[row]?.[col];
+  const percentDiff =
+    typeof baseValue === 'number' && baseValue > 0 && typeof value === 'number'
+      ? Math.round(((value - baseValue) / baseValue) * 100)
+      : undefined;
   if (!percentDiff || Math.abs(percentDiff) < 1) {
     return formattedValue;
   }
@@ -118,7 +121,11 @@ function withDesc(name: string) {
 }
 
 /** Formats a numeric value for display. */
-function formatValue(value: number) {
+function formatValue(value: number | undefined): string {
+  if (typeof value === 'undefined') {
+    return 'N/A';
+  }
+
   if (value < 100) {
     return value.toPrecision(3);
   }
@@ -172,14 +179,21 @@ ${rows.join('\n')}
 }
 
 /** Creates a md with the benchmark contents. */
-export function getMarkdown() {
+export function getMarkdown(prNumber: number) {
   const benchmark = JSON.parse(fs.readFileSync(inputFile, 'utf-8'));
   const baseBenchmark = getBaseBenchmark();
 
+  const metricsByThreads = Metrics.filter(m => m.groupBy === 'threads').map(m => m.name);
   const metricsByBlockSize = Metrics.filter(m => m.groupBy === 'block-size').map(m => m.name);
   const metricsByChainLength = Metrics.filter(m => m.groupBy === 'chain-length').map(m => m.name);
-  const metricsByCircuitName = Metrics.filter(m => m.groupBy === 'circuit-name').map(m => m.name);
-  const metricsByContractCount = Metrics.filter(m => m.groupBy === 'contract-count').map(m => m.name);
+  const kernelCircuitMetrics = Metrics.filter(m => m.groupBy === 'protocol-circuit-name').map(m => m.name);
+  const appCircuitMetrics = Metrics.filter(m => m.groupBy === 'app-circuit-name').map(m => m.name);
+  const metricsByClassesRegistered = Metrics.filter(m => m.groupBy === 'classes-registered').map(m => m.name);
+  const metricsByFeePaymentMethod = Metrics.filter(m => m.groupBy === 'fee-payment-method').map(m => m.name);
+  const metricsByLeafCount = Metrics.filter(m => m.groupBy === 'leaf-count').map(m => m.name);
+
+  const metricsTxPxeProcessing = Metrics.filter(m => m.name === 'tx_pxe_processing_time_ms').map(m => m.name);
+  const metricsTxSeqProcessing = Metrics.filter(m => m.name === 'tx_sequencer_processing_time_ms').map(m => m.name);
 
   const baseHash = process.env.BASE_COMMIT_HASH;
   const baseUrl = baseHash && `[\`${baseHash.slice(0, 8)}\`](${S3_URL}/benchmarks-v1/master/${baseHash}.json)`;
@@ -187,7 +201,6 @@ export function getMarkdown() {
     ? `\nValues are compared against data from master at commit ${baseUrl} and shown if the difference exceeds 1%.`
     : '';
 
-  const prNumber = process.env.CIRCLE_PULL_REQUEST && parseInt(process.env.CIRCLE_PULL_REQUEST.split('/')[6]);
   const prSourceDataUrl = prNumber && `${S3_URL}/benchmarks-v1/pulls/${prNumber}.json`;
   const prSourceDataText = prSourceDataUrl
     ? `\nThis benchmark source data is available in JSON format on S3 [here](${prSourceDataUrl}).`
@@ -202,9 +215,14 @@ ${getWarningsSummary(benchmark, baseBenchmark)}
 
 <summary>Detailed results</summary>
 
-All benchmarks are run on txs on the \`Benchmarking\` contract on the repository. Each tx consists of a batch call  to \`create_note\` and \`increment_balance\`, which guarantees that each tx has a private call, a nested private call, a public call, and a nested public call, as well as an emitted private note, an unencrypted log, and public storage read and write. 
+All benchmarks are run on txs on the \`Benchmarking\` contract on the repository. Each tx consists of a batch call  to \`create_note\` and \`increment_balance\`, which guarantees that each tx has a private call, a nested private call, a public call, and a nested public call, as well as an emitted private note, an unencrypted log, and public storage read and write.
 ${prSourceDataText}
 ${baseCommitText}
+
+### Proof generation
+
+Each column represents the number of threads used in proof generation.
+${getTableContent(pick(benchmark, metricsByThreads), baseBenchmark, 'threads')}
 
 ### L2 block published to L1
 
@@ -218,13 +236,28 @@ ${getTableContent(pick(benchmark, metricsByChainLength), baseBenchmark, 'blocks'
 
 ### Circuits stats
 
-Stats on running time and I/O sizes collected for every circuit run across all benchmarks.
-${getTableContent(transpose(pick(benchmark, metricsByCircuitName)), transpose(baseBenchmark), '', 'Circuit')}
+Stats on running time and I/O sizes collected for every kernel circuit run across all benchmarks.
+${getTableContent(transpose(pick(benchmark, kernelCircuitMetrics)), transpose(baseBenchmark), '', 'Circuit')}
+
+Stats on running time collected for app circuits
+${getTableContent(transpose(pick(benchmark, appCircuitMetrics)), transpose(baseBenchmark), '', 'Function')}
+
+### Tree insertion stats
+
+The duration to insert a fixed batch of leaves into each tree type.
+${getTableContent(pick(benchmark, metricsByLeafCount), baseBenchmark, 'leaves')}
 
 ### Miscellaneous
 
-Transaction sizes based on how many contracts are deployed in the tx.
-${getTableContent(pick(benchmark, metricsByContractCount), baseBenchmark, 'deployed contracts')}
+Transaction sizes based on how many contract classes are registered in the tx.
+${getTableContent(pick(benchmark, metricsByClassesRegistered), baseBenchmark, 'registered classes')}
+
+Transaction size based on fee payment method
+${getTableContent(pick(benchmark, metricsByFeePaymentMethod), baseBenchmark, 'fee payment method')}
+
+Transaction processing duration by data writes.
+${getTableContent(pick(benchmark, metricsTxPxeProcessing), baseBenchmark, 'new note hashes')}
+${getTableContent(pick(benchmark, metricsTxSeqProcessing), baseBenchmark, 'public data writes')}
 
 </details>
 ${COMMENT_MARK}
@@ -232,6 +265,6 @@ ${COMMENT_MARK}
 }
 
 /** Entrypoint */
-export function main() {
-  log(getMarkdown());
+export function main(prNumber: number) {
+  log(getMarkdown(prNumber));
 }

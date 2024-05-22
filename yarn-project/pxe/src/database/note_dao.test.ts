@@ -1,5 +1,5 @@
+import { Note, randomTxHash } from '@aztec/circuit-types';
 import { AztecAddress, Fr, Point } from '@aztec/circuits.js';
-import { Note, randomTxHash } from '@aztec/types';
 
 import { NoteDao } from './note_dao.js';
 
@@ -8,16 +8,18 @@ export const randomNoteDao = ({
   contractAddress = AztecAddress.random(),
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
+  noteTypeId = Fr.random(),
   nonce = Fr.random(),
   innerNoteHash = Fr.random(),
   siloedNullifier = Fr.random(),
-  index = BigInt(0),
+  index = Fr.random().toBigInt(),
   publicKey = Point.random(),
 }: Partial<NoteDao> = {}) => {
   return new NoteDao(
     note,
     contractAddress,
     storageSlot,
+    noteTypeId,
     txHash,
     nonce,
     innerNoteHash,

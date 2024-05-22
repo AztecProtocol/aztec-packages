@@ -3,16 +3,18 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/stdlib/hash/blake2s/blake2s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 #include <array>
 
-namespace proof_system::plonk::stdlib::schnorr {
+namespace bb::stdlib {
 
 /**
  * @brief Instantiate a witness containing the signature (s, e) as a quadruple of
  * field_t elements (s_lo, s_hi, e_lo, e_hi).
  */
-template <typename C> signature_bits<C> convert_signature(C* context, const crypto::schnorr::signature& signature)
+template <typename C>
+schnorr_signature_bits<C> schnorr_convert_signature(C* context, const crypto::schnorr_signature& signature)
 {
     using cycle_scalar = typename cycle_group<C>::cycle_scalar;
 
@@ -22,8 +24,8 @@ template <typename C> signature_bits<C> convert_signature(C* context, const cryp
     const uint8_t* e_ptr = &signature.e[0];
     numeric::read(s_ptr, s_bigint);
     numeric::read(e_ptr, e_bigint);
-    signature_bits<C> sig{ .s = cycle_scalar::from_witness_bitstring(context, s_bigint, 256),
-                           .e = cycle_scalar::from_witness_bitstring(context, e_bigint, 256) };
+    schnorr_signature_bits<C> sig{ .s = cycle_scalar::from_witness_bitstring(context, s_bigint, 256),
+                                   .e = cycle_scalar::from_witness_bitstring(context, e_bigint, 256) };
     return sig;
 }
 
@@ -36,9 +38,9 @@ template <typename C> signature_bits<C> convert_signature(C* context, const cryp
  * (~1,169k for fixed/variable_base_mul, ~4k for blake2s) for a string of length = 34.
  */
 template <typename C>
-std::array<field_t<C>, 2> verify_signature_internal(const byte_array<C>& message,
-                                                    const cycle_group<C>& pub_key,
-                                                    const signature_bits<C>& sig)
+std::array<field_t<C>, 2> schnorr_verify_signature_internal(const byte_array<C>& message,
+                                                            const cycle_group<C>& pub_key,
+                                                            const schnorr_signature_bits<C>& sig)
 {
     cycle_group<C> g1(grumpkin::g1::one);
     // compute g1 * sig.s + key * sig,e
@@ -65,9 +67,11 @@ std::array<field_t<C>, 2> verify_signature_internal(const byte_array<C>& message
  *          e' == e is true.
  */
 template <typename C>
-void verify_signature(const byte_array<C>& message, const cycle_group<C>& pub_key, const signature_bits<C>& sig)
+void schnorr_verify_signature(const byte_array<C>& message,
+                              const cycle_group<C>& pub_key,
+                              const schnorr_signature_bits<C>& sig)
 {
-    auto [output_lo, output_hi] = verify_signature_internal(message, pub_key, sig);
+    auto [output_lo, output_hi] = schnorr_verify_signature_internal(message, pub_key, sig);
     output_lo.assert_equal(sig.e.lo, "verify signature failed");
     output_hi.assert_equal(sig.e.hi, "verify signature failed");
 }
@@ -78,17 +82,42 @@ void verify_signature(const byte_array<C>& message, const cycle_group<C>& pub_ke
  *        and return the boolean witness e' == e.
  */
 template <typename C>
-bool_t<C> signature_verification_result(const byte_array<C>& message,
-                                        const cycle_group<C>& pub_key,
-                                        const signature_bits<C>& sig)
+bool_t<C> schnorr_signature_verification_result(const byte_array<C>& message,
+                                                const cycle_group<C>& pub_key,
+                                                const schnorr_signature_bits<C>& sig)
 {
-    auto [output_lo, output_hi] = verify_signature_internal(message, pub_key, sig);
+    auto [output_lo, output_hi] = schnorr_verify_signature_internal(message, pub_key, sig);
     bool_t<C> valid = (output_lo == sig.e.lo) && (output_hi == sig.e.hi);
     return valid;
 }
 
-INSTANTIATE_STDLIB_METHOD(VERIFY_SIGNATURE_INTERNAL)
-INSTANTIATE_STDLIB_METHOD(VERIFY_SIGNATURE)
-INSTANTIATE_STDLIB_METHOD(SIGNATURE_VERIFICATION_RESULT)
-INSTANTIATE_STDLIB_METHOD(CONVERT_SIGNATURE)
-} // namespace proof_system::plonk::stdlib::schnorr
+#define VERIFY_SIGNATURE_INTERNAL(circuit_type)                                                                        \
+    template std::array<field_t<circuit_type>, 2> schnorr_verify_signature_internal<circuit_type>(                     \
+        const byte_array<circuit_type>&,                                                                               \
+        const cycle_group<circuit_type>&,                                                                              \
+        const schnorr_signature_bits<circuit_type>&)
+VERIFY_SIGNATURE_INTERNAL(bb::StandardCircuitBuilder);
+VERIFY_SIGNATURE_INTERNAL(bb::UltraCircuitBuilder);
+VERIFY_SIGNATURE_INTERNAL(bb::GoblinUltraCircuitBuilder);
+#define VERIFY_SIGNATURE(circuit_type)                                                                                 \
+    template void schnorr_verify_signature<circuit_type>(const byte_array<circuit_type>&,                              \
+                                                         const cycle_group<circuit_type>&,                             \
+                                                         const schnorr_signature_bits<circuit_type>&)
+VERIFY_SIGNATURE(bb::StandardCircuitBuilder);
+VERIFY_SIGNATURE(bb::UltraCircuitBuilder);
+VERIFY_SIGNATURE(bb::GoblinUltraCircuitBuilder);
+#define SIGNATURE_VERIFICATION_RESULT(circuit_type)                                                                    \
+    template bool_t<circuit_type> schnorr_signature_verification_result<circuit_type>(                                 \
+        const byte_array<circuit_type>&,                                                                               \
+        const cycle_group<circuit_type>&,                                                                              \
+        const schnorr_signature_bits<circuit_type>&)
+SIGNATURE_VERIFICATION_RESULT(bb::StandardCircuitBuilder);
+SIGNATURE_VERIFICATION_RESULT(bb::UltraCircuitBuilder);
+SIGNATURE_VERIFICATION_RESULT(bb::GoblinUltraCircuitBuilder);
+#define CONVERT_SIGNATURE(circuit_type)                                                                                \
+    template schnorr_signature_bits<circuit_type> schnorr_convert_signature<circuit_type>(                             \
+        circuit_type*, const crypto::schnorr_signature&)
+CONVERT_SIGNATURE(bb::StandardCircuitBuilder);
+CONVERT_SIGNATURE(bb::UltraCircuitBuilder);
+CONVERT_SIGNATURE(bb::GoblinUltraCircuitBuilder);
+} // namespace bb::stdlib

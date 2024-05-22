@@ -13,14 +13,13 @@
 #include "barretenberg/numeric/bitop/pow.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
-#include "barretenberg/srs/factories/crs_factory.hpp"
-#include "barretenberg/srs/factories/file_crs_factory.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 
 #include <cstddef>
 #include <memory>
 #include <string_view>
 
-namespace proof_system::honk::pcs {
+namespace bb {
 
 template <class Curve> class VerifierCommitmentKey;
 
@@ -35,18 +34,13 @@ template <> class VerifierCommitmentKey<curve::BN254> {
     using Commitment = typename Curve::AffineElement;
 
   public:
-    VerifierCommitmentKey() = delete;
+    std::shared_ptr<bb::srs::factories::VerifierCrs<Curve>> srs;
 
-    /**
-     * @brief Construct a new Kate Verification Key object from existing SRS
-     *
-     * @param num_points
-     * @param srs verifier G2 point
-     */
-    VerifierCommitmentKey([[maybe_unused]] size_t num_points,
-                          std::shared_ptr<barretenberg::srs::factories::CrsFactory<Curve>> crs_factory)
-        : srs(crs_factory->get_verifier_crs())
-    {}
+    VerifierCommitmentKey()
+    {
+        srs::init_crs_factory("../srs_db/ignition");
+        srs = srs::get_crs_factory<Curve>()->get_verifier_crs();
+    };
 
     /**
      * @brief verifies a pairing equation over 2 points using the verifier SRS
@@ -59,13 +53,11 @@ template <> class VerifierCommitmentKey<curve::BN254> {
     {
         Commitment pairing_points[2]{ p0, p1 };
         // The final pairing check of step 12.
-        Curve::TargetField result = barretenberg::pairing::reduced_ate_pairing_batch_precomputed(
-            pairing_points, srs->get_precomputed_g2_lines(), 2);
+        Curve::TargetField result =
+            bb::pairing::reduced_ate_pairing_batch_precomputed(pairing_points, srs->get_precomputed_g2_lines(), 2);
 
         return (result == Curve::TargetField::one());
     }
-
-    std::shared_ptr<barretenberg::srs::factories::VerifierCrs<Curve>> srs;
 };
 
 /**
@@ -88,15 +80,20 @@ template <> class VerifierCommitmentKey<curve::Grumpkin> {
      * @param num_points specifies the length of the SRS
      * @param path is the location to the SRS file
      */
-    VerifierCommitmentKey(size_t num_points,
-                          std::shared_ptr<barretenberg::srs::factories::CrsFactory<Curve>> crs_factory)
+    VerifierCommitmentKey(size_t num_points, const std::shared_ptr<bb::srs::factories::CrsFactory<Curve>>& crs_factory)
         : pippenger_runtime_state(num_points)
         , srs(crs_factory->get_verifier_crs(num_points))
-
     {}
 
-    barretenberg::scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;
-    std::shared_ptr<barretenberg::srs::factories::VerifierCrs<Curve>> srs;
+    VerifierCommitmentKey(size_t num_points)
+        : pippenger_runtime_state(num_points)
+    {
+        srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+        srs = srs::get_crs_factory<Curve>()->get_verifier_crs(num_points);
+    }
+
+    bb::scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;
+    std::shared_ptr<bb::srs::factories::VerifierCrs<Curve>> srs;
 };
 
-} // namespace proof_system::honk::pcs
+} // namespace bb

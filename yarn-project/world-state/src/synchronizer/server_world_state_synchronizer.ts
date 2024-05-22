@@ -1,26 +1,34 @@
+import { type L1ToL2MessageSource, type L2Block, L2BlockDownloader, type L2BlockSource } from '@aztec/circuit-types';
+import { type L2BlockHandledStats } from '@aztec/circuit-types/stats';
+import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
-import { L2Block, L2BlockDownloader, L2BlockSource } from '@aztec/types';
-import { L2BlockHandledStats } from '@aztec/types/stats';
+import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/utils';
+import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 
-import { LevelUp } from 'levelup';
-
-import { HandleL2BlockResult, MerkleTreeOperations, MerkleTrees } from '../world-state-db/index.js';
+import {
+  type HandleL2BlockAndMessagesResult,
+  type MerkleTreeOperations,
+  type MerkleTrees,
+} from '../world-state-db/index.js';
 import { MerkleTreeOperationsFacade } from '../world-state-db/merkle_tree_operations_facade.js';
 import { MerkleTreeSnapshotOperationsFacade } from '../world-state-db/merkle_tree_snapshot_operations_facade.js';
-import { WorldStateConfig } from './config.js';
-import { WorldStateRunningState, WorldStateStatus, WorldStateSynchronizer } from './world_state_synchronizer.js';
-
-const DB_KEY_BLOCK_NUMBER = 'latestBlockNumber';
+import { type WorldStateConfig } from './config.js';
+import {
+  WorldStateRunningState,
+  type WorldStateStatus,
+  type WorldStateSynchronizer,
+} from './world_state_synchronizer.js';
 
 /**
  * Synchronizes the world state with the L2 blocks from a L2BlockSource.
- * The synchronizer will download the L2 blocks from the L2BlockSource and insert the new commitments into the merkle
+ * The synchronizer will download the L2 blocks from the L2BlockSource and insert the new note hashes into the merkle
  * tree.
  */
 export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
-  private currentL2BlockNum = 0;
   private latestBlockNumberAtStart = 0;
 
   private l2BlockDownloader: L2BlockDownloader;
@@ -30,14 +38,16 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
   private stopping = false;
   private runningPromise: Promise<void> = Promise.resolve();
   private currentState: WorldStateRunningState = WorldStateRunningState.IDLE;
+  private blockNumber: AztecSingleton<number>;
 
-  private constructor(
-    private db: LevelUp,
+  constructor(
+    store: AztecKVStore,
     private merkleTreeDb: MerkleTrees,
-    private l2BlockSource: L2BlockSource,
+    private l2BlockSource: L2BlockSource & L1ToL2MessageSource,
     config: WorldStateConfig,
     private log = createDebugLogger('aztec:world_state'),
   ) {
+    this.blockNumber = store.openSingleton('world_state_synch_last_block_number');
     this.l2BlockDownloader = new L2BlockDownloader(
       l2BlockSource,
       config.l2QueueSize,
@@ -55,22 +65,6 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
 
   public getSnapshot(blockNumber: number): MerkleTreeOperations {
     return new MerkleTreeSnapshotOperationsFacade(this.merkleTreeDb, blockNumber);
-  }
-
-  public static async new(
-    db: LevelUp,
-    merkleTreeDb: MerkleTrees,
-    l2BlockSource: L2BlockSource,
-    config: WorldStateConfig,
-    log = createDebugLogger('aztec:world_state'),
-  ) {
-    const server = new ServerWorldStateSynchronizer(db, merkleTreeDb, l2BlockSource, config, log);
-    await server.#init();
-    return server;
-  }
-
-  async #init() {
-    await this.restoreCurrentL2BlockNumber();
   }
 
   public async start() {
@@ -92,12 +86,14 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
       this.syncPromise = new Promise(resolve => {
         this.syncResolve = resolve;
       });
-      this.log(`Starting sync from ${blockToDownloadFrom}, latest block ${this.latestBlockNumberAtStart}`);
+      this.log.info(`Starting sync from ${blockToDownloadFrom}, latest block ${this.latestBlockNumberAtStart}`);
     } else {
       // if no blocks to be retrieved, go straight to running
       this.setCurrentState(WorldStateRunningState.RUNNING);
       this.syncPromise = Promise.resolve();
-      this.log(`Next block ${blockToDownloadFrom} already beyond latest block at ${this.latestBlockNumberAtStart}`);
+      this.log.debug(
+        `Next block ${blockToDownloadFrom} already beyond latest block at ${this.latestBlockNumberAtStart}`,
+      );
     }
 
     // start looking for further blocks
@@ -109,19 +105,26 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     this.jobQueue.start();
     this.runningPromise = blockProcess();
     this.l2BlockDownloader.start(blockToDownloadFrom);
-    this.log(`Started block downloader from block ${blockToDownloadFrom}`);
+    this.log.info(`Started block downloader from block ${blockToDownloadFrom}`);
     return this.syncPromise;
   }
 
   public async stop() {
-    this.log('Stopping world state...');
+    this.log.debug('Stopping world state...');
     this.stopping = true;
     await this.l2BlockDownloader.stop();
+    this.log.debug('Cancelling job queue...');
     await this.jobQueue.cancel();
+    this.log.debug('Stopping Merkle trees');
     await this.merkleTreeDb.stop();
+    this.log.debug('Awaiting promise');
     await this.runningPromise;
-    await this.commitCurrentL2BlockNumber();
     this.setCurrentState(WorldStateRunningState.STOPPED);
+    this.log.info(`Stopped`);
+  }
+
+  private get currentL2BlockNum(): number {
+    return this.blockNumber.get() ?? 0;
   }
 
   public status(): Promise<WorldStateStatus> {
@@ -147,7 +150,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
       return this.currentL2BlockNum;
     }
     const blockToSyncTo = minBlockNumber === undefined ? 'latest' : `${minBlockNumber}`;
-    this.log(`World State at block ${this.currentL2BlockNum}, told to sync to block ${blockToSyncTo}...`);
+    this.log.debug(`World State at block ${this.currentL2BlockNum}, told to sync to block ${blockToSyncTo}...`);
     // ensure any outstanding block updates are completed first.
     await this.jobQueue.syncPoint();
     while (true) {
@@ -157,7 +160,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
       }
       // Poll for more blocks
       const numBlocks = await this.l2BlockDownloader.pollImmediate();
-      this.log(`Block download immediate poll yielded ${numBlocks} blocks`);
+      this.log.debug(`Block download immediate poll yielded ${numBlocks} blocks`);
       if (numBlocks) {
         // More blocks were received, process them and go round again
         await this.jobQueue.put(() => this.collectAndProcessBlocks());
@@ -179,38 +182,51 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
   private async collectAndProcessBlocks() {
     // This request for blocks will timeout after 1 second if no blocks are received
     const blocks = await this.l2BlockDownloader.getBlocks(1);
-    await this.handleL2Blocks(blocks);
-    await this.commitCurrentL2BlockNumber();
+    const messagePromises = blocks.map(block => this.l2BlockSource.getL1ToL2Messages(BigInt(block.number)));
+    const l1ToL2Messages: Fr[][] = await Promise.all(messagePromises);
+
+    await this.handleL2BlocksAndMessages(blocks, l1ToL2Messages);
   }
 
   /**
-   * Handles a list of L2 blocks (i.e. Inserts the new commitments into the merkle tree).
+   * Handles a list of L2 blocks (i.e. Inserts the new note hashes into the merkle tree).
    * @param l2Blocks - The L2 blocks to handle.
+   * @param l1ToL2Messages - The L1 to L2 messages for each block.
    * @returns Whether the block handled was produced by this same node.
    */
-  private async handleL2Blocks(l2Blocks: L2Block[]) {
-    for (const l2Block of l2Blocks) {
-      const [duration, result] = await elapsed(() => this.handleL2Block(l2Block));
-      this.log(`Handled new L2 block`, {
+  private async handleL2BlocksAndMessages(l2Blocks: L2Block[], l1ToL2Messages: Fr[][]) {
+    for (let i = 0; i < l2Blocks.length; i++) {
+      const [duration, result] = await elapsed(() => this.handleL2BlockAndMessages(l2Blocks[i], l1ToL2Messages[i]));
+      this.log.verbose(`Handled new L2 block`, {
         eventName: 'l2-block-handled',
         duration,
         isBlockOurs: result.isBlockOurs,
-        ...l2Block.getStats(),
+        ...l2Blocks[i].getStats(),
       } satisfies L2BlockHandledStats);
     }
   }
 
   /**
-   * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
+   * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param l2Block - The L2 block to handle.
+   * @param l1ToL2Messages - The L1 to L2 messages for the block.
+   * @returns Whether the block handled was produced by this same node.
    */
-  private async handleL2Block(l2Block: L2Block): Promise<HandleL2BlockResult> {
-    const result = await this.merkleTreeDb.handleL2Block(l2Block);
-    this.currentL2BlockNum = l2Block.number;
-    if (
-      this.currentState === WorldStateRunningState.SYNCHING &&
-      this.currentL2BlockNum >= this.latestBlockNumberAtStart
-    ) {
+  private async handleL2BlockAndMessages(
+    l2Block: L2Block,
+    l1ToL2Messages: Fr[],
+  ): Promise<HandleL2BlockAndMessagesResult> {
+    // First we check that the L1 to L2 messages hash to the block inHash.
+    // Note that we cannot optimize this check by checking the root of the subtree after inserting the messages
+    // to the real L1_TO_L2_MESSAGE_TREE (like we do in merkleTreeDb.handleL2BlockAndMessages(...)) because that
+    // tree uses pedersen and we don't have access to the converted root.
+    await this.#verifyMessagesHashToInHash(l1ToL2Messages, l2Block.header.contentCommitment.inHash);
+
+    // If the above check succeeds, we can proceed to handle the block.
+    const result = await this.merkleTreeDb.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
+    await this.blockNumber.set(l2Block.number);
+
+    if (this.currentState === WorldStateRunningState.SYNCHING && l2Block.number >= this.latestBlockNumberAtStart) {
       this.setCurrentState(WorldStateRunningState.RUNNING);
       if (this.syncResolve !== undefined) {
         this.syncResolve();
@@ -225,24 +241,28 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
    */
   private setCurrentState(newState: WorldStateRunningState) {
     this.currentState = newState;
-    this.log(`Moved to state ${WorldStateRunningState[this.currentState]}`);
+    this.log.debug(`Moved to state ${WorldStateRunningState[this.currentState]}`);
   }
 
-  private async commitCurrentL2BlockNumber() {
-    const hex = this.currentL2BlockNum.toString(16);
-    const encoded = Buffer.from(hex.length % 2 === 1 ? '0' + hex : hex, 'hex');
+  /**
+   * Verifies that the L1 to L2 messages hash to the block inHash.
+   * @param l1ToL2Messages - The L1 to L2 messages for the block.
+   * @param inHash - The inHash of the block.
+   * @throws If the L1 to L2 messages do not hash to the block inHash.
+   */
+  async #verifyMessagesHashToInHash(l1ToL2Messages: Fr[], inHash: Buffer) {
+    const tree = new StandardTree(
+      openTmpStore(true),
+      new SHA256Trunc(),
+      'temp_in_hash_check',
+      L1_TO_L2_MSG_SUBTREE_HEIGHT,
+      0n,
+      Fr,
+    );
+    await tree.appendLeaves(l1ToL2Messages);
 
-    await this.db.put(DB_KEY_BLOCK_NUMBER, encoded);
-  }
-
-  private async restoreCurrentL2BlockNumber() {
-    try {
-      const encoded: Buffer = await this.db.get(DB_KEY_BLOCK_NUMBER);
-      this.currentL2BlockNum = parseInt(encoded.toString('hex'), 16);
-      this.log.debug(`Restored current L2 block number ${this.currentL2BlockNum} from db`);
-    } catch (err) {
-      this.log.debug('No current L2 block number found in db, starting from 0');
-      this.currentL2BlockNum = 0;
+    if (!tree.getRoot(true).equals(inHash)) {
+      throw new Error('Obtained L1 to L2 messages failed to be hashed to the block inHash');
     }
   }
 }

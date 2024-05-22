@@ -1,34 +1,17 @@
-import {
-  AppendOnlyTreeSnapshot,
-  Fr,
-  GlobalVariables,
-  MAX_NEW_COMMITMENTS_PER_TX,
-  MAX_NEW_CONTRACTS_PER_TX,
-  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-  MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-} from '@aztec/circuits.js';
+import { type L1ToL2MessageSource, L2Block, type L2BlockSource, MerkleTreeId, SiblingPath } from '@aztec/circuit-types';
+import { Fr } from '@aztec/circuits.js';
+import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
+import { randomInt } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { INITIAL_LEAF, Pedersen } from '@aztec/merkle-tree';
-import {
-  ContractData,
-  L2Block,
-  L2BlockL2Logs,
-  L2BlockSource,
-  MerkleTreeId,
-  PublicDataWrite,
-  SiblingPath,
-} from '@aztec/types';
+import { type AztecKVStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/utils';
+import { INITIAL_LEAF, Pedersen, SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
-import levelup from 'levelup';
-import times from 'lodash.times';
-import { default as memdown } from 'memdown';
 
-import { MerkleTreeDb, MerkleTrees, WorldStateConfig } from '../index.js';
+import { type MerkleTreeDb, type MerkleTrees, type WorldStateConfig } from '../index.js';
 import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.js';
 import { WorldStateRunningState } from './world_state_synchronizer.js';
 
@@ -41,94 +24,30 @@ const consumeNextBlocks = () => {
   return Promise.resolve(blocks);
 };
 
-const getMockTreeSnapshot = () => {
-  return new AppendOnlyTreeSnapshot(Fr.random(), 16);
-};
-
-const getMockContractData = () => {
-  return ContractData.random();
-};
-
-const getMockGlobalVariables = () => {
-  return GlobalVariables.from({
-    chainId: Fr.random(),
-    version: Fr.random(),
-    blockNumber: Fr.random(),
-    timestamp: Fr.random(),
-  });
-};
-
-const getMockL1ToL2MessagesData = () => {
-  return new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).map(() => Fr.random());
-};
-
-const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) => {
-  const newEncryptedLogs = L2BlockL2Logs.random(1, 2, 3);
-  const block = L2Block.fromFields({
-    number: blockNumber,
-    globalVariables: getMockGlobalVariables(),
-    startNoteHashTreeSnapshot: getMockTreeSnapshot(),
-    startNullifierTreeSnapshot: getMockTreeSnapshot(),
-    startContractTreeSnapshot: getMockTreeSnapshot(),
-    startPublicDataTreeSnapshot: getMockTreeSnapshot(),
-    startL1ToL2MessageTreeSnapshot: getMockTreeSnapshot(),
-    startArchiveSnapshot: getMockTreeSnapshot(),
-    endNoteHashTreeSnapshot: getMockTreeSnapshot(),
-    endNullifierTreeSnapshot: getMockTreeSnapshot(),
-    endContractTreeSnapshot: getMockTreeSnapshot(),
-    endPublicDataTreeSnapshot: getMockTreeSnapshot(),
-    endL1ToL2MessageTreeSnapshot: getMockTreeSnapshot(),
-    endArchiveSnapshot: getMockTreeSnapshot(),
-    newCommitments: times(MAX_NEW_COMMITMENTS_PER_TX, Fr.random),
-    newNullifiers: times(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
-    newContracts: newContractsCommitments?.map(x => Fr.fromBuffer(x)) ?? [Fr.random()],
-    newContractData: times(MAX_NEW_CONTRACTS_PER_TX, getMockContractData),
-    newPublicDataWrites: times(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
-    newL1ToL2Messages: getMockL1ToL2MessagesData(),
-    newL2ToL1Msgs: times(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.random),
-    newEncryptedLogs,
-  });
-  return block;
-};
-
-const createMockDb = () => levelup((memdown as any)());
-
-const createSynchronizer = async (
-  db: levelup.LevelUp,
-  merkleTreeDb: any,
-  rollupSource: any,
-  blockCheckInterval = 100,
-) => {
-  const worldStateConfig: WorldStateConfig = {
-    worldStateBlockCheckIntervalMS: blockCheckInterval,
-    l2QueueSize: 1000,
-  };
-
-  return await ServerWorldStateSynchronizer.new(
-    db,
-    merkleTreeDb as MerkleTrees,
-    rollupSource as L2BlockSource,
-    worldStateConfig,
-  );
-};
-
 const log = createDebugLogger('aztec:server_world_state_synchronizer_test');
 
 describe('server_world_state_synchronizer', () => {
-  const rollupSource = mock<L2BlockSource>({
+  jest.setTimeout(30_000);
+
+  let db: AztecKVStore;
+  let l1ToL2Messages: Fr[];
+  let inHash: Buffer;
+
+  const blockAndMessagesSource = mock<L2BlockSource & L1ToL2MessageSource>({
     getBlockNumber: jest.fn(getLatestBlockNumber),
     getBlocks: jest.fn(consumeNextBlocks),
+    getL1ToL2Messages: jest.fn(() => Promise.resolve(l1ToL2Messages)),
   });
 
   const merkleTreeDb = mock<MerkleTreeDb>({
     getTreeInfo: jest.fn(() =>
-      Promise.resolve({ depth: 8, treeId: MerkleTreeId.CONTRACT_TREE, root: Buffer.alloc(32, 0), size: 0n }),
+      Promise.resolve({ depth: 8, treeId: MerkleTreeId.NOTE_HASH_TREE, root: Buffer.alloc(32, 0), size: 0n }),
     ),
     getSiblingPath: jest.fn(() => {
       const pedersen: Pedersen = new Pedersen();
       return Promise.resolve(SiblingPath.ZERO(32, INITIAL_LEAF, pedersen) as SiblingPath<number>);
     }),
-    handleL2Block: jest.fn(() => Promise.resolve({ isBlockOurs: false })),
+    handleL2BlockAndMessages: jest.fn(() => Promise.resolve({ isBlockOurs: false })),
   });
 
   const performInitialSync = async (server: ServerWorldStateSynchronizer) => {
@@ -140,7 +59,7 @@ describe('server_world_state_synchronizer', () => {
     // create the initial blocks
     nextBlocks = Array(LATEST_BLOCK_NUMBER)
       .fill(0)
-      .map((_, index: number) => getMockBlock(index + 1));
+      .map((_, index: number) => getRandomBlock(index + 1));
 
     // start the sync process and await it
     await server.start().catch(err => log.error('Sync not completed: ', err));
@@ -158,9 +77,9 @@ describe('server_world_state_synchronizer', () => {
     // create the initial blocks
     nextBlocks = Array(count)
       .fill(0)
-      .map((_, index: number) => getMockBlock(LATEST_BLOCK_NUMBER + index + 1));
+      .map((_, index: number) => getRandomBlock(LATEST_BLOCK_NUMBER + index + 1));
 
-    rollupSource.getBlockNumber.mockResolvedValueOnce(LATEST_BLOCK_NUMBER + count);
+    blockAndMessagesSource.getBlockNumber.mockResolvedValueOnce(LATEST_BLOCK_NUMBER + count);
 
     // start the sync process and await it
     await server.start().catch(err => log.error('Sync not completed: ', err));
@@ -169,12 +88,51 @@ describe('server_world_state_synchronizer', () => {
     expect(status.syncedToL2Block).toBe(LATEST_BLOCK_NUMBER + count);
   };
 
-  it('can be constructed', async () => {
-    await expect(createSynchronizer(createMockDb(), merkleTreeDb, rollupSource)).resolves.toBeTruthy();
+  const createSynchronizer = (blockCheckInterval = 100) => {
+    const worldStateConfig: WorldStateConfig = {
+      worldStateBlockCheckIntervalMS: blockCheckInterval,
+      l2QueueSize: 1000,
+    };
+
+    return new ServerWorldStateSynchronizer(
+      db,
+      merkleTreeDb as any as MerkleTrees,
+      blockAndMessagesSource,
+      worldStateConfig,
+    );
+  };
+
+  const getRandomBlock = (blockNumber: number) => {
+    return L2Block.random(blockNumber, 4, 2, 3, 2, 1, inHash);
+  };
+
+  beforeAll(async () => {
+    const numMessages = randomInt(2 ** L1_TO_L2_MSG_SUBTREE_HEIGHT);
+    l1ToL2Messages = Array(numMessages)
+      .fill(0)
+      .map(() => Fr.random());
+    const tree = new StandardTree(
+      openTmpStore(true),
+      new SHA256Trunc(),
+      'empty_subtree_in_hash',
+      L1_TO_L2_MSG_SUBTREE_HEIGHT,
+      0n,
+      Fr,
+    );
+    await tree.appendLeaves(l1ToL2Messages);
+    inHash = tree.getRoot(true);
+  });
+
+  beforeEach(() => {
+    db = openTmpStore();
+  });
+
+  it('can be constructed', () => {
+    expect(createSynchronizer()).toBeTruthy();
   });
 
   it('updates sync progress', async () => {
-    const server = await createSynchronizer(createMockDb(), merkleTreeDb, rollupSource);
+    const server = createSynchronizer();
 
     // test initial state
     let status = await server.status();
@@ -183,7 +141,7 @@ describe('server_world_state_synchronizer', () => {
 
     // create an initial block
     let currentBlockNumber = 0;
-    nextBlocks = [getMockBlock(currentBlockNumber + 1)];
+    nextBlocks = [getRandomBlock(currentBlockNumber + 1)];
 
     // start the sync process but don't await
     server.start().catch(err => log.error('Sync not completed: ', err));
@@ -205,7 +163,7 @@ describe('server_world_state_synchronizer', () => {
         continue;
       }
       currentBlockNumber++;
-      nextBlocks = [getMockBlock(currentBlockNumber + 1)];
+      nextBlocks = [getRandomBlock(currentBlockNumber + 1)];
     }
 
     // check the status again, should be fully synced
@@ -223,13 +181,13 @@ describe('server_world_state_synchronizer', () => {
   });
 
   it('enables blocking until synced', async () => {
-    const server = await createSynchronizer(createMockDb(), merkleTreeDb, rollupSource);
+    const server = createSynchronizer();
     let currentBlockNumber = 0;
 
     const newBlocks = async () => {
       while (currentBlockNumber <= LATEST_BLOCK_NUMBER) {
         await sleep(100);
-        nextBlocks = [...nextBlocks, getMockBlock(++currentBlockNumber)];
+        nextBlocks = [...nextBlocks, getRandomBlock(++currentBlockNumber)];
       }
     };
 
@@ -254,13 +212,13 @@ describe('server_world_state_synchronizer', () => {
   });
 
   it('handles multiple calls to start', async () => {
-    const server = await createSynchronizer(createMockDb(), merkleTreeDb, rollupSource);
+    const server = createSynchronizer();
     let currentBlockNumber = 0;
 
     const newBlocks = async () => {
       while (currentBlockNumber < LATEST_BLOCK_NUMBER) {
         await sleep(100);
-        const newBlock = getMockBlock(++currentBlockNumber);
+        const newBlock = getRandomBlock(++currentBlockNumber);
         nextBlocks = [...nextBlocks, newBlock];
       }
     };
@@ -281,8 +239,8 @@ describe('server_world_state_synchronizer', () => {
   });
 
   it('immediately syncs if no new blocks', async () => {
-    const server = await createSynchronizer(createMockDb(), merkleTreeDb, rollupSource);
-    rollupSource.getBlockNumber.mockImplementationOnce(() => {
+    const server = createSynchronizer();
+    blockAndMessagesSource.getBlockNumber.mockImplementationOnce(() => {
       return Promise.resolve(0);
     });
 
@@ -299,8 +257,8 @@ describe('server_world_state_synchronizer', () => {
   });
 
   it("can't be started if already stopped", async () => {
-    const server = await createSynchronizer(createMockDb(), merkleTreeDb, rollupSource);
-    rollupSource.getBlockNumber.mockImplementationOnce(() => {
+    const server = createSynchronizer();
+    blockAndMessagesSource.getBlockNumber.mockImplementationOnce(() => {
       return Promise.resolve(0);
     });
 
@@ -312,34 +270,34 @@ describe('server_world_state_synchronizer', () => {
     await expect(server.start()).rejects.toThrow();
   });
 
-  it('adds the received L2 blocks', async () => {
-    merkleTreeDb.handleL2Block.mockClear();
-    const server = await createSynchronizer(createMockDb(), merkleTreeDb, rollupSource);
+  it('adds the received L2 blocks and messages', async () => {
+    merkleTreeDb.handleL2BlockAndMessages.mockClear();
+    const server = createSynchronizer();
     const totalBlocks = LATEST_BLOCK_NUMBER + 1;
     nextBlocks = Array(totalBlocks)
       .fill(0)
-      .map((_, index) => getMockBlock(index, [Buffer.alloc(32, index)]));
+      .map((_, index) => getRandomBlock(index));
     // sync the server
     await server.start();
 
-    expect(merkleTreeDb.handleL2Block).toHaveBeenCalledTimes(totalBlocks);
+    expect(merkleTreeDb.handleL2BlockAndMessages).toHaveBeenCalledTimes(totalBlocks);
     await server.stop();
   });
 
   it('can immediately sync to latest', async () => {
-    const server = await createSynchronizer(createMockDb(), merkleTreeDb, rollupSource, 10000);
+    const server = createSynchronizer(10000);
 
     await performInitialSync(server);
 
     // the server should now be asleep for a long time
     // we will add a new block and force an immediate sync
-    nextBlocks = [getMockBlock(LATEST_BLOCK_NUMBER + 1)];
+    nextBlocks = [getRandomBlock(LATEST_BLOCK_NUMBER + 1)];
     await server.syncImmediate();
 
     let status = await server.status();
     expect(status.syncedToL2Block).toBe(LATEST_BLOCK_NUMBER + 1);
 
-    nextBlocks = [getMockBlock(LATEST_BLOCK_NUMBER + 2), getMockBlock(LATEST_BLOCK_NUMBER + 3)];
+    nextBlocks = [getRandomBlock(LATEST_BLOCK_NUMBER + 2), getRandomBlock(LATEST_BLOCK_NUMBER + 3)];
     await server.syncImmediate();
 
     status = await server.status();
@@ -355,7 +313,7 @@ describe('server_world_state_synchronizer', () => {
   });
 
   it('can immediately sync to a minimum block number', async () => {
-    const server = await createSynchronizer(createMockDb(), merkleTreeDb, rollupSource, 10000);
+    const server = createSynchronizer(10000);
 
     await performInitialSync(server);
 
@@ -363,7 +321,7 @@ describe('server_world_state_synchronizer', () => {
     // we will add 20 blocks and force a sync to at least LATEST + 5
     nextBlocks = Array(20)
       .fill(0)
-      .map((_, index: number) => getMockBlock(index + 1 + LATEST_BLOCK_NUMBER));
+      .map((_, index: number) => getRandomBlock(index + 1 + LATEST_BLOCK_NUMBER));
     await server.syncImmediate(LATEST_BLOCK_NUMBER + 5);
 
     // we should have synced all of the blocks
@@ -380,7 +338,7 @@ describe('server_world_state_synchronizer', () => {
   });
 
   it('can immediately sync to a minimum block in the past', async () => {
-    const server = await createSynchronizer(createMockDb(), merkleTreeDb, rollupSource, 10000);
+    const server = createSynchronizer(10000);
 
     await performInitialSync(server);
     // syncing to a block in the past should succeed
@@ -402,7 +360,7 @@ describe('server_world_state_synchronizer', () => {
   });
 
   it('throws if you try to sync to an unavailable block', async () => {
-    const server = await createSynchronizer(createMockDb(), merkleTreeDb, rollupSource, 10000);
+    const server = createSynchronizer();
 
     await performInitialSync(server);
 
@@ -410,7 +368,7 @@ describe('server_world_state_synchronizer', () => {
     // we will add 2 blocks and force a sync to at least LATEST + 5
     nextBlocks = Array(2)
       .fill(0)
-      .map((_, index: number) => getMockBlock(index + 1 + LATEST_BLOCK_NUMBER));
+      .map((_, index: number) => getRandomBlock(index + 1 + LATEST_BLOCK_NUMBER));
     await expect(server.syncImmediate(LATEST_BLOCK_NUMBER + 5)).rejects.toThrow(
       `Unable to sync to block number ${LATEST_BLOCK_NUMBER + 5}, currently synced to block ${LATEST_BLOCK_NUMBER + 2}`,
     );
@@ -428,7 +386,7 @@ describe('server_world_state_synchronizer', () => {
   });
 
   it('throws if you try to immediate sync when not running', async () => {
-    const server = await createSynchronizer(createMockDb(), merkleTreeDb, rollupSource, 10000);
+    const server = createSynchronizer(10000);
 
     // test initial state
     const status = await server.status();
@@ -438,19 +396,18 @@ describe('server_world_state_synchronizer', () => {
     // create an initial block
     nextBlocks = Array(LATEST_BLOCK_NUMBER)
       .fill(0)
-      .map((_, index: number) => getMockBlock(index + 1));
+      .map((_, index: number) => getRandomBlock(index + 1));
 
     await expect(server.syncImmediate()).rejects.toThrow(`World State is not running, unable to perform sync`);
   });
 
   it('restores the last synced block', async () => {
-    const db = createMockDb();
-    const initialServer = await createSynchronizer(db, merkleTreeDb, rollupSource, 10000);
+    const initialServer = createSynchronizer(10000);
 
     await performInitialSync(initialServer);
     await initialServer.stop();
 
-    const server = await createSynchronizer(db, merkleTreeDb, rollupSource, 10000);
+    const server = createSynchronizer(10000);
     const status = await server.status();
     expect(status).toEqual({
       state: WorldStateRunningState.IDLE,
@@ -459,13 +416,12 @@ describe('server_world_state_synchronizer', () => {
   });
 
   it('starts syncing from the last block', async () => {
-    const db = createMockDb();
-    const initialServer = await createSynchronizer(db, merkleTreeDb, rollupSource, 10000);
+    const initialServer = createSynchronizer(10000);
 
     await performInitialSync(initialServer);
     await initialServer.stop();
 
-    const server = await createSynchronizer(db, merkleTreeDb, rollupSource, 10000);
+    const server = createSynchronizer(10000);
     await performSubsequentSync(server, 2);
     await server.stop();
   });

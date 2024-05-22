@@ -1,8 +1,13 @@
-import { FieldsOf } from '@aztec/circuits.js';
+import {
+  type ExtendedNote,
+  type GetUnencryptedLogsResponse,
+  type PXE,
+  type TxHash,
+  type TxReceipt,
+  TxStatus,
+} from '@aztec/circuit-types';
 import { retryUntil } from '@aztec/foundation/retry';
-import { ExtendedNote, GetUnencryptedLogsResponse, PXE, TxHash, TxReceipt, TxStatus } from '@aztec/types';
-
-import every from 'lodash.every';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 /** Options related to waiting for a tx. */
 export type WaitOpts = {
@@ -17,6 +22,8 @@ export type WaitOpts = {
   waitForNotesSync?: boolean;
   /** Whether to include information useful for debugging/testing in the receipt. */
   debug?: boolean;
+  /** Whether to accept a revert as a status code for the tx when waiting for it. If false, will throw if the tx reverts. */
+  dontThrowOnRevert?: boolean;
 };
 
 export const DefaultWaitOpts: WaitOpts = {
@@ -39,8 +46,8 @@ export class SentTx {
    *
    * @returns A promise that resolves to the transaction hash of the SentTx instance.
    */
-  public async getTxHash() {
-    return await this.txHashPromise;
+  public getTxHash(): Promise<TxHash> {
+    return this.txHashPromise;
   }
 
   /**
@@ -62,23 +69,23 @@ export class SentTx {
    */
   public async wait(opts?: WaitOpts): Promise<FieldsOf<TxReceipt>> {
     if (opts?.debug && opts.waitForNotesSync === false) {
-      throw new Error('Cannot set getNotes to true if waitForNotesSync is false');
+      throw new Error('Cannot set debug to true if waitForNotesSync is false');
     }
     const receipt = await this.waitForReceipt(opts);
-    if (receipt.status !== TxStatus.MINED) {
-      throw new Error(`Transaction ${await this.getTxHash()} was ${receipt.status}`);
+    if (!(receipt.status === TxStatus.MINED || (receipt.status === TxStatus.REVERTED && opts?.dontThrowOnRevert))) {
+      throw new Error(
+        `Transaction ${await this.getTxHash()} was ${receipt.status}. Reason: ${receipt.error ?? 'unknown'}`,
+      );
     }
     if (opts?.debug) {
       const txHash = await this.getTxHash();
-      const tx = (await this.pxe.getTx(txHash))!;
+      const tx = (await this.pxe.getTxEffect(txHash))!;
       const visibleNotes = await this.pxe.getNotes({ txHash });
       receipt.debugInfo = {
-        newCommitments: tx.newCommitments,
-        newNullifiers: tx.newNullifiers,
-        newPublicDataWrites: tx.newPublicDataWrites,
-        newL2ToL1Msgs: tx.newL2ToL1Msgs,
-        newContracts: tx.newContracts,
-        newContractData: tx.newContractData,
+        noteHashes: tx.noteHashes,
+        nullifiers: tx.nullifiers,
+        publicDataWrites: tx.publicDataWrites,
+        l2ToL1Msgs: tx.l2ToL1Msgs,
         visibleNotes,
       };
     }
@@ -126,7 +133,7 @@ export class SentTx {
         // Check if all sync blocks on the PXE Service are greater or equal than the block in which the tx was mined
         const { blocks, notes } = await this.pxe.getSyncStatus();
         const targetBlock = txReceipt.blockNumber!;
-        const areNotesSynced = blocks >= targetBlock && every(notes, block => block >= targetBlock);
+        const areNotesSynced = blocks >= targetBlock && Object.values(notes).every(block => block >= targetBlock);
         return areNotesSynced ? txReceipt : undefined;
       },
       'isMined',

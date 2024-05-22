@@ -114,7 +114,6 @@
     "**/.yalc": true,
     "**/node_modules": true,
     "**/.pnp.*": true,
-    "circuits/cpp/barretenberg/**": true,
     "**/msgpack-c/**": true
   },
   "[terraform]": {
@@ -126,8 +125,6 @@
   "[javascript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  // Now when a new file is pasted in /yellow-paper/docs/readme.md, the image file is created at /yellow-paper/docs/images/readme/image.png.
-  "markdown.copyFiles.destination": {"/yellow-paper/**/*": "images/${documentBaseName}/"},
   ///////////////////////////////////////
   // C++/Circuits settings
   ///////////////////////////////////////
@@ -139,13 +136,7 @@
   // Clangd. Note that this setting may be overridden by user settings
   // to the default value "clangd".
   //
-  "clangd.path": "clangd-15",
-  //
-  // CMake
-  //
-  // Location of base CMakeLists file
-  "cmake.sourceDirectory": "${workspaceFolder}/circuits/cpp/",
-  "cmake.buildDirectory": "${workspaceFolder}/circuits/cpp/build",
+  "clangd.path": "clangd-16",
   //
   // C/C++ (should be disabled)
   //
@@ -160,15 +151,20 @@
   "C_Cpp.default.enableConfigurationSquiggles": false,
   "C_Cpp.formatting": "disabled",
   "C_Cpp.vcpkg.enabled": false,
-  "C_Cpp.default.includePath": ["cpp/barretenberg/cpp/src"],
-  //
-  // TestMate C++
-  //
-  // Ensures tests are run from the `build` directory
-  // which ensures SRS can be read
-  "testMate.cpp.test.workingDirectory": "${workspaceFolder}/circuits/cpp/build",
-  // Filter all binaries that are not tests
-  "testMate.cpp.test.executables": "${workspaceFolder}/circuits/cpp/build/bin/*{test,Test,TEST}*"
-  // End C++/Circuits settings
-  ///////////////////////////////////////
+  "C_Cpp.default.includePath": ["barretenberg/cpp/src"],
+  "rust-analyzer.linkedProjects": [
+    "noir/noir-repo/Cargo.toml",
+    "noir/noir-repo/acvm-repo/acvm_js/Cargo.toml",
+    "avm-transpiler/Cargo.toml"
+  ],
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/.hg/store/**": true,
+    "**/target/**": true,
+    "**/l1-contracts/lib/**": true,
+    "**/barretenberg/cpp/build*/**": true
+  },
+  "cmake.sourceDirectory": "${workspaceFolder}/barretenberg/cpp"
 }

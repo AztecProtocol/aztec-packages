@@ -8,22 +8,6 @@ pragma solidity >=0.8.18;
  * @notice Library that contains data structures used throughout the Aztec protocol
  */
 library DataStructures {
-  // docs:start:data_structure_entry
-  /**
-   * @notice Entry struct - Done as struct to easily support extensions if needed
-   * @param fee - The fee provided to sequencer for including in the inbox. 0 if Outbox (as not applicable).
-   * @param count - The occurrence of the entry in the dataset
-   * @param version - The version of the entry
-   * @param deadline - The deadline to consume a message. Only after it, can a message be cancelled.
-   */
-  struct Entry {
-    uint64 fee;
-    uint32 count;
-    uint32 version;
-    uint32 deadline;
-  }
-  // docs:end:data_structure_entry
-
   // docs:start:l1_actor
   /**
    * @notice Actor on L1.
@@ -54,17 +38,13 @@ library DataStructures {
    * @param sender - The sender of the message
    * @param recipient - The recipient of the message
    * @param content - The content of the message (application specific) padded to bytes32 or hashed if larger.
-   * @param secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2)
-   * @param deadline - The deadline to consume a message. Only after it, can a message be cancelled.
-   * @param fee - The fee provided to sequencer for including the entry
+   * @param secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2).
    */
   struct L1ToL2Msg {
     L1Actor sender;
     L2Actor recipient;
     bytes32 content;
     bytes32 secretHash;
-    uint32 deadline;
-    uint64 fee;
   }
   // docs:end:l1_to_l2_msg
 
@@ -74,6 +54,7 @@ library DataStructures {
    * @param sender - The sender of the message
    * @param recipient - The recipient of the message
    * @param content - The content of the message (application specific) padded to bytes32 or hashed if larger.
+   * @dev Not to be confused with L2ToL1Message in Noir circuits
    */
   struct L2ToL1Msg {
     DataStructures.L2Actor sender;

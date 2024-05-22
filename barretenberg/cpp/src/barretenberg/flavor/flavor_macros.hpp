@@ -6,7 +6,7 @@
 // while DEFINE_COMPOUND_GET_ALL lets you combine the iterators of substructures or base
 // classes.
 
-#include "barretenberg/common/ref_vector.hpp"
+#include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/common/std_string.hpp"
 #include "barretenberg/common/std_vector.hpp"
@@ -14,7 +14,7 @@
 #include <iostream>
 #include <sstream>
 
-namespace barretenberg::detail {
+namespace bb::detail {
 template <typename... Args> constexpr std::size_t _va_count(Args&&... /*unused*/)
 {
     return sizeof...(Args);
@@ -35,16 +35,16 @@ template <typename T, typename... BaseClass> auto _concatenate_base_class_get_la
 {
     return concatenate(static_cast<const BaseClass&>(arg).get_labels()...);
 }
-} // namespace barretenberg::detail
+} // namespace bb::detail
 
 #define DEFINE_REF_VIEW(...)                                                                                           \
     [[nodiscard]] auto get_all()                                                                                       \
     {                                                                                                                  \
-        return RefVector{ __VA_ARGS__ };                                                                               \
+        return RefArray{ __VA_ARGS__ };                                                                                \
     }                                                                                                                  \
     [[nodiscard]] auto get_all() const                                                                                 \
     {                                                                                                                  \
-        return RefVector{ __VA_ARGS__ };                                                                               \
+        return RefArray{ __VA_ARGS__ };                                                                                \
     }
 
 /**
@@ -59,27 +59,27 @@ template <typename T, typename... BaseClass> auto _concatenate_base_class_get_la
     DEFINE_REF_VIEW(__VA_ARGS__)                                                                                       \
     std::vector<std::string> get_labels() const                                                                        \
     {                                                                                                                  \
-        return barretenberg::detail::split_and_trim(#__VA_ARGS__, ',');                                                \
+        return bb::detail::split_and_trim(#__VA_ARGS__, ',');                                                          \
     }                                                                                                                  \
     constexpr std::size_t size() const                                                                                 \
     {                                                                                                                  \
-        return barretenberg::detail::_va_count(__VA_ARGS__);                                                           \
+        return bb::detail::_va_count(__VA_ARGS__);                                                                     \
     }
 
 #define DEFINE_COMPOUND_GET_ALL(...)                                                                                   \
     [[nodiscard]] auto get_all()                                                                                       \
     {                                                                                                                  \
-        return barretenberg::detail::_concatenate_base_class_get_all<decltype(*this), __VA_ARGS__>(*this);             \
+        return bb::detail::_concatenate_base_class_get_all<decltype(*this), __VA_ARGS__>(*this);                       \
     }                                                                                                                  \
     [[nodiscard]] auto get_all() const                                                                                 \
     {                                                                                                                  \
-        return barretenberg::detail::_concatenate_base_class_get_all_const<decltype(*this), __VA_ARGS__>(*this);       \
+        return bb::detail::_concatenate_base_class_get_all_const<decltype(*this), __VA_ARGS__>(*this);                 \
     }                                                                                                                  \
     constexpr std::size_t size() const                                                                                 \
     {                                                                                                                  \
-        return barretenberg::detail::_sum_base_class_size<decltype(*this), __VA_ARGS__>(*this);                        \
+        return bb::detail::_sum_base_class_size<decltype(*this), __VA_ARGS__>(*this);                                  \
     }                                                                                                                  \
     std::vector<std::string> get_labels() const                                                                        \
     {                                                                                                                  \
-        return barretenberg::detail::_concatenate_base_class_get_labels<decltype(*this), __VA_ARGS__>(*this);          \
+        return bb::detail::_concatenate_base_class_get_labels<decltype(*this), __VA_ARGS__>(*this);                    \
     }

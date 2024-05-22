@@ -1,30 +1,31 @@
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
-import { FieldsOf } from '../index.js';
-import { serializeToBuffer } from '../utils/index.js';
+import { GLOBAL_VARIABLES_LENGTH } from '../constants.gen.js';
+import { GasFees } from './gas_fees.js';
 
 /**
  * Global variables of the L2 block.
  */
 export class GlobalVariables {
   constructor(
-    /**
-     * ChainId for the L2 block.
-     */
+    /** ChainId for the L2 block. */
     public chainId: Fr,
-    /**
-     * version for the L2 block.
-     */
+    /** Version for the L2 block. */
     public version: Fr,
-    /**
-     * Block number of the L2 block.
-     */
+    /** Block number of the L2 block. */
     public blockNumber: Fr,
-    /**
-     * Timestamp of the L2 block.
-     */
+    /** Timestamp of the L2 block. */
     public timestamp: Fr,
+    /** Recipient of block reward. */
+    public coinbase: EthAddress,
+    /** Address to receive fees. */
+    public feeRecipient: AztecAddress,
+    /** Global gas prices for this block. */
+    public gasFees: GasFees,
   ) {}
 
   static from(fields: FieldsOf<GlobalVariables>): GlobalVariables {
@@ -32,7 +33,7 @@ export class GlobalVariables {
   }
 
   static empty(): GlobalVariables {
-    return new GlobalVariables(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
+    return new GlobalVariables(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO, AztecAddress.ZERO, GasFees.empty());
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): GlobalVariables {
@@ -42,6 +43,9 @@ export class GlobalVariables {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
+      reader.readObject(EthAddress),
+      reader.readObject(AztecAddress),
+      reader.readObject(GasFees),
     );
   }
 
@@ -51,15 +55,51 @@ export class GlobalVariables {
       Fr.fromString(obj.version),
       Fr.fromString(obj.blockNumber),
       Fr.fromString(obj.timestamp),
+      EthAddress.fromString(obj.coinbase),
+      AztecAddress.fromString(obj.feeRecipient),
+      GasFees.fromJSON(obj.gasFees),
+    );
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): GlobalVariables {
+    const reader = FieldReader.asReader(fields);
+
+    return new GlobalVariables(
+      reader.readField(),
+      reader.readField(),
+      reader.readField(),
+      reader.readField(),
+      EthAddress.fromField(reader.readField()),
+      AztecAddress.fromField(reader.readField()),
+      GasFees.fromFields(reader),
     );
   }
 
   static getFields(fields: FieldsOf<GlobalVariables>) {
-    return [fields.chainId, fields.version, fields.blockNumber, fields.timestamp] as const;
+    // Note: The order here must match the order in the HeaderLib solidity library.
+    return [
+      fields.chainId,
+      fields.version,
+      fields.blockNumber,
+      fields.timestamp,
+      fields.coinbase,
+      fields.feeRecipient,
+      fields.gasFees,
+    ] as const;
   }
 
   toBuffer() {
     return serializeToBuffer(...GlobalVariables.getFields(this));
+  }
+
+  toFields() {
+    const fields = serializeToFields(...GlobalVariables.getFields(this));
+    if (fields.length !== GLOBAL_VARIABLES_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for GlobalVariables. Expected ${GLOBAL_VARIABLES_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
   }
 
   toJSON() {
@@ -68,6 +108,25 @@ export class GlobalVariables {
       version: this.version.toString(),
       blockNumber: this.blockNumber.toString(),
       timestamp: this.timestamp.toString(),
+      coinbase: this.coinbase.toString(),
+      feeRecipient: this.feeRecipient.toString(),
+      gasFees: this.gasFees.toJSON(),
     };
+  }
+
+  clone(): GlobalVariables {
+    return GlobalVariables.fromBuffer(this.toBuffer());
+  }
+
+  isEmpty(): boolean {
+    return (
+      this.chainId.isZero() &&
+      this.version.isZero() &&
+      this.blockNumber.isZero() &&
+      this.timestamp.isZero() &&
+      this.coinbase.isZero() &&
+      this.feeRecipient.isZero() &&
+      this.gasFees.isEmpty()
+    );
   }
 }

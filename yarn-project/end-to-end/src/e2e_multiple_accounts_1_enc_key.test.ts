@@ -1,31 +1,27 @@
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
-  AztecAddress,
-  AztecNode,
-  CompleteAddress,
-  DebugLogger,
+  type AztecAddress,
+  type AztecNode,
+  type CompleteAddress,
+  type DebugLogger,
   ExtendedNote,
   Fr,
   GrumpkinScalar,
   Note,
-  PXE,
-  TxStatus,
-  Wallet,
-  computeMessageSecretHash,
-  generatePublicKey,
-  getSandboxAccountsWallets,
-  getSchnorrAccount,
+  type PXE,
+  type Wallet,
+  computeSecretHash,
+  deriveKeys,
 } from '@aztec/aztec.js';
-import { TokenContract } from '@aztec/noir-contracts/Token';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup } from './fixtures/utils.js';
-
-const { PXE_URL } = process.env;
+import { expectsNumOfNoteEncryptedLogsInTheLastBlockToBe, setup } from './fixtures/utils.js';
 
 describe('e2e_multiple_accounts_1_enc_key', () => {
   let aztecNode: AztecNode | undefined;
   let pxe: PXE;
   const wallets: Wallet[] = [];
-  const accounts: AztecAddress[] = [];
+  const accounts: CompleteAddress[] = [];
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
 
@@ -37,57 +33,49 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
   beforeEach(async () => {
     ({ teardown, aztecNode, pxe, logger } = await setup(0));
 
-    const encryptionPrivateKey = GrumpkinScalar.random();
+    const encryptionPrivateKey = Fr.random();
 
     for (let i = 0; i < numAccounts; i++) {
-      logger(`Deploying account contract ${i}/3...`);
+      logger.info(`Deploying account contract ${i}/3...`);
       const signingPrivateKey = GrumpkinScalar.random();
       const account = getSchnorrAccount(pxe, encryptionPrivateKey, signingPrivateKey);
-      const wallet = await account.waitDeploy({ interval: 0.1 });
-      const { address } = account.getCompleteAddress();
+      const wallet = await account.waitSetup({ interval: 0.1 });
+      const completeAddress = account.getCompleteAddress();
       wallets.push(wallet);
-      accounts.push(address);
+      accounts.push(completeAddress);
     }
-    logger('Account contracts deployed');
+    logger.info('Account contracts deployed');
 
     // Verify that all accounts use the same encryption key
-    const encryptionPublicKey = generatePublicKey(encryptionPrivateKey);
+    const encryptionPublicKey = deriveKeys(encryptionPrivateKey).publicKeys.masterIncomingViewingPublicKey;
 
-    // Disregard sandbox accounts
-    let keyAccounts: CompleteAddress[];
-    if (PXE_URL) {
-      const sandBoxWallets = await getSandboxAccountsWallets(pxe);
-      const allAccounts = await pxe.getRegisteredAccounts();
-      keyAccounts = allAccounts.filter(
-        acc => !sandBoxWallets.map(wlt => wlt.getAddress().toString()).includes(acc.address.toString()),
-      );
-    } else {
-      keyAccounts = await pxe.getRegisteredAccounts();
-    }
-    for (const account of keyAccounts) {
-      expect(account.publicKey).toEqual(encryptionPublicKey);
+    for (const account of accounts) {
+      expect(account.publicKeys.masterIncomingViewingPublicKey).toEqual(encryptionPublicKey);
     }
 
-    logger(`Deploying Token...`);
-    const token = await TokenContract.deploy(wallets[0], accounts[0]).send().deployed();
+    logger.info(`Deploying Token...`);
+    const token = await TokenContract.deploy(wallets[0], accounts[0], 'TokenName', 'TokenSymbol', 18).send().deployed();
     tokenAddress = token.address;
-    logger(`Token deployed at ${tokenAddress}`);
+    logger.info(`Token deployed at ${tokenAddress}`);
 
     const secret = Fr.random();
-    const secretHash = computeMessageSecretHash(secret);
+    const secretHash = computeSecretHash(secret);
 
     const receipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
-    expect(receipt.status).toEqual(TxStatus.MINED);
 
-    const storageSlot = new Fr(5);
     const note = new Note([new Fr(initialBalance), secretHash]);
-    const extendedNote = new ExtendedNote(note, accounts[0], token.address, storageSlot, receipt.txHash);
+    const extendedNote = new ExtendedNote(
+      note,
+      accounts[0].address,
+      token.address,
+      TokenContract.storage.pending_shields.slot,
+      TokenContract.notes.TransparentNote.id,
+      receipt.txHash,
+    );
     await pxe.addNote(extendedNote);
 
-    expect((await token.methods.redeem_shield(accounts[0], initialBalance, secret).send().wait()).status).toEqual(
-      TxStatus.MINED,
-    );
-  }, 100_000);
+    await token.methods.redeem_shield(accounts[0], initialBalance, secret).send().wait();
+  });
 
   afterEach(() => teardown());
 
@@ -97,8 +85,8 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
 
     // Then check the balance
     const contractWithWallet = await TokenContract.at(tokenAddress, wallet);
-    const balance = await contractWithWallet.methods.balance_of_private(owner).view({ from: owner });
-    logger(`Account ${owner} balance: ${balance}`);
+    const balance = await contractWithWallet.methods.balance_of_private(owner).simulate({ from: owner.address });
+    logger.info(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
 
@@ -108,23 +96,22 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     transferAmount: bigint,
     expectedBalances: bigint[],
   ) => {
-    logger(`Transfer ${transferAmount} from ${accounts[senderIndex]} to ${accounts[receiverIndex]}...`);
+    logger.info(`Transfer ${transferAmount} from ${accounts[senderIndex]} to ${accounts[receiverIndex]}...`);
 
     const sender = accounts[senderIndex];
     const receiver = accounts[receiverIndex];
 
     const contractWithWallet = await TokenContract.at(tokenAddress, wallets[senderIndex]);
 
-    const receipt = await contractWithWallet.methods.transfer(sender, receiver, transferAmount, 0).send().wait();
-    expect(receipt.status).toBe(TxStatus.MINED);
+    await contractWithWallet.methods.transfer(sender, receiver, transferAmount, 0).send().wait();
 
     for (let i = 0; i < expectedBalances.length; i++) {
       await expectBalance(i, expectedBalances[i]);
     }
 
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
+    await expectsNumOfNoteEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
 
-    logger(`Transfer ${transferAmount} from ${sender} to ${receiver} successful`);
+    logger.info(`Transfer ${transferAmount} from ${sender} to ${receiver} successful`);
   };
 
   /**
@@ -155,5 +142,5 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
       expectedBalancesAfterTransfer2[2] + transferAmount3,
     ];
     await transfer(1, 2, transferAmount3, expectedBalancesAfterTransfer3);
-  }, 180_000);
+  });
 });

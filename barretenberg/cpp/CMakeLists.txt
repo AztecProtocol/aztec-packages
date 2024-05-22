@@ -1,12 +1,12 @@
 # barretenberg
 # copyright 2019 Spilsbury Holdings Ltd
 
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 
 project(
     Barretenberg
     DESCRIPTION "BN254 elliptic curve library, and PLONK SNARK prover"
-    VERSION 0.16.9 # x-release-please-version
+    VERSION 0.41.0 # x-release-please-version
     LANGUAGES CXX C
 )
 # Insert version into `bb` config file
@@ -16,14 +16,20 @@ configure_file(
     @ONLY
 )
 
+# Add doxygen build command
+find_package(Doxygen)
+if (DOXYGEN_FOUND)
+add_custom_target(build_docs 
+COMMAND ${DOXYGEN_EXECUTABLE} ${PROJECT_SOURCE_DIR}/docs/Doxyfile
+WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+COMMENT "Generate documentation with Doxygen")
+endif(DOXYGEN_FOUND)
 
 option(DISABLE_ASM "Disable custom assembly" OFF)
 option(DISABLE_ADX "Disable ADX assembly variant" OFF)
 option(MULTITHREADING "Enable multi-threading" ON)
 option(OMP_MULTITHREADING "Enable OMP multi-threading" OFF)
-option(TESTING "Build tests" ON)
-option(BENCHMARKS "Build benchmarks" ON)
-option(FUZZING "Build fuzzing harnesses" OFF)
+option(FUZZING "Build ONLY fuzzing harnesses" OFF)
 option(DISABLE_TBB "Intel Thread Building Blocks" ON)
 option(COVERAGE "Enable collecting coverage from tests" OFF)
 option(ENABLE_ASAN "Address sanitizer for debugging tricky memory corruption" OFF)
@@ -52,22 +58,10 @@ if(FUZZING)
         add_definitions(-DDISABLE_CUSTOM_MUTATORS=1)
     endif()
 
-    set(SANITIZER_OPTIONS "")
+    add_compile_options(-fsanitize=fuzzer)
+    add_link_options(-fsanitize=fuzzer)
 
-    if(ADDRESS_SANITIZER)
-        set(SANITIZER_OPTIONS ${SANITIZER_OPTIONS} -fsanitize=address)
-    endif()
-
-    if(UNDEFINED_BEHAVIOUR_SANITIZER)
-        set(SANITIZER_OPTIONS ${SANITIZER_OPTIONS} -fsanitize=undefined -fno-sanitize=alignment)
-    endif()
-
-    add_compile_options(-fsanitize=fuzzer-no-link ${SANITIZER_OPTIONS})
-
-    set(WASM OFF)
-    set(BENCHMARKS OFF)
     set(MULTITHREADING OFF)
-    set(TESTING OFF)
 endif()
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
@@ -75,7 +69,6 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
     set(WASM ON)
     set(DISABLE_ASM ON)
     set(OMP_MULTITHREADING OFF)
-    set(BENCHMARKS OFF)
     set(DISABLE_TBB 1)
     add_compile_definitions(_WASI_EMULATED_PROCESS_CLOCKS=1)
 endif()
@@ -87,6 +80,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_EXTENSIONS ON)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options(-fbracket-depth=512)
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "14")
         message(WARNING "Clang <14 is not supported")
     endif()

@@ -1,12 +1,18 @@
-import { TreeBase } from '../tree_base.js';
-import { TreeSnapshotBuilder } from './snapshot_builder.js';
+import { randomBigInt } from '@aztec/foundation/crypto';
+import { type Bufferable } from '@aztec/foundation/serialize';
+
+import { jest } from '@jest/globals';
+
+import { type TreeBase } from '../tree_base.js';
+import { type TreeSnapshot, type TreeSnapshotBuilder } from './snapshot_builder.js';
+
+jest.setTimeout(50_000);
 
 /** Creates a test suit for snapshots */
-export function describeSnapshotBuilderTestSuite<T extends TreeBase, S extends TreeSnapshotBuilder>(
-  getTree: () => T,
-  getSnapshotBuilder: () => S,
-  modifyTree: (tree: T) => Promise<void>,
-) {
+export function describeSnapshotBuilderTestSuite<
+  T extends TreeBase<Bufferable>,
+  S extends TreeSnapshotBuilder<TreeSnapshot<Bufferable>>,
+>(getTree: () => T, getSnapshotBuilder: () => S, modifyTree: (tree: T) => Promise<void>) {
   describe('SnapshotBuilder', () => {
     let tree: T;
     let snapshotBuilder: S;
@@ -16,7 +22,7 @@ export function describeSnapshotBuilderTestSuite<T extends TreeBase, S extends T
       tree = getTree();
       snapshotBuilder = getSnapshotBuilder();
 
-      leaves = Array.from({ length: 4 }).map(() => BigInt(Math.floor(Math.random() * 2 ** tree.getDepth())));
+      leaves = Array.from({ length: 4 }).map(() => randomBigInt(BigInt(2 ** tree.getDepth())));
     });
 
     describe('snapshot', () => {
@@ -32,7 +38,9 @@ export function describeSnapshotBuilderTestSuite<T extends TreeBase, S extends T
 
         const block = 1;
         const snapshot = await snapshotBuilder.snapshot(block);
-        await expect(snapshotBuilder.snapshot(block)).resolves.toEqual(snapshot);
+        const newSnapshot = await snapshotBuilder.snapshot(block);
+
+        expect(newSnapshot.getRoot()).toEqual(snapshot.getRoot());
       });
 
       it('returns the same path if tree has not diverged', async () => {
@@ -185,13 +193,13 @@ export function describeSnapshotBuilderTestSuite<T extends TreeBase, S extends T
         await modifyTree(tree);
         await tree.commit();
         const snapshot = await snapshotBuilder.snapshot(1);
-        const historicalLeafValue = await tree.getLeafValue(0n, false);
-        expect(await snapshot.getLeafValue(0n)).toEqual(historicalLeafValue);
+        const historicalLeafValue = tree.getLeafValue(0n, false);
+        expect(snapshot.getLeafValue(0n)).toEqual(historicalLeafValue);
 
         await modifyTree(tree);
         await tree.commit();
 
-        await expect(snapshot.getLeafValue(0n)).resolves.toEqual(historicalLeafValue);
+        expect(snapshot.getLeafValue(0n)).toEqual(historicalLeafValue);
       });
     });
 
@@ -202,16 +210,16 @@ export function describeSnapshotBuilderTestSuite<T extends TreeBase, S extends T
         const snapshot = await snapshotBuilder.snapshot(1);
 
         const initialLastLeafIndex = tree.getNumLeaves(false) - 1n;
-        let lastLeaf = await tree.getLeafValue(initialLastLeafIndex, false);
-        expect(await snapshot.findLeafIndex(lastLeaf!)).toBe(initialLastLeafIndex);
+        let lastLeaf = tree.getLeafValue(initialLastLeafIndex, false);
+        expect(snapshot.findLeafIndex(lastLeaf!)).toBe(initialLastLeafIndex);
 
         await modifyTree(tree);
         await tree.commit();
 
         const newLastLeafIndex = tree.getNumLeaves(false) - 1n;
-        lastLeaf = await tree.getLeafValue(newLastLeafIndex, false);
+        lastLeaf = tree.getLeafValue(newLastLeafIndex, false);
 
-        expect(await snapshot.findLeafIndex(lastLeaf!)).toBe(undefined);
+        expect(snapshot.findLeafIndex(lastLeaf!)).toBe(undefined);
       });
     });
   });

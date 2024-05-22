@@ -1,0 +1,1 @@
+barretenberg_module(basics_bench ecc srs)

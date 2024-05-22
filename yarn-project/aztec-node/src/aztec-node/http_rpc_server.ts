@@ -1,22 +1,24 @@
-import { BlockHeader, FunctionSelector } from '@aztec/circuits.js';
+import {
+  type AztecNode,
+  EncryptedL2BlockL2Logs,
+  ExtendedUnencryptedL2Log,
+  L2Block,
+  LogId,
+  NullifierMembershipWitness,
+  PublicDataWitness,
+  PublicSimulationOutput,
+  SiblingPath,
+  Tx,
+  TxEffect,
+  TxHash,
+  TxReceipt,
+  UnencryptedL2BlockL2Logs,
+} from '@aztec/circuit-types';
+import { FunctionSelector, Header } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
-import {
-  AztecNode,
-  ContractData,
-  ExtendedContractData,
-  ExtendedUnencryptedL2Log,
-  L1ToL2MessageAndIndex,
-  L2Block,
-  L2BlockL2Logs,
-  L2Tx,
-  LogId,
-  SiblingPath,
-  Tx,
-  TxHash,
-} from '@aztec/types';
 
 /**
  * Wrap an AztecNode instance with a JSON RPC HTTP server.
@@ -29,21 +31,25 @@ export function createAztecNodeRpcServer(node: AztecNode) {
     {
       AztecAddress,
       EthAddress,
-      ExtendedContractData,
       ExtendedUnencryptedL2Log,
-      ContractData,
       Fr,
       FunctionSelector,
-      BlockHeader,
+      Header,
       L2Block,
-      L2Tx,
+      TxEffect,
       LogId,
       TxHash,
+      PublicDataWitness,
       SiblingPath,
-      L1ToL2MessageAndIndex,
     },
-    { Tx, L2BlockL2Logs },
-    false,
+    {
+      PublicSimulationOutput,
+      Tx,
+      TxReceipt,
+      EncryptedL2BlockL2Logs,
+      UnencryptedL2BlockL2Logs,
+      NullifierMembershipWitness,
+    },
     // disable methods not part of the AztecNode interface
     ['start', 'stop'],
   );

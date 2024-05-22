@@ -1,99 +1,110 @@
-import { AcirSimulator } from '@aztec/acir-simulator';
-import { EthAddress, Fr, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { pedersenHash } from '@aztec/foundation/crypto';
-import { Point } from '@aztec/foundation/fields';
-import { ConstantKeyPair } from '@aztec/key-store';
-import { AztecLmdbStore } from '@aztec/kv-store';
 import {
-  AztecNode,
-  FunctionL2Logs,
-  INITIAL_L2_BLOCK_NUM,
-  KeyPair,
-  KeyStore,
-  L1NotePayload,
+  type AztecNode,
+  EncryptedFunctionL2Logs,
+  EncryptedL2BlockL2Logs,
+  EncryptedL2Log,
+  EncryptedTxL2Logs,
+  type L1NotePayload,
   L2Block,
-  L2BlockContext,
-  L2BlockL2Logs,
-  Note,
-  TxL2Logs,
-} from '@aztec/types';
+  TaggedNote,
+} from '@aztec/circuit-types';
+import {
+  AztecAddress,
+  Fr,
+  type GrumpkinPrivateKey,
+  INITIAL_L2_BLOCK_NUM,
+  MAX_NEW_NOTE_HASHES_PER_TX,
+  type PublicKey,
+  deriveKeys,
+} from '@aztec/circuits.js';
+import { pedersenHash } from '@aztec/foundation/crypto';
+import { GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { type KeyStore } from '@aztec/key-store';
+import { openTmpStore } from '@aztec/kv-store/utils';
+import { type AcirSimulator } from '@aztec/simulator';
 
 import { jest } from '@jest/globals';
-import { MockProxy, mock } from 'jest-mock-extended';
+import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { PxeDatabase } from '../database/index.js';
+import { type PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
-import { NoteDao } from '../database/note_dao.js';
+import { type NoteDao } from '../database/note_dao.js';
 import { NoteProcessor } from './note_processor.js';
 
 const TXS_PER_BLOCK = 4;
 
 describe('Note Processor', () => {
-  let grumpkin: Grumpkin;
   let database: PxeDatabase;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let addNotesSpy: any;
   let noteProcessor: NoteProcessor;
-  let owner: KeyPair;
   let keyStore: MockProxy<KeyStore>;
   let simulator: MockProxy<AcirSimulator>;
   const firstBlockNum = 123;
-  const numCommitmentsPerBlock = TXS_PER_BLOCK * MAX_NEW_COMMITMENTS_PER_TX;
+  const numCommitmentsPerBlock = TXS_PER_BLOCK * MAX_NEW_NOTE_HASHES_PER_TX;
   const firstBlockDataStartIndex = (firstBlockNum - 1) * numCommitmentsPerBlock;
+  const firstBlockDataEndIndex = firstBlockNum * numCommitmentsPerBlock;
 
-  const computeMockNoteHash = (note: Note) => Fr.fromBuffer(pedersenHash(note.items.map(i => i.toBuffer())));
+  let ownerMasterIncomingViewingSecretKey: GrumpkinPrivateKey;
+  let ownerMasterIncomingViewingPublicKey: PublicKey;
 
   // ownedData: [tx1, tx2, ...], the numbers in each tx represents the indices of the note hashes the account owns.
-  const createEncryptedLogsAndOwnedL1NotePayloads = (ownedData: number[][], ownedNotes: L1NotePayload[]) => {
-    const newNotes: L1NotePayload[] = [];
+  const createEncryptedLogsAndOwnedL1NotePayloads = (ownedData: number[][], ownedNotes: TaggedNote[]) => {
+    const newNotes: TaggedNote[] = [];
     const ownedL1NotePayloads: L1NotePayload[] = [];
-    const txLogs: TxL2Logs[] = [];
+    const txLogs: EncryptedTxL2Logs[] = [];
     let usedOwnedNote = 0;
     for (let i = 0; i < TXS_PER_BLOCK; ++i) {
       const ownedDataIndices = ownedData[i] || [];
-      if (ownedDataIndices.some(index => index >= MAX_NEW_COMMITMENTS_PER_TX)) {
-        throw new Error(`Data index should be less than ${MAX_NEW_COMMITMENTS_PER_TX}.`);
+      if (ownedDataIndices.some(index => index >= MAX_NEW_NOTE_HASHES_PER_TX)) {
+        throw new Error(`Data index should be less than ${MAX_NEW_NOTE_HASHES_PER_TX}.`);
       }
 
-      const logs: FunctionL2Logs[] = [];
-      for (let noteIndex = 0; noteIndex < MAX_NEW_COMMITMENTS_PER_TX; ++noteIndex) {
+      const logs: EncryptedFunctionL2Logs[] = [];
+      for (let noteIndex = 0; noteIndex < MAX_NEW_NOTE_HASHES_PER_TX; ++noteIndex) {
         const isOwner = ownedDataIndices.includes(noteIndex);
-        const publicKey = isOwner ? owner.getPublicKey() : Point.random();
-        const note = (isOwner && ownedNotes[usedOwnedNote]) || L1NotePayload.random();
+        const ivsk = isOwner ? ownerMasterIncomingViewingPublicKey : Point.random();
+        const note = (isOwner && ownedNotes[usedOwnedNote]) || TaggedNote.random();
         usedOwnedNote += note === ownedNotes[usedOwnedNote] ? 1 : 0;
         newNotes.push(note);
         if (isOwner) {
-          ownedL1NotePayloads.push(note);
+          ownedL1NotePayloads.push(note.notePayload);
         }
-        const log = note.toEncryptedBuffer(publicKey, grumpkin);
+        // const encryptedNote =
+        //const log = note.toEncryptedBuffer(publicKey);
+
+        const ephSk = GrumpkinScalar.random();
+        const ovsk = GrumpkinScalar.random();
+        const recipient = AztecAddress.random();
+        const log = note.encrypt(ephSk, recipient, ivsk, ovsk);
         // 1 tx containing 1 function invocation containing 1 log
-        logs.push(new FunctionL2Logs([log]));
+        logs.push(new EncryptedFunctionL2Logs([new EncryptedL2Log(log)]));
       }
-      txLogs.push(new TxL2Logs(logs));
+      txLogs.push(new EncryptedTxL2Logs(logs));
     }
 
-    const encryptedLogs = new L2BlockL2Logs(txLogs);
+    const encryptedLogs = new EncryptedL2BlockL2Logs(txLogs);
     return { newNotes, ownedL1NotePayloads, encryptedLogs };
   };
 
   const mockData = (
-    ownedData: number[][],
+    ownedData: number[][], // = [[2]]
     prependedBlocks = 0,
     appendedBlocks = 0,
-    ownedNotes: L1NotePayload[] = [],
+    ownedNotes: TaggedNote[] = [], // L1NotePayload[] = [],
   ) => {
     if (ownedData.length > TXS_PER_BLOCK) {
       throw new Error(`Tx size should be less than ${TXS_PER_BLOCK}.`);
     }
 
-    const blockContexts: L2BlockContext[] = [];
-    const encryptedLogsArr: L2BlockL2Logs[] = [];
+    const blocks: L2Block[] = [];
+    const encryptedLogsArr: EncryptedL2BlockL2Logs[] = [];
     const ownedL1NotePayloads: L1NotePayload[] = [];
     const numberOfBlocks = prependedBlocks + appendedBlocks + 1;
     for (let i = 0; i < numberOfBlocks; ++i) {
       const block = L2Block.random(firstBlockNum + i, TXS_PER_BLOCK);
-      block.startNoteHashTreeSnapshot.nextAvailableLeafIndex = firstBlockDataStartIndex + i * numCommitmentsPerBlock;
+      block.header.state.partial.noteHashTree.nextAvailableLeafIndex =
+        firstBlockDataEndIndex + i * numCommitmentsPerBlock;
 
       const isTargetBlock = i === prependedBlocks;
       const {
@@ -103,29 +114,34 @@ describe('Note Processor', () => {
       } = createEncryptedLogsAndOwnedL1NotePayloads(isTargetBlock ? ownedData : [], isTargetBlock ? ownedNotes : []);
       encryptedLogsArr.push(encryptedLogs);
       ownedL1NotePayloads.push(...payloads);
-      block.newCommitments = newNotes.map(n => computeMockNoteHash(n.note));
+      for (let i = 0; i < TXS_PER_BLOCK; i++) {
+        const txEffectNotes = newNotes.slice(i * MAX_NEW_NOTE_HASHES_PER_TX, (i + 1) * MAX_NEW_NOTE_HASHES_PER_TX);
+        block.body.txEffects[i].noteHashes = txEffectNotes.map(n => pedersenHash(n.notePayload.note.items));
+      }
 
-      const randomBlockContext = new L2BlockContext(block);
-      blockContexts.push(randomBlockContext);
+      blocks.push(block);
     }
-    return { blockContexts, encryptedLogsArr, ownedL1NotePayloads };
+    return { blocks, encryptedLogsArr, ownedL1NotePayloads };
   };
 
   beforeAll(() => {
-    grumpkin = new Grumpkin();
-    owner = ConstantKeyPair.random(grumpkin);
+    const ownerSk = Fr.random();
+    const allOwnerKeys = deriveKeys(ownerSk);
+
+    ownerMasterIncomingViewingSecretKey = allOwnerKeys.masterIncomingViewingSecretKey;
+    ownerMasterIncomingViewingPublicKey = allOwnerKeys.publicKeys.masterIncomingViewingPublicKey;
   });
 
-  beforeEach(async () => {
-    database = new KVPxeDatabase(await AztecLmdbStore.create(EthAddress.random()));
+  beforeEach(() => {
+    database = new KVPxeDatabase(openTmpStore());
     addNotesSpy = jest.spyOn(database, 'addNotes');
 
     aztecNode = mock<AztecNode>();
     keyStore = mock<KeyStore>();
     simulator = mock<AcirSimulator>();
-    keyStore.getAccountPrivateKey.mockResolvedValue(owner.getPrivateKey());
+    keyStore.getMasterIncomingViewingSecretKeyForPublicKey.mockResolvedValue(ownerMasterIncomingViewingSecretKey);
     noteProcessor = new NoteProcessor(
-      owner.getPublicKey(),
+      ownerMasterIncomingViewingPublicKey,
       keyStore,
       database,
       aztecNode,
@@ -136,8 +152,8 @@ describe('Note Processor', () => {
     simulator.computeNoteHashAndNullifier.mockImplementation((...args) =>
       Promise.resolve({
         innerNoteHash: Fr.random(),
-        siloedNoteHash: Fr.random(),
-        uniqueSiloedNoteHash: computeMockNoteHash(args[3]),
+        uniqueNoteHash: Fr.random(),
+        siloedNoteHash: pedersenHash(args[4].items), // args[4] is note
         innerNullifier: Fr.random(),
       }),
     );
@@ -148,8 +164,8 @@ describe('Note Processor', () => {
   });
 
   it('should store a note that belongs to us', async () => {
-    const { blockContexts, encryptedLogsArr, ownedL1NotePayloads } = mockData([[2]]);
-    await noteProcessor.process(blockContexts, encryptedLogsArr);
+    const { blocks, encryptedLogsArr, ownedL1NotePayloads } = mockData([[2]]);
+    await noteProcessor.process(blocks, encryptedLogsArr);
 
     expect(addNotesSpy).toHaveBeenCalledTimes(1);
     expect(addNotesSpy).toHaveBeenCalledWith([
@@ -158,52 +174,52 @@ describe('Note Processor', () => {
         index: BigInt(firstBlockDataStartIndex + 2),
       }),
     ]);
-  });
+  }, 25_000);
 
   it('should store multiple notes that belong to us', async () => {
     const prependedBlocks = 2;
     const appendedBlocks = 1;
     const thisBlockDataStartIndex = firstBlockDataStartIndex + prependedBlocks * numCommitmentsPerBlock;
 
-    const { blockContexts, encryptedLogsArr, ownedL1NotePayloads } = mockData(
+    const { blocks, encryptedLogsArr, ownedL1NotePayloads } = mockData(
       [[], [1], [], [0, 2]],
       prependedBlocks,
       appendedBlocks,
     );
-    await noteProcessor.process(blockContexts, encryptedLogsArr);
+    await noteProcessor.process(blocks, encryptedLogsArr);
 
     expect(addNotesSpy).toHaveBeenCalledTimes(1);
     expect(addNotesSpy).toHaveBeenCalledWith([
       expect.objectContaining({
         ...ownedL1NotePayloads[0],
         // Index 1 log in the 2nd tx.
-        index: BigInt(thisBlockDataStartIndex + MAX_NEW_COMMITMENTS_PER_TX * (2 - 1) + 1),
+        index: BigInt(thisBlockDataStartIndex + MAX_NEW_NOTE_HASHES_PER_TX * (2 - 1) + 1),
       }),
       expect.objectContaining({
         ...ownedL1NotePayloads[1],
         // Index 0 log in the 4th tx.
-        index: BigInt(thisBlockDataStartIndex + MAX_NEW_COMMITMENTS_PER_TX * (4 - 1) + 0),
+        index: BigInt(thisBlockDataStartIndex + MAX_NEW_NOTE_HASHES_PER_TX * (4 - 1) + 0),
       }),
       expect.objectContaining({
         ...ownedL1NotePayloads[2],
         // Index 2 log in the 4th tx.
-        index: BigInt(thisBlockDataStartIndex + MAX_NEW_COMMITMENTS_PER_TX * (4 - 1) + 2),
+        index: BigInt(thisBlockDataStartIndex + MAX_NEW_NOTE_HASHES_PER_TX * (4 - 1) + 2),
       }),
     ]);
-  });
+  }, 30_000);
 
   it('should not store notes that do not belong to us', async () => {
-    const { blockContexts, encryptedLogsArr } = mockData([]);
-    await noteProcessor.process(blockContexts, encryptedLogsArr);
+    const { blocks, encryptedLogsArr } = mockData([]);
+    await noteProcessor.process(blocks, encryptedLogsArr);
   });
 
   it('should be able to recover two note payloads with containing the same note', async () => {
-    const note = L1NotePayload.random();
-    const note2 = L1NotePayload.random();
+    const note = TaggedNote.random(); // L1NotePayload.random();
+    const note2 = TaggedNote.random(); // L1NotePayload.random();
     // All note payloads except one have the same contract address, storage slot, and the actual note.
     const notes = [note, note, note, note2, note];
-    const { blockContexts, encryptedLogsArr, ownedL1NotePayloads } = mockData([[0, 2], [], [0, 1, 3]], 0, 0, notes);
-    await noteProcessor.process(blockContexts, encryptedLogsArr);
+    const { blocks, encryptedLogsArr, ownedL1NotePayloads } = mockData([[0, 2], [], [0, 1, 3]], 0, 0, notes);
+    await noteProcessor.process(blocks, encryptedLogsArr);
 
     const addedNoteDaos: NoteDao[] = addNotesSpy.mock.calls[0][0];
     expect(addedNoteDaos.map(dao => dao)).toEqual([
@@ -225,17 +241,17 @@ describe('Note Processor', () => {
   });
 
   it('advances the block number', async () => {
-    const { blockContexts, encryptedLogsArr } = mockData([[2]]);
-    await noteProcessor.process(blockContexts, encryptedLogsArr);
-    expect(noteProcessor.status.syncedToBlock).toEqual(blockContexts.at(-1)?.block.number);
+    const { blocks, encryptedLogsArr } = mockData([[2]]);
+    await noteProcessor.process(blocks, encryptedLogsArr);
+    expect(noteProcessor.status.syncedToBlock).toEqual(blocks.at(-1)?.number);
   });
 
   it('should restore the last block number processed and ignore the starting block', async () => {
-    const { blockContexts, encryptedLogsArr } = mockData([[2]]);
-    await noteProcessor.process(blockContexts, encryptedLogsArr);
+    const { blocks, encryptedLogsArr } = mockData([[2]]);
+    await noteProcessor.process(blocks, encryptedLogsArr);
 
     const newNoteProcessor = new NoteProcessor(
-      owner.getPublicKey(),
+      ownerMasterIncomingViewingPublicKey,
       keyStore,
       database,
       aztecNode,

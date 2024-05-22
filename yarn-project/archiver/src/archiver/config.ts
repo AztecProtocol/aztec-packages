@@ -1,4 +1,4 @@
-import { L1ContractAddresses } from '@aztec/ethereum';
+import { type L1ContractAddresses } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**
@@ -56,27 +56,32 @@ export function getConfigEnvVars(): ArchiverConfig {
     ETHEREUM_HOST,
     ARCHIVER_POLLING_INTERVAL_MS,
     ARCHIVER_VIEM_POLLING_INTERVAL_MS,
+    AVAILABILITY_ORACLE_CONTRACT_ADDRESS,
     ROLLUP_CONTRACT_ADDRESS,
-    CONTRACT_DEPLOYMENT_EMITTER_ADDRESS,
     API_KEY,
     INBOX_CONTRACT_ADDRESS,
     OUTBOX_CONTRACT_ADDRESS,
     REGISTRY_CONTRACT_ADDRESS,
+    GAS_TOKEN_CONTRACT_ADDRESS,
+    GAS_PORTAL_CONTRACT_ADDRESS,
     DATA_DIRECTORY,
   } = process.env;
   // Populate the relevant addresses for use by the archiver.
   const addresses: L1ContractAddresses = {
+    availabilityOracleAddress: AVAILABILITY_ORACLE_CONTRACT_ADDRESS
+      ? EthAddress.fromString(AVAILABILITY_ORACLE_CONTRACT_ADDRESS)
+      : EthAddress.ZERO,
     rollupAddress: ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
     registryAddress: REGISTRY_CONTRACT_ADDRESS ? EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS) : EthAddress.ZERO,
     inboxAddress: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
     outboxAddress: OUTBOX_CONTRACT_ADDRESS ? EthAddress.fromString(OUTBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    contractDeploymentEmitterAddress: CONTRACT_DEPLOYMENT_EMITTER_ADDRESS
-      ? EthAddress.fromString(CONTRACT_DEPLOYMENT_EMITTER_ADDRESS)
+    gasTokenAddress: GAS_TOKEN_CONTRACT_ADDRESS ? EthAddress.fromString(GAS_TOKEN_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    gasPortalAddress: GAS_PORTAL_CONTRACT_ADDRESS
+      ? EthAddress.fromString(GAS_PORTAL_CONTRACT_ADDRESS)
       : EthAddress.ZERO,
-    decoderHelperAddress: EthAddress.ZERO,
   };
   return {
-    rpcUrl: ETHEREUM_HOST || 'http://127.0.0.1:8545/',
+    rpcUrl: ETHEREUM_HOST || '',
     archiverPollingIntervalMS: ARCHIVER_POLLING_INTERVAL_MS ? +ARCHIVER_POLLING_INTERVAL_MS : 1_000,
     viemPollingIntervalMS: ARCHIVER_VIEM_POLLING_INTERVAL_MS ? +ARCHIVER_VIEM_POLLING_INTERVAL_MS : 1_000,
     apiKey: API_KEY,

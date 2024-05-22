@@ -1,22 +1,43 @@
 {
-  "name": "@aztec/boxes",
+  "name": "create-aztec-app",
   "packageManager": "yarn@4.0.2",
-  "private": true,
+  "version": "0.4.4",
+  "type": "module",
   "scripts": {
-    "compile": "FORCE_COLOR=true yarn workspaces foreach -A -p -j unlimited -v run compile:local",
-    "build": "FORCE_COLOR=true yarn workspaces foreach -A -p -j unlimited -v run build"
+    "compile": "yarn workspaces foreach -A -v run compile",
+    "build": "yarn workspaces foreach -A -v run build",
+    "install-browsers": "playwright install --with-deps",
+    "publish": "yarn npm publish"
   },
   "workspaces": [
-    "blank",
-    "blank-react",
-    "token"
+    "boxes/*"
   ],
+  "bin": "bin.js",
   "resolutions": {
-    "@aztec/aztec.js": "portal:../yarn-project/aztec.js",
-    "@aztec/circuits.js": "portal:../yarn-project/circuits.js",
-    "@aztec/foundation": "portal:../yarn-project/foundation",
-    "@aztec/bb.js": "portal:../barretenberg/ts",
-    "@aztec/types": "portal:../yarn-project/types",
-    "@aztec/ethereum": "portal:../yarn-project/ethereum"
+    "@aztec/accounts": "link:../yarn-project/accounts",
+    "@aztec/aztec.js": "link:../yarn-project/aztec.js",
+    "@aztec/circuits.js": "link:../yarn-project/circuits.js",
+    "@aztec/entrypoints": "link:../yarn-project/entrypoints",
+    "@aztec/foundation": "link:../yarn-project/foundation",
+    "@aztec/bb.js": "link:../barretenberg/ts",
+    "@aztec/circuit-types": "link:../yarn-project/circuit-types",
+    "@aztec/ethereum": "link:../yarn-project/ethereum",
+    "@aztec/protocol-contracts": "link:../yarn-project/protocol-contracts",
+    "@aztec/types": "link:../yarn-project/types"
+  },
+  "dependencies": {
+    "@iarna/toml": "^2.2.5",
+    "@inquirer/confirm": "^3.0.0",
+    "@inquirer/input": "^2.0.0",
+    "@inquirer/select": "^2.0.0",
+    "axios": "^1.6.7",
+    "commander": "^12.0.0",
+    "ora": "^8.0.1",
+    "pino": "^8.19.0",
+    "pino-pretty": "^10.3.1",
+    "tiged": "^2.12.6"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.42.0"
   }
 }

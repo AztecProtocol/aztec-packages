@@ -6,31 +6,25 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include "claim.hpp"
-#include <algorithm>
-#include <concepts>
-#include <memory>
-#include <string_view>
 
 #include <gtest/gtest.h>
 
-namespace proof_system::honk::pcs {
+namespace bb {
+
+constexpr size_t COMMITMENT_TEST_NUM_POINTS = 4096;
 
 template <class CK> inline std::shared_ptr<CK> CreateCommitmentKey();
 
 template <> inline std::shared_ptr<CommitmentKey<curve::BN254>> CreateCommitmentKey<CommitmentKey<curve::BN254>>()
 {
-    constexpr size_t n = 4096;
-    std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> crs_factory(
-        new barretenberg::srs::factories::FileCrsFactory<curve::BN254>("../srs_db/ignition", 4096));
-    return std::make_shared<CommitmentKey<curve::BN254>>(n, crs_factory);
+    srs::init_crs_factory("../srs_db/ignition");
+    return std::make_shared<CommitmentKey<curve::BN254>>(COMMITMENT_TEST_NUM_POINTS);
 }
 // For IPA
 template <> inline std::shared_ptr<CommitmentKey<curve::Grumpkin>> CreateCommitmentKey<CommitmentKey<curve::Grumpkin>>()
 {
-    constexpr size_t n = 4096;
-    std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::Grumpkin>> crs_factory(
-        new barretenberg::srs::factories::FileCrsFactory<curve::Grumpkin>("../srs_db/grumpkin", 4096));
-    return std::make_shared<CommitmentKey<curve::Grumpkin>>(n, crs_factory);
+    srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+    return std::make_shared<CommitmentKey<curve::Grumpkin>>(COMMITMENT_TEST_NUM_POINTS);
 }
 
 template <typename CK> inline std::shared_ptr<CK> CreateCommitmentKey()
@@ -45,20 +39,16 @@ template <>
 inline std::shared_ptr<VerifierCommitmentKey<curve::BN254>> CreateVerifierCommitmentKey<
     VerifierCommitmentKey<curve::BN254>>()
 {
-    constexpr size_t n = 4096;
-    std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> crs_factory(
-        new barretenberg::srs::factories::FileCrsFactory<curve::BN254>("../srs_db/ignition", 4096));
-    return std::make_shared<VerifierCommitmentKey<curve::BN254>>(n, crs_factory);
+    return std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 }
 // For IPA
 template <>
 inline std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>> CreateVerifierCommitmentKey<
     VerifierCommitmentKey<curve::Grumpkin>>()
 {
-    constexpr size_t n = 4096;
-    std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::Grumpkin>> crs_factory(
-        new barretenberg::srs::factories::FileCrsFactory<curve::Grumpkin>("../srs_db/grumpkin", 4096));
-    return std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(n, crs_factory);
+    auto crs_factory = std::make_shared<srs::factories::FileCrsFactory<curve::Grumpkin>>("../srs_db/grumpkin",
+                                                                                         COMMITMENT_TEST_NUM_POINTS);
+    return std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(COMMITMENT_TEST_NUM_POINTS, crs_factory);
 }
 template <typename VK> inline std::shared_ptr<VK> CreateVerifierCommitmentKey()
 // requires std::default_initializable<VK>
@@ -71,11 +61,11 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
 
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using Polynomial = barretenberg::Polynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
 
   public:
     CommitmentTest()
-        : engine{ &numeric::random::get_engine() }
+        : engine{ &numeric::get_randomness() }
     {}
 
     std::shared_ptr<CK> ck() { return commitment_key; }
@@ -170,7 +160,7 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
         }
     }
 
-    numeric::random::Engine* engine;
+    numeric::RNG* engine;
 
     // Per-test-suite set-up.
     // Called before the first test in this test suite.
@@ -202,8 +192,5 @@ typename std::shared_ptr<VerifierCommitmentKey<Curve>> CommitmentTest<Curve>::ve
 
 using CommitmentSchemeParams = ::testing::Types<curve::BN254>;
 using IpaCommitmentSchemeParams = ::testing::Types<curve::Grumpkin>;
-// IMPROVEMENT: reinstate typed-tests for multiple field types, i.e.:
-// using CommitmentSchemeParams =
-//     ::testing::Types<fake::Params<barretenberg::g1>, fake::Params<grumpkin::g1>, kzg::Params>;
 
-} // namespace proof_system::honk::pcs
+} // namespace bb

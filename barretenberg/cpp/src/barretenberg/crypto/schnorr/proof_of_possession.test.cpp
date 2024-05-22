@@ -3,12 +3,13 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include <gtest/gtest.h>
 
-using namespace barretenberg;
+using namespace bb;
+using namespace bb::crypto;
 
 template <typename Hash> struct ProofOfPossessionTest : public ::testing::Test {
     using G = grumpkin::g1;
     using Fr = grumpkin::fr;
-    using KeyPair = crypto::schnorr::key_pair<Fr, G>;
+    using KeyPair = schnorr_key_pair<Fr, G>;
 
     static KeyPair generate_account()
     {
@@ -26,7 +27,7 @@ TYPED_TEST(ProofOfPossessionTest, valid_proof)
 {
     using G = grumpkin::g1;
     using Hash = TypeParam;
-    using Proof = crypto::schnorr::ProofOfPossession<G, Hash>;
+    using Proof = SchnorrProofOfPossession<G, Hash>;
 
     const auto account = this->generate_account();
     const auto proof = Proof(account);
@@ -37,7 +38,7 @@ TYPED_TEST(ProofOfPossessionTest, invalid_empty_proof)
 {
     using G = grumpkin::g1;
     using Hash = TypeParam;
-    using Proof = crypto::schnorr::ProofOfPossession<G, Hash>;
+    using Proof = SchnorrProofOfPossession<G, Hash>;
 
     const auto account = this->generate_account();
     const auto proof = Proof();
@@ -48,7 +49,7 @@ TYPED_TEST(ProofOfPossessionTest, fail_with_different_account)
 {
     using G = grumpkin::g1;
     using Hash = TypeParam;
-    using Proof = crypto::schnorr::ProofOfPossession<G, Hash>;
+    using Proof = SchnorrProofOfPossession<G, Hash>;
 
     const auto account1 = this->generate_account();
     const auto account2 = this->generate_account();
@@ -60,7 +61,7 @@ TYPED_TEST(ProofOfPossessionTest, fail_zero_challenge)
 {
     using G = grumpkin::g1;
     using Hash = TypeParam;
-    using Proof = crypto::schnorr::ProofOfPossession<G, Hash>;
+    using Proof = SchnorrProofOfPossession<G, Hash>;
 
     const auto account = this->generate_account();
     auto proof = Proof(account);
@@ -74,7 +75,7 @@ TYPED_TEST(ProofOfPossessionTest, fail_zero_response)
 {
     using G = grumpkin::g1;
     using Hash = TypeParam;
-    using Proof = crypto::schnorr::ProofOfPossession<G, Hash>;
+    using Proof = SchnorrProofOfPossession<G, Hash>;
 
     const auto account = this->generate_account();
     auto proof = Proof(account);
@@ -87,7 +88,7 @@ TYPED_TEST(ProofOfPossessionTest, serialize)
 {
     using G = grumpkin::g1;
     using Hash = TypeParam;
-    using Proof = crypto::schnorr::ProofOfPossession<G, Hash>;
+    using Proof = SchnorrProofOfPossession<G, Hash>;
     const auto account = this->generate_account();
     const auto proof = Proof(account);
     EXPECT_TRUE(proof.verify(account.public_key));

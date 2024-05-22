@@ -1,6 +1,6 @@
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { serializeToBuffer } from '../utils/serialize.js';
+const EMPTY_PROOF_SIZE = 42;
 
 /**
  * The Proof class is a wrapper around the circuits proof.
@@ -41,6 +41,23 @@ export class Proof {
   public toBuffer() {
     return serializeToBuffer(this.buffer.length, this.buffer);
   }
+
+  /**
+   * Serialize the Proof instance to a hex string.
+   * @returns The hex string representation of the proof data.
+   */
+  public toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  /**
+   * Deserialize a Proof instance from a hex string.
+   * @param str - A hex string to deserialize from.
+   * @returns - A new Proof instance.
+   */
+  static fromString(str: string) {
+    return Proof.fromBuffer(Buffer.from(str, 'hex'));
+  }
 }
 
 /**
@@ -49,5 +66,5 @@ export class Proof {
  * @returns The empty "proof".
  */
 export function makeEmptyProof() {
-  return new Proof(Buffer.alloc(0));
+  return new Proof(Buffer.alloc(EMPTY_PROOF_SIZE, 0));
 }

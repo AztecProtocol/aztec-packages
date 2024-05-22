@@ -2,6 +2,8 @@
 #include "barretenberg/common/wasm_export.hpp"
 #include "grumpkin.hpp"
 
+using namespace bb;
+
 // Silencing warnings about reserved identifiers. Fixing would break downstream code that calls our WASM API.
 // NOLINTBEGIN(cert-dcl37-c, cert-dcl51-cpp, bugprone-reserved-identifier)
 WASM_EXPORT void ecc_grumpkin__mul(uint8_t const* point_buf, uint8_t const* scalar_buf, uint8_t* result)
@@ -10,6 +12,17 @@ WASM_EXPORT void ecc_grumpkin__mul(uint8_t const* point_buf, uint8_t const* scal
     auto point = from_buffer<grumpkin::g1::affine_element>(point_buf);
     auto scalar = from_buffer<grumpkin::fr>(scalar_buf);
     grumpkin::g1::affine_element r = point * scalar;
+    write(result, r);
+}
+
+// Silencing warnings about reserved identifiers. Fixing would break downstream code that calls our WASM API.
+// NOLINTBEGIN(cert-dcl37-c, cert-dcl51-cpp, bugprone-reserved-identifier)
+WASM_EXPORT void ecc_grumpkin__add(uint8_t const* point_a_buf, uint8_t const* point_b_buf, uint8_t* result)
+{
+    using serialize::write;
+    auto point_a = from_buffer<grumpkin::g1::affine_element>(point_a_buf);
+    auto point_b = from_buffer<grumpkin::g1::affine_element>(point_b_buf);
+    grumpkin::g1::affine_element r = point_a + point_b;
     write(result, r);
 }
 
@@ -36,7 +49,7 @@ WASM_EXPORT void ecc_grumpkin__batch_mul(uint8_t const* point_buf,
 
 WASM_EXPORT void ecc_grumpkin__get_random_scalar_mod_circuit_modulus(uint8_t* result)
 {
-    barretenberg::fr output = barretenberg::fr::random_element();
+    bb::fr output = bb::fr::random_element();
     write(result, output);
 }
 
@@ -44,7 +57,7 @@ WASM_EXPORT void ecc_grumpkin__reduce512_buffer_mod_circuit_modulus(uint8_t* inp
 {
     auto bigint_input = from_buffer<uint512_t>(input);
 
-    uint512_t barretenberg_modulus(barretenberg::fr::modulus);
+    uint512_t barretenberg_modulus(bb::fr::modulus);
 
     uint512_t target_output = bigint_input % barretenberg_modulus;
     write(result, target_output.lo);

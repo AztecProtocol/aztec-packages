@@ -1,26 +1,30 @@
-import { DBOracle, FunctionArtifactWithDebugMetadata, MessageLoadOracleInputs } from '@aztec/acir-simulator';
 import {
-  AztecAddress,
-  BlockHeader,
-  CompleteAddress,
-  EthAddress,
-  Fr,
-  FunctionSelector,
-  GrumpkinPrivateKey,
-  PublicKey,
-} from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
-import {
-  KeyStore,
-  L2Block,
+  type AztecNode,
+  type L2Block,
   MerkleTreeId,
-  NullifierMembershipWitness,
-  PublicDataWitness,
-  StateInfoProvider,
-} from '@aztec/types';
+  type NoteStatus,
+  type NullifierMembershipWitness,
+  type PublicDataWitness,
+  type SiblingPath,
+} from '@aztec/circuit-types';
+import {
+  type AztecAddress,
+  type CompleteAddress,
+  type Fr,
+  type FunctionSelector,
+  type Header,
+  type KeyValidationRequest,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+} from '@aztec/circuits.js';
+import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
+import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { type KeyStore } from '@aztec/key-store';
+import { type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
+import { type ContractInstance } from '@aztec/types/contracts';
 
-import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { PxeDatabase } from '../database/index.js';
+import { type ContractDataOracle } from '../contract_data_oracle/index.js';
+import { type PxeDatabase } from '../database/index.js';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -30,22 +34,31 @@ export class SimulatorOracle implements DBOracle {
     private contractDataOracle: ContractDataOracle,
     private db: PxeDatabase,
     private keyStore: KeyStore,
-    private stateInfoProvider: StateInfoProvider,
+    private aztecNode: AztecNode,
     private log = createDebugLogger('aztec:pxe:simulator_oracle'),
   ) {}
 
-  getSecretKey(_contractAddress: AztecAddress, pubKey: PublicKey): Promise<GrumpkinPrivateKey> {
-    return this.keyStore.getAccountPrivateKey(pubKey);
+  getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
+    return this.keyStore.getKeyValidationRequest(pkMHash, contractAddress);
   }
 
-  async getCompleteAddress(address: AztecAddress): Promise<CompleteAddress> {
-    const completeAddress = await this.db.getCompleteAddress(address);
+  async getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
+    const completeAddress = await this.db.getCompleteAddress(account);
     if (!completeAddress) {
       throw new Error(
-        `No public key registered for address ${address.toString()}. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/dev_docs/contracts/common_errors#no-public-key-registered-error`,
+        `No public key registered for address ${account}.
+        Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/developers/debugging/aztecnr-errors#simulation-error-No-public-key-registered-for-address-0x0-Register-it-by-calling-pxeregisterRecipient-or-pxeregisterAccount`,
       );
     }
     return completeAddress;
+  }
+
+  async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
+    const instance = await this.db.getContractInstance(address);
+    if (!instance) {
+      throw new Error(`No contract instance found for address ${address.toString()}`);
+    }
+    return instance;
   }
 
   async getAuthWitness(messageHash: Fr): Promise<Fr[]> {
@@ -64,8 +77,12 @@ export class SimulatorOracle implements DBOracle {
     return capsule;
   }
 
-  async getNotes(contractAddress: AztecAddress, storageSlot: Fr) {
-    const noteDaos = await this.db.getNotes({ contractAddress, storageSlot });
+  async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus) {
+    const noteDaos = await this.db.getNotes({
+      contractAddress,
+      storageSlot,
+      status,
+    });
     return noteDaos.map(({ contractAddress, storageSlot, nonce, note, innerNoteHash, siloedNullifier, index }) => ({
       contractAddress,
       storageSlot,
@@ -78,10 +95,7 @@ export class SimulatorOracle implements DBOracle {
     }));
   }
 
-  async getFunctionArtifact(
-    contractAddress: AztecAddress,
-    selector: FunctionSelector,
-  ): Promise<FunctionArtifactWithDebugMetadata> {
+  async getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector): Promise<FunctionArtifact> {
     const artifact = await this.contractDataOracle.getFunctionArtifact(contractAddress, selector);
     const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, selector);
     return {
@@ -93,41 +107,52 @@ export class SimulatorOracle implements DBOracle {
   async getFunctionArtifactByName(
     contractAddress: AztecAddress,
     functionName: string,
-  ): Promise<FunctionArtifactWithDebugMetadata | undefined> {
-    const artifact = await this.contractDataOracle.getFunctionArtifactByName(contractAddress, functionName);
-    if (!artifact) {
-      return;
-    }
-
-    const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, artifact.selector);
-    return {
-      ...artifact,
-      debug,
-    };
-  }
-
-  async getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress> {
-    return await this.contractDataOracle.getPortalContractAddress(contractAddress);
+  ): Promise<FunctionArtifact | undefined> {
+    const instance = await this.contractDataOracle.getContractInstance(contractAddress);
+    const artifact = await this.contractDataOracle.getContractArtifact(instance.contractClassId);
+    return artifact && getFunctionArtifact(artifact, functionName);
   }
 
   /**
-   * Retrieves the L1ToL2Message associated with a specific message key
-   * Throws an error if the message key is not found
-   *
-   * @param msgKey - The key of the message to be retrieved
-   * @returns A promise that resolves to the message data, a sibling path and the
-   *          index of the message in the l1ToL2MessageTree
+   * Fetches a message from the db, given its key.
+   * @param contractAddress - Address of a contract by which the message was emitted.
+   * @param messageHash - Hash of the message.
+   * @param secret - Secret used to compute a nullifier.
+   * @dev Contract address and secret are only used to compute the nullifier to get non-nullified messages
+   * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
-  async getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs> {
-    const messageAndIndex = await this.stateInfoProvider.getL1ToL2MessageAndIndex(msgKey);
-    const message = messageAndIndex.message.toFieldArray();
-    const index = messageAndIndex.index;
-    const siblingPath = await this.stateInfoProvider.getL1ToL2MessageSiblingPath('latest', index);
-    return {
-      message,
-      siblingPath: siblingPath.toFieldArray(),
-      index,
-    };
+  async getL1ToL2MembershipWitness(
+    contractAddress: AztecAddress,
+    messageHash: Fr,
+    secret: Fr,
+  ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
+    let nullifierIndex: bigint | undefined;
+    let messageIndex = 0n;
+    let startIndex = 0n;
+    let siblingPath: SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>;
+
+    // We iterate over messages until we find one whose nullifier is not in the nullifier tree --> we need to check
+    // for nullifiers because messages can have duplicates.
+    do {
+      const response = await this.aztecNode.getL1ToL2MessageMembershipWitness('latest', messageHash, startIndex);
+      if (!response) {
+        throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
+      }
+      [messageIndex, siblingPath] = response;
+
+      const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret, messageIndex);
+      nullifierIndex = await this.getNullifierIndex(messageNullifier);
+
+      startIndex = messageIndex + 1n;
+    } while (nullifierIndex !== undefined);
+
+    // Assuming messageIndex is what you intended to use for the index in MessageLoadOracleInputs
+    return new MessageLoadOracleInputs(messageIndex, siblingPath);
+  }
+
+  // Only used in public.
+  public getL1ToL2LeafValue(_leafIndex: bigint): Promise<Fr | undefined> {
+    throw new Error('Unimplemented in private!');
   }
 
   /**
@@ -136,65 +161,66 @@ export class SimulatorOracle implements DBOracle {
    * @returns - The index of the commitment. Undefined if it does not exist in the tree.
    */
   async getCommitmentIndex(commitment: Fr) {
-    return await this.stateInfoProvider.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
+    return await this.aztecNode.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
   }
 
   async getNullifierIndex(nullifier: Fr) {
-    return await this.stateInfoProvider.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
+    return await this.aztecNode.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
   }
 
   public async findLeafIndex(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
-    return await this.stateInfoProvider.findLeafIndex(blockNumber, treeId, leafValue);
+    return await this.aztecNode.findLeafIndex(blockNumber, treeId, leafValue);
   }
 
   public async getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]> {
-    // @todo Doing a nasty workaround here because of https://github.com/AztecProtocol/aztec-packages/issues/3414
     switch (treeId) {
-      case MerkleTreeId.CONTRACT_TREE:
-        return (await this.stateInfoProvider.getContractSiblingPath(blockNumber, leafIndex)).toFieldArray();
       case MerkleTreeId.NULLIFIER_TREE:
-        return (await this.stateInfoProvider.getNullifierSiblingPath(blockNumber, leafIndex)).toFieldArray();
+        return (await this.aztecNode.getNullifierSiblingPath(blockNumber, leafIndex)).toFields();
       case MerkleTreeId.NOTE_HASH_TREE:
-        return (await this.stateInfoProvider.getNoteHashSiblingPath(blockNumber, leafIndex)).toFieldArray();
+        return (await this.aztecNode.getNoteHashSiblingPath(blockNumber, leafIndex)).toFields();
       case MerkleTreeId.PUBLIC_DATA_TREE:
-        return (await this.stateInfoProvider.getPublicDataSiblingPath(blockNumber, leafIndex)).toFieldArray();
+        return (await this.aztecNode.getPublicDataSiblingPath(blockNumber, leafIndex)).toFields();
       case MerkleTreeId.ARCHIVE:
-        return (await this.stateInfoProvider.getArchiveSiblingPath(blockNumber, leafIndex)).toFieldArray();
+        return (await this.aztecNode.getArchiveSiblingPath(blockNumber, leafIndex)).toFields();
       default:
         throw new Error('Not implemented');
     }
+  }
+
+  public async getNullifierMembershipWitnessAtLatestBlock(nullifier: Fr) {
+    return this.getNullifierMembershipWitness(await this.getBlockNumber(), nullifier);
   }
 
   public getNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    return this.stateInfoProvider.getNullifierMembershipWitness(blockNumber, nullifier);
+    return this.aztecNode.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   public getLowNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    return this.stateInfoProvider.getLowNullifierMembershipWitness(blockNumber, nullifier);
+    return this.aztecNode.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
-    return await this.stateInfoProvider.getBlock(blockNumber);
+    return await this.aztecNode.getBlock(blockNumber);
   }
 
   public async getPublicDataTreeWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    return await this.stateInfoProvider.getPublicDataTreeWitness(blockNumber, leafSlot);
+    return await this.aztecNode.getPublicDataTreeWitness(blockNumber, leafSlot);
   }
 
   /**
    * Retrieve the databases view of the Block Header object.
    * This structure is fed into the circuits simulator and is used to prove against certain historical roots.
    *
-   * @returns A Promise that resolves to a BlockHeader object.
+   * @returns A Promise that resolves to a Header object.
    */
-  getBlockHeader(): Promise<BlockHeader> {
-    return Promise.resolve(this.db.getBlockHeader());
+  getHeader(): Promise<Header> {
+    return Promise.resolve(this.db.getHeader());
   }
 
   /**
@@ -202,6 +228,6 @@ export class SimulatorOracle implements DBOracle {
    * @returns The block number.
    */
   public async getBlockNumber(): Promise<number> {
-    return await this.stateInfoProvider.getBlockNumber();
+    return await this.aztecNode.getBlockNumber();
   }
 }

@@ -20,6 +20,15 @@ output "rollup_contract_address" {
   value = var.ROLLUP_CONTRACT_ADDRESS
 }
 
+variable "AVAILABILITY_ORACLE_CONTRACT_ADDRESS" {
+  type    = string
+  default = ""
+}
+
+output "availability_oracle_contract_address" {
+  value = var.AVAILABILITY_ORACLE_CONTRACT_ADDRESS
+}
+
 variable "REGISTRY_CONTRACT_ADDRESS" {
   type    = string
   default = ""
@@ -47,11 +56,21 @@ output "outbox_contract_address" {
   value = var.OUTBOX_CONTRACT_ADDRESS
 }
 
-variable "CONTRACT_DEPLOYMENT_EMITTER_ADDRESS" {
+
+variable "GAS_TOKEN_CONTRACT_ADDRESS" {
   type    = string
   default = ""
 }
 
-output "contract_deployment_emitter_address" {
-  value = var.CONTRACT_DEPLOYMENT_EMITTER_ADDRESS
+output "gas_token_contract_address" {
+  value = var.GAS_TOKEN_CONTRACT_ADDRESS
+}
+
+variable "GAS_PORTAL_CONTRACT_ADDRESS" {
+  type    = string
+  default = ""
+}
+
+output "gas_portal_contract_address" {
+  value = var.GAS_PORTAL_CONTRACT_ADDRESS
 }

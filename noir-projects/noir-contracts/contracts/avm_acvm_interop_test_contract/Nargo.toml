@@ -1,0 +1,9 @@
+[package]
+name = "avm_acvm_interop_test_contract"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../aztec-nr/aztec" }
+authwit = { path = "../../../aztec-nr/authwit" }

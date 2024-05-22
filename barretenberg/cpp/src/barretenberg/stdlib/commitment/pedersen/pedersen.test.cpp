@@ -1,4 +1,5 @@
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/crypto/pedersen_commitment/c_bind.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -6,11 +7,9 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "pedersen.hpp"
 
-namespace test_StdlibPedersen {
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 template <typename Builder> class StdlibPedersen : public testing::Test {
@@ -49,7 +48,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
 
         info("num gates = ", builder.get_num_gates());
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
 
         auto commit_native = crypto::pedersen_commitment::commit_native({ left.get_value(), right.get_value() });
@@ -62,11 +61,11 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
     {
         Builder builder;
 
-        std::vector<barretenberg::fr> inputs;
+        std::vector<fr> inputs;
         std::vector<stdlib::field_t<Builder>> witness_inputs;
 
         for (size_t i = 0; i < 8; ++i) {
-            inputs.push_back(barretenberg::fr::random_element());
+            inputs.push_back(bb::fr::random_element());
             if (i % 2 == 1) {
                 witness_inputs.push_back(witness_ct(&builder, inputs[i]));
             } else {
@@ -82,7 +81,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
     }
 };
 
-using CircuitTypes = testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(StdlibPedersen, CircuitTypes);
 
@@ -95,5 +94,3 @@ TYPED_TEST(StdlibPedersen, HashConstants)
 {
     TestFixture::test_hash_constants();
 };
-
-} // namespace test_StdlibPedersen

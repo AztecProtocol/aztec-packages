@@ -1,13 +1,14 @@
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { Logger, createDebugLogger } from '@aztec/foundation/log';
+import { createDebugLogger } from '@aztec/foundation/log';
 
-import { Database, Key, RootDatabase, open } from 'lmdb';
+import { type Database, type Key, type RootDatabase, open } from 'lmdb';
 
-import { AztecArray } from '../interfaces/array.js';
-import { AztecMap, AztecMultiMap } from '../interfaces/map.js';
-import { AztecSingleton } from '../interfaces/singleton.js';
-import { AztecKVStore } from '../interfaces/store.js';
+import { type AztecArray } from '../interfaces/array.js';
+import { type AztecCounter } from '../interfaces/counter.js';
+import { type AztecMap, type AztecMultiMap } from '../interfaces/map.js';
+import { type AztecSingleton } from '../interfaces/singleton.js';
+import { type AztecKVStore } from '../interfaces/store.js';
 import { LmdbAztecArray } from './array.js';
+import { LmdbAztecCounter } from './counter.js';
 import { LmdbAztecMap } from './map.js';
 import { LmdbAztecSingleton } from './singleton.js';
 
@@ -18,12 +19,9 @@ export class AztecLmdbStore implements AztecKVStore {
   #rootDb: RootDatabase;
   #data: Database<unknown, Key>;
   #multiMapData: Database<unknown, Key>;
-  #rollupAddress: AztecSingleton<string>;
-  #log: Logger;
 
-  constructor(rootDb: RootDatabase, log: Logger) {
+  constructor(rootDb: RootDatabase) {
     this.#rootDb = rootDb;
-    this.#log = log;
 
     // big bucket to store all the data
     this.#data = rootDb.openDB('data', {
@@ -32,12 +30,10 @@ export class AztecLmdbStore implements AztecKVStore {
     });
 
     this.#multiMapData = rootDb.openDB('data_dup_sort', {
-      encoding: 'msgpack',
+      encoding: 'ordered-binary',
       keyEncoding: 'ordered-binary',
       dupSort: true,
     });
-
-    this.#rollupAddress = this.createSingleton('rollupAddress');
   }
 
   /**
@@ -48,26 +44,22 @@ export class AztecLmdbStore implements AztecKVStore {
    * the database is cleared before returning the store. This way data is not accidentally shared between
    * different rollup instances.
    *
-   * @param rollupAddress - The ETH address of the rollup contract
    * @param path - A path on the disk to store the database. Optional
+   * @param ephemeral - true if the store should only exist in memory and not automatically be flushed to disk. Optional
    * @param log - A logger to use. Optional
    * @returns The store
    */
-  static async create(
-    rollupAddress: EthAddress,
+  static open(
     path?: string,
+    ephemeral: boolean = false,
     log = createDebugLogger('aztec:kv-store:lmdb'),
-  ): Promise<AztecLmdbStore> {
+  ): AztecLmdbStore {
     log.info(`Opening LMDB database at ${path || 'temporary location'}`);
-
     const rootDb = open({
       path,
+      noSync: ephemeral,
     });
-
-    const db = new AztecLmdbStore(rootDb, log);
-    await db.#init(rollupAddress);
-
-    return db;
+    return new AztecLmdbStore(rootDb);
   }
 
   /**
@@ -75,7 +67,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the map
    * @returns A new AztecMap
    */
-  createMap<K extends string | number, V>(name: string): AztecMap<K, V> {
+  openMap<K extends string | number, V>(name: string): AztecMap<K, V> {
     return new LmdbAztecMap(this.#data, name);
   }
 
@@ -84,8 +76,12 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the map
    * @returns A new AztecMultiMap
    */
-  createMultiMap<K extends string | number, V>(name: string): AztecMultiMap<K, V> {
+  openMultiMap<K extends string | number, V>(name: string): AztecMultiMap<K, V> {
     return new LmdbAztecMap(this.#multiMapData, name);
+  }
+
+  openCounter<K extends string | number | Array<string | number>>(name: string): AztecCounter<K> {
+    return new LmdbAztecCounter(this.#data, name);
   }
 
   /**
@@ -93,7 +89,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the array
    * @returns A new AztecArray
    */
-  createArray<T>(name: string): AztecArray<T> {
+  openArray<T>(name: string): AztecArray<T> {
     return new LmdbAztecArray(this.#data, name);
   }
 
@@ -102,7 +98,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the singleton
    * @returns A new AztecSingleton
    */
-  createSingleton<T>(name: string): AztecSingleton<T> {
+  openSingleton<T>(name: string): AztecSingleton<T> {
     return new LmdbAztecSingleton(this.#data, name);
   }
 
@@ -115,17 +111,10 @@ export class AztecLmdbStore implements AztecKVStore {
     return this.#rootDb.transaction(callback);
   }
 
-  async #init(rollupAddress: EthAddress): Promise<void> {
-    const storedRollupAddress = this.#rollupAddress.get();
-    const rollupAddressString = rollupAddress.toString();
-
-    if (typeof storedRollupAddress === 'string' && rollupAddressString !== storedRollupAddress) {
-      this.#log.warn(
-        `Rollup address mismatch: expected ${rollupAddress}, found ${storedRollupAddress}. Clearing entire database...`,
-      );
-      await this.#rootDb.clearAsync();
-    }
-
-    await this.#rollupAddress.set(rollupAddressString);
+  /**
+   * Clears the store
+   */
+  async clear() {
+    await this.#rootDb.clearAsync();
   }
 }

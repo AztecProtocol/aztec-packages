@@ -1,10 +1,16 @@
-import { Fr } from '@aztec/circuits.js';
-import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { BatchInsertionResult, IndexedTreeSnapshot, TreeSnapshot } from '@aztec/merkle-tree';
-import { MerkleTreeId, SiblingPath } from '@aztec/types';
+import { MerkleTreeId, type SiblingPath } from '@aztec/circuit-types';
+import { AppendOnlyTreeSnapshot, Fr, type Header, PartialStateReference, StateReference } from '@aztec/circuits.js';
+import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import { type BatchInsertionResult, type IndexedTreeSnapshot } from '@aztec/merkle-tree';
 
-import { MerkleTreeDb } from './merkle_tree_db.js';
-import { CurrentTreeRoots, HandleL2BlockResult, MerkleTreeOperations, TreeInfo } from './merkle_tree_operations.js';
+import { type MerkleTreeDb, type TreeSnapshots } from './merkle_tree_db.js';
+import {
+  type HandleL2BlockAndMessagesResult,
+  type IndexedTreeId,
+  type MerkleTreeLeafType,
+  type MerkleTreeOperations,
+  type TreeInfo,
+} from './merkle_tree_operations.js';
 
 /**
  * Merkle tree operations on readonly tree snapshots.
@@ -12,46 +18,56 @@ import { CurrentTreeRoots, HandleL2BlockResult, MerkleTreeOperations, TreeInfo }
 export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations {
   #treesDb: MerkleTreeDb;
   #blockNumber: number;
-  #treeSnapshots: ReadonlyArray<TreeSnapshot | IndexedTreeSnapshot> = [];
+  #treeSnapshots: TreeSnapshots = {} as any;
 
   constructor(trees: MerkleTreeDb, blockNumber: number) {
     this.#treesDb = trees;
     this.#blockNumber = blockNumber;
   }
 
-  async #getTreeSnapshot(merkleTreeId: number): Promise<TreeSnapshot | IndexedTreeSnapshot> {
-    if (this.#treeSnapshots[merkleTreeId]) {
-      return this.#treeSnapshots[merkleTreeId];
+  async #getTreeSnapshot(treeId: MerkleTreeId): Promise<TreeSnapshots[typeof treeId]> {
+    if (this.#treeSnapshots[treeId]) {
+      return this.#treeSnapshots[treeId];
     }
 
     this.#treeSnapshots = await this.#treesDb.getSnapshot(this.#blockNumber);
-    return this.#treeSnapshots[merkleTreeId]!;
+    return this.#treeSnapshots[treeId]!;
   }
 
-  async findLeafIndex(treeId: MerkleTreeId, value: Buffer): Promise<bigint | undefined> {
+  async findLeafIndex<ID extends MerkleTreeId>(treeId: ID, value: MerkleTreeLeafType<ID>): Promise<bigint | undefined> {
     const tree = await this.#getTreeSnapshot(treeId);
-    return tree.findLeafIndex(value);
+    // TODO #5448 fix "as any"
+    return tree.findLeafIndex(value as any);
   }
 
-  getLatestGlobalVariablesHash(): Promise<Fr> {
-    return Promise.reject(new Error('not implemented'));
+  async findLeafIndexAfter<ID extends MerkleTreeId>(
+    treeId: MerkleTreeId,
+    value: MerkleTreeLeafType<ID>,
+    startIndex: bigint,
+  ): Promise<bigint | undefined> {
+    const tree = await this.#getTreeSnapshot(treeId);
+    // TODO #5448 fix "as any"
+    return tree.findLeafIndexAfter(value as any, startIndex);
   }
 
-  async getLeafPreimage(
-    treeId: MerkleTreeId.NULLIFIER_TREE,
+  async getLeafPreimage<ID extends IndexedTreeId>(
+    treeId: ID,
     index: bigint,
   ): Promise<IndexedTreeLeafPreimage | undefined> {
     const snapshot = (await this.#getTreeSnapshot(treeId)) as IndexedTreeSnapshot;
     return snapshot.getLatestLeafPreimageCopy(BigInt(index));
   }
 
-  async getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined> {
+  async getLeafValue<ID extends MerkleTreeId>(
+    treeId: ID,
+    index: bigint,
+  ): Promise<MerkleTreeLeafType<typeof treeId> | undefined> {
     const snapshot = await this.#getTreeSnapshot(treeId);
-    return snapshot.getLeafValue(BigInt(index));
+    return snapshot.getLeafValue(BigInt(index)) as MerkleTreeLeafType<typeof treeId> | undefined;
   }
 
   async getPreviousValueIndex(
-    treeId: MerkleTreeId.NULLIFIER_TREE,
+    treeId: IndexedTreeId,
     value: bigint,
   ): Promise<
     | {
@@ -85,9 +101,8 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations 
     };
   }
 
-  async getTreeRoots(): Promise<CurrentTreeRoots> {
+  async getStateReference(): Promise<StateReference> {
     const snapshots = await Promise.all([
-      this.#getTreeSnapshot(MerkleTreeId.CONTRACT_TREE),
       this.#getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE),
       this.#getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE),
       this.#getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE),
@@ -95,14 +110,26 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations 
       this.#getTreeSnapshot(MerkleTreeId.ARCHIVE),
     ]);
 
-    return {
-      archiveRoot: snapshots[MerkleTreeId.ARCHIVE].getRoot(),
-      contractDataTreeRoot: snapshots[MerkleTreeId.CONTRACT_TREE].getRoot(),
-      l1Tol2MessageTreeRoot: snapshots[MerkleTreeId.L1_TO_L2_MESSAGE_TREE].getRoot(),
-      noteHashTreeRoot: snapshots[MerkleTreeId.NOTE_HASH_TREE].getRoot(),
-      nullifierTreeRoot: snapshots[MerkleTreeId.NULLIFIER_TREE].getRoot(),
-      publicDataTreeRoot: snapshots[MerkleTreeId.PUBLIC_DATA_TREE].getRoot(),
-    };
+    return new StateReference(
+      new AppendOnlyTreeSnapshot(
+        Fr.fromBuffer(snapshots[MerkleTreeId.L1_TO_L2_MESSAGE_TREE].getRoot()),
+        Number(snapshots[MerkleTreeId.L1_TO_L2_MESSAGE_TREE].getNumLeaves()),
+      ),
+      new PartialStateReference(
+        new AppendOnlyTreeSnapshot(
+          Fr.fromBuffer(snapshots[MerkleTreeId.NOTE_HASH_TREE].getRoot()),
+          Number(snapshots[MerkleTreeId.NOTE_HASH_TREE].getNumLeaves()),
+        ),
+        new AppendOnlyTreeSnapshot(
+          Fr.fromBuffer(snapshots[MerkleTreeId.NULLIFIER_TREE].getRoot()),
+          Number(snapshots[MerkleTreeId.NULLIFIER_TREE].getNumLeaves()),
+        ),
+        new AppendOnlyTreeSnapshot(
+          Fr.fromBuffer(snapshots[MerkleTreeId.PUBLIC_DATA_TREE].getRoot()),
+          Number(snapshots[MerkleTreeId.PUBLIC_DATA_TREE].getNumLeaves()),
+        ),
+      ),
+    );
   }
 
   appendLeaves(): Promise<void> {
@@ -123,7 +150,7 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations 
     return Promise.reject(new Error('Tree snapshot operations are read-only'));
   }
 
-  handleL2Block(): Promise<HandleL2BlockResult> {
+  handleL2BlockAndMessages(): Promise<HandleL2BlockAndMessagesResult> {
     return Promise.reject(new Error('Tree snapshot operations are read-only'));
   }
 
@@ -135,11 +162,11 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations 
     return Promise.reject(new Error('Tree snapshot operations are read-only'));
   }
 
-  updateLatestGlobalVariablesHash(): Promise<void> {
+  updateLeaf(): Promise<void> {
     return Promise.reject(new Error('Tree snapshot operations are read-only'));
   }
 
-  updateLeaf(): Promise<void> {
-    return Promise.reject(new Error('Tree snapshot operations are read-only'));
+  buildInitialHeader(): Promise<Header> {
+    throw new Error('Building initial header not supported on snapshot.');
   }
 }

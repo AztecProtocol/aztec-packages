@@ -1,4 +1,5 @@
-import { BufferReader } from '../serialize/buffer_reader.js';
+import { poseidon2Hash } from '../crypto/index.js';
+import { BufferReader, FieldReader, serializeToBuffer } from '../serialize/index.js';
 import { Fr } from './fields.js';
 
 /**
@@ -66,6 +67,11 @@ export class Point {
     return [this.x, this.y];
   }
 
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return new this(reader.readField(), reader.readField());
+  }
+
   /**
    * Returns the contents of the point as BigInts.
    * @returns The point as BigInts
@@ -83,7 +89,7 @@ export class Point {
    * @returns A Buffer representation of the Point instance.
    */
   toBuffer() {
-    return Buffer.concat([this.x.toBuffer(), this.y.toBuffer()]);
+    return serializeToBuffer([this.x, this.y]);
   }
 
   /**
@@ -123,6 +129,10 @@ export class Point {
 
   isZero() {
     return this.x.isZero() && this.y.isZero();
+  }
+
+  hash() {
+    return poseidon2Hash(this.toFields());
   }
 }
 

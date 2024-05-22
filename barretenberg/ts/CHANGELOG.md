@@ -1,5 +1,335 @@
 # Changelog
 
+## [0.41.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.40.1...barretenberg.js-v0.41.0) (2024-05-21)
+
+
+### Features
+
+* Vk_as_fields, proof_as_fields flows for honk ([#6406](https://github.com/AztecProtocol/aztec-packages/issues/6406)) ([a6100ad](https://github.com/AztecProtocol/aztec-packages/commit/a6100ad3d5126321d457b5c336ab4a3521ff1fb2))
+
+
+### Miscellaneous
+
+* Remove acvmInfo from bb.js CLI ([#6507](https://github.com/AztecProtocol/aztec-packages/issues/6507)) ([e298c76](https://github.com/AztecProtocol/aztec-packages/commit/e298c766d17029a9dbfce694b48327c5e76dfddb))
+
+## [0.40.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.40.0...barretenberg.js-v0.40.1) (2024-05-14)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.40.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.39.0...barretenberg.js-v0.40.0) (2024-05-14)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.39.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.38.0...barretenberg.js-v0.39.0) (2024-05-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* switch `bb` over to read ACIR from nargo artifacts ([#6283](https://github.com/AztecProtocol/aztec-packages/issues/6283))
+
+### Features
+
+* Switch `bb` over to read ACIR from nargo artifacts ([#6283](https://github.com/AztecProtocol/aztec-packages/issues/6283)) ([78adcc0](https://github.com/AztecProtocol/aztec-packages/commit/78adcc0f6bd74d7ead6de58099dda1a3f88eefb0))
+
+## [0.38.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.37.0...barretenberg.js-v0.38.0) (2024-05-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* AES blackbox ([#6016](https://github.com/AztecProtocol/aztec-packages/issues/6016))
+
+### Features
+
+* `multi_scalar_mul` blackbox func ([#6097](https://github.com/AztecProtocol/aztec-packages/issues/6097)) ([f6b1ba6](https://github.com/AztecProtocol/aztec-packages/commit/f6b1ba60daf37a5a6466ca1e5ee7be70354af485))
+* AES blackbox ([#6016](https://github.com/AztecProtocol/aztec-packages/issues/6016)) ([e4b97a8](https://github.com/AztecProtocol/aztec-packages/commit/e4b97a8cd7574a828c2a54b4a93b5ced79df6abf))
+* Honk flows exposed through wasm ([#6096](https://github.com/AztecProtocol/aztec-packages/issues/6096)) ([c9b3206](https://github.com/AztecProtocol/aztec-packages/commit/c9b32061b2849442516ff0395b69d9a230191234))
+* Run noir-packages-test in Earthly ([#6174](https://github.com/AztecProtocol/aztec-packages/issues/6174)) ([58e40c9](https://github.com/AztecProtocol/aztec-packages/commit/58e40c9125e6d7b30abf7a4cbb170bbfc15e2037))
+
+
+### Miscellaneous
+
+* Bump bb.js timeouts ([#6196](https://github.com/AztecProtocol/aztec-packages/issues/6196)) ([acab3de](https://github.com/AztecProtocol/aztec-packages/commit/acab3de86aae9ce5078795ba1ed0626d0c018565))
+* Migrate acir tests to earthly ([#6142](https://github.com/AztecProtocol/aztec-packages/issues/6142)) ([18c8ea8](https://github.com/AztecProtocol/aztec-packages/commit/18c8ea8eb5f9fd1cb51c116d6d1976c774d51bc1))
+
+## [0.37.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.36.0...barretenberg.js-v0.37.0) (2024-05-02)
+
+
+### Features
+
+* Devbox ([#5772](https://github.com/AztecProtocol/aztec-packages/issues/5772)) ([72321f9](https://github.com/AztecProtocol/aztec-packages/commit/72321f9d3af27f85c92564754d444ac3df1fcad2))
+
+## [0.36.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.35.1...barretenberg.js-v0.36.0) (2024-04-30)
+
+
+### Miscellaneous
+
+* Do not bootstrap cache if working copy is dirty ([#6033](https://github.com/AztecProtocol/aztec-packages/issues/6033)) ([3671932](https://github.com/AztecProtocol/aztec-packages/commit/367193253670a1d61ffa440d94dad4b9d068e72f))
+
+## [0.35.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.35.0...barretenberg.js-v0.35.1) (2024-04-16)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.35.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.34.0...barretenberg.js-v0.35.0) (2024-04-16)
+
+
+### Features
+
+* Export poseidon2_permutation and add to foundation/crypto ([#5706](https://github.com/AztecProtocol/aztec-packages/issues/5706)) ([6b91e27](https://github.com/AztecProtocol/aztec-packages/commit/6b91e2776de8fd5b1f489b5cfeee83c7e0996c2e))
+
+
+### Miscellaneous
+
+* Don't strip bb wasm ([#5743](https://github.com/AztecProtocol/aztec-packages/issues/5743)) ([d4cb410](https://github.com/AztecProtocol/aztec-packages/commit/d4cb4108900f1fb6307de17be9ee3516d6023609))
+* TS hash wrappers cleanup ([#5691](https://github.com/AztecProtocol/aztec-packages/issues/5691)) ([7f8b09f](https://github.com/AztecProtocol/aztec-packages/commit/7f8b09fca6370b140870041a49692383a4db6551))
+
+## [0.34.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.33.0...barretenberg.js-v0.34.0) (2024-04-10)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.33.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.32.1...barretenberg.js-v0.33.0) (2024-04-09)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.32.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.32.0...barretenberg.js-v0.32.1) (2024-04-02)
+
+
+### Features
+
+* Earthly split runners, structure reverts ([#5524](https://github.com/AztecProtocol/aztec-packages/issues/5524)) ([fcb8787](https://github.com/AztecProtocol/aztec-packages/commit/fcb8787f4623eccbc6189f9399d444a4cb863684))
+
+
+### Bug Fixes
+
+* **ci:** Turn on earthly for everyone ([#5423](https://github.com/AztecProtocol/aztec-packages/issues/5423)) ([bea3fcb](https://github.com/AztecProtocol/aztec-packages/commit/bea3fcbde91d08f13cb7c2ceeff8be33b3edcdfd))
+
+## [0.32.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.31.0...barretenberg.js-v0.32.0) (2024-03-27)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.31.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.30.1...barretenberg.js-v0.31.0) (2024-03-26)
+
+
+### Features
+
+* Earthly bb tests + arm + satellites ([#5268](https://github.com/AztecProtocol/aztec-packages/issues/5268)) ([eca12b3](https://github.com/AztecProtocol/aztec-packages/commit/eca12b3a173f9ef1880e3b703ab778beb036a23b))
+* Less earthly runners + e2e GA runners, bb bench ([#5356](https://github.com/AztecProtocol/aztec-packages/issues/5356)) ([2136a66](https://github.com/AztecProtocol/aztec-packages/commit/2136a66cc1fa2249b3ef47b787cfa1de9576dc38))
+* Simplified bb Honk interface ([#5319](https://github.com/AztecProtocol/aztec-packages/issues/5319)) ([a2d138f](https://github.com/AztecProtocol/aztec-packages/commit/a2d138fa8c0ecf90bea843d38d2d693d6a38b2cc))
+
+## [0.30.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.30.0...barretenberg.js-v0.30.1) (2024-03-20)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.30.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.29.0...barretenberg.js-v0.30.0) (2024-03-19)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.29.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.28.1...barretenberg.js-v0.29.0) (2024-03-18)
+
+
+### Features
+
+* Initial Earthly CI ([#5069](https://github.com/AztecProtocol/aztec-packages/issues/5069)) ([8e75fe5](https://github.com/AztecProtocol/aztec-packages/commit/8e75fe5c47250e860a4eae4dbf0973c503221720))
+
+## [0.28.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.28.0...barretenberg.js-v0.28.1) (2024-03-14)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.28.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.27.2...barretenberg.js-v0.28.0) (2024-03-14)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.27.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.27.1...barretenberg.js-v0.27.2) (2024-03-13)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.27.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.27.0...barretenberg.js-v0.27.1) (2024-03-12)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.27.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.26.6...barretenberg.js-v0.27.0) (2024-03-12)
+
+
+### Miscellaneous
+
+* Move alpine containers to ubuntu ([#5026](https://github.com/AztecProtocol/aztec-packages/issues/5026)) ([d483e67](https://github.com/AztecProtocol/aztec-packages/commit/d483e678e4b2558f74c3b79083cf2257d6eafe0c)), closes [#4708](https://github.com/AztecProtocol/aztec-packages/issues/4708)
+
+## [0.26.6](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.26.5...barretenberg.js-v0.26.6) (2024-03-08)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.26.5](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.26.4...barretenberg.js-v0.26.5) (2024-03-07)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.26.4](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.26.3...barretenberg.js-v0.26.4) (2024-03-06)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.26.3](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.26.2...barretenberg.js-v0.26.3) (2024-03-06)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.26.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.26.1...barretenberg.js-v0.26.2) (2024-03-06)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.26.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.26.0...barretenberg.js-v0.26.1) (2024-03-06)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.26.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.25.0...barretenberg.js-v0.26.0) (2024-03-05)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.25.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.24.0...barretenberg.js-v0.25.0) (2024-03-05)
+
+
+### Features
+
+* Parallel native/wasm bb builds. Better messaging around using ci cache. ([#4766](https://github.com/AztecProtocol/aztec-packages/issues/4766)) ([a924e55](https://github.com/AztecProtocol/aztec-packages/commit/a924e55393daa89fbba3a87cf019977286104b59))
+
+
+### Miscellaneous
+
+* Bootstrap improvements. ([#4711](https://github.com/AztecProtocol/aztec-packages/issues/4711)) ([1375233](https://github.com/AztecProtocol/aztec-packages/commit/13752339334be9c8cc0ae500d0e932f76d18a77d))
+* Implement poseidon2 opcode ([#4446](https://github.com/AztecProtocol/aztec-packages/issues/4446)) ([491a8df](https://github.com/AztecProtocol/aztec-packages/commit/491a8dfe81a33a7552686f70833f6130da944142))
+* Squash yp ypb + other build improvements. ([#4901](https://github.com/AztecProtocol/aztec-packages/issues/4901)) ([be5855c](https://github.com/AztecProtocol/aztec-packages/commit/be5855cdbd1993155bd228afbeafee2c447b46a5))
+
+## [0.24.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.23.0...barretenberg.js-v0.24.0) (2024-02-13)
+
+
+### Features
+
+* Prototype native merkle trees ([#4457](https://github.com/AztecProtocol/aztec-packages/issues/4457)) ([7d5e056](https://github.com/AztecProtocol/aztec-packages/commit/7d5e0563edf3c7397ca994033b703149242cc24c))
+
+## [0.23.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.22.0...barretenberg.js-v0.23.0) (2024-02-07)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.22.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.21.0...barretenberg.js-v0.22.0) (2024-02-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* **acir:** Move `is_recursive` flag to be part of the circuit definition ([#4221](https://github.com/AztecProtocol/aztec-packages/issues/4221))
+
+### Miscellaneous
+
+* **acir:** Move `is_recursive` flag to be part of the circuit definition ([#4221](https://github.com/AztecProtocol/aztec-packages/issues/4221)) ([9c965a7](https://github.com/AztecProtocol/aztec-packages/commit/9c965a7c9e652dfeaba2f09152e5db287407473d))
+
+## [0.21.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.20.0...barretenberg.js-v0.21.0) (2024-01-30)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.20.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.19.0...barretenberg.js-v0.20.0) (2024-01-22)
+
+
+### Features
+
+* Goblin acir composer ([#4112](https://github.com/AztecProtocol/aztec-packages/issues/4112)) ([5e85b92](https://github.com/AztecProtocol/aztec-packages/commit/5e85b92f48bc31fe55315de9f45c4907e417cb6a))
+
+## [0.19.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.18.0...barretenberg.js-v0.19.0) (2024-01-17)
+
+
+### Miscellaneous
+
+* Barretenberg =&gt; bb namespace shortening ([#4066](https://github.com/AztecProtocol/aztec-packages/issues/4066)) ([e6b66b8](https://github.com/AztecProtocol/aztec-packages/commit/e6b66b856db498e6fc465212f3645cf2c196c31a))
+
+## [0.18.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.17.0...barretenberg.js-v0.18.0) (2024-01-16)
+
+
+### Features
+
+* Bootstrap cache v2 ([#3876](https://github.com/AztecProtocol/aztec-packages/issues/3876)) ([331598d](https://github.com/AztecProtocol/aztec-packages/commit/331598d369ab9bb91dcc48d50bdd8df0684f0b79))
+
+
+### Bug Fixes
+
+* Dont spam logs with yarn install ([#4027](https://github.com/AztecProtocol/aztec-packages/issues/4027)) ([949c5ab](https://github.com/AztecProtocol/aztec-packages/commit/949c5abf1df399f691f17c19fab64f0e36476219))
+
+## [0.17.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.16.9...barretenberg.js-v0.17.0) (2024-01-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* return full verification contract from `AcirComposer::get_solidity_verifier` ([#3735](https://github.com/AztecProtocol/aztec-packages/issues/3735))
+
+### Features
+
+* Adding option to set initial and max memory ([#3265](https://github.com/AztecProtocol/aztec-packages/issues/3265)) ([0ad75fe](https://github.com/AztecProtocol/aztec-packages/commit/0ad75fe745099119726976f964a92d1587f32fbf))
+* Bb uses goblin ([#3636](https://github.com/AztecProtocol/aztec-packages/issues/3636)) ([d093266](https://github.com/AztecProtocol/aztec-packages/commit/d09326636140dbd68d3efb8bc4ec2b6948e2bfe1))
+* Correct circuit construction from acir ([#3757](https://github.com/AztecProtocol/aztec-packages/issues/3757)) ([a876ab8](https://github.com/AztecProtocol/aztec-packages/commit/a876ab8a61108be06bd5d884d727058e7e54a383))
+* Return full verification contract from `AcirComposer::get_solidity_verifier` ([#3735](https://github.com/AztecProtocol/aztec-packages/issues/3735)) ([bd5614c](https://github.com/AztecProtocol/aztec-packages/commit/bd5614c2ee04065e149d3df48f1ace9c0ce3858f))
+
+
+### Miscellaneous
+
+* Remove HashToField128Security ACIR opcode ([#3631](https://github.com/AztecProtocol/aztec-packages/issues/3631)) ([1d6d3c9](https://github.com/AztecProtocol/aztec-packages/commit/1d6d3c94f327de1f20ef7d78302d3957db70019e))
+* Use simple "flat" CRS. ([#3748](https://github.com/AztecProtocol/aztec-packages/issues/3748)) ([5c6c2ca](https://github.com/AztecProtocol/aztec-packages/commit/5c6c2caf212fb22856df41fd15464dda37e10dab))
+
 ## [0.16.9](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.16.8...barretenberg.js-v0.16.9) (2023-12-13)
 
 

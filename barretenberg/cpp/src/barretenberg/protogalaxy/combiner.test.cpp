@@ -1,16 +1,16 @@
-#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/honk/utils/testing.hpp"
+#include "barretenberg/polynomials/pow.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
 #include <gtest/gtest.h>
 
-using namespace proof_system::honk;
-namespace barretenberg::test_protogalaxy_prover {
-using Flavor = proof_system::honk::flavor::Ultra;
+using namespace bb;
+
+using Flavor = UltraFlavor;
 using Polynomial = typename Flavor::Polynomial;
 using FF = typename Flavor::FF;
-using RelationParameters = proof_system::RelationParameters<FF>;
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/780): Improve combiner tests to check more than the
 // arithmetic relation so we more than unit test folding relation parameters and alpha as well.
@@ -23,7 +23,7 @@ TEST(Protogalaxy, CombinerOn2Instances)
 
     const auto restrict_to_standard_arithmetic_relation = [](auto& polys) {
         std::fill(polys.q_arith.begin(), polys.q_arith.end(), 1);
-        std::fill(polys.q_sort.begin(), polys.q_sort.end(), 0);
+        std::fill(polys.q_delta_range.begin(), polys.q_delta_range.end(), 0);
         std::fill(polys.q_elliptic.begin(), polys.q_elliptic.end(), 0);
         std::fill(polys.q_aux.begin(), polys.q_aux.end(), 0);
         std::fill(polys.q_lookup.begin(), polys.q_lookup.end(), 0);
@@ -38,54 +38,58 @@ TEST(Protogalaxy, CombinerOn2Instances)
         if (is_random_input) {
             std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);
             ProtoGalaxyProver prover;
-            std::vector<FF> pow_betas = { FF(1), FF(2) };
 
             for (size_t idx = 0; idx < NUM_INSTANCES; idx++) {
                 auto instance = std::make_shared<ProverInstance>();
-                auto prover_polynomials = proof_system::honk::get_sequential_prover_polynomials<Flavor>(
+                auto prover_polynomials = get_sequential_prover_polynomials<Flavor>(
                     /*log_circuit_size=*/1, idx * 128);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
-                instance->prover_polynomials = std::move(prover_polynomials);
-                instance->instance_size = 2;
+                // This ensures that the combiner accumulator for second instance = 0
+                // The value is computed by generating the python script values, computing the resulting accumulator and
+                // taking the value at index 1
+                if (idx == NUM_INSTANCES - 1) {
+                    prover_polynomials.q_c[0] -= 13644570;
+                }
+                instance->proving_key.polynomials = std::move(prover_polynomials);
+                instance->proving_key.circuit_size = 2;
                 instance_data[idx] = instance;
             }
 
             ProverInstances instances{ instance_data };
-            instances.alpha = Univariate<FF, 13>(FF(0)); // focus on the arithmetic relation only
-
-            auto result = prover.compute_combiner(instances, pow_betas);
-            auto expected_result =
-                barretenberg::Univariate<FF, 13>(std::array<FF, 13>{ 87706,
-                                                                     13644570,
-                                                                     76451738,
-                                                                     226257946,
-                                                                     static_cast<uint64_t>(500811930),
-                                                                     static_cast<uint64_t>(937862426),
-                                                                     static_cast<uint64_t>(1575158170),
-                                                                     static_cast<uint64_t>(2450447898),
-                                                                     static_cast<uint64_t>(3601480346),
-                                                                     static_cast<uint64_t>(5066004250),
-                                                                     static_cast<uint64_t>(6881768346),
-                                                                     static_cast<uint64_t>(9086521370),
-                                                                     static_cast<uint64_t>(11718012058) });
+            instances.alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
+            auto pow_polynomial = PowPolynomial(std::vector<FF>{ 2 });
+            auto result = prover.compute_combiner</*OptimisationEnabled=*/false>(instances, pow_polynomial);
+            auto optimised_result = prover.compute_combiner(instances, pow_polynomial);
+            auto expected_result = Univariate<FF, 12>(std::array<FF, 12>{ 87706,
+                                                                          0,
+                                                                          0x02ee2966,
+                                                                          0x0b0bd2cc,
+                                                                          0x00001a98fc32,
+                                                                          0x000033d5a598,
+                                                                          0x00005901cefe,
+                                                                          0x00008c5d7864,
+                                                                          0x0000d028a1ca,
+                                                                          0x000126a34b30UL,
+                                                                          0x0001920d7496UL,
+                                                                          0x000214a71dfcUL });
             EXPECT_EQ(result, expected_result);
+            EXPECT_EQ(optimised_result, expected_result);
         } else {
             std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);
             ProtoGalaxyProver prover;
-            std::vector<FF> pow_betas = { FF(1), FF(2) };
 
             for (size_t idx = 0; idx < NUM_INSTANCES; idx++) {
                 auto instance = std::make_shared<ProverInstance>();
-                auto prover_polynomials = proof_system::honk::get_zero_prover_polynomials<Flavor>(
+                auto prover_polynomials = get_zero_prover_polynomials<Flavor>(
                     /*log_circuit_size=*/1);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
-                instance->prover_polynomials = std::move(prover_polynomials);
-                instance->instance_size = 2;
+                instance->proving_key.polynomials = std::move(prover_polynomials);
+                instance->proving_key.circuit_size = 2;
                 instance_data[idx] = instance;
             }
 
             ProverInstances instances{ instance_data };
-            instances.alpha = Univariate<FF, 13>(FF(0)); // focus on the arithmetic relation only
+            instances.alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
 
             const auto create_add_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
                 polys.w_l[idx] = w_l;
@@ -104,13 +108,13 @@ TEST(Protogalaxy, CombinerOn2Instances)
                 polys.q_o[idx] = -1;
             };
 
-            create_add_gate(instances[0]->prover_polynomials, 0, 1, 2);
-            create_add_gate(instances[0]->prover_polynomials, 1, 0, 4);
-            create_add_gate(instances[1]->prover_polynomials, 0, 3, 4);
-            create_mul_gate(instances[1]->prover_polynomials, 1, 1, 4);
+            create_add_gate(instances[0]->proving_key.polynomials, 0, 1, 2);
+            create_add_gate(instances[0]->proving_key.polynomials, 1, 0, 4);
+            create_add_gate(instances[1]->proving_key.polynomials, 0, 3, 4);
+            create_mul_gate(instances[1]->proving_key.polynomials, 1, 1, 4);
 
-            restrict_to_standard_arithmetic_relation(instances[0]->prover_polynomials);
-            restrict_to_standard_arithmetic_relation(instances[1]->prover_polynomials);
+            restrict_to_standard_arithmetic_relation(instances[0]->proving_key.polynomials);
+            restrict_to_standard_arithmetic_relation(instances[1]->proving_key.polynomials);
 
             /* Instance 0                                    Instance 1
                 w_l w_r w_o q_m q_l q_r q_o q_c               w_l w_r w_o q_m q_l q_r q_o q_c
@@ -131,11 +135,14 @@ TEST(Protogalaxy, CombinerOn2Instances)
             relation value:
                       0    0    0    0    0    0    0              0    0    6   18   36   60   90      */
 
-            auto result = prover.compute_combiner(instances, pow_betas);
-            auto expected_result = barretenberg::Univariate<FF, 13>(
-                std::array<FF, 13>{ 0, 0, 12, 36, 72, 120, 180, 252, 336, 432, 540, 660, 792 });
+            auto pow_polynomial = PowPolynomial(std::vector<FF>{ 2 });
+            auto result = prover.compute_combiner</*OptimisationEnabled=*/false>(instances, pow_polynomial);
+            auto optimised_result = prover.compute_combiner(instances, pow_polynomial);
+            auto expected_result =
+                Univariate<FF, 12>(std::array<FF, 12>{ 0, 0, 12, 36, 72, 120, 180, 252, 336, 432, 540, 660 });
 
             EXPECT_EQ(result, expected_result);
+            EXPECT_EQ(optimised_result, expected_result);
         }
     };
     run_test(true);
@@ -151,7 +158,7 @@ TEST(Protogalaxy, CombinerOn4Instances)
 
     const auto zero_all_selectors = [](auto& polys) {
         std::fill(polys.q_arith.begin(), polys.q_arith.end(), 0);
-        std::fill(polys.q_sort.begin(), polys.q_sort.end(), 0);
+        std::fill(polys.q_delta_range.begin(), polys.q_delta_range.end(), 0);
         std::fill(polys.q_elliptic.begin(), polys.q_elliptic.end(), 0);
         std::fill(polys.q_aux.begin(), polys.q_aux.end(), 0);
         std::fill(polys.q_lookup.begin(), polys.q_lookup.end(), 0);
@@ -163,32 +170,32 @@ TEST(Protogalaxy, CombinerOn4Instances)
     auto run_test = [&]() {
         std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);
         ProtoGalaxyProver prover;
-        std::vector<FF> pow_betas = { FF(1), FF(2) };
 
         for (size_t idx = 0; idx < NUM_INSTANCES; idx++) {
             auto instance = std::make_shared<ProverInstance>();
-            auto prover_polynomials = proof_system::honk::get_zero_prover_polynomials<Flavor>(
+            auto prover_polynomials = get_zero_prover_polynomials<Flavor>(
                 /*log_circuit_size=*/1);
-            instance->prover_polynomials = std::move(prover_polynomials);
-            instance->instance_size = 2;
+            instance->proving_key.polynomials = std::move(prover_polynomials);
+            instance->proving_key.circuit_size = 2;
             instance_data[idx] = instance;
         }
 
         ProverInstances instances{ instance_data };
-        instances.alpha = Univariate<FF, 43>(FF(0)); // focus on the arithmetic relation only
+        instances.alphas.fill(bb::Univariate<FF, 40>(FF(0))); // focus on the arithmetic relation only
 
-        zero_all_selectors(instances[0]->prover_polynomials);
-        zero_all_selectors(instances[1]->prover_polynomials);
-        zero_all_selectors(instances[2]->prover_polynomials);
-        zero_all_selectors(instances[3]->prover_polynomials);
+        zero_all_selectors(instances[0]->proving_key.polynomials);
+        zero_all_selectors(instances[1]->proving_key.polynomials);
+        zero_all_selectors(instances[2]->proving_key.polynomials);
+        zero_all_selectors(instances[3]->proving_key.polynomials);
 
-        auto result = prover.compute_combiner(instances, pow_betas);
-        std::array<FF, 43> zeroes;
+        auto pow_polynomial = PowPolynomial(std::vector<FF>{ 2 });
+        auto result = prover.compute_combiner</*OptimisationEnabled=*/false>(instances, pow_polynomial);
+        auto optimised_result = prover.compute_combiner(instances, pow_polynomial);
+        std::array<FF, 40> zeroes;
         std::fill(zeroes.begin(), zeroes.end(), 0);
-        auto expected_result = barretenberg::Univariate<FF, 43>(zeroes);
+        auto expected_result = Univariate<FF, 40>(zeroes);
         EXPECT_EQ(result, expected_result);
+        EXPECT_EQ(optimised_result, expected_result);
     };
     run_test();
 };
-
-} // namespace barretenberg::test_protogalaxy_prover

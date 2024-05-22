@@ -1,83 +1,33 @@
-# The Noir Programming Language
+# Aztecs Build of Noir
 
-Noir is a Domain Specific Language for SNARK proving systems. It has been designed to use any ACIR compatible proving system.
+We subrepo noir into the folder `noir-repo`.
+This folder contains dockerfiles and scripts for performing our custom build of noir for the monorepo.
 
-**This implementation is in early development. It has not been reviewed or audited. It is not suitable to be used in production. Expect bugs!**
+# Syncing with the main Noir repository
 
-## Quick Start
+In order to keep aztec-packages in step with the main Noir repository we need to periodically sync between them.
 
-Read the installation section [here](https://noir-lang.org/getting_started/nargo_installation).
+Syncing from aztec-packages into noir currently attempts to revert any changes in Noir since the last sync so it's recommended to always sync from Noir first to ensure that aztec-packages is up-to-date.
 
-Once you have read through the documentation, you can visit [Awesome Noir](https://github.com/noir-lang/awesome-noir) to run some of the examples that others have created.
+## Syncing from Noir to aztec-packages.
 
-## Current Features
+To start the sync run [this action](https://github.com/AztecProtocol/aztec-packages/actions/workflows/pull-noir.yml) manually (click the "Run Workflow" button in the top right). aztec-bot will then open a new PR which does the initial sync, this will have merge conflicts with master which will need to be resolved.
 
-Backends:
+Most of these will be due to simultaneous development in the two repositories but there are a few cases which are due to the sync process: 
+1. Replace the dependency on `@aztec/bb.js` in `noir-lang/noir_js_backend_barretenberg` to use the version built in this repository:
+  a. To do this, search for instances of `"@aztec/bb.js":` within package.json files and replacing the versions with `"portal:../../../../barretenberg/ts"` (number of directories to go up by may vary)
+2. Run `yarn install` in `noir/noir-repo` in order to update `yarn.lock`.
+3. Run a search and replace on `require_command wasm-opt` to `#require_command wasm-opt`
 
-- Barretenberg via FFI
-- Marlin via arkworks (Note -- latest interfaces may not be updated to support Marlin backend. Please open an issue if this is relevant to your project and requires attention.)
+We need to do this as `noir-lang/noir` uses a fixed version of barretenberg but in aztec-packages we test against the version of barretenberg built from the same commit. 
 
-Compiler:
+## Syncing from aztec-packages to Noir.
 
-- Module System
-- For expressions
-- Arrays
-- Bit Operations
-- Binary operations (<, <=, >, >=, +, -, \*, /, %) [See documentation for an extensive list]
-- Unsigned integers
-- If statements
-- Structures and Tuples
-- Generics
+When syncing from aztec-packages to Noir it's important to check that the latest release of `bb` uses the same ACIR serialization format as the current master commit. This is because Noir uses a released version of barretenberg rather than being developed in sync with it, it's then not possible to sync if there's been serialization changes since the last release.
 
-ACIR Supported OPCODES:
+To start the sync run [this action](https://github.com/AztecProtocol/aztec-packages/actions/workflows/mirror-noir-subrepo.yml) manually (click the "Run Workflow" button in the top right). aztec-bot will then open a new PR in the `noir-lang/noir` repository which does the initial sync, this will have merge conflicts with master which will need to be resolved.
 
-- Sha256
-- Blake2s
-- Schnorr signature verification
-- Pedersen
-- HashToField
-
-## Future Work
-
-The current focus is to gather as much feedback as possible while in the alpha phase. The main focuses of Noir are _safety_ and _developer experience_. If you find a feature that does not seem to be in line with these goals, please open an issue!
-
-Concretely the following items are on the road map:
-
-- General code sanitization and documentation (ongoing effort)
-- Prover and Verifier Key logic. (Prover and Verifier pre-process per compile)
-- Fallback mechanism for backend unsupported opcodes
-- Visibility modifiers
-- Signed integers
-- Backend integration: (Bulletproofs)
-- Recursion
-- Big integers
-
-## Minimum Rust version
-
-This crate's minimum supported rustc version is 1.71.1.
-
-## Working on this project
-
-This project uses [Nix](https://nixos.org/) and [direnv](https://direnv.net/) to streamline the development experience. Please follow [our guidelines](https://noir-lang.org/getting_started/nargo_installation/#option-3-compile-from-source) to setup your environment for working on the project.
-
-### Building against a different local/remote version of Barretenberg
-
-If you are working on this project and want a different version of Barretenberg (instead of the version this project is pinned against), you'll want to replace the lockfile version with your version. This can be done by running:
-
-```sh
-nix flake lock --override-input barretenberg /absolute/path/to/your/barretenberg
-```
-
-You can also point at a fork and/or branch on GitHub using:
-
-```sh
-nix flake lock --override-input barretenberg github:username/barretenberg/branch_name
-```
-
-__Note:__ You don't want to commit the updated lockfile, as it will fail in CI!
-
-## License
-
-Noir is free and open source. It is distributed under a dual license. (MIT/APACHE)
-
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in this crate by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
+Most of these will be due to simultaneous development in the two repositories but there are a few cases which are due to the sync process: 
+1. Replace the dependency on `@aztec/bb.js` in `noir-lang/noir_js_backend_barretenberg` to use the latest `aztec-packages` release version
+2. Run `yarn install` in order to update `yarn.lock`.
+3. Run a search and replace on `#require_command wasm-opt` to `require_command wasm-opt`

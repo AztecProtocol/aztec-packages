@@ -5,7 +5,7 @@
 
 namespace acir_format {
 
-using namespace proof_system::plonk;
+using namespace bb::plonk;
 
 /**
  * @brief RecursionConstraint struct contains information required to recursively verify a proof!
@@ -53,15 +53,6 @@ struct RecursionConstraint {
     std::vector<uint32_t> proof;
     std::vector<uint32_t> public_inputs;
     uint32_t key_hash;
-    // TODO(maxim):This is now unused, but we keep it here for backwards compatibility
-    std::array<uint32_t, AGGREGATION_OBJECT_SIZE> input_aggregation_object;
-    // TODO(maxim): This is now unused, but we keep it here for backwards compatibility
-    std::array<uint32_t, AGGREGATION_OBJECT_SIZE> output_aggregation_object;
-    // TODO(maxim): This is currently not being used on the Noir level at all,
-    // TODO(maxim): but we keep it here for backwards compatibility
-    // TODO(maxim): The object is now currently contained by the `proof` field
-    // TODO(maxim): and is handled when serializing ACIR to a barretenberg circuit
-    std::array<uint32_t, AGGREGATION_OBJECT_SIZE> nested_aggregation_object;
 
     friend bool operator==(RecursionConstraint const& lhs, RecursionConstraint const& rhs) = default;
 };
@@ -73,25 +64,25 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
     std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object,
     bool has_valid_witness_assignments = false);
 
-std::vector<barretenberg::fr> export_key_in_recursion_format(std::shared_ptr<verification_key> const& vkey);
-std::vector<barretenberg::fr> export_dummy_key_in_recursion_format(const PolynomialManifest& polynomial_manifest,
-                                                                   bool contains_recursive_proof = 0);
+std::vector<bb::fr> export_key_in_recursion_format(std::shared_ptr<verification_key> const& vkey);
+std::vector<bb::fr> export_dummy_key_in_recursion_format(const PolynomialManifest& polynomial_manifest,
+                                                         bool contains_recursive_proof = 0);
 
-std::vector<barretenberg::fr> export_transcript_in_recursion_format(const transcript::StandardTranscript& transcript);
-std::vector<barretenberg::fr> export_dummy_transcript_in_recursion_format(const transcript::Manifest& manifest,
-                                                                          const bool contains_recursive_proof);
+std::vector<bb::fr> export_transcript_in_recursion_format(const transcript::StandardTranscript& transcript);
+std::vector<bb::fr> export_dummy_transcript_in_recursion_format(const transcript::Manifest& manifest,
+                                                                const bool contains_recursive_proof);
 size_t recursion_proof_size_without_public_inputs();
 
 // In order to interact with a recursive aggregation state inside of a circuit, we need to represent its internal G1
 // elements as field elements. This happens in multiple locations when creating a recursion constraint. The struct and
 // method below export a g1 affine element as fields to use as part of the recursive circuit.
 struct G1AsFields {
-    barretenberg::fr x_lo;
-    barretenberg::fr x_hi;
-    barretenberg::fr y_lo;
-    barretenberg::fr y_hi;
+    bb::fr x_lo;
+    bb::fr x_hi;
+    bb::fr y_lo;
+    bb::fr y_hi;
 };
-G1AsFields export_g1_affine_element_as_fields(const barretenberg::g1::affine_element& group_element);
+G1AsFields export_g1_affine_element_as_fields(const bb::g1::affine_element& group_element);
 
 template <typename B> inline void read(B& buf, RecursionConstraint& constraint)
 {
@@ -100,9 +91,6 @@ template <typename B> inline void read(B& buf, RecursionConstraint& constraint)
     read(buf, constraint.proof);
     read(buf, constraint.public_inputs);
     read(buf, constraint.key_hash);
-    read(buf, constraint.input_aggregation_object);
-    read(buf, constraint.output_aggregation_object);
-    read(buf, constraint.nested_aggregation_object);
 }
 
 template <typename B> inline void write(B& buf, RecursionConstraint const& constraint)
@@ -112,9 +100,6 @@ template <typename B> inline void write(B& buf, RecursionConstraint const& const
     write(buf, constraint.proof);
     write(buf, constraint.public_inputs);
     write(buf, constraint.key_hash);
-    write(buf, constraint.input_aggregation_object);
-    write(buf, constraint.output_aggregation_object);
-    write(buf, constraint.nested_aggregation_object);
 }
 
 } // namespace acir_format

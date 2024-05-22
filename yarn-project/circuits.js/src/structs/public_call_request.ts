@@ -1,19 +1,18 @@
-import { BufferReader } from '@aztec/foundation/serialize';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
-import { computeVarArgsHash } from '../abis/abis.js';
-import { FieldsOf } from '../index.js';
-import { serializeToBuffer } from '../utils/serialize.js';
-import { CallerContext } from './call_request.js';
-import {
-  AztecAddress,
-  CallContext,
-  CallRequest,
-  Fr,
-  FunctionData,
-  PublicCallStackItem,
-  PublicCircuitPublicInputs,
-  Vector,
-} from './index.js';
+import { inspect } from 'util';
+
+import { computeVarArgsHash } from '../hash/hash.js';
+import { CallContext } from './call_context.js';
+import { CallRequest } from './call_request.js';
+import { CallerContext } from './caller_context.js';
+import { FunctionData } from './function_data.js';
+import { PublicCallStackItem } from './public_call_stack_item.js';
+import { PublicCircuitPublicInputs } from './public_circuit_public_inputs.js';
+import { Vector } from './shared.js';
 
 /**
  * Represents a request to call a public function from a private function. Serialization is
@@ -36,13 +35,14 @@ export class PublicCallRequest {
      */
     public callContext: CallContext,
     /**
+     * Context of the public call.
+     * TODO(#3417): Check if all fields of CallContext are actually needed.
+     */
+    public parentCallContext: CallContext,
+    /**
      * Function arguments.
      */
     public args: Fr[],
-    /**
-     * Optional side effect counter tracking position of this event in tx execution.
-     */
-    public sideEffectCounter: number,
   ) {}
 
   /**
@@ -54,8 +54,8 @@ export class PublicCallRequest {
       this.contractAddress,
       this.functionData,
       this.callContext,
+      this.parentCallContext,
       new Vector(this.args),
-      this.sideEffectCounter,
     );
   }
 
@@ -70,8 +70,8 @@ export class PublicCallRequest {
       new AztecAddress(reader.readBytes(32)),
       FunctionData.fromBuffer(reader),
       CallContext.fromBuffer(reader),
+      CallContext.fromBuffer(reader),
       reader.readVector(Fr),
-      reader.readNumber(),
     );
   }
 
@@ -94,8 +94,8 @@ export class PublicCallRequest {
       fields.contractAddress,
       fields.functionData,
       fields.callContext,
+      fields.parentCallContext,
       fields.args,
-      fields.sideEffectCounter,
     ] as const;
   }
 
@@ -116,11 +116,20 @@ export class PublicCallRequest {
    */
   toCallRequest() {
     const item = this.toPublicCallStackItem();
-    const callerContractAddress = this.callContext.msgSender;
     const callerContext = this.callContext.isDelegateCall
-      ? new CallerContext(this.callContext.msgSender, this.callContext.storageContractAddress)
+      ? new CallerContext(
+          this.parentCallContext.msgSender,
+          this.parentCallContext.storageContractAddress,
+          this.parentCallContext.isStaticCall,
+        )
       : CallerContext.empty();
-    return new CallRequest(item.hash(), callerContractAddress, callerContext, Fr.ZERO, Fr.ZERO);
+    return new CallRequest(
+      item.hash(),
+      this.parentCallContext.storageContractAddress,
+      callerContext,
+      new Fr(this.callContext.sideEffectCounter),
+      Fr.ZERO,
+    );
   }
 
   /**
@@ -129,5 +138,28 @@ export class PublicCallRequest {
    */
   getArgsHash() {
     return computeVarArgsHash(this.args);
+  }
+
+  static empty() {
+    return new PublicCallRequest(AztecAddress.ZERO, FunctionData.empty(), CallContext.empty(), CallContext.empty(), []);
+  }
+
+  isEmpty(): boolean {
+    return (
+      this.contractAddress.isZero() &&
+      this.functionData.isEmpty() &&
+      this.callContext.isEmpty() &&
+      this.parentCallContext.isEmpty() &&
+      this.args.length === 0
+    );
+  }
+
+  [inspect.custom]() {
+    return `PublicCallRequest {
+      contractAddress: ${this.contractAddress}
+      functionData: ${this.functionData}
+      callContext: ${this.callContext}
+      parentCallContext: ${this.parentCallContext}
+      args: ${this.args} }`;
   }
 }

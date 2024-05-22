@@ -2,7 +2,7 @@
 
 #include "./transition_widget.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 namespace widget {
 
 /**
@@ -125,8 +125,8 @@ template <class Field, class Getters, typename PolyContainer> class PlookupArith
         arithmetic_gate_identity *= (q_arith - 3);
 
         // TODO: if we multiply all q_m values by `-1/2` we can remove the need for this extra multiplication
-        if constexpr (std::is_same<barretenberg::fr, Field>::value) {
-            static constexpr barretenberg::fr neg_half = barretenberg::fr(-2).invert();
+        if constexpr (std::is_same<bb::fr, Field>::value) {
+            static constexpr bb::fr neg_half = bb::fr(-2).invert();
             arithmetic_gate_identity *= neg_half;
         } else {
             static const Field neg_half = Field(-2).invert();
@@ -168,8 +168,7 @@ template <class Field, class Getters, typename PolyContainer> class PlookupArith
  * @tparam Settings
  */
 template <typename Settings>
-using ProverPlookupArithmeticWidget =
-    widget::TransitionWidget<barretenberg::fr, Settings, widget::PlookupArithmeticKernel>;
+using ProverPlookupArithmeticWidget = widget::TransitionWidget<bb::fr, Settings, widget::PlookupArithmeticKernel>;
 
 /**
  * @brief Ultra plonk arithmetic widget for the verifier. It's quite complex, so for details better look at the kernel
@@ -180,4 +179,4 @@ template <typename Field, typename Group, typename Transcript, typename Settings
 using VerifierPlookupArithmeticWidget =
     widget::GenericVerifierWidget<Field, Transcript, Settings, widget::PlookupArithmeticKernel>;
 
-} // namespace proof_system::plonk
+} // namespace bb::plonk

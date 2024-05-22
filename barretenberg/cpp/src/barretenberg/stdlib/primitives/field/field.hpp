@@ -4,7 +4,7 @@
 #include "barretenberg/common/assert.hpp"
 #include <functional>
 
-namespace proof_system::plonk::stdlib {
+namespace bb::stdlib {
 
 template <typename Builder> class bool_t;
 template <typename Builder> class field_t {
@@ -12,14 +12,14 @@ template <typename Builder> class field_t {
     using View = field_t;
 
     field_t(Builder* parent_context = nullptr);
-    field_t(Builder* parent_context, const barretenberg::fr& value);
+    field_t(Builder* parent_context, const bb::fr& value);
 
     field_t(const int value)
         : context(nullptr)
         , witness_index(IS_CONSTANT)
     {
-        additive_constant = barretenberg::fr(value);
-        multiplicative_constant = barretenberg::fr(0);
+        additive_constant = bb::fr(value);
+        multiplicative_constant = bb::fr(0);
     }
 
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
@@ -27,16 +27,16 @@ template <typename Builder> class field_t {
         : context(nullptr)
         , witness_index(IS_CONSTANT)
     {
-        additive_constant = barretenberg::fr(value);
-        multiplicative_constant = barretenberg::fr(0);
+        additive_constant = bb::fr(value);
+        multiplicative_constant = bb::fr(0);
     }
 
     field_t(const unsigned int value)
         : context(nullptr)
         , witness_index(IS_CONSTANT)
     {
-        additive_constant = barretenberg::fr(value);
-        multiplicative_constant = barretenberg::fr(0);
+        additive_constant = bb::fr(value);
+        multiplicative_constant = bb::fr(0);
     }
 
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
@@ -44,21 +44,21 @@ template <typename Builder> class field_t {
         : context(nullptr)
         , witness_index(IS_CONSTANT)
     {
-        additive_constant = barretenberg::fr(value);
-        multiplicative_constant = barretenberg::fr(0);
+        additive_constant = bb::fr(value);
+        multiplicative_constant = bb::fr(0);
     }
 
-    field_t(const barretenberg::fr& value)
+    field_t(const bb::fr& value)
         : context(nullptr)
         , additive_constant(value)
-        , multiplicative_constant(barretenberg::fr(1))
+        , multiplicative_constant(bb::fr(1))
         , witness_index(IS_CONSTANT)
     {}
 
     field_t(const uint256_t& value)
         : context(nullptr)
         , additive_constant(value)
-        , multiplicative_constant(barretenberg::fr(1))
+        , multiplicative_constant(bb::fr(1))
         , witness_index(IS_CONSTANT)
     {}
 
@@ -83,7 +83,7 @@ template <typename Builder> class field_t {
     ~field_t() = default;
 
     static constexpr bool is_composite = false;
-    static constexpr uint256_t modulus = barretenberg::fr::modulus;
+    static constexpr uint256_t modulus = bb::fr::modulus;
 
     static field_t from_witness_index(Builder* parent_context, uint32_t witness_index);
 
@@ -169,10 +169,10 @@ template <typename Builder> class field_t {
 
     static field_t coset_generator(const size_t generator_idx)
     {
-        return field_t(barretenberg::fr::coset_generator(generator_idx));
+        return field_t(bb::fr::coset_generator(generator_idx));
     }
 
-    static field_t external_coset_generator() { return field_t(barretenberg::fr::external_coset_generator()); }
+    static field_t external_coset_generator() { return field_t(bb::fr::external_coset_generator()); }
 
     field_t operator-() const
     {
@@ -221,11 +221,11 @@ template <typename Builder> class field_t {
 
     /**
      * multiply *this by `to_mul` and add `to_add`
-     * One `madd` call costs 1 constraint for Ultra plonk
+     * One `madd` call costs 1 constraint in Ultra arithmetization
      * */
     field_t madd(const field_t& to_mul, const field_t& to_add) const;
 
-    // add_two costs 1 constraint for ultra plonk
+    // add_two costs 1 constraint in Ultra arithmetization
     field_t add_two(const field_t& add_a, const field_t& add_b) const;
     bool_t<Builder> operator==(const field_t& other) const;
     bool_t<Builder> operator!=(const field_t& other) const;
@@ -245,7 +245,7 @@ template <typename Builder> class field_t {
      **/
     field_t normalize() const;
 
-    barretenberg::fr get_value() const;
+    bb::fr get_value() const;
 
     Builder* get_context() const { return context; }
 
@@ -265,7 +265,15 @@ template <typename Builder> class field_t {
     void assert_is_not_zero(std::string const& msg = "field_t::assert_is_not_zero") const;
     void assert_is_zero(std::string const& msg = "field_t::assert_is_zero") const;
     bool is_constant() const { return witness_index == IS_CONSTANT; }
-    void set_public() const { context->set_public_input(normalize().witness_index); }
+    void set_public() const
+    {
+        if constexpr (IsSimulator<Builder>) {
+            auto value = normalize().get_value();
+            context->set_public_input(value);
+        } else {
+            context->set_public_input(normalize().witness_index);
+        }
+    }
 
     /**
      * Create a witness form a constant. This way the value of the witness is fixed and public (public, because the
@@ -279,10 +287,7 @@ template <typename Builder> class field_t {
         context->fix_witness(witness_index, get_value());
     }
 
-    static field_t from_witness(Builder* ctx, const barretenberg::fr& input)
-    {
-        return field_t(witness_t<Builder>(ctx, input));
-    }
+    static field_t from_witness(Builder* ctx, const bb::fr& input) { return field_t(witness_t<Builder>(ctx, input)); }
 
     /**
      * Fix a witness. The value of the witness is constrained with a selector
@@ -376,8 +381,8 @@ template <typename Builder> class field_t {
      *
      * This will add a constraint, as both zip and zap map to circuit witnesses.
      **/
-    mutable barretenberg::fr additive_constant;
-    mutable barretenberg::fr multiplicative_constant;
+    mutable bb::fr additive_constant;
+    mutable bb::fr multiplicative_constant;
 
     /**
      * Every builder object contains a vector `variables` (a.k.a. 'witnesses'); circuit variables that can be
@@ -427,7 +432,4 @@ template <typename Builder> inline std::ostream& operator<<(std::ostream& os, fi
 {
     return os << v.get_value();
 }
-
-EXTERN_STDLIB_TYPE(field_t);
-
-} // namespace proof_system::plonk::stdlib
+} // namespace bb::stdlib

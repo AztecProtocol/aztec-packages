@@ -1,4 +1,4 @@
-import { Tuple } from '../serialize/types.js';
+import { type Tuple } from '../serialize/types.js';
 
 /**
  * Pads an array to the target length by appending an element to its end. Throws if target length exceeds the input array length. Does not modify the input array.
@@ -13,6 +13,12 @@ export function padArrayEnd<T, N extends number>(arr: T[], elem: T, length: N): 
   }
   // Since typescript cannot always deduce that something is a tuple, we cast
   return [...arr, ...Array(length - arr.length).fill(elem)] as Tuple<T, N>;
+}
+
+/** Removes the right-padding for an array. Does not modify original array. */
+export function removeArrayPaddingEnd<T>(arr: T[], isEmpty: (item: T) => boolean): T[] {
+  const lastNonEmptyIndex = arr.reduce((last, item, i) => (isEmpty(item) ? last : i), -1);
+  return lastNonEmptyIndex === -1 ? [] : arr.slice(0, lastNonEmptyIndex + 1);
 }
 
 /**
@@ -51,4 +57,14 @@ export function isArrayEmpty<T>(arr: T[], isEmpty: (item: T) => boolean): boolea
  */
 export function arrayNonEmptyLength<T>(arr: T[], isEmpty: (item: T) => boolean): number {
   return arr.reduce((sum, item) => (isEmpty(item) ? sum : sum + 1), 0);
+}
+
+/**
+ * Executes the given function n times and returns the results in an array.
+ * @param n - How many times to repeat.
+ * @param fn - Mapper from index to value.
+ * @returns The array with the result from all executions.
+ */
+export function times<T>(n: number, fn: (i: number) => T): T[] {
+  return [...Array(n).keys()].map(i => fn(i));
 }

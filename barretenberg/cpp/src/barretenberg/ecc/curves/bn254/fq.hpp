@@ -6,7 +6,7 @@
 #include "../../fields/field.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
-namespace barretenberg {
+namespace bb {
 class Bn254FqParams {
   public:
     static constexpr uint64_t modulus_0 = 0x3C208C16D87CFD47UL;
@@ -60,10 +60,13 @@ class Bn254FqParams {
     // used in msgpack schema serialization
     static constexpr char schema_name[] = "fq";
     static constexpr bool has_high_2adicity = false;
+
+    // The modulus is larger than BN254 scalar field modulus, so it maps to two BN254 scalars
+    static constexpr size_t NUM_BN254_SCALARS = 2;
 };
 
 using fq = field<Bn254FqParams>;
 
-} // namespace barretenberg
+} // namespace bb
 
 // NOLINTEND(cppcoreguidelines-avoid-c-arrays)

@@ -15,11 +15,11 @@ shift
 SSH_CONFIG_PATH=${SSH_CONFIG_PATH:-$BUILD_SYSTEM_PATH/remote/ssh_config}
 
 # Copy the runner script to spot instance. This is what we actually run.
-echo "Copying ./remote_runner to $IP..."
-scp -rF $SSH_CONFIG_PATH $BUILD_SYSTEM_PATH/scripts/remote_runner $IP:.
+echo "Copying ./remote_initialize to $IP..."
+scp -rF $SSH_CONFIG_PATH $BUILD_SYSTEM_PATH/scripts/remote_initialize $IP:.
 
 # Run script on remote instance, passing environment variables.
-echo "Running ./remote_runner $@ on $IP..."
+echo "Running $@ on $IP..."
 ssh -A -F $SSH_CONFIG_PATH $IP "
   export COMMIT_HASH=$COMMIT_HASH
   export COMMIT_TAG=$COMMIT_TAG
@@ -28,8 +28,9 @@ ssh -A -F $SSH_CONFIG_PATH $IP "
   export BRANCH=${BRANCH:-}
   export PULL_REQUEST=${PULL_REQUEST:-}
   export DOCKERHUB_PASSWORD=$DOCKERHUB_PASSWORD
-  export ECR_DEPLOY_URL=$ECR_DEPLOY_URL
   export ECR_URL=$ECR_URL
   export BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-}
-  ./remote_runner $@
+
+  source ./remote_initialize
+  $@
 "

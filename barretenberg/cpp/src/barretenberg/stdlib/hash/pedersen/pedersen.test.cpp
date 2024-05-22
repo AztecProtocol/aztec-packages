@@ -1,15 +1,14 @@
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "pedersen.hpp"
 
-namespace test_StdlibPedersen {
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 template <typename Builder> class StdlibPedersen : public testing::Test {
@@ -48,7 +47,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
 
         info("num gates = ", builder.get_num_gates());
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
 
         fr hash_native = crypto::pedersen_hash::hash({ left.get_value(), right.get_value() });
@@ -79,7 +78,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
 
         info("num gates = ", builder.get_num_gates());
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
 
         EXPECT_EQ(bool(out_1_with_zero.get_value() == out_1_with_r.get_value()), true);
@@ -122,7 +121,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
 
         info("num gates = ", builder.get_num_gates());
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -147,7 +146,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
 
         info("num gates = ", builder.get_num_gates());
 
-        bool proof_result = builder.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
@@ -156,41 +155,41 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
         Builder builder;
 
         for (size_t i = 0; i < 7; ++i) {
-            std::vector<barretenberg::fr> inputs;
-            inputs.push_back(barretenberg::fr::random_element());
-            inputs.push_back(barretenberg::fr::random_element());
-            inputs.push_back(barretenberg::fr::random_element());
-            inputs.push_back(barretenberg::fr::random_element());
+            std::vector<fr> inputs;
+            inputs.push_back(bb::fr::random_element());
+            inputs.push_back(bb::fr::random_element());
+            inputs.push_back(bb::fr::random_element());
+            inputs.push_back(bb::fr::random_element());
 
             if (i == 1) {
-                inputs[0] = barretenberg::fr(0);
+                inputs[0] = fr(0);
             }
             if (i == 2) {
-                inputs[1] = barretenberg::fr(0);
-                inputs[2] = barretenberg::fr(0);
+                inputs[1] = fr(0);
+                inputs[2] = fr(0);
             }
             if (i == 3) {
-                inputs[3] = barretenberg::fr(0);
+                inputs[3] = fr(0);
             }
             if (i == 4) {
-                inputs[0] = barretenberg::fr(0);
-                inputs[3] = barretenberg::fr(0);
+                inputs[0] = fr(0);
+                inputs[3] = fr(0);
             }
             if (i == 5) {
-                inputs[0] = barretenberg::fr(0);
-                inputs[1] = barretenberg::fr(0);
-                inputs[2] = barretenberg::fr(0);
-                inputs[3] = barretenberg::fr(0);
+                inputs[0] = fr(0);
+                inputs[1] = fr(0);
+                inputs[2] = fr(0);
+                inputs[3] = fr(0);
             }
             if (i == 6) {
-                inputs[1] = barretenberg::fr(1);
+                inputs[1] = fr(1);
             }
             std::vector<fr_ct> witnesses;
             for (auto input : inputs) {
                 witnesses.push_back(witness_ct(&builder, input));
             }
 
-            barretenberg::fr expected = crypto::pedersen_hash::hash(inputs);
+            fr expected = crypto::pedersen_hash::hash(inputs);
 
             fr_ct result = pedersen_hash::hash(witnesses);
             EXPECT_EQ(result.get_value(), expected);
@@ -198,7 +197,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
 
         info("num gates = ", builder.get_num_gates());
 
-        bool proof_result = builder.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
@@ -211,7 +210,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
         std::vector<stdlib::field_t<Builder>> witness_inputs;
 
         for (size_t i = 0; i < 8; ++i) {
-            inputs.emplace_back(barretenberg::fr::random_element());
+            inputs.emplace_back(bb::fr::random_element());
             witness_inputs.emplace_back(witness_ct(&builder, inputs[i]));
         }
 
@@ -226,11 +225,11 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
     {
         Builder builder;
 
-        std::vector<barretenberg::fr> inputs;
+        std::vector<fr> inputs;
         std::vector<stdlib::field_t<Builder>> witness_inputs;
 
         for (size_t i = 0; i < 8; ++i) {
-            inputs.push_back(barretenberg::fr::random_element());
+            inputs.push_back(bb::fr::random_element());
             if (i % 2 == 1) {
                 witness_inputs.push_back(witness_ct(&builder, inputs[i]));
             } else {
@@ -238,14 +237,14 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
             }
         }
 
-        barretenberg::fr expected = crypto::pedersen_hash::hash(inputs);
+        fr expected = crypto::pedersen_hash::hash(inputs);
         auto result = pedersen_hash::hash(witness_inputs);
 
         EXPECT_EQ(result.get_value(), expected);
     }
 };
 
-using CircuitTypes = testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(StdlibPedersen, CircuitTypes);
 
@@ -254,7 +253,7 @@ TYPED_TEST(StdlibPedersen, TestHash)
     using Builder = TypeParam;
     using field_ct = stdlib::field_t<Builder>;
     using witness_ct = stdlib::witness_t<Builder>;
-    auto composer = Builder();
+    auto builder = Builder();
 
     const size_t num_inputs = 10;
 
@@ -264,7 +263,7 @@ TYPED_TEST(StdlibPedersen, TestHash)
     for (size_t i = 0; i < num_inputs; ++i) {
         const auto element = fr::random_element(&engine);
         inputs_native.emplace_back(element);
-        inputs.emplace_back(field_ct(witness_ct(&composer, element)));
+        inputs.emplace_back(field_ct(witness_ct(&builder, element)));
     }
 
     auto result = stdlib::pedersen_hash<Builder>::hash(inputs);
@@ -272,7 +271,7 @@ TYPED_TEST(StdlibPedersen, TestHash)
 
     EXPECT_EQ(result.get_value(), expected);
 
-    bool proof_result = composer.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -310,5 +309,3 @@ TYPED_TEST(StdlibPedersen, HashConstants)
 {
     TestFixture::test_hash_constants();
 };
-
-} // namespace test_StdlibPedersen

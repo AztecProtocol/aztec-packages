@@ -1,5 +1,4 @@
-#include <gtest/gtest.h>
-
+#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
@@ -9,18 +8,14 @@
 #include "../byte_array/byte_array.hpp"
 #include "../field/field.hpp"
 #include "./bigfield.hpp"
-#include "barretenberg/plonk/proof_system/prover/prover.hpp"
-#include "barretenberg/plonk/proof_system/verifier/verifier.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-
-#include "barretenberg/polynomials/polynomial_arithmetic.hpp"
+#include <gtest/gtest.h>
 #include <memory>
 #include <utility>
 
-namespace test_stdlib_bigfield {
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
 
 /* A note regarding Plookup:
    stdlib_bigfield_plookup tests were present when this file was standardized
@@ -31,7 +26,7 @@ using namespace proof_system::plonk;
 */
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 template <typename Builder> class stdlib_bigfield : public testing::Test {
@@ -54,7 +49,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         fq_ct tval1 = tval - tval;
         fq_ct tval2 = tval1 / tval;
         (void)tval2;
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -66,7 +61,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         fq_ct tval1 = tval - tval;
         fq_ct tval2 = tval1 / tval;
         (void)tval2;
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -127,7 +122,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(result.hi.data[2], 0ULL);
             EXPECT_EQ(result.hi.data[3], 0ULL);
         }
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -165,7 +160,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(result.hi.data[2], 0ULL);
             EXPECT_EQ(result.hi.data[3], 0ULL);
         }
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -211,7 +206,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(result.hi.data[2], 0ULL);
             EXPECT_EQ(result.hi.data[3], 0ULL);
         }
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -280,7 +275,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         if (builder.failed()) {
             info("Builder failed with error: ", builder.err());
         };
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -335,7 +330,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         if (builder.failed()) {
             info("Builder failed with error: ", builder.err());
         };
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -379,7 +374,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(result.hi.data[2], 0ULL);
             EXPECT_EQ(result.hi.data[3], 0ULL);
         }
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -421,7 +416,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(result.hi.data[2], 0ULL);
             EXPECT_EQ(result.hi.data[3], 0ULL);
         }
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -458,7 +453,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(result.hi.data[2], 0ULL);
             EXPECT_EQ(result.hi.data[3], 0ULL);
         }
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -492,7 +487,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(result.hi.data[2], 0ULL);
             EXPECT_EQ(result.hi.data[3], 0ULL);
         }
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -517,6 +512,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
                                fr(uint256_t(inputs[3]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
             fq_ct e = (a - b) * (c - d);
             fq expected = (inputs[0] - inputs[1]) * (inputs[2] - inputs[3]);
+
             expected = expected.from_montgomery_form();
             uint512_t result = e.get_value();
 
@@ -529,7 +525,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(result.hi.data[2], 0ULL);
             EXPECT_EQ(result.hi.data[3], 0ULL);
         }
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -552,7 +548,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(result_ct.get_value().lo, uint256_t(expected));
             EXPECT_EQ(result_ct.get_value().hi, uint256_t(0));
 
-            bool result = builder.check_circuit();
+            bool result = CircuitChecker::check(builder);
             EXPECT_EQ(result, true);
         }
     }
@@ -595,7 +591,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(result_d, expected_d);
             EXPECT_EQ(result_e, fq(0));
         }
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -642,7 +638,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(result_y.lo.data[2], expected_y.data[2]);
             EXPECT_EQ(result_y.lo.data[3], expected_y.data[3]);
         }
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -673,7 +669,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(result, expected);
             EXPECT_EQ(c.get_value().get_msb() < 254, true);
         }
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -704,7 +700,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(result, uint256_t(expected));
             EXPECT_EQ(c.get_value().get_msb() < 254, true);
         }
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -740,7 +736,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(result, uint256_t(expected));
             EXPECT_EQ(c.get_value().get_msb() < num_bits, true);
         }
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
         // Checking edge conditions
         fq random_input = fq::random_element();
@@ -749,10 +745,10 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
                            fr(uint256_t(random_input).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
 
         a.assert_less_than(random_input + 1);
-        EXPECT_EQ(builder.check_circuit(), true);
+        EXPECT_EQ(CircuitChecker::check(builder), true);
 
         a.assert_less_than(random_input);
-        EXPECT_EQ(builder.check_circuit(), false);
+        EXPECT_EQ(CircuitChecker::check(builder), false);
     }
 
     static void test_byte_array_constructors()
@@ -779,7 +775,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             uint256_t result = (c.get_value().lo);
             EXPECT_EQ(result, uint256_t(expected));
         }
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -821,25 +817,25 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         auto f = fq_ct::mult_madd({ a4 }, { a4 }, {}, false);
         (void)f;
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
     static void test_conditional_select_regression()
     {
         auto builder = Builder();
-        barretenberg::fq a(0);
-        barretenberg::fq b(1);
+        fq a(0);
+        fq b(1);
         fq_ct a_ct(&builder, a);
         fq_ct b_ct(&builder, b);
         fq_ct selected = a_ct.conditional_select(b_ct, typename bn254::bool_ct(&builder, true));
-        EXPECT_EQ(barretenberg::fq((selected.get_value() % uint512_t(barretenberg::fq::modulus)).lo), b);
+        EXPECT_EQ(fq((selected.get_value() % uint512_t(bb::fq::modulus)).lo), b);
     }
 
     static void test_division_context()
     {
         auto builder = Builder();
-        barretenberg::fq a(1);
+        fq a(1);
         fq_ct a_ct(&builder, a);
         fq_ct ret = fq_ct::div_check_denominator_nonzero({}, a_ct);
         EXPECT_NE(ret.get_context(), nullptr);
@@ -847,7 +843,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
 };
 
 // Define types for which the above tests will be constructed.
-typedef testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder> CircuitTypes;
+using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254>;
 // Define the suite of tests.
 TYPED_TEST_SUITE(stdlib_bigfield, CircuitTypes);
 TYPED_TEST(stdlib_bigfield, badmul)
@@ -940,19 +936,19 @@ TYPED_TEST(stdlib_bigfield, division_context)
 //     size_t num_repetitions = 1;
 //     for (size_t i = 0; i < num_repetitions; ++i) {
 //         fq inputs[3]{ fq::random_element(), fq::random_element(), fq::random_element() };
-//         fq_ct a(witness_ct(&builder, barretenberg::fr(uint256_t(inputs[0]).slice(0,
+//         fq_ct a(witness_ct(&builder, bb::fr(uint256_t(inputs[0]).slice(0,
 //         fq_ct::NUM_LIMB_BITS * 2))),
 //                 witness_ct(
 //                     &builder,
-//                     barretenberg::fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2,
+//                     fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2,
 //                     fq_ct::NUM_LIMB_BITS * 4))));
 //         fq_ct b1(&builder, uint256_t(inputs[1]));
 //         fq_ct b2(&builder, uint256_t(inputs[2]));
 //         fq_ct c = a / (b1 - b2);
-//         // uint256_t modulus{ barretenberg::Bn254FqParams::modulus_0,
-//         //                    barretenberg::Bn254FqParams::modulus_1,
-//         //                    barretenberg::Bn254FqParams::modulus_2,
-//         //                    barretenberg::Bn254FqParams::modulus_3 };
+//         // uint256_t modulus{ bb::Bn254FqParams::modulus_0,
+//         //                    Bn254FqParams::modulus_1,
+//         //                    Bn254FqParams::modulus_2,
+//         //                    Bn254FqParams::modulus_3 };
 
 //         fq expected = (inputs[0] / (inputs[1] - inputs[2]));
 //         std::cerr << "denominator = " << inputs[1] - inputs[2] << std::endl;
@@ -979,20 +975,20 @@ TYPED_TEST(stdlib_bigfield, division_context)
 // // PLOOKUP TESTS
 // TEST(stdlib_bigfield_plookup, test_mul)
 // {
-//     plonk::UltraPlonkBuilder builder = proof_system::plonk::UltraPlonkBuilder();
+//     plonk::UltraPlonkBuilder builder = plonk::UltraPlonkBuilder();
 //     size_t num_repetitions = 1;
 //     for (size_t i = 0; i < num_repetitions; ++i) {
 //         fq inputs[3]{ fq::random_element(), fq::random_element(), fq::random_element() };
 //         fq_ct a(
-//             witness_ct(&builder, barretenberg::fr(uint256_t(inputs[0]).slice(0,
+//             witness_ct(&builder, bb::fr(uint256_t(inputs[0]).slice(0,
 //             fq_ct::NUM_LIMB_BITS * 2))), witness_ct(&builder,
-//                        barretenberg::fr(
+//                        fr(
 //                            uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS *
 //                            4))));
 //         fq_ct b(
-//             witness_ct(&builder, barretenberg::fr(uint256_t(inputs[1]).slice(0,
+//             witness_ct(&builder, bb::fr(uint256_t(inputs[1]).slice(0,
 //             fq_ct::NUM_LIMB_BITS * 2))), witness_ct(&builder,
-//                        barretenberg::fr(
+//                        fr(
 //                            uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS *
 //                            4))));
 //         std::cerr << "starting mul" << std::endl;
@@ -1026,14 +1022,14 @@ TYPED_TEST(stdlib_bigfield, division_context)
 
 // TEST(stdlib_bigfield_plookup, test_sqr)
 // {
-//     plonk::UltraPlonkBuilder builder = proof_system::plonk::UltraPlonkBuilder();
+//     plonk::UltraPlonkBuilder builder = plonk::UltraPlonkBuilder();
 //     size_t num_repetitions = 10;
 //     for (size_t i = 0; i < num_repetitions; ++i) {
 //         fq inputs[3]{ fq::random_element(), fq::random_element(), fq::random_element() };
 //         fq_ct a(
-//             witness_ct(&builder, barretenberg::fr(uint256_t(inputs[0]).slice(0,
+//             witness_ct(&builder, bb::fr(uint256_t(inputs[0]).slice(0,
 //             fq_ct::NUM_LIMB_BITS * 2))), witness_ct(&builder,
-//                        barretenberg::fr(
+//                        fr(
 //                            uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS *
 //                            4))));
 //         uint64_t before = builder.get_num_gates();
@@ -1063,4 +1059,3 @@ TYPED_TEST(stdlib_bigfield, division_context)
 //     bool result = verifier.verify_proof(proof);
 //     EXPECT_EQ(result, true);
 // }
-} // namespace test_stdlib_bigfield

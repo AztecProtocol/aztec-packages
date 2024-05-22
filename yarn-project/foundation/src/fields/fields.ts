@@ -1,6 +1,9 @@
+import { inspect } from 'util';
+
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { randomBytes } from '../crypto/random/index.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
+import { TypeRegistry } from '../serialize/type_registry.js';
 
 const ZERO_BUFFER = Buffer.alloc(32);
 
@@ -51,7 +54,7 @@ abstract class BaseField {
     } else if (typeof value === 'bigint' || typeof value === 'number' || typeof value === 'boolean') {
       this.asBigInt = BigInt(value);
       if (this.asBigInt >= this.modulus()) {
-        throw new Error('Value >= to field modulus.');
+        throw new Error(`Value 0x${this.asBigInt.toString(16)} is greater or equal to field modulus.`);
       }
     } else if (value instanceof BaseField) {
       this.asBuffer = value.asBuffer;
@@ -89,10 +92,22 @@ abstract class BaseField {
     if (this.asBigInt === undefined) {
       this.asBigInt = toBigIntBE(this.asBuffer!);
       if (this.asBigInt >= this.modulus()) {
-        throw new Error('Value >= to field modulus.');
+        throw new Error(`Value 0x${this.asBigInt.toString(16)} is greater or equal to field modulus.`);
       }
     }
     return this.asBigInt;
+  }
+
+  toBool(): boolean {
+    return Boolean(this.toBigInt());
+  }
+
+  toNumber(): number {
+    const value = this.toBigInt();
+    if (value > Number.MAX_SAFE_INTEGER) {
+      throw new Error(`Value ${value.toString(16)} greater than than max safe integer`);
+    }
+    return Number(value);
   }
 
   toShortString(): string {
@@ -102,6 +117,16 @@ abstract class BaseField {
 
   equals(rhs: BaseField): boolean {
     return this.toBuffer().equals(rhs.toBuffer());
+  }
+
+  lt(rhs: BaseField): boolean {
+    return this.toBigInt() < rhs.toBigInt();
+  }
+
+  cmp(rhs: BaseField): -1 | 0 | 1 {
+    const lhsBigInt = this.toBigInt();
+    const rhsBigInt = rhs.toBigInt();
+    return lhsBigInt === rhsBigInt ? 0 : lhsBigInt < rhsBigInt ? -1 : 1;
   }
 
   isZero(): boolean {
@@ -121,7 +146,7 @@ abstract class BaseField {
  * Constructs a field from a Buffer of BufferReader.
  * It maybe not read the full 32 bytes if the Buffer is shorter, but it will padded in BaseField constructor.
  */
-function fromBuffer<T extends BaseField>(buffer: Buffer | BufferReader, f: DerivedField<T>) {
+export function fromBuffer<T extends BaseField>(buffer: Buffer | BufferReader, f: DerivedField<T>) {
   const reader = BufferReader.asReader(buffer);
   return new f(reader.readBytes(BaseField.SIZE_IN_BYTES));
 }
@@ -163,10 +188,15 @@ export interface Fr {
  */
 export class Fr extends BaseField {
   static ZERO = new Fr(0n);
+  static ONE = new Fr(1n);
   static MODULUS = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001n;
 
   constructor(value: number | bigint | boolean | Fr | Buffer) {
     super(value);
+  }
+
+  [inspect.custom]() {
+    return `Fr<${this.toString()}>`;
   }
 
   protected modulus() {
@@ -181,6 +211,10 @@ export class Fr extends BaseField {
     return Fr.ZERO;
   }
 
+  static isZero(value: Fr) {
+    return value.isZero();
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader) {
     return fromBuffer(buffer, Fr);
   }
@@ -192,7 +226,50 @@ export class Fr extends BaseField {
   static fromString(buf: string) {
     return fromString(buf, Fr);
   }
+
+  /** Arithmetic */
+
+  add(rhs: Fr) {
+    return new Fr((this.toBigInt() + rhs.toBigInt()) % Fr.MODULUS);
+  }
+
+  sub(rhs: Fr) {
+    const result = this.toBigInt() - rhs.toBigInt();
+    return new Fr(result < 0 ? result + Fr.MODULUS : result);
+  }
+
+  mul(rhs: Fr) {
+    return new Fr((this.toBigInt() * rhs.toBigInt()) % Fr.MODULUS);
+  }
+
+  div(rhs: Fr) {
+    if (rhs.isZero()) {
+      throw new Error('Division by zero');
+    }
+
+    const bInv = modInverse(rhs.toBigInt());
+    return this.mul(bInv);
+  }
+
+  // Integer division.
+  ediv(rhs: Fr) {
+    if (rhs.isZero()) {
+      throw new Error('Division by zero');
+    }
+
+    return new Fr(this.toBigInt() / rhs.toBigInt());
+  }
+
+  toJSON() {
+    return {
+      type: 'Fr',
+      value: this.toString(),
+    };
+  }
 }
+
+// For deserializing JSON.
+TypeRegistry.register('Fr', Fr);
 
 /**
  * Branding to ensure fields are not interchangeable types.
@@ -210,6 +287,10 @@ export class Fq extends BaseField {
   static MODULUS = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47n;
   private static HIGH_SHIFT = BigInt((BaseField.SIZE_IN_BYTES / 2) * 8);
   private static LOW_MASK = (1n << Fq.HIGH_SHIFT) - 1n;
+
+  [inspect.custom]() {
+    return `Fq<${this.toString()}>`;
+  }
 
   get low(): Fr {
     return new Fr(this.toBigInt() & Fq.LOW_MASK);
@@ -250,12 +331,54 @@ export class Fq extends BaseField {
   static fromHighLow(high: Fr, low: Fr): Fq {
     return new Fq((high.toBigInt() << Fq.HIGH_SHIFT) + low.toBigInt());
   }
+
+  toJSON() {
+    return {
+      type: 'Fq',
+      value: this.toString(),
+    };
+  }
+}
+
+// For deserializing JSON.
+TypeRegistry.register('Fq', Fq);
+
+// Beware: Performance bottleneck below
+
+/**
+ * Find the modular inverse of a given element, for BN254 Fr.
+ */
+function modInverse(b: bigint) {
+  const [gcd, x, _] = extendedEuclidean(b, Fr.MODULUS);
+  if (gcd != 1n) {
+    throw Error('Inverse does not exist');
+  }
+  // Add modulus if -ve to ensure positive
+  return new Fr(x > 0 ? x : x + Fr.MODULUS);
+}
+
+/**
+ * The extended Euclidean algorithm can be used to find the multiplicative inverse of a field element
+ * This is used to perform field division.
+ */
+function extendedEuclidean(a: bigint, modulus: bigint): [bigint, bigint, bigint] {
+  if (a == 0n) {
+    return [modulus, 0n, 1n];
+  } else {
+    const [gcd, x, y] = extendedEuclidean(modulus % a, a);
+    return [gcd, y - (modulus / a) * x, x];
+  }
 }
 
 /**
  * GrumpkinScalar is an Fq.
  * @remarks Called GrumpkinScalar because it is used to represent elements in Grumpkin's scalar field as defined in
- *          the Aztec Yellow Paper.
+ *          the Aztec Protocol Specs.
  */
 export type GrumpkinScalar = Fq;
 export const GrumpkinScalar = Fq;
+
+/** Wraps a function that returns a buffer so that all results are reduced into a field of the given type. */
+export function reduceFn<TInput, TField extends BaseField>(fn: (input: TInput) => Buffer, field: DerivedField<TField>) {
+  return (input: TInput) => fromBufferReduce(fn(input), field);
+}

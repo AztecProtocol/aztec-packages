@@ -6,7 +6,7 @@
 
 namespace examples::simple {
 
-using namespace proof_system::plonk;
+using namespace bb::plonk;
 using namespace stdlib::types;
 
 const size_t CIRCUIT_SIZE = 1 << 19;
@@ -14,8 +14,7 @@ const size_t CIRCUIT_SIZE = 1 << 19;
 void build_circuit(Builder& builder)
 {
     while (builder.get_num_gates() <= CIRCUIT_SIZE / 2) {
-        plonk::stdlib::pedersen_hash<Builder>::hash(
-            { field_ct(witness_ct(&builder, 1)), field_ct(witness_ct(&builder, 1)) });
+        stdlib::pedersen_hash<Builder>::hash({ field_ct(witness_ct(&builder, 1)), field_ct(witness_ct(&builder, 1)) });
     }
 }
 
@@ -51,7 +50,7 @@ proof create_proof(BuilderComposerPtrs pair)
     return proof;
 }
 
-bool verify_proof(BuilderComposerPtrs pair, proof_system::plonk::proof const& proof)
+bool verify_proof(BuilderComposerPtrs pair, bb::plonk::proof const& proof)
 {
     info("computing verification key...");
     pair.composer->compute_verification_key(*pair.builder);

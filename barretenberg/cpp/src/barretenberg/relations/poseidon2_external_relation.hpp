@@ -1,6 +1,6 @@
 #pragma once
 #include "barretenberg/relations/relation_types.hpp"
-namespace proof_system {
+namespace bb {
 
 template <typename FF_> class Poseidon2ExternalRelationImpl {
   public:
@@ -12,6 +12,15 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         7, // external poseidon2 round sub-relation for third value
         7, // external poseidon2 round sub-relation for fourth value
     };
+
+    /**
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
+     *
+     */
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.q_poseidon2_external.is_zero();
+    }
 
     /**
      * @brief Expression for the poseidon2 external round relation, based on E_i in Section 6 of
@@ -43,6 +52,7 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
                            const Parameters&,
                            const FF& scaling_factor)
     {
+        BB_OP_COUNT_TIME_NAME("PoseidonExt::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
         auto w_l = View(in.w_l);
@@ -95,23 +105,20 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         auto v1 = t3 + v2; // 5u_1 + 7u_2 + u_3 + 3u_4
         auto v3 = t2 + v4; // u_1 + 3u_2 + 5u_3 + 7u_4
 
-        auto tmp = q_poseidon2_external * (v1 - w_l_shift);
-        tmp *= scaling_factor;
+        auto q_pos_by_scaling = q_poseidon2_external * scaling_factor;
+        auto tmp = q_pos_by_scaling * (v1 - w_l_shift);
         std::get<0>(evals) += tmp;
 
-        tmp = q_poseidon2_external * (v2 - w_r_shift);
-        tmp *= scaling_factor;
+        tmp = q_pos_by_scaling * (v2 - w_r_shift);
         std::get<1>(evals) += tmp;
 
-        tmp = q_poseidon2_external * (v3 - w_o_shift);
-        tmp *= scaling_factor;
+        tmp = q_pos_by_scaling * (v3 - w_o_shift);
         std::get<2>(evals) += tmp;
 
-        tmp = q_poseidon2_external * (v4 - w_4_shift);
-        tmp *= scaling_factor;
+        tmp = q_pos_by_scaling * (v4 - w_4_shift);
         std::get<3>(evals) += tmp;
     };
 };
 
 template <typename FF> using Poseidon2ExternalRelation = Relation<Poseidon2ExternalRelationImpl<FF>>;
-} // namespace proof_system
+} // namespace bb

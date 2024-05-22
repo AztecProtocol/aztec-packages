@@ -1,52 +1,77 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/goblin/goblin.hpp"
-#include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
+#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/crypto/ecdsa/ecdsa.hpp"
+#include "barretenberg/crypto/merkle_tree/membership.hpp"
+#include "barretenberg/crypto/merkle_tree/memory_store.hpp"
+#include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/stdlib/recursion/honk/verifier/ultra_recursive_verifier.hpp"
+#include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
+#include "barretenberg/stdlib/hash/sha256/sha256.hpp"
+#include "barretenberg/stdlib/honk_recursion/verifier/protogalaxy_recursive_verifier.hpp"
+#include "barretenberg/stdlib/honk_recursion/verifier/ultra_recursive_verifier.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
+#include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 
-namespace barretenberg {
+namespace bb {
+
 class GoblinMockCircuits {
   public:
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using Fbase = Curve::BaseField;
     using Point = Curve::AffineElement;
-    using CommitmentKey = proof_system::honk::pcs::CommitmentKey<Curve>;
-    using OpQueue = proof_system::ECCOpQueue;
-    using GoblinUltraBuilder = proof_system::GoblinUltraCircuitBuilder;
-    using Flavor = proof_system::honk::flavor::GoblinUltra;
-    using RecursiveFlavor = proof_system::honk::flavor::GoblinUltraRecursive;
-    using RecursiveVerifier = proof_system::plonk::stdlib::recursion::honk::GoblinRecursiveVerifier;
-    using KernelInput = Goblin::AccumulationOutput;
+    using CommitmentKey = bb::CommitmentKey<Curve>;
+    using OpQueue = bb::ECCOpQueue;
+    using GoblinUltraBuilder = bb::GoblinUltraCircuitBuilder;
+    using Flavor = bb::GoblinUltraFlavor;
+    using RecursiveFlavor = bb::GoblinUltraRecursiveFlavor_<GoblinUltraBuilder>;
+    using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
+    using VerifierInstance = bb::VerifierInstance_<Flavor>;
+    using RecursiveVerifierInstance = ::bb::stdlib::recursion::honk::RecursiveVerifierInstance_<RecursiveFlavor>;
+    using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveVerifierInstance>;
+    using VerificationKey = Flavor::VerificationKey;
     static constexpr size_t NUM_OP_QUEUE_COLUMNS = Flavor::NUM_WIRES;
 
-    static void construct_arithmetic_circuit(GoblinUltraBuilder& builder, size_t num_gates = 1)
-    {
-        // Add some arithmetic gates that utilize public inputs
-        for (size_t i = 0; i < num_gates; ++i) {
-            FF a = FF::random_element();
-            FF b = FF::random_element();
-            FF c = FF::random_element();
-            FF d = a + b + c;
-            uint32_t a_idx = builder.add_public_variable(a);
-            uint32_t b_idx = builder.add_variable(b);
-            uint32_t c_idx = builder.add_variable(c);
-            uint32_t d_idx = builder.add_variable(d);
+    struct KernelInput {
+        HonkProof proof;
+        std::shared_ptr<Flavor::VerificationKey> verification_key;
+    };
 
-            builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
+    /**
+     * @brief Populate a builder with some arbitrary but nontrivial constraints
+     * @details Although the details of the circuit constructed here are arbitrary, the intent is to mock something a
+     * bit more realistic than a circuit comprised entirely of arithmetic gates. E.g. the circuit should respond
+     * realistically to efforts to parallelize circuit construction.
+     *
+     * @param builder
+     * @param large If true, construct a "large" circuit (2^19), else a medium circuit (2^17)
+     */
+    static void construct_mock_function_circuit(GoblinUltraBuilder& builder, bool large = false)
+    {
+        // Determine number of times to execute the below operations that constitute the mock circuit logic. Note that
+        // the circuit size does not scale linearly with number of iterations due to e.g. amortization of lookup costs
+        const size_t NUM_ITERATIONS_LARGE = 12; // results in circuit size 2^19 (502238 gates)
+
+        if (large) {
+            stdlib::generate_sha256_test_circuit(builder, NUM_ITERATIONS_LARGE);
+            stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ITERATIONS_LARGE);
+            stdlib::generate_merkle_membership_test_circuit(builder, NUM_ITERATIONS_LARGE);
+        } else { // Results in circuit size 2^17 when accumulated via ClientIvc
+            stdlib::generate_sha256_test_circuit(builder, 5);
+            stdlib::generate_ecdsa_verification_test_circuit(builder, 2);
+            stdlib::generate_merkle_membership_test_circuit(builder, 10);
         }
-    }
 
-    static void construct_goblin_ecc_op_circuit(GoblinUltraBuilder& builder)
-    {
-        // Add a mul accum op and an equality op
-        auto point = Point::one() * FF::random_element();
-        auto scalar = FF::random_element();
-        builder.queue_ecc_mul_accum(point, scalar);
-        builder.queue_ecc_eq();
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
+        // function circuit because we cannot support zero commtiments. While the builder handles this at
+        // ProverInstance creation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other UGH
+        // circuits (where we don't explicitly need to add goblin ops), in ClientIVC merge proving happens prior to
+        // folding where the absense of goblin ecc ops will result in zero commitments.
+        MockCircuits::construct_goblin_ecc_op_circuit(builder);
     }
 
     /**
@@ -54,26 +79,25 @@ class GoblinMockCircuits {
      * @todo The transcript aggregation protocol in the Goblin proof system can not yet support an empty "previous
      * transcript" (see issue #723) because the corresponding commitments are zero / the point at infinity. This
      * function mocks the interactions with the op queue of a fictional "first" circuit. This way, when we go to
-     * generate a proof over our first "real" circuit, the transcript aggregation protocol can proceed nominally. The
-     * mock data is valid in the sense that it can be processed by all stages of Goblin as if it came from a genuine
-     * circuit.
+     * generate a proof over our first "real" circuit, the transcript aggregation protocol can proceed nominally.
+     * The mock data is valid in the sense that it can be processed by all stages of Goblin as if it came from a
+     * genuine circuit.
      *
      *
      * @param op_queue
      */
-    static void perform_op_queue_interactions_for_mock_first_circuit(
-        std::shared_ptr<proof_system::ECCOpQueue>& op_queue)
+    static void perform_op_queue_interactions_for_mock_first_circuit(std::shared_ptr<bb::ECCOpQueue>& op_queue)
     {
-        proof_system::GoblinUltraCircuitBuilder builder{ op_queue };
+        bb::GoblinUltraCircuitBuilder builder{ op_queue };
 
         // Add some goblinized ecc ops
-        construct_goblin_ecc_op_circuit(builder);
+        MockCircuits::construct_goblin_ecc_op_circuit(builder);
 
         op_queue->set_size_data();
 
         // Manually compute the op queue transcript commitments (which would normally be done by the merge prover)
-        auto crs_factory_ = barretenberg::srs::get_crs_factory();
-        auto commitment_key = CommitmentKey(op_queue->get_current_size(), crs_factory_);
+        bb::srs::init_crs_factory("../srs_db/ignition");
+        auto commitment_key = CommitmentKey(op_queue->get_current_size());
         std::array<Point, Flavor::NUM_WIRES> op_queue_commitments;
         size_t idx = 0;
         for (auto& entry : op_queue->get_aggregate_transcript()) {
@@ -88,42 +112,103 @@ class GoblinMockCircuits {
      *
      * @param builder
      */
-    static void construct_simple_initial_circuit(GoblinUltraBuilder& builder)
+    static void add_some_ecc_op_gates(GoblinUltraBuilder& builder)
     {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/800) Testing cleanup
-        perform_op_queue_interactions_for_mock_first_circuit(builder.op_queue);
-
         // Add some arbitrary ecc op gates
         for (size_t i = 0; i < 3; ++i) {
-            auto point = Point::random_element();
-            auto scalar = FF::random_element();
+            auto point = Point::random_element(&engine);
+            auto scalar = FF::random_element(&engine);
             builder.queue_ecc_add_accum(point);
             builder.queue_ecc_mul_accum(point, scalar);
         }
         // queues the result of the preceding ECC
         builder.queue_ecc_eq(); // should be eq and reset
+    }
 
-        construct_arithmetic_circuit(builder);
+    /**
+     * @brief Generate a simple test circuit with some ECC op gates and conventional arithmetic gates
+     *
+     * @param builder
+     */
+    static void construct_simple_circuit(GoblinUltraBuilder& builder)
+    {
+        add_some_ecc_op_gates(builder);
+        MockCircuits::construct_arithmetic_circuit(builder);
+    }
+
+    /**
+     * @brief Construct a size 2^17 mock kernel circuit based on vanilla recursion for benchmarking
+     * @details This circuit contains (1) some arbitrary operations representing general kernel logic, (2) recursive
+     * verification of a function circuit proof, and optionally (3) recursive verification of a previous kernel circuit
+     * proof. The arbitrary kernel logic is structured to bring the final dyadic circuit size of the kernel to 2^17.
+     *
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/801): Pairing point aggregation not implemented
+     * @param builder
+     * @param function_accum {proof, vkey} for function circuit to be recursively verified
+     * @param prev_kernel_accum {proof, vkey} for previous kernel circuit to be recursively verified
+     */
+    static void construct_mock_recursion_kernel_circuit(GoblinUltraBuilder& builder,
+                                                        const KernelInput& function_accum,
+                                                        const KernelInput& prev_kernel_accum)
+    {
+        // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make the
+        // kernel "full" within the dyadic size 2^17 (130914 gates)
+        const size_t NUM_MERKLE_CHECKS = 45;
+        const size_t NUM_ECDSA_VERIFICATIONS = 1;
+        const size_t NUM_SHA_HASHES = 1;
+        stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
+        stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
+        stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
+
+        // Execute recursive aggregation of function proof
+        RecursiveVerifier verifier1{ &builder, function_accum.verification_key };
+        verifier1.verify_proof(function_accum.proof);
+
+        // Execute recursive aggregation of previous kernel proof if one exists
+        if (!prev_kernel_accum.proof.empty()) {
+            RecursiveVerifier verifier2{ &builder, prev_kernel_accum.verification_key };
+            verifier2.verify_proof(prev_kernel_accum.proof);
+        }
     }
 
     /**
      * @brief Construct a mock kernel circuit
-     * @details This circuit contains (1) some basic/arbitrary arithmetic gates, (2) a genuine recursive verification of
-     * the proof provided as input. It does not contain any other real kernel logic.
+     * @details Construct an arbitrary circuit meant to represent the aztec private function execution kernel. Recursive
+     * folding verification is handled internally by ClientIvc, not in the kernel.
      *
      * @param builder
-     * @param kernel_input A proof to be recursively verified and the corresponding native verification key
+     * @param function_fold_proof
+     * @param kernel_fold_proof
      */
-    static void construct_mock_kernel_circuit(GoblinUltraBuilder& builder, KernelInput& kernel_input)
+    static void construct_mock_folding_kernel(GoblinUltraBuilder& builder)
     {
-        // Generic operations e.g. state updates (just arith gates for now)
-        GoblinMockCircuits::construct_arithmetic_circuit(builder, /*num_gates=*/1 << 4);
+        // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make
+        // the kernel "full" within the dyadic size 2^17
+        const size_t NUM_MERKLE_CHECKS = 20;
+        const size_t NUM_ECDSA_VERIFICATIONS = 2;
+        const size_t NUM_SHA_HASHES = 1;
+        stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
+        stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
+        stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
+    }
 
-        // Execute recursive aggregation of previous kernel proof
-        RecursiveVerifier verifier{ &builder, kernel_input.verification_key };
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/801): Aggregation
-        auto pairing_points = verifier.verify_proof(kernel_input.proof); // app function proof
-        pairing_points = verifier.verify_proof(kernel_input.proof);      // previous kernel proof
+    /**
+     * @brief A minimal version of the mock kernel (recursive verifiers only) for faster testing
+     *
+     */
+    static void construct_mock_kernel_small(GoblinUltraBuilder& builder,
+                                            const KernelInput& function_accum,
+                                            const KernelInput& prev_kernel_accum)
+    {
+        // Execute recursive aggregation of function proof
+        RecursiveVerifier verifier1{ &builder, function_accum.verification_key };
+        verifier1.verify_proof(function_accum.proof);
+
+        // Execute recursive aggregation of previous kernel proof if one exists
+        if (!prev_kernel_accum.proof.empty()) {
+            RecursiveVerifier verifier2{ &builder, prev_kernel_accum.verification_key };
+            verifier2.verify_proof(prev_kernel_accum.proof);
+        }
     }
 };
-} // namespace barretenberg
+} // namespace bb

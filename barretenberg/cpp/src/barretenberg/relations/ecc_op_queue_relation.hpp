@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace proof_system {
+namespace bb {
 
 template <typename FF_> class EccOpQueueRelationImpl {
   public:
@@ -17,6 +17,13 @@ template <typename FF_> class EccOpQueueRelationImpl {
         3, // op-queue-wire vanishes sub-relation 3
         3  // op-queue-wire vanishes sub-relation 4
     };
+
+    template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
+    {
+        // The prover can skip execution of this relation altogether since an honest input will lead to a zero
+        // contribution at every row, even when the selector lagrange_ecc_op is on
+        return true;
+    }
 
     /**
      * @brief Expression for the generalized permutation sort gate.
@@ -43,6 +50,7 @@ template <typename FF_> class EccOpQueueRelationImpl {
                                   const Parameters&,
                                   const FF& scaling_factor)
     {
+        BB_OP_COUNT_TIME_NAME("EccOp::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
 
@@ -57,7 +65,7 @@ template <typename FF_> class EccOpQueueRelationImpl {
         auto lagrange_ecc_op = View(in.lagrange_ecc_op);
 
         // If lagrange_ecc_op is the indicator for ecc_op_gates, this is the indicator for the complement
-        auto complement_ecc_op = lagrange_ecc_op * FF(-1) + FF(1);
+        auto complement_ecc_op = -lagrange_ecc_op + FF(1);
 
         // Contribution (1)
         auto tmp = op_wire_1 - w_1;
@@ -107,4 +115,4 @@ template <typename FF_> class EccOpQueueRelationImpl {
 
 template <typename FF> using EccOpQueueRelation = Relation<EccOpQueueRelationImpl<FF>>;
 
-} // namespace proof_system
+} // namespace bb

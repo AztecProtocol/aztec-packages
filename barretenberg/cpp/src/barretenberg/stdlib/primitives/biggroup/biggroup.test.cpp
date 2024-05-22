@@ -2,6 +2,7 @@
 #include "../bigfield/bigfield.hpp"
 #include "../bool/bool.hpp"
 #include "../field/field.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
@@ -9,12 +10,11 @@
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
 
-namespace test_stdlib_biggroup {
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
-using namespace proof_system::plonk;
+using namespace bb;
 
 // One can only define a TYPED_TEST with a single template paramter.
 // Our workaround is to pass parameters of the following type.
@@ -44,7 +44,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
     static constexpr auto EXPECT_CIRCUIT_CORRECTNESS = [](Builder& builder, bool expected_result = true) {
         info("num gates = ", builder.get_num_gates());
-        EXPECT_EQ(builder.check_circuit(), expected_result);
+        EXPECT_EQ(CircuitChecker::check(builder), expected_result);
     };
 
   public:
@@ -819,14 +819,15 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 };
 
 enum UseBigfield { No, Yes };
-using TestTypes = testing::Types<TestType<stdlib::bn254<proof_system::StandardCircuitBuilder>, UseBigfield::No>,
-                                 TestType<stdlib::bn254<proof_system::UltraCircuitBuilder>, UseBigfield::Yes>,
-                                 TestType<stdlib::bn254<proof_system::GoblinUltraCircuitBuilder>, UseBigfield::No>>;
+using TestTypes = testing::Types<TestType<stdlib::bn254<bb::StandardCircuitBuilder>, UseBigfield::No>,
+                                 TestType<stdlib::bn254<bb::UltraCircuitBuilder>, UseBigfield::Yes>,
+                                 TestType<stdlib::bn254<bb::GoblinUltraCircuitBuilder>, UseBigfield::No>,
+                                 TestType<stdlib::bn254<bb::CircuitSimulatorBN254>, UseBigfield::No>>;
 
 TYPED_TEST_SUITE(stdlib_biggroup, TestTypes);
 
 template <typename T>
-concept HasGoblinBuilder = IsGoblinBuilder<typename T::Curve::Builder>;
+concept HasGoblinBuilder = IsGoblinUltraBuilder<typename T::Curve::Builder>;
 
 TYPED_TEST(stdlib_biggroup, add)
 {
@@ -907,7 +908,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, multiple_montgomery_ladder)
 HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
 {
     // ULTRATODO: make this work for secp curves
-    if constexpr (TypeParam::Curve::type == proof_system::CurveType::BN254) {
+    if constexpr (TypeParam::Curve::type == CurveType::BN254) {
         size_t num_repetitions = 1;
         for (size_t i = 0; i < num_repetitions; i++) {
             TestFixture::test_compute_naf();
@@ -980,7 +981,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_4)
 /* The following tests are specific to BN254 and don't work when Fr is a bigfield */
 HEAVY_TYPED_TEST(stdlib_biggroup, bn254_endo_batch_mul)
 {
-    if constexpr (TypeParam::Curve::type == proof_system::CurveType::BN254 && !TypeParam::use_bigfield) {
+    if constexpr (TypeParam::Curve::type == CurveType::BN254 && !TypeParam::use_bigfield) {
         if constexpr (HasGoblinBuilder<TypeParam>) {
             GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
         } else {
@@ -992,7 +993,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, bn254_endo_batch_mul)
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, mixed_mul_bn254_endo)
 {
-    if constexpr (TypeParam::Curve::type == proof_system::CurveType::BN254 && !TypeParam::use_bigfield) {
+    if constexpr (TypeParam::Curve::type == CurveType::BN254 && !TypeParam::use_bigfield) {
         if constexpr (HasGoblinBuilder<TypeParam>) {
             GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
         } else {
@@ -1006,7 +1007,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, mixed_mul_bn254_endo)
 /* The following tests are specific to SECP256k1 */
 HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_secp256k1)
 {
-    if constexpr (TypeParam::Curve::type == proof_system::CurveType::SECP256K1) {
+    if constexpr (TypeParam::Curve::type == CurveType::SECP256K1) {
         TestFixture::test_wnaf_secp256k1();
     } else {
         GTEST_SKIP();
@@ -1014,7 +1015,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_secp256k1)
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_8bit_secp256k1)
 {
-    if constexpr (TypeParam::Curve::type == proof_system::CurveType::SECP256K1) {
+    if constexpr (TypeParam::Curve::type == CurveType::SECP256K1) {
         TestFixture::test_wnaf_8bit_secp256k1();
     } else {
         GTEST_SKIP();
@@ -1022,10 +1023,9 @@ HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_8bit_secp256k1)
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, ecdsa_mul_secp256k1)
 {
-    if constexpr (TypeParam::Curve::type == proof_system::CurveType::SECP256K1) {
+    if constexpr (TypeParam::Curve::type == CurveType::SECP256K1) {
         TestFixture::test_ecdsa_mul_secp256k1();
     } else {
         GTEST_SKIP();
     }
 }
-} // namespace test_stdlib_biggroup

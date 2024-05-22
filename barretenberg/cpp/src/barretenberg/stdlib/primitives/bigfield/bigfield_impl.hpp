@@ -9,33 +9,28 @@
 #include "../bit_array/bit_array.hpp"
 #include "../field/field.hpp"
 
-using namespace barretenberg;
-
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 template <typename Builder, typename T>
 bigfield<Builder, T>::bigfield(Builder* parent_context)
     : context(parent_context)
-    , binary_basis_limbs{ Limb(barretenberg::fr(0)),
-                          Limb(barretenberg::fr(0)),
-                          Limb(barretenberg::fr(0)),
-                          Limb(barretenberg::fr(0)) }
+    , binary_basis_limbs{ Limb(bb::fr(0)), Limb(bb::fr(0)), Limb(bb::fr(0)), Limb(bb::fr(0)) }
     , prime_basis_limb(context, 0)
 {}
 
 template <typename Builder, typename T>
 bigfield<Builder, T>::bigfield(Builder* parent_context, const uint256_t& value)
     : context(parent_context)
-    , binary_basis_limbs{ Limb(barretenberg::fr(value.slice(0, NUM_LIMB_BITS))),
-                          Limb(barretenberg::fr(value.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2))),
-                          Limb(barretenberg::fr(value.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3))),
-                          Limb(barretenberg::fr(value.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4))) }
+    , binary_basis_limbs{ Limb(bb::fr(value.slice(0, NUM_LIMB_BITS))),
+                          Limb(bb::fr(value.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2))),
+                          Limb(bb::fr(value.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3))),
+                          Limb(bb::fr(value.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4))) }
     , prime_basis_limb(context, value)
 {
     ASSERT(value < modulus);
 }
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/850): audit the evaluate_linear_identity function
 template <typename Builder, typename T>
 bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
                                const field_t<Builder>& high_bits_in,
@@ -79,16 +74,19 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
             low_accumulator = context->decompose_into_base4_accumulators(
                 low_bits_in.witness_index, static_cast<size_t>(NUM_LIMB_BITS * 2), "bigfield: low_bits_in too large.");
             mid_index = static_cast<size_t>((NUM_LIMB_BITS / 2) - 1);
-            // Range constraint returns an array of partial sums, midpoint will happen to hold the big limb value
-            limb_1.witness_index = low_accumulator[mid_index];
+            // Range constraint returns an array of partial sums, midpoint will happen to hold the big limb
+            // value
+            if constexpr (!IsSimulator<Builder>) {
+                limb_1.witness_index = low_accumulator[mid_index];
+            }
             // We can get the first half bits of low_bits_in from the variables we already created
             limb_0 = (low_bits_in - (limb_1 * shift_1));
         }
     } else {
         uint256_t slice_0 = uint256_t(low_bits_in.additive_constant).slice(0, NUM_LIMB_BITS);
         uint256_t slice_1 = uint256_t(low_bits_in.additive_constant).slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS);
-        limb_0 = field_t(context, barretenberg::fr(slice_0));
-        limb_1 = field_t(context, barretenberg::fr(slice_1));
+        limb_0 = field_t(context, bb::fr(slice_0));
+        limb_1 = field_t(context, bb::fr(slice_1));
     }
 
     // If we wish to continue working with this element with lazy reductions - i.e. not moding out again after each
@@ -117,14 +115,17 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
             high_accumulator = context->decompose_into_base4_accumulators(high_bits_in.witness_index,
                                                                           static_cast<size_t>(num_high_limb_bits),
                                                                           "bigfield: high_bits_in too large.");
-            limb_3.witness_index = high_accumulator[static_cast<size_t>((num_last_limb_bits / 2) - 1)];
+
+            if constexpr (!IsSimulator<Builder>) {
+                limb_3.witness_index = high_accumulator[static_cast<size_t>((num_last_limb_bits / 2) - 1)];
+            }
             limb_2 = (high_bits_in - (limb_3 * shift_1));
         }
     } else {
         uint256_t slice_2 = uint256_t(high_bits_in.additive_constant).slice(0, NUM_LIMB_BITS);
         uint256_t slice_3 = uint256_t(high_bits_in.additive_constant).slice(NUM_LIMB_BITS, num_high_limb_bits);
-        limb_2 = field_t(context, barretenberg::fr(slice_2));
-        limb_3 = field_t(context, barretenberg::fr(slice_3));
+        limb_2 = field_t(context, bb::fr(slice_2));
+        limb_3 = field_t(context, bb::fr(slice_3));
     }
     binary_basis_limbs[0] = Limb(limb_0, DEFAULT_MAXIMUM_LIMB);
     binary_basis_limbs[1] = Limb(limb_1, DEFAULT_MAXIMUM_LIMB);
@@ -192,10 +193,10 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
         field_t<Builder> limb_2(ctx);
         field_t<Builder> limb_3(ctx);
         field_t<Builder> prime_limb(ctx);
-        limb_0.witness_index = ctx->add_variable(barretenberg::fr(limbs[0]));
-        limb_1.witness_index = ctx->add_variable(barretenberg::fr(limbs[1]));
-        limb_2.witness_index = ctx->add_variable(barretenberg::fr(limbs[2]));
-        limb_3.witness_index = ctx->add_variable(barretenberg::fr(limbs[3]));
+        limb_0.witness_index = ctx->add_variable(bb::fr(limbs[0]));
+        limb_1.witness_index = ctx->add_variable(bb::fr(limbs[1]));
+        limb_2.witness_index = ctx->add_variable(bb::fr(limbs[2]));
+        limb_3.witness_index = ctx->add_variable(bb::fr(limbs[3]));
         prime_limb.witness_index = ctx->add_variable(limb_0.get_value() + limb_1.get_value() * shift_1 +
                                                      limb_2.get_value() * shift_2 + limb_3.get_value() * shift_3);
         // evaluate prime basis limb with addition gate that taps into the 4th wire in the next gate
@@ -209,6 +210,9 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
                                    -1,
                                    0 },
                                  true);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy necessary for preceeding big add gate
+        ctx->create_dummy_gate(
+            ctx->blocks.arithmetic, ctx->zero_idx, ctx->zero_idx, ctx->zero_idx, limb_0.witness_index);
 
         uint64_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
 
@@ -401,34 +405,34 @@ bigfield<Builder, T> bigfield<Builder, T>::operator+(const bigfield& other) cons
             limbconst = limbconst || other.prime_basis_limb.is_constant();
             limbconst = limbconst || (prime_basis_limb.witness_index == other.prime_basis_limb.witness_index);
             if (!limbconst) {
-                std::pair<uint32_t, barretenberg::fr> x0{ binary_basis_limbs[0].element.witness_index,
-                                                          binary_basis_limbs[0].element.multiplicative_constant };
-                std::pair<uint32_t, barretenberg::fr> x1{ binary_basis_limbs[1].element.witness_index,
-                                                          binary_basis_limbs[1].element.multiplicative_constant };
-                std::pair<uint32_t, barretenberg::fr> x2{ binary_basis_limbs[2].element.witness_index,
-                                                          binary_basis_limbs[2].element.multiplicative_constant };
-                std::pair<uint32_t, barretenberg::fr> x3{ binary_basis_limbs[3].element.witness_index,
-                                                          binary_basis_limbs[3].element.multiplicative_constant };
-                std::pair<uint32_t, barretenberg::fr> y0{ other.binary_basis_limbs[0].element.witness_index,
-                                                          other.binary_basis_limbs[0].element.multiplicative_constant };
-                std::pair<uint32_t, barretenberg::fr> y1{ other.binary_basis_limbs[1].element.witness_index,
-                                                          other.binary_basis_limbs[1].element.multiplicative_constant };
-                std::pair<uint32_t, barretenberg::fr> y2{ other.binary_basis_limbs[2].element.witness_index,
-                                                          other.binary_basis_limbs[2].element.multiplicative_constant };
-                std::pair<uint32_t, barretenberg::fr> y3{ other.binary_basis_limbs[3].element.witness_index,
-                                                          other.binary_basis_limbs[3].element.multiplicative_constant };
-                barretenberg::fr c0(binary_basis_limbs[0].element.additive_constant +
-                                    other.binary_basis_limbs[0].element.additive_constant);
-                barretenberg::fr c1(binary_basis_limbs[1].element.additive_constant +
-                                    other.binary_basis_limbs[1].element.additive_constant);
-                barretenberg::fr c2(binary_basis_limbs[2].element.additive_constant +
-                                    other.binary_basis_limbs[2].element.additive_constant);
-                barretenberg::fr c3(binary_basis_limbs[3].element.additive_constant +
-                                    other.binary_basis_limbs[3].element.additive_constant);
+                std::pair<uint32_t, bb::fr> x0{ binary_basis_limbs[0].element.witness_index,
+                                                binary_basis_limbs[0].element.multiplicative_constant };
+                std::pair<uint32_t, bb::fr> x1{ binary_basis_limbs[1].element.witness_index,
+                                                binary_basis_limbs[1].element.multiplicative_constant };
+                std::pair<uint32_t, bb::fr> x2{ binary_basis_limbs[2].element.witness_index,
+                                                binary_basis_limbs[2].element.multiplicative_constant };
+                std::pair<uint32_t, bb::fr> x3{ binary_basis_limbs[3].element.witness_index,
+                                                binary_basis_limbs[3].element.multiplicative_constant };
+                std::pair<uint32_t, bb::fr> y0{ other.binary_basis_limbs[0].element.witness_index,
+                                                other.binary_basis_limbs[0].element.multiplicative_constant };
+                std::pair<uint32_t, bb::fr> y1{ other.binary_basis_limbs[1].element.witness_index,
+                                                other.binary_basis_limbs[1].element.multiplicative_constant };
+                std::pair<uint32_t, bb::fr> y2{ other.binary_basis_limbs[2].element.witness_index,
+                                                other.binary_basis_limbs[2].element.multiplicative_constant };
+                std::pair<uint32_t, bb::fr> y3{ other.binary_basis_limbs[3].element.witness_index,
+                                                other.binary_basis_limbs[3].element.multiplicative_constant };
+                bb::fr c0(binary_basis_limbs[0].element.additive_constant +
+                          other.binary_basis_limbs[0].element.additive_constant);
+                bb::fr c1(binary_basis_limbs[1].element.additive_constant +
+                          other.binary_basis_limbs[1].element.additive_constant);
+                bb::fr c2(binary_basis_limbs[2].element.additive_constant +
+                          other.binary_basis_limbs[2].element.additive_constant);
+                bb::fr c3(binary_basis_limbs[3].element.additive_constant +
+                          other.binary_basis_limbs[3].element.additive_constant);
 
                 uint32_t xp(prime_basis_limb.witness_index);
                 uint32_t yp(other.prime_basis_limb.witness_index);
-                barretenberg::fr cp(prime_basis_limb.additive_constant + other.prime_basis_limb.additive_constant);
+                bb::fr cp(prime_basis_limb.additive_constant + other.prime_basis_limb.additive_constant);
 
                 const auto output_witnesses = ctx->evaluate_non_native_field_addition(
                     { x0, y0, c0 }, { x1, y1, c1 }, { x2, y2, c2 }, { x3, y3, c3 }, { xp, yp, cp });
@@ -590,10 +594,10 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
     /**
      * Compute the binary basis limbs of our result
      **/
-    result.binary_basis_limbs[0].element = binary_basis_limbs[0].element + barretenberg::fr(to_add_0);
-    result.binary_basis_limbs[1].element = binary_basis_limbs[1].element + barretenberg::fr(to_add_1);
-    result.binary_basis_limbs[2].element = binary_basis_limbs[2].element + barretenberg::fr(to_add_2);
-    result.binary_basis_limbs[3].element = binary_basis_limbs[3].element + barretenberg::fr(to_add_3);
+    result.binary_basis_limbs[0].element = binary_basis_limbs[0].element + bb::fr(to_add_0);
+    result.binary_basis_limbs[1].element = binary_basis_limbs[1].element + bb::fr(to_add_1);
+    result.binary_basis_limbs[2].element = binary_basis_limbs[2].element + bb::fr(to_add_2);
+    result.binary_basis_limbs[3].element = binary_basis_limbs[3].element + bb::fr(to_add_3);
 
     if constexpr (HasPlookup<Builder>) {
         if (prime_basis_limb.multiplicative_constant == 1 && other.prime_basis_limb.multiplicative_constant == 1 &&
@@ -610,36 +614,36 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
             limbconst = limbconst || other.prime_basis_limb.is_constant();
             limbconst = limbconst || (prime_basis_limb.witness_index == other.prime_basis_limb.witness_index);
             if (!limbconst) {
-                std::pair<uint32_t, barretenberg::fr> x0{ result.binary_basis_limbs[0].element.witness_index,
-                                                          binary_basis_limbs[0].element.multiplicative_constant };
-                std::pair<uint32_t, barretenberg::fr> x1{ result.binary_basis_limbs[1].element.witness_index,
-                                                          binary_basis_limbs[1].element.multiplicative_constant };
-                std::pair<uint32_t, barretenberg::fr> x2{ result.binary_basis_limbs[2].element.witness_index,
-                                                          binary_basis_limbs[2].element.multiplicative_constant };
-                std::pair<uint32_t, barretenberg::fr> x3{ result.binary_basis_limbs[3].element.witness_index,
-                                                          binary_basis_limbs[3].element.multiplicative_constant };
-                std::pair<uint32_t, barretenberg::fr> y0{ other.binary_basis_limbs[0].element.witness_index,
-                                                          other.binary_basis_limbs[0].element.multiplicative_constant };
-                std::pair<uint32_t, barretenberg::fr> y1{ other.binary_basis_limbs[1].element.witness_index,
-                                                          other.binary_basis_limbs[1].element.multiplicative_constant };
-                std::pair<uint32_t, barretenberg::fr> y2{ other.binary_basis_limbs[2].element.witness_index,
-                                                          other.binary_basis_limbs[2].element.multiplicative_constant };
-                std::pair<uint32_t, barretenberg::fr> y3{ other.binary_basis_limbs[3].element.witness_index,
-                                                          other.binary_basis_limbs[3].element.multiplicative_constant };
-                barretenberg::fr c0(result.binary_basis_limbs[0].element.additive_constant -
-                                    other.binary_basis_limbs[0].element.additive_constant);
-                barretenberg::fr c1(result.binary_basis_limbs[1].element.additive_constant -
-                                    other.binary_basis_limbs[1].element.additive_constant);
-                barretenberg::fr c2(result.binary_basis_limbs[2].element.additive_constant -
-                                    other.binary_basis_limbs[2].element.additive_constant);
-                barretenberg::fr c3(result.binary_basis_limbs[3].element.additive_constant -
-                                    other.binary_basis_limbs[3].element.additive_constant);
+                std::pair<uint32_t, bb::fr> x0{ result.binary_basis_limbs[0].element.witness_index,
+                                                binary_basis_limbs[0].element.multiplicative_constant };
+                std::pair<uint32_t, bb::fr> x1{ result.binary_basis_limbs[1].element.witness_index,
+                                                binary_basis_limbs[1].element.multiplicative_constant };
+                std::pair<uint32_t, bb::fr> x2{ result.binary_basis_limbs[2].element.witness_index,
+                                                binary_basis_limbs[2].element.multiplicative_constant };
+                std::pair<uint32_t, bb::fr> x3{ result.binary_basis_limbs[3].element.witness_index,
+                                                binary_basis_limbs[3].element.multiplicative_constant };
+                std::pair<uint32_t, bb::fr> y0{ other.binary_basis_limbs[0].element.witness_index,
+                                                other.binary_basis_limbs[0].element.multiplicative_constant };
+                std::pair<uint32_t, bb::fr> y1{ other.binary_basis_limbs[1].element.witness_index,
+                                                other.binary_basis_limbs[1].element.multiplicative_constant };
+                std::pair<uint32_t, bb::fr> y2{ other.binary_basis_limbs[2].element.witness_index,
+                                                other.binary_basis_limbs[2].element.multiplicative_constant };
+                std::pair<uint32_t, bb::fr> y3{ other.binary_basis_limbs[3].element.witness_index,
+                                                other.binary_basis_limbs[3].element.multiplicative_constant };
+                bb::fr c0(result.binary_basis_limbs[0].element.additive_constant -
+                          other.binary_basis_limbs[0].element.additive_constant);
+                bb::fr c1(result.binary_basis_limbs[1].element.additive_constant -
+                          other.binary_basis_limbs[1].element.additive_constant);
+                bb::fr c2(result.binary_basis_limbs[2].element.additive_constant -
+                          other.binary_basis_limbs[2].element.additive_constant);
+                bb::fr c3(result.binary_basis_limbs[3].element.additive_constant -
+                          other.binary_basis_limbs[3].element.additive_constant);
 
                 uint32_t xp(prime_basis_limb.witness_index);
                 uint32_t yp(other.prime_basis_limb.witness_index);
-                barretenberg::fr cp(prime_basis_limb.additive_constant - other.prime_basis_limb.additive_constant);
+                bb::fr cp(prime_basis_limb.additive_constant - other.prime_basis_limb.additive_constant);
                 uint512_t constant_to_add_mod_p = (constant_to_add) % prime_basis.modulus;
-                cp += barretenberg::fr(constant_to_add_mod_p.lo);
+                cp += bb::fr(constant_to_add_mod_p.lo);
 
                 const auto output_witnesses = ctx->evaluate_non_native_field_subtraction(
                     { x0, y0, c0 }, { x1, y1, c1 }, { x2, y2, c2 }, { x3, y3, c3 }, { xp, yp, cp });
@@ -663,7 +667,7 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
      * Compute the prime basis limb of the result
      **/
     uint512_t constant_to_add_mod_p = (constant_to_add) % prime_basis.modulus;
-    field_t prime_basis_to_add(ctx, barretenberg::fr(constant_to_add_mod_p.lo));
+    field_t prime_basis_to_add(ctx, bb::fr(constant_to_add_mod_p.lo));
     result.prime_basis_limb = prime_basis_limb + prime_basis_to_add;
     result.prime_basis_limb -= other.prime_basis_limb;
     return result;
@@ -1479,15 +1483,15 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_negate(const bool_t<Build
     uint256_t to_add_2_u256 = uint256_t(constant_to_add.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3));
     uint256_t to_add_3_u256 = uint256_t(constant_to_add.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4));
 
-    barretenberg::fr to_add_0(t0 + to_add_0_u256);
-    barretenberg::fr to_add_1(t1 + to_add_1_u256);
-    barretenberg::fr to_add_2(t2 + to_add_2_u256);
-    barretenberg::fr to_add_3(to_add_3_u256 - t3);
+    bb::fr to_add_0(t0 + to_add_0_u256);
+    bb::fr to_add_1(t1 + to_add_1_u256);
+    bb::fr to_add_2(t2 + to_add_2_u256);
+    bb::fr to_add_3(to_add_3_u256 - t3);
 
     // we either return current value if predicate is false, or (limb_i - value) if predicate is true
     // (1 - predicate) * value + predicate * (limb_i - value)
     // = predicate * (limb_i - 2 * value) + value
-    barretenberg::fr two(2);
+    bb::fr two(2);
 
     field_t limb_0 = static_cast<field_t<Builder>>(predicate).madd(-(binary_basis_limbs[0].element * two) + to_add_0,
                                                                    binary_basis_limbs[0].element);
@@ -1510,7 +1514,7 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_negate(const bool_t<Build
     result.binary_basis_limbs[3] = Limb(limb_3, max_limb_3);
 
     uint512_t constant_to_add_mod_p = constant_to_add % prime_basis.modulus;
-    field_t prime_basis_to_add(ctx, barretenberg::fr(constant_to_add_mod_p.lo));
+    field_t prime_basis_to_add(ctx, bb::fr(constant_to_add_mod_p.lo));
     result.prime_basis_limb =
         static_cast<field_t<Builder>>(predicate).madd(-(prime_basis_limb * two) + prime_basis_to_add, prime_basis_limb);
 
@@ -1678,9 +1682,18 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
     // TODO(kesha): Merge this with assert_is_in_field
     // Warning: this assumes we have run circuit construction at least once in debug mode where large non reduced
     // constants are allowed via ASSERT
-    if (is_constant()) {
+    if constexpr (IsSimulator<Builder>) {
+        if (get_value() >= static_cast<uint512_t>(upper_limit)) {
+            context->failure("Bigfield assert_less_than failed in simulation.");
+        }
         return;
     }
+
+    if (is_constant()) {
+        ASSERT(get_value() < static_cast<uint512_t>(upper_limit));
+        return;
+    }
+
     ASSERT(upper_limit != 0);
     // The circuit checks that limit - this >= 0, so if we are doing a less_than comparison, we need to subtract 1 from
     // the limit
@@ -1745,44 +1758,50 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
 {
     Builder* ctx = this->context ? this->context : other.context;
 
-    if (is_constant() && other.is_constant()) {
-        std::cerr << "bigfield: calling assert equal on 2 CONSTANT bigfield elements...is this intended?" << std::endl;
+    if constexpr (IsSimulator<Builder>) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/677)
         return;
-    } else if (other.is_constant()) {
-        // evaluate a strict equality - make sure *this is reduced first, or an honest prover
-        // might not be able to satisfy these constraints.
-        field_t<Builder> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);
-        field_t<Builder> t1 = (binary_basis_limbs[1].element - other.binary_basis_limbs[1].element);
-        field_t<Builder> t2 = (binary_basis_limbs[2].element - other.binary_basis_limbs[2].element);
-        field_t<Builder> t3 = (binary_basis_limbs[3].element - other.binary_basis_limbs[3].element);
-        field_t<Builder> t4 = (prime_basis_limb - other.prime_basis_limb);
-        t0.assert_is_zero();
-        t1.assert_is_zero();
-        t2.assert_is_zero();
-        t3.assert_is_zero();
-        t4.assert_is_zero();
-        return;
-    } else if (is_constant()) {
-        other.assert_equal(*this);
-        return;
+    } else {
+        if (is_constant() && other.is_constant()) {
+            std::cerr << "bigfield: calling assert equal on 2 CONSTANT bigfield elements...is this intended?"
+                      << std::endl;
+            return;
+        } else if (other.is_constant()) {
+            // evaluate a strict equality - make sure *this is reduced first, or an honest prover
+            // might not be able to satisfy these constraints.
+            field_t<Builder> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);
+            field_t<Builder> t1 = (binary_basis_limbs[1].element - other.binary_basis_limbs[1].element);
+            field_t<Builder> t2 = (binary_basis_limbs[2].element - other.binary_basis_limbs[2].element);
+            field_t<Builder> t3 = (binary_basis_limbs[3].element - other.binary_basis_limbs[3].element);
+            field_t<Builder> t4 = (prime_basis_limb - other.prime_basis_limb);
+            t0.assert_is_zero();
+            t1.assert_is_zero();
+            t2.assert_is_zero();
+            t3.assert_is_zero();
+            t4.assert_is_zero();
+            return;
+        } else if (is_constant()) {
+            other.assert_equal(*this);
+            return;
+        }
+
+        bigfield diff = *this - other;
+        const uint512_t diff_val = diff.get_value();
+        const uint512_t modulus(target_basis.modulus);
+
+        const auto [quotient_512, remainder_512] = (diff_val).divmod(modulus);
+        if (remainder_512 != 0)
+            std::cerr << "bigfield: remainder not zero!" << std::endl;
+        ASSERT(remainder_512 == 0);
+        bigfield quotient;
+
+        const size_t num_quotient_bits = get_quotient_max_bits({ 0 });
+        quotient = bigfield(witness_t(ctx, fr(quotient_512.slice(0, NUM_LIMB_BITS * 2).lo)),
+                            witness_t(ctx, fr(quotient_512.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 4).lo)),
+                            false,
+                            num_quotient_bits);
+        unsafe_evaluate_multiply_add(diff, { one() }, {}, quotient, { zero() });
     }
-
-    bigfield diff = *this - other;
-    const uint512_t diff_val = diff.get_value();
-    const uint512_t modulus(target_basis.modulus);
-
-    const auto [quotient_512, remainder_512] = (diff_val).divmod(modulus);
-    if (remainder_512 != 0)
-        std::cerr << "bigfield: remainder not zero!" << std::endl;
-    ASSERT(remainder_512 == 0);
-    bigfield quotient;
-
-    const size_t num_quotient_bits = get_quotient_max_bits({ 0 });
-    quotient = bigfield(witness_t(ctx, fr(quotient_512.slice(0, NUM_LIMB_BITS * 2).lo)),
-                        witness_t(ctx, fr(quotient_512.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 4).lo)),
-                        false,
-                        num_quotient_bits);
-    unsafe_evaluate_multiply_add(diff, { one() }, {}, quotient, { zero() });
 }
 
 // construct a proof that points are different mod p, when they are different mod r
@@ -1853,7 +1872,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
         ++maximum_quotient_bits;
     }
     // TODO: implicit assumption here - NUM_LIMB_BITS large enough for all the quotient
-    uint32_t quotient_limb_index = context->add_variable(barretenberg::fr(quotient_value.lo));
+    uint32_t quotient_limb_index = context->add_variable(bb::fr(quotient_value.lo));
     field_t<Builder> quotient_limb = field_t<Builder>::from_witness_index(context, quotient_limb_index);
     if constexpr (HasPlookup<Builder>) {
         context->decompose_into_default_range(quotient_limb.witness_index, static_cast<size_t>(maximum_quotient_bits));
@@ -2026,7 +2045,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         };
         field_t<Builder> remainder_prime_limb = field_t<Builder>::accumulate(prime_limb_accumulator);
 
-        proof_system::non_native_field_witnesses<barretenberg::fr> witnesses{
+        bb::non_native_field_witnesses<bb::fr> witnesses{
             {
                 left.binary_basis_limbs[0].element.normalize().witness_index,
                 left.binary_basis_limbs[1].element.normalize().witness_index,
@@ -2061,7 +2080,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         // N.B. this method also evaluates the prime field component of the non-native field mul
         const auto [lo_idx, hi_idx] = ctx->evaluate_non_native_field_multiplication(witnesses, false);
 
-        barretenberg::fr neg_prime = -barretenberg::fr(uint256_t(target_basis.modulus));
+        bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
         field_t<Builder>::evaluate_polynomial_identity(left.prime_basis_limb,
                                                        to_mul.prime_basis_limb,
                                                        quotient.prime_basis_limb * neg_prime,
@@ -2142,9 +2161,9 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
             carry_hi = carry_hi.add_two(-remainders[i].binary_basis_limbs[2].element * shift_right_2,
                                         -remainders[i].binary_basis_limbs[3].element * (shift_1 * shift_right_2));
         }
-        barretenberg::fr neg_prime = -barretenberg::fr(uint256_t(target_basis.modulus));
+        bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
 
-        field_t<Builder> linear_terms(ctx, barretenberg::fr(0));
+        field_t<Builder> linear_terms(ctx, bb::fr(0));
         if (to_add.size() >= 2) {
             for (size_t i = 0; i < to_add.size(); i += 2) {
                 linear_terms = linear_terms.add_two(to_add[i].prime_basis_limb, to_add[i + 1].prime_basis_limb);
@@ -2169,7 +2188,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         const uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
         const uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
 
-        const barretenberg::fr carry_lo_shift(uint256_t(uint256_t(1) << carry_lo_msb));
+        const bb::fr carry_lo_shift(uint256_t(uint256_t(1) << carry_lo_msb));
         if ((carry_hi_msb + carry_lo_msb) < field_t<Builder>::modulus.get_msb()) {
             field_t carry_combined = carry_lo + (carry_hi * carry_lo_shift);
             carry_combined = carry_combined.normalize();
@@ -2366,7 +2385,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
             }
 
             if (i > 0) {
-                proof_system::non_native_field_witnesses<barretenberg::fr> mul_witnesses = {
+                bb::non_native_field_witnesses<bb::fr> mul_witnesses = {
                     {
                         left[i].binary_basis_limbs[0].element.normalize().witness_index,
                         left[i].binary_basis_limbs[1].element.normalize().witness_index,
@@ -2462,7 +2481,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         };
         field_t<Builder> remainder_prime_limb = field_t<Builder>::accumulate(prime_limb_accumulator);
 
-        proof_system::non_native_field_witnesses<barretenberg::fr> witnesses{
+        bb::non_native_field_witnesses<bb::fr> witnesses{
             {
                 left[0].binary_basis_limbs[0].element.normalize().witness_index,
                 left[0].binary_basis_limbs[1].element.normalize().witness_index,
@@ -2497,7 +2516,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
 
         const auto [lo_1_idx, hi_1_idx] = ctx->evaluate_non_native_field_multiplication(witnesses, false);
 
-        barretenberg::fr neg_prime = -barretenberg::fr(uint256_t(target_basis.modulus));
+        bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
 
         field_t<Builder>::evaluate_polynomial_identity(left[0].prime_basis_limb,
                                                        right[0].prime_basis_limb,
@@ -2668,9 +2687,9 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         field_t carry_hi_2 = t1 * shift_right_2;
         field_t carry_hi = carry_hi_0.add_two(carry_hi_1, carry_hi_2);
 
-        barretenberg::fr neg_prime = -barretenberg::fr(uint256_t(target_basis.modulus));
+        bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
 
-        field_t<Builder> linear_terms(ctx, barretenberg::fr(0));
+        field_t<Builder> linear_terms(ctx, bb::fr(0));
 
         linear_terms += -remainder_prime_limb;
 
@@ -2681,7 +2700,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         const uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
         const uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
 
-        const barretenberg::fr carry_lo_shift(uint256_t(uint256_t(1) << carry_lo_msb));
+        const bb::fr carry_lo_shift(uint256_t(uint256_t(1) << carry_lo_msb));
 
         if constexpr (HasPlookup<Builder>) {
             carry_lo = carry_lo.normalize();
@@ -2770,8 +2789,8 @@ void bigfield<Builder, T>::unsafe_evaluate_square_add(const bigfield& left,
         ++max_hi_bits;
     }
 
-    field_t half(ctx, barretenberg::fr(2).invert());
-    field_t two(ctx, barretenberg::fr(2));
+    field_t half(ctx, bb::fr(2).invert());
+    field_t two(ctx, bb::fr(2));
     field_t b_quotient_0 = (quotient.binary_basis_limbs[1].element * neg_modulus_limbs[0]);
     field_t b_quotient_1 = (quotient.binary_basis_limbs[0].element * neg_modulus_limbs[1]);
 
@@ -2826,7 +2845,7 @@ void bigfield<Builder, T>::unsafe_evaluate_square_add(const bigfield& left,
                                     add_element.binary_basis_limbs[3].element * (shift_1 * shift_right_2));
     }
 
-    barretenberg::fr neg_prime = -barretenberg::fr(uint256_t(target_basis.modulus));
+    bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
     field_t<Builder> linear_terms = -remainder.prime_basis_limb;
     if (to_add.size() >= 2) {
         for (size_t i = 0; i < to_add.size() / 2; i += 1) {
@@ -2842,7 +2861,7 @@ void bigfield<Builder, T>::unsafe_evaluate_square_add(const bigfield& left,
     const uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
     const uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
 
-    const barretenberg::fr carry_lo_shift(uint256_t(uint256_t(1) << carry_lo_msb));
+    const bb::fr carry_lo_shift(uint256_t(uint256_t(1) << carry_lo_msb));
     if constexpr (HasPlookup<Builder>) {
         carry_lo = carry_lo.normalize();
         carry_hi = carry_hi.normalize();
@@ -2940,5 +2959,4 @@ std::pair<bool, size_t> bigfield<Builder, T>::get_quotient_reduction_info(const 
     return std::pair<bool, size_t>(false, num_quotient_bits);
 }
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

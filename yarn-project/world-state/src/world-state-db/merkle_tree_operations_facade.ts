@@ -1,11 +1,16 @@
-import { NullifierLeafPreimage } from '@aztec/circuits.js';
-import { Fr } from '@aztec/foundation/fields';
-import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { BatchInsertionResult } from '@aztec/merkle-tree';
-import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
+import { type L2Block, type MerkleTreeId, type SiblingPath } from '@aztec/circuit-types';
+import { type Fr, type Header, type NullifierLeafPreimage, type StateReference } from '@aztec/circuits.js';
+import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import { type BatchInsertionResult } from '@aztec/merkle-tree';
 
-import { MerkleTreeDb } from './merkle_tree_db.js';
-import { CurrentTreeRoots, HandleL2BlockResult, MerkleTreeOperations, TreeInfo } from './merkle_tree_operations.js';
+import { type MerkleTreeDb } from './merkle_tree_db.js';
+import {
+  type HandleL2BlockAndMessagesResult,
+  type IndexedTreeId,
+  type MerkleTreeLeafType,
+  type MerkleTreeOperations,
+  type TreeInfo,
+} from './merkle_tree_operations.js';
 
 /**
  * Wraps a MerkleTreeDbOperations to call all functions with a preset includeUncommitted flag.
@@ -24,11 +29,19 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
   }
 
   /**
-   * Get the current roots of the commitment trees.
-   * @returns The current roots of the trees.
+   * Get the current state reference.
+   * @returns The current state reference.
    */
-  getTreeRoots(): Promise<CurrentTreeRoots> {
-    return this.trees.getTreeRoots(this.includeUncommitted);
+  getStateReference(): Promise<StateReference> {
+    return this.trees.getStateReference(this.includeUncommitted);
+  }
+
+  /**
+   * Builds the initial header.
+   * @returns The initial header.
+   */
+  buildInitialHeader(): Promise<Header> {
+    return this.trees.buildInitialHeader(this.includeUncommitted);
   }
 
   /**
@@ -37,7 +50,7 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param leaves - The set of leaves to be appended.
    * @returns The tree info of the specified tree.
    */
-  appendLeaves(treeId: MerkleTreeId, leaves: Buffer[]): Promise<void> {
+  appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void> {
     return this.trees.appendLeaves(treeId, leaves);
   }
 
@@ -59,8 +72,8 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param includeUncommitted - If true, the uncommitted changes are included in the search.
    * @returns The found leaf index and a flag indicating if the corresponding leaf's value is equal to `newValue`.
    */
-  getPreviousValueIndex(
-    treeId: MerkleTreeId.NULLIFIER_TREE,
+  getPreviousValueIndex<ID extends IndexedTreeId>(
+    treeId: ID,
     value: bigint,
   ): Promise<
     | {
@@ -85,7 +98,7 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param index - The index to insert into.
    * @returns Empty promise.
    */
-  updateLeaf(treeId: MerkleTreeId.NULLIFIER_TREE, leaf: NullifierLeafPreimage, index: bigint): Promise<void> {
+  updateLeaf<ID extends IndexedTreeId>(treeId: ID, leaf: NullifierLeafPreimage, index: bigint): Promise<void> {
     return this.trees.updateLeaf(treeId, leaf, index);
   }
 
@@ -95,8 +108,8 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param index - The index of the leaf to get.
    * @returns Leaf preimage.
    */
-  async getLeafPreimage(
-    treeId: MerkleTreeId.NULLIFIER_TREE,
+  async getLeafPreimage<ID extends IndexedTreeId>(
+    treeId: ID,
     index: bigint,
   ): Promise<IndexedTreeLeafPreimage | undefined> {
     const preimage = await this.trees.getLeafPreimage(treeId, index, this.includeUncommitted);
@@ -109,8 +122,22 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param value - The leaf value to look for.
    * @returns The index of the first leaf found with a given value (undefined if not found).
    */
-  findLeafIndex(treeId: MerkleTreeId, value: Buffer): Promise<bigint | undefined> {
+  findLeafIndex<ID extends MerkleTreeId>(treeId: ID, value: MerkleTreeLeafType<ID>): Promise<bigint | undefined> {
     return this.trees.findLeafIndex(treeId, value, this.includeUncommitted);
+  }
+
+  /**
+   * Returns the first index containing a leaf value after `startIndex`.
+   * @param treeId - The tree for which the index should be returned.
+   * @param value - The value to search for in the tree.
+   * @param startIndex - The index to start searching from (used when skipping nullified messages)
+   */
+  findLeafIndexAfter<ID extends MerkleTreeId>(
+    treeId: ID,
+    value: MerkleTreeLeafType<ID>,
+    startIndex: bigint,
+  ): Promise<bigint | undefined> {
+    return this.trees.findLeafIndexAfter(treeId, value, startIndex, this.includeUncommitted);
   }
 
   /**
@@ -120,41 +147,32 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param includeUncommitted - Indicates whether to include uncommitted changes.
    * @returns Leaf value at the given index (undefined if not found).
    */
-  getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined> {
-    return this.trees.getLeafValue(treeId, index, this.includeUncommitted);
+  getLeafValue<ID extends MerkleTreeId>(
+    treeId: ID,
+    index: bigint,
+  ): Promise<MerkleTreeLeafType<typeof treeId> | undefined> {
+    return this.trees.getLeafValue(treeId, index, this.includeUncommitted) as Promise<
+      MerkleTreeLeafType<typeof treeId> | undefined
+    >;
   }
 
   /**
    * Inserts the new block hash into the archive.
    * This includes all of the current roots of all of the data trees and the current blocks global vars.
-   * @param globalVariablesHash - The global variables hash to insert into the block hash.
+   * @param header - The header to insert into the archive.
    */
-  public updateArchive(globalVariablesHash: Fr): Promise<void> {
-    return this.trees.updateArchive(globalVariablesHash, this.includeUncommitted);
+  public updateArchive(header: Header): Promise<void> {
+    return this.trees.updateArchive(header, this.includeUncommitted);
   }
 
   /**
-   * Updates the latest global variables hash
-   * @param globalVariablesHash - The latest global variables hash
-   */
-  public updateLatestGlobalVariablesHash(globalVariablesHash: Fr): Promise<void> {
-    return this.trees.updateLatestGlobalVariablesHash(globalVariablesHash, this.includeUncommitted);
-  }
-
-  /**
-   * Gets the global variables hash from the previous block
-   */
-  public getLatestGlobalVariablesHash(): Promise<Fr> {
-    return this.trees.getLatestGlobalVariablesHash(this.includeUncommitted);
-  }
-
-  /**
-   * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
+   * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param block - The L2 block to handle.
+   * @param l1ToL2Messages - The L1 to L2 messages for the block.
    * @returns Whether the block handled was produced by this same node.
    */
-  public handleL2Block(block: L2Block): Promise<HandleL2BlockResult> {
-    return this.trees.handleL2Block(block);
+  public handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockAndMessagesResult> {
+    return this.trees.handleL2BlockAndMessages(block, l1ToL2Messages);
   }
 
   /**
@@ -181,7 +199,7 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @returns The data for the leaves to be updated when inserting the new ones.
    */
   public batchInsert<TreeHeight extends number, SubtreeSiblingPathHeight extends number>(
-    treeId: MerkleTreeId,
+    treeId: IndexedTreeId,
     leaves: Buffer[],
     subtreeHeight: number,
   ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {

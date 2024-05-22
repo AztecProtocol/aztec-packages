@@ -1,18 +1,18 @@
 #include "barretenberg/crypto/blake3s/blake3s.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "blake3s.hpp"
 #include "blake3s_plookup.hpp"
 #include <gtest/gtest.h>
 
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
 
-using byte_array = stdlib::byte_array<proof_system::StandardCircuitBuilder>;
-using public_witness_t = stdlib::public_witness_t<proof_system::StandardCircuitBuilder>;
-using byte_array_plookup = stdlib::byte_array<proof_system::UltraCircuitBuilder>;
-using public_witness_t_plookup = stdlib::public_witness_t<proof_system::UltraCircuitBuilder>;
-using StandardBuilder = proof_system::StandardCircuitBuilder;
-using UltraBuilder = proof_system::UltraCircuitBuilder;
+using byte_array = stdlib::byte_array<bb::StandardCircuitBuilder>;
+using public_witness_t = stdlib::public_witness_t<bb::StandardCircuitBuilder>;
+using byte_array_plookup = stdlib::byte_array<bb::UltraCircuitBuilder>;
+using public_witness_t_plookup = stdlib::public_witness_t<bb::UltraCircuitBuilder>;
+using StandardBuilder = StandardCircuitBuilder;
+using UltraBuilder = UltraCircuitBuilder;
 
 TEST(stdlib_blake3s, test_single_block)
 {
@@ -29,7 +29,7 @@ TEST(stdlib_blake3s, test_single_block)
 
     info("builder gates = ", builder.get_num_gates());
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -48,7 +48,7 @@ TEST(stdlib_blake3s, test_single_block_plookup)
 
     info("builder gates = ", builder.get_num_gates());
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -67,7 +67,7 @@ TEST(stdlib_blake3s, test_double_block)
 
     info("builder gates = ", builder.get_num_gates());
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -86,6 +86,6 @@ TEST(stdlib_blake3s, test_double_block_plookup)
 
     info("builder gates = ", builder.get_num_gates());
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }

@@ -1,31 +1,32 @@
+import { type NullifierMembershipWitness } from '@aztec/circuit-types';
 import {
-  CONTRACT_TREE_HEIGHT,
-  FUNCTION_TREE_HEIGHT,
-  Fr,
-  FunctionSelector,
-  MembershipWitness,
-  NOTE_HASH_TREE_HEIGHT,
-  VK_TREE_HEIGHT,
-  VerificationKey,
+  type FUNCTION_TREE_HEIGHT,
+  type Fr,
+  type FunctionSelector,
+  type GrumpkinPrivateKey,
+  type KeyGenerator,
+  type MembershipWitness,
+  type NOTE_HASH_TREE_HEIGHT,
+  type Point,
+  type VK_TREE_HEIGHT,
+  type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 
 /**
  * Provides functionality to fetch membership witnesses for verification keys,
  * contract addresses, and function selectors in their respective merkle trees.
  */
 export interface ProvingDataOracle {
-  /**
-   * Retrieves the contract membership witness for a given contract address.
-   * A contract membership witness is a cryptographic proof that the contract exists in the Aztec network.
-   * This function will search for an existing contract tree associated with the contract address and obtain its
-   * membership witness. If no such contract tree exists, it will throw an error.
-   *
-   * @param contractAddress - The contract address.
-   * @returns A promise that resolves to a MembershipWitness instance representing the contract membership witness.
-   * @throws Error if the contract address is unknown or not found.
-   */
-  getContractMembershipWitness(contractAddress: AztecAddress): Promise<MembershipWitness<typeof CONTRACT_TREE_HEIGHT>>;
+  /** Retrieves the preimage of a contract address from the registered contract instances db. */
+  getContractAddressPreimage(
+    address: AztecAddress,
+  ): Promise<{ saltedInitializationHash: Fr; publicKeysHash: Fr; contractClassId: Fr }>;
+
+  /** Retrieves the preimage of a contract class id from the contract classes db. */
+  getContractClassIdPreimage(
+    contractClassId: Fr,
+  ): Promise<{ artifactHash: Fr; publicBytecodeCommitment: Fr; privateFunctionsRoot: Fr }>;
 
   /**
    * Retrieve the function membership witness for the given contract address and function selector.
@@ -50,7 +51,7 @@ export interface ProvingDataOracle {
    * @param vk - The VerificationKey for which the membership witness is needed.
    * @returns A Promise that resolves to the MembershipWitness instance.
    */
-  getVkMembershipWitness(vk: VerificationKey): Promise<MembershipWitness<typeof VK_TREE_HEIGHT>>;
+  getVkMembershipWitness(vk: VerificationKeyAsFields): Promise<MembershipWitness<typeof VK_TREE_HEIGHT>>;
 
   /**
    * Get the note membership witness for a note in the note hash tree at the given leaf index.
@@ -58,7 +59,9 @@ export interface ProvingDataOracle {
    * @param leafIndex - The leaf index of the note in the note hash tree.
    * @returns the MembershipWitness for the note.
    */
-  getNoteMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>>;
+  getNoteHashMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>>;
+
+  getNullifierMembershipWitness(nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
 
   /**
    * Get the root of the note hash tree.
@@ -66,4 +69,15 @@ export interface ProvingDataOracle {
    * @returns the root of the note hash tree.
    */
   getNoteHashTreeRoot(): Promise<Fr>;
+
+  /**
+   * Retrieves the sk_m for the pk_m and a generator index of the key type.
+   * @throws If the provided public key is not associated with any of the registered accounts.
+   * @param masterPublicKey - The master public key to get secret key for.
+   * @returns A Promise that resolves to sk_m and the corresponding app key generator.
+   * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
+   */
+  getMasterSecretKeyAndAppKeyGenerator(masterPublicKey: Point): Promise<[GrumpkinPrivateKey, KeyGenerator]>;
+
+  getFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 }

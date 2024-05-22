@@ -2,9 +2,10 @@
 
 #include "../bool/bool.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/proof_system/types/circuit_type.hpp"
+#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "logic.hpp"
 
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
@@ -15,21 +16,17 @@
     using field_ct = stdlib::field_t<Builder>;                                                                         \
     using bool_ct = stdlib::bool_t<Builder>;                                                                           \
     using public_witness_ct = stdlib::public_witness_t<Builder>;
-
-namespace test_stdlib_logic {
+using namespace bb;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 template <class T> void ignore_unused(T&) {} // use to ignore unused variables in lambdas
 
-using namespace barretenberg;
-using namespace proof_system::plonk;
-
 template <class Builder> class LogicTest : public testing::Test {};
 
-using CircuitTypes = ::testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254>;
 
 TYPED_TEST_SUITE(LogicTest, CircuitTypes);
 
@@ -84,7 +81,7 @@ TYPED_TEST(LogicTest, TestCorrectLogic)
     for (size_t i = 8; i < 248; i += 8) {
         run_test(i, builder);
     }
-    bool result = builder.check_circuit();
+    bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 }
 
@@ -94,6 +91,9 @@ TYPED_TEST(LogicTest, TestCorrectLogic)
 TYPED_TEST(LogicTest, LargeOperands)
 {
     STDLIB_TYPE_ALIASES
+    if constexpr (IsSimulator<Builder>) {
+        GTEST_SKIP() << "Skipping this test for the simulator";
+    }
     auto builder = Builder();
 
     uint256_t mask = (uint256_t(1) << 48) - 1;
@@ -112,7 +112,7 @@ TYPED_TEST(LogicTest, LargeOperands)
     EXPECT_EQ(uint256_t(and_result.get_value()), and_expected);
     EXPECT_EQ(uint256_t(xor_result.get_value()), xor_expected);
 
-    bool result = builder.check_circuit();
+    bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 }
 
@@ -144,9 +144,7 @@ TYPED_TEST(LogicTest, DifferentWitnessSameResult)
         field_ct xor_result = stdlib::logic<Builder>::create_logic_constraint(x, y, 32, true, get_bad_chunk);
         EXPECT_EQ(uint256_t(xor_result.get_value()), xor_expected);
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, false);
     }
 }
-
-} // namespace test_stdlib_logic

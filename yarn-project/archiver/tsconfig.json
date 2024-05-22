@@ -7,6 +7,9 @@
   },
   "references": [
     {
+      "path": "../circuit-types"
+    },
+    {
       "path": "../circuits.js"
     },
     {
@@ -16,7 +19,13 @@
       "path": "../foundation"
     },
     {
+      "path": "../kv-store"
+    },
+    {
       "path": "../l1-artifacts"
+    },
+    {
+      "path": "../protocol-contracts"
     },
     {
       "path": "../types"

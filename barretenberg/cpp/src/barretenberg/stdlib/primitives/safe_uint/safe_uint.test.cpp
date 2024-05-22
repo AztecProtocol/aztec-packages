@@ -1,11 +1,13 @@
-
 #include "safe_uint.hpp"
 #include "../byte_array/byte_array.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 #include <cstddef>
 #include <gtest/gtest.h>
+
+using namespace bb;
 
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 
@@ -19,18 +21,16 @@
     using public_witness_ct = stdlib::public_witness_t<Builder>;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
-namespace test_stdlib_safe_uint {
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
 
 template <class T> void ignore_unused(T&) {} // use to ignore unused variables in lambdas
 
 template <class Builder> class SafeUintTest : public ::testing::Test {};
 
-using CircuitTypes = ::testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254>;
 TYPED_TEST_SUITE(SafeUintTest, CircuitTypes);
 
 // CONSTRUCTOR
@@ -45,7 +45,7 @@ TYPED_TEST(SafeUintTest, TestConstructorWithValueOutOfRangeFails)
     field_ct a(witness_ct(&builder, 100));
     suint_ct b(a, 2, "b");
 
-    EXPECT_FALSE(builder.check_circuit());
+    EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
 TYPED_TEST(SafeUintTest, TestConstructorWithValueInRange)
@@ -56,7 +56,7 @@ TYPED_TEST(SafeUintTest, TestConstructorWithValueInRange)
     field_ct a(witness_ct(&builder, 100));
     suint_ct b(a, 7);
 
-    EXPECT_TRUE(builder.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 // * OPERATOR
@@ -79,13 +79,13 @@ TYPED_TEST(SafeUintTest, TestMultiplyOperationOutOfRangeFails)
     for (auto i = 0; i < 159; i++) {
         c = c * d;
     }
-    EXPECT_TRUE(builder.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(builder));
     try {
         // should throw an overflow error on the 160th iteration
         c = c * d;
         FAIL() << "Expected out of range error";
     } catch (std::runtime_error const& err) {
-        EXPECT_TRUE(builder.check_circuit()); // no failing constraints should be created from multiply
+        EXPECT_TRUE(CircuitChecker::check(builder)); // no failing constraints should be created from multiply
         EXPECT_EQ(err.what(), std::string("exceeded modulus in safe_uint class"));
     } catch (...) {
         FAIL() << "Expected std::runtime_error modulus in safe_uint class";
@@ -110,7 +110,7 @@ TYPED_TEST(SafeUintTest, TestMultiplyOperationOnConstantsOutOfRangeFails)
     for (auto i = 0; i < 252; i++) {
         c = c * d;
     }
-    EXPECT_TRUE(builder.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(builder));
     // Below we should exceed r, and expect a throw
 
     try {
@@ -118,7 +118,7 @@ TYPED_TEST(SafeUintTest, TestMultiplyOperationOnConstantsOutOfRangeFails)
         c = c * d;
         FAIL() << "Expected out of range error";
     } catch (std::runtime_error const& err) {
-        EXPECT_TRUE(builder.check_circuit()); // no failing constraint from multiply
+        EXPECT_TRUE(CircuitChecker::check(builder)); // no failing constraint from multiply
         EXPECT_EQ(err.what(), std::string("exceeded modulus in safe_uint class"));
     } catch (...) {
         FAIL() << "Expected std::runtime_error modulus in safe_uint class";
@@ -141,13 +141,13 @@ TYPED_TEST(SafeUintTest, TestAddOperationOutOfRangeFails)
     for (auto i = 0; i < 159; i++) {
         c = c * d;
     }
-    EXPECT_TRUE(builder.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(builder));
     try {
         // should fail when we add and exceed the modulus
         c = c + c;
         FAIL() << "Expected out of range error";
     } catch (std::runtime_error const& err) {
-        EXPECT_TRUE(builder.check_circuit()); // no failing constraints from add or multiply
+        EXPECT_TRUE(CircuitChecker::check(builder)); // no failing constraints from add or multiply
         EXPECT_EQ(err.what(), std::string("exceeded modulus in safe_uint class"));
     } catch (...) {
         FAIL() << "Expected std::runtime_error modulus in safe_uint class";
@@ -171,7 +171,7 @@ TYPED_TEST(SafeUintTest, TestSubtract)
     suint_ct d(b, 4);
     c = d.subtract(c, 3); // result is 7, which fits in 3 bits and does not fail the range constraint
 
-    EXPECT_TRUE(builder.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 /**
@@ -190,7 +190,7 @@ TYPED_TEST(SafeUintTest, TestSubtractResultOutOfRange)
     suint_ct d(b, 4, "d");
     c = d.subtract(c, 2, "d - c"); // we can't be sure that 4-bits minus 2-bits is 2-bits.
 
-    EXPECT_FALSE(builder.check_circuit());
+    EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
 /**
@@ -209,7 +209,7 @@ TYPED_TEST(SafeUintTest, TestSubtractUnderflowGeneral)
     suint_ct c(a, 0);
     suint_ct d(b, 1);
     c = c.subtract(d, suint_ct::MAX_BIT_NUM);
-    EXPECT_FALSE(builder.check_circuit());
+    EXPECT_FALSE(CircuitChecker::check(builder));
 }
 #endif
 
@@ -231,7 +231,7 @@ TYPED_TEST(SafeUintTest, TestSubtractUnderflowSpecial)
         c = c.subtract(d, suint_ct::MAX_BIT_NUM);
         FAIL() << "Expected out of range error";
     } catch (std::runtime_error const& err) {
-        EXPECT_TRUE(builder.check_circuit());
+        EXPECT_TRUE(CircuitChecker::check(builder));
         EXPECT_EQ(err.what(), std::string("maximum value exceeded in safe_uint subtract"));
     } catch (...) {
         FAIL() << "Expected std::runtime_error modulus in safe_uint class";
@@ -255,7 +255,7 @@ TYPED_TEST(SafeUintTest, TestMinusOperator)
     suint_ct d(b, 2);
     c = c - d; // 9 - 2 = 7 should not underflow
 
-    EXPECT_TRUE(builder.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 /**
@@ -272,7 +272,7 @@ TYPED_TEST(SafeUintTest, TestMinusOperatorValidOnZero)
     suint_ct c(a, 2);
     suint_ct d(b, 3);
     c = c - d; // 2 - 2 = 0 should not overflow, even if d has more bits than c.
-    EXPECT_TRUE(builder.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 #endif
 
@@ -291,7 +291,7 @@ TYPED_TEST(SafeUintTest, TestMinusUnderflowGeneral1)
     suint_ct c(a, 2);
     suint_ct d(b, suint_ct::MAX_BIT_NUM);
     c = c - d; // generates range constraint that the difference is in [0, 3], which it is not with these witness values
-    EXPECT_FALSE(builder.check_circuit());
+    EXPECT_FALSE(CircuitChecker::check(builder));
 }
 #endif
 
@@ -310,7 +310,7 @@ TYPED_TEST(SafeUintTest, TestMinusUnderflowGeneral2)
     suint_ct c(a, 2);
     suint_ct d(b, 3);
     c = c - d;
-    EXPECT_FALSE(builder.check_circuit()); // underflow should cause range constraint to fail
+    EXPECT_FALSE(CircuitChecker::check(builder)); // underflow should cause range constraint to fail
 }
 #endif
 
@@ -331,14 +331,14 @@ TYPED_TEST(SafeUintTest, TestMinusUnderflowSpecial1)
     suint_ct c(a, suint_ct::MAX_BIT_NUM);
     suint_ct d(b, suint_ct::MAX_BIT_NUM);
     try {
-        c = c - d; // even though this is not an underflow, we cannot distinguish it from an actual underflow because
-                   // the sum of maxes exceeds MAX_VALUE so we must throw an error
+        c = c - d; // even though this is not an underflow, we cannot distinguish it from an actual underflow
+                   // because the sum of maxes exceeds MAX_VALUE so we must throw an error
         FAIL() << "Expected error to be thrown";
     } catch (std::runtime_error const& err) {
-        EXPECT_TRUE(builder.check_circuit()); // no incorrect constraints
+        EXPECT_TRUE(CircuitChecker::check(builder)); // no incorrect constraints
         EXPECT_EQ(err.what(),
-                  std::string("maximum value exceeded in safe_uint minus operator")); // possible underflow is detected
-                                                                                      // with check on maxes
+                  std::string("maximum value exceeded in safe_uint minus operator")); // possible underflow is
+                                                                                      // detected with check on maxes
     } catch (...) {
         FAIL() << "Expected no error, got other error";
     }
@@ -365,10 +365,10 @@ TYPED_TEST(SafeUintTest, TestMinusUnderflowSpecial2)
         c = c - d; // underflow and error should be thrown
         FAIL() << "Expected error to be thrown";
     } catch (std::runtime_error const& err) {
-        EXPECT_FALSE(builder.check_circuit()); // underflow causes failing constraint
+        EXPECT_FALSE(CircuitChecker::check(builder)); // underflow causes failing constraint
         EXPECT_EQ(err.what(),
-                  std::string("maximum value exceeded in safe_uint minus operator")); // possible underflow is detected
-                                                                                      // with check on maxes
+                  std::string("maximum value exceeded in safe_uint minus operator")); // possible underflow is
+                                                                                      // detected with check on maxes
     } catch (...) {
         FAIL() << "Expected no error, got other error";
     }
@@ -394,7 +394,7 @@ TYPED_TEST(SafeUintTest, TestDivideMethod)
     suint_ct d2(b2, 32);
     c2 = d2.divide(c2, 32, 8);
 
-    EXPECT_TRUE(builder.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TYPED_TEST(SafeUintTest, TestDivideMethodQuotientRangeTooSmallFails)
@@ -408,7 +408,7 @@ TYPED_TEST(SafeUintTest, TestDivideMethodQuotientRangeTooSmallFails)
     suint_ct d(b, 6);
     d = d.divide(c, 4, 1, "d/c");
 
-    EXPECT_FALSE(builder.check_circuit());
+    EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
 #if !defined(__wasm__)
@@ -438,7 +438,7 @@ TYPED_TEST(SafeUintTest, TestDivideMethodQuotientRemainderIncorrectFails)
     suint_ct d(b, 5);
     d = d.divide(c, 3, 2, "d/c", [](uint256_t, uint256_t) { return std::make_pair(2, 3); });
 
-    EXPECT_FALSE(builder.check_circuit());
+    EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
 TYPED_TEST(SafeUintTest, TestDivideMethodQuotientRemainderModRFails)
@@ -452,10 +452,10 @@ TYPED_TEST(SafeUintTest, TestDivideMethodQuotientRemainderModRFails)
     suint_ct c(a, 3);
     suint_ct d(b, 5);
     d = d.divide(c, 3, 1, "d/c", [](uint256_t a, uint256_t b) { return std::make_pair((fr)a / (fr)b, 0); });
-    // 19 / 5 in the field is 0x1d08fbde871dc67f6e96903a4db401d17e858b5eaf6f438a5bedf9bf2999999e, so the quotient
-    // should fail the range check of 3-bits.
+    // 19 / 5 in the field is 0x1d08fbde871dc67f6e96903a4db401d17e858b5eaf6f438a5bedf9bf2999999e, so the
+    // quotient should fail the range check of 3-bits.
 
-    EXPECT_FALSE(builder.check_circuit());
+    EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
 TYPED_TEST(SafeUintTest, TestDivOperator)
@@ -468,7 +468,7 @@ TYPED_TEST(SafeUintTest, TestDivOperator)
 
     a = a / b;
 
-    EXPECT_TRUE(builder.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 // / OPERATOR
@@ -492,7 +492,7 @@ TYPED_TEST(SafeUintTest, TestDivideOperator)
         suint_ct d2(b2, 32);
         d2 / c2;
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
     // test failure when range for quotient too small
@@ -503,7 +503,7 @@ TYPED_TEST(SafeUintTest, TestDivideOperator)
         suint_ct c(a, 2);
         suint_ct d(b, 5);
         d = d / c;
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, false);
     }
     // test failure when range for remainder too small
@@ -514,7 +514,7 @@ TYPED_TEST(SafeUintTest, TestDivideOperator)
         suint_ct c(a, 2);
         suint_ct d(b, 5);
         d = d / c;
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, false);
     }
     // test failure when quotient and remainder values are wrong
@@ -525,7 +525,7 @@ TYPED_TEST(SafeUintTest, TestDivideOperator)
         suint_ct c(a, 2);
         suint_ct d(b, 5);
         d = d / c;
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, false);
     }
     // test failure when quotient and remainder are only correct mod r
@@ -536,7 +536,7 @@ TYPED_TEST(SafeUintTest, TestDivideOperator)
         suint_ct c(a, 2);
         suint_ct d(b, 5);
         d = d / c;
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, false);
     }
 }
@@ -561,7 +561,7 @@ TYPED_TEST(SafeUintTest, TestSlice)
     EXPECT_EQ(slice_data[1].get_value(), fr(169));
     EXPECT_EQ(slice_data[2].get_value(), fr(61));
 
-    bool result = builder.check_circuit();
+    bool result = CircuitChecker::check(builder);
     EXPECT_TRUE(result);
 }
 
@@ -583,7 +583,7 @@ TYPED_TEST(SafeUintTest, TestSliceEqualMsbLsb)
     EXPECT_EQ(slice_data[1].get_value(), fr(1));
     EXPECT_EQ(slice_data[2].get_value(), fr(986));
 
-    bool result = builder.check_circuit();
+    bool result = CircuitChecker::check(builder);
     EXPECT_TRUE(result);
 }
 
@@ -607,7 +607,7 @@ TYPED_TEST(SafeUintTest, TestSliceRandom)
     EXPECT_EQ(slice[1].get_value(), fr(expected1));
     EXPECT_EQ(slice[2].get_value(), fr(expected2));
 
-    bool result = builder.check_circuit();
+    bool result = CircuitChecker::check(builder);
     EXPECT_TRUE(result);
 }
 
@@ -661,7 +661,7 @@ TYPED_TEST(SafeUintTest, TestOperatorDivRemainderConstraint)
 
     a.assert_equal(int_val);
 
-    bool result = builder.check_circuit();
+    bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, false);
 }
 
@@ -680,14 +680,13 @@ TYPED_TEST(SafeUintTest, TestDivRemainderConstraint)
     suint_ct b(witness_ct(&builder, val), 32);
 
     // set quotient to 0 and remainder to val.
-    auto supply_bad_witnesses = [](uint256_t val, uint256_t divisor) {
-        ignore_unused(divisor);
+    auto supply_bad_witnesses = [](uint256_t val, [[maybe_unused]] uint256_t divisor) {
         return std::make_pair(0, val);
     };
 
     a.divide(b, 32, 32, "", supply_bad_witnesses);
 
-    bool result = builder.check_circuit();
+    bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, false);
 }
 
@@ -707,4 +706,3 @@ TYPED_TEST(SafeUintTest, TestByteArrayConversion)
     arr.write(static_cast<byte_array_ct>(safe));
     EXPECT_EQ(arr.get_string(), expected);
 }
-} // namespace test_stdlib_safe_uint

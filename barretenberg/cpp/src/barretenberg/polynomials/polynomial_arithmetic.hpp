@@ -1,8 +1,7 @@
 #pragma once
 #include "evaluation_domain.hpp"
 
-namespace barretenberg {
-namespace polynomial_arithmetic {
+namespace bb::polynomial_arithmetic {
 
 template <typename T>
 concept SupportsFFT = T::Params::has_high_2adicity;
@@ -157,11 +156,10 @@ template <typename Fr>
 LagrangeEvaluations<Fr> get_lagrange_evaluations(const Fr& z,
                                                  const EvaluationDomain<Fr>& domain,
                                                  const size_t num_roots_cut_out_of_vanishing_polynomial = 4);
-template <typename Fr>
-Fr compute_barycentric_evaluation(const Fr* coeffs,
-                                  const size_t num_coeffs,
-                                  const Fr& z,
-                                  const EvaluationDomain<Fr>& domain);
+fr compute_barycentric_evaluation(const fr* coeffs,
+                                  unsigned long num_coeffs,
+                                  const fr& z,
+                                  const EvaluationDomain<fr>& domain);
 // Convert an fft with `current_size` point evaluations, to one with `current_size >> compress_factor` point evaluations
 template <typename Fr>
     requires SupportsFFT<Fr>
@@ -360,5 +358,4 @@ template <typename Fr> void factor_roots(std::span<Fr> polynomial, std::span<con
     }
 }
 
-} // namespace polynomial_arithmetic
-} // namespace barretenberg
+} // namespace bb::polynomial_arithmetic

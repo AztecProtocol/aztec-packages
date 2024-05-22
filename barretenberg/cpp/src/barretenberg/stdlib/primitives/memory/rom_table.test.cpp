@@ -1,22 +1,21 @@
 
 #include <gtest/gtest.h>
 
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "rom_table.hpp"
 
-namespace test_stdlib_rom_array {
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
 
 // Defining ultra-specific types for local testing.
-using Builder = proof_system::UltraCircuitBuilder;
+using Builder = UltraCircuitBuilder;
 using field_ct = stdlib::field_t<Builder>;
 using witness_ct = stdlib::witness_t<Builder>;
 using rom_table_ct = stdlib::rom_table<Builder>;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 TEST(rom_table, rom_table_read_write_consistency)
@@ -26,13 +25,13 @@ TEST(rom_table, rom_table_read_write_consistency)
     std::vector<field_ct> table_values;
     const size_t table_size = 10;
     for (size_t i = 0; i < table_size; ++i) {
-        table_values.emplace_back(witness_ct(&builder, barretenberg::fr::random_element()));
+        table_values.emplace_back(witness_ct(&builder, bb::fr::random_element()));
     }
 
     rom_table_ct table(table_values);
 
     field_ct result(0);
-    barretenberg::fr expected(0);
+    fr expected(0);
 
     for (size_t i = 0; i < 10; ++i) {
         field_ct index(witness_ct(&builder, (uint64_t)i));
@@ -60,8 +59,6 @@ TEST(rom_table, rom_table_read_write_consistency)
 
     EXPECT_EQ(result.get_value(), expected);
 
-    bool verified = builder.check_circuit();
+    bool verified = CircuitChecker::check(builder);
     EXPECT_EQ(verified, true);
 }
-
-} // namespace test_stdlib_rom_array

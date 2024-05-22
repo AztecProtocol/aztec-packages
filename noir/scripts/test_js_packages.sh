@@ -1,26 +1,20 @@
 #!/bin/bash
 set -eu
 
-cd $(dirname "$0")/..
+cd $(dirname "$0")/../noir-repo
 
-./scripts/install_wasm-bindgen.sh
+./.github/scripts/wasm-bindgen-install.sh
 
-# If this project has been subrepod into another project, set build data manually.
+# Set build data manually.
 export SOURCE_DATE_EPOCH=$(date +%s)
 export GIT_DIRTY=false
-if [ -f ".gitrepo" ]; then
-  export GIT_COMMIT=$(awk '/commit =/ {print $3}' .gitrepo)
-else
-  export GIT_COMMIT=$(git rev-parse --verify HEAD)
-fi
+export GIT_COMMIT=${COMMIT_HASH:-$(git rev-parse --verify HEAD)}
 
 cargo build --release
-export PATH="${PATH}:/usr/src/noir/target/release/"
+export PATH="${PATH}:/usr/src/noir/noir-repo/target/release/"
 
-yarn
+yarn --immutable
 yarn build
-npx playwright install
-npx playwright install-deps
+./.github/scripts/playwright-install.sh
 
-./scripts/test.sh
 yarn test

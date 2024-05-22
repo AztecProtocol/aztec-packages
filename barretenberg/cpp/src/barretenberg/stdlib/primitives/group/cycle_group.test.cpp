@@ -1,8 +1,8 @@
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
-#include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 #include <gtest/gtest.h>
@@ -17,12 +17,10 @@
     using bool_ct = stdlib::bool_t<Builder>;                                                                           \
     using witness_ct = stdlib::witness_t<Builder>;
 
-namespace stdlib_cycle_group_tests {
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
@@ -47,8 +45,62 @@ template <class Builder> class CycleGroupTest : public ::testing::Test {
     };
 };
 
-using CircuitTypes = ::testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(CycleGroupTest, CircuitTypes);
+
+/**
+ * @brief Checks that a point on the curve passes the validate_is_on_curve check
+ *
+ */
+TYPED_TEST(CycleGroupTest, TestValidateOnCurveSucceed)
+{
+    STDLIB_TYPE_ALIASES;
+    Builder builder;
+
+    auto lhs = TestFixture::generators[0];
+    cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
+    a.validate_is_on_curve();
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Checks that a point that is not on the curve but marked as the point at infinity passes the
+ * validate_is_on_curve check
+ * @details Should pass since marking it with _is_infinity=true makes whatever other point data invalid.
+ */
+TYPED_TEST(CycleGroupTest, TestValidateOnCurveInfinitySucceed)
+{
+    STDLIB_TYPE_ALIASES;
+    Builder builder;
+
+    auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
+    auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
+
+    cycle_group_ct a(x, y, /*_is_infinity=*/true); // marks this point as the point at infinity
+    a.validate_is_on_curve();
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Checks that a point that is not on the curve but *not* marked as the point at infinity fails the
+ * validate_is_on_curve check
+ * @details (1, 1) is not on the either the Grumpkin curve or the BN254 curve.
+ */
+TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail)
+{
+    STDLIB_TYPE_ALIASES;
+    Builder builder;
+
+    auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
+    auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
+
+    cycle_group_ct a(x, y, /*_is_infinity=*/false);
+    a.validate_is_on_curve();
+    EXPECT_TRUE(builder.failed());
+    EXPECT_FALSE(CircuitChecker::check(builder));
+}
 
 TYPED_TEST(CycleGroupTest, TestDbl)
 {
@@ -67,7 +119,7 @@ TYPED_TEST(CycleGroupTest, TestDbl)
     AffineElement result = c.get_value();
     EXPECT_EQ(result, expected);
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -91,7 +143,7 @@ TYPED_TEST(CycleGroupTest, TestUnconditionalAdd)
     add(TestFixture::generators[0], TestFixture::generators[1], true, false);
     add(TestFixture::generators[0], TestFixture::generators[1], true, true);
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -111,7 +163,7 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalAddSucceed)
     AffineElement result = c.get_value();
     EXPECT_EQ(result, expected);
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -130,7 +182,7 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalAddFail)
 
     EXPECT_TRUE(builder.failed());
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, false);
 }
 
@@ -201,7 +253,7 @@ TYPED_TEST(CycleGroupTest, TestAdd)
         EXPECT_EQ(result, expected);
     }
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -225,7 +277,7 @@ TYPED_TEST(CycleGroupTest, TestUnconditionalSubtract)
     add(TestFixture::generators[0], TestFixture::generators[1], true, false);
     add(TestFixture::generators[0], TestFixture::generators[1], true, true);
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -245,7 +297,7 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalSubtractSucceed)
     AffineElement result = c.get_value();
     EXPECT_EQ(result, expected);
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -264,7 +316,7 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalSubtractFail)
 
     EXPECT_TRUE(builder.failed());
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, false);
 }
 
@@ -337,7 +389,7 @@ TYPED_TEST(CycleGroupTest, TestSubtract)
         EXPECT_TRUE(c.get_value().is_point_at_infinity());
     }
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -438,8 +490,8 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         EXPECT_TRUE(result.is_point_at_infinity().get_value());
     }
 
-    // case 5, fixed-base MSM with inputs that are combinations of constant and witnesses (group elements are in lookup
-    // table)
+    // case 5, fixed-base MSM with inputs that are combinations of constant and witnesses (group elements are in
+    // lookup table)
     {
         std::vector<cycle_group_ct> points;
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
@@ -467,8 +519,8 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         EXPECT_EQ(result.get_value(), crypto::pedersen_commitment::commit_native(scalars_native));
     }
 
-    // case 6, fixed-base MSM with inputs that are combinations of constant and witnesses (some group elements are in
-    // lookup table)
+    // case 6, fixed-base MSM with inputs that are combinations of constant and witnesses (some group elements are
+    // in lookup table)
     {
         std::vector<cycle_group_ct> points;
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
@@ -524,7 +576,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         EXPECT_EQ(result.is_point_at_infinity().get_value(), true);
     }
 
-    bool check_result = builder.check_circuit();
+    bool check_result = CircuitChecker::check(builder);
     EXPECT_EQ(check_result, true);
 }
 
@@ -564,9 +616,7 @@ TYPED_TEST(CycleGroupTest, TestMul)
         }
     }
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 #pragma GCC diagnostic pop
-
-} // namespace stdlib_cycle_group_tests

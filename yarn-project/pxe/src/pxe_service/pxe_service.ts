@@ -1,61 +1,64 @@
 import {
-  AcirSimulator,
-  ExecutionResult,
-  collectEncryptedLogs,
-  collectEnqueuedPublicFunctionCalls,
-  collectUnencryptedLogs,
-  resolveOpcodeLocations,
-} from '@aztec/acir-simulator';
+  type AuthWitness,
+  type AztecNode,
+  EncryptedTxL2Logs,
+  ExtendedNote,
+  type FunctionCall,
+  type GetUnencryptedLogsResponse,
+  type L2Block,
+  type LogFilter,
+  MerkleTreeId,
+  type NoteFilter,
+  type PXE,
+  type ProofCreator,
+  SimulatedTx,
+  SimulationError,
+  Tx,
+  type TxEffect,
+  type TxExecutionRequest,
+  type TxHash,
+  type TxReceipt,
+  UnencryptedTxL2Logs,
+  isNoirCallStackUnresolved,
+} from '@aztec/circuit-types';
+import { type TxPXEProcessingStats } from '@aztec/circuit-types/stats';
 import {
   AztecAddress,
   CallRequest,
-  CompleteAddress,
+  type CompleteAddress,
   FunctionData,
-  GrumpkinPrivateKey,
-  KernelCircuitPublicInputsFinal,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  PartialAddress,
-  PublicCallRequest,
+  type PartialAddress,
+  type PrivateKernelTailCircuitPublicInputs,
+  type PublicCallRequest,
+  computeContractClassId,
+  getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
-import { DecodedReturn, encodeArguments } from '@aztec/foundation/abi';
-import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
+import { type ContractArtifact, type DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
+import { type Fq, Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { NoirWasmVersion } from '@aztec/noir-compiler/versions';
+import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
+import { type KeyStore } from '@aztec/key-store';
 import {
-  AuthWitness,
-  AztecNode,
-  ContractDao,
-  ContractData,
-  DeployedContract,
-  ExtendedContractData,
-  ExtendedNote,
-  FunctionCall,
-  GetUnencryptedLogsResponse,
-  KeyStore,
-  L2Block,
-  L2Tx,
-  LogFilter,
-  MerkleTreeId,
-  NodeInfo,
-  NoteFilter,
-  PXE,
-  SimulationError,
-  Tx,
-  TxExecutionRequest,
-  TxHash,
-  TxL2Logs,
-  TxReceipt,
-  TxStatus,
-  getNewContractPublicFunctions,
-  isNoirCallStackUnresolved,
-} from '@aztec/types';
+  type AcirSimulator,
+  type ExecutionResult,
+  accumulateReturnValues,
+  collectEnqueuedPublicFunctionCalls,
+  collectPublicTeardownFunctionCall,
+  collectSortedEncryptedLogs,
+  collectSortedNoteEncryptedLogs,
+  collectSortedUnencryptedLogs,
+  resolveOpcodeLocations,
+} from '@aztec/simulator';
+import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { type NodeInfo } from '@aztec/types/interfaces';
 
-import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
+import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { PxeDatabase } from '../database/index.js';
+import { type PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
@@ -70,8 +73,8 @@ export class PXEService implements PXE {
   private contractDataOracle: ContractDataOracle;
   private simulator: AcirSimulator;
   private log: DebugLogger;
-  private sandboxVersion: string;
-  // serialize synchronizer and calls to simulateTx.
+  private nodeVersion: string;
+  // serialize synchronizer and calls to proveTx.
   // ensures that state is not changed while simulating
   private jobQueue = new SerialQueue();
 
@@ -79,15 +82,17 @@ export class PXEService implements PXE {
     private keyStore: KeyStore,
     private node: AztecNode,
     private db: PxeDatabase,
+    private proofCreator: ProofCreator,
     private config: PXEServiceConfig,
     logSuffix?: string,
   ) {
     this.log = createDebugLogger(logSuffix ? `aztec:pxe_service_${logSuffix}` : `aztec:pxe_service`);
     this.synchronizer = new Synchronizer(node, db, this.jobQueue, logSuffix);
-    this.contractDataOracle = new ContractDataOracle(db, node);
+    this.contractDataOracle = new ContractDataOracle(db);
     this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
+    this.nodeVersion = getPackageInfo().version;
 
-    this.sandboxVersion = getPackageInfo().version;
+    this.jobQueue.start();
   }
 
   /**
@@ -97,27 +102,35 @@ export class PXEService implements PXE {
    */
   public async start() {
     const { l2BlockPollingIntervalMS } = this.config;
-    this.synchronizer.start(1, l2BlockPollingIntervalMS);
-    this.jobQueue.start();
-    this.log.info('Started Job Queue');
-    await this.jobQueue.syncPoint();
-    this.log.info('Synced Job Queue');
+    await this.synchronizer.start(1, l2BlockPollingIntervalMS);
     await this.restoreNoteProcessors();
     const info = await this.getNodeInfo();
     this.log.info(`Started PXE connected to chain ${info.chainId} version ${info.protocolVersion}`);
   }
 
   private async restoreNoteProcessors() {
-    const publicKeys = await this.keyStore.getAccounts();
+    const accounts = await this.keyStore.getAccounts();
+    const publicKeys = accounts.map(async account => await this.keyStore.getMasterIncomingViewingPublicKey(account));
     const publicKeysSet = new Set(publicKeys.map(k => k.toString()));
 
     const registeredAddresses = await this.db.getCompleteAddresses();
 
+    let count = 0;
     for (const address of registeredAddresses) {
-      if (!publicKeysSet.has(address.publicKey.toString())) {
+      if (!publicKeysSet.has(address.publicKeys.masterIncomingViewingPublicKey.toString())) {
         continue;
       }
-      this.synchronizer.addAccount(address.publicKey, this.keyStore, this.config.l2StartingBlock);
+
+      count++;
+      this.synchronizer.addAccount(
+        address.publicKeys.masterIncomingViewingPublicKey,
+        this.keyStore,
+        this.config.l2StartingBlock,
+      );
+    }
+
+    if (count > 0) {
+      this.log.info(`Restored ${count} accounts`);
     }
   }
 
@@ -144,31 +157,54 @@ export class PXEService implements PXE {
     return this.db.addAuthWitness(witness.requestHash, witness.witness);
   }
 
+  public getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
+    return this.db.getAuthWitness(messageHash);
+  }
+
+  async rotateNskM(account: AztecAddress, secretKey: Fq): Promise<void> {
+    await this.keyStore.rotateMasterNullifierKey(account, secretKey);
+  }
+
   public addCapsule(capsule: Fr[]) {
     return this.db.addCapsule(capsule);
   }
 
-  public async registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress> {
-    const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
-    const wasAdded = await this.db.addCompleteAddress(completeAddress);
-    if (wasAdded) {
-      const pubKey = await this.keyStore.addAccount(privKey);
-      this.synchronizer.addAccount(pubKey, this.keyStore, this.config.l2StartingBlock);
-      this.log.info(`Registered account ${completeAddress.address.toString()}`);
-      this.log.debug(`Registered account\n ${completeAddress.toReadableString()}`);
+  public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    return this.db.getContractInstance(address);
+  }
+
+  public async getContractClass(id: Fr): Promise<ContractClassWithId | undefined> {
+    const artifact = await this.db.getContractArtifact(id);
+    return artifact && getContractClassFromArtifact(artifact);
+  }
+
+  public async registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
+    const accounts = await this.keyStore.getAccounts();
+    const accountCompleteAddress = await this.keyStore.addAccount(secretKey, partialAddress);
+    if (accounts.includes(accountCompleteAddress.address)) {
+      this.log.info(`Account:\n "${accountCompleteAddress.address.toString()}"\n already registered.`);
+      return accountCompleteAddress;
     } else {
-      this.log.info(`Account:\n "${completeAddress.address.toString()}"\n already registered.`);
+      const masterIncomingViewingPublicKey = await this.keyStore.getMasterIncomingViewingPublicKey(
+        accountCompleteAddress.address,
+      );
+      this.synchronizer.addAccount(masterIncomingViewingPublicKey, this.keyStore, this.config.l2StartingBlock);
+      this.log.info(`Registered account ${accountCompleteAddress.address.toString()}`);
+      this.log.debug(`Registered account\n ${accountCompleteAddress.toReadableString()}`);
     }
-    return completeAddress;
+
+    await this.db.addCompleteAddress(accountCompleteAddress);
+    return accountCompleteAddress;
   }
 
   public async getRegisteredAccounts(): Promise<CompleteAddress[]> {
     // Get complete addresses of both the recipients and the accounts
-    const addresses = await this.db.getCompleteAddresses();
+    const completeAddresses = await this.db.getCompleteAddresses();
     // Filter out the addresses not corresponding to accounts
-    const accountPubKeys = await this.keyStore.getAccounts();
-    const accounts = addresses.filter(address => accountPubKeys.find(pubKey => pubKey.equals(address.publicKey)));
-    return accounts;
+    const accounts = await this.keyStore.getAccounts();
+    return completeAddresses.filter(completeAddress =>
+      accounts.find(address => address.equals(completeAddress.address)),
+    );
   }
 
   public async getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
@@ -179,6 +215,7 @@ export class PXEService implements PXE {
 
   public async registerRecipient(recipient: CompleteAddress): Promise<void> {
     const wasAdded = await this.db.addCompleteAddress(recipient);
+
     if (wasAdded) {
       this.log.info(`Added recipient:\n ${recipient.toReadableString()}`);
     } else {
@@ -188,10 +225,12 @@ export class PXEService implements PXE {
 
   public async getRecipients(): Promise<CompleteAddress[]> {
     // Get complete addresses of both the recipients and the accounts
-    const addresses = await this.db.getCompleteAddresses();
+    const completeAddresses = await this.db.getCompleteAddresses();
     // Filter out the addresses corresponding to accounts
-    const accountPubKeys = await this.keyStore.getAccounts();
-    const recipients = addresses.filter(address => !accountPubKeys.find(pubKey => pubKey.equals(address.publicKey)));
+    const accounts = await this.keyStore.getAccounts();
+    const recipients = completeAddresses.filter(
+      completeAddress => !accounts.find(account => account.equals(completeAddress.address)),
+    );
     return recipients;
   }
 
@@ -201,22 +240,46 @@ export class PXEService implements PXE {
     return Promise.resolve(recipient);
   }
 
-  public async addContracts(contracts: DeployedContract[]) {
-    const contractDaos = contracts.map(c => new ContractDao(c.artifact, c.completeAddress, c.portalContract));
-    await Promise.all(contractDaos.map(c => this.db.addContract(c)));
-    for (const contract of contractDaos) {
-      const portalInfo =
-        contract.portalContract && !contract.portalContract.isZero() ? ` with portal ${contract.portalContract}` : '';
-      this.log.info(`Added contract ${contract.name} at ${contract.completeAddress.address}${portalInfo}`);
-    }
+  public async registerContractClass(artifact: ContractArtifact): Promise<void> {
+    const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
+    await this.db.addContractArtifact(contractClassId, artifact);
+    this.log.info(`Added contract class ${artifact.name} with id ${contractClassId}`);
   }
 
-  public async getContracts(): Promise<AztecAddress[]> {
-    return (await this.db.getContracts()).map(c => c.completeAddress.address);
+  public async registerContract(contract: { instance: ContractInstanceWithAddress; artifact?: ContractArtifact }) {
+    const { instance } = contract;
+    let { artifact } = contract;
+
+    if (artifact) {
+      // If the user provides an artifact, validate it against the expected class id and register it
+      const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
+      if (!contractClassId.equals(instance.contractClassId)) {
+        throw new Error(
+          `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.contractClassId})`,
+        );
+      }
+      await this.db.addContractArtifact(contractClassId, artifact);
+    } else {
+      // Otherwise, make sure there is an artifact already registered for that class id
+      artifact = await this.db.getContractArtifact(instance.contractClassId);
+      if (!artifact) {
+        throw new Error(
+          `Missing contract artifact for class id ${instance.contractClassId} for contract ${instance.address}`,
+        );
+      }
+    }
+
+    this.log.info(`Added contract ${artifact.name} at ${instance.address.toString()}`);
+    await this.db.addContractInstance(instance);
+    await this.synchronizer.reprocessDeferredNotesForContract(instance.address);
+  }
+
+  public getContracts(): Promise<AztecAddress[]> {
+    return this.db.getContractsAddresses();
   }
 
   public async getPublicStorageAt(contract: AztecAddress, slot: Fr) {
-    if ((await this.getContractData(contract)) === undefined) {
+    if (!(await this.getContractInstance(contract))) {
       throw new Error(`Contract ${contract.toString()} is not deployed`);
     }
     return await this.node.getPublicStorageAt(contract, slot);
@@ -231,22 +294,22 @@ export class PXEService implements PXE {
       let owner = filter.owner;
       if (owner === undefined) {
         const completeAddresses = (await this.db.getCompleteAddresses()).find(address =>
-          address.publicKey.equals(dao.publicKey),
+          address.publicKeys.masterIncomingViewingPublicKey.equals(dao.publicKey),
         );
         if (completeAddresses === undefined) {
           throw new Error(`Cannot find complete address for public key ${dao.publicKey.toString()}`);
         }
         owner = completeAddresses.address;
       }
-      return new ExtendedNote(dao.note, owner, dao.contractAddress, dao.storageSlot, dao.txHash);
+      return new ExtendedNote(dao.note, owner, dao.contractAddress, dao.storageSlot, dao.noteTypeId, dao.txHash);
     });
     return Promise.all(extendedNotes);
   }
 
   public async addNote(note: ExtendedNote) {
-    const { publicKey } = (await this.db.getCompleteAddress(note.owner)) ?? {};
-    if (!publicKey) {
-      throw new Error('Unknown account.');
+    const owner = await this.db.getCompleteAddress(note.owner);
+    if (!owner) {
+      throw new Error(`Unknown account: ${note.owner.toString()}`);
     }
 
     const nonces = await this.getNoteNonces(note);
@@ -255,13 +318,15 @@ export class PXEService implements PXE {
     }
 
     for (const nonce of nonces) {
-      const { innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
-        await this.simulator.computeNoteHashAndNullifier(note.contractAddress, nonce, note.storageSlot, note.note);
+      const { innerNoteHash, siloedNoteHash, innerNullifier } = await this.simulator.computeNoteHashAndNullifier(
+        note.contractAddress,
+        nonce,
+        note.storageSlot,
+        note.noteTypeId,
+        note.note,
+      );
 
-      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
-      // This can always be `uniqueSiloedNoteHash` once notes added from public also include nonces.
-      const noteHashToLookUp = nonce.isZero() ? siloedNoteHash : uniqueSiloedNoteHash;
-      const index = await this.node.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, noteHashToLookUp);
+      const index = await this.node.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, siloedNoteHash);
       if (index === undefined) {
         throw new Error('Note does not exist.');
       }
@@ -277,12 +342,13 @@ export class PXEService implements PXE {
           note.note,
           note.contractAddress,
           note.storageSlot,
+          note.noteTypeId,
           note.txHash,
           nonce,
           innerNoteHash,
           siloedNullifier,
           index,
-          publicKey,
+          owner.publicKeys.masterIncomingViewingPublicKey,
         ),
       );
     }
@@ -293,36 +359,49 @@ export class PXEService implements PXE {
    * @param note - The note to find the nonces for.
    * @returns The nonces of the note.
    * @remarks More than a single nonce may be returned since there might be more than one nonce for a given note.
+   * TODO(#4956): Un-expose this
    */
-  private async getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
-    const tx = await this.node.getTx(note.txHash);
+  public async getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
+    const tx = await this.node.getTxEffect(note.txHash);
     if (!tx) {
       throw new Error(`Unknown tx: ${note.txHash}`);
     }
 
     const nonces: Fr[] = [];
-    const firstNullifier = tx.newNullifiers[0];
-    const commitments = tx.newCommitments;
-    for (let i = 0; i < commitments.length; ++i) {
-      const commitment = commitments[i];
-      if (commitment.equals(Fr.ZERO)) {
+
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
+    // Remove this once notes added from public also include nonces.
+    {
+      const publicNoteNonce = Fr.ZERO;
+      const { siloedNoteHash } = await this.simulator.computeNoteHashAndNullifier(
+        note.contractAddress,
+        publicNoteNonce,
+        note.storageSlot,
+        note.noteTypeId,
+        note.note,
+      );
+      if (tx.noteHashes.some(hash => hash.equals(siloedNoteHash))) {
+        nonces.push(publicNoteNonce);
+      }
+    }
+
+    const firstNullifier = tx.nullifiers[0];
+    const hashes = tx.noteHashes;
+    for (let i = 0; i < hashes.length; ++i) {
+      const hash = hashes[i];
+      if (hash.equals(Fr.ZERO)) {
         break;
       }
 
-      const nonce = computeCommitmentNonce(firstNullifier, i);
-      const { siloedNoteHash, uniqueSiloedNoteHash } = await this.simulator.computeNoteHashAndNullifier(
+      const nonce = computeNoteHashNonce(firstNullifier, i);
+      const { siloedNoteHash } = await this.simulator.computeNoteHashAndNullifier(
         note.contractAddress,
         nonce,
         note.storageSlot,
+        note.noteTypeId,
         note.note,
       );
-      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
-      // Remove this once notes added from public also include nonces.
-      if (commitment.equals(siloedNoteHash)) {
-        nonces.push(Fr.ZERO);
-        break;
-      }
-      if (commitment.equals(uniqueSiloedNoteHash)) {
+      if (hash.equals(siloedNoteHash)) {
         nonces.push(nonce);
       }
     }
@@ -338,34 +417,48 @@ export class PXEService implements PXE {
     return await this.node.getBlock(blockNumber);
   }
 
-  public async simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean) {
+  public async proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean) {
+    return (await this.simulateTx(txRequest, simulatePublic)).tx;
+  }
+
+  public async simulateTx(
+    txRequest: TxExecutionRequest,
+    simulatePublic: boolean,
+    msgSender: AztecAddress | undefined = undefined,
+  ): Promise<SimulatedTx> {
     if (!txRequest.functionData.isPrivate) {
       throw new Error(`Public entrypoints are not allowed`);
     }
-    if (txRequest.functionData.isInternal === undefined) {
-      throw new Error(`Unspecified internal are not allowed`);
-    }
-
-    // all simulations must be serialized w.r.t. the synchronizer
     return await this.jobQueue.put(async () => {
-      // We get the contract address from origin, since contract deployments are signalled as origin from their own address
-      // TODO: Is this ok? Should it be changed to be from ZERO?
-      const deployedContractAddress = txRequest.txContext.isContractDeploymentTx ? txRequest.origin : undefined;
-      const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
+      const timer = new Timer();
+      const simulatedTx = await this.#simulateAndProve(txRequest, msgSender);
+      // We log only if the msgSender is undefined, as simulating with a different msgSender
+      // is unlikely to be a real transaction, and likely to be only used to read data.
+      // Meaning that it will not necessarily have produced a nullifier (and thus have no TxHash)
+      // If we log, the `getTxHash` function will throw.
 
-      const tx = await this.#simulateAndProve(txRequest, newContract);
-      if (simulatePublic) {
-        await this.#simulatePublicCalls(tx);
+      if (!msgSender) {
+        this.log.debug(`Processed private part of ${simulatedTx.tx.getTxHash()}`, {
+          eventName: 'tx-pxe-processing',
+          duration: timer.ms(),
+          ...simulatedTx.tx.getStats(),
+        } satisfies TxPXEProcessingStats);
       }
-      this.log.info(`Executed local simulation for ${await tx.getTxHash()}`);
 
-      return tx;
+      if (simulatePublic) {
+        simulatedTx.publicOutput = await this.#simulatePublicCalls(simulatedTx.tx);
+      }
+
+      if (!msgSender) {
+        this.log.info(`Executed local simulation for ${simulatedTx.tx.getTxHash()}`);
+      }
+      return simulatedTx;
     });
   }
 
   public async sendTx(tx: Tx): Promise<TxHash> {
-    const txHash = await tx.getTxHash();
-    if (await this.node.getTx(txHash)) {
+    const txHash = tx.getTxHash();
+    if (await this.node.getTxEffect(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
     this.log.info(`Sending transaction ${txHash}`);
@@ -373,7 +466,7 @@ export class PXEService implements PXE {
     return txHash;
   }
 
-  public async viewTx(
+  public async simulateUnconstrained(
     functionName: string,
     args: any[],
     to: AztecAddress,
@@ -390,50 +483,16 @@ export class PXEService implements PXE {
     });
   }
 
-  public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
-    let txReceipt = new TxReceipt(txHash, TxStatus.DROPPED, 'Tx dropped by P2P node.');
-
-    // We first check if the tx is in pending (instead of first checking if it is mined) because if we first check
-    // for mined and then for pending there could be a race condition where the tx is mined between the two checks
-    // and we would incorrectly return a TxReceipt with status DROPPED
-    const pendingTx = await this.node.getPendingTxByHash(txHash);
-    if (pendingTx) {
-      txReceipt = new TxReceipt(txHash, TxStatus.PENDING, '');
-    }
-
-    const settledTx = await this.node.getTx(txHash);
-    if (settledTx) {
-      const deployedContractAddress = settledTx.newContractData.find(
-        c => !c.contractAddress.equals(AztecAddress.ZERO),
-      )?.contractAddress;
-
-      txReceipt = new TxReceipt(
-        txHash,
-        TxStatus.MINED,
-        '',
-        settledTx.blockHash,
-        settledTx.blockNumber,
-        deployedContractAddress,
-      );
-    }
-
-    return txReceipt;
+  public getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
+    return this.node.getTxReceipt(txHash);
   }
 
-  public async getTx(txHash: TxHash): Promise<L2Tx | undefined> {
-    return await this.node.getTx(txHash);
+  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+    return this.node.getTxEffect(txHash);
   }
 
   async getBlockNumber(): Promise<number> {
     return await this.node.getBlockNumber();
-  }
-
-  public async getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
-    return await this.node.getExtendedContractData(contractAddress);
-  }
-
-  public async getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    return await this.node.getContractData(contractAddress);
   }
 
   /**
@@ -449,7 +508,7 @@ export class PXEService implements PXE {
     const contract = await this.db.getContract(to);
     if (!contract) {
       throw new Error(
-        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/dev_docs/contracts/common_errors#unknown-contract-error`,
+        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/developers/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
       );
     }
 
@@ -462,6 +521,7 @@ export class PXEService implements PXE {
       args: encodeArguments(functionDao, args),
       functionData: FunctionData.fromAbi(functionDao),
       to,
+      isStatic: functionDao.isStatic,
     };
   }
 
@@ -473,8 +533,7 @@ export class PXEService implements PXE {
     ]);
 
     const nodeInfo: NodeInfo = {
-      sandboxVersion: this.sandboxVersion,
-      compatibleNargoVersion: NoirWasmVersion,
+      nodeVersion: this.nodeVersion,
       chainId,
       protocolVersion: version,
       l1ContractAddresses: contractAddresses,
@@ -484,10 +543,10 @@ export class PXEService implements PXE {
 
   /**
    * Retrieves the simulation parameters required to run an ACIR simulation.
-   * This includes the contract address, function artifact, portal contract address, and historical tree roots.
+   * This includes the contract address, function artifact, and historical tree roots.
    *
    * @param execRequest - The transaction request object containing details of the contract call.
-   * @returns An object containing the contract address, function artifact, portal contract address, and historical tree roots.
+   * @returns An object containing the contract address, function artifact, and historical tree roots.
    */
   async #getSimulationParameters(execRequest: FunctionCall | TxExecutionRequest) {
     const contractAddress = (execRequest as FunctionCall).to ?? (execRequest as TxExecutionRequest).origin;
@@ -499,7 +558,6 @@ export class PXEService implements PXE {
       contractAddress,
       execRequest.functionData.selector,
     );
-    const portalContract = await this.contractDataOracle.getPortalContractAddress(contractAddress);
 
     return {
       contractAddress,
@@ -507,19 +565,18 @@ export class PXEService implements PXE {
         ...functionArtifact,
         debug,
       },
-      portalContract,
     };
   }
 
-  async #simulate(txRequest: TxExecutionRequest): Promise<ExecutionResult> {
+  async #simulate(txRequest: TxExecutionRequest, msgSender?: AztecAddress): Promise<ExecutionResult> {
     // TODO - Pause syncing while simulating.
 
-    const { contractAddress, functionArtifact, portalContract } = await this.#getSimulationParameters(txRequest);
+    const { contractAddress, functionArtifact } = await this.#getSimulationParameters(txRequest);
 
-    this.log('Executing simulator...');
+    this.log.debug('Executing simulator...');
     try {
-      const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, portalContract);
-      this.log('Simulation completed!');
+      const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, msgSender);
+      this.log.verbose(`Simulation completed for ${contractAddress.toString()}:${functionArtifact.name}`);
       return result;
     } catch (err) {
       if (err instanceof SimulationError) {
@@ -540,10 +597,10 @@ export class PXEService implements PXE {
   async #simulateUnconstrained(execRequest: FunctionCall) {
     const { contractAddress, functionArtifact } = await this.#getSimulationParameters(execRequest);
 
-    this.log('Executing unconstrained simulator...');
+    this.log.debug('Executing unconstrained simulator...');
     try {
-      const result = await this.simulator.runUnconstrained(execRequest, functionArtifact, contractAddress, this.node);
-      this.log('Unconstrained simulation completed!');
+      const result = await this.simulator.runUnconstrained(execRequest, functionArtifact, contractAddress);
+      this.log.verbose(`Unconstrained simulation for ${contractAddress}.${functionArtifact.name} completed`);
 
       return result;
     } catch (err) {
@@ -562,7 +619,7 @@ export class PXEService implements PXE {
    */
   async #simulatePublicCalls(tx: Tx) {
     try {
-      await this.node.simulatePublicCalls(tx);
+      return await this.node.simulatePublicCalls(tx);
     } catch (err) {
       // Try to fill in the noir call stack since the PXE may have access to the debug metadata
       if (err instanceof SimulationError) {
@@ -586,45 +643,48 @@ export class PXEService implements PXE {
 
   /**
    * Simulate a transaction, generate a kernel proof, and create a private transaction object.
-   * The function takes in a transaction request and an ECDSA signature. It simulates the transaction,
-   * then generates a kernel proof using the simulation result. Finally, it creates a private
+   * The function takes in a transaction request, simulates it, and then generates a kernel proof
+   * using the simulation result. Finally, it creates a private
    * transaction object with the generated proof and public inputs. If a new contract address is provided,
    * the function will also include the new contract's public functions in the transaction object.
    *
    * @param txExecutionRequest - The transaction request to be simulated and proved.
    * @param signature - The ECDSA signature for the transaction request.
-   * @param newContract - Optional. The address of a new contract to be included in the transaction object.
-   * @returns A private transaction object containing the proof, public inputs, and encrypted logs.
+   * @param msgSender - (Optional) The message sender to use for the simulation.
+   * @returns An object tract contains:
+   * A private transaction object containing the proof, public inputs, and encrypted logs.
+   * The return values of the private execution
    */
-  async #simulateAndProve(txExecutionRequest: TxExecutionRequest, newContract: ContractDao | undefined) {
-    // TODO - Pause syncing while simulating.
-
+  async #simulateAndProve(txExecutionRequest: TxExecutionRequest, msgSender?: AztecAddress) {
     // Get values that allow us to reconstruct the block hash
-    const executionResult = await this.#simulate(txExecutionRequest);
+    const executionResult = await this.#simulate(txExecutionRequest, msgSender);
 
-    const kernelOracle = new KernelOracle(this.contractDataOracle, this.node);
-    const kernelProver = new KernelProver(kernelOracle);
-    this.log(`Executing kernel prover...`);
+    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
+    const kernelProver = new KernelProver(kernelOracle, this.proofCreator);
+    this.log.debug(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
 
-    const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
-    const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
+    const noteEncryptedLogs = new EncryptedTxL2Logs([collectSortedNoteEncryptedLogs(executionResult)]);
+    const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(executionResult)]);
+    const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(executionResult)]);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
-
-    const extendedContractData = newContract
-      ? new ExtendedContractData(
-          new ContractData(newContract.completeAddress.address, newContract.portalContract),
-          getNewContractPublicFunctions(newContract),
-          newContract.completeAddress.partialAddress,
-          newContract.completeAddress.publicKey,
-        )
-      : ExtendedContractData.empty();
+    const teardownPublicFunction = collectPublicTeardownFunctionCall(executionResult);
 
     // HACK(#1639): Manually patches the ordering of the public call stack
     // TODO(#757): Enforce proper ordering of enqueued public calls
     await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
 
-    return new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions, [extendedContractData]);
+    const tx = new Tx(
+      publicInputs,
+      proof.binaryProof,
+      noteEncryptedLogs,
+      encryptedLogs,
+      unencryptedLogs,
+      enqueuedPublicFunctions,
+      teardownPublicFunction,
+    );
+
+    return new SimulatedTx(tx, accumulateReturnValues(executionResult));
   }
 
   /**
@@ -650,9 +710,13 @@ export class PXEService implements PXE {
         if (contract) {
           err.enrichWithContractName(parsedContractAddress, contract.name);
           selectors.forEach(selector => {
-            const functionArtifact = contract.functions.find(f => f.selector.toString() === selector);
+            const functionArtifact = contract.functions.find(f => FunctionSelector.fromString(selector).equals(f));
             if (functionArtifact) {
-              err.enrichWithFunctionName(parsedContractAddress, functionArtifact.selector, functionArtifact.name);
+              err.enrichWithFunctionName(
+                parsedContractAddress,
+                FunctionSelector.fromNameAndParameters(functionArtifact),
+                functionArtifact.name,
+              );
             }
           });
         }
@@ -668,29 +732,63 @@ export class PXEService implements PXE {
   // See https://github.com/AztecProtocol/aztec-packages/issues/1615
   // TODO(#757): Enforce proper ordering of enqueued public calls
   private async patchPublicCallStackOrdering(
-    publicInputs: KernelCircuitPublicInputsFinal,
+    publicInputs: PrivateKernelTailCircuitPublicInputs,
     enqueuedPublicCalls: PublicCallRequest[],
   ) {
+    if (!publicInputs.forPublic) {
+      return;
+    }
+
     const enqueuedPublicCallStackItems = await Promise.all(enqueuedPublicCalls.map(c => c.toCallRequest()));
-    const { publicCallStack } = publicInputs.end;
 
     // Validate all items in enqueued public calls are in the kernel emitted stack
-    const areEqual = enqueuedPublicCallStackItems.reduce(
-      (accum, enqueued) => accum && !!publicCallStack.find(item => item.equals(enqueued)),
-      true,
+    const enqueuedRevertiblePublicCallStackItems = enqueuedPublicCallStackItems.filter(enqueued =>
+      publicInputs.forPublic!.end.publicCallStack.find(item => item.equals(enqueued)),
     );
 
-    if (!areEqual) {
+    const revertibleStackSize = arrayNonEmptyLength(publicInputs.forPublic.end.publicCallStack, item => item.isEmpty());
+
+    if (enqueuedRevertiblePublicCallStackItems.length !== revertibleStackSize) {
       throw new Error(
-        `Enqueued public function calls and public call stack do not match.\nEnqueued calls: ${enqueuedPublicCallStackItems
+        `Enqueued revertible public function calls and revertible public call stack do not match.\nEnqueued calls: ${enqueuedRevertiblePublicCallStackItems
           .map(h => h.hash.toString())
-          .join(', ')}\nPublic call stack: ${publicCallStack.map(i => i.toString()).join(', ')}`,
+          .join(', ')}\nPublic call stack: ${publicInputs.forPublic.end.publicCallStack
+          .map(i => i.toString())
+          .join(', ')}`,
       );
     }
 
     // Override kernel output
-    publicInputs.end.publicCallStack = padArrayEnd(
-      enqueuedPublicCallStackItems,
+    publicInputs.forPublic.end.publicCallStack = padArrayEnd(
+      enqueuedRevertiblePublicCallStackItems,
+      CallRequest.empty(),
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+    );
+
+    // Do the same for non-revertible
+
+    const enqueuedNonRevertiblePublicCallStackItems = enqueuedPublicCallStackItems.filter(enqueued =>
+      publicInputs.forPublic!.endNonRevertibleData.publicCallStack.find(item => item.equals(enqueued)),
+    );
+
+    const nonRevertibleStackSize = arrayNonEmptyLength(
+      publicInputs.forPublic.endNonRevertibleData.publicCallStack,
+      item => item.isEmpty(),
+    );
+
+    if (enqueuedNonRevertiblePublicCallStackItems.length !== nonRevertibleStackSize) {
+      throw new Error(
+        `Enqueued non-revertible public function calls and non-revertible public call stack do not match.\nEnqueued calls: ${enqueuedNonRevertiblePublicCallStackItems
+          .map(h => h.hash.toString())
+          .join(', ')}\nPublic call stack: ${publicInputs.forPublic.endNonRevertibleData.publicCallStack
+          .map(i => i.toString())
+          .join(', ')}`,
+      );
+    }
+
+    // Override kernel output
+    publicInputs.forPublic.endNonRevertibleData.publicCallStack = padArrayEnd(
+      enqueuedNonRevertiblePublicCallStackItems,
       CallRequest.empty(),
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     );
@@ -708,7 +806,11 @@ export class PXEService implements PXE {
     return Promise.resolve(this.synchronizer.getSyncStatus());
   }
 
-  public getKeyStore() {
-    return this.keyStore;
+  public async isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
+    return !!(await this.node.getContractClass(id));
+  }
+
+  public async isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
+    return !!(await this.node.getContract(address));
   }
 }

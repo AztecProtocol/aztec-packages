@@ -1,3 +1,4 @@
+#ifndef NO_MULTITHREADING
 #include "log.hpp"
 #include "thread.hpp"
 #include <atomic>
@@ -100,6 +101,7 @@ void ThreadPool::worker_loop(size_t /*unused*/)
 }
 } // namespace
 
+namespace bb {
 /**
  * A thread pooled strategy that uses atomics to prevent needing constantly lock on a queue.
  * The main thread acts as a worker also, and when it completes, it spins until thread workers are done.
@@ -112,3 +114,5 @@ void parallel_for_atomic_pool(size_t num_iterations, const std::function<void(si
     pool.start_tasks(num_iterations, func);
     // info("done");
 }
+} // namespace bb
+#endif

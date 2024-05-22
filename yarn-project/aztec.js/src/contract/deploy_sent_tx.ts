@@ -1,10 +1,13 @@
-import { AztecAddress, CompleteAddress, FieldsOf } from '@aztec/circuits.js';
-import { PXE, TxHash, TxReceipt } from '@aztec/types';
+import { type PXE, type TxHash, type TxReceipt } from '@aztec/circuit-types';
+import { type AztecAddress } from '@aztec/circuits.js';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { type FieldsOf } from '@aztec/foundation/types';
+import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
-import { Wallet } from '../account/index.js';
+import { type Wallet } from '../account/index.js';
 import { type Contract } from './contract.js';
-import { ContractBase } from './contract_base.js';
-import { SentTx, WaitOpts } from './sent_tx.js';
+import { type ContractBase } from './contract_base.js';
+import { SentTx, type WaitOpts } from './sent_tx.js';
 
 /** Options related to waiting for a deployment tx. */
 export type DeployedWaitOpts = WaitOpts & {
@@ -22,15 +25,14 @@ export type DeployTxReceipt<TContract extends ContractBase = Contract> = FieldsO
  * A contract deployment transaction sent to the network, extending SentTx with methods to create a contract instance.
  */
 export class DeploySentTx<TContract extends Contract = Contract> extends SentTx {
+  private log = createDebugLogger('aztec:js:deploy_sent_tx');
+
   constructor(
     wallet: PXE | Wallet,
     txHashPromise: Promise<TxHash>,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
-
-    /**
-     * The complete address of the deployed contract
-     */
-    public completeContractAddress?: CompleteAddress,
+    /** The deployed contract instance */
+    public instance: ContractInstanceWithAddress,
   ) {
     super(wallet, txHashPromise);
   }
@@ -42,6 +44,7 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
    */
   public async deployed(opts?: DeployedWaitOpts): Promise<TContract> {
     const receipt = await this.wait(opts);
+    this.log.info(`Contract ${this.instance.address.toString()} successfully deployed.`);
     return receipt.contract;
   }
 
@@ -50,21 +53,18 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
    * @param opts - Options for configuring the waiting for the tx to be mined.
    * @returns The transaction receipt with the deployed contract instance.
    */
-  public async wait(opts?: DeployedWaitOpts): Promise<DeployTxReceipt<TContract>> {
+  public override async wait(opts?: DeployedWaitOpts): Promise<DeployTxReceipt<TContract>> {
     const receipt = await super.wait(opts);
-    const contract = await this.getContractInstance(opts?.wallet, receipt.contractAddress);
+    const contract = await this.getContractObject(opts?.wallet);
     return { ...receipt, contract };
   }
 
-  protected getContractInstance(wallet?: Wallet, address?: AztecAddress): Promise<TContract> {
+  protected getContractObject(wallet?: Wallet): Promise<TContract> {
     const isWallet = (pxe: PXE | Wallet): pxe is Wallet => !!(pxe as Wallet).createTxExecutionRequest;
     const contractWallet = wallet ?? (isWallet(this.pxe) && this.pxe);
     if (!contractWallet) {
       throw new Error(`A wallet is required for creating a contract instance`);
     }
-    if (!address) {
-      throw new Error(`Contract address is missing from transaction receipt`);
-    }
-    return this.postDeployCtor(address, contractWallet) as Promise<TContract>;
+    return this.postDeployCtor(this.instance.address, contractWallet) as Promise<TContract>;
   }
 }

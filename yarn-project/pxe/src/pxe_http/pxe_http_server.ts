@@ -1,31 +1,29 @@
+import {
+  AuthWitness,
+  CompleteAddress,
+  EncryptedL2BlockL2Logs,
+  ExtendedNote,
+  ExtendedUnencryptedL2Log,
+  L2Block,
+  LogId,
+  Note,
+  NullifierMembershipWitness,
+  type PXE,
+  SimulatedTx,
+  Tx,
+  TxEffect,
+  TxExecutionRequest,
+  TxHash,
+  TxReceipt,
+  UnencryptedL2BlockL2Logs,
+} from '@aztec/circuit-types';
 import { FunctionSelector } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
-import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
-import {
-  AuthWitness,
-  CompleteAddress,
-  ContractData,
-  ExtendedContractData,
-  ExtendedNote,
-  ExtendedUnencryptedL2Log,
-  L2Block,
-  L2BlockL2Logs,
-  L2Tx,
-  LogId,
-  Note,
-  PXE,
-  Tx,
-  TxExecutionRequest,
-  TxHash,
-  TxReceipt,
-} from '@aztec/types';
+import { JsonRpcServer, createNamespacedJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 
 import http from 'http';
-import { foundry } from 'viem/chains';
-
-export const localAnvil = foundry;
 
 /**
  * Wraps an instance of Private eXecution Environment (PXE) implementation to a JSON RPC HTTP interface.
@@ -38,8 +36,6 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
       CompleteAddress,
       AztecAddress,
       TxExecutionRequest,
-      ContractData,
-      ExtendedContractData,
       ExtendedUnencryptedL2Log,
       FunctionSelector,
       TxHash,
@@ -51,11 +47,10 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
       ExtendedNote,
       AuthWitness,
       L2Block,
-      L2Tx,
+      TxEffect,
       LogId,
     },
-    { Tx, TxReceipt, L2BlockL2Logs },
-    false,
+    { SimulatedTx, Tx, TxReceipt, EncryptedL2BlockL2Logs, UnencryptedL2BlockL2Logs, NullifierMembershipWitness },
     ['start', 'stop'],
   );
 }
@@ -67,7 +62,8 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
  * @returns A running http server.
  */
 export function startPXEHttpServer(pxeService: PXE, port: string | number): http.Server {
-  const rpcServer = createPXERpcServer(pxeService);
+  const pxeServer = createPXERpcServer(pxeService);
+  const rpcServer = createNamespacedJsonRpcServer([{ pxe: pxeServer }]);
 
   const app = rpcServer.getApp();
   const httpServer = http.createServer(app.callback());

@@ -1,7 +1,40 @@
-import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { SiblingPath } from '@aztec/types';
+import { type SiblingPath } from '@aztec/circuit-types';
+import { type IndexedTreeLeaf, type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
-import { AppendOnlyTree } from './append_only_tree.js';
+import {
+  type IndexedTreeSnapshot,
+  type TreeSnapshot,
+  type TreeSnapshotBuilder,
+} from '../snapshots/snapshot_builder.js';
+import { type AppendOnlyTree } from './append_only_tree.js';
+import { type MerkleTree } from './merkle_tree.js';
+
+/**
+ * Factory for creating leaf preimages.
+ */
+export interface PreimageFactory {
+  /**
+   * Creates a new preimage from a leaf.
+   * @param leaf - Leaf to create a preimage from.
+   * @param nextKey - Next key of the leaf.
+   * @param nextIndex - Next index of the leaf.
+   */
+  fromLeaf(leaf: IndexedTreeLeaf, nextKey: bigint, nextIndex: bigint): IndexedTreeLeafPreimage;
+  /**
+   * Creates a new preimage from a buffer.
+   * @param buffer - Buffer to create a preimage from.
+   */
+  fromBuffer(buffer: Buffer): IndexedTreeLeafPreimage;
+  /**
+   * Creates an empty preimage.
+   */
+  empty(): IndexedTreeLeafPreimage;
+  /**
+   * Creates a copy of a preimage.
+   * @param preimage - Preimage to be cloned.
+   */
+  clone(preimage: IndexedTreeLeafPreimage): IndexedTreeLeafPreimage;
+}
 
 /**
  * All of the data to be return during batch insertion.
@@ -46,7 +79,10 @@ export interface BatchInsertionResult<TreeHeight extends number, SubtreeSiblingP
 /**
  * Indexed merkle tree.
  */
-export interface IndexedTree extends AppendOnlyTree {
+export interface IndexedTree
+  extends MerkleTree<Buffer>,
+    TreeSnapshotBuilder<IndexedTreeSnapshot>,
+    Omit<AppendOnlyTree<Buffer>, keyof TreeSnapshotBuilder<TreeSnapshot<Buffer>>> {
   /**
    * Finds the index of the largest leaf whose value is less than or equal to the provided value.
    * @param newValue - The new value to be inserted into the tree.
@@ -56,7 +92,7 @@ export interface IndexedTree extends AppendOnlyTree {
   findIndexOfPreviousKey(
     newValue: bigint,
     includeUncommitted: boolean,
-  ): Promise<
+  ):
     | {
         /**
          * The index of the found leaf.
@@ -67,8 +103,7 @@ export interface IndexedTree extends AppendOnlyTree {
          */
         alreadyPresent: boolean;
       }
-    | undefined
-  >;
+    | undefined;
 
   /**
    * Gets the latest LeafPreimage copy.
@@ -76,7 +111,7 @@ export interface IndexedTree extends AppendOnlyTree {
    * @param includeUncommitted - If true, the uncommitted changes are included in the search.
    * @returns A copy of the leaf preimage at the given index or undefined if the leaf was not found.
    */
-  getLatestLeafPreimageCopy(index: bigint, includeUncommitted: boolean): Promise<IndexedTreeLeafPreimage | undefined>;
+  getLatestLeafPreimageCopy(index: bigint, includeUncommitted: boolean): IndexedTreeLeafPreimage | undefined;
 
   /**
    * Batch insert multiple leaves into the tree.

@@ -1,21 +1,23 @@
-import { PublicKey, getContractDeploymentInfo } from '@aztec/circuits.js';
+import { CompleteAddress, type PXE } from '@aztec/circuit-types';
+import { deriveKeys, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
-import { CompleteAddress, GrumpkinPrivateKey, PXE } from '@aztec/types';
+import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
-import { Salt } from '../account/index.js';
-import { AccountInterface } from '../account/interface.js';
-import {
-  AccountContract,
-  EcdsaAccountContract,
-  SchnorrAccountContract,
-  SingleKeyAccountContract,
-} from '../account_contract/index.js';
-import { DefaultWaitOpts, DeployMethod, WaitOpts } from '../contract/index.js';
-import { ContractDeployer } from '../contract_deployer/index.js';
-import { generatePublicKey } from '../utils/index.js';
-import { AccountWalletWithPrivateKey } from '../wallet/index.js';
+import { type AccountContract } from '../account/contract.js';
+import { type Salt } from '../account/index.js';
+import { type AccountInterface } from '../account/interface.js';
+import { type DeployOptions } from '../contract/deploy_method.js';
+import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';
+import { DefaultMultiCallEntrypoint } from '../entrypoint/default_multi_call_entrypoint.js';
+import { waitForAccountSynch } from '../utils/account.js';
+import { AccountWalletWithSecretKey, SignerlessWallet } from '../wallet/index.js';
+import { DeployAccountMethod } from './deploy_account_method.js';
 import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
-import { waitForAccountSynch } from './util.js';
+
+/**
+ * Options to deploy an account contract.
+ */
+export type DeployAccountOptions = Pick<DeployOptions, 'fee' | 'skipClassRegistration' | 'skipPublicDeployment'>;
 
 /**
  * Manages a user account. Provides methods for calculating the account's address, deploying the account contract,
@@ -23,30 +25,23 @@ import { waitForAccountSynch } from './util.js';
  */
 export class AccountManager {
   /** Deployment salt for the account contract. */
-  public readonly salt?: Fr;
+  public readonly salt: Fr;
 
+  // TODO(@spalladino): Does it make sense to have both completeAddress and instance?
   private completeAddress?: CompleteAddress;
-  private encryptionPublicKey?: PublicKey;
-  private deployMethod?: DeployMethod;
+  private instance?: ContractInstanceWithAddress;
+  private publicKeysHash?: Fr;
+  private deployMethod?: DeployAccountMethod;
 
-  constructor(
-    private pxe: PXE,
-    private encryptionPrivateKey: GrumpkinPrivateKey,
-    private accountContract: AccountContract,
-    saltOrAddress?: Salt | CompleteAddress,
-  ) {
-    if (saltOrAddress instanceof CompleteAddress) {
-      this.completeAddress = saltOrAddress;
-    } else {
-      this.salt = saltOrAddress ? new Fr(saltOrAddress) : Fr.random();
-    }
+  constructor(private pxe: PXE, private secretKey: Fr, private accountContract: AccountContract, salt?: Salt) {
+    this.salt = salt !== undefined ? new Fr(salt) : Fr.random();
   }
 
-  protected getEncryptionPublicKey() {
-    if (!this.encryptionPublicKey) {
-      this.encryptionPublicKey = generatePublicKey(this.encryptionPrivateKey);
+  protected getPublicKeysHash() {
+    if (!this.publicKeysHash) {
+      this.publicKeysHash = deriveKeys(this.secretKey).publicKeys.hash();
     }
-    return this.encryptionPublicKey;
+    return this.publicKeysHash;
   }
 
   /**
@@ -66,16 +61,26 @@ export class AccountManager {
    */
   public getCompleteAddress(): CompleteAddress {
     if (!this.completeAddress) {
-      const encryptionPublicKey = generatePublicKey(this.encryptionPrivateKey);
-      const contractDeploymentInfo = getContractDeploymentInfo(
-        this.accountContract.getContractArtifact(),
-        this.accountContract.getDeploymentArgs(),
-        this.salt!,
-        encryptionPublicKey,
-      );
-      this.completeAddress = contractDeploymentInfo.completeAddress;
+      const instance = this.getInstance();
+      this.completeAddress = CompleteAddress.fromSecretKeyAndInstance(this.secretKey, instance);
     }
     return this.completeAddress;
+  }
+
+  /**
+   * Returns the contract instance definition associated with this account.
+   * Does not require the account to be deployed or registered.
+   * @returns ContractInstance instance.
+   */
+  public getInstance(): ContractInstanceWithAddress {
+    if (!this.instance) {
+      this.instance = getContractInstanceFromDeployParams(this.accountContract.getContractArtifact(), {
+        constructorArgs: this.accountContract.getDeploymentArgs(),
+        salt: this.salt,
+        publicKeysHash: this.getPublicKeysHash(),
+      });
+    }
+    return this.instance;
   }
 
   /**
@@ -83,9 +88,9 @@ export class AccountManager {
    * instances to be interacted with from this account.
    * @returns A Wallet instance.
    */
-  public async getWallet(): Promise<AccountWalletWithPrivateKey> {
+  public async getWallet(): Promise<AccountWalletWithSecretKey> {
     const entrypoint = await this.getAccount();
-    return new AccountWalletWithPrivateKey(this.pxe, entrypoint, this.encryptionPrivateKey);
+    return new AccountWalletWithSecretKey(this.pxe, entrypoint, this.secretKey, this.salt);
   }
 
   /**
@@ -95,9 +100,14 @@ export class AccountManager {
    * @param opts - Options to wait for the account to be synched.
    * @returns A Wallet instance.
    */
-  public async register(opts: WaitOpts = DefaultWaitOpts): Promise<AccountWalletWithPrivateKey> {
-    const address = await this.#register();
-    await waitForAccountSynch(this.pxe, address, opts);
+  public async register(opts: WaitOpts = DefaultWaitOpts): Promise<AccountWalletWithSecretKey> {
+    await this.#register();
+    await this.pxe.registerContract({
+      artifact: this.accountContract.getContractArtifact(),
+      instance: this.getInstance(),
+    });
+
+    await waitForAccountSynch(this.pxe, this.getCompleteAddress(), opts);
     return this.getWallet();
   }
 
@@ -109,101 +119,77 @@ export class AccountManager {
    */
   public async getDeployMethod() {
     if (!this.deployMethod) {
-      if (!this.salt) {
-        throw new Error(`Cannot deploy account contract without known salt.`);
+      if (!this.isDeployable()) {
+        throw new Error(
+          `Account contract ${this.accountContract.getContractArtifact().name} does not require deployment.`,
+        );
       }
       await this.#register();
-      const encryptionPublicKey = this.getEncryptionPublicKey();
-      const deployer = new ContractDeployer(this.accountContract.getContractArtifact(), this.pxe, encryptionPublicKey);
-      const args = this.accountContract.getDeploymentArgs();
-      this.deployMethod = deployer.deploy(...args);
+      const { chainId, protocolVersion } = await this.pxe.getNodeInfo();
+      const deployWallet = new SignerlessWallet(this.pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
+
+      // We use a signerless wallet with the multi call entrypoint in order to make multiple calls in one go
+      // If we used getWallet, the deployment would get routed via the account contract entrypoint
+      // and it can't be used unless the contract is initialized
+      const args = this.accountContract.getDeploymentArgs() ?? [];
+      this.deployMethod = new DeployAccountMethod(
+        this.accountContract.getAuthWitnessProvider(this.getCompleteAddress()),
+        this.getPublicKeysHash(),
+        deployWallet,
+        this.accountContract.getContractArtifact(),
+        args,
+        'constructor',
+        'entrypoint',
+      );
     }
     return this.deployMethod;
   }
 
   /**
    * Deploys the account contract that backs this account.
+   * Does not register the associated class nor publicly deploy the instance by default.
    * Uses the salt provided in the constructor or a randomly generated one.
-   * Note that if the Account is constructed with an explicit complete address
-   * it is assumed that the account contract has already been deployed and this method will throw.
    * Registers the account in the PXE Service before deploying the contract.
+   * @param opts - Fee options to be used for the deployment.
    * @returns A SentTx object that can be waited to get the associated Wallet.
    */
-  public async deploy(): Promise<DeployAccountSentTx> {
-    const deployMethod = await this.getDeployMethod();
-    const wallet = await this.getWallet();
-    const sentTx = deployMethod.send({ contractAddressSalt: this.salt });
-    return new DeployAccountSentTx(wallet, sentTx.getTxHash());
+  public deploy(opts?: DeployAccountOptions): DeployAccountSentTx {
+    const sentTx = this.getDeployMethod()
+      .then(deployMethod =>
+        deployMethod.send({
+          contractAddressSalt: this.salt,
+          skipClassRegistration: opts?.skipClassRegistration ?? true,
+          skipPublicDeployment: opts?.skipPublicDeployment ?? true,
+          skipInitialization: false,
+          universalDeploy: true,
+          fee: opts?.fee,
+        }),
+      )
+      .then(tx => tx.getTxHash());
+    return new DeployAccountSentTx(this.pxe, sentTx, this.getWallet());
   }
 
   /**
-   * Deploys the account contract that backs this account and awaits the tx to be mined.
-   * Uses the salt provided in the constructor or a randomly generated one.
-   * Note that if the Account is constructed with an explicit complete address
-   * it is assumed that the account contract has already been deployed and this method will throw.
-   * Registers the account in the PXE Service before deploying the contract.
+   * Deploys the account contract that backs this account if needed and awaits the tx to be mined.
+   * Uses the salt provided in the constructor or a randomly generated one. If no initialization
+   * is required it skips the transaction, and only registers the account in the PXE Service.
    * @param opts - Options to wait for the tx to be mined.
    * @returns A Wallet instance.
    */
-  public async waitDeploy(opts: WaitOpts = DefaultWaitOpts): Promise<AccountWalletWithPrivateKey> {
-    await this.deploy().then(tx => tx.wait(opts));
+  public async waitSetup(opts: WaitOpts = DefaultWaitOpts): Promise<AccountWalletWithSecretKey> {
+    await (this.isDeployable() ? this.deploy().wait(opts) : this.register());
     return this.getWallet();
   }
 
-  async #register(): Promise<CompleteAddress> {
-    const completeAddress = this.getCompleteAddress();
-    await this.pxe.registerAccount(this.encryptionPrivateKey, completeAddress.partialAddress);
-    return completeAddress;
+  /**
+   * Returns whether this account contract has a constructor and needs deployment.
+   */
+  public isDeployable() {
+    return this.accountContract.getDeploymentArgs() !== undefined;
   }
-}
 
-/**
- * Creates an Account that relies on an ECDSA signing key for authentication.
- * @param pxe - An PXE server instance.
- * @param encryptionPrivateKey - Grumpkin key used for note encryption.
- * @param signingPrivateKey - Secp256k1 key used for signing transactions.
- * @param saltOrAddress - Deployment salt or complete address if account contract is already deployed.
- */
-export function getEcdsaAccount(
-  pxe: PXE,
-  encryptionPrivateKey: GrumpkinPrivateKey,
-  signingPrivateKey: Buffer,
-  saltOrAddress?: Salt | CompleteAddress,
-): AccountManager {
-  return new AccountManager(pxe, encryptionPrivateKey, new EcdsaAccountContract(signingPrivateKey), saltOrAddress);
-}
-
-/**
- * Creates an Account that relies on a Grumpkin signing key for authentication.
- * @param pxe - An PXE server instance.
- * @param encryptionPrivateKey - Grumpkin key used for note encryption.
- * @param signingPrivateKey - Grumpkin key used for signing transactions.
- * @param saltOrAddress - Deployment salt or complete address if account contract is already deployed.
- */
-export function getSchnorrAccount(
-  pxe: PXE,
-  encryptionPrivateKey: GrumpkinPrivateKey,
-  signingPrivateKey: GrumpkinPrivateKey,
-  saltOrAddress?: Salt | CompleteAddress,
-): AccountManager {
-  return new AccountManager(pxe, encryptionPrivateKey, new SchnorrAccountContract(signingPrivateKey), saltOrAddress);
-}
-
-/**
- * Creates an Account that uses the same Grumpkin key for encryption and authentication.
- * @param pxe - An PXE server instance.
- * @param encryptionAndSigningPrivateKey - Grumpkin key used for note encryption and signing transactions.
- * @param saltOrAddress - Deployment salt or complete address if account contract is already deployed.
- */
-export function getUnsafeSchnorrAccount(
-  pxe: PXE,
-  encryptionAndSigningPrivateKey: GrumpkinPrivateKey,
-  saltOrAddress?: Salt | CompleteAddress,
-): AccountManager {
-  return new AccountManager(
-    pxe,
-    encryptionAndSigningPrivateKey,
-    new SingleKeyAccountContract(encryptionAndSigningPrivateKey),
-    saltOrAddress,
-  );
+  async #register(): Promise<void> {
+    const completeAddress = this.getCompleteAddress();
+    await this.pxe.registerAccount(this.secretKey, completeAddress.partialAddress);
+  }
 }

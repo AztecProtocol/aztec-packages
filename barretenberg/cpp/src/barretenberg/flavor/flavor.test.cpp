@@ -1,13 +1,15 @@
-#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include <cstddef>
 #include <gtest/gtest.h>
 
-namespace proof_system::test_flavor {
+using namespace bb;
+
 TEST(Flavor, Getters)
 {
-    using Flavor = proof_system::honk::flavor::Ultra;
+    srs::init_crs_factory("../srs_db/ignition");
+    using Flavor = UltraFlavor;
     using FF = Flavor::FF;
     using ProvingKey = typename Flavor::ProvingKey;
 
@@ -15,7 +17,7 @@ TEST(Flavor, Getters)
 
     // set
     size_t coset_idx = 0;
-    for (auto& id_poly : proving_key.get_id_polynomials()) {
+    for (auto& id_poly : proving_key.polynomials.get_ids()) {
         typename Flavor::Polynomial new_poly(proving_key.circuit_size);
         for (size_t i = 0; i < proving_key.circuit_size; ++i) {
             id_poly[i] = coset_idx * proving_key.circuit_size + i;
@@ -24,9 +26,9 @@ TEST(Flavor, Getters)
     }
 
     // Polynomials in the proving key can be set through loops over subsets produced by the getters
-    EXPECT_EQ(proving_key.id_1[0], FF(0));
-    EXPECT_EQ(proving_key.id_2[0], FF(4));
-    EXPECT_EQ(proving_key.id_3[0], FF(8));
+    EXPECT_EQ(proving_key.polynomials.id_1[0], FF(0));
+    EXPECT_EQ(proving_key.polynomials.id_2[0], FF(4));
+    EXPECT_EQ(proving_key.polynomials.id_3[0], FF(8));
 
     Flavor::ProverPolynomials prover_polynomials;
     Flavor::CommitmentLabels commitment_labels;
@@ -42,10 +44,10 @@ TEST(Flavor, Getters)
 
 TEST(Flavor, AllEntitiesSpecialMemberFunctions)
 {
-    using Flavor = proof_system::honk::flavor::Ultra;
+    using Flavor = UltraFlavor;
     using FF = Flavor::FF;
     using PartiallyEvaluatedMultivariates = Flavor::PartiallyEvaluatedMultivariates;
-    using Polynomial = barretenberg::Polynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
 
     PartiallyEvaluatedMultivariates polynomials_A;
     auto random_poly = Polynomial(10);
@@ -68,7 +70,7 @@ TEST(Flavor, AllEntitiesSpecialMemberFunctions)
 
 TEST(Flavor, GetRow)
 {
-    using Flavor = proof_system::honk::flavor::Ultra;
+    using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
     std::array<std::vector<FF>, Flavor::NUM_ALL_ENTITIES> data;
     std::generate(data.begin(), data.end(), []() {
@@ -83,4 +85,3 @@ TEST(Flavor, GetRow)
     EXPECT_EQ(row0.q_elliptic, prover_polynomials.q_elliptic[0]);
     EXPECT_EQ(row1.w_4_shift, prover_polynomials.w_4_shift[1]);
 }
-} // namespace proof_system::test_flavor

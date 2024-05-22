@@ -4,9 +4,9 @@
 #include <algorithm>
 
 template <typename T>
-concept IsField = std::same_as<T, barretenberg::fr> /* || std::same_as<T, grumpkin::fr> */;
+concept IsField = std::same_as<T, bb::fr> /* || std::same_as<T, grumpkin::fr> */;
 
-namespace proof_system {
+namespace bb {
 
 /**
  * @brief A type to optionally extract a view of a relation parameter in a relation.
@@ -23,10 +23,10 @@ using GetParameterView = std::conditional_t<IsField<typename Params::DataType>, 
 
 template <typename T, size_t subrelation_idx>
 concept HasSubrelationLinearlyIndependentMember = requires(T) {
-                                                      {
-                                                          std::get<subrelation_idx>(T::SUBRELATION_LINEARLY_INDEPENDENT)
-                                                          } -> std::convertible_to<bool>;
-                                                  };
+    {
+        std::get<subrelation_idx>(T::SUBRELATION_LINEARLY_INDEPENDENT)
+    } -> std::convertible_to<bool>;
+};
 
 template <typename T>
 concept HasParameterLengthAdjustmentsMember = requires { T::TOTAL_LENGTH_ADJUSTMENTS; };
@@ -112,6 +112,21 @@ consteval std::array<size_t, NUM_SUBRELATIONS> compute_composed_subrelation_part
  */
 
 /**
+ * @brief Check if the relation has a static skip method to determine if accumulation of its result can be
+ * optimised away based on a single check
+ *
+ * @details The skip function should return true if relation can be skipped and false if it can't
+ * @tparam Relation The relation type
+ * @tparam AllEntities The type containing UnivariateViews with witness and selector values
+ */
+template <typename Relation, typename AllEntities>
+concept isSkippable = requires(const AllEntities& input) {
+    {
+        Relation::skip(input)
+    } -> std::same_as<bool>;
+};
+
+/**
  * @brief A wrapper for Relations to expose methods used by the Sumcheck prover or verifier to add the
  * contribution of a given relation to the corresponding accumulator.
  *
@@ -134,6 +149,12 @@ template <typename RelationImpl> class Relation : public RelationImpl {
     template <size_t NUM_INSTANCES>
     using ProtogalaxyTupleOfUnivariatesOverSubrelations =
         TupleOfUnivariates<FF, compute_composed_subrelation_partial_lengths<NUM_INSTANCES>(SUBRELATION_TOTAL_LENGTHS)>;
+    template <size_t NUM_INSTANCES>
+    using OptimisedProtogalaxyTupleOfUnivariatesOverSubrelations =
+        OptimisedTupleOfUnivariates<FF,
+                                    compute_composed_subrelation_partial_lengths<NUM_INSTANCES>(
+                                        SUBRELATION_TOTAL_LENGTHS),
+                                    NUM_INSTANCES - 1>;
     using SumcheckTupleOfUnivariatesOverSubrelations =
         TupleOfUnivariates<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
     using SumcheckArrayOfValuesOverSubrelations = ArrayOfValues<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
@@ -143,4 +164,4 @@ template <typename RelationImpl> class Relation : public RelationImpl {
     using UnivariateAccumulator0 = std::tuple_element_t<0, SumcheckTupleOfUnivariatesOverSubrelations>;
     using ValueAccumulator0 = std::tuple_element_t<0, SumcheckArrayOfValuesOverSubrelations>;
 };
-} // namespace proof_system
+} // namespace bb

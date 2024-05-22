@@ -1,0 +1,113 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`revert_code should serialize properly 1`] = `
+{
+  "data": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+  ],
+  "type": "Buffer",
+}
+`;
+
+exports[`revert_code should serialize properly 2`] = `
+{
+  "data": [
+    0,
+  ],
+  "type": "Buffer",
+}
+`;
+
+exports[`revert_code should serialize properly 3`] = `
+{
+  "type": "Fr",
+  "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+}
+`;
+
+exports[`revert_code should serialize properly 4`] = `
+{
+  "data": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+  ],
+  "type": "Buffer",
+}
+`;
+
+exports[`revert_code should serialize properly 5`] = `
+{
+  "data": [
+    1,
+  ],
+  "type": "Buffer",
+}
+`;
+
+exports[`revert_code should serialize properly 6`] = `
+{
+  "type": "Fr",
+  "value": "0x0000000000000000000000000000000000000000000000000000000000000001",
+}
+`;
