@@ -1,17 +1,10 @@
 import { AztecAddress, KeyValidationRequest, computeOvskApp, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 
 import { L1NotePayload } from './l1_note_payload.js';
 import { TaggedNote } from './tagged_note.js';
 
 describe('L1 Note Payload', () => {
-  let grumpkin: Grumpkin;
-
-  beforeAll(() => {
-    grumpkin = new Grumpkin();
-  });
-
   it('convert to and from buffer', () => {
     const payload = L1NotePayload.random();
     const taggedNote = new TaggedNote(payload);
@@ -20,31 +13,24 @@ describe('L1 Note Payload', () => {
   });
 
   describe('encrypt and decrypt a full log', () => {
-    let ovsk: GrumpkinScalar;
-    let ivsk: GrumpkinScalar;
+    let ovskM: GrumpkinScalar;
+    let ivskM: GrumpkinScalar;
 
     let taggedNote: TaggedNote;
     let encrypted: Buffer;
 
     beforeAll(() => {
-      ovsk = GrumpkinScalar.random();
-      ivsk = GrumpkinScalar.random();
+      const payload = L1NotePayload.random();
 
-      const app = AztecAddress.random();
+      ovskM = GrumpkinScalar.random();
+      ivskM = GrumpkinScalar.random();
 
-      const ovskApp = computeOvskApp(ovsk, app);
-      const ovpkM = derivePublicKeyFromSecretKey(ovskApp);
-
-      // TODO(benesjan): get rid of this ugly conversion
-      const ovskAppFr = Fr.fromBuffer(ovskApp.toBuffer());
-      const ovKeys = new KeyValidationRequest(ovpkM, ovskAppFr);
+      const ovKeys = getKeyValidationRequest(ovskM, payload.contractAddress);
 
       const ephSk = GrumpkinScalar.random();
 
       const recipientAddress = AztecAddress.random();
-      const ivpk = grumpkin.mul(Grumpkin.generator, ivsk);
-
-      const payload = L1NotePayload.random();
+      const ivpk = derivePublicKeyFromSecretKey(ivskM);
 
       taggedNote = new TaggedNote(payload);
 
@@ -52,15 +38,24 @@ describe('L1 Note Payload', () => {
     });
 
     it('decrypt a log as incoming', () => {
-      const recreated = TaggedNote.decryptAsIncoming(encrypted, ivsk);
+      const recreated = TaggedNote.decryptAsIncoming(encrypted, ivskM);
 
       expect(recreated?.toBuffer()).toEqual(taggedNote.toBuffer());
     });
 
     it('decrypt a log as outgoing', () => {
-      const recreated = TaggedNote.decryptAsOutgoing(encrypted, ovsk);
+      const recreated = TaggedNote.decryptAsOutgoing(encrypted, ovskM);
 
       expect(recreated?.toBuffer()).toEqual(taggedNote.toBuffer());
     });
   });
+
+  const getKeyValidationRequest = (ovskM: GrumpkinScalar, app: AztecAddress) => {
+    const ovskApp = computeOvskApp(ovskM, app);
+    // TODO(benesjan): get rid of this ugly conversion
+    const ovskAppFr = Fr.fromBuffer(ovskApp.toBuffer());
+
+    const ovpkM = derivePublicKeyFromSecretKey(ovskM);
+    return new KeyValidationRequest(ovpkM, ovskAppFr);
+  };
 });

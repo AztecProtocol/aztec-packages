@@ -1,16 +1,9 @@
 import { AztecAddress, KeyValidationRequest, computeOvskApp, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 
 import { L1NotePayload } from './l1_note_payload.js';
 
 describe('L1 Note Payload', () => {
-  let grumpkin: Grumpkin;
-
-  beforeAll(() => {
-    grumpkin = new Grumpkin();
-  });
-
   it('convert to and from buffer', () => {
     const payload = L1NotePayload.random();
     const buf = payload.toBuffer();
@@ -19,7 +12,7 @@ describe('L1 Note Payload', () => {
 
   describe('encrypt and decrypt a full log', () => {
     let ovskM: GrumpkinScalar;
-    let ivsk: GrumpkinScalar;
+    let ivskM: GrumpkinScalar;
 
     let payload: L1NotePayload;
     let encrypted: Buffer;
@@ -28,25 +21,20 @@ describe('L1 Note Payload', () => {
       payload = L1NotePayload.random();
 
       ovskM = GrumpkinScalar.random();
-      ivsk = GrumpkinScalar.random();
+      ivskM = GrumpkinScalar.random();
 
-      const ovpkM = derivePublicKeyFromSecretKey(ovskM);
-
-      const ovskApp = computeOvskApp(ovskM, payload.contractAddress);
-      // TODO(benesjan): get rid of this ugly conversion
-      const ovskAppFr = Fr.fromBuffer(ovskApp.toBuffer());
-      const ovKeys = new KeyValidationRequest(ovpkM, ovskAppFr);
+      const ovKeys = getKeyValidationRequest(ovskM, payload.contractAddress);
 
       const ephSk = GrumpkinScalar.random();
 
       const recipientAddress = AztecAddress.random();
-      const ivpk = grumpkin.mul(Grumpkin.generator, ivsk);
+      const ivpk = derivePublicKeyFromSecretKey(ivskM);
 
       encrypted = payload.encrypt(ephSk, recipientAddress, ivpk, ovKeys);
     });
 
     it('decrypt a log as incoming', () => {
-      const recreated = L1NotePayload.decryptAsIncoming(encrypted, ivsk);
+      const recreated = L1NotePayload.decryptAsIncoming(encrypted, ivskM);
 
       expect(recreated.toBuffer()).toEqual(payload.toBuffer());
     });
@@ -57,4 +45,13 @@ describe('L1 Note Payload', () => {
       expect(recreated.toBuffer()).toEqual(payload.toBuffer());
     });
   });
+
+  const getKeyValidationRequest = (ovskM: GrumpkinScalar, app: AztecAddress) => {
+    const ovskApp = computeOvskApp(ovskM, app);
+    // TODO(benesjan): get rid of this ugly conversion
+    const ovskAppFr = Fr.fromBuffer(ovskApp.toBuffer());
+
+    const ovpkM = derivePublicKeyFromSecretKey(ovskM);
+    return new KeyValidationRequest(ovpkM, ovskAppFr);
+  };
 });
