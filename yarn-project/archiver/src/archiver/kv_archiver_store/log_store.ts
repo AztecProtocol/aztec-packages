@@ -1,5 +1,5 @@
 import {
-  EncryptedEventL2BlockL2Logs,
+  EncryptedL2BlockL2Logs,
   EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
   type FromLogType,
@@ -44,7 +44,7 @@ export class LogStore {
    */
   addLogs(
     noteEncryptedLogs: EncryptedNoteL2BlockL2Logs | undefined,
-    encryptedLogs: EncryptedEventL2BlockL2Logs | undefined,
+    encryptedLogs: EncryptedL2BlockL2Logs | undefined,
     unencryptedLogs: UnencryptedL2BlockL2Logs | undefined,
     blockNumber: number,
   ): Promise<boolean> {
@@ -91,7 +91,7 @@ export class LogStore {
     const logTypeMap = (() => {
       switch (logType) {
         case LogType.ENCRYPTED:
-          return EncryptedEventL2BlockL2Logs;
+          return EncryptedL2BlockL2Logs;
         case LogType.NOTEENCRYPTED:
           return EncryptedNoteL2BlockL2Logs;
         case LogType.UNENCRYPTED:
@@ -216,7 +216,7 @@ export class LogStore {
     const logTypeMap = (() => {
       switch (logType) {
         case LogType.ENCRYPTED:
-          return EncryptedEventL2BlockL2Logs;
+          return EncryptedL2BlockL2Logs;
         case LogType.NOTEENCRYPTED:
           return EncryptedNoteL2BlockL2Logs;
         case LogType.UNENCRYPTED:

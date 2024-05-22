@@ -1,5 +1,5 @@
 import { L2Block } from './l2_block.js';
-import { EncryptedEventTxL2Logs } from './logs/index.js';
+import { EncryptedTxL2Logs } from './logs/index.js';
 
 describe('L2Block', () => {
   it('can serialize an L2 block with logs to a buffer and back', () => {
@@ -15,7 +15,7 @@ describe('L2Block', () => {
   it('correctly computes kernel logs hash when there are no logs', () => {
     // The following 2 values are copied from `testComputeKernelLogsIterationWithoutLogs` in `Decoder.t.sol`
     const encodedLogs = Buffer.from('0000000400000000', 'hex');
-    const logs = EncryptedEventTxL2Logs.fromBuffer(encodedLogs, true);
+    const logs = EncryptedTxL2Logs.fromBuffer(encodedLogs, true);
     const referenceLogsHash = Buffer.alloc(32);
 
     const logsHash = logs.hash();
@@ -30,7 +30,7 @@ describe('L2Block', () => {
       '0000002c0000002800000024110000000000000000000000000000000000000000000000000000000000000093e78a70',
       'hex',
     );
-    const logs = EncryptedEventTxL2Logs.fromBuffer(encodedLogs, true);
+    const logs = EncryptedTxL2Logs.fromBuffer(encodedLogs, true);
     const referenceLogsHash = Buffer.from('00f7bf1d4b3b5c99b8e370989e306b0eb712ca30bba1ce18a651cef3994e6610', 'hex');
 
     const logsHash = logs.hash();
@@ -46,7 +46,7 @@ describe('L2Block', () => {
       '000000640000002800000024110000000000000000000000000000000000000000000000000000000000000093e78a700000003400000030120000000000000000000000000000000000000000000000000000000000000006a86173c86c6d3f108eefc36e7fb014',
       'hex',
     );
-    const logs = EncryptedEventTxL2Logs.fromBuffer(encodedLogs, true);
+    const logs = EncryptedTxL2Logs.fromBuffer(encodedLogs, true);
     const referenceLogsHash = Buffer.from('0021b8f5c71dbf2f102772c132c59f9f27b55405a22340f9e021ce11164636a2', 'hex');
 
     const logsHash = logs.hash();
@@ -61,7 +61,7 @@ describe('L2Block', () => {
       '000000680000002800000024110000000000000000000000000000000000000000000000000000000000000093e78a70000000000000003400000030120000000000000000000000000000000000000000000000000000000000000006a86173c86c6d3f108eefc36e7fb014',
       'hex',
     );
-    const logs = EncryptedEventTxL2Logs.fromBuffer(encodedLogs, true);
+    const logs = EncryptedTxL2Logs.fromBuffer(encodedLogs, true);
 
     const referenceLogsHash = Buffer.from('0021b8f5c71dbf2f102772c132c59f9f27b55405a22340f9e021ce11164636a2', 'hex');
 

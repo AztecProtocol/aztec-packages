@@ -1,6 +1,6 @@
 import {
-  EncryptedEventTxL2Logs,
   EncryptedNoteTxL2Logs,
+  EncryptedTxL2Logs,
   PublicDataWrite,
   TxHash,
   UnencryptedTxL2Logs,
@@ -53,7 +53,7 @@ export class TxEffect {
     public encryptedLogsLength: Fr,
     public unencryptedLogsLength: Fr,
     public noteEncryptedLogs: EncryptedNoteTxL2Logs,
-    public encryptedLogs: EncryptedEventTxL2Logs,
+    public encryptedLogs: EncryptedTxL2Logs,
     public unencryptedLogs: UnencryptedTxL2Logs,
   ) {
     // TODO(#4638): Clean this up once we have isDefault() everywhere --> then we don't have to deal with 2 different
@@ -133,7 +133,7 @@ export class TxEffect {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readObject(EncryptedNoteTxL2Logs),
-      reader.readObject(EncryptedEventTxL2Logs),
+      reader.readObject(EncryptedTxL2Logs),
       reader.readObject(UnencryptedTxL2Logs),
     );
   }
@@ -192,7 +192,7 @@ export class TxEffect {
     numUnencryptedLogsPerCall = 1,
   ): TxEffect {
     const noteEncryptedLogs = EncryptedNoteTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall);
-    const encryptedLogs = EncryptedEventTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall);
+    const encryptedLogs = EncryptedTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall);
     const unencryptedLogs = UnencryptedTxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall);
     return new TxEffect(
       RevertCode.random(),
@@ -222,7 +222,7 @@ export class TxEffect {
       Fr.ZERO,
       Fr.ZERO,
       EncryptedNoteTxL2Logs.empty(),
-      EncryptedEventTxL2Logs.empty(),
+      EncryptedTxL2Logs.empty(),
       UnencryptedTxL2Logs.empty(),
     );
   }

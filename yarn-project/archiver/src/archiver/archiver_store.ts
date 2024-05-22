@@ -1,6 +1,6 @@
 import {
   type Body,
-  type EncryptedEventL2BlockL2Logs,
+  type EncryptedL2BlockL2Logs,
   type EncryptedNoteL2BlockL2Logs,
   type FromLogType,
   type GetUnencryptedLogsResponse,
@@ -94,7 +94,7 @@ export interface ArchiverDataStore {
    */
   addLogs(
     noteEncryptedLogs: EncryptedNoteL2BlockL2Logs | undefined,
-    encryptedLogs: EncryptedEventL2BlockL2Logs | undefined,
+    encryptedLogs: EncryptedL2BlockL2Logs | undefined,
     unencryptedLogs: UnencryptedL2BlockL2Logs | undefined,
     blockNumber: number,
   ): Promise<boolean>;

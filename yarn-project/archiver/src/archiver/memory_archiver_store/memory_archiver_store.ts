@@ -1,6 +1,6 @@
 import {
   type Body,
-  type EncryptedEventL2BlockL2Logs,
+  type EncryptedL2BlockL2Logs,
   type EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
   type FromLogType,
@@ -59,7 +59,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * An array containing all the encrypted logs that have been fetched so far.
    * Note: Index in the "outer" array equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
    */
-  private encryptedLogsPerBlock: EncryptedEventL2BlockL2Logs[] = [];
+  private encryptedLogsPerBlock: EncryptedL2BlockL2Logs[] = [];
 
   /**
    * An array containing all the unencrypted logs that have been fetched so far.
@@ -193,7 +193,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   addLogs(
     noteEncryptedLogs: EncryptedNoteL2BlockL2Logs,
-    encryptedLogs: EncryptedEventL2BlockL2Logs,
+    encryptedLogs: EncryptedL2BlockL2Logs,
     unencryptedLogs: UnencryptedL2BlockL2Logs,
     blockNumber: number,
   ): Promise<boolean> {

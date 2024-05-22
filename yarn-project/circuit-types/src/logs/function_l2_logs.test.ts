@@ -1,14 +1,10 @@
-import {
-  EncryptedEventFunctionL2Logs,
-  EncryptedNoteFunctionL2Logs,
-  UnencryptedFunctionL2Logs,
-} from './function_l2_logs.js';
+import { EncryptedFunctionL2Logs, EncryptedNoteFunctionL2Logs, UnencryptedFunctionL2Logs } from './function_l2_logs.js';
 
 function shouldBehaveLikeFunctionL2Logs(
   FunctionL2Logs:
     | typeof UnencryptedFunctionL2Logs
     | typeof EncryptedNoteFunctionL2Logs
-    | typeof EncryptedEventFunctionL2Logs,
+    | typeof EncryptedFunctionL2Logs,
 ) {
   describe(FunctionL2Logs.name, () => {
     it('can encode L2Logs to buffer and back', () => {
@@ -34,7 +30,7 @@ function shouldBehaveLikeFunctionL2Logs(
 
       const buffer = l2Logs.toBuffer();
       const recovered = FunctionL2Logs.fromBuffer(buffer);
-      if (FunctionL2Logs.name == 'EncryptedEventFunctionL2Logs') {
+      if (FunctionL2Logs.name == 'EncryptedFunctionL2Logs') {
         // For event logs, we don't 'count' the maskedContractAddress as part of the
         // log length, since it's just for siloing later on
         expect(recovered.getSerializedLength()).toEqual(buffer.length - 3 * 32);
@@ -55,4 +51,4 @@ function shouldBehaveLikeFunctionL2Logs(
 
 shouldBehaveLikeFunctionL2Logs(EncryptedNoteFunctionL2Logs);
 shouldBehaveLikeFunctionL2Logs(UnencryptedFunctionL2Logs);
-shouldBehaveLikeFunctionL2Logs(EncryptedEventFunctionL2Logs);
+shouldBehaveLikeFunctionL2Logs(EncryptedFunctionL2Logs);

@@ -1,7 +1,7 @@
 import {
   type AuthWitness,
   type AztecNode,
-  EncryptedL2EventLog,
+  EncryptedL2Log,
   EncryptedL2NoteLog,
   L1NotePayload,
   Note,
@@ -59,7 +59,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   private noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
   private nullifiedNoteHashCounters: Map<number, number> = new Map();
   private noteEncryptedLogs: CountedLog<EncryptedL2NoteLog>[] = [];
-  private encryptedLogs: CountedLog<EncryptedL2EventLog>[] = [];
+  private encryptedLogs: CountedLog<EncryptedL2Log>[] = [];
   private unencryptedLogs: CountedLog<UnencryptedL2Log>[] = [];
   private nestedExecutions: ExecutionResult[] = [];
   private enqueuedPublicFunctionCalls: PublicCallRequest[] = [];
@@ -367,7 +367,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     counter: number,
   ) {
     const maskedContractAddress = pedersenHash([contractAddress, randomness], 0);
-    const encryptedLog = new CountedLog(new EncryptedL2EventLog(encryptedData, maskedContractAddress), counter);
+    const encryptedLog = new CountedLog(new EncryptedL2Log(encryptedData, maskedContractAddress), counter);
     this.encryptedLogs.push(encryptedLog);
   }
 

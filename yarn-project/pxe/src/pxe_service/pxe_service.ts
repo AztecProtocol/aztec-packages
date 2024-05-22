@@ -1,8 +1,8 @@
 import {
   type AuthWitness,
   type AztecNode,
-  EncryptedEventTxL2Logs,
   EncryptedNoteTxL2Logs,
+  EncryptedTxL2Logs,
   ExtendedNote,
   type FunctionCall,
   type GetUnencryptedLogsResponse,
@@ -667,7 +667,7 @@ export class PXEService implements PXE {
 
     const noteEncryptedLogs = new EncryptedNoteTxL2Logs([collectSortedNoteEncryptedLogs(executionResult)]);
     const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(executionResult)]);
-    const encryptedLogs = new EncryptedEventTxL2Logs([collectSortedEncryptedLogs(executionResult)]);
+    const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(executionResult)]);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
     const teardownPublicFunction = collectPublicTeardownFunctionCall(executionResult);
 

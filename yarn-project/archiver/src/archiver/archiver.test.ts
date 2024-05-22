@@ -1,6 +1,6 @@
 import {
   type Body,
-  EncryptedEventL2BlockL2Logs,
+  EncryptedL2BlockL2Logs,
   EncryptedNoteL2BlockL2Logs,
   L2Block,
   LogType,
@@ -126,7 +126,7 @@ describe('Archiver', () => {
 
     for (const [index, x] of blockNumbers.entries()) {
       const expectedTotalNumEncryptedLogs = 4 * x * 2;
-      const totalNumEncryptedLogs = EncryptedEventL2BlockL2Logs.unrollLogs([encryptedLogs[index]]).length;
+      const totalNumEncryptedLogs = EncryptedL2BlockL2Logs.unrollLogs([encryptedLogs[index]]).length;
       expect(totalNumEncryptedLogs).toEqual(expectedTotalNumEncryptedLogs);
     }
 

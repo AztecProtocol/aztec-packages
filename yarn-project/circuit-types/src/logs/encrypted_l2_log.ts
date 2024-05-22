@@ -4,7 +4,7 @@ import { randomBytes, sha256Trunc } from '@aztec/foundation/crypto';
 /**
  * Represents an individual encrypted event log entry.
  */
-export class EncryptedL2EventLog {
+export class EncryptedL2Log {
   constructor(public readonly data: Buffer, public readonly maskedContractAddress: Fr) {}
 
   // We do not 'count' the maskedContractAddress in .length, as this method is called to calculate ciphertext length
@@ -30,7 +30,7 @@ export class EncryptedL2EventLog {
 
   /** Converts a plain JSON object into an instance. */
   public static fromJSON(obj: any) {
-    return new EncryptedL2EventLog(Buffer.from(obj.data, 'hex'), Fr.fromString(obj.maskedContractAddress));
+    return new EncryptedL2Log(Buffer.from(obj.data, 'hex'), Fr.fromString(obj.maskedContractAddress));
   }
 
   /**
@@ -38,8 +38,8 @@ export class EncryptedL2EventLog {
    * @param buffer - The buffer containing the log.
    * @returns Deserialized instance of `Log`.
    */
-  public static fromBuffer(data: Buffer): EncryptedL2EventLog {
-    return new EncryptedL2EventLog(data.subarray(32), new Fr(data.subarray(0, 32)));
+  public static fromBuffer(data: Buffer): EncryptedL2Log {
+    return new EncryptedL2Log(data.subarray(32), new Fr(data.subarray(0, 32)));
   }
 
   /**
@@ -63,10 +63,10 @@ export class EncryptedL2EventLog {
    * Crates a random log.
    * @returns A random log.
    */
-  public static random(): EncryptedL2EventLog {
+  public static random(): EncryptedL2Log {
     const randomEphPubKey = Point.random();
     const randomLogContent = randomBytes(144 - Point.SIZE_IN_BYTES);
     const data = Buffer.concat([Fr.random().toBuffer(), randomLogContent, randomEphPubKey.toBuffer()]);
-    return new EncryptedL2EventLog(data, Fr.random());
+    return new EncryptedL2Log(data, Fr.random());
   }
 }

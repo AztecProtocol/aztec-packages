@@ -1,5 +1,5 @@
 import {
-  EncryptedEventL2BlockL2Logs,
+  EncryptedL2BlockL2Logs,
   EncryptedNoteL2BlockL2Logs,
   TxEffect,
   UnencryptedL2BlockL2Logs,
@@ -87,10 +87,10 @@ export class Body {
     return new EncryptedNoteL2BlockL2Logs(logs);
   }
 
-  get encryptedLogs(): EncryptedEventL2BlockL2Logs {
+  get encryptedLogs(): EncryptedL2BlockL2Logs {
     const logs = this.txEffects.map(txEffect => txEffect.encryptedLogs);
 
-    return new EncryptedEventL2BlockL2Logs(logs);
+    return new EncryptedL2BlockL2Logs(logs);
   }
 
   get unencryptedLogs(): UnencryptedL2BlockL2Logs {

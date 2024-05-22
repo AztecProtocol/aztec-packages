@@ -1,7 +1,7 @@
-import { EncryptedEventTxL2Logs, EncryptedNoteTxL2Logs, UnencryptedTxL2Logs } from './tx_l2_logs.js';
+import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from './tx_l2_logs.js';
 
 function shouldBehaveLikeTxL2Logs(
-  TxL2Logs: typeof EncryptedNoteTxL2Logs | typeof UnencryptedTxL2Logs | typeof EncryptedEventTxL2Logs,
+  TxL2Logs: typeof EncryptedNoteTxL2Logs | typeof UnencryptedTxL2Logs | typeof EncryptedTxL2Logs,
 ) {
   describe(TxL2Logs.name, () => {
     it('can encode TxL2Logs to buffer and back', () => {
@@ -27,7 +27,7 @@ function shouldBehaveLikeTxL2Logs(
 
       const buffer = l2Logs.toBuffer();
       const recovered = TxL2Logs.fromBuffer(buffer);
-      if (TxL2Logs.name == 'EncryptedEventTxL2Logs') {
+      if (TxL2Logs.name == 'EncryptedTxL2Logs') {
         // For event logs, we don't 'count' the maskedContractAddress as part of the
         // log length, since it's just for siloing later on
         expect(recovered.getSerializedLength()).toEqual(buffer.length - 8 * 32);
@@ -48,4 +48,4 @@ function shouldBehaveLikeTxL2Logs(
 
 shouldBehaveLikeTxL2Logs(EncryptedNoteTxL2Logs);
 shouldBehaveLikeTxL2Logs(UnencryptedTxL2Logs);
-shouldBehaveLikeTxL2Logs(EncryptedEventTxL2Logs);
+shouldBehaveLikeTxL2Logs(EncryptedTxL2Logs);

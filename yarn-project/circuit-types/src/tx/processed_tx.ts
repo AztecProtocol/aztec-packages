@@ -1,6 +1,6 @@
 import {
-  EncryptedEventTxL2Logs,
   EncryptedNoteTxL2Logs,
+  EncryptedTxL2Logs,
   PublicDataWrite,
   type SimulationError,
   type Tx,
@@ -139,7 +139,7 @@ export function makeProcessedTx(
     proof,
     // TODO(4712): deal with non-revertible logs here
     noteEncryptedLogs: revertReason ? EncryptedNoteTxL2Logs.empty() : tx.noteEncryptedLogs,
-    encryptedLogs: revertReason ? EncryptedEventTxL2Logs.empty() : tx.encryptedLogs,
+    encryptedLogs: revertReason ? EncryptedTxL2Logs.empty() : tx.encryptedLogs,
     unencryptedLogs: revertReason ? UnencryptedTxL2Logs.empty() : tx.unencryptedLogs,
     isEmpty: false,
     revertReason,
@@ -164,7 +164,7 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
   return {
     hash,
     noteEncryptedLogs: EncryptedNoteTxL2Logs.empty(),
-    encryptedLogs: EncryptedEventTxL2Logs.empty(),
+    encryptedLogs: EncryptedTxL2Logs.empty(),
     unencryptedLogs: UnencryptedTxL2Logs.empty(),
     data: emptyKernelOutput,
     proof: emptyProof,
@@ -190,7 +190,7 @@ export function toTxEffect(tx: ProcessedTx): TxEffect {
     tx.data.end.encryptedLogPreimagesLength,
     tx.data.end.unencryptedLogPreimagesLength,
     tx.noteEncryptedLogs || EncryptedNoteTxL2Logs.empty(),
-    tx.encryptedLogs || EncryptedEventTxL2Logs.empty(),
+    tx.encryptedLogs || EncryptedTxL2Logs.empty(),
     tx.unencryptedLogs || UnencryptedTxL2Logs.empty(),
   );
 }
@@ -205,7 +205,7 @@ function validateProcessedTxLogs(tx: ProcessedTx): void {
              Processed: ${JSON.stringify(noteEncryptedLogs.toJSON())}`,
     );
   }
-  const encryptedLogs = tx.encryptedLogs || EncryptedEventTxL2Logs.empty();
+  const encryptedLogs = tx.encryptedLogs || EncryptedTxL2Logs.empty();
   kernelHash = tx.data.end.encryptedLogsHash;
   referenceHash = Fr.fromBuffer(encryptedLogs.hash());
   if (!referenceHash.equals(kernelHash)) {
