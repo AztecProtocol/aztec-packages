@@ -53,11 +53,11 @@ class AcirIntegrationTests : public ::testing::TestWithParam<std::string> {
         using VerificationKey = Flavor::VerificationKey;
 
         Prover prover{ builder };
-        builder.blocks.summarize();
-        info("num gates          = ", builder.get_num_gates());
-        info("total circuit size = ", builder.get_total_circuit_size());
-        info("circuit size       = ", prover.instance->proving_key.circuit_size);
-        info("log circuit size   = ", prover.instance->proving_key.log_circuit_size);
+        // builder.blocks.summarize();
+        // info("num gates          = ", builder.get_num_gates());
+        // info("total circuit size = ", builder.get_total_circuit_size());
+        // info("circuit size       = ", prover.instance->proving_key.circuit_size);
+        // info("log circuit size   = ", prover.instance->proving_key.log_circuit_size);
         auto proof = prover.construct_proof();
 
         // Verify Honk proof
