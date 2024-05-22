@@ -433,8 +433,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       const verificationKeyPath = `${bbWorkingDirectory}/vk`;
       const verificationKey = await this.getVerificationKeyDataForCircuit(circuitType);
 
-      logger.debug(`Verifying with key: ${verificationKey.keyAsFields.hash.toString()}`);
-
       await fs.writeFile(proofFileName, proof.buffer);
       await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
 
@@ -465,8 +463,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       const proofFileName = `${bbWorkingDirectory}/proof`;
       const verificationKeyPath = `${bbWorkingDirectory}/vk`;
 
-      logger.debug(`Verifying with key: ${verificationKey.keyAsFields.hash.toString()}`);
-
       await fs.writeFile(proofFileName, proof.buffer);
       await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
 
@@ -481,7 +477,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         throw new Error(errorMessage);
       }
 
-      logger.info(`Successfully verified proof from key in ${result.duration} ms`);
+      logger.debug(`Successfully verified proof from key in ${result.duration} ms`);
     };
 
     await runInDirectory(this.config.bbWorkingDirectory, operation);

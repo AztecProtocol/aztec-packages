@@ -1,6 +1,7 @@
 import { sha256 } from '@aztec/foundation/crypto';
 import { type LogFn } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { convertPrivateKernelInitOutputsFromWitnessMap } from '@aztec/noir-protocol-circuits-types';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import * as proc from 'child_process';
@@ -56,8 +57,11 @@ export function executeBB(
 ): Promise<BBExecResult> {
   return new Promise<BBExecResult>(resolve => {
     // spawn the bb process
+    const { HARDWARE_CONCURRENCY: _, ...envWithoutConcurrency } = process.env;
+    const env = process.env.HARDWARE_CONCURRENCY ? process.env : envWithoutConcurrency;
     const bb = proc.spawn(pathToBB, [command, ...args], {
       stdio: 'pipe',
+      env,
     });
     bb.on('close', (exitCode: number, signal?: string) => {
       if (resultParser(exitCode)) {
