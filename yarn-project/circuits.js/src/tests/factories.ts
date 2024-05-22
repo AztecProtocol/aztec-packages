@@ -35,11 +35,14 @@ import {
   G1AffineElement,
   type GrumpkinPrivateKey,
   GrumpkinScalar,
+  KeyValidationRequest,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   L2ToL1Message,
   LogHash,
   MAX_ENCRYPTED_LOGS_PER_CALL,
   MAX_ENCRYPTED_LOGS_PER_TX,
+  MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_CALL,
@@ -50,8 +53,6 @@ import {
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
@@ -79,7 +80,6 @@ import {
   NoteHash,
   NoteLogHash,
   Nullifier,
-  NullifierKeyValidationRequest,
   NullifierLeafPreimage,
   NullifierNonExistentReadRequestHintsBuilder,
   NullifierReadRequestHintsBuilder,
@@ -120,7 +120,7 @@ import {
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
-  ScopedNullifierKeyValidationRequest,
+  ScopedKeyValidationRequest,
   ScopedReadRequest,
   StateDiffHints,
   StateReference,
@@ -214,16 +214,16 @@ function makeScopedReadRequest(n: number): ScopedReadRequest {
 }
 
 /**
- * Creates arbitrary NullifierKeyValidationRequest from the given seed.
- * @param seed - The seed to use for generating the NullifierKeyValidationRequest.
- * @returns A NullifierKeyValidationRequest.
+ * Creates arbitrary KeyValidationRequest from the given seed.
+ * @param seed - The seed to use for generating the KeyValidationRequest.
+ * @returns A KeyValidationRequest.
  */
-function makeNullifierKeyValidationRequest(seed: number): NullifierKeyValidationRequest {
-  return new NullifierKeyValidationRequest(makePoint(seed), fr(seed + 2));
+function makeKeyValidationRequests(seed: number): KeyValidationRequest {
+  return new KeyValidationRequest(makePoint(seed), fr(seed + 2));
 }
 
-function makeScopedNullifierKeyValidationRequest(seed: number): ScopedNullifierKeyValidationRequest {
-  return new ScopedNullifierKeyValidationRequest(makeNullifierKeyValidationRequest(seed), makeAztecAddress(seed + 4));
+function makeScopedKeyValidationRequests(seed: number): ScopedKeyValidationRequest {
+  return new ScopedKeyValidationRequest(makeKeyValidationRequests(seed), makeAztecAddress(seed + 4));
 }
 
 /**
@@ -284,7 +284,7 @@ export function makeValidationRequests(seed = 1) {
     makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x80),
     makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x90),
     makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x95),
-    makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, makeScopedNullifierKeyValidationRequest, seed + 0x100),
+    makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, makeScopedKeyValidationRequests, seed + 0x100),
     makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
   );
 }
@@ -513,7 +513,7 @@ export function makePublicCallRequest(seed = 1): PublicCallRequest {
 
   return new PublicCallRequest(
     makeAztecAddress(seed),
-    new FunctionData(makeSelector(seed + 0x1), /*isPrivate=*/ false, /*isStatic=*/ false),
+    new FunctionData(makeSelector(seed + 0x1), /*isPrivate=*/ false),
     childCallContext,
     parentCallContext,
     makeTuple(ARGS_LENGTH, fr, seed + 0x10),
@@ -646,7 +646,7 @@ export function makePublicCallStackItem(seed = 1, full = false): PublicCallStack
   const callStackItem = new PublicCallStackItem(
     makeAztecAddress(seed),
     // in the public kernel, function can't be a constructor or private
-    new FunctionData(makeSelector(seed + 0x1), /*isPrivate=*/ false, /*isStatic=*/ false),
+    new FunctionData(makeSelector(seed + 0x1), /*isPrivate=*/ false),
     makePublicCircuitPublicInputs(seed + 0x10, undefined, full),
     false,
   );
@@ -687,7 +687,7 @@ export function makePublicKernelCircuitPrivateInputs(seed = 1): PublicKernelCirc
 export function makePublicKernelTailCircuitPrivateInputs(seed = 1): PublicKernelTailCircuitPrivateInputs {
   return new PublicKernelTailCircuitPrivateInputs(
     makePublicKernelData(seed),
-    NullifierReadRequestHintsBuilder.empty(),
+    NullifierReadRequestHintsBuilder.empty(MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX),
     NullifierNonExistentReadRequestHintsBuilder.empty(),
     makeTuple(MAX_PUBLIC_DATA_HINTS, PublicDataHint.empty, seed + 0x100),
     PublicDataReadRequestHintsBuilder.empty(),
@@ -732,7 +732,7 @@ export function makePublicKernelInputsWithTweak(
 export function makeTxRequest(seed = 1): TxRequest {
   return TxRequest.from({
     origin: makeAztecAddress(seed),
-    functionData: new FunctionData(makeSelector(seed + 0x100), /*isPrivate=*/ true, /*isStatic=*/ false),
+    functionData: new FunctionData(makeSelector(seed + 0x100), /*isPrivate=*/ true),
     argsHash: fr(seed + 0x200),
     txContext: makeTxContext(seed + 0x400),
   });
@@ -746,7 +746,7 @@ export function makeTxRequest(seed = 1): TxRequest {
 export function makePrivateCallStackItem(seed = 1): PrivateCallStackItem {
   return new PrivateCallStackItem(
     makeAztecAddress(seed),
-    new FunctionData(makeSelector(seed + 0x1), /*isPrivate=*/ true, /*isStatic=*/ false),
+    new FunctionData(makeSelector(seed + 0x1), /*isPrivate=*/ true),
     makePrivateCircuitPublicInputs(seed + 0x10),
   );
 }
@@ -765,11 +765,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     minRevertibleSideEffectCounter: fr(0),
     noteHashReadRequests: makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x300),
     nullifierReadRequests: makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x310),
-    nullifierKeyValidationRequests: makeTuple(
-      MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
-      makeNullifierKeyValidationRequest,
-      seed + 0x320,
-    ),
+    keyValidationRequests: makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, makeKeyValidationRequests, seed + 0x320),
     newNoteHashes: makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, makeNoteHash, seed + 0x400),
     newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, makeNullifier, seed + 0x500),
     privateCallRequests: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, makePrivateCallRequest, seed + 0x600),
@@ -906,6 +902,7 @@ export function makeBaseOrMergeRollupPublicInputs(
     makePartialStateReference(seed + 0x400),
     fr(seed + 0x901),
     fr(seed + 0x902),
+    fr(seed + 0x903),
   );
 }
 
@@ -1017,6 +1014,7 @@ export function makeHeader(
     makeContentCommitment(seed + 0x200, txsEffectsHash),
     makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), blockNumber),
+    fr(seed + 0x800),
   );
 }
 

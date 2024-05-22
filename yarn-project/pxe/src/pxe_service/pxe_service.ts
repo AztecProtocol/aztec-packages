@@ -6,7 +6,6 @@ import {
   ExtendedNote,
   type FunctionCall,
   type GetUnencryptedLogsResponse,
-  type KeyStore,
   type L2Block,
   type LogFilter,
   MerkleTreeId,
@@ -39,10 +38,11 @@ import {
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type ContractArtifact, type DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
-import { Fq, Fr } from '@aztec/foundation/fields';
+import { type Fq, Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { type KeyStore } from '@aztec/key-store';
 import {
   type AcirSimulator,
   type ExecutionResult,
@@ -162,6 +162,10 @@ export class PXEService implements PXE {
     return this.db.getAuthWitness(messageHash);
   }
 
+  async rotateNskM(account: AztecAddress, secretKey: Fq): Promise<void> {
+    await this.keyStore.rotateMasterNullifierKey(account, secretKey);
+  }
+
   public addCapsule(capsule: Fr[]) {
     return this.db.addCapsule(capsule);
   }
@@ -192,10 +196,6 @@ export class PXEService implements PXE {
 
     await this.db.addCompleteAddress(accountCompleteAddress);
     return accountCompleteAddress;
-  }
-
-  public async rotateMasterNullifierKey(account: AztecAddress, secretKey: Fq = Fq.random()): Promise<void> {
-    await this.keyStore.rotateMasterNullifierKey(account, secretKey);
   }
 
   public async getRegisteredAccounts(): Promise<CompleteAddress[]> {
@@ -522,6 +522,7 @@ export class PXEService implements PXE {
       args: encodeArguments(functionDao, args),
       functionData: FunctionData.fromAbi(functionDao),
       to,
+      isStatic: functionDao.isStatic,
     };
   }
 
