@@ -777,7 +777,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
                                       RefSpan<FF> unshifted_evaluations,
                                       RefSpan<FF> shifted_evaluations,
                                       std::span<FF> multivariate_challenge,
-                                      auto& vk,
+                                      const std::shared_ptr<VerifierCommitmentKey<Curve>>& vk,
                                       auto& transcript,
                                       const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
                                       RefSpan<FF> concatenated_evaluations = {})

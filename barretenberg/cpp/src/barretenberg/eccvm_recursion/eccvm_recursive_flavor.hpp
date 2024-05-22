@@ -28,10 +28,11 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     // I need to somehow make this bn254 hashtag confusion
     // the native stuff becomes nonnative and the nonnative stuff becomes native and everything is in circuit land is
     // probably what's going on
-    using Curve = stdlib::bn254<CircuitBuilder>;
+    using Curve = stdlib::bn254<CircuitBuilder, true>;
     using PCS = IPA<Curve>;
-    using Commitment = typename stdlib::cycle_group<CircuitBuilder>;
-    using FF = typename bb::stdlib::cycle_group<CircuitBuilder>::cycle_scalar;
+    using Commitment = typename Curve::AffineElement;
+    using FF = typename Curve::ScalarField;
+    using BF = typename Curve::BaseField;
     using RelationSeparator = FF;
     using NativeFlavor = ECCVMFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
@@ -107,7 +108,8 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
 
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->pcs_verification_key = VerifierCommitmentKey(native_key->pcs_verification_key);
+            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(
+                builder, native_key->circuit_size, native_key->pcs_verification_key);
             this->circuit_size = native_key->circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = native_key->num_public_inputs;

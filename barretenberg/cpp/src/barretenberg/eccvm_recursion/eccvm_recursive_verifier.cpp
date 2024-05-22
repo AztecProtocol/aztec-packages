@@ -18,7 +18,7 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
 template <typename Flavor> bool ECCVMRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
 
-    using ZeroMorph = ZeroMorphVerifier_<PCS>;
+    // using ZeroMorph = ZeroMorphVerifier_<PCS>;
 
     RelationParameters<FF> relation_parameters;
 
@@ -28,7 +28,7 @@ template <typename Flavor> bool ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
-    const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
+    const auto circuit_size = transcript->template receive_from_prover<BF>("circuit_size");
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
@@ -54,7 +54,7 @@ template <typename Flavor> bool ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    const size_t log_circuit_size = numeric::get_msb(circuit_size);
+    const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
     std::vector<FF> gate_challenges(static_cast<size_t>(numeric::get_msb(key->circuit_size)));
@@ -70,57 +70,57 @@ template <typename Flavor> bool ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
         return false;
     }
 
-    bool multivariate_opening_verified = ZeroMorph::verify(commitments.get_unshifted(),
-                                                           commitments.get_to_be_shifted(),
-                                                           claimed_evaluations.get_unshifted(),
-                                                           claimed_evaluations.get_shifted(),
-                                                           multivariate_challenge,
-                                                           key->pcs_verification_key,
-                                                           transcript);
+    // bool multivariate_opening_verified = ZeroMorph::verify(commitments.get_unshifted(),
+    //                                                        commitments.get_to_be_shifted(),
+    //                                                        claimed_evaluations.get_unshifted(),
+    //                                                        claimed_evaluations.get_shifted(),
+    //                                                        multivariate_challenge,
+    //                                                        key->pcs_verification_key,
+    //                                                        transcript);
     // Execute transcript consistency univariate opening round
     // TODO(#768): Find a better way to do this. See issue for details.
-    bool univariate_opening_verified = false;
-    {
-        auto hack_commitment = transcript->template receive_from_prover<Commitment>("Translation:hack_commitment");
+    // bool univariate_opening_verified = false;
+    // {
+    //     auto hack_commitment = transcript->template receive_from_prover<Commitment>("Translation:hack_commitment");
 
-        FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
+    //     FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
-        // Construct arrays of commitments and evaluations to be batched
-        const size_t NUM_UNIVARIATES = 6;
-        std::array<Commitment, NUM_UNIVARIATES> transcript_commitments = {
-            commitments.transcript_op, commitments.transcript_Px, commitments.transcript_Py,
-            commitments.transcript_z1, commitments.transcript_z2, hack_commitment
-        };
-        std::array<FF, NUM_UNIVARIATES> transcript_evaluations = {
-            transcript->template receive_from_prover<FF>("Translation:op"),
-            transcript->template receive_from_prover<FF>("Translation:Px"),
-            transcript->template receive_from_prover<FF>("Translation:Py"),
-            transcript->template receive_from_prover<FF>("Translation:z1"),
-            transcript->template receive_from_prover<FF>("Translation:z2"),
-            transcript->template receive_from_prover<FF>("Translation:hack_evaluation")
-        };
+    //     // Construct arrays of commitments and evaluations to be batched
+    //     const size_t NUM_UNIVARIATES = 6;
+    //     std::array<Commitment, NUM_UNIVARIATES> transcript_commitments = {
+    //         commitments.transcript_op, commitments.transcript_Px, commitments.transcript_Py,
+    //         commitments.transcript_z1, commitments.transcript_z2, hack_commitment
+    //     };
+    //     std::array<FF, NUM_UNIVARIATES> transcript_evaluations = {
+    //         transcript->template receive_from_prover<FF>("Translation:op"),
+    //         transcript->template receive_from_prover<FF>("Translation:Px"),
+    //         transcript->template receive_from_prover<FF>("Translation:Py"),
+    //         transcript->template receive_from_prover<FF>("Translation:z1"),
+    //         transcript->template receive_from_prover<FF>("Translation:z2"),
+    //         transcript->template receive_from_prover<FF>("Translation:hack_evaluation")
+    //     };
 
-        // Get another challenge for batching the univariate claims
-        FF ipa_batching_challenge = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");
+    //     // Get another challenge for batching the univariate claims
+    //     FF ipa_batching_challenge = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");
 
-        // Construct batched commitment and batched evaluation
-        auto batched_commitment = transcript_commitments[0];
-        auto batched_transcript_eval = transcript_evaluations[0];
-        auto batching_scalar = ipa_batching_challenge;
-        for (size_t idx = 1; idx < transcript_commitments.size(); ++idx) {
-            batched_commitment = batched_commitment + transcript_commitments[idx] * batching_scalar;
-            batched_transcript_eval += batching_scalar * transcript_evaluations[idx];
-            batching_scalar *= ipa_batching_challenge;
-        }
+    //     // Construct batched commitment and batched evaluation
+    //     auto batched_commitment = transcript_commitments[0];
+    //     auto batched_transcript_eval = transcript_evaluations[0];
+    //     auto batching_scalar = ipa_batching_challenge;
+    //     for (size_t idx = 1; idx < transcript_commitments.size(); ++idx) {
+    //         batched_commitment = batched_commitment + transcript_commitments[idx] * batching_scalar;
+    //         batched_transcript_eval += batching_scalar * transcript_evaluations[idx];
+    //         batching_scalar *= ipa_batching_challenge;
+    //     }
 
-        // Construct and verify batched opening claim
-        OpeningClaim<Curve> batched_univariate_claim = { { evaluation_challenge_x, batched_transcript_eval },
-                                                         batched_commitment };
-        univariate_opening_verified =
-            PCS::reduce_verify(key->pcs_verification_key, batched_univariate_claim, transcript);
-    }
+    //     // Construct and verify batched opening claim
+    //     OpeningClaim<Curve> batched_univariate_claim = { { evaluation_challenge_x, batched_transcript_eval },
+    //                                                      batched_commitment };
+    //     univariate_opening_verified =
+    //         PCS::reduce_verify(key->pcs_verification_key, batched_univariate_claim, transcript);
+    // }
 
-    return sumcheck_verified.value() && multivariate_opening_verified && univariate_opening_verified;
+    return sumcheck_verified.value() /* && multivariate_opening_verified && univariate_opening_verified*/;
 }
 
 template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;

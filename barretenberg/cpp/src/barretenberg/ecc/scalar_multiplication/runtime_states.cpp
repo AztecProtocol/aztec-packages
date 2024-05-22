@@ -4,7 +4,6 @@
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/stdlib/primitives/curves/bn254SimulatingGrumpkin.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
 namespace bb::scalar_multiplication {

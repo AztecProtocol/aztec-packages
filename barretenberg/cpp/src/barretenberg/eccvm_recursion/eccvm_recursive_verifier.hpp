@@ -4,6 +4,7 @@
 namespace bb {
 template <typename Flavor> class ECCVMRecursiveVerifier_ {
     using FF = typename Flavor::FF;
+    using BF = typename Flavor::BF;
     using Curve = typename Flavor::Curve;
     using Commitment = typename Flavor::Commitment;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
