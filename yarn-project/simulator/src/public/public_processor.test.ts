@@ -458,7 +458,7 @@ describe('public_processor', () => {
       expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
       const txEffect = toTxEffect(processed[0], GasFees.default());
-      expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toEqual(5);
+      expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toEqual(2);
       expect(txEffect.publicDataWrites[0]).toEqual(
         new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotA), fr(0x101)),
       );

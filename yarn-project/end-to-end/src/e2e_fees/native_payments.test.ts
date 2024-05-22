@@ -24,13 +24,28 @@ describe('e2e_fees native_payments', () => {
     await t.teardown();
   });
 
-  it('sends tx with native fee payment method', async () => {
+  it('sends tx with native fee payment method with a public call', async () => {
     const paymentMethod = new NativeFeePaymentMethod(aliceAddress);
     const initialBalance = await gasTokenContract.methods.balance_of_public(aliceAddress).simulate();
-    await bananaCoin.methods
+    const receipt = await bananaCoin.methods
       .transfer_public(aliceAddress, bobAddress, 1n, 0n)
       .send({ fee: { gasSettings, paymentMethod } })
       .wait();
+
+    expect(receipt.transactionFee).toBeGreaterThan(0n);
+    const endBalance = await gasTokenContract.methods.balance_of_public(aliceAddress).simulate();
+    expect(endBalance).toBeLessThan(initialBalance);
+  });
+
+  it('sends tx with native fee payment method with no public call', async () => {
+    const paymentMethod = new NativeFeePaymentMethod(aliceAddress);
+    const initialBalance = await gasTokenContract.methods.balance_of_public(aliceAddress).simulate();
+    const receipt = await bananaCoin.methods
+      .transfer(aliceAddress, bobAddress, 1n, 0n)
+      .send({ fee: { gasSettings, paymentMethod } })
+      .wait();
+
+    expect(receipt.transactionFee).toBeGreaterThan(0n);
     const endBalance = await gasTokenContract.methods.balance_of_public(aliceAddress).simulate();
     expect(endBalance).toBeLessThan(initialBalance);
   });
