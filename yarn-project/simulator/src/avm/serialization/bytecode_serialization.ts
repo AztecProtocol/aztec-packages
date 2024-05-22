@@ -1,5 +1,4 @@
 import { DAGasLeft, L2GasLeft } from '../opcodes/context_getters.js';
-import { ToRadixLE } from '../opcodes/conversion.js';
 import { Keccak, Pedersen, Poseidon2, Sha256Compression } from '../opcodes/hashing.js';
 import type { Instruction } from '../opcodes/index.js';
 import {
