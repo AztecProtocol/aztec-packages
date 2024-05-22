@@ -1,6 +1,6 @@
 use crate::note::{note_header::NoteHeader, note_interface::NoteInterface};
-
 use dep::protocol_types::{address::AztecAddress, utils::arr_copy_slice};
+use dep::unsafe::Unconstrained;
 
 #[oracle(notifyCreatedNote)]
 fn notify_created_note_oracle<N>(
@@ -118,7 +118,7 @@ unconstrained pub fn get_notes<Note, N, NB, M, S, NS>(
     mut placeholder_opt_notes: [Option<Note>; S], // TODO: Remove it and use `limit` to initialize the note array.
     placeholder_fields: [Field; NS], // TODO: Remove it and use `limit` to initialize the note array.
     _placeholder_note_length: [Field; N] // Turbofish hack? Compiler breaks calculating read_offset unless we add this parameter
-) -> [Option<Note>; S] where Note: NoteInterface<N, NB> {
+) -> Unconstrained<[Option<Note>; S]> where Note: NoteInterface<N, NB> {
     let fields = get_notes_oracle_wrapper(
         storage_slot,
         num_selects,
@@ -154,7 +154,8 @@ unconstrained pub fn get_notes<Note, N, NB, M, S, NS>(
             placeholder_opt_notes[i] = Option::some(note);
         };
     }
-    placeholder_opt_notes
+
+    Unconstrained::new(placeholder_opt_notes)
 }
 
 // Only ever use this in private!
