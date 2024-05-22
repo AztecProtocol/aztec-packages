@@ -79,14 +79,18 @@ contract Rollup is IRollup {
       revert Errors.Rollup__UnavailableTxs(header.contentCommitment.txsEffectsHash);
     }
 
-    bytes32[] memory publicInputs = new bytes32[](40);
+    bytes32[] memory publicInputs = new bytes32[](
+      2 +
+      Constants.HEADER_LENGTH +
+      16
+    );
     publicInputs[0] = _archive;
     // this is the _next_ available leaf in the archive tree
     // normally this should be equal to the block number (since leaves are 0-indexed and blocks 1-indexed)
     // but in yarn-project/merkle-tree/src/new_tree.ts we prefill the tree so that block N is in leaf N
     publicInputs[1] = bytes32(header.globalVariables.blockNumber + 1);
 
-    bytes32[22] memory headerFields = HeaderLib.toFields(header);
+    bytes32[] memory headerFields = HeaderLib.toFields(header);
     for (uint256 i = 0; i < headerFields.length; i++) {
       publicInputs[i + 2] = headerFields[i];
     }
@@ -95,7 +99,7 @@ contract Rollup is IRollup {
     // this snippet copies it into the public inputs needed for verification
     // it also guards against empty _aggregationObject used with mocked proofs
     for (uint256 i = 0; i < 16 && i * 32 < _aggregationObject.length; i++) {
-      publicInputs[i + 24] = bytes32(_aggregationObject[i * 32:(i + 1) * 32]);
+      publicInputs[i + 2 + headerFields.length] = bytes32(_aggregationObject[i * 32:(i + 1) * 32]);
     }
 
     if (!verifier.verify(_proof, publicInputs)) {

@@ -40,7 +40,6 @@ describe('proof_verification', () => {
   let block: L2Block;
   let aggregationObject: Fr[];
   let anvil: Anvil | undefined;
-  let rpcUrl: string;
   let walletClient: WalletClient<HttpTransport, Chain, Account>;
   let publicClient: PublicClient<HttpTransport, Chain>;
   // eslint-disable-next-line
@@ -53,7 +52,11 @@ describe('proof_verification', () => {
 
   beforeAll(async () => {
     logger = getLogger();
-    ({ anvil, rpcUrl } = await startAnvil());
+    let rpcUrl = process.env.ETHEREUM_HOST;
+    if (!rpcUrl) {
+      ({ anvil, rpcUrl } = await startAnvil());
+    }
+
     ({ l1ContractAddresses, publicClient, walletClient } = await setupL1Contracts(
       rpcUrl,
       mnemonicToAccount(MNEMONIC),
@@ -99,17 +102,12 @@ describe('proof_verification', () => {
     const abi = output.contracts['UltraVerifier.sol']['UltraVerifier'].abi;
     const bytecode: string = output.contracts['UltraVerifier.sol']['UltraVerifier'].evm.bytecode.object;
 
-    try {
-      const verifierAddress = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
-      verifierContract = getContract({
-        address: verifierAddress.toString(),
-        client: publicClient,
-        abi,
-      }) as any;
-    } catch (err) {
-      logger.error(anvil?.logs.join(' '));
-      throw err;
-    }
+    const verifierAddress = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
+    verifierContract = getContract({
+      address: verifierAddress.toString(),
+      client: publicClient,
+      abi,
+    }) as any;
   });
 
   afterAll(async () => {
@@ -119,7 +117,7 @@ describe('proof_verification', () => {
     await acvmTeardown();
   });
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     // regenerate with
     // AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/end-to-end test e2e_prover
     const blockResult = JSON.parse(
@@ -181,20 +179,20 @@ describe('proof_verification', () => {
         client: walletClient,
       });
 
+      await rollupContract.write.setVerifier([verifierContract.address]);
+      logger.info('Rollup only accepts valid proofs now');
       await availabilityContract.write.publish([`0x${block.body.toBuffer().toString('hex')}`]);
     });
 
     it('verifies proof', async () => {
-      await availabilityContract.write.publish([`0x${block.body.toBuffer().toString('hex')}`]);
+      const args = [
+        `0x${block.header.toBuffer().toString('hex')}`,
+        `0x${block.archive.root.toBuffer().toString('hex')}`,
+        `0x${serializeToBuffer(aggregationObject).toString('hex')}`,
+        `0x${proof.withoutPublicInputs().toString('hex')}`,
+      ] as const;
 
-      await expect(
-        rollupContract.write.process([
-          `0x${block.header.toBuffer().toString('hex')}`,
-          `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x${serializeToBuffer(aggregationObject).toString('hex')}`,
-          `0x${proof.withoutPublicInputs().toString('hex')}`,
-        ]),
-      ).resolves.toBeDefined();
+      await expect(rollupContract.write.process(args)).resolves.toBeDefined();
     });
   });
 });
