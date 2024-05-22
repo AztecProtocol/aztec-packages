@@ -62,7 +62,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   public request(): FunctionCall {
     const args = encodeArguments(this.functionDao, this.args);
     const functionData = FunctionData.fromAbi(this.functionDao);
-    return { args, functionData, to: this.contractAddress };
+    return { args, functionData, to: this.contractAddress, isStatic: this.functionDao.isStatic };
   }
 
   /**
@@ -80,9 +80,6 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
 
     const txRequest = await this.create();
-    // const from =
-    //   this.functionDao.functionType == FunctionType.PRIVATE ? options.from ?? this.wallet.getAddress() : undefined;
-
     const simulatedTx = await this.wallet.simulateTx(txRequest, true, options?.from);
 
     // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
