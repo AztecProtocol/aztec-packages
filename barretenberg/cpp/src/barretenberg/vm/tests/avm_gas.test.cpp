@@ -17,7 +17,7 @@ class AvmGasNegativeTests : public AvmGasTests {};
 
 using KernelInputs = std::array<FF, KERNEL_INPUTS_LENGTH>;
 
-// Helper to set the initial gas paramters for each test
+// Helper to set the initial gas parameters for each test
 struct StartGas {
     uint32_t l2_gas;
     uint32_t da_gas;

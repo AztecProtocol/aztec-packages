@@ -3537,25 +3537,21 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
         }
     }
     ////////// WORK IN PROGRESS //////////////////////////
+    /////////// GAS ACCOUNTING //////////////////////////
 
     // Add the gas cost table to the main trace
     // TODO: do i need a way to produce an interupt that will stop the execution of the trace when the gas left becomes
     // zero in the gas_trace_builder Does all of the gas trace information need to be added to this main machine?????
 
     // Add the gas costs table to the main trace
-    // For each opcode idx we write it's l2 gas cost and da gas cost
-    auto gas_cost_lookup_table = gas_trace_builder.gas_lookup_table;
-    for (size_t i = 0; i < gas_cost_lookup_table.size(); i++) {
-        auto gas_table_entry = gas_cost_lookup_table.at(i);
-
-        auto& dest = main_trace.at(i);
+    // For each opcode we write its l2 gas cost and da gas cost
+    for (auto const& [opcode, gas_entry] : GAS_COST_TABLE) {
+        auto& dest = main_trace.at(static_cast<size_t>(opcode));
 
         dest.avm_gas_gas_cost_sel = FF(1);
-        dest.avm_gas_l2_gas_fixed_table = gas_table_entry.l2_fixed_gas_cost;
-        dest.avm_gas_da_gas_fixed_table = gas_table_entry.da_fixed_gas_cost;
+        dest.avm_gas_l2_gas_fixed_table = gas_entry.l2_fixed_gas_cost;
+        dest.avm_gas_da_gas_fixed_table = gas_entry.da_fixed_gas_cost;
     }
-
-    // Write the
 
     // Add the gas accounting for each row
     // We can assume that the gas trace will never be larger than the main trace
@@ -3564,14 +3560,12 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
     first_main_trace_row.avm_main_l2_gas_remaining = gas_trace_builder.initial_l2_gas;
     first_main_trace_row.avm_main_da_gas_remaining = gas_trace_builder.initial_da_gas;
 
-    for (size_t i = 0; i < gas_trace.size(); i++) {
-        auto& gas_entry = gas_trace.at(i);
-
+    for (auto const& gas_entry : gas_trace) {
         auto& dest = main_trace.at(gas_entry.clk);
         auto& next = main_trace.at(gas_entry.clk + 1);
-        // Write each of the relevant gas accounting values
 
-        dest.avm_main_opcode_val = gas_entry.opcode_val;
+        // Write each of the relevant gas accounting values
+        dest.avm_main_opcode_val = static_cast<uint8_t>(gas_entry.opcode);
         dest.avm_main_l2_gas_op = gas_entry.l2_gas_cost;
         dest.avm_main_da_gas_op = gas_entry.da_gas_cost;
         next.avm_main_l2_gas_remaining = gas_entry.remaining_l2_gas;
@@ -3579,8 +3573,8 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
     }
 
     // Finalise gas left lookup counts
-    for (auto const& [clk, count] : gas_trace_builder.gas_opcode_lookup_counter) {
-        main_trace.at(clk).lookup_opcode_gas_counts = count;
+    for (auto const& [opcode, count] : gas_trace_builder.gas_opcode_lookup_counter) {
+        main_trace.at(static_cast<uint8_t>(opcode)).lookup_opcode_gas_counts = count;
     }
 
     // Pad the rest of the trace with the same gas remaining
@@ -3591,7 +3585,7 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
         dest.avm_main_da_gas_remaining = last_gas_trace.remaining_da_gas;
     }
 
-    ////////// WORK IN PROGRESS //////////////////////////
+    /////////// END OF GAS ACCOUNTING //////////////////////////
 
     // Adding extra row for the shifted values at the top of the execution trace.
     Row first_row = Row{ .avm_main_first = FF(1), .avm_mem_lastAccess = FF(1) };
