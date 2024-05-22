@@ -475,11 +475,10 @@ void handle_memory_op(Program::Opcode::MemoryOp const& mem_op, BlockConstraint& 
     if (is_rom(mem_op.op)) {
         access_type = 0;
     }
-    if (block.type == BlockType::ROM && access_type == 1) {
-        block.type = BlockType::RAM;
-    }
     if (access_type == 1) {
-        ASSERT(block.type == BlockType::RAM);
+        // We are not allowed to write on the databus
+        ASSERT((block.type != BlockType::CallData) && (block.type != BlockType::ReturnData));
+        block.type = BlockType::RAM;
     }
 
     MemOp acir_mem_op = MemOp{ .access_type = access_type,
