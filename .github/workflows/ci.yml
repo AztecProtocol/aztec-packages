@@ -32,38 +32,6 @@ jobs:
       username: ${{ github.event.pull_request.user.login || github.actor }}
       runner_type: builder-x86
     secrets: inherit
-  # job just to alert that you *might* hit missing CI files, but if not you can continue
-
-  ci-consistency:
-    runs-on: ubuntu-latest
-    # Only check PRs for consistency (not master)
-    if: ${{ github.event.pull_request.head.sha != '' }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: Checkout Merge Pipeline Files
-        uses: actions/checkout@v4
-        with:
-          path: merge-commit-pipeline-files
-          sparse-checkout: |
-            .github/workflows/ci.yml
-            .github/workflows/setup-runner.yml
-
-      - name: Ensure CI Consistency
-        if: ${{ github.event.pull_request.head.sha != '' }}
-        run: |
-          # Compare the checked-out CI configuration files with the reference files
-          if ! git diff --no-index .github/workflows/ci.yml merge-commit-pipeline-files/.github/workflows/ci.yml; then
-            echo "Error: ci.yml changes in master (or PR base). *Usually* you can continue just fine. If you hit trouble with missing files, please merge these changes. This is to alert about potential surprises from Github Action's merge behavior."
-            exit 1
-          fi
-          if ! git diff --no-index .github/workflows/setup-runner.yml merge-commit-pipeline-files/.github/workflows/setup-runner.yml; then
-            echo "Error: setup-runner.yml changes in master (or PR base). *Usually* you can continue just fine. If you hit trouble with missing files, please merge these changes. This is to alert about potential surprises from Github Action's merge behavior."
-            exit 1
-          fi
 
   build:
     needs: setup
@@ -198,19 +166,33 @@ jobs:
           concurrency_key: build-x86
       - name: "Build and upload bench aggregate file"
         working-directory: ./yarn-project/scripts
-        run: earthly-ci -P --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} +bench-aggregate
-      - name: "Download base benchmark"
+        run: |
+          earthly-ci -P \
+            --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            +bench-aggregate
+      - name: "Download base benchmark and package into earthly"
         if: ${{ github.event_name == 'pull_request' }}
-        run: scripts/logs/download_base_benchmark_from_s3.sh
+        run: |
+          # Download the base benchmark locally (requires AWS creds and .git history)
+          mkdir -p $BENCH_FOLDER
+          ./scripts/logs/download_base_benchmark_from_s3.sh
+          # Package it into an earthly artifact to read from bench-comment
+          earthly-ci -P ./scripts/logs+pack-base-benchmark --LOCAL_BENCH_FOLDER=./tmp/bench
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          BENCH_FOLDER: ./yarn-project/scripts/bench
+          BENCH_FOLDER: "./scripts/logs/tmp/bench"
           PULL_REQUEST: "${{ github.event.pull_request.number }}"
       - name: "Generate summary comment if pull request"
         if: ${{ github.event_name == 'pull_request' }}
         working-directory: ./yarn-project/scripts
-        run: earthly-ci -P --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} +bench-comment
+        run: |
+          earthly-ci -P \
+            --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
+            +bench-comment
 
   # barretenberg (prover) native and AVM (public VM) tests
   # only ran on x86 for resource reasons (memory intensive)

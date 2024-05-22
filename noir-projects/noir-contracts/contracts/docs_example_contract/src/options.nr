@@ -11,6 +11,7 @@ pub fn create_account_card_getter_options(
     account_npk_m_hash: Field,
     offset: u32
 ) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, CARD_NOTE_BYTES_LEN, Field> {
+    // TODO (#6312): This will break with key rotation. Fix this. Will not be able to find any notes after rotating key.
     let mut options = NoteGetterOptions::new();
     options.select(
         CardNote::properties().npk_m_hash,
@@ -26,6 +27,7 @@ pub fn create_exact_card_getter_options(
     secret: Field,
     account_npk_m_hash: Field
 ) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, CARD_NOTE_BYTES_LEN, Field> {
+    // TODO (#6312): This will break with key rotation. Fix this. Will not be able to find any notes after rotating key.
     let mut options = NoteGetterOptions::new();
     options.select(CardNote::properties().points, points as Field, Option::none()).select(CardNote::properties().randomness, secret, Option::none()).select(
         CardNote::properties().npk_m_hash,
@@ -57,6 +59,7 @@ pub fn create_account_cards_with_min_points_getter_options(
     account_npk_m_hash: Field,
     min_points: u8
 ) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, CARD_NOTE_BYTES_LEN, u8> {
+    // TODO (#6312): This will break with key rotation. Fix this. Will not be able to find any notes after rotating key.
     NoteGetterOptions::with_filter(filter_min_points, min_points).select(
         CardNote::properties().npk_m_hash,
         account_npk_m_hash,
@@ -67,6 +70,7 @@ pub fn create_account_cards_with_min_points_getter_options(
 
 // docs:start:state_vars-NoteGetterOptionsPickOne
 pub fn create_largest_account_card_getter_options(account_npk_m_hash: Field) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, CARD_NOTE_BYTES_LEN, Field> {
+    // TODO (#6312): This will break with key rotation. Fix this. Will not be able to find any notes after rotating key.
     let mut options = NoteGetterOptions::new();
     options.select(
         CardNote::properties().npk_m_hash,

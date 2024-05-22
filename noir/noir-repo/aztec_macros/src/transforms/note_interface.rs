@@ -199,6 +199,7 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
             let get_header_fn = generate_note_to_be_bytes(
                 &note_type,
                 note_bytes_len.as_str(),
+                note_serialized_len.as_str(),
                 note_interface_impl_span,
             )?;
             trait_impl.items.push(TraitImplItem::Function(get_header_fn));
@@ -212,11 +213,13 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
 fn generate_note_to_be_bytes(
     note_type: &String,
     byte_length: &str,
+    serialized_length: &str,
     impl_span: Option<Span>,
 ) -> Result<NoirFunction, AztecMacroError> {
     let function_source = format!(
         "
         fn to_be_bytes(self: {1}, storage_slot: Field) -> [u8; {0}] {{
+            assert({0} == {2} * 32 + 64, \"Note byte length must be equal to (serialized_length * 32) + 64 bytes\");
             let serialized_note = self.serialize_content();
 
             let mut buffer: [u8; {0}] = [0; {0}];
@@ -238,7 +241,7 @@ fn generate_note_to_be_bytes(
             buffer
         }}
     ",
-        byte_length, note_type
+        byte_length, note_type, serialized_length
     )
     .to_string();
 
