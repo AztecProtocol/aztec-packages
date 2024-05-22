@@ -18,21 +18,21 @@ describe('L1 Note Payload', () => {
   });
 
   describe('encrypt and decrypt a full log', () => {
-    let ovsk: GrumpkinScalar;
+    let ovskM: GrumpkinScalar;
     let ivsk: GrumpkinScalar;
 
     let payload: L1NotePayload;
     let encrypted: Buffer;
 
     beforeAll(() => {
-      ovsk = GrumpkinScalar.random();
+      payload = L1NotePayload.random();
+
+      ovskM = GrumpkinScalar.random();
       ivsk = GrumpkinScalar.random();
 
-      const app = AztecAddress.random();
+      const ovpkM = derivePublicKeyFromSecretKey(ovskM);
 
-      const ovskApp = computeOvskApp(ovsk, app);
-      const ovpkM = derivePublicKeyFromSecretKey(ovskApp);
-
+      const ovskApp = computeOvskApp(ovskM, payload.contractAddress);
       // TODO(benesjan): get rid of this ugly conversion
       const ovskAppFr = Fr.fromBuffer(ovskApp.toBuffer());
       const ovKeys = new KeyValidationRequest(ovpkM, ovskAppFr);
@@ -42,7 +42,6 @@ describe('L1 Note Payload', () => {
       const recipientAddress = AztecAddress.random();
       const ivpk = grumpkin.mul(Grumpkin.generator, ivsk);
 
-      payload = L1NotePayload.random();
       encrypted = payload.encrypt(ephSk, recipientAddress, ivpk, ovKeys);
     });
 
@@ -53,7 +52,7 @@ describe('L1 Note Payload', () => {
     });
 
     it('decrypt a log as outgoing', () => {
-      const recreated = L1NotePayload.decryptAsOutgoing(encrypted, ovsk);
+      const recreated = L1NotePayload.decryptAsOutgoing(encrypted, ovskM);
 
       expect(recreated.toBuffer()).toEqual(payload.toBuffer());
     });
