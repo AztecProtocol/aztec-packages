@@ -109,7 +109,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     }
 
     void finalize_circuit();
-    void add_goblin_gates_to_ensure_all_polys_are_non_zero();
+    void add_gates_to_ensure_all_polys_are_non_zero();
 
     size_t get_num_constant_gates() const override { return 0; }
 
@@ -139,7 +139,6 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         GoblinUltraCircuitBuilder_<FF> builder; // instantiate new builder
 
         size_t num_gates_prior = builder.get_num_gates();
-        builder.add_goblin_gates_to_ensure_all_polys_are_non_zero();
         builder.add_gates_to_ensure_all_polys_are_non_zero();
         size_t num_gates_post = builder.get_num_gates(); // accounts for finalization gates
 
