@@ -26,8 +26,9 @@ template <typename CircuitBuilder> struct bn254 {
     using ScalarField = field_t<CircuitBuilder>;
     using BaseField = bigfield<CircuitBuilder, bb::Bn254FqParams>;
     using Group = element<CircuitBuilder, BaseField, ScalarField, GroupNative>;
-    using Element = Group;
     using AffineElement = Group;
+    // We dont need the projective form inside a circuit because
+    using Element = Group;
 
     // Additional types with no analog in the native description of the curve
     using Builder = CircuitBuilder;

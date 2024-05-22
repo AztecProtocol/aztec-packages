@@ -14,7 +14,7 @@
 #include "barretenberg/relations/ecc_vm/ecc_wnaf_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
-#include "barretenberg/stdlib/primitives/curves/bn254SimulatingGrumpkin.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members) ?
 
@@ -27,7 +27,7 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     // I need to somehow make this bn254 hashtag confusion
     // the native stuff becomes nonnative and the nonnative stuff becomes native and everything is in circuit land is
     // probably what's going on
-    using Curve = stdlib::bn254SimulatingGrumpkin<CircuitBuilder>;
+    using Curve = stdlib::bn254<CircuitBuilder>;
     using G1 = typename Curve::Group;
     using PCS = IPA<Curve>;
     using FF = typename Curve::ScalarField;
@@ -81,7 +81,18 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     };
 
     class VerifierCommitmentKey : public bb::VerifierCommitmentKey<Curve> {
-        VerifierCommitmentKey(const std::shared_ptr<ECCVMFlavor::VerifierCommitmentKey> native_pcs_verifiaction_key) {}
+      public:
+        Commitment first_g1;
+        std::vector<Commitment> monomial_points;
+
+        VerifierCommitmentKey(const std::shared_ptr<ECCVMFlavor::VerifierCommitmentKey> native_pcs_verifiaction_key)
+        {
+            first_g1 = Commitment(native_pcs_verifiaction_key->srs->get_monomial_points());
+            native_monomial_points = native_pcs_verifiaction_key->srs->get_monomial_points();
+            for (auto comm : native_monomial_points) {
+                monomial_points.emplace_back(Commitment(native_monomial_points));
+            }
+        }
     };
 
     /**

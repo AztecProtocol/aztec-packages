@@ -205,14 +205,9 @@ template <typename Curve> pippenger_runtime_state<Curve>::~pippenger_runtime_sta
 
 template struct affine_product_runtime_state<curve::BN254>;
 template struct affine_product_runtime_state<curve::Grumpkin>;
-template struct affine_product_runtime_state<stdlib::bn254SimulatingGrumpkin<UltraCircuitBuilder>>;
-template struct affine_product_runtime_state<stdlib::bn254SimulatingGrumpkin<GoblinUltraCircuitBuilder>>;
 
 template struct pippenger_runtime_state<curve::BN254>;
 template struct pippenger_runtime_state<curve::Grumpkin>;
-template struct pippenger_runtime_state<stdlib::bn254SimulatingGrumpkin<UltraCircuitBuilder>>;
-template struct pippenger_runtime_state<stdlib::bn254SimulatingGrumpkin<GoblinUltraCircuitBuilder>>;
-
 } // namespace bb::scalar_multiplication
 
 // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
