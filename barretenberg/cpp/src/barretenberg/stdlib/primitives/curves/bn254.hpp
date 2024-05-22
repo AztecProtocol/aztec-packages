@@ -6,7 +6,7 @@
 
 namespace bb::stdlib {
 
-template <typename CircuitBuilder> struct bn254 {
+template <typename CircuitBuilder, bool isGrumpkining = false> struct bn254 {
     static constexpr bb::CurveType type = bb::CurveType::BN254;
     // TODO(#673): This flag is temporary. It is needed in the verifier classes (GeminiVerifier, etc.) while these
     // classes are instantiated with "native" curve types. Eventually, the verifier classes will be instantiated only

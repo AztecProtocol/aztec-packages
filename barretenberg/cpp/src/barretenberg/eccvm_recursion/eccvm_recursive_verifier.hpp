@@ -13,7 +13,6 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
     using Builder = typename Flavor::CircuitBuilder;
     using PCS = typename Flavor::PCS;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
-    using GroupElement = typename Flavor::GroupElement;
     using VerifierCommitments = typename Flavor::VerifierCommitments; // dunno if I need thos
   public:
     explicit ECCVMRecursiveVerifier_(Builder* builder,

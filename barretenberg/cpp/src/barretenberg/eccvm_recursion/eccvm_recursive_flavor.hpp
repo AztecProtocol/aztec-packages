@@ -2,6 +2,7 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/eccvm_recursion/verifier_commitment_key.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
@@ -28,12 +29,9 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     // the native stuff becomes nonnative and the nonnative stuff becomes native and everything is in circuit land is
     // probably what's going on
     using Curve = stdlib::bn254<CircuitBuilder>;
-    using G1 = typename Curve::Group;
     using PCS = IPA<Curve>;
-    using FF = typename Curve::ScalarField;
-    using GroupElement = typename Curve::Element;
-    using Commitment = typename Curve::Element;
-    using CommitmentKey = bb::CommitmentKey<Curve>;
+    using Commitment = typename stdlib::cycle_group<CircuitBuilder>;
+    using FF = typename bb::stdlib::cycle_group<CircuitBuilder>::cycle_scalar;
     using RelationSeparator = FF;
     using NativeFlavor = ECCVMFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
@@ -80,21 +78,7 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
         using Base::Base;
     };
 
-    class VerifierCommitmentKey : public bb::VerifierCommitmentKey<Curve> {
-      public:
-        Commitment first_g1;
-        std::vector<Commitment> monomial_points;
-
-        VerifierCommitmentKey(const std::shared_ptr<ECCVMFlavor::VerifierCommitmentKey> native_pcs_verifiaction_key)
-        {
-            first_g1 = Commitment(native_pcs_verifiaction_key->srs->get_monomial_points());
-            native_monomial_points = native_pcs_verifiaction_key->srs->get_monomial_points();
-            for (auto comm : native_monomial_points) {
-                monomial_points.emplace_back(Commitment(native_monomial_points));
-            }
-        }
-    };
-
+    using VerifierCommitmentKey = VerifierCommitmentKey<Curve>;
     /**
      * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
