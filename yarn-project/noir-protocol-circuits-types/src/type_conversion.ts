@@ -825,6 +825,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     note_hash_read_requests: mapTuple(privateCircuitPublicInputs.noteHashReadRequests, mapReadRequestToNoir),
     nullifier_read_requests: mapTuple(privateCircuitPublicInputs.nullifierReadRequests, mapReadRequestToNoir),
     key_validation_requests: mapTuple(privateCircuitPublicInputs.keyValidationRequests, mapKeyValidationRequestsToNoir),
+    app_secret_keys_generators: mapTuple(privateCircuitPublicInputs.appSecretKeysGenerators, mapFieldToNoir),
     new_note_hashes: mapTuple(privateCircuitPublicInputs.newNoteHashes, mapNoteHashToNoir),
     new_nullifiers: mapTuple(privateCircuitPublicInputs.newNullifiers, mapNullifierToNoir),
     private_call_requests: mapTuple(privateCircuitPublicInputs.privateCallRequests, mapPrivateCallRequestToNoir),

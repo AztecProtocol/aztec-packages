@@ -81,6 +81,11 @@ export class PrivateCircuitPublicInputs {
      */
     public keyValidationRequests: Tuple<KeyValidationRequest, typeof MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
     /**
+     * Generators used to derive app secret keys from secret. In 1 to 1 correspondence with `masterSecretKeys`
+     * (e.g. app secret key generator at index 2 corresponds to master secret key at the same index).
+     */
+    public appSecretKeysGenerators: Tuple<Fr, typeof MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
+    /**
      * New note hashes created by the corresponding function call.
      */
     public newNoteHashes: Tuple<NoteHash, typeof MAX_NEW_NOTE_HASHES_PER_CALL>,
@@ -167,6 +172,7 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequest),
+      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, Fr),
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_CALL, NoteHash),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
@@ -195,6 +201,7 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequest),
+      reader.readFieldArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_CALL, NoteHash),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
@@ -226,6 +233,7 @@ export class PrivateCircuitPublicInputs {
       makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest.empty),
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.empty),
       makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequest.empty),
+      makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, Fr.zero),
       makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, NoteHash.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest.empty),
@@ -254,6 +262,7 @@ export class PrivateCircuitPublicInputs {
       isEmptyArray(this.noteHashReadRequests) &&
       isEmptyArray(this.nullifierReadRequests) &&
       isEmptyArray(this.keyValidationRequests) &&
+      this.appSecretKeysGenerators.every(g => g.isZero()) &&
       isEmptyArray(this.newNoteHashes) &&
       isEmptyArray(this.newNullifiers) &&
       isEmptyArray(this.privateCallRequests) &&
@@ -284,6 +293,7 @@ export class PrivateCircuitPublicInputs {
       fields.noteHashReadRequests,
       fields.nullifierReadRequests,
       fields.keyValidationRequests,
+      fields.appSecretKeysGenerators,
       fields.newNoteHashes,
       fields.newNullifiers,
       fields.privateCallRequests,

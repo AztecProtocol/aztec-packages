@@ -64,6 +64,7 @@ struct PrivateCircuitPublicInputs {
     note_hash_read_requests: [ReadRequest; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     nullifier_read_requests: [ReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
     key_validation_requests: [KeyValidationRequest; MAX_KEY_VALIDATION_REQUESTS_PER_CALL],
+    app_secret_keys_generators: [Field; MAX_KEY_VALIDATION_REQUESTS_PER_CALL],
 
     new_note_hashes: [NoteHash; MAX_NEW_NOTE_HASHES_PER_CALL],
     new_nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_CALL],
@@ -98,6 +99,7 @@ impl Eq for PrivateCircuitPublicInputs {
         (self.note_hash_read_requests == other.note_hash_read_requests) &
         (self.nullifier_read_requests == other.nullifier_read_requests) &
         (self.key_validation_requests == other.key_validation_requests) &
+        (self.app_secret_keys_generators == other.app_secret_keys_generators) &
         (self.new_note_hashes == other.new_note_hashes) &
         (self.new_nullifiers == other.new_nullifiers) &
         (self.private_call_requests == other.private_call_requests) &
@@ -133,6 +135,9 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         }
         for i in 0..self.key_validation_requests.len() {
             fields.extend_from_array(self.key_validation_requests[i].serialize());
+        }
+        for i in 0..self.app_secret_keys_generators.len() {
+            fields.push(self.app_secret_keys_generators[i]);
         }
         for i in 0..self.new_note_hashes.len() {
             fields.extend_from_array(self.new_note_hashes[i].serialize());
@@ -182,6 +187,7 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             note_hash_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]),
             nullifier_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL]),
             key_validation_requests: reader.read_struct_array(KeyValidationRequest::deserialize, [KeyValidationRequest::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_CALL]),
+            app_secret_keys_generators: reader.read_array([0; MAX_KEY_VALIDATION_REQUESTS_PER_CALL]),
             new_note_hashes: reader.read_struct_array(NoteHash::deserialize, [NoteHash::empty(); MAX_NEW_NOTE_HASHES_PER_CALL]),
             new_nullifiers: reader.read_struct_array(Nullifier::deserialize, [Nullifier::empty(); MAX_NEW_NULLIFIERS_PER_CALL]),
             private_call_requests: reader.read_struct_array(PrivateCallRequest::deserialize, [PrivateCallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL]),
@@ -220,6 +226,7 @@ impl Empty for PrivateCircuitPublicInputs {
             note_hash_read_requests: [ReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
             nullifier_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
             key_validation_requests: [KeyValidationRequest::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_CALL],
+            app_secret_keys_generators: [0; MAX_KEY_VALIDATION_REQUESTS_PER_CALL],
             new_note_hashes: [NoteHash::empty(); MAX_NEW_NOTE_HASHES_PER_CALL],
             new_nullifiers: [Nullifier::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
             private_call_requests: [PrivateCallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],

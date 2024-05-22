@@ -35,6 +35,7 @@ struct PrivateCircuitPublicInputsBuilder {
     note_hash_read_requests: BoundedVec<ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     key_validation_requests: BoundedVec<KeyValidationRequest, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
+    app_secret_keys_generators: BoundedVec<Field, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
     new_note_hashes: BoundedVec<NoteHash, MAX_NEW_NOTE_HASHES_PER_CALL>,
     new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_CALL>,
@@ -225,6 +226,7 @@ impl PrivateCircuitPublicInputsBuilder {
             note_hash_read_requests: self.note_hash_read_requests.storage,
             nullifier_read_requests: self.nullifier_read_requests.storage,
             key_validation_requests: self.key_validation_requests.storage,
+            app_secret_keys_generators: self.app_secret_keys_generators.storage,
             new_note_hashes: self.new_note_hashes.storage,
             new_nullifiers: self.new_nullifiers.storage,
             private_call_requests: self.private_call_requests.storage,
@@ -261,6 +263,7 @@ impl Empty for PrivateCircuitPublicInputsBuilder {
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             key_validation_requests: BoundedVec::new(),
+            app_secret_keys_generators: BoundedVec::new(),
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),

@@ -169,6 +169,7 @@ impl PrivateContext {
             note_hash_read_requests: self.note_hash_read_requests.storage,
             nullifier_read_requests: self.nullifier_read_requests.storage,
             key_validation_requests: self.key_validation_requests.storage,
+            app_secret_keys_generators: self.app_secret_keys_generators.storage,
             new_note_hashes: self.new_note_hashes.storage,
             new_nullifiers: self.new_nullifiers.storage,
             private_call_requests: self.private_call_requests.storage,
