@@ -92,6 +92,7 @@ export async function buildPrivateKernelResetInputs(
   executionStack: ExecutionResult[],
   previousKernelData: PrivateKernelData,
   noteHashLeafIndexMap: Map<bigint, bigint>,
+  noteHashNullifierCounterMap: Map<number, number>,
   oracle: ProvingDataOracle,
 ) {
   const publicInputs = previousKernelData.publicInputs;
@@ -101,7 +102,11 @@ export async function buildPrivateKernelResetInputs(
     const nonEmptyNoteHashes = getNonEmptyItems(executionResult.callStackItem.publicInputs.newNoteHashes);
     return nonEmptyNoteHashes.map(
       noteHash =>
-        new ScopedNoteHash(noteHash, 0, executionResult.callStackItem.publicInputs.callContext.storageContractAddress),
+        new ScopedNoteHash(
+          noteHash,
+          noteHashNullifierCounterMap.get(noteHash.counter) ?? 0,
+          executionResult.callStackItem.publicInputs.callContext.storageContractAddress,
+        ),
     );
   });
 

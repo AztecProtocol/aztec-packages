@@ -13,9 +13,11 @@ import {
   type ScopedReadRequest,
 } from '../structs/index.js';
 import { countAccumulatedItems, getNonEmptyItems } from '../utils/index.js';
+import { ScopedValueCache } from './scoped_value_cache.js';
 
-function isValidNoteHashReadRequest(readRequest: ScopedReadRequest, noteHash: ScopedNoteHash) {
+export function isValidNoteHashReadRequest(readRequest: ScopedReadRequest, noteHash: ScopedNoteHash) {
   return (
+    noteHash.value.equals(readRequest.value) &&
     noteHash.contractAddress.equals(readRequest.contractAddress) &&
     readRequest.counter > noteHash.counter &&
     (noteHash.nullifierCounter === 0 || noteHash.nullifierCounter > readRequest.counter)
@@ -45,13 +47,7 @@ export async function buildNoteHashReadRequestHints<PENDING extends number, SETT
     noteHashMap.set(value, arr);
   });
 
-  const futureNoteHashMap: Map<bigint, ScopedNoteHash[]> = new Map();
-  futureNoteHashes.forEach(futureNoteHash => {
-    const value = futureNoteHash.value.toBigInt();
-    const arr = futureNoteHashMap.get(value) ?? [];
-    arr.push(futureNoteHash);
-    futureNoteHashMap.set(value, arr);
-  });
+  const futureNoteHashMap = new ScopedValueCache(futureNoteHashes);
 
   for (let i = 0; i < numReadRequests; ++i) {
     const readRequest = noteHashReadRequests[i];
@@ -66,8 +62,8 @@ export async function buildNoteHashReadRequestHints<PENDING extends number, SETT
       builder.addPendingReadRequest(i, pendingNoteHash.index);
     } else if (
       !futureNoteHashMap
-        .get(value.toBigInt())
-        ?.find(futureNoteHash => isValidNoteHashReadRequest(readRequest, futureNoteHash))
+        .get(readRequest)
+        .find(futureNoteHash => isValidNoteHashReadRequest(readRequest, futureNoteHash))
     ) {
       const siloedValue = siloNoteHash(readRequest.contractAddress, value);
       const leafIndex = noteHashLeafIndexMap.get(siloedValue.toBigInt());

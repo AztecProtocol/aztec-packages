@@ -71,7 +71,7 @@ export class KernelProver {
 
     while (executionStack.length) {
       if (!firstIteration) {
-        output = await this.runReset(executionStack, output, noteHashLeafIndexMap);
+        output = await this.runReset(executionStack, output, noteHashLeafIndexMap, noteHashNullifierCounterMap);
       }
       const currentExecution = executionStack.pop()!;
       executionStack.push(...[...currentExecution.nestedExecutions].reverse());
@@ -129,7 +129,7 @@ export class KernelProver {
       firstIteration = false;
     }
 
-    output = await this.runReset(executionStack, output, noteHashLeafIndexMap);
+    output = await this.runReset(executionStack, output, noteHashLeafIndexMap, noteHashNullifierCounterMap);
 
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
     const previousKernelData = new PrivateKernelData(
@@ -156,6 +156,7 @@ export class KernelProver {
     executionStack: ExecutionResult[],
     output: KernelProofOutput<PrivateKernelCircuitPublicInputs>,
     noteHashLeafIndexMap: Map<bigint, bigint>,
+    noteHashNullifierCounterMap: Map<number, number>,
   ): Promise<KernelProofOutput<PrivateKernelCircuitPublicInputs>> {
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
     const previousKernelData = new PrivateKernelData(
@@ -167,7 +168,13 @@ export class KernelProver {
     );
 
     return this.proofCreator.createProofReset(
-      await buildPrivateKernelResetInputs(executionStack, previousKernelData, noteHashLeafIndexMap, this.oracle),
+      await buildPrivateKernelResetInputs(
+        executionStack,
+        previousKernelData,
+        noteHashLeafIndexMap,
+        noteHashNullifierCounterMap,
+        this.oracle,
+      ),
     );
   }
 
