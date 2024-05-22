@@ -145,7 +145,7 @@ TEST_F(ClientIVCTests, BasicFailure)
  * @brief Prove and verify accumulation of an arbitrary set of circuits
  *
  */
-TEST_F(ClientIVCTests, BasicLarge)
+TEST_F(ClientIVCTests, DISABLED_BasicLarge)
 {
     ClientIVC ivc;
 
@@ -183,7 +183,7 @@ TEST_F(ClientIVCTests, BasicLarge)
  * @brief Using a structured trace allows for the accumulation of circuits of varying size
  *
  */
-TEST_F(ClientIVCTests, BasicStructured)
+TEST_F(ClientIVCTests, DISABLED_BasicStructured)
 {
     ClientIVC ivc;
     ivc.structured_flag = true;

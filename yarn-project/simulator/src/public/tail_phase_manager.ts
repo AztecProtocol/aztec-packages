@@ -55,8 +55,6 @@ export class TailPhaseManager extends AbstractPhaseManager {
         throw err;
       },
     );
-    // commit the state updates from this transaction
-    await this.publicStateDB.commit();
 
     // Return a tail proving request
     const request: PublicKernelRequest = {
@@ -70,7 +68,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
       finalKernelOutput,
       publicKernelProof: makeEmptyProof(),
       revertReason: undefined,
-      returnValues: undefined,
+      returnValues: [],
       gasUsed: undefined,
     };
   }
