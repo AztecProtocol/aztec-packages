@@ -1,6 +1,5 @@
 import {
   type PXE,
-  TxExecutionRequest,
   randomContractArtifact,
   randomContractInstanceWithAddress,
   randomDeployedContract,
@@ -9,15 +8,11 @@ import {
   AztecAddress,
   CompleteAddress,
   Fr,
-  FunctionSelector,
   INITIAL_L2_BLOCK_NUM,
   Point,
   PublicKeys,
-  TxContext,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { FunctionType } from '@aztec/foundation/abi';
-import { makeFunctionCall } from '@aztec/simulator';
 
 export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => {
   describe(testName, () => {
