@@ -43,8 +43,6 @@ contract Rollup is IRollup {
   // See https://github.com/AztecProtocol/aztec-packages/issues/1614
   uint256 public lastWarpedBlockTs;
 
-  error PUBLIC_INPUT_COUNT_INVALID(uint256 expected, uint256 actual);
-
   constructor(IRegistry _registry, IAvailabilityOracle _availabilityOracle, IERC20 _gasToken) {
     verifier = new MockVerifier();
     REGISTRY = _registry;
@@ -56,7 +54,7 @@ contract Rollup is IRollup {
   }
 
   function setVerifier(address _verifier) external override(IRollup) {
-    // TODO check auth
+    // TODO remove, only needed for testing
     verifier = IVerifier(_verifier);
   }
 
@@ -83,7 +81,9 @@ contract Rollup is IRollup {
 
     bytes32[] memory publicInputs = new bytes32[](40);
     publicInputs[0] = _archive;
-    // TODO why is this +1?
+    // this is the _next_ available leaf in the archive tree
+    // normally this should be equal to the block number (since leaves are 0-indexed and blocks 1-indexed)
+    // but in yarn-project/merkle-tree/src/new_tree.ts we prefill the tree so that block N is in leaf N
     publicInputs[1] = bytes32(header.globalVariables.blockNumber + 1);
 
     bytes32[22] memory headerFields = HeaderLib.toFields(header);
@@ -91,12 +91,13 @@ contract Rollup is IRollup {
       publicInputs[i + 2] = headerFields[i];
     }
 
+    // the block proof is recursive, which means it comes with an aggregation object
+    // this snippet copies it into the public inputs needed for verification
+    // it also guards against empty _aggregationObject used with mocked proofs
     for (uint256 i = 0; i < 16 && i * 32 < _aggregationObject.length; i++) {
       publicInputs[i + 24] = bytes32(_aggregationObject[i * 32:(i + 1) * 32]);
     }
 
-    // @todo @benesjan We will need `nextAvailableLeafIndex` of archive to verify the proof. This value is equal to
-    // current block number which is stored in the header (header.globalVariables.blockNumber).
     if (!verifier.verify(_proof, publicInputs)) {
       revert Errors.Rollup__InvalidProof();
     }
