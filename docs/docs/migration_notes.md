@@ -6,7 +6,80 @@ keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## 0.42.0
+
+## Public execution migrated to the Aztec Virtual Machine
+
+**What does this mean for me?**
+
+It should be mostly transparent, with a few caveats:
+
+- Not all Noir blackbox functions are supported by the AVM. Only `Sha256`, `PedersenHash`, `Poseidon2Permutation`, `Keccak256`, and `ToRadix` are supported.
+- For public functions, `context.nullifier_exists(...)` will now also consider pending nullifiers.
+- The following methods of `PublicContext` are not supported anymore: `fee_recipient`, `fee_per_da_gas`, `fee_per_l2_gas`, `call_public_function_no_args`, `static_call_public_function_no_args`, `delegate_call_public_function_no_args`, `call_public_function_with_packed_args`, `set_return_hash`, `finish`. However, in terms of functionality, the new context's interface should be equivalent (unless otherwise specified in this list).
+- Delegate calls are not yet supported in the AVM.
+- If you have types with custom serialization that you use across external contracts calls, you might need to modify its serialization to match how Noir would serialize it. This is a known problem unrelated to the AVM, but triggered more often when using it.
+- A few error messages might change format, so you might need to change your test assertions.
+
+**Internal details**
+
+Before this change, public bytecode was executed using the same simulator as in private: the ACIR simulator (and internally, the Brillig VM). On the Aztec.nr side, public functions accessed the context through `PublicContext`.
+
+After this change, public bytecode will be run using the AVM simulator (the simulator for our upcoming zkVM). This bytecode is generated from Noir contracts in two steps: First, `nargo compile` produces an artifact which has Brillig bytecode for public functions, just as it did before. Second: the `avm-transpiler` takes that artifact, and it transpiles Brillig bytecode to AVM bytecode. This final artifact can now be deployed and used with the new public runtime.
+
+On the Aztec.nr side, public functions keep accessing the context using `PublicContext` but the underlying implementation is switch with what formerly was the `AvmContext`.
+
 ## 0.41.0
+
+### [Aztec.nr] State variable rework
+
+Aztec.nr state variables have been reworked so that calling private functions in public and vice versa is detected as an error during compilation instead of at runtime. This affects users in a number of ways:
+
+#### New compile time errors
+
+It used to be that calling a state variable method only available in public from a private function resulted in obscure runtime errors in the form of a failed `_is_some` assertion.
+
+Incorrect usage of the state variable methods now results in compile time errors. For example, given the following function:
+
+```rust
+#[aztec(public)]
+fn get_decimals() -> pub u8 {
+    storage.decimals.read_private()
+}
+```
+
+The compiler will now error out with
+
+```
+Expected type SharedImmutable<_, &mut PrivateContext>, found type SharedImmutable<u8, &mut PublicContext>
+```
+
+The key component is the second generic parameter: the compiler expects a `PrivateContext` (becuse `read_private` is only available during private execution), but a `PublicContext` is being used instead (because of the `#[aztec(public)]` attribute).
+
+#### Generic parameters in `Storage`
+
+The `Storage` struct (the one marked with `#[aztec(storage)]`) should now be generic over a `Context` type, which matches the new generic parameter of all Aztec.nr libraries. This parameter is always the last generic parameter.
+
+This means that, without any additional features, we'd end up with some extra boilerplate when declaring this struct:
+
+```diff
+#[aztec(storage)]
+- struct Storage {
++ struct Storage<Context> {
+-   nonce_for_burn_approval: PublicMutable<Field>,
++   nonce_for_burn_approval: PublicMutable<Field, Context>,
+-   portal_address: SharedImmutable<EthAddress>,
++   portal_address: SharedImmutable<EthAddress, Context>,
+-   approved_action: Map<Field, PublicMutable<bool>>,
++   approved_action: Map<Field, PublicMutable<bool, Context>, Context>,
+}
+```
+
+Because of this, the `#[aztec(storage)]` macro has been updated to **automatically inject** this `Context` generic parameter. The storage declaration does not require any changes.
+
+#### Removal of `Context`
+
+The `Context` type no longer exists. End users typically didn't use it, but if imported it needs to be deleted.
 
 ### [Aztec.nr] View functions and interface navigation
 
@@ -39,8 +112,8 @@ Additionally, the Noir LSP will now honor "go to definitions" requests for contr
 
 ### [Aztec.js] Simulate changes
 
-* `.simulate()` now tracks closer the process performed by `.send().wait()`, specifically going through the account contract entrypoint instead of directly calling the intended function.
-* `wallet.viewTx(...)` has been renamed to `wallet.simulateUnconstrained(...)` to better clarify what it does.
+- `.simulate()` now tracks closer the process performed by `.send().wait()`, specifically going through the account contract entrypoint instead of directly calling the intended function.
+- `wallet.viewTx(...)` has been renamed to `wallet.simulateUnconstrained(...)` to better clarify what it does.
 
 ### [Aztec.nr] Keys: Token note now stores an owner master nullifying public key hash instead of an owner address
 
@@ -67,7 +140,6 @@ Creating a token note and adding it to storage now looks like this:
 ```
 
 Computing the nullifier similarly changes to use this master nullifying public key hash.
-
 
 ## 0.40.0
 

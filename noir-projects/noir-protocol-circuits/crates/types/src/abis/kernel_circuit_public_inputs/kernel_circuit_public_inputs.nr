@@ -18,7 +18,6 @@ struct KernelCircuitPublicInputs {
 }
 
 impl KernelCircuitPublicInputs {
-
     pub fn compute_transaction_fee(self) -> Field {
         let gas_fees = self.constants.global_variables.gas_fees;
         let inclusion_fee = self.constants.tx_context.gas_settings.inclusion_fee;
