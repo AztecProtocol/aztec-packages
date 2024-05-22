@@ -176,26 +176,21 @@ TEST_F(AcirIntegrationTests, FoldAndVerifyProgramStack)
         auto circuit =
             acir_format::create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): On the first call to accumulate, the input
+        // circuit generated from acir has no goblin ecc ops prior to the call to merge(), so the commitment to the new
+        // contribution (C_t_shift) will be the point at infinity. (Some ops are added in 'add_gates_to_ensure...' but
+        // not until instance construction which comes later).
+        MockCircuits::construct_goblin_ecc_op_circuit(circuit); // Add some arbitrary goblin ECC ops
+
         ivc.accumulate(circuit);
 
-        info("Check");
         CircuitChecker::check(circuit);
-
-        info("P & V");
-        EXPECT_TRUE(prove_and_verify_honk<Flavor>(ivc.prover_instance));
-
-        info("num gates = ", circuit.get_num_gates());
-        info("circuit size = ", ivc.prover_instance->proving_key.circuit_size);
+        // EXPECT_TRUE(prove_and_verify_honk<Flavor>(ivc.prover_instance));
 
         program_stack.pop_back();
     }
 
-    // EXPECT_TRUE(ivc.prove_and_verify());
-
-    // auto proof = ivc.prove();
-
-    // auto verifier_inst = std::make_shared<VerifierInstance>(ivc.instance_vk);
-    // return ivc.verify(proof, { ivc.verifier_accumulator, verifier_inst });
+    EXPECT_TRUE(ivc.prove_and_verify());
 }
 
 TEST_F(AcirIntegrationTests, UpdateAcirCircuit)
