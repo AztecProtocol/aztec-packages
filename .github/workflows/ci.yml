@@ -32,6 +32,7 @@ jobs:
       username: ${{ github.event.pull_request.user.login || github.actor }}
       runner_type: builder-x86
     secrets: inherit
+
   build:
     needs: setup
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
@@ -73,7 +74,7 @@ jobs:
         timeout-minutes: 40
         uses: ./.github/ensure-tester-with-images
         with:
-          runner_type: ${{ matrix.test == 'client-prover-integration' && '32core-tester-x86' || '8core-tester-x86' }}
+          runner_type: ${{ contains(matrix.test, 'prover') && '64core-tester-x86' || '8core-tester-x86' }}
           builder_type: builder-x86
           # these are copied to the tester and expected by the earthly command below
           # if they fail to copy, it will try to build them on the tester and fail
@@ -102,7 +103,7 @@ jobs:
         uses: ./.github/ensure-tester-with-images
         timeout-minutes: 40
         with:
-          runner_type: 16core-tester-x86
+          runner_type: ${{ contains(matrix.test, 'prover') && '64core-tester-x86' || '16core-tester-x86' }}
           builder_type: builder-x86
           # these are copied to the tester and expected by the earthly command below
           # if they fail to copy, it will try to build them on the tester and fail
@@ -120,8 +121,39 @@ jobs:
               --no-output \
               +${{ matrix.test }}
 
+  acir-bench:
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+      - name: Setup and Test
+        uses: ./.github/ensure-tester-with-images
+        timeout-minutes: 40
+        with:
+          runner_type: 16core-tester-x86
+          builder_type: builder-x86
+          # these are copied to the tester and expected by the earthly command below
+          # if they fail to copy, it will try to build them on the tester and fail
+          builder_images_to_copy: aztecprotocol/barretenberg-acir-benches:${{ env.GIT_COMMIT }}
+          # command to produce the images in case they don't exist
+          builder_command: cd noir && ../scripts/earthly-ci +export-bench-acir-bb
+          run: |
+            set -eux
+            cd ./noir/
+            export FORCE_COLOR=1
+            export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
+            ../scripts/earthly-ci -P \
+              --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+              --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+              --no-output \
+              +bench-publish-acir-bb         
+
   bench-summary:
-    needs: bench-e2e
+    needs: 
+      - acir-bench
+      - bench-e2e
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -134,37 +166,33 @@ jobs:
           concurrency_key: build-x86
       - name: "Build and upload bench aggregate file"
         working-directory: ./yarn-project/scripts
-        run: earthly-ci -P --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} +bench-aggregate
-      - name: "Download base benchmark"
+        run: |
+          earthly-ci -P \
+            --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            +bench-aggregate
+      - name: "Download base benchmark and package into earthly"
         if: ${{ github.event_name == 'pull_request' }}
-        run: scripts/logs/download_base_benchmark_from_s3.sh
+        run: |
+          # Download the base benchmark locally (requires AWS creds and .git history)
+          mkdir -p $BENCH_FOLDER
+          ./scripts/logs/download_base_benchmark_from_s3.sh
+          # Package it into an earthly artifact to read from bench-comment
+          earthly-ci -P ./scripts/logs+pack-base-benchmark --LOCAL_BENCH_FOLDER=./tmp/bench
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          BENCH_FOLDER: ./yarn-project/scripts/bench
+          BENCH_FOLDER: "./scripts/logs/tmp/bench"
           PULL_REQUEST: "${{ github.event.pull_request.number }}"
       - name: "Generate summary comment if pull request"
         if: ${{ github.event_name == 'pull_request' }}
         working-directory: ./yarn-project/scripts
-        run: earthly-ci -P --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} +bench-comment
-
-  noir-format:
-    needs: setup
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    steps:
-      - uses: actions/checkout@v4
-        with: { ref: "${{ env.GIT_COMMIT }}" }
-      - uses: ./.github/ci-setup-action
-        with:
-          concurrency_key: noir-format-x86
-      - name: "Format Noir"
-        working-directory: ./noir/
-        timeout-minutes: 40
-        run: earthly-ci --no-output ./+format
-      - name: "Format noir-projects"
-        working-directory: ./noir-projects/
-        timeout-minutes: 40
-        run: earthly-ci --no-output ./+format
+        run: |
+          earthly-ci -P \
+            --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
+            +bench-comment
 
   # barretenberg (prover) native and AVM (public VM) tests
   # only ran on x86 for resource reasons (memory intensive)
@@ -199,6 +227,24 @@ jobs:
         timeout-minutes: 40
         run: earthly-ci --no-output ./+test
 
+  noir-format:
+    needs: setup
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: noir-format-x86
+      - name: "Format Noir"
+        working-directory: ./noir/
+        timeout-minutes: 40
+        run: earthly-ci --no-output ./+format
+      - name: "Format noir-projects"
+        working-directory: ./noir-projects/
+        timeout-minutes: 40
+        run: earthly-ci --no-output ./+format
+
   noir-test:
     needs: setup
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
@@ -208,8 +254,20 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: noir-x86
-      - name: "Test Noir JS packages"
+      - name: "Test Nargo"
         run: earthly-ci --no-output ./noir+test
+
+  noir-examples:
+    needs: setup
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: noir-examples-x86
+      - name: "Test Noir examples"
+        run: earthly-ci --no-output ./noir+examples
 
   noir-packages-test:
     needs: setup
@@ -357,7 +415,7 @@ jobs:
           concurrency_key: docs-preview-x86
       - name: "Docs Preview"
         timeout-minutes: 40
-        run: earthly-ci --no-output ./docs/+deploy-preview --PR=${{ github.event.number }} --AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
+        run: earthly-ci --no-output ./docs/+deploy-preview --ENV=staging --PR=${{ github.event.number }} --AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
 
   bb-bench:
     runs-on: ubuntu-latest
@@ -420,20 +478,20 @@ jobs:
   merge-check:
     runs-on: ubuntu-latest
     needs:
-      [
-        e2e,
-        bb-native-tests,
-        bb-bench,
-        yarn-project-formatting,
-        yarn-project-test,
-        prover-client-test,
-        bb-js-test,
-        barretenberg-acir-tests-bb-js,
-        barretenberg-acir-tests-bb,
-        barretenberg-acir-tests-sol,
-        noir-test,
-        noir-packages-test,
-      ]
+      - setup
+      - e2e
+      - bb-native-tests
+      - acir-bench
+      - bb-bench
+      - yarn-project-formatting
+      - yarn-project-test
+      - prover-client-test
+      - bb-js-test
+      - barretenberg-acir-tests-bb-js
+      - barretenberg-acir-tests-bb
+      - barretenberg-acir-tests-sol
+      - noir-test
+      - noir-packages-test
     if: always()
     steps:
       - run: |

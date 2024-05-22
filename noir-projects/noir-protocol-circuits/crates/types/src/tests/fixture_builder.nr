@@ -8,9 +8,10 @@ use crate::{
     kernel_data::KernelData, public_kernel_data::PublicKernelData, max_block_number::MaxBlockNumber,
     private_kernel_data::PrivateKernelData, note_hash::{NoteHash, ScopedNoteHash},
     nullifier::{Nullifier, ScopedNullifier},
-    nullifier_key_validation_request::{ScopedNullifierKeyValidationRequest, NullifierKeyValidationRequest},
+    key_validation_request::{ScopedKeyValidationRequest, KeyValidationRequest},
+    private_call_request::{PrivateCallRequest, ScopedPrivateCallRequest},
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-    read_request::{ReadRequest, ScopedReadRequest}, side_effect::SideEffect,
+    read_request::{ReadRequest, ScopedReadRequest}, log_hash::{LogHash, NoteLogHash},
     validation_requests::{ValidationRequests, ValidationRequestsBuilder}
 },
     address::{AztecAddress, EthAddress},
@@ -19,8 +20,8 @@ use crate::{
     MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-    MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-    VK_TREE_HEIGHT, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
+    MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX, VK_TREE_HEIGHT,
+    MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 },
     hash::silo_nullifier, header::Header,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
@@ -44,14 +45,16 @@ struct FixtureBuilder {
     new_note_hashes: BoundedVec<ScopedNoteHash, MAX_NEW_NOTE_HASHES_PER_TX>,
     new_nullifiers: BoundedVec<ScopedNullifier, MAX_NEW_NULLIFIERS_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
-    encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_TX>,
-    unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_TX>,
+    note_encrypted_logs_hashes: BoundedVec<NoteLogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
+    encrypted_logs_hashes: BoundedVec<LogHash, MAX_ENCRYPTED_LOGS_PER_TX>,
+    unencrypted_logs_hashes: BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
+    note_encrypted_logs_hash: Field,
     encrypted_logs_hash: Field,
     unencrypted_logs_hash: Field,
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
     public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
-    private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
+    private_call_requests: BoundedVec<ScopedPrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
     gas_used: Gas,
     non_revertible_gas_used: Gas,
@@ -61,7 +64,7 @@ struct FixtureBuilder {
     note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     nullifier_non_existent_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
-    nullifier_key_validation_requests: BoundedVec<ScopedNullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
+    key_validation_requests: BoundedVec<ScopedKeyValidationRequest, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
     public_data_reads: BoundedVec<PublicDataRead, MAX_PUBLIC_DATA_READS_PER_TX>,
 
     // Proof.
@@ -81,7 +84,7 @@ struct FixtureBuilder {
 
 impl FixtureBuilder {
     pub fn new() -> Self {
-        let tx_context = TxContext { chain_id: 1, version: 0, gas_settings: GasSettings::empty() };
+        let tx_context = TxContext { chain_id: fixtures::CHAIN_ID, version: fixtures::VERSION, gas_settings: GasSettings::empty() };
 
         FixtureBuilder {
             contract_address: fixtures::contracts::parent_contract.address,
@@ -92,20 +95,22 @@ impl FixtureBuilder {
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
             new_l2_to_l1_msgs: BoundedVec::new(),
+            note_encrypted_logs_hashes: BoundedVec::new(),
             encrypted_logs_hashes: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
+            note_encrypted_logs_hash: 0,
             encrypted_logs_hash: 0,
             unencrypted_logs_hash: 0,
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
             public_data_update_requests: BoundedVec::new(),
-            private_call_stack: BoundedVec::new(),
+            private_call_requests: BoundedVec::new(),
             public_call_stack: BoundedVec::new(),
             max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_non_existent_read_requests: BoundedVec::new(),
-            nullifier_key_validation_requests: BoundedVec::new(),
+            key_validation_requests: BoundedVec::new(),
             public_data_reads: BoundedVec::new(),
             proof: NestedRecursiveProof::empty(),
             vk: VerificationKey::empty(),
@@ -135,11 +140,10 @@ impl FixtureBuilder {
             new_note_hashes: self.new_note_hashes,
             new_nullifiers: self.new_nullifiers,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs,
+            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes,
             encrypted_logs_hashes: self.encrypted_logs_hashes,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes,
-            encrypted_log_preimages_length: self.encrypted_log_preimages_length,
-            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
-            private_call_stack: self.private_call_stack,
+            private_call_stack: self.private_call_requests,
             public_call_stack: self.public_call_stack
         };
         public_inputs.finish()
@@ -150,10 +154,9 @@ impl FixtureBuilder {
             new_note_hashes: self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash),
             new_nullifiers: self.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier),
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
+            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage,
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
-            encrypted_log_preimages_length: self.encrypted_log_preimages_length,
-            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             public_data_update_requests: self.public_data_update_requests.storage,
             public_call_stack: self.public_call_stack.storage,
             gas_used: self.gas_used
@@ -165,6 +168,7 @@ impl FixtureBuilder {
             new_note_hashes: self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value),
             new_nullifiers: self.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier.value),
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
+            note_encrypted_logs_hash: self.note_encrypted_logs_hash,
             encrypted_logs_hash: self.encrypted_logs_hash,
             unencrypted_logs_hash: self.unencrypted_logs_hash,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
@@ -180,7 +184,7 @@ impl FixtureBuilder {
             note_hash_read_requests: self.note_hash_read_requests,
             nullifier_read_requests: self.nullifier_read_requests,
             nullifier_non_existent_read_requests: self.nullifier_non_existent_read_requests,
-            nullifier_key_validation_requests: self.nullifier_key_validation_requests,
+            key_validation_requests: self.key_validation_requests,
             public_data_reads: self.public_data_reads
         };
         validation_requests.finish()
@@ -275,12 +279,24 @@ impl FixtureBuilder {
         self.new_note_hashes.push(NoteHash { value, counter: self.next_counter() }.scope(0, self.storage_contract_address));
     }
 
-    pub fn append_new_note_hashes(&mut self, num_new_note_hashes: u64) {
+    pub fn add_broadcast_new_note_hash(&mut self, value: Field) {
+        self.new_note_hashes.push(NoteHash { value, counter: self.next_counter() }.scope(0, self.storage_contract_address));
+        self.note_encrypted_logs_hashes.push(
+            NoteLogHash { value: value + 1, counter: self.next_counter(), length: 64, note_hash_counter: self.counter - 2 }
+        );
+        self.encrypted_log_preimages_length += 64;
+    }
+
+    pub fn append_new_note_hashes(&mut self, num_new_note_hashes: u64, broadcast: bool) {
         let index_offset = self.new_note_hashes.len();
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             if i < num_new_note_hashes {
                 let mocked_value = self.get_mocked_note_hash_value(index_offset + i);
-                self.add_new_note_hash(mocked_value);
+                if (broadcast) {
+                    self.add_broadcast_new_note_hash(mocked_value);
+                } else {
+                    self.add_new_note_hash(mocked_value);
+                }
             }
         }
     }
@@ -395,26 +411,22 @@ impl FixtureBuilder {
         new_read_request_index
     }
 
-    pub fn add_request_for_nullifier_key_validation(
-        &mut self,
-        master_nullifier_public_key: GrumpkinPoint,
-        app_nullifier_secret_key: Field
-    ) -> u64 {
-        let new_request_index = self.nullifier_key_validation_requests.len();
-        let request = NullifierKeyValidationRequest { master_nullifier_public_key, app_nullifier_secret_key };
-        self.nullifier_key_validation_requests.push(request.scope(self.storage_contract_address));
+    pub fn add_request_for_key_validation(&mut self, pk_m: GrumpkinPoint, sk_app: Field) -> u64 {
+        let new_request_index = self.key_validation_requests.len();
+        let request = KeyValidationRequest { pk_m, sk_app };
+        self.key_validation_requests.push(request.scope(self.storage_contract_address));
 
         new_request_index
     }
 
     pub fn set_encrypted_logs(&mut self, hash: Field, preimages_length: Field) {
-        let side_effect = SideEffect { value: hash, counter: self.next_counter() };
+        let side_effect = LogHash { value: hash, counter: self.next_counter(), length: preimages_length };
         self.encrypted_logs_hashes.push(side_effect);
         self.encrypted_log_preimages_length += preimages_length;
     }
 
     pub fn set_unencrypted_logs(&mut self, hash: Field, preimages_length: Field) {
-        let side_effect = SideEffect { value: hash, counter: self.next_counter() };
+        let side_effect = LogHash { value: hash, counter: self.next_counter(), length: preimages_length };
         self.unencrypted_logs_hashes.push(side_effect);
         self.unencrypted_log_preimages_length += preimages_length;
     }
@@ -430,8 +442,17 @@ impl FixtureBuilder {
     }
 
     pub fn push_private_call_request(&mut self, hash: Field, is_delegate_call: bool) {
-        let call_stack_item = self.generate_call_request(hash, is_delegate_call);
-        self.private_call_stack.push(call_stack_item);
+        let mut caller_context = CallerContext::empty();
+        if is_delegate_call {
+            caller_context.msg_sender = fixtures::MSG_SENDER;
+            caller_context.storage_contract_address = self.contract_address;
+        }
+        let start_counter = self.next_counter();
+        let end_counter = start_counter + 10;
+        self.counter = end_counter;
+        self.private_call_requests.push(
+            PrivateCallRequest { hash, caller_context, start_side_effect_counter: start_counter, end_side_effect_counter: end_counter }.scope(self.contract_address)
+        );
     }
 
     pub fn push_public_call_request(&mut self, hash: Field, is_delegate_call: bool) {
@@ -507,20 +528,22 @@ impl Empty for FixtureBuilder {
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
             new_l2_to_l1_msgs: BoundedVec::new(),
+            note_encrypted_logs_hashes: BoundedVec::new(),
             encrypted_logs_hashes: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
+            note_encrypted_logs_hash: 0,
             encrypted_logs_hash: 0,
             unencrypted_logs_hash: 0,
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
             public_data_update_requests: BoundedVec::new(),
-            private_call_stack: BoundedVec::new(),
+            private_call_requests: BoundedVec::new(),
             public_call_stack: BoundedVec::new(),
             max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_non_existent_read_requests: BoundedVec::new(),
-            nullifier_key_validation_requests: BoundedVec::new(),
+            key_validation_requests: BoundedVec::new(),
             public_data_reads: BoundedVec::new(),
             proof: NestedRecursiveProof::empty(),
             vk: VerificationKey::empty(),

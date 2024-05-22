@@ -3,8 +3,7 @@ contract StatefulTest {
     use dep::aztec::prelude::{PrivateContext, NoteHeader, Map, PublicMutable, PrivateSet, AztecAddress, FunctionSelector};
     use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::{VALUE_NOTE_LEN, ValueNote}};
     use dep::aztec::{
-        deploy::deploy_contract as aztec_deploy_contract,
-        context::{PublicContext, Context, gas::GasOpts},
+        deploy::deploy_contract as aztec_deploy_contract, context::{PublicContext, gas::GasOpts},
         oracle::get_contract_instance::get_contract_instance, initializer::assert_is_initialized_private
     };
 
@@ -37,7 +36,7 @@ contract StatefulTest {
     fn create_note(owner: AztecAddress, value: Field) {
         if (value != 0) {
             let loc = storage.notes.at(owner);
-            increment(context, loc, value, owner);
+            increment(loc, value, owner);
         }
     }
 
@@ -46,8 +45,7 @@ contract StatefulTest {
     fn create_note_no_init_check(owner: AztecAddress, value: Field) {
         if (value != 0) {
             let loc = storage.notes.at(owner);
-            // TODO (#6312): This will break with key rotation. Fix this. Will not be able to spend / increment any notes after rotating key.
-            increment(context, loc, value, owner);
+            increment(loc, value, owner);
         }
     }
 
@@ -57,10 +55,10 @@ contract StatefulTest {
         let sender = context.msg_sender();
 
         let sender_notes = storage.notes.at(sender);
-        decrement(context, sender_notes, amount, sender);
+        decrement(sender_notes, amount, sender);
 
         let recipient_notes = storage.notes.at(recipient);
-        increment(context, recipient_notes, amount, recipient);
+        increment(recipient_notes, amount, recipient);
     }
 
     #[aztec(private)]
@@ -69,10 +67,10 @@ contract StatefulTest {
         let sender = context.msg_sender();
 
         let sender_notes = storage.notes.at(sender);
-        decrement(context, sender_notes, amount, sender);
+        decrement(sender_notes, amount, sender);
 
         let recipient_notes = storage.notes.at(recipient);
-        increment(context, recipient_notes, amount, recipient);
+        increment(recipient_notes, amount, recipient);
     }
 
     #[aztec(public)]

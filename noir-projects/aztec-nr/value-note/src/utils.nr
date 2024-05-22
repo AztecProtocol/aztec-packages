@@ -2,24 +2,24 @@ use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateSet, NoteGetterOp
 use dep::aztec::note::note_getter_options::SortOrder;
 use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
 use dep::aztec::keys::getters::{get_npk_m_hash, get_ivpk_m};
-use crate::{filter::filter_notes_min_sum, value_note::{ValueNote, VALUE_NOTE_LEN}};
+use crate::{filter::filter_notes_min_sum, value_note::{ValueNote, VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN}};
 
 // Sort the note values (0th field) in descending order.
 // Pick the fewest notes whose sum is equal to or greater than `amount`.
-pub fn create_note_getter_options_for_decreasing_balance(amount: Field) -> NoteGetterOptions<ValueNote, VALUE_NOTE_LEN, Field> {
+pub fn create_note_getter_options_for_decreasing_balance(amount: Field) -> NoteGetterOptions<ValueNote, VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN, Field> {
     NoteGetterOptions::with_filter(filter_notes_min_sum, amount).sort(ValueNote::properties().value, SortOrder.DESC)
 }
 
 // Creates a new note for the recipient.
 // Inserts it to the recipient's set of notes.
 pub fn increment(
-    mut context: PrivateContext,
-    balance: PrivateSet<ValueNote>,
+    balance: PrivateSet<ValueNote, &mut PrivateContext>,
     amount: Field,
     recipient: AztecAddress
 ) {
-    let recipient_npk_m_hash = get_npk_m_hash(&mut context, recipient);
-    let recipient_ivpk_m = get_ivpk_m(&mut context, recipient);
+    let context = balance.context;
+    let recipient_npk_m_hash = get_npk_m_hash(context, recipient);
+    let recipient_ivpk_m = get_ivpk_m(context, recipient);
 
     let mut note = ValueNote::new(amount, recipient_npk_m_hash);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
@@ -31,12 +31,11 @@ pub fn increment(
 // If the value of the removed notes exceeds the requested `amount`, create a new note containing the excess value, so that exactly `amount` is removed.
 // Fail if the sum of the selected notes is less than the amount.
 pub fn decrement(
-    mut context: PrivateContext,
-    balance: PrivateSet<ValueNote>,
+    balance: PrivateSet<ValueNote, &mut PrivateContext>,
     amount: Field,
     owner: AztecAddress
 ) {
-    let sum = decrement_by_at_most(context, balance, amount, owner);
+    let sum = decrement_by_at_most(balance, amount, owner);
     assert(sum == amount, "Balance too low");
 }
 
@@ -49,18 +48,30 @@ pub fn decrement(
 //
 // It returns the decremented amount, which should be less than or equal to max_amount.
 pub fn decrement_by_at_most(
-    mut context: PrivateContext,
-    balance: PrivateSet<ValueNote>,
+    balance: PrivateSet<ValueNote, &mut PrivateContext>,
     max_amount: Field,
     owner: AztecAddress
 ) -> Field {
     let options = create_note_getter_options_for_decreasing_balance(max_amount);
     let opt_notes = balance.get_notes(options);
 
+    let owner_npk_m_hash = get_npk_m_hash(balance.context, owner);
+
     let mut decremented = 0;
     for i in 0..opt_notes.len() {
         if opt_notes[i].is_some() {
-            decremented += destroy_note(context, balance, owner, opt_notes[i].unwrap_unchecked());
+            let note = opt_notes[i].unwrap_unchecked();
+
+            // This is similar to destroy_note, except we only compute the owner_npk_m_hash once instead of doing it in
+            // each loop iteration.
+
+            // Ensure the note is actually owned by the owner (to prevent user from generating a valid proof while
+            // spending someone else's notes).
+            // TODO (#6312): This will break with key rotation. Fix this. Will not be able to pass this after rotating keys.
+            assert(note.npk_m_hash.eq(owner_npk_m_hash));
+            decremented += note.value;
+
+            balance.remove(note);
         }
     }
 
@@ -70,7 +81,7 @@ pub fn decrement_by_at_most(
         change_value = decremented - max_amount;
         decremented -= change_value;
     }
-    increment(context, balance, change_value, owner);
+    increment(balance, change_value, owner);
 
     decremented
 }
@@ -78,14 +89,13 @@ pub fn decrement_by_at_most(
 // Removes the note from the owner's set of notes.
 // Returns the value of the destroyed note.
 pub fn destroy_note(
-    mut context: PrivateContext,
-    balance: PrivateSet<ValueNote>,
+    balance: PrivateSet<ValueNote, &mut PrivateContext>,
     owner: AztecAddress,
     note: ValueNote
 ) -> Field {
     // Ensure the note is actually owned by the owner (to prevent user from generating a valid proof while
     // spending someone else's notes).
-    let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
+    let owner_npk_m_hash = get_npk_m_hash(balance.context, owner);
 
     // TODO (#6312): This will break with key rotation. Fix this. Will not be able to pass this after rotating keys.
     assert(note.npk_m_hash.eq(owner_npk_m_hash));

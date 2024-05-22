@@ -1,7 +1,7 @@
 use crate::{
     abis::{
     call_request::CallRequest, gas::Gas, note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
-    side_effect::SideEffect
+    private_call_request::ScopedPrivateCallRequest, log_hash::{LogHash, NoteLogHash}
 },
     traits::{Serialize, Deserialize, Eq, Empty}, messaging::l2_to_l1_message::ScopedL2ToL1Message,
     utils::reader::Reader
@@ -9,7 +9,7 @@ use crate::{
 use crate::constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
-    MAX_UNENCRYPTED_LOGS_PER_TX, PRIVATE_ACCUMULATED_DATA_LENGTH
+    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, PRIVATE_ACCUMULATED_DATA_LENGTH
 };
 
 struct PrivateAccumulatedData {
@@ -17,15 +17,11 @@ struct PrivateAccumulatedData {
     new_nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
     new_l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
 
-    encrypted_logs_hashes: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX],
-    unencrypted_logs_hashes: [SideEffect; MAX_UNENCRYPTED_LOGS_PER_TX],
+    note_encrypted_logs_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
+    encrypted_logs_hashes: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX],
+    unencrypted_logs_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
 
-    // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
-    // variable-length data.
-    encrypted_log_preimages_length: Field,
-    unencrypted_log_preimages_length: Field,
-
-    private_call_stack: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
+    private_call_stack: [ScopedPrivateCallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
     public_call_stack: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
 }
 
@@ -45,6 +41,10 @@ impl Serialize<PRIVATE_ACCUMULATED_DATA_LENGTH> for PrivateAccumulatedData {
       fields.extend_from_array(self.new_l2_to_l1_msgs[i].serialize());
     }
 
+    for i in 0..MAX_NOTE_ENCRYPTED_LOGS_PER_TX {
+      fields.extend_from_array(self.note_encrypted_logs_hashes[i].serialize());
+    }
+
     for i in 0..MAX_ENCRYPTED_LOGS_PER_TX {
       fields.extend_from_array(self.encrypted_logs_hashes[i].serialize());
     }
@@ -52,9 +52,6 @@ impl Serialize<PRIVATE_ACCUMULATED_DATA_LENGTH> for PrivateAccumulatedData {
     for i in 0..MAX_UNENCRYPTED_LOGS_PER_TX {
       fields.extend_from_array(self.unencrypted_logs_hashes[i].serialize());
     }
-
-    fields.push(self.encrypted_log_preimages_length);
-    fields.push(self.unencrypted_log_preimages_length);
 
     for i in 0..MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX {
       fields.extend_from_array(self.private_call_stack[i].serialize());
@@ -78,11 +75,10 @@ impl Deserialize<PRIVATE_ACCUMULATED_DATA_LENGTH> for PrivateAccumulatedData {
         new_note_hashes: reader.read_struct_array(ScopedNoteHash::deserialize, [ScopedNoteHash::empty(); MAX_NEW_NOTE_HASHES_PER_TX]),
         new_nullifiers: reader.read_struct_array(ScopedNullifier::deserialize, [ScopedNullifier::empty(); MAX_NEW_NULLIFIERS_PER_TX]),
         new_l2_to_l1_msgs: reader.read_struct_array(ScopedL2ToL1Message::deserialize, [ScopedL2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_TX]),
-        encrypted_logs_hashes: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_ENCRYPTED_LOGS_PER_TX]),
-        unencrypted_logs_hashes: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_UNENCRYPTED_LOGS_PER_TX]),
-        encrypted_log_preimages_length: reader.read(),
-        unencrypted_log_preimages_length: reader.read(),
-        private_call_stack: reader.read_struct_array(CallRequest::deserialize, [CallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX]),
+        note_encrypted_logs_hashes: reader.read_struct_array(NoteLogHash::deserialize, [NoteLogHash::empty(); MAX_NOTE_ENCRYPTED_LOGS_PER_TX]),
+        encrypted_logs_hashes: reader.read_struct_array(LogHash::deserialize, [LogHash::empty(); MAX_ENCRYPTED_LOGS_PER_TX]),
+        unencrypted_logs_hashes: reader.read_struct_array(LogHash::deserialize, [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX]),
+        private_call_stack: reader.read_struct_array(ScopedPrivateCallRequest::deserialize, [ScopedPrivateCallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX]),
         public_call_stack: reader.read_struct_array(CallRequest::deserialize, [CallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX]),
     };
     reader.finish();
@@ -95,10 +91,9 @@ impl Eq for PrivateAccumulatedData {
     (self.new_note_hashes == other.new_note_hashes) &
     (self.new_nullifiers == other.new_nullifiers) &
     (self.new_l2_to_l1_msgs == other.new_l2_to_l1_msgs) &
+    (self.note_encrypted_logs_hashes == other.note_encrypted_logs_hashes) &
     (self.encrypted_logs_hashes == other.encrypted_logs_hashes) &
     (self.unencrypted_logs_hashes == other.unencrypted_logs_hashes) &
-    (self.encrypted_log_preimages_length == other.encrypted_log_preimages_length) &
-    (self.unencrypted_log_preimages_length == other.unencrypted_log_preimages_length) &
     (self.private_call_stack == other.private_call_stack) &
     (self.public_call_stack == other.public_call_stack)
   }
@@ -110,11 +105,10 @@ impl Empty for PrivateAccumulatedData {
             new_note_hashes: [ScopedNoteHash::empty(); MAX_NEW_NOTE_HASHES_PER_TX],
             new_nullifiers: [ScopedNullifier::empty(); MAX_NEW_NULLIFIERS_PER_TX],
             new_l2_to_l1_msgs: [ScopedL2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_TX],
-            encrypted_logs_hashes: [SideEffect::empty(); MAX_ENCRYPTED_LOGS_PER_TX],
-            unencrypted_logs_hashes: [SideEffect::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
-            encrypted_log_preimages_length: 0,
-            unencrypted_log_preimages_length: 0,
-            private_call_stack: [CallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
+            note_encrypted_logs_hashes: [NoteLogHash::empty(); MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
+            encrypted_logs_hashes: [LogHash::empty(); MAX_ENCRYPTED_LOGS_PER_TX],
+            unencrypted_logs_hashes: [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
+            private_call_stack: [ScopedPrivateCallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
             public_call_stack: [CallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
         }
     }

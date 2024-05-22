@@ -56,7 +56,7 @@ contract AppSubscription {
 
         context.end_setup();
 
-        AppSubscription::at(context.this_address()).assert_not_expired(note.expiry_block_number).static_enqueue(&mut context);
+        AppSubscription::at(context.this_address()).assert_not_expired(note.expiry_block_number).enqueue_view(&mut context);
 
         payload.execute_calls(&mut context, storage.target_address.read_private());
     }
@@ -81,12 +81,14 @@ contract AppSubscription {
 
     #[aztec(public)]
     #[aztec(internal)]
+    #[aztec(view)]
     fn assert_not_expired(expiry_block_number: Field) {
         assert((context.block_number()) as u64 < expiry_block_number as u64);
     }
 
     #[aztec(public)]
     #[aztec(internal)]
+    #[aztec(view)]
     fn assert_block_number(expiry_block_number: Field) {
         assert(
             (context.block_number() + SUBSCRIPTION_DURATION_IN_BLOCKS) as u64
@@ -111,20 +113,24 @@ contract AppSubscription {
         ).call(&mut context);
 
         // Assert that the given expiry_block_number < current_block_number + SUBSCRIPTION_DURATION_IN_BLOCKS.
-        AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).static_enqueue(&mut context);
+        AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).enqueue_view(&mut context);
         let subscriber_npk_m_hash = get_npk_m_hash(&mut context, subscriber_address);
         let subscriber_ivpk_m = get_ivpk_m(&mut context, subscriber_address);
 
         let mut subscription_note = SubscriptionNote::new(subscriber_npk_m_hash, expiry_block_number, tx_count);
-        if (!is_initialized(subscriber_address)) {
+
+        // is_initialized is an unconstrained function, so we must first convert the state variable to an unconstrained
+        // one to avoid having a mutable reference (to the private context) cross the constrained <> unconstrained
+        // boundary, which is not allowed.
+        let is_initialized = storage.subscriptions.at(subscriber_address).to_unconstrained().is_initialized();
+
+        if (!is_initialized) {
             storage.subscriptions.at(subscriber_address).initialize(&mut subscription_note, true, subscriber_ivpk_m);
         } else {
             storage.subscriptions.at(subscriber_address).replace(&mut subscription_note, true, subscriber_ivpk_m)
         }
     }
 
-    // Compiler bug workaround. You can't call an unconstrained function in another module, unless its from an
-    // unconstained function in your module.
     unconstrained fn is_initialized(subscriber_address: AztecAddress) -> pub bool {
         storage.subscriptions.at(subscriber_address).is_initialized()
     }
