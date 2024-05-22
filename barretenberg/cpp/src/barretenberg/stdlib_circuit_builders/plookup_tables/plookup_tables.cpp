@@ -1,5 +1,18 @@
 #include "plookup_tables.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/aes128.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/blake2s.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/dummy.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/non_native_group_generator.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/sha256.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/uint.hpp"
+
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_chi.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_input.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_output.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_rho.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_theta.hpp"
 #include <mutex>
 namespace bb::plookup {
 
