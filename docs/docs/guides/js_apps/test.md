@@ -4,35 +4,16 @@ title: Testing Aztec.nr contracts with TypeScript
 
 In this guide we will cover how to interact with your Aztec.nr smart contracts in a testing environment to write automated tests for your apps.
 
-To write your first smart contract, check out the [Aztec.nr getting started guide](../../getting_started.md).
+## Prerequisites
 
-## Compile your contract and generate TS interface
+- A compiled contract with TS interface (read [how to compile](../smart_contracts/how_to_compile_contract.md))
+- Your sandbox running (read [getting started](../../getting_started.md))
 
-Once you have written your contract, compile it to create a JSON artifact like this:
+## Create TS file and install libraries
 
-```bash
-aztec-nargo compile
-```
+Pick where you'd like your tests to live and create a Typescript project. 
 
-This will compile the contract and create a target folder with JSON artifact inside.
-
-Then with this artifact you can generate a Typescript class:
-
-```bash
-aztec-nargo codegen -o src/artifacts target
-```
-
-Now your TS class exists in the output directory `src/artifacts`.
-
-## Create TS file and import libraries
-
-Pick where you'd like your tests to live and create a Typescript project. You can do this however you want or paste this command which will create a TS project, install jest, and create a directory for your tests to live.
-
-```bash
-mkdir my-e2e-tests && cd my-e2e-tests && yarn init -y && yarn add --dev jest @types/jest ts-jest typescript && npx ts-jest config:init && npx tsc --init && mkdir -p test && echo "module.exports = { preset: 'ts-jest', testEnvironment: 'node' };" > jest.config.js
-```
-
-You will also need to install Aztec.js:
+You will need to install Aztec.js:
 
 ```bash
 yarn add @aztec/aztecjs 
@@ -42,23 +23,17 @@ You can use `aztec.js` to write assertions about transaction statuses, about cha
 
 ## Import relevant libraries
 
-You will need to import `aztecjs` package. This is an example of some functions and types you might need in your test:
+Import `aztecjs`. This is an example of some functions and types you might need in your test:
 
 #include_code imports /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
-You should also import the Typescript class you generated from the `codegen`:
+You should also import the [Typescript class you generated](../smart_contracts/how_to_compile_contract.md#typescript-interfaces):
 
 #include_code import_contract /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
-## Run local sandbox and fetch it in your TS
+## Create a PXE client
 
-You will need to run your sandbox locally to test against it:
-
-```bash
-aztec-sandbox
-```
-
-Then you can create a PXE client to use in your tests:
+Currently, testing Aztec.nr smart contracts means testing them against the PXE that runs in the local sandbox. Create a PXE client:
 
 #include_code create_pxe_client /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
