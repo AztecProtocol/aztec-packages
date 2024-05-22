@@ -190,6 +190,7 @@ describe('Private Execution test suite', () => {
 
   beforeEach(async () => {
     trees = {};
+    // TODO(benesjan): most of the oracles bellow seem to be stateless - move to beforeAll
     oracle = mock<DBOracle>();
     oracle.getKeyValidationRequest.mockImplementation((npkMHash: Fr, contractAddress: AztecAddress) => {
       if (npkMHash.equals(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
@@ -223,7 +224,7 @@ describe('Private Execution test suite', () => {
       if (address.equals(recipient)) {
         return Promise.resolve(recipientCompleteAddress);
       }
-      throw new Error(`Unknown address: ${address}`);
+      throw new Error(`Unknown address: ${address}. Recipient: ${recipient}, Owner: ${owner}`);
     });
     // This oracle gets called when reading ivpk_m from key registry --> we return zero witness indicating that
     // the keys were not registered. This triggers non-registered keys flow in which getCompleteAddress oracle
@@ -348,6 +349,7 @@ describe('Private Execution test suite', () => {
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
       expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner));
+      // TODO(benesjan): update the constants here
       expect(newNote.noteTypeId).toEqual(new Fr(869710811710178111116101n)); // ValueNote
 
       const newNoteHashes = getNonEmptyItems(result.callStackItem.publicInputs.newNoteHashes);

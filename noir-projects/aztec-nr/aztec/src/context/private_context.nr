@@ -305,12 +305,9 @@ impl PrivateContext {
         randomness: Field, // Secret random value used later for masked_contract_address
         event_type_id: Field,
         ivpk_m: GrumpkinPoint,
+        ovpk_m: GrumpkinPoint,
         preimage: [Field; N]
     ) where [Field; N]: LensForEncryptedLog<N, M> {
-        // TODO(benesjan): the API here is stupid and inefficient for ovsk because we will always want to fetch
-        // the latest key here and having ovpk_m_hash on the input makes it unnecessarily expensive because obtaining
-        // it is expensive.
-        let ovpk_m = get_ovpk_m(self, self.msg_sender());
         let ovsk_app = self.request_ovsk_app(ovpk_m.hash());
 
         // We are currently just encrypting it EXACTLY the same way as if it was a note.
@@ -329,6 +326,7 @@ impl PrivateContext {
         storage_slot: Field,
         note_type_id: Field,
         ivpk_m: GrumpkinPoint,
+        ovpk_m: GrumpkinPoint,
         note: Note
     ) where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
         let note_hash: Field = compute_note_hash_for_insertion(note);
@@ -343,10 +341,6 @@ impl PrivateContext {
         let preimage = note.serialize_content();
         let counter = self.next_counter();
 
-        // TODO(benesjan): the API here is stupid and inefficient for ovsk because we will always want to fetch
-        // the latest key here and having ovpk_m_hash on the input makes it unnecessarily expensive because obtaining
-        // it is expensive.
-        let ovpk_m = get_ovpk_m(self, self.msg_sender());
         let ovsk_app = self.request_ovsk_app(ovpk_m.hash());
 
         // TODO(#1139 | #6408): perform encryption in the circuit
