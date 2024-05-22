@@ -260,9 +260,9 @@ describe('Private Execution test suite', () => {
     });
 
     it('emits a field array as an unencrypted log', async () => {
-      const artifact = getFunctionArtifact(TestContractArtifact, 'emit_array_as_unencrypted_log');
-      const args = [times(5, () => Fr.random())];
-      const result = await runSimulator({ artifact, msgSender: owner, args });
+      const artifact = getFunctionArtifact(TestContractArtifact, 'emit_unencrypted_logs');
+      const args = times(5, () => Fr.random());
+      const result = await runSimulator({ artifact, msgSender: owner, args: [args, false] });
 
       const newUnencryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.unencryptedLogsHashes);
       expect(newUnencryptedLogs).toHaveLength(1);
@@ -273,7 +273,7 @@ describe('Private Execution test suite', () => {
       expect(unencryptedLog.value).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
       expect(unencryptedLog.length).toEqual(new Fr(functionLogs.getKernelLength()));
       // Test that the log payload (ie ignoring address, selector, and header) matches what we emitted
-      const expected = Buffer.concat(args[0].map(arg => arg.toBuffer())).toString('hex');
+      const expected = Buffer.concat(args.map(arg => arg.toBuffer())).toString('hex');
       expect(functionLogs.logs[0].data.subarray(-32 * 5).toString('hex')).toEqual(expected);
     });
 

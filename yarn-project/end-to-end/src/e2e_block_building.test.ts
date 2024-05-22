@@ -240,7 +240,7 @@ describe('e2e_block_building', () => {
     }, 60_000);
 
     it('calls a method with nested unencrypted logs', async () => {
-      const tx = await testContract.methods.emit_unencrypted_logs_nested([1, 2, 3, 4, 5]).send().wait();
+      const tx = await testContract.methods.emit_unencrypted_logs([1, 2, 3, 4, 5], true).send().wait();
       const logs = (await pxe.getUnencryptedLogs({ txHash: tx.txHash })).logs.map(l => l.log);
 
       // First log should be contract address

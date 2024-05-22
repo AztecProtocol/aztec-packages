@@ -277,15 +277,17 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn emit_array_as_unencrypted_log(fields: [Field; 5]) {
-        context.emit_unencrypted_log(fields);
-    }
-
-    #[aztec(private)]
-    fn emit_unencrypted_logs_nested(fields: [Field; 5]) {
-        Test::at(context.this_address()).emit_msg_sender().call(&mut context);
-        Test::at(context.this_address()).emit_array_as_unencrypted_log(fields).call(&mut context);
-        context.emit_unencrypted_log("test");
+    fn emit_unencrypted_logs(fields: [Field; 5], nest: bool) {
+        // Merged two fns to avoid hitting max limit:
+        // nest -> emit_unencrypted_logs_nested
+        // else -> emit_array_as_unencrypted_log
+        if nest {
+            Test::at(context.this_address()).emit_msg_sender().call(&mut context);
+            Test::at(context.this_address()).emit_unencrypted_logs(fields, false).call(&mut context);
+            context.emit_unencrypted_log("test");
+        } else {
+            context.emit_unencrypted_log(fields);
+        }
     }
 
     #[aztec(private)]
