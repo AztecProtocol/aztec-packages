@@ -119,6 +119,11 @@ struct AcirProgramStack {
     std::vector<AcirFormat> constraint_systems;
     WitnessVectorStack witness_stack;
 
+    AcirProgramStack(std::vector<AcirFormat>& constraint_systems_in, WitnessVectorStack& witness_stack_in)
+        : constraint_systems(constraint_systems_in)
+        , witness_stack(witness_stack_in)
+    {}
+
     // WORKTODO: cant use the seriailzation bc of circular dependency. Resolve? or just leave as is?
     // AcirProgramStack(std::string const& bytecode_path, std::string const& witness_path)
     //     : constraint_systems(program_buf_to_acir_format(bytecode_path))

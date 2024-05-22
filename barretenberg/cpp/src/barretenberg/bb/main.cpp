@@ -238,21 +238,20 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
 
     while (!program_stack.empty()) {
         auto stack_item = program_stack.back();
-        {
-            // Construct a bberg circuit from the acir representation
-            auto builder = acir_format::create_circuit<Builder>(
-                stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
 
-            ivc.accumulate(builder);
+        // Construct a bberg circuit from the acir representation
+        auto builder = acir_format::create_circuit<Builder>(
+            stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
 
-            // builder.blocks.summarize();
+        ivc.accumulate(builder);
 
-            // // Construct Honk proof
-            // info("gates = ", builder.get_num_gates());
-            // info("circuit size = ", ivc.prover_instance->proving_key.circuit_size);
+        // builder.blocks.summarize();
 
-            program_stack.pop_back();
-        }
+        // // Construct Honk proof
+        // info("gates = ", builder.get_num_gates());
+        // info("circuit size = ", ivc.prover_instance->proving_key.circuit_size);
+
+        program_stack.pop_back();
     }
     return ivc.prove_and_verify();
 }
