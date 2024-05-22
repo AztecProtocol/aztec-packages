@@ -136,8 +136,9 @@ export class KernelProver {
       firstIteration = false;
     }
 
-    output = await this.runReset(executionStack, output, noteHashLeafIndexMap, noteHashNullifierCounterMap);
-
+    if (this.somethingToReset(output)) {
+      output = await this.runReset(executionStack, output, noteHashLeafIndexMap, noteHashNullifierCounterMap);
+    }
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
     const previousKernelData = new PrivateKernelData(
       output.publicInputs,
@@ -180,6 +181,16 @@ export class KernelProver {
       getNonEmptyItems(nextIteration.callStackItem.publicInputs.keyValidationRequests).length +
         getNonEmptyItems(output.publicInputs.validationRequests.keyValidationRequests).length >
         MAX_KEY_VALIDATION_REQUESTS_PER_TX
+    );
+  }
+
+  private somethingToReset(output: KernelProofOutput<PrivateKernelCircuitPublicInputs>) {
+    return (
+      getNonEmptyItems(output.publicInputs.validationRequests.noteHashReadRequests).length > 0 ||
+      getNonEmptyItems(output.publicInputs.validationRequests.nullifierReadRequests).length > 0 ||
+      getNonEmptyItems(output.publicInputs.validationRequests.keyValidationRequests).length > 0 ||
+      output.publicInputs.end.newNoteHashes.find(noteHash => noteHash.nullifierCounter !== 0) ||
+      output.publicInputs.end.newNullifiers.find(nullifier => !nullifier.nullifiedNoteHash.equals(Fr.zero()))
     );
   }
 
