@@ -295,7 +295,7 @@ jobs:
         with:
           concurrency_key: barretenberg-acir-tests-bb-js-x86
       - name: "BB JS Acir Tests"
-        working-directory: ./noir/
+        working-directory: ./barretenberg/
         timeout-minutes: 40
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb.js
 
