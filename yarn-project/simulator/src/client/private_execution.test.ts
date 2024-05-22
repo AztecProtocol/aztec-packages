@@ -1,6 +1,6 @@
 import {
   type AztecNode,
-  EncryptedFunctionL2Logs,
+  EncryptedNoteFunctionL2Logs,
   type L1ToL2Message,
   Note,
   PackedValues,
@@ -171,7 +171,7 @@ describe('Private Execution test suite', () => {
   };
 
   const getEncryptedNoteSerializedLength = (result: ExecutionResult) => {
-    const fnLogs = new EncryptedFunctionL2Logs(result.noteEncryptedLogs.map(l => l.log));
+    const fnLogs = new EncryptedNoteFunctionL2Logs(result.noteEncryptedLogs.map(l => l.log));
     return fnLogs.getKernelLength();
   };
 

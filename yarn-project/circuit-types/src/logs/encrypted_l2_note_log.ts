@@ -4,7 +4,7 @@ import { randomBytes, sha256Trunc } from '@aztec/foundation/crypto';
 /**
  * Represents an individual encrypted log entry.
  */
-export class EncryptedL2Log {
+export class EncryptedL2NoteLog {
   constructor(
     /** The encrypted data contents of the log. */
     public readonly data: Buffer,
@@ -31,7 +31,7 @@ export class EncryptedL2Log {
 
   /** Converts a plain JSON object into an instance. */
   public static fromJSON(obj: any) {
-    return new EncryptedL2Log(Buffer.from(obj.data, 'hex'));
+    return new EncryptedL2NoteLog(Buffer.from(obj.data, 'hex'));
   }
 
   /**
@@ -39,8 +39,8 @@ export class EncryptedL2Log {
    * @param buffer - The buffer containing the log.
    * @returns Deserialized instance of `Log`.
    */
-  public static fromBuffer(data: Buffer): EncryptedL2Log {
-    return new EncryptedL2Log(data);
+  public static fromBuffer(data: Buffer): EncryptedL2NoteLog {
+    return new EncryptedL2NoteLog(data);
   }
 
   /**
@@ -56,14 +56,14 @@ export class EncryptedL2Log {
    * Crates a random log.
    * @returns A random log.
    */
-  public static random(): EncryptedL2Log {
+  public static random(): EncryptedL2NoteLog {
     const randomEphPubKey = Point.random();
     const randomLogContent = randomBytes(144 - Point.SIZE_IN_BYTES);
     const data = Buffer.concat([Fr.random().toBuffer(), randomLogContent, randomEphPubKey.toBuffer()]);
-    return new EncryptedL2Log(data);
+    return new EncryptedL2NoteLog(data);
   }
 
   public static empty() {
-    return new EncryptedL2Log(Buffer.alloc(0));
+    return new EncryptedL2NoteLog(Buffer.alloc(0));
   }
 }

@@ -99,7 +99,7 @@ export {
   L2Actor,
   L2Block,
   L2BlockL2Logs,
-  EncryptedL2BlockL2Logs,
+  EncryptedNoteL2BlockL2Logs,
   UnencryptedL2BlockL2Logs,
   LogFilter,
   LogId,

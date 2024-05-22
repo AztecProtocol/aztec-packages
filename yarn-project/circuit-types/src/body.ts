@@ -1,6 +1,6 @@
 import {
   EncryptedEventL2BlockL2Logs,
-  EncryptedL2BlockL2Logs,
+  EncryptedNoteL2BlockL2Logs,
   TxEffect,
   UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
@@ -81,10 +81,10 @@ export class Body {
     return computeRoot(leaves);
   }
 
-  get noteEncryptedLogs(): EncryptedL2BlockL2Logs {
+  get noteEncryptedLogs(): EncryptedNoteL2BlockL2Logs {
     const logs = this.txEffects.map(txEffect => txEffect.noteEncryptedLogs);
 
-    return new EncryptedL2BlockL2Logs(logs);
+    return new EncryptedNoteL2BlockL2Logs(logs);
   }
 
   get encryptedLogs(): EncryptedEventL2BlockL2Logs {

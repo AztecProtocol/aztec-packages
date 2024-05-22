@@ -1,7 +1,7 @@
-import { EncryptedEventTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from './tx_l2_logs.js';
+import { EncryptedEventTxL2Logs, EncryptedNoteTxL2Logs, UnencryptedTxL2Logs } from './tx_l2_logs.js';
 
 function shouldBehaveLikeTxL2Logs(
-  TxL2Logs: typeof EncryptedTxL2Logs | typeof UnencryptedTxL2Logs | typeof EncryptedEventTxL2Logs,
+  TxL2Logs: typeof EncryptedNoteTxL2Logs | typeof UnencryptedTxL2Logs | typeof EncryptedEventTxL2Logs,
 ) {
   describe(TxL2Logs.name, () => {
     it('can encode TxL2Logs to buffer and back', () => {
@@ -46,6 +46,6 @@ function shouldBehaveLikeTxL2Logs(
   });
 }
 
-shouldBehaveLikeTxL2Logs(EncryptedTxL2Logs);
+shouldBehaveLikeTxL2Logs(EncryptedNoteTxL2Logs);
 shouldBehaveLikeTxL2Logs(UnencryptedTxL2Logs);
 shouldBehaveLikeTxL2Logs(EncryptedEventTxL2Logs);

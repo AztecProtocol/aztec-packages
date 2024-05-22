@@ -7,13 +7,13 @@ import { sha256Trunc } from '@aztec/foundation/crypto';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
 import { EncryptedL2EventLog } from './encrypted_l2_event_log.js';
-import { EncryptedL2Log } from './encrypted_l2_log.js';
+import { EncryptedL2NoteLog } from './encrypted_l2_note_log.js';
 import { UnencryptedL2Log } from './unencrypted_l2_log.js';
 
 /**
  * Data container of logs emitted in 1 function invocation (corresponds to 1 kernel iteration).
  */
-export abstract class FunctionL2Logs<TLog extends UnencryptedL2Log | EncryptedL2Log | EncryptedL2EventLog> {
+export abstract class FunctionL2Logs<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2EventLog> {
   constructor(
     /**
      * An array of logs.
@@ -74,13 +74,13 @@ export abstract class FunctionL2Logs<TLog extends UnencryptedL2Log | EncryptedL2
   }
 }
 
-export class EncryptedFunctionL2Logs extends FunctionL2Logs<EncryptedL2Log> {
+export class EncryptedNoteFunctionL2Logs extends FunctionL2Logs<EncryptedL2NoteLog> {
   /**
    * Creates an empty L2Logs object with no logs.
    * @returns A new FunctionL2Logs object with no logs.
    */
-  public static empty(): EncryptedFunctionL2Logs {
-    return new EncryptedFunctionL2Logs([]);
+  public static empty(): EncryptedNoteFunctionL2Logs {
+    return new EncryptedNoteFunctionL2Logs([]);
   }
 
   /**
@@ -89,30 +89,30 @@ export class EncryptedFunctionL2Logs extends FunctionL2Logs<EncryptedL2Log> {
    * @param isLengthPrefixed - Whether the buffer is prefixed with 4 bytes for its total length.
    * @returns Deserialized instance of `FunctionL2Logs`.
    */
-  public static fromBuffer(buf: Buffer, isLengthPrefixed = true): EncryptedFunctionL2Logs {
+  public static fromBuffer(buf: Buffer, isLengthPrefixed = true): EncryptedNoteFunctionL2Logs {
     const reader = new BufferReader(buf, 0);
 
     // If the buffer is length prefixed use the length to read the array. Otherwise, the entire buffer is consumed.
     const logsBufLength = isLengthPrefixed ? reader.readNumber() : -1;
     const logs = reader.readBufferArray(logsBufLength);
 
-    return new EncryptedFunctionL2Logs(logs.map(EncryptedL2Log.fromBuffer));
+    return new EncryptedNoteFunctionL2Logs(logs.map(EncryptedL2NoteLog.fromBuffer));
   }
 
   /**
    * Creates a new L2Logs object with `numLogs` logs.
    * @param numLogs - The number of logs to create.
-   * @returns A new EncryptedFunctionL2Logs object.
+   * @returns A new EncryptedNoteFunctionL2Logs object.
    */
-  public static random(numLogs: number): EncryptedFunctionL2Logs {
+  public static random(numLogs: number): EncryptedNoteFunctionL2Logs {
     if (numLogs > MAX_NOTE_ENCRYPTED_LOGS_PER_CALL) {
       throw new Error(`Trying to create ${numLogs} logs for one call (max: ${MAX_NOTE_ENCRYPTED_LOGS_PER_CALL})`);
     }
-    const logs: EncryptedL2Log[] = [];
+    const logs: EncryptedL2NoteLog[] = [];
     for (let i = 0; i < numLogs; i++) {
-      logs.push(EncryptedL2Log.random());
+      logs.push(EncryptedL2NoteLog.random());
     }
-    return new EncryptedFunctionL2Logs(logs);
+    return new EncryptedNoteFunctionL2Logs(logs);
   }
 
   /**
@@ -121,8 +121,8 @@ export class EncryptedFunctionL2Logs extends FunctionL2Logs<EncryptedL2Log> {
    * @returns A FunctionL2Logs class object.
    */
   public static fromJSON(obj: any) {
-    const logs = obj.logs.map(EncryptedL2Log.fromJSON);
-    return new EncryptedFunctionL2Logs(logs);
+    const logs = obj.logs.map(EncryptedL2NoteLog.fromJSON);
+    return new EncryptedNoteFunctionL2Logs(logs);
   }
 }
 
@@ -174,7 +174,7 @@ export class EncryptedEventFunctionL2Logs extends FunctionL2Logs<EncryptedL2Even
    */
   public static fromJSON(obj: any) {
     const logs = obj.logs.map(EncryptedL2EventLog.fromJSON);
-    return new EncryptedFunctionL2Logs(logs);
+    return new EncryptedEventFunctionL2Logs(logs);
   }
 }
 

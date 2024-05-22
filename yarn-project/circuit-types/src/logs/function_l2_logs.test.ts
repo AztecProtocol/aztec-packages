@@ -1,13 +1,13 @@
 import {
   EncryptedEventFunctionL2Logs,
-  EncryptedFunctionL2Logs,
+  EncryptedNoteFunctionL2Logs,
   UnencryptedFunctionL2Logs,
 } from './function_l2_logs.js';
 
 function shouldBehaveLikeFunctionL2Logs(
   FunctionL2Logs:
     | typeof UnencryptedFunctionL2Logs
-    | typeof EncryptedFunctionL2Logs
+    | typeof EncryptedNoteFunctionL2Logs
     | typeof EncryptedEventFunctionL2Logs,
 ) {
   describe(FunctionL2Logs.name, () => {
@@ -53,6 +53,6 @@ function shouldBehaveLikeFunctionL2Logs(
   });
 }
 
-shouldBehaveLikeFunctionL2Logs(EncryptedFunctionL2Logs);
+shouldBehaveLikeFunctionL2Logs(EncryptedNoteFunctionL2Logs);
 shouldBehaveLikeFunctionL2Logs(UnencryptedFunctionL2Logs);
 shouldBehaveLikeFunctionL2Logs(EncryptedEventFunctionL2Logs);

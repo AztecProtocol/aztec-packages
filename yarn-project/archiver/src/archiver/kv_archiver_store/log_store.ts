@@ -1,6 +1,6 @@
 import {
   EncryptedEventL2BlockL2Logs,
-  EncryptedL2BlockL2Logs,
+  EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
   type FromLogType,
   type GetUnencryptedLogsResponse,
@@ -43,7 +43,7 @@ export class LogStore {
    * @returns True if the operation is successful.
    */
   addLogs(
-    noteEncryptedLogs: EncryptedL2BlockL2Logs | undefined,
+    noteEncryptedLogs: EncryptedNoteL2BlockL2Logs | undefined,
     encryptedLogs: EncryptedEventL2BlockL2Logs | undefined,
     unencryptedLogs: UnencryptedL2BlockL2Logs | undefined,
     blockNumber: number,
@@ -93,7 +93,7 @@ export class LogStore {
         case LogType.ENCRYPTED:
           return EncryptedEventL2BlockL2Logs;
         case LogType.NOTEENCRYPTED:
-          return EncryptedL2BlockL2Logs;
+          return EncryptedNoteL2BlockL2Logs;
         case LogType.UNENCRYPTED:
         default:
           return UnencryptedL2BlockL2Logs;
@@ -202,9 +202,29 @@ export class LogStore {
     blockNumber: number,
     logType: TLogType,
   ): L2BlockL2Logs<FromLogType<TLogType>> {
-    const logMap = logType === LogType.ENCRYPTED ? this.#encryptedLogs : this.#unencryptedLogs;
-    const L2BlockL2Logs: typeof EncryptedL2BlockL2Logs | typeof UnencryptedL2BlockL2Logs =
-      logType === LogType.ENCRYPTED ? EncryptedL2BlockL2Logs : UnencryptedL2BlockL2Logs;
+    const logMap = (() => {
+      switch (logType) {
+        case LogType.ENCRYPTED:
+          return this.#encryptedLogs;
+        case LogType.NOTEENCRYPTED:
+          return this.#noteEncryptedLogs;
+        case LogType.UNENCRYPTED:
+        default:
+          return this.#unencryptedLogs;
+      }
+    })();
+    const logTypeMap = (() => {
+      switch (logType) {
+        case LogType.ENCRYPTED:
+          return EncryptedEventL2BlockL2Logs;
+        case LogType.NOTEENCRYPTED:
+          return EncryptedNoteL2BlockL2Logs;
+        case LogType.UNENCRYPTED:
+        default:
+          return UnencryptedL2BlockL2Logs;
+      }
+    })();
+    const L2BlockL2Logs = logTypeMap;
     const buffer = logMap.get(blockNumber);
 
     if (!buffer) {

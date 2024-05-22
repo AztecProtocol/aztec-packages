@@ -1,6 +1,6 @@
 import {
   EncryptedEventTxL2Logs,
-  EncryptedTxL2Logs,
+  EncryptedNoteTxL2Logs,
   PublicDataWrite,
   type SimulationError,
   type Tx,
@@ -136,7 +136,7 @@ export function makeProcessedTx(
     data: kernelOutput,
     proof,
     // TODO(4712): deal with non-revertible logs here
-    noteEncryptedLogs: revertReason ? EncryptedTxL2Logs.empty() : tx.noteEncryptedLogs,
+    noteEncryptedLogs: revertReason ? EncryptedNoteTxL2Logs.empty() : tx.noteEncryptedLogs,
     encryptedLogs: revertReason ? EncryptedEventTxL2Logs.empty() : tx.encryptedLogs,
     unencryptedLogs: revertReason ? UnencryptedTxL2Logs.empty() : tx.unencryptedLogs,
     isEmpty: false,
@@ -160,7 +160,7 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
   const hash = new TxHash(Fr.ZERO.toBuffer());
   return {
     hash,
-    noteEncryptedLogs: EncryptedTxL2Logs.empty(),
+    noteEncryptedLogs: EncryptedNoteTxL2Logs.empty(),
     encryptedLogs: EncryptedEventTxL2Logs.empty(),
     unencryptedLogs: UnencryptedTxL2Logs.empty(),
     data: emptyKernelOutput,
@@ -185,14 +185,14 @@ export function toTxEffect(tx: ProcessedTx): TxEffect {
     tx.data.end.noteEncryptedLogPreimagesLength,
     tx.data.end.encryptedLogPreimagesLength,
     tx.data.end.unencryptedLogPreimagesLength,
-    tx.noteEncryptedLogs || EncryptedTxL2Logs.empty(),
+    tx.noteEncryptedLogs || EncryptedNoteTxL2Logs.empty(),
     tx.encryptedLogs || EncryptedEventTxL2Logs.empty(),
     tx.unencryptedLogs || UnencryptedTxL2Logs.empty(),
   );
 }
 
 function validateProcessedTxLogs(tx: ProcessedTx): void {
-  const noteEncryptedLogs = tx.noteEncryptedLogs || EncryptedTxL2Logs.empty();
+  const noteEncryptedLogs = tx.noteEncryptedLogs || EncryptedNoteTxL2Logs.empty();
   let kernelHash = tx.data.end.noteEncryptedLogsHash;
   let referenceHash = Fr.fromBuffer(noteEncryptedLogs.hash());
   if (!referenceHash.equals(kernelHash)) {
@@ -201,7 +201,7 @@ function validateProcessedTxLogs(tx: ProcessedTx): void {
              Processed: ${JSON.stringify(noteEncryptedLogs.toJSON())}`,
     );
   }
-  const encryptedLogs = tx.encryptedLogs || EncryptedTxL2Logs.empty();
+  const encryptedLogs = tx.encryptedLogs || EncryptedEventTxL2Logs.empty();
   kernelHash = tx.data.end.encryptedLogsHash;
   referenceHash = Fr.fromBuffer(encryptedLogs.hash());
   if (!referenceHash.equals(kernelHash)) {

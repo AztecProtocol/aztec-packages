@@ -1,7 +1,14 @@
-import { EncryptedEventL2BlockL2Logs, EncryptedL2BlockL2Logs, UnencryptedL2BlockL2Logs } from './l2_block_l2_logs.js';
+import {
+  EncryptedEventL2BlockL2Logs,
+  EncryptedNoteL2BlockL2Logs,
+  UnencryptedL2BlockL2Logs,
+} from './l2_block_l2_logs.js';
 
 function shouldBehaveLikeL2BlockL2Logs(
-  L2BlockL2Logs: typeof EncryptedL2BlockL2Logs | typeof UnencryptedL2BlockL2Logs | typeof EncryptedEventL2BlockL2Logs,
+  L2BlockL2Logs:
+    | typeof EncryptedNoteL2BlockL2Logs
+    | typeof UnencryptedL2BlockL2Logs
+    | typeof EncryptedEventL2BlockL2Logs,
 ) {
   describe(L2BlockL2Logs.name, () => {
     it('can encode L2Logs to buffer and back', () => {
@@ -36,6 +43,6 @@ function shouldBehaveLikeL2BlockL2Logs(
   });
 }
 
-shouldBehaveLikeL2BlockL2Logs(EncryptedL2BlockL2Logs);
+shouldBehaveLikeL2BlockL2Logs(EncryptedNoteL2BlockL2Logs);
 shouldBehaveLikeL2BlockL2Logs(UnencryptedL2BlockL2Logs);
 shouldBehaveLikeL2BlockL2Logs(EncryptedEventL2BlockL2Logs);

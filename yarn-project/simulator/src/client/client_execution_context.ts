@@ -2,7 +2,7 @@ import {
   type AuthWitness,
   type AztecNode,
   EncryptedL2EventLog,
-  EncryptedL2Log,
+  EncryptedL2NoteLog,
   L1NotePayload,
   Note,
   type NoteStatus,
@@ -58,7 +58,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   private noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
   private nullifiedNoteHashCounters: Map<number, number> = new Map();
-  private noteEncryptedLogs: CountedLog<EncryptedL2Log>[] = [];
+  private noteEncryptedLogs: CountedLog<EncryptedL2NoteLog>[] = [];
   private encryptedLogs: CountedLog<EncryptedL2EventLog>[] = [];
   private unencryptedLogs: CountedLog<UnencryptedL2Log>[] = [];
   private nestedExecutions: ExecutionResult[] = [];
@@ -378,7 +378,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param counter - The effects counter.
    */
   public override emitEncryptedNoteLog(noteHash: Fr, encryptedNote: Buffer, counter: number) {
-    const encryptedLog = new CountedLog(new EncryptedL2Log(encryptedNote), counter);
+    const encryptedLog = new CountedLog(new EncryptedL2NoteLog(encryptedNote), counter);
     this.noteEncryptedLogs.push(encryptedLog);
     this.noteCache.addNewLog(encryptedLog, noteHash);
   }

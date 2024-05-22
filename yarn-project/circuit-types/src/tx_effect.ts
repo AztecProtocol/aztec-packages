@@ -1,6 +1,6 @@
 import {
   EncryptedEventTxL2Logs,
-  EncryptedTxL2Logs,
+  EncryptedNoteTxL2Logs,
   PublicDataWrite,
   TxHash,
   UnencryptedTxL2Logs,
@@ -52,7 +52,7 @@ export class TxEffect {
     public noteEncryptedLogsLength: Fr,
     public encryptedLogsLength: Fr,
     public unencryptedLogsLength: Fr,
-    public noteEncryptedLogs: EncryptedTxL2Logs,
+    public noteEncryptedLogs: EncryptedNoteTxL2Logs,
     public encryptedLogs: EncryptedEventTxL2Logs,
     public unencryptedLogs: UnencryptedTxL2Logs,
   ) {
@@ -132,7 +132,7 @@ export class TxEffect {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      reader.readObject(EncryptedTxL2Logs),
+      reader.readObject(EncryptedNoteTxL2Logs),
       reader.readObject(EncryptedEventTxL2Logs),
       reader.readObject(UnencryptedTxL2Logs),
     );
@@ -191,7 +191,7 @@ export class TxEffect {
     numEncryptedLogsPerCall = 2,
     numUnencryptedLogsPerCall = 1,
   ): TxEffect {
-    const noteEncryptedLogs = EncryptedTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall);
+    const noteEncryptedLogs = EncryptedNoteTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall);
     const encryptedLogs = EncryptedEventTxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall);
     const unencryptedLogs = UnencryptedTxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall);
     return new TxEffect(
@@ -221,7 +221,7 @@ export class TxEffect {
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
-      EncryptedTxL2Logs.empty(),
+      EncryptedNoteTxL2Logs.empty(),
       EncryptedEventTxL2Logs.empty(),
       UnencryptedTxL2Logs.empty(),
     );
