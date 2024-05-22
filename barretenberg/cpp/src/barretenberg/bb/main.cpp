@@ -227,62 +227,34 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
 {
     using Flavor = GoblinUltraFlavor; // This is the only option
     using Builder = Flavor::CircuitBuilder;
-    using Prover = UltraProver_<Flavor>;
-    using Verifier = UltraVerifier_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
 
-    init_bn254_crs(1 << 17);
-    init_grumpkin_crs(1 << 10);
+    init_bn254_crs(1 << 18);
+    init_grumpkin_crs(1 << 14);
 
     ClientIVC ivc;
-    // ivc.structured_flag = true;
-    auto op_queue = ivc.goblin.op_queue;
+    ivc.structured_flag = true;
 
-    auto constraint_systems = get_constraint_systems(bytecodePath);
-    auto witness_stack = get_witness_stack(witnessPath);
+    auto program_stack = acir_format::get_acir_program_stack(bytecodePath, witnessPath);
 
-    info("stack depth = ", witness_stack.size());
-
-    while (!witness_stack.empty()) {
-        auto witness_stack_item = witness_stack.back();
-        auto witness = witness_stack_item.second;
-        auto constraint_system = constraint_systems[witness_stack_item.first];
-
-        bool verified = true;
+    while (!program_stack.empty()) {
+        auto stack_item = program_stack.back();
         {
             // Construct a bberg circuit from the acir representation
-            auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness, false, op_queue);
+            auto builder = acir_format::create_circuit<Builder>(
+                stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
 
             ivc.accumulate(builder);
 
-            builder.blocks.summarize();
+            // builder.blocks.summarize();
 
-            // Construct Honk proof
-            Prover prover{ ivc.prover_instance };
-            // Prover prover{ builder };
-            info("gates = ", builder.get_num_gates());
-            info("circuit size = ", prover.instance->proving_key.circuit_size);
-            auto proof = prover.construct_proof();
+            // // Construct Honk proof
+            // info("gates = ", builder.get_num_gates());
+            // info("circuit size = ", ivc.prover_instance->proving_key.circuit_size);
 
-            // Verify Honk proof
-            auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
-            // for (auto [val, val_vk] : zip_view(ivc.instance_vk->get_all(), verification_key->get_all())) {
-            //     if (val == val_vk) {
-            //         info("equal.");
-            //     } else {
-            //         info("NOT equal.");
-            //     }
-            // }
-            Verifier verifier{ verification_key };
-
-            verified = verifier.verify_proof(proof);
+            program_stack.pop_back();
         }
-        if (!verified) {
-            return false;
-        }
-        witness_stack.pop_back();
     }
-    return true;
+    return ivc.prove_and_verify();
 }
 
 /**

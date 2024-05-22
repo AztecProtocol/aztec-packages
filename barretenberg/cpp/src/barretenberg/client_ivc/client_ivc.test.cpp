@@ -66,9 +66,6 @@ TEST_F(ClientIVCTests, Basic)
 {
     ClientIVC ivc;
 
-    using Flavor = GoblinUltraFlavor; // This is the only option
-    using Builder = Flavor::CircuitBuilder;
-
     // Initialize the IVC with an arbitrary circuit
     Builder circuit_0 = create_mock_circuit(ivc);
     ivc.accumulate(circuit_0);
@@ -120,9 +117,6 @@ TEST_F(ClientIVCTests, DISABLED_BasicLarge)
 {
     ClientIVC ivc;
 
-    using Flavor = GoblinUltraFlavor; // This is the only option
-    using Builder = Flavor::CircuitBuilder;
-
     // Construct a set of arbitrary circuits
     size_t NUM_CIRCUITS = 5;
     std::vector<Builder> circuits;
@@ -135,7 +129,7 @@ TEST_F(ClientIVCTests, DISABLED_BasicLarge)
         ivc.accumulate(circuit);
     }
 
-    // EXPECT_TRUE(prove_and_verify(ivc));
+    EXPECT_TRUE(prove_and_verify(ivc));
 };
 
 /**
