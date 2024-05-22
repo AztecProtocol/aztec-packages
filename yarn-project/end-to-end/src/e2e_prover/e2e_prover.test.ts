@@ -4,10 +4,6 @@ import { type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types
 
 import { FullProverTest } from './e2e_prover_test.js';
 
-const { HARDWARE_CONCURRENCY = '' } = process.env;
-
-console.log(`HC: ${HARDWARE_CONCURRENCY}`);
-
 const TIMEOUT = 1_800_000;
 
 async function verifyProof(circuitType: ClientProtocolArtifact, tx: Tx, proofCreator: BBNativeProofCreator) {
