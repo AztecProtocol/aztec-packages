@@ -16,6 +16,7 @@ import {
   type ServerCircuitProver,
 } from '@aztec/circuit-types/interfaces';
 import {
+  AGGREGATION_OBJECT_LENGTH,
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   type BaseRollupInputs,
@@ -27,6 +28,7 @@ import {
   type NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
+  type Proof,
   type PublicKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
@@ -42,8 +44,9 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { AbortedError } from '@aztec/foundation/error';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { type Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
 import { sleep } from '@aztec/foundation/sleep';
+import { pushTestData } from '@aztec/foundation/testing';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
@@ -230,7 +233,12 @@ export class ProvingOrchestrator {
    * @returns The fully proven block and proof.
    */
   public async finaliseBlock() {
-    if (!this.provingState || !this.provingState.rootRollupPublicInputs || !this.provingState.finalProof) {
+    if (
+      !this.provingState ||
+      !this.provingState.rootRollupPublicInputs ||
+      !this.provingState.finalProof ||
+      !this.provingState.finalAggregationObject
+    ) {
       throw new Error(`Invalid proving state, a block must be proven before it can be finalised`);
     }
     if (this.provingState.block) {
@@ -271,8 +279,15 @@ export class ProvingOrchestrator {
 
     const blockResult: BlockResult = {
       proof: this.provingState.finalProof,
+      aggregationObject: this.provingState.finalAggregationObject,
       block: l2Block,
     };
+
+    pushTestData('blockResults', {
+      block: l2Block.toString(),
+      proof: this.provingState.finalProof.toString(),
+      aggregationObject: blockResult.aggregationObject.map(x => x.toString()),
+    });
 
     return blockResult;
   }
@@ -535,6 +550,10 @@ export class ProvingOrchestrator {
       signal => this.prover.getRootRollupProof(inputs, signal),
       result => {
         provingState.rootRollupPublicInputs = result.inputs;
+        provingState.finalAggregationObject = extractAggregationObject(
+          result.proof.binaryProof,
+          result.verificationKey.numPublicInputs,
+        );
         provingState.finalProof = result.proof.binaryProof;
 
         const provingResult: ProvingResult = {
@@ -721,4 +740,12 @@ export class ProvingOrchestrator {
       },
     );
   }
+}
+
+function extractAggregationObject(proof: Proof, numPublicInputs: number): Fr[] {
+  const buffer = proof.buffer.subarray(
+    Fr.SIZE_IN_BYTES * (numPublicInputs - AGGREGATION_OBJECT_LENGTH),
+    Fr.SIZE_IN_BYTES * numPublicInputs,
+  );
+  return BufferReader.asReader(buffer).readArray(AGGREGATION_OBJECT_LENGTH, Fr);
 }

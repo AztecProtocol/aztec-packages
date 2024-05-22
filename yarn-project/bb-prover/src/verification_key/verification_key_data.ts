@@ -11,8 +11,6 @@ import * as fs from 'fs/promises';
 
 import { VK_FIELDS_FILENAME, VK_FILENAME } from '../bb/execute.js';
 
-export const AGGREGATION_OBJECT_SIZE = 16;
-
 /**
  * Reads the verification key data stored at the specified location and parses into a VerificationKeyData
  * @param filePath - The directory containing the verification key data files

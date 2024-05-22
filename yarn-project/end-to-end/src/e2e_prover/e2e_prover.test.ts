@@ -1,5 +1,6 @@
-import { type Tx } from '@aztec/aztec.js';
+import { type Fr, type Tx } from '@aztec/aztec.js';
 import { type BBNativeProofCreator } from '@aztec/bb-prover';
+import { getTestData, isGenerateTestDataEnabled, writeTestData } from '@aztec/foundation/testing';
 import { type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
 
 import { FullProverTest } from './e2e_prover_test.js';
@@ -18,6 +19,7 @@ describe('full_prover', () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
+    await t.deployVerifier();
     ({ provenAssets, accounts, tokenSim, logger, proofCreator } = t);
   });
 
@@ -72,6 +74,27 @@ describe('full_prover', () => {
       ]);
       tokenSim.transferPrivate(accounts[0].address, accounts[1].address, privateSendAmount);
       tokenSim.transferPublic(accounts[0].address, accounts[1].address, publicSendAmount);
+
+      if (isGenerateTestDataEnabled()) {
+        const blockResults = getTestData('blockResults');
+        // the first blocks were setup blocks with fake proofs
+        // the last block is the one that was actually proven to the end
+        const blockResult: any = blockResults.at(-1);
+
+        if (!blockResult) {
+          // fail the test. User asked for fixtures but we don't have any
+          throw new Error('No block result found in test data');
+        }
+
+        writeTestData(
+          'yarn-project/end-to-end/src/fixtures/dumps/block_result.json',
+          JSON.stringify({
+            block: blockResult.block.toString(),
+            proof: blockResult.proof.toString(),
+            aggregationObject: blockResult.aggregationObject.map((x: Fr) => x.toString()),
+          }),
+        );
+      }
     },
     TIMEOUT,
   );

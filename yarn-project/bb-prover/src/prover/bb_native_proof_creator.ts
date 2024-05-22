@@ -1,6 +1,7 @@
 import { type AppCircuitProofOutput, type KernelProofOutput, type ProofCreator } from '@aztec/circuit-types';
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
+  AGGREGATION_OBJECT_LENGTH,
   Fr,
   NESTED_RECURSIVE_PROOF_LENGTH,
   type PrivateCircuitPublicInputs,
@@ -51,7 +52,7 @@ import {
   verifyProof,
 } from '../bb/execute.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
-import { AGGREGATION_OBJECT_SIZE, extractVkData } from '../verification_key/verification_key_data.js';
+import { extractVkData } from '../verification_key/verification_key_data.js';
 
 /**
  * This proof creator implementation uses the native bb binary.
@@ -333,7 +334,9 @@ export class BBNativeProofCreator implements ProofCreator {
       throw new Error(provingResult.reason);
     }
 
-    this.log.info(`Generated ${circuitType} circuit proof in ${timer.ms()} ms`);
+    this.log.info(
+      `Generated ${circuitType === 'App' ? appCircuitName : circuitType} circuit proof in ${timer.ms()} ms`,
+    );
 
     if (circuitType === 'App') {
       const vkData = await extractVkData(directory);
@@ -392,12 +395,16 @@ export class BBNativeProofCreator implements ProofCreator {
     const json = JSON.parse(proofString);
     const fields = json.map(Fr.fromString);
     const numPublicInputs =
-      circuitType === 'App' ? vkData.numPublicInputs : vkData.numPublicInputs - AGGREGATION_OBJECT_SIZE;
+      circuitType === 'App' ? vkData.numPublicInputs : vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
     const fieldsWithoutPublicInputs = fields.slice(numPublicInputs);
     this.log.debug(
       `Circuit type: ${circuitType}, complete proof length: ${fields.length}, without public inputs: ${fieldsWithoutPublicInputs.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
     );
-    const proof = new RecursiveProof<PROOF_LENGTH>(fieldsWithoutPublicInputs, new Proof(binaryProof), true);
+    const proof = new RecursiveProof<PROOF_LENGTH>(
+      fieldsWithoutPublicInputs,
+      new Proof(binaryProof, vkData.numPublicInputs),
+      true,
+    );
     return proof;
   }
 }

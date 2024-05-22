@@ -13,11 +13,17 @@ import {
   type TxHash,
   computeSecretHash,
   createDebugLogger,
+  deployL1Contract,
 } from '@aztec/aztec.js';
-import { BBNativeProofCreator } from '@aztec/bb-prover';
+import { BBCircuitVerifier, BBNativeProofCreator } from '@aztec/bb-prover';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js';
 import { ProverPool } from '@aztec/prover-client/prover-pool';
 import { type PXEService } from '@aztec/pxe';
+
+// @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
+import solc from 'solc';
+import { getContract } from 'viem';
 
 import { waitRegisteredAccountSynced } from '../benchmarks/utils.js';
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
@@ -66,7 +72,9 @@ export class FullProverTest {
   private bbConfigCleanup?: () => Promise<void>;
   private acvmConfigCleanup?: () => Promise<void>;
   proofCreator?: BBNativeProofCreator;
+  circuitProofVerifier?: BBCircuitVerifier;
   provenAssets: TokenContract[] = [];
+  private context!: SubsystemsContext;
 
   constructor(testName: string) {
     this.logger = createDebugLogger(`aztec:full_prover_test:${testName}`);
@@ -126,8 +134,8 @@ export class FullProverTest {
   }
 
   async setup() {
-    const context = await this.snapshotManager.setup();
-    ({ pxe: this.pxe, aztecNode: this.aztecNode } = context);
+    this.context = await this.snapshotManager.setup();
+    ({ pxe: this.pxe, aztecNode: this.aztecNode } = this.context);
 
     // Configure a full prover PXE
 
@@ -142,6 +150,11 @@ export class FullProverTest {
     if (!bbConfig?.bbWorkingDirectory || !bbConfig?.bbBinaryPath) {
       throw new Error(`Test must be run with BB native configuration`);
     }
+
+    this.circuitProofVerifier = await BBCircuitVerifier.new({
+      ...acvmConfig,
+      ...bbConfig,
+    });
 
     this.proverPool = ProverPool.nativePool(
       {
@@ -293,5 +306,57 @@ export class FullProverTest {
         return Promise.resolve();
       },
     );
+  }
+
+  async deployVerifier() {
+    if (!this.circuitProofVerifier) {
+      throw new Error('No verifier');
+    }
+
+    const { walletClient, publicClient, l1ContractAddresses } = this.context.deployL1ContractsValues;
+
+    const contract = await this.circuitProofVerifier.generateSolidityContract(
+      'RootRollupArtifact',
+      'UltraVerifier.sol',
+    );
+
+    const input = {
+      language: 'Solidity',
+      sources: {
+        'UltraVerifier.sol': {
+          content: contract,
+        },
+      },
+      settings: {
+        // we require the optimizer
+        optimizer: {
+          enabled: true,
+          runs: 200,
+        },
+        outputSelection: {
+          '*': {
+            '*': ['evm.bytecode.object', 'abi'],
+          },
+        },
+      },
+    };
+
+    const output = JSON.parse(solc.compile(JSON.stringify(input)));
+
+    const abi = output.contracts['UltraVerifier.sol']['UltraVerifier'].abi;
+    const bytecode: string = output.contracts['UltraVerifier.sol']['UltraVerifier'].evm.bytecode.object;
+
+    const verifierAddress = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
+
+    this.logger.info(`Deployed Real verifier at ${verifierAddress}`);
+
+    const rollup = getContract({
+      abi: RollupAbi,
+      address: l1ContractAddresses.rollupAddress.toString(),
+      client: walletClient,
+    });
+
+    await rollup.write.setVerifier([verifierAddress.toString()]);
+    this.logger.info('Rollup only accepts valid proofs now');
   }
 }

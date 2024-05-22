@@ -5,6 +5,7 @@ import {
   BatchCall,
   type CompleteAddress,
   type DebugLogger,
+  type DeployL1Contracts,
   EthCheatCodes,
   Fr,
   GrumpkinPrivateKey,
@@ -13,6 +14,7 @@ import {
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
+import { createL1Clients } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
@@ -39,6 +41,7 @@ export type SubsystemsContext = {
   aztecNode: AztecNodeService;
   aztecNodeConfig: AztecNodeConfig;
   pxe: PXEService;
+  deployL1ContractsValues: DeployL1Contracts;
 };
 
 type SnapshotEntry = {
@@ -291,6 +294,7 @@ async function setupFromFresh(statePath: string | undefined, logger: Logger): Pr
     pxe,
     acvmConfig,
     bbConfig,
+    deployL1ContractsValues,
   };
 }
 
@@ -331,6 +335,9 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     aztecNodeConfig.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
 
+  logger.verbose('Creating ETH clients...');
+  const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.rpcUrl, mnemonicToAccount(MNEMONIC));
+
   logger.verbose('Creating aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig);
 
@@ -346,6 +353,11 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     pxe,
     acvmConfig,
     bbConfig,
+    deployL1ContractsValues: {
+      walletClient,
+      publicClient,
+      l1ContractAddresses: aztecNodeConfig.l1Contracts,
+    },
   };
 }
 

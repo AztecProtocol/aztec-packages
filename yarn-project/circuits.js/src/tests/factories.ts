@@ -497,16 +497,6 @@ export function makePublicCallRequest(seed = 1): PublicCallRequest {
 }
 
 /**
- * Creates a uint8 vector of a given size filled with a given value.
- * @param size - The size of the vector.
- * @param fill - The value to fill the vector with.
- * @returns A uint8 vector.
- */
-export function makeDynamicSizeBuffer(size: number, fill: number) {
-  return new Proof(Buffer.alloc(size, fill));
-}
-
-/**
  * Creates arbitrary/mocked membership witness where the sibling paths is an array of fields in an ascending order starting from `start`.
  * @param size - The size of the membership witness.
  * @param start - The start of the membership witness.
@@ -588,7 +578,7 @@ export function makeRollupKernelData(seed = 1, kernelPublicInputs?: KernelCircui
  * @returns A proof.
  */
 export function makeProof(seed = 1) {
-  return makeDynamicSizeBuffer(16, seed);
+  return new Proof(Buffer.alloc(16, seed), 0);
 }
 
 /**
