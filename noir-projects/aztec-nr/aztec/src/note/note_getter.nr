@@ -292,13 +292,13 @@ mod test {
         };
         use dep::protocol_types::address::AztecAddress;
 
-        use crate::test::{helpers::private_context_builder::PrivateContextBuilder, mocks::mock_note::MockNote};
+        use crate::test::{helpers::context_builder::ContextBuilder, mocks::mock_note::MockNote};
 
         global contract_address = AztecAddress::from_field(69);
         global storage_slot: Field = 42;
 
         fn setup() -> PrivateContext {
-            PrivateContextBuilder::new().contract_address(contract_address).build()
+            ContextBuilder::new().contract_address(contract_address).private()
         }
 
         fn build_valid_note(value: Field) -> MockNote {

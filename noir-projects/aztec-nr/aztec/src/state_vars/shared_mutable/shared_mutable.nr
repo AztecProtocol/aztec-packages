@@ -175,6 +175,7 @@ mod test {
         shared_mutable::SharedMutable, scheduled_value_change::ScheduledValueChange,
         scheduled_delay_change::ScheduledDelayChange
     },
+        test::helpers::context_builder::ContextBuilder,
         oracle::get_public_data_witness::PublicDataWitness
     };
 
@@ -195,18 +196,12 @@ mod test {
 
     fn setup() -> (SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext>, Field) {
         let block_number = 40;
-        let context = create_context(block_number);
+        let mut context = ContextBuilder::new().block_number(block_number).public();
 
         let storage_slot = 57;
-        let state_var = SharedMutable::new(context, storage_slot);
+        let state_var = SharedMutable::new(&mut context, storage_slot);
 
         (state_var, block_number)
-    }
-
-    fn create_context(block_number: Field) -> &mut PublicContext {
-        let mut public_context = PublicContext::empty();
-        public_context.inputs.public_global_variables.block_number = block_number;
-        &mut public_context
     }
 
     fn mock_value_change_read(
