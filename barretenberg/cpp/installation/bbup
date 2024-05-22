@@ -39,11 +39,6 @@ main() {
       ;;
   esac
 
-  # Ignore branches/versions as we do not want to modify local git state
-  if [ -n "$NOIRUP_REPO" ] || [ -n "$NOIRUP_BRANCH" ] || [ -n "$NOIRUP_VERSION" ]; then
-    warn "--branch, --version, and --repo arguments are ignored during local install"
-  fi
-
   # Fetch system's architecture.
   ARCHITECTURE="$(uname -m)"
 
