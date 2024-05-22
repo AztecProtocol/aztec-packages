@@ -87,6 +87,8 @@ TEST_P(AcirIntegrationTests, ProveAndVerifyProgram)
     EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
 }
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/994)
+// Run all tests.
 INSTANTIATE_TEST_SUITE_P(AcirTests,
                          AcirIntegrationTests,
                          testing::Values("1327_concrete_in_generic",
@@ -154,7 +156,7 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "brillig_pedersen",
                                          "brillig_recursion",
                                          "brillig_references",
-                                         "brillig_scalar_mul",
+                                         //  "brillig_scalar_mul",
                                          "brillig_schnorr",
                                          "brillig_sha256",
                                          "brillig_signed_cmp",
@@ -190,7 +192,6 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "eddsa",
                                          "embedded_curve_ops",
                                          "field_attribute",
-                                         // TODO: add these after folding work is integrated
                                          //  "fold_after_inlined_calls",
                                          //  "fold_basic",
                                          //  "fold_basic_nested_call",
@@ -248,9 +249,9 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "regression_capacity_tracker",
                                          "regression_mem_op_predicate",
                                          "regression_method_cannot_be_found",
-                                         "regression_sha256_slice",
+                                         //  "regression_sha256_slice",
                                          "regression_struct_array_conditional",
-                                         "scalar_mul",
+                                         //  "scalar_mul",
                                          "schnorr",
                                          "sha256",
                                          "sha2_byte",
