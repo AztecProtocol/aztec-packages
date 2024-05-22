@@ -9,7 +9,7 @@ BBUP_BIN_URL=${BBUP_BIN_URL-"https://raw.githubusercontent.com/AztecProtocol/azt
 BBUP_BIN_PATH="$BB_HOME/bbup"
 
 # Create the .bb directory and bbup binary if it doesn't exist.
-mkdir -p $NARGO_BIN_DIR
+mkdir -p $BB_HOME
 curl -# -L $BBUP_BIN_URL -o $BBUP_BIN_PATH
 chmod +x $BBUP_BIN_PATH
 
