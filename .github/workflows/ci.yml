@@ -286,7 +286,7 @@ jobs:
         run: earthly-ci --no-output ./+barretenberg-acir-tests-sol
 
   bb-acir-tests-bb-js:
-    needs: build-acir-tests
+    needs: noir-build-acir-tests
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
