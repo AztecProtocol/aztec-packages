@@ -45,22 +45,6 @@ describe('e2e_state_vars', () => {
     });
 
     it('private read of SharedImmutable', async () => {
-      // Initializes the shared immutable and then reads the value using an unconstrained function
-      // checking the return values with:
-      // 1. A constrained private function that reads it directly
-      // 2. A constrained private function that calls another private function that reads.
-      //    The indirect, adds 1 to the point to ensure that we are returning the correct value.
-
-      const a = await contract.methods.get_shared_immutable_constrained_private().simulate();
-      const b = await contract.methods.get_shared_immutable_constrained_private_indirect().simulate();
-      const c = await contract.methods.get_shared_immutable().simulate();
-
-      expect(a).toEqual(c);
-      expect(b).toEqual({ account: c.account, points: c.points + 1n });
-      await contract.methods.match_shared_immutable(c.account, c.points).send().wait();
-    });
-
-    it('private read of SharedImmutable in batches', async () => {
       // Reads the value using an unconstrained function checking the return values with:
       // 1. A constrained private function that reads it directly
       // 2. A constrained private function that calls another private function that reads.
@@ -78,22 +62,6 @@ describe('e2e_state_vars', () => {
     });
 
     it('public read of SharedImmutable', async () => {
-      // Reads the value using an unconstrained function checking the return values with:
-      // 1. A constrained public function that reads it directly
-      // 2. A constrained public function that calls another public function that reads.
-      //    The indirect, adds 1 to the point to ensure that we are returning the correct value.
-
-      const a = await contract.methods.get_shared_immutable_constrained_public().simulate();
-      const b = await contract.methods.get_shared_immutable_constrained_public_indirect().simulate();
-      const c = await contract.methods.get_shared_immutable().simulate();
-
-      expect(a).toEqual(c);
-      expect(b).toEqual({ account: c.account, points: c.points + 1n });
-
-      await contract.methods.match_shared_immutable(c.account, c.points).send().wait();
-    });
-
-    it('public read of SharedImmutable in batches', async () => {
       // Reads the value using an unconstrained function checking the return values with:
       // 1. A constrained public function that reads it directly
       // 2. A constrained public function that calls another public function that reads.
