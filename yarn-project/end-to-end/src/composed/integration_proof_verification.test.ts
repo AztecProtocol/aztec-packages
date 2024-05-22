@@ -1,6 +1,6 @@
 import { L2Block, deployL1Contract, fileURLToPath } from '@aztec/aztec.js';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
-import { Fr, HEADER_LENGTH, Proof } from '@aztec/circuits.js';
+import { AGGREGATION_OBJECT_LENGTH, Fr, HEADER_LENGTH, Proof } from '@aztec/circuits.js';
 import { type L1ContractAddresses } from '@aztec/ethereum';
 import { type Logger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -22,19 +22,15 @@ import {
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { AGGREGATION_OBJECT_SIZE } from '../../../bb-prover/src/verification_key/verification_key_data.js';
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import { getLogger, setupL1Contracts, startAnvil } from '../fixtures/utils.js';
 
 /**
- * README
- *
- * If this test starts failing, regenerate its fixture with
+ * Regenerate this test's fixture with
  * AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/end-to-end test e2e_prover
  */
-
 describe('proof_verification', () => {
   let proof: Proof;
   let block: L2Block;
@@ -141,12 +137,12 @@ describe('proof_verification', () => {
       // +2 fields for archive
       const archive = reader.readArray(2, Fr);
       const header = reader.readArray(HEADER_LENGTH, Fr);
-      const aggObject = reader.readArray(AGGREGATION_OBJECT_SIZE, Fr);
+      const aggObject = reader.readArray(AGGREGATION_OBJECT_LENGTH, Fr);
 
       const publicInputs = [...archive, ...header, ...aggObject].map(x => x.toString());
 
       const proofStr = `0x${proof.buffer
-        .subarray((HEADER_LENGTH + 2 + AGGREGATION_OBJECT_SIZE) * Fr.SIZE_IN_BYTES)
+        .subarray((HEADER_LENGTH + 2 + AGGREGATION_OBJECT_LENGTH) * Fr.SIZE_IN_BYTES)
         .toString('hex')}` as const;
 
       await expect(verifierContract.read.verify([proofStr, publicInputs])).resolves.toBeTruthy();

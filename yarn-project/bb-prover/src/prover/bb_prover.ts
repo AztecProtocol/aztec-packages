@@ -9,6 +9,7 @@ import {
 } from '@aztec/circuit-types';
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
+  AGGREGATION_OBJECT_LENGTH,
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
@@ -64,7 +65,7 @@ import {
 } from '../bb/execute.js';
 import { PublicKernelArtifactMapping } from '../mappings/mappings.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
-import { AGGREGATION_OBJECT_SIZE, extractVkData } from '../verification_key/verification_key_data.js';
+import { extractVkData } from '../verification_key/verification_key_data.js';
 
 const logger = createDebugLogger('aztec:bb-prover');
 
@@ -510,7 +511,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     }
 
     const operation = async (bbWorkingDirectory: string) => {
-      const numPublicInputs = vk.numPublicInputs - AGGREGATION_OBJECT_SIZE;
+      const numPublicInputs = vk.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
       const proofFullFilename = `${bbWorkingDirectory}/${PROOF_FILENAME}`;
       const vkFullFilename = `${bbWorkingDirectory}/vk`;
 
@@ -543,7 +544,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       const fields = json.slice(numPublicInputs).map(Fr.fromString);
       return new RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(
         fields,
-        new Proof(proof.binaryProof.buffer),
+        new Proof(proof.binaryProof.buffer, vk.numPublicInputs),
         true,
       );
     };
@@ -616,12 +617,16 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     }
     const numPublicInputs = CIRCUITS_WITHOUT_AGGREGATION.has(circuitType)
       ? vkData.numPublicInputs
-      : vkData.numPublicInputs - AGGREGATION_OBJECT_SIZE;
+      : vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
     const fieldsWithoutPublicInputs = json.slice(numPublicInputs).map(Fr.fromString);
     logger.debug(
       `Circuit type: ${circuitType}, complete proof length: ${json.length}, without public inputs: ${fieldsWithoutPublicInputs.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
     );
-    const proof = new RecursiveProof<PROOF_LENGTH>(fieldsWithoutPublicInputs, new Proof(binaryProof), true);
+    const proof = new RecursiveProof<PROOF_LENGTH>(
+      fieldsWithoutPublicInputs,
+      new Proof(binaryProof, numPublicInputs),
+      true,
+    );
     if (proof.proof.length !== proofLength) {
       throw new Error("Proof length doesn't match expected length");
     }

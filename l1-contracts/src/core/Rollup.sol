@@ -79,11 +79,9 @@ contract Rollup is IRollup {
       revert Errors.Rollup__UnavailableTxs(header.contentCommitment.txsEffectsHash);
     }
 
-    bytes32[] memory publicInputs = new bytes32[](
-      2 +
-      Constants.HEADER_LENGTH +
-      16
-    );
+    bytes32[] memory publicInputs =
+      new bytes32[](2 + Constants.HEADER_LENGTH + Constants.AGGREGATION_OBJECT_LENGTH);
+    // the archive tree root
     publicInputs[0] = _archive;
     // this is the _next_ available leaf in the archive tree
     // normally this should be equal to the block number (since leaves are 0-indexed and blocks 1-indexed)
@@ -98,8 +96,13 @@ contract Rollup is IRollup {
     // the block proof is recursive, which means it comes with an aggregation object
     // this snippet copies it into the public inputs needed for verification
     // it also guards against empty _aggregationObject used with mocked proofs
-    for (uint256 i = 0; i < 16 && i * 32 < _aggregationObject.length; i++) {
-      publicInputs[i + 2 + headerFields.length] = bytes32(_aggregationObject[i * 32:(i + 1) * 32]);
+    uint256 aggregationLength = _aggregationObject.length / 32;
+    for (uint256 i = 0; i < Constants.AGGREGATION_OBJECT_LENGTH && i < aggregationLength; i++) {
+      bytes32 part;
+      assembly {
+        part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
+      }
+      publicInputs[i + 2 + Constants.HEADER_LENGTH] = part;
     }
 
     if (!verifier.verify(_proof, publicInputs)) {

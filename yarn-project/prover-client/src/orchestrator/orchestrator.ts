@@ -16,6 +16,7 @@ import {
   type ServerCircuitProver,
 } from '@aztec/circuit-types/interfaces';
 import {
+  AGGREGATION_OBJECT_LENGTH,
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   type BaseRollupInputs,
@@ -62,8 +63,6 @@ import {
 } from './block-building-helpers.js';
 import { type MergeRollupInputData, ProvingState, type TreeSnapshots } from './proving-state.js';
 import { TX_PROVING_CODE, TxProvingState } from './tx-proving-state.js';
-
-const AGGREGATION_OBJECT_LEN = 16; // fields
 
 const logger = createDebugLogger('aztec:prover:proving-orchestrator');
 
@@ -745,8 +744,8 @@ export class ProvingOrchestrator {
 
 function extractAggregationObject(proof: Proof, numPublicInputs: number): Fr[] {
   const buffer = proof.buffer.subarray(
-    Fr.SIZE_IN_BYTES * (numPublicInputs - AGGREGATION_OBJECT_LEN),
+    Fr.SIZE_IN_BYTES * (numPublicInputs - AGGREGATION_OBJECT_LENGTH),
     Fr.SIZE_IN_BYTES * numPublicInputs,
   );
-  return BufferReader.asReader(buffer).readArray(AGGREGATION_OBJECT_LEN, Fr);
+  return BufferReader.asReader(buffer).readArray(AGGREGATION_OBJECT_LENGTH, Fr);
 }

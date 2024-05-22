@@ -99,7 +99,7 @@ export function getProgram(log: LogFn): Command {
     )
     .requiredOption('-b, --bb-path <string>', 'The path to the BB binary', BB_BINARY_PATH)
     .requiredOption('-c, --circuit <string>', 'The name of a protocol circuit')
-    .requiredOption('-cn --contract-name <string>', 'The name of the contract to generate', 'contract.sol')
+    .requiredOption('-n --contract-name <string>', 'The name of the contract to generate', 'contract.sol')
     .action(async options => {
       const compiledCircuit = ProtocolCircuitArtifacts[options.circuit as ProtocolArtifact];
       if (!compiledCircuit) {

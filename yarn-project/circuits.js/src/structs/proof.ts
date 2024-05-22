@@ -18,7 +18,7 @@ export class Proof {
      */
     public buffer: Buffer,
 
-    public numPublicInputs = 0,
+    public numPublicInputs: number,
   ) {}
 
   /**
@@ -30,9 +30,9 @@ export class Proof {
    */
   static fromBuffer(buffer: Buffer | BufferReader): Proof {
     const reader = BufferReader.asReader(buffer);
-    const numPublicInputs = reader.readNumber();
     const size = reader.readNumber();
     const buf = reader.readBytes(size);
+    const numPublicInputs = reader.readNumber();
     return new Proof(buf, numPublicInputs);
   }
 
@@ -43,7 +43,7 @@ export class Proof {
    * @returns A Buffer containing the serialized proof data in custom format.
    */
   public toBuffer() {
-    return serializeToBuffer(this.numPublicInputs, this.buffer.length, this.buffer);
+    return serializeToBuffer(this.buffer.length, this.buffer, this.numPublicInputs);
   }
 
   /**

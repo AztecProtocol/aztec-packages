@@ -211,11 +211,17 @@ library HeaderLib {
     fields[6] = _header.stateReference.l1ToL2MessageTree.root;
     fields[7] = bytes32(uint256(_header.stateReference.l1ToL2MessageTree.nextAvailableLeafIndex));
     fields[8] = _header.stateReference.partialStateReference.noteHashTree.root;
-    fields[9] = bytes32(uint256(_header.stateReference.partialStateReference.noteHashTree.nextAvailableLeafIndex));
+    fields[9] = bytes32(
+      uint256(_header.stateReference.partialStateReference.noteHashTree.nextAvailableLeafIndex)
+    );
     fields[10] = _header.stateReference.partialStateReference.nullifierTree.root;
-    fields[11] = bytes32(uint256(_header.stateReference.partialStateReference.nullifierTree.nextAvailableLeafIndex));
+    fields[11] = bytes32(
+      uint256(_header.stateReference.partialStateReference.nullifierTree.nextAvailableLeafIndex)
+    );
     fields[12] = _header.stateReference.partialStateReference.publicDataTree.root;
-    fields[13] = bytes32(uint256(_header.stateReference.partialStateReference.publicDataTree.nextAvailableLeafIndex));
+    fields[13] = bytes32(
+      uint256(_header.stateReference.partialStateReference.publicDataTree.nextAvailableLeafIndex)
+    );
     fields[14] = bytes32(_header.globalVariables.chainId);
     fields[15] = bytes32(_header.globalVariables.version);
     fields[16] = bytes32(_header.globalVariables.blockNumber);
