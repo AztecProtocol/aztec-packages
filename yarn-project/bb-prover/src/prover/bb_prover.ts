@@ -53,7 +53,7 @@ import { type WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
 
 import {
-  BBSuccess,
+  type BBSuccess,
   BB_RESULT,
   PROOF_FIELDS_FILENAME,
   PROOF_FILENAME,

@@ -1,5 +1,4 @@
 import { type Proof, type VerificationKeyData } from '@aztec/circuits.js';
-import { randomBytes } from '@aztec/foundation/crypto';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type DebugLogger, type LogFn, createDebugLogger } from '@aztec/foundation/log';
 import { type ProtocolArtifact, ProtocolCircuitArtifacts } from '@aztec/noir-protocol-circuits-types';
