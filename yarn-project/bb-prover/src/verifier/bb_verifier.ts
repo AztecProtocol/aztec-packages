@@ -1,5 +1,6 @@
 import { type Proof, type VerificationKeyData } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { runInDirectory } from '@aztec/foundation/fs';
 import { type DebugLogger, type LogFn, createDebugLogger } from '@aztec/foundation/log';
 import { type ProtocolArtifact, ProtocolCircuitArtifacts } from '@aztec/noir-protocol-circuits-types';
 
@@ -72,30 +73,27 @@ export class BBCircuitVerifier {
   }
 
   public async verifyProofForCircuit(circuit: ProtocolArtifact, proof: Proof) {
-    // Create random directory to be used for temp files
-    const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
-    await fs.mkdir(bbWorkingDirectory, { recursive: true });
+    const operation = async (bbWorkingDirectory: string) => {
+      const proofFileName = `${bbWorkingDirectory}/proof`;
+      const verificationKeyPath = `${bbWorkingDirectory}/vk`;
+      const verificationKey = await this.getVerificationKeyData(circuit);
 
-    const proofFileName = `${bbWorkingDirectory}/proof`;
-    const verificationKeyPath = `${bbWorkingDirectory}/vk`;
-    const verificationKey = await this.getVerificationKeyData(circuit);
+      this.logger.debug(`Verifying with key: ${verificationKey.keyAsFields.hash.toString()}`);
 
-    this.logger.debug(`Verifying with key: ${verificationKey.keyAsFields.hash.toString()}`);
+      await fs.writeFile(proofFileName, proof.buffer);
+      await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
 
-    await fs.writeFile(proofFileName, proof.buffer);
-    await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
+      const logFunction = (message: string) => {
+        this.logger.debug(`${circuit} BB out - ${message}`);
+      };
 
-    const logFunction = (message: string) => {
-      this.logger.debug(`${circuit} BB out - ${message}`);
+      const result = await verifyProof(this.config.bbBinaryPath, proofFileName, verificationKeyPath!, logFunction);
+
+      if (result.status === BB_RESULT.FAILURE) {
+        const errorMessage = `Failed to verify ${circuit} proof!`;
+        throw new Error(errorMessage);
+      }
     };
-
-    const result = await verifyProof(this.config.bbBinaryPath, proofFileName, verificationKeyPath!, logFunction);
-
-    await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
-
-    if (result.status === BB_RESULT.FAILURE) {
-      const errorMessage = `Failed to verify ${circuit} proof!`;
-      throw new Error(errorMessage);
-    }
+    await runInDirectory(this.config.bbWorkingDirectory, operation);
   }
 }

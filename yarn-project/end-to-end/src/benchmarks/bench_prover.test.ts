@@ -14,6 +14,8 @@ import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import { type EndToEndContext, setup } from '../fixtures/utils.js';
 
+// TODO(@PhilWindle): Some part of this test are commented out until we can do more complicated public functions
+
 jest.setTimeout(1_800_000);
 
 const txTimeoutSec = 3600;

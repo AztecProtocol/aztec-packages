@@ -53,6 +53,7 @@ import { type WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
 
 import {
+  BBSuccess,
   BB_RESULT,
   PROOF_FIELDS_FILENAME,
   PROOF_FILENAME,
@@ -268,63 +269,86 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return makePublicInputsAndProof(circuitOutput, recursiveProof, verificationKey);
   }
 
-  public async createProof<Input extends { toBuffer: () => Buffer }, Output extends { toBuffer: () => Buffer }>(
+  private async generateProofWithBB<
+    Input extends { toBuffer: () => Buffer },
+    Output extends { toBuffer: () => Buffer },
+  >(
+    input: Input,
+    circuitType: ServerProtocolArtifact,
+    convertInput: (input: Input) => WitnessMap,
+    convertOutput: (outputWitness: WitnessMap) => Output,
+    workingDirectory: string,
+  ): Promise<{ circuitOutput: Output; vkData: VerificationKeyData; provingResult: BBSuccess }> {
+    // Have the ACVM write the partial witness here
+    const outputWitnessFile = `${workingDirectory}/partial-witness.gz`;
+
+    // Generate the partial witness using the ACVM
+    // A further temp directory will be created beneath ours and then cleaned up after the partial witness has been copied to our specified location
+    const simulator = new NativeACVMSimulator(
+      this.config.acvmWorkingDirectory,
+      this.config.acvmBinaryPath,
+      outputWitnessFile,
+    );
+
+    const artifact = ServerCircuitArtifacts[circuitType];
+
+    logger.debug(`Generating witness data for ${circuitType}`);
+
+    const witnessMap = convertInput(input);
+    const timer = new Timer();
+    const outputWitness = await simulator.simulateCircuit(witnessMap, artifact);
+    logger.debug(`Generated witness`, {
+      circuitName: mapProtocolArtifactNameToCircuitName(circuitType),
+      duration: timer.ms(),
+      inputSize: witnessMap.size * Fr.SIZE_IN_BYTES,
+      outputSize: outputWitness.size * Fr.SIZE_IN_BYTES,
+      eventName: 'circuit-witness-generation',
+    } satisfies CircuitWitnessGenerationStats);
+
+    // Now prove the circuit from the generated witness
+    logger.debug(`Proving ${circuitType}...`);
+
+    const provingResult = await generateProof(
+      this.config.bbBinaryPath,
+      workingDirectory,
+      circuitType,
+      Buffer.from(artifact.bytecode, 'base64'),
+      outputWitnessFile,
+      logger.debug,
+    );
+
+    if (provingResult.status === BB_RESULT.FAILURE) {
+      logger.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
+      throw new Error(provingResult.reason);
+    }
+
+    // Ensure our vk cache is up to date
+    const vkData = await this.updateVerificationKeyAfterProof(provingResult.vkPath!, circuitType);
+    const output = convertOutput(outputWitness);
+
+    return {
+      circuitOutput: output,
+      vkData,
+      provingResult,
+    };
+  }
+
+  private async createProof<Input extends { toBuffer: () => Buffer }, Output extends { toBuffer: () => Buffer }>(
     input: Input,
     circuitType: ServerProtocolArtifact,
     convertInput: (input: Input) => WitnessMap,
     convertOutput: (outputWitness: WitnessMap) => Output,
   ): Promise<{ circuitOutput: Output; proof: Proof }> {
     const operation = async (bbWorkingDirectory: string) => {
-      // Have the ACVM write the partial witness here
-      const outputWitnessFile = `${bbWorkingDirectory}/partial-witness.gz`;
+      const {
+        provingResult,
+        vkData,
+        circuitOutput: output,
+      } = await this.generateProofWithBB(input, circuitType, convertInput, convertOutput, bbWorkingDirectory);
 
-      // Generate the partial witness using the ACVM
-      // A further temp directory will be created beneath ours and then cleaned up after the partial witness has been copied to our specified location
-      const simulator = new NativeACVMSimulator(
-        this.config.acvmWorkingDirectory,
-        this.config.acvmBinaryPath,
-        outputWitnessFile,
-      );
-
-      const artifact = ServerCircuitArtifacts[circuitType];
-
-      logger.debug(`Generating witness data for ${circuitType}`);
-
-      const witnessMap = convertInput(input);
-      const timer = new Timer();
-      const outputWitness = await simulator.simulateCircuit(witnessMap, artifact);
-      logger.debug(`Generated witness`, {
-        circuitName: mapProtocolArtifactNameToCircuitName(circuitType),
-        duration: timer.ms(),
-        inputSize: witnessMap.size * Fr.SIZE_IN_BYTES,
-        outputSize: outputWitness.size * Fr.SIZE_IN_BYTES,
-        eventName: 'circuit-witness-generation',
-      } satisfies CircuitWitnessGenerationStats);
-
-      // Now prove the circuit from the generated witness
-      logger.debug(`Proving ${circuitType}...`);
-
-      const provingResult = await generateProof(
-        this.config.bbBinaryPath,
-        bbWorkingDirectory,
-        circuitType,
-        Buffer.from(artifact.bytecode, 'base64'),
-        outputWitnessFile,
-        logger.debug,
-      );
-
-      if (provingResult.status === BB_RESULT.FAILURE) {
-        logger.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
-        throw new Error(provingResult.reason);
-      }
-
-      // Ensure our vk cache is up to date
-      const vkData = await this.updateVerificationKeyAfterProof(provingResult.vkPath!, circuitType);
-
-      // Read the proof and then cleanup up our temporary directory
+      // Read the binary proof
       const rawProof = await fs.readFile(`${provingResult.proofPath!}/${PROOF_FILENAME}`);
 
-      const output = convertOutput(outputWitness);
       const proof = new Proof(rawProof);
       logger.info(
         `Generated proof for ${circuitType} in ${provingResult.duration} ms, size: ${proof.buffer.length} fields`,
@@ -355,7 +379,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @param convertOutput - Function for parsing the output witness to it's corresponding object
    * @returns The circuits output object and it's proof
    */
-  public async createRecursiveProof<
+  private async createRecursiveProof<
     PROOF_LENGTH extends number,
     CircuitInputType extends { toBuffer: () => Buffer },
     CircuitOutputType extends { toBuffer: () => Buffer },
@@ -367,58 +391,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     convertOutput: (outputWitness: WitnessMap) => CircuitOutputType,
   ): Promise<{ circuitOutput: CircuitOutputType; proof: RecursiveProof<PROOF_LENGTH> }> {
     const operation = async (bbWorkingDirectory: string) => {
-      // Have the ACVM write the partial witness here
-      const outputWitnessFile = `${bbWorkingDirectory}/partial-witness.gz`;
+      const {
+        provingResult,
+        vkData,
+        circuitOutput: output,
+      } = await this.generateProofWithBB(input, circuitType, convertInput, convertOutput, bbWorkingDirectory);
 
-      // Generate the partial witness using the ACVM
-      // A further temp directory will be created beneath ours and then cleaned up after the partial witness has been copied to our specified location
-      const simulator = new NativeACVMSimulator(
-        this.config.acvmWorkingDirectory,
-        this.config.acvmBinaryPath,
-        outputWitnessFile,
-      );
-
-      const artifact = ServerCircuitArtifacts[circuitType];
-
-      logger.debug(`Generating witness data for ${circuitType}`);
-
-      const timer = new Timer();
-      const witnessMap = convertInput(input);
-      const outputWitness = await simulator.simulateCircuit(witnessMap, artifact);
-
-      const output = convertOutput(outputWitness);
-
-      const inputSize = input.toBuffer().length;
-      const outputSize = output.toBuffer().length;
-      logger.debug(`Generated witness`, {
-        circuitName: mapProtocolArtifactNameToCircuitName(circuitType),
-        duration: timer.ms(),
-        inputSize,
-        outputSize,
-        eventName: 'circuit-witness-generation',
-      } satisfies CircuitWitnessGenerationStats);
-
-      // Now prove the circuit from the generated witness
-      logger.debug(`Proving ${circuitType}...`);
-
-      const provingResult = await generateProof(
-        this.config.bbBinaryPath,
-        bbWorkingDirectory,
-        circuitType,
-        Buffer.from(artifact.bytecode, 'base64'),
-        outputWitnessFile,
-        logger.debug,
-      );
-
-      if (provingResult.status === BB_RESULT.FAILURE) {
-        logger.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
-        throw new Error(provingResult.reason);
-      }
-
-      // Ensure our vk cache is up to date
-      const vkData = await this.updateVerificationKeyAfterProof(provingResult.vkPath!, circuitType);
-
-      // Read the proof and then cleanup up our temporary directory
+      // Read the proof as fields
       const proof = await this.readProofAsFields(provingResult.proofPath!, circuitType, proofLength);
 
       logger.info(
@@ -427,8 +406,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
           circuitName: mapProtocolArtifactNameToCircuitName(circuitType),
           circuitSize: vkData.circuitSize,
           duration: provingResult.duration,
-          inputSize,
-          outputSize,
+          inputSize: input.toBuffer().length,
+          outputSize: output.toBuffer().length,
           proofSize: proof.binaryProof.buffer.length,
           eventName: 'circuit-proving',
           numPublicInputs: vkData.numPublicInputs,
