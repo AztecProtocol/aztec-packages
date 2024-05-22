@@ -204,7 +204,7 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           # must be globally unique for build x runner
-          concurrency_key: bb-native-tests-x86
+          concurrency_key: bb-gcc
       - name: "Ensure GCC Builds"
         working-directory: ./barretenberg/cpp/
         timeout-minutes: 40
