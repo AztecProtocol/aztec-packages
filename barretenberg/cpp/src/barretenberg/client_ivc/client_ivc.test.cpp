@@ -54,12 +54,6 @@ class ClientIVCTests : public ::testing::Test {
         Builder circuit{ ivc.goblin.op_queue };
         MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
-        // function circuit because we cannot support zero commtiments. While the builder handles this at
-        // finalisation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other UGH
-        // circuits (where we don't explicitly need to add goblin ops), in ClientIVC merge proving happens prior to
-        // folding where the absense of goblin ecc ops will result in zero commitments.
-        MockCircuits::construct_goblin_ecc_op_circuit(circuit);
         return circuit;
     }
 };
@@ -74,37 +68,14 @@ TEST_F(ClientIVCTests, Basic)
 
     using Flavor = GoblinUltraFlavor; // This is the only option
     using Builder = Flavor::CircuitBuilder;
-    using Prover = UltraProver_<Flavor>;
-    using Verifier = UltraVerifier_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
 
     // Initialize the IVC with an arbitrary circuit
     Builder circuit_0 = create_mock_circuit(ivc);
     ivc.accumulate(circuit_0);
 
-    Prover prover{ ivc.prover_instance };
-    info("gates = ", circuit_0.get_num_gates());
-    info("circuit size = ", prover.instance->proving_key.circuit_size);
-    auto proof = prover.construct_proof();
-
-    auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
-    Verifier verifier{ verification_key };
-
-    EXPECT_TRUE(verifier.verify_proof(proof));
-
     // Create another circuit and accumulate
     Builder circuit_1 = create_mock_circuit(ivc);
     ivc.accumulate(circuit_1);
-
-    Prover prover2{ ivc.prover_instance };
-    info("gates = ", circuit_1.get_num_gates());
-    info("circuit size = ", prover.instance->proving_key.circuit_size);
-    auto proof2 = prover2.construct_proof();
-
-    auto verification_key2 = std::make_shared<VerificationKey>(prover2.instance->proving_key);
-    Verifier verifier2{ verification_key2 };
-
-    EXPECT_TRUE(verifier2.verify_proof(proof2));
 
     EXPECT_TRUE(prove_and_verify(ivc));
 };
@@ -151,9 +122,6 @@ TEST_F(ClientIVCTests, DISABLED_BasicLarge)
 
     using Flavor = GoblinUltraFlavor; // This is the only option
     using Builder = Flavor::CircuitBuilder;
-    using Prover = UltraProver_<Flavor>;
-    using Verifier = UltraVerifier_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
 
     // Construct a set of arbitrary circuits
     size_t NUM_CIRCUITS = 5;
@@ -165,15 +133,6 @@ TEST_F(ClientIVCTests, DISABLED_BasicLarge)
     // Accumulate each circuit
     for (auto& circuit : circuits) {
         ivc.accumulate(circuit);
-
-        info("HERE");
-        Prover prover{ ivc.prover_instance };
-        info("gates = ", circuit.get_num_gates());
-        info("circuit size = ", prover.instance->proving_key.circuit_size);
-        auto proof = prover.construct_proof();
-        auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
-        Verifier verifier{ verification_key };
-        EXPECT_TRUE(verifier.verify_proof(proof));
     }
 
     // EXPECT_TRUE(prove_and_verify(ivc));

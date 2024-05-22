@@ -176,12 +176,6 @@ TEST_F(AcirIntegrationTests, FoldAndVerifyProgramStack)
         auto circuit =
             acir_format::create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): On the first call to accumulate, the input
-        // circuit generated from acir has no goblin ecc ops prior to the call to merge(), so the commitment to the new
-        // contribution (C_t_shift) will be the point at infinity. (Some ops are added in 'add_gates_to_ensure...' but
-        // not until instance construction which comes later).
-        MockCircuits::construct_goblin_ecc_op_circuit(circuit); // Add some arbitrary goblin ECC ops
-
         ivc.accumulate(circuit);
 
         CircuitChecker::check(circuit);
