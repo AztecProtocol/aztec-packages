@@ -104,6 +104,41 @@ struct AcirFormat {
 using WitnessVector = std::vector<fr, ContainerSlabAllocator<fr>>;
 using WitnessVectorStack = std::vector<std::pair<uint32_t, WitnessVector>>;
 
+struct AcirProgram {
+    AcirFormat constraints;
+    WitnessVector witness;
+};
+
+/**
+ * @brief Storage for constaint_systems/witnesses for a stack of acir programs
+ * @details In general the number of items in the witness stack will be equal or greater than the number of constraint
+ * systems because the program may consist of multiple calls to the same function.
+ *
+ */
+struct AcirProgramStack {
+    std::vector<AcirFormat> constraint_systems;
+    WitnessVectorStack witness_stack;
+
+    // WORKTODO: cant use the seriailzation bc of circular dependency. Resolve? or just leave as is?
+    // AcirProgramStack(std::string const& bytecode_path, std::string const& witness_path)
+    //     : constraint_systems(program_buf_to_acir_format(bytecode_path))
+    //     , witness_stack(witness_buf_to_witness_stack(witness_path)){};
+
+    size_t size() const { return witness_stack.size(); }
+    bool empty() const { return witness_stack.empty(); }
+
+    AcirProgram back()
+    {
+        auto witness_stack_item = witness_stack.back();
+        auto witness = witness_stack_item.second;
+        auto constraint_system = constraint_systems[witness_stack_item.first];
+
+        return { constraint_system, witness };
+    }
+
+    void pop_back() { witness_stack.pop_back(); }
+};
+
 template <typename Builder = UltraCircuitBuilder>
 Builder create_circuit(const AcirFormat& constraint_system,
                        size_t size_hint = 0,
