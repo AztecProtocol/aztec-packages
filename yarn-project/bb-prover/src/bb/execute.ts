@@ -1,7 +1,6 @@
 import { sha256 } from '@aztec/foundation/crypto';
 import { type LogFn } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { convertPrivateKernelInitOutputsFromWitnessMap } from '@aztec/noir-protocol-circuits-types';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import * as proc from 'child_process';
