@@ -169,9 +169,6 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, aci
 
     // Construct Honk proof
     Prover prover{ builder };
-    builder.blocks.summarize();
-    info("num gates = ", builder.get_num_gates());
-    info("circuit size = ", prover.instance->proving_key.circuit_size);
     auto proof = prover.construct_proof();
 
     // Verify Honk proof
