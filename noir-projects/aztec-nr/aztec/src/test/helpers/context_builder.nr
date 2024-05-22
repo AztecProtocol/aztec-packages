@@ -1,5 +1,6 @@
 use crate::context::{PrivateContext, PublicContext};
 use dep::protocol_types::address::AztecAddress;
+use dep::std::test::OracleMock;
 
 struct ContextBuilder {
     block_number: Option<Field>,
@@ -39,11 +40,11 @@ impl ContextBuilder {
         let mut context = PublicContext::empty();
 
         if self.block_number.is_some() {
-            context.inputs.public_global_variables.block_number = self.block_number.unwrap_unchecked();
+            let _ = OracleMock::mock("avmOpcodeBlockNumber").returns(self.block_number.unwrap());
         }
 
         if self.contract_address.is_some() {
-            context.inputs.call_context.storage_contract_address = self.contract_address.unwrap();
+            let _ = OracleMock::mock("avmOpcodeAddress").returns(self.contract_address.unwrap());
         }
 
         context

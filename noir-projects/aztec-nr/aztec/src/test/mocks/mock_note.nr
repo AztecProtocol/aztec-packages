@@ -3,13 +3,15 @@ use crate::{context::PrivateContext, note::{note_header::NoteHeader, note_interf
 use dep::protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint};
 
 global MOCK_NOTE_LENGTH = 1;
+// MOCK_NOTE_LENGTH * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
+global MOCK_NOTE_BYTES_LENGTH: Field = 1 * 32 + 64;
 
 struct MockNote {
   header: NoteHeader,
   value: Field,
 }
 
-impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
+impl NoteInterface<MOCK_NOTE_LENGTH, MOCK_NOTE_BYTES_LENGTH> for MockNote {
     fn serialize_content(self) -> [Field; MOCK_NOTE_LENGTH] {
       [self.value]
     }
@@ -49,6 +51,28 @@ impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
       assert(
         false, "MockNote does not support broadcast."
       );
+    }
+
+    fn to_be_bytes(self, storage_slot: Field) -> [u8; MOCK_NOTE_BYTES_LENGTH] {
+      let serialized_note = self.serialize_content();
+
+        let mut buffer: [u8; MOCK_NOTE_BYTES_LENGTH] = [0; MOCK_NOTE_BYTES_LENGTH];
+
+        let storage_slot_bytes = storage_slot.to_be_bytes(32);
+        let note_type_id_bytes = MockNote::get_note_type_id().to_be_bytes(32);
+
+        for i in 0..32 {
+            buffer[i] = storage_slot_bytes[i];
+            buffer[32 + i] = note_type_id_bytes[i];
+        }
+
+        for i in 0..serialized_note.len() {
+            let bytes = serialized_note[i].to_be_bytes(32);
+            for j in 0..32 {
+                buffer[64 + i * 32 + j] = bytes[j];
+            }
+        }
+        buffer
     }
 }
 
