@@ -65,9 +65,9 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
         )
     }
 
-    fn validate_keys(self) -> BoundedVec<ScopedKeyValidationRequest, MAX_KEY_VALIDATION_REQUESTS_PER_TX> {
+    fn validate_keys(self) -> BoundedVec<ScopedKeyValidationRequestAndGenerators, MAX_KEY_VALIDATION_REQUESTS_PER_TX> {
         reset_key_validation_requests(
-            self.validation_requests.key_validation_requests,
+            self.validation_requests.key_validation_requests_and_generators,
             self.key_validation_hints
         )
     }

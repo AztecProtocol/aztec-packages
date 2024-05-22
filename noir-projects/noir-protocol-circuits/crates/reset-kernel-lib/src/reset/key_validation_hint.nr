@@ -6,7 +6,6 @@ use dep::types::{
 
 struct KeyValidationHint {
   sk_m: GrumpkinPrivateKey,
-  sk_app_generator_index: Field,
   request_index: u64,
 }
 
@@ -14,7 +13,6 @@ impl Empty for KeyValidationHint {
     fn empty() -> Self {
         KeyValidationHint {
             sk_m: GrumpkinPrivateKey::empty(),
-            sk_app_generator_index: 0,
             request_index: 0,
         }
     }
@@ -39,7 +37,7 @@ pub fn reset_key_validation_requests<N>(
             let contract_address = scoped_request.contract_address;
             let request = scoped_request.request;
             let sk_m = hint.sk_m;
-            let sk_app_generator_index = hint.sk_app_generator_index;
+            let sk_app_generator_index = app_secret_keys_generators[i];
 
             // First we check that derived public key matches master public key from request
             let pk_m = sk_m.derive_public_key();
