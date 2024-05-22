@@ -1,7 +1,5 @@
 #include "honk_recursion_constraint.hpp"
 #include "acir_format.hpp"
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
-#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 
 #include <gtest/gtest.h>
 #include <vector>
@@ -132,8 +130,6 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
      */
     Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
     {
-        using ProverInstance = ProverInstance_<UltraFlavor>;
-
         std::vector<HonkRecursionConstraint> honk_recursion_constraints;
 
         size_t witness_offset = 0;
@@ -270,11 +266,12 @@ TEST_F(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
 
     info("circuit gates = ", layer_2_circuit.get_num_gates());
 
-    auto layer_2_composer = Composer();
-    auto prover = layer_2_composer.create_ultra_with_keccak_prover(layer_2_circuit);
-    info("prover gates = ", prover.circuit_size);
+    auto instance = std::make_shared<ProverInstance>(layer_2_circuit);
+    Prover prover(instance);
+    info("prover gates = ", instance->proving_key.circuit_size);
     auto proof = prover.construct_proof();
-    auto verifier = layer_2_composer.create_ultra_with_keccak_verifier(layer_2_circuit);
+    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    Verifier verifier(verification_key);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
@@ -327,11 +324,12 @@ TEST_F(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
     info("created second outer circuit");
     info("number of gates in layer 3 = ", layer_3_circuit.get_num_gates());
 
-    auto layer_3_composer = Composer();
-    auto prover = layer_3_composer.create_ultra_with_keccak_prover(layer_3_circuit);
-    info("prover gates = ", prover.circuit_size);
+    auto instance = std::make_shared<ProverInstance>(layer_3_circuit);
+    Prover prover(instance);
+    info("prover gates = ", instance->proving_key.circuit_size);
     auto proof = prover.construct_proof();
-    auto verifier = layer_3_composer.create_ultra_with_keccak_verifier(layer_3_circuit);
+    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    Verifier verifier(verification_key);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
@@ -356,10 +354,11 @@ TEST_F(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
     info("created third outer circuit");
     info("number of gates in layer 3 circuit = ", layer_3_circuit.get_num_gates());
 
-    auto layer_3_composer = Composer();
-    auto prover = layer_3_composer.create_ultra_with_keccak_prover(layer_3_circuit);
-    info("prover gates = ", prover.circuit_size);
+    auto instance = std::make_shared<ProverInstance>(layer_3_circuit);
+    Prover prover(instance);
+    info("prover gates = ", instance->proving_key.circuit_size);
     auto proof = prover.construct_proof();
-    auto verifier = layer_3_composer.create_ultra_with_keccak_verifier(layer_3_circuit);
+    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    Verifier verifier(verification_key);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
