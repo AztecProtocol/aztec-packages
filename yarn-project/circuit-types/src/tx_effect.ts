@@ -10,7 +10,7 @@ import {
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   RevertCode,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
@@ -85,9 +85,9 @@ export class TxEffect {
       }
     });
 
-    if (publicDataWrites.length > MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
+    if (publicDataWrites.length > MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
       throw new Error(
-        `Too many public data writes: ${publicDataWrites.length}, max: ${MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX}`,
+        `Too many public data writes: ${publicDataWrites.length}, max: ${MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX}`,
       );
     }
     publicDataWrites.forEach(h => {
@@ -160,7 +160,7 @@ export class TxEffect {
     );
     const publicDataWritesBuffer = padBuffer(
       serializeToBuffer(this.publicDataWrites),
-      PublicDataWrite.SIZE_IN_BYTES * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      PublicDataWrite.SIZE_IN_BYTES * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );
 
     const noteEncryptedLogsHashKernel0 = this.noteEncryptedLogs.hash();
@@ -200,7 +200,7 @@ export class TxEffect {
       makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, Fr.random),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.random),
-      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
+      makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
       new Fr(noteEncryptedLogs.getKernelLength()),
       new Fr(encryptedLogs.getKernelLength()),
       new Fr(unencryptedLogs.getKernelLength()),
