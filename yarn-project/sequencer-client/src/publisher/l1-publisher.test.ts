@@ -19,6 +19,7 @@ describe('L1Publisher', () => {
   let txsEffectsHash: Buffer;
   let body: Buffer;
   let proof: Buffer;
+  let aggregationObject: Buffer;
 
   let publisher: L1Publisher;
 
@@ -29,7 +30,8 @@ describe('L1Publisher', () => {
     archive = l2Block.archive.root.toBuffer();
     txsEffectsHash = l2Block.body.getTxsEffectsHash();
     body = l2Block.body.toBuffer();
-    proof = Buffer.alloc(0);
+    aggregationObject = Buffer.alloc(0);
+    proof = makeEmptyProof().withoutPublicInputs();
 
     txSender = mock<L1PublisherTxSender>();
 
@@ -57,7 +59,7 @@ describe('L1Publisher', () => {
     const result = await publisher.processL2Block(l2Block, [], makeEmptyProof());
 
     expect(result).toEqual(true);
-    expect(txSender.sendProcessTx).toHaveBeenCalledWith({ header, archive, body, proof });
+    expect(txSender.sendProcessTx).toHaveBeenCalledWith({ header, archive, body, aggregationObject, proof });
     expect(txSender.getTransactionReceipt).toHaveBeenCalledWith(processTxHash);
   });
 
