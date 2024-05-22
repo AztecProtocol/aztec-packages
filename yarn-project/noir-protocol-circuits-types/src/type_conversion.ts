@@ -1268,7 +1268,7 @@ export function mapPublicAccumulatedDataFromNoir(
     mapTupleFromNoir(
       publicAccumulatedData.note_encrypted_logs_hashes,
       MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-      mapNoteLogHashFromNoir,
+      mapLogHashFromNoir,
     ),
     mapTupleFromNoir(publicAccumulatedData.encrypted_logs_hashes, MAX_ENCRYPTED_LOGS_PER_TX, mapLogHashFromNoir),
     mapTupleFromNoir(publicAccumulatedData.unencrypted_logs_hashes, MAX_UNENCRYPTED_LOGS_PER_TX, mapLogHashFromNoir),
@@ -1293,7 +1293,7 @@ export function mapPublicAccumulatedDataToNoir(
     new_note_hashes: mapTuple(publicAccumulatedData.newNoteHashes, mapNoteHashToNoir),
     new_nullifiers: mapTuple(publicAccumulatedData.newNullifiers, mapNullifierToNoir),
     new_l2_to_l1_msgs: mapTuple(publicAccumulatedData.newL2ToL1Msgs, mapFieldToNoir),
-    note_encrypted_logs_hashes: mapTuple(publicAccumulatedData.noteEncryptedLogsHashes, mapNoteLogHashToNoir),
+    note_encrypted_logs_hashes: mapTuple(publicAccumulatedData.noteEncryptedLogsHashes, mapLogHashToNoir),
     encrypted_logs_hashes: mapTuple(publicAccumulatedData.encryptedLogsHashes, mapLogHashToNoir),
     unencrypted_logs_hashes: mapTuple(publicAccumulatedData.unencryptedLogsHashes, mapLogHashToNoir),
     public_data_update_requests: mapTuple(

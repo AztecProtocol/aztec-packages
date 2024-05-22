@@ -195,7 +195,7 @@ struct ScopedEncryptedLogHash {
 impl ScopedEncryptedLogHash {
     pub fn expose_to_public(self) -> LogHash {
         // Hide the secret randomness and counter when exposing to public
-        // Expose as a LogHash rather than EncryptedLogHash to avoid bringing an unnec. 0 value around?
+        // Expose as a LogHash rather than EncryptedLogHash to avoid bringing an unnec. 0 value around
         // The log hash will already be silo'd when we call this
         LogHash { value: self.log_hash.value, counter: 0, length: self.log_hash.length }
     }
@@ -258,10 +258,11 @@ struct NoteLogHash {
 }
 
 impl NoteLogHash {
-    pub fn expose_to_public(self) -> NoteLogHash {
+    pub fn expose_to_public(self) -> LogHash {
         // Hide the actual counter and note hash counter when exposing it to the public kernel.
         // The counter is usually note_hash.counter + 1, so it can be revealing.
-        NoteLogHash { value: self.value, counter: 0, length: self.length, note_hash_counter: 0 }
+        // Expose as a LogHash rather than NoteLogHash to avoid bringing an unnec. 0 value around
+        LogHash { value: self.value, counter: 0, length: self.length }
     }
 }
 

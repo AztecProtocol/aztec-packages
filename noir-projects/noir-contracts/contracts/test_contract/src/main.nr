@@ -272,13 +272,12 @@ contract Test {
 
     #[aztec(private)]
     fn emit_msg_sender() {
-        // Note: don't use emit_unencrypted_log from private in production code
         context.emit_unencrypted_log(context.msg_sender());
     }
 
     #[aztec(private)]
     fn emit_unencrypted_logs(fields: [Field; 5], nest: bool) {
-        // Merged two fns to avoid hitting max limit:
+        // Merged two fns to avoid hitting max #functions limit:
         // nest -> emit_unencrypted_logs_nested
         // else -> emit_array_as_unencrypted_log
         if nest {

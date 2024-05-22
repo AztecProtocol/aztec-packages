@@ -207,7 +207,7 @@ mod tests {
         assert(
             array_eq(
                 public_inputs.end.note_encrypted_logs_hashes,
-                [note_logs[0], note_logs[1]]
+                [note_logs[0].expose_to_public(), note_logs[1].expose_to_public()]
             )
         );
     }

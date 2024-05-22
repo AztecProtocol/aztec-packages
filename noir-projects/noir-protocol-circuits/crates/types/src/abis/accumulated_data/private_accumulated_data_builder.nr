@@ -54,7 +54,7 @@ impl PrivateAccumulatedDataBuilder {
 
     pub fn to_combined(self, teardown_gas: Gas) -> CombinedAccumulatedData {
         // TODO(Miranda): Hash here or elsewhere?
-        let note_encrypted_logs_hash = compute_tx_note_logs_hash(self.note_encrypted_logs_hashes.storage);
+        let note_encrypted_logs_hash = compute_tx_note_logs_hash(self.note_encrypted_logs_hashes.storage.map(|l: NoteLogHash| l.expose_to_public()));
         let encrypted_logs_hash = compute_tx_logs_hash(self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.expose_to_public()));
         let unencrypted_logs_hash = compute_tx_logs_hash(self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.log_hash));
         let gas_used = self.to_metered_gas_used() + Gas::tx_overhead() + teardown_gas;

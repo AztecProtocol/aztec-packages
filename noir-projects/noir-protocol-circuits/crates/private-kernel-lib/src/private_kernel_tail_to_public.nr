@@ -78,7 +78,7 @@ mod tests {
         abis::{
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, gas::Gas,
         note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
-        log_hash::{ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}
+        log_hash::{LogHash, ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}
     },
         address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey,
         hash::{compute_note_hash_nonce, compute_unique_note_hash, silo_note_hash, silo_nullifier},
@@ -132,8 +132,8 @@ mod tests {
             output
         }
 
-        pub fn compute_output_note_logs<N>(_self: Self, logs: [NoteLogHash; N]) -> [NoteLogHash; N] {
-            let mut output = [NoteLogHash::empty(); N];
+        pub fn compute_output_note_logs<N>(_self: Self, logs: [NoteLogHash; N]) -> [LogHash; N] {
+            let mut output = [LogHash::empty(); N];
             for i in 0..N {
                 if logs[i].value != 0 {
                     output[i] = logs[i].expose_to_public(); // Counter is cleared so it's not exposed to the public.

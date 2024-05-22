@@ -53,8 +53,8 @@ impl CombinedAccumulatedData {
                 revertible.unencrypted_logs_hashes
             )
         );
-        let note_encrypted_log_preimages_length = non_revertible.note_encrypted_logs_hashes.fold(0, |a, b: NoteLogHash| a + b.length)
-            + revertible.note_encrypted_logs_hashes.fold(0, |a, b: NoteLogHash| a + b.length);
+        let note_encrypted_log_preimages_length = non_revertible.note_encrypted_logs_hashes.fold(0, |a, b: LogHash| a + b.length)
+            + revertible.note_encrypted_logs_hashes.fold(0, |a, b: LogHash| a + b.length);
         let encrypted_log_preimages_length = non_revertible.encrypted_logs_hashes.fold(0, |a, b: LogHash| a + b.length)
             + revertible.encrypted_logs_hashes.fold(0, |a, b: LogHash| a + b.length);
         let unencrypted_log_preimages_length = non_revertible.unencrypted_logs_hashes.fold(0, |a, b: LogHash| a + b.length)

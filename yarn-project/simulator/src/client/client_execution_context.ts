@@ -366,7 +366,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     encryptedData: Buffer,
     counter: number,
   ) {
-    // TODO(Miranda) use this.contractAddress? Pedersen hash inside the context or here?
     const maskedContractAddress = pedersenHash([contractAddress, randomness], 0);
     const encryptedLog = new CountedLog(new EncryptedL2EventLog(encryptedData, maskedContractAddress), counter);
     this.encryptedLogs.push(encryptedLog);

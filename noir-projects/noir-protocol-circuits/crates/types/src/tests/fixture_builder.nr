@@ -157,7 +157,7 @@ impl FixtureBuilder {
             new_note_hashes: self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash),
             new_nullifiers: self.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier),
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
-            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage,
+            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage.map(|l: NoteLogHash| l.expose_to_public()),
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.expose_to_public()),
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.log_hash),
             public_data_update_requests: self.public_data_update_requests.storage,
