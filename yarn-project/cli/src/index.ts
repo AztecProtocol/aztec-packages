@@ -156,6 +156,15 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     });
 
   program
+    .command('bootstrap')
+    .description('Bootstrap the blockchain')
+    .addOption(pxeOption)
+    .action(async options => {
+      const { bootstrap } = await import('./cmds/bootstrap.js');
+      await bootstrap(options.rpcUrl, log);
+    });
+
+  program
     .command('deploy')
     .description('Deploys a compiled Aztec.nr contract to Aztec.')
     .argument(
