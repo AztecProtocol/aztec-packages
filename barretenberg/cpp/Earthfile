@@ -185,7 +185,6 @@ test:
     BUILD +preset-release-assert-test
     BUILD +test-clang-format
     BUILD ./srs_db/+build # prefetch
-
     FROM +source
     COPY --dir +test-binaries/build build
     FROM +preset-release-assert-test
@@ -197,4 +196,3 @@ test:
         ENV HARDWARE_CONCURRENCY=$hardware_concurrency
     END
     RUN cd build && GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure
-    
