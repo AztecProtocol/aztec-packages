@@ -2,9 +2,9 @@
 contract InclusionProofs {
     use dep::aztec::{
         prelude::{
-            AztecAddress, EthAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions,
-            PrivateContext, Map, PrivateSet, PublicMutable
-        },
+        AztecAddress, EthAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions,
+        PrivateContext, Map, PrivateSet, PublicMutable
+    },
         note::{constants::MAX_NOTES_PER_PAGE, note_getter::view_notes, note_getter_options::NoteStatus},
         keys::getters::{get_npk_m_hash, get_ivpk_m}
     };
