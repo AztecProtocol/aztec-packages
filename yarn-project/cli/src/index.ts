@@ -96,10 +96,10 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     });
 
   program
-    .command('generate-private-key')
-    .summary('Generates an encryption private key.')
+    .command('generate-keys')
+    .summary('Generates encryption and signing private keys.')
     .description(
-      'Generates a private key which fits into the scalar field used by Grumpkin curve, can be used as an encryption private key.',
+      'Generates and encryption and signing private key pair.',
     )
     .option(
       '-m, --mnemonic',
