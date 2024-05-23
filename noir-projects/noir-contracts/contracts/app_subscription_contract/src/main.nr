@@ -47,16 +47,13 @@ contract AppSubscription {
         storage.subscriptions.at(user_address).replace(&mut note, true, subscriber_ivpk_m);
 
         context.set_as_fee_payer();
-        let gas_limit = storage.gas_token_limit_per_tx.read_private();
-        context.set_public_teardown_function(
-            storage.gas_token_address.read_private(),
-            FunctionSelector::from_signature("pay_fee(Field)"),
-            [gas_limit]
-        );
+
+        // TODO(palla/gas) Assert gas_token_limit_per_tx is less than this tx gas_limit
+        let _gas_limit = storage.gas_token_limit_per_tx.read_private();
 
         context.end_setup();
 
-        AppSubscription::at(context.this_address()).assert_not_expired(note.expiry_block_number).static_enqueue(&mut context);
+        AppSubscription::at(context.this_address()).assert_not_expired(note.expiry_block_number).enqueue_view(&mut context);
 
         payload.execute_calls(&mut context, storage.target_address.read_private());
     }
@@ -81,12 +78,14 @@ contract AppSubscription {
 
     #[aztec(public)]
     #[aztec(internal)]
+    #[aztec(view)]
     fn assert_not_expired(expiry_block_number: Field) {
         assert((context.block_number()) as u64 < expiry_block_number as u64);
     }
 
     #[aztec(public)]
     #[aztec(internal)]
+    #[aztec(view)]
     fn assert_block_number(expiry_block_number: Field) {
         assert(
             (context.block_number() + SUBSCRIPTION_DURATION_IN_BLOCKS) as u64
@@ -111,7 +110,7 @@ contract AppSubscription {
         ).call(&mut context);
 
         // Assert that the given expiry_block_number < current_block_number + SUBSCRIPTION_DURATION_IN_BLOCKS.
-        AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).static_enqueue(&mut context);
+        AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).enqueue_view(&mut context);
         let subscriber_npk_m_hash = get_npk_m_hash(&mut context, subscriber_address);
         let subscriber_ivpk_m = get_ivpk_m(&mut context, subscriber_address);
 

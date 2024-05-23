@@ -35,10 +35,16 @@ struct RootRollupInputs {
 
 impl RootRollupInputs {
     pub fn root_rollup_circuit(self) -> RootRollupPublicInputs {
+        // Verify the previous rollup proofs
+        self.previous_rollup_data[0].verify();
+        self.previous_rollup_data[1].verify();
+
+        // verify the root parity
+        self.l1_to_l2_roots.verify();
+
         let left = self.previous_rollup_data[0].base_or_merge_rollup_public_inputs;
         let right = self.previous_rollup_data[1].base_or_merge_rollup_public_inputs;
 
-        let aggregation_object = components::aggregate_proofs(left, right);
         components::assert_both_input_proofs_of_same_rollup_type(left, right);
         let _ = components::assert_both_input_proofs_of_same_height_and_return(left, right);
         components::assert_equal_constants(left, right);
@@ -65,11 +71,14 @@ impl RootRollupInputs {
             out_hash: components::compute_out_hash(self.previous_rollup_data)
         };
 
+        let total_fees = components::accumulate_fees(left, right);
+
         let header = Header {
             last_archive: left.constants.last_archive,
             content_commitment,
             state,
-            global_variables: left.constants.global_variables
+            global_variables: left.constants.global_variables,
+            total_fees
         };
 
         // Build the block hash for this by hashing the header and then insert the new leaf to archive tree.
@@ -84,20 +93,7 @@ impl RootRollupInputs {
             0
         );
 
-        self.verify_root_parity();
-
-        RootRollupPublicInputs { aggregation_object, archive, header }
-    }
-
-    fn verify_root_parity(self) {
-        // TODO: Verify that self.l1_to_l2_roots.verification_key.hash is the hash of the RootParityCircuit
-        //assert(self.l1_to_l2_roots.verification_key.hash == ROOT_PARITY_CIRCUIT_HASH) 
-        std::verify_proof(
-            self.l1_to_l2_roots.verification_key.key.as_slice(),
-            self.l1_to_l2_roots.proof.fields.as_slice(),
-            ParityPublicInputs::serialize(self.l1_to_l2_roots.public_inputs).as_slice(),
-            self.l1_to_l2_roots.verification_key.hash
-        );
+        RootRollupPublicInputs { archive, header }
     }
 }
 

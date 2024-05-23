@@ -1,14 +1,13 @@
 use dep::protocol_types::{hash::pedersen_hash, traits::FromField};
 
-use crate::context::{PrivateContext, PublicContext, Context};
-use crate::history::public_storage::public_storage_historical_read;
+use crate::context::{PrivateContext, PublicContext};
 use crate::public_storage;
 use crate::state_vars::{
     storage::Storage,
     shared_mutable::{scheduled_value_change::ScheduledValueChange, scheduled_delay_change::ScheduledDelayChange}
 };
 
-struct SharedMutable<T, INITIAL_DELAY> {
+struct SharedMutable<T, INITIAL_DELAY, Context> {
     context: Context,
     storage_slot: Field,
 }
@@ -20,7 +19,7 @@ struct SharedMutable<T, INITIAL_DELAY> {
 //
 // TODO https://github.com/AztecProtocol/aztec-packages/issues/5736: change the storage allocation scheme so that we 
 // can actually use it here
-impl<T, INITIAL_DELAY> Storage<T> for SharedMutable<T, INITIAL_DELAY> {}
+impl<T, INITIAL_DELAY, Context> Storage<T> for SharedMutable<T, INITIAL_DELAY, Context> {}
 
 // SharedMutable<T> stores a value of type T that is:
 //  - publicly known (i.e. unencrypted)
@@ -33,18 +32,31 @@ impl<T, INITIAL_DELAY> Storage<T> for SharedMutable<T, INITIAL_DELAY> {}
 // future, so that they can guarantee the value will not have possibly changed by then (because of the delay).
 // The delay for changing a value is initially equal to INITIAL_DELAY, but can be changed by calling 
 // `schedule_delay_change`.
-impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY> {
+impl<T, INITIAL_DELAY, Context> SharedMutable<T, INITIAL_DELAY, Context> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
     }
 
+    // Since we can't rely on the native storage allocation scheme, we hash the storage slot to get a unique location in
+    // which we can safely store as much data as we need. 
+    // See https://github.com/AztecProtocol/aztec-packages/issues/5492 and 
+    // https://github.com/AztecProtocol/aztec-packages/issues/5736
+    fn get_value_change_storage_slot(self) -> Field {
+        pedersen_hash([self.storage_slot, 0], 0)
+    }
+
+    fn get_delay_change_storage_slot(self) -> Field {
+        pedersen_hash([self.storage_slot, 1], 0)
+    }
+}
+
+impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PublicContext> {
     pub fn schedule_value_change(self, new_value: T) {
-        let context = self.context.public.unwrap();
         let mut value_change = self.read_value_change();
         let delay_change = self.read_delay_change();
 
-        let block_number = context.block_number() as u32;
+        let block_number = self.context.block_number() as u32;
         let current_delay = delay_change.get_current(block_number);
 
         // TODO: make this configurable
@@ -56,10 +68,9 @@ impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY> {
     }
 
     pub fn schedule_delay_change(self, new_delay: u32) {
-        let context = self.context.public.unwrap();
         let mut delay_change = self.read_delay_change();
 
-        let block_number = context.block_number() as u32;
+        let block_number = self.context.block_number() as u32;
 
         delay_change.schedule_change(new_delay, block_number);
 
@@ -67,12 +78,12 @@ impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY> {
     }
 
     pub fn get_current_value_in_public(self) -> T {
-        let block_number = self.context.public.unwrap().block_number() as u32;
+        let block_number = self.context.block_number() as u32;
         self.read_value_change().get_current_at(block_number)
     }
 
     pub fn get_current_delay_in_public(self) -> u32 {
-        let block_number = self.context.public.unwrap().block_number() as u32;
+        let block_number = self.context.block_number() as u32;
         self.read_delay_change().get_current(block_number)
     }
 
@@ -82,59 +93,6 @@ impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY> {
 
     pub fn get_scheduled_delay_in_public(self) -> (u32, u32) {
         self.read_delay_change().get_scheduled()
-    }
-
-    pub fn get_current_value_in_private(self) -> T where T: FromField {
-        let mut context = self.context.private.unwrap();
-
-        // When reading the current value in private we construct a historical state proof for the public value.
-        // However, since this value might change, we must constrain the maximum transaction block number as this proof
-        // will only be valid for however many blocks we can ensure the value will not change, which will depend on the
-        // current delay and any scheduled delay changes.
-
-        let (value_change, delay_change, historical_block_number) = self.historical_read_from_public_storage(*context);
-
-        // We use the effective minimum delay as opposed to the current delay at the historical block as this one also
-        // takes into consideration any scheduled delay changes. 
-        // For example, consider a scenario in which at block 200 the current delay was 50. We may naively think that
-        // the earliest we could change the value would be at block 251 by scheduling immediately after the historical
-        // block, i.e. at block 201. But if there was a delay change scheduled for block 210 to reduce the delay to 20 
-        // blocks, then if a value change was scheduled at block 210 it would go into effect at block 230, which is 
-        // earlier than what we'd expect if we only considered the current delay.
-        let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(historical_block_number);
-        let block_horizon = value_change.get_block_horizon(historical_block_number, effective_minimum_delay);
-
-        // We prevent this transaction from being included in any block after the block horizon, ensuring that the 
-        // historical public value matches the current one, since it can only change after the horizon.
-        context.set_tx_max_block_number(block_horizon);
-        value_change.get_current_at(historical_block_number)
-    }
-
-    fn historical_read_from_public_storage(
-        self,
-        context: PrivateContext
-    ) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>, u32) where T: FromField {
-        // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
-        let value_change_slot = self.get_value_change_storage_slot();
-        let mut raw_value_change_fields = [0; 3];
-        for i in 0..3 {
-            raw_value_change_fields[i] = public_storage_historical_read(
-                    context,
-                    value_change_slot + i as Field,
-                    context.this_address()
-                );
-        }
-
-        // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
-        let delay_change_slot = self.get_delay_change_storage_slot();
-        let raw_delay_change_fields = [public_storage_historical_read(context, delay_change_slot, context.this_address())];
-
-        let value_change = ScheduledValueChange::deserialize(raw_value_change_fields);
-        let delay_change = ScheduledDelayChange::deserialize(raw_delay_change_fields);
-
-        let historical_block_number = context.historical_header.global_variables.block_number as u32;
-
-        (value_change, delay_change, historical_block_number)
     }
 
     fn read_value_change(self) -> ScheduledValueChange<T> {
@@ -152,17 +110,58 @@ impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY> {
     fn write_delay_change(self, delay_change: ScheduledDelayChange<INITIAL_DELAY>) {
         public_storage::write(self.get_delay_change_storage_slot(), delay_change);
     }
+}
 
-    // Since we can't rely on the native storage allocation scheme, we hash the storage slot to get a unique location in
-    // which we can safely store as much data as we need. 
-    // See https://github.com/AztecProtocol/aztec-packages/issues/5492 and 
-    // https://github.com/AztecProtocol/aztec-packages/issues/5736
-    fn get_value_change_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot, 0], 0)
+impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PrivateContext> {
+    pub fn get_current_value_in_private(self) -> T where T: FromField {
+        // When reading the current value in private we construct a historical state proof for the public value.
+        // However, since this value might change, we must constrain the maximum transaction block number as this proof
+        // will only be valid for however many blocks we can ensure the value will not change, which will depend on the
+        // current delay and any scheduled delay changes.
+
+        let (value_change, delay_change, historical_block_number) = self.historical_read_from_public_storage(*self.context);
+
+        // We use the effective minimum delay as opposed to the current delay at the historical block as this one also
+        // takes into consideration any scheduled delay changes. 
+        // For example, consider a scenario in which at block 200 the current delay was 50. We may naively think that
+        // the earliest we could change the value would be at block 251 by scheduling immediately after the historical
+        // block, i.e. at block 201. But if there was a delay change scheduled for block 210 to reduce the delay to 20 
+        // blocks, then if a value change was scheduled at block 210 it would go into effect at block 230, which is 
+        // earlier than what we'd expect if we only considered the current delay.
+        let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(historical_block_number);
+        let block_horizon = value_change.get_block_horizon(historical_block_number, effective_minimum_delay);
+
+        // We prevent this transaction from being included in any block after the block horizon, ensuring that the 
+        // historical public value matches the current one, since it can only change after the horizon.
+        self.context.set_tx_max_block_number(block_horizon);
+        value_change.get_current_at(historical_block_number)
     }
 
-    fn get_delay_change_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot, 1], 0)
+    fn historical_read_from_public_storage(
+        self,
+        context: PrivateContext
+    ) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>, u32) where T: FromField {
+        let header = context.get_header();
+        // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
+        let value_change_slot = self.get_value_change_storage_slot();
+        let mut raw_value_change_fields = [0; 3];
+        for i in 0..3 {
+            raw_value_change_fields[i] = header.public_storage_historical_read(
+                value_change_slot + i as Field,
+                context.this_address()
+            );
+        }
+
+        // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
+        let delay_change_slot = self.get_delay_change_storage_slot();
+        let raw_delay_change_fields = [header.public_storage_historical_read(delay_change_slot, context.this_address())];
+
+        let value_change = ScheduledValueChange::deserialize(raw_value_change_fields);
+        let delay_change = ScheduledDelayChange::deserialize(raw_delay_change_fields);
+
+        let historical_block_number = context.historical_header.global_variables.block_number as u32;
+
+        (value_change, delay_change, historical_block_number)
     }
 }
 
@@ -170,11 +169,12 @@ mod test {
     use dep::std::{merkle::compute_merkle_root, test::OracleMock};
 
     use crate::{
-        context::{PublicContext, PrivateContext, Context},
+        context::{PublicContext, PrivateContext},
         state_vars::shared_mutable::{
         shared_mutable::SharedMutable, scheduled_value_change::ScheduledValueChange,
         scheduled_delay_change::ScheduledDelayChange
     },
+        test::helpers::context_builder::ContextBuilder,
         oracle::get_public_data_witness::PublicDataWitness
     };
 
@@ -193,30 +193,18 @@ mod test {
 
     global TEST_INITIAL_DELAY = 3;
 
-    fn setup(private: bool) -> (SharedMutable<Field, TEST_INITIAL_DELAY>, Field) {
+    fn setup() -> (SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext>, Field) {
         let block_number = 40;
-        let context = create_context(block_number, private);
+        let mut context = ContextBuilder::new().block_number(block_number).public();
 
         let storage_slot = 57;
-        let state_var: SharedMutable<Field, TEST_INITIAL_DELAY> = SharedMutable::new(context, storage_slot);
+        let state_var = SharedMutable::new(&mut context, storage_slot);
 
         (state_var, block_number)
     }
 
-    fn create_context(block_number: Field, private: bool) -> Context {
-        if private {
-            let mut private_context = PrivateContext::empty();
-            private_context.historical_header.global_variables.block_number = block_number;
-            Context::private(&mut private_context)
-        } else {
-            let mut public_context = PublicContext::empty();
-            public_context.inputs.public_global_variables.block_number = block_number;
-            Context::public(&mut public_context)
-        }
-    }
-
     fn mock_value_change_read(
-        state_var: SharedMutable<Field, TEST_INITIAL_DELAY>,
+        state_var: SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext>,
         pre: Field,
         post: Field,
         block_of_change: Field
@@ -228,7 +216,7 @@ mod test {
     }
 
     fn mock_delay_change_read(
-        state_var: SharedMutable<Field, TEST_INITIAL_DELAY>,
+        state_var: SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext>,
         pre: Field,
         post: Field,
         block_of_change: Field
@@ -244,7 +232,7 @@ mod test {
         let _ = OracleMock::mock("storageRead").with_params((delay_change_slot, 1)).returns(fields).times(1);
     }
 
-    fn mock_delay_change_read_uninitialized(state_var: SharedMutable<Field, TEST_INITIAL_DELAY>) {
+    fn mock_delay_change_read_uninitialized(state_var: SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext>) {
         let delay_change_slot = state_var.get_delay_change_storage_slot();
         let _ = OracleMock::mock("storageRead").with_params((delay_change_slot, 1)).returns([0]).times(1);
     }
@@ -252,7 +240,7 @@ mod test {
     // Useful since change and delay values are always the global pre/post ones, so we typically only care about their
     // block of change.
     fn mock_value_and_delay_read(
-        state_var: SharedMutable<Field, TEST_INITIAL_DELAY>,
+        state_var: SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext>,
         value_block_of_change: Field,
         delay_block_of_change: Field
     ) {
@@ -269,7 +257,7 @@ mod test {
     }
 
     fn assert_value_change_write(
-        state_var: SharedMutable<Field, TEST_INITIAL_DELAY>,
+        state_var: SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext>,
         mock: OracleMock,
         pre: Field,
         post: Field,
@@ -280,7 +268,7 @@ mod test {
     }
 
     fn assert_delay_change_write(
-        state_var: SharedMutable<Field, TEST_INITIAL_DELAY>,
+        state_var: SharedMutable<Field, TEST_INITIAL_DELAY, &mut PublicContext>,
         mock: OracleMock,
         pre: Field,
         post: Field,
@@ -298,7 +286,7 @@ mod test {
 
     #[test]
     fn test_get_current_value_in_public() {
-        let (state_var, block_number) = setup(false);
+        let (state_var, block_number) = setup();
 
         // Change in the future, current value is pre
         mock_value_change_read(state_var, pre_value, post_value, block_number + 1);
@@ -315,7 +303,7 @@ mod test {
 
     #[test]
     fn test_get_scheduled_value_in_public() {
-        let (state_var, block_number) = setup(false);
+        let (state_var, block_number) = setup();
 
         // Change in the future, scheduled is post (always is)
         mock_value_change_read(state_var, pre_value, post_value, block_number + 1);
@@ -332,7 +320,7 @@ mod test {
 
     #[test]
     fn test_get_current_delay_in_public() {
-        let (state_var, block_number) = setup(false);
+        let (state_var, block_number) = setup();
 
         // Uninitialized
         mock_delay_change_read_uninitialized(state_var);
@@ -353,7 +341,7 @@ mod test {
 
     #[test]
     fn test_get_scheduled_delay_in_public_before_change() {
-        let (state_var, block_number) = setup(false);
+        let (state_var, block_number) = setup();
 
         // Uninitialized
         mock_delay_change_read_uninitialized(state_var);
@@ -374,7 +362,7 @@ mod test {
 
     #[test]
     fn test_schedule_value_change_no_delay() {
-        let (state_var, block_number) = setup(false);
+        let (state_var, block_number) = setup();
 
         // Last value change was in the past
         mock_value_change_read(state_var, pre_value, post_value, 0);
@@ -392,7 +380,7 @@ mod test {
 
     #[test]
     fn test_schedule_value_change_before_change_no_scheduled_delay() {
-        let (state_var, block_number) = setup(false);
+        let (state_var, block_number) = setup();
 
         // Value change in the future, delay change in the past
         mock_value_and_delay_read(state_var, block_number + 1, block_number - 1);
@@ -412,7 +400,7 @@ mod test {
 
     #[test]
     fn test_schedule_value_change_before_change_scheduled_delay() {
-        let (state_var, block_number) = setup(false);
+        let (state_var, block_number) = setup();
 
         // Value change in the future, delay change in the future
         mock_value_and_delay_read(state_var, block_number + 1, block_number + 1);
@@ -433,7 +421,7 @@ mod test {
 
     #[test]
     fn test_schedule_value_change_after_change_no_scheduled_delay() {
-        let (state_var, block_number) = setup(false);
+        let (state_var, block_number) = setup();
 
         // Value change in the past, delay change in the past
         mock_value_and_delay_read(state_var, block_number - 1, block_number - 1);
@@ -453,7 +441,7 @@ mod test {
 
     #[test]
     fn test_schedule_value_change_after_change_scheduled_delay() {
-        let (state_var, block_number) = setup(false);
+        let (state_var, block_number) = setup();
 
         // Value change in the past, delay change in the future
         mock_value_and_delay_read(state_var, block_number - 1, block_number + 1);
@@ -474,7 +462,7 @@ mod test {
 
     #[test]
     fn test_schedule_delay_increase_before_change() {
-        let (state_var, block_number) = setup(false);
+        let (state_var, block_number) = setup();
 
         // Delay change in future, current delay is pre
         mock_delay_change_read(state_var, pre_delay, post_delay, block_number + 1);
@@ -489,7 +477,7 @@ mod test {
 
     #[test]
     fn test_schedule_delay_reduction_before_change() {
-        let (state_var, block_number) = setup(false);
+        let (state_var, block_number) = setup();
 
         // Delay change in future, current delay is pre
         mock_delay_change_read(state_var, pre_delay, post_delay, block_number + 1);
@@ -510,7 +498,7 @@ mod test {
 
     #[test]
     fn test_schedule_delay_increase_after_change() {
-        let (state_var, block_number) = setup(false);
+        let (state_var, block_number) = setup();
 
         // Delay change in the past, current delay is post
         mock_delay_change_read(state_var, pre_delay, post_delay, block_number - 1);
@@ -525,7 +513,7 @@ mod test {
 
     #[test]
     fn test_schedule_delay_reduction_after_change() {
-        let (state_var, block_number) = setup(false);
+        let (state_var, block_number) = setup();
 
         // Delay change in the past, current delay is post
         mock_delay_change_read(state_var, pre_delay, post_delay, block_number - 1);

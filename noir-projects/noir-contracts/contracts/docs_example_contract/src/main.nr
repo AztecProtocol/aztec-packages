@@ -18,10 +18,7 @@ contract DocsExample {
         PrivateContext, Map, PublicMutable, PublicImmutable, PrivateMutable, PrivateImmutable,
         PrivateSet, SharedImmutable, Deserialize
     };
-    use dep::aztec::{
-        note::note_getter_options::Comparator, context::{PublicContext, Context},
-        keys::getters::{get_npk_m_hash, get_ivpk_m}
-    };
+    use dep::aztec::{note::note_getter_options::Comparator, keys::getters::{get_npk_m_hash, get_ivpk_m}};
     use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
@@ -57,7 +54,7 @@ contract DocsExample {
 
     // Note: The following is no longer necessary to implement manually as our macros do this for us. It is left here
     // for documentation purposes only.
-    impl Storage {
+    impl<Context> Storage<Context> {
         fn init(context: Context) -> Self {
             Storage {
                 // docs:start:storage-leader-init
@@ -117,7 +114,7 @@ contract DocsExample {
         // and returns the response.
         // Used to test that we can retrieve values through calls and 
         // correctly return them in the simulation
-        let mut leader = DocsExample::at(context.this_address()).get_shared_immutable_constrained_private().static_call(&mut context);
+        let mut leader = DocsExample::at(context.this_address()).get_shared_immutable_constrained_private().view(&mut context);
         leader.points += 1;
         leader
     }
@@ -128,12 +125,13 @@ contract DocsExample {
         // and returns the response.
         // Used to test that we can retrieve values through calls and 
         // correctly return them in the simulation
-        let mut leader = DocsExample::at(context.this_address()).get_shared_immutable_constrained_public().static_call(&mut context);
+        let mut leader = DocsExample::at(context.this_address()).get_shared_immutable_constrained_public().view(&mut context);
         leader.points += 1;
         leader
     }
 
     #[aztec(public)]
+    #[aztec(view)]
     fn get_shared_immutable_constrained_public() -> pub Leader {
         storage.shared_immutable.read_public()
     }
@@ -145,6 +143,7 @@ contract DocsExample {
     }
 
     #[aztec(private)]
+    #[aztec(view)]
     fn get_shared_immutable_constrained_private() -> pub Leader {
         storage.shared_immutable.read_private()
     }
@@ -288,7 +287,8 @@ contract DocsExample {
     // docs:end:private_mutable_is_initialized
 
     // docs:start:get_note-private-immutable
-    unconstrained fn get_imm_card() -> pub CardNote {
+    #[aztec(private)]
+    fn get_imm_card() -> CardNote {
         storage.private_immutable.get_note()
     }
     // docs:end:get_note-private-immutable
@@ -344,7 +344,7 @@ contract DocsExample {
         // docs:end:context-example-context
 
         // docs:start:storage-example-context
-        let mut storage = Storage::init(Context::private(&mut context));
+        let mut storage = Storage::init(&mut context);
         // docs:end:storage-example-context
         // ************************************************************
 

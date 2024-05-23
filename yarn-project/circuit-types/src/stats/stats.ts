@@ -1,3 +1,15 @@
+/** Stats associated with an ACIR proof generation.*/
+export type ProofConstructed = {
+  /** Name of the event for metrics purposes */
+  eventName: 'proof_construction_time';
+  /** Name of the program being proven */
+  acir_test: string;
+  /** Number of threads used for proving */
+  threads: number;
+  /** Time spent proving */
+  value: number;
+};
+
 /** Stats associated with an L2 block. */
 export type L2BlockStats = {
   /** Number of txs in the L2 block. */
@@ -56,7 +68,10 @@ export type CircuitName =
   | 'root-rollup'
   | 'private-kernel-init'
   | 'private-kernel-inner'
-  | 'private-kernel-reset'
+  | 'private-kernel-reset-full'
+  | 'private-kernel-reset-big'
+  | 'private-kernel-reset-medium'
+  | 'private-kernel-reset-small'
   | 'private-kernel-tail'
   | 'private-kernel-tail-to-public'
   | 'app-circuit'
@@ -252,6 +267,7 @@ export type TxAddedToPoolStats = {
 
 /** Stats emitted in structured logs with an `eventName` for tracking. */
 export type Stats =
+  | ProofConstructed
   | L1PublishStats
   | NodeSyncedChainHistoryStats
   | CircuitSimulationStats
