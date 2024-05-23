@@ -124,11 +124,6 @@ struct AcirProgramStack {
         , witness_stack(witness_stack_in)
     {}
 
-    // WORKTODO: cant use the seriailzation bc of circular dependency. Resolve? or just leave as is?
-    // AcirProgramStack(std::string const& bytecode_path, std::string const& witness_path)
-    //     : constraint_systems(program_buf_to_acir_format(bytecode_path))
-    //     , witness_stack(witness_buf_to_witness_stack(witness_path)){};
-
     size_t size() const { return witness_stack.size(); }
     bool empty() const { return witness_stack.empty(); }
 
