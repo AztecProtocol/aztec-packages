@@ -99,8 +99,9 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       'An optional mnemonic string used for the private key generation. If not provided, random private key will be generated.',
     )
     .action(async options => {
-      const { generatePrivateKey } = await import('./cmds/generate_private_key.js');
-      generatePrivateKey(options.mnemonic, log);
+      const { generateKeys } = await import('./cmds/generate_private_key.js');
+      const { privateEncryptionKey, privateSigningKey } = generateKeys();
+      log(`Encryption Private Key: ${privateEncryptionKey}\nSigning Private key: ${privateSigningKey}\n`);
     });
 
   program
@@ -126,8 +127,8 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
     .action(async ({ rpcUrl, privateKey, wait }) => {
-      const { createAccount } = await import('./cmds/create_account.js');
-      await createAccount(rpcUrl, privateKey, wait, debugLogger, log);
+      // const { createAccount } = await import('./cmds/create_account.js');
+      // await createAccount(rpcUrl, privateKey, wait, debugLogger, log);
     });
 
   program
@@ -183,22 +184,22 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         artifactPath,
         { json, rpcUrl, publicKey, args: rawArgs, portalAddress, salt, wait, privateKey, initializer },
       ) => {
-        const { deploy } = await import('./cmds/deploy.js');
-        await deploy(
-          artifactPath,
-          json,
-          rpcUrl,
-          publicKey,
-          rawArgs,
-          portalAddress,
-          salt,
-          privateKey,
-          initializer,
-          wait,
-          debugLogger,
-          log,
-          logJson,
-        );
+        // const { deploy } = await import('./cmds/deploy.js');
+        // await deploy(
+        //   artifactPath,
+        //   json,
+        //   rpcUrl,
+        //   publicKey,
+        //   rawArgs,
+        //   portalAddress,
+        //   salt,
+        //   privateKey,
+        //   initializer,
+        //   wait,
+        //   debugLogger,
+        //   log,
+        //   logJson,
+        // );
       },
     );
 
@@ -233,19 +234,19 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('--deployer-address <address>', 'Optional address of the contract deployer', parseAztecAddress)
     .addOption(pxeOption)
     .action(async options => {
-      const { addContract } = await import('./cmds/add_contract.js');
-      await addContract(
-        options.rpcUrl,
-        options.contractArtifact,
-        options.contractAddress,
-        options.initHash,
-        options.salt ?? Fr.ZERO,
-        options.publicKey,
-        options.portalContract,
-        options.deployerAddress,
-        debugLogger,
-        log,
-      );
+      // const { addContract } = await import('./cmds/add_contract.js');
+      // await addContract(
+      //   options.rpcUrl,
+      //   options.contractArtifact,
+      //   options.contractAddress,
+      //   options.initHash,
+      //   options.salt ?? Fr.ZERO,
+      //   options.publicKey,
+      //   options.portalContract,
+      //   options.deployerAddress,
+      //   debugLogger,
+      //   log,
+      // );
     });
 
   program
@@ -358,18 +359,18 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .addOption(pxeOption)
     .option('--no-wait', 'Print transaction hash without waiting for it to be mined')
     .action(async (functionName, options) => {
-      const { send } = await import('./cmds/send.js');
-      await send(
-        functionName,
-        options.args,
-        options.contractArtifact,
-        options.contractAddress,
-        options.privateKey,
-        options.rpcUrl,
-        !options.noWait,
-        debugLogger,
-        log,
-      );
+      // const { send } = await import('./cmds/send.js');
+      // await send(
+      //   functionName,
+      //   options.args,
+      //   options.contractArtifact,
+      //   options.contractAddress,
+      //   options.privateKey,
+      //   options.rpcUrl,
+      //   !options.noWait,
+      //   debugLogger,
+      //   log,
+      // );
     });
 
   program
