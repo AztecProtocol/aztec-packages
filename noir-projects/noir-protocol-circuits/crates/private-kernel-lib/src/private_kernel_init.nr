@@ -4,17 +4,15 @@ use crate::{
 };
 use dep::types::{
     abis::{
-    private_kernel::private_call_data::{PrivateCallData, verify_private_call},
+    private_kernel::private_call_data::PrivateCallData,
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs
 },
-    constants::MAX_NEW_NOTE_HASHES_PER_CALL, mocked::verify_private_function_proof,
-    transaction::tx_request::TxRequest
+    constants::MAX_NEW_NOTE_HASHES_PER_CALL, transaction::tx_request::TxRequest
 };
 
 struct PrivateKernelInitHints {
     note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
     first_revertible_private_call_request_index: u64,
-    first_revertible_public_call_request_index: u64
 }
 
 // Initialization struct for private inputs to the private kernel
@@ -27,21 +25,19 @@ struct PrivateKernelInitCircuitPrivateInputs {
 impl PrivateKernelInitCircuitPrivateInputs {
     pub fn native_private_kernel_circuit_initial(self) -> PrivateKernelCircuitPublicInputs {
         // verify/aggregate the private call proof
-        verify_private_call(self.private_call);
+        self.private_call.verify();
 
         let privateCallDataValidator = PrivateCallDataValidator::new(self.private_call);
         privateCallDataValidator.validate();
-        privateCallDataValidator.validate_as_first_call(
-            self.hints.first_revertible_private_call_request_index,
-            self.hints.first_revertible_public_call_request_index
-        );
+        privateCallDataValidator.validate_as_first_call(self.hints.first_revertible_private_call_request_index);
         privateCallDataValidator.validate_against_tx_request(self.tx_request);
 
         let private_call_public_inputs = self.private_call.call_stack_item.public_inputs;
         PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(self.tx_request, private_call_public_inputs).compose(
             private_call_public_inputs,
+            privateCallDataValidator.array_lengths,
+            self.private_call.call_stack_item.contract_address,
             self.hints.note_hash_nullifier_counters,
-            self.private_call.private_call_stack,
             self.private_call.public_call_stack,
             self.private_call.public_teardown_call_request
         ).finish()
@@ -53,7 +49,7 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::NoteHash,
-        nullifier_key_validation_request::NullifierKeyValidationRequest,
+        key_validation_request::KeyValidationRequest,
         private_kernel::private_call_data::PrivateCallData, read_request::ReadRequest,
         nullifier::Nullifier, log_hash::{LogHash, NoteLogHash}
     },
@@ -75,8 +71,7 @@ mod tests {
             let tx_request = private_call.build_tx_request();
             let hints = PrivateKernelInitHints {
                 note_hash_nullifier_counters: [0; MAX_NEW_NOTE_HASHES_PER_CALL],
-                first_revertible_private_call_request_index: 0,
-                first_revertible_public_call_request_index: 0
+                first_revertible_private_call_request_index: 0
             };
 
             PrivateKernelInitInputsBuilder { tx_request, private_call, hints }
@@ -201,17 +196,17 @@ mod tests {
     }
 
     #[test]
-    fn propagate_nullifier_key_validation_requests() {
+    fn propagate_key_validation_requests() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        let request_0 = NullifierKeyValidationRequest { master_nullifier_public_key: GrumpkinPoint { x: 1, y: 2 }, app_nullifier_secret_key: 3 };
-        builder.private_call.public_inputs.nullifier_key_validation_requests.push(request_0);
+        let request_0 = KeyValidationRequest { pk_m: GrumpkinPoint { x: 1, y: 2 }, sk_app: 3 };
+        builder.private_call.public_inputs.key_validation_requests.push(request_0);
 
         let public_inputs = builder.execute();
 
-        assert_eq(array_length(public_inputs.validation_requests.nullifier_key_validation_requests), 1);
+        assert_eq(array_length(public_inputs.validation_requests.key_validation_requests), 1);
 
-        let request = public_inputs.validation_requests.nullifier_key_validation_requests[0];
+        let request = public_inputs.validation_requests.key_validation_requests[0];
         assert_eq(request.request, request_0);
         assert_eq(
             request.contract_address, builder.private_call.public_inputs.call_context.storage_contract_address

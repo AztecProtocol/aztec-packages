@@ -3,7 +3,8 @@ use dep::types::{
     call_request::CallRequest, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
     max_block_number::MaxBlockNumber, nullifier::Nullifier, note_hash::ScopedNoteHash,
-    log_hash::NoteLogHash, private_circuit_public_inputs::PrivateCircuitPublicInputs
+    log_hash::NoteLogHash,
+    private_circuit_public_inputs::{PrivateCircuitPublicInputs, PrivateCircuitPublicInputsArrayLengths}
 },
     address::AztecAddress,
     constants::{
@@ -16,9 +17,10 @@ use dep::types::{
 
 struct DataSource {
     private_call_public_inputs: PrivateCircuitPublicInputs,
+    array_lengths: PrivateCircuitPublicInputsArrayLengths,
+    contract_address: AztecAddress,
     storage_contract_address: AztecAddress,
     note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
-    private_call_requests: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
     public_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
     public_teardown_call_request: CallRequest,
 }
@@ -60,7 +62,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         public_inputs.validation_requests.max_block_number = start.for_rollup.max_block_number;
         public_inputs.validation_requests.note_hash_read_requests = array_to_bounded_vec(start.note_hash_read_requests);
         public_inputs.validation_requests.nullifier_read_requests = array_to_bounded_vec(start.nullifier_read_requests);
-        public_inputs.validation_requests.nullifier_key_validation_requests = array_to_bounded_vec(start.nullifier_key_validation_requests);
+        public_inputs.validation_requests.key_validation_requests = array_to_bounded_vec(start.key_validation_requests);
 
         let start = previous_kernel_public_inputs.end;
         public_inputs.end.new_note_hashes = array_to_bounded_vec(start.new_note_hashes);
@@ -79,17 +81,19 @@ impl PrivateKernelCircuitPublicInputsComposer {
     pub fn compose(
         &mut self,
         private_call_public_inputs: PrivateCircuitPublicInputs,
+        array_lengths: PrivateCircuitPublicInputsArrayLengths,
+        contract_address: AztecAddress,
         note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
-        private_call_requests: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
         public_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
         public_teardown_call_request: CallRequest
     ) -> Self {
         let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
         let source = DataSource {
-            storage_contract_address,
             private_call_public_inputs,
+            array_lengths,
+            contract_address,
+            storage_contract_address,
             note_hash_nullifier_counters,
-            private_call_requests,
             public_call_requests,
             public_teardown_call_request
         };
@@ -97,7 +101,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         self.propagate_max_block_number(source);
         self.propagate_note_hash_read_requests(source);
         self.propagate_nullifier_read_requests(source);
-        self.propagate_nullifier_key_validation_requests(source);
+        self.propagate_key_validation_requests(source);
         self.propagate_note_hashes(source);
         self.propagate_nullifiers(source);
         self.propagate_l2_to_l1_messages(source);
@@ -139,12 +143,12 @@ impl PrivateKernelCircuitPublicInputsComposer {
         }
     }
 
-    fn propagate_nullifier_key_validation_requests(&mut self, source: DataSource) {
-        let nullifier_key_validation_requests = source.private_call_public_inputs.nullifier_key_validation_requests;
-        for i in 0..nullifier_key_validation_requests.len() {
-            let request = nullifier_key_validation_requests[i];
+    fn propagate_key_validation_requests(&mut self, source: DataSource) {
+        let key_validation_requests = source.private_call_public_inputs.key_validation_requests;
+        for i in 0..key_validation_requests.len() {
+            let request = key_validation_requests[i];
             if !is_empty(request) {
-                self.public_inputs.validation_requests.nullifier_key_validation_requests.push(request.scope(source.storage_contract_address));
+                self.public_inputs.validation_requests.key_validation_requests.push(request.scope(source.storage_contract_address));
             }
         }
     }
@@ -210,11 +214,15 @@ impl PrivateKernelCircuitPublicInputsComposer {
     }
 
     fn propagate_private_call_requests(&mut self, source: DataSource) {
-        let call_requests = source.private_call_requests;
+        let call_requests = source.private_call_public_inputs.private_call_requests;
+        let num_requests = source.array_lengths.private_call_requests;
+        let mut proceed = true;
         for i in 0..call_requests.len() {
-            let call_request = call_requests[i];
-            if !is_empty(call_request) {
-                self.public_inputs.end.private_call_stack.push(call_request);
+            proceed &= i != num_requests;
+            if proceed {
+                // Push the call requests to the stack in reverse order.
+                let call_request = call_requests[num_requests - i - 1];
+                self.public_inputs.end.private_call_stack.push(call_request.scope(source.contract_address));
             }
         }
     }

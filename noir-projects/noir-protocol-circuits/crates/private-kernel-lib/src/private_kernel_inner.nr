@@ -4,8 +4,7 @@ use crate::{
 };
 use dep::types::{
     abis::{
-    private_kernel_data::{PrivateKernelData, verify_previous_kernel_proof},
-    private_kernel::private_call_data::{PrivateCallData, verify_private_call},
+    private_kernel_data::PrivateKernelData, private_kernel::private_call_data::PrivateCallData,
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs
 },
     constants::MAX_NEW_NOTE_HASHES_PER_CALL, utils::arrays::array_length
@@ -24,10 +23,10 @@ struct PrivateKernelInnerCircuitPrivateInputs {
 impl PrivateKernelInnerCircuitPrivateInputs {
     pub fn native_private_kernel_circuit_inner(self) -> PrivateKernelCircuitPublicInputs {
         // verify/aggregate the private call proof
-        verify_private_call(self.private_call);
+        self.private_call.verify();
 
         // verify/aggregate the previous kernel
-        verify_previous_kernel_proof(self.previous_kernel);
+        self.previous_kernel.verify();
 
         let privateCallDataValidator = PrivateCallDataValidator::new(self.private_call);
         privateCallDataValidator.validate();
@@ -37,11 +36,13 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         let private_call_stack_size = array_length(private_call_stack);
         let call_request = private_call_stack[private_call_stack_size - 1];
         privateCallDataValidator.validate_against_call_request(call_request);
+        privateCallDataValidator.validate_against_previous_kernel(self.previous_kernel.public_inputs);
 
         PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(self.previous_kernel.public_inputs).compose(
             self.private_call.call_stack_item.public_inputs,
+            privateCallDataValidator.array_lengths,
+            self.private_call.call_stack_item.contract_address,
             self.hints.note_hash_nullifier_counters,
-            self.private_call.private_call_stack,
             self.private_call.public_call_stack,
             self.private_call.public_teardown_call_request
         ).finish()

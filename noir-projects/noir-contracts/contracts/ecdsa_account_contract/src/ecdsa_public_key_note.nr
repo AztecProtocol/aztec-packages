@@ -2,11 +2,13 @@ use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteInterf
 
 use dep::aztec::{
     keys::getters::get_ivpk_m, note::utils::compute_note_hash_for_consumption,
-    oracle::nullifier_keys::get_nsk_app,
+    keys::getters::get_nsk_app,
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_point::GrumpkinPoint, hash::poseidon2_hash}
 };
 
 global ECDSA_PUBLIC_KEY_NOTE_LEN: Field = 5;
+// ECDSA_PUBLIC_KEY_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
+global ECDSA_PUBLIC_KEY_NOTE_BYTES_LEN: Field = 5 * 32 + 64;
 
 // Stores an ECDSA public key composed of two 32-byte elements
 // TODO: Do we need to include a nonce, in case we want to read/nullify/recreate with the same pubkey value?
@@ -18,13 +20,13 @@ struct EcdsaPublicKeyNote {
     npk_m_hash: Field,
 }
 
-impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
+impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN, ECDSA_PUBLIC_KEY_NOTE_BYTES_LEN> for EcdsaPublicKeyNote {
     // Cannot use the automatic serialization since x and y don't fit. Serialize the note as 5 fields where:
     // [0] = x[0..31] (upper bound excluded)
     // [1] = x[31]
     // [2] = y[0..31]
     // [3] = y[31]
-    // [4] = owner
+    // [4] = npk_m_hash
     fn serialize_content(self) -> [Field; ECDSA_PUBLIC_KEY_NOTE_LEN] {
         let mut x: Field = 0;
         let mut y: Field = 0;
@@ -86,7 +88,7 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
 
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field, ivpk_m: GrumpkinPoint) {
-        context.emit_note_encrypted_log(
+        context.encrypt_and_emit_note(
             (*context).this_address(),
             slot,
             Self::get_note_type_id(),
