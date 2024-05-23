@@ -1,9 +1,8 @@
 import { type FunctionCall } from '@aztec/circuit-types';
-import { type AztecAddress, FunctionData, type GasSettings } from '@aztec/circuits.js';
-import { FunctionSelector } from '@aztec/foundation/abi';
-import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
+import { type AztecAddress, type GasSettings } from '@aztec/circuits.js';
+import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
+import { GasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
-import { type Wallet } from '../account/wallet.js';
 import { type FeePaymentMethod } from './fee_payment_method.js';
 
 /**
@@ -12,13 +11,8 @@ import { type FeePaymentMethod } from './fee_payment_method.js';
 export class NativeFeePaymentMethod implements FeePaymentMethod {
   #gasTokenAddress: AztecAddress;
 
-  private constructor(canonicalGasTokenAddress: AztecAddress) {
-    this.#gasTokenAddress = canonicalGasTokenAddress;
-  }
-
-  static async create(wallet: Wallet): Promise<NativeFeePaymentMethod> {
-    const nodeInfo = await wallet.getNodeInfo();
-    return new NativeFeePaymentMethod(getCanonicalGasTokenAddress(nodeInfo.l1ContractAddresses.gasPortalAddress));
+  constructor() {
+    this.#gasTokenAddress = GasTokenAddress;
   }
 
   /**
@@ -53,10 +47,13 @@ export class NativeFeePaymentMethod implements FeePaymentMethod {
   getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
     return Promise.resolve([
       {
+        name: 'pay_fee',
         to: this.#gasTokenAddress,
-        functionData: new FunctionData(FunctionSelector.fromSignature('pay_fee(Field)'), /*isPrivate=*/ false),
+        selector: FunctionSelector.fromSignature('pay_fee(Field)'),
+        type: FunctionType.PUBLIC,
         isStatic: false,
         args: [gasSettings.getFeeLimit()],
+        returnTypes: [],
       },
     ]);
   }
