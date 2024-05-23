@@ -1,8 +1,11 @@
-import { Fr, GrumpkinPrivateKey } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js';
+import { deriveSigningKey } from '@aztec/circuits.js';
 
 export function generateKeys() {
+  const privateKey = Fr.random();
+  const signingKey = deriveSigningKey(privateKey);
   return {
-    privateEncryptionKey: Fr.random(),
-    privateSigningKey: GrumpkinPrivateKey.random(),
+    privateEncryptionKey: privateKey,
+    privateSigningKey: signingKey,
   };
 }
