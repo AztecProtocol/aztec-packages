@@ -13,6 +13,7 @@ import {
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
+  FunctionData,
   Gas,
   type GlobalVariables,
   type Header,
@@ -31,9 +32,9 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_CALL,
   MembershipWitness,
+  NESTED_RECURSIVE_PROOF_LENGTH,
   NoteHash,
   Nullifier,
-  type Proof,
   PublicCallData,
   type PublicCallRequest,
   PublicCallStackItem,
@@ -46,8 +47,9 @@ import {
   ReadRequest,
   RevertCode,
   VK_TREE_HEIGHT,
-  VerificationKey,
+  VerificationKeyData,
   makeEmptyProof,
+  makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
@@ -119,7 +121,6 @@ export abstract class AbstractPhaseManager {
   abstract handle(
     tx: Tx,
     publicKernelPublicInputs: PublicKernelCircuitPublicInputs,
-    previousPublicKernelProof: Proof,
   ): Promise<{
     /**
      * The collection of public kernel requests
@@ -133,10 +134,6 @@ export abstract class AbstractPhaseManager {
      * the final output of the public kernel circuit for this phase
      */
     finalKernelOutput?: KernelCircuitPublicInputs;
-    /**
-     * the proof of the public kernel circuit for this phase
-     */
-    publicKernelProof: Proof;
     /**
      * revert reason, if any
      */
@@ -220,12 +217,10 @@ export abstract class AbstractPhaseManager {
   protected async processEnqueuedPublicCalls(
     tx: Tx,
     previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
-    previousPublicKernelProof: Proof,
   ): Promise<
     [
       PublicKernelCircuitPrivateInputs[],
       PublicKernelCircuitPublicInputs,
-      Proof,
       UnencryptedFunctionL2Logs[],
       SimulationError | undefined,
       NestedProcessReturnValues[],
@@ -233,13 +228,12 @@ export abstract class AbstractPhaseManager {
     ]
   > {
     let kernelOutput = previousPublicKernelOutput;
-    const kernelProof = previousPublicKernelProof;
     const publicKernelInputs: PublicKernelCircuitPrivateInputs[] = [];
 
     const enqueuedCalls = this.extractEnqueuedPublicCalls(tx);
 
     if (!enqueuedCalls || !enqueuedCalls.length) {
-      return [[], kernelOutput, kernelProof, [], undefined, [], Gas.empty()];
+      return [[], kernelOutput, [], undefined, [], Gas.empty()];
     }
 
     const newUnencryptedFunctionLogs: UnencryptedFunctionL2Logs[] = [];
@@ -283,7 +277,7 @@ export abstract class AbstractPhaseManager {
 
         // Sanity check for a current upstream assumption.
         // Consumers of the result seem to expect "reverted <=> revertReason !== undefined".
-        const functionSelector = result.execution.functionData.selector.toString();
+        const functionSelector = result.execution.functionSelector.toString();
         if (result.reverted && !result.revertReason) {
           throw new Error(
             `Simulation of ${result.execution.contractAddress.toString()}:${functionSelector} reverted with no reason.`,
@@ -312,7 +306,7 @@ export abstract class AbstractPhaseManager {
         executionStack.push(...result.nestedExecutions);
         const callData = await this.getPublicCallData(result, isExecutionRequest);
 
-        const circuitResult = await this.runKernelCircuit(kernelOutput, kernelProof, callData);
+        const circuitResult = await this.runKernelCircuit(kernelOutput, callData);
         kernelOutput = circuitResult[1];
 
         // Capture the inputs to the kernel circuit for later proving
@@ -336,7 +330,7 @@ export abstract class AbstractPhaseManager {
             }`,
           );
           // TODO(@spalladino): Check gasUsed is correct. The AVM should take care of setting gasLeft to zero upon a revert.
-          return [[], kernelOutput, kernelProof, [], result.revertReason, [], gasUsed];
+          return [[], kernelOutput, [], result.revertReason, [], gasUsed];
         }
 
         if (!enqueuedExecutionResult) {
@@ -353,15 +347,7 @@ export abstract class AbstractPhaseManager {
     // TODO(#3675): This should be done in a public kernel circuit
     removeRedundantPublicDataWrites(kernelOutput, this.phase);
 
-    return [
-      publicKernelInputs,
-      kernelOutput,
-      kernelProof,
-      newUnencryptedFunctionLogs,
-      undefined,
-      enqueuedCallResults,
-      gasUsed,
-    ];
+    return [publicKernelInputs, kernelOutput, newUnencryptedFunctionLogs, undefined, enqueuedCallResults, gasUsed];
   }
 
   /** Returns all pending private and public nullifiers.  */
@@ -382,18 +368,16 @@ export abstract class AbstractPhaseManager {
 
   protected async runKernelCircuit(
     previousOutput: PublicKernelCircuitPublicInputs,
-    previousProof: Proof,
     callData: PublicCallData,
   ): Promise<[PublicKernelCircuitPrivateInputs, PublicKernelCircuitPublicInputs]> {
-    return await this.getKernelCircuitOutput(previousOutput, previousProof, callData);
+    return await this.getKernelCircuitOutput(previousOutput, callData);
   }
 
   protected async getKernelCircuitOutput(
     previousOutput: PublicKernelCircuitPublicInputs,
-    previousProof: Proof,
     callData: PublicCallData,
   ): Promise<[PublicKernelCircuitPrivateInputs, PublicKernelCircuitPublicInputs]> {
-    const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
+    const previousKernel = this.getPreviousKernelData(previousOutput);
 
     // We take a deep copy (clone) of these inputs to be passed to the prover
     const inputs = new PublicKernelCircuitPrivateInputs(previousKernel, callData);
@@ -409,15 +393,13 @@ export abstract class AbstractPhaseManager {
     }
   }
 
-  protected getPreviousKernelData(
-    previousOutput: PublicKernelCircuitPublicInputs,
-    previousProof: Proof,
-  ): PublicKernelData {
-    // TODO(@PhilWindle) Fix once we move this to prover-client
-    const vk = VerificationKey.makeFake();
+  protected getPreviousKernelData(previousOutput: PublicKernelCircuitPublicInputs): PublicKernelData {
+    // The proof and verification key are not used in simulation
+    const vk = VerificationKeyData.makeFake();
+    const proof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
     const vkIndex = 0;
     const vkSiblingPath = MembershipWitness.random(VK_TREE_HEIGHT).siblingPath;
-    return new PublicKernelData(previousOutput, previousProof, vk, vkIndex, vkSiblingPath);
+    return new PublicKernelData(previousOutput, proof, vk, vkIndex, vkSiblingPath);
   }
 
   protected async getPublicCallStackItem(result: PublicExecutionResult, isExecutionRequest = false) {
@@ -474,7 +456,7 @@ export abstract class AbstractPhaseManager {
 
     return new PublicCallStackItem(
       result.execution.contractAddress,
-      result.execution.functionData,
+      new FunctionData(result.execution.functionSelector, false),
       publicCircuitPublicInputs,
       isExecutionRequest,
     );
