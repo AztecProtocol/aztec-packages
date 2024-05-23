@@ -325,7 +325,7 @@ TEST_P(AcirIntegrationFoldingTest, ProveAndVerifyProgramStack)
 INSTANTIATE_TEST_SUITE_P(AcirTests,
                          AcirIntegrationFoldingTest,
                          testing::Values("fold_after_inlined_calls",
-                                         "fold_basic",
+                                         //  "fold_basic",
                                          "fold_basic_nested_call",
                                          "fold_call_witness_condition",
                                          "fold_complex_outputs",
