@@ -295,7 +295,7 @@ describe('e2e_block_building', () => {
       const rct = await action.send().wait();
 
       // compare logs
-      expect(rct.status).toEqual('mined');
+      expect(rct.status).toEqual('success');
       const encryptedLogs = tx.encryptedLogs.unrollLogs();
       expect(encryptedLogs[0].maskedContractAddress).toEqual(pedersenHash([testContract.address, new Fr(5)], 0));
       expect(encryptedLogs[1].maskedContractAddress).toEqual(pedersenHash([testContract.address, new Fr(5)], 0));
