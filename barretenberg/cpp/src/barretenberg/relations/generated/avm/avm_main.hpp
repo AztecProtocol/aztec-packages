@@ -2123,6 +2123,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(72);
 
+<<<<<<< HEAD
 >>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
             auto tmp =
                 (avm_main_opcode_active -
@@ -2144,8 +2145,8 @@ template <typename FF_> class avm_mainImpl {
                     avm_main_sel_op_fee_per_da_gas) +
                    avm_main_sel_op_transaction_fee)));
 >>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
 >>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
->>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
 <<<<<<< HEAD
             std::get<70>(evals) += tmp;
@@ -2217,6 +2218,7 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(76);
 
+<<<<<<< HEAD
 >>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
             auto tmp =
                 ((((((((((((avm_main_sel_op_add + avm_main_sel_op_sub) + avm_main_sel_op_div) + avm_main_sel_op_fdiv) +
@@ -2238,7 +2240,33 @@ template <typename FF_> class avm_mainImpl {
                    avm_main_sel_op_transaction_fee)) *
                  (avm_main_call_ptr - avm_main_space_id));
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+=======
+=======
+            auto tmp = ((((((((((((((avm_main_sel_op_add + avm_main_sel_op_sub) + avm_main_sel_op_div) +
+                                   avm_main_sel_op_fdiv) +
+                                  avm_main_sel_op_mul) +
+                                 avm_main_sel_op_not) +
+                                avm_main_sel_op_eq) +
+                               avm_main_sel_op_and) +
+                              avm_main_sel_op_or) +
+                             avm_main_sel_op_xor) +
+                            avm_main_sel_op_cast) +
+                           avm_main_sel_op_lt) +
+                          avm_main_sel_op_lte) +
+                         ((((((((((avm_main_sel_op_sender + avm_main_sel_op_address) + avm_main_sel_op_portal) +
+                                 avm_main_sel_op_chain_id) +
+                                avm_main_sel_op_version) +
+                               avm_main_sel_op_block_number) +
+                              avm_main_sel_op_coinbase) +
+                             avm_main_sel_op_timestamp) +
+                            avm_main_sel_op_fee_per_l2_gas) +
+                           avm_main_sel_op_fee_per_da_gas) +
+                          avm_main_sel_op_transaction_fee)) *
+                        (avm_main_call_ptr - avm_main_space_id));
+>>>>>>> 5685450e94 (6542: fix cast and comparison unit tests)
+>>>>>>> f5e0fce0cd (6542: fix cast and comparison unit tests)
             tmp *= scaling_factor;
             std::get<71>(evals) += tmp;
         }

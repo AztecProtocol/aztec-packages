@@ -711,6 +711,9 @@ void AvmTraceBuilder::op_lt(
     mem_trace_builder.write_into_memory(
         call_ptr, clk, IntermRegister::IC, res.direct_c_offset, c, in_tag, AvmMemoryTag::U8);
 
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::LT);
+
     main_trace.push_back(Row{
         .avm_main_clk = clk,
         .avm_main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
@@ -763,6 +766,9 @@ void AvmTraceBuilder::op_lte(
     // Write into memory value c from intermediate register ic.
     mem_trace_builder.write_into_memory(
         call_ptr, clk, IntermRegister::IC, res.direct_c_offset, c, in_tag, AvmMemoryTag::U8);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::LTE);
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
@@ -1465,6 +1471,9 @@ void AvmTraceBuilder::op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_
 
     // Write into memory value c from intermediate register ic.
     mem_trace_builder.write_into_memory(call_ptr, clk, IntermRegister::IC, direct_dst_offset, c, memEntry.tag, dst_tag);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::CAST);
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,

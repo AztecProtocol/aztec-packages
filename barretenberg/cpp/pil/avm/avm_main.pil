@@ -408,7 +408,7 @@ namespace avm_main(256);
     pol ALL_BINARY_SEL = sel_op_and + sel_op_or + sel_op_xor;
     pol ALL_GADGET_SEL = sel_op_radix_le + sel_op_sha256 + sel_op_poseidon2 + sel_op_keccak + sel_op_pedersen;
     pol ALL_MEMORY_SEL = sel_cmov + sel_mov;
-    pol OPCODE_SELECTORS = ALU_ALL_SEL + ALL_BINARY_SEL + ALL_MEMORY_SEL + ALL_GADGET_SEL + KERNEL_INPUT_SELECTORS + KERNEL_OUTPUT_SELECTORS;
+    pol OPCODE_SELECTORS = sel_op_fdiv + ALU_ALL_SEL + ALL_BINARY_SEL + ALL_MEMORY_SEL + ALL_GADGET_SEL + KERNEL_INPUT_SELECTORS + KERNEL_OUTPUT_SELECTORS;
 
     pol commit opcode_active;
     opcode_active - OPCODE_SELECTORS = 0;
