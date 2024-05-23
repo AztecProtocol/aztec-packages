@@ -78,8 +78,7 @@ async function getMasterSecretKeysAndAppKeyGenerators(
     if (request.isEmpty()) {
       break;
     }
-    // TODO(benesjan): refactor this to just return secret keys
-    const [secretKeys, _] = await oracle.getMasterSecretKeyAndAppKeyGenerator(request.request.pkM);
+    const secretKeys = await oracle.getMasterSecretKey(request.request.pkM);
     keysHints[keyIndex] = new KeyValidationHint(secretKeys, i);
     keyIndex++;
   }
