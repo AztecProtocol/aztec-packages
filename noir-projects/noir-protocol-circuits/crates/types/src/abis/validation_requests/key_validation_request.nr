@@ -1,7 +1,7 @@
 use dep::std::cmp::Eq;
 use crate::{
-    address::AztecAddress, constants::KEY_VALIDATION_REQUEST_LENGTH,
-    traits::{Empty, Serialize, Deserialize}, grumpkin_point::GrumpkinPoint
+    constants::KEY_VALIDATION_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize},
+    grumpkin_point::GrumpkinPoint
 };
 
 struct KeyValidationRequest {
@@ -44,8 +44,3 @@ impl Deserialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
     }
 }
 
-impl KeyValidationRequest {
-    pub fn scope(self, contract_address: AztecAddress) -> ScopedKeyValidationRequest {
-        ScopedKeyValidationRequest { request: self, contract_address }
-    }
-}

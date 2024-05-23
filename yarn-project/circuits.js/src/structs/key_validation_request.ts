@@ -2,7 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { KEY_VALIDATION_REQUEST_LENGTH, SCOPED_KEY_VALIDATION_REQUEST_LENGTH } from '../constants.gen.js';
+import { KEY_VALIDATION_REQUEST_LENGTH, SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH } from '../constants.gen.js';
 
 /**
  * Request for validating keys used in the app.
@@ -55,7 +55,7 @@ export class KeyValidationRequest {
 /**
  * Request for validating keys used in the app.
  */
-export class ScopedKeyValidationRequest {
+export class ScopedKeyValidationRequestAndGenerator {
   constructor(public readonly request: KeyValidationRequest, public readonly contractAddress: AztecAddress) {}
 
   toBuffer() {
@@ -64,22 +64,22 @@ export class ScopedKeyValidationRequest {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new ScopedKeyValidationRequest(KeyValidationRequest.fromBuffer(reader), AztecAddress.fromBuffer(reader));
+    return new ScopedKeyValidationRequestAndGenerator(KeyValidationRequest.fromBuffer(reader), AztecAddress.fromBuffer(reader));
   }
 
   toFields(): Fr[] {
     const fields = [...this.request.toFields(), this.contractAddress];
-    if (fields.length !== SCOPED_KEY_VALIDATION_REQUEST_LENGTH) {
+    if (fields.length !== SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH) {
       throw new Error(
-        `Invalid number of fields for ScopedKeyValidationRequest. Expected ${SCOPED_KEY_VALIDATION_REQUEST_LENGTH}, got ${fields.length}`,
+        `Invalid number of fields for ScopedKeyValidationRequestAndGenerator. Expected ${SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH}, got ${fields.length}`,
       );
     }
     return fields;
   }
 
-  static fromFields(fields: Fr[] | FieldReader): ScopedKeyValidationRequest {
+  static fromFields(fields: Fr[] | FieldReader): ScopedKeyValidationRequestAndGenerator {
     const reader = FieldReader.asReader(fields);
-    return new ScopedKeyValidationRequest(KeyValidationRequest.fromFields(reader), AztecAddress.fromFields(reader));
+    return new ScopedKeyValidationRequestAndGenerator(KeyValidationRequest.fromFields(reader), AztecAddress.fromFields(reader));
   }
 
   isEmpty() {
@@ -87,6 +87,6 @@ export class ScopedKeyValidationRequest {
   }
 
   static empty() {
-    return new ScopedKeyValidationRequest(KeyValidationRequest.empty(), AztecAddress.ZERO);
+    return new ScopedKeyValidationRequestAndGenerator(KeyValidationRequest.empty(), AztecAddress.ZERO);
   }
 }

@@ -15,7 +15,7 @@ import {
   type PrivateKernelResetCircuitPrivateInputsVariants,
   PrivateKernelResetHints,
   type ReadRequest,
-  type ScopedKeyValidationRequest,
+  type ScopedKeyValidationRequestAndGenerator,
   ScopedNoteHash,
   ScopedNullifier,
   ScopedReadRequest,
@@ -67,7 +67,7 @@ function getNullifierReadRequestHints<PENDING extends number, SETTLED extends nu
 }
 
 async function getMasterSecretKeysAndAppKeyGenerators(
-  keyValidationRequests: Tuple<ScopedKeyValidationRequest, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+  keyValidationRequests: Tuple<ScopedKeyValidationRequestAndGenerator, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
   oracle: ProvingDataOracle,
 ) {
   const keysHints = makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, KeyValidationHint.empty);

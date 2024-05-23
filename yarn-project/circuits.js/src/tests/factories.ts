@@ -117,7 +117,7 @@ import {
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
-  ScopedKeyValidationRequest,
+  ScopedKeyValidationRequestAndGenerator,
   ScopedReadRequest,
   StateDiffHints,
   StateReference,
@@ -216,8 +216,8 @@ function makeKeyValidationRequests(seed: number): KeyValidationRequest {
   return new KeyValidationRequest(makePoint(seed), fr(seed + 2));
 }
 
-function makeScopedKeyValidationRequests(seed: number): ScopedKeyValidationRequest {
-  return new ScopedKeyValidationRequest(makeKeyValidationRequests(seed), makeAztecAddress(seed + 4));
+function makeScopedKeyValidationRequestAndGenerators(seed: number): ScopedKeyValidationRequestAndGenerator {
+  return new ScopedKeyValidationRequestAndGenerator(makeKeyValidationRequests(seed), makeAztecAddress(seed + 4));
 }
 
 /**
@@ -278,7 +278,7 @@ export function makeValidationRequests(seed = 1) {
     makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x80),
     makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x90),
     makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x95),
-    makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, makeScopedKeyValidationRequests, seed + 0x100),
+    makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, makeScopedKeyValidationRequestAndGenerators, seed + 0x100),
     makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
   );
 }

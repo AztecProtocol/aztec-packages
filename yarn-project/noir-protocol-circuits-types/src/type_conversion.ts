@@ -109,7 +109,7 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   RootRollupPublicInputs,
-  ScopedKeyValidationRequest,
+  ScopedKeyValidationRequestAndGenerator,
   ScopedL2ToL1Message,
   ScopedNoteHash,
   ScopedNullifier,
@@ -216,7 +216,7 @@ import type {
   RootRollupInputs as RootRollupInputsNoir,
   RootRollupParityInput as RootRollupParityInputNoir,
   RootRollupPublicInputs as RootRollupPublicInputsNoir,
-  ScopedKeyValidationRequest as ScopedKeyValidationRequestsNoir,
+  ScopedKeyValidationRequestAndGenerator as ScopedKeyValidationRequestAndGeneratorsNoir,
   ScopedL2ToL1Message as ScopedL2ToL1MessageNoir,
   ScopedNoteHash as ScopedNoteHashNoir,
   ScopedNullifier as ScopedNullifierNoir,
@@ -760,15 +760,15 @@ export function mapKeyValidationRequestsFromNoir(request: KeyValidationRequestsN
   return new KeyValidationRequest(mapPointFromNoir(request.pk_m), mapFieldFromNoir(request.sk_app));
 }
 
-function mapScopedKeyValidationRequestsToNoir(request: ScopedKeyValidationRequest): ScopedKeyValidationRequestsNoir {
+function mapScopedKeyValidationRequestAndGeneratorsToNoir(request: ScopedKeyValidationRequestAndGenerator): ScopedKeyValidationRequestAndGeneratorsNoir {
   return {
     request: mapKeyValidationRequestsToNoir(request.request),
     contract_address: mapAztecAddressToNoir(request.contractAddress),
   };
 }
 
-function mapScopedKeyValidationRequestsFromNoir(request: ScopedKeyValidationRequestsNoir): ScopedKeyValidationRequest {
-  return new ScopedKeyValidationRequest(
+function mapScopedKeyValidationRequestAndGeneratorsFromNoir(request: ScopedKeyValidationRequestAndGeneratorsNoir): ScopedKeyValidationRequestAndGenerator {
+  return new ScopedKeyValidationRequestAndGenerator(
     mapKeyValidationRequestsFromNoir(request.request),
     mapAztecAddressFromNoir(request.contract_address),
   );
@@ -1092,7 +1092,7 @@ function mapValidationRequestsToNoir(requests: ValidationRequests): ValidationRe
       requests.nullifierNonExistentReadRequests,
       mapScopedReadRequestToNoir,
     ),
-    key_validation_requests: mapTuple(requests.keyValidationRequests, mapScopedKeyValidationRequestsToNoir),
+    key_validation_requests: mapTuple(requests.keyValidationRequests, mapScopedKeyValidationRequestAndGeneratorsToNoir),
     public_data_reads: mapTuple(requests.publicDataReads, mapPublicDataReadToNoir),
   };
 }
@@ -1118,7 +1118,7 @@ function mapValidationRequestsFromNoir(requests: ValidationRequestsNoir): Valida
     mapTupleFromNoir(
       requests.key_validation_requests,
       MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-      mapScopedKeyValidationRequestsFromNoir,
+      mapScopedKeyValidationRequestAndGeneratorsFromNoir,
     ),
     mapTupleFromNoir(requests.public_data_reads, MAX_PUBLIC_DATA_READS_PER_TX, mapPublicDataReadFromNoir),
   );
