@@ -124,8 +124,9 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
         ASSERT(pcs_verification_key.pairing_check(cur_aggregation_object.P0.get_value(),
                                                   cur_aggregation_object.P1.get_value()));
         ASSERT(pcs_verification_key.pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value()));
-        cur_aggregation_object.P0 += pairing_points[0];
-        cur_aggregation_object.P1 += pairing_points[1];
+        field_ct recursion_separator = bb::stdlib::witness_t<Builder>(&builder, 2);
+        cur_aggregation_object.P0 += pairing_points[0] * recursion_separator;
+        cur_aggregation_object.P1 += pairing_points[1] * recursion_separator;
         ASSERT(pcs_verification_key.pairing_check(cur_aggregation_object.P0.get_value(),
                                                   cur_aggregation_object.P1.get_value()));
     } else {
