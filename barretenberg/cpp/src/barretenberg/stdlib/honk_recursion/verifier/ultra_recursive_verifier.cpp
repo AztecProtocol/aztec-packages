@@ -145,6 +145,10 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
                                                   claimed_evaluations.get_shifted(),
                                                   multivariate_challenge,
                                                   transcript);
+    // Generate recursion separator challenge
+    auto recursion_separator = transcript->template get_challenge<FF>("recursion_separator");
+    verifier_accumulator[0] = verifier_accumulator[0] * recursion_separator;
+    verifier_accumulator[1] = verifier_accumulator[1] * recursion_separator;
     return verifier_accumulator;
 }
 

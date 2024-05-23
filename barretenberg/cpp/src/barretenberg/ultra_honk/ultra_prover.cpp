@@ -57,7 +57,12 @@ template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof(
     generate_gate_challenges();
 
     DeciderProver_<Flavor> decider_prover(instance, transcript);
-    return decider_prover.construct_proof();
+    decider_prover.construct_proof();
+
+    // Generate recursion separator challenge
+    transcript->template get_challenge<FF>("recursion_separator");
+
+    return export_proof();
 }
 
 template class UltraProver_<UltraFlavor>;
