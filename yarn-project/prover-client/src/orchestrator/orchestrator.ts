@@ -46,6 +46,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
 import { sleep } from '@aztec/foundation/sleep';
+import { pushTestData } from '@aztec/foundation/testing';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
@@ -282,6 +283,12 @@ export class ProvingOrchestrator {
       aggregationObject: this.provingState.finalAggregationObject,
       block: l2Block,
     };
+
+    pushTestData('blockResults', {
+      block: l2Block.toString(),
+      proof: this.provingState.finalProof.toString(),
+      aggregationObject: blockResult.aggregationObject.map(x => x.toString()),
+    });
 
     return blockResult;
   }
