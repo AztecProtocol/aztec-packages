@@ -222,10 +222,8 @@ void build_constraints(Builder& builder,
         // These are set and modified whenever we encounter a recursion opcode
         //
         // These should not be set by the caller
-        // TODO(maxim): Check if this is always the case. ie I won't receive a proof that will set the first
-        // TODO(maxim): input_aggregation_object to be non-zero.
-        // TODO(maxim): if not, we can add input_aggregation_object to the proof too for all recursive proofs
-        // TODO(maxim): This might be the case for proof trees where the proofs are created on different machines
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): this usage of all zeros is a hack and could
+        // use types or enums to properly fix.
         std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> current_aggregation_object = {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         };
@@ -239,17 +237,13 @@ void build_constraints(Builder& builder,
             // prepended to the proof if the proof is above the expected size (with public inputs stripped)
             std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object = {};
             const size_t inner_public_input_offset = 3;
-            info("constraint proof: ", constraint.proof);
             for (size_t i = 0; i < HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
-                // Set the nested aggregation object indices to the current size of the public inputs
-                // This way we know that the nested aggregation object indices will always be the last
-                // indices of the public inputs
+                // Set the nested aggregation object indices to witness indices
                 nested_aggregation_object[i] = static_cast<uint32_t>(constraint.proof[inner_public_input_offset + i]);
                 // Attach the nested aggregation object to the end of the public inputs to fill in
                 // the slot where the nested aggregation object index will point into
                 constraint.public_inputs.emplace_back(constraint.proof[inner_public_input_offset + i]);
             }
-            info("nested aggregation object: ", nested_aggregation_object);
             // Remove the aggregation object so that they can be handled as normal public inputs
             // in they way taht the recursion constraint expects
             constraint.proof.erase(constraint.proof.begin() + inner_public_input_offset,
@@ -299,7 +293,6 @@ void build_constraints(Builder& builder,
                     x.slice(fq_ct::NUM_LIMB_BITS * 3, bb::stdlib::field_conversion::TOTAL_BITS)
                 };
                 for (size_t i = 0; i < fq_ct::NUM_LIMBS; ++i) {
-                    info("default object val limb: ", val_limbs[i]);
                     uint32_t idx = builder.add_variable(val_limbs[i]);
                     builder.set_public_input(idx);
                     current_aggregation_object[agg_obj_indices_idx] = idx;
