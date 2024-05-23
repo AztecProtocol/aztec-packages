@@ -101,7 +101,7 @@ global ARGS_HASH_CHUNK_COUNT: u64 = 64;
 global MAX_ARGS_LENGTH: u64 = ARGS_HASH_CHUNK_COUNT * ARGS_HASH_CHUNK_LENGTH;
 // The following is used in immutable state variables to compute an initialization slot whose value is used to
 // determine whether a given variable has been initialized (by asserting that the value in the slot is 0).
-// The initialization slot is computed by adding the constant bellow to the variable's storage slot. This constant has
+// The initialization slot is computed by adding the constant below to the variable's storage slot. This constant has
 // to be large enough so that it's ensured that it doesn't collide with storage slots of other variables.
 global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 global INITIAL_L2_BLOCK_NUM: Field = 1;
