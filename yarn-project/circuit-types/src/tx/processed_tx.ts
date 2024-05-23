@@ -131,7 +131,7 @@ export function makeProcessedTx(
   publicKernelRequests: PublicKernelRequest[],
   revertReason?: SimulationError,
   gasUsed: ProcessedTx['gasUsed'] = {},
-  finalPublicDataUpdateRequests: PublicDataUpdateRequest[] = [],
+  finalPublicDataUpdateRequests?: PublicDataUpdateRequest[],
 ): ProcessedTx {
   return {
     hash: tx.getTxHash(),
@@ -145,7 +145,7 @@ export function makeProcessedTx(
     revertReason,
     publicKernelRequests,
     gasUsed,
-    finalPublicDataUpdateRequests,
+    finalPublicDataUpdateRequests: finalPublicDataUpdateRequests ?? kernelOutput.end.publicDataUpdateRequests,
   };
 }
 
