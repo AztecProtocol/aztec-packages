@@ -125,7 +125,7 @@ pub(crate) struct VariableLiveness {
     live_in: HashMap<BasicBlockId, Variables>,
     /// The variables that stop being alive after each specific instruction
     last_uses: HashMap<BasicBlockId, LastUses>,
-
+    /// The list of block params the given block is defining. The order matters for the entry block, so it's a vec.
     param_definitions: HashMap<BasicBlockId, Vec<ValueId>>,
 }
 
@@ -171,7 +171,8 @@ impl VariableLiveness {
         self.last_uses.get(block_id).expect("Last uses should have been calculated")
     }
 
-    /// A block param is defined in the immediate dominator of the given block that has the block param as a parameter
+    /// Retrieves the list of block params the given block is defining.
+    /// Block params are defined before the block that owns them (since they are used by the predecessor blocks). They must be defined in the immediate dominator.
     /// This is the last point where the block param can be allocated without it being allocated in different places in different branches.
     pub(crate) fn defined_block_params(&self, block_id: &BasicBlockId) -> Vec<ValueId> {
         self.param_definitions.get(block_id).cloned().unwrap_or_default()

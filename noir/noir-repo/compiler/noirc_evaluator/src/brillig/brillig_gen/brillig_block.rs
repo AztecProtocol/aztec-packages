@@ -202,8 +202,12 @@ impl<'block> BrilligBlock<'block> {
         }
     }
 
-    /// Converts SSA Block parameters into Brillig Registers.
+    /// Allocates the block parameters that the given block is defining
     fn convert_block_params(&mut self, dfg: &DataFlowGraph) {
+        // We don't allocate the block parameters here, we allocate the parameters the block is defining.
+        // Since predecessors to a block have to know where the parameters of the block are allocated to pass data to it,
+        // the block parameters need to be defined/allocated before the given block. Variable liveness provides when the block parameters are defined.
+        // For the entry block, the defined block params will be the params of the function + any extra params of blocks it's the immediate dominator of.
         for param_id in self.function_context.liveness.defined_block_params(&self.block_id) {
             let value = &dfg[param_id];
             let param_type = match value {
