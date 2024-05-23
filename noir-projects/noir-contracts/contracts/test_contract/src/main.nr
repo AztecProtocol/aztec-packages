@@ -24,7 +24,7 @@ contract Test {
     use dep::aztec::state_vars::{shared_mutable::SharedMutablePrivateGetter};
 
     use dep::aztec::{
-        keys::getters::{get_npk_m, get_ivpk_m, get_npk_m_hash},
+        keys::getters::{get_npk_m, get_ivpk_m, get_ovpk_m, get_npk_m_hash},
         context::inputs::private_context_inputs::PrivateContextInputs,
         hash::{pedersen_hash, compute_secret_hash, ArgsHasher},
         note::{
@@ -89,9 +89,17 @@ contract Test {
 
         let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
         let owner_ivpk_m = get_ivpk_m(&mut context, owner);
+        let owner_ovpk_m = get_ovpk_m(&mut context, owner);
 
         let mut note = ValueNote::new(value, owner_npk_m_hash);
-        create_note(&mut context, storage_slot, &mut note, true, owner_ivpk_m);
+        create_note(
+            &mut context,
+            storage_slot,
+            &mut note,
+            true,
+            owner_ivpk_m,
+            owner_ovpk_m
+        );
     }
 
     #[aztec(private)]
@@ -297,9 +305,17 @@ contract Test {
 
         let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
         let owner_ivpk_m = get_ivpk_m(&mut context, owner);
+        let owner_ovpk_m = get_ovpk_m(&mut context, owner);
 
         let mut note = ValueNote::new(value + 1, owner_npk_m_hash);
-        create_note(&mut context, storage_slot, &mut note, true, owner_ivpk_m);
+        create_note(
+            &mut context,
+            storage_slot,
+            &mut note,
+            true,
+            owner_ivpk_m,
+            owner_ovpk_m
+        );
         storage_slot += 1;
         Test::at(context.this_address()).call_create_note(value + 2, owner, storage_slot).call(&mut context);
     }
@@ -373,7 +389,7 @@ contract Test {
     #[aztec(private)]
     fn set_constant(value: Field) {
         let mut note = TestNote::new(value);
-        storage.example_constant.initialize(&mut note, false, GrumpkinPoint::zero());
+        storage.example_constant.initialize(&mut note, false, GrumpkinPoint::zero(), GrumpkinPoint::zero());
     }
 
     #[aztec(private)]

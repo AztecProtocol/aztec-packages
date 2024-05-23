@@ -9,7 +9,7 @@ contract Crowdfunding {
         grumpkin_point::GrumpkinPoint
     },
         state_vars::{PrivateSet, PublicImmutable, SharedImmutable},
-        keys::getters::{get_npk_m_hash, get_ivpk_m}
+        keys::getters::{get_npk_m_hash, get_ivpk_m, get_ovpk_m}
     };
     use dep::value_note::value_note::ValueNote;
     use dep::token::Token;
@@ -88,10 +88,12 @@ contract Crowdfunding {
 
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
-        let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
-        let msg_sender_ivpk_m = get_ivpk_m(&mut context, context.msg_sender());
+        let donor = context.msg_sender();
+        let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, donor);
+        let msg_sender_ivpk_m = get_ivpk_m(&mut context, donor);
+        let msg_sender_ovpk_m = get_ovpk_m(&mut context, donor);
         let mut note = ValueNote::new(amount as Field, msg_sender_npk_m_hash);
-        storage.donation_receipts.insert(&mut note, true, msg_sender_ivpk_m);
+        storage.donation_receipts.insert(&mut note, true, msg_sender_ivpk_m, msg_sender_ovpk_m);
     }
     // docs:end:donate
 

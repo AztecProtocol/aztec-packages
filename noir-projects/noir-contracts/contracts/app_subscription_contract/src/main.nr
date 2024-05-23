@@ -10,7 +10,7 @@ contract AppSubscription {
         SharedImmutable
     },
         protocol_types::{traits::is_empty, grumpkin_point::GrumpkinPoint},
-        keys::getters::{get_npk_m_hash, get_ivpk_m}
+        keys::getters::{get_npk_m_hash, get_ivpk_m, get_ovpk_m}
     },
         authwit::{account::AccountActions, auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit},
         gas_token::GasToken, token::Token
@@ -38,13 +38,14 @@ contract AppSubscription {
         assert(context.msg_sender().to_field() == 0);
         assert_current_call_valid_authwit(&mut context, user_address);
 
-        let mut note = storage.subscriptions.at(user_address).get_note(false, GrumpkinPoint::zero());
+        let mut note = storage.subscriptions.at(user_address).get_note(false, GrumpkinPoint::zero(), GrumpkinPoint::zero());
         assert(note.remaining_txs as u64 > 0, "you're out of txs");
 
         note.remaining_txs -= 1;
 
         let subscriber_ivpk_m = get_ivpk_m(&mut context, user_address);
-        storage.subscriptions.at(user_address).replace(&mut note, true, subscriber_ivpk_m);
+        let subscriber_ovpk_m = get_ovpk_m(&mut context, user_address);
+        storage.subscriptions.at(user_address).replace(&mut note, true, subscriber_ivpk_m, subscriber_ovpk_m);
 
         context.set_as_fee_payer();
 
@@ -113,9 +114,10 @@ contract AppSubscription {
         AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).enqueue_view(&mut context);
         let subscriber_npk_m_hash = get_npk_m_hash(&mut context, subscriber_address);
         let subscriber_ivpk_m = get_ivpk_m(&mut context, subscriber_address);
+        let subscriber_ovpk_m = get_ovpk_m(&mut context, subscriber_address);
 
         let mut subscription_note = SubscriptionNote::new(subscriber_npk_m_hash, expiry_block_number, tx_count);
-        storage.subscriptions.at(subscriber_address).initialize_or_replace(&mut subscription_note, true, subscriber_ivpk_m);
+        storage.subscriptions.at(subscriber_address).initialize_or_replace(&mut subscription_note, true, subscriber_ivpk_m, subscriber_ovpk_m);
     }
 
     unconstrained fn is_initialized(subscriber_address: AztecAddress) -> pub bool {

@@ -61,7 +61,7 @@ impl NoteInterface<TRANSPARENT_NOTE_LEN, TRANSPARENT_NOTE_BYTES_LEN> for Transpa
         ])
     }
 
-    fn broadcast(self, context: &mut PrivateContext, slot: Field, ivpk_m: GrumpkinPoint) {
+    fn broadcast(self, context: &mut PrivateContext, slot: Field, ivpk_m: GrumpkinPoint, ovpk_m: GrumpkinPoint) {
         assert(false, "TransparentNote does not support broadcast");
     }
 }

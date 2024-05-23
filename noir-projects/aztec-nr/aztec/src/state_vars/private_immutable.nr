@@ -48,13 +48,14 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
         self,
         note: &mut Note,
         broadcast: bool,
-        ivpk_m: GrumpkinPoint
+        ivpk_m: GrumpkinPoint,
+        ovpk_m: GrumpkinPoint
     ) where Note: NoteInterface<N, M> {
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
         self.context.push_new_nullifier(nullifier, 0);
 
-        create_note(self.context, self.storage_slot, note, broadcast, ivpk_m);
+        create_note(self.context, self.storage_slot, note, broadcast, ivpk_m, ovpk_m);
     }
     // docs:end:initialize
 

@@ -5,8 +5,8 @@ use dep::aztec::{
     traits::{ToField, Serialize, FromField}, grumpkin_point::GrumpkinPoint,
     constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
 },
-    keys::getters::{get_npk_m_hash, get_ivpk_m}, note::note_getter::view_notes, state_vars::PrivateSet,
-    note::constants::MAX_NOTES_PER_PAGE
+    keys::getters::{get_npk_m_hash, get_ivpk_m, get_ovpk_m}, note::note_getter::view_notes,
+    state_vars::PrivateSet, note::constants::MAX_NOTES_PER_PAGE
 };
 use dep::std;
 use dep::std::{option::Option};
@@ -106,12 +106,14 @@ impl<Context> Deck<Context> {
 impl Deck<&mut PrivateContext> {
     pub fn add_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
         let owner_npk_m_hash = get_npk_m_hash(self.set.context, owner);
+        // TODO: same sender and recipient
         let owner_ivpk_m = get_ivpk_m(self.set.context, owner);
+        let owner_ovpk_m = get_ovpk_m(self.set.context, owner);
 
         let mut inserted_cards = &[];
         for card in cards {
             let mut card_note = CardNote::from_card(card, owner_npk_m_hash);
-            self.set.insert(&mut card_note.note, true, owner_ivpk_m);
+            self.set.insert(&mut card_note.note, true, owner_ivpk_m, owner_ovpk_m);
             inserted_cards = inserted_cards.push_back(card_note);
         }
 

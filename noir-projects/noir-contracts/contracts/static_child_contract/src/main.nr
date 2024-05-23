@@ -5,7 +5,7 @@ contract StaticChild {
     use dep::aztec::{
         context::{PublicContext, gas::GasOpts}, protocol_types::{abis::{call_context::CallContext}},
         note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader},
-        keys::getters::{get_npk_m_hash, get_ivpk_m}
+        keys::getters::{get_npk_m_hash, get_ivpk_m, get_ovpk_m}
     };
     use dep::value_note::value_note::ValueNote;
 
@@ -43,8 +43,9 @@ contract StaticChild {
     fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
         let owner_ivpk_m = get_ivpk_m(&mut context, owner);
+        let owner_ovpk_m = get_ovpk_m(&mut context, owner);
         let mut note = ValueNote::new(new_value, owner_npk_m_hash);
-        storage.a_private_value.insert(&mut note, true, owner_ivpk_m);
+        storage.a_private_value.insert(&mut note, true, owner_ivpk_m, owner_ovpk_m);
         new_value
     }
 
@@ -53,8 +54,9 @@ contract StaticChild {
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
         let owner_ivpk_m = get_ivpk_m(&mut context, owner);
+        let owner_ovpk_m = get_ovpk_m(&mut context, owner);
         let mut note = ValueNote::new(new_value, owner_npk_m_hash);
-        storage.a_private_value.insert(&mut note, true, owner_ivpk_m);
+        storage.a_private_value.insert(&mut note, true, owner_ivpk_m, owner_ovpk_m);
         new_value
     }
 
