@@ -1,4 +1,6 @@
 #pragma once
+#include "barretenberg/common/constexpr_utils.hpp"
+
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "ecc_lookup_relation.hpp"
 

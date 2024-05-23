@@ -128,7 +128,11 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         const auto& table_y = View(in.precompute_ty);
 
         const auto& precompute_skew = View(in.precompute_skew);
+<<<<<<< HEAD
         static constexpr FF negative_inverse_seven = FF(-7).invert();
+=======
+        static FF negative_inverse_seven = FF(-7).invert();
+>>>>>>> mm/ecc_relations_stdlib
         auto adjusted_skew = precompute_skew * negative_inverse_seven;
 
         const auto& wnaf_scalar_sum = View(in.precompute_scalar_sum);
@@ -297,7 +301,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
 
         auto lookup_first = (-z1_zero + 1);
         auto lookup_second = (-z2_zero + 1);
-        FF endomorphism_base_field_shift = FF::cube_root_of_unity();
+        FF endomorphism_base_field_shift = FF(bb::fq::cube_root_of_unity());
 
         auto transcript_input1 = transcript_pc + transcript_Px * beta + transcript_Py * beta_sqr + z1 * beta_cube;
         auto transcript_input2 = (transcript_pc - 1) + transcript_Px * endomorphism_base_field_shift * beta -

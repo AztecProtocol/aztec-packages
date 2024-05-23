@@ -26,16 +26,12 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     using CircuitBuilder = BuilderType; // determines the arithmetisation of recursive verifier
 
     // I need to somehow make this bn254 hashtag confusion
-    // the native stuff becomes nonnative and the nonnative stuff becomes native and everything is in circuit land is
     // probably what's going on
     using Curve = stdlib::bn254<CircuitBuilder, true>;
     using PCS = IPA<Curve>;
     using Commitment = typename Curve::AffineElement;
     using FF = typename Curve::ScalarField;
     using BF = typename Curve::BaseField;
-    using RelationSeparator = FF;
-    using NativeFlavor = ECCVMFlavor;
-    using NativeVerificationKey = NativeFlavor::VerificationKey;
 
     static constexpr size_t NUM_WIRES = ECCVMFlavor::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often

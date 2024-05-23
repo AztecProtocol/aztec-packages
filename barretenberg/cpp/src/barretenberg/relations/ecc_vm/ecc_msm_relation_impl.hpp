@@ -42,7 +42,6 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
 {
     using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;
-
     const auto& x1 = View(in.msm_x1);
     const auto& y1 = View(in.msm_y1);
     const auto& x2 = View(in.msm_x2);
@@ -255,7 +254,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      * i.e. for the skew round we can use the slice values as our "selector" when doing conditional point adds
      */
     Accumulator skew_relation(0);
-    static constexpr FF inverse_seven = FF(7).invert();
+    static FF inverse_seven = FF(7).invert();
     auto skew1_select = slice1 * inverse_seven;
     auto skew2_select = slice2 * inverse_seven;
     auto skew3_select = slice3 * inverse_seven;

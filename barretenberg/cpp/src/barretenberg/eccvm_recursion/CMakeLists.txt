@@ -1,1 +1,1 @@
-barretenberg_module(eccvm_recursion eccvm stdlib_honk_recursion commitment_schemes)
+barretenberg_module(eccvm_recursion eccvm relations stdlib_circuit_builders commitment_schemes stdlib_primitives)
