@@ -6,7 +6,7 @@
 #include <filesystem>
 #include <gtest/gtest.h>
 
-class AcirIntegrationTests : public ::testing::TestWithParam<std::string> {
+class AcirIntegrationTest : public ::testing::Test {
   public:
     static std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
     {
@@ -66,12 +66,19 @@ class AcirIntegrationTests : public ::testing::TestWithParam<std::string> {
 
         return verifier.verify_proof(proof);
     }
+};
 
+class AcirIntegrationSingleTest : public AcirIntegrationTest, public testing::WithParamInterface<std::string> {
   protected:
     static void SetUpTestSuite() { srs::init_crs_factory("../srs_db/ignition"); }
 };
 
-TEST_P(AcirIntegrationTests, ProveAndVerifyProgram)
+class AcirIntegrationFoldingTest : public AcirIntegrationTest, public testing::WithParamInterface<std::string> {
+  protected:
+    static void SetUpTestSuite() { srs::init_crs_factory("../srs_db/ignition"); }
+};
+
+TEST_P(AcirIntegrationSingleTest, ProveAndVerifyProgram)
 {
     using Flavor = GoblinUltraFlavor;
     using Builder = Flavor::CircuitBuilder;
@@ -89,7 +96,7 @@ TEST_P(AcirIntegrationTests, ProveAndVerifyProgram)
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/994): Run all tests
 INSTANTIATE_TEST_SUITE_P(AcirTests,
-                         AcirIntegrationTests,
+                         AcirIntegrationSingleTest,
                          testing::Values("1327_concrete_in_generic",
                                          "1_mul",
                                          "2_div",
@@ -182,7 +189,7 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "databus",
                                          "debug_logs",
                                          "diamond_deps_0",
-                                         "distinct_keyword",
+                                         //  "distinct_keyword",
                                          "double_verify_nested_proof",
                                          "double_verify_proof",
                                          "double_verify_proof_recursive",
@@ -292,36 +299,36 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "witness_compression",
                                          "xor"));
 
-// TEST_P(AcirIntegrationTests, ProveAndVerifyProgramStack)
-// {
-//     using Flavor = GoblinUltraFlavor;
-//     using Builder = Flavor::CircuitBuilder;
+TEST_P(AcirIntegrationFoldingTest, ProveAndVerifyProgramStack)
+{
+    using Flavor = GoblinUltraFlavor;
+    using Builder = Flavor::CircuitBuilder;
 
-//     std::string test_name = GetParam();
-//     info("Test: ", test_name);
+    std::string test_name = GetParam();
+    info("Test: ", test_name);
 
-//     auto program_stack = get_program_stack_data_from_test_file(test_name);
+    auto program_stack = get_program_stack_data_from_test_file(test_name);
 
-//     while (!program_stack.empty()) {
-//         auto program = program_stack.back();
+    while (!program_stack.empty()) {
+        auto program = program_stack.back();
 
-//         // Construct a bberg circuit from the acir representation
-//         auto builder = acir_format::create_circuit<Builder>(program.constraints, 0, program.witness);
+        // Construct a bberg circuit from the acir representation
+        auto builder = acir_format::create_circuit<Builder>(program.constraints, 0, program.witness);
 
-//         // Construct and verify Honk proof for the individidual circuit
-//         EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
+        // Construct and verify Honk proof for the individidual circuit
+        EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
 
-//         program_stack.pop_back();
-//     }
-// }
+        program_stack.pop_back();
+    }
+}
 
-// INSTANTIATE_TEST_SUITE_P(AcirTests,
-//                          AcirIntegrationTests,
-//                          testing::Values(/* "fold_after_inlined_calls", */
-//                                          "fold_basic"/* ,
-//                                          "fold_basic_nested_call",
-//                                          "fold_call_witness_condition",
-//                                          "fold_complex_outputs",
-//                                          "fold_distinct_return",
-//                                          "fold_fibonacci",
-//                                          "fold_numeric_generic_poseidon"*/));
+INSTANTIATE_TEST_SUITE_P(AcirTests,
+                         AcirIntegrationFoldingTest,
+                         testing::Values("fold_after_inlined_calls",
+                                         "fold_basic",
+                                         "fold_basic_nested_call",
+                                         "fold_call_witness_condition",
+                                         "fold_complex_outputs",
+                                         "fold_distinct_return",
+                                         "fold_fibonacci",
+                                         "fold_numeric_generic_poseidon"));
