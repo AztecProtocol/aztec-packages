@@ -531,8 +531,6 @@ jobs:
 
   merge-check:
     runs-on: ubuntu-latest
-    permissions:
-      actions: write
     needs:
       # Must be in sync with rerun-check
       - setup
