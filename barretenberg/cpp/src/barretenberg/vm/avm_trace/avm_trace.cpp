@@ -1212,7 +1212,7 @@ void AvmTraceBuilder::op_timestamp(uint32_t dst_offset)
 Row AvmTraceBuilder::create_kernel_output_opcode(uint32_t clk, uint32_t data_offset)
 {
     AvmMemTraceBuilder::MemRead read_a = mem_trace_builder.read_and_load_from_memory(
-        clk, IntermRegister::IA, data_offset, AvmMemoryTag::FF, AvmMemoryTag::U0);
+        call_ptr, clk, IntermRegister::IA, data_offset, AvmMemoryTag::FF, AvmMemoryTag::U0);
 
     return Row{
         .avm_main_clk = clk,
@@ -1231,11 +1231,11 @@ Row AvmTraceBuilder::create_kernel_output_opcode(uint32_t clk, uint32_t data_off
 Row AvmTraceBuilder::create_kernel_output_opcode_with_metadata(
     uint32_t clk, uint32_t data_offset, AvmMemoryTag data_r_tag, uint32_t metadata_offset, AvmMemoryTag metadata_r_tag)
 {
-    AvmMemTraceBuilder::MemRead read_a =
-        mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, data_offset, data_r_tag, AvmMemoryTag::U0);
+    AvmMemTraceBuilder::MemRead read_a = mem_trace_builder.read_and_load_from_memory(
+        call_ptr, clk, IntermRegister::IA, data_offset, data_r_tag, AvmMemoryTag::U0);
 
     AvmMemTraceBuilder::MemRead read_b = mem_trace_builder.read_and_load_from_memory(
-        clk, IntermRegister::IB, metadata_offset, metadata_r_tag, AvmMemoryTag::U0);
+        call_ptr, clk, IntermRegister::IB, metadata_offset, metadata_r_tag, AvmMemoryTag::U0);
 
     return Row{
         .avm_main_clk = clk,
@@ -1259,11 +1259,11 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_metadata(
 Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output(
     uint32_t clk, uint32_t data_offset, AvmMemoryTag data_r_tag, uint32_t metadata_offset, FF write_value)
 {
-    AvmMemTraceBuilder::MemRead read_a =
-        mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, data_offset, data_r_tag, AvmMemoryTag::U8);
+    AvmMemTraceBuilder::MemRead read_a = mem_trace_builder.read_and_load_from_memory(
+        call_ptr, clk, IntermRegister::IA, data_offset, data_r_tag, AvmMemoryTag::U8);
 
     mem_trace_builder.write_into_memory(
-        clk, IntermRegister::IB, metadata_offset, write_value, data_r_tag, AvmMemoryTag::U8);
+        call_ptr, clk, IntermRegister::IB, metadata_offset, write_value, data_r_tag, AvmMemoryTag::U8);
 
     return Row{
         .avm_main_clk = clk,
