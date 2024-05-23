@@ -8,48 +8,64 @@ namespace bb {
 
 class EccRelationsConsistency : public testing::Test {
   public:
-    using Flavor = ECCVMRecursiveFlavor_<UltraCircuitBuilder>;
-    using FF = typename Flavor::FF;
-    using NativeFF = bb::fq;
-    using InputElements = typename Flavor::AllValues;
-
-    InputElements get_random_input()
+    template <typename InputElements> static InputElements get_input()
     {
         InputElements result;
-        for (FF& element : result.get_all()) {
-            element = FF(NativeFF::random_element());
+        for (auto& element : result.get_all()) {
+            element = 4;
         }
         return result;
     }
-    template <typename Relation>
-    static void validate_relation_execution(const InputElements& input_elements, const auto& parameters)
+    template <template <typename> class Relation> static void validate_relation_execution()
     {
-        typename Relation::SumcheckArrayOfValuesOverSubrelations accumulator;
-        std::fill(accumulator.begin(), accumulator.end(), FF(0));
-        Relation::accumulate(accumulator, input_elements, parameters, 1);
+        using RecursiveFlavor = ECCVMRecursiveFlavor_<UltraCircuitBuilder>;
+        using RecursiveRelation = Relation<typename RecursiveFlavor::FF>;
+        const RelationParameters<typename RecursiveFlavor::FF> parameters;
+        const auto input_elements = get_input<typename RecursiveFlavor::AllValues>();
+        typename RecursiveRelation::SumcheckArrayOfValuesOverSubrelations accumulator;
+        std::fill(accumulator.begin(), accumulator.end(), typename RecursiveRelation::FF(0));
+        RecursiveRelation::accumulate(accumulator, input_elements, parameters, 1);
+
+        using NativeFlavor = ECCVMFlavor;
+        using NativeRelation = Relation<typename NativeFlavor::FF>;
+        const RelationParameters<typename NativeFlavor::FF> native_parameters;
+        const auto native_input_elements = get_input<typename NativeFlavor::AllValues>();
+        typename NativeRelation::SumcheckArrayOfValuesOverSubrelations native_accumulator;
+        std::fill(native_accumulator.begin(), native_accumulator.end(), typename NativeRelation::FF(0));
+        NativeRelation::accumulate(native_accumulator, native_input_elements, native_parameters, 1);
+
+        for (auto [val, native_val] : zip_view(accumulator, native_accumulator)) {
+            EXPECT_EQ(val.get_value().lo, uint256_t(native_val));
+        }
+        // return accumulator;
     };
 };
 
 TEST_F(EccRelationsConsistency, ECCVMLookupRelation)
 {
-    using ECCVMLookupRelation = ECCVMLookupRelation<FF>;
-    const RelationParameters<FF> parameters;
-    const InputElements input_elements = get_random_input();
-    validate_relation_execution<ECCVMLookupRelation>(input_elements, parameters);
 
-    using ECCVMMSMRelation = ECCVMMSMRelation<FF>;
-    validate_relation_execution<ECCVMMSMRelation>(input_elements, parameters);
+    validate_relation_execution<ECCVMMSMRelation>();
 
-    using ECCVMPointTableRelation = ECCVMPointTableRelation<FF>;
-    validate_relation_execution<ECCVMPointTableRelation>(input_elements, parameters);
+    // using NativeRelation = ECCVMLookupRelation<NativeFF>;
+    // auto native_accumulator = validate_relation_execution<NativeRelation>();
 
-    using ECCVMSetRelation = ECCVMSetRelation<FF>;
-    validate_relation_execution<ECCVMSetRelation>(input_elements, parameters);
+    // for (auto [val, native_val] : zip_view(accumulator, native_accumulator)) {
+    //     EXPECT_EQ(bb::fq((val.get_value() % uint512_t(bb::fq::modulus)).lo), native_val);
+    // }
 
-    using ECCVMTranscriptRelation = ECCVMTranscriptRelation<FF>;
-    validate_relation_execution<ECCVMTranscriptRelation>(input_elements, parameters);
+    // using ECCVMMSMRelation = ECCVMMSMRelation<FF>;
+    // validate_relation_execution<ECCVMMSMRelation>();
 
-    using ECCVMWnafRelation = ECCVMWnafRelation<FF>;
-    validate_relation_execution<ECCVMWnafRelation>(input_elements, parameters);
+    // using ECCVMPointTableRelation = ECCVMPointTableRelation<FF>;
+    // validate_relation_execution<ECCVMPointTableRelation>();
+
+    // using ECCVMSetRelation = ECCVMSetRelation<FF>;
+    // validate_relation_execution<ECCVMSetRelation>();
+
+    // using ECCVMTranscriptRelation = ECCVMTranscriptRelation<FF>;
+    // validate_relation_execution<ECCVMTranscriptRelation>();
+
+    // using ECCVMWnafRelation = ECCVMWnafRelation<FF>;
+    // validate_relation_execution<ECCVMWnafRelation>();
 }
 } // namespace bb

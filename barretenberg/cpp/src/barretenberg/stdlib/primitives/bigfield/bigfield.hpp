@@ -63,11 +63,24 @@ template <typename Builder, typename T> class bigfield {
     bigfield(Builder* parent_context, const uint256_t& value);
 
     explicit bigfield(const uint256_t& value) { bigfield(nullptr, value); }
+
+    /**
+     * @brief Constructs a new bigfield object from an int value. We first need to to construct a field element from the
+     * value to avoid bugs that have to do with the value being negative.
+     *
+     */
     bigfield(const int value)
     {
         uint256_t result = uint256_t(bb::fr(value));
         bigfield(nullptr, result);
     }
+
+    /**
+     * @brief Construct a new bigfield object from bb::fq. We first convert to uint256_t as field elements are in
+     * Montgomery form internally.
+     *
+     * @param value
+     */
     bigfield(const bb::fq value) { bigfield(nullptr, uint256_t(value)); }
 
     // we assume the limbs have already been normalized!
@@ -265,6 +278,11 @@ template <typename Builder, typename T> class bigfield {
 
     bool is_constant() const { return prime_basis_limb.witness_index == IS_CONSTANT; }
 
+    /**
+     * @brief Inverting function with the assumption that the bigfield element we are calling invert on is not zero.
+     *
+     * @return bigfield
+     */
     bigfield invert() const { return (bigfield(1) / bigfield(*this)); }
 
     /**
