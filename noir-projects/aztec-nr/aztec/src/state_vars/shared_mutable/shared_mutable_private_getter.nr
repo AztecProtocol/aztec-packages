@@ -55,7 +55,7 @@ impl<T, INITIAL_DELAY> SharedMutablePrivateGetter<T, INITIAL_DELAY> {
         }
 
         let delay_change_slot = self.get_delay_change_storage_slot();
-        let raw_delay_change_fields = [header.public_storage_historical_read(delay_change_slot, context.this_address())];
+        let raw_delay_change_fields = [header.public_storage_historical_read(delay_change_slot, self.other_contract_address)];
 
         let value_change = ScheduledValueChange::deserialize(raw_value_change_fields);
         let delay_change = ScheduledDelayChange::deserialize(raw_delay_change_fields);
