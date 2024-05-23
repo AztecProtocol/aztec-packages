@@ -6,8 +6,7 @@ use crate::{
     shared_mutable::SharedMutable, scheduled_value_change::ScheduledValueChange,
     scheduled_delay_change::ScheduledDelayChange
 },
-    test::helpers::context_builder::ContextBuilder,
-    oracle::get_public_data_witness::PublicDataWitness
+    test::helpers::context_builder::ContextBuilder, oracle::get_public_data_witness::PublicDataWitness
 };
 
 use dep::protocol_types::{
