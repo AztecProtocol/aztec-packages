@@ -192,7 +192,7 @@ TEST(stdlib_plookup, uint32_xor)
 
     const auto lookup = plookup_read::get_lookup_accumulators(MultiTableId::UINT32_XOR, left, right, true);
 
-    const auto left_slices = numeric::slice_input(left_value, 2 << 6, num_lookups);
+    const auto left_slices = numeric::slice_input(left_value, 1 << 6, num_lookups);
     const auto right_slices = numeric::slice_input(right_value, 1 << 6, num_lookups);
 
     std::vector<uint256_t> out_expected(num_lookups);
