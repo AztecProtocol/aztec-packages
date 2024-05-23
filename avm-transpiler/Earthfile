@@ -1,9 +1,8 @@
 VERSION 0.8
-IMPORT ../noir AS noir
 
 source:
   # we rely on noir source, which this image has
-  FROM noir+nargo
+  FROM ../noir+nargo
 
   # move noir contents to /usr/src/noir
   RUN mv /usr/src /noir && mkdir /usr/src && mv /noir /usr/src
@@ -18,10 +17,10 @@ source:
 build:
     FROM +source
     RUN ./scripts/bootstrap_native.sh
+    SAVE ARTIFACT scripts/compile_then_transpile.sh
     SAVE ARTIFACT target/release/avm-transpiler avm-transpiler
 
 run:
-    #TODO needed?
-    FROM ubuntu:focal
+    FROM ubuntu:noble
     COPY +build/avm-transpiler /usr/src/avm-transpiler
-    ENTRYPOINT ["sh", "-c"]
+    ENTRYPOINT ["/usr/src/avm-transpiler"]

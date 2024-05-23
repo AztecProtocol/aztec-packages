@@ -393,7 +393,7 @@ jobs:
           name: "Release to dockerhub"
           command: |
             should_release || exit 0
-            deploy_dockerhub noir
+            deploy_dockerhub aztec-nargo
             deploy_dockerhub aztec
             deploy_dockerhub aztec-builder
       - run:
