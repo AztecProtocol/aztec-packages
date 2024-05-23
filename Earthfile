@@ -24,7 +24,7 @@ test-end-to-end:
     BUILD ./yarn-project/end-to-end+e2e-tests
 
 bench:
-  RUN echo hi
+    RUN echo hi
 
 release-meta:
     COPY .release-please-manifest.json /usr/src/.release-please-manifest.json
