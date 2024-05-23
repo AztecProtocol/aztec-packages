@@ -7,7 +7,7 @@ use crate::brillig::brillig_ir::{
 use crate::ssa::ir::dfg::CallStack;
 use crate::ssa::ir::instruction::ConstrainError;
 use crate::ssa::ir::{
-    basic_block::{BasicBlock, BasicBlockId},
+    basic_block::BasicBlockId,
     dfg::DataFlowGraph,
     function::FunctionId,
     instruction::{
@@ -49,8 +49,7 @@ impl<'block> BrilligBlock<'block> {
         dfg: &DataFlowGraph,
     ) {
         let live_in = function_context.liveness.get_live_in(&block_id);
-        let variables =
-            BlockVariables::new(live_in.clone(), function_context.all_block_parameters());
+        let variables = BlockVariables::new(live_in.clone());
 
         brillig_context.set_allocated_registers(
             variables
@@ -73,8 +72,9 @@ impl<'block> BrilligBlock<'block> {
         self.brillig_context.enter_context(block_label);
 
         // Convert the block parameters
+        self.convert_block_params(dfg);
+
         let block = &dfg[self.block_id];
-        self.convert_block_params(block, dfg);
 
         // Convert all of the instructions into the block
         for instruction_id in block.instructions() {
@@ -134,12 +134,8 @@ impl<'block> BrilligBlock<'block> {
                 let target_block = &dfg[*destination_block];
                 for (src, dest) in arguments.iter().zip(target_block.parameters()) {
                     // Destinations are block parameters so they should have been allocated previously.
-                    let destination = self.variables.get_block_param(
-                        self.function_context,
-                        *destination_block,
-                        *dest,
-                        dfg,
-                    );
+                    let destination =
+                        self.variables.get_allocation(self.function_context, *dest, dfg);
                     let source = self.convert_ssa_value(*src, dfg);
                     self.pass_variable(source, destination);
                 }
@@ -207,9 +203,9 @@ impl<'block> BrilligBlock<'block> {
     }
 
     /// Converts SSA Block parameters into Brillig Registers.
-    fn convert_block_params(&mut self, block: &BasicBlock, dfg: &DataFlowGraph) {
-        for param_id in block.parameters() {
-            let value = &dfg[*param_id];
+    fn convert_block_params(&mut self, dfg: &DataFlowGraph) {
+        for param_id in self.function_context.liveness.defined_block_params(&self.block_id) {
+            let value = &dfg[param_id];
             let param_type = match value {
                 Value::Param { typ, .. } => typ,
                 _ => unreachable!("ICE: Only Param type values should appear in block parameters"),
@@ -220,10 +216,10 @@ impl<'block> BrilligBlock<'block> {
                 // Be a valid pointer to the array.
                 // For slices, two registers are passed, the pointer to the data and a register holding the size of the slice.
                 Type::Numeric(_) | Type::Array(..) | Type::Slice(..) | Type::Reference(_) => {
-                    self.variables.get_block_param(
+                    self.variables.define_variable(
                         self.function_context,
-                        self.block_id,
-                        *param_id,
+                        self.brillig_context,
+                        param_id,
                         dfg,
                     );
                 }
