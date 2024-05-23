@@ -8,7 +8,7 @@ use crate::{
     kernel_data::KernelData, public_kernel_data::PublicKernelData, max_block_number::MaxBlockNumber,
     private_kernel_data::PrivateKernelData, note_hash::{NoteHash, ScopedNoteHash},
     nullifier::{Nullifier, ScopedNullifier},
-    nullifier_key_validation_request::{ScopedNullifierKeyValidationRequest, NullifierKeyValidationRequest},
+    key_validation_request::{ScopedKeyValidationRequest, KeyValidationRequest},
     private_call_request::{PrivateCallRequest, ScopedPrivateCallRequest},
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
     read_request::{ReadRequest, ScopedReadRequest}, log_hash::{LogHash, NoteLogHash},
@@ -20,9 +20,8 @@ use crate::{
     MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-    MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-    VK_TREE_HEIGHT, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
-    MAX_NOTE_ENCRYPTED_LOGS_PER_TX
+    MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX, VK_TREE_HEIGHT,
+    MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 },
     hash::silo_nullifier, header::Header,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
@@ -35,7 +34,7 @@ struct FixtureBuilder {
     contract_address: AztecAddress,
     storage_contract_address: AztecAddress,
     fee_payer: AztecAddress,
-    public_teardown_call_request: CallRequest,
+    public_teardown_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
 
     // Constant data.
     historical_header: Header,
@@ -59,13 +58,14 @@ struct FixtureBuilder {
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
     gas_used: Gas,
     non_revertible_gas_used: Gas,
+    revert_code: u8,
 
     // Validation requests.
     max_block_number: MaxBlockNumber,
     note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     nullifier_non_existent_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
-    nullifier_key_validation_requests: BoundedVec<ScopedNullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
+    key_validation_requests: BoundedVec<ScopedKeyValidationRequest, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
     public_data_reads: BoundedVec<PublicDataRead, MAX_PUBLIC_DATA_READS_PER_TX>,
 
     // Proof.
@@ -73,7 +73,6 @@ struct FixtureBuilder {
     vk: VerificationKey,
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
-    revert_code: u8,
     
     // Counters.
     min_revertible_side_effect_counter: u32,
@@ -111,7 +110,7 @@ impl FixtureBuilder {
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_non_existent_read_requests: BoundedVec::new(),
-            nullifier_key_validation_requests: BoundedVec::new(),
+            key_validation_requests: BoundedVec::new(),
             public_data_reads: BoundedVec::new(),
             proof: NestedRecursiveProof::empty(),
             vk: VerificationKey::empty(),
@@ -124,7 +123,7 @@ impl FixtureBuilder {
             gas_used: Gas::empty(),
             non_revertible_gas_used: Gas::empty(),
             global_variables: GlobalVariables::empty(),
-            public_teardown_call_request: CallRequest::empty()
+            public_teardown_call_stack: BoundedVec::new()
         }
     }
 
@@ -185,7 +184,7 @@ impl FixtureBuilder {
             note_hash_read_requests: self.note_hash_read_requests,
             nullifier_read_requests: self.nullifier_read_requests,
             nullifier_non_existent_read_requests: self.nullifier_non_existent_read_requests,
-            nullifier_key_validation_requests: self.nullifier_key_validation_requests,
+            key_validation_requests: self.key_validation_requests,
             public_data_reads: self.public_data_reads
         };
         validation_requests.finish()
@@ -195,13 +194,14 @@ impl FixtureBuilder {
         let end = self.to_private_accumulated_data();
         let validation_requests = self.to_validation_requests();
         let constants = self.to_constant_data();
+        let public_teardown_call_request = self.public_teardown_call_stack.get_unchecked(0);
 
         PrivateKernelCircuitPublicInputs {
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             end,
             validation_requests,
             constants,
-            public_teardown_call_request: self.public_teardown_call_request,
+            public_teardown_call_request,
             fee_payer: self.fee_payer
         }
     }
@@ -225,8 +225,6 @@ impl FixtureBuilder {
         };
         let validation_requests = self.to_validation_requests();
         let constants = self.to_constant_data();
-        let mut public_teardown_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> = BoundedVec::new();
-        public_teardown_call_stack.push(self.public_teardown_call_request);
 
         PublicKernelCircuitPublicInputs {
             end_non_revertible,
@@ -234,7 +232,7 @@ impl FixtureBuilder {
             validation_requests,
             constants,
             revert_code: self.revert_code,
-            public_teardown_call_stack: public_teardown_call_stack.storage,
+            public_teardown_call_stack: self.public_teardown_call_stack.storage,
             fee_payer: self.fee_payer
         }
     }
@@ -243,8 +241,8 @@ impl FixtureBuilder {
         let public_inputs = self.to_public_kernel_circuit_public_inputs(revertible);
         PublicKernelData {
             public_inputs,
-            proof: crate::mocked::Proof::empty(),
-            vk: crate::mocked::VerificationKey::empty(),
+            proof: NestedRecursiveProof::empty(),
+            vk: VerificationKey::empty(),
             vk_index: self.vk_index,
             vk_path: self.vk_path
         }
@@ -269,8 +267,8 @@ impl FixtureBuilder {
         let public_inputs = self.to_kernel_circuit_public_inputs();
         KernelData {
             public_inputs,
-            proof: crate::mocked::Proof::empty(),
-            vk: crate::mocked::VerificationKey::empty(),
+            proof: NestedRecursiveProof::empty(),
+            vk: VerificationKey::empty(),
             vk_index: self.vk_index,
             vk_path: self.vk_path
         }
@@ -412,14 +410,10 @@ impl FixtureBuilder {
         new_read_request_index
     }
 
-    pub fn add_request_for_nullifier_key_validation(
-        &mut self,
-        master_nullifier_public_key: GrumpkinPoint,
-        app_nullifier_secret_key: Field
-    ) -> u64 {
-        let new_request_index = self.nullifier_key_validation_requests.len();
-        let request = NullifierKeyValidationRequest { master_nullifier_public_key, app_nullifier_secret_key };
-        self.nullifier_key_validation_requests.push(request.scope(self.storage_contract_address));
+    pub fn add_request_for_key_validation(&mut self, pk_m: GrumpkinPoint, sk_app: Field) -> u64 {
+        let new_request_index = self.key_validation_requests.len();
+        let request = KeyValidationRequest { pk_m, sk_app };
+        self.key_validation_requests.push(request.scope(self.storage_contract_address));
 
         new_request_index
     }
@@ -469,8 +463,9 @@ impl FixtureBuilder {
         self.fee_payer = fee_payer;
     }
 
-    pub fn set_public_teardown_call_request(&mut self, hash: Field, is_delegate_call: bool) {
-        self.public_teardown_call_request = self.generate_call_request(hash, is_delegate_call);
+    pub fn push_public_teardown_call_request(&mut self, hash: Field, is_delegate_call: bool) {
+        let call_stack_item = self.generate_call_request(hash, is_delegate_call);
+        self.public_teardown_call_stack.push(call_stack_item);
     }
 
     pub fn end_setup(&mut self) {
@@ -548,7 +543,7 @@ impl Empty for FixtureBuilder {
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_non_existent_read_requests: BoundedVec::new(),
-            nullifier_key_validation_requests: BoundedVec::new(),
+            key_validation_requests: BoundedVec::new(),
             public_data_reads: BoundedVec::new(),
             proof: NestedRecursiveProof::empty(),
             vk: VerificationKey::empty(),
@@ -560,7 +555,7 @@ impl Empty for FixtureBuilder {
             start_state: PartialStateReference::empty(),
             gas_used: Gas::empty(),
             non_revertible_gas_used: Gas::empty(),
-            public_teardown_call_request: CallRequest::empty()
+            public_teardown_call_stack: BoundedVec::new()
         }
     }
 }

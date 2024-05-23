@@ -10,9 +10,11 @@ import {
 import {
   Fr,
   type Gas,
+  type GasFees,
   type Header,
   KernelCircuitPublicInputs,
   type Proof,
+  type PublicDataUpdateRequest,
   type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
   type PublicKernelTailCircuitPrivateInputs,
@@ -59,12 +61,10 @@ export type ProcessedTx = Pick<Tx, 'proof' | 'noteEncryptedLogs' | 'encryptedLog
    * Flag indicating the tx is 'empty' meaning it's a padding tx to take us to a power of 2.
    */
   isEmpty: boolean;
-
   /**
    * Reason the tx was reverted.
    */
   revertReason: SimulationError | undefined;
-
   /**
    * The collection of public kernel circuit inputs for simulation/proving
    */
@@ -74,6 +74,8 @@ export type ProcessedTx = Pick<Tx, 'proof' | 'noteEncryptedLogs' | 'encryptedLog
    * Doesn't account for any base costs nor DA gas used in private execution.
    */
   gasUsed: Partial<Record<PublicKernelType, Gas>>;
+  /** Public data updates triggered by the protocol, such as balance updates from fee payments. */
+  protocolPublicDataUpdateRequests: PublicDataUpdateRequest[];
 };
 
 export type RevertedTx = ProcessedTx & {
@@ -129,6 +131,7 @@ export function makeProcessedTx(
   publicKernelRequests: PublicKernelRequest[],
   revertReason?: SimulationError,
   gasUsed: ProcessedTx['gasUsed'] = {},
+  protocolPublicDataUpdateRequests: PublicDataUpdateRequest[] = [],
 ): ProcessedTx {
   return {
     hash: tx.getTxHash(),
@@ -142,6 +145,7 @@ export function makeProcessedTx(
     revertReason,
     publicKernelRequests,
     gasUsed,
+    protocolPublicDataUpdateRequests,
   };
 }
 
@@ -168,17 +172,18 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
     revertReason: undefined,
     publicKernelRequests: [],
     gasUsed: {},
+    protocolPublicDataUpdateRequests: [],
   };
 }
 
-export function toTxEffect(tx: ProcessedTx): TxEffect {
+export function toTxEffect(tx: ProcessedTx, gasFees: GasFees): TxEffect {
   return new TxEffect(
     tx.data.revertCode,
-    tx.data.transactionFee,
+    tx.data.getTransactionFee(gasFees),
     tx.data.end.newNoteHashes.filter(h => !h.isZero()),
     tx.data.end.newNullifiers.filter(h => !h.isZero()),
     tx.data.end.newL2ToL1Msgs.filter(h => !h.isZero()),
-    tx.data.end.publicDataUpdateRequests
+    [...tx.data.end.publicDataUpdateRequests, ...tx.protocolPublicDataUpdateRequests]
       .map(t => new PublicDataWrite(t.leafSlot, t.newValue))
       .filter(h => !h.isEmpty()),
     tx.data.end.encryptedLogPreimagesLength,

@@ -142,13 +142,14 @@ class AvmRangeCheckNegativeTests : public AvmInterTableTests {
     size_t mem_idx;
     size_t alu_idx;
 
-    void genTraceAdd(uint128_t const& a, uint128_t const& b, uint128_t const& c, AvmMemoryTag tag)
+    void genTraceAdd(
+        uint128_t const& a, uint128_t const& b, uint128_t const& c, AvmMemoryTag tag, uint32_t min_trace_size = 0)
     {
         trace_builder.op_set(0, a, 0, tag);
         trace_builder.op_set(0, b, 1, tag);
         trace_builder.op_add(0, 0, 1, 2, tag); // 7 + 8 = 15
         trace_builder.return_op(0, 0, 0);
-        trace = trace_builder.finalize();
+        trace = trace_builder.finalize(min_trace_size);
 
         // Find the row with addition operation and retrieve clk.
         auto row =
@@ -254,7 +255,7 @@ TEST_F(AvmRangeCheckNegativeTests, additionU8Reg1)
 // Out-of-range value in register u16_r0
 TEST_F(AvmRangeCheckNegativeTests, additionU16Reg0)
 {
-    genTraceAdd(1200, 2000, 3200, AvmMemoryTag::U16);
+    genTraceAdd(1200, 2000, 3200, AvmMemoryTag::U16, 130);
     auto& row = trace.at(main_idx);
     auto& mem_row = trace.at(mem_idx);
     auto& alu_row = trace.at(alu_idx);
@@ -575,9 +576,9 @@ TEST_F(AvmPermMainMemNegativeTests, wrongRwIaInMem)
     // Adjust timestamp value
     trace.at(mem_idx_a).avm_mem_tsp += FF(AvmMemTraceBuilder::SUB_CLK_STORE_A - AvmMemTraceBuilder::SUB_CLK_LOAD_A);
     // Adjust diff value of previous row as well
-    FF diff = trace.at(mem_idx_a - 1).avm_mem_diff_lo + trace.at(mem_idx_a - 1).avm_mem_diff_hi * FF(1 << 16) +
+    FF diff = trace.at(mem_idx_a - 1).avm_mem_diff_lo + trace.at(mem_idx_a - 1).avm_mem_diff_mid * FF(1 << 16) +
               FF(AvmMemTraceBuilder::SUB_CLK_STORE_A - AvmMemTraceBuilder::SUB_CLK_LOAD_A);
-    trace.at(mem_idx_a - 1).avm_mem_diff_hi = FF(uint32_t(diff) >> 16);
+    trace.at(mem_idx_a - 1).avm_mem_diff_mid = FF(uint32_t(diff) >> 16);
     trace.at(mem_idx_a - 1).avm_mem_diff_lo = FF(uint32_t(diff) & UINT16_MAX);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_A");
@@ -591,9 +592,9 @@ TEST_F(AvmPermMainMemNegativeTests, wrongRwIbInMem)
     // Adjust timestamp value
     trace.at(mem_idx_b).avm_mem_tsp += FF(AvmMemTraceBuilder::SUB_CLK_STORE_B - AvmMemTraceBuilder::SUB_CLK_LOAD_B);
     // Adjust diff value of previous row as well
-    FF diff = trace.at(mem_idx_b - 1).avm_mem_diff_lo + trace.at(mem_idx_b - 1).avm_mem_diff_hi * FF(1 << 16) +
+    FF diff = trace.at(mem_idx_b - 1).avm_mem_diff_lo + trace.at(mem_idx_b - 1).avm_mem_diff_mid * FF(1 << 16) +
               FF(AvmMemTraceBuilder::SUB_CLK_STORE_B - AvmMemTraceBuilder::SUB_CLK_LOAD_B);
-    trace.at(mem_idx_b - 1).avm_mem_diff_hi = FF(uint32_t(diff) >> 16);
+    trace.at(mem_idx_b - 1).avm_mem_diff_mid = FF(uint32_t(diff) >> 16);
     trace.at(mem_idx_b - 1).avm_mem_diff_lo = FF(uint32_t(diff) & UINT16_MAX);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_B");
@@ -619,9 +620,9 @@ TEST_F(AvmPermMainMemNegativeTests, wrongClkIaInMem)
     trace.at(mem_idx_a).avm_mem_clk += 3;
     trace.at(mem_idx_a).avm_mem_tsp += AvmMemTraceBuilder::NUM_SUB_CLK * 3;
     // Adjust diff value of previous row as well
-    FF diff = trace.at(mem_idx_a - 1).avm_mem_diff_lo + trace.at(mem_idx_a - 1).avm_mem_diff_hi * FF(1 << 16) +
+    FF diff = trace.at(mem_idx_a - 1).avm_mem_diff_lo + trace.at(mem_idx_a - 1).avm_mem_diff_mid * FF(1 << 16) +
               FF(AvmMemTraceBuilder::NUM_SUB_CLK * 3);
-    trace.at(mem_idx_a - 1).avm_mem_diff_hi = FF(uint32_t(diff) >> 16);
+    trace.at(mem_idx_a - 1).avm_mem_diff_mid = FF(uint32_t(diff) >> 16);
     trace.at(mem_idx_a - 1).avm_mem_diff_lo = FF(uint32_t(diff) & UINT16_MAX);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_A");
@@ -632,9 +633,9 @@ TEST_F(AvmPermMainMemNegativeTests, wrongClkIbInMem)
     executeSub(87, 23);
     trace.at(mem_idx_b).avm_mem_clk += 5;
     trace.at(mem_idx_b).avm_mem_tsp += AvmMemTraceBuilder::NUM_SUB_CLK * 5;
-    FF diff = trace.at(mem_idx_b - 1).avm_mem_diff_lo + trace.at(mem_idx_b - 1).avm_mem_diff_hi * FF(1 << 16) +
+    FF diff = trace.at(mem_idx_b - 1).avm_mem_diff_lo + trace.at(mem_idx_b - 1).avm_mem_diff_mid * FF(1 << 16) +
               FF(AvmMemTraceBuilder::NUM_SUB_CLK * 5);
-    trace.at(mem_idx_b - 1).avm_mem_diff_hi = FF(uint32_t(diff) >> 16);
+    trace.at(mem_idx_b - 1).avm_mem_diff_mid = FF(uint32_t(diff) >> 16);
     trace.at(mem_idx_b - 1).avm_mem_diff_lo = FF(uint32_t(diff) & UINT16_MAX);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_B");
