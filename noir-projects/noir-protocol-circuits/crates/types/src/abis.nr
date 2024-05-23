@@ -16,7 +16,7 @@ mod read_request;
 mod log_hash;
 mod note_hash;
 mod nullifier;
-mod nullifier_key_validation_request;
+mod key_validation_request;
 mod public_data_read;
 mod public_data_update_request;
 
@@ -32,6 +32,7 @@ mod private_kernel_data;
 mod public_kernel_data;
 
 mod call_request;
+mod private_call_request;
 mod private_call_stack_item;
 mod public_call_stack_item;
 mod call_context;

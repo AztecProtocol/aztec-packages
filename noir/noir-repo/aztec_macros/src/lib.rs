@@ -1,6 +1,7 @@
 mod transforms;
 mod utils;
 
+use noirc_errors::Location;
 use transforms::{
     compute_note_hash_and_nullifier::inject_compute_note_hash_and_nullifier,
     contract_interface::{
@@ -13,7 +14,7 @@ use transforms::{
     note_interface::{generate_note_interface_impl, inject_note_exports},
     storage::{
         assign_storage_slots, check_for_storage_definition, check_for_storage_implementation,
-        generate_storage_implementation, generate_storage_layout,
+        generate_storage_implementation, generate_storage_layout, inject_context_in_storage,
     },
 };
 
@@ -66,6 +67,7 @@ fn transform(
     for submodule in ast.submodules.iter_mut().filter(|submodule| submodule.is_contract) {
         if transform_module(
             crate_id,
+            &file_id,
             context,
             &mut submodule.contents,
             submodule.name.0.contents.as_str(),
@@ -86,6 +88,7 @@ fn transform(
 /// Returns true if an annotated node is found, false otherwise
 fn transform_module(
     crate_id: &CrateId,
+    file_id: &FileId,
     context: &HirContext,
     module: &mut SortedModule,
     module_name: &str,
@@ -99,6 +102,7 @@ fn transform_module(
     let storage_defined = maybe_storage_struct_name.is_some();
 
     if let Some(ref storage_struct_name) = maybe_storage_struct_name {
+        inject_context_in_storage(module)?;
         if !check_for_storage_implementation(module, storage_struct_name) {
             generate_storage_implementation(module, storage_struct_name)?;
         }
@@ -130,10 +134,10 @@ fn transform_module(
     for func in module.functions.iter_mut() {
         let mut is_private = false;
         let mut is_public = false;
-        let mut is_public_vm = false;
         let mut is_initializer = false;
         let mut is_internal = false;
         let mut insert_init_check = has_initializer;
+        let mut is_static = false;
 
         for secondary_attribute in func.def.attributes.secondary.clone() {
             if is_custom_attribute(&secondary_attribute, "aztec(private)") {
@@ -147,21 +151,17 @@ fn transform_module(
                 is_internal = true;
             } else if is_custom_attribute(&secondary_attribute, "aztec(public)") {
                 is_public = true;
-            } else if is_custom_attribute(&secondary_attribute, "aztec(public-vm)") {
-                is_public_vm = true;
+            }
+            if is_custom_attribute(&secondary_attribute, "aztec(view)") {
+                is_static = true;
             }
         }
 
         // Apply transformations to the function based on collected attributes
-        if is_private || is_public || is_public_vm {
-            let fn_type = if is_private {
-                "Private"
-            } else if is_public_vm {
-                "Avm"
-            } else {
-                "Public"
-            };
-            stubs.push(stub_function(fn_type, func));
+        if is_private || is_public {
+            let fn_type = if is_private { "Private" } else { "Public" };
+            let stub_src = stub_function(fn_type, func, is_static);
+            stubs.push((stub_src, Location { file: *file_id, span: func.name_ident().span() }));
 
             export_fn_abi(&mut module.types, func)?;
             transform_function(
@@ -171,6 +171,7 @@ fn transform_module(
                 is_initializer,
                 insert_init_check,
                 is_internal,
+                is_static,
             )?;
             has_transformed_module = true;
         } else if storage_defined && func.def.is_unconstrained {

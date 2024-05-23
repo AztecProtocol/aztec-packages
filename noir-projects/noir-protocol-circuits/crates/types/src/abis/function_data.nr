@@ -12,7 +12,7 @@ struct FunctionData {
 impl Eq for FunctionData {
     fn eq(self, other: Self) -> bool {
         self.selector.eq(other.selector) &
-        self.is_private == other.is_private
+        (self.is_private == other.is_private)
     }
 }
 
@@ -47,9 +47,10 @@ impl Empty for FunctionData {
     fn empty() -> Self {
         FunctionData {
             selector: FunctionSelector::empty(),
-            is_private: false,
+            is_private: false
         }
     }
+
 }
 
 #[test]
