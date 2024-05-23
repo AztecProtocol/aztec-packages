@@ -459,7 +459,7 @@ jobs:
             scripts/earthly-ci --no-output ./barretenberg/cpp/+bench-ultra-honk --bench_mode=cache
 
   boxes:
-    needs: setup
+    needs: build
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -471,7 +471,7 @@ jobs:
           concurrency_key: boxes-${{ github.event.pull_request.user.login || github.actor }}-build
       - name: Build
         working-directory: ./boxes
-        timeout-minutes: 40
+        timeout-minutes: 20
         run: earthly-ci +export-boxes
 
   boxes-test:
