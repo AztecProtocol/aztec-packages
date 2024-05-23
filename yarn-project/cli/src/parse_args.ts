@@ -191,7 +191,7 @@ export function parsePartialAddress(address: string): Fr {
  * @returns A private key
  * @throws InvalidArgumentError if the input string is not valid.
  */
-export function parsePrivateKey(privateKey: string): GrumpkinScalar {
+export function parseSigningPrivateKey(privateKey: string): GrumpkinScalar {
   try {
     const value = GrumpkinScalar.fromString(privateKey);
     // most likely a badly formatted key was passed
@@ -201,7 +201,15 @@ export function parsePrivateKey(privateKey: string): GrumpkinScalar {
 
     return value;
   } catch (err) {
-    throw new InvalidArgumentError(`Invalid private key: ${privateKey}`);
+    throw new InvalidArgumentError(`Invalid signing private key: ${privateKey}`);
+  }
+}
+
+export function parseEncryptionPrivateKey(privateKey: string): Fr {
+  try {
+    return Fr.fromString(privateKey);
+  } catch (err) {
+    throw new InvalidArgumentError(`Invalid encryption private key: ${privateKey}`);
   }
 }
 

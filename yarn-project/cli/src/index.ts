@@ -9,6 +9,7 @@ import { dirname, resolve } from 'path';
 
 import {
   parseAztecAddress,
+  parseEncryptionPrivateKey,
   parseEthereumAddress,
   parseField,
   parseFieldFromHexString,
@@ -18,8 +19,8 @@ import {
   parseOptionalSelector,
   parseOptionalTxHash,
   parsePartialAddress,
-  parsePrivateKey,
   parsePublicKey,
+  parseSigningPrivateKey,
   parseTxHash,
 } from './parse_args.js';
 
@@ -55,10 +56,16 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .default(`http://${LOCALHOST}:8080`)
     .makeOptionMandatory(true);
 
-  const createPrivateKeyOption = (description: string, mandatory: boolean) =>
+  const createSigningPrivateKeyOption = (description: string, mandatory: boolean) =>
     new Option('-k, --private-key <string>', description)
       .env('PRIVATE_KEY')
-      .argParser(parsePrivateKey)
+      .argParser(parseSigningPrivateKey)
+      .makeOptionMandatory(mandatory);
+
+  const createEncryptionPrivateKeyOption = (description: string, mandatory: boolean) =>
+    new Option('-e, --enc-private-key <string>', description)
+      .env('ENC_PRIVATE_KEY')
+      .argParser(parseEncryptionPrivateKey)
       .makeOptionMandatory(mandatory);
 
   program
@@ -119,16 +126,15 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       'Creates an aztec account that can be used for sending transactions. Registers the account on the PXE and deploys an account contract. Uses a Schnorr single-key account which uses the same key for encryption and authentication (not secure for production usage).',
     )
     .summary('Creates an aztec account that can be used for sending transactions.')
-    .addOption(
-      createPrivateKeyOption('Private key for note encryption and transaction signing. Uses random by default.', false),
-    )
+    .addOption(createSigningPrivateKeyOption('Private key for transaction signing. Uses random by default.', false))
+    .addOption(createEncryptionPrivateKeyOption('Private key for note encryption. Uses random by default.', false))
     .addOption(pxeOption)
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
-    .action(async ({ rpcUrl, privateKey, wait }) => {
-      // const { createAccount } = await import('./cmds/create_account.js');
-      // await createAccount(rpcUrl, privateKey, wait, debugLogger, log);
+    .action(async ({ rpcUrl, privateKey, encPrivateKey, wait }) => {
+      const { createAccount } = await import('./cmds/create_account.js');
+      await createAccount(rpcUrl, encPrivateKey, privateKey, wait, debugLogger, log);
     });
 
   program
@@ -137,7 +143,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       'Registers an aztec account that can be used for sending transactions. Registers the account on the PXE. Uses a Schnorr single-key account which uses the same key for encryption and authentication (not secure for production usage).',
     )
     .summary('Registers an aztec account that can be used for sending transactions.')
-    .addOption(createPrivateKeyOption('Private key for note encryption and transaction signing.', true))
+    .addOption(createSigningPrivateKeyOption('Private key for note encryption and transaction signing.', true))
     .requiredOption(
       '-pa, --partial-address <partialAddress>',
       'The partially computed address of the account contract.',
@@ -174,7 +180,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       'Optional deployment salt as a hex string for generating the deployment address.',
       parseFieldFromHexString,
     )
-    .addOption(createPrivateKeyOption("The sender's private key.", true))
+    .addOption(createSigningPrivateKeyOption("The sender's private key.", true))
     .option('--json', 'Emit output as json')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
@@ -355,7 +361,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts.js",
     )
     .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
-    .addOption(createPrivateKeyOption("The sender's private key.", true))
+    .addOption(createSigningPrivateKeyOption("The sender's private key.", true))
     .addOption(pxeOption)
     .option('--no-wait', 'Print transaction hash without waiting for it to be mined')
     .action(async (functionName, options) => {
