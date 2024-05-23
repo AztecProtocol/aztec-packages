@@ -12,7 +12,7 @@ contract Test {
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, CANONICAL_KEY_REGISTRY_ADDRESS},
         traits::{Serialize, ToField, FromField}, grumpkin_point::GrumpkinPoint,
-        grumpkin_private_key::GrumpkinPrivateKey
+        grumpkin_private_key::GrumpkinPrivateKey, storage::map::derive_storage_slot_in_map
     };
 
     use dep::aztec::encrypted_logs::header::EncryptedLogHeader;
@@ -21,11 +21,11 @@ contract Test {
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
 
-    use dep::aztec::state_vars::{shared_mutable::SharedMutablePrivateGetter, map::derive_storage_slot_in_map};
+    use dep::aztec::state_vars::{shared_mutable::SharedMutablePrivateGetter};
 
     use dep::aztec::{
         keys::getters::{get_npk_m, get_ivpk_m, get_npk_m_hash},
-        context::{Context, inputs::private_context_inputs::PrivateContextInputs},
+        context::inputs::private_context_inputs::PrivateContextInputs,
         hash::{pedersen_hash, compute_secret_hash, ArgsHasher},
         note::{
         lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
@@ -380,7 +380,7 @@ contract Test {
         value: Field
     ) -> [u8; 112] {
         let note = TestNote::new(value);
-        EncryptedLogIncomingBody::new(storage_slot, TestNote::get_note_type_id(), note).compute_ciphertext(secret, point).as_array()
+        EncryptedLogIncomingBody::from_note(note, storage_slot).compute_ciphertext(secret, point).as_array()
     }
 
     #[aztec(private)]
