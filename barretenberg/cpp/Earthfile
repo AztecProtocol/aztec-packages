@@ -185,7 +185,6 @@ test:
     BUILD +preset-release-assert-test
     BUILD +test-clang-format
     BUILD ./srs_db/+build # prefetch
-    BUILD ../../barretenberg+acir-tests
 
     FROM +source
     COPY --dir +test-binaries/build build
