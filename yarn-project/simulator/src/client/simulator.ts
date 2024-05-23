@@ -1,5 +1,5 @@
 import { type AztecNode, type FunctionCall, type Note, type TxExecutionRequest } from '@aztec/circuit-types';
-import { CallContext, FunctionData } from '@aztec/circuits.js';
+import { CallContext } from '@aztec/circuits.js';
 import {
   type ArrayType,
   type FunctionArtifact,
@@ -68,8 +68,8 @@ export class AcirSimulator {
     contractAddress: AztecAddress,
     msgSender = AztecAddress.ZERO,
   ): Promise<ExecutionResult> {
-    if (entryPointArtifact.functionType !== FunctionType.SECRET) {
-      throw new Error(`Cannot run ${entryPointArtifact.functionType} function as secret`);
+    if (entryPointArtifact.functionType !== FunctionType.PRIVATE) {
+      throw new Error(`Cannot run ${entryPointArtifact.functionType} function as private`);
     }
 
     if (request.origin !== contractAddress) {
@@ -88,7 +88,7 @@ export class AcirSimulator {
       contractAddress,
       FunctionSelector.fromNameAndParameters(entryPointArtifact.name, entryPointArtifact.parameters),
       false,
-      false,
+      entryPointArtifact.isStatic,
       startSideEffectCounter,
     );
     const context = new ClientExecutionContext(
@@ -110,7 +110,7 @@ export class AcirSimulator {
         context,
         entryPointArtifact,
         contractAddress,
-        request.functionData,
+        request.functionSelector,
       );
       return executionResult;
     } catch (err) {
@@ -141,7 +141,7 @@ export class AcirSimulator {
         context,
         entryPointArtifact,
         contractAddress,
-        request.functionData,
+        request.selector,
         request.args,
       );
     } catch (err) {
@@ -193,9 +193,13 @@ export class AcirSimulator {
     const extendedNoteItems = note.items.concat(Array(maxNoteFields - note.items.length).fill(Fr.ZERO));
 
     const execRequest: FunctionCall = {
+      name: artifact.name,
       to: contractAddress,
-      functionData: FunctionData.empty(),
+      selector: FunctionSelector.empty(),
+      type: FunctionType.UNCONSTRAINED,
+      isStatic: artifact.isStatic,
       args: encodeArguments(artifact, [contractAddress, nonce, storageSlot, noteTypeId, extendedNoteItems]),
+      returnTypes: artifact.returnTypes,
     };
 
     const [innerNoteHash, uniqueNoteHash, siloedNoteHash, innerNullifier] = (await this.runUnconstrained(

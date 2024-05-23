@@ -1,6 +1,5 @@
 import {
   type PXE,
-  TxExecutionRequest,
   randomContractArtifact,
   randomContractInstanceWithAddress,
   randomDeployedContract,
@@ -9,11 +8,9 @@ import {
   AztecAddress,
   CompleteAddress,
   Fr,
-  FunctionData,
   INITIAL_L2_BLOCK_NUM,
   Point,
   PublicKeys,
-  TxContext,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 
@@ -126,24 +123,7 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
       await expect(pxe.registerContract({ instance, artifact })).rejects.toThrow(/Artifact does not match/i);
     });
 
-    it('throws when simulating a tx targeting public entrypoint', async () => {
-      const functionData = FunctionData.empty();
-      functionData.isPrivate = false;
-      const txExecutionRequest = TxExecutionRequest.from({
-        origin: AztecAddress.random(),
-        firstCallArgsHash: new Fr(0),
-        functionData,
-        txContext: TxContext.empty(),
-        argsOfCalls: [],
-        authWitnesses: [],
-      });
-
-      await expect(async () => await pxe.proveTx(txExecutionRequest, false)).rejects.toThrow(
-        'Public entrypoints are not allowed',
-      );
-    });
-
-    // Note: Not testing a successful run of `proveTx`, `sendTx`, `getTxReceipt` and `viewTx` here as it requires
+    // Note: Not testing a successful run of `proveTx`, `sendTx`, `getTxReceipt` and `simulateUnconstrained` here as it requires
     //       a larger setup and it's sufficiently tested in the e2e tests.
 
     it('throws when getting public storage for non-existent contract', async () => {

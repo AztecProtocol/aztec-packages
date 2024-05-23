@@ -1,14 +1,14 @@
 use crate::kernel_circuit_public_inputs_composer::KernelCircuitPublicInputsComposer;
 use dep::types::{
     abis::{
-    private_kernel_data::{PrivateKernelData, verify_previous_kernel_proof},
+    private_kernel_data::PrivateKernelData,
     kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, note_hash::ScopedNoteHash,
     nullifier::ScopedNullifier, log_hash::{LogHash, NoteLogHash}
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-    MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
-    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
+    MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
+    MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 },
     grumpkin_private_key::GrumpkinPrivateKey, utils::arrays::array_length, traits::is_empty
 };
@@ -41,7 +41,7 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
         );
 
         // verify/aggregate the previous kernel
-        verify_previous_kernel_proof(self.previous_kernel);
+        self.previous_kernel.verify();
 
         KernelCircuitPublicInputsComposer::new(
             self.previous_kernel,
@@ -71,8 +71,8 @@ mod tests {
     };
     use dep::types::constants::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX, DA_BYTES_PER_FIELD,
+        DA_GAS_PER_BYTE, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
     };
     use dep::types::{
         abis::{
@@ -89,11 +89,6 @@ mod tests {
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailToPublicInputs and PrivateKernelTailInputs.
     struct PrivateKernelTailToPublicInputsBuilder {
         previous_kernel: FixtureBuilder,
-        transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-        transient_note_hash_indexes_for_nullifiers: [u64; MAX_NEW_NULLIFIERS_PER_TX],
-        transient_note_hash_indexes_for_logs: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-        note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder,
-        nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder,
     }
 
     impl PrivateKernelTailToPublicInputsBuilder {
@@ -103,14 +98,7 @@ mod tests {
             previous_kernel.append_new_nullifiers(1);
             previous_kernel.push_public_call_request(1, false);
 
-            PrivateKernelTailToPublicInputsBuilder {
-                previous_kernel,
-                transient_nullifier_indexes_for_note_hashes: [MAX_NEW_NULLIFIERS_PER_TX; MAX_NEW_NOTE_HASHES_PER_TX],
-                transient_note_hash_indexes_for_nullifiers: [MAX_NEW_NOTE_HASHES_PER_TX; MAX_NEW_NULLIFIERS_PER_TX],
-                transient_note_hash_indexes_for_logs: [MAX_NEW_NOTE_HASHES_PER_TX; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-                note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder::new(MAX_NOTE_HASH_READ_REQUESTS_PER_TX),
-                nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(MAX_NULLIFIER_READ_REQUESTS_PER_TX)
-            }
+            PrivateKernelTailToPublicInputsBuilder { previous_kernel }
         }
 
         // A helper function that uses the first nullifer in the previous kernel to compute the unique siloed
@@ -266,7 +254,7 @@ mod tests {
     unconstrained fn can_run_with_only_teardown() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.public_call_stack = BoundedVec::new();
-        builder.previous_kernel.set_public_teardown_call_request(1, false);
+        builder.previous_kernel.push_public_teardown_call_request(1, false);
 
         builder.succeeded();
     }
@@ -361,16 +349,12 @@ mod tests {
                 0
             )
         );
-        assert_eq(public_inputs.end.encrypted_log_preimages_length as u32, revertible_logs_len);
         assert_eq(
             public_inputs.end_non_revertible.gas_used, Gas::new(
             (3 * DA_BYTES_PER_FIELD + non_revertible_logs_len) * DA_GAS_PER_BYTE,
             0
         )
             + Gas::tx_overhead()
-        );
-        assert_eq(
-            public_inputs.end_non_revertible.encrypted_log_preimages_length as u32, non_revertible_logs_len
         );
     }
 
@@ -390,10 +374,10 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Non empty nullifier key validation requests")]
-    unconstrained fn non_empty_nullifier_key_validations() {
+    #[test(should_fail_with="Non empty key validation requests")]
+    unconstrained fn non_empty_key_validations() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        let _void = builder.previous_kernel.add_request_for_nullifier_key_validation(GrumpkinPoint::new(1, 2), 27);
+        let _void = builder.previous_kernel.add_request_for_key_validation(GrumpkinPoint::new(1, 2), 27);
         builder.failed();
     }
 

@@ -55,10 +55,6 @@ export interface PublicExecutionResult {
    */
   unencryptedLogs: UnencryptedFunctionL2Logs;
   /**
-   * Length of the unencrypted log preimages emitted in this function call.
-   */
-  unencryptedLogPreimagesLength: Fr;
-  /**
    * Unencrypted logs emitted during this call AND any nested calls.
    * Useful for maintaining correct ordering in ts.
    */
@@ -82,7 +78,7 @@ export interface PublicExecutionResult {
 /**
  * The execution of a public function.
  */
-export type PublicExecution = Pick<PublicCallRequest, 'contractAddress' | 'functionData' | 'callContext' | 'args'>;
+export type PublicExecution = Pick<PublicCallRequest, 'contractAddress' | 'functionSelector' | 'callContext' | 'args'>;
 
 /**
  * Returns if the input is a public execution result and not just a public execution.

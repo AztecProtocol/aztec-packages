@@ -7,11 +7,9 @@ import {
   type NoteStatus,
   TaggedNote,
   type UnencryptedL2Log,
-  encryptBuffer,
 } from '@aztec/circuit-types';
 import {
   CallContext,
-  FunctionData,
   FunctionSelector,
   type Header,
   PrivateContextInputs,
@@ -19,18 +17,11 @@ import {
   type TxContext,
 } from '@aztec/circuits.js';
 import { Aes128 } from '@aztec/circuits.js/barretenberg';
-import {
-  computeInnerNoteHash,
-  computeNoteContentHash,
-  computePublicDataTreeLeafSlot,
-  computeUniqueNoteHash,
-  siloNoteHash,
-} from '@aztec/circuits.js/hash';
+import { computePublicDataTreeLeafSlot, computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionAbi, type FunctionArtifact, countArgumentsSize } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
 import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
-import { serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { type NoteData, toACVMWitness } from '../acvm/index.js';
 import { type PackedValuesCache } from '../common/packed_values_cache.js';
@@ -362,44 +353,53 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * Encrypt a note and emit it as a log.
+   * Emit encrypted data
+   * @param encryptedNote - The encrypted data.
+   * @param counter - The effects counter.
+   */
+  public override emitEncryptedLog(encryptedData: Buffer, counter: number) {
+    const encryptedLog = new CountedLog(new EncryptedL2Log(encryptedData), counter);
+    this.encryptedLogs.push(encryptedLog);
+  }
+
+  /**
+   * Emit encrypted note data
+   * @param noteHash - The note hash.
+   * @param encryptedNote - The encrypted note data.
+   * @param counter - The effects counter.
+   */
+  public override emitEncryptedNoteLog(noteHash: Fr, encryptedNote: Buffer, counter: number) {
+    const encryptedLog = new CountedLog(new EncryptedL2Log(encryptedNote), counter);
+    this.noteEncryptedLogs.push(encryptedLog);
+    this.noteCache.addNewLog(encryptedLog, noteHash);
+  }
+
+  /**
+   * Encrypt a note
    * @param contractAddress - The contract address of the note.
    * @param storageSlot - The storage slot the note is at.
    * @param noteTypeId - The type ID of the note.
-   * @param publicKey - The public key of the account that can decrypt the log.
-   * @param log - The log contents.
+   * @param ivpk - The master incoming viewing public key.
+   * @param preimage - The note preimage.
    */
-  public override emitEncryptedLog(
+  public override computeEncryptedLog(
     contractAddress: AztecAddress,
     storageSlot: Fr,
     noteTypeId: Fr,
-    publicKey: Point,
-    log: Fr[],
-    counter: number,
+    ivpk: Point,
+    preimage: Fr[],
   ) {
-    // TODO(Miranda): This is a temporary solution until we encrypt logs in the circuit
-    // Then we require a new oracle that deals only with notes
-    const note = new Note(log);
-    const innerNoteHash = computeInnerNoteHash(storageSlot, computeNoteContentHash(log));
-    const noteExists = this.noteCache.checkNoteExists(contractAddress, innerNoteHash);
-    if (noteExists) {
-      // Log linked to note
-      const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
-      const taggedNote = new TaggedNote(l1NotePayload);
-      const encryptedNote = taggedNote.toEncryptedBuffer(publicKey);
-      const encryptedLog = new CountedLog(new EncryptedL2Log(encryptedNote), counter);
-      this.noteEncryptedLogs.push(encryptedLog);
-      this.noteCache.addNewLog(encryptedLog, innerNoteHash);
-      return encryptedNote;
-    } else {
-      // Generic non-note log
-      // We assume only the log and address are required
-      const preimage = Buffer.concat([contractAddress.toBuffer(), serializeToBuffer(log)]);
-      const encryptedMsg = encryptBuffer(preimage, GrumpkinScalar.random(), publicKey);
-      const encryptedLog = new EncryptedL2Log(encryptedMsg);
-      this.encryptedLogs.push(new CountedLog(encryptedLog, counter));
-      return encryptedMsg;
-    }
+    const note = new Note(preimage);
+    const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
+    const taggedNote = new TaggedNote(l1NotePayload);
+
+    const ephSk = GrumpkinScalar.random();
+
+    // @todo Issue(#6410) Right now we are completely ignoring the outgoing log. Just drawing random data.
+    const ovsk = GrumpkinScalar.random();
+    const recipient = AztecAddress.random();
+
+    return taggedNote.encrypt(ephSk, recipient, ivpk, ovsk);
   }
 
   /**
@@ -435,10 +435,10 @@ export class ClientExecutionContext extends ViewDataOracle {
       childExecutionResult.callStackItem.publicInputs.newNoteHashes.some(item => !item.isEmpty()) ||
       childExecutionResult.callStackItem.publicInputs.newNullifiers.some(item => !item.isEmpty()) ||
       childExecutionResult.callStackItem.publicInputs.newL2ToL1Msgs.some(item => !item.isEmpty()) ||
-      !childExecutionResult.callStackItem.publicInputs.encryptedLogPreimagesLength.equals(Fr.ZERO) ||
-      !childExecutionResult.callStackItem.publicInputs.unencryptedLogPreimagesLength.equals(Fr.ZERO)
+      childExecutionResult.callStackItem.publicInputs.encryptedLogsHashes.some(item => !item.isEmpty()) ||
+      childExecutionResult.callStackItem.publicInputs.unencryptedLogsHashes.some(item => !item.isEmpty())
     ) {
-      throw new Error(`Static call cannot create new notes, emit L2->L1 messages or generate logs`);
+      throw new Error(`Static call cannot update the state, emit L2->L1 messages or generate logs`);
     }
   }
 
@@ -449,7 +449,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param argsHash - The packed arguments to pass to the function.
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
-   * @param isStaticCall - Whether the call is a delegate call.
+   * @param isDelegateCall - Whether the call is a delegate call.
    * @returns The execution result.
    */
   override async callPrivateFunction(
@@ -467,7 +467,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
-    const targetFunctionData = FunctionData.fromAbi(targetArtifact);
 
     const derivedTxContext = this.txContext.clone();
 
@@ -497,7 +496,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       context,
       targetArtifact,
       targetContractAddress,
-      targetFunctionData,
+      functionSelector,
     );
 
     if (isStaticCall) {
@@ -551,7 +550,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       args,
       callContext: derivedCallContext,
       parentCallContext: this.callContext,
-      functionData: FunctionData.fromAbi(targetArtifact),
+      functionSelector,
       contractAddress: targetContractAddress,
     });
   }

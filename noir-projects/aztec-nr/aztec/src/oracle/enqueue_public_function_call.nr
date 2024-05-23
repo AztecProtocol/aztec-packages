@@ -80,7 +80,7 @@ pub fn parse_public_call_stack_item_from_oracle(fields: [Field; ENQUEUE_PUBLIC_F
     // there is no more data in fields because there is only ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_SIZE fields!
     let item = PublicCallStackItem {
         contract_address: AztecAddress::from_field(reader.read()),
-        function_data: reader.read_struct(FunctionData::deserialize),
+        function_data: FunctionData { selector: FunctionSelector::from_field(reader.read()), is_private: false },
         public_inputs: PublicCircuitPublicInputs {
             call_context: reader.read_struct(CallContext::deserialize),
             args_hash: reader.read(),
@@ -96,7 +96,6 @@ pub fn parse_public_call_stack_item_from_oracle(fields: [Field; ENQUEUE_PUBLIC_F
             start_side_effect_counter: 0,
             end_side_effect_counter: 0,
             unencrypted_logs_hashes: [LogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL],
-            unencrypted_log_preimages_length: 0,
             historical_header: Header::empty(),
             global_variables: GlobalVariables::empty(),
             prover_address: AztecAddress::zero(),

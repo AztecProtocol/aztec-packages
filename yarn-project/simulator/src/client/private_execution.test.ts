@@ -12,11 +12,11 @@ import {
   AppendOnlyTreeSnapshot,
   CallContext,
   CompleteAddress,
-  FunctionData,
   GasSettings,
   GeneratorIndex,
   type GrumpkinPrivateKey,
   Header,
+  KeyValidationRequest,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
@@ -112,11 +112,10 @@ describe('Private Execution test suite', () => {
     txContext?: Partial<FieldsOf<TxContext>>;
   }) => {
     const packedArguments = PackedValues.fromValues(encodeArguments(artifact, args));
-    const functionData = FunctionData.fromAbi(artifact);
     const txRequest = TxExecutionRequest.from({
       origin: contractAddress,
       firstCallArgsHash: packedArguments.hash,
-      functionData,
+      functionSelector: FunctionSelector.fromNameAndParameters(artifact.name, artifact.parameters),
       txContext: TxContext.from({ ...txContextFields, ...txContext }),
       argsOfCalls: [packedArguments],
       authWitnesses: [],
@@ -154,6 +153,7 @@ describe('Private Execution test suite', () => {
           ),
         ),
         header.globalVariables,
+        header.totalFees,
       );
     } else {
       header = new Header(
@@ -161,6 +161,7 @@ describe('Private Execution test suite', () => {
         header.contentCommitment,
         new StateReference(newSnap, header.state.partial),
         header.globalVariables,
+        header.totalFees,
       );
     }
 
@@ -169,8 +170,7 @@ describe('Private Execution test suite', () => {
 
   const getEncryptedNoteSerializedLength = (result: ExecutionResult) => {
     const fnLogs = new EncryptedFunctionL2Logs(result.noteEncryptedLogs.map(l => l.log));
-    // We take 4 to avoid counting the extra 4 bytes used to store len for L1
-    return fnLogs.getSerializedLength() - 4;
+    return fnLogs.getKernelLength();
   };
 
   beforeAll(() => {
@@ -191,20 +191,24 @@ describe('Private Execution test suite', () => {
   beforeEach(async () => {
     trees = {};
     oracle = mock<DBOracle>();
-    oracle.getNullifierKeys.mockImplementation((masterNullifierPublicKeyHash: Fr, contractAddress: AztecAddress) => {
-      if (masterNullifierPublicKeyHash.equals(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
-        return Promise.resolve({
-          masterNullifierPublicKey: ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
-          appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
-        });
+    oracle.getKeyValidationRequest.mockImplementation((npkMHash: Fr, contractAddress: AztecAddress) => {
+      if (npkMHash.equals(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
+        return Promise.resolve(
+          new KeyValidationRequest(
+            ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
+            computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
+          ),
+        );
       }
-      if (masterNullifierPublicKeyHash.equals(recipientCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
-        return Promise.resolve({
-          masterNullifierPublicKey: recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
-          appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
-        });
+      if (npkMHash.equals(recipientCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
+        return Promise.resolve(
+          new KeyValidationRequest(
+            recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
+            computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
+          ),
+        );
       }
-      throw new Error(`Unknown master nullifier public key hash: ${masterNullifierPublicKeyHash}`);
+      throw new Error(`Unknown master nullifier public key hash: ${npkMHash}`);
     });
 
     // We call insertLeaves here with no leaves to populate empty public data tree root --> this is necessary to be
@@ -248,10 +252,7 @@ describe('Private Execution test suite', () => {
 
       const [unencryptedLog] = newUnencryptedLogs;
       expect(unencryptedLog.value).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
-      // We take 4 to avoid counting the extra 4 bytes used to store len for L1
-      expect(result.callStackItem.publicInputs.unencryptedLogPreimagesLength).toEqual(
-        new Fr(functionLogs.getSerializedLength() - 4),
-      );
+      expect(unencryptedLog.length).toEqual(new Fr(functionLogs.getKernelLength()));
       // Test that the log payload (ie ignoring address, selector, and header) matches what we emitted
       expect(functionLogs.logs[0].data.subarray(-32).toString('hex')).toEqual(owner.toBuffer().toString('hex'));
     });
@@ -268,10 +269,7 @@ describe('Private Execution test suite', () => {
 
       const [unencryptedLog] = newUnencryptedLogs;
       expect(unencryptedLog.value).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
-      // We take 4 to avoid counting the extra 4 bytes used to store len for L1
-      expect(result.callStackItem.publicInputs.unencryptedLogPreimagesLength).toEqual(
-        new Fr(functionLogs.getSerializedLength() - 4),
-      );
+      expect(unencryptedLog.length).toEqual(new Fr(functionLogs.getKernelLength()));
       // Test that the log payload (ie ignoring address, selector, and header) matches what we emitted
       const expected = Buffer.concat(args[0].map(arg => arg.toBuffer())).toString('hex');
       expect(functionLogs.logs[0].data.subarray(-32 * 5).toString('hex')).toEqual(expected);
@@ -348,9 +346,7 @@ describe('Private Execution test suite', () => {
       const [encryptedLog] = newEncryptedLogs;
       expect(encryptedLog.noteHashCounter).toEqual(newNoteHashes[0].counter);
       expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[0].log.hash()));
-      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
-        new Fr(getEncryptedNoteSerializedLength(result)),
-      );
+      expect(encryptedLog.length).toEqual(new Fr(getEncryptedNoteSerializedLength(result)));
     });
 
     it('should run the create_note function', async () => {
@@ -380,9 +376,7 @@ describe('Private Execution test suite', () => {
       const [encryptedLog] = newEncryptedLogs;
       expect(encryptedLog.noteHashCounter).toEqual(newNoteHashes[0].counter);
       expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[0].log.hash()));
-      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
-        new Fr(getEncryptedNoteSerializedLength(result)),
-      );
+      expect(encryptedLog.length).toEqual(new Fr(getEncryptedNoteSerializedLength(result)));
     });
 
     it('should run the destroy_and_create function', async () => {
@@ -442,7 +436,7 @@ describe('Private Execution test suite', () => {
       expect(encryptedChangeLog.noteHashCounter).toEqual(changeNoteHash.counter);
       expect(encryptedRecipientLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[1].log.hash()));
       expect(encryptedRecipientLog.noteHashCounter).toEqual(recipientNoteHash.counter);
-      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
+      expect(encryptedChangeLog.length.add(encryptedRecipientLog.length)).toEqual(
         new Fr(getEncryptedNoteSerializedLength(result)),
       );
 
@@ -487,7 +481,7 @@ describe('Private Execution test suite', () => {
       expect(encryptedChangeLog.noteHashCounter).toEqual(result.callStackItem.publicInputs.newNoteHashes[0].counter);
       expect(encryptedRecipientLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[1].log.hash()));
       expect(encryptedRecipientLog.noteHashCounter).toEqual(result.callStackItem.publicInputs.newNoteHashes[1].counter);
-      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
+      expect(encryptedChangeLog.length.add(encryptedRecipientLog.length)).toEqual(
         new Fr(getEncryptedNoteSerializedLength(result)),
       );
     });
@@ -527,7 +521,7 @@ describe('Private Execution test suite', () => {
 
       // check that Aztec.nr calculated the call stack item hash like cpp does
       const expectedCallStackItemHash = result.nestedExecutions[0].callStackItem.hash();
-      expect(result.callStackItem.publicInputs.privateCallStackHashes[0]).toEqual(expectedCallStackItemHash);
+      expect(result.callStackItem.publicInputs.privateCallRequests[0].hash).toEqual(expectedCallStackItemHash);
     });
   });
 
@@ -836,11 +830,14 @@ describe('Private Execution test suite', () => {
       });
 
       // Alter function data to match the manipulated oracle
-      const functionData = FunctionData.fromAbi(childContractArtifact);
+      const functionSelector = FunctionSelector.fromNameAndParameters(
+        childContractArtifact.name,
+        childContractArtifact.parameters,
+      );
 
       const publicCallRequest = PublicCallRequest.from({
         contractAddress: childAddress,
-        functionData: functionData,
+        functionSelector,
         args: [new Fr(42n)],
         callContext: CallContext.from({
           msgSender: parentAddress,
@@ -875,7 +872,9 @@ describe('Private Execution test suite', () => {
       oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve({ ...teardown }));
       const result = await runSimulator({ artifact: entrypoint });
       expect(result.publicTeardownFunctionCall.isEmpty()).toBeFalsy();
-      expect(result.publicTeardownFunctionCall.functionData).toEqual(FunctionData.fromAbi(teardown));
+      expect(result.publicTeardownFunctionCall.functionSelector).toEqual(
+        FunctionSelector.fromNameAndParameters(teardown.name, teardown.parameters),
+      );
     });
   });
 

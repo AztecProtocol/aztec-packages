@@ -44,11 +44,11 @@ export async function executePublicFunction(
 ): Promise<PublicExecutionResult> {
   const bytecode = await context.contractsDb.getBytecode(
     context.execution.contractAddress,
-    context.execution.functionData.selector,
+    context.execution.functionSelector,
   );
   if (!bytecode) {
     throw new Error(
-      `Bytecode not found for ${context.execution.contractAddress}:${context.execution.functionData.selector}`,
+      `Bytecode not found for ${context.execution.contractAddress}:${context.execution.functionSelector}`,
     );
   }
 
@@ -68,7 +68,7 @@ async function executeTopLevelPublicFunctionAvm(
   bytecode: Buffer,
 ): Promise<PublicExecutionResult> {
   const address = executionContext.execution.contractAddress;
-  const selector = executionContext.execution.functionData.selector;
+  const selector = executionContext.execution.functionSelector;
   const startGas = executionContext.availableGas;
   const log = createDebugLogger('aztec:simulator:public_execution');
   log.verbose(`[AVM] Executing public external function ${address.toString()}:${selector}.`);
@@ -131,10 +131,9 @@ async function executePublicFunctionAcvm(
   nested: boolean,
 ): Promise<PublicExecutionResult> {
   const execution = context.execution;
-  const { contractAddress, functionData } = execution;
-  const selector = functionData.selector;
+  const { contractAddress, functionSelector } = execution;
   const log = createDebugLogger('aztec:simulator:public_execution');
-  log.verbose(`[ACVM] Executing public external function ${contractAddress.toString()}:${selector}.`);
+  log.verbose(`[ACVM] Executing public external function ${contractAddress.toString()}:${functionSelector}.`);
 
   const initialWitness = context.getInitialWitness();
   const acvmCallback = new Oracle(context);
@@ -154,7 +153,7 @@ async function executePublicFunctionAcvm(
         err.message,
         {
           contractAddress,
-          functionSelector: selector,
+          functionSelector,
         },
         extractCallStack(err),
         { cause: err },
@@ -191,7 +190,6 @@ async function executePublicFunctionAcvm(
       nestedExecutions: [],
       unencryptedLogsHashes: [],
       unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
-      unencryptedLogPreimagesLength: Fr.ZERO,
       allUnencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       reverted,
       revertReason,
@@ -216,7 +214,6 @@ async function executePublicFunctionAcvm(
     startSideEffectCounter,
     endSideEffectCounter,
     unencryptedLogsHashes: unencryptedLogsHashesPadded,
-    unencryptedLogPreimagesLength,
   } = PublicCircuitPublicInputs.fromFields(returnWitness);
   const returnValues = await context.unpackReturns(returnsHash);
 
@@ -263,7 +260,6 @@ async function executePublicFunctionAcvm(
     nestedExecutions,
     unencryptedLogsHashes,
     unencryptedLogs,
-    unencryptedLogPreimagesLength,
     allUnencryptedLogs,
     reverted: false,
     revertReason: undefined,
@@ -360,9 +356,9 @@ export class PublicExecutor {
     const bytecodePath = path.join(artifactsPath, 'avm_bytecode.bin');
     const proofPath = path.join(artifactsPath, 'proof');
 
-    const { args, functionData, contractAddress } = avmExecution;
-    let bytecode = await this.contractsDb.getBytecode(contractAddress, functionData.selector);
-    assert(!!bytecode, `Bytecode not found for ${contractAddress}:${functionData.selector}`);
+    const { args, functionSelector, contractAddress } = avmExecution;
+    let bytecode = await this.contractsDb.getBytecode(contractAddress, functionSelector);
+    assert(!!bytecode, `Bytecode not found for ${contractAddress}:${functionSelector}`);
     // This should be removed once we do bytecode validation.
     bytecode = await decompressBytecodeIfCompressed(bytecode!);
     // Write call data and bytecode to files.
