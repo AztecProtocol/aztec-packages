@@ -146,31 +146,36 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             const size_t num_inner_public_inputs = inner_circuit.get_public_inputs().size();
 
             std::vector<fr> proof_witnesses = inner_proof;
+            info("proof witnesses: ", proof_witnesses);
+            const size_t public_input_offset = 3;
             // - Save the public inputs so that we can set their values.
             // - Then truncate them from the proof because the ACIR API expects proofs without public inputs
             std::vector<fr> inner_public_input_values(
-                proof_witnesses.begin(),
-                proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs -
+                proof_witnesses.begin() + static_cast<std::ptrdiff_t>(public_input_offset),
+                proof_witnesses.begin() + static_cast<std::ptrdiff_t>(public_input_offset + num_inner_public_inputs -
                                                                       RecursionConstraint::AGGREGATION_OBJECT_SIZE));
 
             // We want to make sure that we do not remove the nested aggregation object.
-            proof_witnesses.erase(proof_witnesses.begin(),
+            proof_witnesses.erase(proof_witnesses.begin() + static_cast<std::ptrdiff_t>(public_input_offset),
                                   proof_witnesses.begin() +
-                                      static_cast<std::ptrdiff_t>(num_inner_public_inputs -
+                                      static_cast<std::ptrdiff_t>(public_input_offset + num_inner_public_inputs -
                                                                   RecursionConstraint::AGGREGATION_OBJECT_SIZE));
 
             std::vector<bb::fr> key_witnesses = verification_key->to_field_elements();
 
-            const uint32_t public_input_start_idx = static_cast<uint32_t>(witness_offset);
+            const uint32_t public_input_start_idx = static_cast<uint32_t>(public_input_offset + witness_offset);
             const uint32_t proof_indices_start_idx = static_cast<uint32_t>(
                 public_input_start_idx + num_inner_public_inputs - RecursionConstraint::AGGREGATION_OBJECT_SIZE);
             const uint32_t key_indices_start_idx =
-                static_cast<uint32_t>(proof_indices_start_idx + proof_witnesses.size());
+                static_cast<uint32_t>(proof_indices_start_idx + proof_witnesses.size() - public_input_offset);
 
             std::vector<uint32_t> proof_indices;
             std::vector<uint32_t> key_indices;
             std::vector<uint32_t> inner_public_inputs;
-            for (size_t i = 0; i < proof_witnesses.size(); ++i) {
+            for (size_t i = 0; i < public_input_offset; ++i) {
+                proof_indices.emplace_back(static_cast<uint32_t>(i + witness_offset));
+            }
+            for (size_t i = 0; i < proof_witnesses.size() - public_input_offset; ++i) {
                 proof_indices.emplace_back(static_cast<uint32_t>(i + proof_indices_start_idx));
             }
             const size_t key_size = key_witnesses.size();
@@ -191,11 +196,16 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             };
             honk_recursion_constraints.push_back(honk_recursion_constraint);
 
-            for (size_t i = 0; i < proof_indices_start_idx - public_input_start_idx; ++i) {
-                witness.emplace_back(0);
-            }
+            size_t idx = 0;
             for (const auto& wit : proof_witnesses) {
+                info("wit ", wit, "at idx: ", witness.size());
                 witness.emplace_back(wit);
+                idx++;
+                if (idx == public_input_offset) {
+                    for (size_t i = 0; i < proof_indices_start_idx - public_input_start_idx; ++i) {
+                        witness.emplace_back(0);
+                    }
+                }
             }
 
             for (const auto& wit : key_witnesses) {

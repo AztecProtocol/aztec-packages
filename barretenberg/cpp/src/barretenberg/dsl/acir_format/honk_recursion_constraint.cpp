@@ -53,18 +53,24 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     using RecursiveVerifier = UltraRecursiveVerifier_<Flavor>;
 
     static_cast<void>(has_valid_witness_assignments);
-    static_cast<void>(nested_aggregation_object);
-    // std::array<bn254::Group, 2> nested_aggregation_points =
-    //     agg_points_from_witness_indicies(builder, nested_aggregation_object);
+    // actual nested
+    std::array<bn254::Group, 2> nested_aggregation_points =
+        agg_points_from_witness_indicies(builder, nested_aggregation_object);
 
     // Construct an in-circuit representation of the verification key.
     // For now, the v-key is a circuit constant and is fixed for the circuit.
     // (We may need a separate recursion opcode for this to vary, or add more config witnesses to this opcode)
     const auto& aggregation_input = input_aggregation_object;
     aggregation_state_ct cur_aggregation_object;
-    // cur_aggregation_object.P0 = nested_aggregation_points[0];
-    // cur_aggregation_object.P1 = nested_aggregation_points[1];
-    // cur_aggregation_object.has_data = true;
+    cur_aggregation_object.P0 = nested_aggregation_points[0];
+    cur_aggregation_object.P1 = nested_aggregation_points[1];
+    info("aggregation object = ", cur_aggregation_object);
+    cur_aggregation_object.has_data = true;
+    field_ct recursion_separator = bb::stdlib::witness_t<Builder>(&builder, 2);
+
+    UltraFlavor::VerifierCommitmentKey pcs_verification_key;
+    ASSERT(pcs_verification_key.pairing_check(cur_aggregation_object.P0.get_value(),
+                                              cur_aggregation_object.P1.get_value()));
 
     // If we have previously recursively verified proofs, `previous_aggregation_object_nonzero = true`
     // For now this is a complile-time constant i.e. whether this is true/false is fixed for the circuit!
@@ -79,15 +85,11 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
         std::array<bn254::Group, 2> inner_agg_points = agg_points_from_witness_indicies(builder, aggregation_input);
         // If we have a previous aggregation object, assign it to `previous_aggregation` so that it is included
         // in stdlib::recursion::verify_proof
-        // cur_aggregation_object.P0 += inner_agg_points[0]; // TODO: use a recursion separator
-        // cur_aggregation_object.P1 += inner_agg_points[1];
-        cur_aggregation_object.P0 = inner_agg_points[0];
-        cur_aggregation_object.P1 = inner_agg_points[1];
-        UltraFlavor::VerifierCommitmentKey pcs_verification_key;
-        ASSERT(pcs_verification_key.pairing_check(inner_agg_points[0].get_value(), inner_agg_points[1].get_value()));
-        cur_aggregation_object.has_data = true;
-    } else {
-        cur_aggregation_object.has_data = false;
+        cur_aggregation_object.P0 += inner_agg_points[0] * recursion_separator; // TODO: use a recursion separator
+        cur_aggregation_object.P1 += inner_agg_points[1] * recursion_separator;
+        recursion_separator = recursion_separator * recursion_separator;
+        ASSERT(pcs_verification_key.pairing_check(cur_aggregation_object.P0.get_value(),
+                                                  cur_aggregation_object.P1.get_value()));
     }
 
     std::vector<field_ct> key_fields;
@@ -101,39 +103,38 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     // Prepend the public inputs to the proof fields because this is how the
     // core barretenberg library processes proofs (with the public inputs first and not separated)
     proof_fields.reserve(input.proof.size() + input.public_inputs.size());
-    for (const auto& idx : input.public_inputs) {
-        auto field = field_ct::from_witness_index(&builder, idx);
-        proof_fields.emplace_back(field);
-    }
+    info("input.proof: ", input.proof);
+    size_t i = 0;
+    const size_t public_input_offset = 3;
     for (const auto& idx : input.proof) {
         auto field = field_ct::from_witness_index(&builder, idx);
         proof_fields.emplace_back(field);
+        i++;
+        if (i == public_input_offset) {
+            for (const auto& idx : input.public_inputs) {
+                auto field = field_ct::from_witness_index(&builder, idx);
+                proof_fields.emplace_back(field);
+            }
+        }
     }
+    info("proof_fields: ", proof_fields);
 
     // recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     RecursiveVerifier verifier(&builder, vkey);
     std::array<typename Flavor::GroupElement, 2> pairing_points = verifier.verify_proof(proof_fields);
-    UltraFlavor::VerifierCommitmentKey pcs_verification_key;
     ASSERT(pcs_verification_key.pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value()));
 
-    // aggregate with the input aggregation object
-    if (cur_aggregation_object.has_data) {
-        info("agg points: ", cur_aggregation_object.P0.get_value(), cur_aggregation_object.P1.get_value());
-        info("pairing points: ", pairing_points[0].get_value(), pairing_points[1].get_value());
-        ASSERT(pcs_verification_key.pairing_check(cur_aggregation_object.P0.get_value(),
-                                                  cur_aggregation_object.P1.get_value()));
-        ASSERT(pcs_verification_key.pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value()));
-        field_ct recursion_separator = bb::stdlib::witness_t<Builder>(&builder, 2);
-        cur_aggregation_object.P0 += pairing_points[0] * recursion_separator;
-        cur_aggregation_object.P1 += pairing_points[1] * recursion_separator;
-        ASSERT(pcs_verification_key.pairing_check(cur_aggregation_object.P0.get_value(),
-                                                  cur_aggregation_object.P1.get_value()));
-    } else {
-        cur_aggregation_object.P0 = pairing_points[0];
-        cur_aggregation_object.P1 = pairing_points[1];
-        cur_aggregation_object.has_data = true;
-    }
+    // aggregate the current aggregation object with these pairing points from verify_proof
+    info("agg points: ", cur_aggregation_object.P0.get_value(), cur_aggregation_object.P1.get_value());
+    info("pairing points: ", pairing_points[0].get_value(), pairing_points[1].get_value());
+    ASSERT(pcs_verification_key.pairing_check(cur_aggregation_object.P0.get_value(),
+                                              cur_aggregation_object.P1.get_value()));
+    ASSERT(pcs_verification_key.pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value()));
+    cur_aggregation_object.P0 += pairing_points[0] * recursion_separator;
+    cur_aggregation_object.P1 += pairing_points[1] * recursion_separator;
+    ASSERT(pcs_verification_key.pairing_check(cur_aggregation_object.P0.get_value(),
+                                              cur_aggregation_object.P1.get_value()));
 
     std::vector<uint32_t> proof_witness_indices = {
         cur_aggregation_object.P0.x.binary_basis_limbs[0].element.normalize().witness_index,
