@@ -71,11 +71,13 @@ export async function deploy(
         address: address.toString(),
         partialAddress: partialAddress.toString(),
         initializationHash: instance.initializationHash.toString(),
+        salt: salt.toString(),
       });
     } else {
       log(`Contract deployed at ${address.toString()}`);
       log(`Contract partial address ${partialAddress.toString()}`);
       log(`Contract init hash ${instance.initializationHash.toString()}`);
+      log(`Deployment salt: ${salt.toString()}`);
     }
   } else {
     const { address, partialAddress } = deploy;
@@ -86,12 +88,14 @@ export async function deploy(
         partialAddress: partialAddress?.toString() ?? 'N/A',
         txHash: txHash.toString(),
         initializationHash: instance.initializationHash.toString(),
+        salt: salt.toString(),
       });
     } else {
       log(`Contract Address: ${address?.toString() ?? 'N/A'}`);
       log(`Contract Partial Address: ${partialAddress?.toString() ?? 'N/A'}`);
       log(`Deployment transaction hash: ${txHash}`);
       log(`Contract init hash ${instance.initializationHash.toString()}`);
+      log(`Deployment salt: ${salt.toString()}`);
     }
   }
 }
