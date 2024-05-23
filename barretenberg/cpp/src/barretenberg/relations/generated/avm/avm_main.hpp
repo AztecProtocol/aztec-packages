@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 #pragma once
 #include "../../relation_parameters.hpp"
@@ -3529,3 +3530,5 @@ template <typename FF_> class avm_mainImpl {
 template <typename FF> using avm_main = Relation<avm_mainImpl<FF>>;
 
 } // namespace bb::Avm_vm
+=======
+>>>>>>> 77c84ea7a0 (6542: fix after rebase)
