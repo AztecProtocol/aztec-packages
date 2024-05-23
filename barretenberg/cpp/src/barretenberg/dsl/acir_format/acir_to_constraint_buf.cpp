@@ -1,6 +1,7 @@
 #include "acir_to_constraint_buf.hpp"
+#ifndef __wasm__
 #include "barretenberg/bb/get_bytecode.hpp"
-
+#endif
 namespace acir_format {
 /**
  * @brief Construct a poly_tuple for a standard width-3 arithmetic gate from its acir representation
@@ -586,8 +587,7 @@ WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf)
     return witness_vector_stack;
 }
 
-AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::string const& witness_path);
-
+#ifndef __wasm__
 AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::string const& witness_path)
 {
     auto bytecode = get_bytecode(bytecode_path);
@@ -598,4 +598,5 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::s
 
     return { constraint_systems, witness_stack };
 }
+#endif
 } // namespace acir_format

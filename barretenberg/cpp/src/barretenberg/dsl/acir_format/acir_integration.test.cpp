@@ -1,4 +1,4 @@
-
+#ifndef __wasm__
 #include "barretenberg/bb/exec_pipe.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
@@ -332,3 +332,4 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "fold_distinct_return",
                                          "fold_fibonacci",
                                          "fold_numeric_generic_poseidon"));
+#endif
