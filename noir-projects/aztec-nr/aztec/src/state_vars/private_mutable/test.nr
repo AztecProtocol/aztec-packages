@@ -6,10 +6,10 @@ use dep::std::{unsafe::zeroed, test::OracleMock};
 global contract_address = AztecAddress::from_field(13);
 global storage_slot = 17;
 
-fn setup () -> PrivateMutable<MockNote, &mut PrivateContext> {
+fn setup() -> PrivateMutable<MockNote, &mut PrivateContext> {
     let mut context = ContextBuilder::new().contract_address(contract_address).private();
     let state_var = PrivateMutable::new(&mut context, storage_slot);
-    
+
     // This oracle is called for its side effects alone - it's always expected to return 0.
     OracleMock::mock("notifyCreatedNote").returns(0);
 
