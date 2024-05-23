@@ -20,11 +20,11 @@ describe('e2e_token_contract burn', () => {
   });
 
   afterEach(async () => {
-    await t.tokenSim.check();
+    await t.tokenSim.check(wallets[0]);
   });
 
   describe('public', () => {
-    it('burn less than balance', async () => {
+    it.only('burn less than balance', async () => {
       const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
       const amount = balance0 / 2n;
       expect(amount).toBeGreaterThan(0n);

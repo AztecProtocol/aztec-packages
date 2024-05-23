@@ -15,8 +15,8 @@ const toString = (val: bigint[]) => {
 describe('e2e_token_contract reading constants', () => {
   const t = new TokenContractTest('reading_constants');
   const { TOKEN_DECIMALS, TOKEN_NAME, TOKEN_SYMBOL } = TokenContractTest;
-  // Do not destructure anything mutable.
   const { logger } = t;
+  let { wallets } = t;
   let reader: ReaderContract;
 
   beforeAll(async () => {
@@ -37,6 +37,8 @@ describe('e2e_token_contract reading constants', () => {
     );
 
     await t.setup();
+
+    ({ wallets } = t);
   });
 
   afterAll(async () => {
@@ -46,7 +48,7 @@ describe('e2e_token_contract reading constants', () => {
   beforeEach(async () => {});
 
   afterEach(async () => {
-    await t.tokenSim.check();
+    await t.tokenSim.check(wallets[0]);
   });
 
   it('check name private', async () => {

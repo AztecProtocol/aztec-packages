@@ -330,34 +330,38 @@ contract Token {
     }
     // docs:end:reduce_total_supply
 
-    /// Unconstrained ///
+    /// Getters ///
 
     // docs:start:admin
-    unconstrained fn admin() -> pub Field {
+    #[aztec(public)]
+    fn admin() -> Field {
         storage.admin.read().to_field()
     }
     // docs:end:admin
 
     // docs:start:is_minter
-    unconstrained fn is_minter(minter: AztecAddress) -> pub bool {
+    #[aztec(public)]
+    fn is_minter(minter: AztecAddress) -> bool {
         storage.minters.at(minter).read()
     }
     // docs:end:is_minter
 
     // docs:start:total_supply
-    unconstrained fn total_supply() -> pub Field {
+    #[aztec(public)]
+    fn total_supply() -> Field {
         storage.total_supply.read().to_integer()
     }
     // docs:end:total_supply
 
     // docs:start:balance_of_private
     unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
-        storage.balances.balance_of(owner).to_integer()
+        storage.balances.balance_of(owner).to_field()
     }
     // docs:end:balance_of_private
 
     // docs:start:balance_of_public
-    unconstrained fn balance_of_public(owner: AztecAddress) -> pub Field {
+    #[aztec(public)]
+    fn balance_of_public(owner: AztecAddress) -> Field {
         storage.public_balances.at(owner).read().to_integer()
     }
     // docs:end:balance_of_public

@@ -57,19 +57,21 @@ export class BatchCall extends BaseContractInteraction {
       { calls: [], unconstrained: [] },
     );
 
-    const unconstrainedCalls = await Promise.all(
-      unconstrained.map(async indexedCall => {
-        const call = indexedCall[0];
-        return [await this.wallet.simulateUnconstrained(call.name, call.args, call.to, options?.from), indexedCall[1]];
-      }),
-    );
-
     const txRequest = await this.wallet.createTxExecutionRequest({ calls: calls.map(indexedCall => indexedCall[0]) });
-    const simulatedTx = await this.wallet.simulateTx(txRequest, true, options?.from);
+
+    const unconstrainedCalls = unconstrained.map(async indexedCall => {
+      const call = indexedCall[0];
+      return [await this.wallet.simulateUnconstrained(call.name, call.args, call.to, options?.from), indexedCall[1]];
+    });
+
+    const [unconstrainedResults, simulatedTx] = await Promise.all([
+      Promise.all(unconstrainedCalls),
+      this.wallet.simulateTx(txRequest, true, options?.from),
+    ]);
 
     const results: any[] = [];
 
-    unconstrainedCalls.forEach(([result, index]) => {
+    unconstrainedResults.forEach(([result, index]) => {
       results[index] = result;
     });
     calls.forEach(([call, callIndex], resultIndex) => {
