@@ -25,13 +25,13 @@ function patchFn(
 ): { address: AztecAddress; selector: FunctionSelector } {
   const fn = tx.enqueuedPublicFunctionCalls.at(-1 * index - 1)!;
   fn.contractAddress = overrides.address ?? fn.contractAddress;
-  fn.functionData.selector = overrides.selector;
+  fn.functionSelector = overrides.selector;
   fn.args = overrides.args ?? fn.args;
   fn.callContext.msgSender = overrides.msgSender ?? fn.callContext.msgSender;
   tx.data.forPublic![where].publicCallStack[index] = fn.toCallRequest();
 
   return {
     address: fn.contractAddress,
-    selector: fn.functionData.selector,
+    selector: fn.functionSelector,
   };
 }

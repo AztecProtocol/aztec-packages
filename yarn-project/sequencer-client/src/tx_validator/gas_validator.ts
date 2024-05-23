@@ -56,7 +56,7 @@ export class GasTxValidator implements TxValidator<Tx> {
       fn =>
         fn.contractAddress.equals(this.#gasTokenAddress) &&
         fn.callContext.msgSender.equals(this.#gasTokenAddress) &&
-        fn.functionData.selector.equals(GasTokenArtifact.functions.find(f => f.name === '_increase_public_balance')!) &&
+        fn.functionSelector.equals(GasTokenArtifact.functions.find(f => f.name === '_increase_public_balance')!) &&
         fn.args[0].equals(feePayer) &&
         !fn.callContext.isStaticCall &&
         !fn.callContext.isDelegateCall,

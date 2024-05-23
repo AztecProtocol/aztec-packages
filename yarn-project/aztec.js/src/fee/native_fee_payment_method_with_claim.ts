@@ -1,6 +1,7 @@
 import { type FunctionCall } from '@aztec/circuit-types';
-import { type AztecAddress, Fr, FunctionData } from '@aztec/circuits.js';
-import { GasTokenAddress, GasTokenArtifact } from '@aztec/protocol-contracts/gas-token';
+import { type AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
+import { FunctionType } from '@aztec/foundation/abi';
+import { GasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
 import { NativeFeePaymentMethod } from './native_fee_payment_method.js';
 
@@ -20,9 +21,12 @@ export class NativeFeePaymentMethodWithClaim extends NativeFeePaymentMethod {
     return Promise.resolve([
       {
         to: GasTokenAddress,
-        functionData: FunctionData.fromAbi(GasTokenArtifact.functions.find(f => f.name === 'claim')!),
+        name: 'claim',
+        selector: FunctionSelector.fromSignature('claim((Field),Field,Field)'),
         isStatic: false,
         args: [this.sender, new Fr(this.claimAmount), this.claimSecret],
+        returnTypes: [],
+        type: FunctionType.PRIVATE,
       },
     ]);
   }
