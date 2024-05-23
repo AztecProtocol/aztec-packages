@@ -1,7 +1,7 @@
 import { FunctionSelector } from '@aztec/aztec.js/abi';
 import { AztecAddress } from '@aztec/aztec.js/aztec_address';
 import { EthAddress } from '@aztec/aztec.js/eth_address';
-import { Fr, GrumpkinScalar, Point } from '@aztec/aztec.js/fields';
+import { Fr, Point } from '@aztec/aztec.js/fields';
 import { LogId } from '@aztec/aztec.js/log_id';
 import { TxHash } from '@aztec/aztec.js/tx_hash';
 
@@ -191,21 +191,7 @@ export function parsePartialAddress(address: string): Fr {
  * @returns A private key
  * @throws InvalidArgumentError if the input string is not valid.
  */
-export function parseSigningPrivateKey(privateKey: string): GrumpkinScalar {
-  try {
-    const value = GrumpkinScalar.fromString(privateKey);
-    // most likely a badly formatted key was passed
-    if (value.isZero()) {
-      throw new Error('Private key must not be zero');
-    }
-
-    return value;
-  } catch (err) {
-    throw new InvalidArgumentError(`Invalid signing private key: ${privateKey}`);
-  }
-}
-
-export function parseEncryptionPrivateKey(privateKey: string): Fr {
+export function parsePrivateKey(privateKey: string): Fr {
   try {
     return Fr.fromString(privateKey);
   } catch (err) {
