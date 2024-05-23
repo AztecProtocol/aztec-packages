@@ -269,7 +269,7 @@ impl KernelCircuitPublicInputsComposer {
             sorted_call_requests_indexes,
             desc_sort_by_counters
         );
-        self.public_inputs.end.public_call_stack = array_to_bounded_vec(accumulated_data.public_call_stack);
+        self.public_inputs.end.public_call_stack = array_to_bounded_vec(sorted_call_requests);
     }
 
     fn propagate_public_teardown_call_request(&mut self) {
