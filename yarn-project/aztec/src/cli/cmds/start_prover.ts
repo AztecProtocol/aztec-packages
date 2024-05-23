@@ -1,4 +1,5 @@
 import { type ProvingJobSource } from '@aztec/circuit-types';
+import { getProverEnvVars } from '@aztec/prover-client';
 import { ProverPool, createProvingJobSourceClient } from '@aztec/prover-client/prover-pool';
 
 import { tmpdir } from 'node:os';
@@ -14,7 +15,10 @@ type ProverOptions = Partial<{
 }>;
 
 export const startProver: ServiceStarter = async (options, signalHandlers, logger) => {
-  const proverOptions: ProverOptions = parseModuleOptions(options.prover);
+  const proverOptions: ProverOptions = {
+    ...getProverEnvVars(),
+    ...parseModuleOptions(options.prover),
+  };
   let source: ProvingJobSource;
 
   if (typeof proverOptions.proverUrl === 'string') {
