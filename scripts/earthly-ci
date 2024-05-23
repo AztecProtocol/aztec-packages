@@ -19,7 +19,7 @@ ATTEMPT_COUNT=0
 export EARTHLY_TICKTOCK=true
 export EARTHLY_ALLOW_PRIVILEGED=true
 export EARTHLY_USE_INLINE_CACHE=true
-# TODO(AD): remove this before merging!! the first release did not start ticktock scheduler on bootstrap
+# TODO(AD): uncomment this before merging!! the first release did not start ticktock scheduler on bootstrap
 #export EARTHLY_NO_BUILDKIT_UPDATE=true
 # make sure earthly gives annotations that github picks up
 export GITHUB_ACTIONS=true
