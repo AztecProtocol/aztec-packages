@@ -14,8 +14,9 @@ namespace bb::stdlib {
 template <typename Builder, typename T> class bigfield {
 
   public:
-    typedef T TParams;
-    typedef bb::field<T> native;
+    using View = bigfield;
+    using TParams = T;
+    using native = bb::field<T>;
 
     struct Basis {
         uint512_t modulus;
@@ -60,6 +61,14 @@ template <typename Builder, typename T> class bigfield {
              const size_t maximum_bitlength = 0);
     bigfield(Builder* parent_context = nullptr);
     bigfield(Builder* parent_context, const uint256_t& value);
+
+    explicit bigfield(const uint256_t& value) { bigfield(nullptr, value); }
+    bigfield(const int value)
+    {
+        uint256_t result = uint256_t(bb::fr(value));
+        bigfield(nullptr, result);
+    }
+    bigfield(const bb::fq value) { bigfield(nullptr, uint256_t(value)); }
 
     // we assume the limbs have already been normalized!
     bigfield(const field_t<Builder>& a,
@@ -255,6 +264,8 @@ template <typename Builder, typename T> class bigfield {
     void self_reduce() const;
 
     bool is_constant() const { return prime_basis_limb.witness_index == IS_CONSTANT; }
+
+    bigfield invert() const { return (bigfield(1) / bigfield(*this)); }
 
     /**
      * Create a public one constant
