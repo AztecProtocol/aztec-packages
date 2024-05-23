@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/dsl/types.hpp"
-#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include <vector>
 
 namespace acir_format {
@@ -20,7 +19,7 @@ using namespace bb;
  *
  * @param verification_key_data The inner circuit vkey. Is converted into circuit witness values (internal to the
  * backend)
- * @param proof The plonk proof. Is converted into circuit witness values (internal to the backend)
+ * @param proof The honk proof. Is converted into circuit witness values (internal to the backend)
  * @param is_aggregation_object_nonzero A flag to tell us whether the circuit has already recursively verified proofs
  * (and therefore an aggregation object is present)
  * @param public_input The index of the single public input

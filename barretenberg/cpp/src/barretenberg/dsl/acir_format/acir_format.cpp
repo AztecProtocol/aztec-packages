@@ -238,23 +238,23 @@ void build_constraints(Builder& builder,
             // nested aggregation object attached to the proof as public inputs. As this is the only object that can
             // prepended to the proof if the proof is above the expected size (with public inputs stripped)
             std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object = {};
-            const size_t public_input_offset = 3;
+            const size_t inner_public_input_offset = 3;
             info("constraint proof: ", constraint.proof);
             for (size_t i = 0; i < HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
                 // Set the nested aggregation object indices to the current size of the public inputs
                 // This way we know that the nested aggregation object indices will always be the last
                 // indices of the public inputs
-                nested_aggregation_object[i] = static_cast<uint32_t>(constraint.proof[public_input_offset + i]);
+                nested_aggregation_object[i] = static_cast<uint32_t>(constraint.proof[inner_public_input_offset + i]);
                 // Attach the nested aggregation object to the end of the public inputs to fill in
                 // the slot where the nested aggregation object index will point into
-                constraint.public_inputs.emplace_back(constraint.proof[public_input_offset + i]);
+                constraint.public_inputs.emplace_back(constraint.proof[inner_public_input_offset + i]);
             }
             info("nested aggregation object: ", nested_aggregation_object);
             // Remove the aggregation object so that they can be handled as normal public inputs
             // in they way taht the recursion constraint expects
-            constraint.proof.erase(constraint.proof.begin() + public_input_offset,
+            constraint.proof.erase(constraint.proof.begin() + inner_public_input_offset,
                                    constraint.proof.begin() +
-                                       static_cast<std::ptrdiff_t>(public_input_offset +
+                                       static_cast<std::ptrdiff_t>(inner_public_input_offset +
                                                                    HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE));
             current_aggregation_object = create_honk_recursion_constraints(builder,
                                                                            constraint,
