@@ -2,8 +2,8 @@ use dep::types::{
     abis::{
     call_request::CallRequest, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
-    max_block_number::MaxBlockNumber, nullifier::Nullifier, note_hash::ScopedNoteHash,
-    log_hash::NoteLogHash,
+    max_block_number::MaxBlockNumber, nullifier::{Nullifier, ScopedNullifier},
+    note_hash::ScopedNoteHash, log_hash::NoteLogHash,
     private_circuit_public_inputs::{PrivateCircuitPublicInputs, PrivateCircuitPublicInputsArrayLengths}
 },
     address::AztecAddress,
@@ -25,12 +25,19 @@ struct DataSource {
     public_teardown_call_request: CallRequest,
 }
 
+pub fn create_first_nullifier(tx_request: TxRequest) -> ScopedNullifier {
+    Nullifier { value: tx_request.hash(), note_hash: 0, counter: 0 }.scope(AztecAddress::zero())
+}
+
 struct PrivateKernelCircuitPublicInputsComposer {
     public_inputs: PrivateKernelCircuitPublicInputsBuilder,
 }
 
 impl PrivateKernelCircuitPublicInputsComposer {
-    pub fn new_from_tx_request(tx_request: TxRequest, private_call_public_inputs: PrivateCircuitPublicInputs) -> Self {
+    pub fn new_from_tx_request(
+        tx_request: TxRequest,
+        private_call_public_inputs: PrivateCircuitPublicInputs
+    ) -> Self {
         let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
         public_inputs.constants = CombinedConstantData::private(
@@ -41,7 +48,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         public_inputs.min_revertible_side_effect_counter = private_call_public_inputs.min_revertible_side_effect_counter;
 
         // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
-        public_inputs.end.new_nullifiers.push(Nullifier { value: tx_request.hash(), note_hash: 0, counter: 0 }.scope(AztecAddress::zero()));
+        public_inputs.end.new_nullifiers.push(create_first_nullifier(tx_request));
         // Note that we do not need to nullify the transaction request nonce anymore.
         // Should an account want to additionally use nonces for replay protection or handling cancellations,
         // they will be able to do so in the account contract logic:

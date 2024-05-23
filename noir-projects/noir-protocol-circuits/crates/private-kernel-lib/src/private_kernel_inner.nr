@@ -97,7 +97,7 @@ mod tests {
             // Update the previous_kernel's private_call_stack with the current call_stack_item.
             let hash = private_call.call_stack_item.hash();
             let is_delegate_call = private_call.call_stack_item.public_inputs.call_context.is_delegate_call;
-            self.previous_kernel.push_private_call_request(hash, is_delegate_call);
+            self.previous_kernel.add_private_call_request(hash, is_delegate_call);
             let previous_kernel = self.previous_kernel.to_private_kernel_data();
 
             let kernel = PrivateKernelInnerCircuitPrivateInputs { previous_kernel, private_call, hints: self.hints };

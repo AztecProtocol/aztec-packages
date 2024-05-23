@@ -1,4 +1,5 @@
 use crate::{
+    components::private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
     private_call_data_validator::PrivateCallDataValidator,
     private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer
 };
@@ -24,24 +25,52 @@ struct PrivateKernelInitCircuitPrivateInputs {
 }
 
 impl PrivateKernelInitCircuitPrivateInputs {
-    pub fn native_private_kernel_circuit_initial(self) -> PrivateKernelCircuitPublicInputs {
-        // verify/aggregate the private call proof
-        verify_private_call(self.private_call);
-
-        let privateCallDataValidator = PrivateCallDataValidator::new(self.private_call);
-        privateCallDataValidator.validate();
-        privateCallDataValidator.validate_as_first_call(self.hints.first_revertible_private_call_request_index);
-        privateCallDataValidator.validate_against_tx_request(self.tx_request);
-
+    unconstrained fn prepare_output(
+        self,
+        private_call_data_validator: PrivateCallDataValidator
+    ) -> PrivateKernelCircuitPublicInputs {
         let private_call_public_inputs = self.private_call.call_stack_item.public_inputs;
         PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(self.tx_request, private_call_public_inputs).compose(
             private_call_public_inputs,
-            privateCallDataValidator.array_lengths,
+            private_call_data_validator.array_lengths,
             self.private_call.call_stack_item.contract_address,
             self.hints.note_hash_nullifier_counters,
             self.private_call.public_call_stack,
             self.private_call.public_teardown_call_request
         ).finish()
+    }
+
+    fn validate_inputs(self) -> PrivateCallDataValidator {
+        let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
+        private_call_data_validator.validate();
+        private_call_data_validator.validate_as_first_call(self.hints.first_revertible_private_call_request_index);
+        private_call_data_validator.validate_against_tx_request(self.tx_request);
+        private_call_data_validator
+    }
+
+    pub fn simulate(self) -> PrivateKernelCircuitPublicInputs {
+        let private_call_data_validator = self.validate_inputs();
+        self.prepare_output(private_call_data_validator)
+    }
+
+    pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
+        // verify/aggregate the private call proof
+        verify_private_call(self.private_call);
+        let private_call_data_validator = self.validate_inputs();
+
+        let output = self.prepare_output(private_call_data_validator);
+        let output_validator = PrivateKernelCircuitOutputValidator::new(output);
+        let private_call_public_inputs = self.private_call.call_stack_item.public_inputs;
+        output_validator.validate_as_first_call(
+            self.tx_request,
+            private_call_public_inputs,
+            private_call_data_validator.array_lengths,
+            self.private_call.call_stack_item.contract_address,
+            self.hints.note_hash_nullifier_counters,
+            self.private_call.public_call_stack,
+            self.private_call.public_teardown_call_request
+        );
+        output
     }
 }
 
@@ -81,7 +110,7 @@ mod tests {
         pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
             let kernel = PrivateKernelInitCircuitPrivateInputs { tx_request: self.tx_request, private_call: self.private_call.finish(), hints: self.hints };
 
-            kernel.native_private_kernel_circuit_initial()
+            kernel.execute()
         }
 
         pub fn failed(self) {

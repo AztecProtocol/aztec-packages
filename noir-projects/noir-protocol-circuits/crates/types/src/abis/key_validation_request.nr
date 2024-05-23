@@ -1,6 +1,6 @@
 use dep::std::cmp::Eq;
 use crate::{
-    address::AztecAddress,
+    abis::side_effect::Scoped, address::AztecAddress,
     constants::{SCOPED_KEY_VALIDATION_REQUEST_LENGTH, KEY_VALIDATION_REQUEST_LENGTH},
     traits::{Empty, Serialize, Deserialize}, grumpkin_point::GrumpkinPoint,
     utils::{arrays::array_concat, reader::Reader}
@@ -55,6 +55,15 @@ impl KeyValidationRequest {
 struct ScopedKeyValidationRequest {
     request: KeyValidationRequest,
     contract_address: AztecAddress,
+}
+
+impl Scoped<KeyValidationRequest> for ScopedKeyValidationRequest {
+    fn inner(self) -> KeyValidationRequest {
+        self.request
+    }
+    fn contract_address(self) -> AztecAddress {
+        self.contract_address
+    }
 }
 
 impl Eq for ScopedKeyValidationRequest {

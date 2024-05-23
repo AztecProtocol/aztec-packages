@@ -1,4 +1,5 @@
 mod private_call_data_validator_builder;
+mod private_kernel_circuit_output_validator_builder;
 mod validate_against_call_request;
 mod validate_against_previous_kernel;
 mod validate_against_tx_request;

@@ -239,21 +239,21 @@ mod tests {
     #[test(should_fail_with="Private call stack must be empty when executing the tail circuit")]
     unconstrained fn non_empty_private_call_stack_should_fail() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.push_private_call_request(1, false);
+        builder.previous_kernel.add_private_call_request(1, false);
         builder.failed();
     }
 
     #[test(should_fail_with="Must have public calls when exporting public kernel data from the tail circuit")]
     unconstrained fn no_public_calls_should_fail() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.public_call_stack = BoundedVec::new();
+        builder.previous_kernel.public_call_requests = BoundedVec::new();
         builder.failed();
     }
 
     #[test]
     unconstrained fn can_run_with_only_teardown() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.public_call_stack = BoundedVec::new();
+        builder.previous_kernel.public_call_requests = BoundedVec::new();
         builder.previous_kernel.set_public_teardown_call_request(1, false);
 
         builder.succeeded();

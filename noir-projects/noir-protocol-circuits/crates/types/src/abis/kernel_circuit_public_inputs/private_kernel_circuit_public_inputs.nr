@@ -4,8 +4,56 @@ use crate::abis::{
 };
 use crate::constants::PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 use crate::traits::{Serialize, Deserialize, Eq, Empty};
-use crate::utils::reader::Reader;
+use crate::utils::{arrays::array_length, reader::Reader};
 use crate::address::AztecAddress;
+
+struct PrivateKernelCircuitPublicInputsArrayLengths {
+    note_hash_read_requests: u64,
+    nullifier_read_requests: u64,
+    key_validation_requests: u64,
+    new_note_hashes: u64,
+    new_nullifiers: u64,
+    new_l2_to_l1_msgs: u64,
+    note_encrypted_logs_hashes: u64,
+    encrypted_logs_hashes: u64,
+    unencrypted_logs_hashes: u64,
+    private_call_stack: u64,
+    public_call_stack: u64,
+}
+
+impl PrivateKernelCircuitPublicInputsArrayLengths {
+    pub fn new(public_inputs: PrivateKernelCircuitPublicInputs) -> Self {
+        PrivateKernelCircuitPublicInputsArrayLengths {
+            note_hash_read_requests: array_length(public_inputs.validation_requests.note_hash_read_requests),
+            nullifier_read_requests: array_length(public_inputs.validation_requests.nullifier_read_requests),
+            key_validation_requests: array_length(public_inputs.validation_requests.key_validation_requests),
+            new_note_hashes: array_length(public_inputs.end.new_note_hashes),
+            new_nullifiers: array_length(public_inputs.end.new_nullifiers),
+            new_l2_to_l1_msgs: array_length(public_inputs.end.new_l2_to_l1_msgs),
+            note_encrypted_logs_hashes: array_length(public_inputs.end.note_encrypted_logs_hashes),
+            encrypted_logs_hashes: array_length(public_inputs.end.encrypted_logs_hashes),
+            unencrypted_logs_hashes: array_length(public_inputs.end.unencrypted_logs_hashes),
+            private_call_stack: array_length(public_inputs.end.private_call_stack),
+            public_call_stack: array_length(public_inputs.end.public_call_stack)
+        }
+    }
+
+    pub fn empty() -> Self {
+        PrivateKernelCircuitPublicInputsArrayLengths {
+            note_hash_read_requests: 0,
+            nullifier_read_requests: 0,
+            key_validation_requests: 0,
+            new_note_hashes: 0,
+            new_nullifiers: 0,
+            new_l2_to_l1_msgs: 0,
+            note_encrypted_logs_hashes: 0,
+            encrypted_logs_hashes: 0,
+            unencrypted_logs_hashes: 0,
+            private_call_stack: 0,
+            public_call_stack: 0
+        }
+    }
+}
 
 struct PrivateKernelCircuitPublicInputs {
     min_revertible_side_effect_counter: u32,
