@@ -1,0 +1,10 @@
+#include "barretenberg/eccvm_recursion/eccvm_recursive_flavor.hpp"
+#include "barretenberg/flavor/relation_definitions.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_point_table_relation_impl.hpp"
+
+namespace bb {
+template class ECCVMPointTableRelationImpl<stdlib::bigfield<UltraCircuitBuilder, bb::Bn254FqParams>>;
+template class ECCVMPointTableRelationImpl<stdlib::bigfield<GoblinUltraCircuitBuilder, bb::Bn254FqParams>>;
+DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(ECCVMPointTableRelationImpl, ECCVMRecursiveFlavor_<UltraCircuitBuilder>);
+DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(ECCVMPointTableRelationImpl, ECCVMRecursiveFlavor_<GoblinUltraCircuitBuilder>);
+} // namespace bb
