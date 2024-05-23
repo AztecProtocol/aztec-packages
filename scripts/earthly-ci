@@ -15,6 +15,7 @@ MAX_ATTEMPTS=6
 ATTEMPT_COUNT=0
 
 # earthly settings
+# Turns on the experimental earthly scheduler.
 export EARTHLY_TICKTOCK=true
 export EARTHLY_ALLOW_PRIVILEGED=true
 export EARTHLY_USE_INLINE_CACHE=true
