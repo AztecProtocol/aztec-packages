@@ -740,7 +740,7 @@ describe('public_processor', () => {
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
               from: publicCallRequests[0].contractAddress,
-              tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
+              tx: makeFunctionCall('', baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 12, baseContractAddress),
                 new ContractStorageUpdateRequest(contractSlotB, fr(0x151), 13, baseContractAddress),
@@ -765,14 +765,14 @@ describe('public_processor', () => {
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
               from: teardown.contractAddress,
-              tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
+              tx: makeFunctionCall('', baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 16, baseContractAddress),
               ],
             }).build(teardownResultSettings),
             PublicExecutionResultBuilder.fromFunctionCall({
               from: teardown.contractAddress,
-              tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
+              tx: makeFunctionCall('', baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 16, baseContractAddress),
               ],
