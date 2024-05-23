@@ -4,6 +4,7 @@ import { EthAddress } from '@aztec/aztec.js/eth_address';
 import { Fr, Point } from '@aztec/aztec.js/fields';
 import { LogId } from '@aztec/aztec.js/log_id';
 import { TxHash } from '@aztec/aztec.js/tx_hash';
+import { PublicKeys } from '@aztec/circuits.js';
 
 import { InvalidArgumentError } from 'commander';
 
@@ -159,13 +160,16 @@ export function parseOptionalTxHash(txHash: string): TxHash | undefined {
 
 /**
  * Parses a public key from a string.
- * @param publicKey - A public key
- * @returns A Point instance
+ * @param publicKey - A public keys object serialised as a string
+ * @returns A PublicKeys instance
  * @throws InvalidArgumentError if the input string is not valid.
  */
-export function parsePublicKey(publicKey: string): Point {
+export function parsePublicKey(publicKey: string): PublicKeys | undefined {
+  if (!publicKey) {
+    return undefined;
+  }
   try {
-    return Point.fromString(publicKey);
+    return PublicKeys.fromString(publicKey);
   } catch (err) {
     throw new InvalidArgumentError(`Invalid public key: ${publicKey}`);
   }

@@ -1,4 +1,4 @@
-import { PublicKeys, deriveSigningKey } from '@aztec/circuits.js';
+import { Fr, PublicKeys, deriveSigningKey } from '@aztec/circuits.js';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 
@@ -251,19 +251,18 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('--deployer-address <address>', 'Optional address of the contract deployer', parseAztecAddress)
     .addOption(pxeOption)
     .action(async options => {
-      // const { addContract } = await import('./cmds/add_contract.js');
-      // await addContract(
-      //   options.rpcUrl,
-      //   options.contractArtifact,
-      //   options.contractAddress,
-      //   options.initHash,
-      //   options.salt ?? Fr.ZERO,
-      //   options.publicKey,
-      //   options.portalContract,
-      //   options.deployerAddress,
-      //   debugLogger,
-      //   log,
-      // );
+      const { addContract } = await import('./cmds/add_contract.js');
+      await addContract(
+        options.rpcUrl,
+        options.contractArtifact,
+        options.contractAddress,
+        options.initHash,
+        options.salt ?? Fr.ZERO,
+        options.publicKey,
+        options.deployerAddress,
+        debugLogger,
+        log,
+      );
     });
 
   program

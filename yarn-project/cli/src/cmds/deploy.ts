@@ -1,6 +1,6 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { ContractDeployer, Fr } from '@aztec/aztec.js';
-import { type PublicKeys, deriveSigningKey } from '@aztec/circuits.js';
+import { type PublicKeys, deriveSigningKey, computeInitializationHash, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
 import { getInitializer } from '@aztec/foundation/abi';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
@@ -49,6 +49,7 @@ export async function deploy(
     debugLogger.debug(`Input arguments: ${rawArgs.map((x: any) => `"${x}"`).join(', ')}`);
     args = encodeArgs(rawArgs, constructorArtifact!.parameters);
     debugLogger.debug(`Encoded arguments: ${args.join(', ')}`);
+    log(`\nInitialisation hash: ${computeInitializationHash(constructorArtifact, rawArgs)}`);
   }
 
   const deploy = deployer.deploy(...args);
