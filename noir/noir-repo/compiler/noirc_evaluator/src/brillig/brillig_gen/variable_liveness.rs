@@ -93,6 +93,9 @@ fn variables_used_in_block(block: &BasicBlock, dfg: &DataFlowGraph) -> Vec<Value
         })
         .collect();
 
+    // We consider block parameters used, so they live up to the block that owns them.
+    used.extend(block.parameters().iter());
+
     if let Some(terminator) = block.terminator() {
         terminator.for_each_value(|value_id| {
             used.extend(collect_variables_of_value(value_id, dfg));
