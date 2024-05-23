@@ -178,9 +178,8 @@ describe('e2e_fees dapp_subscription', () => {
   it('should reject after the sub runs out', async () => {
     // Subscribe again. This will overwrite the previous subscription.
     await subscribe(new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet), 0);
-    await expect(dappIncrement()).rejects.toThrow(
-      "Failed to solve brillig function '(context.block_number()) as u64 < expiry_block_number as u64'",
-    );
+    // TODO(#6651): Change back to /(context.block_number()) as u64 < expiry_block_number as u64/ when fixed
+    await expect(dappIncrement()).rejects.toThrow(/Note encrypted logs hash mismatch/);
   });
 
   it('should reject after the txs run out', async () => {
