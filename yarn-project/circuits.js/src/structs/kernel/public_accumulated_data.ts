@@ -161,7 +161,7 @@ export class PublicAccumulatedData {
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, NoteHash),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Nullifier),
       reader.readFieldArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX),
-      reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, NoteLogHash),
+      reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, LogHash),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, LogHash),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, LogHash),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
