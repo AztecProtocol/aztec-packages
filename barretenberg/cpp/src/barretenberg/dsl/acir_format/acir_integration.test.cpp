@@ -63,22 +63,6 @@ class AcirIntegrationTest : public ::testing::Test {
         return verifier.verify_proof(proof);
     }
 
-    template <class Flavor> bool prove_and_verify_honk(std::shared_ptr<ProverInstance_<Flavor>> prover_instance)
-    {
-        using Prover = UltraProver_<Flavor>;
-        using Verifier = UltraVerifier_<Flavor>;
-        using VerificationKey = Flavor::VerificationKey;
-
-        Prover prover{ prover_instance };
-        auto proof = prover.construct_proof();
-
-        // Verify Honk proof
-        auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
-        Verifier verifier{ verification_key };
-
-        return verifier.verify_proof(proof);
-    }
-
     void add_some_simple_RAM_gates(auto& circuit)
     {
         std::array<uint32_t, 3> ram_values{ circuit.add_variable(5),

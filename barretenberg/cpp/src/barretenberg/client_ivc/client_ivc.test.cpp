@@ -121,7 +121,7 @@ TEST_F(ClientIVCTests, DISABLED_BasicLarge)
     size_t NUM_CIRCUITS = 5;
     std::vector<Builder> circuits;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        circuits.emplace_back(create_mock_circuit(ivc, 4));
+        circuits.emplace_back(create_mock_circuit(ivc));
     }
 
     // Accumulate each circuit

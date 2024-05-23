@@ -171,9 +171,6 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, aci
 
     // Construct Honk proof
     Prover prover{ builder };
-    builder.blocks.summarize();
-    info("num gates = ", builder.get_num_gates());
-    info("circuit size = ", prover.instance->proving_key.circuit_size);
     auto proof = prover.construct_proof();
 
     // Verify Honk proof
@@ -240,16 +237,10 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
         auto stack_item = program_stack.back();
 
         // Construct a bberg circuit from the acir representation
-        auto builder = acir_format::create_circuit<Builder>(
+        auto circuit = acir_format::create_circuit<Builder>(
             stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
 
-        ivc.accumulate(builder);
-
-        // builder.blocks.summarize();
-
-        // // Construct Honk proof
-        // info("gates = ", builder.get_num_gates());
-        // info("circuit size = ", ivc.prover_instance->proving_key.circuit_size);
+        ivc.accumulate(circuit);
 
         program_stack.pop_back();
     }

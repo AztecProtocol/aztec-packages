@@ -12,9 +12,6 @@ trap handle_sigchild SIGCHLD
 
 BIN=${BIN:-../cpp/build/bin/bb}
 FLOW=${FLOW:-prove_and_verify}
-# FLOW=${FLOW:-prove_and_verify_ultra_honk_program}
-# FLOW=${FLOW:-prove_and_verify_goblin_ultra_honk_program}
-# FLOW=${FLOW:-fold_and_verify_program}
 CRS_PATH=~/.bb-crs
 BRANCH=master
 VERBOSE=${VERBOSE:-}
