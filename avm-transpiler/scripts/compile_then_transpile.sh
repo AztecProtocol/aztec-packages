@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# This is a wrapper script for nargo.
+# Pass any args that you'd normally pass to nargo.
+# If the first arg is "compile",
+# run nargo and then transpile any created artifacts.
+#
+# Usage: compile_then_transpile.sh [nargo args]
 set -eu
 
 NARGO=${NARGO:-nargo}
