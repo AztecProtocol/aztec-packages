@@ -12,7 +12,6 @@ import {
   AppendOnlyTreeSnapshot,
   CallContext,
   CompleteAddress,
-  FunctionData,
   GasSettings,
   GeneratorIndex,
   type GrumpkinPrivateKey,
@@ -113,11 +112,10 @@ describe('Private Execution test suite', () => {
     txContext?: Partial<FieldsOf<TxContext>>;
   }) => {
     const packedArguments = PackedValues.fromValues(encodeArguments(artifact, args));
-    const functionData = FunctionData.fromAbi(artifact);
     const txRequest = TxExecutionRequest.from({
       origin: contractAddress,
       firstCallArgsHash: packedArguments.hash,
-      functionData,
+      functionSelector: FunctionSelector.fromNameAndParameters(artifact.name, artifact.parameters),
       txContext: TxContext.from({ ...txContextFields, ...txContext }),
       argsOfCalls: [packedArguments],
       authWitnesses: [],
@@ -853,11 +851,14 @@ describe('Private Execution test suite', () => {
       });
 
       // Alter function data to match the manipulated oracle
-      const functionData = FunctionData.fromAbi(childContractArtifact);
+      const functionSelector = FunctionSelector.fromNameAndParameters(
+        childContractArtifact.name,
+        childContractArtifact.parameters,
+      );
 
       const publicCallRequest = PublicCallRequest.from({
         contractAddress: childAddress,
-        functionData: functionData,
+        functionSelector,
         args: [new Fr(42n)],
         callContext: CallContext.from({
           msgSender: parentAddress,
@@ -892,7 +893,9 @@ describe('Private Execution test suite', () => {
       oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve({ ...teardown }));
       const result = await runSimulator({ artifact: entrypoint });
       expect(result.publicTeardownFunctionCall.isEmpty()).toBeFalsy();
-      expect(result.publicTeardownFunctionCall.functionData).toEqual(FunctionData.fromAbi(teardown));
+      expect(result.publicTeardownFunctionCall.functionSelector).toEqual(
+        FunctionSelector.fromNameAndParameters(teardown.name, teardown.parameters),
+      );
     });
   });
 

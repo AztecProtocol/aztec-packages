@@ -11,7 +11,6 @@ import {
 } from '@aztec/circuit-types';
 import {
   CallContext,
-  FunctionData,
   FunctionSelector,
   type Header,
   PrivateContextInputs,
@@ -476,7 +475,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
-    const targetFunctionData = FunctionData.fromAbi(targetArtifact);
 
     const derivedTxContext = this.txContext.clone();
 
@@ -506,7 +504,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       context,
       targetArtifact,
       targetContractAddress,
-      targetFunctionData,
+      functionSelector,
     );
 
     if (isStaticCall) {
@@ -560,7 +558,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       args,
       callContext: derivedCallContext,
       parentCallContext: this.callContext,
-      functionData: FunctionData.fromAbi(targetArtifact),
+      functionSelector,
       contractAddress: targetContractAddress,
     });
   }
