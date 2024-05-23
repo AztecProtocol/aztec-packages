@@ -10,7 +10,7 @@
 
 namespace bb::avm_trace {
 
-AvmKernelTraceBuilder::AvmKernelTraceBuilder(VM_PUBLIC_INPUTS public_inputs)
+AvmKernelTraceBuilder::AvmKernelTraceBuilder(VmPublicInputs public_inputs)
     : public_inputs(public_inputs)
 {}
 
@@ -32,7 +32,7 @@ FF AvmKernelTraceBuilder::perform_kernel_input_lookup(uint32_t selector)
     return result;
 }
 
-void AvmKernelTraceBuilder::perform_kernel_output_lookup(uint32_t write_offset, FF value, FF metadata)
+void AvmKernelTraceBuilder::perform_kernel_output_lookup(uint32_t write_offset, const FF& value, const FF& metadata)
 {
     std::get<KERNEL_OUTPUTS_VALUE>(public_inputs)[write_offset] = value;
     std::get<KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER>(public_inputs)[write_offset] = side_effect_counter;
@@ -104,7 +104,7 @@ FF AvmKernelTraceBuilder::op_timestamp()
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6481): need to process hint from avm in order to know if
 // output should be set to true or not
-void AvmKernelTraceBuilder::op_note_hash_exists(uint32_t clk, FF note_hash, uint32_t result)
+void AvmKernelTraceBuilder::op_note_hash_exists(uint32_t clk, const FF& note_hash, uint32_t result)
 {
 
     uint32_t offset = START_NOTE_HASH_EXISTS_WRITE_OFFSET + note_hash_exists_offset;
@@ -113,14 +113,14 @@ void AvmKernelTraceBuilder::op_note_hash_exists(uint32_t clk, FF note_hash, uint
 
     KernelTraceEntry entry = {
         .clk = clk,
-        .kernel_out_selector = offset,
+        .kernel_out_offset = offset,
         .q_kernel_output_lookup = true,
         .op_note_hash_exists = true,
     };
     kernel_trace.push_back(entry);
 }
 
-void AvmKernelTraceBuilder::op_emit_note_hash(uint32_t clk, FF note_hash)
+void AvmKernelTraceBuilder::op_emit_note_hash(uint32_t clk, const FF& note_hash)
 {
     uint32_t offset = START_EMIT_NOTE_HASH_WRITE_OFFSET + emit_note_hash_offset;
     perform_kernel_output_lookup(offset, note_hash, FF(0));
@@ -128,7 +128,7 @@ void AvmKernelTraceBuilder::op_emit_note_hash(uint32_t clk, FF note_hash)
 
     KernelTraceEntry entry = {
         .clk = clk,
-        .kernel_out_selector = offset,
+        .kernel_out_offset = offset,
         .q_kernel_output_lookup = true,
         .op_emit_note_hash = true,
     };
@@ -137,7 +137,7 @@ void AvmKernelTraceBuilder::op_emit_note_hash(uint32_t clk, FF note_hash)
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6481): need to process hint from avm in order to know if
 // output should be set to true or not
-void AvmKernelTraceBuilder::op_nullifier_exists(uint32_t clk, FF nullifier, uint32_t result)
+void AvmKernelTraceBuilder::op_nullifier_exists(uint32_t clk, const FF& nullifier, uint32_t result)
 {
     uint32_t offset = START_NULLIFIER_EXISTS_OFFSET + nullifier_exists_offset;
     perform_kernel_output_lookup(offset, nullifier, FF(result));
@@ -145,14 +145,14 @@ void AvmKernelTraceBuilder::op_nullifier_exists(uint32_t clk, FF nullifier, uint
 
     KernelTraceEntry entry = {
         .clk = clk,
-        .kernel_out_selector = offset,
+        .kernel_out_offset = offset,
         .q_kernel_output_lookup = true,
         .op_nullifier_exists = true,
     };
     kernel_trace.push_back(entry);
 }
 
-void AvmKernelTraceBuilder::op_emit_nullifier(uint32_t clk, FF nullifier)
+void AvmKernelTraceBuilder::op_emit_nullifier(uint32_t clk, const FF& nullifier)
 {
     uint32_t offset = START_EMIT_NULLIFIER_WRITE_OFFSET + emit_nullifier_offset;
     perform_kernel_output_lookup(offset, nullifier, FF(0));
@@ -160,7 +160,7 @@ void AvmKernelTraceBuilder::op_emit_nullifier(uint32_t clk, FF nullifier)
 
     KernelTraceEntry entry = {
         .clk = clk,
-        .kernel_out_selector = offset,
+        .kernel_out_offset = offset,
         .q_kernel_output_lookup = true,
         .op_emit_nullifier = true,
     };
@@ -169,7 +169,7 @@ void AvmKernelTraceBuilder::op_emit_nullifier(uint32_t clk, FF nullifier)
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6481): need to process hint from avm in order to know if
 // output should be set to true or not
-void AvmKernelTraceBuilder::op_l1_to_l2_msg_exists(uint32_t clk, FF message, uint32_t result)
+void AvmKernelTraceBuilder::op_l1_to_l2_msg_exists(uint32_t clk, const FF& message, uint32_t result)
 {
     uint32_t offset = START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET + l1_to_l2_msg_exists_offset;
     perform_kernel_output_lookup(offset, message, FF(result));
@@ -177,14 +177,14 @@ void AvmKernelTraceBuilder::op_l1_to_l2_msg_exists(uint32_t clk, FF message, uin
 
     KernelTraceEntry entry = {
         .clk = clk,
-        .kernel_out_selector = offset,
+        .kernel_out_offset = offset,
         .q_kernel_output_lookup = true,
         .op_l1_to_l2_msg_exists = true,
     };
     kernel_trace.push_back(entry);
 }
 
-void AvmKernelTraceBuilder::op_emit_unencrypted_log(uint32_t clk, FF log_hash)
+void AvmKernelTraceBuilder::op_emit_unencrypted_log(uint32_t clk, const FF& log_hash)
 {
     uint32_t offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET + emit_unencrypted_log_offset;
     perform_kernel_output_lookup(offset, log_hash, FF(0));
@@ -192,14 +192,14 @@ void AvmKernelTraceBuilder::op_emit_unencrypted_log(uint32_t clk, FF log_hash)
 
     KernelTraceEntry entry = {
         .clk = clk,
-        .kernel_out_selector = offset,
+        .kernel_out_offset = offset,
         .q_kernel_output_lookup = true,
         .op_emit_unencrypted_log = true,
     };
     kernel_trace.push_back(entry);
 }
 
-void AvmKernelTraceBuilder::op_emit_l2_to_l1_msg(uint32_t clk, FF l2_to_l1_msg)
+void AvmKernelTraceBuilder::op_emit_l2_to_l1_msg(uint32_t clk, const FF& l2_to_l1_msg)
 {
     uint32_t offset = START_L2_TO_L1_MSG_WRITE_OFFSET + emit_l2_to_l1_msg_offset;
     perform_kernel_output_lookup(offset, l2_to_l1_msg, FF(0));
@@ -207,14 +207,14 @@ void AvmKernelTraceBuilder::op_emit_l2_to_l1_msg(uint32_t clk, FF l2_to_l1_msg)
 
     KernelTraceEntry entry = {
         .clk = clk,
-        .kernel_out_selector = offset,
+        .kernel_out_offset = offset,
         .q_kernel_output_lookup = true,
         .op_emit_l2_to_l1_msg = true,
     };
     kernel_trace.push_back(entry);
 }
 
-void AvmKernelTraceBuilder::op_sload(uint32_t clk, FF slot, FF value)
+void AvmKernelTraceBuilder::op_sload(uint32_t clk, const FF& slot, const FF& value)
 {
     uint32_t offset = START_SLOAD_WRITE_OFFSET + sload_write_offset;
     perform_kernel_output_lookup(offset, value, slot);
@@ -222,14 +222,14 @@ void AvmKernelTraceBuilder::op_sload(uint32_t clk, FF slot, FF value)
 
     KernelTraceEntry entry = {
         .clk = clk,
-        .kernel_out_selector = offset,
+        .kernel_out_offset = offset,
         .q_kernel_output_lookup = true,
         .op_sload = true,
     };
     kernel_trace.push_back(entry);
 }
 
-void AvmKernelTraceBuilder::op_sstore(uint32_t clk, FF slot, FF value)
+void AvmKernelTraceBuilder::op_sstore(uint32_t clk, const FF& slot, const FF& value)
 {
     uint32_t offset = START_SSTORE_WRITE_OFFSET + sstore_write_offset;
     perform_kernel_output_lookup(offset, value, slot);
@@ -237,7 +237,7 @@ void AvmKernelTraceBuilder::op_sstore(uint32_t clk, FF slot, FF value)
 
     KernelTraceEntry entry = {
         .clk = clk,
-        .kernel_out_selector = offset,
+        .kernel_out_offset = offset,
         .q_kernel_output_lookup = true,
         .op_sstore = true,
     };

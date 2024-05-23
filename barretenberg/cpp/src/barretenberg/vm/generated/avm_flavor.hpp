@@ -336,10 +336,10 @@ class AvmFlavor {
                               avm_kernel_emit_note_hash_write_offset,
                               avm_kernel_emit_nullifier_write_offset,
                               avm_kernel_emit_unencrypted_log_write_offset,
+                              avm_kernel_kernel_in_offset,
                               avm_kernel_kernel_inputs__is_public,
                               avm_kernel_kernel_metadata_out__is_public,
-                              avm_kernel_kernel_out_sel,
-                              avm_kernel_kernel_sel,
+                              avm_kernel_kernel_out_offset,
                               avm_kernel_kernel_side_effect_out__is_public,
                               avm_kernel_kernel_value_out__is_public,
                               avm_kernel_l1_to_l2_msg_exists_write_offset,
@@ -660,10 +660,10 @@ class AvmFlavor {
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
                      avm_kernel_emit_unencrypted_log_write_offset,
+                     avm_kernel_kernel_in_offset,
                      avm_kernel_kernel_inputs__is_public,
                      avm_kernel_kernel_metadata_out__is_public,
-                     avm_kernel_kernel_out_sel,
-                     avm_kernel_kernel_sel,
+                     avm_kernel_kernel_out_offset,
                      avm_kernel_kernel_side_effect_out__is_public,
                      avm_kernel_kernel_value_out__is_public,
                      avm_kernel_l1_to_l2_msg_exists_write_offset,
@@ -989,10 +989,10 @@ class AvmFlavor {
                               avm_kernel_emit_note_hash_write_offset,
                               avm_kernel_emit_nullifier_write_offset,
                               avm_kernel_emit_unencrypted_log_write_offset,
+                              avm_kernel_kernel_in_offset,
                               avm_kernel_kernel_inputs__is_public,
                               avm_kernel_kernel_metadata_out__is_public,
-                              avm_kernel_kernel_out_sel,
-                              avm_kernel_kernel_sel,
+                              avm_kernel_kernel_out_offset,
                               avm_kernel_kernel_side_effect_out__is_public,
                               avm_kernel_kernel_value_out__is_public,
                               avm_kernel_l1_to_l2_msg_exists_write_offset,
@@ -1377,10 +1377,10 @@ class AvmFlavor {
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
                      avm_kernel_emit_unencrypted_log_write_offset,
+                     avm_kernel_kernel_in_offset,
                      avm_kernel_kernel_inputs__is_public,
                      avm_kernel_kernel_metadata_out__is_public,
-                     avm_kernel_kernel_out_sel,
-                     avm_kernel_kernel_sel,
+                     avm_kernel_kernel_out_offset,
                      avm_kernel_kernel_side_effect_out__is_public,
                      avm_kernel_kernel_value_out__is_public,
                      avm_kernel_l1_to_l2_msg_exists_write_offset,
@@ -1765,10 +1765,10 @@ class AvmFlavor {
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
                      avm_kernel_emit_unencrypted_log_write_offset,
+                     avm_kernel_kernel_in_offset,
                      avm_kernel_kernel_inputs__is_public,
                      avm_kernel_kernel_metadata_out__is_public,
-                     avm_kernel_kernel_out_sel,
-                     avm_kernel_kernel_sel,
+                     avm_kernel_kernel_out_offset,
                      avm_kernel_kernel_side_effect_out__is_public,
                      avm_kernel_kernel_value_out__is_public,
                      avm_kernel_l1_to_l2_msg_exists_write_offset,
@@ -2491,10 +2491,10 @@ class AvmFlavor {
             Base::avm_kernel_emit_note_hash_write_offset = "AVM_KERNEL_EMIT_NOTE_HASH_WRITE_OFFSET";
             Base::avm_kernel_emit_nullifier_write_offset = "AVM_KERNEL_EMIT_NULLIFIER_WRITE_OFFSET";
             Base::avm_kernel_emit_unencrypted_log_write_offset = "AVM_KERNEL_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET";
+            Base::avm_kernel_kernel_in_offset = "AVM_KERNEL_KERNEL_IN_OFFSET";
             Base::avm_kernel_kernel_inputs__is_public = "AVM_KERNEL_KERNEL_INPUTS__IS_PUBLIC";
             Base::avm_kernel_kernel_metadata_out__is_public = "AVM_KERNEL_KERNEL_METADATA_OUT__IS_PUBLIC";
-            Base::avm_kernel_kernel_out_sel = "AVM_KERNEL_KERNEL_OUT_SEL";
-            Base::avm_kernel_kernel_sel = "AVM_KERNEL_KERNEL_SEL";
+            Base::avm_kernel_kernel_out_offset = "AVM_KERNEL_KERNEL_OUT_OFFSET";
             Base::avm_kernel_kernel_side_effect_out__is_public = "AVM_KERNEL_KERNEL_SIDE_EFFECT_OUT__IS_PUBLIC";
             Base::avm_kernel_kernel_value_out__is_public = "AVM_KERNEL_KERNEL_VALUE_OUT__IS_PUBLIC";
             Base::avm_kernel_l1_to_l2_msg_exists_write_offset = "AVM_KERNEL_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET";
@@ -2832,10 +2832,10 @@ class AvmFlavor {
         Commitment avm_kernel_emit_note_hash_write_offset;
         Commitment avm_kernel_emit_nullifier_write_offset;
         Commitment avm_kernel_emit_unencrypted_log_write_offset;
+        Commitment avm_kernel_kernel_in_offset;
         Commitment avm_kernel_kernel_inputs__is_public;
         Commitment avm_kernel_kernel_metadata_out__is_public;
-        Commitment avm_kernel_kernel_out_sel;
-        Commitment avm_kernel_kernel_sel;
+        Commitment avm_kernel_kernel_out_offset;
         Commitment avm_kernel_kernel_side_effect_out__is_public;
         Commitment avm_kernel_kernel_value_out__is_public;
         Commitment avm_kernel_l1_to_l2_msg_exists_write_offset;
@@ -3177,12 +3177,12 @@ class AvmFlavor {
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_kernel_emit_unencrypted_log_write_offset =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_kernel_kernel_in_offset = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_kernel_kernel_inputs__is_public =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_kernel_kernel_metadata_out__is_public =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_kernel_kernel_out_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_kernel_kernel_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_kernel_kernel_out_offset = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_kernel_kernel_side_effect_out__is_public =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_kernel_kernel_value_out__is_public =
@@ -3535,10 +3535,10 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_kernel_emit_note_hash_write_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_emit_nullifier_write_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_emit_unencrypted_log_write_offset, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_kernel_kernel_in_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_kernel_inputs__is_public, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_kernel_metadata_out__is_public, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_kernel_kernel_out_sel, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_kernel_kernel_sel, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_kernel_kernel_out_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_kernel_side_effect_out__is_public, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_kernel_value_out__is_public, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_l1_to_l2_msg_exists_write_offset, Transcript::proof_data);

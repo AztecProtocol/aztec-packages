@@ -33,8 +33,8 @@ using FF = AvmFlavor::FF;
                                                         std::vector<FF> challenges)
 {
 
-    // TODO: we pad the points to the circuit size in order to get the correct evaluation
-    // This is not efficient, and will not be valid in production
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6361): we pad the points to the circuit size in order
+    // to get the correct evaluation This is not efficient, and will not be valid in production
     std::vector<FF> new_points(circuit_size, 0);
     std::copy(points.begin(), points.end(), new_points.data());
 
@@ -256,14 +256,14 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_kernel_emit_nullifier_write_offset);
     commitments.avm_kernel_emit_unencrypted_log_write_offset = transcript->template receive_from_prover<Commitment>(
         commitment_labels.avm_kernel_emit_unencrypted_log_write_offset);
+    commitments.avm_kernel_kernel_in_offset =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_kernel_kernel_in_offset);
     commitments.avm_kernel_kernel_inputs__is_public =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_kernel_kernel_inputs__is_public);
     commitments.avm_kernel_kernel_metadata_out__is_public = transcript->template receive_from_prover<Commitment>(
         commitment_labels.avm_kernel_kernel_metadata_out__is_public);
-    commitments.avm_kernel_kernel_out_sel =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_kernel_kernel_out_sel);
-    commitments.avm_kernel_kernel_sel =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_kernel_kernel_sel);
+    commitments.avm_kernel_kernel_out_offset =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_kernel_kernel_out_offset);
     commitments.avm_kernel_kernel_side_effect_out__is_public = transcript->template receive_from_prover<Commitment>(
         commitment_labels.avm_kernel_kernel_side_effect_out__is_public);
     commitments.avm_kernel_kernel_value_out__is_public =

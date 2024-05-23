@@ -25,7 +25,7 @@ class AvmTraceBuilder {
   public:
     static const size_t CALLSTACK_OFFSET = 896; // TODO(md): Temporary reserved area 896 - 1024
 
-    AvmTraceBuilder(VM_PUBLIC_INPUTS public_inputs = {});
+    AvmTraceBuilder(VmPublicInputs public_inputs = {});
 
     std::vector<Row> finalize();
     void reset();
@@ -177,10 +177,10 @@ class AvmTraceBuilder {
      *
      * Used for looking up into the kernel inputs (context) - {caller, address, etc.}
      *
-     * @param dst_offset
-     * @param selector
-     * @param value
-     * @param w_tag
+     * @param dst_offset - Memory address to write the lookup result to
+     * @param selector - The index of the kernel input lookup column
+     * @param value - The value read from the memory address
+     * @param w_tag - The memory tag of the value read
      * @return Row
      */
     Row create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t selector, FF value, AvmMemoryTag w_tag);
@@ -190,23 +190,22 @@ class AvmTraceBuilder {
      *
      * Used for writing to the kernel app outputs - {new_note_hash, new_nullifier, etc.}
      *
-     * @param clk
-     * @param data_offset
-     * @param r_tag
+     * @param clk - The trace clk
+     * @param data_offset - The memory address to read the output from
      * @return Row
      */
-    Row create_kernel_output_opcode(uint32_t clk, uint32_t data_offset, AvmMemoryTag r_tag);
+    Row create_kernel_output_opcode(uint32_t clk, uint32_t data_offset);
 
     /**
      * @brief Create a kernel output opcode with metadata object
      *
      * Used for writing to the kernel app outputs with extra metadata - {sload, sstore} (value, slot)
      *
-     * @param clk
-     * @param data_offset
-     * @param data_r_tag
-     * @param metadata_offset
-     * @param metadata_r_tag
+     * @param clk - The trace clk
+     * @param data_offset - The offset of the main value to output
+     * @param data_r_tag - The data type of the value
+     * @param metadata_offset - The offset of the metadata (slot in the sload example)
+     * @param metadata_r_tag - The data type of the metadata
      * @return Row
      */
     Row create_kernel_output_opcode_with_metadata(uint32_t clk,
@@ -221,20 +220,15 @@ class AvmTraceBuilder {
      * Used for writing output opcode where one value is written and comes from a hint
      * {note_hash_exists, nullifier_exists, etc. } Where a boolean output if it exists must also be written
      *
-     * @param clk
-     * @param data_offset
-     * @param data_r_tag
-     * @param metadata_offset
-     * @param write_value
-     * @param metadata_w_tag
+     * @param clk - The trace clk
+     * @param data_offset - The offset of the main value to output
+     * @param data_r_tag - The data type of the value
+     * @param metadata_offset - The offset of the metadata (slot in the sload example)
+     * @param write_value - The value to be written into the result - in all instances this is used - it is a boolean
      * @return Row
      */
-    Row create_kernel_output_opcode_with_set_metadata_output(uint32_t clk,
-                                                             uint32_t data_offset,
-                                                             AvmMemoryTag data_r_tag,
-                                                             uint32_t metadata_offset,
-                                                             FF write_value,
-                                                             AvmMemoryTag metadata_w_tag);
+    Row create_kernel_output_opcode_with_set_metadata_output(
+        uint32_t clk, uint32_t data_offset, AvmMemoryTag data_r_tag, uint32_t metadata_offset, FF write_value);
 
     void finalise_mem_trace_lookup_counts();
 

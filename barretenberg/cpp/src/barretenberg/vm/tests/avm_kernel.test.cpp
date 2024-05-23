@@ -20,9 +20,9 @@ class AvmKernelNegativeTests : public ::testing::Test {};
 
 using KernelInputs = std::array<FF, KERNEL_INPUTS_LENGTH>;
 
-VM_PUBLIC_INPUTS get_public_inputs()
+VmPublicInputs get_public_inputs()
 {
-    VM_PUBLIC_INPUTS public_inputs = {};
+    VmPublicInputs public_inputs = {};
 
     std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs;
     for (size_t i = 0; i < KERNEL_INPUTS_LENGTH; i++) {
@@ -39,7 +39,7 @@ VM_PUBLIC_INPUTS get_public_inputs()
 template <typename OpcodesFunc, typename CheckFunc>
 void test_kernel_lookup(OpcodesFunc apply_opcodes, CheckFunc check_trace)
 {
-    VM_PUBLIC_INPUTS public_inputs = get_public_inputs();
+    VmPublicInputs public_inputs = get_public_inputs();
 
     AvmTraceBuilder trace_builder(public_inputs);
 
@@ -61,7 +61,7 @@ void test_kernel_lookup(OpcodesFunc apply_opcodes, CheckFunc check_trace)
 void expect_row(std::vector<Row>::const_iterator row, FF selector, FF ia, FF mem_idx_a, AvmMemoryTag w_in_tag)
 {
     // Checks dependent on the opcode
-    EXPECT_EQ(row->avm_kernel_kernel_sel, selector);
+    EXPECT_EQ(row->avm_kernel_kernel_in_offset, selector);
     EXPECT_EQ(row->avm_main_ia, ia);
     EXPECT_EQ(row->avm_main_mem_idx_a, mem_idx_a);
 
@@ -81,7 +81,7 @@ void expect_output_table_row(std::vector<Row>::const_iterator row,
                              uint32_t side_effect_counter)
 {
     // Checks dependent on the opcode
-    EXPECT_EQ(row->avm_kernel_kernel_out_sel, selector);
+    EXPECT_EQ(row->avm_kernel_kernel_out_offset, selector);
     EXPECT_EQ(row->avm_main_ia, ia);
     EXPECT_EQ(row->avm_main_mem_idx_a, mem_idx_a);
 
@@ -153,7 +153,7 @@ TEST_F(AvmKernelPositiveTests, kernelSender)
         EXPECT_TRUE(row != trace.end());
 
         expect_row(row,
-                   /*kernel_sel=*/SENDER_SELECTOR,
+                   /*kernel_in_offset=*/SENDER_SELECTOR,
                    /*ia=*/SENDER_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*mem_idx_a=*/dst_offset,
@@ -173,7 +173,7 @@ TEST_F(AvmKernelPositiveTests, kernelAddress)
         EXPECT_TRUE(address_row != trace.end());
 
         expect_row(address_row,
-                   /*kernel_sel=*/ADDRESS_SELECTOR,
+                   /*kernel_in_offset=*/ADDRESS_SELECTOR,
                    /*ia=*/ADDRESS_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*mem_idx_a=*/dst_offset,
@@ -192,7 +192,7 @@ TEST_F(AvmKernelPositiveTests, kernelPortal)
         EXPECT_TRUE(portal_row != trace.end());
 
         expect_row(portal_row,
-                   /*kernel_sel=*/PORTAL_SELECTOR,
+                   /*kernel_in_offset=*/PORTAL_SELECTOR,
                    /*ia=*/PORTAL_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*mem_idx_a=*/dst_offset,
@@ -211,7 +211,7 @@ TEST_F(AvmKernelPositiveTests, kernelFeePerDa)
         EXPECT_TRUE(fee_row != trace.end());
 
         expect_row(fee_row,
-                   /*kernel_sel=*/FEE_PER_DA_GAS_SELECTOR,
+                   /*kernel_in_offset=*/FEE_PER_DA_GAS_SELECTOR,
                    /*ia=*/FEE_PER_DA_GAS_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*mem_idx_a=*/dst_offset,
@@ -230,7 +230,7 @@ TEST_F(AvmKernelPositiveTests, kernelFeePerL2)
         EXPECT_TRUE(fee_row != trace.end());
 
         expect_row(fee_row,
-                   /*kernel_sel=*/FEE_PER_L2_GAS_SELECTOR,
+                   /*kernel_in_offset=*/FEE_PER_L2_GAS_SELECTOR,
                    /*ia=*/FEE_PER_L2_GAS_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*mem_idx_a=*/dst_offset,
@@ -249,7 +249,7 @@ TEST_F(AvmKernelPositiveTests, kernelTransactionFee)
         EXPECT_TRUE(fee_row != trace.end());
 
         expect_row(fee_row,
-                   /*kernel_sel=*/TRANSACTION_FEE_SELECTOR,
+                   /*kernel_in_offset=*/TRANSACTION_FEE_SELECTOR,
                    /*ia=*/TRANSACTION_FEE_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*mem_idx_a=*/dst_offset,
@@ -268,7 +268,7 @@ TEST_F(AvmKernelPositiveTests, kernelChainId)
         EXPECT_TRUE(fee_row != trace.end());
 
         expect_row(fee_row,
-                   /*kernel_sel=*/CHAIN_ID_SELECTOR,
+                   /*kernel_in_offset=*/CHAIN_ID_SELECTOR,
                    /*ia=*/CHAIN_ID_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*mem_idx_a=*/dst_offset,
@@ -287,7 +287,7 @@ TEST_F(AvmKernelPositiveTests, kernelVersion)
         EXPECT_TRUE(fee_row != trace.end());
 
         expect_row(fee_row,
-                   /*kernel_sel=*/VERSION_SELECTOR,
+                   /*kernel_in_offset=*/VERSION_SELECTOR,
                    /*ia=*/VERSION_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*mem_idx_a=*/dst_offset,
@@ -306,7 +306,7 @@ TEST_F(AvmKernelPositiveTests, kernelBlockNumber)
         EXPECT_TRUE(fee_row != trace.end());
 
         expect_row(fee_row,
-                   /*kernel_sel=*/BLOCK_NUMBER_SELECTOR,
+                   /*kernel_in_offset=*/BLOCK_NUMBER_SELECTOR,
                    /*ia=*/BLOCK_NUMBER_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*mem_idx_a=*/dst_offset,
@@ -325,7 +325,7 @@ TEST_F(AvmKernelPositiveTests, kernelCoinbase)
         EXPECT_TRUE(fee_row != trace.end());
 
         expect_row(fee_row,
-                   /*kernel_sel=*/COINBASE_SELECTOR,
+                   /*kernel_in_offset=*/COINBASE_SELECTOR,
                    /*ia=*/COINBASE_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*mem_idx_a*/ dst_offset,
@@ -344,7 +344,7 @@ TEST_F(AvmKernelPositiveTests, kernelTimestamp)
         EXPECT_TRUE(fee_row != trace.end());
 
         expect_row(fee_row,
-                   /*kernel_sel=*/TIMESTAMP_SELECTOR,
+                   /*kernel_in_offset=*/TIMESTAMP_SELECTOR,
                    /*ia=*/TIMESTAMP_SELECTOR +
                        1, // Note the value generated above for public inputs is the same as the index read + 1
                    /*mem_idx_a*/ dst_offset,
@@ -364,7 +364,7 @@ void negative_test_incorrect_ia_kernel_lookup(OpcodesFunc apply_opcodes,
                                               FF incorrect_ia,
                                               auto expected_message)
 {
-    VM_PUBLIC_INPUTS public_inputs = get_public_inputs();
+    VmPublicInputs public_inputs = get_public_inputs();
     AvmTraceBuilder trace_builder(public_inputs);
 
     // We should return a value of 1 for the sender, as it exists at index 0
@@ -399,7 +399,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaSender)
 
         expect_row(
             row,
-            /*kernel_sel=*/SENDER_SELECTOR,
+            /*kernel_in_offset=*/SENDER_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
@@ -422,7 +422,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaAddress)
 
         expect_row(
             row,
-            /*kernel_sel=*/ADDRESS_SELECTOR,
+            /*kernel_in_offset=*/ADDRESS_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
@@ -445,7 +445,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaPortal)
 
         expect_row(
             row,
-            /*kernel_sel=*/PORTAL_SELECTOR,
+            /*kernel_in_offset=*/PORTAL_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
@@ -468,7 +468,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaDaGas)
 
         expect_row(
             row,
-            /*kernel_sel=*/FEE_PER_DA_GAS_SELECTOR,
+            /*kernel_in_offset=*/FEE_PER_DA_GAS_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
@@ -491,7 +491,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIal2Gas)
 
         expect_row(
             row,
-            /*kernel_sel=*/FEE_PER_L2_GAS_SELECTOR,
+            /*kernel_in_offset=*/FEE_PER_L2_GAS_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
@@ -514,7 +514,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaTransactionFee)
 
         expect_row(
             row,
-            /*kernel_sel=*/TRANSACTION_FEE_SELECTOR,
+            /*kernel_in_offset=*/TRANSACTION_FEE_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
@@ -537,7 +537,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaChainId)
 
         expect_row(
             row,
-            /*kernel_sel=*/CHAIN_ID_SELECTOR,
+            /*kernel_in_offset=*/CHAIN_ID_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
@@ -560,7 +560,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaVersion)
 
         expect_row(
             row,
-            /*kernel_sel=*/VERSION_SELECTOR,
+            /*kernel_in_offset=*/VERSION_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
@@ -583,7 +583,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaBlockNumber)
 
         expect_row(
             row,
-            /*kernel_sel=*/BLOCK_NUMBER_SELECTOR,
+            /*kernel_in_offset=*/BLOCK_NUMBER_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
@@ -606,7 +606,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaTimestamp)
 
         expect_row(
             row,
-            /*kernel_sel=*/TIMESTAMP_SELECTOR,
+            /*kernel_in_offset=*/TIMESTAMP_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a*/ dst_offset,
             /*w_in_tag=*/AvmMemoryTag::U64);
@@ -629,7 +629,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaCoinbase)
 
         expect_row(
             row,
-            /*kernel_sel=*/COINBASE_SELECTOR,
+            /*kernel_in_offset=*/COINBASE_SELECTOR,
             /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/dst_offset,
             /*w_in_tag=*/AvmMemoryTag::FF);
@@ -645,7 +645,7 @@ class AvmKernelOutputNegativeTests : public ::testing::Test {};
 TEST_F(AvmKernelOutputPositiveTests, kernelEmitNoteHash)
 {
     uint32_t offset = 42;
-    // We write the note hash into memoru
+    // We write the note hash into memory
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, 1234, offset, AvmMemoryTag::FF);
         trace_builder.op_emit_note_hash(offset);
@@ -660,7 +660,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitNoteHash)
 
         expect_output_table_row(
             row,
-            /*kernel_sel=*/output_offset,
+            /*kernel_in_offset=*/output_offset,
             /*ia=*/1234, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/offset,
             /*w_in_tag=*/AvmMemoryTag::FF,
@@ -675,7 +675,6 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitNoteHash)
 TEST_F(AvmKernelOutputPositiveTests, kernelEmitNullifier)
 {
     uint32_t offset = 42;
-    // We write the note hash into memoru
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, 1234, offset, AvmMemoryTag::FF);
         trace_builder.op_emit_nullifier(offset);
@@ -690,7 +689,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitNullifier)
 
         expect_output_table_row(
             row,
-            /*kernel_sel=*/output_offset,
+            /*kernel_in_offset=*/output_offset,
             /*ia=*/1234, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/offset,
             /*w_in_tag=*/AvmMemoryTag::FF,
@@ -707,7 +706,6 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitNullifier)
 TEST_F(AvmKernelOutputPositiveTests, kernelEmitL2ToL1Msg)
 {
     uint32_t offset = 42;
-    // We write the note hash into memoru
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, 1234, offset, AvmMemoryTag::FF);
         trace_builder.op_emit_l2_to_l1_msg(offset);
@@ -722,7 +720,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitL2ToL1Msg)
 
         expect_output_table_row(
             row,
-            /*kernel_sel=*/output_offset,
+            /*kernel_in_offset=*/output_offset,
             /*ia=*/1234, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/offset,
             /*w_in_tag=*/AvmMemoryTag::FF,
@@ -739,7 +737,6 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitL2ToL1Msg)
 TEST_F(AvmKernelOutputPositiveTests, kernelEmitUnencryptedLog)
 {
     uint32_t offset = 42;
-    // We write the note hash into memoru
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, 1234, offset, AvmMemoryTag::FF);
         trace_builder.op_emit_unencrypted_log(offset);
@@ -754,7 +751,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelEmitUnencryptedLog)
 
         expect_output_table_row(
             row,
-            /*kernel_sel=*/output_offset,
+            /*kernel_in_offset=*/output_offset,
             /*ia=*/1234, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/offset,
             /*w_in_tag=*/AvmMemoryTag::FF,
@@ -772,7 +769,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSload)
     auto value = 1234;
     uint32_t metadata_offset = 420;
     auto slot = 12345;
-    // We write the note hash into memoru
+
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
         trace_builder.op_set(0, static_cast<uint128_t>(slot), metadata_offset, AvmMemoryTag::FF);
@@ -788,7 +785,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSload)
 
         expect_output_table_row_with_metadata(
             row,
-            /*kernel_sel=*/output_offset,
+            /*kernel_in_offset=*/output_offset,
             /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/value_offset,
             /*ib=*/slot,
@@ -810,7 +807,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSstore)
     auto value = 1234;
     uint32_t metadata_offset = 420;
     auto slot = 12345;
-    // We write the note hash into memoru
+
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
         trace_builder.op_set(0, static_cast<uint128_t>(slot), metadata_offset, AvmMemoryTag::FF);
@@ -826,7 +823,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSstore)
 
         expect_output_table_row_with_metadata(
             row,
-            /*kernel_sel=*/output_offset,
+            /*kernel_in_offset=*/output_offset,
             /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/value_offset,
             /*ib=*/slot,
@@ -846,7 +843,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNoteHashExists)
     auto value = 1234;
     uint32_t metadata_offset = 420;
     auto exists = 1;
-    // We write the note hash into memoru
+
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
         trace_builder.op_note_hash_exists(value_offset, metadata_offset);
@@ -861,7 +858,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNoteHashExists)
 
         expect_output_table_row_with_exists_metadata(
             row,
-            /*kernel_sel=*/output_offset,
+            /*kernel_in_offset=*/output_offset,
             /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/value_offset,
             /*ib=*/exists,
@@ -882,7 +879,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierExists)
     auto value = 1234;
     uint32_t metadata_offset = 420;
     auto exists = 1;
-    // We write the note hash into memoru
+
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
         trace_builder.op_nullifier_exists(value_offset, metadata_offset);
@@ -897,7 +894,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierExists)
 
         expect_output_table_row_with_exists_metadata(
             row,
-            /*kernel_sel=*/output_offset,
+            /*kernel_in_offset=*/output_offset,
             /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/value_offset,
             /*ib=*/exists,
@@ -917,7 +914,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelL1ToL2MsgExists)
     auto value = 1234;
     uint32_t metadata_offset = 420;
     auto exists = 1;
-    // We write the note hash into memoru
+
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
         trace_builder.op_l1_to_l2_msg_exists(value_offset, metadata_offset);
@@ -932,7 +929,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelL1ToL2MsgExists)
 
         expect_output_table_row_with_exists_metadata(
             row,
-            /*kernel_sel=*/output_offset,
+            /*kernel_in_offset=*/output_offset,
             /*ia=*/value, // Note the value generated above for public inputs is the same as the index read + 1
             /*mem_idx_a=*/value_offset,
             /*ib=*/exists,

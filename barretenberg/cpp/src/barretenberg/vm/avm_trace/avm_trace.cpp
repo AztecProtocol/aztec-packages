@@ -22,7 +22,7 @@ namespace bb::avm_trace {
  * @brief Constructor of a trace builder of AVM. Only serves to set the capacity of the
  *        underlying traces.
  */
-AvmTraceBuilder::AvmTraceBuilder(VM_PUBLIC_INPUTS public_inputs)
+AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs public_inputs)
     // NOTE: we initialise the environment builder here as it requires public inputs
     : kernel_trace_builder(public_inputs)
 {
@@ -1068,7 +1068,7 @@ Row AvmTraceBuilder::create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t s
 
     return Row{
         .avm_main_clk = clk,
-        .avm_kernel_kernel_sel = selector,
+        .avm_kernel_kernel_in_offset = selector,
         .avm_main_ia = value,
         .avm_main_ind_a = 0,
         .avm_main_internal_return_ptr = internal_return_ptr,
@@ -1181,10 +1181,10 @@ void AvmTraceBuilder::op_timestamp(uint32_t dst_offset)
 }
 
 // Helper function to add kernel lookup operations into the main trace
-Row AvmTraceBuilder::create_kernel_output_opcode(uint32_t clk, uint32_t data_offset, AvmMemoryTag r_tag)
+Row AvmTraceBuilder::create_kernel_output_opcode(uint32_t clk, uint32_t data_offset)
 {
-    AvmMemTraceBuilder::MemRead read_a =
-        mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, data_offset, r_tag, AvmMemoryTag::U0);
+    AvmMemTraceBuilder::MemRead read_a = mem_trace_builder.read_and_load_from_memory(
+        clk, IntermRegister::IA, data_offset, AvmMemoryTag::FF, AvmMemoryTag::U0);
 
     return Row{
         .avm_main_clk = clk,
@@ -1195,7 +1195,7 @@ Row AvmTraceBuilder::create_kernel_output_opcode(uint32_t clk, uint32_t data_off
         .avm_main_mem_op_a = 1,
         .avm_main_pc = pc++,
         .avm_main_q_kernel_output_lookup = 1,
-        .avm_main_r_in_tag = static_cast<uint32_t>(r_tag),
+        .avm_main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         .avm_main_rwa = 0,
     };
 }
@@ -1228,18 +1228,14 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_metadata(
     };
 }
 
-Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output(uint32_t clk,
-                                                                          uint32_t data_offset,
-                                                                          AvmMemoryTag data_r_tag,
-                                                                          uint32_t metadata_offset,
-                                                                          FF write_value,
-                                                                          AvmMemoryTag metadata_w_tag)
+Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output(
+    uint32_t clk, uint32_t data_offset, AvmMemoryTag data_r_tag, uint32_t metadata_offset, FF write_value)
 {
     AvmMemTraceBuilder::MemRead read_a =
-        mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, data_offset, data_r_tag, metadata_w_tag);
+        mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, data_offset, data_r_tag, AvmMemoryTag::U8);
 
     mem_trace_builder.write_into_memory(
-        clk, IntermRegister::IB, metadata_offset, write_value, data_r_tag, metadata_w_tag);
+        clk, IntermRegister::IB, metadata_offset, write_value, data_r_tag, AvmMemoryTag::U8);
 
     return Row{
         .avm_main_clk = clk,
@@ -1257,7 +1253,7 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output(uint32
         .avm_main_r_in_tag = static_cast<uint32_t>(data_r_tag),
         .avm_main_rwa = 0,
         .avm_main_rwb = 1,
-        .avm_main_w_in_tag = static_cast<uint32_t>(metadata_w_tag),
+        .avm_main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::U8),
     };
 }
 
@@ -1265,7 +1261,7 @@ void AvmTraceBuilder::op_emit_note_hash(uint32_t note_hash_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size());
 
-    Row row = create_kernel_output_opcode(clk, note_hash_offset, AvmMemoryTag::FF);
+    Row row = create_kernel_output_opcode(clk, note_hash_offset);
     kernel_trace_builder.op_emit_note_hash(clk, row.avm_main_ia);
     row.avm_main_sel_op_emit_note_hash = FF(1);
 
@@ -1276,7 +1272,7 @@ void AvmTraceBuilder::op_emit_nullifier(uint32_t nullifier_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size());
 
-    Row row = create_kernel_output_opcode(clk, nullifier_offset, AvmMemoryTag::FF);
+    Row row = create_kernel_output_opcode(clk, nullifier_offset);
     kernel_trace_builder.op_emit_nullifier(clk, row.avm_main_ia);
     row.avm_main_sel_op_emit_nullifier = FF(1);
 
@@ -1287,7 +1283,7 @@ void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint32_t msg_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size());
 
-    Row row = create_kernel_output_opcode(clk, msg_offset, AvmMemoryTag::FF);
+    Row row = create_kernel_output_opcode(clk, msg_offset);
     kernel_trace_builder.op_emit_l2_to_l1_msg(clk, row.avm_main_ia);
     row.avm_main_sel_op_emit_l2_to_l1_msg = FF(1);
 
@@ -1298,7 +1294,7 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint32_t log_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size());
 
-    Row row = create_kernel_output_opcode(clk, log_offset, AvmMemoryTag::FF);
+    Row row = create_kernel_output_opcode(clk, log_offset);
     kernel_trace_builder.op_emit_unencrypted_log(clk, row.avm_main_ia);
     row.avm_main_sel_op_emit_unencrypted_log = FF(1);
 
@@ -1313,8 +1309,8 @@ void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint32_t log_offset, uint32_t dest_
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6481): success or fail must come from hint - it is
     // always 1 for now
     uint32_t result = 1;
-    Row row = create_kernel_output_opcode_with_set_metadata_output(
-        clk, log_offset, AvmMemoryTag::FF, dest_offset, result, AvmMemoryTag::U8);
+    Row row =
+        create_kernel_output_opcode_with_set_metadata_output(clk, log_offset, AvmMemoryTag::FF, dest_offset, result);
     kernel_trace_builder.op_l1_to_l2_msg_exists(clk, row.avm_main_ia, result);
     row.avm_main_sel_op_l1_to_l2_msg_exists = FF(1);
 
@@ -1327,8 +1323,8 @@ void AvmTraceBuilder::op_note_hash_exists(uint32_t note_offset, uint32_t dest_of
 
     // TODO(ISSUE_NUMBER): success or fail must come from hint - it is always 1 for now
     uint32_t result = 1;
-    Row row = create_kernel_output_opcode_with_set_metadata_output(
-        clk, note_offset, AvmMemoryTag::FF, dest_offset, result, AvmMemoryTag::U8);
+    Row row =
+        create_kernel_output_opcode_with_set_metadata_output(clk, note_offset, AvmMemoryTag::FF, dest_offset, result);
     kernel_trace_builder.op_note_hash_exists(clk, row.avm_main_ia, result);
     row.avm_main_sel_op_l1_to_l2_msg_exists = FF(1);
 
@@ -1341,8 +1337,8 @@ void AvmTraceBuilder::op_nullifier_exists(uint32_t note_offset, uint32_t dest_of
 
     // TODO(ISSUE_NUMBER): success or fail must come from hint - it is always 1 for now
     uint32_t result = 1;
-    Row row = create_kernel_output_opcode_with_set_metadata_output(
-        clk, note_offset, AvmMemoryTag::FF, dest_offset, result, AvmMemoryTag::U8);
+    Row row =
+        create_kernel_output_opcode_with_set_metadata_output(clk, note_offset, AvmMemoryTag::FF, dest_offset, result);
     kernel_trace_builder.op_nullifier_exists(clk, row.avm_main_ia, result);
     row.avm_main_sel_op_nullifier_exists = FF(1);
 
@@ -2535,8 +2531,8 @@ std::vector<Row> AvmTraceBuilder::finalize()
 
         // Read in values from kernel trace
         // Lookup values
-        curr.avm_kernel_kernel_sel = src.kernel_selector;
-        curr.avm_kernel_kernel_out_sel = src.kernel_out_selector;
+        curr.avm_kernel_kernel_in_offset = src.kernel_in_offset;
+        curr.avm_kernel_kernel_out_offset = src.kernel_out_offset;
         curr.avm_main_q_kernel_lookup = static_cast<uint32_t>(src.q_kernel_lookup);
         curr.avm_main_q_kernel_output_lookup = static_cast<uint32_t>(src.q_kernel_output_lookup);
 

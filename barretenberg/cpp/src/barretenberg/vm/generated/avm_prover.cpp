@@ -176,12 +176,12 @@ void AvmProver::execute_wire_commitments_round()
         commitment_key->commit(key->avm_kernel_emit_nullifier_write_offset);
     witness_commitments.avm_kernel_emit_unencrypted_log_write_offset =
         commitment_key->commit(key->avm_kernel_emit_unencrypted_log_write_offset);
+    witness_commitments.avm_kernel_kernel_in_offset = commitment_key->commit(key->avm_kernel_kernel_in_offset);
     witness_commitments.avm_kernel_kernel_inputs__is_public =
         commitment_key->commit(key->avm_kernel_kernel_inputs__is_public);
     witness_commitments.avm_kernel_kernel_metadata_out__is_public =
         commitment_key->commit(key->avm_kernel_kernel_metadata_out__is_public);
-    witness_commitments.avm_kernel_kernel_out_sel = commitment_key->commit(key->avm_kernel_kernel_out_sel);
-    witness_commitments.avm_kernel_kernel_sel = commitment_key->commit(key->avm_kernel_kernel_sel);
+    witness_commitments.avm_kernel_kernel_out_offset = commitment_key->commit(key->avm_kernel_kernel_out_offset);
     witness_commitments.avm_kernel_kernel_side_effect_out__is_public =
         commitment_key->commit(key->avm_kernel_kernel_side_effect_out__is_public);
     witness_commitments.avm_kernel_kernel_value_out__is_public =
@@ -487,13 +487,14 @@ void AvmProver::execute_wire_commitments_round()
                                  witness_commitments.avm_kernel_emit_nullifier_write_offset);
     transcript->send_to_verifier(commitment_labels.avm_kernel_emit_unencrypted_log_write_offset,
                                  witness_commitments.avm_kernel_emit_unencrypted_log_write_offset);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_in_offset,
+                                 witness_commitments.avm_kernel_kernel_in_offset);
     transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_inputs__is_public,
                                  witness_commitments.avm_kernel_kernel_inputs__is_public);
     transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_metadata_out__is_public,
                                  witness_commitments.avm_kernel_kernel_metadata_out__is_public);
-    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_out_sel,
-                                 witness_commitments.avm_kernel_kernel_out_sel);
-    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_sel, witness_commitments.avm_kernel_kernel_sel);
+    transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_out_offset,
+                                 witness_commitments.avm_kernel_kernel_out_offset);
     transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_side_effect_out__is_public,
                                  witness_commitments.avm_kernel_kernel_side_effect_out__is_public);
     transcript->send_to_verifier(commitment_labels.avm_kernel_kernel_value_out__is_public,

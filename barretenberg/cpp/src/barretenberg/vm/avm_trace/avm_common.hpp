@@ -12,10 +12,10 @@ using FF = Flavor::FF;
 using Row = bb::AvmFullRow<bb::fr>;
 
 // There are 4 public input columns, 1 for context inputs, and 3 for emitting side effects
-using VM_PUBLIC_INPUTS = std::tuple<std::array<FF, KERNEL_INPUTS_LENGTH>,   // Input: Kernel context inputs
-                                    std::array<FF, KERNEL_OUTPUTS_LENGTH>,  // Output: Kernel outputs data
-                                    std::array<FF, KERNEL_OUTPUTS_LENGTH>,  // Output: Kernel outputs side effects
-                                    std::array<FF, KERNEL_OUTPUTS_LENGTH>>; // Output: Kernel outputs metadata
+using VmPublicInputs = std::tuple<std::array<FF, KERNEL_INPUTS_LENGTH>,   // Input: Kernel context inputs
+                                  std::array<FF, KERNEL_OUTPUTS_LENGTH>,  // Output: Kernel outputs data
+                                  std::array<FF, KERNEL_OUTPUTS_LENGTH>,  // Output: Kernel outputs side effects
+                                  std::array<FF, KERNEL_OUTPUTS_LENGTH>>; // Output: Kernel outputs metadata
 // Constants for indexing into the tuple above
 static const size_t KERNEL_INPUTS = 0;
 static const size_t KERNEL_OUTPUTS_VALUE = 1;

@@ -19,7 +19,7 @@ using FF = Flavor::FF;
 using Row = bb::AvmFullRow<bb::fr>;
 using ThreeOpParam = std::array<FF, 3>;
 using ThreeOpParamRow = std::tuple<ThreeOpParam, bb::avm_trace::AvmMemoryTag>;
-using VM_PUBLIC_INPUTS = bb::avm_trace::VM_PUBLIC_INPUTS;
+using VmPublicInputs = bb::avm_trace::VmPublicInputs;
 
 // To toggle all relevant unit tests with proving, set the env variable "AVM_TESTS_ENABLE_PROVING".
 static const bool ENABLE_PROVING = std::getenv("AVM_TESTS_ENABLE_PROVING") != nullptr;
@@ -27,8 +27,8 @@ static const bool ENABLE_PROVING = std::getenv("AVM_TESTS_ENABLE_PROVING") != nu
 // If the test is expecting a relation to fail, then use validate_trace_check_circuit.
 // Otherwise, use validate_trace with a single argument. If the proving needs to be
 // enabled all the time in a given test, use validate_trace with setting with_proof = true.
-void validate_trace_check_circuit(std::vector<Row>&& trace, VM_PUBLIC_INPUTS public_inputs = {});
-void validate_trace(std::vector<Row>&& trace, VM_PUBLIC_INPUTS public_inputs = {}, bool with_proof = ENABLE_PROVING);
+void validate_trace_check_circuit(std::vector<Row>&& trace, VmPublicInputs public_inputs = {});
+void validate_trace(std::vector<Row>&& trace, VmPublicInputs public_inputs = {}, bool with_proof = ENABLE_PROVING);
 void mutate_ic_in_trace(std::vector<Row>& trace,
                         std::function<bool(Row)>&& selectRow,
                         FF const& newValue,

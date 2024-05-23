@@ -20,7 +20,7 @@ std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<ThreeOpParam> opera
  *
  * @param trace The execution trace
  */
-void validate_trace_check_circuit(std::vector<Row>&& trace, VM_PUBLIC_INPUTS public_inputs)
+void validate_trace_check_circuit(std::vector<Row>&& trace, VmPublicInputs public_inputs)
 {
     validate_trace(std::move(trace), public_inputs, false);
 };
@@ -28,8 +28,8 @@ void validate_trace_check_circuit(std::vector<Row>&& trace, VM_PUBLIC_INPUTS pub
 // Copy Public Input Columns
 // There are 4 public input columns, one for inputs, and 3 for the kernel outputs {value, side effect counter, metadata}
 // The verifier is generic, and so accepts vectors of these values rather than the fixed length arrays that are used
-// during circuit building This method copies each array into a vector to be used by the verifier
-std::vector<std::vector<FF>> copy_public_inputs_columns(VM_PUBLIC_INPUTS public_inputs)
+// during circuit building. This method copies each array into a vector to be used by the verifier.
+std::vector<std::vector<FF>> copy_public_inputs_columns(VmPublicInputs public_inputs)
 {
     // We convert to a vector as the pil generated verifier is generic and unaware of the KERNEL_INPUTS_LENGTH
     // For each of the public input vectors
@@ -64,7 +64,7 @@ std::vector<std::vector<FF>> copy_public_inputs_columns(VM_PUBLIC_INPUTS public_
  *
  * @param trace The execution trace
  */
-void validate_trace(std::vector<Row>&& trace, VM_PUBLIC_INPUTS public_inputs, bool with_proof)
+void validate_trace(std::vector<Row>&& trace, VmPublicInputs public_inputs, bool with_proof)
 {
     auto circuit_builder = AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
