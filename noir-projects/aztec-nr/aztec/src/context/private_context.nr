@@ -227,7 +227,7 @@ impl PrivateContext {
             // We didn't get a match meaning the cached result is stale. We fetch new values from oracle and instruct
             // protocol circuits to validate them by storing the validation request in context.
             let request = get_key_validation_request(pk_m_hash, key_index);
-            let request_and_generator = KeyValidationRequestAndGenerator { request, app_secret_keys_generator: sk_generators[key_index] };
+            let request_and_generator = KeyValidationRequestAndGenerator { request, sk_app_generator: sk_generators[key_index] };
             // We constrain that the pk_m_hash matches the one in the request (otherwise we could get an arbitrary
             // valid key request and not the one corresponding to pk_m_hash).
             assert(request.pk_m.hash() == pk_m_hash);

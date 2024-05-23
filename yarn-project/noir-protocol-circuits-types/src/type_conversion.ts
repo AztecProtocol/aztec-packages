@@ -28,6 +28,7 @@ import {
   type KernelData,
   type KeyValidationHint,
   KeyValidationRequest,
+  KeyValidationRequestAndGenerator,
   L2ToL1Message,
   type LeafDataReadHint,
   LogHash,
@@ -151,6 +152,7 @@ import type {
   KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
   KernelData as KernelDataNoir,
   KeyValidationHint as KeyValidationHintNoir,
+  KeyValidationRequestAndGenerator as KeyValidationRequestAndGeneratorNoir,
   KeyValidationRequest as KeyValidationRequestsNoir,
   L2ToL1Message as L2ToL1MessageNoir,
   LeafDataReadHint as LeafDataReadHintNoir,
@@ -216,7 +218,7 @@ import type {
   RootRollupInputs as RootRollupInputsNoir,
   RootRollupParityInput as RootRollupParityInputNoir,
   RootRollupPublicInputs as RootRollupPublicInputsNoir,
-  ScopedKeyValidationRequestAndGenerator as ScopedKeyValidationRequestAndGeneratorsNoir,
+  ScopedKeyValidationRequestAndGenerator as ScopedKeyValidationRequestAndGeneratorNoir,
   ScopedL2ToL1Message as ScopedL2ToL1MessageNoir,
   ScopedNoteHash as ScopedNoteHashNoir,
   ScopedNullifier as ScopedNullifierNoir,
@@ -315,7 +317,6 @@ export function mapGrumpkinPrivateKeyToNoir(privateKey: GrumpkinPrivateKey): Gru
 export function mapKeyValidationHintToNoir(hint: KeyValidationHint): KeyValidationHintNoir {
   return {
     sk_m: mapGrumpkinPrivateKeyToNoir(hint.skM),
-    sk_app_generator_index: mapFieldToNoir(new Fr(hint.skAppGeneratorIndex)),
     request_index: mapNumberToNoir(hint.requestIndex),
   };
 }
@@ -744,10 +745,19 @@ export function mapScopedReadRequestFromNoir(scoped: ScopedReadRequestNoir): Sco
  * @param request - The KeyValidationRequest.
  * @returns The noir KeyValidationRequest.
  */
-export function mapKeyValidationRequestsToNoir(request: KeyValidationRequest): KeyValidationRequestsNoir {
+export function mapKeyValidationRequestToNoir(request: KeyValidationRequest): KeyValidationRequestsNoir {
   return {
-    pk_m: mapPointToNoir(request.masterPublicKey),
-    sk_app: mapFieldToNoir(request.appSecretKey),
+    pk_m: mapPointToNoir(request.pkM),
+    sk_app: mapFieldToNoir(request.skApp),
+  };
+}
+
+export function mapKeyValidationRequestAndGeneratorToNoir(
+  request: KeyValidationRequestAndGenerator,
+): KeyValidationRequestAndGeneratorNoir {
+  return {
+    request: mapKeyValidationRequestToNoir(request.request),
+    sk_app_generator: mapFieldToNoir(request.skAppGenerator),
   };
 }
 
@@ -756,20 +766,33 @@ export function mapKeyValidationRequestsToNoir(request: KeyValidationRequest): K
  * @param request - The noir KeyValidationRequest.
  * @returns The TS KeyValidationRequest.
  */
-export function mapKeyValidationRequestsFromNoir(request: KeyValidationRequestsNoir): KeyValidationRequest {
+function mapKeyValidationRequestFromNoir(request: KeyValidationRequestsNoir): KeyValidationRequest {
   return new KeyValidationRequest(mapPointFromNoir(request.pk_m), mapFieldFromNoir(request.sk_app));
 }
 
-function mapScopedKeyValidationRequestAndGeneratorsToNoir(request: ScopedKeyValidationRequestAndGenerator): ScopedKeyValidationRequestAndGeneratorsNoir {
+function mapKeyValidationRequestAndGeneratorFromNoir(
+  request: KeyValidationRequestAndGeneratorNoir,
+): KeyValidationRequestAndGenerator {
+  return new KeyValidationRequestAndGenerator(
+    mapKeyValidationRequestFromNoir(request.request),
+    mapFieldFromNoir(request.sk_app_generator),
+  );
+}
+
+function mapScopedKeyValidationRequestAndGeneratorToNoir(
+  request: ScopedKeyValidationRequestAndGenerator,
+): ScopedKeyValidationRequestAndGeneratorNoir {
   return {
-    request: mapKeyValidationRequestsToNoir(request.request),
+    request: mapKeyValidationRequestAndGeneratorToNoir(request.request),
     contract_address: mapAztecAddressToNoir(request.contractAddress),
   };
 }
 
-function mapScopedKeyValidationRequestAndGeneratorsFromNoir(request: ScopedKeyValidationRequestAndGeneratorsNoir): ScopedKeyValidationRequestAndGenerator {
+function mapScopedKeyValidationRequestAndGeneratorFromNoir(
+  request: ScopedKeyValidationRequestAndGeneratorNoir,
+): ScopedKeyValidationRequestAndGenerator {
   return new ScopedKeyValidationRequestAndGenerator(
-    mapKeyValidationRequestsFromNoir(request.request),
+    mapKeyValidationRequestAndGeneratorFromNoir(request.request),
     mapAztecAddressFromNoir(request.contract_address),
   );
 }
@@ -824,8 +847,10 @@ export function mapPrivateCircuitPublicInputsToNoir(
     returns_hash: mapFieldToNoir(privateCircuitPublicInputs.returnsHash),
     note_hash_read_requests: mapTuple(privateCircuitPublicInputs.noteHashReadRequests, mapReadRequestToNoir),
     nullifier_read_requests: mapTuple(privateCircuitPublicInputs.nullifierReadRequests, mapReadRequestToNoir),
-    key_validation_requests: mapTuple(privateCircuitPublicInputs.keyValidationRequests, mapKeyValidationRequestsToNoir),
-    app_secret_keys_generators: mapTuple(privateCircuitPublicInputs.appSecretKeysGenerators, mapFieldToNoir),
+    key_validation_requests_and_generators: mapTuple(
+      privateCircuitPublicInputs.keyValidationRequestsAndGenerators,
+      mapKeyValidationRequestAndGeneratorToNoir,
+    ),
     new_note_hashes: mapTuple(privateCircuitPublicInputs.newNoteHashes, mapNoteHashToNoir),
     new_nullifiers: mapTuple(privateCircuitPublicInputs.newNullifiers, mapNullifierToNoir),
     private_call_requests: mapTuple(privateCircuitPublicInputs.privateCallRequests, mapPrivateCallRequestToNoir),
@@ -1092,7 +1117,10 @@ function mapValidationRequestsToNoir(requests: ValidationRequests): ValidationRe
       requests.nullifierNonExistentReadRequests,
       mapScopedReadRequestToNoir,
     ),
-    key_validation_requests: mapTuple(requests.keyValidationRequests, mapScopedKeyValidationRequestAndGeneratorsToNoir),
+    scoped_key_validation_requests_and_generators: mapTuple(
+      requests.scopedKeyValidationRequestsAndGenerators,
+      mapScopedKeyValidationRequestAndGeneratorToNoir,
+    ),
     public_data_reads: mapTuple(requests.publicDataReads, mapPublicDataReadToNoir),
   };
 }
@@ -1116,9 +1144,9 @@ function mapValidationRequestsFromNoir(requests: ValidationRequestsNoir): Valida
       mapScopedReadRequestFromNoir,
     ),
     mapTupleFromNoir(
-      requests.key_validation_requests,
+      requests.scoped_key_validation_requests_and_generators,
       MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-      mapScopedKeyValidationRequestAndGeneratorsFromNoir,
+      mapScopedKeyValidationRequestAndGeneratorFromNoir,
     ),
     mapTupleFromNoir(requests.public_data_reads, MAX_PUBLIC_DATA_READS_PER_TX, mapPublicDataReadFromNoir),
   );

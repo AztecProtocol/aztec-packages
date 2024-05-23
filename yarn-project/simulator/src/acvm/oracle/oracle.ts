@@ -41,7 +41,7 @@ export class Oracle {
   }
 
   async getKeyValidationRequest([masterPublicKeyHash]: ACVMField[]): Promise<ACVMField[]> {
-    const { masterPublicKey, appSecretKey } = await this.typedOracle.getKeyValidationRequest(
+    const { pkM: masterPublicKey, skApp: appSecretKey } = await this.typedOracle.getKeyValidationRequest(
       fromACVMField(masterPublicKeyHash),
     );
 

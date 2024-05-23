@@ -1,5 +1,5 @@
 import {
-  Fr,
+  type Fr,
   KeyValidationHint,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
@@ -78,8 +78,9 @@ async function getMasterSecretKeysAndAppKeyGenerators(
     if (request.isEmpty()) {
       break;
     }
-    const [secretKeys, appKeyGenerator] = await oracle.getMasterSecretKeyAndAppKeyGenerator(request.masterPublicKey);
-    keysHints[keyIndex] = new KeyValidationHint(secretKeys, new Fr(appKeyGenerator), i);
+    // TODO(benesjan): refactor this to just return secret keys
+    const [secretKeys, _] = await oracle.getMasterSecretKeyAndAppKeyGenerator(request.request.pkM);
+    keysHints[keyIndex] = new KeyValidationHint(secretKeys, i);
     keyIndex++;
   }
   return {
@@ -146,7 +147,7 @@ export async function buildPrivateKernelResetInputs(
   );
 
   const { keysCount, keysHints } = await getMasterSecretKeysAndAppKeyGenerators(
-    publicInputs.validationRequests.keyValidationRequests,
+    publicInputs.validationRequests.scopedKeyValidationRequestsAndGenerators,
     oracle,
   );
 

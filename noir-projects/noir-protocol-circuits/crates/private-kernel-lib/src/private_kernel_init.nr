@@ -7,8 +7,7 @@ use dep::types::{
     private_kernel::private_call_data::PrivateCallData,
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs
 },
-    constants::{MAX_NEW_NOTE_HASHES_PER_CALL, GENERATOR_INDEX__NSK_M},
-    transaction::tx_request::TxRequest
+    constants::MAX_NEW_NOTE_HASHES_PER_CALL, transaction::tx_request::TxRequest
 };
 
 struct PrivateKernelInitHints {
@@ -54,7 +53,8 @@ mod tests {
         private_kernel::private_call_data::PrivateCallData, read_request::ReadRequest,
         nullifier::Nullifier, log_hash::{LogHash, NoteLogHash}
     },
-        address::{AztecAddress, EthAddress}, constants::MAX_NEW_NOTE_HASHES_PER_CALL,
+        address::{AztecAddress, EthAddress},
+        constants::{MAX_NEW_NOTE_HASHES_PER_CALL, GENERATOR_INDEX__NSK_M},
         grumpkin_point::GrumpkinPoint, messaging::l2_to_l1_message::L2ToL1Message,
         tests::private_call_data_builder::PrivateCallDataBuilder, transaction::tx_request::TxRequest,
         utils::arrays::{array_length, array_eq}
