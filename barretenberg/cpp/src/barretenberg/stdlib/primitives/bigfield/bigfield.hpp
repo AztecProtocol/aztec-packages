@@ -60,6 +60,8 @@ template <typename Builder, typename T> class bigfield {
              const size_t maximum_bitlength = 0);
     bigfield(Builder* parent_context = nullptr);
     bigfield(Builder* parent_context, const uint256_t& value);
+    // (:
+    bigfield(const uint256_t& value) { bigfield(nullptr, value); }
 
     // we assume the limbs have already been normalized!
     bigfield(const field_t<Builder>& a,
@@ -255,7 +257,6 @@ template <typename Builder, typename T> class bigfield {
     void self_reduce() const;
 
     bool is_constant() const { return prime_basis_limb.witness_index == IS_CONSTANT; }
-
     /**
      * Create a public one constant
      * */

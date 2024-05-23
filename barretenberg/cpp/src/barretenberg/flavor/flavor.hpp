@@ -315,6 +315,7 @@ class TranslatorFlavor;
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class GoblinUltraRecursiveFlavor_;
 template <typename BuilderType> class TranslatorRecursiveFlavor_;
+template <typename BuilderType> class ECCVMRecursiveFlavor_;
 } // namespace bb
 
 // Forward declare plonk flavors
@@ -359,7 +360,7 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                        UltraRecursiveFlavor_<CircuitSimulatorBN254>,
                                        GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>,
                                        GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>
-,GoblinUltraRecursiveFlavor_<CircuitSimulatorBN254>, TranslatorRecursiveFlavor_<UltraCircuitBuilder>, TranslatorRecursiveFlavor_<GoblinUltraCircuitBuilder>,  TranslatorRecursiveFlavor_<CircuitSimulatorBN254>>;
+,GoblinUltraRecursiveFlavor_<CircuitSimulatorBN254>, TranslatorRecursiveFlavor_<UltraCircuitBuilder>, TranslatorRecursiveFlavor_<GoblinUltraCircuitBuilder>,  TranslatorRecursiveFlavor_<CircuitSimulatorBN254>, ECCVMRecursiveFlavor_<UltraCircuitBuilder>, ECCVMRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
 
 
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor>;

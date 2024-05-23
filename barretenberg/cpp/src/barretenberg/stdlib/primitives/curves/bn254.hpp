@@ -64,8 +64,9 @@ template <typename CircuitBuilder> struct bn254<CircuitBuilder, true> {
     // Note: its useful to have these type names match the native analog exactly so that components that digest a
     // Curve (e.g. Gemini) can be agnostic as to whether they're operating on native or stdlib types.
     using Group = cycle_group<Builder>;
-    using ScalarField = bigfield<Builder, bb::Bn254FrParams>;
-    using BaseField = field_t<Builder>;
+    using ScalarField = bigfield<Builder, bb::Bn254FqParams>; // grumpkin fr which is bn254 fq which in a bn254 circuit
+                                                              // is bigfield, should be replaced by a cycle_scalar
+    using BaseField = field_t<Builder>;                       // fr
     using AffineElement = Group;
     // We dont need the projective form inside a circuit because
     using Element = Group;

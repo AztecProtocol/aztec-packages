@@ -460,9 +460,9 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     Fr evaluate(const Fr& u)
     {
         using Data = BarycentricData<Fr, domain_end, LENGTH, domain_start>;
-        Fr full_numerator_value = 1;
+        Fr full_numerator_value = Fr::one();
         for (size_t i = domain_start; i != domain_end; ++i) {
-            full_numerator_value *= u - i;
+            full_numerator_value *= u - uint256_t(i);
         }
 
         // build set of domain size-many denominator inverses 1/(d_i*(x_k - x_j)). will multiply against
@@ -471,7 +471,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         for (size_t i = 0; i != LENGTH; ++i) {
             Fr inv = Data::lagrange_denominators[i];
             inv *= u - Data::big_domain[i]; // warning: need to avoid zero here
-            inv = Fr(1) / inv;
+            inv = Fr::one() / inv;
             denominator_inverses[i] = inv;
         }
 

@@ -74,7 +74,7 @@ template <class Fr, size_t domain_end, size_t num_evals, size_t domain_start = 0
                 accumulator *= coeffs[i];
             }
         }
-        accumulator = Fr(1) / accumulator;
+        accumulator = Fr::one() / accumulator;
         std::array<Fr, n> result{};
         Fr T0;
         for (size_t i = n - 1; i < n; --i) {
@@ -151,7 +151,7 @@ template <class Fr, size_t domain_end, size_t num_evals, size_t domain_start = 0
     {
         std::array<Fr, domain_size> result;
         for (size_t i = 0; i != domain_size; ++i) {
-            result[i] = 1;
+            result[i] = Fr::one();
             for (size_t j = 0; j != domain_size; ++j) {
                 if (j != i) {
                     result[i] *= big_domain[i] - big_domain[j];
@@ -166,7 +166,7 @@ template <class Fr, size_t domain_end, size_t num_evals, size_t domain_start = 0
         constexpr size_t n = domain_size * num_evals;
         std::array<Fr, n> temporaries{};
         std::array<bool, n> skipped{};
-        Fr accumulator = 1;
+        Fr accumulator = Fr::one();
         for (size_t i = 0; i < n; ++i) {
             temporaries[i] = accumulator;
             if (coeffs[i].get_value() == 0) {
@@ -176,7 +176,7 @@ template <class Fr, size_t domain_end, size_t num_evals, size_t domain_start = 0
                 accumulator *= coeffs[i];
             }
         }
-        accumulator = Fr(1) / accumulator;
+        accumulator = Fr::one() / accumulator;
         std::array<Fr, n> result{};
         Fr T0;
         for (size_t i = n - 1; i < n; --i) {
@@ -213,8 +213,8 @@ template <class Fr, size_t domain_end, size_t num_evals, size_t domain_start = 0
     {
         std::array<Fr, num_evals> result;
         for (size_t i = 0; i != num_evals; ++i) {
-            result[i] = 1;
-            Fr v_i = i + domain_start;
+            result[i] = Fr::one();
+            Fr v_i = uint256_t(i + domain_start);
             for (size_t j = 0; j != domain_size; ++j) {
                 result[i] *= v_i - big_domain[j];
             }
