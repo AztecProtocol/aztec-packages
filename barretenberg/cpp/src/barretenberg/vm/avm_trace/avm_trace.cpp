@@ -3563,7 +3563,7 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
 
     // Add the gas accounting for each row
     // We can assume that the gas trace will never be larger than the main trace
-    // We infer that a row is active for gas (.avm_main_opcode_active = 1) based on the presence
+    // We infer that a row is active for gas (.avm_main_gas_cost_active = 1) based on the presence
     // of a gas entry row.
     // Set the initial gas
     auto& first_opcode_row = main_trace.at(0);
@@ -3587,7 +3587,7 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
 
         auto& dest = main_trace.at(gas_entry.clk);
         auto& next = main_trace.at(gas_entry.clk + 1);
-        dest.avm_main_opcode_active = FF(1);
+        dest.avm_main_gas_cost_active = FF(1);
 
         // Write each of the relevant gas accounting values
         dest.avm_main_opcode_val = static_cast<uint8_t>(gas_entry.opcode);

@@ -69,7 +69,7 @@ TEST_F(AvmGasPositiveTests, gasAdd)
             info("Row ",
                  i,
                  " opcode active ",
-                 trace[i].avm_main_opcode_active,
+                 trace[i].avm_main_gas_cost_active,
                  " l2 gas op: ",
                  trace[i].avm_main_l2_gas_op,
                  " | da gas op: ",

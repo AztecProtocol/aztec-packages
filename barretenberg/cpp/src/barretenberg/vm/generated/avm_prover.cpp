@@ -226,6 +226,7 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.avm_main_call_ptr = commitment_key->commit(key->avm_main_call_ptr);
     witness_commitments.avm_main_da_gas_op = commitment_key->commit(key->avm_main_da_gas_op);
     witness_commitments.avm_main_da_gas_remaining = commitment_key->commit(key->avm_main_da_gas_remaining);
+    witness_commitments.avm_main_gas_cost_active = commitment_key->commit(key->avm_main_gas_cost_active);
     witness_commitments.avm_main_ia = commitment_key->commit(key->avm_main_ia);
     witness_commitments.avm_main_ib = commitment_key->commit(key->avm_main_ib);
     witness_commitments.avm_main_ic = commitment_key->commit(key->avm_main_ic);
@@ -253,7 +254,6 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.avm_main_mem_op_c = commitment_key->commit(key->avm_main_mem_op_c);
     witness_commitments.avm_main_mem_op_d = commitment_key->commit(key->avm_main_mem_op_d);
     witness_commitments.avm_main_op_err = commitment_key->commit(key->avm_main_op_err);
-    witness_commitments.avm_main_opcode_active = commitment_key->commit(key->avm_main_opcode_active);
     witness_commitments.avm_main_opcode_val = commitment_key->commit(key->avm_main_opcode_val);
     witness_commitments.avm_main_pc = commitment_key->commit(key->avm_main_pc);
     witness_commitments.avm_main_q_kernel_lookup = commitment_key->commit(key->avm_main_q_kernel_lookup);
@@ -600,6 +600,8 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.avm_main_da_gas_op, witness_commitments.avm_main_da_gas_op);
     transcript->send_to_verifier(commitment_labels.avm_main_da_gas_remaining,
                                  witness_commitments.avm_main_da_gas_remaining);
+    transcript->send_to_verifier(commitment_labels.avm_main_gas_cost_active,
+                                 witness_commitments.avm_main_gas_cost_active);
     transcript->send_to_verifier(commitment_labels.avm_main_ia, witness_commitments.avm_main_ia);
     transcript->send_to_verifier(commitment_labels.avm_main_ib, witness_commitments.avm_main_ib);
     transcript->send_to_verifier(commitment_labels.avm_main_ic, witness_commitments.avm_main_ic);
@@ -629,7 +631,6 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.avm_main_mem_op_c, witness_commitments.avm_main_mem_op_c);
     transcript->send_to_verifier(commitment_labels.avm_main_mem_op_d, witness_commitments.avm_main_mem_op_d);
     transcript->send_to_verifier(commitment_labels.avm_main_op_err, witness_commitments.avm_main_op_err);
-    transcript->send_to_verifier(commitment_labels.avm_main_opcode_active, witness_commitments.avm_main_opcode_active);
     transcript->send_to_verifier(commitment_labels.avm_main_opcode_val, witness_commitments.avm_main_opcode_val);
     transcript->send_to_verifier(commitment_labels.avm_main_pc, witness_commitments.avm_main_pc);
     transcript->send_to_verifier(commitment_labels.avm_main_q_kernel_lookup,

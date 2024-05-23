@@ -164,6 +164,7 @@
     [[maybe_unused]] auto avm_main_call_ptr = View(new_term.avm_main_call_ptr);                                        \
     [[maybe_unused]] auto avm_main_da_gas_op = View(new_term.avm_main_da_gas_op);                                      \
     [[maybe_unused]] auto avm_main_da_gas_remaining = View(new_term.avm_main_da_gas_remaining);                        \
+    [[maybe_unused]] auto avm_main_gas_cost_active = View(new_term.avm_main_gas_cost_active);                          \
     [[maybe_unused]] auto avm_main_ia = View(new_term.avm_main_ia);                                                    \
     [[maybe_unused]] auto avm_main_ib = View(new_term.avm_main_ib);                                                    \
     [[maybe_unused]] auto avm_main_ic = View(new_term.avm_main_ic);                                                    \
@@ -191,7 +192,6 @@
     [[maybe_unused]] auto avm_main_mem_op_c = View(new_term.avm_main_mem_op_c);                                        \
     [[maybe_unused]] auto avm_main_mem_op_d = View(new_term.avm_main_mem_op_d);                                        \
     [[maybe_unused]] auto avm_main_op_err = View(new_term.avm_main_op_err);                                            \
-    [[maybe_unused]] auto avm_main_opcode_active = View(new_term.avm_main_opcode_active);                              \
     [[maybe_unused]] auto avm_main_opcode_val = View(new_term.avm_main_opcode_val);                                    \
     [[maybe_unused]] auto avm_main_pc = View(new_term.avm_main_pc);                                                    \
     [[maybe_unused]] auto avm_main_q_kernel_lookup = View(new_term.avm_main_q_kernel_lookup);                          \

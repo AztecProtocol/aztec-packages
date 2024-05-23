@@ -236,6 +236,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_call_ptr{};
     FF avm_main_da_gas_op{};
     FF avm_main_da_gas_remaining{};
+    FF avm_main_gas_cost_active{};
     FF avm_main_ia{};
     FF avm_main_ib{};
     FF avm_main_ic{};
@@ -263,7 +264,6 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_mem_op_c{};
     FF avm_main_mem_op_d{};
     FF avm_main_op_err{};
-    FF avm_main_opcode_active{};
     FF avm_main_opcode_val{};
     FF avm_main_pc{};
     FF avm_main_q_kernel_lookup{};
@@ -773,6 +773,7 @@ class AvmCircuitBuilder {
             polys.avm_main_call_ptr[i] = rows[i].avm_main_call_ptr;
             polys.avm_main_da_gas_op[i] = rows[i].avm_main_da_gas_op;
             polys.avm_main_da_gas_remaining[i] = rows[i].avm_main_da_gas_remaining;
+            polys.avm_main_gas_cost_active[i] = rows[i].avm_main_gas_cost_active;
             polys.avm_main_ia[i] = rows[i].avm_main_ia;
             polys.avm_main_ib[i] = rows[i].avm_main_ib;
             polys.avm_main_ic[i] = rows[i].avm_main_ic;
@@ -800,7 +801,6 @@ class AvmCircuitBuilder {
             polys.avm_main_mem_op_c[i] = rows[i].avm_main_mem_op_c;
             polys.avm_main_mem_op_d[i] = rows[i].avm_main_mem_op_d;
             polys.avm_main_op_err[i] = rows[i].avm_main_op_err;
-            polys.avm_main_opcode_active[i] = rows[i].avm_main_opcode_active;
             polys.avm_main_opcode_val[i] = rows[i].avm_main_opcode_val;
             polys.avm_main_pc[i] = rows[i].avm_main_pc;
             polys.avm_main_q_kernel_lookup[i] = rows[i].avm_main_q_kernel_lookup;

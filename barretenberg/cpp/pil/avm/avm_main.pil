@@ -70,21 +70,21 @@ namespace avm_main(256);
     pol commit da_gas_op;
 
     #[LOOKUP_OPCODE_GAS]
-    opcode_active {opcode_val, l2_gas_op, da_gas_op}
+    gas_cost_active {opcode_val, l2_gas_op, da_gas_op}
     in
     avm_gas.gas_cost_sel {clk, avm_gas.l2_gas_fixed_table, avm_gas.da_gas_fixed_table};
 
     // Constrain that the gas decrements correctly per instruction
     #[L2_GAS_REMAINING_DECREMENT]
-    opcode_active * (l2_gas_remaining' - l2_gas_remaining + l2_gas_op) = 0;
+    gas_cost_active * (l2_gas_remaining' - l2_gas_remaining + l2_gas_op) = 0;
     #[DA_GAS_REMAINING_DECREMENT]
-    opcode_active * (da_gas_remaining' - da_gas_remaining + da_gas_op) = 0;
+    gas_cost_active * (da_gas_remaining' - da_gas_remaining + da_gas_op) = 0;
 
     // Constrain that the remaining gas is unchanged otherwise (multi-line operations)
     #[L2_GAS_INACTIVE]
-    (1 - opcode_active) * l2_gas_op = 0;
+    (1 - gas_cost_active) * l2_gas_op = 0;
     #[DA_GAS_INACTIVE]
-    (1 - opcode_active) * da_gas_op = 0;
+    (1 - gas_cost_active) * da_gas_op = 0;
 
     // TODO: constrain that it stays the same if an opcode selector is not active -> TODO: will this break when the opcode takes multiple rows
     // So we also need to constrain that it is the first line of the opcodes execution
@@ -410,12 +410,12 @@ namespace avm_main(256);
     pol ALL_MEMORY_SEL = sel_cmov + sel_mov;
     pol OPCODE_SELECTORS = sel_op_fdiv + ALU_ALL_SEL + ALL_BINARY_SEL + ALL_MEMORY_SEL + ALL_GADGET_SEL + KERNEL_INPUT_SELECTORS + KERNEL_OUTPUT_SELECTORS;
 
-    pol commit opcode_active;
-    opcode_active - OPCODE_SELECTORS = 0;
+    pol commit gas_cost_active;
+    gas_cost_active - OPCODE_SELECTORS = 0;
 
     // Program counter must increment if not jumping or returning
     #[PC_INCREMENT]
-    (1 - first) * (1 - sel_halt) * opcode_active * (pc' - (pc + 1)) = 0;
+    (1 - first) * (1 - sel_halt) * OPCODE_SELECTORS * (pc' - (pc + 1)) = 0;
 
     // first == 0 && sel_internal_call == 0 && sel_internal_return == 0 && sel_halt == 0 ==> internal_return_ptr == internal_return_ptr'
     #[INTERNAL_RETURN_POINTER_CONSISTENCY]
