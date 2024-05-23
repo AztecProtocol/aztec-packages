@@ -1,15 +1,16 @@
-import { AztecAddress, BatchCall, Fr, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, BatchCall, Fr, type PXE, type Wallet } from '@aztec/aztec.js';
 import { AuthContract, DocsExampleContract, TestContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
 
-const TIMEOUT = 100_000;
+const TIMEOUT = 600_000;
 
 describe('e2e_state_vars', () => {
   jest.setTimeout(TIMEOUT);
 
+  let pxe: PXE;
   let wallet: Wallet;
 
   let teardown: () => Promise<void>;
@@ -19,7 +20,7 @@ describe('e2e_state_vars', () => {
   const RANDOMNESS = 2n;
 
   beforeAll(async () => {
-    ({ teardown, wallet } = await setup(2));
+    ({ teardown, wallet, pxe } = await setup(2));
     contract = await DocsExampleContract.deploy(wallet).send().deployed();
   });
 
@@ -275,6 +276,17 @@ describe('e2e_state_vars', () => {
         .simulate();
 
       expect(AztecAddress.fromBigInt(authorized)).toEqual(AztecAddress.fromBigInt(6969696969n));
+    });
+
+    it('checks authorized in auth contract from test contract and finds the correctly set max block number', async () => {
+      const lastBlockNumber = await pxe.getBlockNumber();
+
+      const tx = await testContract.methods.test_shared_mutable_private_getter(authContract.address, 2).prove();
+
+      const expectedMaxBlockNumber = lastBlockNumber + 5;
+
+      expect(tx.data.forRollup!.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
+      expect(tx.data.forRollup!.rollupValidationRequests.maxBlockNumber.value).toEqual(new Fr(expectedMaxBlockNumber));
     });
   });
 });
