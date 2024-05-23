@@ -161,7 +161,8 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       '<artifact>',
       "A compiled Aztec.nr contract's artifact in JSON format or name of a contract artifact exported by @aztec/noir-contracts.js",
     )
-    .requiredOption('--initializer <string>', 'The contract initializer function to call', 'constructor')
+    .option('--initialize <string>', 'The contract initializer function to call', 'constructor')
+    .option('--no-initialize')
     .option('-a, --args <constructorArgs...>', 'Contract constructor arguments', [])
     .addOption(pxeOption)
     .option(
@@ -179,9 +180,10 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
-    .option('--no-class-registration', 'Skip registering the contract class', true)
-    .option('--no-public-deployment', 'Skip deploying the contract publicly', false)
-    .option('--no-initialization', 'Skip initializing the contract', false)
+    .option('--class-registration', 'Register the contract class. Only has to be done once')
+    .option('--no-class-registration', 'Skip registering the contract class')
+    .option('--public-deployment', 'Deploy the public bytecode of contract')
+    .option('--no-public-deployment', "Skip deploying the contract's public bytecode")
     .action(
       async (
         artifactPath,
@@ -193,9 +195,8 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
           salt,
           wait,
           privateKey,
-          initializer,
           classRegistration,
-          initialization,
+          initialize,
           publicDeployment,
         },
       ) => {
@@ -208,10 +209,10 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
           rawArgs,
           salt,
           privateKey,
-          initializer,
+          typeof initialize === 'string' ? initialize : undefined,
           !publicDeployment,
           !classRegistration,
-          !initialization,
+          typeof initialize === 'string' ? false : initialize,
           wait,
           debugLogger,
           log,
@@ -376,18 +377,18 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .addOption(pxeOption)
     .option('--no-wait', 'Print transaction hash without waiting for it to be mined')
     .action(async (functionName, options) => {
-      // const { send } = await import('./cmds/send.js');
-      // await send(
-      //   functionName,
-      //   options.args,
-      //   options.contractArtifact,
-      //   options.contractAddress,
-      //   options.privateKey,
-      //   options.rpcUrl,
-      //   !options.noWait,
-      //   debugLogger,
-      //   log,
-      // );
+      const { send } = await import('./cmds/send.js');
+      await send(
+        functionName,
+        options.args,
+        options.contractArtifact,
+        options.contractAddress,
+        options.privateKey,
+        options.rpcUrl,
+        !options.noWait,
+        debugLogger,
+        log,
+      );
     });
 
   program

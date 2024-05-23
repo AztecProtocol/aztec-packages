@@ -20,7 +20,7 @@ export async function deploy(
   initializer: string | undefined,
   skipPublicDeployment: boolean,
   skipClassRegistration: boolean,
-  skipInitialization: boolean,
+  skipInitialization: boolean | undefined,
   wait: boolean,
   debugLogger: DebugLogger,
   log: LogFn,
@@ -54,30 +54,44 @@ export async function deploy(
   const deploy = deployer.deploy(...args);
 
   await deploy.create({ contractAddressSalt: salt, skipClassRegistration, skipInitialization, skipPublicDeployment });
-  const tx = deploy.send({ contractAddressSalt: salt, skipClassRegistration });
+  const tx = deploy.send({
+    contractAddressSalt: salt,
+    skipClassRegistration,
+    skipInitialization,
+    skipPublicDeployment,
+  });
+
   const txHash = await tx.getTxHash();
   debugLogger.debug(`Deploy tx sent with hash ${txHash}`);
   if (wait) {
     const deployed = await tx.wait();
-    const { address, partialAddress } = deployed.contract;
+    const { address, partialAddress, instance } = deployed.contract;
     if (json) {
-      logJson({ address: address.toString(), partialAddress: partialAddress.toString() });
+      logJson({
+        address: address.toString(),
+        partialAddress: partialAddress.toString(),
+        initializationHash: instance.initializationHash.toString(),
+      });
     } else {
-      log(`\nContract deployed at ${address.toString()}\n`);
-      log(`Contract partial address ${partialAddress.toString()}\n`);
+      log(`Contract deployed at ${address.toString()}`);
+      log(`Contract partial address ${partialAddress.toString()}`);
+      log(`Contract init hash ${instance.initializationHash.toString()}`);
     }
   } else {
     const { address, partialAddress } = deploy;
+    const instance = deploy.getInstance();
     if (json) {
       logJson({
         address: address?.toString() ?? 'N/A',
         partialAddress: partialAddress?.toString() ?? 'N/A',
         txHash: txHash.toString(),
+        initializationHash: instance.initializationHash.toString(),
       });
     } else {
-      log(`\nContract Address: ${address?.toString() ?? 'N/A'}`);
+      log(`Contract Address: ${address?.toString() ?? 'N/A'}`);
       log(`Contract Partial Address: ${partialAddress?.toString() ?? 'N/A'}`);
-      log(`Deployment transaction hash: ${txHash}\n`);
+      log(`Deployment transaction hash: ${txHash}`);
+      log(`Contract init hash ${instance.initializationHash.toString()}`);
     }
   }
 }

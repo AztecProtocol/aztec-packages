@@ -1,5 +1,6 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecAddress, Contract, type Fq, Fr } from '@aztec/aztec.js';
+import { deriveSigningKey } from '@aztec/circuits.js';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { createCompatibleClient } from '../client.js';
@@ -11,7 +12,6 @@ export async function send(
   contractArtifactPath: string,
   contractAddress: AztecAddress,
   encryptionPrivateKey: Fr,
-  signingPrivateKey: Fq,
   rpcUrl: string,
   wait: boolean,
   debugLogger: DebugLogger,
@@ -20,7 +20,12 @@ export async function send(
   const { functionArgs, contractArtifact } = await prepTx(contractArtifactPath, functionName, functionArgsIn, log);
 
   const client = await createCompatibleClient(rpcUrl, debugLogger);
-  const wallet = await getSchnorrAccount(client, encryptionPrivateKey, signingPrivateKey, Fr.ZERO).getWallet();
+  const wallet = await getSchnorrAccount(
+    client,
+    encryptionPrivateKey,
+    deriveSigningKey(encryptionPrivateKey),
+    Fr.ZERO,
+  ).getWallet();
   const contract = await Contract.at(contractAddress, contractArtifact, wallet);
   const tx = contract.methods[functionName](...functionArgs).send();
   log(`\nTransaction hash: ${(await tx.getTxHash()).toString()}`);
@@ -30,7 +35,7 @@ export async function send(
     log('Transaction has been mined');
 
     const receipt = await tx.getReceipt();
-    log(`Status: ${receipt.status}\n`);
+    log(`Status: ${receipt.status}`);
     log(`Block number: ${receipt.blockNumber}`);
     log(`Block hash: ${receipt.blockHash?.toString('hex')}`);
   } else {
