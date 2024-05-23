@@ -105,7 +105,6 @@ jobs:
         with:
           runner_type: ${{ contains(matrix.test, 'prover') && '64core-tester-x86' || '16core-tester-x86' }}
           builder_type: builder-x86
-          tester_ttl: 40
           # these are copied to the tester and expected by the earthly command below
           # if they fail to copy, it will try to build them on the tester and fail
           builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
