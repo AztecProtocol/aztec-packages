@@ -1,4 +1,4 @@
-import { type FieldsOf, makeHalfFullTuple, makeTuple, range } from '@aztec/foundation/array';
+import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -14,7 +14,6 @@ import { SchnorrSignature } from '../barretenberg/index.js';
 import {
   ARCHIVE_HEIGHT,
   ARGS_LENGTH,
-  AggregationObject,
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
@@ -27,18 +26,19 @@ import {
   ConstantRollupData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
-  Fq,
   Fr,
   FunctionData,
   FunctionSelector,
-  G1AffineElement,
   type GrumpkinPrivateKey,
   GrumpkinScalar,
+  KeyValidationRequest,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   L2ToL1Message,
   LogHash,
   MAX_ENCRYPTED_LOGS_PER_CALL,
   MAX_ENCRYPTED_LOGS_PER_TX,
+  MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_CALL,
@@ -49,8 +49,6 @@ import {
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
@@ -63,6 +61,7 @@ import {
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_CALL,
   MAX_UNENCRYPTED_LOGS_PER_TX,
   MaxBlockNumber,
@@ -78,7 +77,6 @@ import {
   NoteHash,
   NoteLogHash,
   Nullifier,
-  NullifierKeyValidationRequest,
   NullifierLeafPreimage,
   NullifierNonExistentReadRequestHintsBuilder,
   NullifierReadRequestHintsBuilder,
@@ -119,7 +117,7 @@ import {
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
-  ScopedNullifierKeyValidationRequest,
+  ScopedKeyValidationRequest,
   ScopedReadRequest,
   StateDiffHints,
   StateReference,
@@ -128,6 +126,7 @@ import {
   VK_TREE_HEIGHT,
   VerificationKey,
   VerificationKeyAsFields,
+  VerificationKeyData,
   computeContractClassId,
   computePublicBytecodeCommitment,
   makeRecursiveProof,
@@ -209,16 +208,16 @@ function makeScopedReadRequest(n: number): ScopedReadRequest {
 }
 
 /**
- * Creates arbitrary NullifierKeyValidationRequest from the given seed.
- * @param seed - The seed to use for generating the NullifierKeyValidationRequest.
- * @returns A NullifierKeyValidationRequest.
+ * Creates arbitrary KeyValidationRequest from the given seed.
+ * @param seed - The seed to use for generating the KeyValidationRequest.
+ * @returns A KeyValidationRequest.
  */
-function makeNullifierKeyValidationRequest(seed: number): NullifierKeyValidationRequest {
-  return new NullifierKeyValidationRequest(makePoint(seed), fr(seed + 2));
+function makeKeyValidationRequests(seed: number): KeyValidationRequest {
+  return new KeyValidationRequest(makePoint(seed), fr(seed + 2));
 }
 
-function makeScopedNullifierKeyValidationRequest(seed: number): ScopedNullifierKeyValidationRequest {
-  return new ScopedNullifierKeyValidationRequest(makeNullifierKeyValidationRequest(seed), makeAztecAddress(seed + 4));
+function makeScopedKeyValidationRequests(seed: number): ScopedKeyValidationRequest {
+  return new ScopedKeyValidationRequest(makeKeyValidationRequests(seed), makeAztecAddress(seed + 4));
 }
 
 /**
@@ -279,7 +278,7 @@ export function makeValidationRequests(seed = 1) {
     makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x80),
     makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x90),
     makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x95),
-    makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, makeScopedNullifierKeyValidationRequest, seed + 0x100),
+    makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, makeScopedKeyValidationRequests, seed + 0x100),
     makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
   );
 }
@@ -346,20 +345,6 @@ export function makePublicAccumulatedData(seed = 1, full = false): PublicAccumul
     ),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500, CallRequest.empty),
     makeGas(seed + 0x600),
-  );
-}
-
-/**
- * Creates arbitrary aggregation object.
- * @param seed - The seed to use for generating the aggregation object.
- * @returns An aggregation object.
- */
-export function makeAggregationObject(seed = 1): AggregationObject {
-  return new AggregationObject(
-    new G1AffineElement(new Fq(BigInt(seed)), new Fq(BigInt(seed + 1))),
-    new G1AffineElement(new Fq(BigInt(seed + 0x100)), new Fq(BigInt(seed + 0x101))),
-    makeTuple(4, fr, seed + 2),
-    range(6, seed + 6),
   );
 }
 
@@ -435,7 +420,6 @@ export function makePublicKernelCircuitPublicInputs(
 ): PublicKernelCircuitPublicInputs {
   const tupleGenerator = fullAccumulatedData ? makeTuple : makeHalfFullTuple;
   return new PublicKernelCircuitPublicInputs(
-    makeAggregationObject(seed),
     makeValidationRequests(seed),
     makePublicAccumulatedData(seed, fullAccumulatedData),
     makePublicAccumulatedData(seed, fullAccumulatedData),
@@ -470,7 +454,6 @@ export function makePrivateKernelTailCircuitPublicInputs(
       )
     : undefined;
   return new PrivateKernelTailCircuitPublicInputs(
-    makeAggregationObject(seed),
     makeConstantData(seed + 0x300),
     RevertCode.OK,
     makeAztecAddress(seed + 0x700),
@@ -486,7 +469,6 @@ export function makePrivateKernelTailCircuitPublicInputs(
  */
 export function makeKernelCircuitPublicInputs(seed = 1, fullAccumulatedData = true): KernelCircuitPublicInputs {
   return new KernelCircuitPublicInputs(
-    makeAggregationObject(seed),
     makeRollupValidationRequests(seed),
     makeCombinedAccumulatedData(seed, fullAccumulatedData),
     makeConstantData(seed + 0x100),
@@ -507,21 +489,11 @@ export function makePublicCallRequest(seed = 1): PublicCallRequest {
 
   return new PublicCallRequest(
     makeAztecAddress(seed),
-    new FunctionData(makeSelector(seed + 0x1), /*isPrivate=*/ false, /*isStatic=*/ false),
+    makeSelector(seed + 0x1),
     childCallContext,
     parentCallContext,
     makeTuple(ARGS_LENGTH, fr, seed + 0x10),
   );
-}
-
-/**
- * Creates a uint8 vector of a given size filled with a given value.
- * @param size - The size of the vector.
- * @param fill - The value to fill the vector with.
- * @returns A uint8 vector.
- */
-export function makeDynamicSizeBuffer(size: number, fill: number) {
-  return new Proof(Buffer.alloc(size, fill));
 }
 
 /**
@@ -577,8 +549,8 @@ export function makeGrumpkinPrivateKey(seed = 1): GrumpkinPrivateKey {
 export function makePublicKernelData(seed = 1, kernelPublicInputs?: PublicKernelCircuitPublicInputs): PublicKernelData {
   return new PublicKernelData(
     kernelPublicInputs ?? makePublicKernelCircuitPublicInputs(seed, true),
-    new Proof(Buffer.alloc(16, seed + 0x80)),
-    makeVerificationKey(),
+    makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x80),
+    VerificationKeyData.makeFake(),
     0x42,
     makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
   );
@@ -593,8 +565,8 @@ export function makePublicKernelData(seed = 1, kernelPublicInputs?: PublicKernel
 export function makeRollupKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): KernelData {
   return new KernelData(
     kernelPublicInputs ?? makeKernelCircuitPublicInputs(seed, true),
-    new Proof(Buffer.alloc(16, seed + 0x80)),
-    makeVerificationKey(),
+    makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x80),
+    VerificationKeyData.makeFake(),
     0x42,
     makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
   );
@@ -606,7 +578,7 @@ export function makeRollupKernelData(seed = 1, kernelPublicInputs?: KernelCircui
  * @returns A proof.
  */
 export function makeProof(seed = 1) {
-  return makeDynamicSizeBuffer(16, seed);
+  return new Proof(Buffer.alloc(16, seed), 0);
 }
 
 /**
@@ -640,7 +612,7 @@ export function makePublicCallStackItem(seed = 1, full = false): PublicCallStack
   const callStackItem = new PublicCallStackItem(
     makeAztecAddress(seed),
     // in the public kernel, function can't be a constructor or private
-    new FunctionData(makeSelector(seed + 0x1), /*isPrivate=*/ false, /*isStatic=*/ false),
+    new FunctionData(makeSelector(seed + 0x1), /*isPrivate=*/ false),
     makePublicCircuitPublicInputs(seed + 0x10, undefined, full),
     false,
   );
@@ -681,7 +653,7 @@ export function makePublicKernelCircuitPrivateInputs(seed = 1): PublicKernelCirc
 export function makePublicKernelTailCircuitPrivateInputs(seed = 1): PublicKernelTailCircuitPrivateInputs {
   return new PublicKernelTailCircuitPrivateInputs(
     makePublicKernelData(seed),
-    NullifierReadRequestHintsBuilder.empty(),
+    NullifierReadRequestHintsBuilder.empty(MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX),
     NullifierNonExistentReadRequestHintsBuilder.empty(),
     makeTuple(MAX_PUBLIC_DATA_HINTS, PublicDataHint.empty, seed + 0x100),
     PublicDataReadRequestHintsBuilder.empty(),
@@ -726,7 +698,7 @@ export function makePublicKernelInputsWithTweak(
 export function makeTxRequest(seed = 1): TxRequest {
   return TxRequest.from({
     origin: makeAztecAddress(seed),
-    functionData: new FunctionData(makeSelector(seed + 0x100), /*isPrivate=*/ true, /*isStatic=*/ false),
+    functionData: new FunctionData(makeSelector(seed + 0x100), /*isPrivate=*/ true),
     argsHash: fr(seed + 0x200),
     txContext: makeTxContext(seed + 0x400),
   });
@@ -740,7 +712,7 @@ export function makeTxRequest(seed = 1): TxRequest {
 export function makePrivateCallStackItem(seed = 1): PrivateCallStackItem {
   return new PrivateCallStackItem(
     makeAztecAddress(seed),
-    new FunctionData(makeSelector(seed + 0x1), /*isPrivate=*/ true, /*isStatic=*/ false),
+    new FunctionData(makeSelector(seed + 0x1), /*isPrivate=*/ true),
     makePrivateCircuitPublicInputs(seed + 0x10),
   );
 }
@@ -759,11 +731,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     minRevertibleSideEffectCounter: fr(0),
     noteHashReadRequests: makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x300),
     nullifierReadRequests: makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x310),
-    nullifierKeyValidationRequests: makeTuple(
-      MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
-      makeNullifierKeyValidationRequest,
-      seed + 0x320,
-    ),
+    keyValidationRequests: makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, makeKeyValidationRequests, seed + 0x320),
     newNoteHashes: makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, makeNoteHash, seed + 0x400),
     newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, makeNullifier, seed + 0x500),
     privateCallRequests: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, makePrivateCallRequest, seed + 0x600),
@@ -894,7 +862,6 @@ export function makeBaseOrMergeRollupPublicInputs(
   return new BaseOrMergeRollupPublicInputs(
     RollupTypes.Base,
     new Fr(0n),
-    makeAggregationObject(seed + 0x100),
     makeConstantBaseRollupData(seed + 0x200, globalVariables),
     makePartialStateReference(seed + 0x300),
     makePartialStateReference(seed + 0x400),
@@ -916,8 +883,8 @@ export function makePreviousRollupData(
 ): PreviousRollupData {
   return new PreviousRollupData(
     makeBaseOrMergeRollupPublicInputs(seed, globalVariables),
-    makeDynamicSizeBuffer(16, seed + 0x50),
-    makeVerificationKey(),
+    makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x50),
+    VerificationKeyAsFields.makeFake(),
     seed + 0x110,
     makeMembershipWitness(ROLLUP_VK_TREE_HEIGHT, seed + 0x120),
   );
@@ -981,7 +948,6 @@ export function makeRootRollupPublicInputs(
   blockNumber: number | undefined = undefined,
 ): RootRollupPublicInputs {
   return RootRollupPublicInputs.from({
-    aggregationObject: makeAggregationObject(seed),
     archive: makeAppendOnlyTreeSnapshot(seed + 0x100),
     header: makeHeader(seed + 0x200, blockNumber),
   });
@@ -1129,21 +1095,21 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   const stateDiffHints = makeStateDiffHints(seed + 0x600);
 
   const sortedPublicDataWrites = makeTuple(
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     makePublicDataTreeLeaf,
     seed + 0x8000,
   );
 
-  const sortedPublicDataWritesIndexes = makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => i, 0);
+  const sortedPublicDataWritesIndexes = makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => i, 0);
 
   const lowPublicDataWritesPreimages = makeTuple(
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     makePublicDataTreeLeafPreimage,
     seed + 0x8200,
   );
 
   const lowPublicDataWritesMembershipWitnesses = makeTuple(
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     i => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, i),
     seed + 0x8400,
   );
@@ -1151,6 +1117,8 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
   const constants = makeConstantBaseRollupData(0x100);
+
+  const feePayerGasTokenBalanceReadHint = PublicDataHint.empty();
 
   return BaseRollupInputs.from({
     kernelData,
@@ -1162,6 +1130,7 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     lowPublicDataWritesMembershipWitnesses,
     archiveRootMembershipWitness,
     constants,
+    feePayerGasTokenBalanceReadHint,
   });
 }
 

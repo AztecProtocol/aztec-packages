@@ -13,24 +13,29 @@ import {
   type ScopedReadRequest,
 } from '../structs/index.js';
 import { countAccumulatedItems, getNonEmptyItems } from '../utils/index.js';
+import { ScopedValueCache } from './scoped_value_cache.js';
 
-function isValidNoteHashReadRequest(readRequest: ScopedReadRequest, noteHash: ScopedNoteHash) {
+export function isValidNoteHashReadRequest(readRequest: ScopedReadRequest, noteHash: ScopedNoteHash) {
   return (
+    noteHash.value.equals(readRequest.value) &&
     noteHash.contractAddress.equals(readRequest.contractAddress) &&
     readRequest.counter > noteHash.counter &&
     (noteHash.nullifierCounter === 0 || noteHash.nullifierCounter > readRequest.counter)
   );
 }
 
-export async function buildNoteHashReadRequestHints(
+export async function buildNoteHashReadRequestHints<PENDING extends number, SETTLED extends number>(
   oracle: {
     getNoteHashMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>>;
   },
   noteHashReadRequests: Tuple<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
   noteHashes: Tuple<ScopedNoteHash, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
   noteHashLeafIndexMap: Map<bigint, bigint>,
+  sizePending: PENDING,
+  sizeSettled: SETTLED,
+  futureNoteHashes: ScopedNoteHash[],
 ) {
-  const builder = new NoteHashReadRequestHintsBuilder();
+  const builder = new NoteHashReadRequestHintsBuilder(sizePending, sizeSettled);
 
   const numReadRequests = countAccumulatedItems(noteHashReadRequests);
 
@@ -42,16 +47,24 @@ export async function buildNoteHashReadRequestHints(
     noteHashMap.set(value, arr);
   });
 
+  const futureNoteHashMap = new ScopedValueCache(futureNoteHashes);
+
   for (let i = 0; i < numReadRequests; ++i) {
     const readRequest = noteHashReadRequests[i];
+
     const value = readRequest.value;
 
     const pendingNoteHash = noteHashMap
       .get(value.toBigInt())
       ?.find(n => isValidNoteHashReadRequest(readRequest, n.noteHash));
+
     if (pendingNoteHash !== undefined) {
       builder.addPendingReadRequest(i, pendingNoteHash.index);
-    } else {
+    } else if (
+      !futureNoteHashMap
+        .get(readRequest)
+        .find(futureNoteHash => isValidNoteHashReadRequest(readRequest, futureNoteHash))
+    ) {
       const siloedValue = siloNoteHash(readRequest.contractAddress, value);
       const leafIndex = noteHashLeafIndexMap.get(siloedValue.toBigInt());
       if (leafIndex === undefined) {

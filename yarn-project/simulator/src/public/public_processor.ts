@@ -13,10 +13,23 @@ import {
   validateProcessedTx,
 } from '@aztec/circuit-types';
 import { type TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
-import { type GlobalVariables, type Header, type KernelCircuitPublicInputs } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  GAS_TOKEN_ADDRESS,
+  type GlobalVariables,
+  type Header,
+  type KernelCircuitPublicInputs,
+  PublicDataUpdateRequest,
+} from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { PublicExecutor, type PublicStateDB, type SimulationProvider } from '@aztec/simulator';
+import {
+  PublicExecutor,
+  type PublicStateDB,
+  type SimulationProvider,
+  computeFeePayerBalanceStorageSlot,
+} from '@aztec/simulator';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
@@ -101,7 +114,7 @@ export class PublicProcessor {
     txs = txs.map(tx => Tx.clone(tx));
     const result: ProcessedTx[] = [];
     const failed: FailedTx[] = [];
-    const returns: NestedProcessReturnValues[] = [];
+    let returns: NestedProcessReturnValues[] = [];
 
     for (const tx of txs) {
       // only process up to the limit of the block
@@ -112,7 +125,17 @@ export class PublicProcessor {
         const [processedTx, returnValues] = !tx.hasPublicCalls()
           ? [makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), tx.proof, [])]
           : await this.processTxWithPublicCalls(tx);
+
+        // Push fee payment update request into the processed tx
+        const feePaymentUpdateRequest = await this.createFeePaymentDataUpdateRequest(processedTx);
+        if (feePaymentUpdateRequest) {
+          processedTx.protocolPublicDataUpdateRequests.push(feePaymentUpdateRequest);
+        }
+
+        // Commit the state updates from this transaction
+        await this.publicStateDB.commit();
         validateProcessedTx(processedTx);
+
         // Re-validate the transaction
         if (txValidator) {
           // Only accept processed transactions that are not double-spends,
@@ -129,10 +152,10 @@ export class PublicProcessor {
           await blockProver.addNewTx(processedTx);
         }
         result.push(processedTx);
-        returns.push(returnValues?.[0] ?? new NestedProcessReturnValues([]));
+        returns = returns.concat(returnValues ?? []);
       } catch (err: any) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        this.log.warn(`Failed to process tx ${tx.getTxHash()}: ${errorMessage}`);
+        this.log.warn(`Failed to process tx ${tx.getTxHash()}: ${errorMessage} ${err?.stack}`);
 
         failed.push({
           tx,
@@ -143,6 +166,30 @@ export class PublicProcessor {
     }
 
     return [result, failed, returns];
+  }
+
+  /**
+   * Creates the fee payment protocol data update, emulating the logic from the circuit
+   * BaseRollupInputs.build_payment_update_request, and updates the local public state db.
+   * @remarks Only runs if fee payer is set (for now).
+   */
+  private async createFeePaymentDataUpdateRequest(tx: ProcessedTx): Promise<PublicDataUpdateRequest | undefined> {
+    const feePayer = tx.data.feePayer;
+    if (feePayer.isZero()) {
+      return;
+    }
+
+    const gasToken = AztecAddress.fromBigInt(GAS_TOKEN_ADDRESS);
+    const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
+    const currentBalance = await this.publicStateDB.storageRead(gasToken, balanceSlot);
+    const txFee = tx.data.getTransactionFee(this.globalVariables.gasFees);
+    if (currentBalance.lt(txFee)) {
+      throw new Error(`Not enough balance for fee payer to pay for transaction (got ${currentBalance} needs ${txFee})`);
+    }
+
+    const updatedBalance = currentBalance.sub(txFee);
+    const slot = await this.publicStateDB.storageWrite(gasToken, balanceSlot, updatedBalance);
+    return new PublicDataUpdateRequest(new Fr(slot), updatedBalance);
   }
 
   /**
@@ -168,14 +215,13 @@ export class PublicProcessor {
       this.publicStateDB,
     );
     this.log.debug(`Beginning processing in phase ${phase?.phase} for tx ${tx.getTxHash()}`);
-    let proof = tx.proof;
     let publicKernelPublicInput = tx.data.toPublicKernelCircuitPublicInputs();
     let finalKernelOutput: KernelCircuitPublicInputs | undefined;
     let revertReason: SimulationError | undefined;
     const timer = new Timer();
     const gasUsed: ProcessedTx['gasUsed'] = {};
     while (phase) {
-      const output = await phase.handle(tx, publicKernelPublicInput, proof);
+      const output = await phase.handle(tx, publicKernelPublicInput);
       gasUsed[publicKernelPhaseToKernelType(phase.phase)] = output.gasUsed;
       if (phase.phase === PublicKernelPhase.APP_LOGIC) {
         returnValues = output.returnValues;
@@ -183,7 +229,6 @@ export class PublicProcessor {
       publicRequests.push(...output.kernelRequests);
       publicKernelPublicInput = output.publicKernelOutput;
       finalKernelOutput = output.finalKernelOutput;
-      proof = output.publicKernelProof;
       revertReason ??= output.revertReason;
       phase = PhaseManagerFactory.phaseFromOutput(
         publicKernelPublicInput,
@@ -202,12 +247,12 @@ export class PublicProcessor {
       throw new Error('Final public kernel was not executed.');
     }
 
-    const processedTx = makeProcessedTx(tx, finalKernelOutput, proof, publicRequests, revertReason, gasUsed);
+    const processedTx = makeProcessedTx(tx, finalKernelOutput, tx.proof, publicRequests, revertReason, gasUsed);
 
     this.log.debug(`Processed public part of ${tx.getTxHash()}`, {
       eventName: 'tx-sequencer-processing',
       duration: timer.ms(),
-      effectsSize: toTxEffect(processedTx).toBuffer().length,
+      effectsSize: toTxEffect(processedTx, this.globalVariables.gasFees).toBuffer().length,
       publicDataUpdateRequests:
         processedTx.data.end.publicDataUpdateRequests.filter(x => !x.leafSlot.isZero()).length ?? 0,
       ...tx.getStats(),

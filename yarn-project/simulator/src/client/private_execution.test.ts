@@ -12,11 +12,11 @@ import {
   AppendOnlyTreeSnapshot,
   CallContext,
   CompleteAddress,
-  FunctionData,
   GasSettings,
   GeneratorIndex,
   type GrumpkinPrivateKey,
   Header,
+  KeyValidationRequest,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
@@ -112,11 +112,10 @@ describe('Private Execution test suite', () => {
     txContext?: Partial<FieldsOf<TxContext>>;
   }) => {
     const packedArguments = PackedValues.fromValues(encodeArguments(artifact, args));
-    const functionData = FunctionData.fromAbi(artifact);
     const txRequest = TxExecutionRequest.from({
       origin: contractAddress,
       firstCallArgsHash: packedArguments.hash,
-      functionData,
+      functionSelector: FunctionSelector.fromNameAndParameters(artifact.name, artifact.parameters),
       txContext: TxContext.from({ ...txContextFields, ...txContext }),
       argsOfCalls: [packedArguments],
       authWitnesses: [],
@@ -192,20 +191,24 @@ describe('Private Execution test suite', () => {
   beforeEach(async () => {
     trees = {};
     oracle = mock<DBOracle>();
-    oracle.getNullifierKeys.mockImplementation((masterNullifierPublicKeyHash: Fr, contractAddress: AztecAddress) => {
-      if (masterNullifierPublicKeyHash.equals(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
-        return Promise.resolve({
-          masterNullifierPublicKey: ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
-          appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
-        });
+    oracle.getKeyValidationRequest.mockImplementation((npkMHash: Fr, contractAddress: AztecAddress) => {
+      if (npkMHash.equals(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
+        return Promise.resolve(
+          new KeyValidationRequest(
+            ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
+            computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
+          ),
+        );
       }
-      if (masterNullifierPublicKeyHash.equals(recipientCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
-        return Promise.resolve({
-          masterNullifierPublicKey: recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
-          appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
-        });
+      if (npkMHash.equals(recipientCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
+        return Promise.resolve(
+          new KeyValidationRequest(
+            recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
+            computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
+          ),
+        );
       }
-      throw new Error(`Unknown master nullifier public key hash: ${masterNullifierPublicKeyHash}`);
+      throw new Error(`Unknown master nullifier public key hash: ${npkMHash}`);
     });
 
     // We call insertLeaves here with no leaves to populate empty public data tree root --> this is necessary to be
@@ -827,11 +830,14 @@ describe('Private Execution test suite', () => {
       });
 
       // Alter function data to match the manipulated oracle
-      const functionData = FunctionData.fromAbi(childContractArtifact);
+      const functionSelector = FunctionSelector.fromNameAndParameters(
+        childContractArtifact.name,
+        childContractArtifact.parameters,
+      );
 
       const publicCallRequest = PublicCallRequest.from({
         contractAddress: childAddress,
-        functionData: functionData,
+        functionSelector,
         args: [new Fr(42n)],
         callContext: CallContext.from({
           msgSender: parentAddress,
@@ -866,7 +872,9 @@ describe('Private Execution test suite', () => {
       oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve({ ...teardown }));
       const result = await runSimulator({ artifact: entrypoint });
       expect(result.publicTeardownFunctionCall.isEmpty()).toBeFalsy();
-      expect(result.publicTeardownFunctionCall.functionData).toEqual(FunctionData.fromAbi(teardown));
+      expect(result.publicTeardownFunctionCall.functionSelector).toEqual(
+        FunctionSelector.fromNameAndParameters(teardown.name, teardown.parameters),
+      );
     });
   });
 
