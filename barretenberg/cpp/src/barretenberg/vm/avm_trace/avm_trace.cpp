@@ -154,7 +154,6 @@ void AvmTraceBuilder::op_add(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
-        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -223,7 +222,6 @@ void AvmTraceBuilder::op_sub(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
-        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -292,7 +290,6 @@ void AvmTraceBuilder::op_mul(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
-        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -371,7 +368,6 @@ void AvmTraceBuilder::op_fdiv(uint8_t indirect, uint32_t a_offset, uint32_t b_of
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
         .avm_main_op_err = tag_match ? error : FF(1),
-        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
         .avm_main_rwc = FF(1),
@@ -443,7 +439,6 @@ void AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_o
         .avm_main_mem_idx_c = FF(direct_dst_offset),
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_c = FF(1),
-        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -489,6 +484,9 @@ void AvmTraceBuilder::op_eq(
     mem_trace_builder.write_into_memory(
         call_ptr, clk, IntermRegister::IC, res.direct_c_offset, c, in_tag, AvmMemoryTag::U8);
 
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::EQ);
+
     main_trace.push_back(Row{
         .avm_main_clk = clk,
         .avm_main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
@@ -509,7 +507,6 @@ void AvmTraceBuilder::op_eq(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
-        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -563,7 +560,6 @@ void AvmTraceBuilder::op_and(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
-        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -617,7 +613,6 @@ void AvmTraceBuilder::op_or(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
-        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -671,7 +666,6 @@ void AvmTraceBuilder::op_xor(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
-        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -725,7 +719,6 @@ void AvmTraceBuilder::op_lt(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
-        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -779,7 +772,6 @@ void AvmTraceBuilder::op_lte(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
-        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -833,7 +825,6 @@ void AvmTraceBuilder::op_shr(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
-        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -887,7 +878,6 @@ void AvmTraceBuilder::op_shl(
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
-        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -937,7 +927,6 @@ void AvmTraceBuilder::op_set(uint8_t indirect, uint128_t val, uint32_t dst_offse
         .avm_main_internal_return_ptr = internal_return_ptr,
         .avm_main_mem_idx_c = direct_dst_offset,
         .avm_main_mem_op_c = 1,
-        .avm_main_opcode_active = FF(1),
         .avm_main_pc = pc++,
         .avm_main_rwc = 1,
         .avm_main_tag_err = static_cast<uint32_t>(!tag_match),
@@ -997,7 +986,6 @@ void AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst
         .avm_main_mem_idx_c = direct_dst_offset,
         .avm_main_mem_op_a = 1,
         .avm_main_mem_op_c = 1,
-        .avm_main_opcode_active = FF(1),
         .avm_main_pc = pc++,
         .avm_main_r_in_tag = static_cast<uint32_t>(tag),
         .avm_main_rwc = 1,
@@ -1107,7 +1095,6 @@ void AvmTraceBuilder::op_cmov(
         .avm_main_mem_op_b = 1,
         .avm_main_mem_op_c = 1,
         .avm_main_mem_op_d = 1,
-        .avm_main_opcode_active = FF(1),
         .avm_main_pc = pc++,
         .avm_main_r_in_tag = static_cast<uint32_t>(tag),
         .avm_main_rwc = 1,
@@ -1136,7 +1123,6 @@ Row AvmTraceBuilder::create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t s
         .avm_main_internal_return_ptr = internal_return_ptr,
         .avm_main_mem_idx_a = dst_offset,
         .avm_main_mem_op_a = 1,
-        .avm_main_opcode_active = FF(1),
         .avm_main_pc = pc++,
         .avm_main_q_kernel_lookup = 1,
         .avm_main_rwa = 1,
@@ -1483,7 +1469,6 @@ void AvmTraceBuilder::op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_
         .avm_main_mem_idx_c = FF(direct_dst_offset),
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_c = FF(1),
-        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(memEntry.tag)),
         .avm_main_rwc = FF(1),
@@ -1541,6 +1526,9 @@ void AvmTraceBuilder::op_div(
     // Write into memory value c from intermediate register ic.
     mem_trace_builder.write_into_memory(call_ptr, clk, IntermRegister::IC, res.direct_c_offset, c, in_tag, in_tag);
 
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::DIV);
+
     main_trace.push_back(Row{
         .avm_main_clk = clk,
         .avm_main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
@@ -1563,7 +1551,6 @@ void AvmTraceBuilder::op_div(
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
         .avm_main_op_err = tag_match ? error : FF(1),
-        .avm_main_opcode_active = FF(1),
         .avm_main_pc = FF(pc++),
         .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_rwc = FF(1),
@@ -3594,17 +3581,16 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
         current_clk++;
     }
 
+    // Pad the rest of the trace with the same gas remaining
+    for (size_t i = current_clk + 1; i < main_trace_size; i++) {
+        auto& dest = main_trace.at(i);
+        dest.avm_main_l2_gas_remaining = current_l2_gas_remaining;
+        dest.avm_main_da_gas_remaining = current_da_gas_remaining;
+    }
+
     // Finalise gas left lookup counts
     for (auto const& [opcode, count] : gas_trace_builder.gas_opcode_lookup_counter) {
         main_trace.at(static_cast<uint8_t>(opcode)).lookup_opcode_gas_counts = count;
-    }
-
-    // Pad the rest of the trace with the same gas remaining
-    auto last_gas_trace = gas_trace.back();
-    for (size_t i = last_gas_trace.clk + 1; i < main_trace_size; i++) {
-        auto& dest = main_trace.at(i);
-        dest.avm_main_l2_gas_remaining = last_gas_trace.remaining_l2_gas;
-        dest.avm_main_da_gas_remaining = last_gas_trace.remaining_da_gas;
     }
 
     /////////// END OF GAS ACCOUNTING //////////////////////////
