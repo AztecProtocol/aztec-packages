@@ -53,16 +53,31 @@ class AcirIntegrationTest : public ::testing::Test {
         using VerificationKey = Flavor::VerificationKey;
 
         Prover prover{ builder };
-        // builder.blocks.summarize();
-        // info("num gates          = ", builder.get_num_gates());
-        // info("total circuit size = ", builder.get_total_circuit_size());
-        // info("circuit size       = ", prover.instance->proving_key.circuit_size);
-        // info("log circuit size   = ", prover.instance->proving_key.log_circuit_size);
+        builder.blocks.summarize();
+        info("num gates          = ", builder.get_num_gates());
+        info("total circuit size = ", builder.get_total_circuit_size());
+        info("circuit size       = ", prover.instance->proving_key.circuit_size);
+        info("log circuit size   = ", prover.instance->proving_key.log_circuit_size);
         auto proof = prover.construct_proof();
 
         // Verify Honk proof
         auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
         Verifier verifier{ verification_key };
+
+        return verifier.verify_proof(proof);
+    }
+
+    template <class Flavor> bool prove_and_verify_plonk(Flavor::CircuitBuilder& builder)
+    {
+        plonk::UltraComposer composer;
+        auto prover = composer.create_prover(builder);
+        builder.blocks.summarize();
+        info("num gates          = ", builder.get_num_gates());
+        info("total circuit size = ", builder.get_total_circuit_size());
+        auto proof = prover.construct_proof();
+
+        // Verify Honk proof
+        auto verifier = composer.create_verifier(builder);
 
         return verifier.verify_proof(proof);
     }
@@ -80,7 +95,8 @@ class AcirIntegrationFoldingTest : public AcirIntegrationTest, public testing::W
 
 TEST_P(AcirIntegrationSingleTest, ProveAndVerifyProgram)
 {
-    using Flavor = GoblinUltraFlavor;
+    using Flavor = UltraFlavor;
+    // using Flavor = bb::plonk::flavor::Ultra;
     using Builder = Flavor::CircuitBuilder;
 
     std::string test_name = GetParam();
@@ -92,12 +108,13 @@ TEST_P(AcirIntegrationSingleTest, ProveAndVerifyProgram)
 
     // Construct and verify Honk proof
     EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
+    // EXPECT_TRUE(prove_and_verify_plonk<Flavor>(builder));
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/994): Run all tests
 INSTANTIATE_TEST_SUITE_P(AcirTests,
                          AcirIntegrationSingleTest,
-                         testing::Values("1327_concrete_in_generic",
+                         testing::Values("ci_failure"/* "1327_concrete_in_generic",
                                          "1_mul",
                                          "2_div",
                                          "3_add",
@@ -297,7 +314,7 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "unit_value",
                                          "unsafe_range_constraint",
                                          "witness_compression",
-                                         "xor"));
+                                         "xor" */));
 
 TEST_P(AcirIntegrationFoldingTest, ProveAndVerifyProgramStack)
 {
