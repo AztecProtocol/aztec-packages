@@ -54,7 +54,8 @@ contract GasToken {
     }
 
     // utility function for testing
-    unconstrained fn balance_of_public(owner: AztecAddress) -> pub Field {
+    #[aztec(public)]
+    fn balance_of_public(owner: AztecAddress) -> pub Field {
         storage.balances.at(owner).read().to_field()
     }
 }

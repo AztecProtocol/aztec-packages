@@ -93,7 +93,8 @@ contract StatefulTest {
         balance_utils::get_balance(owner_balance)
     }
 
-    unconstrained fn get_public_value(owner: AztecAddress) -> pub Field {
+    #[aztec(public)]
+    fn get_public_value(owner: AztecAddress) -> pub Field {
         storage.public_values.at(owner).read()
     }
 }

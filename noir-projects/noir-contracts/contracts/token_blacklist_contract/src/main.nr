@@ -31,6 +31,16 @@ contract TokenBlacklist {
         roles: Map<AztecAddress, SharedMutable<UserFlags, CHANGE_ROLES_DELAY_BLOCKS>>,
     }
 
+    #[aztec(public)]
+    fn total_supply() -> pub Field {
+        storage.total_supply.read().to_field()
+    }
+
+    #[aztec(public)]
+    fn balance_of_public(owner: AztecAddress) -> pub Field {
+        storage.public_balances.at(owner).read().to_field()
+    }
+
     // docs:start:constructor
     #[aztec(public)]
     #[aztec(initializer)]
@@ -182,8 +192,7 @@ contract TokenBlacklist {
 
         storage.balances.sub(from, U128::from_integer(amount));
 
-        let selector = FunctionSelector::from_signature("_increase_public_balance((Field),Field)");
-        context.call_public_function(context.this_address(), selector, [to.to_field(), amount]);
+        TokenBlacklist::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
 
     // docs:start:transfer_private
@@ -218,8 +227,7 @@ contract TokenBlacklist {
 
         storage.balances.sub(from, U128::from_integer(amount));
 
-        let selector = FunctionSelector::from_signature("_reduce_total_supply(Field)");
-        context.call_public_function(context.this_address(), selector, [amount]);
+        TokenBlacklist::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
 
     /// Internal ///
@@ -241,15 +249,7 @@ contract TokenBlacklist {
 
     /// Unconstrained ///
 
-    unconstrained fn total_supply() -> pub Field {
-        storage.total_supply.read().to_field()
-    }
-
     unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
         storage.balances.balance_of(owner).to_field()
-    }
-
-    unconstrained fn balance_of_public(owner: AztecAddress) -> pub Field {
-        storage.public_balances.at(owner).read().to_field()
     }
 }

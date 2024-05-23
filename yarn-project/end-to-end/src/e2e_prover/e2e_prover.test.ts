@@ -20,7 +20,7 @@ describe('full_prover', () => {
     await t.applyMintSnapshot();
     await t.setup();
     await t.deployVerifier();
-    ({ provenAssets, accounts, tokenSim, logger, proofCreator } = t);
+    ({ provenAssets, accounts, tokenSim, logger, proofCreator, wallets } = t);
   });
 
   afterAll(async () => {

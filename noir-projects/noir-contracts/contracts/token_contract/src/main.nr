@@ -76,10 +76,6 @@ contract Token {
     }
     // docs:end:set_admin
 
-    unconstrained fn un_get_name() -> pub [u8; 31] {
-        storage.name.read_public().to_bytes()
-    }
-
     #[aztec(public)]
     fn public_get_name() -> pub FieldCompressedString {
         storage.name.read_public()
@@ -90,10 +86,6 @@ contract Token {
         storage.name.read_private()
     }
 
-    unconstrained fn un_get_symbol() -> pub [u8; 31] {
-        storage.symbol.read_public().to_bytes()
-    }
-
     #[aztec(public)]
     fn public_get_symbol() -> pub FieldCompressedString {
         storage.symbol.read_public()
@@ -102,10 +94,6 @@ contract Token {
     #[aztec(private)]
     fn private_get_symbol() -> pub FieldCompressedString {
         storage.symbol.read_private()
-    }
-
-    unconstrained fn un_get_decimals() -> pub u8 {
-        storage.decimals.read_public()
     }
 
     #[aztec(public)]
@@ -192,7 +180,7 @@ contract Token {
         let from_balance = storage.public_balances.at(from).read().sub(amount);
 
         let pending_shields = storage.pending_shields;
-        let mut note = TransparentNote::new(amount.to_integer(), secret_hash);
+        let mut note = TransparentNote::new(amount.to_field(), secret_hash);
 
         storage.public_balances.at(from).write(from_balance);
         pending_shields.insert_from_public(&mut note);
