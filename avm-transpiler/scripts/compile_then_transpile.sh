@@ -13,7 +13,7 @@ TRANSPILER=${TRANSPILER:-avm-transpiler}
 if [ "${1:-}" != "compile" ]; then
   # if not compiling, just pass through to nargo verbatim
   $NARGO $@
-  exit 0
+  exit $?
 fi
 shift # remove the compile arg so we can inject --show-artifact-paths
 
