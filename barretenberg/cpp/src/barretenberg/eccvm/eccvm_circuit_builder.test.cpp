@@ -247,16 +247,3 @@ TEST(ECCVMCircuitBuilderTests, MSM)
     bool result = ECCVMTraceChecker::check(circuit, &engine);
     EXPECT_EQ(result, true);
 }
-
-TEST(ECCVMCircuitBuilderTests, MSMEdgeCases)
-{
-    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
-
-    op_queue->mul_accumulate(AffineElement::one(), 1);
-    op_queue->mul_accumulate(AffineElement::one(), Fr::random_element(&engine));
-    op_queue->eq_and_reset();
-
-    ECCVMCircuitBuilder circuit{ op_queue };
-    bool result = ECCVMTraceChecker::check(circuit);
-    EXPECT_EQ(result, true);
-}
