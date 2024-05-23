@@ -1,10 +1,10 @@
-#include <filesystem>
-#include <gtest/gtest.h>
 
-#include "acir_format.hpp"
 #include "barretenberg/bb/exec_pipe.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+
+#include <filesystem>
+#include <gtest/gtest.h>
 
 class AcirIntegrationTests : public ::testing::TestWithParam<std::string> {
   public:
@@ -87,8 +87,7 @@ TEST_P(AcirIntegrationTests, ProveAndVerifyProgram)
     EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
 }
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/994)
-// Run all tests.
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/994): Run all tests
 INSTANTIATE_TEST_SUITE_P(AcirTests,
                          AcirIntegrationTests,
                          testing::Values("1327_concrete_in_generic",
@@ -192,14 +191,6 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "eddsa",
                                          "embedded_curve_ops",
                                          "field_attribute",
-                                         //  "fold_after_inlined_calls",
-                                         //  "fold_basic",
-                                         //  "fold_basic_nested_call",
-                                         //  "fold_call_witness_condition",
-                                         //  "fold_complex_outputs",
-                                         //  "fold_distinct_return",
-                                         //  "fold_fibonacci",
-                                         //  "fold_numeric_generic_poseidon",
                                          "generics",
                                          "global_consts",
                                          "hash_to_field",
@@ -300,3 +291,37 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "unsafe_range_constraint",
                                          "witness_compression",
                                          "xor"));
+
+// TEST_P(AcirIntegrationTests, ProveAndVerifyProgramStack)
+// {
+//     using Flavor = GoblinUltraFlavor;
+//     using Builder = Flavor::CircuitBuilder;
+
+//     std::string test_name = GetParam();
+//     info("Test: ", test_name);
+
+//     auto program_stack = get_program_stack_data_from_test_file(test_name);
+
+//     while (!program_stack.empty()) {
+//         auto program = program_stack.back();
+
+//         // Construct a bberg circuit from the acir representation
+//         auto builder = acir_format::create_circuit<Builder>(program.constraints, 0, program.witness);
+
+//         // Construct and verify Honk proof for the individidual circuit
+//         EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
+
+//         program_stack.pop_back();
+//     }
+// }
+
+// INSTANTIATE_TEST_SUITE_P(AcirTests,
+//                          AcirIntegrationTests,
+//                          testing::Values(/* "fold_after_inlined_calls", */
+//                                          "fold_basic"/* ,
+//                                          "fold_basic_nested_call",
+//                                          "fold_call_witness_condition",
+//                                          "fold_complex_outputs",
+//                                          "fold_distinct_return",
+//                                          "fold_fibonacci",
+//                                          "fold_numeric_generic_poseidon"*/));
