@@ -1,6 +1,6 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { ContractDeployer, type EthAddress, type Fq, Fr, Point, PublicKey } from '@aztec/aztec.js';
-import { type PublicKeys } from '@aztec/circuits.js';
+import { ContractDeployer, Fr } from '@aztec/aztec.js';
+import { type PublicKeys, deriveSigningKey } from '@aztec/circuits.js';
 import { getInitializer } from '@aztec/foundation/abi';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
@@ -13,13 +13,14 @@ export async function deploy(
   artifactPath: string,
   json: boolean,
   rpcUrl: string,
-  publicKeys: PublicKeys,
+  publicKeys: PublicKeys | undefined,
   rawArgs: any[],
-  portalAddress: EthAddress,
   salt: Fr,
   privateKey: Fr,
-  signingPrivateKey: Fq,
   initializer: string | undefined,
+  skipPublicDeployment: boolean,
+  skipClassRegistration: boolean,
+  skipInitialization: boolean,
   wait: boolean,
   debugLogger: DebugLogger,
   log: LogFn,
@@ -37,8 +38,8 @@ export async function deploy(
     );
   }
 
-  const wallet = await getSchnorrAccount(client, privateKey, signingPrivateKey, Fr.ZERO).getWallet();
-  const deployer = new ContractDeployer(contractArtifact, wallet, publicKeys.hash(), initializer);
+  const wallet = await getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), Fr.ZERO).getWallet();
+  const deployer = new ContractDeployer(contractArtifact, wallet, publicKeys?.hash() ?? Fr.ZERO, initializer);
 
   let args = [];
   if (rawArgs.length > 0) {
@@ -52,8 +53,8 @@ export async function deploy(
 
   const deploy = deployer.deploy(...args);
 
-  await deploy.create({ contractAddressSalt: salt });
-  const tx = deploy.send({ contractAddressSalt: salt });
+  await deploy.create({ contractAddressSalt: salt, skipClassRegistration, skipInitialization, skipPublicDeployment });
+  const tx = deploy.send({ contractAddressSalt: salt, skipClassRegistration });
   const txHash = await tx.getTxHash();
   debugLogger.debug(`Deploy tx sent with hash ${txHash}`);
   if (wait) {

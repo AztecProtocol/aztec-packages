@@ -2,8 +2,8 @@ import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } fr
 import { AztecAddress } from '@aztec/aztec.js/aztec_address';
 import { type L1ContractArtifactsForDeployment } from '@aztec/aztec.js/ethereum';
 import { type PXE } from '@aztec/aztec.js/interfaces/pxe';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
-import { NoirPackageConfig } from '@aztec/foundation/noir';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type NoirPackageConfig } from '@aztec/foundation/noir';
 import {
   AvailabilityOracleAbi,
   AvailabilityOracleBytecode,
@@ -109,7 +109,7 @@ export async function deployAztecContracts(
  * @returns The contract ABIs.
  */
 export async function getExampleContractArtifacts(): Promise<ArtifactsType> {
-  const imports: any = await import('@aztec/noir-contracts.js');
+  const imports = await import('@aztec/noir-contracts.js');
   return Object.fromEntries(Object.entries(imports).filter(([key]) => key.endsWith('Artifact'))) as any;
 }
 

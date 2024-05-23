@@ -1,4 +1,4 @@
-import { deriveSigningKey } from '@aztec/circuits.js';
+import { PublicKeys, deriveSigningKey } from '@aztec/circuits.js';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 
@@ -161,18 +161,13 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       '<artifact>',
       "A compiled Aztec.nr contract's artifact in JSON format or name of a contract artifact exported by @aztec/noir-contracts.js",
     )
-    .option('--initializer <string>', 'The contract initializer function to call')
+    .requiredOption('--initializer <string>', 'The contract initializer function to call', 'constructor')
     .option('-a, --args <constructorArgs...>', 'Contract constructor arguments', [])
     .addOption(pxeOption)
     .option(
       '-k, --public-key <string>',
       'Optional encryption public key for this address. Set this value only if this contract is expected to receive private notes, which will be encrypted using this public key.',
       parsePublicKey,
-    )
-    .option(
-      '-p, --portal-address <hex string>',
-      'Optional L1 portal address to link the contract to.',
-      parseEthereumAddress,
     )
     .option(
       '-s, --salt <hex string>',
@@ -184,27 +179,44 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
+    .option('--no-class-registration', 'Skip registering the contract class', true)
+    .option('--no-public-deployment', 'Skip deploying the contract publicly', false)
+    .option('--no-initialization', 'Skip initializing the contract', false)
     .action(
       async (
         artifactPath,
-        { json, rpcUrl, publicKey, args: rawArgs, portalAddress, salt, wait, privateKey, initializer },
+        {
+          json,
+          rpcUrl,
+          publicKey,
+          args: rawArgs,
+          salt,
+          wait,
+          privateKey,
+          initializer,
+          classRegistration,
+          initialization,
+          publicDeployment,
+        },
       ) => {
-        // const { deploy } = await import('./cmds/deploy.js');
-        // await deploy(
-        //   artifactPath,
-        //   json,
-        //   rpcUrl,
-        //   publicKey,
-        //   rawArgs,
-        //   portalAddress,
-        //   salt,
-        //   privateKey,
-        //   initializer,
-        //   wait,
-        //   debugLogger,
-        //   log,
-        //   logJson,
-        // );
+        const { deploy } = await import('./cmds/deploy.js');
+        await deploy(
+          artifactPath,
+          json,
+          rpcUrl,
+          publicKey ? PublicKeys.fromString(publicKey) : undefined,
+          rawArgs,
+          salt,
+          privateKey,
+          initializer,
+          !publicDeployment,
+          !classRegistration,
+          !initialization,
+          wait,
+          debugLogger,
+          log,
+          logJson,
+        );
       },
     );
 
