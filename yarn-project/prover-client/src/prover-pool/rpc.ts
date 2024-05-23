@@ -10,6 +10,7 @@ import {
   PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
   PublicKernelTailCircuitPrivateInputs,
+  RecursiveProof,
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
@@ -38,7 +39,9 @@ export function createProvingJobSourceServer(queue: ProvingJobSource): JsonRpcSe
       KernelCircuitPublicInputs,
       ProvingError,
     },
-    {},
+    {
+      RecursiveProof,
+    },
   );
 }
 
@@ -65,7 +68,9 @@ export function createProvingJobSourceClient(
       KernelCircuitPublicInputs,
       ProvingError,
     },
-    {},
+    {
+      RecursiveProof,
+    },
     false,
     namespace,
     fetch,

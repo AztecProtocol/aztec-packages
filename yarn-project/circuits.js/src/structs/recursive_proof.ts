@@ -69,6 +69,23 @@ export class RecursiveProof<N extends number> {
   static fromString<N extends number>(str: string, size: N) {
     return RecursiveProof.fromBuffer(Buffer.from(str, 'hex'), size);
   }
+
+  toJson() {
+    return {
+      length: this.proof.length,
+      proof: serializeToBuffer(this.proof).toString('hex'),
+      binaryProof: this.binaryProof.toString(),
+      fieldsValid: this.fieldsValid,
+    };
+  }
+
+  static fromJSON(json: any) {
+    return new RecursiveProof(
+      BufferReader.asReader(Buffer.from(json.proof, 'hex')).readArray(json.length, Fr),
+      Proof.fromString(json.binaryProof),
+      json.fieldsValid,
+    );
+  }
 }
 
 /**

@@ -16,6 +16,7 @@ type ProverOptions = Partial<{
 
 export const startProver: ServiceStarter = async (options, signalHandlers, logger) => {
   const proverOptions: ProverOptions = {
+    proverUrl: process.env.PROVER_URL,
     ...getProverEnvVars(),
     ...parseModuleOptions(options.prover),
   };
