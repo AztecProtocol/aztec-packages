@@ -15,17 +15,16 @@ pub fn create_note_getter_options_for_decreasing_balance(amount: Field) -> NoteG
 pub fn increment(
     balance: PrivateSet<ValueNote, &mut PrivateContext>,
     amount: Field,
-    recipient: AztecAddress,
-    sender: AztecAddress
+    recipient: AztecAddress
 ) {
     let context = balance.context;
     let recipient_npk_m_hash = get_npk_m_hash(context, recipient);
     let recipient_ivpk_m = get_ivpk_m(context, recipient);
-    let sender_ovpk_m = get_ovpk_m(context, sender);
+    let recipient_ovpk_m = get_ovpk_m(context, recipient);
 
     let mut note = ValueNote::new(amount, recipient_npk_m_hash);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
-    balance.insert(&mut note, amount != 0, recipient_ivpk_m, sender_ovpk_m);
+    balance.insert(&mut note, amount != 0, recipient_ivpk_m, recipient_ovpk_m);
 }
 
 // Find some of the `owner`'s notes whose values add up to the `amount`.

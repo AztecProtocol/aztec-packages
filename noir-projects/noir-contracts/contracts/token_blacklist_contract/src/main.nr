@@ -164,7 +164,7 @@ contract TokenBlacklist {
         pending_shields.remove(note);
 
         // Add the token note to user's balances set
-        storage.balances.add(to, U128::from_integer(amount));
+        storage.balances.add(to, to, U128::from_integer(amount));
     }
 
     #[aztec(private)]
@@ -202,7 +202,7 @@ contract TokenBlacklist {
 
         let amount = U128::from_integer(amount);
         storage.balances.sub(from, amount);
-        storage.balances.add(to, amount);
+        storage.balances.add(from, to, amount);
     }
 
     #[aztec(private)]

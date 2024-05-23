@@ -164,9 +164,14 @@ contract Token {
     }
     // docs:end:mint_private
 
+    // TODO: Nuke this - test functions do not belong to token contract!
     #[aztec(private)]
     fn privately_mint_private_note(amount: Field) {
-        storage.balances.add(context.msg_sender(), U128::from_integer(amount));
+        storage.balances.add(
+            context.msg_sender(),
+            context.msg_sender(),
+            U128::from_integer(amount)
+        );
         Token::at(context.this_address()).assert_minter_and_mint(context.msg_sender(), amount).enqueue(&mut context);
     }
 
@@ -256,7 +261,7 @@ contract Token {
         pending_shields.remove(note);
 
         // Add the token note to user's balances set
-        storage.balances.add(to, U128::from_integer(amount));
+        storage.balances.add(to, to, U128::from_integer(amount));
     }
     // docs:end:redeem_shield
 
@@ -289,7 +294,7 @@ contract Token {
         let amount = U128::from_integer(amount);
         storage.balances.sub(from, amount);
         // docs:start:increase_private_balance
-        storage.balances.add(to, amount);
+        storage.balances.add(from, to, amount);
         // docs:end:increase_private_balance
     }
     // docs:end:transfer

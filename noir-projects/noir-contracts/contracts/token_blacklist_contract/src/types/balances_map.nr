@@ -58,22 +58,23 @@ impl<T> BalancesMap<T, ()> {
     }
 }
 
-impl<T, Context> BalancesMap<T, &mut PrivateContext> {
+impl<T> BalancesMap<T, &mut PrivateContext> {
     pub fn add<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
         self: Self,
-        owner: AztecAddress,
+        sender: AztecAddress,
+        recipient: AztecAddress,
         addend: U128
     ) where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
         let context = self.map.context;
-        let owner_ivpk_m = get_ivpk_m(context, owner);
-        let owner_ovpk_m = get_ovpk_m(context, owner);
+        let recipient_ivpk_m = get_ivpk_m(context, recipient);
+        let sender_ovpk_m = get_ovpk_m(context, sender);
 
         // We fetch the nullifier public key hash from the registry / from our PXE
-        let owner_npk_m_hash = get_npk_m_hash(context, owner);
-        let mut addend_note = T::new(addend, owner_npk_m_hash);
+        let recipient_npk_m_hash = get_npk_m_hash(context, recipient);
+        let mut addend_note = T::new(addend, recipient_npk_m_hash);
 
         // docs:start:insert
-        self.map.at(owner).insert(&mut addend_note, true, owner_ivpk_m, owner_ovpk_m);
+        self.map.at(recipient).insert(&mut addend_note, true, recipient_ivpk_m, sender_ovpk_m);
         // docs:end:insert
     }
 
@@ -109,7 +110,7 @@ impl<T, Context> BalancesMap<T, &mut PrivateContext> {
         // without the == true, it includes 'minuend.ge(subtrahend)' as part of the error.
         assert(minuend >= subtrahend, "Balance too low");
 
-        self.add(owner, minuend - subtrahend);
+        self.add(owner, owner, minuend - subtrahend);
     }
 }
 

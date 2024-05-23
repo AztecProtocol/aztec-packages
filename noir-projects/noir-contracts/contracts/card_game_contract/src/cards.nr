@@ -106,7 +106,6 @@ impl<Context> Deck<Context> {
 impl Deck<&mut PrivateContext> {
     pub fn add_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
         let owner_npk_m_hash = get_npk_m_hash(self.set.context, owner);
-        // TODO: same sender and recipient
         let owner_ivpk_m = get_ivpk_m(self.set.context, owner);
         let owner_ovpk_m = get_ovpk_m(self.set.context, owner);
 
