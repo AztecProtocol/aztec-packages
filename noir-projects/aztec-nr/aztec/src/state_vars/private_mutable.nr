@@ -18,6 +18,8 @@ struct PrivateMutable<Note, Context> {
 }
 // docs:end:struct
 
+mod test;
+
 impl<T, Context> Storage<T> for PrivateMutable<T, Context> {}
 
 impl<Note, Context> PrivateMutable<Note, Context> {
