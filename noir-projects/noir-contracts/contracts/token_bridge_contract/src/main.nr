@@ -133,7 +133,7 @@ contract TokenBridge {
     fn get_token() -> AztecAddress {
         storage.token.read()
     }
-    // docs:end:read_token
+    // docs:end:get_token
 
     // docs:start:call_mint_on_token
     // This is a public call as we need to read from public storage.
