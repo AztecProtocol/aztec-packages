@@ -26,10 +26,10 @@ import {
   StateReference,
   TxContext,
   computeAppNullifierSecretKey,
+  computeOvskApp,
   deriveKeys,
   getContractInstanceFromDeployParams,
   getNonEmptyItems,
-  computeOvskApp,
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, computeSecretHash, computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
@@ -181,11 +181,12 @@ describe('Private Execution test suite', () => {
 
     const ownerPartialAddress = Fr.random();
     ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
-    ({masterNullifierSecretKey: ownerNskM, masterOutgoingViewingSecretKey: ownerOvskM} = deriveKeys(ownerSk));
+    ({ masterNullifierSecretKey: ownerNskM, masterOutgoingViewingSecretKey: ownerOvskM } = deriveKeys(ownerSk));
 
     const recipientPartialAddress = Fr.random();
     recipientCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(recipientSk, recipientPartialAddress);
-    ({masterNullifierSecretKey: recipientNskM, masterOutgoingViewingSecretKey: recipientOvskM} = deriveKeys(recipientSk));
+    ({ masterNullifierSecretKey: recipientNskM, masterOutgoingViewingSecretKey: recipientOvskM } =
+      deriveKeys(recipientSk));
 
     owner = ownerCompleteAddress.address;
     recipient = recipientCompleteAddress.address;
@@ -193,7 +194,7 @@ describe('Private Execution test suite', () => {
 
   beforeEach(async () => {
     trees = {};
-    // TODO(benesjan): most of the oracles bellow seem to be stateless - move to beforeAll
+    // TODO(#6640) most of the oracles bellow seem to be stateless - move to beforeAll
     oracle = mock<DBOracle>();
     oracle.getKeyValidationRequest.mockImplementation((pkMHash: Fr, contractAddress: AztecAddress) => {
       if (pkMHash.equals(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
@@ -208,7 +209,7 @@ describe('Private Execution test suite', () => {
         return Promise.resolve(
           new KeyValidationRequest(
             ownerCompleteAddress.publicKeys.masterOutgoingViewingPublicKey,
-            // TODO(benesjan): nuke this ugly conversion
+            // TODO(#6640)): nuke this ugly conversion
             Fr.fromBuffer(computeOvskApp(ownerOvskM, contractAddress).toBuffer()),
           ),
         );
@@ -225,7 +226,7 @@ describe('Private Execution test suite', () => {
         return Promise.resolve(
           new KeyValidationRequest(
             recipientCompleteAddress.publicKeys.masterOutgoingViewingPublicKey,
-            // TODO(benesjan): nuke this ugly conversion
+            // TODO(#6640)): nuke this ugly conversion
             Fr.fromBuffer(computeOvskApp(recipientOvskM, contractAddress).toBuffer()),
           ),
         );
@@ -370,7 +371,7 @@ describe('Private Execution test suite', () => {
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
       expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner));
-      // TODO(benesjan): update the constants here
+      // TODO(#6640)): update the constants here
       expect(newNote.noteTypeId).toEqual(new Fr(869710811710178111116101n)); // ValueNote
 
       const newNoteHashes = getNonEmptyItems(result.callStackItem.publicInputs.newNoteHashes);

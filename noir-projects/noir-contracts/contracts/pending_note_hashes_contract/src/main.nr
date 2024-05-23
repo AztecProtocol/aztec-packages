@@ -81,7 +81,7 @@ contract PendingNoteHashes {
 
         let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
         let owner_ivpk_m = get_ivpk_m(&mut context, owner);
-        let owner_ovpk_m = get_ivpk_m(&mut context, owner);
+        let owner_ovpk_m = get_ovpk_m(&mut context, owner);
 
         let mut note = ValueNote::new(amount, owner_npk_m_hash);
 

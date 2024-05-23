@@ -106,7 +106,7 @@ export class L1NotePayload {
       this.note,
     ).computeCiphertext(ephSk, ivpkApp);
 
-    // TODO(benesjan): do we want the conversion to be here? Unify the type everywhere?
+    // TODO(#6640)): do we want the conversion to be here? Unify the type everywhere?
     const ovskApp = GrumpkinPrivateKey.fromBuffer(ovKeys.appSecretKey.toBuffer());
 
     const outgoingBodyCiphertext = new EncryptedLogOutgoingBody(ephSk, recipient, ivpkApp).computeCiphertext(

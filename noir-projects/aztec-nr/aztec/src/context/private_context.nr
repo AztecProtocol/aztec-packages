@@ -704,7 +704,7 @@ impl Empty for PrivateContext {
     }
 }
 
-// TODO(benesjan): This should be in its own file
+// TODO(#6640)): This should be in its own file
 struct PackedReturns {
   packed_returns: Field,
 }
@@ -734,7 +734,7 @@ impl PackedReturns {
     }
 }
 
-// TODO(benesjan): This should not be here but in oracle folder
+// TODO(#6640)): This should not be here but in oracle folder
 #[oracle(emitUnencryptedLog)]
 fn emit_unencrypted_log_oracle_private<T>(
     _contract_address: AztecAddress,

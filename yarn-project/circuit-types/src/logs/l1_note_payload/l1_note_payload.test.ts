@@ -48,7 +48,7 @@ describe('L1 Note Payload', () => {
 
   const getKeyValidationRequest = (ovskM: GrumpkinScalar, app: AztecAddress) => {
     const ovskApp = computeOvskApp(ovskM, app);
-    // TODO(benesjan): get rid of this ugly conversion
+    // TODO(#6640)): get rid of this ugly conversion
     const ovskAppFr = Fr.fromBuffer(ovskApp.toBuffer());
 
     const ovpkM = derivePublicKeyFromSecretKey(ovskM);

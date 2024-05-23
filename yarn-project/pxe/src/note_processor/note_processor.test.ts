@@ -133,7 +133,7 @@ describe('Note Processor', () => {
 
     ownerIvskM = allOwnerKeys.masterIncomingViewingSecretKey;
     ownerIvpkM = allOwnerKeys.publicKeys.masterIncomingViewingPublicKey;
-    // TODO(benesjan): get rid of this ugly conversion
+    // TODO(#6640)): get rid of this ugly conversion
     ownerOvKeys = new KeyValidationRequest(
       allOwnerKeys.publicKeys.masterOutgoingViewingPublicKey,
       Fr.fromBuffer(computeOvskApp(allOwnerKeys.masterOutgoingViewingSecretKey, app).toBuffer()),
