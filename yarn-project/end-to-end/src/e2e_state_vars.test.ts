@@ -251,34 +251,35 @@ describe('e2e_state_vars', () => {
       // We use the auth contract here because has a nice, clear, simple implementation of the Shared Mutable,
       // and we will need to read from it to test our private getter.
       authContract = await AuthContract.deploy(wallet, wallet.getAddress()).send().deployed();
+    });
 
+    it('checks authorized in AuthContract from TestContract with our SharedMutablePrivateGetter before and after a value change', async () => {
       // We set the authorized value here, knowing there will be some delay before the value change takes place
       await authContract
         .withWallet(wallet)
         .methods.set_authorized(AztecAddress.fromField(new Fr(6969696969)))
         .send()
         .wait();
-    });
 
-    it("checks authorized in auth contract from test contract and finds the old value because the change hasn't been applied yet", async () => {
       const authorized = await testContract.methods
         .test_shared_mutable_private_getter(authContract.address, 2)
         .simulate();
 
+      // We expect the value to not have been applied yet
       expect(AztecAddress.fromBigInt(authorized)).toEqual(AztecAddress.ZERO);
-    });
 
-    it('checks authorized in auth contract from test contract and finds the correctly set value', async () => {
+      // We wait for the SharedMutable delay
       await delay(5);
 
-      const authorized = await testContract.methods
+      // We check after the delay, expecting to find the value we set.
+      const newAuthorized = await testContract.methods
         .test_shared_mutable_private_getter(authContract.address, 2)
         .simulate();
 
-      expect(AztecAddress.fromBigInt(authorized)).toEqual(AztecAddress.fromBigInt(6969696969n));
+      expect(AztecAddress.fromBigInt(newAuthorized)).toEqual(AztecAddress.fromBigInt(6969696969n));
     });
 
-    it('checks authorized in auth contract from test contract and finds the correctly set max block number', async () => {
+    it('checks authorized in AuthContract from TestContract and finds the correctly set max block number', async () => {
       const lastBlockNumber = await pxe.getBlockNumber();
 
       const tx = await testContract.methods.test_shared_mutable_private_getter(authContract.address, 2).prove();
@@ -287,6 +288,67 @@ describe('e2e_state_vars', () => {
 
       expect(tx.data.forRollup!.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
       expect(tx.data.forRollup!.rollupValidationRequests.maxBlockNumber.value).toEqual(new Fr(expectedMaxBlockNumber));
+    });
+
+    it('checks max block number propagated by reading with our SharedMutablePrivateGetter in TestContract accessing AuthContract; before and after a decreasing then increasing delay change', async () => {
+      // Our initial max block number will be 5 because that is the value of INITIAL_DELAY
+      const expectedInitialMaxBlockNumber = (await pxe.getBlockNumber()) + 5;
+
+      // Our SharedMutablePrivateGetter here reads from the SharedMutable authorized storage property in AuthContract
+      const tx = await testContract.methods.test_shared_mutable_private_getter(authContract.address, 2).prove();
+
+      // The validity of our SharedMutable read request is limited to 5 blocks, which is our initial delay.
+      expect(tx.data.forRollup!.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
+      expect(tx.data.forRollup!.rollupValidationRequests.maxBlockNumber.value).toEqual(
+        new Fr(expectedInitialMaxBlockNumber),
+      );
+
+      // We change the SharedMutable authorized delay here to 100, this means that a change to the "authorized" value can
+      // only be applied 100 blocks after it is initiated, and thus read requests on a historical state without an initiated change is
+      // valid for at least 100 blocks
+      await authContract.methods.set_authorized_delay(2).send().wait();
+
+      await delay(4);
+
+      const expectedModifiedMaxBlockNumber = (await pxe.getBlockNumber()) + 2;
+
+      // We now call our AuthContract to see if the change in max block number has reflected our delay change
+      const tx2 = await authContract.methods.get_authorized_in_private().prove();
+
+      // The validity of our SharedMutable read request should now be limited to 100 blocks, instead of 5
+      expect(tx2.data.forRollup!.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
+      expect(tx2.data.forRollup!.rollupValidationRequests.maxBlockNumber.value).toEqual(
+        new Fr(expectedModifiedMaxBlockNumber),
+      );
+
+      // We access the same SharedMutable from our SharedMutablePrivateGetter, expecting the validity assumptions to remain the same.
+      const tx3 = await testContract.methods.test_shared_mutable_private_getter(authContract.address, 2).prove();
+
+      expect(tx3.data.forRollup!.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
+      expect(tx3.data.forRollup!.rollupValidationRequests.maxBlockNumber.value).toEqual(
+        new Fr(expectedModifiedMaxBlockNumber),
+      );
+
+      await authContract.methods.set_authorized_delay(100).send().wait();
+
+      const expectedLengthenedModifiedMaxBlockNumber = (await pxe.getBlockNumber()) + 100;
+
+      // We now call our AuthContract to see if the change in max block number has reflected our delay change
+      const tx4 = await authContract.methods.get_authorized_in_private().prove();
+
+      // The validity of our SharedMutable read request should now be limited to 100 blocks, instead of 5
+      expect(tx4.data.forRollup!.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
+      expect(tx4.data.forRollup!.rollupValidationRequests.maxBlockNumber.value).toEqual(
+        new Fr(expectedLengthenedModifiedMaxBlockNumber),
+      );
+
+      // We access the same SharedMutable from our SharedMutablePrivateGetter, expecting the validity assumptions to remain the same.
+      const tx5 = await testContract.methods.test_shared_mutable_private_getter(authContract.address, 2).prove();
+
+      expect(tx5.data.forRollup!.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
+      expect(tx5.data.forRollup!.rollupValidationRequests.maxBlockNumber.value).toEqual(
+        new Fr(expectedLengthenedModifiedMaxBlockNumber),
+      );
     });
   });
 });

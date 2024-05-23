@@ -48,6 +48,16 @@ contract Auth {
         scheduled_value
     }
 
+    #[aztec(public)]
+    fn get_authorized_delay() -> u32 {
+        storage.authorized.get_current_delay_in_public()
+    }
+
+    #[aztec(public)]
+    fn set_authorized_delay(new_delay: u32) {
+        storage.authorized.schedule_delay_change(new_delay);
+    }
+
     #[aztec(private)]
     fn do_private_authorized_thing() {
         // Reading a value from authorized in private automatically adds an extra validity condition: the base rollup
@@ -57,5 +67,10 @@ contract Auth {
         let authorized = storage.authorized.get_current_value_in_private();
         // docs:end:shared_mutable_get_current_private
         assert_eq(authorized, context.msg_sender(), "caller is not authorized");
+    }
+
+    #[aztec(private)]
+    fn get_authorized_in_private() -> AztecAddress {
+        storage.authorized.get_current_value_in_private()
     }
 }
