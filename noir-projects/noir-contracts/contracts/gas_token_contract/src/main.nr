@@ -33,6 +33,7 @@ contract GasToken {
         context.consume_l1_to_l2_message(content_hash, secret, portal_address);
 
         // TODO(palla/gas) Emit an unencrypted log to announce which L1 to L2 message has been claimed
+        // Otherwise, we cannot trace L1 deposits to their corresponding claims on L2
 
         GasToken::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
