@@ -6,7 +6,7 @@ contract InclusionProofs {
     };
 
     use dep::aztec::protocol_types::{grumpkin_point::GrumpkinPoint, contract_class_id::ContractClassId, header::Header};
-    use dep::aztec::{note::note_getter_options::NoteStatus, keys::getters::{get_npk_m_hash, get_ivpk_m}};
+    use dep::aztec::{note::note_getter_options::NoteStatus, keys::getters::{get_npk_m_hash, get_ivpk_m, get_ovpk_m}};
     // docs:start:imports
     // Imports are not needed as inclusion / non_inclusion proofs are accessible on the header.
     // docs:end:imports
@@ -32,7 +32,7 @@ contract InclusionProofs {
     fn create_note(owner: AztecAddress, value: Field) {
         let owner_private_values = storage.private_values.at(owner);
         let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
-        let owner_ovpk_m = get_ivpk_m(&mut context, owner);
+        let owner_ovpk_m = get_ovpk_m(&mut context, owner);
         let owner_ivpk_m = get_ivpk_m(&mut context, owner);
 
         let mut note = ValueNote::new(value, owner_npk_m_hash);
