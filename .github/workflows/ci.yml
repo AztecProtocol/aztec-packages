@@ -214,10 +214,12 @@ jobs:
             src: [barretenberg/**]
       # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
+        if: steps.changes.outputs.src == 'true'
         with:
           # must be globally unique for build x runner
           concurrency_key: bb-gcc
       - name: "Ensure GCC Builds"
+        if: steps.changes.outputs.src == 'true'
         working-directory: ./barretenberg/cpp/
         timeout-minutes: 40
         # limit our parallelism to half our cores
