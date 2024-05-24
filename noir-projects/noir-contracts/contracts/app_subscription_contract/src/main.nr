@@ -117,7 +117,12 @@ contract AppSubscription {
         let subscriber_ovpk_m = get_ovpk_m(&mut context, subscriber_address);
 
         let mut subscription_note = SubscriptionNote::new(subscriber_npk_m_hash, expiry_block_number, tx_count);
-        storage.subscriptions.at(subscriber_address).initialize_or_replace(&mut subscription_note, true, subscriber_ivpk_m, subscriber_ovpk_m);
+        storage.subscriptions.at(subscriber_address).initialize_or_replace(
+            &mut subscription_note,
+            true,
+            subscriber_ivpk_m,
+            subscriber_ovpk_m
+        );
     }
 
     unconstrained fn is_initialized(subscriber_address: AztecAddress) -> pub bool {

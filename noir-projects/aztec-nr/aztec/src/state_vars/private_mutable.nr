@@ -92,7 +92,8 @@ impl<Note> PrivateMutable<Note, &mut PrivateContext> {
         self,
         note: &mut Note,
         broadcast: bool,
-        ivpk_m: GrumpkinPoint
+        ivpk_m: GrumpkinPoint,
+        ovpk_m: GrumpkinPoint
     ) where Note: NoteInterface<N, M> {
         let is_initialized = check_nullifier_exists(self.compute_initialization_nullifier());
 
@@ -107,9 +108,9 @@ impl<Note> PrivateMutable<Note, &mut PrivateContext> {
         // This means that an honest oracle will assist the prover to produce a valid proof, while a malicious oracle
         // (i.e. one that returns an incorrect value for is_initialized) will simply fail to produce a proof.
         if (!is_initialized) {
-            self.initialize(note, broadcast, ivpk_m);
+            self.initialize(note, broadcast, ivpk_m, ovpk_m);
         } else {
-            self.replace(note, broadcast, ivpk_m)
+            self.replace(note, broadcast, ivpk_m, ovpk_m)
         }
     }
 
