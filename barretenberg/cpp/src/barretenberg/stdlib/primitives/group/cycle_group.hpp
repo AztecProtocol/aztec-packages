@@ -60,7 +60,7 @@ template <typename Builder> class cycle_group {
      * performs all required conversions if the input scalars are stdlib::field_t elements
      *
      * @note We opted to create a new class to represent `cycle_scalar` instead of using `bigfield`,
-     * as `bigfield` is inefficient in this con text. All required range checks for `cycle_scalar` can be obtained for
+     * as `bigfield` is inefficient in this context. All required range checks for `cycle_scalar` can be obtained for
      * free from the `batch_mul` algorithm, making the range checks performed by `bigfield` largely redundant.
      */
     struct cycle_scalar {

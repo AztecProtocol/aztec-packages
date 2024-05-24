@@ -204,7 +204,6 @@ template <typename Curve> pippenger_runtime_state<Curve>::~pippenger_runtime_sta
 
 template struct affine_product_runtime_state<curve::BN254>;
 template struct affine_product_runtime_state<curve::Grumpkin>;
-
 template struct pippenger_runtime_state<curve::BN254>;
 template struct pippenger_runtime_state<curve::Grumpkin>;
 } // namespace bb::scalar_multiplication

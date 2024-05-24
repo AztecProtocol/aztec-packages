@@ -27,7 +27,7 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
 
     // Get challenge for sorted list batching and wire four memory records
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
-
+    info("native ", beta);
     // there is an issue somewhere to simplify this :-?
     auto beta_sqr = beta * beta;
     relation_parameters.gamma = gamma;
@@ -43,7 +43,7 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     commitments.lookup_inverses =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
-
+    info("native delta ", relation_parameters.eccvm_set_permutation_delta);
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);

@@ -1,7 +1,4 @@
 #pragma once
-
-#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
-
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm_recursion/verifier_commitment_key.hpp"
@@ -17,7 +14,6 @@
 #include "barretenberg/relations/ecc_vm/ecc_wnaf_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
-#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members) ?
 
@@ -31,10 +27,10 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     // the native stuff becomes nonnative and the nonnative stuff becomes native and everything is in circuit land
     // is probably what's going on
     using Curve = stdlib::bn254<CircuitBuilder, true>;
-    // using PCS = IPA<Curve>;
-    using Commitment = typename Curve::AffineElement;
-    using FF = typename Curve::ScalarField;
-    using BF = typename Curve::BaseField;
+
+    using Commitment = stdlib::cycle_group<CircuitBuilder>;
+    using FF = stdlib::bigfield<CircuitBuilder, bb::Bn254FqParams>;
+    using BF = stdlib::field_t<CircuitBuilder>;
 
     using RelationSeparator = FF;
     using NativeFlavor = ECCVMFlavor;

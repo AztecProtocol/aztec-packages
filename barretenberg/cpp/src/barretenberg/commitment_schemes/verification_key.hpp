@@ -103,6 +103,4 @@ template <> class VerifierCommitmentKey<curve::Grumpkin> {
     std::shared_ptr<bb::srs::factories::VerifierCrs<Curve>> srs;
 };
 
-// put the verifier commitment key here
-
 } // namespace bb

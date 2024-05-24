@@ -85,18 +85,6 @@ template <typename Builder> class field_t {
     static constexpr bool is_composite = false;
     static constexpr uint256_t modulus = bb::fr::modulus;
 
-    static field_t one()
-    {
-        field_t result(uint256_t(1));
-        return result;
-    }
-
-    static field_t zero()
-    {
-        field_t result(uint256_t(0));
-        return result;
-    }
-
     static field_t from_witness_index(Builder* parent_context, uint32_t witness_index);
 
     explicit operator bool_t<Builder>() const;

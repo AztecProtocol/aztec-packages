@@ -371,11 +371,15 @@ template <typename Flavor> class SumcheckVerifierRound {
      */
     bool check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate)
     {
+
         FF total_sum = univariate.value_at(0) + univariate.value_at(1);
+
         // TODO(#673): Conditionals like this can go away once native verification is is just recursive verification
         // with a simulated builder.
         bool sumcheck_round_failed(false);
         if constexpr (IsRecursiveFlavor<Flavor>) {
+            total_sum.assert_is_in_field();
+            target_total_sum.assert_is_in_field();
             target_total_sum.assert_equal(total_sum);
             sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
         } else {
@@ -414,6 +418,28 @@ template <typename Flavor> class SumcheckVerifierRound {
                                                   const bb::PowPolynomial<FF>& pow_polynomial,
                                                   const RelationSeparator alpha)
     {
+        info("here, partial_eval result");
+        if constexpr (IsRecursiveFlavor<Flavor>) {
+            info(bb::fq((pow_polynomial.partial_evaluation_result.get_value() % uint512_t(bb::fq::modulus)).lo));
+        } else {
+            info(pow_polynomial.partial_evaluation_result);
+        }
+
+        info("here, alpha");
+        if constexpr (IsRecursiveFlavor<Flavor> && !IsFoldingFlavor<Flavor>) {
+            info(bb::fq((alpha.get_value() % uint512_t(bb::fq::modulus)).lo));
+        } else {
+            info(alpha);
+        }
+
+        info("here  relation evaluations");
+        for (auto eval : relation_evaluations.get_all()) {
+            if constexpr (IsRecursiveFlavor<Flavor> && !IsFoldingFlavor<Flavor>) {
+                info(bb::fq((eval.get_value() % uint512_t(bb::fq::modulus)).lo));
+            } else {
+                info(eval);
+            }
+        }
         // The verifier should never skip computation of contributions from any relation
         Utils::template accumulate_relation_evaluations_without_skipping<>(
             purported_evaluations, relation_evaluations, relation_parameters, pow_polynomial.partial_evaluation_result);

@@ -39,7 +39,7 @@ template <typename FF> struct PowPolynomial {
      * (1-u_k) + u_k\cdot \beta_k) \f$.
      *
      */
-    FF partial_evaluation_result = FF::one();
+    FF partial_evaluation_result = FF(1);
 
     explicit PowPolynomial(const std::vector<FF>& betas)
         : betas(betas)

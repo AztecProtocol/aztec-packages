@@ -106,7 +106,7 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         } else {
             // Execute Verifier protocol with vk
             result = ZeroMorphVerifier::verify(RefVector(f_commitments), // unshifted
-                                               RefVector(g_commitments), // to-be-shiftedx
+                                               RefVector(g_commitments), // to-be-shifted
                                                RefVector(v_evaluations), // unshifted
                                                RefVector(w_evaluations), // shifted
                                                u_challenge,

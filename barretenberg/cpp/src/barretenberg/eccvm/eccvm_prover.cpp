@@ -35,6 +35,7 @@ void ECCVMProver::execute_preamble_round()
     const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
 
     transcript->send_to_verifier("circuit_size", circuit_size);
+    info("native ", circuit_size);
 }
 
 /**
