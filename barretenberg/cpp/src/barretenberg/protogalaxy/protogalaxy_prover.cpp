@@ -209,11 +209,11 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
 }
 
 template class ProtoGalaxyProver_<ProverInstances_<UltraFlavor, 2>>;
-template class ProtoGalaxyProver_<ProverInstances_<GoblinUltraFlavor, 2>>;
+template class ProtoGalaxyProver_<ProverInstances_<MegaFlavor, 2>>;
 
 template class ProtoGalaxyProver_<ProverInstances_<UltraFlavor, 3>>;
-template class ProtoGalaxyProver_<ProverInstances_<GoblinUltraFlavor, 3>>;
+template class ProtoGalaxyProver_<ProverInstances_<MegaFlavor, 3>>;
 
 template class ProtoGalaxyProver_<ProverInstances_<UltraFlavor, 4>>;
-template class ProtoGalaxyProver_<ProverInstances_<GoblinUltraFlavor, 4>>;
+template class ProtoGalaxyProver_<ProverInstances_<MegaFlavor, 4>>;
 } // namespace bb
