@@ -13,7 +13,7 @@ import {
 } from '../../constants.gen.js';
 import { CallRequest } from '../call_request.js';
 import { Gas } from '../gas.js';
-import { LogHash, NoteLogHash } from '../log_hash.js';
+import { LogHash } from '../log_hash.js';
 import { NoteHash } from '../note_hash.js';
 import { Nullifier } from '../nullifier.js';
 import { PublicDataUpdateRequest } from '../public_data_update_request.js';
@@ -29,7 +29,7 @@ export class PublicAccumulatedDataBuilder {
   private newNoteHashes: NoteHash[] = [];
   private newNullifiers: Nullifier[] = [];
   private newL2ToL1Msgs: Fr[] = [];
-  private noteEncryptedLogsHashes: NoteLogHash[] = [];
+  private noteEncryptedLogsHashes: LogHash[] = [];
   private encryptedLogsHashes: LogHash[] = [];
   private unencryptedLogsHashes: LogHash[] = [];
   private publicDataUpdateRequests: PublicDataUpdateRequest[] = [];
@@ -66,12 +66,12 @@ export class PublicAccumulatedDataBuilder {
     return this;
   }
 
-  pushNoteEncryptedLogsHash(noteEncryptedLogsHash: NoteLogHash) {
+  pushNoteEncryptedLogsHash(noteEncryptedLogsHash: LogHash) {
     this.noteEncryptedLogsHashes.push(noteEncryptedLogsHash);
     return this;
   }
 
-  withNoteEncryptedLogsHashes(noteEncryptedLogsHashes: NoteLogHash[]) {
+  withNoteEncryptedLogsHashes(noteEncryptedLogsHashes: LogHash[]) {
     this.noteEncryptedLogsHashes = noteEncryptedLogsHashes;
     return this;
   }
@@ -126,7 +126,7 @@ export class PublicAccumulatedDataBuilder {
       padArrayEnd(this.newNoteHashes, NoteHash.empty(), MAX_NEW_NOTE_HASHES_PER_TX),
       padArrayEnd(this.newNullifiers, Nullifier.empty(), MAX_NEW_NULLIFIERS_PER_TX),
       padArrayEnd(this.newL2ToL1Msgs, Fr.ZERO, MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
-      padArrayEnd(this.noteEncryptedLogsHashes, NoteLogHash.empty(), MAX_NOTE_ENCRYPTED_LOGS_PER_TX),
+      padArrayEnd(this.noteEncryptedLogsHashes, LogHash.empty(), MAX_NOTE_ENCRYPTED_LOGS_PER_TX),
       padArrayEnd(this.encryptedLogsHashes, LogHash.empty(), MAX_ENCRYPTED_LOGS_PER_TX),
       padArrayEnd(this.unencryptedLogsHashes, LogHash.empty(), MAX_UNENCRYPTED_LOGS_PER_TX),
       padArrayEnd(
