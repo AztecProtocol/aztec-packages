@@ -847,7 +847,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         fq_ct a_inverse = a.invert();
         fq_ct a_inverse_division = fq_ct(1) / a;
 
-        fq a_native = fq(7);
+        fq a_native = fq(-7);
         fq a_native_inverse = a_native.invert();
         EXPECT_EQ(bb::fq((a.get_value() % uint512_t(bb::fq::modulus)).lo), a_native);
         EXPECT_EQ(bb::fq((a_inverse.get_value() % uint512_t(bb::fq::modulus)).lo), a_native_inverse);

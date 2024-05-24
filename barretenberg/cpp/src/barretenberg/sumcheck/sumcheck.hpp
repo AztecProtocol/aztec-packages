@@ -406,25 +406,12 @@ template <typename Flavor> class SumcheckVerifier {
         ClaimedEvaluations purported_evaluations;
         auto transcript_evaluations =
             transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
-        info("aaaaa");
         for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
             eval = transcript_eval;
-            if constexpr (IsRecursiveFlavor<Flavor>) {
-                info(bb::fq((eval.get_value() % uint512_t(bb::fq::modulus)).lo));
-            } else {
-                info(eval);
-            }
         }
 
         FF full_honk_relation_purported_value = round.compute_full_honk_relation_purported_value(
             purported_evaluations, relation_parameters, pow_univariate, alpha);
-
-        info("full eval");
-        if constexpr (IsRecursiveFlavor<Flavor>) {
-            info(bb::fq((full_honk_relation_purported_value.get_value() % uint512_t(bb::fq::modulus)).lo));
-        } else {
-            info(full_honk_relation_purported_value);
-        }
 
         bool checked = true;
         //! [Final Verification Step]
@@ -432,14 +419,8 @@ template <typename Flavor> class SumcheckVerifier {
             // this is underconstraned but oh well or maybe nooot
             // THIS FAILS
             full_honk_relation_purported_value.assert_equal(round.target_total_sum);
-            info("recursive");
-            info(bb::fq((full_honk_relation_purported_value.get_value() % uint512_t(bb::fq::modulus)).lo));
-            info(bb::fq((round.target_total_sum.get_value() % uint512_t(bb::fq::modulus)).lo));
             checked = (full_honk_relation_purported_value.get_value() == round.target_total_sum.get_value());
         } else {
-            info("native");
-            info(full_honk_relation_purported_value);
-            info(round.target_total_sum);
             checked = (full_honk_relation_purported_value == round.target_total_sum);
         }
         verified = verified && checked;

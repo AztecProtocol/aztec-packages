@@ -1767,6 +1767,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
                       << std::endl;
             return;
         } else if (other.is_constant()) {
+            // (*this).assert_is_in_field();
             // evaluate a strict equality - make sure *this is reduced first, or an honest prover
             // might not be able to satisfy these constraints.
             field_t<Builder> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);
