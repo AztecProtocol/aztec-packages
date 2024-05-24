@@ -9,6 +9,7 @@ project(
     VERSION 0.41.0 # x-release-please-version
     LANGUAGES CXX C
 )
+
 # Insert version into `bb` config file
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/barretenberg/bb/config.hpp.in
