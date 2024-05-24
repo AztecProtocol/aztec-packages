@@ -1,18 +1,24 @@
 #pragma once
 
-#include "barretenberg/common/serialize.hpp"
-#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/ecc/curves/bn254/g1.hpp"
-#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/ecc/fields/field_conversion.hpp"
-#include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
-#include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
+// #include "barretenberg/common/serialize.hpp"
+// #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+// #include "barretenberg/ecc/curves/bn254/g1.hpp"
+// #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+// #include "barretenberg/ecc/fields/field_conversion.hpp"
+// #include "barretenberg/honk/proof_system/types/proof.hpp"
+// #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
+// #include "barretenberg/stdlib/primitives/field/field.hpp"
+// #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 
 // #define LOG_CHALLENGES
 // #define LOG_INTERACTIONS
 
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/fields/field_conversion.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
+#include <concepts>
 namespace bb {
 
 template <typename T, typename... U>
@@ -64,10 +70,7 @@ class TranscriptManifest {
 struct NativeTranscriptParams {
     using Fr = bb::fr;
     using Proof = HonkProof;
-    static inline Fr hash(const std::vector<Fr>& data)
-    {
-        return crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(data);
-    }
+    static Fr hash(const std::vector<Fr>& data);
     template <typename T> static inline T convert_challenge(const Fr& challenge)
     {
         return bb::field_conversion::convert_challenge<T>(challenge);
