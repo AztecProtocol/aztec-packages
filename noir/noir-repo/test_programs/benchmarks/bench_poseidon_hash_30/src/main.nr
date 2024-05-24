@@ -1,9 +1,11 @@
 use dep::std::hash;
 
-fn main(input: [[Field; 2]; 30]) -> pub [Field; 30] {
-    let mut results: [Field; 30] = [0; 30];
-    for i in 0..30 {
-        results[i] = hash::pedersen_hash(input[i]);
+global SIZE = 30;
+
+fn main(input: [[Field; 2]; SIZE]) -> pub [Field; SIZE] {
+    let mut results: [Field; SIZE] = [0; SIZE];
+    for i in 0..SIZE {
+        results[i] = hash::poseidon::bn254::hash_2(input[i]);
     }
 
     results
