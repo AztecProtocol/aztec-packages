@@ -304,7 +304,6 @@ impl PrivateContext {
         contract_address: AztecAddress,
         randomness: Field, // Secret random value used later for masked_contract_address
         event_type_id: Field,
-        ivpk_m: GrumpkinPoint,
         ovpk_m: GrumpkinPoint,
         ivpk_m: GrumpkinPoint,
         preimage: [Field; N]
@@ -313,7 +312,15 @@ impl PrivateContext {
 
         // We are currently just encrypting it EXACTLY the same way as if it was a note.
         let counter = self.next_counter();
-        let encrypted_log: [u8; M] = compute_encrypted_log(contract_address, randomness, event_type_id, ivpk_m, preimage);
+        let encrypted_log: [u8; M] = compute_encrypted_log(
+            contract_address,
+            randomness,
+            event_type_id,
+            ovsk_app,
+            ovpk_m,
+            ivpk_m,
+            preimage
+        );
         emit_encrypted_log(contract_address, randomness, encrypted_log, counter);
         let len = 32 + 32 + 64 + 48 + 48 + 176 + 64 + (preimage.len() as Field * 32) + 16 + 4;
         let log_hash = sha256_to_field(encrypted_log);

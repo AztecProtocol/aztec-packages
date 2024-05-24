@@ -256,11 +256,13 @@ contract Test {
     // For testing non-note encrypted logs
     #[aztec(private)]
     fn emit_array_as_encrypted_log(fields: [Field; 5], owner: AztecAddress, nest: bool) {
+        let owner_ovpk_m = get_ovpk_m(&mut context, owner);
         let owner_ivpk_m = get_ivpk_m(&mut context, owner);
         context.encrypt_and_emit_log(
             context.this_address(),
             5, // testing only - this should be a secret random value to salt the addr
             1,
+            owner_ovpk_m,
             owner_ivpk_m,
             fields
         );
@@ -272,6 +274,7 @@ contract Test {
                 context.this_address(),
                 6, // testing only - this should be a secret random value to salt the addr
                 1,
+                owner_ovpk_m,
                 owner_ivpk_m,
                 [1, 2, 3, 4, 5]
             );
