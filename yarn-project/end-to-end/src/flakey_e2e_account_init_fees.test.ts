@@ -148,7 +148,7 @@ describe('e2e_fees_account_init', () => {
           .deploy({
             fee: {
               gasSettings,
-              paymentMethod: await NativeFeePaymentMethod.create(await bobsAccountManager.getWallet()),
+              paymentMethod: new NativeFeePaymentMethod(bobsAddress),
             },
           })
           .wait();
@@ -203,7 +203,7 @@ describe('e2e_fees_account_init', () => {
           })
           .wait();
 
-        expect(tx.status).toEqual(TxStatus.MINED);
+        expect(tx.status).toEqual(TxStatus.SUCCESS);
 
         // the new account should have paid the full fee to the FPC
         await expect(bananaPrivateBalances(bobsAddress)).resolves.toEqual([mintedPrivateBananas - maxFee]);
@@ -260,7 +260,7 @@ describe('e2e_fees_account_init', () => {
           })
           .wait();
 
-        expect(tx.status).toEqual(TxStatus.MINED);
+        expect(tx.status).toEqual(TxStatus.SUCCESS);
 
         // we should have paid the fee to the FPC
         await expect(
@@ -311,12 +311,12 @@ describe('e2e_fees_account_init', () => {
             universalDeploy: true,
             fee: {
               gasSettings,
-              paymentMethod: await NativeFeePaymentMethod.create(alice),
+              paymentMethod: new NativeFeePaymentMethod(alice.getAddress()),
             },
           })
           .wait();
 
-        expect(tx.status).toBe(TxStatus.MINED);
+        expect(tx.status).toBe(TxStatus.SUCCESS);
 
         await expectMapping(
           gasBalances,

@@ -11,20 +11,17 @@ OUTPUT_FILE=$(mktemp)
 INCONSISTENT_GRAPH_STATE_COUNT=0  # Counter for 'inconsistent graph state' errors
 
 # Maximum attempts
-MAX_ATTEMPTS=5
+MAX_ATTEMPTS=6
 ATTEMPT_COUNT=0
 
 # earthly settings
 export EARTHLY_ALLOW_PRIVILEGED=true
 export EARTHLY_USE_INLINE_CACHE=true
 export EARTHLY_NO_BUILDKIT_UPDATE=true
+# make sure earthly gives annotations that github picks up
+export GITHUB_ACTIONS=true
 export FORCE_COLOR=1
 export EARTHLY_CONFIG=$(git rev-parse --show-toplevel)/.github/earthly-ci-config.yml
-# TODO(AD) to be investigated
-#if [ "$GITHUB_REF_NAME" == "master" ]; then
-#  export EARTHLY_SAVE_INLINE_CACHE=true
-#  export EARTHLY_PUSH=true
-#fi
 
 # Handle earthly commands and retries
 while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
@@ -39,7 +36,7 @@ while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
     if grep 'failed to get edge: inconsistent graph state' $OUTPUT_FILE >/dev/null || grep 'failed to get state for index' $OUTPUT_FILE >/dev/null ; then
       INCONSISTENT_GRAPH_STATE_COUNT=$((INCONSISTENT_GRAPH_STATE_COUNT + 1))
       if [ "$INCONSISTENT_GRAPH_STATE_COUNT" -eq $MAX_ATTEMPTS ]; then
-        echo "Unable to recover from 'inconsistent graph state' or 'failed to get state for index'. Retry the workflow, and if all else fails, connect to spot runner and run 'earthly prune'."
+        echo "Unable to recover from 'inconsistent graph state' or 'failed to get state for index'. Do something to change the earthly cache state, like merging master or just retrying after other things build. If all else fails, connect to runner with ci.py and run 'earthly prune' for a bit (can cancel early)."
         exit 1
       fi
       echo "Got 'inconsistent graph state' or 'failed to get state for index'. Sleeping for 30 seconds and retrying."
@@ -54,8 +51,13 @@ while [ $ATTEMPT_COUNT -lt $MAX_ATTEMPTS ]; do
     elif grep 'The container name "/earthly-buildkitd" is already in use by container' $OUTPUT_FILE >/dev/null; then
       echo "Detected earthly bootstrap happening in parallel and failing, waiting and trying again."
       sleep 20
+    elif grep 'status 125: docker: Error response from daemon: layer does not exist.' $OUTPUT_FILE >/dev/null; then
+      echo "Detected corrupted docker images. Wiping and trying again."
+      # Based on https://stackoverflow.com/a/75849307
+      sudo rm -rf /var/lib/docker/image/overlay2/layerdb/sha256/* /var/lib/docker/image/overlay2/imagedb/content/sha256/*
     else
       # If other errors, exit the script
+      echo "Errors may exist in other jobs. Please see the run summary page and check for Build Summary. If there are no errors, it may be because runs were interrupted due to runner going down (please report this)."
       exit 1
     fi
   fi

@@ -1,30 +1,19 @@
 use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs;
 use crate::abis::previous_rollup_data::PreviousRollupData;
 use dep::types::{
-    mocked::AggregationObject, hash::accumulate_sha256,
+    hash::accumulate_sha256,
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
     NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, NUM_ENCRYPTED_LOGS_HASHES_PER_TX,
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
 },
     utils::uint256::U256,
-    abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, accumulated_data::CombinedAccumulatedData}
-};
-
-/**
- * Create an aggregation object for the proofs that are provided
- *          - We add points P0 for each of our proofs
- *          - We add points P1 for each of our proofs
- *          - We concat our public inputs
- * TODO(Kev): This seems similar to the aggregate_proof method in the private-kernel-lib
- */
-pub fn aggregate_proofs(
-    left: BaseOrMergeRollupPublicInputs,
-    _right: BaseOrMergeRollupPublicInputs
-) -> AggregationObject {
-    // TODO: Similar to cpp code this does not do anything.
-    left.aggregation_object
+    abis::{
+    append_only_tree_snapshot::AppendOnlyTreeSnapshot, accumulated_data::CombinedAccumulatedData,
+    public_data_update_request::PublicDataUpdateRequest
 }
+};
 
 /**
  * Asserts that the rollup types are the same. 
@@ -131,14 +120,15 @@ pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -
     )
 }
 
-global TX_EFFECTS_HASH_INPUT_FIELDS = 201;
+global TX_EFFECTS_HASH_INPUT_FIELDS = 202;
 
 // Computes the tx effects hash for a base rollup (a single transaction)
 // TODO(Alvaro): This is too slow for brillig without the array optimization
 pub fn compute_tx_effects_hash(
     combined: CombinedAccumulatedData,
     revert_code: u8,
-    transaction_fee: Field
+    transaction_fee: Field,
+    all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]
 ) -> Field {
     // Compute tx effect hash
     // Consist of
@@ -149,7 +139,8 @@ pub fn compute_tx_effects_hash(
     // 2 l2 -> l1 messages -> 2 fields
     // 32 public data update requests -> 64 fields
     // 1 contract deployments -> 3 fields
-    // 1 encrypted logs length --> 1 field | Includes length of note and generic encrypted logs
+    // 1 note encrypted logs length --> 1 field
+    // 1 encrypted logs length --> 1 field
     // 1 unencrypted logs length --> 1 field
     // 1 note encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32! 
     // 1 encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!  
@@ -159,7 +150,10 @@ pub fn compute_tx_effects_hash(
     let new_note_hashes = combined.new_note_hashes;
     let new_nullifiers = combined.new_nullifiers;
     let new_l2_to_l1_msgs = combined.new_l2_to_l1_msgs;
-    let public_data_update_requests = combined.public_data_update_requests;
+
+    // Public writes are the concatenation of all non-empty user update requests and protocol update requests, then padded with zeroes.
+    let public_data_update_requests = get_all_update_requests_for_tx_effects(all_public_data_update_requests);
+    let note_logs_length = combined.note_encrypted_log_preimages_length;
     let encrypted_logs_length = combined.encrypted_log_preimages_length;
     let unencrypted_logs_length = combined.unencrypted_log_preimages_length;
     let note_encrypted_logs_hash = combined.note_encrypted_logs_hash;
@@ -190,13 +184,17 @@ pub fn compute_tx_effects_hash(
     }
     offset += MAX_NEW_L2_TO_L1_MSGS_PER_TX;
 
-    for j in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
+    for j in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
         txs_effects_hash_input[offset + j * 2] =
                 public_data_update_requests[j].leaf_slot;
         txs_effects_hash_input[offset + j * 2 + 1] =
                 public_data_update_requests[j].new_value;
     }
-    offset += MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
+    offset += MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
+
+    txs_effects_hash_input[offset] = note_logs_length;
+
+    offset += 1;
 
     txs_effects_hash_input[offset] = encrypted_logs_length;
 
@@ -231,6 +229,16 @@ pub fn compute_tx_effects_hash(
     sha_digest
 }
 
+fn get_all_update_requests_for_tx_effects(all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]) -> [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
+    let mut all_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> = BoundedVec::new();
+    for update_request in all_public_data_update_requests {
+        if !update_request.is_empty() {
+            all_update_requests.push(update_request);
+        }
+    }
+    all_update_requests.storage
+}
+
 #[test]
 fn consistent_TX_EFFECTS_HASH_INPUT_FIELDS() {
     // 1 for revert_code
@@ -240,9 +248,9 @@ fn consistent_TX_EFFECTS_HASH_INPUT_FIELDS() {
         + 1
         + MAX_NEW_NOTE_HASHES_PER_TX
         + MAX_NEW_NULLIFIERS_PER_TX
-        + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
+        + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
         + MAX_NEW_L2_TO_L1_MSGS_PER_TX
-        + 2
+        + 3
         + NUM_ENCRYPTED_LOGS_HASHES_PER_TX
         + NUM_ENCRYPTED_LOGS_HASHES_PER_TX
         + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX;

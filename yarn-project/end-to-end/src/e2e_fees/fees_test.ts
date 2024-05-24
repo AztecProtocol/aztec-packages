@@ -24,18 +24,14 @@ import {
   FPCContract,
   GasTokenContract,
 } from '@aztec/noir-contracts.js';
+import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 
 import { getContract } from 'viem';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
-import {
-  type ISnapshotManager,
-  type SubsystemsContext,
-  addAccounts,
-  createSnapshotManager,
-} from '../fixtures/snapshot_manager.js';
+import { type ISnapshotManager, addAccounts, createSnapshotManager } from '../fixtures/snapshot_manager.js';
 import { type BalancesFn, deployCanonicalGasToken, getBalancesFn, publicDeployAccounts } from '../fixtures/utils.js';
-import { GasPortalTestingHarnessFactory } from '../shared/gas_portal_test_harness.js';
+import { GasPortalTestingHarnessFactory, type IGasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
 
@@ -71,6 +67,7 @@ export class FeesTest {
   public bananaFPC!: FPCContract;
   public counterContract!: CounterContract;
   public subscriptionContract!: AppSubscriptionContract;
+  public gasBridgeTestHarness!: IGasBridgingTestHarness;
 
   public getCoinbaseBalance!: () => Promise<bigint>;
   public gasBalances!: BalancesFn;
@@ -129,7 +126,7 @@ export class FeesTest {
     await this.applyInitialAccountsSnapshot();
     await this.applyPublicDeployAccountsSnapshot();
     await this.applyDeployGasTokenSnapshot();
-    await this.applyFPCSetupSnapshot();
+    await this.applyDeployBananaTokenSnapshot();
   }
 
   private async applyInitialAccountsSnapshot() {
@@ -155,61 +152,86 @@ export class FeesTest {
   }
 
   private async applyDeployGasTokenSnapshot() {
-    await this.snapshotManager.snapshot('deploy_gas_token', async context => {
-      await deployCanonicalGasToken(
-        new SignerlessWallet(
-          context.pxe,
-          new DefaultMultiCallEntrypoint(context.aztecNodeConfig.chainId, context.aztecNodeConfig.version),
-        ),
-      );
-    });
+    await this.snapshotManager.snapshot(
+      'deploy_gas_token',
+      async context => {
+        await deployCanonicalGasToken(
+          new SignerlessWallet(
+            context.pxe,
+            new DefaultMultiCallEntrypoint(context.aztecNodeConfig.chainId, context.aztecNodeConfig.version),
+          ),
+        );
+      },
+      async (_data, context) => {
+        this.gasTokenContract = await GasTokenContract.at(getCanonicalGasToken().address, this.aliceWallet);
+
+        const { publicClient, walletClient } = createL1Clients(context.aztecNodeConfig.rpcUrl, MNEMONIC);
+        this.gasBridgeTestHarness = await GasPortalTestingHarnessFactory.create({
+          aztecNode: context.aztecNode,
+          pxeService: context.pxe,
+          publicClient: publicClient,
+          walletClient: walletClient,
+          wallet: this.aliceWallet,
+          logger: this.logger,
+          mockL1: false,
+        });
+      },
+    );
   }
 
-  private async applyFPCSetupSnapshot() {
+  private async applyDeployBananaTokenSnapshot() {
     await this.snapshotManager.snapshot(
-      'fpc_setup',
-      async context => {
-        const harness = await this.createGasBridgeTestHarness(context);
-        const gasTokenContract = harness.l2Token;
-        expect(await context.pxe.isContractPubliclyDeployed(gasTokenContract.address)).toBe(true);
-
+      'deploy_banana_token',
+      async () => {
         const bananaCoin = await BananaCoin.deploy(this.aliceWallet, this.aliceAddress, 'BC', 'BC', 18n)
           .send()
           .deployed();
-
         this.logger.info(`BananaCoin deployed at ${bananaCoin.address}`);
+        return { bananaCoinAddress: bananaCoin.address };
+      },
+      async ({ bananaCoinAddress }) => {
+        this.bananaCoin = await BananaCoin.at(bananaCoinAddress, this.aliceWallet);
+      },
+    );
+  }
 
+  public async applyFPCSetupSnapshot() {
+    await this.snapshotManager.snapshot(
+      'fpc_setup',
+      async context => {
+        const gasTokenContract = this.gasBridgeTestHarness.l2Token;
+        expect(await context.pxe.isContractPubliclyDeployed(gasTokenContract.address)).toBe(true);
+
+        const bananaCoin = this.bananaCoin;
         const bananaFPC = await FPCContract.deploy(this.aliceWallet, bananaCoin.address, gasTokenContract.address)
           .send()
           .deployed();
 
         this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
 
-        await harness.bridgeFromL1ToL2(this.INITIAL_GAS_BALANCE, this.INITIAL_GAS_BALANCE, bananaFPC.address);
+        await this.gasBridgeTestHarness.bridgeFromL1ToL2(
+          this.INITIAL_GAS_BALANCE,
+          this.INITIAL_GAS_BALANCE,
+          bananaFPC.address,
+        );
 
         return {
-          bananaCoinAddress: bananaCoin.address,
           bananaFPCAddress: bananaFPC.address,
           gasTokenAddress: gasTokenContract.address,
-          l1GasTokenAddress: harness.l1GasTokenAddress,
-          rpcUrl: context.aztecNodeConfig.rpcUrl,
+          l1GasTokenAddress: this.gasBridgeTestHarness.l1GasTokenAddress,
         };
       },
-      async data => {
+      async (data, context) => {
         const bananaFPC = await FPCContract.at(data.bananaFPCAddress, this.aliceWallet);
-        const bananaCoin = await BananaCoin.at(data.bananaCoinAddress, this.aliceWallet);
-        const gasTokenContract = await GasTokenContract.at(data.gasTokenAddress, this.aliceWallet);
-
-        this.bananaCoin = bananaCoin;
         this.bananaFPC = bananaFPC;
-        this.gasTokenContract = gasTokenContract;
 
-        this.bananaPublicBalances = getBalancesFn('🍌.public', bananaCoin.methods.balance_of_public, this.logger);
-        this.bananaPrivateBalances = getBalancesFn('🍌.private', bananaCoin.methods.balance_of_private, this.logger);
-        this.gasBalances = getBalancesFn('⛽', gasTokenContract.methods.balance_of_public, this.logger);
+        const logger = this.logger;
+        this.bananaPublicBalances = getBalancesFn('🍌.public', this.bananaCoin.methods.balance_of_public, logger);
+        this.bananaPrivateBalances = getBalancesFn('🍌.private', this.bananaCoin.methods.balance_of_private, logger);
+        this.gasBalances = getBalancesFn('⛽', this.gasTokenContract.methods.balance_of_public, logger);
 
         this.getCoinbaseBalance = async () => {
-          const { walletClient } = createL1Clients(data.rpcUrl, MNEMONIC);
+          const { walletClient } = createL1Clients(context.aztecNodeConfig.rpcUrl, MNEMONIC);
           const gasL1 = getContract({
             address: data.l1GasTokenAddress.toString(),
             abi: PortalERC20Abi,
@@ -279,19 +301,5 @@ export class FeesTest {
         this.subscriptionContract = await AppSubscriptionContract.at(subscriptionContractAddress, this.bobWallet);
       },
     );
-  }
-
-  private createGasBridgeTestHarness(context: SubsystemsContext) {
-    const { publicClient, walletClient } = createL1Clients(context.aztecNodeConfig.rpcUrl, MNEMONIC);
-
-    return GasPortalTestingHarnessFactory.create({
-      aztecNode: context.aztecNode,
-      pxeService: context.pxe,
-      publicClient: publicClient,
-      walletClient: walletClient,
-      wallet: this.aliceWallet,
-      logger: this.logger,
-      mockL1: false,
-    });
   }
 }

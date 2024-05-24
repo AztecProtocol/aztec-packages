@@ -1,4 +1,5 @@
 import {
+  EncryptedNoteTxL2Logs,
   EncryptedTxL2Logs,
   PublicDataWrite,
   type SimulationError,
@@ -10,9 +11,11 @@ import {
 import {
   Fr,
   type Gas,
+  type GasFees,
   type Header,
   KernelCircuitPublicInputs,
   type Proof,
+  type PublicDataUpdateRequest,
   type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
   type PublicKernelTailCircuitPrivateInputs,
@@ -59,12 +62,10 @@ export type ProcessedTx = Pick<Tx, 'proof' | 'noteEncryptedLogs' | 'encryptedLog
    * Flag indicating the tx is 'empty' meaning it's a padding tx to take us to a power of 2.
    */
   isEmpty: boolean;
-
   /**
    * Reason the tx was reverted.
    */
   revertReason: SimulationError | undefined;
-
   /**
    * The collection of public kernel circuit inputs for simulation/proving
    */
@@ -74,6 +75,8 @@ export type ProcessedTx = Pick<Tx, 'proof' | 'noteEncryptedLogs' | 'encryptedLog
    * Doesn't account for any base costs nor DA gas used in private execution.
    */
   gasUsed: Partial<Record<PublicKernelType, Gas>>;
+  /** All public data updates for this transaction, including those created or updated by the protocol, such as balance updates from fee payments. */
+  finalPublicDataUpdateRequests: PublicDataUpdateRequest[];
 };
 
 export type RevertedTx = ProcessedTx & {
@@ -129,19 +132,21 @@ export function makeProcessedTx(
   publicKernelRequests: PublicKernelRequest[],
   revertReason?: SimulationError,
   gasUsed: ProcessedTx['gasUsed'] = {},
+  finalPublicDataUpdateRequests?: PublicDataUpdateRequest[],
 ): ProcessedTx {
   return {
     hash: tx.getTxHash(),
     data: kernelOutput,
     proof,
     // TODO(4712): deal with non-revertible logs here
-    noteEncryptedLogs: revertReason ? EncryptedTxL2Logs.empty() : tx.noteEncryptedLogs,
+    noteEncryptedLogs: revertReason ? EncryptedNoteTxL2Logs.empty() : tx.noteEncryptedLogs,
     encryptedLogs: revertReason ? EncryptedTxL2Logs.empty() : tx.encryptedLogs,
     unencryptedLogs: revertReason ? UnencryptedTxL2Logs.empty() : tx.unencryptedLogs,
     isEmpty: false,
     revertReason,
     publicKernelRequests,
     gasUsed,
+    finalPublicDataUpdateRequests: finalPublicDataUpdateRequests ?? kernelOutput.end.publicDataUpdateRequests,
   };
 }
 
@@ -159,7 +164,7 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
   const hash = new TxHash(Fr.ZERO.toBuffer());
   return {
     hash,
-    noteEncryptedLogs: EncryptedTxL2Logs.empty(),
+    noteEncryptedLogs: EncryptedNoteTxL2Logs.empty(),
     encryptedLogs: EncryptedTxL2Logs.empty(),
     unencryptedLogs: UnencryptedTxL2Logs.empty(),
     data: emptyKernelOutput,
@@ -168,36 +173,35 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
     revertReason: undefined,
     publicKernelRequests: [],
     gasUsed: {},
+    finalPublicDataUpdateRequests: [],
   };
 }
 
-export function toTxEffect(tx: ProcessedTx): TxEffect {
+export function toTxEffect(tx: ProcessedTx, gasFees: GasFees): TxEffect {
   return new TxEffect(
     tx.data.revertCode,
-    tx.data.transactionFee,
+    tx.data.getTransactionFee(gasFees),
     tx.data.end.newNoteHashes.filter(h => !h.isZero()),
     tx.data.end.newNullifiers.filter(h => !h.isZero()),
     tx.data.end.newL2ToL1Msgs.filter(h => !h.isZero()),
-    tx.data.end.publicDataUpdateRequests
-      .map(t => new PublicDataWrite(t.leafSlot, t.newValue))
-      .filter(h => !h.isEmpty()),
+    tx.finalPublicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)).filter(h => !h.isEmpty()),
+    tx.data.end.noteEncryptedLogPreimagesLength,
     tx.data.end.encryptedLogPreimagesLength,
     tx.data.end.unencryptedLogPreimagesLength,
-    tx.noteEncryptedLogs || EncryptedTxL2Logs.empty(),
+    tx.noteEncryptedLogs || EncryptedNoteTxL2Logs.empty(),
     tx.encryptedLogs || EncryptedTxL2Logs.empty(),
     tx.unencryptedLogs || UnencryptedTxL2Logs.empty(),
   );
 }
 
 function validateProcessedTxLogs(tx: ProcessedTx): void {
-  const unencryptedLogs = tx.unencryptedLogs || UnencryptedTxL2Logs.empty();
-  let kernelHash = tx.data.end.unencryptedLogsHash;
-  let referenceHash = Fr.fromBuffer(unencryptedLogs.hash());
+  const noteEncryptedLogs = tx.noteEncryptedLogs || EncryptedNoteTxL2Logs.empty();
+  let kernelHash = tx.data.end.noteEncryptedLogsHash;
+  let referenceHash = Fr.fromBuffer(noteEncryptedLogs.hash());
   if (!referenceHash.equals(kernelHash)) {
     throw new Error(
-      `Unencrypted logs hash mismatch. Expected ${referenceHash.toString()}, got ${kernelHash.toString()}.
-             Processed: ${JSON.stringify(unencryptedLogs.toJSON())}
-             Kernel Length: ${tx.data.end.unencryptedLogPreimagesLength}`,
+      `Note encrypted logs hash mismatch. Expected ${referenceHash.toString()}, got ${kernelHash.toString()}.
+             Processed: ${JSON.stringify(noteEncryptedLogs.toJSON())}`,
     );
   }
   const encryptedLogs = tx.encryptedLogs || EncryptedTxL2Logs.empty();
@@ -209,17 +213,26 @@ function validateProcessedTxLogs(tx: ProcessedTx): void {
              Processed: ${JSON.stringify(encryptedLogs.toJSON())}`,
     );
   }
-  const noteEncryptedLogs = tx.noteEncryptedLogs || EncryptedTxL2Logs.empty();
-  kernelHash = tx.data.end.noteEncryptedLogsHash;
-  referenceHash = Fr.fromBuffer(noteEncryptedLogs.hash(0));
+  const unencryptedLogs = tx.unencryptedLogs || UnencryptedTxL2Logs.empty();
+  kernelHash = tx.data.end.unencryptedLogsHash;
+  referenceHash = Fr.fromBuffer(unencryptedLogs.hash());
   if (!referenceHash.equals(kernelHash)) {
     throw new Error(
-      `Note encrypted logs hash mismatch. Expected ${referenceHash.toString()}, got ${kernelHash.toString()}.
+      `Unencrypted logs hash mismatch. Expected ${referenceHash.toString()}, got ${kernelHash.toString()}.
+             Processed: ${JSON.stringify(unencryptedLogs.toJSON())}
+             Kernel Length: ${tx.data.end.unencryptedLogPreimagesLength}`,
+    );
+  }
+  let referenceLength = new Fr(noteEncryptedLogs.getKernelLength());
+  let kernelLength = tx.data.end.noteEncryptedLogPreimagesLength;
+  if (!referenceLength.equals(kernelLength)) {
+    throw new Error(
+      `Note encrypted logs length mismatch. Expected ${referenceLength.toString()}, got ${kernelLength.toString()}.
              Processed: ${JSON.stringify(noteEncryptedLogs.toJSON())}`,
     );
   }
-  let referenceLength = new Fr(encryptedLogs.getKernelLength() + noteEncryptedLogs.getKernelLength());
-  let kernelLength = tx.data.end.encryptedLogPreimagesLength;
+  referenceLength = new Fr(encryptedLogs.getKernelLength());
+  kernelLength = tx.data.end.encryptedLogPreimagesLength;
   if (!referenceLength.equals(kernelLength)) {
     throw new Error(
       `Encrypted logs length mismatch. Expected ${referenceLength.toString()}, got ${kernelLength.toString()}.
@@ -231,7 +244,7 @@ function validateProcessedTxLogs(tx: ProcessedTx): void {
   if (!referenceLength.equals(kernelLength)) {
     throw new Error(
       `Unencrypted logs length mismatch. Expected ${referenceLength.toString()}, got ${kernelLength.toString()}.
-             Processed: ${JSON.stringify(encryptedLogs.toJSON())}`,
+             Processed: ${JSON.stringify(unencryptedLogs.toJSON())}`,
     );
   }
 }
