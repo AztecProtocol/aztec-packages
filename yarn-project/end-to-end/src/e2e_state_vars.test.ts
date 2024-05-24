@@ -5,7 +5,7 @@ import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
 
-const TIMEOUT = 600_000;
+const TIMEOUT = 180_000;
 
 describe('e2e_state_vars', () => {
   jest.setTimeout(TIMEOUT);
