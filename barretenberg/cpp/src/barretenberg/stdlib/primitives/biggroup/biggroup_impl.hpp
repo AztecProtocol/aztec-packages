@@ -758,36 +758,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
                                                        const std::vector<Fr>& _scalars,
                                                        const size_t max_num_bits)
 {
-    auto builder = _points[0].get_context();
-    std::vector<element> points;
-    std::vector<Fr> scalars;
-    element one = element::one(builder);
+    const auto [points, scalars] = handle_points_at_infinity(_points, _scalars);
 
-    bool some_scalar_is_zero(false);
-
-    for (auto [_point, _scalar] : zip_view(_points, _scalars)) {
-        bool_ct is_point_at_infinity = _point.is_point_at_infinity();
-        if (is_point_at_infinity.get_value() && static_cast<bool>(is_point_at_infinity.is_constant())) {
-            // if point is at infinity and a circuit constant we can just skip.
-            continue;
-        }
-        if (_scalar.get_value() == 0 && _scalar.is_constant()) {
-            // if scalar multiplier is 0 and also a constant, we can skip
-            continue;
-        }
-        Fq updated_x = Fq::conditional_assign(is_point_at_infinity, one.x, _point.x);
-        Fq updated_y = Fq::conditional_assign(is_point_at_infinity, one.y, _point.y);
-        element point(updated_x, updated_y);
-        Fr scalar = Fr::conditional_assign(is_point_at_infinity, 0, _scalar);
-        if (scalar.get_value() == 0) {
-            some_scalar_is_zero = true;
-        }
-
-        points.push_back(point);
-        scalars.push_back(scalar);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1002): if both point and scalar are constant, don't
-        // bother adding constraints
-    }
     if constexpr (IsSimulator<C>) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/663)
         auto context = points[0].get_context();
@@ -804,7 +776,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         if constexpr (IsGoblinUltraBuilder<C> && std::same_as<G, bb::g1>) {
             return goblin_batch_mul(points, scalars);
         } else {
-            ASSERT(!some_scalar_is_zero);
             const size_t num_points = points.size();
             ASSERT(scalars.size() == num_points);
             batch_lookup_table point_table(points);

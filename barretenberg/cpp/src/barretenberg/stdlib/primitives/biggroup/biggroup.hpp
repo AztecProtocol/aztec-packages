@@ -204,6 +204,9 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         return result;
     }
 
+    static std::pair<std::vector<element>, std::vector<Fr>> handle_points_at_infinity(
+        const std::vector<element>& _points, const std::vector<Fr>& _scalars);
+
     // compute a multi-scalar-multiplication by creating a precomputed lookup table for each point,
     // splitting each scalar multiplier up into a 4-bit sliding window wNAF.
     // more efficient than batch_mul if num_points < 4

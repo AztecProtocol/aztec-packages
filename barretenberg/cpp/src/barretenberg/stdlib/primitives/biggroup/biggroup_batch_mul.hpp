@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/handle_points_at_infinity.hpp"
 #include <cstddef>
 namespace bb::stdlib {
 
@@ -22,33 +22,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::wnaf_batch_mul(const std::vector<el
         return batch_mul(_points, _scalars, max_num_bits);
     }
 
-    // treat inputs for points at infinity.
-    // if a base point is at infinity, we substitute for element::one, and set the scalar multiplier to 0
-    // this (partially) ensures the mul algorithm does not need to account for points at infinity
-    std::vector<element> points;
-    std::vector<Fr> scalars;
-    element one = element::one(nullptr);
-    for (auto [_point, _scalar] : zip_view(_points, _scalars)) {
-        bool_ct is_point_at_infinity = _point.is_point_at_infinity();
-        if (is_point_at_infinity.get_value() && static_cast<bool>(is_point_at_infinity.is_constant())) {
-            // if point is at infinity and a circuit constant we can just skip.
-            continue;
-        }
-        if (_scalar.get_value() == 0 && _scalar.is_constant()) {
-            // if scalar multiplier is 0 and also a constant, we can skip
-            continue;
-        }
-        element point(_point);
-        // if a point is the point at infinity, convert to a valid multiplication by 0
-        point.x = Fq::conditional_assign(is_point_at_infinity, one.x, point.x);
-        point.y = Fq::conditional_assign(is_point_at_infinity, one.y, point.y);
-        Fr scalar = Fr::conditional_assign(is_point_at_infinity, 0, _scalar);
-        points.push_back(point);
-        scalars.push_back(scalar);
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1002): if both point and scalar are constant, don't
-        // bother adding constraints
-    }
+    const auto [points, scalars] = handle_points_at_infinity(_points, _scalars);
 
     std::vector<four_bit_table_plookup<>> point_tables;
     for (const auto& point : points) {
