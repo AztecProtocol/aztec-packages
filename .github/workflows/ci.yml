@@ -403,10 +403,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/paths-filter
+        id: changes
+        with:
+          filters: |
+            src: [noir/**, barretenberg/**]
       - uses: ./.github/ci-setup-action
+        if: steps.changes.outputs.src == 'true'
         with:
           concurrency_key: noir-examples-x86
       - name: "Test Noir examples"
+        if: steps.changes.outputs.src == 'true'
         run: earthly-ci --no-output ./noir+examples
 
   noir-packages-test:
@@ -415,10 +422,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/paths-filter
+        id: changes
+        with:
+          filters: |
+            src: [noir/**, barretenberg/**]
       - uses: ./.github/ci-setup-action
+        if: steps.changes.outputs.src == 'true'
         with:
           concurrency_key: noir-packages-x86
       - name: "Test Noir JS packages"
+        if: steps.changes.outputs.src == 'true'
         run: earthly-ci --no-output ./noir+packages-test
 
   noir-projects:
@@ -427,10 +441,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/paths-filter
+        id: changes
+        with:
+          filters: |
+            src: [noir/**, barretenberg/**, noir-projects/**]
       - uses: ./.github/ci-setup-action
+        if: steps.changes.outputs.src == 'true'
         with:
           concurrency_key: noir-projects-x86
       - name: "Noir Projects"
+        if: steps.changes.outputs.src == 'true'
         timeout-minutes: 40
         run: earthly-ci --no-output ./noir-projects/+test
 
@@ -515,12 +536,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - uses: ./.github/ci-setup-action
       - uses: ./.github/paths-filter
         id: changes
         with:
           filters: |
             src: [barretenberg/cpp/**]
+      - uses: ./.github/ci-setup-action
+        if: steps.changes.outputs.src == 'true'
       - name: Build Bench Binaries
         if: steps.changes.outputs.src == 'true'
         uses: ./.github/ensure-builder
