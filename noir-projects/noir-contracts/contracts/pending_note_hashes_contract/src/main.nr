@@ -291,8 +291,7 @@ contract PendingNoteHashes {
         let notes = owner_balance.get_notes(NoteGetterOptions::new());
 
         for i in 0..max_notes_per_call() {
-            let note = notes[i].unwrap();
-            owner_balance.remove(note);
+            assert(notes[i].is_some());
         }
     }
 
