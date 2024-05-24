@@ -8,11 +8,14 @@ use crate::{
     kernel_data::KernelData, public_kernel_data::PublicKernelData, max_block_number::MaxBlockNumber,
     private_kernel_data::PrivateKernelData, note_hash::{NoteHash, ScopedNoteHash},
     nullifier::{Nullifier, ScopedNullifier},
-    key_validation_request::{ScopedKeyValidationRequest, KeyValidationRequest},
     private_call_request::{PrivateCallRequest, ScopedPrivateCallRequest},
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-    read_request::{ReadRequest, ScopedReadRequest}, log_hash::{LogHash, NoteLogHash},
-    validation_requests::{ValidationRequests, ValidationRequestsBuilder}
+    read_request::{ReadRequest, ScopedReadRequest},
+    log_hash::{LogHash, NoteLogHash, ScopedLogHash, EncryptedLogHash, ScopedEncryptedLogHash},
+    validation_requests::{
+    ValidationRequests, ValidationRequestsBuilder, KeyValidationRequest,
+    KeyValidationRequestAndGenerator, ScopedKeyValidationRequestAndGenerator
+}
 },
     address::{AztecAddress, EthAddress},
     constants::{
@@ -46,11 +49,12 @@ struct FixtureBuilder {
     new_nullifiers: BoundedVec<ScopedNullifier, MAX_NEW_NULLIFIERS_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
     note_encrypted_logs_hashes: BoundedVec<NoteLogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
-    encrypted_logs_hashes: BoundedVec<LogHash, MAX_ENCRYPTED_LOGS_PER_TX>,
-    unencrypted_logs_hashes: BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
+    encrypted_logs_hashes: BoundedVec<ScopedEncryptedLogHash, MAX_ENCRYPTED_LOGS_PER_TX>,
+    unencrypted_logs_hashes: BoundedVec<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
     note_encrypted_logs_hash: Field,
     encrypted_logs_hash: Field,
     unencrypted_logs_hash: Field,
+    note_encrypted_log_preimages_length: Field,
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
     public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
@@ -65,7 +69,7 @@ struct FixtureBuilder {
     note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     nullifier_non_existent_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
-    key_validation_requests: BoundedVec<ScopedKeyValidationRequest, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+    scoped_key_validation_requests_and_generators: BoundedVec<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
     public_data_reads: BoundedVec<PublicDataRead, MAX_PUBLIC_DATA_READS_PER_TX>,
 
     // Proof.
@@ -101,6 +105,7 @@ impl FixtureBuilder {
             note_encrypted_logs_hash: 0,
             encrypted_logs_hash: 0,
             unencrypted_logs_hash: 0,
+            note_encrypted_log_preimages_length: 0,
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
             public_data_update_requests: BoundedVec::new(),
@@ -110,7 +115,7 @@ impl FixtureBuilder {
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_non_existent_read_requests: BoundedVec::new(),
-            key_validation_requests: BoundedVec::new(),
+            scoped_key_validation_requests_and_generators: BoundedVec::new(),
             public_data_reads: BoundedVec::new(),
             proof: NestedRecursiveProof::empty(),
             vk: VerificationKey::empty(),
@@ -154,9 +159,9 @@ impl FixtureBuilder {
             new_note_hashes: self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash),
             new_nullifiers: self.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier),
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
-            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage,
-            encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
+            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage.map(|l: NoteLogHash| l.expose_to_public()),
+            encrypted_logs_hashes: self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.expose_to_public()),
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.log_hash),
             public_data_update_requests: self.public_data_update_requests.storage,
             public_call_stack: self.public_call_stack.storage,
             gas_used: self.gas_used
@@ -171,6 +176,7 @@ impl FixtureBuilder {
             note_encrypted_logs_hash: self.note_encrypted_logs_hash,
             encrypted_logs_hash: self.encrypted_logs_hash,
             unencrypted_logs_hash: self.unencrypted_logs_hash,
+            note_encrypted_log_preimages_length: self.note_encrypted_log_preimages_length,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             public_data_update_requests: self.public_data_update_requests.storage,
@@ -184,7 +190,7 @@ impl FixtureBuilder {
             note_hash_read_requests: self.note_hash_read_requests,
             nullifier_read_requests: self.nullifier_read_requests,
             nullifier_non_existent_read_requests: self.nullifier_non_existent_read_requests,
-            key_validation_requests: self.key_validation_requests,
+            scoped_key_validation_requests_and_generators: self.scoped_key_validation_requests_and_generators,
             public_data_reads: self.public_data_reads
         };
         validation_requests.finish()
@@ -283,7 +289,7 @@ impl FixtureBuilder {
         self.note_encrypted_logs_hashes.push(
             NoteLogHash { value: value + 1, counter: self.next_counter(), length: 64, note_hash_counter: self.counter - 2 }
         );
-        self.encrypted_log_preimages_length += 64;
+        self.note_encrypted_log_preimages_length += 64;
     }
 
     pub fn append_new_note_hashes(&mut self, num_new_note_hashes: u64, broadcast: bool) {
@@ -410,23 +416,25 @@ impl FixtureBuilder {
         new_read_request_index
     }
 
-    pub fn add_request_for_key_validation(&mut self, pk_m: GrumpkinPoint, sk_app: Field) -> u64 {
-        let new_request_index = self.key_validation_requests.len();
+    pub fn add_request_for_key_validation(&mut self, pk_m: GrumpkinPoint, sk_app: Field, sk_app_generator: Field) -> u64 {
+        let new_request_index = self.scoped_key_validation_requests_and_generators.len();
         let request = KeyValidationRequest { pk_m, sk_app };
-        self.key_validation_requests.push(request.scope(self.storage_contract_address));
+        let request_and_generator = KeyValidationRequestAndGenerator { request, sk_app_generator };
+        let scoped_key_validation_request_and_generator = request_and_generator.scope(self.storage_contract_address);
+        self.scoped_key_validation_requests_and_generators.push(scoped_key_validation_request_and_generator);
 
         new_request_index
     }
 
     pub fn set_encrypted_logs(&mut self, hash: Field, preimages_length: Field) {
-        let side_effect = LogHash { value: hash, counter: self.next_counter(), length: preimages_length };
-        self.encrypted_logs_hashes.push(side_effect);
+        let side_effect = EncryptedLogHash { value: hash, counter: self.next_counter(), length: preimages_length, randomness: 2 };
+        self.encrypted_logs_hashes.push(side_effect.scope(self.storage_contract_address));
         self.encrypted_log_preimages_length += preimages_length;
     }
 
     pub fn set_unencrypted_logs(&mut self, hash: Field, preimages_length: Field) {
         let side_effect = LogHash { value: hash, counter: self.next_counter(), length: preimages_length };
-        self.unencrypted_logs_hashes.push(side_effect);
+        self.unencrypted_logs_hashes.push(side_effect.scope(self.storage_contract_address));
         self.unencrypted_log_preimages_length += preimages_length;
     }
 
@@ -534,6 +542,7 @@ impl Empty for FixtureBuilder {
             note_encrypted_logs_hash: 0,
             encrypted_logs_hash: 0,
             unencrypted_logs_hash: 0,
+            note_encrypted_log_preimages_length: 0,
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
             public_data_update_requests: BoundedVec::new(),
@@ -543,7 +552,7 @@ impl Empty for FixtureBuilder {
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_non_existent_read_requests: BoundedVec::new(),
-            key_validation_requests: BoundedVec::new(),
+            scoped_key_validation_requests_and_generators: BoundedVec::new(),
             public_data_reads: BoundedVec::new(),
             proof: NestedRecursiveProof::empty(),
             vk: VerificationKey::empty(),
