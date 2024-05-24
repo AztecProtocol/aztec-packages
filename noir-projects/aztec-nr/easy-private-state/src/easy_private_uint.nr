@@ -24,14 +24,14 @@ impl<Context> EasyPrivateUint<&mut PrivateContext> {
     // Very similar to `value_note::utils::increment`.
     pub fn add(self, addend: u64, owner: AztecAddress) {
         let owner_npk_m_hash = get_npk_m_hash(self.context, owner);
-        let owner_ivpk_m = get_ivpk_m(self.context, owner);
         let owner_ovpk_m = get_ovpk_m(self.context, owner);
+        let owner_ivpk_m = get_ivpk_m(self.context, owner);
         // Creates new note for the owner.
         let mut addend_note = ValueNote::new(addend as Field, owner_npk_m_hash);
 
         // Insert the new note to the owner's set of notes.
         // docs:start:insert
-        self.set.insert(&mut addend_note, true, owner_ivpk_m, owner_ovpk_m);
+        self.set.insert(&mut addend_note, true, owner_ovpk_m, owner_ivpk_m);
         // docs:end:insert
     }
 
@@ -70,6 +70,6 @@ impl<Context> EasyPrivateUint<&mut PrivateContext> {
         // Creates change note for the owner.
         let result_value = minuend - subtrahend;
         let mut result_note = ValueNote::new(result_value as Field, owner_npk_m_hash);
-        self.set.insert(&mut result_note, result_value != 0, owner_ivpk_m, owner_ovpk_m);
+        self.set.insert(&mut result_note, result_value != 0, owner_ovpk_m, owner_ivpk_m);
     }
 }
