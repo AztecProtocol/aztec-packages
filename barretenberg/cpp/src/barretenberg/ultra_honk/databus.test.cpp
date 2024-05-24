@@ -34,7 +34,7 @@ class DataBusTests : public ::testing::Test {
         return verifier.verify_proof(proof);
     }
 
-    // Construct a Goblin Ultra circuit with some arbitrary sample gates
+    // Construct a Mega circuit with some arbitrary sample gates
     static MegaCircuitBuilder construct_test_builder()
     {
         auto op_queue = std::make_shared<bb::ECCOpQueue>();

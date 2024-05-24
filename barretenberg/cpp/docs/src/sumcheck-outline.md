@@ -71,7 +71,7 @@ The prover algorithm is implemented in the \ref bb::SumcheckProver< Flavor > "Su
 
 #### Set up Prover Polynomials {#ProverPolynomialsSetup}
 
-The polynomials \f$P_1,\ldots, P_N\f$ are abstracted in the class ProverPolynomials specific to a Flavor, e.g. \ref bb::MegaFlavor::ProverPolynomials "Goblin Ultra Flavor".
+The polynomials \f$P_1,\ldots, P_N\f$ are abstracted in the class ProverPolynomials specific to a Flavor, e.g. \ref bb::MegaFlavor::ProverPolynomials "Mega Flavor".
 Sumcheck Prover algorithm takes a reference to an object of this class.
 
 #### Compute Round Univariates and add them to Transcript {#ComputeRoundUnivariates}

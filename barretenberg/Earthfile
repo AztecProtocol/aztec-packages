@@ -34,7 +34,7 @@ barretenberg-acir-tests-bb:
     RUN FLOW=prove_then_verify_mega_honk ./run_acir_tests.sh
     # Construct and verify a UltraHonk proof for a single program
     RUN FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh double_verify_nested_proof
-    # Construct and verify a Goblin UltraHonk (MegaHonk) proof for a single arbitrary program
+    # Construct and verify a MegaHonk proof for a single arbitrary program
     RUN FLOW=prove_and_verify_mega_honk ./run_acir_tests.sh 6_array
     # Construct and verify a UltraHonk proof for all ACIR programs using the new witness stack workflow
     RUN FLOW=prove_and_verify_ultra_honk_program ./run_acir_tests.sh

@@ -17,7 +17,7 @@
 namespace bb {
 
 /**
- * @brief The recursive counterpart to the "native" Goblin Ultra flavor.
+ * @brief The recursive counterpart to the "native" Mega flavor.
  * @details This flavor can be used to instantiate a recursive Ultra Honk verifier for a proof created using the
  * Mega flavor. It is similar in structure to its native counterpart with two main differences: 1) the
  * curve types are stdlib types (e.g. field_t instead of field) and 2) it does not specify any Prover related types
