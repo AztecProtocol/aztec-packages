@@ -97,7 +97,7 @@ class AcirIntegrationFoldingTest : public AcirIntegrationTest, public testing::W
 
 TEST_P(AcirIntegrationSingleTest, ProveAndVerifyProgram)
 {
-    using Flavor = UltraFlavor;
+    using Flavor = MegaFlavor;
     // using Flavor = bb::plonk::flavor::Ultra;
     using Builder = Flavor::CircuitBuilder;
 
@@ -324,7 +324,7 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
 
 TEST_P(AcirIntegrationFoldingTest, ProveAndVerifyProgramStack)
 {
-    using Flavor = GoblinUltraFlavor;
+    using Flavor = MegaFlavor;
     using Builder = Flavor::CircuitBuilder;
 
     std::string test_name = GetParam();

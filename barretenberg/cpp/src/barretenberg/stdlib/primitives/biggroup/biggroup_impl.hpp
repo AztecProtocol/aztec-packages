@@ -69,7 +69,7 @@ template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) const
 {
     // return checked_unconditional_add(other);
-    if constexpr (IsGoblinUltraBuilder<C> && std::same_as<G, bb::g1>) {
+    if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) Optimize
         // Current gate count: 6398
         std::vector<element> points{ *this, other };
@@ -131,7 +131,7 @@ template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) const
 {
     // return checked_unconditional_add(other);
-    if constexpr (IsGoblinUltraBuilder<C> && std::same_as<G, bb::g1>) {
+    if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) Optimize
         // Current gate count: 6398
         std::vector<element> points{ *this, other };
@@ -189,7 +189,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_add(const element& other) const
 {
-    if constexpr (IsGoblinUltraBuilder<C> && std::same_as<G, bb::g1>) {
+    if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) Optimize
         // Current gate count: 6398
         std::vector<element> points{ *this, other };
@@ -207,7 +207,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_add(const ele
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_subtract(const element& other) const
 {
-    if constexpr (IsGoblinUltraBuilder<C> && std::same_as<G, bb::g1>) {
+    if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) Optimize
         std::vector<element> points{ *this, other };
         std::vector<Fr> scalars{ 1, -Fr(1) };
@@ -240,7 +240,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_subtract(cons
 template <typename C, class Fq, class Fr, class G>
 std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditional_add_sub(const element& other) const
 {
-    if constexpr (IsGoblinUltraBuilder<C> && std::same_as<G, bb::g1>) {
+    if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
         return { *this + other, *this - other };
     }
 
@@ -773,7 +773,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         return from_witness(context, result);
     } else {
         // Perform goblinized batched mul if available; supported only for BN254
-        if constexpr (IsGoblinUltraBuilder<C> && std::same_as<G, bb::g1>) {
+        if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
             return goblin_batch_mul(points, scalars);
         } else {
             const size_t num_points = points.size();
@@ -853,7 +853,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator*(const Fr& scalar) const
      *
      **/
 
-    if constexpr (IsGoblinUltraBuilder<C> && std::same_as<G, bb::g1>) {
+    if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
         std::vector<element> points{ *this };
         std::vector<Fr> scalars{ scalar };
         return goblin_batch_mul(points, scalars);
