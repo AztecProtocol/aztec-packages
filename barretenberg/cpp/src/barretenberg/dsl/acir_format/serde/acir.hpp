@@ -1148,6 +1148,15 @@ struct BrilligOpcode {
         static Store bincodeDeserialize(std::vector<uint8_t>);
     };
 
+    struct Copy {
+        Program::MemoryAddress destination_pointer;
+        Program::MemoryAddress source_pointer;
+
+        friend bool operator==(const Copy&, const Copy&);
+        std::vector<uint8_t> bincodeSerialize() const;
+        static Copy bincodeDeserialize(std::vector<uint8_t>);
+    };
+
     struct BlackBox {
         Program::BlackBoxOp value;
 
@@ -1188,6 +1197,7 @@ struct BrilligOpcode {
                  ConditionalMov,
                  Load,
                  Store,
+                 Copy,
                  BlackBox,
                  Trap,
                  Stop>
@@ -6533,6 +6543,58 @@ Program::BrilligOpcode::Store serde::Deserializable<Program::BrilligOpcode::Stor
     Program::BrilligOpcode::Store obj;
     obj.destination_pointer = serde::Deserializable<decltype(obj.destination_pointer)>::deserialize(deserializer);
     obj.source = serde::Deserializable<decltype(obj.source)>::deserialize(deserializer);
+    return obj;
+}
+
+namespace Program {
+
+inline bool operator==(const BrilligOpcode::Copy& lhs, const BrilligOpcode::Copy& rhs)
+{
+    if (!(lhs.destination_pointer == rhs.destination_pointer)) {
+        return false;
+    }
+    if (!(lhs.source_pointer == rhs.source_pointer)) {
+        return false;
+    }
+    return true;
+}
+
+inline std::vector<uint8_t> BrilligOpcode::Copy::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<BrilligOpcode::Copy>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline BrilligOpcode::Copy BrilligOpcode::Copy::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<BrilligOpcode::Copy>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::BrilligOpcode::Copy>::serialize(const Program::BrilligOpcode::Copy& obj,
+                                                                  Serializer& serializer)
+{
+    serde::Serializable<decltype(obj.destination_pointer)>::serialize(obj.destination_pointer, serializer);
+    serde::Serializable<decltype(obj.source_pointer)>::serialize(obj.source_pointer, serializer);
+}
+
+template <>
+template <typename Deserializer>
+Program::BrilligOpcode::Copy serde::Deserializable<Program::BrilligOpcode::Copy>::deserialize(
+    Deserializer& deserializer)
+{
+    Program::BrilligOpcode::Copy obj;
+    obj.destination_pointer = serde::Deserializable<decltype(obj.destination_pointer)>::deserialize(deserializer);
+    obj.source_pointer = serde::Deserializable<decltype(obj.source_pointer)>::deserialize(deserializer);
     return obj;
 }
 

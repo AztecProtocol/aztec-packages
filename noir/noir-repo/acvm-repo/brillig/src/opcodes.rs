@@ -182,6 +182,10 @@ pub enum BrilligOpcode {
         destination_pointer: MemoryAddress,
         source: MemoryAddress,
     },
+    Copy {
+        destination_pointer: MemoryAddress,
+        source_pointer: MemoryAddress,
+    },
     BlackBox(BlackBoxOp),
     /// Used to denote execution failure, returning data after the offset
     Trap {

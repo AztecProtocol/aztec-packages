@@ -330,6 +330,19 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
                 self.memory.write(destination, self.memory.read(*source_address));
                 self.increment_program_counter()
             }
+            Opcode::Copy { destination_pointer, source_pointer } => {
+                // Convert our source_pointer to an address
+                let source = self.memory.read_ref(*source_pointer);
+                // Use our usize source index to lookup the value in memory
+                let value = self.memory.read(source);
+
+                // Convert our destination_pointer to an address
+                let destination = self.memory.read_ref(*destination_pointer);
+                // Use our usize destination index to set the value in memory
+                self.memory.write(destination, value);
+
+                self.increment_program_counter()
+            }
             Opcode::Call { location } => {
                 // Push a return location
                 self.call_stack.push(self.program_counter);

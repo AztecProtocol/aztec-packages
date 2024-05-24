@@ -111,6 +111,40 @@ impl BrilligContext {
         self.deallocate_register(index_of_element_in_memory);
     }
 
+    pub(crate) fn codegen_copy_item_between_arrays(
+        &mut self,
+        source_array_pointer: MemoryAddress,
+        source_index: SingleAddrVariable,
+        destination_array_pointer: MemoryAddress,
+        destination_index: SingleAddrVariable,
+    ) {
+        assert!(source_index.bit_size == BRILLIG_MEMORY_ADDRESSING_BIT_SIZE);
+        assert!(destination_index.bit_size == BRILLIG_MEMORY_ADDRESSING_BIT_SIZE);
+
+        // Computes source_array_ptr + index, ie source_array[index]
+        let address_of_element_in_source = self.allocate_register();
+        self.binary_instruction(
+            SingleAddrVariable::new_usize(source_array_pointer),
+            source_index,
+            SingleAddrVariable::new_usize(address_of_element_in_source),
+            BrilligBinaryOp::Add,
+        );
+
+        // Computes destination_array_ptr + index, ie destination_array[index]
+        let address_of_element_in_destination = self.allocate_register();
+        self.binary_instruction(
+            SingleAddrVariable::new_usize(destination_array_pointer),
+            destination_index,
+            SingleAddrVariable::new_usize(address_of_element_in_destination),
+            BrilligBinaryOp::Add,
+        );
+
+        self.copy_instruction(address_of_element_in_destination, address_of_element_in_source);
+        // Free up temporary registers
+        self.deallocate_register(address_of_element_in_source);
+        self.deallocate_register(address_of_element_in_destination);
+    }
+
     /// Copies the values of an array pointed by source with length stored in `num_elements_register`
     /// Into the array pointed by destination
     pub(crate) fn codegen_copy_array(
@@ -121,14 +155,14 @@ impl BrilligContext {
     ) {
         assert!(num_elements_variable.bit_size == BRILLIG_MEMORY_ADDRESSING_BIT_SIZE);
 
-        let value_register = self.allocate_register();
-
         self.codegen_loop(num_elements_variable.address, |ctx, iterator| {
-            ctx.codegen_array_get(source_pointer, iterator, value_register);
-            ctx.codegen_array_set(destination_pointer, iterator, value_register);
+            ctx.codegen_copy_item_between_arrays(
+                source_pointer,
+                iterator,
+                destination_pointer,
+                iterator,
+            );
         });
-
-        self.deallocate_register(value_register);
     }
 
     /// Loads a variable stored previously

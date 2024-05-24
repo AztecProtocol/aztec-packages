@@ -322,6 +322,18 @@ impl BrilligContext {
         self.push_opcode(BrilligOpcode::Load { destination, source_pointer });
     }
 
+    /// Emits a `copy` instruction.
+    ///
+    /// Copies the value at Memory[source] into Memory[destination]
+    pub(crate) fn copy_instruction(
+        &mut self,
+        destination_pointer: MemoryAddress,
+        source_pointer: MemoryAddress,
+    ) {
+        self.debug_show.copy_instruction(destination_pointer, source_pointer);
+        self.push_opcode(BrilligOpcode::Copy { destination_pointer, source_pointer });
+    }
+
     /// Emits a `mov` instruction.
     ///
     /// Copies the value at `source` into `destination`

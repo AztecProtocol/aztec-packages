@@ -217,6 +217,20 @@ impl DebugShow {
         debug_println!(self.enable_debug_trace, "  STORE *{} = {}", destination_pointer, source);
     }
 
+    /// Emits a copy instruction
+    pub(crate) fn copy_instruction(
+        &self,
+        destination_pointer: MemoryAddress,
+        source_pointer: MemoryAddress,
+    ) {
+        debug_println!(
+            self.enable_debug_trace,
+            "  COPY *{} = {}",
+            destination_pointer,
+            source_pointer
+        );
+    }
+
     /// Emits a stop instruction
     pub(crate) fn stop_instruction(&self) {
         debug_println!(self.enable_debug_trace, "  STOP");
