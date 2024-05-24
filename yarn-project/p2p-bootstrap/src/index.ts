@@ -12,7 +12,6 @@ const { HTTP_PORT } = process.env;
  * The application entry point.
  */
 async function main(config: P2PConfig, logger = debugLogger) {
-  // const config = getP2PConfigEnvVars();
   const bootstrapNode = new BootstrapNode(logger);
   await bootstrapNode.start(config);
   logger.info('DiscV5 Bootnode started');
