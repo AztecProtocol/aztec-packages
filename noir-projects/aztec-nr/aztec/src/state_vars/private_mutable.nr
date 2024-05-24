@@ -52,14 +52,14 @@ impl<Note> PrivateMutable<Note, &mut PrivateContext> {
         self,
         note: &mut Note,
         broadcast: bool,
-        ivpk_m: GrumpkinPoint,
-        ovpk_m: GrumpkinPoint
+        ovpk_m: GrumpkinPoint,
+        ivpk_m: GrumpkinPoint
     ) where Note: NoteInterface<N, M> {
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
         self.context.push_new_nullifier(nullifier, 0);
 
-        create_note(self.context, self.storage_slot, note, broadcast, ivpk_m, ovpk_m);
+        create_note(self.context, self.storage_slot, note, broadcast, ovpk_m, ivpk_m);
     }
     // docs:end:initialize
 
@@ -68,8 +68,8 @@ impl<Note> PrivateMutable<Note, &mut PrivateContext> {
         self,
         new_note: &mut Note,
         broadcast: bool,
-        ivpk_m: GrumpkinPoint,
-        ovpk_m: GrumpkinPoint
+        ovpk_m: GrumpkinPoint,
+        ivpk_m: GrumpkinPoint
     ) where Note: NoteInterface<N, M> {
         let prev_note: Note = get_note(self.context, self.storage_slot);
 
@@ -82,8 +82,8 @@ impl<Note> PrivateMutable<Note, &mut PrivateContext> {
             self.storage_slot,
             new_note,
             broadcast,
-            ivpk_m,
-            ovpk_m
+            ovpk_m,
+            ivpk_m
         );
     }
     // docs:end:replace
@@ -92,8 +92,8 @@ impl<Note> PrivateMutable<Note, &mut PrivateContext> {
         self,
         note: &mut Note,
         broadcast: bool,
-        ivpk_m: GrumpkinPoint,
-        ovpk_m: GrumpkinPoint
+        ovpk_m: GrumpkinPoint,
+        ivpk_m: GrumpkinPoint
     ) where Note: NoteInterface<N, M> {
         let is_initialized = check_nullifier_exists(self.compute_initialization_nullifier());
 
@@ -108,9 +108,9 @@ impl<Note> PrivateMutable<Note, &mut PrivateContext> {
         // This means that an honest oracle will assist the prover to produce a valid proof, while a malicious oracle
         // (i.e. one that returns an incorrect value for is_initialized) will simply fail to produce a proof.
         if (!is_initialized) {
-            self.initialize(note, broadcast, ivpk_m, ovpk_m);
+            self.initialize(note, broadcast, ovpk_m, ivpk_m);
         } else {
-            self.replace(note, broadcast, ivpk_m, ovpk_m)
+            self.replace(note, broadcast, ovpk_m, ivpk_m)
         }
     }
 
@@ -118,8 +118,8 @@ impl<Note> PrivateMutable<Note, &mut PrivateContext> {
     pub fn get_note<N, M>(
         self,
         broadcast: bool,
-        ivpk_m: GrumpkinPoint,
-        ovpk_m: GrumpkinPoint
+        ovpk_m: GrumpkinPoint,
+        ivpk_m: GrumpkinPoint
     ) -> Note where Note: NoteInterface<N, M> {
         let mut note = get_note(self.context, self.storage_slot);
 
@@ -133,8 +133,8 @@ impl<Note> PrivateMutable<Note, &mut PrivateContext> {
             self.storage_slot,
             &mut note,
             broadcast,
-            ivpk_m,
-            ovpk_m
+            ovpk_m,
+            ivpk_m
         );
 
         note

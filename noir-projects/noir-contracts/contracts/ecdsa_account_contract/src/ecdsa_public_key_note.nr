@@ -87,13 +87,13 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN, ECDSA_PUBLIC_KEY_NOTE_BYTES_LEN> f
     }
 
     // Broadcasts the note as an encrypted log on L1.
-    fn broadcast(self, context: &mut PrivateContext, slot: Field, ivpk_m: GrumpkinPoint, ovpk_m: GrumpkinPoint) {
+    fn broadcast(self, context: &mut PrivateContext, slot: Field, ovpk_m: GrumpkinPoint, ivpk_m: GrumpkinPoint) {
         context.encrypt_and_emit_note(
             (*context).this_address(),
             slot,
             Self::get_note_type_id(),
-            ivpk_m,
             ovpk_m,
+            ivpk_m,
             self,
         );
     }

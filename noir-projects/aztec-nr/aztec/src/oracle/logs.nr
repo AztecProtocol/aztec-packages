@@ -45,8 +45,8 @@ unconstrained pub fn compute_encrypted_log<N, M>(
     contract_address: AztecAddress,
     storage_slot: Field,
     note_type_id: Field,
-    ivpk_m: GrumpkinPoint,
     ovpk_m: GrumpkinPoint,
+    ivpk_m: GrumpkinPoint,
     ovsk_app: Field,
     preimage: [Field; N]
 ) -> [u8; M] {
@@ -54,8 +54,8 @@ unconstrained pub fn compute_encrypted_log<N, M>(
         contract_address,
         storage_slot,
         note_type_id,
-        ivpk_m,
         ovpk_m,
+        ivpk_m,
         ovsk_app,
         preimage
     )

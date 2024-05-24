@@ -306,6 +306,7 @@ impl PrivateContext {
         event_type_id: Field,
         ivpk_m: GrumpkinPoint,
         ovpk_m: GrumpkinPoint,
+        ivpk_m: GrumpkinPoint,
         preimage: [Field; N]
     ) where [Field; N]: LensForEncryptedLog<N, M> {
         let ovsk_app = self.request_ovsk_app(ovpk_m.hash());
@@ -325,8 +326,8 @@ impl PrivateContext {
         contract_address: AztecAddress,
         storage_slot: Field,
         note_type_id: Field,
-        ivpk_m: GrumpkinPoint,
         ovpk_m: GrumpkinPoint,
+        ivpk_m: GrumpkinPoint,
         note: Note
     ) where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
         let note_hash: Field = compute_note_hash_for_insertion(note);
@@ -348,8 +349,8 @@ impl PrivateContext {
             contract_address,
             storage_slot,
             note_type_id,
-            ivpk_m,
             ovpk_m,
+            ivpk_m,
             ovsk_app,
             preimage
         );
