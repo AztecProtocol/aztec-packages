@@ -54,11 +54,6 @@ impl<Context> EasyPrivateUint<&mut PrivateContext> {
                 // TODO (#6312): This will break with key rotation. Fix this. Will not be able to pass this assert after rotating key
                 assert(note.npk_m_hash.eq(owner_npk_m_hash));
 
-                // Removes the note from the owner's set of notes.
-                // docs:start:remove
-                self.set.remove(note);
-                // docs:end:remove
-
                 minuend += note.value as u64;
             }
         }

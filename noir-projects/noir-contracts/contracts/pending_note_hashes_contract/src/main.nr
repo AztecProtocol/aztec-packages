@@ -34,14 +34,12 @@ contract PendingNoteHashes {
         owner_balance.insert(&mut note, true, owner_ivpk_m);
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
-        // get note inserted above
+        // get and delete note inserted above
         let maybe_notes = owner_balance.get_notes(options);
 
         let note0 = maybe_notes[0].unwrap();
         assert(note.value == note0.value);
         assert(maybe_notes[1].is_none());
-
-        owner_balance.remove(note0);
 
         note0.value
     }
@@ -96,8 +94,6 @@ contract PendingNoteHashes {
         let note = owner_balance.get_notes(options)[0].unwrap();
 
         assert(expected_value == note.value);
-
-        owner_balance.remove(note);
 
         expected_value
     }
@@ -295,8 +291,7 @@ contract PendingNoteHashes {
         let notes = owner_balance.get_notes(NoteGetterOptions::new());
 
         for i in 0..max_notes_per_call() {
-            let note = notes[i].unwrap();
-            owner_balance.remove(note);
+            assert(notes[i].is_some());
         }
     }
 

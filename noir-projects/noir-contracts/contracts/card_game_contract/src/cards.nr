@@ -144,17 +144,10 @@ impl Deck<&mut PrivateContext> {
 
         found_cards.map(
             |card_note: Option<CardNote>| {
-            assert(card_note.is_some(), "Card not found");
-            card_note.unwrap_unchecked()
+                assert(card_note.is_some(), "Card not found");
+                card_note.unwrap_unchecked()
         }
         )
-    }
-
-    pub fn remove_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) {
-        let card_notes = self.get_cards(cards, owner);
-        for card_note in card_notes {
-            self.set.remove(card_note.note);
-        }
     }
 }
 

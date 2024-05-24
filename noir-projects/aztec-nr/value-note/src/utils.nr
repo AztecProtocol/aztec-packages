@@ -70,8 +70,6 @@ pub fn decrement_by_at_most(
             // TODO (#6312): This will break with key rotation. Fix this. Will not be able to pass this after rotating keys.
             assert(note.npk_m_hash.eq(owner_npk_m_hash));
             decremented += note.value;
-
-            balance.remove(note);
         }
     }
 
@@ -84,23 +82,4 @@ pub fn decrement_by_at_most(
     increment(balance, change_value, owner);
 
     decremented
-}
-
-// Removes the note from the owner's set of notes.
-// Returns the value of the destroyed note.
-pub fn destroy_note(
-    balance: PrivateSet<ValueNote, &mut PrivateContext>,
-    owner: AztecAddress,
-    note: ValueNote
-) -> Field {
-    // Ensure the note is actually owned by the owner (to prevent user from generating a valid proof while
-    // spending someone else's notes).
-    let owner_npk_m_hash = get_npk_m_hash(balance.context, owner);
-
-    // TODO (#6312): This will break with key rotation. Fix this. Will not be able to pass this after rotating keys.
-    assert(note.npk_m_hash.eq(owner_npk_m_hash));
-
-    balance.remove(note);
-
-    note.value
 }

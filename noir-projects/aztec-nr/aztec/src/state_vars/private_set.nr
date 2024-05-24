@@ -5,7 +5,7 @@ use dep::protocol_types::{
 use crate::context::{PrivateContext, PublicContext};
 use crate::note::{
     constants::MAX_NOTES_PER_PAGE, lifecycle::{create_note, create_note_hash_from_public, destroy_note},
-    note_getter::{get_notes, view_notes}, note_getter_options::NoteGetterOptions,
+    note_getter::{get_notes, view_notes}, note_getter_options::{NoteGetterOptions, NoteStatus},
     note_header::NoteHeader, note_interface::NoteInterface, note_viewer_options::NoteViewerOptions,
     utils::compute_note_hash_for_read_request
 };
@@ -52,26 +52,16 @@ impl<Note> PrivateSet<Note, &mut PrivateContext> {
     // DEPRECATED
     fn assert_contains_and_remove(_self: Self, _note: &mut Note, _nonce: Field) {
         assert(
-            false, "`assert_contains_and_remove` has been deprecated. Please call PXE.addNote() to add a note to the database. Then use PrivateSet.get_notes() and PrivateSet.remove() in your contract to verify and remove a note."
+            false, "`assert_contains_and_remove` has been deprecated. Please call PXE.addNote() to add a note to the database. Then use PrivateSet.get_notes() in your contract to verify and remove a note."
         );
     }
 
     // DEPRECATED
     fn assert_contains_and_remove_publicly_created(_self: Self, _note: &mut Note) {
         assert(
-            false, "`assert_contains_and_remove_publicly_created` has been deprecated. Please call PXE.addNote() to add a note to the database. Then use PrivateSet.get_notes() and PrivateSet.remove() in your contract to verify and remove a note."
+            false, "`assert_contains_and_remove_publicly_created` has been deprecated. Please call PXE.addNote() to add a note to the database. Then use PrivateSet.get_notes() in your contract to verify and remove a note."
         );
     }
-
-    // docs:start:remove
-    pub fn remove<N, M>(self, note: Note) where Note: NoteInterface<N, M> {
-        let note_hash = compute_note_hash_for_read_request(note);
-        let has_been_read = self.context.note_hash_read_requests.any(|r: ReadRequest| r.value == note_hash);
-        assert(has_been_read, "Can only remove a note that has been read from the set.");
-
-        destroy_note(self.context, note);
-    }
-    // docs:end:remove
 
     // docs:start:get_notes
     pub fn get_notes<N, M, FILTER_ARGS>(
@@ -80,6 +70,21 @@ impl<Note> PrivateSet<Note, &mut PrivateContext> {
     ) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N, M> {
         let storage_slot = self.storage_slot;
         let opt_notes = get_notes(self.context, storage_slot, options);
+
+        assert(options.status == NoteStatus.ACTIVE, "PrivateSet can only retrieve active notes");
+
+        // We immediately emit nullifiers for all notes read. An advanced user might wish to only use and nullify some
+        // of them, but we don't allow for this use case to avoid scenarios in which they mistakenly don't nullify all
+        // used notes.
+        // These kinds of optimizations can be approximated regardless via usage of `NoteGetterOptions` by providing
+        // appropriate filters, etc.
+        for i in 0..opt_notes.len() {
+            if opt_notes[i].is_some() {
+                let note = opt_notes[i].unwrap_unchecked();
+                destroy_note(self.context, note);
+            }
+        }
+
         opt_notes
     }
     // docs:end:get_notes

@@ -158,10 +158,9 @@ contract TokenBlacklist {
             secret_hash,
             Option::none()
         ).set_limit(1);
-        let notes = pending_shields.get_notes(options);
-        let note = notes[0].unwrap_unchecked();
-        // Remove the note from the pending shields set
-        pending_shields.remove(note);
+
+        // get_notes nullifies the retrieved note
+        let _ = pending_shields.get_notes(options);
 
         // Add the token note to user's balances set
         storage.balances.add(to, U128::from_integer(amount));
