@@ -56,4 +56,34 @@ TEST_F(EccRelationsConsistency, RecursiveToNativeConsistency)
     validate_relation_execution<ECCVMTranscriptRelation>();
     validate_relation_execution<ECCVMWnafRelation>();
 }
+
+TEST_F(EccRelationsConsistency, Wtf)
+{
+    using FF = typename ECCVMRecursiveFlavor_<UltraCircuitBuilder>::FF;
+    {
+        auto builder = UltraCircuitBuilder();
+        auto a = FF(-7);
+        auto a_inverse = a.invert();
+        auto c = FF(1) / a;
+
+        auto b = bb::fq(-7);
+        auto b_inverse = b.invert();
+        EXPECT_EQ(bb::fq((a.get_value() % uint512_t(bb::fq::modulus)).lo), b);
+        EXPECT_EQ(bb::fq((a_inverse.get_value() % uint512_t(bb::fq::modulus)).lo), b_inverse);
+        EXPECT_EQ(bb::fq((c.get_value() % uint512_t(bb::fq::modulus)).lo), b_inverse);
+    }
+    {
+        auto builder = UltraCircuitBuilder();
+        auto a = FF(7);
+        auto a_inverse = a.invert();
+        auto c = FF(1) / a;
+
+        auto b = bb::fq(7);
+        auto b_inverse = b.invert();
+        EXPECT_EQ(bb::fq((a.get_value() % uint512_t(bb::fq::modulus)).lo), b);
+        EXPECT_EQ(bb::fq((a_inverse.get_value() % uint512_t(bb::fq::modulus)).lo), b_inverse);
+        EXPECT_EQ(bb::fq((c.get_value() % uint512_t(bb::fq::modulus)).lo), b_inverse);
+    }
+}
+
 } // namespace bb

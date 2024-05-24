@@ -62,7 +62,7 @@ template <typename Builder, typename T> class bigfield {
     bigfield(Builder* parent_context = nullptr);
     bigfield(Builder* parent_context, const uint256_t& value);
 
-    explicit bigfield(const uint256_t& value)
+    bigfield(const uint256_t& value)
         : bigfield(nullptr, uint256_t(value))
     {}
 
