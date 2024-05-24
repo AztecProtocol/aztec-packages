@@ -143,13 +143,8 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     auto result = cur_aggregation_object;
     result.proof_witness_indices = proof_witness_indices;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether this is important.
-    // ASSERT(result.public_inputs.size() == input.public_inputs.size());
-
-    // Assign the `public_input` field to the public input of the inner proof
-    // for (size_t i = 0; i < input.public_inputs.size(); ++i) {
-    //     result.public_inputs[i].assert_equal(field_ct::from_witness_index(&builder, input.public_inputs[i]));
-    // }
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
+    // is important, like what the plonk recursion constraint does.
 
     // We want to return an array, so just copy the vector into the array
     ASSERT(result.proof_witness_indices.size() == HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE);

@@ -207,7 +207,9 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             honk_recursion_constraints.push_back(honk_recursion_constraint);
 
             // Setting the witness vector which just appends proof witnesses and key witnesses.
-            // We need to reconstruct the proof witnesses in the same order as
+            // We need to reconstruct the proof witnesses in the same order as the proof indices, with this structure:
+            // [ circuit size, num_pub_inputs, pub_input_offset, public_input_0, public_input_1, agg_obj_0,
+            // agg_obj_1, ..., agg_obj_15, rest of proof..., vkey_0, vkey_1, vkey_2, vkey_3...]
             size_t idx = 0;
             for (const auto& wit : proof_witnesses) {
                 witness.emplace_back(wit);

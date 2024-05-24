@@ -40,11 +40,14 @@ using namespace bb;
  * aggregation object in B’s public inputs as well as an input aggregation object that points to the object produced by
  * the previous recursion constraint in the circuit (the one that verifies A)
  *
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/996): Update these comments for Honk.
  */
 struct HonkRecursionConstraint {
+    // In Honk, the proof starts with circuit_size, num_public_inputs, and pub_input_offset. We use this offset to keep
+    // track of where the public inputs start.
+    static constexpr size_t inner_public_input_offset = 3;
     // An aggregation state is represented by two G1 affine elements. Each G1 point has
     // two field element coordinates (x, y). Thus, four field elements
-    static constexpr size_t inner_public_input_offset = 3;
     static constexpr size_t NUM_AGGREGATION_ELEMENTS = 4;
     // Four limbs are used when simulating a non-native field using the bigfield class
     static constexpr size_t AGGREGATION_OBJECT_SIZE = NUM_AGGREGATION_ELEMENTS * fq_ct::NUM_LIMBS; // 16 field elements
