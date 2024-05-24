@@ -1,9 +1,53 @@
 mod types;
 
 /*
-* This is a fairly limited token. It is here to testing for escrowing, but not much more than that currently.
-* Do not have a shield from public and then redeem. Just using a shield_from_private directly, but need to be called in private.
-*/
+ * 
+ * Escrowable Token (partial implementation)
+ * 
+ * The following is a partial implementation of an escrowable token.
+ * Partial in the sense that it do not (yet) support all the features of a full token, but just
+ * enough to showcase some of the oddities of escrowing.
+ *
+ * Escrowable here being that the "owner" of a "balance" might be different from the actor
+ * who is actually able to use the funds.
+ * 
+ * In public state, example on this is uniswap most other contracts. The contract escrow funds
+ * for some duration of time (potentially transient to just one tx), and within that period 
+ * it defines the rules for how it is spend (still following the tokens own rules).
+ * 
+ * This is all good and dandy, but when moving to private state, this becomes significantly more tricky.
+ * Recall in private you have both an "owner" as specified by the business logic, but also a actor
+ * that is able to produce the nullifier.
+ * 
+ * To clarify, when I'm saying `owner` I'm referring to the address in the `balances`, e.g., 
+ * `balances.at(alice)` is the set of notes that `alice` owns.
+ *
+ * Most often `alice` will also be the actor that is able to produce the nullifier for her notes.
+ * However, if escrowing, this might no longer be the case. 
+ *
+ * An example would be a `vault` such as the `SimpleEscrow` contract. 
+ * The contract "owns" the tokens, but it don't have any nullifier keys itself, and rely on `alice` to provide them.
+ * Since the notes need to specify a nullifier public masterkey hash `npk_m_hash` to ensure that notes cannot
+ * be double spent, we need to support the case where `vault` is the `owner` but `alice`s keys are used for `npk_m_hash`
+ * 
+ * Furthermore, to support the `incoming` and `outgoing` logs, we need to provie values for these. Note that 
+ * want to use the address that maps to `npk_m_hash` for the `ivpk` as well, since we want to ensure that the 
+ * actor that can nullify the note, will also learn about the notes existence - otherwise it don't matter much.
+ * 
+ * The address mapping to `ovpk` is a bit more tricky, since it don't necessarily match any of the other addresses.
+ * In most "direct" user to user transfers, it will belong to the `msg_sender`, but for escrowing, it might be someone
+ * else. It needs to be provided.
+ *
+ * To much dismay for everyone else, I have been using:
+ * - `sage` to refer to the address that is used to fetch `ivpk` and `npk` related values
+ * - `klix` to refer to the address that is used to fetch `ovpk` related values.
+ *
+ * Beware, to use `ovpk` one must know the matching secret key `ovsk`, and thus it cannot be used to let "someone"
+ * else learn about the notes, unless you are willing to share the `address` that emits the note and the `ovsk_app`
+ * with them. If the `address` is not shared, it will be quite difficult to validate the notes emitted, unless also
+ * knowing the `ovsk`.
+ * 
+ */
 contract EscrowableToken {
     // Libs
 
@@ -49,7 +93,7 @@ contract EscrowableToken {
     }
 
     /**
-     * Increases the total supply and the public balance of `to` by `amount`
+     * Increases the `total_supply` and the public balance of `to` by `amount`
      * 
      * Only callable by the admin.
      * 
@@ -68,7 +112,7 @@ contract EscrowableToken {
     }
 
     /**
-     * Transfers `amount` from `from` to `to` in public.
+     * Transfers `amount` from the public balance of `from` to the public balance of `to`.
      * 
      * Callable by `from` or someone with an authwit created by `from`.
      * Using the nonce for authwit uniqueness.
@@ -95,7 +139,7 @@ contract EscrowableToken {
     }
 
     /**
-     * Burns `amount` from `from` in public.
+     * Reduces the public balance of `from` and `total_supply` by `amount`.
      * 
      * Callable by `from` or someone with an authwit created by `from`.
      * Using the nonce for authwit uniqueness.
@@ -121,7 +165,7 @@ contract EscrowableToken {
     }
 
     /**
-     * Increases the total supply and the private balance of `to` by `amount`
+     * Increases the `total_supply` and the private balance of `to` by `amount`
      * 
      * Only callable by the admin.
      * 
@@ -149,7 +193,7 @@ contract EscrowableToken {
     }
 
     /**
-     * Shield amount tokens from a public sender to a private receiver.
+     * Reduce the public balance of `from` and increase the private balance of `to` by `amount`.
      * 
      * Only callable by the `from` address or someone with an authwit created by `from`.
      * Using the nonce for authwit uniqueness.
@@ -160,8 +204,8 @@ contract EscrowableToken {
      * @param to: The address to shield to
      * @param amount: The amount to shield
      * @param nonce: The nonce of the shield - 0 if not using authwit
-     * @param sage: The address to use for `ivpk` and `npk` for the shielded notes - if not provided, the to address is used
-     * @param klix: The address to use for `ovpk` when creating outgoing logs - if not provided, the sender's address is used
+     * @param sage: The address to use for `ivpk` and `npk` for the shielded notes - if not provided, the `to` address is used
+     * @param klix: The address to use for `ovpk` when creating outgoing logs - if not provided, the `from` address is used
      */
     #[aztec(private)]
     fn shield_from_private(
@@ -183,7 +227,7 @@ contract EscrowableToken {
     }
 
     /**
-     * Unshield amount tokens from a private sender to a public receiver.
+     * Reduce the private balance of `from` and increase the public balance of `to` by `amount`.
      * 
      * Only callable by the `from` address or someone with an authwit created by `from`.
      * Using the nonce for authwit uniqueness.
@@ -192,8 +236,8 @@ contract EscrowableToken {
      * @param to: The address to unshield to
      * @param amount: The amount to unshield
      * @param nonce: The nonce of the unshield - 0 if not using authwit
-     * @param change_sage: The address to use for `ivpk` and `npk` for change notes - if not provided, the sender's address is used
-     * @param klix: The address to use for `ovpk` when creating outgoing logs - if not provided, the sender's address is used
+     * @param change_sage: The address to use for `ivpk` and `npk` for change notes - if not provided, the `from` address is used
+     * @param klix: The address to use for `ovpk` when creating outgoing logs - if not provided, the `from` address is used
      */
     #[aztec(private)]
     fn unshield(
@@ -221,17 +265,17 @@ contract EscrowableToken {
     }
 
     /**
-     * Transfers tokens from a sender to a receiver in private.
+     * Transfers `amount` from the private balance of `from` to the private balance of `to`.
      *
      * Support for escrowing by explicitly specifying the `sage` and `klix` addresses.
      * 
-     * @param from: The address to transfer from (the sender)
-     * @param to: The address to transfer to (the recipient)
+     * @param from: The address to transfer from
+     * @param to: The address to transfer to
      * @param amount: The amount to transfer
      * @param nonce: The nonce of the transfer
-     * @param change_sage: The address to use for `ivpk` and `npk` for change notes - if not provided, the sender's address is used
-     * @param to_sage: The address to use for `ivpk` and `npk` for the to notes - if not provided, the receiver's address is used
-     * @param klix: The address to use for `ovpk` when creating outgoing logs - if not provided, the sender's address is used
+     * @param change_sage: The address to use for `ivpk` and `npk` for change notes - if not provided, the `from` address is used
+     * @param to_sage: The address to use for `ivpk` and `npk` for the to notes - if not provided, the `to` address is used
+     * @param klix: The address to use for `ovpk` when creating outgoing logs - if not provided, the `from` address is used
      */
     #[aztec(private)]
     fn transfer(
@@ -256,7 +300,7 @@ contract EscrowableToken {
     }
 
     /**
-     * Burns `amount` from `from` in private.
+     * Reduces the private balance of `from` and `total_supply` by `amount`.
      * 
      * Callable by `from` or someone with an authwit created by `from`.
      * Using the nonce for authwit uniqueness.
@@ -264,8 +308,8 @@ contract EscrowableToken {
      * @param from: The address to burn from
      * @param amount: The amount to burn
      * @param nonce: The nonce of the burn - 0 if not using authwit
-     * @param change_sage: The address to use for `ivpk` and `npk` for change notes - if not provided, the sender's address is used
-     * @param klix: The address to use for `ovpk` when creating outgoing logs - if not provided, the sender's address is used
+     * @param change_sage: The address to use for `ivpk` and `npk` for change notes - if not provided, the `from` address is used
+     * @param klix: The address to use for `ovpk` when creating outgoing logs - if not provided, the `from` address is used
      */
     #[aztec(private)]
     fn burn(
