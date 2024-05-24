@@ -261,7 +261,9 @@ contract Token {
         pending_shields.remove(note);
 
         // Add the token note to user's balances set
-        storage.balances.add(to, to, U128::from_integer(amount));
+        // Note: Using context.msg_sender() as a sender below makes this incompatible with escrows because we send
+        // outgoing logs to that address and to send outgoing logs you need to get a hold of ovsk_m.
+        storage.balances.add(context.msg_sender(), to, U128::from_integer(amount));
     }
     // docs:end:redeem_shield
 
