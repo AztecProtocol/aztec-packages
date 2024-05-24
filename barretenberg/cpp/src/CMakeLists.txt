@@ -106,6 +106,7 @@ message(STATUS "Compiling all-in-one barretenberg archive")
 set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:commitment_schemes_objects>
     $<TARGET_OBJECTS:common_objects>
+    $<TARGET_OBJECTS:client_ivc_objects>
     $<TARGET_OBJECTS:crypto_aes128_objects>
     $<TARGET_OBJECTS:crypto_blake2s_objects>
     $<TARGET_OBJECTS:crypto_blake3s_objects>
@@ -149,8 +150,12 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:transcript_objects>
     $<TARGET_OBJECTS:translator_vm_objects>
     $<TARGET_OBJECTS:translator_vm_recursion_objects>
-    $<TARGET_OBJECTS:ultra_honk_objects>
-    $<TARGET_OBJECTS:vm_objects>)
+    $<TARGET_OBJECTS:ultra_honk_objects>)
+
+if(NOT WASM)
+    # enable AVM
+    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:vm_objects>)
+endif()
 
 add_library(
     barretenberg
