@@ -26,6 +26,7 @@ services:
       BENCHMARK: true
       DEBUG: ${DEBUG:-'aztec:*'}
       DEBUG_COLORS: 1
+      LOG_LEVEL: verbose
       ETHEREUM_HOST: http://fork:8545
       CHAIN_ID: 31337
       ARCHIVER_POLLING_INTERVAL: 500
