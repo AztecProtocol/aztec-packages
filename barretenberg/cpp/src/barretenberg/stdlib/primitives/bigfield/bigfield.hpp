@@ -72,7 +72,7 @@ template <typename Builder, typename T> class bigfield {
      *
      */
     bigfield(const int value)
-        : bigfield(nullptr, uint256_t(bb::fr(value)))
+        : bigfield(nullptr, uint256_t(native(value)))
     {}
 
     /**
