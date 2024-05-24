@@ -66,11 +66,17 @@ async function requestAndWaitForSpot(config: ActionConfig): Promise<string> {
     const MAX_ATTEMPTS = 6; // uses exponential backoff
     for (let i = 0; i < MAX_ATTEMPTS; i++) {
       // Start instance
-      const instanceIdOrError =
-        await ec2Client.requestMachine(
-          // we fallback to on-demand
-          ec2Strategy.toLocaleLowerCase() === "none"
-        );
+      let instanceIdOrError: string;
+      try {
+        instanceIdOrError =
+          await ec2Client.requestMachine(
+            // we fallback to on-demand
+            ec2Strategy.toLocaleLowerCase() === "none"
+          );
+      } catch (error) {
+        instanceIdOrError = error?.code;
+        core.warning("Got error: " + JSON.stringify(error, null, 2));
+      }
       // let's exit, only loop on InsufficientInstanceCapacity
       if (
         instanceIdOrError === "RequestLimitExceeded" ||
