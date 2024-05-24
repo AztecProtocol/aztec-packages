@@ -222,7 +222,7 @@ bool proveAndVerifyHonkProgram(const std::string& bytecodePath, const std::strin
 
 bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& witnessPath)
 {
-    using Flavor = GoblinUltraFlavor; // This is the only option
+    using Flavor = MegaFlavor; // This is the only option
     using Builder = Flavor::CircuitBuilder;
 
     init_bn254_crs(1 << 18);
@@ -862,7 +862,7 @@ int main(int argc, char* argv[])
             return proveAndVerifyHonkProgram<UltraFlavor>(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "prove_and_verify_goblin_ultra_honk_program") {
-            return proveAndVerifyHonkProgram<GoblinUltraFlavor>(bytecode_path, witness_path) ? 0 : 1;
+            return proveAndVerifyHonkProgram<MegaFlavor>(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "fold_and_verify_program") {
             return foldAndVerifyProgram(bytecode_path, witness_path) ? 0 : 1;

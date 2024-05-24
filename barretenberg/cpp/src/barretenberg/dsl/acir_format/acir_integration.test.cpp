@@ -353,7 +353,7 @@ TEST_P(AcirIntegrationFoldingTest, ProveAndVerifyProgramStack)
 
 TEST_P(AcirIntegrationFoldingTest, FoldAndVerifyProgramStack)
 {
-    using Flavor = GoblinUltraFlavor;
+    using Flavor = MegaFlavor;
     using Builder = Flavor::CircuitBuilder;
 
     std::string test_name = GetParam();
@@ -391,7 +391,7 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
  */
 TEST_F(AcirIntegrationTest, UpdateAcirCircuit)
 {
-    using Flavor = GoblinUltraFlavor;
+    using Flavor = MegaFlavor;
     using Builder = Flavor::CircuitBuilder;
 
     std::string test_name = "6_array"; // arbitrary program with RAM gates
