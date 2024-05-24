@@ -7,7 +7,6 @@
 #include <memory>
 
 namespace tests_avm {
-
 using namespace bb;
 using namespace bb::avm_trace;
 using namespace testing;
