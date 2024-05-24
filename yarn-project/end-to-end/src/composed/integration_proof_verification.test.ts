@@ -28,6 +28,12 @@ import { getBBConfig } from '../fixtures/get_bb_config.js';
 import { getLogger, setupL1Contracts, startAnvil } from '../fixtures/utils.js';
 
 /**
+ * What does this test do?
+ *
+ * This test checks the integration between
+ * - block proofs produced by bbb and the onchain verifier contract
+ * - block proofs and the rollup contract
+ *
  * Regenerate this test's fixture with
  * AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/end-to-end test e2e_prover
  */
