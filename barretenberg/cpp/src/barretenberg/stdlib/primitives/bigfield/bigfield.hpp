@@ -65,7 +65,6 @@ template <typename Builder, typename T> class bigfield {
     explicit bigfield(const uint256_t& value)
         : bigfield(nullptr, uint256_t(value))
     {}
-    // explicit bigfield(const unsigned long value) { bigfield(nullptr, uint256_t(value)); }
 
     /**
      * @brief Constructs a new bigfield object from an int value. We first need to to construct a field element from the
@@ -82,7 +81,6 @@ template <typename Builder, typename T> class bigfield {
      *
      * @param value
      */
-    // this overflows!!
     bigfield(const bb::fq value)
         : bigfield(nullptr, uint256_t(value))
     {}

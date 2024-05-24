@@ -6,8 +6,15 @@
 #include <gtest/gtest.h>
 namespace bb {
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/997): Actually create consistency tests for ECCVM relations
 class EccRelationsConsistency : public testing::Test {
   public:
+    /**
+     * @brief Validate that we can instantiate ECCVM relations on bigfield and that they return the same values as their
+     * native counterpart instantiated on grumpkin::fr.
+     *
+     * @tparam Relation the Relation whose instantiation on stdlib and native we want to test
+     */
     template <template <typename> class Relation> static void validate_relation_execution()
     {
         auto builder = UltraCircuitBuilder();
