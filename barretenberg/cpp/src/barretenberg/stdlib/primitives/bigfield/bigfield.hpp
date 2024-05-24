@@ -62,7 +62,9 @@ template <typename Builder, typename T> class bigfield {
     bigfield(Builder* parent_context = nullptr);
     bigfield(Builder* parent_context, const uint256_t& value);
 
-    explicit bigfield(const uint256_t& value) { bigfield(nullptr, value); }
+    explicit bigfield(const uint256_t& value)
+        : bigfield(nullptr, uint256_t(value))
+    {}
 
     /**
      * @brief Constructs a new bigfield object from an int value. We first need to to construct a field element from the
@@ -70,10 +72,8 @@ template <typename Builder, typename T> class bigfield {
      *
      */
     bigfield(const int value)
-    {
-        uint256_t result = uint256_t(bb::fr(value));
-        bigfield(nullptr, result);
-    }
+        : bigfield(nullptr, uint256_t(bb::fr(value)))
+    {}
 
     /**
      * @brief Construct a new bigfield object from bb::fq. We first convert to uint256_t as field elements are in
@@ -81,7 +81,9 @@ template <typename Builder, typename T> class bigfield {
      *
      * @param value
      */
-    bigfield(const bb::fq value) { bigfield(nullptr, uint256_t(value)); }
+    bigfield(const bb::fq value)
+        : bigfield(nullptr, uint256_t(value))
+    {}
 
     // we assume the limbs have already been normalized!
     bigfield(const field_t<Builder>& a,

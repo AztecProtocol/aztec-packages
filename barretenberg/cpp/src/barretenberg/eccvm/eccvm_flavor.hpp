@@ -16,7 +16,7 @@
 #include "barretenberg/relations/ecc_vm/ecc_wnaf_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 
-// NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members) ?
+// NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members)
 
 namespace bb {
 
@@ -74,8 +74,8 @@ class ECCVMFlavor {
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
-    // WORKTODO make the specifiers good
-
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/989): refine access specifiers in flavors, this is
+    // public as it is also used in the recursive flavor but the two could possibly me unified eventually
   public:
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
