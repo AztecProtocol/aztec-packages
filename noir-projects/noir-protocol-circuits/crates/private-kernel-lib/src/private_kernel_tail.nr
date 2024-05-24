@@ -1,9 +1,9 @@
 use crate::kernel_circuit_public_inputs_composer::KernelCircuitPublicInputsComposer;
 use dep::types::{
     abis::{
-    private_kernel_data::{PrivateKernelData, verify_previous_kernel_proof},
-    kernel_circuit_public_inputs::KernelCircuitPublicInputs, note_hash::ScopedNoteHash,
-    nullifier::ScopedNullifier, log_hash::{LogHash, NoteLogHash}
+    private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+    note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
+    log_hash::{NoteLogHash, ScopedLogHash, ScopedEncryptedLogHash}
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
@@ -20,9 +20,9 @@ struct PrivateKernelTailHints {
     sorted_new_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_note_encrypted_log_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
     sorted_note_encrypted_log_hashes_indexes: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-    sorted_encrypted_log_hashes: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX],
+    sorted_encrypted_log_hashes: [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
-    sorted_unencrypted_log_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
+    sorted_unencrypted_log_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
     sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX],
 }
 
@@ -42,7 +42,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
         );
 
         // verify/aggregate the previous kernel
-        verify_previous_kernel_proof(self.previous_kernel);
+        self.previous_kernel.verify();
 
         KernelCircuitPublicInputsComposer::new(
             self.previous_kernel,
@@ -74,16 +74,19 @@ mod tests {
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
         MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M
     };
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
         note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
-        log_hash::{LogHash, NoteLogHash}, gas::Gas
+        log_hash::{NoteLogHash, ScopedLogHash, ScopedEncryptedLogHash}, gas::Gas
     },
         address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey,
-        hash::{compute_note_hash_nonce, compute_unique_note_hash, sha256_to_field, silo_note_hash, silo_nullifier},
+        hash::{
+        compute_note_hash_nonce, compute_unique_note_hash, sha256_to_field, silo_note_hash,
+        silo_nullifier, silo_unencrypted_log, silo_encrypted_log
+    },
         tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
         utils::{arrays::{array_eq, array_length}}, traits::{Empty, is_empty, is_empty_array},
         grumpkin_point::GrumpkinPoint
@@ -153,14 +156,14 @@ mod tests {
 
             let sorted = sort_get_sorted_hints(
                 self.previous_kernel.encrypted_logs_hashes.storage,
-                |a: LogHash, b: LogHash| a.counter < b.counter
+                |a: ScopedEncryptedLogHash, b: ScopedEncryptedLogHash| a.counter() < b.counter()
             );
             let sorted_encrypted_log_hashes = sorted.sorted_array;
             let sorted_encrypted_log_hashes_indexes = sorted.sorted_index_hints;
 
             let sorted = sort_get_sorted_hints(
                 self.previous_kernel.unencrypted_logs_hashes.storage,
-                |a: LogHash, b: LogHash| a.counter < b.counter
+                |a: ScopedLogHash, b: ScopedLogHash| a.counter() < b.counter()
             );
             let sorted_unencrypted_log_hashes = sorted.sorted_array;
             let sorted_unencrypted_log_hashes_indexes = sorted.sorted_index_hints;
@@ -233,18 +236,33 @@ mod tests {
             public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
         );
 
+        let siloed_encrypted_logs_hash = silo_encrypted_log(
+            builder.previous_kernel.storage_contract_address,
+            builder.previous_kernel.encrypted_logs_hashes.storage[0].log_hash.randomness,
+            prev_encrypted_logs_hash
+        );
+
         // noir-fmt:ignore
-        let hash_bytes: [u8; MAX_ENCRYPTED_LOGS_PER_TX * 32] = prev_encrypted_logs_hash
+        let hash_bytes: [u8; MAX_ENCRYPTED_LOGS_PER_TX * 32] = siloed_encrypted_logs_hash
             .to_be_bytes(32)
             .append(&[0; MAX_ENCRYPTED_LOGS_PER_TX * 32 - 32])
             .as_array();
         let expected_encrypted_logs_hash = sha256_to_field(hash_bytes);
         assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
 
+        let siloed_unencrypted_logs_hashes = [
+            silo_unencrypted_log(
+                builder.previous_kernel.storage_contract_address,
+                prev_unencrypted_logs_hash
+            ), silo_unencrypted_log(
+                builder.previous_kernel.storage_contract_address,
+                unencrypted_logs_hash
+            )
+        ];
         // noir-fmt:ignore
-        let hash_bytes: [u8; MAX_UNENCRYPTED_LOGS_PER_TX * 32] = prev_unencrypted_logs_hash
+        let hash_bytes: [u8; MAX_UNENCRYPTED_LOGS_PER_TX * 32] = siloed_unencrypted_logs_hashes[0]
             .to_be_bytes(32)
-            .append(unencrypted_logs_hash.to_be_bytes(32))
+            .append(siloed_unencrypted_logs_hashes[1].to_be_bytes(32))
             .append(&[0; MAX_UNENCRYPTED_LOGS_PER_TX * 32 - 64])
             .as_array();
         let expected_unencrypted_logs_hash = sha256_to_field(hash_bytes);
@@ -311,7 +329,7 @@ mod tests {
     #[test(should_fail_with="Public teardown call request must be empty when executing the tail circuit")]
     unconstrained fn non_empty_public_teardown_call_request_should_fail() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel.set_public_teardown_call_request(1, false);
+        builder.previous_kernel.push_public_teardown_call_request(1, false);
         builder.failed();
     }
 
@@ -334,7 +352,7 @@ mod tests {
     #[test(should_fail_with="Non empty key validation requests")]
     unconstrained fn non_empty_key_validations() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        let _void = builder.previous_kernel.add_request_for_key_validation(GrumpkinPoint::new(1, 2), 27);
+        let _void = builder.previous_kernel.add_request_for_key_validation(GrumpkinPoint::new(1, 2), 27, GENERATOR_INDEX__IVSK_M);
         builder.failed();
     }
 

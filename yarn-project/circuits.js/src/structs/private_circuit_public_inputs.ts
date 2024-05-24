@@ -29,9 +29,9 @@ import {
 import { Header } from '../structs/header.js';
 import { isEmptyArray } from '../utils/index.js';
 import { CallContext } from './call_context.js';
-import { KeyValidationRequest } from './key_validation_request.js';
+import { KeyValidationRequestAndGenerator } from './key_validation_request_and_generator.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
-import { LogHash, NoteLogHash } from './log_hash.js';
+import { EncryptedLogHash, LogHash, NoteLogHash } from './log_hash.js';
 import { MaxBlockNumber } from './max_block_number.js';
 import { NoteHash } from './note_hash.js';
 import { Nullifier } from './nullifier.js';
@@ -77,9 +77,12 @@ export class PrivateCircuitPublicInputs {
      */
     public nullifierReadRequests: Tuple<ReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     /**
-     * Key validation requests created by the corresponding function call.
+     * Key validation requests and generators created by the corresponding function call.
      */
-    public keyValidationRequests: Tuple<KeyValidationRequest, typeof MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
+    public keyValidationRequestsAndGenerators: Tuple<
+      KeyValidationRequestAndGenerator,
+      typeof MAX_KEY_VALIDATION_REQUESTS_PER_CALL
+    >,
     /**
      * New note hashes created by the corresponding function call.
      */
@@ -121,7 +124,7 @@ export class PrivateCircuitPublicInputs {
      * Hash of the encrypted logs emitted in this function call.
      * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public encryptedLogsHashes: Tuple<LogHash, typeof MAX_ENCRYPTED_LOGS_PER_CALL>,
+    public encryptedLogsHashes: Tuple<EncryptedLogHash, typeof MAX_ENCRYPTED_LOGS_PER_CALL>,
     /**
      * Hash of the unencrypted logs emitted in this function call.
      * Note: Truncated to 31 bytes to fit in Fr.
@@ -166,7 +169,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(MaxBlockNumber),
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
-      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequest),
+      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator),
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_CALL, NoteHash),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
@@ -176,7 +179,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, NoteLogHash),
-      reader.readArray(MAX_ENCRYPTED_LOGS_PER_CALL, LogHash),
+      reader.readArray(MAX_ENCRYPTED_LOGS_PER_CALL, EncryptedLogHash),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash),
       reader.readObject(Header),
       reader.readObject(TxContext),
@@ -194,7 +197,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(MaxBlockNumber),
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
-      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequest),
+      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator),
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_CALL, NoteHash),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
@@ -204,7 +207,7 @@ export class PrivateCircuitPublicInputs {
       reader.readField(),
       reader.readField(),
       reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, NoteLogHash),
-      reader.readArray(MAX_ENCRYPTED_LOGS_PER_CALL, LogHash),
+      reader.readArray(MAX_ENCRYPTED_LOGS_PER_CALL, EncryptedLogHash),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash),
       reader.readObject(Header),
       reader.readObject(TxContext),
@@ -225,7 +228,7 @@ export class PrivateCircuitPublicInputs {
       MaxBlockNumber.empty(),
       makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest.empty),
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.empty),
-      makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequest.empty),
+      makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator.empty),
       makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, NoteHash.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest.empty),
@@ -235,7 +238,7 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       Fr.ZERO,
       makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, NoteLogHash.empty),
-      makeTuple(MAX_ENCRYPTED_LOGS_PER_CALL, LogHash.empty),
+      makeTuple(MAX_ENCRYPTED_LOGS_PER_CALL, EncryptedLogHash.empty),
       makeTuple(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash.empty),
       Header.empty(),
       TxContext.empty(),
@@ -253,7 +256,7 @@ export class PrivateCircuitPublicInputs {
       this.maxBlockNumber.isEmpty() &&
       isEmptyArray(this.noteHashReadRequests) &&
       isEmptyArray(this.nullifierReadRequests) &&
-      isEmptyArray(this.keyValidationRequests) &&
+      isEmptyArray(this.keyValidationRequestsAndGenerators) &&
       isEmptyArray(this.newNoteHashes) &&
       isEmptyArray(this.newNullifiers) &&
       isEmptyArray(this.privateCallRequests) &&
@@ -283,7 +286,7 @@ export class PrivateCircuitPublicInputs {
       fields.maxBlockNumber,
       fields.noteHashReadRequests,
       fields.nullifierReadRequests,
-      fields.keyValidationRequests,
+      fields.keyValidationRequestsAndGenerators,
       fields.newNoteHashes,
       fields.newNullifiers,
       fields.privateCallRequests,

@@ -1,6 +1,7 @@
 import {
   type AuthWitness,
   type AztecNode,
+  EncryptedNoteTxL2Logs,
   EncryptedTxL2Logs,
   ExtendedNote,
   type FunctionCall,
@@ -21,12 +22,10 @@ import {
   UnencryptedTxL2Logs,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
-import { type TxPXEProcessingStats } from '@aztec/circuit-types/stats';
 import {
   AztecAddress,
   CallRequest,
   type CompleteAddress,
-  FunctionData,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   type PartialAddress,
   type PrivateKernelTailCircuitPublicInputs,
@@ -40,7 +39,6 @@ import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { type Fq, Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
 import {
   type AcirSimulator,
@@ -426,24 +424,12 @@ export class PXEService implements PXE {
     simulatePublic: boolean,
     msgSender: AztecAddress | undefined = undefined,
   ): Promise<SimulatedTx> {
-    if (!txRequest.functionData.isPrivate) {
-      throw new Error(`Public entrypoints are not allowed`);
-    }
     return await this.jobQueue.put(async () => {
-      const timer = new Timer();
       const simulatedTx = await this.#simulateAndProve(txRequest, msgSender);
       // We log only if the msgSender is undefined, as simulating with a different msgSender
       // is unlikely to be a real transaction, and likely to be only used to read data.
       // Meaning that it will not necessarily have produced a nullifier (and thus have no TxHash)
       // If we log, the `getTxHash` function will throw.
-
-      if (!msgSender) {
-        this.log.debug(`Processed private part of ${simulatedTx.tx.getTxHash()}`, {
-          eventName: 'tx-pxe-processing',
-          duration: timer.ms(),
-          ...simulatedTx.tx.getStats(),
-        } satisfies TxPXEProcessingStats);
-      }
 
       if (simulatePublic) {
         simulatedTx.publicOutput = await this.#simulatePublicCalls(simulatedTx.tx);
@@ -518,10 +504,13 @@ export class PXEService implements PXE {
     }
 
     return {
+      name: functionDao.name,
       args: encodeArguments(functionDao, args),
-      functionData: FunctionData.fromAbi(functionDao),
+      selector: FunctionSelector.fromNameAndParameters(functionDao.name, functionDao.parameters),
+      type: functionDao.functionType,
       to,
       isStatic: functionDao.isStatic,
+      returnTypes: functionDao.returnTypes,
     };
   }
 
@@ -550,14 +539,10 @@ export class PXEService implements PXE {
    */
   async #getSimulationParameters(execRequest: FunctionCall | TxExecutionRequest) {
     const contractAddress = (execRequest as FunctionCall).to ?? (execRequest as TxExecutionRequest).origin;
-    const functionArtifact = await this.contractDataOracle.getFunctionArtifact(
-      contractAddress,
-      execRequest.functionData.selector,
-    );
-    const debug = await this.contractDataOracle.getFunctionDebugMetadata(
-      contractAddress,
-      execRequest.functionData.selector,
-    );
+    const functionSelector =
+      (execRequest as FunctionCall).selector ?? (execRequest as TxExecutionRequest).functionSelector;
+    const functionArtifact = await this.contractDataOracle.getFunctionArtifact(contractAddress, functionSelector);
+    const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, functionSelector);
 
     return {
       contractAddress,
@@ -664,7 +649,7 @@ export class PXEService implements PXE {
     this.log.debug(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
 
-    const noteEncryptedLogs = new EncryptedTxL2Logs([collectSortedNoteEncryptedLogs(executionResult)]);
+    const noteEncryptedLogs = new EncryptedNoteTxL2Logs([collectSortedNoteEncryptedLogs(executionResult)]);
     const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(executionResult)]);
     const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(executionResult)]);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);

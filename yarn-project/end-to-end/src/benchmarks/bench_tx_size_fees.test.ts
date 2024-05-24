@@ -2,6 +2,7 @@ import {
   type AccountWalletWithSecretKey,
   type AztecAddress,
   type FeePaymentMethod,
+  NativeFeePaymentMethod,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   TxStatus,
@@ -57,17 +58,13 @@ describe('benchmarks/tx_size_fees', () => {
   });
 
   it.each<[string, () => FeePaymentMethod | undefined, bigint]>([
-    ['no', () => undefined, 0n],
-    // TODO(palla/gas): Fix and reenable
-    // [
-    //   'native fee',
-    //   () => new NativeFeePaymentMethod(),
-    //   // DA:
-    //   // non-rev: 1 nullifiers, overhead; rev: 2 note hashes, 1 nullifier, 1168 B enc note logs, 0 B enc logs, 0 B unenc logs, teardown
-    //   // L2:
-    //   // non-rev: 0; rev: 0
-    //   200289690n,
-    // ],
+    ['no', () => undefined, 200021120n],
+    [
+      'native fee',
+      () => new NativeFeePaymentMethod(aliceWallet.getAddress()),
+      // Same cost as no fee payment, since payment is done natively
+      200021120n,
+    ],
     [
       'public fee',
       () => new PublicFeePaymentMethod(token.address, fpc.address, aliceWallet),
@@ -96,7 +93,7 @@ describe('benchmarks/tx_size_fees', () => {
         .send({ fee: paymentMethod ? { gasSettings, paymentMethod } : undefined })
         .wait();
 
-      expect(tx.status).toEqual(TxStatus.MINED);
+      expect(tx.status).toEqual(TxStatus.SUCCESS);
       expect(tx.transactionFee).toEqual(expectedTransactionFee);
     },
   );

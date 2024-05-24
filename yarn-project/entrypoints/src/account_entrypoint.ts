@@ -1,8 +1,8 @@
 import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
 import { type EntrypointInterface, EntrypointPayload, type ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
 import { PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
-import { type AztecAddress, FunctionData, GasSettings, TxContext } from '@aztec/circuits.js';
-import { type FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
+import { type AztecAddress, GasSettings, TxContext } from '@aztec/circuits.js';
+import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
 
@@ -21,7 +21,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
   async createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
     const { calls, fee } = exec;
     const appPayload = EntrypointPayload.fromAppExecution(calls);
-    const feePayload = await EntrypointPayload.fromFeeOptions(fee);
+    const feePayload = await EntrypointPayload.fromFeeOptions(this.address, fee);
 
     const abi = this.getEntrypointAbi();
     const entrypointPackedArgs = PackedValues.fromValues(encodeArguments(abi, [appPayload, feePayload]));
@@ -33,7 +33,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     const txRequest = TxExecutionRequest.from({
       firstCallArgsHash: entrypointPackedArgs.hash,
       origin: this.address,
-      functionData: FunctionData.fromAbi(abi),
+      functionSelector: FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
       txContext: new TxContext(this.chainId, this.version, gasSettings),
       argsOfCalls: [...appPayload.packedArguments, ...feePayload.packedArguments, entrypointPackedArgs],
       authWitnesses: [appAuthWitness, feeAuthWitness],
@@ -132,6 +132,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
                 },
               },
               { name: 'nonce', type: { kind: 'field' } },
+              { name: 'is_fee_payer', type: { kind: 'boolean' } },
             ],
           },
           visibility: 'public',

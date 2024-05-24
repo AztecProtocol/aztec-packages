@@ -1,5 +1,5 @@
 import { type AztecNode, type FunctionCall, type Note, type TxExecutionRequest } from '@aztec/circuit-types';
-import { CallContext, FunctionData } from '@aztec/circuits.js';
+import { CallContext } from '@aztec/circuits.js';
 import {
   type ArrayType,
   type FunctionArtifact,
@@ -10,8 +10,6 @@ import {
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-
-import { type WasmBlackBoxFunctionSolver, createBlackBoxSolver } from '@noir-lang/acvm_js';
 
 import { createSimulationError } from '../common/errors.js';
 import { PackedValuesCache } from '../common/packed_values_cache.js';
@@ -27,31 +25,10 @@ import { ViewDataOracle } from './view_data_oracle.js';
  * The ACIR simulator.
  */
 export class AcirSimulator {
-  private static solver: Promise<WasmBlackBoxFunctionSolver>; // ACVM's backend
   private log: DebugLogger;
 
   constructor(private db: DBOracle, private node: AztecNode) {
     this.log = createDebugLogger('aztec:simulator');
-  }
-
-  /**
-   * Gets or initializes the ACVM WasmBlackBoxFunctionSolver.
-   *
-   * @remarks
-   *
-   * Occurs only once across all instances of AcirSimulator.
-   * Speeds up execution by only performing setup tasks (like pedersen
-   * generator initialization) one time.
-   * TODO(https://github.com/AztecProtocol/aztec-packages/issues/1627):
-   * determine whether this requires a lock
-   *
-   * @returns ACVM WasmBlackBoxFunctionSolver
-   */
-  public static getSolver(): Promise<WasmBlackBoxFunctionSolver> {
-    if (!this.solver) {
-      this.solver = createBlackBoxSolver();
-    }
-    return this.solver;
   }
 
   /**
@@ -110,7 +87,7 @@ export class AcirSimulator {
         context,
         entryPointArtifact,
         contractAddress,
-        request.functionData,
+        request.functionSelector,
       );
       return executionResult;
     } catch (err) {
@@ -141,7 +118,7 @@ export class AcirSimulator {
         context,
         entryPointArtifact,
         contractAddress,
-        request.functionData,
+        request.selector,
         request.args,
       );
     } catch (err) {
@@ -193,10 +170,13 @@ export class AcirSimulator {
     const extendedNoteItems = note.items.concat(Array(maxNoteFields - note.items.length).fill(Fr.ZERO));
 
     const execRequest: FunctionCall = {
+      name: artifact.name,
       to: contractAddress,
-      functionData: FunctionData.empty(),
+      selector: FunctionSelector.empty(),
+      type: FunctionType.UNCONSTRAINED,
       isStatic: artifact.isStatic,
       args: encodeArguments(artifact, [contractAddress, nonce, storageSlot, noteTypeId, extendedNoteItems]),
+      returnTypes: artifact.returnTypes,
     };
 
     const [innerNoteHash, uniqueNoteHash, siloedNoteHash, innerNullifier] = (await this.runUnconstrained(
