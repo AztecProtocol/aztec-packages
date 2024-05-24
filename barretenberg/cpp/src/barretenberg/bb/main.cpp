@@ -1,5 +1,4 @@
 #include "barretenberg/bb/file_io.hpp"
-#include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/types.hpp"
@@ -220,34 +219,6 @@ bool proveAndVerifyHonkProgram(const std::string& bytecodePath, const std::strin
     return true;
 }
 
-bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& witnessPath)
-{
-    using Flavor = GoblinUltraFlavor; // This is the only option
-    using Builder = Flavor::CircuitBuilder;
-
-    init_bn254_crs(1 << 18);
-    init_grumpkin_crs(1 << 14);
-
-    ClientIVC ivc;
-    ivc.structured_flag = true;
-
-    auto program_stack = acir_format::get_acir_program_stack(bytecodePath, witnessPath);
-
-    // Accumulate the entire program stack into the IVC
-    while (!program_stack.empty()) {
-        auto stack_item = program_stack.back();
-
-        // Construct a bberg circuit from the acir representation
-        auto circuit = acir_format::create_circuit<Builder>(
-            stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
-
-        ivc.accumulate(circuit);
-
-        program_stack.pop_back();
-    }
-    return ivc.prove_and_verify();
-}
-
 /**
  * @brief Proves and Verifies an ACIR circuit
  *
@@ -278,10 +249,10 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath, const std::string& wi
     acir_proofs::GoblinAcirComposer acir_composer;
     acir_composer.create_circuit(constraint_system, witness);
 
-    // Generate a GoblinUltraHonk proof and a full Goblin proof
+    // Generate a MegaHonk proof and a full Goblin proof
     auto proof = acir_composer.accumulate_and_prove();
 
-    // Verify the GoblinUltraHonk proof and the full Goblin proof
+    // Verify the MegaHonk proof and the full Goblin proof
     auto verified = acir_composer.verify(proof);
 
     return verified;
@@ -855,17 +826,11 @@ int main(int argc, char* argv[])
         if (command == "prove_and_verify_ultra_honk") {
             return proveAndVerifyHonk<UltraFlavor>(bytecode_path, witness_path) ? 0 : 1;
         }
-        if (command == "prove_and_verify_goblin_ultra_honk") {
-            return proveAndVerifyHonk<GoblinUltraFlavor>(bytecode_path, witness_path) ? 0 : 1;
+        if (command == "prove_and_verify_mega_honk") {
+            return proveAndVerifyHonk<MegaFlavor>(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "prove_and_verify_ultra_honk_program") {
             return proveAndVerifyHonkProgram<UltraFlavor>(bytecode_path, witness_path) ? 0 : 1;
-        }
-        if (command == "prove_and_verify_goblin_ultra_honk_program") {
-            return proveAndVerifyHonkProgram<GoblinUltraFlavor>(bytecode_path, witness_path) ? 0 : 1;
-        }
-        if (command == "fold_and_verify_program") {
-            return foldAndVerifyProgram(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "prove_and_verify_goblin") {
             return proveAndVerifyGoblin(bytecode_path, witness_path) ? 0 : 1;
@@ -912,23 +877,23 @@ int main(int argc, char* argv[])
         } else if (command == "write_vk_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
             write_vk_honk<UltraFlavor>(bytecode_path, output_path);
-        } else if (command == "prove_goblin_ultra_honk") {
+        } else if (command == "prove_mega_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
-            prove_honk<GoblinUltraFlavor>(bytecode_path, witness_path, output_path);
-        } else if (command == "verify_goblin_ultra_honk") {
-            return verify_honk<GoblinUltraFlavor>(proof_path, vk_path) ? 0 : 1;
-        } else if (command == "write_vk_goblin_ultra_honk") {
+            prove_honk<MegaFlavor>(bytecode_path, witness_path, output_path);
+        } else if (command == "verify_mega_honk") {
+            return verify_honk<MegaFlavor>(proof_path, vk_path) ? 0 : 1;
+        } else if (command == "write_vk_mega_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
-            write_vk_honk<GoblinUltraFlavor>(bytecode_path, output_path);
+            write_vk_honk<MegaFlavor>(bytecode_path, output_path);
         } else if (command == "proof_as_fields_honk") {
             std::string output_path = get_option(args, "-o", proof_path + "_fields.json");
             proof_as_fields_honk(proof_path, output_path);
         } else if (command == "vk_as_fields_ultra_honk") {
             std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
             vk_as_fields_honk<UltraFlavor>(vk_path, output_path);
-        } else if (command == "vk_as_fields_goblin_ultra_honk") {
+        } else if (command == "vk_as_fields_mega_honk") {
             std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
-            vk_as_fields_honk<GoblinUltraFlavor>(vk_path, output_path);
+            vk_as_fields_honk<MegaFlavor>(vk_path, output_path);
         } else {
             std::cerr << "Unknown command: " << command << "\n";
             return 1;
