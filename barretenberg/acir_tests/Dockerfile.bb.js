@@ -29,6 +29,7 @@ RUN BIN=../ts/dest/node/main.js FLOW=prove_and_verify_goblin_ultra_honk ./run_ac
 RUN BIN=../ts/dest/node/main.js FLOW=prove_and_verify_goblin ./run_acir_tests.sh 6_array
 # Run 1_mul through bb.js build, all_cmds flow, to test all cli args.
 RUN BIN=../ts/dest/node/main.js FLOW=all_cmds ./run_acir_tests.sh 1_mul
+# TODO(https://github.com/noir-lang/noir/issues/5106)
 # Run ecdsa_secp256r1_3x through bb.js on chrome testing multi-threaded browser 256k support.
 # TODO: Currently headless webkit doesn't seem to have shared memory so skipping multi-threaded test.
 RUN BROWSER=chrome THREAD_MODEL=mt ./run_acir_tests_browser.sh ecdsa_secp256r1_3x
