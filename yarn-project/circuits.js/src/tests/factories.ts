@@ -26,12 +26,14 @@ import {
   ConstantRollupData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
+  EncryptedLogHash,
   Fr,
   FunctionData,
   FunctionSelector,
   type GrumpkinPrivateKey,
   GrumpkinScalar,
   KeyValidationRequest,
+  KeyValidationRequestAndGenerator,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   L2ToL1Message,
   LogHash,
@@ -117,7 +119,7 @@ import {
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
-  ScopedKeyValidationRequest,
+  ScopedKeyValidationRequestAndGenerator,
   ScopedReadRequest,
   StateDiffHints,
   StateReference,
@@ -150,6 +152,10 @@ import { ValidationRequests } from '../structs/validation_requests.js';
  */
 function makeLogHash(seed: number) {
   return new LogHash(fr(seed), seed + 1, fr(seed + 2));
+}
+
+function makeEncryptedLogHash(seed: number) {
+  return new EncryptedLogHash(fr(seed), seed + 1, fr(seed + 2), fr(seed + 3));
 }
 
 function makeNoteLogHash(seed: number) {
@@ -216,8 +222,25 @@ function makeKeyValidationRequests(seed: number): KeyValidationRequest {
   return new KeyValidationRequest(makePoint(seed), fr(seed + 2));
 }
 
-function makeScopedKeyValidationRequests(seed: number): ScopedKeyValidationRequest {
-  return new ScopedKeyValidationRequest(makeKeyValidationRequests(seed), makeAztecAddress(seed + 4));
+/**
+ * Creates arbitrary KeyValidationRequestAndGenerator from the given seed.
+ * @param seed - The seed to use for generating the KeyValidationRequestAndGenerator.
+ * @returns A KeyValidationRequestAndGenerator.
+ */
+function makeKeyValidationRequestAndGenerators(seed: number): KeyValidationRequestAndGenerator {
+  return new KeyValidationRequestAndGenerator(makeKeyValidationRequests(seed), fr(seed + 4));
+}
+
+/**
+ * Creates arbitrary scoped ScopedKeyValidationRequestAndGenerator from the given seed.
+ * @param seed - The seed to use for generating the ScopedKeyValidationRequestAndGenerator.
+ * @returns A ScopedKeyValidationRequestAndGenerator.
+ */
+function makeScopedKeyValidationRequestAndGenerators(seed: number): ScopedKeyValidationRequestAndGenerator {
+  return new ScopedKeyValidationRequestAndGenerator(
+    makeKeyValidationRequestAndGenerators(seed),
+    makeAztecAddress(seed + 4),
+  );
 }
 
 /**
@@ -278,7 +301,7 @@ export function makeValidationRequests(seed = 1) {
     makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x80),
     makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x90),
     makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x95),
-    makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, makeScopedKeyValidationRequests, seed + 0x100),
+    makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, makeScopedKeyValidationRequestAndGenerators, seed + 0x100),
     makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
   );
 }
@@ -306,8 +329,9 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
     fr(seed + 0x700), // note encrypted logs hash
     fr(seed + 0x800), // encrypted logs hash
     fr(seed + 0x900), // unencrypted logs hash
-    fr(seed + 0xa00), // encrypted_log_preimages_length
-    fr(seed + 0xb00), // unencrypted_log_preimages_length
+    fr(seed + 0xa00), // note_encrypted_log_preimages_length
+    fr(seed + 0xb00), // encrypted_log_preimages_length
+    fr(seed + 0xc00), // unencrypted_log_preimages_length
     tupleGenerator(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       makePublicDataUpdateRequest,
@@ -334,7 +358,7 @@ export function makePublicAccumulatedData(seed = 1, full = false): PublicAccumul
     tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, makeNoteHash, seed + 0x120, NoteHash.empty),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, makeNullifier, seed + 0x200, Nullifier.empty),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
-    tupleGenerator(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, makeNoteLogHash, seed + 0x700, NoteLogHash.empty), // note encrypted logs hashes
+    tupleGenerator(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x700, LogHash.empty), // note encrypted logs hashes
     tupleGenerator(MAX_ENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x800, LogHash.empty), // encrypted logs hashes
     tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x900, LogHash.empty), // unencrypted logs hashes
     tupleGenerator(
@@ -731,7 +755,11 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     minRevertibleSideEffectCounter: fr(0),
     noteHashReadRequests: makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x300),
     nullifierReadRequests: makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x310),
-    keyValidationRequests: makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, makeKeyValidationRequests, seed + 0x320),
+    keyValidationRequestsAndGenerators: makeTuple(
+      MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
+      makeKeyValidationRequestAndGenerators,
+      seed + 0x320,
+    ),
     newNoteHashes: makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, makeNoteHash, seed + 0x400),
     newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, makeNullifier, seed + 0x500),
     privateCallRequests: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, makePrivateCallRequest, seed + 0x600),
@@ -741,7 +769,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     startSideEffectCounter: fr(seed + 0x849),
     endSideEffectCounter: fr(seed + 0x850),
     noteEncryptedLogsHashes: makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, makeNoteLogHash, seed + 0x875),
-    encryptedLogsHashes: makeTuple(MAX_ENCRYPTED_LOGS_PER_CALL, makeLogHash, seed + 0x900),
+    encryptedLogsHashes: makeTuple(MAX_ENCRYPTED_LOGS_PER_CALL, makeEncryptedLogHash, seed + 0x900),
     unencryptedLogsHashes: makeTuple(MAX_UNENCRYPTED_LOGS_PER_CALL, makeLogHash, seed + 0xa00),
     historicalHeader: makeHeader(seed + 0xd00, undefined),
     txContext: makeTxContext(seed + 0x1400),

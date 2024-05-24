@@ -199,6 +199,7 @@ __metadata:
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/p2p": "workspace:^"
+    "@aztec/p2p-bootstrap": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/prover-client": "workspace:^"
     "@aztec/pxe": "workspace:^"
@@ -628,7 +629,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/p2p-bootstrap@workspace:p2p-bootstrap":
+"@aztec/p2p-bootstrap@workspace:^, @aztec/p2p-bootstrap@workspace:p2p-bootstrap":
   version: 0.0.0-use.local
   resolution: "@aztec/p2p-bootstrap@workspace:p2p-bootstrap"
   dependencies:
@@ -636,9 +637,13 @@ __metadata:
     "@aztec/p2p": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
+    "@types/koa": ^2.15.0
+    "@types/koa-router": ^7.4.8
     "@types/node": ^18.14.6
     dotenv: ^16.0.3
     jest: ^29.5.0
+    koa: ^2.15.3
+    koa-router: ^12.0.1
     ts-node: ^10.9.1
     tslib: ^2.4.0
     typescript: ^5.0.4
@@ -2884,12 +2889,12 @@ __metadata:
 
 "@noir-lang/noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.30.0
-  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=ae4724&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=50aa1b&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     "@noir-lang/acvm_js": 0.46.0
     "@noir-lang/noirc_abi": 0.30.0
     "@noir-lang/types": 0.30.0
-  checksum: 5bb35e8085b52d6be22e5ec4c3f7aac71bafc519a69a6ef157fc166d8b7729f25850ab2838ef92b5b5955e8f74a9782a69669515f8ac85983df76157ca99da2e
+  checksum: fc5f0f3d0aeb38275053ba98306866b9c532989b8e2abc751d9b5113b9c6914f159c186bfcee6173a89511385baeb952c88e55b8bfa9f9b8979643e927db25f6
   languageName: node
   linkType: hard
 
@@ -3566,7 +3571,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/koa-router@npm:^7.4.4":
+"@types/koa-router@npm:^7.4.4, @types/koa-router@npm:^7.4.8":
   version: 7.4.8
   resolution: "@types/koa-router@npm:7.4.8"
   dependencies:
@@ -3594,7 +3599,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/koa@npm:*, @types/koa@npm:^2.13.5, @types/koa@npm:^2.13.6, @types/koa@npm:^2.13.9":
+"@types/koa@npm:*, @types/koa@npm:^2.13.5, @types/koa@npm:^2.13.6, @types/koa@npm:^2.13.9, @types/koa@npm:^2.15.0":
   version: 2.15.0
   resolution: "@types/koa@npm:2.15.0"
   dependencies:
@@ -9688,7 +9693,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"koa-router@npm:^12.0.0":
+"koa-router@npm:^12.0.0, koa-router@npm:^12.0.1":
   version: 12.0.1
   resolution: "koa-router@npm:12.0.1"
   dependencies:
@@ -9722,7 +9727,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"koa@npm:^2.14.2":
+"koa@npm:^2.14.2, koa@npm:^2.15.3":
   version: 2.15.3
   resolution: "koa@npm:2.15.3"
   dependencies:
