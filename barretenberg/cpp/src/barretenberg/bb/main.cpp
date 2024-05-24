@@ -233,6 +233,7 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
 
     auto program_stack = acir_format::get_acir_program_stack(bytecodePath, witnessPath);
 
+    // Accumulate the entire program stack into the IVC
     while (!program_stack.empty()) {
         auto stack_item = program_stack.back();
 

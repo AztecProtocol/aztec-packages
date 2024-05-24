@@ -509,7 +509,7 @@ program
 
 program
   .command('fold_and_verify_program')
-  .description('Generate a GUH proof and verify it. Process exits with success or failure code.')
+  .description('Accumulate a set of circuits using ClientIvc then verify. Process exits with success or failure code.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .action(async ({ bytecodePath, witnessPath, crsPath }) => {

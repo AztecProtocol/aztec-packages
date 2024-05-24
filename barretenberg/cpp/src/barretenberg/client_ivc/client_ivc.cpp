@@ -120,7 +120,7 @@ std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_f
 /**
  * @brief Construct and verify a proof for the IVC
  * @note Use of this method only makes sense when the prover and verifier are the same entity, e.g. in
- * development/testsing.
+ * development/testing.
  *
  */
 bool ClientIVC::prove_and_verify()

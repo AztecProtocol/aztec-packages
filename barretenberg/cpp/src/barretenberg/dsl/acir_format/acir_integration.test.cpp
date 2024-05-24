@@ -402,13 +402,13 @@ TEST_F(AcirIntegrationTest, UpdateAcirCircuit)
 
     EXPECT_TRUE(CircuitChecker::check(circuit));
 
-    // Now we'll append some addition gates onto the circuit generated from acir and confirm that its still valid.
-    // First, check that the simple circuit is valid in isolation
+    // Now append some RAM gates onto the circuit generated from acir and confirm that its still valid. (First, check
+    // that the RAM operations constitute a valid independent circuit).
     {
-        Builder simple_circuit;
+        Builder circuit;
         add_some_simple_RAM_gates(circuit);
-        EXPECT_TRUE(CircuitChecker::check(simple_circuit));
-        EXPECT_TRUE(prove_and_verify_honk<Flavor>(simple_circuit));
+        EXPECT_TRUE(CircuitChecker::check(circuit));
+        EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
     }
 
     // Now manually append the simple RAM circuit to the circuit generated from acir
