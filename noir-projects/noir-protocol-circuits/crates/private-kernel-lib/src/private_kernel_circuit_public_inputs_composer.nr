@@ -34,10 +34,7 @@ struct PrivateKernelCircuitPublicInputsComposer {
 }
 
 impl PrivateKernelCircuitPublicInputsComposer {
-    pub fn new_from_tx_request(
-        tx_request: TxRequest,
-        private_call_public_inputs: PrivateCircuitPublicInputs
-    ) -> Self {
+    pub fn new_from_tx_request(tx_request: TxRequest, private_call_public_inputs: PrivateCircuitPublicInputs) -> Self {
         let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
         public_inputs.constants = CombinedConstantData::private(

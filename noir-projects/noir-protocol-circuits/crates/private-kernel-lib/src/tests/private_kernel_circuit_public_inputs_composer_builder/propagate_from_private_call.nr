@@ -78,13 +78,13 @@ fn propagate_from_private_call_key_validation_requests_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
     builder.private_call.append_key_validation_requests(2);
-    let res = builder.private_call.key_validation_requests.storage;
+    let res = builder.private_call.scoped_key_validation_requests_and_generators.storage;
 
     let output = builder.compose_from_tx_request();
 
     assert(
         array_eq(
-            output.validation_requests.key_validation_requests,
+            output.validation_requests.scoped_key_validation_requests_and_generators,
             [res[0], res[1]]
         )
     );
@@ -220,7 +220,7 @@ fn propagate_from_private_call_public_teardown_call_request_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
     builder.private_call.append_public_teardown_call_request();
-    let res = builder.private_call.public_teardown_call_request;
+    let res = builder.private_call.public_teardown_call_stack.storage[0];
 
     let output = builder.compose_from_tx_request();
 

@@ -201,7 +201,7 @@ impl FixtureBuilder {
             new_nullifiers: subarray(self.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier)),
             private_call_requests: subarray(self.private_call_requests.storage.map(|r: ScopedPrivateCallRequest| r.call_request)),
             public_call_stack_hashes: subarray(self.public_call_requests.storage.map(|c: CallRequest| c.hash)),
-            public_teardown_function_hash: self.public_teardown_call_stack.get(0).hash,
+            public_teardown_function_hash: self.public_teardown_call_stack.storage[0].hash,
             new_l2_to_l1_msgs: subarray(self.new_l2_to_l1_msgs.storage.map(|r: ScopedL2ToL1Message| r.message)),
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
@@ -225,7 +225,7 @@ impl FixtureBuilder {
         PrivateCallData {
             call_stack_item: self.to_private_call_stack_item(),
             public_call_stack: subarray(self.public_call_requests.storage),
-            public_teardown_call_request: self.public_teardown_call_stack.get(0),
+            public_teardown_call_request: self.public_teardown_call_stack.storage[0],
             proof: RecursiveProof::empty(),
             vk: self.vk,
             function_leaf_membership_witness: self.function_leaf_membership_witness,

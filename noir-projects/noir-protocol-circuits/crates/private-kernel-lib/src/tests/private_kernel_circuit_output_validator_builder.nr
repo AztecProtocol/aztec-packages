@@ -47,20 +47,17 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
     }
 
     pub fn validate_as_first_call(self) {
-        let private_call = self.private_call.to_private_circuit_public_inputs();
-        let public_call_requests = self.private_call.public_call_requests.storage;
-        let public_teardown_call_request = self.private_call.public_teardown_call_request;
-        let contract_address = self.private_call.contract_address;
-        let array_lengths = PrivateCircuitPublicInputsArrayLengths::new(private_call);
+        let private_call = self.private_call.to_private_call_data();
+        let array_lengths = PrivateCircuitPublicInputsArrayLengths::new(private_call.call_stack_item.public_inputs);
         let output = self.output.to_private_kernel_circuit_public_inputs();
         PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
             self.tx_request,
-            private_call,
+            private_call.call_stack_item.public_inputs,
             array_lengths,
-            contract_address,
+            private_call.call_stack_item.contract_address,
             self.note_hash_nullifier_counters,
-            public_call_requests,
-            public_teardown_call_request
+            private_call.public_call_stack,
+            private_call.public_teardown_call_request
         );
     }
 
@@ -72,21 +69,18 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         previous_kernel.end.private_call_stack[num_private_call_requests].call_request.hash = 98765432;
 
         let previous_kernel_array_lengths = PrivateKernelCircuitPublicInputsArrayLengths::new(previous_kernel);
-        let public_call_requests = self.private_call.public_call_requests.storage;
-        let public_teardown_call_request = self.private_call.public_teardown_call_request;
-        let private_call = self.private_call.to_private_circuit_public_inputs();
-        let contract_address = self.private_call.contract_address;
-        let private_call_array_lengths = PrivateCircuitPublicInputsArrayLengths::new(private_call);
+        let private_call = self.private_call.to_private_call_data();
+        let private_call_array_lengths = PrivateCircuitPublicInputsArrayLengths::new(private_call.call_stack_item.public_inputs);
         let output = self.output.to_private_kernel_circuit_public_inputs();
         PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
             previous_kernel,
             previous_kernel_array_lengths,
-            private_call,
+            private_call.call_stack_item.public_inputs,
             private_call_array_lengths,
-            contract_address,
+            private_call.call_stack_item.contract_address,
             self.note_hash_nullifier_counters,
-            public_call_requests,
-            public_teardown_call_request
+            private_call.public_call_stack,
+            private_call.public_teardown_call_request
         );
     }
 }

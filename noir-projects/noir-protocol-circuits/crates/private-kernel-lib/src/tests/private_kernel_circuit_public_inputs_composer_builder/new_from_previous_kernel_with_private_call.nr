@@ -108,15 +108,15 @@ fn new_from_previous_kernel_with_private_call_key_validation_requests_succeeds()
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
     builder.previous_kernel.append_key_validation_requests(2);
-    let prev = builder.previous_kernel.key_validation_requests.storage;
+    let prev = builder.previous_kernel.scoped_key_validation_requests_and_generators.storage;
     builder.private_call.append_key_validation_requests(2);
-    let curr = builder.private_call.key_validation_requests.storage;
+    let curr = builder.private_call.scoped_key_validation_requests_and_generators.storage;
 
     let output = builder.compose_from_previous_kernel();
 
     assert(
         array_eq(
-            output.validation_requests.key_validation_requests,
+            output.validation_requests.scoped_key_validation_requests_and_generators,
             [prev[0], prev[1], curr[0], curr[1]]
         )
     );
@@ -295,7 +295,7 @@ fn new_from_previous_kernel_with_private_call_public_teardown_call_request_succe
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
     builder.private_call.append_public_teardown_call_request();
-    let request = builder.private_call.public_teardown_call_request;
+    let request = builder.private_call.public_teardown_call_stack.storage[0];
 
     let output = builder.compose_from_previous_kernel();
 

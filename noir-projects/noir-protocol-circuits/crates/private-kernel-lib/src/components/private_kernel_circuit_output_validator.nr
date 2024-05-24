@@ -277,9 +277,9 @@ impl PrivateKernelCircuitOutputValidator {
             array_lengths.nullifier_read_requests
         );
         validate_array_prepended(
-            self.output.validation_requests.key_validation_requests,
-            previous_kernel.validation_requests.key_validation_requests,
-            array_lengths.key_validation_requests
+            self.output.validation_requests.scoped_key_validation_requests_and_generators,
+            previous_kernel.validation_requests.scoped_key_validation_requests_and_generators,
+            array_lengths.scoped_key_validation_requests_and_generators
         );
         validate_array_prepended(
             self.output.end.new_note_hashes,
@@ -351,10 +351,10 @@ impl PrivateKernelCircuitOutputValidator {
             storage_contract_address
         );
         validate_array_appended_scoped(
-            self.output.validation_requests.key_validation_requests,
-            private_call.key_validation_requests,
-            array_lengths.key_validation_requests,
-            offsets.key_validation_requests,
+            self.output.validation_requests.scoped_key_validation_requests_and_generators,
+            private_call.key_validation_requests_and_generators,
+            array_lengths.key_validation_requests_and_generators,
+            offsets.scoped_key_validation_requests_and_generators,
             storage_contract_address
         );
         validate_array_appended_scoped(
@@ -390,17 +390,19 @@ impl PrivateKernelCircuitOutputValidator {
             array_lengths.note_encrypted_logs_hashes,
             offsets.note_encrypted_logs_hashes
         );
-        validate_array_appended(
+        validate_array_appended_scoped(
             self.output.end.encrypted_logs_hashes,
             private_call.encrypted_logs_hashes,
             array_lengths.encrypted_logs_hashes,
-            offsets.encrypted_logs_hashes
+            offsets.encrypted_logs_hashes,
+            storage_contract_address
         );
-        validate_array_appended(
+        validate_array_appended_scoped(
             self.output.end.unencrypted_logs_hashes,
             private_call.unencrypted_logs_hashes,
             array_lengths.unencrypted_logs_hashes,
-            offsets.unencrypted_logs_hashes
+            offsets.unencrypted_logs_hashes,
+            storage_contract_address
         );
         validate_array_appended_reversed_scoped(
             self.output.end.private_call_stack,
