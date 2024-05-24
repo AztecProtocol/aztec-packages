@@ -71,6 +71,7 @@ contract GasToken {
     }
 
     #[aztec(public)]
+    #[aztec(view)]
     fn check_balance(fee_limit: Field) {
         let fee_limit = U128::from_integer(fee_limit);
         assert(storage.balances.at(context.msg_sender()).read() >= fee_limit, "Balance too low");
@@ -78,6 +79,7 @@ contract GasToken {
 
     // utility function for testing
     #[aztec(public)]
+    #[aztec(view)]
     fn balance_of_public(owner: AztecAddress) -> pub Field {
         storage.balances.at(owner).read().to_field()
     }

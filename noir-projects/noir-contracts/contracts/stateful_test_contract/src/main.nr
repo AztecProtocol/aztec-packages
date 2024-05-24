@@ -94,6 +94,8 @@ contract StatefulTest {
     }
 
     #[aztec(public)]
+    #[aztec(noinitcheck)]
+    #[aztec(view)]
     fn get_public_value(owner: AztecAddress) -> pub Field {
         storage.public_values.at(owner).read()
     }

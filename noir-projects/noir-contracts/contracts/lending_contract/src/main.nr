@@ -266,11 +266,13 @@ contract Lending {
     }
 
     #[aztec(public)]
+    #[aztec(view)]
     fn get_asset(asset_id: Field) -> pub Asset {
         storage.assets.at(asset_id).read()
     }
 
     #[aztec(public)]
+    #[aztec(view)]
     fn get_position(owner: AztecAddress) -> pub Position {
         let collateral = storage.collateral.at(owner).read();
         let static_debt = storage.static_debt.at(owner).read();
@@ -283,6 +285,7 @@ contract Lending {
     }
 
     #[aztec(public)]
+    #[aztec(view)]
     fn get_assets() -> pub [AztecAddress; 2] {
         [storage.collateral_asset.read(), storage.stable_coin.read()]
     }

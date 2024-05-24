@@ -31,16 +31,6 @@ contract TokenBlacklist {
         roles: Map<AztecAddress, SharedMutable<UserFlags, CHANGE_ROLES_DELAY_BLOCKS>>,
     }
 
-    #[aztec(public)]
-    fn total_supply() -> pub Field {
-        storage.total_supply.read().to_field()
-    }
-
-    #[aztec(public)]
-    fn balance_of_public(owner: AztecAddress) -> pub Field {
-        storage.public_balances.at(owner).read().to_field()
-    }
-
     // docs:start:constructor
     #[aztec(public)]
     #[aztec(initializer)]
@@ -50,6 +40,19 @@ contract TokenBlacklist {
     }
 
     #[aztec(public)]
+    #[aztec(view)]
+    fn total_supply() -> pub Field {
+        storage.total_supply.read().to_field()
+    }
+
+    #[aztec(public)]
+    #[aztec(view)]
+    fn balance_of_public(owner: AztecAddress) -> pub Field {
+        storage.public_balances.at(owner).read().to_field()
+    }
+
+    #[aztec(public)]
+    #[aztec(view)]
     fn get_roles(user: AztecAddress) -> UserFlags {
         storage.roles.at(user).get_current_value_in_public()
     }
