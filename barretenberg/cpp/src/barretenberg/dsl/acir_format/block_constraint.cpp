@@ -103,19 +103,12 @@ void create_block_constraints(Builder& builder, const BlockConstraint constraint
             databus_ct databus;
             // Populate the returndata in the databus
             databus.return_data.set_values(init);
-            for (const auto& op : constraint.trace) {
-                ASSERT(op.access_type == 0);
-                field_ct value = poly_to_field_ct(op.value, builder);
-                field_ct index = poly_to_field_ct(op.index, builder);
-                fr w_value = 0;
-                if (has_valid_witness_assignments) {
-                    // If witness are assigned, we use the correct value for w
-                    w_value = index.get_value();
-                }
-                field_ct w = field_ct::from_witness(&builder, w_value);
-                value.assert_equal(databus.return_data[w]);
-                w.assert_equal(index);
+            int c = 0;
+            for (const auto& value : init) {
+                value.assert_equal(databus.return_data[c]);
+                c++;
             }
+            ASSERT(constraint.trace.size() == 0);
         }
     } break;
     default:
