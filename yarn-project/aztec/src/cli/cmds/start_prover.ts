@@ -1,18 +1,19 @@
 import { type ProvingJobSource } from '@aztec/circuit-types';
-import { getProverEnvVars } from '@aztec/prover-client';
+import { type ProverClientConfig, getProverEnvVars } from '@aztec/prover-client';
 import { ProverPool, createProvingJobSourceClient } from '@aztec/prover-client/prover-pool';
 
 import { tmpdir } from 'node:os';
 
 import { type ServiceStarter, parseModuleOptions } from '../util.js';
 
-type ProverOptions = Partial<{
-  proverUrl: string;
-  agents: string;
-  acvmBinaryPath?: string;
-  bbBinaryPath?: string;
-  simulate?: string;
-}>;
+type ProverOptions = ProverClientConfig &
+  Partial<{
+    proverUrl: string;
+    agents: string;
+    acvmBinaryPath?: string;
+    bbBinaryPath?: string;
+    simulate?: string;
+  }>;
 
 export const startProver: ServiceStarter = async (options, signalHandlers, logger) => {
   const proverOptions: ProverOptions = {
@@ -29,7 +30,7 @@ export const startProver: ServiceStarter = async (options, signalHandlers, logge
     throw new Error('Starting prover without an orchestrator is not supported');
   }
 
-  const agentCount = proverOptions.agents ? parseInt(proverOptions.agents, 10) : 1;
+  const agentCount = proverOptions.agents ? parseInt(proverOptions.agents, 10) : proverOptions.proverAgents;
   if (agentCount === 0 || !Number.isSafeInteger(agentCount)) {
     throw new Error('Cannot start prover without agents');
   }
