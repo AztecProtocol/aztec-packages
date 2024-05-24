@@ -11,9 +11,11 @@ import {
   PublicKernelCircuitPublicInputs,
   PublicKernelTailCircuitPrivateInputs,
   RecursiveProof,
+  RootParityInput,
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
+  VerificationKeyData,
 } from '@aztec/circuits.js';
 import { createJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
@@ -30,6 +32,7 @@ export function createProvingJobSourceServer(queue: ProvingJobSource): JsonRpcSe
       MergeRollupInputs,
       ParityPublicInputs,
       Proof,
+      RootParityInput,
       RootParityInputs,
       RootRollupInputs,
       RootRollupPublicInputs,
@@ -38,10 +41,10 @@ export function createProvingJobSourceServer(queue: ProvingJobSource): JsonRpcSe
       PublicKernelTailCircuitPrivateInputs,
       KernelCircuitPublicInputs,
       ProvingError,
-    },
-    {
       RecursiveProof,
+      VerificationKeyData,
     },
+    {},
   );
 }
 
@@ -59,6 +62,7 @@ export function createProvingJobSourceClient(
       MergeRollupInputs,
       ParityPublicInputs,
       Proof,
+      RootParityInput,
       RootParityInputs,
       RootRollupInputs,
       RootRollupPublicInputs,
@@ -67,10 +71,10 @@ export function createProvingJobSourceClient(
       PublicKernelTailCircuitPrivateInputs,
       KernelCircuitPublicInputs,
       ProvingError,
-    },
-    {
       RecursiveProof,
+      VerificationKeyData,
     },
+    {},
     false,
     namespace,
     fetch,

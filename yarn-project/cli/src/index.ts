@@ -124,6 +124,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
     .action(async ({ rpcUrl, privateKey, wait }) => {
       const { createAccount } = await import('./cmds/create_account.js');
+      privateKey ??= Fr.random();
       await createAccount(rpcUrl, privateKey, deriveSigningKey(privateKey), wait, debugLogger, log);
     });
 
