@@ -11,6 +11,7 @@ import {
 import {
   Fr,
   type Gas,
+  type GasFees,
   type Header,
   KernelCircuitPublicInputs,
   type Proof,
@@ -74,8 +75,8 @@ export type ProcessedTx = Pick<Tx, 'proof' | 'noteEncryptedLogs' | 'encryptedLog
    * Doesn't account for any base costs nor DA gas used in private execution.
    */
   gasUsed: Partial<Record<PublicKernelType, Gas>>;
-  /** Public data updates triggered by the protocol, such as balance updates from fee payments. */
-  protocolPublicDataUpdateRequests: PublicDataUpdateRequest[];
+  /** All public data updates for this transaction, including those created or updated by the protocol, such as balance updates from fee payments. */
+  finalPublicDataUpdateRequests: PublicDataUpdateRequest[];
 };
 
 export type RevertedTx = ProcessedTx & {
@@ -131,7 +132,7 @@ export function makeProcessedTx(
   publicKernelRequests: PublicKernelRequest[],
   revertReason?: SimulationError,
   gasUsed: ProcessedTx['gasUsed'] = {},
-  protocolPublicDataUpdateRequests: PublicDataUpdateRequest[] = [],
+  finalPublicDataUpdateRequests?: PublicDataUpdateRequest[],
 ): ProcessedTx {
   return {
     hash: tx.getTxHash(),
@@ -145,7 +146,7 @@ export function makeProcessedTx(
     revertReason,
     publicKernelRequests,
     gasUsed,
-    protocolPublicDataUpdateRequests,
+    finalPublicDataUpdateRequests: finalPublicDataUpdateRequests ?? kernelOutput.end.publicDataUpdateRequests,
   };
 }
 
@@ -172,20 +173,18 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
     revertReason: undefined,
     publicKernelRequests: [],
     gasUsed: {},
-    protocolPublicDataUpdateRequests: [],
+    finalPublicDataUpdateRequests: [],
   };
 }
 
-export function toTxEffect(tx: ProcessedTx): TxEffect {
+export function toTxEffect(tx: ProcessedTx, gasFees: GasFees): TxEffect {
   return new TxEffect(
     tx.data.revertCode,
-    tx.data.transactionFee,
+    tx.data.getTransactionFee(gasFees),
     tx.data.end.newNoteHashes.filter(h => !h.isZero()),
     tx.data.end.newNullifiers.filter(h => !h.isZero()),
     tx.data.end.newL2ToL1Msgs.filter(h => !h.isZero()),
-    [...tx.data.end.publicDataUpdateRequests, ...tx.protocolPublicDataUpdateRequests]
-      .map(t => new PublicDataWrite(t.leafSlot, t.newValue))
-      .filter(h => !h.isEmpty()),
+    tx.finalPublicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)).filter(h => !h.isEmpty()),
     tx.data.end.noteEncryptedLogPreimagesLength,
     tx.data.end.encryptedLogPreimagesLength,
     tx.data.end.unencryptedLogPreimagesLength,
