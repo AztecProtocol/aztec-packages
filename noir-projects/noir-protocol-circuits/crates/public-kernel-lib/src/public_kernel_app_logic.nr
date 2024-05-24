@@ -570,7 +570,7 @@ mod tests {
     }
 
     #[test]
-    fn correctly_updates_revert_code() {
+    unconstrained fn correctly_updates_revert_code() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         let public_inputs = builder.execute();
         assert_eq(public_inputs.revert_code, 0);
