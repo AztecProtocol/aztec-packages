@@ -38,8 +38,8 @@ impl<Context> EasyPrivateUint<&mut PrivateContext> {
     // Very similar to `value_note::utils::decrement`.
     pub fn sub(self, subtrahend: u64, owner: AztecAddress) {
         let owner_npk_m_hash = get_npk_m_hash(self.context, owner);
-        let owner_ivpk_m = get_ivpk_m(self.context, owner);
         let owner_ovpk_m = get_ovpk_m(self.context, owner);
+        let owner_ivpk_m = get_ivpk_m(self.context, owner);
 
         // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);

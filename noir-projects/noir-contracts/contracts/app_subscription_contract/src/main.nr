@@ -43,9 +43,9 @@ contract AppSubscription {
 
         note.remaining_txs -= 1;
 
-        let subscriber_ivpk_m = get_ivpk_m(&mut context, user_address);
         let subscriber_ovpk_m = get_ovpk_m(&mut context, user_address);
-        storage.subscriptions.at(user_address).replace(&mut note, true, subscriber_ivpk_m, subscriber_ovpk_m);
+        let subscriber_ivpk_m = get_ivpk_m(&mut context, user_address);
+        storage.subscriptions.at(user_address).replace(&mut note, true, subscriber_ovpk_m, subscriber_ivpk_m);
 
         context.set_as_fee_payer();
 
@@ -113,15 +113,15 @@ contract AppSubscription {
         // Assert that the given expiry_block_number < current_block_number + SUBSCRIPTION_DURATION_IN_BLOCKS.
         AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).enqueue_view(&mut context);
         let subscriber_npk_m_hash = get_npk_m_hash(&mut context, subscriber_address);
-        let subscriber_ivpk_m = get_ivpk_m(&mut context, subscriber_address);
         let subscriber_ovpk_m = get_ovpk_m(&mut context, subscriber_address);
+        let subscriber_ivpk_m = get_ivpk_m(&mut context, subscriber_address);
 
         let mut subscription_note = SubscriptionNote::new(subscriber_npk_m_hash, expiry_block_number, tx_count);
         storage.subscriptions.at(subscriber_address).initialize_or_replace(
             &mut subscription_note,
             true,
-            subscriber_ivpk_m,
-            subscriber_ovpk_m
+            subscriber_ovpk_m,
+            subscriber_ivpk_m
         );
     }
 

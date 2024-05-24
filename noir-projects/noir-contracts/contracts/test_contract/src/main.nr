@@ -88,8 +88,8 @@ contract Test {
         );
 
         let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
-        let owner_ivpk_m = get_ivpk_m(&mut context, owner);
         let owner_ovpk_m = get_ovpk_m(&mut context, owner);
+        let owner_ivpk_m = get_ivpk_m(&mut context, owner);
 
         let mut note = ValueNote::new(value, owner_npk_m_hash);
         create_note(
@@ -97,8 +97,8 @@ contract Test {
             storage_slot,
             &mut note,
             true,
-            owner_ivpk_m,
-            owner_ovpk_m
+            owner_ovpk_m,
+            owner_ivpk_m
         );
     }
 
@@ -304,8 +304,8 @@ contract Test {
         storage_slot += 1;
 
         let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
-        let owner_ivpk_m = get_ivpk_m(&mut context, owner);
         let owner_ovpk_m = get_ovpk_m(&mut context, owner);
+        let owner_ivpk_m = get_ivpk_m(&mut context, owner);
 
         let mut note = ValueNote::new(value + 1, owner_npk_m_hash);
         create_note(
@@ -313,8 +313,8 @@ contract Test {
             storage_slot,
             &mut note,
             true,
-            owner_ivpk_m,
-            owner_ovpk_m
+            owner_ovpk_m,
+            owner_ivpk_m
         );
         storage_slot += 1;
         Test::at(context.this_address()).call_create_note(value + 2, owner, storage_slot).call(&mut context);

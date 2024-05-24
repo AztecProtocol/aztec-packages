@@ -66,15 +66,15 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         addend: U128
     ) where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
         let context = self.map.context;
-        let recipient_ivpk_m = get_ivpk_m(context, recipient);
         let sender_ovpk_m = get_ovpk_m(context, sender);
+        let recipient_ivpk_m = get_ivpk_m(context, recipient);
 
         // We fetch the nullifier public key hash from the registry / from our PXE
         let recipient_npk_m_hash = get_npk_m_hash(context, recipient);
         let mut addend_note = T::new(addend, recipient_npk_m_hash);
 
         // docs:start:insert
-        self.map.at(recipient).insert(&mut addend_note, true, recipient_ivpk_m, sender_ovpk_m);
+        self.map.at(recipient).insert(&mut addend_note, true, sender_ovpk_m, recipient_ivpk_m);
         // docs:end:insert
     }
 
