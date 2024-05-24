@@ -1,6 +1,6 @@
 use dep::std::hash;
 
-global SIZE = 30;
+global SIZE = 100;
 
 fn main(input: [[Field; 2]; SIZE]) -> pub [Field; SIZE] {
     let mut results: [Field; SIZE] = [0; SIZE];
