@@ -45,12 +45,14 @@ document.querySelector('#set').addEventListener('submit', async (e: Event) => {
 
   const { value } = document.querySelector('#number') as HTMLInputElement;
   const { address: owner, publicKeys } = wallet.getCompleteAddress();
+  const { masterNullifierPublicKey, masterIncomingViewingPublicKey, masterOutgoingViewingPublicKey } = publicKeys;
   await contract.methods
     .setNumber(
       parseInt(value),
       owner,
-      publicKeys.masterNullifierPublicKey.hash(),
-      publicKeys.masterIncomingViewingPublicKey,
+      masterNullifierPublicKey.hash(),
+      masterOutgoingViewingPublicKey,
+      masterIncomingViewingPublicKey,
     )
     .send()
     .wait();
