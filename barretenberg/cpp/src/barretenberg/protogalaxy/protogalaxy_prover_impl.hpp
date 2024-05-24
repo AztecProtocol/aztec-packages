@@ -208,13 +208,4 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
 
     return state.result;
 }
-
-template class ProtoGalaxyProver_<ProverInstances_<UltraFlavor, 2>>;
-template class ProtoGalaxyProver_<ProverInstances_<MegaFlavor, 2>>;
-
-template class ProtoGalaxyProver_<ProverInstances_<UltraFlavor, 3>>;
-template class ProtoGalaxyProver_<ProverInstances_<MegaFlavor, 3>>;
-
-template class ProtoGalaxyProver_<ProverInstances_<UltraFlavor, 4>>;
-template class ProtoGalaxyProver_<ProverInstances_<MegaFlavor, 4>>;
 } // namespace bb
