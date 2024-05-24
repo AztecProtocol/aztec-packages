@@ -8,8 +8,8 @@ global PUBLIC_KEYS_LENGTH = 8;
 
 struct PublicKeys {
     npk_m: GrumpkinPoint,
-    ovpk_m: GrumpkinPoint,
     ivpk_m: GrumpkinPoint,
+    ovpk_m: GrumpkinPoint,
     tpk_m: GrumpkinPoint,
 }
 
