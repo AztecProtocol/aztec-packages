@@ -233,22 +233,20 @@ void build_constraints(Builder& builder,
             // A proof passed into the constraint should be stripped of its inner public inputs, but not the nested
             // aggregation object itself. The verifier circuit requires that the indices to a nested proof aggregation
             // state are a circuit constant. The user tells us they how they want these constants set by keeping the
-            // nested aggregation object attached to the proof as public inputs. As this is the only object that can
-            // prepended to the proof if the proof is above the expected size (with public inputs stripped)
+            // nested aggregation object attached to the proof as public inputs.
             std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object = {};
-            const size_t inner_public_input_offset = 3;
             for (size_t i = 0; i < HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
-                // Set the nested aggregation object indices to witness indices
-                nested_aggregation_object[i] = static_cast<uint32_t>(constraint.proof[inner_public_input_offset + i]);
-                // Attach the nested aggregation object to the end of the public inputs to fill in
-                // the slot where the nested aggregation object index will point into
-                constraint.public_inputs.emplace_back(constraint.proof[inner_public_input_offset + i]);
+                // Set the nested aggregation object indices to witness indices from the proof
+                nested_aggregation_object[i] =
+                    static_cast<uint32_t>(constraint.proof[HonkRecursionConstraint::inner_public_input_offset + i]);
+                // Adding the nested aggregation object to the constraint's public inputs
+                constraint.public_inputs.emplace_back(nested_aggregation_object[i]);
             }
             // Remove the aggregation object so that they can be handled as normal public inputs
-            // in they way taht the recursion constraint expects
-            constraint.proof.erase(constraint.proof.begin() + inner_public_input_offset,
+            // in they way that the recursion constraint expects
+            constraint.proof.erase(constraint.proof.begin() + HonkRecursionConstraint::inner_public_input_offset,
                                    constraint.proof.begin() +
-                                       static_cast<std::ptrdiff_t>(inner_public_input_offset +
+                                       static_cast<std::ptrdiff_t>(HonkRecursionConstraint::inner_public_input_offset +
                                                                    HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE));
             current_aggregation_object = create_honk_recursion_constraints(builder,
                                                                            constraint,

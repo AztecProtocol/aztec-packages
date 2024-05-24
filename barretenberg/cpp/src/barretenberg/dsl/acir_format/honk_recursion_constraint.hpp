@@ -44,6 +44,7 @@ using namespace bb;
 struct HonkRecursionConstraint {
     // An aggregation state is represented by two G1 affine elements. Each G1 point has
     // two field element coordinates (x, y). Thus, four field elements
+    static constexpr size_t inner_public_input_offset = 3;
     static constexpr size_t NUM_AGGREGATION_ELEMENTS = 4;
     // Four limbs are used when simulating a non-native field using the bigfield class
     static constexpr size_t AGGREGATION_OBJECT_SIZE = NUM_AGGREGATION_ELEMENTS * fq_ct::NUM_LIMBS; // 16 field elements

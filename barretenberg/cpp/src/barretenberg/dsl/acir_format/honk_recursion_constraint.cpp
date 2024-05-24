@@ -101,12 +101,11 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     // separate from the rest of the proof)
     proof_fields.reserve(input.proof.size() + input.public_inputs.size());
     size_t i = 0;
-    const size_t inner_public_input_offset = 3;
     for (const auto& idx : input.proof) {
         auto field = field_ct::from_witness_index(&builder, idx);
         proof_fields.emplace_back(field);
         i++;
-        if (i == inner_public_input_offset) {
+        if (i == HonkRecursionConstraint::inner_public_input_offset) {
             for (const auto& idx : input.public_inputs) {
                 auto field = field_ct::from_witness_index(&builder, idx);
                 proof_fields.emplace_back(field);
