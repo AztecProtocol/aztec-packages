@@ -19,10 +19,10 @@ RUN BIN=../ts/dest/node/main.js FLOW=prove_then_verify ./run_acir_tests.sh doubl
 RUN BIN=../ts/dest/node/main.js FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh nested_array_dynamic
 # Run a single arbitrary test not involving recursion through bb.js for Plonk
 RUN BIN=../ts/dest/node/main.js FLOW=prove_and_verify ./run_acir_tests.sh poseidon_bn254_hash
-# Run a single arbitrary test not involving recursion through bb.js for GoblinUltraHonk
+# Run a single arbitrary test not involving recursion through bb.js for MegaHonk
 RUN BIN=../ts/dest/node/main.js FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh closures_mut_ref
-# Run a single arbitrary test for separate prove and verify for UltraHonk
-RUN BIN=../ts/dest/node/main.js FLOW=prove_and_verify_goblin_ultra_honk ./run_acir_tests.sh 6_array
+# Run a single arbitrary test for separate prove and verify for MegaHonk
+RUN BIN=../ts/dest/node/main.js FLOW=prove_and_verify_mega_honk ./run_acir_tests.sh 6_array
 # Fold and verify an ACIR program stack
 RUN BIN=../ts/dest/node/main.js FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic
 # Run a single arbitrary test not involving recursion through bb.js for full Goblin
