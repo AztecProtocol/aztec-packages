@@ -348,6 +348,7 @@ __metadata:
   dependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
+    "@aztec/bb-prover": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -371,6 +372,7 @@ __metadata:
     lodash.startcase: ^4.4.0
     node-fetch: ^3.3.2
     semver: ^7.5.4
+    solc: ^0.8.26
     source-map-support: ^0.5.21
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
@@ -12654,6 +12656,23 @@ __metadata:
   bin:
     solcjs: solc.js
   checksum: dce5d31c24be940c2486949dd1eb6ee12f3ebcaa11e60fb51a07b3bfaf74818d503f4eb1aef83e72302b3203a00edf42b91609364d5daa94c35dde20953326ae
+  languageName: node
+  linkType: hard
+
+"solc@npm:^0.8.26":
+  version: 0.8.26
+  resolution: "solc@npm:0.8.26"
+  dependencies:
+    command-exists: ^1.2.8
+    commander: ^8.1.0
+    follow-redirects: ^1.12.1
+    js-sha3: 0.8.0
+    memorystream: ^0.3.1
+    semver: ^5.5.0
+    tmp: 0.0.33
+  bin:
+    solcjs: solc.js
+  checksum: e3eaeac76e60676377b357af8f3919d4c8c6a74b74112b49279fe8c74a3dfa1de8afe4788689fc307453bde336edc8572988d2cf9e909f84d870420eb640400c
   languageName: node
   linkType: hard
 

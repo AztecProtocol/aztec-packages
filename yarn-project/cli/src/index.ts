@@ -89,6 +89,49 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     });
 
   program
+    .command('deploy-l1-verifier')
+    .description('Deploys the rollup verifier contract')
+    .requiredOption(
+      '--eth-rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .addOption(pxeOption)
+    .requiredOption('-p, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use in deployment',
+      'test test test test test test test test test test test junk',
+    )
+    .requiredOption('--verifier <verifier>', 'Either mock or real', 'real')
+    .option('--bb <path>', 'Path to bb binary')
+    .option('--bb-working-dir <path>', 'Path to bb working directory')
+    .action(async options => {
+      const { deployMockVerifier, deployUltraVerifier } = await import('./cmds/deploy_l1_verifier.js');
+      if (options.verifier === 'mock') {
+        await deployMockVerifier(
+          options.ethRpcUrl,
+          options.privateKey,
+          options.mnemonic,
+          options.rpcUrl,
+          log,
+          debugLogger,
+        );
+      } else {
+        await deployUltraVerifier(
+          options.ethRpcUrl,
+          options.privateKey,
+          options.mnemonic,
+          options.rpcUrl,
+          options.bb,
+          options.bbWorkingDir,
+          log,
+          debugLogger,
+        );
+      }
+    });
+
+  program
     .command('generate-keys')
     .summary('Generates encryption and signing private keys.')
     .description('Generates and encryption and signing private key pair.')
@@ -96,7 +139,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       '-m, --mnemonic',
       'An optional mnemonic string used for the private key generation. If not provided, random private key will be generated.',
     )
-    .action(async options => {
+    .action(async _options => {
       const { generateKeys } = await import('./cmds/generate_private_key.js');
       const { privateEncryptionKey, privateSigningKey } = generateKeys();
       log(`Encryption Private Key: ${privateEncryptionKey}\nSigning Private key: ${privateSigningKey}\n`);

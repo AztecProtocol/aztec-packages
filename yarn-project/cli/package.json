@@ -36,6 +36,7 @@
   "dependencies": {
     "@aztec/accounts": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
+    "@aztec/bb-prover": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
@@ -51,6 +52,7 @@
     "lodash.startcase": "^4.4.0",
     "node-fetch": "^3.3.2",
     "semver": "^7.5.4",
+    "solc": "^0.8.26",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0",
     "viem": "^2.7.15"
