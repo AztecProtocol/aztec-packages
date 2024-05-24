@@ -548,7 +548,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn correctly_updates_revert_code() {
+    fn correctly_updates_revert_code() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
         let public_inputs = builder.execute();
         assert_eq(public_inputs.revert_code, 0);
