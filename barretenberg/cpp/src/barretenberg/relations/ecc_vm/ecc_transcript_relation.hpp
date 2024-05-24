@@ -44,7 +44,6 @@ template <typename FF_> class ECCVMTranscriptRelationImpl {
     static constexpr FF get_curve_b()
     {
         if constexpr (FF::modulus == bb::fq::modulus) {
-            info("HEEEEEEEEEEERE");
             return bb::g1::curve_b;
         } else if constexpr (FF::modulus == grumpkin::fq::modulus) {
             return grumpkin::g1::curve_b;

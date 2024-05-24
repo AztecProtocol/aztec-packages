@@ -416,8 +416,6 @@ template <typename Flavor> class SumcheckVerifier {
         bool checked = true;
         //! [Final Verification Step]
         if constexpr (IsRecursiveFlavor<Flavor>) {
-            // this is underconstraned but oh well or maybe nooot
-            // THIS FAILS
             full_honk_relation_purported_value.assert_equal(round.target_total_sum);
             checked = (full_honk_relation_purported_value.get_value() == round.target_total_sum.get_value());
         } else {

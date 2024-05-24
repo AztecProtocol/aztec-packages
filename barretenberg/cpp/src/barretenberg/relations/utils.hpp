@@ -295,14 +295,8 @@ template <typename Flavor> class RelationUtils {
     static void scale_and_batch_elements(auto& tuple, const RelationSeparator& challenge, FF current_scalar, FF& result)
         requires(!bb::IsFoldingFlavor<Flavor>)
     {
-        info("printing entries");
         auto scale_by_challenge_and_accumulate = [&](auto& element) {
             for (auto& entry : element) {
-                if constexpr (IsRecursiveFlavor<Flavor>) {
-                    info("recursive ", bb::fq((entry.get_value() % uint512_t(bb::fq::modulus)).lo));
-                } else {
-                    info("native ", entry);
-                }
                 result += entry * current_scalar;
                 current_scalar *= challenge;
             }

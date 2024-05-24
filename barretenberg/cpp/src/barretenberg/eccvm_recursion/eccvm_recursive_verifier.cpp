@@ -29,14 +29,12 @@ template <typename Flavor> bool ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     CommitmentLabels commitment_labels;
 
     const auto circuit_size = transcript->template receive_from_prover<BF>("circuit_size");
-    info("recursive ", circuit_size.get_value());
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
 
     // Get challenge for sorted list batching and wire four memory records
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
-    info("beta ", beta.get_value().lo);
     // there is an issue somewhere to simplify this :-?
     auto beta_sqr = beta * beta;
 
@@ -47,8 +45,7 @@ template <typename Flavor> bool ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     relation_parameters.eccvm_set_permutation_delta =
         gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
-    info("delta ", relation_parameters.eccvm_set_permutation_delta.get_value().lo);
-    // these are the derived stuff only
+
     // Get commitment to permutation and lookup grand products
     commitments.lookup_inverses =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);

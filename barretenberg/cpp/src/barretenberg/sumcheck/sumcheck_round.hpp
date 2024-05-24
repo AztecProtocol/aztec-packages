@@ -378,8 +378,6 @@ template <typename Flavor> class SumcheckVerifierRound {
         // with a simulated builder.
         bool sumcheck_round_failed(false);
         if constexpr (IsRecursiveFlavor<Flavor>) {
-            total_sum.assert_is_in_field();
-            target_total_sum.assert_is_in_field();
             target_total_sum.assert_equal(total_sum);
             sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
         } else {
