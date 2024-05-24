@@ -44,9 +44,9 @@ impl<T> PublicMutable<T, &mut PublicContext> {
 
 impl<T> PublicMutable<T, ()> {
     pub fn read<T_SERIALIZED_LEN>(self) -> T where T: Deserialize<T_SERIALIZED_LEN> {
-        // Note that this is the exact same implementation as for public execution, though it might change in the future
-        // since unconstrained execution might not rely on the same oracles as used for public execution (which 
-        // transpile to AVM opcodes).
+        // This looks the same as the &mut PublicContext impl, but is actually very different. In public execution the
+        // storage read oracle gets transpiled to SLOAD opcodes, whereas in unconstrained execution the PXE returns
+        // historical data.
         let fields = storage_read(self.storage_slot);
         T::deserialize(fields)
     }
