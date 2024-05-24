@@ -2,6 +2,8 @@
 import { type AztecAddress, BatchCall, type DebugLogger, type Wallet } from '@aztec/aztec.js';
 import { type TokenContract } from '@aztec/noir-contracts.js/Token';
 
+import chunk from 'lodash.chunk';
+
 export class TokenSimulator {
   private balancesPrivate: Map<string, bigint> = new Map();
   private balancePublic: Map<string, bigint> = new Map();
@@ -86,7 +88,10 @@ export class TokenSimulator {
       calls.push(this.token.methods.balance_of_public(address).request());
       calls.push(this.token.methods.balance_of_private(address).request());
     }
-    const results = await new BatchCall(wallet, calls).simulate();
+
+    const batchedCalls = chunk(calls, 4);
+
+    const results = (await Promise.all(batchedCalls.map(batch => new BatchCall(wallet, batch).simulate()))).flat();
 
     expect(results[0]).toEqual(this.totalSupply);
 
