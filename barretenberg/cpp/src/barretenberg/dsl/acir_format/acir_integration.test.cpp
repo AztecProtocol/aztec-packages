@@ -6,6 +6,8 @@
 #include <filesystem>
 #include <gtest/gtest.h>
 
+// #define LOG_SIZES
+
 class AcirIntegrationTest : public ::testing::Test {
   public:
     static std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
@@ -53,34 +55,37 @@ class AcirIntegrationTest : public ::testing::Test {
         using VerificationKey = Flavor::VerificationKey;
 
         Prover prover{ builder };
+#ifdef LOG_SIZES
         builder.blocks.summarize();
-        // info("num gates          = ", builder.get_num_gates());
-        // info("total circuit size = ", builder.get_total_circuit_size());
-        // info("circuit size       = ", prover.instance->proving_key.circuit_size);
-        // info("log circuit size   = ", prover.instance->proving_key.log_circuit_size);
+        info("num gates          = ", builder.get_num_gates());
+        info("total circuit size = ", builder.get_total_circuit_size());
+        info("circuit size       = ", prover.instance->proving_key.circuit_size);
+        info("log circuit size   = ", prover.instance->proving_key.log_circuit_size);
+#endif
         auto proof = prover.construct_proof();
-
         // Verify Honk proof
         auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
         Verifier verifier{ verification_key };
-
         return verifier.verify_proof(proof);
     }
 
     template <class Flavor> bool prove_and_verify_plonk(Flavor::CircuitBuilder& builder)
     {
         plonk::UltraComposer composer;
+
         auto prover = composer.create_prover(builder);
-        builder.blocks.summarize();
+#ifdef LOG_SIZES
+        // builder.blocks.summarize();
         // info("num gates          = ", builder.get_num_gates());
         // info("total circuit size = ", builder.get_total_circuit_size());
+#endif
         auto proof = prover.construct_proof();
+#ifdef LOG_SIZES
         // info("circuit size       = ", prover.circuit_size);
         // info("log circuit size   = ", numeric::get_msb(prover.circuit_size));
-
-        // Verify Honk proof
+#endif
+        // Verify Plonk proof
         auto verifier = composer.create_verifier(builder);
-
         return verifier.verify_proof(proof);
     }
 };
