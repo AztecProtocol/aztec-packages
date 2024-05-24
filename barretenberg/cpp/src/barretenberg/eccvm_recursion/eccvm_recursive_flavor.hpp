@@ -1,5 +1,7 @@
 #pragma once
+
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm_recursion/verifier_commitment_key.hpp"
@@ -26,17 +28,22 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     using CircuitBuilder = BuilderType; // determines the arithmetisation of recursive verifier
 
     // I need to somehow make this bn254 hashtag confusion
-    // probably what's going on
+    // the native stuff becomes nonnative and the nonnative stuff becomes native and everything is in circuit land
+    // is probably what's going on
     using Curve = stdlib::bn254<CircuitBuilder, true>;
-    using PCS = IPA<Curve>;
+    // using PCS = IPA<Curve>;
     using Commitment = typename Curve::AffineElement;
     using FF = typename Curve::ScalarField;
     using BF = typename Curve::BaseField;
 
+    using RelationSeparator = FF;
+    using NativeFlavor = ECCVMFlavor;
+    using NativeVerificationKey = NativeFlavor::VerificationKey;
+
     static constexpr size_t NUM_WIRES = ECCVMFlavor::NUM_WIRES;
-    // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
-    // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
-    // Note: this number does not include the individual sorted list polynomials.
+    // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
+    // often need containers of this size to hold related data, so we choose a name more agnostic than
+    // `NUM_POLYNOMIALS`. Note: this number does not include the individual sorted list polynomials.
     static constexpr size_t NUM_ALL_ENTITIES = ECCVMFlavor::NUM_ALL_ENTITIES;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.

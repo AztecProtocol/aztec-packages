@@ -214,7 +214,7 @@ template <class Fr, size_t domain_end, size_t num_evals, size_t domain_start = 0
         std::array<Fr, num_evals> result;
         for (size_t i = 0; i != num_evals; ++i) {
             result[i] = Fr::one();
-            Fr v_i = uint256_t(i + domain_start);
+            Fr v_i = i + domain_start;
             for (size_t j = 0; j != domain_size; ++j) {
                 result[i] *= v_i - big_domain[j];
             }

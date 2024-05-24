@@ -128,11 +128,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         const auto& table_y = View(in.precompute_ty);
 
         const auto& precompute_skew = View(in.precompute_skew);
-<<<<<<< HEAD
-        static constexpr FF negative_inverse_seven = FF(-7).invert();
-=======
         static FF negative_inverse_seven = FF(-7).invert();
->>>>>>> mm/ecc_relations_stdlib
         auto adjusted_skew = precompute_skew * negative_inverse_seven;
 
         const auto& wnaf_scalar_sum = View(in.precompute_scalar_sum);
