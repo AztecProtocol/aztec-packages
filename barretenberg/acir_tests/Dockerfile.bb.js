@@ -13,8 +13,8 @@ RUN cd browser-test-app && yarn && yarn build
 RUN cd headless-test && yarn && npx playwright install && npx playwright install-deps
 COPY . .
 ENV VERBOSE=1
-# https://github.com/AztecProtocol/aztec-packages/issues/6671
-# https://github.com/AztecProtocol/aztec-packages/issues/6672
+# TODO(https://github.com/noir-lang/noir/issues/5106)
+# TODO(https://github.com/AztecProtocol/aztec-packages/issues/6672)
 # Run ecdsa_secp256r1_3x through bb.js on node to check 256k support.
 RUN BIN=../ts/dest/node/main.js FLOW=prove_then_verify ./run_acir_tests.sh ecdsa_secp256r1_3x
 # Run a single arbitrary test not involving recursion through bb.js for UltraHonk
