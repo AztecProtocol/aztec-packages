@@ -823,6 +823,9 @@ void AvmTraceBuilder::op_shr(
     // Write into memory value c from intermediate register ic.
     mem_trace_builder.write_into_memory(call_ptr, clk, IntermRegister::IC, res.direct_c_offset, c, in_tag, in_tag);
 
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::SHR);
+
     main_trace.push_back(Row{
         .avm_main_clk = clk,
         .avm_main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
@@ -855,7 +858,6 @@ void AvmTraceBuilder::op_shr(
 void AvmTraceBuilder::op_shl(
     uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
 {
-
     auto clk = static_cast<uint32_t>(main_trace.size());
 
     auto const res = resolve_ind_three(call_ptr, clk, indirect, a_offset, b_offset, dst_offset);
@@ -875,6 +877,9 @@ void AvmTraceBuilder::op_shl(
 
     // Write into memory value c from intermediate register ic.
     mem_trace_builder.write_into_memory(call_ptr, clk, IntermRegister::IC, res.direct_c_offset, c, in_tag, in_tag);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::SHL);
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
@@ -904,6 +909,7 @@ void AvmTraceBuilder::op_shl(
         .avm_main_w_in_tag = FF(static_cast<uint32_t>(in_tag)),
     });
 }
+
 // TODO: Ensure that the bytecode validation and/or deserialization is
 //       enforcing that val complies to the tag.
 /**
@@ -989,6 +995,9 @@ void AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst
 
     // Write into memory from intermediate register ic.
     mem_trace_builder.write_into_memory(call_ptr, clk, IntermRegister::IC, direct_dst_offset, val, tag, tag);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::MOV);
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
@@ -1086,6 +1095,9 @@ void AvmTraceBuilder::op_cmov(
     mem_trace_builder.write_into_memory(call_ptr, clk, IntermRegister::IC, direct_dst_offset, val, tag, tag);
 
     FF const inv = !id_zero ? cond_mem_entry.val.invert() : 1;
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::CMOV);
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
@@ -1986,6 +1998,13 @@ void AvmTraceBuilder::write_slice_to_memory(uint8_t space_id,
                                             AvmMemoryTag w_tag,
                                             FF internal_return_ptr,
                                             std::vector<FF> const& slice)
+void AvmTraceBuilder::write_slice_to_memory(uint8_t space_id,
+                                            uint32_t clk,
+                                            uint32_t dst_offset,
+                                            AvmMemoryTag r_tag,
+                                            AvmMemoryTag w_tag,
+                                            FF internal_return_ptr,
+                                            std::vector<FF> const& slice)
 {
     // We have 4 registers that we are able to use to write to memory within a single main trace row
     auto register_order = std::array{ IntermRegister::IA, IntermRegister::IB, IntermRegister::IC, IntermRegister::ID };
@@ -2152,6 +2171,9 @@ void AvmTraceBuilder::op_to_radix_le(
     // Therefore, we do not create any entry in gadget table and return a vector of 0
     std::vector<uint8_t> res = tag_match ? conversion_trace_builder.op_to_radix_le(input, radix, num_limbs, clk)
                                          : std::vector<uint8_t>(num_limbs, 0);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::TORADIXLE);
 
     // This is the row that contains the selector to trigger the sel_op_radix_le
     // In this row, we read the input value and the destination address into register A and B respectively

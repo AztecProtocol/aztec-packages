@@ -38,7 +38,7 @@ using FF = AvmFlavor::FF;
     std::vector<FF> new_points(circuit_size, 0);
 
     // We need to shift the points by one to match the public inputs column in the circuit.
-    // Namely, the latter one is prepended with an extra first row to support shifted polynomials.
+    // Namely, the latter is prepended with an extra first row to support shifted polynomials.
     ASSERT(circuit_size > points.size());
     std::copy(points.begin(), points.end(), new_points.data() + 1);
 

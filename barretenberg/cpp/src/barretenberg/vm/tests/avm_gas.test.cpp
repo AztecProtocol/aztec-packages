@@ -2,7 +2,9 @@
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_kernel_trace.hpp"
 #include "barretenberg/vm/avm_trace/constants.hpp"
+
 namespace tests_avm {
+using namespace bb;
 using namespace bb::avm_trace;
 
 class AvmGasTests : public ::testing::Test {

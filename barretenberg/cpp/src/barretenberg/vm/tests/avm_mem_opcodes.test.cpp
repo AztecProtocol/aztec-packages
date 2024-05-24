@@ -15,6 +15,7 @@ using namespace testing;
 class AvmMemOpcodeTests : public ::testing::Test {
   public:
     AvmTraceBuilder trace_builder;
+    std::array<FF, KERNEL_INPUTS_LENGTH> public_inputs{};
 
   protected:
     std::vector<Row> trace;
@@ -29,7 +30,14 @@ class AvmMemOpcodeTests : public ::testing::Test {
     size_t mem_ind_d_idx;
 
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
-    void SetUp() override { srs::init_crs_factory("../srs_db/ignition"); };
+    void SetUp() override
+    {
+        srs::init_crs_factory("../srs_db/ignition");
+        public_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000;
+        public_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000;
+        trace_builder = AvmTraceBuilder(public_inputs);
+    };
+
     void build_mov_trace(bool indirect,
                          uint128_t const& val,
                          uint32_t src_offset,
@@ -347,7 +355,6 @@ TEST_F(AvmMemOpcodeTests, sameAddressMov)
 
 TEST_F(AvmMemOpcodeTests, uninitializedValueMov)
 {
-    auto trace_builder = AvmTraceBuilder();
     trace_builder.op_set(0, 4, 1, AvmMemoryTag::U32);
     trace_builder.op_mov(0, 0, 1);
     trace_builder.return_op(0, 0, 0);
@@ -358,7 +365,6 @@ TEST_F(AvmMemOpcodeTests, uninitializedValueMov)
 
 TEST_F(AvmMemOpcodeTests, indUninitializedValueMov)
 {
-    auto trace_builder = AvmTraceBuilder();
     trace_builder.op_set(0, 1, 3, AvmMemoryTag::U32);
     trace_builder.op_set(0, 4, 1, AvmMemoryTag::U32);
     trace_builder.op_mov(3, 2, 3);
@@ -392,7 +398,7 @@ TEST_F(AvmMemOpcodeTests, indirectMovInvalidAddressTag)
                       Field(&Row::avm_mem_r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
                       Field(&Row::avm_mem_ind_op_c, 1)));
 
-    validate_trace(std::move(trace), {}, true);
+    validate_trace(std::move(trace), public_inputs, true);
 }
 
 /******************************************************************************
