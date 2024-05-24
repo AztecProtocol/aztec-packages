@@ -8,10 +8,17 @@ using namespace bb::avm_trace;
 class AvmIndirectMemTests : public ::testing::Test {
   public:
     AvmTraceBuilder trace_builder;
+    std::array<FF, KERNEL_INPUTS_LENGTH> public_inputs{};
 
   protected:
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
-    void SetUp() override { srs::init_crs_factory("../srs_db/ignition"); };
+    void SetUp() override
+    {
+        srs::init_crs_factory("../srs_db/ignition");
+        public_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000;
+        public_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000;
+        trace_builder = AvmTraceBuilder(public_inputs);
+    };
 };
 
 /******************************************************************************
@@ -64,7 +71,7 @@ TEST_F(AvmIndirectMemTests, allIndirectAdd)
     EXPECT_EQ(row->avm_main_mem_op_b, FF(1));
     EXPECT_EQ(row->avm_main_mem_op_c, FF(1));
 
-    validate_trace(std::move(trace), {}, true);
+    validate_trace(std::move(trace), { public_inputs }, true);
 }
 
 // Testing a subtraction operation with direct input operands a, b, and an indirect

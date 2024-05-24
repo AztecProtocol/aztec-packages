@@ -36,7 +36,8 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
                                                                    std::vector<FF> const& calldata)
 {
     auto instructions = Deserialization::parse(bytecode);
-    auto trace = gen_trace(instructions, calldata);
+    std::vector<FF> returndata{};
+    auto trace = gen_trace(instructions, returndata, {}, calldata);
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
