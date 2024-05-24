@@ -2,9 +2,10 @@ use crate::{
     abis::{
     call_context::CallContext, call_request::CallRequest, caller_context::CallerContext,
     gas_settings::GasSettings, gas::Gas, max_block_number::MaxBlockNumber, note_hash::NoteHash,
-    nullifier::Nullifier, key_validation_request::KeyValidationRequest,
+    nullifier::Nullifier,
+    validation_requests::key_validation_request_and_generator::KeyValidationRequestAndGenerator,
     private_call_request::PrivateCallRequest, private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    read_request::ReadRequest, log_hash::{LogHash, NoteLogHash}
+    read_request::ReadRequest, log_hash::{LogHash, NoteLogHash, EncryptedLogHash}
 },
     address::{AztecAddress, compute_initialization_hash}, header::Header,
     messaging::l2_to_l1_message::L2ToL1Message, tests::fixtures, transaction::tx_context::TxContext
@@ -34,7 +35,7 @@ struct PrivateCircuitPublicInputsBuilder {
 
     note_hash_read_requests: BoundedVec<ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
-    key_validation_requests: BoundedVec<KeyValidationRequest, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
+    key_validation_requests_and_generators: BoundedVec<KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
     new_note_hashes: BoundedVec<NoteHash, MAX_NEW_NOTE_HASHES_PER_CALL>,
     new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_CALL>,
@@ -45,7 +46,7 @@ struct PrivateCircuitPublicInputsBuilder {
     new_l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
     note_encrypted_logs_hashes: BoundedVec<NoteLogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL>,
-    encrypted_logs_hashes: BoundedVec<LogHash, MAX_ENCRYPTED_LOGS_PER_CALL>,
+    encrypted_logs_hashes: BoundedVec<EncryptedLogHash, MAX_ENCRYPTED_LOGS_PER_CALL>,
     unencrypted_logs_hashes: BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_CALL>,
 
     historical_header: Header,
@@ -151,7 +152,7 @@ impl PrivateCircuitPublicInputsBuilder {
     }
 
     pub fn add_encrypted_log(&mut self, hash: Field, preimages_length: Field) {
-        let side_effect = LogHash { value: hash, counter: self.next_counter(), length: preimages_length };
+        let side_effect = EncryptedLogHash { value: hash, counter: self.next_counter(), length: preimages_length, randomness: 2 };
         self.encrypted_logs_hashes.push(side_effect);
     }
 
@@ -224,7 +225,7 @@ impl PrivateCircuitPublicInputsBuilder {
             max_block_number: self.max_block_number,
             note_hash_read_requests: self.note_hash_read_requests.storage,
             nullifier_read_requests: self.nullifier_read_requests.storage,
-            key_validation_requests: self.key_validation_requests.storage,
+            key_validation_requests_and_generators: self.key_validation_requests_and_generators.storage,
             new_note_hashes: self.new_note_hashes.storage,
             new_nullifiers: self.new_nullifiers.storage,
             private_call_requests: self.private_call_requests.storage,
@@ -260,7 +261,7 @@ impl Empty for PrivateCircuitPublicInputsBuilder {
             max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
-            key_validation_requests: BoundedVec::new(),
+            key_validation_requests_and_generators: BoundedVec::new(),
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),

@@ -942,6 +942,11 @@ TYPED_TEST(stdlib_bigfield, division_context)
     TestFixture::test_division_context();
 }
 
+TYPED_TEST(stdlib_bigfield, inverse)
+{
+    TestFixture::test_inversion();
+}
+
 // // This test was disabled before the refactor to use TYPED_TEST's/
 // TEST(stdlib_bigfield, DISABLED_test_div_against_constants)
 // {

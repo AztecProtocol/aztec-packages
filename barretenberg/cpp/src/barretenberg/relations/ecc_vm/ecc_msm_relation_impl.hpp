@@ -1,5 +1,6 @@
 #pragma once
 #include "ecc_msm_relation.hpp"
+
 namespace bb {
 
 /**
@@ -179,7 +180,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
         relation += selector * (lambda * (xb - xa - 1) - (yb - ya)) + lambda;
         collision_relation += selector * (xb - xa);
         // x3 = L.L + (-xb - xa) * q + (1 - q) xa
-        auto x_out = lambda * lambda + (-xb - xa - xa) * selector + xa;
+        auto x_out = lambda.sqr() + (-xb - xa - xa) * selector + xa;
 
         // y3 = L . (xa - x3) - ya * q + (1 - q) ya
         auto y_out = lambda * (xa - x_out) + (-ya - ya) * selector + ya;
@@ -216,7 +217,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     auto dbl = [&](auto& x, auto& y, auto& lambda, auto& relation) {
         auto two_x = x + x;
         relation += lambda * (y + y) - (two_x + x) * x;
-        auto x_out = lambda * lambda - two_x;
+        auto x_out = lambda.sqr() - two_x;
         auto y_out = lambda * (x - x_out) - y;
         return std::array<Accumulator, 2>{ x_out, y_out };
     };
@@ -387,4 +388,5 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // perform set membership lookups on add_i * (pc / round / slice_i)
     // perform lookups on (pc / slice_i / x / y)
 }
+
 } // namespace bb
