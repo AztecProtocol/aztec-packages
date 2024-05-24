@@ -32,6 +32,8 @@ pub fn reset_key_validation_requests<N>(
     let mut should_propagate = key_validation_requests.map(|req| !is_empty(req));
     for i in 0..N {
         let hint = key_validation_hints[i];
+        // TODO(#6657): This is a vulnerability! Hints cannot be used to determine whehter validation takes place
+        // because hints are sourced out of circuits.
         if !is_empty(hint) {
             let scoped_request = key_validation_requests[hint.request_index];
             let contract_address = scoped_request.contract_address;
