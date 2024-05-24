@@ -1,3 +1,14 @@
+mod validate_against_call_request;
+mod validate_against_previous_kernel;
+mod validate_against_tx_request;
+mod validate_arrays;
+mod validate_as_first_call;
+mod validate_call;
+mod validate_call_requests;
+mod validate_contract_address;
+mod validate_counters;
+mod validate_private_call_requests;
+
 use crate::private_call_data_validator::PrivateCallDataValidator;
 use dep::types::{
     abis::private_call_request::ScopedPrivateCallRequest,
