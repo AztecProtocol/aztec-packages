@@ -431,7 +431,7 @@ template <typename Flavor> class SumcheckVerifier {
         if constexpr (IsRecursiveFlavor<Flavor>) {
             // this is underconstraned but oh well or maybe nooot
             // THIS FAILS
-            // full_honk_relation_purported_value.assert_equal(round.target_total_sum);
+            full_honk_relation_purported_value.assert_equal(round.target_total_sum);
             info("recursive");
             info(bb::fq((full_honk_relation_purported_value.get_value() % uint512_t(bb::fq::modulus)).lo));
             info(bb::fq((round.target_total_sum.get_value() % uint512_t(bb::fq::modulus)).lo));
