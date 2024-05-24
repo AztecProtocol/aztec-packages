@@ -32,7 +32,7 @@ contract InclusionProofs {
     fn create_note(owner: AztecAddress, value: Field) {
         let owner_private_values = storage.private_values.at(owner);
         let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
-        let owner_ovpk_m = get_ovpk_m(&mut context, owner);
+        let owner_ovpk_m = get_ovpk_m(&mut context, context.msg_sender());
         let owner_ivpk_m = get_ivpk_m(&mut context, owner);
 
         let mut note = ValueNote::new(value, owner_npk_m_hash);

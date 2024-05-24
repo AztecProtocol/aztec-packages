@@ -31,7 +31,7 @@ contract SchnorrAccount {
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let this = context.this_address();
         let this_npk_m_hash = get_npk_m_hash(&mut context, this);
-        let this_ovpk_m = get_ovpk_m(&mut context, this);
+        let this_ovpk_m = get_ovpk_m(&mut context, context.msg_sender());
         let this_ivpk_m = get_ivpk_m(&mut context, this);
 
         // docs:start:initialize
