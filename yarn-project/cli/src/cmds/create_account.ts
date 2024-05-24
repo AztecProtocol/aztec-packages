@@ -1,22 +1,22 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { Fq, Fr } from '@aztec/foundation/fields';
+import { deriveSigningKey } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { createCompatibleClient } from '../client.js';
 
 export async function createAccount(
   rpcUrl: string,
-  encryptionPrivateKey: Fr,
-  signingPrivateKey: Fq,
+  privateKey: Fr | undefined,
   wait: boolean,
   debugLogger: DebugLogger,
   log: LogFn,
 ) {
   const client = await createCompatibleClient(rpcUrl, debugLogger);
-  const actualEncryptionPrivateKey = encryptionPrivateKey ?? Fr.random();
-  const actualSigningPrivateKey = signingPrivateKey ?? Fq.random();
+  const printPK = typeof privateKey === 'undefined';
+  privateKey ??= Fr.random();
 
-  const account = getSchnorrAccount(client, actualEncryptionPrivateKey, actualSigningPrivateKey, Fr.ZERO);
+  const account = getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), Fr.ZERO);
   const { address, publicKeys, partialAddress } = account.getCompleteAddress();
   await account.register();
   const tx = account.deploy();
@@ -32,8 +32,8 @@ export async function createAccount(
   log(`\nNew account:\n`);
   log(`Address:         ${address.toString()}`);
   log(`Public key:      ${publicKeys.toString()}`);
-  if (!signingPrivateKey) {
-    log(`Private key:     ${actualSigningPrivateKey.toString()}`);
+  if (printPK) {
+    log(`Private key:     ${privateKey.toString()}`);
   }
   log(`Partial address: ${partialAddress.toString()}`);
 }
