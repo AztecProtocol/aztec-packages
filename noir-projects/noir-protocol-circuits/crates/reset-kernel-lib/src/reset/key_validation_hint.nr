@@ -32,6 +32,9 @@ pub fn reset_key_validation_requests<N>(
     let mut should_propagate = key_validation_requests.map(|req| !is_empty(req));
     for i in 0..N {
         let hint = key_validation_hints[i];
+        // Determining here whether a key validation request will be validated based on a hint is not a vulnerability
+        // because in the reset circuit we verify that there are no requests remaining to be validated. For this reason
+        // the circuits cannot be tricked by not providing a hint (the final check would fail).
         if !is_empty(hint) {
             let scoped_request = key_validation_requests[hint.request_index];
             let contract_address = scoped_request.contract_address;
