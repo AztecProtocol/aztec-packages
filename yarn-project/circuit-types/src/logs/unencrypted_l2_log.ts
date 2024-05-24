@@ -24,6 +24,7 @@ export class UnencryptedL2Log {
   ) {}
 
   get length(): number {
+    // TODO(6578): explain magic number 4 here
     return EventSelector.SIZE + this.data.length + AztecAddress.SIZE_IN_BYTES + 4;
   }
 
@@ -89,6 +90,17 @@ export class UnencryptedL2Log {
   public hash(): Buffer {
     const preimage = this.toBuffer();
     return sha256Trunc(preimage);
+  }
+
+  /**
+   * Calculates siloed hash of serialized logs.
+   * In the kernels, we use the storage contract address and not the one encoded here.
+   * They should match, so it seems fine to use the existing info here.
+   * @returns Buffer containing 248 bits of information of sha256 hash.
+   */
+  public getSiloedHash(): Buffer {
+    const hash = this.hash();
+    return sha256Trunc(Buffer.concat([this.contractAddress.toBuffer(), hash]));
   }
 
   /**

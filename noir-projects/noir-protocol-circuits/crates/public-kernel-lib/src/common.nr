@@ -15,10 +15,9 @@ use dep::types::{
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     MAX_PUBLIC_DATA_READS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL
 },
-    hash::{silo_note_hash, silo_nullifier, compute_l2_to_l1_hash, accumulate_sha256},
+    hash::{silo_note_hash, silo_nullifier, compute_l2_to_l1_hash, silo_unencrypted_log},
     utils::{arrays::{array_length, array_to_bounded_vec}}, traits::{is_empty, is_empty_array}
 };
-use crate::hash::{compute_public_data_tree_index, compute_public_data_tree_value};
 
 // Validates inputs to the kernel circuit that are common to all invocation scenarios.
 pub fn validate_inputs(public_call: PublicCallData) {
@@ -66,37 +65,33 @@ pub fn validate_public_call_non_revert(public_call: PublicCallData) {
     assert(public_call.call_stack_item.public_inputs.revert_code == 0, "Public call cannot be reverted");
 }
 
-pub fn initialize_revert_code(
+pub fn initialize_end_values(
     previous_kernel: PublicKernelData,
-    public_call: PublicCallData,
     circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder
 ) {
-    if previous_kernel.public_inputs.revert_code != 0 {
-        circuit_outputs.revert_code = previous_kernel.public_inputs.revert_code;
-    } else if public_call.call_stack_item.public_inputs.revert_code != 0 {
-        circuit_outputs.revert_code = public_call.call_stack_item.public_inputs.revert_code;
-    }
+    let start = previous_kernel.public_inputs.end;
+    circuit_outputs.end.new_note_hashes = array_to_bounded_vec(start.new_note_hashes);
+    circuit_outputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
+    circuit_outputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
+    circuit_outputs.end.public_data_update_requests = array_to_bounded_vec(start.public_data_update_requests);
+    circuit_outputs.end.unencrypted_logs_hashes = array_to_bounded_vec(start.unencrypted_logs_hashes);
+    circuit_outputs.end.note_encrypted_logs_hashes = array_to_bounded_vec(start.note_encrypted_logs_hashes);
+    circuit_outputs.end.encrypted_logs_hashes = array_to_bounded_vec(start.encrypted_logs_hashes);
+    circuit_outputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
 }
 
 // Initialises the circuit outputs with the end state of the previous iteration. 
-// Skips data that will be checked and cleared in the tail circuit.
-pub fn initialize_emitted_end_values(
+// Includes data that will be checked and cleared in the tail circuit.
+pub fn initialize_non_revertible_values(
     previous_kernel: PublicKernelData,
     circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder
 ) {
     circuit_outputs.constants = previous_kernel.public_inputs.constants;
     circuit_outputs.fee_payer = previous_kernel.public_inputs.fee_payer;
 
-    if circuit_outputs.revert_code == 0 {
-        let start = previous_kernel.public_inputs.end;
-        circuit_outputs.end.new_note_hashes = array_to_bounded_vec(start.new_note_hashes);
-        circuit_outputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
-        circuit_outputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
-        circuit_outputs.end.public_data_update_requests = array_to_bounded_vec(start.public_data_update_requests);
-        circuit_outputs.end.unencrypted_logs_hashes = array_to_bounded_vec(start.unencrypted_logs_hashes);
-        circuit_outputs.end.note_encrypted_logs_hashes = array_to_bounded_vec(start.note_encrypted_logs_hashes);
-        circuit_outputs.end.encrypted_logs_hashes = array_to_bounded_vec(start.encrypted_logs_hashes);
-    }
+    // Copy gas-used as-is. Gas used in this iteration will be deducted later in update_(non)_revertible_gas_used.
+    circuit_outputs.end.gas_used = previous_kernel.public_inputs.end.gas_used;
+    circuit_outputs.end_non_revertible.gas_used = previous_kernel.public_inputs.end_non_revertible.gas_used;
 
     let start_non_revertible = previous_kernel.public_inputs.end_non_revertible;
     circuit_outputs.end_non_revertible.new_note_hashes = array_to_bounded_vec(start_non_revertible.new_note_hashes);
@@ -106,35 +101,10 @@ pub fn initialize_emitted_end_values(
     circuit_outputs.end_non_revertible.unencrypted_logs_hashes = array_to_bounded_vec(start_non_revertible.unencrypted_logs_hashes);
     circuit_outputs.end_non_revertible.note_encrypted_logs_hashes = array_to_bounded_vec(start_non_revertible.note_encrypted_logs_hashes);
     circuit_outputs.end_non_revertible.encrypted_logs_hashes = array_to_bounded_vec(start_non_revertible.encrypted_logs_hashes);
+    circuit_outputs.end_non_revertible.public_call_stack = array_to_bounded_vec(start_non_revertible.public_call_stack);
 
     let start = previous_kernel.public_inputs.validation_requests;
     circuit_outputs.validation_requests.max_block_number = start.for_rollup.max_block_number;
-}
-
-// Initialises the circuit outputs with the end state of the previous iteration. 
-// Includes data that will be checked and cleared in the tail circuit.
-pub fn initialize_end_values(
-    previous_kernel: PublicKernelData,
-    circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder
-) {
-    initialize_emitted_end_values(previous_kernel, circuit_outputs);
-
-    // Copy gas-used as-is. Gas used in this iteration will be deducted later in update_(non)_revertible_gas_used.
-    circuit_outputs.end.gas_used = previous_kernel.public_inputs.end.gas_used;
-    circuit_outputs.end_non_revertible.gas_used = previous_kernel.public_inputs.end_non_revertible.gas_used;
-
-    if circuit_outputs.revert_code == 0 {
-        let start = previous_kernel.public_inputs.end;
-        circuit_outputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
-    }
-
-    let start_non_revertible = previous_kernel.public_inputs.end_non_revertible;
-    circuit_outputs.end_non_revertible.public_call_stack = array_to_bounded_vec(start_non_revertible.public_call_stack);
-
-    circuit_outputs.public_teardown_call_stack = array_to_bounded_vec(previous_kernel.public_inputs.public_teardown_call_stack);
-
-    let start = previous_kernel.public_inputs.validation_requests;
-    circuit_outputs.validation_requests.max_block_number = previous_kernel.public_inputs.validation_requests.for_rollup.max_block_number;
     circuit_outputs.validation_requests.nullifier_read_requests = array_to_bounded_vec(start.nullifier_read_requests);
     circuit_outputs.validation_requests.nullifier_non_existent_read_requests = array_to_bounded_vec(start.nullifier_non_existent_read_requests);
     circuit_outputs.validation_requests.public_data_reads = array_to_bounded_vec(start.public_data_reads);
@@ -370,11 +340,7 @@ fn propagate_valid_public_data_update_requests(
     for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
         let update_request = update_requests[i];
         if (!update_request.is_empty()) {
-            let public_data_update_request = PublicDataUpdateRequest {
-                leaf_slot: compute_public_data_tree_index(contract_address, update_request.storage_slot),
-                new_value: compute_public_data_tree_value(update_request.new_value)
-            };
-
+            let public_data_update_request = PublicDataUpdateRequest::from_contract_storage_update_request(contract_address, update_request);
             public_data_update_requests.push(public_data_update_request);
         }
     }
@@ -393,10 +359,7 @@ fn propagate_valid_non_revertible_public_data_update_requests(
     for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
         let update_request = update_requests[i];
         if (!update_request.is_empty()) {
-            let public_data_update_request = PublicDataUpdateRequest {
-                leaf_slot: compute_public_data_tree_index(contract_address, update_request.storage_slot),
-                new_value: compute_public_data_tree_value(update_request.new_value)
-            };
+            let public_data_update_request = PublicDataUpdateRequest::from_contract_storage_update_request(contract_address, update_request);
 
             public_data_update_requests.push(public_data_update_request);
         }
@@ -413,10 +376,7 @@ fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_output
     for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
         let read_request: StorageRead = read_requests[i];
         if !read_request.is_empty() {
-            let public_data_read = PublicDataRead {
-                leaf_slot: compute_public_data_tree_index(contract_address, read_request.storage_slot),
-                value: compute_public_data_tree_value(read_request.current_value)
-            };
+            let public_data_read = PublicDataRead::from_contract_storage_read(contract_address, read_request);
             public_data_reads.push(public_data_read);
         }
     }
@@ -565,13 +525,13 @@ fn propagate_new_l2_to_l1_messages(public_call: PublicCallData, public_inputs: &
 pub fn propagate_new_unencrypted_logs(public_call: PublicCallData, public_inputs: &mut PublicKernelCircuitPublicInputsBuilder) {
     // new unencrypted logs
     let new_logs = public_call.call_stack_item.public_inputs.unencrypted_logs_hashes;
-    // TODO(Miranda): silo logs here once we have finalised struct
+    let storage_contract_address = public_call.call_stack_item.public_inputs.call_context.storage_contract_address;
     let mut new_logs_to_insert : BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_UNENCRYPTED_LOGS_PER_CALL {
         let new_log = new_logs[i];
         if new_log.value != 0 {
-            // let siloed_new_log = something;
-            new_logs_to_insert.push(new_log)
+            let siloed_new_log = silo_unencrypted_log(storage_contract_address, new_log.value);
+            new_logs_to_insert.push(LogHash { value: siloed_new_log, counter: new_log.counter, length: new_log.length });
         }
     }
     public_inputs.end.unencrypted_logs_hashes.extend_from_bounded_vec(new_logs_to_insert);
@@ -583,13 +543,13 @@ pub fn propagate_new_unencrypted_logs_non_revertible(
 ) {
     // new unencrypted logs
     let new_logs = public_call.call_stack_item.public_inputs.unencrypted_logs_hashes;
-    // TODO(Miranda): silo logs here once we have finalised struct
+    let storage_contract_address = public_call.call_stack_item.public_inputs.call_context.storage_contract_address;
     let mut new_logs_to_insert : BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_UNENCRYPTED_LOGS_PER_CALL {
         let new_log = new_logs[i];
         if new_log.value != 0 {
-            // let siloed_new_log = something;
-            new_logs_to_insert.push(new_log)
+            let siloed_new_log = silo_unencrypted_log(storage_contract_address, new_log.value);
+            new_logs_to_insert.push(LogHash { value: siloed_new_log, counter: new_log.counter, length: new_log.length });
         }
     }
     public_inputs.end_non_revertible.unencrypted_logs_hashes.extend_from_bounded_vec(new_logs_to_insert);

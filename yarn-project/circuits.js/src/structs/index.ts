@@ -1,5 +1,4 @@
 export * from '@aztec/foundation/eth-address';
-export * from './aggregation_object.js';
 export * from './call_context.js';
 export * from './call_request.js';
 export * from './caller_context.js';
@@ -43,6 +42,8 @@ export * from './non_existent_read_request_hints.js';
 export * from './note_hash.js';
 export * from './nullifier.js';
 export * from './key_validation_request.js';
+export * from './key_validation_request_and_generator.js';
+export * from './scoped_key_validation_request_and_generator.js';
 export * from './parity/base_parity_inputs.js';
 export * from './parity/parity_public_inputs.js';
 export * from './parity/root_parity_input.js';

@@ -12,7 +12,7 @@ contract Test {
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, CANONICAL_KEY_REGISTRY_ADDRESS},
         traits::{Serialize, ToField, FromField}, grumpkin_point::GrumpkinPoint,
-        grumpkin_private_key::GrumpkinPrivateKey
+        grumpkin_private_key::GrumpkinPrivateKey, storage::map::derive_storage_slot_in_map
     };
 
     use dep::aztec::encrypted_logs::header::EncryptedLogHeader;
@@ -21,11 +21,11 @@ contract Test {
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
 
-    use dep::aztec::state_vars::{shared_mutable::SharedMutablePrivateGetter, map::derive_storage_slot_in_map};
+    use dep::aztec::state_vars::{shared_mutable::SharedMutablePrivateGetter};
 
     use dep::aztec::{
         keys::getters::{get_npk_m, get_ivpk_m, get_npk_m_hash},
-        context::{Context, inputs::private_context_inputs::PrivateContextInputs},
+        context::inputs::private_context_inputs::PrivateContextInputs,
         hash::{pedersen_hash, compute_secret_hash, ArgsHasher},
         note::{
         lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
@@ -245,22 +245,48 @@ contract Test {
         context.push_new_nullifier(nullifier, 0);
     }
 
+    // For testing non-note encrypted logs
+    #[aztec(private)]
+    fn emit_array_as_encrypted_log(fields: [Field; 5], owner: AztecAddress, nest: bool) {
+        let owner_ivpk_m = get_ivpk_m(&mut context, owner);
+        context.encrypt_and_emit_log(
+            context.this_address(),
+            5, // testing only - this should be a secret random value to salt the addr
+            1,
+            owner_ivpk_m,
+            fields
+        );
+        // this contract has reached max number of functions, so using this one fn
+        // to test nested and non nested encrypted logs
+        if nest {
+            Test::at(context.this_address()).emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, false).call(&mut context);
+            context.encrypt_and_emit_log(
+                context.this_address(),
+                6, // testing only - this should be a secret random value to salt the addr
+                1,
+                owner_ivpk_m,
+                [1, 2, 3, 4, 5]
+            );
+        }
+    }
+
     #[aztec(private)]
     fn emit_msg_sender() {
-        // Note: don't use emit_unencrypted_log from private in production code
         context.emit_unencrypted_log(context.msg_sender());
     }
 
     #[aztec(private)]
-    fn emit_array_as_unencrypted_log(fields: [Field; 5]) {
-        context.emit_unencrypted_log(fields);
-    }
-
-    #[aztec(private)]
-    fn emit_unencrypted_logs_nested(fields: [Field; 5]) {
-        Test::at(context.this_address()).emit_msg_sender().call(&mut context);
-        Test::at(context.this_address()).emit_array_as_unencrypted_log(fields).call(&mut context);
-        context.emit_unencrypted_log("test");
+    fn emit_unencrypted_logs(fields: [Field; 5], nest: bool) {
+        // Merged two fns to avoid hitting max #functions limit:
+        // nest -> emit_unencrypted_logs_nested
+        // else -> emit_array_as_unencrypted_log
+        if nest {
+            Test::at(context.this_address()).emit_msg_sender().call(&mut context);
+            Test::at(context.this_address()).emit_unencrypted_logs(fields, false).call(&mut context);
+            context.emit_unencrypted_log("test");
+        } else {
+            context.emit_unencrypted_log(fields);
+        }
     }
 
     #[aztec(private)]
@@ -380,7 +406,7 @@ contract Test {
         value: Field
     ) -> [u8; 112] {
         let note = TestNote::new(value);
-        EncryptedLogIncomingBody::new(storage_slot, TestNote::get_note_type_id(), note).compute_ciphertext(secret, point).as_array()
+        EncryptedLogIncomingBody::from_note(note, storage_slot).compute_ciphertext(secret, point).as_array()
     }
 
     #[aztec(private)]

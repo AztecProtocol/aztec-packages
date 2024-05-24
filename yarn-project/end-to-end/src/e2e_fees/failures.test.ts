@@ -8,7 +8,8 @@ import {
   TxStatus,
   computeAuthWitMessageHash,
 } from '@aztec/aztec.js';
-import { FunctionData, type GasSettings } from '@aztec/circuits.js';
+import { Gas, GasSettings } from '@aztec/circuits.js';
+import { FunctionType } from '@aztec/foundation/abi';
 import { type TokenContract as BananaCoin, type FPCContract } from '@aztec/noir-contracts.js';
 
 import { expectMapping } from '../fixtures/utils.js';
@@ -26,6 +27,7 @@ describe('e2e_fees failures', () => {
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
+    await t.applyFPCSetupSnapshot();
     ({ aliceWallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = await t.setup());
   });
 
@@ -94,7 +96,7 @@ describe('e2e_fees failures', () => {
       })
       .wait({ dontThrowOnRevert: true });
 
-    expect(txReceipt.status).toBe(TxStatus.REVERTED);
+    expect(txReceipt.status).toBe(TxStatus.APP_LOGIC_REVERTED);
     const feeAmount = txReceipt.transactionFee!;
 
     // and thus we paid the fee
@@ -111,7 +113,7 @@ describe('e2e_fees failures', () => {
     await expectMapping(
       t.gasBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [initialAliceGas, initialFPCGas - feeAmount, initialSequencerGas + feeAmount],
+      [initialAliceGas, initialFPCGas - feeAmount, initialSequencerGas],
     );
 
     // TODO(#4712) - demonstrate reverts with the PrivateFeePaymentMethod.
@@ -149,10 +151,9 @@ describe('e2e_fees failures', () => {
     ).rejects.toThrow(/Transaction [0-9a-f]{64} was dropped\. Reason: Tx dropped by P2P node\./);
   });
 
-  it('fails transaction that error in teardown', async () => {
+  it('includes transaction that error in teardown', async () => {
     /**
-     * We trigger an error in teardown by having the FPC authorize a transfer of its entire balance to Alice
-     * as part of app logic. This will cause the FPC to not have enough funds to pay the refund back to Alice.
+     * We trigger an error in teardown by having the "FPC" call a function that reverts.
      */
     const PublicMintedAlicePublicBananas = 100_000_000_000n;
 
@@ -172,47 +173,59 @@ describe('e2e_fees failures', () => {
 
     await bananaCoin.methods.mint_public(aliceAddress, PublicMintedAlicePublicBananas).send().wait();
 
+    const badGas = GasSettings.from({
+      gasLimits: gasSettings.gasLimits,
+      inclusionFee: gasSettings.inclusionFee,
+      maxFeesPerGas: gasSettings.maxFeesPerGas,
+      teardownGasLimits: Gas.empty(),
+    });
+
     await expect(
       bananaCoin.methods
         .mint_public(aliceAddress, 1n) // random operation
         .send({
           fee: {
-            gasSettings,
-            paymentMethod: new BuggedTeardownFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
+            gasSettings: badGas,
+            paymentMethod: new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
           },
         })
         .wait(),
-    ).rejects.toThrow(/invalid nonce/);
+    ).rejects.toThrow();
 
-    // node also drops
-    await expect(
-      bananaCoin.methods
-        .mint_public(aliceAddress, 1n) // random operation
-        .send({
-          skipPublicSimulation: true,
-          fee: {
-            gasSettings,
-            paymentMethod: new BuggedTeardownFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
-          },
-        })
-        .wait(),
-    ).rejects.toThrow(/Transaction [0-9a-f]{64} was dropped\. Reason: Tx dropped by P2P node\./);
+    const receipt = await bananaCoin.methods
+      .mint_public(aliceAddress, 1n) // random operation
+      .send({
+        skipPublicSimulation: true,
+        fee: {
+          gasSettings: badGas,
+          paymentMethod: new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
+        },
+      })
+      .wait({
+        dontThrowOnRevert: true,
+      });
+    expect(receipt.status).toEqual(TxStatus.TEARDOWN_REVERTED);
+    expect(receipt.transactionFee).toBeGreaterThan(0n);
 
-    // nothing happened
     await expectMapping(
       t.bananaPrivateBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
       [initialAlicePrivateBananas, initialFPCPrivateBananas, 0n],
     );
+    // Since setup went through, Alice transferred to the FPC
     await expectMapping(
       t.bananaPublicBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [initialAlicePublicBananas + PublicMintedAlicePublicBananas, initialFPCPublicBananas, 0n],
+      [
+        initialAlicePublicBananas + PublicMintedAlicePublicBananas - badGas.getFeeLimit().toBigInt(),
+        initialFPCPublicBananas + badGas.getFeeLimit().toBigInt(),
+        0n,
+      ],
     );
     await expectMapping(
       t.gasBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [initialAliceGas, initialFPCGas, initialSequencerGas],
+      [initialAliceGas, initialFPCGas - receipt.transactionFee!, initialSequencerGas],
     );
   });
 });
@@ -226,13 +239,13 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
       this.wallet.getChainId(),
       this.wallet.getVersion(),
       {
+        name: 'transfer_public',
         args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
-        functionData: new FunctionData(
-          FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
-          /*isPrivate=*/ false,
-          /*isStatic=*/ false,
-        ),
+        selector: FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
+        type: FunctionType.PUBLIC,
+        isStatic: false,
         to: this.asset,
+        returnTypes: [],
       },
     );
 
@@ -241,62 +254,13 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
     return Promise.resolve([
       this.wallet.setPublicAuthWit(messageHash, true).request(),
       {
-        to: this.getPaymentContract(),
-        functionData: new FunctionData(
-          FunctionSelector.fromSignature('fee_entrypoint_public(Field,(Field),Field)'),
-          /*isPrivate=*/ true,
-          /*isStatic=*/ false,
-        ),
+        name: 'fee_entrypoint_public',
+        to: this.paymentContract,
+        selector: FunctionSelector.fromSignature('fee_entrypoint_public(Field,(Field),Field)'),
+        type: FunctionType.PRIVATE,
+        isStatic: false,
         args: [tooMuchFee, this.asset, nonce],
-      },
-    ]);
-  }
-}
-
-class BuggedTeardownFeePaymentMethod extends PublicFeePaymentMethod {
-  override async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
-    // authorize the FPC to take the max fee from Alice
-    const nonce = Fr.random();
-    const maxFee = gasSettings.getFeeLimit();
-    const messageHash1 = computeAuthWitMessageHash(
-      this.paymentContract,
-      this.wallet.getChainId(),
-      this.wallet.getVersion(),
-      {
-        args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
-        functionData: new FunctionData(
-          FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
-          /*isPrivate=*/ false,
-          /*isStatic=*/ false,
-        ),
-        to: this.asset,
-      },
-    );
-
-    // authorize the FPC to take the maxFee
-    // do this first because we only get 2 feepayload calls
-    await this.wallet.setPublicAuthWit(messageHash1, true).send().wait();
-
-    return Promise.resolve([
-      // in this, we're actually paying the fee in setup
-      {
-        to: this.getPaymentContract(),
-        functionData: new FunctionData(
-          FunctionSelector.fromSignature('fee_entrypoint_public(Field,(Field),Field)'),
-          /*isPrivate=*/ true,
-          /*isStatic=*/ false,
-        ),
-        args: [maxFee, this.asset, nonce],
-      },
-      // and trying to take a little extra in teardown, but specify a bad nonce
-      {
-        to: this.asset,
-        functionData: new FunctionData(
-          FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
-          /*isPrivate=*/ false,
-          /*isStatic=*/ false,
-        ),
-        args: [this.wallet.getAddress(), this.paymentContract, new Fr(1), Fr.random()],
+        returnTypes: [],
       },
     ]);
   }

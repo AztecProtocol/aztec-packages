@@ -5,7 +5,7 @@ use crate::{
 };
 use dep::types::{
     abis::{
-    private_kernel::private_call_data::{PrivateCallData, verify_private_call},
+    private_kernel::private_call_data::PrivateCallData,
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs
 },
     constants::MAX_NEW_NOTE_HASHES_PER_CALL, transaction::tx_request::TxRequest
@@ -54,7 +54,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
         // verify/aggregate the private call proof
-        verify_private_call(self.private_call);
+        self.private_call.verify();
         let private_call_data_validator = self.validate_inputs();
 
         let output = self.prepare_output(private_call_data_validator);
@@ -75,7 +75,10 @@ impl PrivateKernelInitCircuitPrivateInputs {
 mod tests {
     use crate::private_kernel_init::{PrivateKernelInitHints, PrivateKernelInitCircuitPrivateInputs};
     use dep::types::{
-        abis::{kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, log_hash::NoteLogHash},
+        abis::{
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+        log_hash::{NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash}
+    },
         constants::MAX_NEW_NOTE_HASHES_PER_CALL,
         tests::private_call_data_builder::PrivateCallDataBuilder, transaction::tx_request::TxRequest,
         utils::arrays::array_eq
@@ -144,13 +147,13 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0].value(), tx_hash);
         assert(
             array_eq(
-                public_inputs.end.encrypted_logs_hashes,
+                public_inputs.end.encrypted_logs_hashes.map(|l: ScopedEncryptedLogHash| l.log_hash),
                 expected_encrypted_logs
             )
         );
         assert(
             array_eq(
-                public_inputs.end.unencrypted_logs_hashes,
+                public_inputs.end.unencrypted_logs_hashes.map(|l: ScopedLogHash| l.log_hash),
                 expected_unencrypted_logs
             )
         );

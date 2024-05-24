@@ -9,14 +9,16 @@ use crate::{
     kernel_data::KernelData, public_kernel_data::PublicKernelData, max_block_number::MaxBlockNumber,
     private_kernel_data::PrivateKernelData, note_hash::{NoteHash, ScopedNoteHash},
     nullifier::{Nullifier, ScopedNullifier},
-    key_validation_request::{ScopedKeyValidationRequest, KeyValidationRequest},
     private_call_request::{PrivateCallRequest, ScopedPrivateCallRequest},
     private_call_stack_item::PrivateCallStackItem,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
     private_kernel::private_call_data::PrivateCallData, public_data_read::PublicDataRead,
     public_data_update_request::PublicDataUpdateRequest, read_request::{ReadRequest, ScopedReadRequest},
-    log_hash::{LogHash, NoteLogHash},
-    validation_requests::{ValidationRequests, ValidationRequestsBuilder}
+    log_hash::{LogHash, NoteLogHash, ScopedLogHash, EncryptedLogHash, ScopedEncryptedLogHash},
+    validation_requests::{
+    ValidationRequests, ValidationRequestsBuilder, KeyValidationRequest,
+    KeyValidationRequestAndGenerator, ScopedKeyValidationRequestAndGenerator
+}
 },
     address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash},
     constants::{
@@ -65,7 +67,7 @@ struct FixtureBuilder {
     // Fees.
     is_fee_payer: bool,
     fee_payer: AztecAddress,
-    public_teardown_call_request: CallRequest,
+    public_teardown_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
 
     // Constant data.
     historical_header: Header,
@@ -77,11 +79,12 @@ struct FixtureBuilder {
     new_nullifiers: BoundedVec<ScopedNullifier, MAX_NEW_NULLIFIERS_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
     note_encrypted_logs_hashes: BoundedVec<NoteLogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
-    encrypted_logs_hashes: BoundedVec<LogHash, MAX_ENCRYPTED_LOGS_PER_TX>,
-    unencrypted_logs_hashes: BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
+    encrypted_logs_hashes: BoundedVec<ScopedEncryptedLogHash, MAX_ENCRYPTED_LOGS_PER_TX>,
+    unencrypted_logs_hashes: BoundedVec<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
     note_encrypted_logs_hash: Field,
     encrypted_logs_hash: Field,
     unencrypted_logs_hash: Field,
+    note_encrypted_log_preimages_length: Field,
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
     public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
@@ -89,13 +92,14 @@ struct FixtureBuilder {
     public_call_requests: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
     gas_used: Gas,
     non_revertible_gas_used: Gas,
+    revert_code: u8,
 
     // Validation requests.
     max_block_number: MaxBlockNumber,
     note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     nullifier_non_existent_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
-    key_validation_requests: BoundedVec<ScopedKeyValidationRequest, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+    scoped_key_validation_requests_and_generators: BoundedVec<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
     public_data_reads: BoundedVec<PublicDataRead, MAX_PUBLIC_DATA_READS_PER_TX>,
 
     // Function.
@@ -116,7 +120,6 @@ struct FixtureBuilder {
     vk: VerificationKey,
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
-    revert_code: u8,
     
     // Counters.
     min_revertible_side_effect_counter: u32,
@@ -191,18 +194,20 @@ impl FixtureBuilder {
             max_block_number: self.max_block_number,
             note_hash_read_requests: subarray(self.note_hash_read_requests.storage.map(|r: ScopedReadRequest| r.read_request)),
             nullifier_read_requests: subarray(self.nullifier_read_requests.storage.map(|r: ScopedReadRequest| r.read_request)),
-            key_validation_requests: subarray(self.key_validation_requests.storage.map(|r: ScopedKeyValidationRequest| r.request)),
+            key_validation_requests_and_generators: subarray(
+                self.scoped_key_validation_requests_and_generators.storage.map(|r: ScopedKeyValidationRequestAndGenerator| r.request)
+            ),
             new_note_hashes: subarray(self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash)),
             new_nullifiers: subarray(self.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier)),
             private_call_requests: subarray(self.private_call_requests.storage.map(|r: ScopedPrivateCallRequest| r.call_request)),
             public_call_stack_hashes: subarray(self.public_call_requests.storage.map(|c: CallRequest| c.hash)),
-            public_teardown_function_hash: self.public_teardown_call_request.hash,
+            public_teardown_function_hash: self.public_teardown_call_stack.get(0).hash,
             new_l2_to_l1_msgs: subarray(self.new_l2_to_l1_msgs.storage.map(|r: ScopedL2ToL1Message| r.message)),
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
             note_encrypted_logs_hashes: subarray(self.note_encrypted_logs_hashes.storage),
-            encrypted_logs_hashes: subarray(self.encrypted_logs_hashes.storage),
-            unencrypted_logs_hashes: subarray(self.unencrypted_logs_hashes.storage),
+            encrypted_logs_hashes: subarray(self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.log_hash)),
+            unencrypted_logs_hashes: subarray(self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.log_hash)),
             historical_header: self.historical_header,
             tx_context: self.tx_context
         }
@@ -220,7 +225,7 @@ impl FixtureBuilder {
         PrivateCallData {
             call_stack_item: self.to_private_call_stack_item(),
             public_call_stack: subarray(self.public_call_requests.storage),
-            public_teardown_call_request: self.public_teardown_call_request,
+            public_teardown_call_request: self.public_teardown_call_stack.get(0),
             proof: RecursiveProof::empty(),
             vk: self.vk,
             function_leaf_membership_witness: self.function_leaf_membership_witness,
@@ -251,9 +256,9 @@ impl FixtureBuilder {
             new_note_hashes: self.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash),
             new_nullifiers: self.new_nullifiers.storage.map(|n: ScopedNullifier| n.nullifier),
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
-            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage,
-            encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
+            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage.map(|l: NoteLogHash| l.expose_to_public()),
+            encrypted_logs_hashes: self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.expose_to_public()),
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.log_hash),
             public_data_update_requests: self.public_data_update_requests.storage,
             public_call_stack: self.public_call_requests.storage,
             gas_used: self.gas_used
@@ -268,6 +273,7 @@ impl FixtureBuilder {
             note_encrypted_logs_hash: self.note_encrypted_logs_hash,
             encrypted_logs_hash: self.encrypted_logs_hash,
             unencrypted_logs_hash: self.unencrypted_logs_hash,
+            note_encrypted_log_preimages_length: self.note_encrypted_log_preimages_length,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             public_data_update_requests: self.public_data_update_requests.storage,
@@ -281,7 +287,7 @@ impl FixtureBuilder {
             note_hash_read_requests: self.note_hash_read_requests,
             nullifier_read_requests: self.nullifier_read_requests,
             nullifier_non_existent_read_requests: self.nullifier_non_existent_read_requests,
-            key_validation_requests: self.key_validation_requests,
+            scoped_key_validation_requests_and_generators: self.scoped_key_validation_requests_and_generators,
             public_data_reads: self.public_data_reads
         };
         validation_requests.finish()
@@ -291,13 +297,14 @@ impl FixtureBuilder {
         let end = self.to_private_accumulated_data();
         let validation_requests = self.to_validation_requests();
         let constants = self.to_constant_data();
+        let public_teardown_call_request = self.public_teardown_call_stack.get_unchecked(0);
 
         PrivateKernelCircuitPublicInputs {
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             end,
             validation_requests,
             constants,
-            public_teardown_call_request: self.public_teardown_call_request,
+            public_teardown_call_request,
             fee_payer: self.fee_payer
         }
     }
@@ -321,8 +328,6 @@ impl FixtureBuilder {
         };
         let validation_requests = self.to_validation_requests();
         let constants = self.to_constant_data();
-        let mut public_teardown_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> = BoundedVec::new();
-        public_teardown_call_stack.push(self.public_teardown_call_request);
 
         PublicKernelCircuitPublicInputs {
             end_non_revertible,
@@ -330,7 +335,7 @@ impl FixtureBuilder {
             validation_requests,
             constants,
             revert_code: self.revert_code,
-            public_teardown_call_stack: public_teardown_call_stack.storage,
+            public_teardown_call_stack: self.public_teardown_call_stack.storage,
             fee_payer: self.fee_payer
         }
     }
@@ -339,8 +344,8 @@ impl FixtureBuilder {
         let public_inputs = self.to_public_kernel_circuit_public_inputs(revertible);
         PublicKernelData {
             public_inputs,
-            proof: crate::mocked::Proof::empty(),
-            vk: crate::mocked::VerificationKey::empty(),
+            proof: NestedRecursiveProof::empty(),
+            vk: VerificationKey::empty(),
             vk_index: self.vk_index,
             vk_path: self.vk_path
         }
@@ -365,8 +370,8 @@ impl FixtureBuilder {
         let public_inputs = self.to_kernel_circuit_public_inputs();
         KernelData {
             public_inputs,
-            proof: crate::mocked::Proof::empty(),
-            vk: crate::mocked::VerificationKey::empty(),
+            proof: NestedRecursiveProof::empty(),
+            vk: VerificationKey::empty(),
             vk_index: self.vk_index,
             vk_path: self.vk_path
         }
@@ -376,6 +381,7 @@ impl FixtureBuilder {
         self.new_note_hashes.push(
             NoteHash { value, counter: self.next_counter() }.scope(nullifier_counter, self.storage_contract_address)
         );
+        self.note_encrypted_log_preimages_length += 64;
     }
 
     pub fn append_new_note_hashes(&mut self, num_new_note_hashes: u64, broadcast: bool) {
@@ -515,20 +521,22 @@ impl FixtureBuilder {
         new_read_request_index
     }
 
-    pub fn add_request_for_key_validation(&mut self, pk_m: GrumpkinPoint, sk_app: Field) -> u64 {
-        let new_request_index = self.key_validation_requests.len();
+    pub fn add_request_for_key_validation(&mut self, pk_m: GrumpkinPoint, sk_app: Field, sk_app_generator: Field) -> u64 {
+        let new_request_index = self.scoped_key_validation_requests_and_generators.len();
         let request = KeyValidationRequest { pk_m, sk_app };
-        self.key_validation_requests.push(request.scope(self.storage_contract_address));
+        let request_and_generator = KeyValidationRequestAndGenerator { request, sk_app_generator };
+        let scoped_key_validation_request_and_generator = request_and_generator.scope(self.storage_contract_address);
+        self.scoped_key_validation_requests_and_generators.push(scoped_key_validation_request_and_generator);
 
         new_request_index
     }
 
     pub fn append_key_validation_requests(&mut self, num_requests: u64) {
-        let index_offset = self.key_validation_requests.len();
-        for i in 0..self.key_validation_requests.max_len() {
+        let index_offset = self.scoped_key_validation_requests_and_generators.len();
+        for i in 0..self.scoped_key_validation_requests_and_generators.max_len() {
             if i < num_requests {
                 let request = self.mock_key_validation_request(index_offset + i);
-                self.key_validation_requests.push(request.scope(self.storage_contract_address));
+                self.scoped_key_validation_requests_and_generators.push(request.scope(self.storage_contract_address));
             }
         }
     }
@@ -549,14 +557,14 @@ impl FixtureBuilder {
     }
 
     pub fn set_encrypted_logs(&mut self, hash: Field, preimages_length: Field) {
-        let side_effect = LogHash { value: hash, counter: self.next_counter(), length: preimages_length };
-        self.encrypted_logs_hashes.push(side_effect);
+        let side_effect = EncryptedLogHash { value: hash, counter: self.next_counter(), length: preimages_length, randomness: 2 };
+        self.encrypted_logs_hashes.push(side_effect.scope(self.storage_contract_address));
         self.encrypted_log_preimages_length += preimages_length;
     }
 
     pub fn set_unencrypted_logs(&mut self, hash: Field, preimages_length: Field) {
         let side_effect = LogHash { value: hash, counter: self.next_counter(), length: preimages_length };
-        self.unencrypted_logs_hashes.push(side_effect);
+        self.unencrypted_logs_hashes.push(side_effect.scope(self.storage_contract_address));
         self.unencrypted_log_preimages_length += preimages_length;
     }
 
@@ -619,13 +627,14 @@ impl FixtureBuilder {
         self.storage_contract_address
     }
 
-    pub fn set_public_teardown_call_request(&mut self, hash: Field, is_delegate_call: bool) {
-        self.public_teardown_call_request = self.generate_call_request(hash, is_delegate_call);
+    pub fn push_public_teardown_call_request(&mut self, hash: Field, is_delegate_call: bool) {
+        let call_stack_item = self.generate_call_request(hash, is_delegate_call);
+        self.public_teardown_call_stack.push(call_stack_item);
     }
 
     pub fn append_public_teardown_call_request(&mut self) {
         let hash = self.mock_public_teardown_call_request_hash(0);
-        self.set_public_teardown_call_request(hash, true);
+        self.push_public_teardown_call_request(hash, true);
     }
 
     pub fn end_setup(&mut self) {
@@ -662,9 +671,10 @@ impl FixtureBuilder {
         22334 + self.value_offset + index as Field
     }
 
-    fn mock_key_validation_request(self, index: u64) -> KeyValidationRequest {
+    fn mock_key_validation_request(self, index: u64) -> KeyValidationRequestAndGenerator {
         let value_offset = 3030 + self.value_offset + index as Field;
-        KeyValidationRequest { pk_m: GrumpkinPoint { x: value_offset, y: 1 + value_offset }, sk_app: 2 + value_offset }
+        let request = KeyValidationRequest { pk_m: GrumpkinPoint { x: value_offset, y: 1 + value_offset }, sk_app: 2 + value_offset };
+        KeyValidationRequestAndGenerator { request, sk_app_generator: 3 + value_offset }
     }
 
     fn mock_public_data_read(self, index: u64) -> PublicDataRead {
@@ -743,6 +753,7 @@ impl Empty for FixtureBuilder {
             note_encrypted_logs_hash: 0,
             encrypted_logs_hash: 0,
             unencrypted_logs_hash: 0,
+            note_encrypted_log_preimages_length: 0,
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
             public_data_update_requests: BoundedVec::new(),
@@ -752,7 +763,7 @@ impl Empty for FixtureBuilder {
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_non_existent_read_requests: BoundedVec::new(),
-            key_validation_requests: BoundedVec::new(),
+            scoped_key_validation_requests_and_generators: BoundedVec::new(),
             public_data_reads: BoundedVec::new(),
             function_data: FunctionData::empty(),
             args_hash: 0,
@@ -774,7 +785,7 @@ impl Empty for FixtureBuilder {
             start_state: PartialStateReference::empty(),
             gas_used: Gas::empty(),
             non_revertible_gas_used: Gas::empty(),
-            public_teardown_call_request: CallRequest::empty(),
+            public_teardown_call_stack: BoundedVec::new(),
             value_offset: 0,
         }
     }
