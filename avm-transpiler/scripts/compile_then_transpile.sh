@@ -17,20 +17,11 @@ if [ "${1:-}" != "compile" ]; then
 fi
 shift # remove the compile arg so we can inject --show-artifact-paths
 
-# Create a temporary file to capture and parse nargo's stdout while still printing it to the console.
-# To avoid a situation where the script fails and the temporary file isn't removed,
-# create file descriptors for writing/reading the temporary file and then remove the file.
-tmpfile=$(mktemp)
-exec 3>"$tmpfile"
-exec 4<"$tmpfile"
-rm "$tmpfile"
+# Forward all arguments to nargo, tee output to console
+artifacts_to_transpile=$($NARGO compile --show-artifact-paths $@ | tee /dev/tty | grep -oP 'Saved contract artifact to: \K.*')
 
-# Forward all arguments to nargo, tee output to the tmp file
-#echo "Running nargo ($NARGO compile --show-artifact-paths) with args: $@"
-$NARGO compile --show-artifact-paths $@ | tee /dev/fd/3
-
-# Parse nargo's output (captured in the tmp file) to determine which artifacts to transpile
-artifacts_to_transpile=$(grep -oP 'Saved contract artifact to: \K.*' <&4)
+# NOTE: the output that is teed to /dev/tty will normally not be redirectable by the caller.
+# If the script is run via docker, however, the user will see this output on stdout and will be able to redirect.
 
 # Transpile each artifact
 for artifact in "$artifacts_to_transpile"; do
