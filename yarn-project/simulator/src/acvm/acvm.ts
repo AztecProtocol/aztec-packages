@@ -6,7 +6,6 @@ import {
   type ExecutionError,
   type ForeignCallInput,
   type ForeignCallOutput,
-  type WasmBlackBoxFunctionSolver,
   executeCircuitWithReturnWitness,
 } from '@noir-lang/acvm_js';
 
@@ -19,7 +18,7 @@ import { type ORACLE_NAMES } from './oracle/index.js';
  */
 type ACIRCallback = Record<
   ORACLE_NAMES,
-  (...args: ForeignCallInput[]) => ForeignCallOutput | Promise<ForeignCallOutput>
+  (...args: ForeignCallInput[]) => void | ForeignCallOutput | Promise<ForeignCallOutput>
 >;
 
 /**
@@ -85,7 +84,6 @@ export function resolveOpcodeLocations(
  * The function call that executes an ACIR.
  */
 export async function acvm(
-  solver: WasmBlackBoxFunctionSolver,
   acir: Buffer,
   initialWitness: ACVMWitness,
   callback: ACIRCallback,
@@ -93,7 +91,6 @@ export async function acvm(
   const logger = createDebugLogger('aztec:simulator:acvm');
 
   const solvedAndReturnWitness = await executeCircuitWithReturnWitness(
-    solver,
     acir,
     initialWitness,
     async (name: string, args: ForeignCallInput[]) => {
@@ -105,7 +102,7 @@ export async function acvm(
         }
 
         const result = await oracleFunction.call(callback, ...args);
-        return [result];
+        return typeof result === 'undefined' ? [] : [result];
       } catch (err) {
         let typedError: Error;
         if (err instanceof Error) {

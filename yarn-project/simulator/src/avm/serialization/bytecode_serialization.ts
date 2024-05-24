@@ -11,6 +11,7 @@ import {
   CalldataCopy,
   Cast,
   ChainId,
+  DebugLog,
   Div,
   EmitNoteHash,
   EmitNullifier,
@@ -46,6 +47,8 @@ import {
   StorageAddress,
   Sub,
   Timestamp,
+  ToRadixLE,
+  TransactionFee,
   Version,
   Xor,
 } from '../opcodes/index.js';
@@ -82,6 +85,7 @@ const INSTRUCTION_SET = () =>
     [Sender.opcode, Sender],
     [FeePerL2Gas.opcode, FeePerL2Gas],
     [FeePerDAGas.opcode, FeePerDAGas],
+    [TransactionFee.opcode, TransactionFee],
     //[Contractcalldepth.opcode, Contractcalldepth],
     // Execution Environment - Globals
     [ChainId.opcode, ChainId],
@@ -129,11 +133,16 @@ const INSTRUCTION_SET = () =>
     [Return.opcode, Return],
     [Revert.opcode, Revert],
 
+    // Misc
+    [DebugLog.opcode, DebugLog],
+
     // //// Gadgets
     [Keccak.opcode, Keccak],
     [Poseidon2.opcode, Poseidon2],
     [Sha256.opcode, Sha256],
     [Pedersen.opcode, Pedersen],
+    // Conversions
+    [ToRadixLE.opcode, ToRadixLE],
   ]);
 
 interface Serializable {

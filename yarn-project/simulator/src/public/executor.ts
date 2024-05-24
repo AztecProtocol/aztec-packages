@@ -4,12 +4,14 @@ import {
   Gas,
   type GlobalVariables,
   type Header,
+  type Nullifier,
   PublicCircuitPublicInputs,
   type TxContext,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { spawn } from 'child_process';
+import { assert } from 'console';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -19,14 +21,18 @@ import { AvmMachineState } from '../avm/avm_machine_state.js';
 import { AvmSimulator } from '../avm/avm_simulator.js';
 import { HostStorage } from '../avm/journal/host_storage.js';
 import { AvmPersistableStateManager } from '../avm/journal/index.js';
-import { AcirSimulator } from '../client/simulator.js';
 import { ExecutionError, createSimulationError } from '../common/errors.js';
 import { SideEffectCounter } from '../common/index.js';
 import { PackedValuesCache } from '../common/packed_values_cache.js';
 import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db.js';
 import { type PublicExecution, type PublicExecutionResult, checkValidStaticCall } from './execution.js';
 import { PublicExecutionContext } from './public_execution_context.js';
-import { convertAvmResults, createAvmExecutionEnvironment, isAvmBytecode } from './transitional_adaptors.js';
+import {
+  convertAvmResultsToPxResult,
+  createAvmExecutionEnvironment,
+  decompressBytecodeIfCompressed,
+  isAvmBytecode,
+} from './transitional_adaptors.js';
 
 /**
  * Execute a public function and return the execution result.
@@ -37,24 +43,32 @@ export async function executePublicFunction(
 ): Promise<PublicExecutionResult> {
   const bytecode = await context.contractsDb.getBytecode(
     context.execution.contractAddress,
-    context.execution.functionData.selector,
+    context.execution.functionSelector,
   );
   if (!bytecode) {
     throw new Error(
-      `Bytecode not found for ${context.execution.contractAddress}:${context.execution.functionData.selector}`,
+      `Bytecode not found for ${context.execution.contractAddress}:${context.execution.functionSelector}`,
     );
   }
 
-  if (isAvmBytecode(bytecode)) {
-    return await executePublicFunctionAvm(context);
+  if (await isAvmBytecode(bytecode)) {
+    return await executeTopLevelPublicFunctionAvm(context, bytecode);
   } else {
     return await executePublicFunctionAcvm(context, bytecode, nested);
   }
 }
 
-async function executePublicFunctionAvm(executionContext: PublicExecutionContext): Promise<PublicExecutionResult> {
+/**
+ * Execute a top-level public function call (the first call in an enqueued-call/execution-request) in the AVM.
+ * Translate the results back to the PublicExecutionResult format.
+ */
+async function executeTopLevelPublicFunctionAvm(
+  executionContext: PublicExecutionContext,
+  bytecode: Buffer,
+): Promise<PublicExecutionResult> {
   const address = executionContext.execution.contractAddress;
-  const selector = executionContext.execution.functionData.selector;
+  const selector = executionContext.execution.functionSelector;
+  const startGas = executionContext.availableGas;
   const log = createDebugLogger('aztec:simulator:public_execution');
   log.verbose(`[AVM] Executing public external function ${address.toString()}:${selector}.`);
 
@@ -65,7 +79,16 @@ async function executePublicFunctionAvm(executionContext: PublicExecutionContext
     executionContext.contractsDb,
     executionContext.commitmentsDb,
   );
+
+  // TODO(6207): add sideEffectCounter to persistableState construction
+  // or modify the PersistableStateManager to manage rollbacks across enqueued-calls and transactions.
   const worldStateJournal = new AvmPersistableStateManager(hostStorage);
+  const startSideEffectCounter = executionContext.execution.callContext.sideEffectCounter;
+  for (const nullifier of executionContext.pendingNullifiers) {
+    worldStateJournal.nullifiers.cache.appendSiloed(nullifier.value);
+  }
+  // All the subsequent side effects will have a counter larger than the call's start counter.
+  worldStateJournal.trace.accessCounter = startSideEffectCounter + 1;
 
   const executionEnv = createAvmExecutionEnvironment(
     executionContext.execution,
@@ -75,18 +98,30 @@ async function executePublicFunctionAvm(executionContext: PublicExecutionContext
     executionContext.transactionFee,
   );
 
-  const machineState = new AvmMachineState(executionContext.availableGas);
-  const context = new AvmContext(worldStateJournal, executionEnv, machineState);
-  const simulator = new AvmSimulator(context);
+  const machineState = new AvmMachineState(startGas);
+  const avmContext = new AvmContext(worldStateJournal, executionEnv, machineState);
+  const simulator = new AvmSimulator(avmContext);
 
-  const result = await simulator.execute();
-  const newWorldState = context.persistableState.flush();
+  const avmResult = await simulator.executeBytecode(bytecode);
+
+  // Commit the journals state to the DBs since this is a top-level execution.
+  // Observe that this will write all the state changes to the DBs, not only the latest for each slot.
+  // However, the underlying DB keep a cache and will only write the latest state to disk.
+  await avmContext.persistableState.publicStorage.commitToDB();
 
   log.verbose(
-    `[AVM] ${address.toString()}:${selector} returned, reverted: ${result.reverted}, reason: ${result.revertReason}.`,
+    `[AVM] ${address.toString()}:${selector} returned, reverted: ${avmResult.reverted}, reason: ${
+      avmResult.revertReason
+    }.`,
   );
 
-  return await convertAvmResults(executionContext, newWorldState, result, machineState);
+  return convertAvmResultsToPxResult(
+    avmResult,
+    startSideEffectCounter,
+    executionContext.execution,
+    startGas,
+    avmContext,
+  );
 }
 
 async function executePublicFunctionAcvm(
@@ -95,17 +130,16 @@ async function executePublicFunctionAcvm(
   nested: boolean,
 ): Promise<PublicExecutionResult> {
   const execution = context.execution;
-  const { contractAddress, functionData } = execution;
-  const selector = functionData.selector;
+  const { contractAddress, functionSelector } = execution;
   const log = createDebugLogger('aztec:simulator:public_execution');
-  log.verbose(`[ACVM] Executing public external function ${contractAddress.toString()}:${selector}.`);
+  log.verbose(`[ACVM] Executing public external function ${contractAddress.toString()}:${functionSelector}.`);
 
   const initialWitness = context.getInitialWitness();
   const acvmCallback = new Oracle(context);
 
   const { partialWitness, returnWitnessMap, reverted, revertReason } = await (async () => {
     try {
-      const result = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, acvmCallback);
+      const result = await acvm(acir, initialWitness, acvmCallback);
       return {
         partialWitness: result.partialWitness,
         returnWitnessMap: result.returnWitness,
@@ -118,7 +152,7 @@ async function executePublicFunctionAcvm(
         err.message,
         {
           contractAddress,
-          functionSelector: selector,
+          functionSelector,
         },
         extractCallStack(err),
         { cause: err },
@@ -139,10 +173,6 @@ async function executePublicFunctionAcvm(
   })();
 
   if (reverted) {
-    if (!revertReason) {
-      throw new Error('Reverted but no revert reason');
-    }
-
     return {
       execution,
       returnValues: [],
@@ -159,6 +189,7 @@ async function executePublicFunctionAcvm(
       nestedExecutions: [],
       unencryptedLogsHashes: [],
       unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
+      allUnencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       reverted,
       revertReason,
       startGasLeft: context.availableGas,
@@ -207,6 +238,7 @@ async function executePublicFunctionAcvm(
 
   const nestedExecutions = context.getNestedExecutions();
   const unencryptedLogs = context.getUnencryptedLogs();
+  const allUnencryptedLogs = context.getAllUnencryptedLogs();
 
   // TODO(palla/gas): We should be loading these values from the returned PublicCircuitPublicInputs
   const startGasLeft = context.availableGas;
@@ -227,6 +259,7 @@ async function executePublicFunctionAcvm(
     nestedExecutions,
     unencryptedLogsHashes,
     unencryptedLogs,
+    allUnencryptedLogs,
     reverted: false,
     revertReason: undefined,
     startGasLeft,
@@ -258,6 +291,7 @@ export class PublicExecutor {
     globalVariables: GlobalVariables,
     availableGas: Gas,
     txContext: TxContext,
+    pendingNullifiers: Nullifier[],
     transactionFee: Fr = Fr.ZERO,
     sideEffectCounter: number = 0,
   ): Promise<PublicExecutionResult> {
@@ -277,6 +311,7 @@ export class PublicExecutor {
       availableGas,
       transactionFee,
       txContext.gasSettings,
+      pendingNullifiers,
     );
 
     const executionResult = await executePublicFunction(context, /*nested=*/ false);
@@ -320,8 +355,11 @@ export class PublicExecutor {
     const bytecodePath = path.join(artifactsPath, 'avm_bytecode.bin');
     const proofPath = path.join(artifactsPath, 'proof');
 
-    const { args, functionData, contractAddress } = avmExecution;
-    const bytecode = await this.contractsDb.getBytecode(contractAddress, functionData.selector);
+    const { args, functionSelector, contractAddress } = avmExecution;
+    let bytecode = await this.contractsDb.getBytecode(contractAddress, functionSelector);
+    assert(!!bytecode, `Bytecode not found for ${contractAddress}:${functionSelector}`);
+    // This should be removed once we do bytecode validation.
+    bytecode = await decompressBytecodeIfCompressed(bytecode!);
     // Write call data and bytecode to files.
     await fs.writeFile(
       calldataPath,

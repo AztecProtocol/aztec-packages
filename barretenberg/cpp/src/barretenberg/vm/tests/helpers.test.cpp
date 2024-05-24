@@ -1,15 +1,27 @@
+#include "barretenberg/vm/tests/helpers.test.hpp"
 #include "avm_common.test.hpp"
+#include "barretenberg/vm/avm_trace/constants.hpp"
 #include "barretenberg/vm/generated/avm_flavor.hpp"
 
 namespace tests_avm {
+
+std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<ThreeOpParam> operands,
+                                                 std::vector<bb::avm_trace::AvmMemoryTag> mem_tags)
+{
+    std::vector<ThreeOpParamRow> params;
+    for (size_t i = 0; i < 5; i++) {
+        params.emplace_back(operands[i], mem_tags[i]);
+    }
+    return params;
+}
 /**
  * @brief Helper routine checking the circuit constraints without proving
  *
  * @param trace The execution trace
  */
-void validate_trace_check_circuit(std::vector<Row>&& trace)
+void validate_trace_check_circuit(std::vector<Row>&& trace, std::array<FF, KERNEL_INPUTS_LENGTH> public_inputs)
 {
-    validate_trace(std::move(trace), false);
+    validate_trace(std::move(trace), public_inputs, false);
 };
 
 /**
@@ -18,19 +30,24 @@ void validate_trace_check_circuit(std::vector<Row>&& trace)
  *
  * @param trace The execution trace
  */
-void validate_trace(std::vector<Row>&& trace, bool with_proof)
+void validate_trace(std::vector<Row>&& trace, std::array<FF, KERNEL_INPUTS_LENGTH> public_inputs, bool with_proof)
 {
     auto circuit_builder = AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
     EXPECT_TRUE(circuit_builder.check_circuit());
 
     if (with_proof) {
-        auto composer = AvmComposer();
-        auto prover = composer.create_prover(circuit_builder);
-        auto proof = prover.construct_proof();
+        AvmComposer composer = AvmComposer();
+        AvmProver prover = composer.create_prover(circuit_builder);
+        HonkProof proof = prover.construct_proof();
 
-        auto verifier = composer.create_verifier(circuit_builder);
-        bool verified = verifier.verify_proof(proof);
+        AvmVerifier verifier = composer.create_verifier(circuit_builder);
+
+        // We convert to a vector as the pil generated verifier is generic and unaware of the KERNEL_INPUTS_LENGTH
+        std::vector<FF> public_inputs_as_vec(KERNEL_INPUTS_LENGTH);
+        std::copy(public_inputs.begin(), public_inputs.end(), public_inputs_as_vec.data());
+
+        bool verified = verifier.verify_proof(proof, public_inputs_as_vec);
 
         EXPECT_TRUE(verified);
     }

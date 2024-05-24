@@ -142,8 +142,7 @@ pub fn monomorphize_debug(
         .collect();
 
     let functions = vecmap(monomorphizer.finished_functions, |(_, f)| f);
-    let FuncMeta { return_distinctness, return_visibility, kind, .. } =
-        monomorphizer.interner.function_meta(&main);
+    let FuncMeta { return_visibility, kind, .. } = monomorphizer.interner.function_meta(&main);
 
     let (debug_variables, debug_functions, debug_types) =
         monomorphizer.debug_type_tracker.extract_vars_and_types();
@@ -151,7 +150,6 @@ pub fn monomorphize_debug(
         functions,
         func_sigs,
         function_sig,
-        *return_distinctness,
         monomorphizer.return_location,
         *return_visibility,
         *kind == FunctionKind::Recursive,
@@ -395,7 +393,7 @@ impl<'interner> Monomorphizer<'interner> {
         use ast::Literal::*;
 
         let expr = match self.interner.expression(&expr) {
-            HirExpression::Ident(ident) => self.ident(ident, expr)?,
+            HirExpression::Ident(ident, _) => self.ident(ident, expr)?,
             HirExpression::Literal(HirLiteral::Str(contents)) => Literal(Str(contents)),
             HirExpression::Literal(HirLiteral::FmtStr(contents, idents)) => {
                 let fields = try_vecmap(idents, |ident| self.expr(ident))?;
@@ -1174,7 +1172,7 @@ impl<'interner> Monomorphizer<'interner> {
         arguments: &mut Vec<ast::Expression>,
     ) {
         match hir_argument {
-            HirExpression::Ident(ident) => {
+            HirExpression::Ident(ident, _) => {
                 let typ = self.interner.definition_type(ident.id);
                 let typ: Type = typ.follow_bindings();
                 let is_fmt_str = match typ {

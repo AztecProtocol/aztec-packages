@@ -5,7 +5,8 @@ deps:
     LET packages = $(git ls-files "**/package*.json" package*.json)
     LET tsconfigs = $(git ls-files "**/tsconfig*.json" tsconfig*.json)
     FROM ../build-images+build
-    # copy bb-js and noir-packages
+    # copy bb, bb-js and noir-packages
+    COPY ../barretenberg/cpp/+preset-release/bin /usr/src/barretenberg/cpp/build/
     COPY ../barretenberg/ts/+build/build /usr/src/barretenberg/ts
     COPY ../noir/+packages/packages /usr/src/noir/packages
     WORKDIR /usr/src/yarn-project
@@ -34,6 +35,8 @@ build:
     BUILD ../noir/+nargo
     BUILD ../noir-projects/+build
     BUILD ../l1-contracts/+build
+    BUILD ../barretenberg/ts/+build
+    BUILD ../noir/+packages
     FROM +deps
 
     COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
@@ -68,10 +71,14 @@ aztec-prod:
 
 aztec:
     FROM ubuntu:noble
-    RUN apt update && apt install nodejs -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    RUN apt update && apt install nodejs curl -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
     COPY +aztec-prod/usr/src /usr/src
     ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
-    EXPOSE 8080
+    LET port=8080
+    ENV PORT=$port
+    HEALTHCHECK --interval=10s --timeout=10s --retries=6 \
+        CMD curl -fsSd '{\"jsonrpc\":\"2.0\",\"method\":\"pxe_getNodeInfo\",\"id\":1}' http://127.0.0.1:$port
+    EXPOSE $port
 
 # We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
 end-to-end-prod:
@@ -87,16 +94,24 @@ end-to-end-prod:
         **/artifacts
     SAVE ARTIFACT /usr/src /usr/src
 
+anvil:
+    FROM ../build-images+build
+    SAVE ARTIFACT /opt/foundry/bin/anvil
+
 end-to-end:
     FROM ubuntu:noble
-    RUN apt-get update && apt-get install -y wget gnupg \
+    # add repository for chromium
+    RUN apt-get update && apt-get install -y software-properties-common \
+        && add-apt-repository ppa:xtradeb/apps -y && apt-get update \
+        && apt-get install -y wget gnupg \
         && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
         && echo "deb [arch=$(dpkg --print-architecture)] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
-        && apt update && apt install nodejs jq google-chrome-stable netcat-openbsd -y \
+        && apt update && apt install curl chromium nodejs netcat-openbsd -y \
         && rm -rf /var/lib/apt/lists/*
-    ENV CHROME_BIN="/usr/bin/google-chrome-stable"
+    ENV CHROME_BIN="/usr/bin/chromium"
     ENV PATH=/opt/foundry/bin:$PATH
-    COPY ../build-images+build/anvil /opt/foundry/bin/anvil
+    ENV HARDWARE_CONCURRENCY=""
+    COPY +anvil/anvil /opt/foundry/bin/anvil
     COPY +end-to-end-prod/usr/src /usr/src
     WORKDIR /usr/src/yarn-project/end-to-end
     RUN ln -s /usr/src/yarn-project/.yarn/releases/yarn-3.6.3.cjs /usr/local/bin/yarn
@@ -121,6 +136,10 @@ export-end-to-end:
     FROM +end-to-end
     SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
 
+export-e2e-test-images:
+    BUILD +export-aztec
+    BUILD +export-end-to-end
+
 format-check:
     FROM +build
     RUN yarn formatting
@@ -131,9 +150,12 @@ test:
 
 run-e2e:
     ARG test
+    ARG debug=""
     FROM +end-to-end
-    RUN DEBUG=aztec:* yarn test $test
+    RUN DEBUG=$debug yarn test $test
 
 prover-client-test:
     FROM +build
-    RUN cd prover-client && yarn test
+    ARG test
+    ARG debug=""
+    RUN cd prover-client && DEBUG=$debug yarn test $test

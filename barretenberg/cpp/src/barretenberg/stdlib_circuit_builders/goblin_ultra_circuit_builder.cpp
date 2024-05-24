@@ -12,11 +12,14 @@ namespace bb {
 
 template <typename FF> void GoblinUltraCircuitBuilder_<FF>::finalize_circuit()
 {
+    // All of the gates involved in finalization are part of the Ultra arithmetization
     UltraCircuitBuilder_<UltraHonkArith<FF>>::finalize_circuit();
 }
 
 /**
- * @brief Ensure all polynomials have at least one non-zero coefficient to avoid commiting to the zero-polynomial
+ * @brief Ensure all polynomials have at least one non-zero coefficient to avoid commiting to the zero-polynomial.
+ *        This only adds gates for the Goblin polynomials. Most polynomials are handled via the Ultra method,
+ *        which should be done by a separate call to the Ultra builder's non zero polynomial gates method.
  *
  * @param in Structure containing variables and witness selectors
  */
@@ -90,7 +93,7 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
         this->blocks.poseidon_internal, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 
     // add dummy mul accum op and an equality op
-    this->queue_ecc_mul_accum(bb::g1::affine_element::one() * FF::random_element(), FF::random_element());
+    this->queue_ecc_mul_accum(bb::g1::affine_element::one(), 2);
     this->queue_ecc_eq();
 }
 

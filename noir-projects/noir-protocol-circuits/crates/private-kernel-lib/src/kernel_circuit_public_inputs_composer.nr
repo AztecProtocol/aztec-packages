@@ -1,25 +1,19 @@
-use crate::common;
-use dep::std::{cmp::Eq, option::Option};
-use dep::reset_kernel_lib::{
-    NullifierReadRequestHints, PrivateValidationRequestProcessor,
-    verify_squashed_transient_note_hashes_and_nullifiers
-};
 use dep::types::{
     abis::{
-    kernel_data::PrivateKernelData,
+    private_kernel_data::PrivateKernelData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder, PublicKernelCircuitPublicInputs},
-    note_hash::NoteHashContext, nullifier::Nullifier, side_effect::{SideEffect, Ordered}, gas::Gas
+    note_hash::ScopedNoteHash, nullifier::ScopedNullifier, side_effect::Ordered,
+    log_hash::{NoteLogHash, ScopedLogHash, ScopedEncryptedLogHash}, gas::Gas
 },
     constants::{
-    MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-    MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-    MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, DA_BYTES_PER_FIELD, FIXED_DA_GAS,
-    DA_GAS_PER_BYTE
+    MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
+    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 },
-    grumpkin_private_key::GrumpkinPrivateKey,
-    hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash},
-    utils::arrays::{array_length, array_to_bounded_vec, assert_sorted_array}, traits::{Empty, is_empty}
+    hash::{
+    compute_l2_to_l1_hash, compute_note_hash_nonce, compute_unique_note_hash, silo_note_hash,
+    silo_nullifier, silo_encrypted_log, silo_unencrypted_log
+},
+    utils::arrays::{array_length, array_to_bounded_vec, assert_sorted_array}
 };
 
 fn asc_sort_by_counters<T>(a: T, b: T) -> bool where T: Ordered {
@@ -32,36 +26,31 @@ fn asc_sort_by_counters<T>(a: T, b: T) -> bool where T: Ordered {
 struct KernelCircuitPublicInputsComposer {
     public_inputs: PrivateKernelCircuitPublicInputsBuilder,
     previous_kernel: PrivateKernelData,
-    // Final data
-    note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
-    nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
     // Hints
-    transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-    transient_note_hash_indexes_for_nullifiers: [u64; MAX_NEW_NULLIFIERS_PER_TX],
-    sorted_note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
+    sorted_note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-    sorted_nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
+    sorted_nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
-    sorted_encrypted_log_hashes: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX],
+    sorted_note_encrypted_log_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
+    sorted_note_encrypted_log_hashes_indexes: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
+    sorted_encrypted_log_hashes: [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
-    sorted_unencrypted_log_hashes: [SideEffect; MAX_UNENCRYPTED_LOGS_PER_TX],
+    sorted_unencrypted_log_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
     sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX],
 }
 
 impl KernelCircuitPublicInputsComposer {
     pub fn new(
         previous_kernel: PrivateKernelData,
-        note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
-        nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
-        transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-        transient_note_hash_indexes_for_nullifiers: [u64; MAX_NEW_NULLIFIERS_PER_TX],
-        sorted_note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
+        sorted_note_hashes: [ScopedNoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
         sorted_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-        sorted_nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
+        sorted_nullifiers: [ScopedNullifier; MAX_NEW_NULLIFIERS_PER_TX],
         sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
-        sorted_encrypted_log_hashes: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX],
+        sorted_note_encrypted_log_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
+        sorted_note_encrypted_log_hashes_indexes: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
+        sorted_encrypted_log_hashes: [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
         sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
-        sorted_unencrypted_log_hashes: [SideEffect; MAX_UNENCRYPTED_LOGS_PER_TX],
+        sorted_unencrypted_log_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
         sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX]
     ) -> Self {
         let public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
@@ -69,14 +58,12 @@ impl KernelCircuitPublicInputsComposer {
         KernelCircuitPublicInputsComposer {
             public_inputs,
             previous_kernel,
-            note_hashes,
-            nullifiers,
-            transient_nullifier_indexes_for_note_hashes,
-            transient_note_hash_indexes_for_nullifiers,
             sorted_note_hashes,
             sorted_note_hashes_indexes,
             sorted_nullifiers,
             sorted_nullifiers_indexes,
+            sorted_note_encrypted_log_hashes,
+            sorted_note_encrypted_log_hashes_indexes,
             sorted_encrypted_log_hashes,
             sorted_encrypted_log_hashes_indexes,
             sorted_unencrypted_log_hashes,
@@ -88,6 +75,7 @@ impl KernelCircuitPublicInputsComposer {
         assert_eq(
             array_length(self.previous_kernel.public_inputs.end.private_call_stack), 0, "Private call stack must be empty when executing the tail circuit"
         );
+        self.verify_empty_validation_requests();
 
         self.propagate_rollup_validation_requests();
 
@@ -95,8 +83,9 @@ impl KernelCircuitPublicInputsComposer {
 
         self.propagate_sorted_arrays();
 
-        // TODO: Should be done in a reset circuit.
-        self.squash_transient_data();
+        self.propagate_fee_payer();
+
+        self.verify_no_transient_data();
 
         self.silo_values();
 
@@ -107,6 +96,7 @@ impl KernelCircuitPublicInputsComposer {
         let _ = self.compose();
 
         self.propagate_sorted_public_call_requests();
+        self.propagate_public_teardown_call_request();
 
         *self
     }
@@ -131,20 +121,76 @@ impl KernelCircuitPublicInputsComposer {
 
     fn silo_values(&mut self) {
         self.silo_note_hashes();
-        // TODO: Move siloing from init/inner circuits to here.
+        self.silo_nullifiers();
+        self.silo_l2_to_l1_messages();
+        self.silo_encrypted_logs();
+        self.silo_unencrypted_logs();
     }
 
     fn silo_note_hashes(&mut self) {
-        let first_nullifier = self.public_inputs.end.new_nullifiers.get_unchecked(0);
-        assert(first_nullifier.value != 0, "The 0th nullifier in the accumulated nullifier array is zero");
+        let first_nullifier = self.public_inputs.end.new_nullifiers.get_unchecked(0).value();
+
+        // This check is unnecessary. The 0th nullifier will always be set a non-zero value in private_kernel_init.
+        // assert(first_nullifier != 0, "The 0th nullifier in the accumulated nullifier array is zero");
 
         let note_hashes = self.public_inputs.end.new_note_hashes.storage;
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             let note_hash = note_hashes[i];
-            if note_hash.value != 0 {
-                let nonce = compute_note_hash_nonce(first_nullifier.value, i);
-                let unique_note_hash = compute_unique_siloed_note_hash(nonce, note_hash.value);
-                self.public_inputs.end.new_note_hashes.storage[i].value = unique_note_hash;
+            if note_hash.value() != 0 {
+                let nonce = compute_note_hash_nonce(first_nullifier, i);
+                let unique_note_hash = compute_unique_note_hash(nonce, note_hash.value());
+                let siloed = silo_note_hash(note_hash.contract_address, unique_note_hash);
+                self.public_inputs.end.new_note_hashes.storage[i].note_hash.value = siloed;
+            }
+        }
+    }
+
+    fn silo_nullifiers(&mut self) {
+        let nullifiers = self.public_inputs.end.new_nullifiers.storage;
+        for i in 1..MAX_NEW_NOTE_HASHES_PER_TX { // i starts from 1 to skip the first nullifier.
+            let nullifier = nullifiers[i];
+            if nullifier.value() != 0 {
+                let siloed = silo_nullifier(nullifier.contract_address, nullifier.value());
+                self.public_inputs.end.new_nullifiers.storage[i].nullifier.value = siloed;
+            }
+        }
+    }
+
+    fn silo_l2_to_l1_messages(&mut self) {
+        let l2_to_l1_msgs = self.public_inputs.end.new_l2_to_l1_msgs.storage;
+        let tx_context = self.previous_kernel.public_inputs.constants.tx_context;
+        for i in 0..l2_to_l1_msgs.len() {
+            let msg = l2_to_l1_msgs[i];
+            if !msg.contract_address.is_zero() {
+                let siloed = compute_l2_to_l1_hash(
+                    msg.contract_address,
+                    tx_context.version,
+                    tx_context.chain_id,
+                    msg.message
+                );
+                self.public_inputs.end.new_l2_to_l1_msgs.storage[i].message.content = siloed;
+            }
+        }
+    }
+
+    fn silo_encrypted_logs(&mut self) {
+        let logs = self.public_inputs.end.encrypted_logs_hashes.storage;
+        for i in 0..logs.len() {
+            let log = logs[i];
+            if log.value() != 0 {
+                let siloed = silo_encrypted_log(log.contract_address, log.log_hash.randomness, log.value());
+                self.public_inputs.end.encrypted_logs_hashes.storage[i].log_hash.value = siloed;
+            }
+        }
+    }
+
+    fn silo_unencrypted_logs(&mut self) {
+        let logs = self.public_inputs.end.unencrypted_logs_hashes.storage;
+        for i in 0..logs.len() {
+            let log = logs[i];
+            if log.value() != 0 {
+                let siloed = silo_unencrypted_log(log.contract_address, log.value());
+                self.public_inputs.end.unencrypted_logs_hashes.storage[i].log_hash.value = siloed;
             }
         }
     }
@@ -177,6 +223,14 @@ impl KernelCircuitPublicInputsComposer {
         self.public_inputs.end.new_nullifiers = array_to_bounded_vec(self.sorted_nullifiers);
 
         assert_sorted_array(
+            accumulated_data.note_encrypted_logs_hashes,
+            self.sorted_note_encrypted_log_hashes,
+            self.sorted_note_encrypted_log_hashes_indexes,
+            asc_sort_by_counters
+        );
+        self.public_inputs.end.note_encrypted_logs_hashes = array_to_bounded_vec(self.sorted_note_encrypted_log_hashes);
+
+        assert_sorted_array(
             accumulated_data.encrypted_logs_hashes,
             self.sorted_encrypted_log_hashes,
             self.sorted_encrypted_log_hashes_indexes,
@@ -193,8 +247,6 @@ impl KernelCircuitPublicInputsComposer {
         self.public_inputs.end.unencrypted_logs_hashes = array_to_bounded_vec(self.sorted_unencrypted_log_hashes);
         // TODO: Sort all the side effects below.
         self.public_inputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(accumulated_data.new_l2_to_l1_msgs);
-        self.public_inputs.end.encrypted_log_preimages_length = accumulated_data.encrypted_log_preimages_length;
-        self.public_inputs.end.unencrypted_log_preimages_length = accumulated_data.unencrypted_log_preimages_length;
     }
 
     fn propagate_sorted_public_call_requests(&mut self) {
@@ -202,26 +254,38 @@ impl KernelCircuitPublicInputsComposer {
         self.public_inputs.end.public_call_stack = array_to_bounded_vec(accumulated_data.public_call_stack);
     }
 
-    fn squash_transient_data(&mut self) {
-        verify_squashed_transient_note_hashes_and_nullifiers(
-            self.public_inputs.end.new_note_hashes.storage,
-            self.public_inputs.end.new_nullifiers.storage,
-            self.note_hashes,
-            self.nullifiers,
-            self.transient_nullifier_indexes_for_note_hashes,
-            self.transient_note_hash_indexes_for_nullifiers
+    fn propagate_public_teardown_call_request(&mut self) {
+        self.public_inputs.public_teardown_call_request = self.previous_kernel.public_inputs.public_teardown_call_request;
+    }
+
+    fn propagate_fee_payer(&mut self) {
+        self.public_inputs.fee_payer = self.previous_kernel.public_inputs.fee_payer;
+    }
+
+    fn verify_no_transient_data(self) {
+        // Currently all the transient note hashes and nullifiers must be cleared in the reset circuits.
+        // Check that the propagated note hashes don't link to a nullifier, and vice versa.
+        for note_hash in self.public_inputs.end.new_note_hashes.storage {
+            assert(note_hash.nullifier_counter == 0, "Unresolved transient note hash");
+        }
+        for new_nullifier in self.public_inputs.end.new_nullifiers.storage {
+            assert(new_nullifier.nullified_note_hash() == 0, "Unresolved transient nullifier");
+        }
+    }
+
+    fn verify_empty_validation_requests(self) {
+        assert_eq(
+            array_length(self.previous_kernel.public_inputs.validation_requests.note_hash_read_requests), 0, "Non empty note hash read requests"
         );
 
-        // Currently all the transient note hashes and nullifiers must be cleared in the tail circuits.
-        // Check that the propagated note hashes don't link to a nullifier, and vice versa.
-        for i in 0..self.note_hashes.len() {
-            assert(self.note_hashes[i].nullifier_counter == 0, "Unresolved transient note hash");
-        }
-        for i in 0..self.nullifiers.len() {
-            assert(self.nullifiers[i].note_hash == 0, "Unresolved transient nullifier");
-        }
+        assert_eq(
+            array_length(self.previous_kernel.public_inputs.validation_requests.nullifier_read_requests), 0, "Non empty nullifier read requests"
+        );
 
-        self.public_inputs.end.new_note_hashes = array_to_bounded_vec(self.note_hashes);
-        self.public_inputs.end.new_nullifiers = array_to_bounded_vec(self.nullifiers);
+        assert_eq(
+            array_length(
+                self.previous_kernel.public_inputs.validation_requests.scoped_key_validation_requests_and_generators
+            ), 0, "Non empty key validation requests"
+        );
     }
 }

@@ -8,9 +8,10 @@ describe('abi/encoder', () => {
   it('serializes fields as fields', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
       isInitializer: true,
+      isStatic: false,
       parameters: [
         {
           name: 'owner',
@@ -31,8 +32,9 @@ describe('abi/encoder', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'owner',
@@ -55,8 +57,9 @@ describe('abi/encoder', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'owner',
@@ -80,8 +83,9 @@ describe('abi/encoder', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'owner',
@@ -115,8 +119,9 @@ describe('abi/encoder', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'contract_class',
@@ -146,8 +151,9 @@ describe('abi/encoder', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'owner',
@@ -168,8 +174,9 @@ describe('abi/encoder', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'isOwner',
@@ -193,8 +200,9 @@ describe('abi/encoder', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'owner',

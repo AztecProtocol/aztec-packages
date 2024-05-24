@@ -3,7 +3,6 @@ import {
   L2Block,
   MerkleTreeId,
   type ProcessedTx,
-  type PublicKernelRequest,
   PublicKernelType,
   type TxEffect,
   toTxEffect,
@@ -14,9 +13,10 @@ import {
   type ProvingResult,
   type ProvingTicket,
   type PublicInputsAndProof,
+  type ServerCircuitProver,
 } from '@aztec/circuit-types/interfaces';
-import { type CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
+  AGGREGATION_OBJECT_LENGTH,
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   type BaseRollupInputs,
@@ -25,27 +25,32 @@ import {
   type KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type Proof,
   type PublicKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
+  type RecursiveProof,
   type RootParityInput,
   RootParityInputs,
+  type VerificationKeyAsFields,
+  type VerificationKeyData,
+  type VerificationKeys,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { AbortedError } from '@aztec/foundation/error';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { type Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
 import { sleep } from '@aztec/foundation/sleep';
-import { Timer } from '@aztec/foundation/timer';
+import { pushTestData } from '@aztec/foundation/testing';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 
-import { type CircuitProver } from '../prover/interface.js';
 import {
   buildBaseRollupInput,
   createMergeRollupInputs,
@@ -82,7 +87,9 @@ const KernelTypesWithoutFunctions: Set<PublicKernelType> = new Set<PublicKernelT
  */
 export class ProvingOrchestrator {
   private provingState: ProvingState | undefined = undefined;
-  constructor(private db: MerkleTreeOperations, private prover: CircuitProver) {}
+  private pendingProvingJobs: AbortController[] = [];
+
+  constructor(private db: MerkleTreeOperations, private prover: ServerCircuitProver) {}
 
   /**
    * Starts off a new block
@@ -90,6 +97,7 @@ export class ProvingOrchestrator {
    * @param globalVariables - The global variables for the block
    * @param l1ToL2Messages - The l1 to l2 messages for the block
    * @param emptyTx - The instance of an empty transaction to be used to pad this block
+   * @param verificationKeys - The private kernel verification keys
    * @returns A proving ticket, containing a promise notifying of proving completion
    */
   public async startNewBlock(
@@ -97,6 +105,7 @@ export class ProvingOrchestrator {
     globalVariables: GlobalVariables,
     l1ToL2Messages: Fr[],
     emptyTx: ProcessedTx,
+    verificationKeys: VerificationKeys,
   ): Promise<ProvingTicket> {
     // Check that the length of the array of txs is a power of two
     // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
@@ -154,6 +163,7 @@ export class ProvingOrchestrator {
       emptyTx,
       messageTreeSnapshot,
       newL1ToL2MessageTreeRootSiblingPath,
+      verificationKeys,
     );
 
     for (let i = 0; i < baseParityInputs.length; i++) {
@@ -197,7 +207,7 @@ export class ProvingOrchestrator {
     }
 
     // we need to pad the rollup with empty transactions
-    logger.info(
+    logger.debug(
       `Padding rollup with ${
         this.provingState.totalNumTxs - this.provingState.transactionsReceived
       } empty transactions`,
@@ -211,6 +221,10 @@ export class ProvingOrchestrator {
    * Cancel any further proving of the block
    */
   public cancelBlock() {
+    for (const controller of this.pendingProvingJobs) {
+      controller.abort();
+    }
+
     this.provingState?.cancel();
   }
 
@@ -219,7 +233,12 @@ export class ProvingOrchestrator {
    * @returns The fully proven block and proof.
    */
   public async finaliseBlock() {
-    if (!this.provingState || !this.provingState.rootRollupPublicInputs || !this.provingState.finalProof) {
+    if (
+      !this.provingState ||
+      !this.provingState.rootRollupPublicInputs ||
+      !this.provingState.finalProof ||
+      !this.provingState.finalAggregationObject
+    ) {
       throw new Error(`Invalid proving state, a block must be proven before it can be finalised`);
     }
     if (this.provingState.block) {
@@ -234,8 +253,9 @@ export class ProvingOrchestrator {
     await validateRootOutput(rootRollupOutputs, this.db);
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
+    const gasFees = this.provingState.globalVariables.gasFees;
     const nonEmptyTxEffects: TxEffect[] = this.provingState!.allTxs.map(txProvingState =>
-      toTxEffect(txProvingState.processedTx),
+      toTxEffect(txProvingState.processedTx, gasFees),
     ).filter(txEffect => !txEffect.isEmpty());
     const blockBody = new Body(nonEmptyTxEffects);
 
@@ -260,8 +280,15 @@ export class ProvingOrchestrator {
 
     const blockResult: BlockResult = {
       proof: this.provingState.finalProof,
+      aggregationObject: this.provingState.finalAggregationObject,
       block: l2Block,
     };
+
+    pushTestData('blockResults', {
+      block: l2Block.toString(),
+      proof: this.provingState.finalProof.toString(),
+      aggregationObject: blockResult.aggregationObject.map(x => x.toString()),
+    });
 
     return blockResult;
   }
@@ -272,13 +299,21 @@ export class ProvingOrchestrator {
    * @param provingState - The proving state being worked on
    */
   private async startTransaction(tx: ProcessedTx, provingState: ProvingState) {
-    const txInputs = await this.prepareBaseRollupInputs(provingState, tx);
+    // Pass the private kernel tail vk here as the previous one.
+    // If there are public functions then this key will be overwritten once the public tail has been proven
+    const previousKernelVerificationKey = provingState.privateKernelVerificationKeys.privateKernelCircuit;
+    const txInputs = await this.prepareBaseRollupInputs(provingState, tx, previousKernelVerificationKey);
     if (!txInputs) {
       // This should not be possible
       throw new Error(`Unable to add padding transaction, preparing base inputs failed`);
     }
     const [inputs, treeSnapshots] = txInputs;
-    const txProvingState = new TxProvingState(tx, inputs, treeSnapshots);
+    const txProvingState = new TxProvingState(
+      tx,
+      inputs,
+      treeSnapshots,
+      provingState.privateKernelVerificationKeys.privateKernelToPublicCircuit,
+    );
     const txIndex = provingState.addNewTx(txProvingState);
     const numPublicKernels = txProvingState.getNumPublicKernels();
     if (!numPublicKernels) {
@@ -303,30 +338,53 @@ export class ProvingOrchestrator {
    */
   private deferredProving<T>(
     provingState: ProvingState | undefined,
-    request: () => Promise<T>,
-    callback: (result: T, durationMs: number) => void | Promise<void>,
+    request: (signal: AbortSignal) => Promise<T>,
+    callback: (result: T) => void | Promise<void>,
   ) {
     if (!provingState?.verifyState()) {
       logger.debug(`Not enqueuing job, state no longer valid`);
       return;
     }
+
+    const controller = new AbortController();
+    this.pendingProvingJobs.push(controller);
+
     // We use a 'safeJob'. We don't want promise rejections in the proving pool, we want to capture the error here
     // and reject the proving job whilst keeping the event loop free of rejections
     const safeJob = async () => {
       try {
-        const timer = new Timer();
-        const result = await request();
-        const duration = timer.ms();
+        // there's a delay between enqueueing this job and it actually running
+        if (controller.signal.aborted) {
+          return;
+        }
 
+        const result = await request(controller.signal);
         if (!provingState?.verifyState()) {
           logger.debug(`State no longer valid, discarding result`);
           return;
         }
 
-        await callback(result, duration);
+        // we could have been cancelled whilst waiting for the result
+        // and the prover ignored the signal. Drop the result in that case
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        await callback(result);
       } catch (err) {
+        if (err instanceof AbortedError) {
+          // operation was cancelled, probably because the block was cancelled
+          // drop this result
+          return;
+        }
+
         logger.error(`Error thrown when proving job`);
         provingState!.reject(`${err}`);
+      } finally {
+        const index = this.pendingProvingJobs.indexOf(controller);
+        if (index > -1) {
+          this.pendingProvingJobs.splice(index, 1);
+        }
       }
     };
 
@@ -334,49 +392,17 @@ export class ProvingOrchestrator {
     setImmediate(safeJob);
   }
 
-  private emitCircuitSimulationStats(
-    circuitName: CircuitSimulationStats['circuitName'] | null,
-    inputSize: number,
-    outputSize: number,
-    duration: number,
-  ) {
-    const stats: CircuitSimulationStats | undefined = circuitName
-      ? {
-          eventName: 'circuit-simulation',
-          circuitName,
-          duration,
-          inputSize,
-          outputSize,
-        }
-      : undefined;
-    logger.debug(`Simulated ${circuitName} circuit duration=${duration}ms`, stats);
-  }
-
-  private getPublicKernelCircuitName(request: PublicKernelRequest) {
-    switch (request.type) {
-      case PublicKernelType.SETUP:
-        return 'public-kernel-setup';
-      case PublicKernelType.APP_LOGIC:
-        return 'public-kernel-app-logic';
-      case PublicKernelType.TEARDOWN:
-        return 'public-kernel-teardown';
-      case PublicKernelType.TAIL:
-        return 'public-kernel-tail';
-      default:
-        return null;
-    }
-  }
-
   // Updates the merkle trees for a transaction. The first enqueued job for a transaction
   private async prepareBaseRollupInputs(
     provingState: ProvingState | undefined,
     tx: ProcessedTx,
+    kernelVk: VerificationKeyData,
   ): Promise<[BaseRollupInputs, TreeSnapshots] | undefined> {
     if (!provingState?.verifyState()) {
       logger.debug('Not preparing base rollup inputs, state invalid');
       return;
     }
-    const inputs = await buildBaseRollupInput(tx, provingState.globalVariables, this.db);
+    const inputs = await buildBaseRollupInput(tx, provingState.globalVariables, this.db, kernelVk);
     const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
       async (id: MerkleTreeId) => {
         return { key: id, value: await getTreeSnapshot(id, this.db) };
@@ -396,7 +422,11 @@ export class ProvingOrchestrator {
     provingState: ProvingState,
     currentLevel: bigint,
     currentIndex: bigint,
-    mergeInputs: [BaseOrMergeRollupPublicInputs, Proof],
+    mergeInputs: [
+      BaseOrMergeRollupPublicInputs,
+      RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+      VerificationKeyAsFields,
+    ],
   ) {
     const mergeLevel = currentLevel - 1n;
     const indexWithinMergeLevel = currentIndex >> 1n;
@@ -415,10 +445,23 @@ export class ProvingOrchestrator {
       return;
     }
     if (
+      !tx.baseRollupInputs.kernelData.publicInputs.end.noteEncryptedLogsHash
+        .toBuffer()
+        .equals(tx.processedTx.noteEncryptedLogs.hash())
+    ) {
+      provingState.reject(
+        `Note encrypted logs hash mismatch: ${
+          tx.baseRollupInputs.kernelData.publicInputs.end.noteEncryptedLogsHash
+        } === ${Fr.fromBuffer(tx.processedTx.noteEncryptedLogs.hash())}`,
+      );
+      return;
+    }
+    if (
       !tx.baseRollupInputs.kernelData.publicInputs.end.encryptedLogsHash
         .toBuffer()
         .equals(tx.processedTx.encryptedLogs.hash())
     ) {
+      // @todo This rejection messages is never seen. Never making it out to the logs
       provingState.reject(
         `Encrypted logs hash mismatch: ${
           tx.baseRollupInputs.kernelData.publicInputs.end.encryptedLogsHash
@@ -441,18 +484,15 @@ export class ProvingOrchestrator {
 
     this.deferredProving(
       provingState,
-      () => this.prover.getBaseRollupProof(tx.baseRollupInputs),
-      (result, duration) => {
-        this.emitCircuitSimulationStats(
-          'base-rollup',
-          tx.baseRollupInputs.toBuffer().length,
-          result.inputs.toBuffer().length,
-          duration,
-        );
-
+      signal => this.prover.getBaseRollupProof(tx.baseRollupInputs, signal),
+      result => {
         validatePartialState(result.inputs.end, tx.treeSnapshots);
         const currentLevel = provingState.numMergeLevels + 1n;
-        this.storeAndExecuteNextMergeLevel(provingState, currentLevel, index, [result.inputs, result.proof]);
+        this.storeAndExecuteNextMergeLevel(provingState, currentLevel, index, [
+          result.inputs,
+          result.proof,
+          result.verificationKey.keyAsFields,
+        ]);
       },
     );
   }
@@ -466,21 +506,19 @@ export class ProvingOrchestrator {
     mergeInputData: MergeRollupInputData,
   ) {
     const inputs = createMergeRollupInputs(
-      [mergeInputData.inputs[0]!, mergeInputData.proofs[0]!],
-      [mergeInputData.inputs[1]!, mergeInputData.proofs[1]!],
+      [mergeInputData.inputs[0]!, mergeInputData.proofs[0]!, mergeInputData.verificationKeys[0]!],
+      [mergeInputData.inputs[1]!, mergeInputData.proofs[1]!, mergeInputData.verificationKeys[1]!],
     );
 
     this.deferredProving(
       provingState,
-      () => this.prover.getMergeRollupProof(inputs),
-      (result, duration) => {
-        this.emitCircuitSimulationStats(
-          'merge-rollup',
-          inputs.toBuffer().length,
-          result.inputs.toBuffer().length,
-          duration,
-        );
-        this.storeAndExecuteNextMergeLevel(provingState, level, index, [result.inputs, result.proof]);
+      signal => this.prover.getMergeRollupProof(inputs, signal),
+      result => {
+        this.storeAndExecuteNextMergeLevel(provingState, level, index, [
+          result.inputs,
+          result.proof,
+          result.verificationKey.keyAsFields,
+        ]);
       },
     );
   }
@@ -497,8 +535,10 @@ export class ProvingOrchestrator {
     const inputs = await getRootRollupInput(
       mergeInputData.inputs[0]!,
       mergeInputData.proofs[0]!,
+      mergeInputData.verificationKeys[0]!,
       mergeInputData.inputs[1]!,
       mergeInputData.proofs[1]!,
+      mergeInputData.verificationKeys[1]!,
       rootParityInput,
       provingState.newL1ToL2Messages,
       provingState.messageTreeSnapshot,
@@ -508,17 +548,14 @@ export class ProvingOrchestrator {
 
     this.deferredProving(
       provingState,
-      () => this.prover.getRootRollupProof(inputs),
-      (result, duration) => {
-        this.emitCircuitSimulationStats(
-          'root-rollup',
-          inputs.toBuffer().length,
-          result.inputs.toBuffer().length,
-          duration,
-        );
-
+      signal => this.prover.getRootRollupProof(inputs, signal),
+      result => {
         provingState.rootRollupPublicInputs = result.inputs;
-        provingState.finalProof = result.proof;
+        provingState.finalAggregationObject = extractAggregationObject(
+          result.proof.binaryProof,
+          result.verificationKey.numPublicInputs,
+        );
+        provingState.finalProof = result.proof.binaryProof;
 
         const provingResult: ProvingResult = {
           status: PROVING_STATUS.SUCCESS,
@@ -533,14 +570,8 @@ export class ProvingOrchestrator {
   private enqueueBaseParityCircuit(provingState: ProvingState, inputs: BaseParityInputs, index: number) {
     this.deferredProving(
       provingState,
-      () => this.prover.getBaseParityProof(inputs),
-      (rootInput, duration) => {
-        this.emitCircuitSimulationStats(
-          'base-parity',
-          inputs.toBuffer().length,
-          rootInput.publicInputs.toBuffer().length,
-          duration,
-        );
+      signal => this.prover.getBaseParityProof(inputs, signal),
+      rootInput => {
         provingState.setRootParityInputs(rootInput, index);
         if (provingState.areRootParityInputsReady()) {
           const rootParityInputs = new RootParityInputs(
@@ -560,14 +591,8 @@ export class ProvingOrchestrator {
   private enqueueRootParityCircuit(provingState: ProvingState | undefined, inputs: RootParityInputs) {
     this.deferredProving(
       provingState,
-      () => this.prover.getRootParityProof(inputs),
-      async (rootInput, duration) => {
-        this.emitCircuitSimulationStats(
-          'root-parity',
-          inputs.toBuffer().length,
-          rootInput.publicInputs.toBuffer().length,
-          duration,
-        );
+      signal => this.prover.getRootParityProof(inputs, signal),
+      async rootInput => {
         provingState!.finalRootParityInput = rootInput;
         await this.checkAndEnqueueRootRollup(provingState);
       },
@@ -593,7 +618,11 @@ export class ProvingOrchestrator {
     provingState: ProvingState,
     currentLevel: bigint,
     currentIndex: bigint,
-    mergeInputData: [BaseOrMergeRollupPublicInputs, Proof],
+    mergeInputData: [
+      BaseOrMergeRollupPublicInputs,
+      RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+      VerificationKeyAsFields,
+    ],
   ) {
     const result = this.storeMergeInputs(provingState, currentLevel, currentIndex, mergeInputData);
 
@@ -674,22 +703,19 @@ export class ProvingOrchestrator {
 
     this.deferredProving(
       provingState,
-      (): Promise<PublicInputsAndProof<KernelCircuitPublicInputs | PublicKernelCircuitPublicInputs>> => {
+      (signal): Promise<PublicInputsAndProof<KernelCircuitPublicInputs | PublicKernelCircuitPublicInputs>> => {
         if (request.type === PublicKernelType.TAIL) {
-          return this.prover.getPublicTailProof(request);
+          return this.prover.getPublicTailProof(request, signal);
         } else {
-          return this.prover.getPublicKernelProof(request);
+          return this.prover.getPublicKernelProof(request, signal);
         }
       },
-      (result, duration) => {
-        this.emitCircuitSimulationStats(
-          this.getPublicKernelCircuitName(request),
-          request.inputs.toBuffer().length,
-          0,
-          duration,
+      result => {
+        const nextKernelRequest = txProvingState.getNextPublicKernelFromKernelProof(
+          functionIndex,
+          result.proof,
+          result.verificationKey,
         );
-
-        const nextKernelRequest = txProvingState.getNextPublicKernelFromKernelProof(functionIndex, result.proof);
         // What's the status of the next kernel?
         if (nextKernelRequest.code === TX_PROVING_CODE.NOT_READY) {
           // Must be waiting on a VM proof
@@ -699,6 +725,9 @@ export class ProvingOrchestrator {
         if (nextKernelRequest.code === TX_PROVING_CODE.COMPLETED) {
           // We must have completed all public function proving, we now move to the base rollup
           logger.debug(`Public functions completed for tx ${txIndex} enqueueing base rollup`);
+          // Take the final public tail proof and verification key and pass them to the base rollup
+          txProvingState.baseRollupInputs.kernelData.proof = result.proof;
+          txProvingState.baseRollupInputs.kernelData.vk = result.verificationKey;
           this.enqueueBaseRollup(provingState, BigInt(txIndex), txProvingState);
           return;
         }
@@ -712,4 +741,12 @@ export class ProvingOrchestrator {
       },
     );
   }
+}
+
+function extractAggregationObject(proof: Proof, numPublicInputs: number): Fr[] {
+  const buffer = proof.buffer.subarray(
+    Fr.SIZE_IN_BYTES * (numPublicInputs - AGGREGATION_OBJECT_LENGTH),
+    Fr.SIZE_IN_BYTES * numPublicInputs,
+  );
+  return BufferReader.asReader(buffer).readArray(AGGREGATION_OBJECT_LENGTH, Fr);
 }

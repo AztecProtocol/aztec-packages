@@ -1,6 +1,8 @@
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import type { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { AggregationObject } from '../aggregation_object.js';
+import { type GasFees } from '../gas_fees.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { RevertCode } from '../revert_code.js';
 import { RollupValidationRequests } from '../rollup_validation_requests.js';
@@ -13,10 +15,6 @@ import { CombinedConstantData } from './combined_constant_data.js';
  */
 export class KernelCircuitPublicInputs {
   constructor(
-    /**
-     * Aggregated proof of all the previous kernel iterations.
-     */
-    public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
     /**
      * Validation requests accumulated from private and public execution to be completed by the rollup.
      */
@@ -34,20 +32,37 @@ export class KernelCircuitPublicInputs {
      * Flag indicating whether the transaction reverted.
      */
     public revertCode: RevertCode,
+    /**
+     * The address of the fee payer for the transaction.
+     */
+    public feePayer: AztecAddress,
   ) {}
 
   getNonEmptyNullifiers() {
     return this.end.newNullifiers.filter(n => !n.isZero());
   }
 
+  /**
+   * Computes the transaction fee for the transaction.
+   * @param gasFees - Gas fees for the block. We cannot source this from the constants
+   * since they may be unset if this comes from a private kernel directly.
+   * @returns The amount in gas tokens to pay for this tx.
+   * @remarks It is safe to compute this method in typescript because we compute the
+   * transaction_fee ourselves in the base rollup. This value must match the value
+   * computed in the base rollup, otherwise the content commitment of the block will be invalid.
+   */
+  getTransactionFee(gasFees: GasFees): Fr {
+    return this.end.gasUsed.computeFee(gasFees).add(this.constants.txContext.gasSettings.inclusionFee);
+  }
+
   toBuffer() {
     return serializeToBuffer(
-      this.aggregationObject,
       this.rollupValidationRequests,
       this.end,
       this.constants,
       this.startState,
       this.revertCode,
+      this.feePayer,
     );
   }
 
@@ -59,23 +74,23 @@ export class KernelCircuitPublicInputs {
   static fromBuffer(buffer: Buffer | BufferReader): KernelCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new KernelCircuitPublicInputs(
-      reader.readObject(AggregationObject),
       reader.readObject(RollupValidationRequests),
       reader.readObject(CombinedAccumulatedData),
       reader.readObject(CombinedConstantData),
       reader.readObject(PartialStateReference),
       reader.readObject(RevertCode),
+      reader.readObject(AztecAddress),
     );
   }
 
   static empty() {
     return new KernelCircuitPublicInputs(
-      AggregationObject.makeFake(),
       RollupValidationRequests.empty(),
       CombinedAccumulatedData.empty(),
       CombinedConstantData.empty(),
       PartialStateReference.empty(),
       RevertCode.OK,
+      AztecAddress.ZERO,
     );
   }
 

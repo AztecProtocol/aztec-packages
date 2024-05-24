@@ -1,11 +1,14 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
   type AccountManager,
+  type AztecNode,
   type DebugLogger,
+  type DeployL1Contracts,
   ExtendedNote,
   Fr,
   NativeFeePaymentMethod,
   Note,
+  type PXE,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   Schnorr,
@@ -25,14 +28,7 @@ import {
 
 import { jest } from '@jest/globals';
 
-import {
-  type BalancesFn,
-  type EndToEndContext,
-  expectMapping,
-  getBalancesFn,
-  publicDeployAccounts,
-  setup,
-} from './fixtures/utils.js';
+import { type BalancesFn, expectMapping, getBalancesFn, publicDeployAccounts, setup } from './fixtures/utils.js';
 import { GasPortalTestingHarnessFactory, type IGasBridgingTestHarness } from './shared/gas_portal_test_harness.js';
 
 const TOKEN_NAME = 'BananaCoin';
@@ -40,11 +36,14 @@ const TOKEN_SYMBOL = 'BC';
 const TOKEN_DECIMALS = 18n;
 const BRIDGED_FPC_GAS = BigInt(10e12);
 
-jest.setTimeout(1000_000);
+jest.setTimeout(1_000_000);
 
 describe('e2e_fees_account_init', () => {
-  let ctx: EndToEndContext;
   let logger: DebugLogger;
+  let aztecNode: AztecNode;
+  let pxe: PXE;
+  let teardown: () => Promise<void>;
+
   let sequencer: Wallet;
   let sequencersAddress: AztecAddress;
   let alice: Wallet;
@@ -84,22 +83,24 @@ describe('e2e_fees_account_init', () => {
   }
 
   beforeAll(async () => {
-    ctx = await setup(2, {}, {}, true);
-    logger = ctx.logger;
-    [sequencer, alice] = ctx.wallets;
+    let wallets: Wallet[];
+    let wallet: Wallet;
+    let deployL1ContractsValues: DeployL1Contracts;
+    ({ logger, wallets, wallet, aztecNode, pxe, deployL1ContractsValues } = await setup(2, {}, {}, true));
+    [sequencer, alice] = wallets;
     sequencersAddress = sequencer.getAddress();
 
-    await ctx.aztecNode.setConfig({
+    await aztecNode.setConfig({
       feeRecipient: sequencersAddress,
     });
 
     gasBridgeTestHarness = await GasPortalTestingHarnessFactory.create({
-      aztecNode: ctx.aztecNode,
-      pxeService: ctx.pxe,
-      publicClient: ctx.deployL1ContractsValues.publicClient,
-      walletClient: ctx.deployL1ContractsValues.walletClient,
-      wallet: ctx.wallet,
-      logger: ctx.logger,
+      aztecNode,
+      pxeService: pxe,
+      publicClient: deployL1ContractsValues.publicClient,
+      walletClient: deployL1ContractsValues.walletClient,
+      wallet,
+      logger,
       mockL1: false,
     });
 
@@ -122,7 +123,7 @@ describe('e2e_fees_account_init', () => {
     gasBalances = getBalancesFn('⛽', gas.methods.balance_of_public, logger);
   });
 
-  afterAll(() => ctx.teardown());
+  afterAll(() => teardown());
 
   beforeEach(() => {
     gasSettings = GasSettings.default();
@@ -130,7 +131,7 @@ describe('e2e_fees_account_init', () => {
     actualFee = 1n;
     bobsSecretKey = Fr.random();
     bobsPrivateSigningKey = Fq.random();
-    bobsAccountManager = getSchnorrAccount(ctx.pxe, bobsSecretKey, bobsPrivateSigningKey, Fr.random());
+    bobsAccountManager = getSchnorrAccount(pxe, bobsSecretKey, bobsPrivateSigningKey, Fr.random());
     bobsAddress = bobsAccountManager.getCompleteAddress().address;
   });
 
@@ -147,7 +148,7 @@ describe('e2e_fees_account_init', () => {
           .deploy({
             fee: {
               gasSettings,
-              paymentMethod: await NativeFeePaymentMethod.create(await bobsAccountManager.getWallet()),
+              paymentMethod: new NativeFeePaymentMethod(bobsAddress),
             },
           })
           .wait();
@@ -202,7 +203,7 @@ describe('e2e_fees_account_init', () => {
           })
           .wait();
 
-        expect(tx.status).toEqual(TxStatus.MINED);
+        expect(tx.status).toEqual(TxStatus.SUCCESS);
 
         // the new account should have paid the full fee to the FPC
         await expect(bananaPrivateBalances(bobsAddress)).resolves.toEqual([mintedPrivateBananas - maxFee]);
@@ -259,7 +260,7 @@ describe('e2e_fees_account_init', () => {
           })
           .wait();
 
-        expect(tx.status).toEqual(TxStatus.MINED);
+        expect(tx.status).toEqual(TxStatus.SUCCESS);
 
         // we should have paid the fee to the FPC
         await expect(
@@ -292,10 +293,10 @@ describe('e2e_fees_account_init', () => {
         const completeAddress = CompleteAddress.fromSecretKeyAndInstance(bobsSecretKey, instance);
 
         // alice registers the keys in the PXE
-        await ctx.pxe.registerRecipient(completeAddress);
+        await pxe.registerRecipient(completeAddress);
 
         // and deploys bob's account, paying the fee from her balance
-        const publicKeysHash = deriveKeys(bobsSecretKey).publicKeysHash;
+        const publicKeysHash = deriveKeys(bobsSecretKey).publicKeys.hash();
         const tx = await SchnorrAccountContract.deployWithPublicKeysHash(
           publicKeysHash,
           alice,
@@ -310,12 +311,12 @@ describe('e2e_fees_account_init', () => {
             universalDeploy: true,
             fee: {
               gasSettings,
-              paymentMethod: await NativeFeePaymentMethod.create(alice),
+              paymentMethod: new NativeFeePaymentMethod(alice.getAddress()),
             },
           })
           .wait();
 
-        expect(tx.status).toBe(TxStatus.MINED);
+        expect(tx.status).toBe(TxStatus.SUCCESS);
 
         await expectMapping(
           gasBalances,
@@ -339,6 +340,6 @@ describe('e2e_fees_account_init', () => {
     const note = new Note([new Fr(amount), secretHash]);
     // this note isn't encrypted but we need to provide a registered public key
     const extendedNote = new ExtendedNote(note, owner, bananaCoin.address, storageSlot, noteTypeId, txHash);
-    await ctx.pxe.addNote(extendedNote);
+    await pxe.addNote(extendedNote);
   }
 });

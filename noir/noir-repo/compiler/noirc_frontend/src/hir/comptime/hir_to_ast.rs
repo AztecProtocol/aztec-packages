@@ -67,7 +67,7 @@ impl StmtId {
             HirStatement::Semi(expr) => StatementKind::Semi(expr.to_ast(interner)),
             HirStatement::Error => StatementKind::Error,
             HirStatement::Comptime(statement) => {
-                StatementKind::Comptime(Box::new(statement.to_ast(interner).kind))
+                StatementKind::Comptime(Box::new(statement.to_ast(interner)))
             }
         };
 
@@ -82,9 +82,12 @@ impl ExprId {
         let span = interner.expr_span(&self);
 
         let kind = match expression {
-            HirExpression::Ident(ident) => {
+            HirExpression::Ident(ident, generics) => {
                 let path = Path::from_ident(ident.to_ast(interner));
-                ExpressionKind::Variable(path)
+                ExpressionKind::Variable(
+                    path,
+                    generics.map(|option| option.iter().map(|generic| generic.to_ast()).collect()),
+                )
             }
             HirExpression::Literal(HirLiteral::Array(array)) => {
                 let array = array.into_ast(interner, span);
@@ -146,6 +149,9 @@ impl ExprId {
                     object: method_call.object.to_ast(interner),
                     method_name: method_call.method,
                     arguments: vecmap(method_call.arguments, |arg| arg.to_ast(interner)),
+                    generics: method_call
+                        .generics
+                        .map(|option| option.iter().map(|generic| generic.to_ast()).collect()),
                 }))
             }
             HirExpression::Cast(cast) => {

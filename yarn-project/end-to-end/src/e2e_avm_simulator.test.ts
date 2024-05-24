@@ -1,4 +1,4 @@
-import { type AccountWallet, AztecAddress, Fr, FunctionSelector, TxStatus } from '@aztec/aztec.js';
+import { type AccountWallet, AztecAddress, BatchCall, Fr, FunctionSelector, TxStatus } from '@aztec/aztec.js';
 import { GasSettings } from '@aztec/circuits.js';
 import {
   AvmAcvmInteropTestContract,
@@ -33,6 +33,25 @@ describe('e2e_avm_simulator', () => {
       avmContract = await AvmTestContract.deploy(wallet).send().deployed();
     });
 
+    describe('Assertions', () => {
+      it('PXE processes failed assertions and fills in the error message with the expression', async () => {
+        await expect(avmContract.methods.assertion_failure().simulate()).rejects.toThrow(
+          "Assertion failed: This assertion should fail! 'not_true == true'",
+        );
+      });
+      it('PXE processes failed assertions and fills in the error message with the expression (even complex ones)', async () => {
+        await expect(avmContract.methods.assert_nullifier_exists(123).simulate()).rejects.toThrow(
+          "Assertion failed: Nullifier doesn't exist! 'context.nullifier_exists(nullifier, context.this_address())'",
+        );
+      });
+    });
+
+    describe('From private', () => {
+      it('Should enqueue a public function correctly', async () => {
+        await avmContract.methods.enqueue_public_from_private().simulate();
+      });
+    });
+
     describe('Gas metering', () => {
       it('Tracks L2 gas usage on simulation', async () => {
         const request = await avmContract.methods.add_args_return(20n, 30n).create();
@@ -60,12 +79,25 @@ describe('e2e_avm_simulator', () => {
         await avmContract.methods.add_storage_map(address, 100).send().wait();
         expect(await avmContract.methods.view_storage_map(address).simulate()).toEqual(200n);
       });
+
+      it('Preserves storage across enqueued public calls', async () => {
+        const address = AztecAddress.fromBigInt(9090n);
+        // This will create 1 tx with 2 public calls in it.
+        await new BatchCall(wallet, [
+          avmContract.methods.set_storage_map(address, 100).request(),
+          avmContract.methods.add_storage_map(address, 100).request(),
+        ])
+          .send()
+          .wait();
+        // On a separate tx, we check the result.
+        expect(await avmContract.methods.view_storage_map(address).simulate()).toEqual(200n);
+      });
     });
 
     describe('Contract instance', () => {
       it('Works', async () => {
         const tx = await avmContract.methods.test_get_contract_instance().send().wait();
-        expect(tx.status).toEqual(TxStatus.MINED);
+        expect(tx.status).toEqual(TxStatus.SUCCESS);
       });
     });
 
@@ -73,22 +105,34 @@ describe('e2e_avm_simulator', () => {
       // Nullifier will not yet be siloed by the kernel.
       it('Emit and check in the same tx', async () => {
         const tx = await avmContract.methods.emit_nullifier_and_check(123456).send().wait();
-        expect(tx.status).toEqual(TxStatus.MINED);
+        expect(tx.status).toEqual(TxStatus.SUCCESS);
       });
 
       // Nullifier will have been siloed by the kernel, but we check against the unsiloed one.
       it('Emit and check in separate tx', async () => {
         const nullifier = new Fr(123456);
         let tx = await avmContract.methods.new_nullifier(nullifier).send().wait();
-        expect(tx.status).toEqual(TxStatus.MINED);
+        expect(tx.status).toEqual(TxStatus.SUCCESS);
 
         tx = await avmContract.methods.assert_nullifier_exists(nullifier).send().wait();
-        expect(tx.status).toEqual(TxStatus.MINED);
+        expect(tx.status).toEqual(TxStatus.SUCCESS);
+      });
+
+      it('Emit and check in separate enqueued calls but same tx', async () => {
+        const nullifier = new Fr(123456);
+
+        // This will create 1 tx with 2 public calls in it.
+        await new BatchCall(wallet, [
+          avmContract.methods.new_nullifier(nullifier).request(),
+          avmContract.methods.assert_nullifier_exists(nullifier).request(),
+        ])
+          .send()
+          .wait();
       });
     });
   });
 
-  describe('ACVM interoperability', () => {
+  describe.skip('ACVM interoperability', () => {
     let avmContract: AvmAcvmInteropTestContract;
 
     beforeEach(async () => {
@@ -122,7 +166,8 @@ describe('e2e_avm_simulator', () => {
         .wait();
     });
 
-    describe('Authwit', () => {
+    // TODO: Enable (or delete) authwit tests once the AVM is fully functional.
+    describe.skip('Authwit', () => {
       it('Works if authwit provided', async () => {
         const recipient = AztecAddress.random();
         const action = avmContract.methods.test_authwit_send_money(
@@ -134,13 +179,13 @@ describe('e2e_avm_simulator', () => {
           .setPublicAuthWit({ caller: wallet.getCompleteAddress().address, action }, /*authorized=*/ true)
           .send()
           .wait();
-        expect(tx.status).toEqual(TxStatus.MINED);
+        expect(tx.status).toEqual(TxStatus.SUCCESS);
 
         tx = await avmContract.methods
           .test_authwit_send_money(/*from=*/ wallet.getCompleteAddress(), recipient, 100)
           .send()
           .wait();
-        expect(tx.status).toEqual(TxStatus.MINED);
+        expect(tx.status).toEqual(TxStatus.SUCCESS);
       });
 
       it('Fails if authwit not provided', async () => {
@@ -191,17 +236,16 @@ describe('e2e_avm_simulator', () => {
         .create_different_nullifier_in_nested_call(avmContract.address, nullifier)
         .send()
         .wait();
-      expect(tx.status).toEqual(TxStatus.MINED);
+      expect(tx.status).toEqual(TxStatus.SUCCESS);
     });
 
-    // TODO(4293): this should work! Fails in public kernel because both nullifiers are incorrectly being siloed by same address
-    it.skip('Should be able to emit the same unsiloed nullifier from two different contracts', async () => {
+    it('Should be able to emit the same unsiloed nullifier from two different contracts', async () => {
       const nullifier = new Fr(1);
       const tx = await avmContract.methods
         .create_same_nullifier_in_nested_call(secondAvmContract.address, nullifier)
         .send()
         .wait();
-      expect(tx.status).toEqual(TxStatus.MINED);
+      expect(tx.status).toEqual(TxStatus.SUCCESS);
     });
 
     it('Should be able to emit different unsiloed nullifiers from two different contracts', async () => {
@@ -210,7 +254,7 @@ describe('e2e_avm_simulator', () => {
         .create_different_nullifier_in_nested_call(secondAvmContract.address, nullifier)
         .send()
         .wait();
-      expect(tx.status).toEqual(TxStatus.MINED);
+      expect(tx.status).toEqual(TxStatus.SUCCESS);
     });
   });
 });

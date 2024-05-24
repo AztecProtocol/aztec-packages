@@ -2,9 +2,10 @@ use acir::brillig::{BlackBoxOp, HeapArray, HeapVector};
 use acir::{BlackBoxFunc, FieldElement};
 use acvm_blackbox_solver::BigIntSolver;
 use acvm_blackbox_solver::{
-    blake2s, blake3, ecdsa_secp256k1_verify, ecdsa_secp256r1_verify, keccak256, keccakf1600,
-    sha256, sha256compression, BlackBoxFunctionSolver, BlackBoxResolutionError,
+    aes128_encrypt, blake2s, blake3, ecdsa_secp256k1_verify, ecdsa_secp256r1_verify, keccak256,
+    keccakf1600, sha256, sha256compression, BlackBoxFunctionSolver, BlackBoxResolutionError,
 };
+use num_bigint::BigUint;
 
 use crate::memory::MemoryValue;
 use crate::Memory;
@@ -38,6 +39,25 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
     bigint_solver: &mut BigIntSolver,
 ) -> Result<(), BlackBoxResolutionError> {
     match op {
+        BlackBoxOp::AES128Encrypt { inputs, iv, key, outputs } => {
+            let bb_func = black_box_function_from_op(op);
+
+            let inputs = to_u8_vec(read_heap_vector(memory, inputs));
+
+            let iv: [u8; 16] = to_u8_vec(read_heap_array(memory, iv)).try_into().map_err(|_| {
+                BlackBoxResolutionError::Failed(bb_func, "Invalid iv length".to_string())
+            })?;
+            let key: [u8; 16] =
+                to_u8_vec(read_heap_array(memory, key)).try_into().map_err(|_| {
+                    BlackBoxResolutionError::Failed(bb_func, "Invalid ley length".to_string())
+                })?;
+            let ciphertext = aes128_encrypt(&inputs, iv, key)?;
+
+            memory.write(outputs.size, ciphertext.len().into());
+            memory.write_slice(memory.read_ref(outputs.pointer), &to_value_vec(&ciphertext));
+
+            Ok(())
+        }
         BlackBoxOp::Sha256 { message, output } => {
             let message = to_u8_vec(read_heap_vector(memory, message));
             let bytes = sha256(message.as_slice())?;
@@ -136,33 +156,64 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
             memory.write(*result, verified.into());
             Ok(())
         }
-        BlackBoxOp::FixedBaseScalarMul { low, high, result } => {
-            let low = memory.read(*low).try_into().unwrap();
-            let high = memory.read(*high).try_into().unwrap();
-            let (x, y) = solver.fixed_base_scalar_mul(&low, &high)?;
-            memory.write_slice(memory.read_ref(result.pointer), &[x.into(), y.into()]);
-            Ok(())
-        }
-        BlackBoxOp::VariableBaseScalarMul { point_x, point_y, scalar_low, scalar_high, result } => {
-            let point_x = memory.read(*point_x).try_into().unwrap();
-            let point_y = memory.read(*point_y).try_into().unwrap();
-            let scalar_low = memory.read(*scalar_low).try_into().unwrap();
-            let scalar_high = memory.read(*scalar_high).try_into().unwrap();
-            let (out_point_x, out_point_y) =
-                solver.variable_base_scalar_mul(&point_x, &point_y, &scalar_low, &scalar_high)?;
+        BlackBoxOp::MultiScalarMul { points, scalars, outputs: result } => {
+            let points: Vec<FieldElement> = read_heap_vector(memory, points)
+                .iter()
+                .enumerate()
+                .map(|(i, x)| {
+                    if i % 3 == 2 {
+                        let is_infinite: bool = x.try_into().unwrap();
+                        FieldElement::from(is_infinite as u128)
+                    } else {
+                        x.try_into().unwrap()
+                    }
+                })
+                .collect();
+            let scalars: Vec<FieldElement> =
+                read_heap_vector(memory, scalars).iter().map(|x| x.try_into().unwrap()).collect();
+            let mut scalars_lo = Vec::with_capacity(scalars.len() / 2);
+            let mut scalars_hi = Vec::with_capacity(scalars.len() / 2);
+            for (i, scalar) in scalars.iter().enumerate() {
+                if i % 2 == 0 {
+                    scalars_lo.push(*scalar);
+                } else {
+                    scalars_hi.push(*scalar);
+                }
+            }
+            let (x, y, is_infinite) = solver.multi_scalar_mul(&points, &scalars_lo, &scalars_hi)?;
             memory.write_slice(
                 memory.read_ref(result.pointer),
-                &[out_point_x.into(), out_point_y.into()],
+                &[x.into(), y.into(), is_infinite.into()],
             );
             Ok(())
         }
-        BlackBoxOp::EmbeddedCurveAdd { input1_x, input1_y, input2_x, input2_y, result } => {
+        BlackBoxOp::EmbeddedCurveAdd {
+            input1_x,
+            input1_y,
+            input2_x,
+            input2_y,
+            result,
+            input1_infinite,
+            input2_infinite,
+        } => {
             let input1_x = memory.read(*input1_x).try_into().unwrap();
             let input1_y = memory.read(*input1_y).try_into().unwrap();
+            let input1_infinite: bool = memory.read(*input1_infinite).try_into().unwrap();
             let input2_x = memory.read(*input2_x).try_into().unwrap();
             let input2_y = memory.read(*input2_y).try_into().unwrap();
-            let (x, y) = solver.ec_add(&input1_x, &input1_y, &input2_x, &input2_y)?;
-            memory.write_slice(memory.read_ref(result.pointer), &[x.into(), y.into()]);
+            let input2_infinite: bool = memory.read(*input2_infinite).try_into().unwrap();
+            let (x, y, infinite) = solver.ec_add(
+                &input1_x,
+                &input1_y,
+                &input1_infinite.into(),
+                &input2_x,
+                &input2_y,
+                &input2_infinite.into(),
+            )?;
+            memory.write_slice(
+                memory.read_ref(result.pointer),
+                &[x.into(), y.into(), infinite.into()],
+            );
             Ok(())
         }
         BlackBoxOp::PedersenCommitment { inputs, domain_separator, output } => {
@@ -286,11 +337,31 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
             memory.write_slice(memory.read_ref(output.pointer), &state);
             Ok(())
         }
+        BlackBoxOp::ToRadix { input, radix, output } => {
+            let input: FieldElement =
+                memory.read(*input).try_into().expect("ToRadix input not a field");
+
+            let mut input = BigUint::from_bytes_be(&input.to_be_bytes());
+            let radix = BigUint::from(*radix);
+
+            let mut limbs: Vec<MemoryValue> = Vec::with_capacity(output.size);
+
+            for _ in 0..output.size {
+                let limb = &input % &radix;
+                limbs.push(FieldElement::from_be_bytes_reduce(&limb.to_bytes_be()).into());
+                input /= &radix;
+            }
+
+            memory.write_slice(memory.read_ref(output.pointer), &limbs);
+
+            Ok(())
+        }
     }
 }
 
 fn black_box_function_from_op(op: &BlackBoxOp) -> BlackBoxFunc {
     match op {
+        BlackBoxOp::AES128Encrypt { .. } => BlackBoxFunc::AES128Encrypt,
         BlackBoxOp::Sha256 { .. } => BlackBoxFunc::SHA256,
         BlackBoxOp::Blake2s { .. } => BlackBoxFunc::Blake2s,
         BlackBoxOp::Blake3 { .. } => BlackBoxFunc::Blake3,
@@ -301,8 +372,7 @@ fn black_box_function_from_op(op: &BlackBoxOp) -> BlackBoxFunc {
         BlackBoxOp::SchnorrVerify { .. } => BlackBoxFunc::SchnorrVerify,
         BlackBoxOp::PedersenCommitment { .. } => BlackBoxFunc::PedersenCommitment,
         BlackBoxOp::PedersenHash { .. } => BlackBoxFunc::PedersenHash,
-        BlackBoxOp::FixedBaseScalarMul { .. } => BlackBoxFunc::FixedBaseScalarMul,
-        BlackBoxOp::VariableBaseScalarMul { .. } => BlackBoxFunc::VariableBaseScalarMul,
+        BlackBoxOp::MultiScalarMul { .. } => BlackBoxFunc::MultiScalarMul,
         BlackBoxOp::EmbeddedCurveAdd { .. } => BlackBoxFunc::EmbeddedCurveAdd,
         BlackBoxOp::BigIntAdd { .. } => BlackBoxFunc::BigIntAdd,
         BlackBoxOp::BigIntSub { .. } => BlackBoxFunc::BigIntSub,
@@ -312,6 +382,7 @@ fn black_box_function_from_op(op: &BlackBoxOp) -> BlackBoxFunc {
         BlackBoxOp::BigIntToLeBytes { .. } => BlackBoxFunc::BigIntToLeBytes,
         BlackBoxOp::Poseidon2Permutation { .. } => BlackBoxFunc::Poseidon2Permutation,
         BlackBoxOp::Sha256Compression { .. } => BlackBoxFunc::Sha256Compression,
+        BlackBoxOp::ToRadix { .. } => unreachable!("ToRadix is not an ACIR BlackBoxFunc"),
     }
 }
 

@@ -4,12 +4,11 @@
 // be read/nullified before their creation etc.
 contract PendingNoteHashes {
     // Libs
-    use dep::aztec::prelude::{
-        AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, PrivateContext, Map, PrivateSet,
-        emit_encrypted_log
-    };
+    use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, PrivateContext, Map, PrivateSet};
     use dep::value_note::{balance_utils, filter::filter_notes_min_sum, value_note::{VALUE_NOTE_LEN, ValueNote}};
-    use dep::aztec::context::{PublicContext, Context};
+    use dep::aztec::keys::getters::{get_npk_m_hash, get_ivpk_m};
+    use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
+    use dep::aztec::protocol_types::constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL};
 
     #[aztec(storage)]
     struct Storage {
@@ -25,10 +24,14 @@ contract PendingNoteHashes {
     #[aztec(private)]
     fn test_insert_then_get_then_nullify_flat(amount: Field, owner: AztecAddress) -> Field {
         let owner_balance = storage.balances.at(owner);
-        let mut note = ValueNote::new(amount, owner);
+
+        let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
+        let owner_ivpk_m = get_ivpk_m(&mut context, owner);
+
+        let mut note = ValueNote::new(amount, owner_npk_m_hash);
 
         // Insert note
-        owner_balance.insert(&mut note, true);
+        owner_balance.insert(&mut note, true, owner_ivpk_m);
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note inserted above
@@ -55,9 +58,12 @@ contract PendingNoteHashes {
         assert(maybe_notes[0].is_none());
         assert(maybe_notes[1].is_none());
 
+        let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
+        let owner_ivpk_m = get_ivpk_m(&mut context, owner);
+
         // Insert note
-        let mut note = ValueNote::new(amount, owner);
-        owner_balance.insert(&mut note, true);
+        let mut note = ValueNote::new(amount, owner_npk_m_hash);
+        owner_balance.insert(&mut note, true, owner_ivpk_m);
 
         0
     }
@@ -70,10 +76,14 @@ contract PendingNoteHashes {
     #[aztec(private)]
     fn insert_note(amount: Field, owner: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
-        let mut note = ValueNote::new(amount, owner);
+
+        let owner_npk_m_hash = get_npk_m_hash(&mut context, owner);
+        let owner_ivpk_m = get_ivpk_m(&mut context, owner);
+
+        let mut note = ValueNote::new(amount, owner_npk_m_hash);
 
         // Insert note
-        owner_balance.insert(&mut note, true);
+        owner_balance.insert(&mut note, true, owner_ivpk_m);
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value
@@ -241,4 +251,61 @@ contract PendingNoteHashes {
     //    get_then_nullify_fn_selector: FunctionSelector,
     //) {
     //}
+
+    #[aztec(private)]
+    fn test_recursively_create_notes(owner: AztecAddress, how_many_recursions: u64) {
+        create_max_notes(owner, storage, &mut context);
+
+        PendingNoteHashes::at(context.this_address()).recursively_destroy_and_create_notes(owner, how_many_recursions).call(&mut context);
+    }
+
+    #[aztec(private)]
+    fn recursively_destroy_and_create_notes(owner: AztecAddress, executions_left: u64) {
+        assert(executions_left > 0);
+
+        destroy_max_notes(owner, storage);
+        create_max_notes(owner, storage, &mut context);
+
+        let executions_left = executions_left - 1;
+
+        if executions_left > 0 {
+            PendingNoteHashes::at(context.this_address()).recursively_destroy_and_create_notes(owner, executions_left).call(&mut context);
+        }
+    }
+
+    #[contract_library_method]
+    fn create_max_notes(
+        owner: AztecAddress,
+        storage: Storage<&mut PrivateContext>,
+        context: &mut PrivateContext
+    ) {
+        let owner_balance = storage.balances.at(owner);
+        let owner_npk_m_hash = get_npk_m_hash(context, owner);
+        let owner_ivpk_m = get_ivpk_m(context, owner);
+
+        for i in 0..max_notes_per_call() {
+            let mut note = ValueNote::new(i as Field, owner_npk_m_hash);
+            owner_balance.insert(&mut note, true, owner_ivpk_m);
+        }
+    }
+
+    #[contract_library_method]
+    fn destroy_max_notes(owner: AztecAddress, storage: Storage<&mut PrivateContext>) {
+        let owner_balance = storage.balances.at(owner);
+        let notes = owner_balance.get_notes(NoteGetterOptions::new());
+
+        for i in 0..max_notes_per_call() {
+            let note = notes[i].unwrap();
+            owner_balance.remove(note);
+        }
+    }
+
+    #[contract_library_method]
+    fn max_notes_per_call() -> u64 {
+        if MAX_NEW_NOTE_HASHES_PER_CALL > MAX_NOTE_HASH_READ_REQUESTS_PER_CALL {
+            MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
+        } else {
+            MAX_NEW_NOTE_HASHES_PER_CALL
+        }
+    }
 }

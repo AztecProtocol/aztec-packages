@@ -2,6 +2,8 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+
 import {DecoderBase} from "./decoders/Base.sol";
 
 import {DataStructures} from "../src/core/libraries/DataStructures.sol";
@@ -15,6 +17,7 @@ import {Rollup} from "../src/core/Rollup.sol";
 import {AvailabilityOracle} from "../src/core/availability_oracle/AvailabilityOracle.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
+import {PortalERC20} from "./portals/PortalERC20.sol";
 
 import {TxsDecoderHelper} from "./decoders/helpers/TxsDecoderHelper.sol";
 
@@ -29,17 +32,22 @@ contract RollupTest is DecoderBase {
   Rollup internal rollup;
   MerkleTestUtil internal merkleTestUtil;
   TxsDecoderHelper internal txsHelper;
+  PortalERC20 internal portalERC20;
 
   AvailabilityOracle internal availabilityOracle;
 
   function setUp() public virtual {
     registry = new Registry();
     availabilityOracle = new AvailabilityOracle();
-    rollup = new Rollup(registry, availabilityOracle);
+    portalERC20 = new PortalERC20();
+    rollup = new Rollup(registry, availabilityOracle, IERC20(address(portalERC20)));
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
 
     registry.upgrade(address(rollup), address(inbox), address(outbox));
+
+    // mint some tokens to the rollup
+    portalERC20.mint(address(rollup), 1000000);
 
     merkleTestUtil = new MerkleTestUtil();
     txsHelper = new TxsDecoderHelper();
@@ -77,7 +85,7 @@ contract RollupTest is DecoderBase {
     availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidChainId.selector, 0x420, 31337));
-    rollup.process(header, archive, bytes(""));
+    rollup.process(header, archive, bytes(""), bytes(""));
   }
 
   function testRevertInvalidVersion() public {
@@ -93,7 +101,7 @@ contract RollupTest is DecoderBase {
     availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidVersion.selector, 0x420, 1));
-    rollup.process(header, archive, bytes(""));
+    rollup.process(header, archive, bytes(""), bytes(""));
   }
 
   function testRevertTimestampInFuture() public {
@@ -110,7 +118,7 @@ contract RollupTest is DecoderBase {
     availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__TimestampInFuture.selector));
-    rollup.process(header, archive, bytes(""));
+    rollup.process(header, archive, bytes(""), bytes(""));
   }
 
   function testRevertTimestampTooOld() public {
@@ -120,12 +128,12 @@ contract RollupTest is DecoderBase {
     bytes memory body = data.body;
 
     // Overwrite in the rollup contract
-    vm.store(address(rollup), bytes32(uint256(1)), bytes32(uint256(block.timestamp)));
+    vm.store(address(rollup), bytes32(uint256(2)), bytes32(uint256(block.timestamp)));
 
     availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__TimestampTooOld.selector));
-    rollup.process(header, archive, bytes(""));
+    rollup.process(header, archive, bytes(""), bytes(""));
   }
 
   function _testBlock(string memory name) public {
@@ -145,7 +153,7 @@ contract RollupTest is DecoderBase {
     uint256 toConsume = inbox.toConsume();
 
     vm.record();
-    rollup.process(header, archive, bytes(""));
+    rollup.process(header, archive, bytes(""), bytes(""));
 
     assertEq(inbox.toConsume(), toConsume + 1, "Message subtree not consumed");
 

@@ -164,10 +164,8 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, aci
     // Construct a bberg circuit from the acir representation
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Add a buffer to the expected circuit size to
-    // account for the addition of "gates to ensure nonzero polynomials" (in Honk only).
-    const size_t additional_gates_buffer = 15; // conservatively large to be safe
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + additional_gates_buffer);
+    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
+    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
     init_bn254_crs(srs_size);
 
     // Construct Honk proof
@@ -208,18 +206,15 @@ template <IsUltraFlavor Flavor> bool proveAndVerifyHonk(const std::string& bytec
 template <IsUltraFlavor Flavor>
 bool proveAndVerifyHonkProgram(const std::string& bytecodePath, const std::string& witnessPath)
 {
-    auto constraint_systems = get_constraint_systems(bytecodePath);
-    auto witness_stack = get_witness_stack(witnessPath);
+    auto program_stack = acir_format::get_acir_program_stack(bytecodePath, witnessPath);
 
-    while (!witness_stack.empty()) {
-        auto witness_stack_item = witness_stack.back();
-        auto witness = witness_stack_item.second;
-        auto constraint_system = constraint_systems[witness_stack_item.first];
+    while (!program_stack.empty()) {
+        auto stack_item = program_stack.back();
 
-        if (!proveAndVerifyHonkAcirFormat<Flavor>(constraint_system, witness)) {
+        if (!proveAndVerifyHonkAcirFormat<Flavor>(stack_item.constraints, stack_item.witness)) {
             return false;
         }
-        witness_stack.pop_back();
+        program_stack.pop_back();
     }
     return true;
 }
@@ -299,19 +294,43 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
  * @brief Computes the number of Barretenberg specific gates needed to create a proof for the specific ACIR circuit
  *
  * Communication:
- * - stdout: The number of gates is written to stdout
+ * - stdout: A JSON string of the number of ACIR opcodes and final backend circuit size
  *
  * @param bytecodePath Path to the file containing the serialized circuit
  */
 void gateCount(const std::string& bytecodePath)
 {
-    auto constraint_system = get_constraint_system(bytecodePath);
-    acir_proofs::AcirComposer acir_composer(0, verbose);
-    acir_composer.create_circuit(constraint_system);
-    auto gate_count = acir_composer.get_total_circuit_size();
+    // All circuit reports will be built into the string below
+    std::string functions_string = "{\"functions\": [\n  ";
+    auto constraint_systems = get_constraint_systems(bytecodePath);
+    size_t i = 0;
+    for (auto constraint_system : constraint_systems) {
+        acir_proofs::AcirComposer acir_composer(0, verbose);
+        acir_composer.create_circuit(constraint_system);
+        auto circuit_size = acir_composer.get_total_circuit_size();
 
-    writeUint64AsRawBytesToStdout(static_cast<uint64_t>(gate_count));
-    vinfo("gate count: ", gate_count);
+        // Build individual circuit report
+        auto result_string = format("{\n        \"acir_opcodes\": ",
+                                    constraint_system.num_acir_opcodes,
+                                    ",\n        \"circuit_size\": ",
+                                    circuit_size,
+                                    "\n  }");
+
+        // Attach a comma if we still circuit reports to generate
+        if (i != (constraint_systems.size() - 1)) {
+            result_string = format(result_string, ",");
+        }
+
+        functions_string = format(functions_string, result_string);
+
+        i++;
+    }
+    functions_string = format(functions_string, "\n]}");
+
+    const char* jsonData = functions_string.c_str();
+    size_t length = strlen(jsonData);
+    std::vector<uint8_t> data(jsonData, jsonData + length);
+    writeRawBytesToStdout(data);
 }
 
 /**
@@ -488,37 +507,6 @@ void vk_as_fields(const std::string& vk_path, const std::string& output_path)
 }
 
 /**
- * @brief Returns ACVM related backend information
- *
- * Communication:
- * - stdout: The json string is written to stdout
- * - Filesystem: The json string is written to the path specified
- *
- * @param output_path Path to write the information to
- */
-void acvm_info(const std::string& output_path)
-{
-
-    const char* jsonData = R"({
-    "language": {
-        "name" : "PLONK-CSAT",
-        "width" : 4
-    }
-    })";
-
-    size_t length = strlen(jsonData);
-    std::vector<uint8_t> data(jsonData, jsonData + length);
-
-    if (output_path == "-") {
-        writeRawBytesToStdout(data);
-        vinfo("info written to stdout");
-    } else {
-        write_file(output_path, data);
-        vinfo("info written to: ", output_path);
-    }
-}
-
-/**
  * @brief Writes an avm proof and corresponding (incomplete) verification key to files.
  *
  * Communication:
@@ -601,8 +589,8 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
 
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness);
 
-    const size_t additional_gates_buffer = 15; // conservatively large to be safe
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + additional_gates_buffer);
+    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
+    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
     init_bn254_crs(srs_size);
 
     // Construct Honk proof
@@ -672,8 +660,8 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
     auto constraint_system = get_constraint_system(bytecodePath);
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, {});
 
-    const size_t additional_gates_buffer = 15; // conservatively large to be safe
-    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + additional_gates_buffer);
+    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
+    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
     init_bn254_crs(srs_size);
 
     ProverInstance prover_inst(builder);
@@ -689,6 +677,62 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
         vinfo("vk written to: ", outputPath);
     }
 }
+
+/**
+ * @brief Outputs proof as vector of field elements in readable format.
+ *
+ * Communication:
+ * - stdout: The proof as a list of field elements is written to stdout as a string
+ * - Filesystem: The proof as a list of field elements is written to the path specified by outputPath
+ *
+ *
+ * @param proof_path Path to the file containing the serialized proof
+ * @param output_path Path to write the proof to
+ */
+void proof_as_fields_honk(const std::string& proof_path, const std::string& output_path)
+{
+    auto proof = from_buffer<std::vector<bb::fr>>(read_file(proof_path));
+    auto json = proof_to_json(proof);
+
+    if (output_path == "-") {
+        writeStringToStdout(json);
+        vinfo("proof as fields written to stdout");
+    } else {
+        write_file(output_path, { json.begin(), json.end() });
+        vinfo("proof as fields written to: ", output_path);
+    }
+}
+
+/**
+ * @brief Converts a verification key from a byte array into a list of field elements
+ *
+ * Why is this needed?
+ * This follows the same rationale as `proofAsFields`.
+ *
+ * Communication:
+ * - stdout: The verification key as a list of field elements is written to stdout as a string
+ * - Filesystem: The verification key as a list of field elements is written to the path specified by outputPath
+ *
+ * @param vk_path Path to the file containing the serialized verification key
+ * @param output_path Path to write the verification key to
+ */
+template <IsUltraFlavor Flavor> void vk_as_fields_honk(const std::string& vk_path, const std::string& output_path)
+{
+    using VerificationKey = Flavor::VerificationKey;
+
+    auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
+    std::vector<bb::fr> data = verification_key->to_field_elements();
+
+    auto json = vk_to_json(data);
+    if (output_path == "-") {
+        writeStringToStdout(json);
+        vinfo("vk as fields written to stdout");
+    } else {
+        write_file(output_path, { json.begin(), json.end() });
+        vinfo("vk as fields written to: ", output_path);
+    }
+}
+
 /**
  * @brief Creates a proof for an ACIR circuit, outputs the proof and verification key in binary and 'field' format
  *
@@ -765,7 +809,7 @@ int main(int argc, char* argv[])
 
         std::string command = args[0];
 
-        std::string bytecode_path = get_option(args, "-b", "./target/acir.gz");
+        std::string bytecode_path = get_option(args, "-b", "./target/program.json");
         std::string witness_path = get_option(args, "-w", "./target/witness.gz");
         std::string proof_path = get_option(args, "-p", "./proofs/proof");
         std::string vk_path = get_option(args, "-k", "./target/vk");
@@ -775,11 +819,6 @@ int main(int argc, char* argv[])
         // Skip CRS initialization for any command which doesn't require the CRS.
         if (command == "--version") {
             writeStringToStdout(BB_VERSION);
-            return 0;
-        }
-        if (command == "info") {
-            std::string output_path = get_option(args, "-o", "info.json");
-            acvm_info(output_path);
             return 0;
         }
         if (command == "prove_and_verify") {
@@ -847,6 +886,15 @@ int main(int argc, char* argv[])
         } else if (command == "write_vk_goblin_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
             write_vk_honk<GoblinUltraFlavor>(bytecode_path, output_path);
+        } else if (command == "proof_as_fields_honk") {
+            std::string output_path = get_option(args, "-o", proof_path + "_fields.json");
+            proof_as_fields_honk(proof_path, output_path);
+        } else if (command == "vk_as_fields_ultra_honk") {
+            std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
+            vk_as_fields_honk<UltraFlavor>(vk_path, output_path);
+        } else if (command == "vk_as_fields_goblin_ultra_honk") {
+            std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
+            vk_as_fields_honk<GoblinUltraFlavor>(vk_path, output_path);
         } else {
             std::cerr << "Unknown command: " << command << "\n";
             return 1;

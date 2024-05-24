@@ -188,6 +188,7 @@ class Header {
     content_commitment: ContentCommitment
     state: StateReference
     global_variables: GlobalVariables
+    total_fees: Fr
 }
 Header *.. Body : txs_hash
 Header *-- ContentCommitment: content_commitment
@@ -248,7 +249,6 @@ class PublicDataRead {
 }
 
 class CombinedAccumulatedData {
-    aggregation_object: AggregationObject
     read_requests: List~Fr~
     pending_read_requests: List~Fr~
     note_hashes: List~Fr~
@@ -283,9 +283,11 @@ TxContext *-- GasSettings : gas_settings
 class CombinedConstantData {
     historical_header: Header
     tx_context: TxContext
+    global_variables: GlobalVariables
 }
 CombinedConstantData *-- Header : historical_header
 CombinedConstantData *-- TxContext : tx_context
+CombinedConstantData *-- GlobalVariables : global_variables
 
 class GasSettings {
     da.gas_limit: u32
@@ -338,7 +340,6 @@ BaseRollupInputs *-- ConstantRollupData : constants
 class BaseOrMergeRollupPublicInputs {
     type: Fr
     height_in_block_tree: Fr
-    aggregation_object: AggregationObject
     txs_hash: Fr[2]
     out_hash: Fr[2]
     constants: ConstantRollupData
@@ -367,7 +368,6 @@ class BaseParityInputs {
 }
 
 class ParityPublicInputs {
-    aggregation_object: AggregationObject
     sha_root: Fr[2]
     converted_root: Fr
 }
@@ -398,7 +398,6 @@ RootRollupInputs *-- ChildRollupData: right
 RootRollupInputs *-- Header : parent
 
 class RootRollupPublicInputs {
-    aggregation_object: AggregationObject
     archive: Snapshot
     header: Header
 }

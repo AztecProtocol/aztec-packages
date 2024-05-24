@@ -40,7 +40,7 @@ pub enum StatementKind {
     Break,
     Continue,
     /// This statement should be executed at compile-time
-    Comptime(Box<StatementKind>),
+    Comptime(Box<Statement>),
     // This is an expression with a trailing semi-colon
     Semi(Expression),
     // This statement is the result of a recovered parse error.
@@ -228,11 +228,10 @@ impl From<Ident> for Expression {
     fn from(i: Ident) -> Expression {
         Expression {
             span: i.0.span(),
-            kind: ExpressionKind::Variable(Path {
-                span: i.span(),
-                segments: vec![i],
-                kind: PathKind::Plain,
-            }),
+            kind: ExpressionKind::Variable(
+                Path { span: i.span(), segments: vec![i], kind: PathKind::Plain },
+                None,
+            ),
         }
     }
 }
@@ -486,7 +485,8 @@ impl Pattern {
     pub fn name_ident(&self) -> &Ident {
         match self {
             Pattern::Identifier(name_ident) => name_ident,
-            _ => panic!("only the identifier pattern can return a name"),
+            Pattern::Mutable(pattern, ..) => pattern.name_ident(),
+            _ => panic!("Only the Identifier or Mutable patterns can return a name"),
         }
     }
 
@@ -508,7 +508,7 @@ impl Recoverable for Pattern {
 impl LValue {
     fn as_expression(&self) -> Expression {
         let kind = match self {
-            LValue::Ident(ident) => ExpressionKind::Variable(Path::from_ident(ident.clone())),
+            LValue::Ident(ident) => ExpressionKind::Variable(Path::from_ident(ident.clone()), None),
             LValue::MemberAccess { object, field_name, span: _ } => {
                 ExpressionKind::MemberAccess(Box::new(MemberAccessExpression {
                     lhs: object.as_expression(),
@@ -564,7 +564,7 @@ impl ForRange {
         identifier: Ident,
         block: Expression,
         for_loop_span: Span,
-    ) -> StatementKind {
+    ) -> Statement {
         /// Counter used to generate unique names when desugaring
         /// code in the parser requires the creation of fresh variables.
         /// The parser is stateless so this is a static global instead.
@@ -598,15 +598,15 @@ impl ForRange {
 
                 // array.len()
                 let segments = vec![array_ident];
-                let array_ident = ExpressionKind::Variable(Path {
-                    segments,
-                    kind: PathKind::Plain,
-                    span: array_span,
-                });
+                let array_ident = ExpressionKind::Variable(
+                    Path { segments, kind: PathKind::Plain, span: array_span },
+                    None,
+                );
 
                 let end_range = ExpressionKind::MethodCall(Box::new(MethodCallExpression {
                     object: Expression::new(array_ident.clone(), array_span),
                     method_name: Ident::new("len".to_string(), array_span),
+                    generics: None,
                     arguments: vec![],
                 }));
                 let end_range = Expression::new(end_range, array_span);
@@ -617,11 +617,10 @@ impl ForRange {
 
                 // array[i]
                 let segments = vec![Ident::new(index_name, array_span)];
-                let index_ident = ExpressionKind::Variable(Path {
-                    segments,
-                    kind: PathKind::Plain,
-                    span: array_span,
-                });
+                let index_ident = ExpressionKind::Variable(
+                    Path { segments, kind: PathKind::Plain, span: array_span },
+                    None,
+                );
 
                 let loop_element = ExpressionKind::Index(Box::new(IndexExpression {
                     collection: Expression::new(array_ident, array_span),
@@ -661,7 +660,8 @@ impl ForRange {
                 let block = ExpressionKind::Block(BlockExpression {
                     statements: vec![let_array, for_loop],
                 });
-                StatementKind::Expression(Expression::new(block, for_loop_span))
+                let kind = StatementKind::Expression(Expression::new(block, for_loop_span));
+                Statement { kind, span: for_loop_span }
             }
         }
     }
@@ -685,7 +685,7 @@ impl Display for StatementKind {
             StatementKind::For(for_loop) => for_loop.fmt(f),
             StatementKind::Break => write!(f, "break"),
             StatementKind::Continue => write!(f, "continue"),
-            StatementKind::Comptime(statement) => write!(f, "comptime {statement}"),
+            StatementKind::Comptime(statement) => write!(f, "comptime {}", statement.kind),
             StatementKind::Semi(semi) => write!(f, "{semi};"),
             StatementKind::Error => write!(f, "Error"),
         }

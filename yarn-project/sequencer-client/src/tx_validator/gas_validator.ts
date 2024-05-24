@@ -1,9 +1,8 @@
-import { Tx, type TxValidator } from '@aztec/circuit-types';
-import { type AztecAddress, Fr } from '@aztec/circuits.js';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { type Tx, type TxValidator } from '@aztec/circuit-types';
+import { type AztecAddress, type Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { GasTokenContract } from '@aztec/noir-contracts.js';
-import { AbstractPhaseManager, PublicKernelPhase } from '@aztec/simulator';
+import { GasTokenArtifact } from '@aztec/protocol-contracts/gas-token';
+import { AbstractPhaseManager, PublicKernelPhase, computeFeePayerBalanceStorageSlot } from '@aztec/simulator';
 
 /** Provides a view into public contract state */
 export interface PublicStateSource {
@@ -14,12 +13,10 @@ export class GasTxValidator implements TxValidator<Tx> {
   #log = createDebugLogger('aztec:sequencer:tx_validator:tx_gas');
   #publicDataSource: PublicStateSource;
   #gasTokenAddress: AztecAddress;
-  #requireFees: boolean;
 
-  constructor(publicDataSource: PublicStateSource, gasTokenAddress: AztecAddress, requireFees = false) {
+  constructor(publicDataSource: PublicStateSource, gasTokenAddress: AztecAddress) {
     this.#publicDataSource = publicDataSource;
     this.#gasTokenAddress = gasTokenAddress;
-    this.#requireFees = requireFees;
   }
 
   async validateTxs(txs: Tx[]): Promise<[validTxs: Tx[], invalidTxs: Tx[]]> {
@@ -38,44 +35,38 @@ export class GasTxValidator implements TxValidator<Tx> {
   }
 
   async #validateTxFee(tx: Tx): Promise<boolean> {
-    const { [PublicKernelPhase.TEARDOWN]: teardownFns } = AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(
-      tx.data,
-      tx.enqueuedPublicFunctionCalls,
+    const feePayer = tx.data.feePayer;
+    // TODO(@spalladino) Eventually remove the is_zero condition as we should always charge fees to every tx
+    if (feePayer.isZero()) {
+      return true;
+    }
+
+    // Compute the maximum fee that this tx may pay, based on its gasLimits and maxFeePerGas
+    const feeLimit = tx.data.constants.txContext.gasSettings.getFeeLimit();
+
+    // Read current balance of the feePayer
+    const initialBalance = await this.#publicDataSource.storageRead(
+      this.#gasTokenAddress,
+      computeFeePayerBalanceStorageSlot(feePayer),
     );
 
-    if (teardownFns.length === 0) {
-      if (this.#requireFees) {
-        this.#log.warn(
-          `Rejecting tx ${Tx.getHash(tx)} because it should pay for gas but has no enqueued teardown functions`,
-        );
-        return false;
-      } else {
-        this.#log.debug(`Tx ${Tx.getHash(tx)} does not pay fees. Skipping balance check.`);
-        return true;
-      }
-    }
+    // If there is a claim in this tx that increases the fee payer balance in gas token, add it to balance
+    const { [PublicKernelPhase.SETUP]: setupFns } = AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx);
+    const claimFunctionCall = setupFns.find(
+      fn =>
+        fn.contractAddress.equals(this.#gasTokenAddress) &&
+        fn.callContext.msgSender.equals(this.#gasTokenAddress) &&
+        fn.functionSelector.equals(GasTokenArtifact.functions.find(f => f.name === '_increase_public_balance')!) &&
+        fn.args[0].equals(feePayer) &&
+        !fn.callContext.isStaticCall &&
+        !fn.callContext.isDelegateCall,
+    );
 
-    if (teardownFns.length > 1) {
-      this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} because it has multiple teardown functions`);
+    const balance = claimFunctionCall ? initialBalance.add(claimFunctionCall.args[1]) : initialBalance;
+    if (balance.lt(feeLimit)) {
+      this.#log.info(`Rejecting transaction due to not enough fee payer balance`, { feePayer, balance, feeLimit });
       return false;
     }
-
-    // check that the caller of the teardown function has enough balance to pay for tx costs
-    const teardownFn = teardownFns[0];
-    const slot = pedersenHash([GasTokenContract.storage.balances.slot, teardownFn.callContext.msgSender]);
-    const gasBalance = await this.#publicDataSource.storageRead(this.#gasTokenAddress, slot);
-
-    // TODO(#5004) calculate fee needed based on tx limits and gas prices
-    const gasAmountNeeded = new Fr(1);
-    if (gasBalance.lt(gasAmountNeeded)) {
-      this.#log.warn(
-        `Rejecting tx ${Tx.getHash(
-          tx,
-        )} because it should pay for gas but has insufficient balance ${gasBalance.toShortString()} < ${gasAmountNeeded.toShortString()}`,
-      );
-      return false;
-    }
-
     return true;
   }
 }

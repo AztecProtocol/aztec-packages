@@ -1,15 +1,15 @@
 import { FunctionSelector, type GasSettings, type GlobalVariables, type Header } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { type Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 
 export class AvmContextInputs {
-  static readonly SIZE = 2;
+  static readonly SIZE = 3;
 
-  constructor(private selector: Fr, private argsHash: Fr) {}
+  constructor(private selector: Fr, private argsHash: Fr, private isStaticCall: boolean) {}
 
   public toFields(): Fr[] {
-    return [this.selector, this.argsHash];
+    return [this.selector, this.argsHash, new Fr(this.isStaticCall)];
   }
 }
 
@@ -41,76 +41,72 @@ export class AvmExecutionEnvironment {
   ) {
     // We encode some extra inputs (AvmContextInputs) in calldata.
     // This will have to go once we move away from one proof per call.
-    const inputs = new AvmContextInputs(temporaryFunctionSelector.toField(), computeVarArgsHash(calldata));
+    const inputs = new AvmContextInputs(
+      temporaryFunctionSelector.toField(),
+      computeVarArgsHash(calldata),
+      isStaticCall,
+    );
     this.calldata = [...inputs.toFields(), ...calldata];
+  }
+
+  private deriveEnvironmentForNestedCallInternal(
+    targetAddress: AztecAddress,
+    calldata: Fr[],
+    functionSelector: FunctionSelector,
+    isStaticCall: boolean,
+    isDelegateCall: boolean,
+  ) {
+    return new AvmExecutionEnvironment(
+      /*address=*/ targetAddress,
+      /*storageAddress=*/ targetAddress,
+      /*sender=*/ this.address,
+      this.feePerL2Gas,
+      this.feePerDaGas,
+      this.contractCallDepth,
+      this.header,
+      this.globals,
+      isStaticCall,
+      isDelegateCall,
+      calldata,
+      this.gasSettings,
+      this.transactionFee,
+      functionSelector,
+    );
   }
 
   public deriveEnvironmentForNestedCall(
     targetAddress: AztecAddress,
     calldata: Fr[],
-    temporaryFunctionSelector: FunctionSelector = FunctionSelector.empty(),
+    functionSelector: FunctionSelector = FunctionSelector.empty(),
   ): AvmExecutionEnvironment {
-    return new AvmExecutionEnvironment(
+    return this.deriveEnvironmentForNestedCallInternal(
       targetAddress,
-      /*storageAddress=*/ targetAddress,
-      this.address,
-      this.feePerL2Gas,
-      this.feePerDaGas,
-      this.contractCallDepth,
-      this.header,
-      this.globals,
-      this.isStaticCall,
-      this.isDelegateCall,
       calldata,
-      this.gasSettings,
-      this.transactionFee,
-      temporaryFunctionSelector,
+      functionSelector,
+      /*isStaticCall=*/ false,
+      /*isDelegateCall=*/ false,
     );
   }
 
   public deriveEnvironmentForNestedStaticCall(
-    address: AztecAddress,
+    targetAddress: AztecAddress,
     calldata: Fr[],
-    temporaryFunctionSelector: FunctionSelector = FunctionSelector.empty(),
+    functionSelector: FunctionSelector,
   ): AvmExecutionEnvironment {
-    return new AvmExecutionEnvironment(
-      address,
-      /*storageAddress=*/ address,
-      this.sender,
-      this.feePerL2Gas,
-      this.feePerDaGas,
-      this.contractCallDepth,
-      this.header,
-      this.globals,
-      /*isStaticCall=*/ true,
-      this.isDelegateCall,
+    return this.deriveEnvironmentForNestedCallInternal(
+      targetAddress,
       calldata,
-      this.gasSettings,
-      this.transactionFee,
-      temporaryFunctionSelector,
+      functionSelector,
+      /*isStaticCall=*/ true,
+      /*isDelegateCall=*/ false,
     );
   }
 
   public newDelegateCall(
-    address: AztecAddress,
-    calldata: Fr[],
-    temporaryFunctionSelector: FunctionSelector = FunctionSelector.empty(),
+    _targetAddress: AztecAddress,
+    _calldata: Fr[],
+    _functionSelector: FunctionSelector,
   ): AvmExecutionEnvironment {
-    return new AvmExecutionEnvironment(
-      address,
-      this.storageAddress,
-      this.sender,
-      this.feePerL2Gas,
-      this.feePerDaGas,
-      this.contractCallDepth,
-      this.header,
-      this.globals,
-      this.isStaticCall,
-      /*isDelegateCall=*/ true,
-      calldata,
-      this.gasSettings,
-      this.transactionFee,
-      temporaryFunctionSelector,
-    );
+    throw new Error('Delegate calls not supported!');
   }
 }

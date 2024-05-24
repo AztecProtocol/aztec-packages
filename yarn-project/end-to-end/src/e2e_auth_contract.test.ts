@@ -51,6 +51,12 @@ describe('e2e_auth_contract', () => {
     expect(await contract.methods.get_authorized().simulate()).toEqual(AztecAddress.ZERO);
   });
 
+  it('non-admin canoot set authorized', async () => {
+    await expect(
+      contract.withWallet(other).methods.set_authorized(authorized.getAddress()).send().wait(),
+    ).rejects.toThrow('caller is not admin');
+  });
+
   it('admin sets authorized', async () => {
     await contract.withWallet(admin).methods.set_authorized(authorized.getAddress()).send().wait();
 
@@ -60,7 +66,7 @@ describe('e2e_auth_contract', () => {
   it('authorized is not yet set, cannot use permission', async () => {
     expect(await contract.methods.get_authorized().simulate()).toEqual(AztecAddress.ZERO);
 
-    await expect(contract.withWallet(authorized).methods.do_private_authorized_thing().send().wait()).rejects.toThrow(
+    await expect(contract.withWallet(authorized).methods.do_private_authorized_thing().prove()).rejects.toThrow(
       'caller is not authorized',
     );
   });
@@ -68,7 +74,9 @@ describe('e2e_auth_contract', () => {
   it('after a while the scheduled change is effective and can be used with max block restriction', async () => {
     await mineBlocks(DELAY); // This gets us past the block of change
 
+    // docs:start:simulate_public_getter
     expect(await contract.methods.get_authorized().simulate()).toEqual(authorized.getAddress());
+    // docs:end:simulate_public_getter
 
     const interaction = contract.withWallet(authorized).methods.do_private_authorized_thing();
 
@@ -83,7 +91,7 @@ describe('e2e_auth_contract', () => {
     expect(tx.data.forRollup!.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
     expect(tx.data.forRollup!.rollupValidationRequests.maxBlockNumber.value).toEqual(new Fr(expectedMaxBlockNumber));
 
-    expect((await interaction.send().wait()).status).toEqual('mined');
+    expect((await interaction.send().wait()).status).toEqual('success');
   });
 
   it('a new authorized address is set but not immediately effective, the previous one retains permissions', async () => {
@@ -93,12 +101,12 @@ describe('e2e_auth_contract', () => {
 
     expect(await contract.methods.get_scheduled_authorized().simulate()).toEqual(other.getAddress());
 
-    await expect(contract.withWallet(other).methods.do_private_authorized_thing().send().wait()).rejects.toThrow(
+    await expect(contract.withWallet(other).methods.do_private_authorized_thing().prove()).rejects.toThrow(
       'caller is not authorized',
     );
 
     expect((await contract.withWallet(authorized).methods.do_private_authorized_thing().send().wait()).status).toEqual(
-      'mined',
+      'success',
     );
   });
 
@@ -107,12 +115,12 @@ describe('e2e_auth_contract', () => {
 
     expect(await contract.methods.get_authorized().simulate()).toEqual(other.getAddress());
 
-    await expect(contract.withWallet(authorized).methods.do_private_authorized_thing().send().wait()).rejects.toThrow(
+    await expect(contract.withWallet(authorized).methods.do_private_authorized_thing().prove()).rejects.toThrow(
       'caller is not authorized',
     );
 
     expect((await contract.withWallet(other).methods.do_private_authorized_thing().send().wait()).status).toEqual(
-      'mined',
+      'success',
     );
   });
 });

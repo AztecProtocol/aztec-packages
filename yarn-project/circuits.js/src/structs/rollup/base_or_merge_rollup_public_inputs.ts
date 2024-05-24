@@ -1,7 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { AggregationObject } from '../aggregation_object.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { type RollupTypes } from '../shared.js';
 import { ConstantRollupData } from './base_rollup.js';
@@ -21,10 +20,6 @@ export class BaseOrMergeRollupPublicInputs {
      * Note 2: With each merge, the sub tree height increases by 1.
      */
     public rollupSubtreeHeight: Fr,
-    /**
-     * Native aggregation state at the end of the rollup circuit.
-     */
-    public aggregationObject: AggregationObject,
     /**
      * Data which is forwarded through the rollup circuits unchanged.
      */
@@ -47,6 +42,11 @@ export class BaseOrMergeRollupPublicInputs {
      * Note: Truncated to 31 bytes to fit in Fr.
      */
     public outHash: Fr,
+
+    /**
+     * The summed `transaction_fee` of the constituent transactions.
+     */
+    public accumulatedFees: Fr,
   ) {}
 
   /**
@@ -60,11 +60,11 @@ export class BaseOrMergeRollupPublicInputs {
     return new BaseOrMergeRollupPublicInputs(
       reader.readNumber(),
       Fr.fromBuffer(reader),
-      reader.readObject(AggregationObject),
       reader.readObject(ConstantRollupData),
       reader.readObject(PartialStateReference),
       reader.readObject(PartialStateReference),
       //TODO check
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
     );
@@ -78,7 +78,6 @@ export class BaseOrMergeRollupPublicInputs {
     return serializeToBuffer(
       this.rollupType,
       this.rollupSubtreeHeight,
-      this.aggregationObject,
       this.constants,
 
       this.start,
@@ -86,6 +85,8 @@ export class BaseOrMergeRollupPublicInputs {
 
       this.txsEffectsHash,
       this.outHash,
+
+      this.accumulatedFees,
     );
   }
 

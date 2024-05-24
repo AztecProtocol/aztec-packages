@@ -1,8 +1,4 @@
-
-use crate::{
-    traits::{Serialize, Deserialize, Empty},
-    constants::{ VERIFICATION_KEY_LENGTH_IN_FIELDS },
-};
+use crate::{traits::{Serialize, Deserialize, Empty}, constants::VERIFICATION_KEY_LENGTH_IN_FIELDS};
 
 global SERIALIZED_VERIFICATION_KEY_LENGTH = VERIFICATION_KEY_LENGTH_IN_FIELDS + 1;
 
@@ -40,4 +36,19 @@ impl Empty for VerificationKey {
       key: [0; VERIFICATION_KEY_LENGTH_IN_FIELDS],
     }
   }
+}
+
+impl Eq for VerificationKey {
+    fn eq(self, other: Self) -> bool {
+        (self.hash == other.hash) &
+        (self.key == other.key)
+    }
+}
+
+#[test]
+fn serialization_of_empty() {
+    let key = VerificationKey::empty();
+    let serialized = key.serialize();
+    let deserialized = VerificationKey::deserialize(serialized);
+    assert(key.eq(deserialized));
 }

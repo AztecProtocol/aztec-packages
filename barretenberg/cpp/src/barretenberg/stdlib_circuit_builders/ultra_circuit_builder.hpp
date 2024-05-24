@@ -33,7 +33,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
 
     using FF = typename Arithmetization::FF;
     static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
-    static constexpr size_t FIXED_BLOCK_SIZE = Arithmetization::FIXED_BLOCK_SIZE;
     // Keeping NUM_WIRES, at least temporarily, for backward compatibility
     static constexpr size_t program_width = Arithmetization::NUM_WIRES;
     static constexpr size_t num_selectors = Arithmetization::NUM_SELECTORS;
@@ -604,6 +603,22 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         size_t nnfcount = 0;
         get_num_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
         return count + romcount + ramcount + rangecount + nnfcount;
+    }
+
+    /**
+     * @brief Dynamically compute the number of gates added by the "add_gates_to_ensure_all_polys_are_non_zero" method
+     * @note This does NOT add the gates to the present builder
+     *
+     */
+    size_t get_num_gates_added_to_ensure_nonzero_polynomials()
+    {
+        UltraCircuitBuilder_<Arithmetization> builder; // instantiate new builder
+
+        size_t num_gates_prior = builder.get_num_gates();
+        builder.add_gates_to_ensure_all_polys_are_non_zero();
+        size_t num_gates_post = builder.get_num_gates(); // accounts for finalization gates
+
+        return num_gates_post - num_gates_prior;
     }
 
     /**

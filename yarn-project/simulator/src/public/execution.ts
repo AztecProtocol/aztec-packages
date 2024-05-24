@@ -4,13 +4,13 @@ import {
   type ContractStorageUpdateRequest,
   type Fr,
   type L2ToL1Message,
+  type LogHash,
   type NoteHash,
   type Nullifier,
   type PublicCallRequest,
   PublicDataRead,
   PublicDataUpdateRequest,
   type ReadRequest,
-  type SideEffect,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, computePublicDataTreeValue } from '@aztec/circuits.js/hash';
 
@@ -48,12 +48,17 @@ export interface PublicExecutionResult {
    * The hashed logs with side effect counter.
    * Note: required as we don't track the counter anywhere else.
    */
-  unencryptedLogsHashes: SideEffect[];
+  unencryptedLogsHashes: LogHash[];
   /**
    * Unencrypted logs emitted during execution of this function call.
    * Note: These are preimages to `unencryptedLogsHashes`.
    */
   unencryptedLogs: UnencryptedFunctionL2Logs;
+  /**
+   * Unencrypted logs emitted during this call AND any nested calls.
+   * Useful for maintaining correct ordering in ts.
+   */
+  allUnencryptedLogs: UnencryptedFunctionL2Logs;
   /**
    * Whether the execution reverted.
    */
@@ -73,7 +78,7 @@ export interface PublicExecutionResult {
 /**
  * The execution of a public function.
  */
-export type PublicExecution = Pick<PublicCallRequest, 'contractAddress' | 'functionData' | 'callContext' | 'args'>;
+export type PublicExecution = Pick<PublicCallRequest, 'contractAddress' | 'functionSelector' | 'callContext' | 'args'>;
 
 /**
  * Returns if the input is a public execution result and not just a public execution.

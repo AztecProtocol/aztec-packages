@@ -12,6 +12,12 @@ pub struct FunctionInput {
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BlackBoxFuncCall {
+    AES128Encrypt {
+        inputs: Vec<FunctionInput>,
+        iv: Box<[FunctionInput; 16]>,
+        key: Box<[FunctionInput; 16]>,
+        outputs: Vec<Witness>,
+    },
     AND {
         lhs: FunctionInput,
         rhs: FunctionInput,
@@ -80,24 +86,15 @@ pub enum BlackBoxFuncCall {
         hashed_message: Box<[FunctionInput; 32]>,
         output: Witness,
     },
-    FixedBaseScalarMul {
-        low: FunctionInput,
-        high: FunctionInput,
-        outputs: (Witness, Witness),
-    },
-    VariableBaseScalarMul {
-        point_x: FunctionInput,
-        point_y: FunctionInput,
-        scalar_low: FunctionInput,
-        scalar_high: FunctionInput,
-        outputs: (Witness, Witness),
+    MultiScalarMul {
+        points: Vec<FunctionInput>,
+        scalars: Vec<FunctionInput>,
+        outputs: (Witness, Witness, Witness),
     },
     EmbeddedCurveAdd {
-        input1_x: FunctionInput,
-        input1_y: FunctionInput,
-        input2_x: FunctionInput,
-        input2_y: FunctionInput,
-        outputs: (Witness, Witness),
+        input1: Box<[FunctionInput; 3]>,
+        input2: Box<[FunctionInput; 3]>,
+        outputs: (Witness, Witness, Witness),
     },
     Keccak256 {
         inputs: Vec<FunctionInput>,
@@ -184,6 +181,7 @@ pub enum BlackBoxFuncCall {
 impl BlackBoxFuncCall {
     pub fn get_black_box_func(&self) -> BlackBoxFunc {
         match self {
+            BlackBoxFuncCall::AES128Encrypt { .. } => BlackBoxFunc::AES128Encrypt,
             BlackBoxFuncCall::AND { .. } => BlackBoxFunc::AND,
             BlackBoxFuncCall::XOR { .. } => BlackBoxFunc::XOR,
             BlackBoxFuncCall::RANGE { .. } => BlackBoxFunc::RANGE,
@@ -195,8 +193,7 @@ impl BlackBoxFuncCall {
             BlackBoxFuncCall::PedersenHash { .. } => BlackBoxFunc::PedersenHash,
             BlackBoxFuncCall::EcdsaSecp256k1 { .. } => BlackBoxFunc::EcdsaSecp256k1,
             BlackBoxFuncCall::EcdsaSecp256r1 { .. } => BlackBoxFunc::EcdsaSecp256r1,
-            BlackBoxFuncCall::FixedBaseScalarMul { .. } => BlackBoxFunc::FixedBaseScalarMul,
-            BlackBoxFuncCall::VariableBaseScalarMul { .. } => BlackBoxFunc::VariableBaseScalarMul,
+            BlackBoxFuncCall::MultiScalarMul { .. } => BlackBoxFunc::MultiScalarMul,
             BlackBoxFuncCall::EmbeddedCurveAdd { .. } => BlackBoxFunc::EmbeddedCurveAdd,
             BlackBoxFuncCall::Keccak256 { .. } => BlackBoxFunc::Keccak256,
             BlackBoxFuncCall::Keccakf1600 { .. } => BlackBoxFunc::Keccakf1600,
@@ -218,7 +215,8 @@ impl BlackBoxFuncCall {
 
     pub fn get_inputs_vec(&self) -> Vec<FunctionInput> {
         match self {
-            BlackBoxFuncCall::SHA256 { inputs, .. }
+            BlackBoxFuncCall::AES128Encrypt { inputs, .. }
+            | BlackBoxFuncCall::SHA256 { inputs, .. }
             | BlackBoxFuncCall::Blake2s { inputs, .. }
             | BlackBoxFuncCall::Blake3 { inputs, .. }
             | BlackBoxFuncCall::PedersenCommitment { inputs, .. }
@@ -239,19 +237,15 @@ impl BlackBoxFuncCall {
             | BlackBoxFuncCall::BigIntMul { .. }
             | BlackBoxFuncCall::BigIntDiv { .. }
             | BlackBoxFuncCall::BigIntToLeBytes { .. } => Vec::new(),
-            BlackBoxFuncCall::FixedBaseScalarMul { low, high, .. } => vec![*low, *high],
-            BlackBoxFuncCall::VariableBaseScalarMul {
-                point_x,
-                point_y,
-                scalar_low,
-                scalar_high,
-                ..
-            } => {
-                vec![*point_x, *point_y, *scalar_low, *scalar_high]
+            BlackBoxFuncCall::MultiScalarMul { points, scalars, .. } => {
+                let mut inputs: Vec<FunctionInput> = Vec::with_capacity(points.len() * 2);
+                inputs.extend(points.iter().copied());
+                inputs.extend(scalars.iter().copied());
+                inputs
             }
-            BlackBoxFuncCall::EmbeddedCurveAdd {
-                input1_x, input1_y, input2_x, input2_y, ..
-            } => vec![*input1_x, *input1_y, *input2_x, *input2_y],
+            BlackBoxFuncCall::EmbeddedCurveAdd { input1, input2, .. } => {
+                vec![input1[0], input1[1], input2[0], input2[1]]
+            }
             BlackBoxFuncCall::RANGE { input } => vec![*input],
             BlackBoxFuncCall::SchnorrVerify {
                 public_key_x,
@@ -260,7 +254,8 @@ impl BlackBoxFuncCall {
                 message,
                 ..
             } => {
-                let mut inputs = Vec::with_capacity(2 + signature.len() + message.len());
+                let mut inputs: Vec<FunctionInput> =
+                    Vec::with_capacity(2 + signature.len() + message.len());
                 inputs.push(*public_key_x);
                 inputs.push(*public_key_y);
                 inputs.extend(signature.iter().copied());
@@ -337,7 +332,8 @@ impl BlackBoxFuncCall {
 
             BlackBoxFuncCall::Sha256Compression { outputs, .. } => outputs.to_vec(),
 
-            BlackBoxFuncCall::Poseidon2Permutation { outputs, .. } => outputs.to_vec(),
+            BlackBoxFuncCall::AES128Encrypt { outputs, .. }
+            | BlackBoxFuncCall::Poseidon2Permutation { outputs, .. } => outputs.to_vec(),
 
             BlackBoxFuncCall::AND { output, .. }
             | BlackBoxFuncCall::XOR { output, .. }
@@ -345,10 +341,11 @@ impl BlackBoxFuncCall {
             | BlackBoxFuncCall::EcdsaSecp256k1 { output, .. }
             | BlackBoxFuncCall::PedersenHash { output, .. }
             | BlackBoxFuncCall::EcdsaSecp256r1 { output, .. } => vec![*output],
-            BlackBoxFuncCall::FixedBaseScalarMul { outputs, .. }
-            | BlackBoxFuncCall::VariableBaseScalarMul { outputs, .. }
-            | BlackBoxFuncCall::PedersenCommitment { outputs, .. }
-            | BlackBoxFuncCall::EmbeddedCurveAdd { outputs, .. } => vec![outputs.0, outputs.1],
+            BlackBoxFuncCall::PedersenCommitment { outputs, .. } => vec![outputs.0, outputs.1],
+            BlackBoxFuncCall::MultiScalarMul { outputs, .. }
+            | BlackBoxFuncCall::EmbeddedCurveAdd { outputs, .. } => {
+                vec![outputs.0, outputs.1, outputs.2]
+            }
             BlackBoxFuncCall::RANGE { .. }
             | BlackBoxFuncCall::RecursiveAggregation { .. }
             | BlackBoxFuncCall::BigIntFromLeBytes { .. }

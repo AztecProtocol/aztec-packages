@@ -85,9 +85,9 @@ namespace bb {
  */
 class PrecomputedEntitiesBase {
   public:
-    size_t circuit_size;
-    size_t log_circuit_size;
-    size_t num_public_inputs;
+    uint64_t circuit_size;
+    uint64_t log_circuit_size;
+    uint64_t num_public_inputs;
     CircuitType circuit_type; // TODO(#392)
 };
 
@@ -181,7 +181,7 @@ template <typename PrecomputedCommitments, typename VerifierCommitmentKey>
 class VerificationKey_ : public PrecomputedCommitments {
   public:
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
-    size_t pub_inputs_offset = 0;
+    uint64_t pub_inputs_offset = 0;
 
     VerificationKey_() = default;
     VerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
@@ -310,8 +310,10 @@ namespace bb {
 class UltraFlavor;
 class ECCVMFlavor;
 class GoblinUltraFlavor;
+class TranslatorFlavor;
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class GoblinUltraRecursiveFlavor_;
+template <typename BuilderType> class TranslatorRecursiveFlavor_;
 } // namespace bb
 
 // Forward declare plonk flavors
@@ -356,7 +358,7 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                        UltraRecursiveFlavor_<CircuitSimulatorBN254>,
                                        GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>,
                                        GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>
-,GoblinUltraRecursiveFlavor_<CircuitSimulatorBN254>>;
+,GoblinUltraRecursiveFlavor_<CircuitSimulatorBN254>, TranslatorRecursiveFlavor_<UltraCircuitBuilder>, TranslatorRecursiveFlavor_<GoblinUltraCircuitBuilder>,  TranslatorRecursiveFlavor_<CircuitSimulatorBN254>>;
 
 
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor>;

@@ -228,6 +228,7 @@ pub fn inject_global(
         module_id,
         file_id,
         global.attributes.clone(),
+        false,
     );
 
     // Add the statement to the scope so its path can be looked up later
@@ -323,7 +324,7 @@ pub fn get_serialized_length(
         .iter()
         .find_map(|&trait_id| {
             let r#trait = interner.get_trait(trait_id);
-            if r#trait.name.0.contents == trait_name && r#trait.generics.len() == 1 {
+            if r#trait.name.0.contents == trait_name {
                 interner.lookup_all_trait_implementations(typ, trait_id).into_iter().next()
             } else {
                 None

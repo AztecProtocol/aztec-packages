@@ -1,4 +1,5 @@
 mod hash;
+mod aes128;
 mod array;
 mod slice;
 mod merkle;
@@ -6,9 +7,7 @@ mod schnorr;
 mod ecdsa_secp256k1;
 mod ecdsa_secp256r1;
 mod eddsa;
-mod grumpkin_scalar;
-mod grumpkin_scalar_mul;
-mod scalar_mul;
+mod embedded_curve_ops;
 mod sha256;
 mod sha512;
 mod field;
@@ -68,3 +67,6 @@ pub fn wrapping_sub<T>(x: T, y: T) -> T {
 pub fn wrapping_mul<T>(x: T, y: T) -> T {
     crate::from_field(crate::as_field(x) * crate::as_field(y))
 }
+
+#[builtin(as_witness)]
+pub fn as_witness(x: Field) {}

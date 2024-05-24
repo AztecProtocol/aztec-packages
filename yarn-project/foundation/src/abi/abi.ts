@@ -144,8 +144,8 @@ export interface StructType extends BasicType<'struct'> {
  * Aztec.nr function types.
  */
 export enum FunctionType {
-  SECRET = 'secret',
-  OPEN = 'open',
+  PRIVATE = 'private',
+  PUBLIC = 'public',
   UNCONSTRAINED = 'unconstrained',
 }
 
@@ -166,6 +166,10 @@ export interface FunctionAbi {
    */
   isInternal: boolean;
   /**
+   * Whether the function can alter state or not
+   */
+  isStatic: boolean;
+  /**
    * Function parameters.
    */
   parameters: ABIParameter[];
@@ -183,18 +187,14 @@ export interface FunctionAbi {
  * The artifact entry of a function.
  */
 export interface FunctionArtifact extends FunctionAbi {
-  /**
-   * The ACIR bytecode of the function.
-   */
+  /** The ACIR bytecode of the function. */
   bytecode: Buffer;
-  /**
-   * The verification key of the function.
-   */
+  /** The verification key of the function. */
   verificationKey?: string;
-  /**
-   * Maps opcodes to source code pointers
-   */
+  /** Maps opcodes to source code pointers */
   debugSymbols: string;
+  /** Debug metadata for the function. */
+  debug?: FunctionDebugMetadata;
 }
 
 /**
@@ -350,14 +350,8 @@ export interface FunctionDebugMetadata {
   files: DebugFileMap;
 }
 
-/** A function artifact with optional debug metadata */
-export interface FunctionArtifactWithDebugMetadata extends FunctionArtifact {
-  /** Debug metadata for the function. */
-  debug?: FunctionDebugMetadata;
-}
-
 /**
- * Gets a function artifact given its name or selector.
+ * Gets a function artifact including debug metadata given its name or selector.
  */
 export function getFunctionArtifact(
   artifact: ContractArtifact,
@@ -371,22 +365,6 @@ export function getFunctionArtifact(
   if (!functionArtifact) {
     throw new Error(`Unknown function ${functionNameOrSelector}`);
   }
-  return functionArtifact;
-}
-
-/** @deprecated Use getFunctionArtifact instead */
-export function getFunctionArtifactWithSelector(artifact: ContractArtifact, selector: FunctionSelector) {
-  return getFunctionArtifact(artifact, selector);
-}
-
-/**
- * Gets a function artifact including debug metadata given its name or selector.
- */
-export function getFunctionArtifactWithDebugMetadata(
-  artifact: ContractArtifact,
-  functionNameOrSelector: string | FunctionSelector,
-): FunctionArtifactWithDebugMetadata {
-  const functionArtifact = getFunctionArtifact(artifact, functionNameOrSelector);
   const debugMetadata = getFunctionDebugMetadata(artifact, functionArtifact);
   return { ...functionArtifact, debug: debugMetadata };
 }
@@ -426,7 +404,7 @@ export function getDefaultInitializer(contractArtifact: ContractArtifact): Funct
     ? initializers.find(f => f.name === 'constructor') ??
         initializers.find(f => f.name === 'initializer') ??
         initializers.find(f => f.parameters?.length === 0) ??
-        initializers.find(f => f.functionType === FunctionType.SECRET) ??
+        initializers.find(f => f.functionType === FunctionType.PRIVATE) ??
         initializers[0]
     : initializers[0];
 }

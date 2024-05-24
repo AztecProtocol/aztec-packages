@@ -43,8 +43,8 @@ contract ContractClassRegisterer {
         context.push_new_nullifier(contract_class_id.to_field(), 0);
 
         // Broadcast class info including public bytecode
-        dep::aztec::oracle::debug_log::debug_log_array_with_prefix(
-            "ContractClassRegistered",
+        dep::aztec::oracle::debug_log::debug_log_format(
+            "ContractClassRegistered: {}",
             [
             contract_class_id.to_field(),
             artifact_hash,
@@ -52,7 +52,7 @@ contract ContractClassRegisterer {
             public_bytecode_commitment
         ]
         );
-        context.emit_unencrypted_log(event.serialize());
+        context.emit_contract_class_unencrypted_log(event.serialize());
     }
 
     #[aztec(private)]
@@ -76,8 +76,8 @@ contract ContractClassRegisterer {
             artifact_function_tree_leaf_index,
             function: function_data
         };
-        dep::aztec::oracle::debug_log::debug_log_array_with_prefix(
-            "ClassPrivateFunctionBroadcasted",
+        dep::aztec::oracle::debug_log::debug_log_format(
+            "ClassPrivateFunctionBroadcasted: {}",
             [
             contract_class_id.to_field(),
             artifact_metadata_hash,
@@ -87,7 +87,7 @@ contract ContractClassRegisterer {
             function_data.metadata_hash
         ]
         );
-        context.emit_unencrypted_log(event.serialize());
+        context.emit_contract_class_unencrypted_log(event.serialize());
     }
 
     #[aztec(private)]
@@ -107,8 +107,8 @@ contract ContractClassRegisterer {
             artifact_function_tree_leaf_index,
             function: function_data
         };
-        dep::aztec::oracle::debug_log::debug_log_array_with_prefix(
-            "ClassUnconstrainedFunctionBroadcasted",
+        dep::aztec::oracle::debug_log::debug_log_format(
+            "ClassUnconstrainedFunctionBroadcasted: {}",
             [
             contract_class_id.to_field(),
             artifact_metadata_hash,
@@ -117,6 +117,6 @@ contract ContractClassRegisterer {
             function_data.metadata_hash
         ]
         );
-        context.emit_unencrypted_log(event.serialize());
+        context.emit_contract_class_unencrypted_log(event.serialize());
     }
 }

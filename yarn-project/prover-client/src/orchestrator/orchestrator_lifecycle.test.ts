@@ -1,11 +1,22 @@
-import { PROVING_STATUS, type ProvingFailure } from '@aztec/circuit-types';
-import { type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
-import { fr } from '@aztec/circuits.js/testing';
+import { PROVING_STATUS, type ProvingFailure, type ServerCircuitProver } from '@aztec/circuit-types';
+import {
+  type GlobalVariables,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  NUM_BASE_PARITY_PER_ROOT_PARITY,
+  getMockVerificationKeys,
+} from '@aztec/circuits.js';
+import { fr, makeGlobalVariables } from '@aztec/circuits.js/testing';
 import { range } from '@aztec/foundation/array';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
+import { sleep } from '@aztec/foundation/sleep';
 
+import { jest } from '@jest/globals';
+
+import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
 import { makeBloatedProcessedTx, makeEmptyProcessedTestTx, makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
+import { ProvingOrchestrator } from './orchestrator.js';
 
 const logger = createDebugLogger('aztec:orchestrator-lifecycle');
 
@@ -42,6 +53,7 @@ describe('prover/orchestrator/lifecycle', () => {
         globals1,
         l1ToL2Messages,
         await makeEmptyProcessedTestTx(context.actualDb),
+        getMockVerificationKeys(),
       );
 
       await context.orchestrator.addNewTx(txs1[0]);
@@ -65,6 +77,7 @@ describe('prover/orchestrator/lifecycle', () => {
         globals2,
         l1ToL2Messages,
         await makeEmptyProcessedTestTx(context.actualDb),
+        getMockVerificationKeys(),
       );
 
       await context.orchestrator.addNewTx(txs2[0]);
@@ -98,6 +111,7 @@ describe('prover/orchestrator/lifecycle', () => {
         globals1,
         l1ToL2Messages,
         await makeEmptyProcessedTestTx(context.actualDb),
+        getMockVerificationKeys(),
       );
 
       await context.orchestrator.addNewTx(txs1[0]);
@@ -109,6 +123,7 @@ describe('prover/orchestrator/lifecycle', () => {
         globals2,
         l1ToL2Messages,
         await makeEmptyProcessedTestTx(context.actualDb),
+        getMockVerificationKeys(),
       );
 
       await context.orchestrator.addNewTx(txs2[0]);
@@ -123,6 +138,34 @@ describe('prover/orchestrator/lifecycle', () => {
       const finalisedBlock = await context.orchestrator.finaliseBlock();
 
       expect(finalisedBlock.block.number).toEqual(101);
+    }, 60000);
+
+    it('cancels proving requests', async () => {
+      const prover: ServerCircuitProver = new TestCircuitProver();
+      const orchestrator = new ProvingOrchestrator(context.actualDb, prover);
+
+      const spy = jest.spyOn(prover, 'getBaseParityProof');
+      const deferredPromises: PromiseWithResolvers<any>[] = [];
+      spy.mockImplementation(() => {
+        const deferred = promiseWithResolvers<any>();
+        deferredPromises.push(deferred);
+        return deferred.promise;
+      });
+      await orchestrator.startNewBlock(
+        2,
+        makeGlobalVariables(1),
+        [],
+        await makeEmptyProcessedTestTx(context.actualDb),
+        getMockVerificationKeys(),
+      );
+
+      await sleep(1);
+
+      expect(spy).toHaveBeenCalledTimes(NUM_BASE_PARITY_PER_ROOT_PARITY);
+      expect(spy.mock.calls.every(([_, signal]) => !signal?.aborted)).toBeTruthy();
+
+      orchestrator.cancelBlock();
+      expect(spy.mock.calls.every(([_, signal]) => signal?.aborted)).toBeTruthy();
     });
   });
 });

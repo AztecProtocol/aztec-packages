@@ -4,15 +4,16 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 import { MAX_NEW_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX } from '../constants.gen.js';
-import { siloNullifier } from '../hash/index.js';
 import {
   Nullifier,
   type NullifierReadRequestHints,
   NullifierReadRequestHintsBuilder,
   PendingReadHint,
-  ReadRequestContext,
+  ReadRequest,
   ReadRequestState,
   ReadRequestStatus,
+  type ScopedNullifier,
+  ScopedReadRequest,
   SettledReadHint,
 } from '../structs/index.js';
 import { buildNullifierReadRequestHints } from './build_nullifier_read_request_hints.js';
@@ -23,22 +24,24 @@ describe('buildNullifierReadRequestHints', () => {
   const oracle = {
     getNullifierMembershipWitness: () => ({ membershipWitness: {}, leafPreimage: {} } as any),
   };
-  let nullifierReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>;
-  let nullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>;
-  let expectedHints: NullifierReadRequestHints;
+  let nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>;
+  let nullifiers: Tuple<ScopedNullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>;
+  let expectedHints: NullifierReadRequestHints<
+    typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+    typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX
+  >;
   let numReadRequests = 0;
   let numPendingReads = 0;
   let numSettledReads = 0;
+  let futureNullifiers: ScopedNullifier[];
 
   const innerNullifier = (index: number) => index + 1;
 
   const makeReadRequest = (value: number, counter = 2) =>
-    new ReadRequestContext(new Fr(value), counter, contractAddress);
+    new ReadRequest(new Fr(value), counter).scope(contractAddress);
 
-  function makeNullifier(value: number, counter = 1) {
-    const siloedValue = siloNullifier(contractAddress, new Fr(value));
-    return new Nullifier(siloedValue, 0, new Fr(counter));
-  }
+  const makeNullifier = (value: number, counter = 1) =>
+    new Nullifier(new Fr(value), counter, Fr.ZERO).scope(contractAddress);
 
   const readPendingNullifier = ({
     nullifierIndex,
@@ -70,15 +73,37 @@ describe('buildNullifierReadRequestHints', () => {
     numSettledReads++;
   };
 
-  const buildHints = () => buildNullifierReadRequestHints(oracle, nullifierReadRequests, nullifiers);
+  const readFutureNullifier = (nullifierIndex: number) => {
+    const readRequestIndex = numReadRequests;
+    nullifierReadRequests[readRequestIndex] = makeReadRequest(futureNullifiers[nullifierIndex].value.toNumber());
+    numReadRequests++;
+  };
+
+  const buildHints = async () =>
+    (
+      await buildNullifierReadRequestHints(
+        oracle,
+        nullifierReadRequests,
+        nullifiers,
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+        futureNullifiers,
+      )
+    ).hints;
 
   beforeEach(() => {
-    nullifierReadRequests = makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext.empty);
+    nullifierReadRequests = makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest.empty);
     nullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => makeNullifier(innerNullifier(i)));
-    expectedHints = NullifierReadRequestHintsBuilder.empty();
+    expectedHints = NullifierReadRequestHintsBuilder.empty(
+      MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+      MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+    );
     numReadRequests = 0;
     numPendingReads = 0;
     numSettledReads = 0;
+    futureNullifiers = new Array(MAX_NEW_NULLIFIERS_PER_TX)
+      .fill(null)
+      .map((_, i) => makeNullifier(innerNullifier(i + MAX_NEW_NULLIFIERS_PER_TX)));
   });
 
   it('builds empty hints', async () => {
@@ -100,11 +125,13 @@ describe('buildNullifierReadRequestHints', () => {
     expect(hints).toEqual(expectedHints);
   });
 
-  it('builds hints for mixed pending and settled nullifier read requests', async () => {
+  it('builds hints for mixed pending and settled and future nullifier read requests', async () => {
     readPendingNullifier({ nullifierIndex: 2 });
     readSettledNullifier();
+    readFutureNullifier(0);
     readSettledNullifier();
     readPendingNullifier({ nullifierIndex: 1 });
+    readFutureNullifier(1);
     readPendingNullifier({ nullifierIndex: 1 });
     const hints = await buildHints();
     expect(hints).toEqual(expectedHints);

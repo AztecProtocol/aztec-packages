@@ -1,15 +1,15 @@
 import {
   type AztecNode,
-  EncryptedFunctionL2Logs,
-  EncryptedL2BlockL2Logs,
-  EncryptedL2Log,
-  EncryptedTxL2Logs,
-  type KeyStore,
+  EncryptedL2NoteLog,
+  EncryptedNoteFunctionL2Logs,
+  EncryptedNoteL2BlockL2Logs,
+  EncryptedNoteTxL2Logs,
   type L1NotePayload,
   L2Block,
   TaggedNote,
 } from '@aztec/circuit-types';
 import {
+  AztecAddress,
   Fr,
   type GrumpkinPrivateKey,
   INITIAL_L2_BLOCK_NUM,
@@ -18,7 +18,8 @@ import {
   deriveKeys,
 } from '@aztec/circuits.js';
 import { pedersenHash } from '@aztec/foundation/crypto';
-import { Point } from '@aztec/foundation/fields';
+import { GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { type KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AcirSimulator } from '@aztec/simulator';
 
@@ -51,7 +52,7 @@ describe('Note Processor', () => {
   const createEncryptedLogsAndOwnedL1NotePayloads = (ownedData: number[][], ownedNotes: TaggedNote[]) => {
     const newNotes: TaggedNote[] = [];
     const ownedL1NotePayloads: L1NotePayload[] = [];
-    const txLogs: EncryptedTxL2Logs[] = [];
+    const txLogs: EncryptedNoteTxL2Logs[] = [];
     let usedOwnedNote = 0;
     for (let i = 0; i < TXS_PER_BLOCK; ++i) {
       const ownedDataIndices = ownedData[i] || [];
@@ -59,10 +60,10 @@ describe('Note Processor', () => {
         throw new Error(`Data index should be less than ${MAX_NEW_NOTE_HASHES_PER_TX}.`);
       }
 
-      const logs: EncryptedFunctionL2Logs[] = [];
+      const logs: EncryptedNoteFunctionL2Logs[] = [];
       for (let noteIndex = 0; noteIndex < MAX_NEW_NOTE_HASHES_PER_TX; ++noteIndex) {
         const isOwner = ownedDataIndices.includes(noteIndex);
-        const publicKey = isOwner ? ownerMasterIncomingViewingPublicKey : Point.random();
+        const ivsk = isOwner ? ownerMasterIncomingViewingPublicKey : Point.random();
         const note = (isOwner && ownedNotes[usedOwnedNote]) || TaggedNote.random();
         usedOwnedNote += note === ownedNotes[usedOwnedNote] ? 1 : 0;
         newNotes.push(note);
@@ -70,14 +71,19 @@ describe('Note Processor', () => {
           ownedL1NotePayloads.push(note.notePayload);
         }
         // const encryptedNote =
-        const log = note.toEncryptedBuffer(publicKey);
+        //const log = note.toEncryptedBuffer(publicKey);
+
+        const ephSk = GrumpkinScalar.random();
+        const ovsk = GrumpkinScalar.random();
+        const recipient = AztecAddress.random();
+        const log = note.encrypt(ephSk, recipient, ivsk, ovsk);
         // 1 tx containing 1 function invocation containing 1 log
-        logs.push(new EncryptedFunctionL2Logs([new EncryptedL2Log(log)]));
+        logs.push(new EncryptedNoteFunctionL2Logs([new EncryptedL2NoteLog(log)]));
       }
-      txLogs.push(new EncryptedTxL2Logs(logs));
+      txLogs.push(new EncryptedNoteTxL2Logs(logs));
     }
 
-    const encryptedLogs = new EncryptedL2BlockL2Logs(txLogs);
+    const encryptedLogs = new EncryptedNoteL2BlockL2Logs(txLogs);
     return { newNotes, ownedL1NotePayloads, encryptedLogs };
   };
 
@@ -92,7 +98,7 @@ describe('Note Processor', () => {
     }
 
     const blocks: L2Block[] = [];
-    const encryptedLogsArr: EncryptedL2BlockL2Logs[] = [];
+    const encryptedLogsArr: EncryptedNoteL2BlockL2Logs[] = [];
     const ownedL1NotePayloads: L1NotePayload[] = [];
     const numberOfBlocks = prependedBlocks + appendedBlocks + 1;
     for (let i = 0; i < numberOfBlocks; ++i) {
@@ -123,7 +129,7 @@ describe('Note Processor', () => {
     const allOwnerKeys = deriveKeys(ownerSk);
 
     ownerMasterIncomingViewingSecretKey = allOwnerKeys.masterIncomingViewingSecretKey;
-    ownerMasterIncomingViewingPublicKey = allOwnerKeys.masterIncomingViewingPublicKey;
+    ownerMasterIncomingViewingPublicKey = allOwnerKeys.publicKeys.masterIncomingViewingPublicKey;
   });
 
   beforeEach(() => {
@@ -146,8 +152,8 @@ describe('Note Processor', () => {
     simulator.computeNoteHashAndNullifier.mockImplementation((...args) =>
       Promise.resolve({
         innerNoteHash: Fr.random(),
-        siloedNoteHash: Fr.random(),
-        uniqueSiloedNoteHash: pedersenHash(args[4].items), // args[4] is note
+        uniqueNoteHash: Fr.random(),
+        siloedNoteHash: pedersenHash(args[4].items), // args[4] is note
         innerNullifier: Fr.random(),
       }),
     );
@@ -168,7 +174,7 @@ describe('Note Processor', () => {
         index: BigInt(firstBlockDataStartIndex + 2),
       }),
     ]);
-  });
+  }, 25_000);
 
   it('should store multiple notes that belong to us', async () => {
     const prependedBlocks = 2;

@@ -43,6 +43,7 @@ enum class OpCode : uint8_t {
     SENDER,
     FEEPERL2GAS,
     FEEPERDAGAS,
+    TRANSACTIONFEE,
     CONTRACTCALLDEPTH,
     // Execution Environment - Globals
     CHAINID,
@@ -91,9 +92,17 @@ enum class OpCode : uint8_t {
     RETURN,
     REVERT,
 
+    // Misc
+    DEBUGLOG,
+
     // Gadgets
     KECCAK,
     POSEIDON2,
+    SHA256,
+    PEDERSEN,
+
+    // Conversions
+    TORADIXLE,
 
     // Sentinel
     LAST_OPCODE_SENTINEL,

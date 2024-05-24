@@ -110,7 +110,10 @@ export async function waitNewPXESynced(
   contract: BenchmarkingContract,
   startingBlock: number = INITIAL_L2_BLOCK_NUM,
 ): Promise<PXEService> {
-  const pxe = await createPXEService(node, { l2BlockPollingIntervalMS: 100, l2StartingBlock: startingBlock });
+  const pxe = await createPXEService(node, {
+    l2BlockPollingIntervalMS: 100,
+    l2StartingBlock: startingBlock,
+  });
   await pxe.registerContract(contract);
   await retryUntil(() => pxe.isGlobalStateSynchronized(), 'pxe-global-sync');
   return pxe;
@@ -124,7 +127,9 @@ export async function waitNewPXESynced(
  */
 export async function waitRegisteredAccountSynced(pxe: PXE, secretKey: Fr, partialAddress: PartialAddress) {
   const l2Block = await pxe.getBlockNumber();
-  const { publicKey } = await pxe.registerAccount(secretKey, partialAddress);
-  const isAccountSynced = async () => (await pxe.getSyncStatus()).notes[publicKey.toString()] === l2Block;
+  const masterIncomingViewingPublicKey = (await pxe.registerAccount(secretKey, partialAddress)).publicKeys
+    .masterIncomingViewingPublicKey;
+  const isAccountSynced = async () =>
+    (await pxe.getSyncStatus()).notes[masterIncomingViewingPublicKey.toString()] === l2Block;
   await retryUntil(isAccountSynced, 'pxe-notes-sync');
 }

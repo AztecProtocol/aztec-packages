@@ -1,22 +1,24 @@
-import { EncryptedFunctionL2Logs, Note, UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
+import { Note, type ProofCreator } from '@aztec/circuit-types';
 import {
   FunctionData,
   FunctionSelector,
   MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NOTE_HASHES_PER_TX,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MembershipWitness,
+  NESTED_RECURSIVE_PROOF_LENGTH,
   NoteHash,
-  NoteHashContext,
-  NoteHashReadRequestMembershipWitness,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
+  PublicCallRequest,
+  RECURSIVE_PROOF_LENGTH,
+  ScopedNoteHash,
   type TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
-  makeEmptyProof,
+  VerificationKeyAsFields,
+  makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeTxRequest } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
@@ -27,7 +29,6 @@ import { type ExecutionResult, type NoteAndSlot } from '@aztec/simulator';
 import { mock } from 'jest-mock-extended';
 
 import { KernelProver } from './kernel_prover.js';
-import { type ProofCreator } from './proof_creator.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
 
 describe('Kernel Prover', () => {
@@ -36,6 +37,8 @@ describe('Kernel Prover', () => {
   let proofCreator: ReturnType<typeof mock<ProofCreator>>;
   let prover: KernelProver;
   let dependencies: { [name: string]: string[] } = {};
+
+  const contractAddress = AztecAddress.fromBigInt(987654n);
 
   const notesAndSlots: NoteAndSlot[] = Array(10)
     .fill(null)
@@ -67,32 +70,34 @@ describe('Kernel Prover', () => {
       nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
       vk: VerificationKey.makeFake().toBuffer(),
       newNotes: newNoteIndices.map(idx => notesAndSlots[idx]),
-      nullifiedNoteHashCounters: [],
-      // TODO(dbanks12): should test kernel prover with non-transient reads.
-      // This will be necessary once kernel actually checks (attempts to match) transient reads.
-      noteHashReadRequestPartialWitnesses: Array.from({ length: MAX_NOTE_HASH_READ_REQUESTS_PER_CALL }, () =>
-        NoteHashReadRequestMembershipWitness.emptyTransient(),
-      ),
+      nullifiedNoteHashCounters: new Map(),
+      noteHashLeafIndexMap: new Map(),
       returnValues: [],
       acir: Buffer.alloc(0),
       partialWitness: new Map(),
       enqueuedPublicFunctionCalls: [],
-      encryptedLogs: EncryptedFunctionL2Logs.empty(),
-      unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
+      publicTeardownFunctionCall: PublicCallRequest.empty(),
+      noteEncryptedLogs: [],
+      encryptedLogs: [],
+      unencryptedLogs: [],
     };
   };
 
   const createProofOutput = (newNoteIndices: number[]) => {
     const publicInputs = PrivateKernelCircuitPublicInputs.empty();
-    const noteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, NoteHashContext.empty);
+    const noteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash.empty);
     for (let i = 0; i < newNoteIndices.length; i++) {
-      noteHashes[i] = new NoteHashContext(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), 0, 0);
+      noteHashes[i] = new NoteHash(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), 0).scope(
+        0,
+        contractAddress,
+      );
     }
 
     publicInputs.end.newNoteHashes = noteHashes;
     return {
       publicInputs,
-      proof: makeEmptyProof(),
+      proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
+      verificationKey: VerificationKeyAsFields.makeEmpty(),
     };
   };
 
@@ -106,7 +111,15 @@ describe('Kernel Prover', () => {
 
     return {
       publicInputs,
-      proof: makeEmptyProof(),
+      proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
+      verificationKey: VerificationKeyAsFields.makeEmpty(),
+    };
+  };
+
+  const createAppCircuitProofOutput = () => {
+    return {
+      proof: makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH),
+      verificationKey: VerificationKeyAsFields.makeEmpty(),
     };
   };
 
@@ -151,7 +164,9 @@ describe('Kernel Prover', () => {
     );
     proofCreator.createProofInit.mockResolvedValue(createProofOutput([]));
     proofCreator.createProofInner.mockResolvedValue(createProofOutput([]));
+    proofCreator.createProofReset.mockResolvedValue(createProofOutput([]));
     proofCreator.createProofTail.mockResolvedValue(createProofOutputFinal([]));
+    proofCreator.createAppCircuitProof.mockResolvedValue(createAppCircuitProofOutput());
 
     prover = new KernelProver(oracle, proofCreator);
   });
@@ -171,7 +186,7 @@ describe('Kernel Prover', () => {
       };
       const executionResult = createExecutionResult('a');
       await prove(executionResult);
-      expectExecution(['a', 'd', 'b', 'c']);
+      expectExecution(['a', 'b', 'c', 'd']);
     }
 
     {
@@ -182,7 +197,7 @@ describe('Kernel Prover', () => {
       };
       const executionResult = createExecutionResult('k');
       await prove(executionResult);
-      expectExecution(['k', 'o', 'r', 'p', 'n', 'm', 'q']);
+      expectExecution(['k', 'm', 'q', 'o', 'n', 'p', 'r']);
     }
   });
 });
