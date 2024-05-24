@@ -47,7 +47,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
 
         public_inputs.min_revertible_side_effect_counter = private_call_public_inputs.min_revertible_side_effect_counter;
 
-        // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
+        // Since it's the first iteration, we need to push the tx hash nullifier into the `new_nullifiers` array
         public_inputs.end.new_nullifiers.push(create_first_nullifier(tx_request));
         // Note that we do not need to nullify the transaction request nonce anymore.
         // Should an account want to additionally use nonces for replay protection or handling cancellations,
@@ -104,7 +104,16 @@ impl PrivateKernelCircuitPublicInputsComposer {
             public_call_requests,
             public_teardown_call_request
         };
+        self.propagate_from_private_call(source);
 
+        *self
+    }
+
+    pub fn finish(self) -> PrivateKernelCircuitPublicInputs {
+        self.public_inputs.finish()
+    }
+
+    fn propagate_from_private_call(&mut self, source: DataSource) {
         self.propagate_max_block_number(source);
         self.propagate_note_hash_read_requests(source);
         self.propagate_nullifier_read_requests(source);
@@ -117,12 +126,6 @@ impl PrivateKernelCircuitPublicInputsComposer {
         self.propagate_public_call_requests(source);
         self.propagate_public_teardown_call_request(source);
         self.propagate_fee_payer(source);
-
-        *self
-    }
-
-    pub fn finish(self) -> PrivateKernelCircuitPublicInputs {
-        self.public_inputs.finish()
     }
 
     fn propagate_max_block_number(&mut self, source: DataSource) {

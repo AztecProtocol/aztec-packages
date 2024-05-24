@@ -26,7 +26,7 @@ struct PrivateCallData {
     acir_hash: Field,
 }
 
-fn verify_private_call(call: PrivateCallData) {
+pub fn verify_private_call(call: PrivateCallData) {
     let inputs = PrivateCircuitPublicInputs::serialize(call.call_stack_item.public_inputs);
     dep::std::verify_proof(
         call.vk.key.as_slice(),

@@ -11,25 +11,27 @@ use crate::{
     nullifier::{Nullifier, ScopedNullifier},
     key_validation_request::{ScopedKeyValidationRequest, KeyValidationRequest},
     private_call_request::{PrivateCallRequest, ScopedPrivateCallRequest},
-    private_circuit_public_inputs::PrivateCircuitPublicInputs, public_data_read::PublicDataRead,
+    private_call_stack_item::PrivateCallStackItem,
+    private_circuit_public_inputs::PrivateCircuitPublicInputs,
+    private_kernel::private_call_data::PrivateCallData, public_data_read::PublicDataRead,
     public_data_update_request::PublicDataUpdateRequest, read_request::{ReadRequest, ScopedReadRequest},
     log_hash::{LogHash, NoteLogHash},
     validation_requests::{ValidationRequests, ValidationRequestsBuilder}
 },
-    address::{AztecAddress, EthAddress},
+    address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash},
     constants::{
-    MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-    MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    FUNCTION_TREE_HEIGHT, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
+    MAX_NEW_L2_TO_L1_MSGS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
     MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX, VK_TREE_HEIGHT,
     MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 },
-    hash::silo_nullifier, header::Header,
+    hash::silo_nullifier, header::Header, merkle_tree::membership::MembershipWitness,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     partial_state_reference::PartialStateReference, tests::fixtures,
     transaction::{tx_context::TxContext, tx_request::TxRequest}, traits::Empty,
-    recursion::{verification_key::VerificationKey, proof::NestedRecursiveProof},
+    recursion::{verification_key::VerificationKey, proof::{NestedRecursiveProof, RecursiveProof}},
     grumpkin_point::GrumpkinPoint
 };
 
@@ -101,6 +103,14 @@ struct FixtureBuilder {
     args_hash: Field,
     returns_hash: Field,
 
+    // Private call.
+    salted_initialization_hash: SaltedInitializationHash,
+    public_keys_hash: PublicKeysHash,
+    contract_class_artifact_hash: Field,
+    contract_class_public_bytecode_commitment: Field,
+    function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
+    acir_hash: Field,
+
     // Proof.
     proof: NestedRecursiveProof,
     vk: VerificationKey,
@@ -123,12 +133,23 @@ struct FixtureBuilder {
 impl FixtureBuilder {
     pub fn new() -> Self {
         let mut builder = FixtureBuilder::empty();
+
+        let contract_data = fixtures::contracts::default_contract;
+        let contract_function = fixtures::contract_functions::default_private_function;
+
         builder.tx_context = TxContext { chain_id: fixtures::CHAIN_ID, version: fixtures::VERSION, gas_settings: GasSettings::empty() };
         builder.contract_address = fixtures::contracts::parent_contract.address;
         builder.storage_contract_address = fixtures::contracts::parent_contract.address;
         builder.msg_sender = fixtures::MSG_SENDER;
-        builder.function_data = fixtures::contract_functions::default_private_function.data;
+        builder.function_data = contract_function.data;
+        builder.function_leaf_membership_witness = contract_function.membership_witness;
+        builder.salted_initialization_hash = contract_data.salted_initialization_hash;
+        builder.public_keys_hash = contract_data.public_keys_hash;
+        builder.contract_class_artifact_hash = contract_data.artifact_hash;
+        builder.contract_class_public_bytecode_commitment = contract_data.public_bytecode_commitment;
+        builder.acir_hash = contract_function.acir_hash;
         builder.counter = 1;
+
         builder
     }
 
@@ -184,6 +205,30 @@ impl FixtureBuilder {
             unencrypted_logs_hashes: subarray(self.unencrypted_logs_hashes.storage),
             historical_header: self.historical_header,
             tx_context: self.tx_context
+        }
+    }
+
+    pub fn to_private_call_stack_item(self) -> PrivateCallStackItem {
+        PrivateCallStackItem {
+            contract_address: self.contract_address,
+            function_data: self.function_data,
+            public_inputs: self.to_private_circuit_public_inputs()
+        }
+    }
+
+    pub fn to_private_call_data(self) -> PrivateCallData {
+        PrivateCallData {
+            call_stack_item: self.to_private_call_stack_item(),
+            public_call_stack: subarray(self.public_call_requests.storage),
+            public_teardown_call_request: self.public_teardown_call_request,
+            proof: RecursiveProof::empty(),
+            vk: self.vk,
+            function_leaf_membership_witness: self.function_leaf_membership_witness,
+            salted_initialization_hash: self.salted_initialization_hash,
+            public_keys_hash: self.public_keys_hash,
+            contract_class_artifact_hash: self.contract_class_artifact_hash,
+            contract_class_public_bytecode_commitment: self.contract_class_public_bytecode_commitment,
+            acir_hash: self.acir_hash
         }
     }
 
@@ -712,6 +757,12 @@ impl Empty for FixtureBuilder {
             function_data: FunctionData::empty(),
             args_hash: 0,
             returns_hash: 0,
+            function_leaf_membership_witness: MembershipWitness::empty(),
+            salted_initialization_hash: SaltedInitializationHash::from_field(0),
+            public_keys_hash: PublicKeysHash::from_field(0),
+            contract_class_artifact_hash: 0,
+            contract_class_public_bytecode_commitment: 0,
+            acir_hash: 0,
             proof: NestedRecursiveProof::empty(),
             vk: VerificationKey::empty(),
             vk_index: 0,

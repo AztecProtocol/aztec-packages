@@ -8,8 +8,7 @@ use dep::types::{
     private_kernel::private_call_data::{PrivateCallData, verify_private_call},
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs
 },
-    constants::MAX_NEW_NOTE_HASHES_PER_CALL, mocked::verify_private_function_proof,
-    transaction::tx_request::TxRequest
+    constants::MAX_NEW_NOTE_HASHES_PER_CALL, transaction::tx_request::TxRequest
 };
 
 struct PrivateKernelInitHints {
@@ -60,10 +59,9 @@ impl PrivateKernelInitCircuitPrivateInputs {
 
         let output = self.prepare_output(private_call_data_validator);
         let output_validator = PrivateKernelCircuitOutputValidator::new(output);
-        let private_call_public_inputs = self.private_call.call_stack_item.public_inputs;
         output_validator.validate_as_first_call(
             self.tx_request,
-            private_call_public_inputs,
+            self.private_call.call_stack_item.public_inputs,
             private_call_data_validator.array_lengths,
             self.private_call.call_stack_item.contract_address,
             self.hints.note_hash_nullifier_counters,
@@ -77,16 +75,10 @@ impl PrivateKernelInitCircuitPrivateInputs {
 mod tests {
     use crate::private_kernel_init::{PrivateKernelInitHints, PrivateKernelInitCircuitPrivateInputs};
     use dep::types::{
-        abis::{
-        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::NoteHash,
-        key_validation_request::KeyValidationRequest,
-        private_kernel::private_call_data::PrivateCallData, read_request::ReadRequest,
-        nullifier::Nullifier, log_hash::{LogHash, NoteLogHash}
-    },
-        address::{AztecAddress, EthAddress}, constants::MAX_NEW_NOTE_HASHES_PER_CALL,
-        grumpkin_point::GrumpkinPoint, messaging::l2_to_l1_message::L2ToL1Message,
+        abis::{kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, log_hash::NoteLogHash},
+        constants::MAX_NEW_NOTE_HASHES_PER_CALL,
         tests::private_call_data_builder::PrivateCallDataBuilder, transaction::tx_request::TxRequest,
-        utils::arrays::{array_length, array_eq}
+        utils::arrays::array_eq
     };
 
     struct PrivateKernelInitInputsBuilder {
@@ -164,85 +156,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn default_max_block_number() {
-        let mut builder = PrivateKernelInitInputsBuilder::new();
-        let public_inputs = builder.execute();
-
-        assert(public_inputs.validation_requests.for_rollup.max_block_number.is_none());
-    }
-
-    #[test]
-    fn propagate_max_block_number_request() {
-        let mut builder = PrivateKernelInitInputsBuilder::new();
-        builder.private_call.public_inputs.set_tx_max_block_number(42);
-        let public_inputs = builder.execute();
-
-        assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 42);
-    }
-
-    #[test]
-    fn propagate_note_hash_read_requests() {
-        let mut builder = PrivateKernelInitInputsBuilder::new();
-        let storage_contract_address = builder.private_call.public_inputs.call_context.storage_contract_address;
-
-        builder.private_call.public_inputs.append_note_hash_read_requests(2);
-        let new_read_requests = builder.private_call.public_inputs.note_hash_read_requests.storage;
-
-        let public_inputs = builder.execute();
-
-        let end_note_hash_read_requests = public_inputs.validation_requests.note_hash_read_requests;
-        assert_eq(array_length(end_note_hash_read_requests), 2);
-
-        let request = end_note_hash_read_requests[0];
-        assert_eq(request.read_request, new_read_requests[0]);
-        assert_eq(request.contract_address, storage_contract_address);
-
-        let request = end_note_hash_read_requests[1];
-        assert_eq(request.read_request, new_read_requests[1]);
-        assert_eq(request.contract_address, storage_contract_address);
-    }
-
-    #[test]
-    fn propagate_nullifier_read_requests() {
-        let mut builder = PrivateKernelInitInputsBuilder::new();
-        let storage_contract_address = builder.private_call.public_inputs.call_context.storage_contract_address;
-
-        builder.private_call.public_inputs.append_nullifier_read_requests(2);
-        let requests = builder.private_call.public_inputs.nullifier_read_requests.storage;
-
-        let public_inputs = builder.execute();
-
-        let end_nullifier_read_requests = public_inputs.validation_requests.nullifier_read_requests;
-        assert_eq(array_length(end_nullifier_read_requests), 2);
-
-        let request = end_nullifier_read_requests[0];
-        assert_eq(request.read_request, requests[0]);
-        assert_eq(request.contract_address, storage_contract_address);
-
-        let request = end_nullifier_read_requests[1];
-        assert_eq(request.read_request, requests[1]);
-        assert_eq(request.contract_address, storage_contract_address);
-    }
-
-    #[test]
-    fn propagate_key_validation_requests() {
-        let mut builder = PrivateKernelInitInputsBuilder::new();
-
-        let request_0 = KeyValidationRequest { pk_m: GrumpkinPoint { x: 1, y: 2 }, sk_app: 3 };
-        builder.private_call.public_inputs.key_validation_requests.push(request_0);
-
-        let public_inputs = builder.execute();
-
-        assert_eq(array_length(public_inputs.validation_requests.key_validation_requests), 1);
-
-        let request = public_inputs.validation_requests.key_validation_requests[0];
-        assert_eq(request.request, request_0);
-        assert_eq(
-            request.contract_address, builder.private_call.public_inputs.call_context.storage_contract_address
-        );
-    }
-
     #[test(should_fail_with = "Could not find note hash linked to note log.")]
     fn input_validation_note_log_not_linked() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
@@ -250,21 +163,5 @@ mod tests {
         builder.private_call.public_inputs.note_encrypted_logs_hashes.extend_from_array([NoteLogHash { value: 9123, counter: 2, length: 2, note_hash_counter: 1 }]);
 
         builder.failed();
-    }
-
-    #[test]
-    unconstrained fn propagate_fee_payer() {
-        let mut builder = PrivateKernelInitInputsBuilder::new();
-        let fee_payer = builder.private_call.public_inputs.call_context.storage_contract_address;
-        builder.private_call.public_inputs.is_fee_payer = true;
-
-        let public_inputs = builder.execute();
-        assert_eq(public_inputs.fee_payer, fee_payer);
-
-        // Check that the fee payer is not set if is_fee_payer is false
-        let mut builder = PrivateKernelInitInputsBuilder::new();
-        assert_eq(builder.private_call.public_inputs.is_fee_payer, false);
-        let public_inputs = builder.execute();
-        assert_eq(public_inputs.fee_payer, AztecAddress::empty());
     }
 }

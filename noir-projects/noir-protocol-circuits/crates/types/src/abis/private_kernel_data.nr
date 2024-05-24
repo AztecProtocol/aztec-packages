@@ -23,7 +23,7 @@ struct PrivateKernelData {
     vk_path: [Field; VK_TREE_HEIGHT],
 }
 
-fn verify_previous_kernel_proof(previous_kernel: PrivateKernelData) {
+pub fn verify_previous_kernel_proof(previous_kernel: PrivateKernelData) {
     let inputs = PrivateKernelCircuitPublicInputs::serialize(previous_kernel.public_inputs);
     dep::std::verify_proof(
         previous_kernel.vk.key.as_slice(),

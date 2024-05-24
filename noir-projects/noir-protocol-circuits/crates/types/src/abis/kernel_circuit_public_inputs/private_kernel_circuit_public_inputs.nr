@@ -55,6 +55,22 @@ impl PrivateKernelCircuitPublicInputsArrayLengths {
     }
 }
 
+impl Eq for PrivateKernelCircuitPublicInputsArrayLengths {
+    fn eq(self, other: Self) -> bool {
+        (self.note_hash_read_requests == other.note_hash_read_requests) &
+        (self.nullifier_read_requests == other.nullifier_read_requests) &
+        (self.key_validation_requests == other.key_validation_requests) &
+        (self.new_note_hashes == other.new_note_hashes) &
+        (self.new_nullifiers == other.new_nullifiers) &
+        (self.new_l2_to_l1_msgs == other.new_l2_to_l1_msgs) &
+        (self.note_encrypted_logs_hashes == other.note_encrypted_logs_hashes) &
+        (self.encrypted_logs_hashes == other.encrypted_logs_hashes) &
+        (self.unencrypted_logs_hashes == other.unencrypted_logs_hashes) &
+        (self.private_call_stack == other.private_call_stack) &
+        (self.public_call_stack== other.public_call_stack)
+    }
+}
+
 struct PrivateKernelCircuitPublicInputs {
     min_revertible_side_effect_counter: u32,
     validation_requests: ValidationRequests,

@@ -57,15 +57,19 @@ pub fn validate_array<T, N>(array: [T; N]) -> u64 where T: Empty + Eq {
 
 unconstrained fn count_non_empty_elements<T, N>(array: [T; N]) -> u64 where T: Empty + Eq {
     let mut length = 0;
+    let mut seen_empty = false;
     for elem in array {
-        if !is_empty(elem) {
+        if is_empty(elem) {
+            seen_empty = true;
+        } else if !seen_empty {
             length += 1;
         }
     }
     length
 }
 
-// Helper function to count the number of non-empty elements in a validated array (ie, validate_array(array) should be true).
+// Helper function to count the number of non-empty elements in a validated array.
+// Important: Only use it for validated arrays: validate_array(array) should be true.
 pub fn array_length<T, N>(array: [T; N]) -> u64 where T: Empty + Eq {
     let length = count_non_empty_elements(array);
     if length != 0 {
@@ -227,9 +231,13 @@ fn test_array_length() {
     assert_eq(array_length([123, 456, 0]), 2);
 }
 
-#[test(should_fail)]
-fn test_array_length_invalid_fails() {
-    let _ = array_length([0, 0, 123]);
+#[test]
+fn test_array_length_invalid_arrays() {
+    // Result can be misleading (but correct) for invalid arrays.
+    assert_eq(array_length([0, 0, 123]), 0);
+    assert_eq(array_length([0, 123, 0]), 0);
+    assert_eq(array_length([0, 123, 456]), 0);
+    assert_eq(array_length([123, 0, 456]), 1);
 }
 
 #[test]
