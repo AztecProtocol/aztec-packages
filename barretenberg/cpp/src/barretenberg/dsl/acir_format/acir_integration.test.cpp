@@ -75,6 +75,8 @@ class AcirIntegrationTest : public ::testing::Test {
         info("num gates          = ", builder.get_num_gates());
         info("total circuit size = ", builder.get_total_circuit_size());
         auto proof = prover.construct_proof();
+        info("circuit size       = ", prover.circuit_size);
+        info("log circuit size   = ", numeric::get_msb(prover.circuit_size));
 
         // Verify Honk proof
         auto verifier = composer.create_verifier(builder);
@@ -95,8 +97,8 @@ class AcirIntegrationFoldingTest : public AcirIntegrationTest, public testing::W
 
 TEST_P(AcirIntegrationSingleTest, ProveAndVerifyProgram)
 {
-    using Flavor = UltraFlavor;
-    // using Flavor = bb::plonk::flavor::Ultra;
+    // using Flavor = UltraFlavor;
+    using Flavor = bb::plonk::flavor::Ultra;
     using Builder = Flavor::CircuitBuilder;
 
     std::string test_name = GetParam();
@@ -107,14 +109,14 @@ TEST_P(AcirIntegrationSingleTest, ProveAndVerifyProgram)
     Builder builder = acir_format::create_circuit<Builder>(acir_program.constraints, 0, acir_program.witness);
 
     // Construct and verify Honk proof
-    EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
-    // EXPECT_TRUE(prove_and_verify_plonk<Flavor>(builder));
+    // EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
+    EXPECT_TRUE(prove_and_verify_plonk<Flavor>(builder));
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/994): Run all tests
 INSTANTIATE_TEST_SUITE_P(AcirTests,
                          AcirIntegrationSingleTest,
-                         testing::Values("ci_failure"/* "1327_concrete_in_generic",
+                         testing::Values("1327_concrete_in_generic",
                                          "1_mul",
                                          "2_div",
                                          "3_add",
@@ -314,7 +316,7 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "unit_value",
                                          "unsafe_range_constraint",
                                          "witness_compression",
-                                         "xor" */));
+                                         "xor"));
 
 TEST_P(AcirIntegrationFoldingTest, ProveAndVerifyProgramStack)
 {
