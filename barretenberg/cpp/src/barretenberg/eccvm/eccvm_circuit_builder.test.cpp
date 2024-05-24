@@ -6,10 +6,6 @@
 
 using namespace bb;
 using G1 = bb::g1;
-using Element = typename G1::element;
-;
-using AffineElement = typename G1::affine_element;
-;
 using Fr = typename G1::Fr;
 
 namespace {
