@@ -208,7 +208,7 @@ mod tests {
     unconstrained fn ordering_of_note_hashes_and_nullifiers() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
 
-        builder.previous_kernel.append_new_note_hashes(10, false);
+        builder.previous_kernel.append_new_note_hashes(10);
         builder.previous_kernel.append_new_nullifiers(10);
 
         let sorted_note_hashes = builder.previous_kernel.new_note_hashes.storage;
@@ -298,11 +298,11 @@ mod tests {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
 
         // expect 2 non-revertible note hashes
-        builder.previous_kernel.append_new_note_hashes(2, true);
+        builder.previous_kernel.append_new_note_hashes_with_logs(2);
         builder.previous_kernel.end_setup();
 
         // expect 2 revertible note hashes
-        builder.previous_kernel.append_new_note_hashes(2, true);
+        builder.previous_kernel.append_new_note_hashes_with_logs(2);
 
         let new_note_hashes = builder.previous_kernel.new_note_hashes.storage;
         let new_note_logs = builder.previous_kernel.note_encrypted_logs_hashes.storage;
@@ -360,7 +360,7 @@ mod tests {
     #[test(should_fail_with="Non empty note hash read requests")]
     unconstrained fn non_empty_note_hash_read_requests() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.append_new_note_hashes(3, false);
+        builder.previous_kernel.append_new_note_hashes(3);
         let _void = builder.previous_kernel.add_read_request_for_pending_note_hash(1);
         builder.failed();
     }

@@ -81,6 +81,7 @@ pub fn array_length<T, N>(array: [T; N]) -> u64 where T: Empty + Eq {
     length
 }
 
+// Deprecated. Use tests/utils/assert_array_eq instead.
 pub fn array_eq<T, N, S>(array: [T; N], expected: [T; S]) -> bool where T: Empty + Eq {
     let mut eq = array_length(array) == S;
 

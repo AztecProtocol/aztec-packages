@@ -22,13 +22,11 @@ struct PrivateKernelCircuitPublicInputsComposerBuilder {
 
 impl PrivateKernelCircuitPublicInputsComposerBuilder {
     pub fn new() -> Self {
-        let previous_kernel = FixtureBuilder::new();
+        let previous_kernel = FixtureBuilder::new_from_counter(17);
 
-        let mut private_call = FixtureBuilder::new();
+        let mut private_call = FixtureBuilder::new_from_counter(203);
         // Add an offset to the mock values so that the data in the private call won't be the same as those in the previous kernel.
         private_call.value_offset = 9999;
-        private_call.counter_start = 666;
-        private_call.counter = 777;
 
         let tx_request = private_call.build_tx_request();
         let note_hash_nullifier_counters = [0; MAX_NEW_NOTE_HASHES_PER_CALL];

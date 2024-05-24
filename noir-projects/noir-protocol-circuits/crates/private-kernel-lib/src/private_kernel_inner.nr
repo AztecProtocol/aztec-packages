@@ -121,7 +121,7 @@ mod tests {
         builder.private_call.public_inputs.append_new_note_hashes(1);
 
         // Mock the previous new note hashes to be full, therefore no more note_hashes can be added.
-        builder.previous_kernel.append_new_note_hashes(MAX_NEW_NOTE_HASHES_PER_TX, false);
+        builder.previous_kernel.append_new_note_hashes(MAX_NEW_NOTE_HASHES_PER_TX);
 
         builder.failed();
     }
@@ -225,8 +225,8 @@ mod tests {
         let prev_encrypted_log_preimages_length = 13;
         let prev_unencrypted_logs_hash = 956;
         let prev_unencrypted_log_preimages_length = 24;
-        builder.previous_kernel.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
-        builder.previous_kernel.set_unencrypted_logs(
+        builder.previous_kernel.add_encrypted_log_hash(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
+        builder.previous_kernel.add_unencrypted_log_hash(
             prev_unencrypted_logs_hash,
             prev_unencrypted_log_preimages_length
         );
@@ -252,14 +252,6 @@ mod tests {
                 expected_unencrypted_logs
             )
         );
-    }
-
-    #[test(should_fail_with = "Could not find note hash linked to note log.")]
-    unconstrained fn input_validation_note_log_not_linked() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new();
-
-        builder.private_call.public_inputs.note_encrypted_logs_hashes.push(NoteLogHash { value: 9123, counter: 2, length: 2, note_hash_counter: 1 });
-        builder.failed();
     }
 
     #[test]

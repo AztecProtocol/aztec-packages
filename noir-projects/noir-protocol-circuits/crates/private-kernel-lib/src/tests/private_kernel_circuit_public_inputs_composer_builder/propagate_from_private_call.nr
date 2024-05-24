@@ -4,7 +4,7 @@ use crate::{
 };
 use dep::types::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths, traits::is_empty,
-    utils::arrays::array_eq
+    tests::utils::assert_array_eq
 };
 
 #[test]
@@ -48,11 +48,9 @@ fn propagate_from_private_call_note_hash_read_requests_succeeds() {
 
     let output = builder.compose_from_tx_request();
 
-    assert(
-        array_eq(
-            output.validation_requests.note_hash_read_requests,
-            [res[0], res[1]]
-        )
+    assert_array_eq(
+        output.validation_requests.note_hash_read_requests,
+        [res[0], res[1]]
     );
 }
 
@@ -65,11 +63,9 @@ fn propagate_from_private_call_nullifier_read_requests_succeeds() {
 
     let output = builder.compose_from_tx_request();
 
-    assert(
-        array_eq(
-            output.validation_requests.nullifier_read_requests,
-            [res[0], res[1]]
-        )
+    assert_array_eq(
+        output.validation_requests.nullifier_read_requests,
+        [res[0], res[1]]
     );
 }
 
@@ -82,11 +78,9 @@ fn propagate_from_private_call_key_validation_requests_succeeds() {
 
     let output = builder.compose_from_tx_request();
 
-    assert(
-        array_eq(
-            output.validation_requests.scoped_key_validation_requests_and_generators,
-            [res[0], res[1]]
-        )
+    assert_array_eq(
+        output.validation_requests.scoped_key_validation_requests_and_generators,
+        [res[0], res[1]]
     );
 }
 
@@ -94,19 +88,19 @@ fn propagate_from_private_call_key_validation_requests_succeeds() {
 fn propagate_from_private_call_new_note_hashes_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.private_call.append_new_note_hashes(2, false);
+    builder.private_call.append_new_note_hashes(2);
     let res = builder.private_call.new_note_hashes.storage;
 
     let output = builder.compose_from_tx_request();
 
-    assert(array_eq(output.end.new_note_hashes, [res[0], res[1]]));
+    assert_array_eq(output.end.new_note_hashes, [res[0], res[1]]);
 }
 
 #[test]
 fn propagate_from_private_call_new_note_hashes_with_nullifier_counters_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.private_call.append_new_note_hashes(2, false);
+    builder.private_call.append_new_note_hashes(2);
     let mut res = builder.private_call.new_note_hashes.storage;
     builder.note_hash_nullifier_counters[0] = res[0].counter() + 10;
     builder.note_hash_nullifier_counters[1] = res[1].counter() + 75;
@@ -115,14 +109,14 @@ fn propagate_from_private_call_new_note_hashes_with_nullifier_counters_succeeds(
 
     res[0].nullifier_counter = res[0].counter() + 10;
     res[1].nullifier_counter = res[1].counter() + 75;
-    assert(array_eq(output.end.new_note_hashes, [res[0], res[1]]));
+    assert_array_eq(output.end.new_note_hashes, [res[0], res[1]]);
 }
 
 #[test]
 fn propagate_from_private_call_new_note_hashes_with_nullifier_counters_more_hints_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.private_call.append_new_note_hashes(2, false);
+    builder.private_call.append_new_note_hashes(2);
     let mut res = builder.private_call.new_note_hashes.storage;
     builder.note_hash_nullifier_counters[0] = res[0].counter() + 10;
     builder.note_hash_nullifier_counters[1] = res[1].counter() + 75;
@@ -133,7 +127,7 @@ fn propagate_from_private_call_new_note_hashes_with_nullifier_counters_more_hint
 
     res[0].nullifier_counter = res[0].counter() + 10;
     res[1].nullifier_counter = res[1].counter() + 75;
-    assert(array_eq(output.end.new_note_hashes, [res[0], res[1]]));
+    assert_array_eq(output.end.new_note_hashes, [res[0], res[1]]);
     // The extra counter won't be propagated.
     assert_eq(output.end.new_note_hashes[2].nullifier_counter, 0);
 }
@@ -142,7 +136,7 @@ fn propagate_from_private_call_new_note_hashes_with_nullifier_counters_more_hint
 fn propagate_from_private_call_new_note_hashes_with_nullifier_counters_less_than_fails() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.private_call.append_new_note_hashes(2, false);
+    builder.private_call.append_new_note_hashes(2);
     let mut res = builder.private_call.new_note_hashes.storage;
     builder.note_hash_nullifier_counters[0] = res[0].counter() + 10;
     // Tweak the nullifier counter to be less than the note hash counter.
@@ -163,7 +157,7 @@ fn propagate_from_private_call_new_nullifiers_succeeds() {
 
     let output = builder.compose_from_tx_request();
 
-    assert(array_eq(output.end.new_nullifiers, [first_nullifier, res[0], res[1]]));
+    assert_array_eq(output.end.new_nullifiers, [first_nullifier, res[0], res[1]]);
 }
 
 #[test]
@@ -175,20 +169,84 @@ fn propagate_from_private_call_new_l2_to_l1_msgs_succeeds() {
 
     let output = builder.compose_from_tx_request();
 
-    assert(array_eq(output.end.new_l2_to_l1_msgs, [res[0], res[1]]));
+    assert_array_eq(output.end.new_l2_to_l1_msgs, [res[0], res[1]]);
 }
 
-// #[test]
-// fn propagate_from_private_call_logs_succeeds() {
-//     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
+#[test]
+fn propagate_from_private_call_note_encrypted_log_hashes_succeeds() {
+    let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-//     builder.private_call.append_logs(2);
-//     let res = builder.private_call.logs.storage;
+    builder.private_call.append_new_note_hashes_with_logs(2);
+    let res = builder.private_call.note_encrypted_logs_hashes.storage;
 
-//     let output = builder.compose_from_tx_request();
+    let output = builder.compose_from_tx_request();
 
-//     assert(array_eq(output.end.logs, [res[0], res[1]]));
-// }
+    assert_array_eq(output.end.note_encrypted_logs_hashes, [res[0], res[1]]);
+}
+
+#[test]
+fn propagate_from_private_call_note_encrypted_log_hashes_extra_log_hashes_succeeds() {
+    let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
+
+    builder.private_call.append_new_note_hashes_with_logs(2);
+    let note_hashes = builder.private_call.new_note_hashes.storage;
+    // Add an extra log hash for the note at index 1.
+    builder.private_call.add_note_encrypted_log_hash(123, 2, note_hashes[1].counter());
+    let res = builder.private_call.note_encrypted_logs_hashes.storage;
+
+    let output = builder.compose_from_tx_request();
+
+    assert_array_eq(
+        output.end.note_encrypted_logs_hashes,
+        [res[0], res[1], res[2]]
+    );
+}
+
+#[test(should_fail_with="Could not find note hash linked to note log")]
+fn propagate_from_private_call_note_encrypted_log_hashes_zero_note_hash_counter_fails() {
+    let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
+
+    builder.private_call.append_new_note_hashes_with_logs(2);
+    // Tweak the note_hash_counter to be 0.
+    builder.private_call.note_encrypted_logs_hashes.storage[1].note_hash_counter = 0;
+
+    let _ = builder.compose_from_tx_request();
+}
+
+#[test(should_fail_with="Could not find note hash linked to note log")]
+fn propagate_from_private_call_note_encrypted_log_hashes_random_note_hash_counter_fails() {
+    let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
+
+    builder.private_call.append_new_note_hashes_with_logs(2);
+    // Tweak the note_hash_counter to not match any note hash's counter.
+    builder.private_call.note_encrypted_logs_hashes.storage[1].note_hash_counter += 100;
+
+    let _ = builder.compose_from_tx_request();
+}
+
+#[test]
+fn propagate_from_private_call_encrypted_log_hashes_succeeds() {
+    let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
+
+    builder.private_call.append_encrypted_log_hashes(2);
+    let res = builder.private_call.encrypted_logs_hashes.storage;
+
+    let output = builder.compose_from_tx_request();
+
+    assert_array_eq(output.end.encrypted_logs_hashes, [res[0], res[1]]);
+}
+
+#[test]
+fn propagate_from_private_call_unencrypted_log_hashes_succeeds() {
+    let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
+
+    builder.private_call.append_unencrypted_log_hashes(2);
+    let res = builder.private_call.unencrypted_logs_hashes.storage;
+
+    let output = builder.compose_from_tx_request();
+
+    assert_array_eq(output.end.unencrypted_logs_hashes, [res[0], res[1]]);
+}
 
 #[test]
 fn propagate_from_private_call_private_call_requests_succeeds() {
@@ -200,7 +258,7 @@ fn propagate_from_private_call_private_call_requests_succeeds() {
     let output = builder.compose_from_tx_request();
 
     // Call requests will be propagated in reversed order.
-    assert(array_eq(output.end.private_call_stack, [res[1], res[0]]));
+    assert_array_eq(output.end.private_call_stack, [res[1], res[0]]);
 }
 
 #[test]
@@ -212,7 +270,7 @@ fn propagate_from_private_call_public_call_requests_succeeds() {
 
     let output = builder.compose_from_tx_request();
 
-    assert(array_eq(output.end.public_call_stack, [res[0], res[1]]));
+    assert_array_eq(output.end.public_call_stack, [res[0], res[1]]);
 }
 
 #[test]

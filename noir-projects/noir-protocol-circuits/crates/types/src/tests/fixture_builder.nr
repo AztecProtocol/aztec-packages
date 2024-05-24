@@ -135,6 +135,10 @@ struct FixtureBuilder {
 
 impl FixtureBuilder {
     pub fn new() -> Self {
+        FixtureBuilder::new_from_counter(0)
+    }
+
+    pub fn new_from_counter(counter_start: u32) -> Self {
         let mut builder = FixtureBuilder::empty();
 
         let contract_data = fixtures::contracts::default_contract;
@@ -151,7 +155,8 @@ impl FixtureBuilder {
         builder.contract_class_artifact_hash = contract_data.artifact_hash;
         builder.contract_class_public_bytecode_commitment = contract_data.public_bytecode_commitment;
         builder.acir_hash = contract_function.acir_hash;
-        builder.counter = 1;
+        builder.counter_start = counter_start;
+        builder.counter = counter_start + 1;
 
         builder
     }
@@ -381,19 +386,26 @@ impl FixtureBuilder {
         self.new_note_hashes.push(
             NoteHash { value, counter: self.next_counter() }.scope(nullifier_counter, self.storage_contract_address)
         );
-        self.note_encrypted_log_preimages_length += 64;
     }
 
-    pub fn append_new_note_hashes(&mut self, num_new_note_hashes: u64, broadcast: bool) {
+    pub fn append_new_note_hashes(&mut self, num_new_note_hashes: u64) {
         let index_offset = self.new_note_hashes.len();
         for i in 0..self.new_note_hashes.max_len() {
             if i < num_new_note_hashes {
                 let value = self.mock_note_hash_value(index_offset + i);
                 self.add_new_note_hash(value, 0);
-                if (broadcast) {
-                    let log_hash = self.mock_note_encrypted_log_hash(index_offset + i);
-                    self.add_note_encrypted_log_hash(log_hash, self.counter - 1);
-                }
+            }
+        }
+    }
+
+    pub fn append_new_note_hashes_with_logs(&mut self, num_new_note_hashes: u64) {
+        let index_offset = self.new_note_hashes.len();
+        for i in 0..self.new_note_hashes.max_len() {
+            if i < num_new_note_hashes {
+                let value = self.mock_note_hash_value(index_offset + i);
+                self.add_new_note_hash(value, 0);
+                let (log_hash, length) = self.mock_note_encrypted_log(index_offset + i);
+                self.add_note_encrypted_log_hash(log_hash, length, self.counter - 1);
             }
         }
     }
@@ -541,31 +553,52 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_note_encrypted_log_hash(&mut self, value: Field, note_hash_counter: u32) {
-        self.note_encrypted_logs_hashes.push(NoteLogHash { value, counter: self.next_counter(), length: 64, note_hash_counter });
-        self.encrypted_log_preimages_length += 64;
+    pub fn add_note_encrypted_log_hash(&mut self, value: Field, length: Field, note_hash_counter: u32) {
+        let log_hash = NoteLogHash { value, counter: self.next_counter(), length, note_hash_counter };
+        self.note_encrypted_logs_hashes.push(log_hash);
+        self.encrypted_log_preimages_length += length;
     }
 
-    pub fn append_note_encrypted_logs_hashes(&mut self, num: u64) {
+    pub fn append_note_encrypted_log_hashes(&mut self, num: u64) {
         let index_offset = self.note_encrypted_logs_hashes.len();
         for i in 0..self.note_encrypted_logs_hashes.max_len() {
             if i < num {
-                let log_hash = self.mock_note_encrypted_log_hash(index_offset + i);
-                self.add_note_encrypted_log_hash(log_hash, 0);
+                let (log_hash, length) = self.mock_note_encrypted_log(index_offset + i);
+                self.add_note_encrypted_log_hash(log_hash, length, 0);
             }
         }
     }
 
-    pub fn set_encrypted_logs(&mut self, hash: Field, preimages_length: Field) {
-        let side_effect = EncryptedLogHash { value: hash, counter: self.next_counter(), length: preimages_length, randomness: 2 };
-        self.encrypted_logs_hashes.push(side_effect.scope(self.storage_contract_address));
-        self.encrypted_log_preimages_length += preimages_length;
+    pub fn add_encrypted_log_hash(&mut self, hash: Field, length: Field) {
+        let log_hash = EncryptedLogHash { value: hash, counter: self.next_counter(), length, randomness: 2 };
+        self.encrypted_logs_hashes.push(log_hash.scope(self.storage_contract_address));
+        self.encrypted_log_preimages_length += length;
     }
 
-    pub fn set_unencrypted_logs(&mut self, hash: Field, preimages_length: Field) {
-        let side_effect = LogHash { value: hash, counter: self.next_counter(), length: preimages_length };
-        self.unencrypted_logs_hashes.push(side_effect.scope(self.storage_contract_address));
-        self.unencrypted_log_preimages_length += preimages_length;
+    pub fn append_encrypted_log_hashes(&mut self, num: u64) {
+        let index_offset = self.encrypted_logs_hashes.len();
+        for i in 0..self.encrypted_logs_hashes.max_len() {
+            if i < num {
+                let (log_hash, length) = self.mock_encrypted_log(index_offset + i);
+                self.add_encrypted_log_hash(log_hash, length);
+            }
+        }
+    }
+
+    pub fn add_unencrypted_log_hash(&mut self, hash: Field, length: Field) {
+        let log_hash = LogHash { value: hash, counter: self.next_counter(), length };
+        self.unencrypted_logs_hashes.push(log_hash.scope(self.storage_contract_address));
+        self.unencrypted_log_preimages_length += length;
+    }
+
+    pub fn append_unencrypted_log_hashes(&mut self, num: u64) {
+        let index_offset = self.unencrypted_logs_hashes.len();
+        for i in 0..self.unencrypted_logs_hashes.max_len() {
+            if i < num {
+                let (log_hash, length) = self.mock_unencrypted_log(index_offset + i);
+                self.add_unencrypted_log_hash(log_hash, length);
+            }
+        }
     }
 
     pub fn set_encrypted_logs_hash(&mut self, hash: Field, preimages_length: Field) {
@@ -704,8 +737,22 @@ impl FixtureBuilder {
         (value_offset, EthAddress::from_field(1 + value_offset))
     }
 
-    fn mock_note_encrypted_log_hash(self, index: u64) -> Field {
-        282828 + self.value_offset + index as Field
+    fn mock_note_encrypted_log(self, index: u64) -> (Field, Field) {
+        let log_hash = 282828 + self.value_offset + index as Field;
+        let length = 5 + index as Field;
+        (log_hash, length)
+    }
+
+    fn mock_encrypted_log(self, index: u64) -> (Field, Field) {
+        let log_hash = 50403 + self.value_offset + index as Field;
+        let length = 3 + index as Field;
+        (log_hash, length)
+    }
+
+    fn mock_unencrypted_log(self, index: u64) -> (Field, Field) {
+        let log_hash = 199199 + self.value_offset + index as Field;
+        let length = 1 + index as Field;
+        (log_hash, length)
     }
 
     fn mock_private_call_request_hash(self, index: u64) -> Field {

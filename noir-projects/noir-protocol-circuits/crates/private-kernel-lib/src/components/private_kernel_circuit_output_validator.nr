@@ -122,8 +122,6 @@ fn validate_note_hash_nullifier_counters<N, M>(
     }
 }
 
-fn validate_appended_public_call_requests() {}
-
 struct PrivateKernelCircuitOutputValidator {
     output: PrivateKernelCircuitPublicInputs,
 }

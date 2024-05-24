@@ -225,8 +225,8 @@ fn validate_propagated_from_private_call_key_validation_requests_output_one_more
 fn validate_propagated_from_private_call_new_note_hashes_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_new_note_hashes(2, false);
-    builder.output.append_new_note_hashes(2, false);
+    builder.private_call.append_new_note_hashes(2);
+    builder.output.append_new_note_hashes(2);
 
     builder.validate_as_inner_call();
 }
@@ -235,9 +235,9 @@ fn validate_propagated_from_private_call_new_note_hashes_succeeds() {
 fn validate_propagated_from_private_call_new_note_hashes_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_new_note_hashes(2, false);
+    builder.private_call.append_new_note_hashes(2);
     // Propagate 1 more item to the output.
-    builder.output.append_new_note_hashes(3, false);
+    builder.output.append_new_note_hashes(3);
 
     builder.validate_as_inner_call();
 }
@@ -251,7 +251,7 @@ fn validate_propagated_from_private_call_new_note_hashes_output_one_more_fails()
 fn validate_propagated_from_private_call_new_note_hashes_non_zero_nullifier_counters_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_new_note_hashes(2, false);
+    builder.private_call.append_new_note_hashes(2);
     let note_hashes = [builder.private_call.new_note_hashes.storage[0], builder.private_call.new_note_hashes.storage[1]];
     builder.note_hash_nullifier_counters[0] = note_hashes[0].counter() + 10;
     builder.note_hash_nullifier_counters[1] = note_hashes[1].counter() + 35;
@@ -271,11 +271,11 @@ fn validate_propagated_from_private_call_new_note_hashes_non_zero_nullifier_coun
 fn validate_propagated_from_private_call_new_note_hashes_with_previous_non_zero_nullifier_counters_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.previous_kernel.append_new_note_hashes(2, false);
-    builder.output.append_new_note_hashes(2, false);
+    builder.previous_kernel.append_new_note_hashes(2);
+    builder.output.append_new_note_hashes(2);
     builder.offset_values(2); // Offset the first 2 note hashes.
 
-    builder.private_call.append_new_note_hashes(2, false);
+    builder.private_call.append_new_note_hashes(2);
     let note_hashes = [builder.private_call.new_note_hashes.storage[0], builder.private_call.new_note_hashes.storage[1]];
     builder.note_hash_nullifier_counters[0] = note_hashes[0].counter() + 10;
     builder.note_hash_nullifier_counters[1] = note_hashes[1].counter() + 35;
@@ -295,7 +295,7 @@ fn validate_propagated_from_private_call_new_note_hashes_with_previous_non_zero_
 fn validate_propagated_from_private_call_new_note_hashes_nullifier_counters_too_small_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_new_note_hashes(2, false);
+    builder.private_call.append_new_note_hashes(2);
     let note_hashes = [builder.private_call.new_note_hashes.storage[0], builder.private_call.new_note_hashes.storage[1]];
     builder.note_hash_nullifier_counters[0] = note_hashes[0].counter() + 10;
     // Tweak the nullifier counter to be less than the counter of the note hash.
@@ -316,7 +316,7 @@ fn validate_propagated_from_private_call_new_note_hashes_nullifier_counters_too_
 fn validate_propagated_from_private_call_new_note_hashes_nullifier_counters_mismatch_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_new_note_hashes(2, false);
+    builder.private_call.append_new_note_hashes(2);
     let note_hashes = [builder.private_call.new_note_hashes.storage[0], builder.private_call.new_note_hashes.storage[1]];
     builder.note_hash_nullifier_counters[0] = note_hashes[0].counter() + 10;
     builder.note_hash_nullifier_counters[1] = note_hashes[1].counter() + 35;
@@ -386,79 +386,79 @@ fn validate_propagated_from_private_call_new_l2_to_l1_msgs_output_one_more_fails
 }
 
 /**
- * note_encrypted_logs_hashes
+ * note_encrypted_log_hashes
  */
 
 #[test]
-fn validate_propagated_from_private_call_note_encrypted_logs_hashes_succeeds() {
+fn validate_propagated_from_private_call_note_encrypted_log_hashes_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_note_encrypted_logs_hashes(2);
-    builder.output.append_note_encrypted_logs_hashes(2);
+    builder.private_call.append_note_encrypted_log_hashes(2);
+    builder.output.append_note_encrypted_log_hashes(2);
 
     builder.validate_as_inner_call();
 }
 
 #[test(should_fail_with="output should be appended with empty items")]
-fn validate_propagated_from_private_call_note_encrypted_logs_hashes_output_one_more_fails() {
+fn validate_propagated_from_private_call_note_encrypted_log_hashes_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_note_encrypted_logs_hashes(2);
+    builder.private_call.append_note_encrypted_log_hashes(2);
     // Propagate 1 more item to the output.
-    builder.output.append_note_encrypted_logs_hashes(3);
+    builder.output.append_note_encrypted_log_hashes(3);
 
     builder.validate_as_inner_call();
 }
 
 /**
- * encrypted_logs_hashes
+ * encrypted_log_hashes
  */
 
-// #[test]
-// fn validate_propagated_from_private_call_encrypted_logs_hashes_succeeds() {
-//     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+#[test]
+fn validate_propagated_from_private_call_encrypted_log_hashes_succeeds() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-//     builder.private_call.append_encrypted_logs_hashes(2);
-//     builder.output.append_encrypted_logs_hashes(2);
+    builder.private_call.append_encrypted_log_hashes(2);
+    builder.output.append_encrypted_log_hashes(2);
 
-//     builder.validate_as_inner_call();
-// }
+    builder.validate_as_inner_call();
+}
 
-// #[test(should_fail_with="output should be appended with empty items")]
-// fn validate_propagated_from_private_call_encrypted_logs_hashes_output_one_more_fails() {
-//     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+#[test(should_fail_with="output should be appended with empty items")]
+fn validate_propagated_from_private_call_encrypted_log_hashes_output_one_more_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-//     builder.private_call.append_encrypted_logs_hashes(2);
-//     // Propagate 1 more item to the output.
-//     builder.output.append_encrypted_logs_hashes(3);
+    builder.private_call.append_encrypted_log_hashes(2);
+    // Propagate 1 more item to the output.
+    builder.output.append_encrypted_log_hashes(3);
 
-//     builder.validate_as_inner_call();
-// }
+    builder.validate_as_inner_call();
+}
 
 /**
- * unencrypted_logs_hashes
+ * unencrypted_log_hashes
  */
 
-// #[test]
-// fn validate_propagated_from_private_call_unencrypted_logs_hashes_succeeds() {
-//     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+#[test]
+fn validate_propagated_from_private_call_unencrypted_log_hashes_succeeds() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-//     builder.private_call.append_unencrypted_logs_hashes(2);
-//     builder.output.append_unencrypted_logs_hashes(2);
+    builder.private_call.append_unencrypted_log_hashes(2);
+    builder.output.append_unencrypted_log_hashes(2);
 
-//     builder.validate_as_inner_call();
-// }
+    builder.validate_as_inner_call();
+}
 
-// #[test(should_fail_with="output should be appended with empty items")]
-// fn validate_propagated_from_private_call_unencrypted_logs_hashes_output_one_more_fails() {
-//     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+#[test(should_fail_with="output should be appended with empty items")]
+fn validate_propagated_from_private_call_unencrypted_log_hashes_output_one_more_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-//     builder.private_call.append_unencrypted_logs_hashes(2);
-//     // Propagate 1 more item to the output.
-//     builder.output.append_unencrypted_logs_hashes(3);
+    builder.private_call.append_unencrypted_log_hashes(2);
+    // Propagate 1 more item to the output.
+    builder.output.append_unencrypted_log_hashes(3);
 
-//     builder.validate_as_inner_call();
-// }
+    builder.validate_as_inner_call();
+}
 
 /**
  * private_call_requests

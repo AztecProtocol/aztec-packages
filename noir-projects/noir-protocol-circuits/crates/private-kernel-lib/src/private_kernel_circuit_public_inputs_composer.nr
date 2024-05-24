@@ -202,6 +202,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
                 self.public_inputs.end.encrypted_logs_hashes.push(log.scope(source.storage_contract_address));
             }
         }
+
         let unencrypted_logs = source.private_call_public_inputs.unencrypted_logs_hashes;
         for i in 0..unencrypted_logs.len() {
             let log = unencrypted_logs[i];
@@ -211,15 +212,13 @@ impl PrivateKernelCircuitPublicInputsComposer {
         }
 
         let note_logs = source.private_call_public_inputs.note_encrypted_logs_hashes;
+        let new_note_hashes = self.public_inputs.end.new_note_hashes;
         for i in 0..note_logs.len() {
             if !is_empty(note_logs[i]) {
                 let note_index = self.match_log_to_note(note_logs[i]);
-                assert(
-                    note_index < MAX_NEW_NOTE_HASHES_PER_TX, "Could not find note hash linked to note log."
-                );
-                assert(
-                    note_logs[i].note_hash_counter
-                    == self.public_inputs.end.new_note_hashes.get_unchecked(note_index).counter(), "Could not find note hash linked to note log."
+                assert(note_index < new_note_hashes.len(), "Could not find note hash linked to note log");
+                assert_eq(
+                    note_logs[i].note_hash_counter, new_note_hashes.get_unchecked(note_index).counter(), "Could not find note hash linked to note log"
                 );
                 self.public_inputs.end.note_encrypted_logs_hashes.push(note_logs[i]);
             }

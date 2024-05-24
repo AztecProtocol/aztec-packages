@@ -77,11 +77,11 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        log_hash::{NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash}
+        log_hash::{ScopedEncryptedLogHash, ScopedLogHash}
     },
         constants::MAX_NEW_NOTE_HASHES_PER_CALL,
-        tests::private_call_data_builder::PrivateCallDataBuilder, transaction::tx_request::TxRequest,
-        utils::arrays::array_eq
+        tests::{private_call_data_builder::PrivateCallDataBuilder, utils::assert_array_eq},
+        transaction::tx_request::TxRequest
     };
 
     struct PrivateKernelInitInputsBuilder {
@@ -145,26 +145,13 @@ mod tests {
         // Check the first nullifier is hash of the signed tx request
         let tx_hash = builder.tx_request.hash();
         assert_eq(public_inputs.end.new_nullifiers[0].value(), tx_hash);
-        assert(
-            array_eq(
-                public_inputs.end.encrypted_logs_hashes.map(|l: ScopedEncryptedLogHash| l.log_hash),
-                expected_encrypted_logs
-            )
+        assert_array_eq(
+            public_inputs.end.encrypted_logs_hashes.map(|l: ScopedEncryptedLogHash| l.log_hash),
+            expected_encrypted_logs
         );
-        assert(
-            array_eq(
-                public_inputs.end.unencrypted_logs_hashes.map(|l: ScopedLogHash| l.log_hash),
-                expected_unencrypted_logs
-            )
+        assert_array_eq(
+            public_inputs.end.unencrypted_logs_hashes.map(|l: ScopedLogHash| l.log_hash),
+            expected_unencrypted_logs
         );
-    }
-
-    #[test(should_fail_with = "Could not find note hash linked to note log.")]
-    fn input_validation_note_log_not_linked() {
-        let mut builder = PrivateKernelInitInputsBuilder::new();
-
-        builder.private_call.public_inputs.note_encrypted_logs_hashes.extend_from_array([NoteLogHash { value: 9123, counter: 2, length: 2, note_hash_counter: 1 }]);
-
-        builder.failed();
     }
 }
