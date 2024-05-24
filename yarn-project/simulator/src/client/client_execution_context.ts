@@ -388,16 +388,16 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param contractAddress - The contract address of the note.
    * @param storageSlot - The storage slot the note is at.
    * @param noteTypeId - The type ID of the note.
-   * @param ivpkM - The master incoming viewing public key.
    * @param ovKeys - The outgoing viewing keys to use to encrypt.
+   * @param ivpkM - The master incoming viewing public key.
    * @param preimage - The note preimage.
    */
   public override computeEncryptedLog(
     contractAddress: AztecAddress,
     storageSlot: Fr,
     noteTypeId: Fr,
-    ivpkM: Point,
     ovKeys: KeyValidationRequest,
+    ivpkM: Point,
     preimage: Fr[],
   ) {
     const note = new Note(preimage);

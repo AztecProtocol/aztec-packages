@@ -307,22 +307,22 @@ export class Oracle {
     [contractAddress]: ACVMField[],
     [storageSlot]: ACVMField[],
     [noteTypeId]: ACVMField[],
-    [ivpkMX]: ACVMField[],
-    [ivpkMY]: ACVMField[],
+    [ovskApp]: ACVMField[],
     [ovpkMX]: ACVMField[],
     [ovpkMY]: ACVMField[],
-    [ovskApp]: ACVMField[],
+    [ivpkMX]: ACVMField[],
+    [ivpkMY]: ACVMField[],
     preimage: ACVMField[],
   ): ACVMField[] {
-    const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY));
     const ovpkM = new Point(fromACVMField(ovpkMX), fromACVMField(ovpkMY));
     const ovKeys = new KeyValidationRequest(ovpkM, Fr.fromString(ovskApp));
+    const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY));
     const encLog = this.typedOracle.computeEncryptedLog(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(storageSlot),
       Fr.fromString(noteTypeId),
-      ivpkM,
       ovKeys,
+      ivpkM,
       preimage.map(fromACVMField),
     );
     const bytes: ACVMField[] = [];

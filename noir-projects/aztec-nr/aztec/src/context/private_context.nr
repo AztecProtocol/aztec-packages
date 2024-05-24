@@ -349,9 +349,9 @@ impl PrivateContext {
             contract_address,
             storage_slot,
             note_type_id,
+            ovsk_app,
             ovpk_m,
             ivpk_m,
-            ovsk_app,
             preimage
         );
         emit_encrypted_note_log(note_hash, encrypted_log, counter);
