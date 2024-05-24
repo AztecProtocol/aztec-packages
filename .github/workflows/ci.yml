@@ -43,7 +43,6 @@ jobs:
       barretenberg: ${{ steps.filter.outputs.barretenberg }}
       barretenberg-cpp: ${{ steps.filter.outputs.barretenberg-cpp }}
       noir: ${{ steps.filter.outputs.noir }}
-      noir-projects: ${{ steps.filter.outputs.noir-projects }}
       l1-contracts: ${{ steps.filter.outputs.l1-contracts }}
     steps:
     # For pull requests it's not necessary to checkout the code
@@ -59,8 +58,6 @@ jobs:
             - 'noir/**'
           l1-contracts:
             - 'l1-contracts/**'
-          noir-projects:
-            - 'noir-projects/**'
 
   build:
     needs: setup
@@ -397,7 +394,6 @@ jobs:
   noir-projects:
     needs: [setup, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true' }}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
