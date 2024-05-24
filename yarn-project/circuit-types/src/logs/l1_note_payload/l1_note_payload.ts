@@ -96,7 +96,7 @@ export class L1NotePayload {
     const header = new EncryptedLogHeader(this.contractAddress);
 
     const incomingHeaderCiphertext = header.computeCiphertext(ephSk, ivpk);
-    const outgoingHeaderCiphertext = header.computeCiphertext(ephSk, ovKeys.masterPublicKey);
+    const outgoingHeaderCiphertext = header.computeCiphertext(ephSk, ovKeys.pkM);
 
     const ivpkApp = computeIvpkApp(ivpk, this.contractAddress);
 
@@ -107,7 +107,7 @@ export class L1NotePayload {
     ).computeCiphertext(ephSk, ivpkApp);
 
     // TODO(#6640)): do we want the conversion to be here? Unify the type everywhere?
-    const ovskApp = GrumpkinPrivateKey.fromBuffer(ovKeys.appSecretKey.toBuffer());
+    const ovskApp = GrumpkinPrivateKey.fromBuffer(ovKeys.skApp.toBuffer());
 
     const outgoingBodyCiphertext = new EncryptedLogOutgoingBody(ephSk, recipient, ivpkApp).computeCiphertext(
       ovskApp,
