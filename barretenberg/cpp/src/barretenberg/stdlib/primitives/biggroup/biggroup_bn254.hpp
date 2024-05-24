@@ -20,7 +20,6 @@ namespace bb::stdlib {
  * `small_scalars/small_points` : 128-bit scalar multipliers
  * `generator_scalar` : a 254-bit scalar multiplier over the bn254 generator point
  *
- * TODO: this is plonk only. kill method when we deprecate standard/turbo plonk
  **/
 template <class C, class Fq, class Fr, class G>
 template <typename, typename>
@@ -216,7 +215,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul_with_generator
  * max_num_small_bits : MINIMUM value must be 128 bits
  * (we will be splitting `big_scalars` into two 128-bit scalars, we assume all scalars after this transformation are 128
  *bits)
- * TODO: this does not seem to be used anywhere except turbo plonk. delete once we deprecate turbo?
  **/
 template <typename C, class Fq, class Fr, class G>
 template <typename, typename>

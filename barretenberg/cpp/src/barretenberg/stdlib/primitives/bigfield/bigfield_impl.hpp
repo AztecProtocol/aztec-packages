@@ -1594,8 +1594,8 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
     auto rhs = other.get_value() % modulus_u512;
     bool is_equal_raw = (lhs == rhs);
     if (!ctx) {
-        // null context _should_ mean that both are constant, but we check with an assertion to be sure.
-        // WORKTODO right? tag with issue on the semantics of nullptr here
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/660): null context _should_ mean that both are
+        // constant, but we check with an assertion to be sure.
         ASSERT(is_constant() == other.is_constant());
         return is_equal_raw;
     }
@@ -1603,8 +1603,8 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
 
     bigfield diff = (*this) - other;
 
-    // TODO: get native values efficiently (i.e. if u512 value fits in a u256, subtract off modulus until u256 fits
-    // into finite field)
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/999): get native values efficiently (i.e. if u512 value
+    // fits in a u256, subtract off modulus until u256 fits into finite field)
     native diff_native = native((diff.get_value() % modulus_u512).lo);
     native inverse_native = is_equal_raw ? 0 : diff_native.invert();
 
@@ -1817,13 +1817,14 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
 
     if constexpr (IsSimulator<Builder>) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/677)
+        return;
     } else {
         if (is_constant() && other.is_constant()) {
             std::cerr << "bigfield: calling assert equal on 2 CONSTANT bigfield elements...is this intended?"
                       << std::endl;
             return;
         } else if (other.is_constant()) {
-            // TODO: wtf?
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/998): Something is fishy here
             // evaluate a strict equality - make sure *this is reduced first, or an honest prover
             // might not be able to satisfy these constraints.
             field_t<Builder> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);

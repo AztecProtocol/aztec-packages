@@ -785,7 +785,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
 
         points.push_back(point);
         scalars.push_back(scalar);
-        // WORKTODO TODO: if both point and scalar are constant, don't bother adding constraints
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1002): if both point and scalar are constant, don't
+        // bother adding constraints
     }
     if constexpr (IsSimulator<C>) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/663)

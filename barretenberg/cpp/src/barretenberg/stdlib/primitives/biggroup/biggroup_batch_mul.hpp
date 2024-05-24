@@ -5,10 +5,11 @@
 namespace bb::stdlib {
 
 /**
- * only works for Plookup (otherwise falls back on batch_mul)! Multiscalar multiplication that utilizes 4-bit wNAF
- * lookup tables is more efficient than points-as-linear-combinations lookup tables, if the number of points is 3 or
- * fewer
- * TODO: when we nuke standard and turbo plonk we should remove the fallback batch mul method!
+ * @brief Multiscalar multiplication that utilizes 4-bit wNAF lookup tables.
+ * @details This is more efficient than points-as-linear-combinations lookup tables, if the number of points is 3 or
+ * fewer. Only works for Plookup (otherwise falls back on batch_mul)!
+ * @todo : TODO(https://github.com/AztecProtocol/barretenberg/issues/1001) when we nuke standard and turbo plonk we
+ * should remove the fallback batch mul method!
  */
 template <typename C, class Fq, class Fr, class G>
 template <size_t max_num_bits>
@@ -45,7 +46,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::wnaf_batch_mul(const std::vector<el
         points.push_back(point);
         scalars.push_back(scalar);
 
-        // WORKTODO TODO: if both point and scalar are constant, don't bother adding constraints
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1002): if both point and scalar are constant, don't
+        // bother adding constraints
     }
 
     std::vector<four_bit_table_plookup<>> point_tables;
