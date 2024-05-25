@@ -469,7 +469,7 @@ jobs:
         run: earthly-ci --no-output ./l1-contracts+test
 
   docs-preview:
-    needs: build
+    needs: setup
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -546,6 +546,7 @@ jobs:
 
   protocol-circuits-gates-report:
     needs: setup
+    if: ${{ needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-github-actions == 'true' }}
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     permissions:
       pull-requests: write
