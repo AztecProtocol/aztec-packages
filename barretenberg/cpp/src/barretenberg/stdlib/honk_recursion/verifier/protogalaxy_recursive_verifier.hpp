@@ -183,18 +183,6 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
             for (auto& instance : instances) {
                 commitments.emplace_back(instance->verification_key->get_all()[vk_idx]);
             }
-            // if (vk_idx == 26) {
-            //     info("folding ", accumulator->verification_key->get_labels()[vk_idx]);
-            //     info("scalars: ");
-            //     for (auto& scalar : lagranges) {
-            //         info(scalar.get_value());
-            //     }
-            //     info("points: ");
-            //     for (auto& point : commitments) {
-            //         info(point.get_value());
-            //         info("on curve?: ", point.get_value().on_curve());
-            //     }
-            // }
             expected_vk = Commitment::batch_mul(commitments, lagranges);
             vk_idx++;
         }
