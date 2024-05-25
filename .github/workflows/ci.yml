@@ -131,8 +131,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/paths-filter
+        id: changes
+        with:
+          filters: |
+            src: [barretenberg/**, noir/**]
       - uses: ./.github/ci-setup-action
+        if: steps.changes.outputs.src == 'true'
       - name: Setup and Test
+        if: steps.changes.outputs.src == 'true'
         uses: ./.github/ensure-tester-with-images
         timeout-minutes: 40
         with:
@@ -204,12 +211,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/paths-filter
+        id: changes
+        with:
+          filters: |
+            src: [barretenberg/**]
       # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
+        if: steps.changes.outputs.src == 'true'
         with:
           # must be globally unique for build x runner
           concurrency_key: bb-gcc
       - name: "Ensure GCC Builds"
+        if: steps.changes.outputs.src == 'true'
         working-directory: ./barretenberg/cpp/
         timeout-minutes: 40
         # limit our parallelism to half our cores
@@ -223,12 +237,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/paths-filter
+        id: changes
+        with:
+          filters: |
+            src: [barretenberg/cpp/**]
       # Only allow one memory-hunger prover test to use this runner
       - uses: ./.github/ci-setup-action
+        if: steps.changes.outputs.src == 'true'
         with:
           # must be globally unique for build x runner
           concurrency_key: bb-native-tests-x86
       - name: "Native Prover Tests"
+        if: steps.changes.outputs.src == 'true'
         working-directory: ./barretenberg/cpp/
         timeout-minutes: 40
         # limit our parallelism to half our cores
@@ -240,10 +261,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/paths-filter
+        id: changes
+        with:
+          filters: |
+            src: [barretenberg/**]
       - uses: ./.github/ci-setup-action
+        if: steps.changes.outputs.src == 'true'
         with:
           concurrency_key: bb-js-test-x86
       - name: "bb.js Tests"
+        if: steps.changes.outputs.src == 'true'
         working-directory: ./barretenberg/ts/
         timeout-minutes: 40
         run: earthly-ci --no-output ./+test
@@ -254,10 +282,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/paths-filter
+        id: changes
+        with:
+          filters: |
+            src: [barretenberg/**, noir/**]
       - uses: ./.github/ci-setup-action
+        if: steps.changes.outputs.src == 'true'
         with:
           concurrency_key: build-acir-tests-x86
       - name: "Build Acir Tests"
+        if: steps.changes.outputs.src == 'true'
         timeout-minutes: 40
         run: earthly-ci --no-output ./noir/+build-acir-tests
 
@@ -267,10 +302,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/paths-filter
+        id: changes
+        with:
+          filters: |
+            src: [barretenberg/**, noir/**]
       - uses: ./.github/ci-setup-action
+        if: steps.changes.outputs.src == 'true'
         with:
           concurrency_key: barretenberg-acir-tests-bb-x86
       - name: "BB Native Acir Tests"
+        if: steps.changes.outputs.src == 'true'
         working-directory: ./barretenberg/
         timeout-minutes: 40
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb
@@ -281,10 +323,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/paths-filter
+        id: changes
+        with:
+          filters: |
+            src: [barretenberg/**, noir/**]
       - uses: ./.github/ci-setup-action
+        if: steps.changes.outputs.src == 'true'
         with:
           concurrency_key: barretenberg-acir-tests-sol-x86
       - name: "BB Solidity Acir Tests"
+        if: steps.changes.outputs.src == 'true'
         working-directory: ./barretenberg/
         timeout-minutes: 40
         run: earthly-ci --no-output ./+barretenberg-acir-tests-sol
@@ -295,10 +344,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/paths-filter
+        id: changes
+        with:
+          filters: |
+            src: [barretenberg/**, noir/**]
       - uses: ./.github/ci-setup-action
+        if: steps.changes.outputs.src == 'true'
         with:
           concurrency_key: barretenberg-acir-tests-bb-js-x86
       - name: "BB JS Acir Tests"
+        if: steps.changes.outputs.src == 'true'
         working-directory: ./barretenberg/
         timeout-minutes: 40
         run: earthly-ci --no-output ./+barretenberg-acir-tests-bb.js
@@ -309,14 +365,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/paths-filter
+        id: changes
+        with:
+          filters: |
+            src: [noir/**]
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: noir-format-x86
       - name: "Format Noir"
+        if: steps.changes.outputs.src == 'true'
         working-directory: ./noir/
         timeout-minutes: 40
         run: earthly-ci --no-output ./+format
       - name: "Format noir-projects"
+        if: steps.changes.outputs.src == 'true'
         working-directory: ./noir-projects/
         timeout-minutes: 40
         run: earthly-ci --no-output ./+format
@@ -327,10 +390,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/paths-filter
+        id: changes
+        with:
+          filters: |
+            src: [noir/**]
       - uses: ./.github/ci-setup-action
+        if: steps.changes.outputs.src == 'true'
         with:
           concurrency_key: noir-x86
       - name: "Test Nargo"
+        if: steps.changes.outputs.src == 'true'
         run: earthly-ci --no-output ./noir+test
 
   noir-examples:
@@ -339,10 +409,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/paths-filter
+        id: changes
+        with:
+          filters: |
+            src: [noir/**, barretenberg/**]
       - uses: ./.github/ci-setup-action
+        if: steps.changes.outputs.src == 'true'
         with:
           concurrency_key: noir-examples-x86
       - name: "Test Noir examples"
+        if: steps.changes.outputs.src == 'true'
         run: earthly-ci --no-output ./noir+examples
 
   noir-packages-test:
@@ -351,11 +428,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/paths-filter
+        id: changes
+        with:
+          filters: |
+            src: [noir/**, barretenberg/**]
       - uses: ./.github/ci-setup-action
+        if: steps.changes.outputs.src == 'true'
         with:
           concurrency_key: noir-packages-x86
       - name: "Test Noir JS packages"
         timeout-minutes: 40
+        if: steps.changes.outputs.src == 'true'
         run: earthly-ci --no-output ./noir+packages-test
 
   noir-projects:
@@ -364,10 +448,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/paths-filter
+        id: changes
+        with:
+          filters: |
+            src: [noir/**, barretenberg/**, noir-projects/**]
       - uses: ./.github/ci-setup-action
+        if: steps.changes.outputs.src == 'true'
         with:
           concurrency_key: noir-projects-x86
       - name: "Noir Projects"
+        if: steps.changes.outputs.src == 'true'
         timeout-minutes: 40
         run: earthly-ci --no-output ./noir-projects/+test
 
@@ -419,10 +510,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/paths-filter
+        id: changes
+        with:
+          filters: |
+            src: [l1-contracts/**]
       - uses: ./.github/ci-setup-action
+        if: steps.changes.outputs.src == 'true'
         with:
           concurrency_key: l1-contracts-${{ github.event.pull_request.user.login || github.actor }}-x86
       - name: "Test l1 contracts"
+        if: steps.changes.outputs.src == 'true'
         run: earthly-ci --no-output ./l1-contracts+test
 
   docs-preview:
@@ -445,8 +543,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/paths-filter
+        id: changes
+        with:
+          filters: |
+            src: [barretenberg/cpp/**]
       - uses: ./.github/ci-setup-action
+        if: steps.changes.outputs.src == 'true'
       - name: Build Bench Binaries
+        if: steps.changes.outputs.src == 'true'
         uses: ./.github/ensure-builder
         with:
           runner_type: builder-x86
@@ -455,6 +560,7 @@ jobs:
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             scripts/earthly-ci --push ./barretenberg/cpp/+bench-binaries
       - name: Run Bench
+        if: steps.changes.outputs.src == 'true'
         uses: ./.github/ensure-tester
         timeout-minutes: 40
         with:
@@ -486,7 +592,9 @@ jobs:
       fail-fast: false
       matrix:
         box: [vanilla, react]
-        browser: [chromium, webkit, firefox]
+        # intermittent issues with firefox https://github.com/AztecProtocol/aztec-packages/issues/6676
+        # browser: [chromium, webkit, firefox]
+        browser: [chromium, webkit]
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
