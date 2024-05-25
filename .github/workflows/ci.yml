@@ -45,6 +45,8 @@ jobs:
       noir: ${{ steps.filter.outputs.noir }}
       noir-projects: ${{ steps.filter.outputs.noir-projects }}
       l1-contracts: ${{ steps.filter.outputs.l1-contracts }}
+      non-docs: ${{ steps.filter.outputs.non-docs }}
+      non-misc-ci: ${{ steps.filter.outputs.non-misc-ci }}
     steps:
     # For pull requests it's not necessary to checkout the code
     - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
