@@ -1,6 +1,7 @@
 import {
   type Body,
   type EncryptedL2BlockL2Logs,
+  type EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
   type FromLogType,
   type GetUnencryptedLogsResponse,
@@ -13,7 +14,6 @@ import {
   type TxEffect,
   type TxHash,
   TxReceipt,
-  TxStatus,
   type UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
 import { Fr, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
@@ -52,7 +52,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * An array containing all the encrypted logs that have been fetched so far.
    * Note: Index in the "outer" array equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
    */
-  private noteEncryptedLogsPerBlock: EncryptedL2BlockL2Logs[] = [];
+  private noteEncryptedLogsPerBlock: EncryptedNoteL2BlockL2Logs[] = [];
 
   /**
    * An array containing all the encrypted logs that have been fetched so far.
@@ -191,7 +191,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addLogs(
-    noteEncryptedLogs: EncryptedL2BlockL2Logs,
+    noteEncryptedLogs: EncryptedNoteL2BlockL2Logs,
     encryptedLogs: EncryptedL2BlockL2Logs,
     unencryptedLogs: UnencryptedL2BlockL2Logs,
     blockNumber: number,
@@ -282,7 +282,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
           return Promise.resolve(
             new TxReceipt(
               txHash,
-              TxStatus.MINED,
+              TxReceipt.statusFromRevertCode(txEffect.revertCode),
               '',
               txEffect.transactionFee.toBigInt(),
               block.hash().toBuffer(),

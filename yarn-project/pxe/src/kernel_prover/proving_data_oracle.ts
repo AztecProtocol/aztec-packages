@@ -70,12 +70,13 @@ export interface ProvingDataOracle {
   getNoteHashTreeRoot(): Promise<Fr>;
 
   /**
-   * Get the master secret key of the nullifier public key.
-   *
-   * @param nullifierPublicKey - The nullifier public key.
-   * @returns the master nullifier secret key.
+   * Retrieves the sk_m corresponding to the pk_m.
+   * @throws If the provided public key is not associated with any of the registered accounts.
+   * @param pkM - The master public key to get secret key for.
+   * @returns A Promise that resolves to sk_m.
+   * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
-  getMasterNullifierSecretKey(nullifierPublicKey: Point): Promise<GrumpkinPrivateKey>;
+  getMasterSecretKey(masterPublicKey: Point): Promise<GrumpkinPrivateKey>;
 
-  getFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
+  getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 }
