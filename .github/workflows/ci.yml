@@ -61,9 +61,14 @@ jobs:
             - 'l1-contracts/**'
           noir-projects:
             - 'noir-projects/**'
+          non-docs:
+            - '!(docs/**)'
+          non-github-actions:
+            - '!(.github/**)'
 
   build:
-    needs: setup
+    needs: [setup, changes]
+    if: ${{ needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-github-actions == 'true' }}
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
