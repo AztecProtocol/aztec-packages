@@ -184,8 +184,8 @@ class GoblinMockCircuits {
     {
         // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make
         // the kernel "full" within the dyadic size 2^17
-        const size_t NUM_MERKLE_CHECKS = 20;
-        const size_t NUM_ECDSA_VERIFICATIONS = 1;
+        const size_t NUM_MERKLE_CHECKS = 15;
+        const size_t NUM_ECDSA_VERIFICATIONS = 2;
         const size_t NUM_SHA_HASHES = 1;
         stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
