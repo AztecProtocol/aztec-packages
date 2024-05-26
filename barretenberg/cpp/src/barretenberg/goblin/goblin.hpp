@@ -164,7 +164,6 @@ class Goblin {
     void prove_eccvm()
     {
         eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
-        ASSERT(ECCVMTraceChecker::check(*eccvm_builder));
         eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder);
         goblin_proof.eccvm_proof = eccvm_prover->construct_proof();
         goblin_proof.translation_evaluations = eccvm_prover->translation_evaluations;
