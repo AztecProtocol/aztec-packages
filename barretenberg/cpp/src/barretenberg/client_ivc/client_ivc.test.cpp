@@ -119,37 +119,30 @@ TEST_F(ClientIVCTests, BasicFailure)
  * @brief Prove and verify accumulation of an arbitrary set of circuits
  *
  */
-TEST_F(ClientIVCTests, DISABLED_BasicLarge)
+TEST_F(ClientIVCTests, BasicLarge)
 {
-    const auto run_test = []() {
-        ClientIVC ivc;
+    ClientIVC ivc;
 
-        // Construct a set of arbitrary circuits
-        size_t NUM_CIRCUITS = 5;
-        std::vector<Builder> circuits;
-        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            circuits.emplace_back(create_mock_circuit(ivc));
-        }
-
-        // Accumulate each circuit
-        for (auto& circuit : circuits) {
-            ivc.accumulate(circuit);
-        }
-
-        EXPECT_TRUE(prove_and_verify(ivc));
-    };
-    for (size_t idx = 0; idx < 256; idx++) {
-        numeric::get_debug_randomness(true, idx);
-        info("run ", idx);
-        run_test();
+    // Construct a set of arbitrary circuits
+    size_t NUM_CIRCUITS = 5;
+    std::vector<Builder> circuits;
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        circuits.emplace_back(create_mock_circuit(ivc));
     }
+
+    // Accumulate each circuit
+    for (auto& circuit : circuits) {
+        ivc.accumulate(circuit);
+    }
+
+    EXPECT_TRUE(prove_and_verify(ivc));
 };
 
 /**
  * @brief Using a structured trace allows for the accumulation of circuits of varying size
  *
  */
-TEST_F(ClientIVCTests, DISABLED_BasicStructured)
+TEST_F(ClientIVCTests, BasicStructured)
 {
     ClientIVC ivc;
     ivc.structured_flag = true;
