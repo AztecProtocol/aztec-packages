@@ -58,11 +58,11 @@ class GoblinMockCircuits {
 
         if (large) {
             stdlib::generate_sha256_test_circuit(builder, NUM_ITERATIONS_LARGE);
-            stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ITERATIONS_LARGE / 2);
+            stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ITERATIONS_LARGE - 1);
             stdlib::generate_merkle_membership_test_circuit(builder, NUM_ITERATIONS_LARGE);
         } else { // Results in circuit size 2^17 when accumulated via ClientIvc
             stdlib::generate_sha256_test_circuit(builder, 5);
-            stdlib::generate_ecdsa_verification_test_circuit(builder, 1);
+            stdlib::generate_ecdsa_verification_test_circuit(builder, 2);
             stdlib::generate_merkle_membership_test_circuit(builder, 10);
         }
 
