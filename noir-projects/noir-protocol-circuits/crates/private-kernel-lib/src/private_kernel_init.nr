@@ -75,83 +75,55 @@ impl PrivateKernelInitCircuitPrivateInputs {
 mod tests {
     use crate::private_kernel_init::{PrivateKernelInitHints, PrivateKernelInitCircuitPrivateInputs};
     use dep::types::{
-        abis::{
-        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        log_hash::{ScopedEncryptedLogHash, ScopedLogHash}
-    },
+        abis::{kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs},
         constants::MAX_NEW_NOTE_HASHES_PER_CALL,
-        tests::{private_call_data_builder::PrivateCallDataBuilder, utils::assert_array_eq},
+        tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
         transaction::tx_request::TxRequest
     };
 
     struct PrivateKernelInitInputsBuilder {
         tx_request: TxRequest,
-        private_call: PrivateCallDataBuilder,
+        private_call: FixtureBuilder,
         hints: PrivateKernelInitHints,
     }
 
     impl PrivateKernelInitInputsBuilder {
         pub fn new() -> Self {
-            let private_call = PrivateCallDataBuilder::new();
+            let private_call = FixtureBuilder::new();
             let tx_request = private_call.build_tx_request();
             let hints = PrivateKernelInitHints {
                 note_hash_nullifier_counters: [0; MAX_NEW_NOTE_HASHES_PER_CALL],
                 first_revertible_private_call_request_index: 0
             };
-
             PrivateKernelInitInputsBuilder { tx_request, private_call, hints }
         }
 
         pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
-            let kernel = PrivateKernelInitCircuitPrivateInputs { tx_request: self.tx_request, private_call: self.private_call.finish(), hints: self.hints };
-
-            kernel.execute()
-        }
-
-        pub fn failed(self) {
-            let _ = self.execute();
+            let private_call = self.private_call.to_private_call_data();
+            PrivateKernelInitCircuitPrivateInputs { tx_request: self.tx_request, private_call, hints: self.hints }.execute()
         }
     }
 
     #[test]
-    fn deposit() {
+    fn private_kernel_init_output_as_expected() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        // Logs for the private call.
-        let encrypted_logs_hashes = [16, 36];
-        let encrypted_log_preimages_length = [100, 75];
-        let unencrypted_logs_hashes = [26, 46];
-        let unencrypted_log_preimages_length = [50, 25];
-        builder.private_call.public_inputs.add_encrypted_log(encrypted_logs_hashes[0], encrypted_log_preimages_length[0]);
-        builder.private_call.public_inputs.add_unencrypted_log(
-            unencrypted_logs_hashes[0],
-            unencrypted_log_preimages_length[0]
-        );
-        builder.private_call.public_inputs.add_encrypted_log(encrypted_logs_hashes[1], encrypted_log_preimages_length[1]);
-        builder.private_call.public_inputs.add_unencrypted_log(
-            unencrypted_logs_hashes[1],
-            unencrypted_log_preimages_length[1]
-        );
+        // note_hash_read_requests
+        builder.private_call.append_note_hash_read_requests(2);
+        let note_hash_read_requests = builder.private_call.note_hash_read_requests.storage;
 
-        let expected_unencrypted_logs = [
-            builder.private_call.public_inputs.unencrypted_logs_hashes.storage[0], builder.private_call.public_inputs.unencrypted_logs_hashes.storage[1]
-        ];
-        let expected_encrypted_logs = [
-            builder.private_call.public_inputs.encrypted_logs_hashes.storage[0], builder.private_call.public_inputs.encrypted_logs_hashes.storage[1]
-        ];
+        // encrypted_logs_hashes
+        builder.private_call.append_encrypted_log_hashes(1);
+        let encrypted_log_hashes = builder.private_call.encrypted_logs_hashes.storage;
 
         let public_inputs = builder.execute();
-
-        // Check the first nullifier is hash of the signed tx request
-        let tx_hash = builder.tx_request.hash();
-        assert_eq(public_inputs.end.new_nullifiers[0].value(), tx_hash);
         assert_array_eq(
-            public_inputs.end.encrypted_logs_hashes.map(|l: ScopedEncryptedLogHash| l.log_hash),
-            expected_encrypted_logs
+            public_inputs.validation_requests.note_hash_read_requests,
+            [note_hash_read_requests[0], note_hash_read_requests[1]]
         );
         assert_array_eq(
-            public_inputs.end.unencrypted_logs_hashes.map(|l: ScopedLogHash| l.log_hash),
-            expected_unencrypted_logs
+            public_inputs.end.encrypted_logs_hashes,
+            [encrypted_log_hashes[0]]
         );
     }
 }

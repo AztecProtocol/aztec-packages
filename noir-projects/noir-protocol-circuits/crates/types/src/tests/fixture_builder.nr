@@ -143,11 +143,12 @@ impl FixtureBuilder {
 
         let contract_data = fixtures::contracts::default_contract;
         let contract_function = fixtures::contract_functions::default_private_function;
+        let contract_address = contract_data.address;
 
         builder.tx_context = TxContext { chain_id: fixtures::CHAIN_ID, version: fixtures::VERSION, gas_settings: GasSettings::empty() };
-        builder.contract_address = fixtures::contracts::parent_contract.address;
-        builder.storage_contract_address = fixtures::contracts::parent_contract.address;
-        builder.msg_sender = fixtures::MSG_SENDER;
+        builder.contract_address = contract_address;
+        builder.storage_contract_address = contract_address;
+        builder.msg_sender = fixtures::contracts::parent_contract.address;
         builder.function_data = contract_function.data;
         builder.function_leaf_membership_witness = contract_function.membership_witness;
         builder.salted_initialization_hash = contract_data.salted_initialization_hash;
@@ -159,6 +160,25 @@ impl FixtureBuilder {
         builder.counter = counter_start + 1;
 
         builder
+    }
+
+    pub fn as_parent_contract(&mut self) -> Self {
+        self.contract_address = fixtures::contracts::parent_contract.address;
+        self.storage_contract_address = fixtures::contracts::parent_contract.address;
+        self.msg_sender = fixtures::MSG_SENDER;
+        *self
+    }
+
+    pub fn is_delegate_call(&mut self) -> Self {
+        self.is_delegate_call = true;
+        self.storage_contract_address = fixtures::contracts::parent_contract.address;
+        self.msg_sender = fixtures::MSG_SENDER;
+        *self
+    }
+
+    pub fn is_static_call(&mut self) -> Self {
+        self.is_static_call = true;
+        *self
     }
 
     pub fn to_constant_data(self) -> CombinedConstantData {
@@ -187,6 +207,23 @@ impl FixtureBuilder {
             is_static_call: self.is_static_call,
             side_effect_counter: self.counter_start
         }
+    }
+
+    pub fn build_private_call_request(self) -> ScopedPrivateCallRequest {
+        let hash = self.to_private_call_stack_item().hash();
+        let is_delegate_call = self.is_delegate_call;
+        let mut caller_context = CallerContext::empty();
+        caller_context.is_static_call = self.is_static_call;
+        if is_delegate_call {
+            caller_context.msg_sender = self.msg_sender;
+            caller_context.storage_contract_address = self.storage_contract_address;
+        };
+        PrivateCallRequest {
+            hash,
+            caller_context,
+            start_side_effect_counter: self.counter_start,
+            end_side_effect_counter: self.counter
+        }.scope(self.msg_sender)
     }
 
     pub fn to_private_circuit_public_inputs(self) -> PrivateCircuitPublicInputs {
@@ -613,13 +650,14 @@ impl FixtureBuilder {
 
     pub fn add_private_call_request(&mut self, hash: Field, is_delegate_call: bool) {
         let mut caller_context = CallerContext::empty();
+        caller_context.is_static_call = self.is_static_call;
         if is_delegate_call {
-            caller_context.msg_sender = fixtures::MSG_SENDER;
-            caller_context.storage_contract_address = self.contract_address;
+            caller_context.msg_sender = self.msg_sender;
+            caller_context.storage_contract_address = self.storage_contract_address;
         }
         let start_counter = self.next_counter();
         let end_counter = start_counter + 10;
-        self.counter = end_counter;
+        self.counter = end_counter + 1;
         self.private_call_requests.push(
             PrivateCallRequest { hash, caller_context, start_side_effect_counter: start_counter, end_side_effect_counter: end_counter }.scope(self.contract_address)
         );
@@ -630,17 +668,37 @@ impl FixtureBuilder {
         for i in 0..self.private_call_requests.max_len() {
             if i < num {
                 let hash = self.mock_private_call_request_hash(index_offset + i);
+                self.add_private_call_request(hash, false);
+            }
+        }
+    }
+
+    pub fn append_private_call_requests_delegate(&mut self, num: u64) {
+        let index_offset = self.private_call_requests.len();
+        for i in 0..self.private_call_requests.max_len() {
+            if i < num {
+                let hash = self.mock_private_call_request_hash(index_offset + i);
                 self.add_private_call_request(hash, true);
             }
         }
     }
 
     pub fn push_public_call_request(&mut self, hash: Field, is_delegate_call: bool) {
-        let call_request = self.generate_call_request(hash, is_delegate_call);
+        let call_request = self.generate_public_call_request(hash, is_delegate_call);
         self.public_call_requests.push(call_request);
     }
 
     pub fn append_public_call_requests(&mut self, num: u64) {
+        let index_offset = self.public_call_requests.len();
+        for i in 0..self.public_call_requests.max_len() {
+            if i < num {
+                let hash = self.mock_public_call_request_hash(index_offset + i);
+                self.push_public_call_request(hash, false);
+            }
+        }
+    }
+
+    pub fn append_public_call_requests_delegate(&mut self, num: u64) {
         let index_offset = self.public_call_requests.len();
         for i in 0..self.public_call_requests.max_len() {
             if i < num {
@@ -661,11 +719,16 @@ impl FixtureBuilder {
     }
 
     pub fn push_public_teardown_call_request(&mut self, hash: Field, is_delegate_call: bool) {
-        let call_stack_item = self.generate_call_request(hash, is_delegate_call);
+        let call_stack_item = self.generate_public_call_request(hash, is_delegate_call);
         self.public_teardown_call_stack.push(call_stack_item);
     }
 
     pub fn append_public_teardown_call_request(&mut self) {
+        let hash = self.mock_public_teardown_call_request_hash(0);
+        self.push_public_teardown_call_request(hash, false);
+    }
+
+    pub fn append_public_teardown_call_request_delegate(&mut self) {
         let hash = self.mock_public_teardown_call_request_hash(0);
         self.push_public_teardown_call_request(hash, true);
     }
@@ -678,21 +741,19 @@ impl FixtureBuilder {
         self.max_block_number = MaxBlockNumber::new(max_block_number);
     }
 
-    fn generate_call_request(&mut self, hash: Field, is_delegate_call: bool) -> CallRequest {
+    fn generate_public_call_request(&mut self, hash: Field, is_delegate_call: bool) -> CallRequest {
         let mut caller_context = CallerContext::empty();
         if is_delegate_call {
             caller_context.msg_sender = self.msg_sender;
             caller_context.storage_contract_address = self.contract_address;
         }
         let start_counter = self.next_counter();
-        let end_counter = start_counter + 10;
-        self.counter = end_counter;
         CallRequest {
             hash,
             caller_contract_address: self.contract_address,
             caller_context,
             start_side_effect_counter: start_counter,
-            end_side_effect_counter: end_counter
+            end_side_effect_counter: 0
         }
     }
 

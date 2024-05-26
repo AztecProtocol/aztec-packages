@@ -253,6 +253,9 @@ impl PrivateCallDataValidator {
                 self.array_lengths.new_l2_to_l1_msgs, 0, "new_l2_to_l1_msgs must be empty for static calls"
             );
             assert_eq(
+                self.array_lengths.note_encrypted_logs_hashes, 0, "note_encrypted_logs_hashes must be empty for static calls"
+            );
+            assert_eq(
                 self.array_lengths.encrypted_logs_hashes, 0, "encrypted_logs_hashes must be empty for static calls"
             );
             assert_eq(
