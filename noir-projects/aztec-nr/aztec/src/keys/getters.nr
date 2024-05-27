@@ -1,5 +1,5 @@
 use dep::protocol_types::{
-    abis::validation_requests::KeyValidationRequest, address::AztecAddress,
+    header::Header, abis::validation_requests::KeyValidationRequest, address::AztecAddress,
     constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint,
     storage::map::derive_storage_slot_in_map
 };
@@ -13,33 +13,44 @@ use crate::{
 global DELAY = 5;
 
 // docs:start:key-getters
-pub fn get_npk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
-    get_master_key(context, address, NULLIFIER_INDEX)
+trait KeyGetters {
+  fn get_npk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint;
+  fn get_ivpk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint;
+  fn get_ovpk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint;
+//   fn get_tpk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint;
+  fn get_npk_m_hash(header: Header, context: &mut PrivateContext, address: AztecAddress) -> Field;
 }
 
-pub fn get_npk_m_hash(context: &mut PrivateContext, address: AztecAddress) -> Field {
-    get_master_key(context, address, NULLIFIER_INDEX).hash()
-}
+impl KeyGetters for Header {
+    fn get_npk_m(self, context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
+        get_master_key(context, address, NULLIFIER_INDEX, self)
+    }
 
-pub fn get_ivpk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
-    get_master_key(context, address, INCOMING_INDEX)
-}
+    fn get_ivpk_m(self, context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
+        get_master_key(context, address, INCOMING_INDEX, self)
+    }
 
-pub fn get_ovpk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
-    get_master_key(context, address, OUTGOING_INDEX)
-}
+    fn get_ovpk_m(self, context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
+        get_master_key(context, address, OUTGOING_INDEX, self)
+    }
 
-// pub fn get_tpk_m(context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
-//     get_master_key(context, address, TAGGING_INDEX)
-// }
+    // fn get_tpk_m(self, context: &mut PrivateContext, address: AztecAddress) -> GrumpkinPoint {
+    //     get_master_key(context, address, TAGGING_INDEX, self)
+    // }
+
+    fn get_npk_m_hash(self, context: &mut PrivateContext, address: AztecAddress) -> Field {
+        get_master_key(context, address, NULLIFIER_INDEX, self).hash()
+    }
+}
 // docs:end:key-getters
 
 fn get_master_key(
     context: &mut PrivateContext,
     address: AztecAddress,
-    key_index: Field
+    key_index: Field,
+    header: Header
 ) -> GrumpkinPoint {
-    let key = fetch_key_from_registry(context, key_index, address);
+    let key = fetch_key_from_registry(context, key_index, address, header);
     if key.is_zero() {
         // Keys were not registered in registry yet --> fetch key from PXE
         let keys = fetch_and_constrain_keys(address);
@@ -54,7 +65,8 @@ fn get_master_key(
 fn fetch_key_from_registry(
     context: &mut PrivateContext,
     key_index: Field,
-    address: AztecAddress
+    address: AztecAddress,
+    header: Header
 ) -> GrumpkinPoint {
     let x_coordinate_map_slot = key_index * 2 + 1;
     let y_coordinate_map_slot = x_coordinate_map_slot + 1;
@@ -62,17 +74,17 @@ fn fetch_key_from_registry(
     let y_coordinate_derived_slot = derive_storage_slot_in_map(y_coordinate_map_slot, address);
 
     let x_coordinate_registry: SharedMutablePrivateGetter<Field, DELAY> = SharedMutablePrivateGetter::new(
-        *context,
+        context,
         AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS),
         x_coordinate_derived_slot
     );
     let y_coordinate_registry: SharedMutablePrivateGetter<Field, DELAY> = SharedMutablePrivateGetter::new(
-        *context,
+        context,
         AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS),
         y_coordinate_derived_slot
     );
-    let x_coordinate = x_coordinate_registry.get_current_value_in_private();
-    let y_coordinate = y_coordinate_registry.get_current_value_in_private();
+    let x_coordinate = x_coordinate_registry.get_value_in_private(header);
+    let y_coordinate = y_coordinate_registry.get_value_in_private(header);
 
     GrumpkinPoint::new(x_coordinate, y_coordinate)
 }
