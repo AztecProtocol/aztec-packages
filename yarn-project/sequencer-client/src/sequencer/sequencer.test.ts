@@ -1,4 +1,5 @@
 import {
+  type ClientProtocolCircuitVerifier,
   type L1ToL2MessageSource,
   L2Block,
   type L2BlockSource,
@@ -19,6 +20,7 @@ import {
   GlobalVariables,
   Header,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  getMockVerificationKeys,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { makeProof } from '@aztec/circuits.js/testing';
@@ -45,6 +47,7 @@ describe('sequencer', () => {
   let l2BlockSource: MockProxy<L2BlockSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let publicProcessorFactory: MockProxy<PublicProcessorFactory>;
+  let dummyProofVerifier: MockProxy<ClientProtocolCircuitVerifier>;
 
   let lastBlockNumber: number;
 
@@ -63,6 +66,10 @@ describe('sequencer', () => {
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     merkleTreeOps = mock<MerkleTreeOperations>();
     proverClient = mock<ProverClient>();
+    dummyProofVerifier = mock<ClientProtocolCircuitVerifier>({
+      verifyProof: () => Promise.resolve(true),
+      getVerificationKeys: () => Promise.resolve(getMockVerificationKeys()),
+    });
 
     p2p = mock<P2P>({
       getStatus: () => Promise.resolve({ state: P2PClientState.IDLE, syncedToL2Block: lastBlockNumber }),
@@ -110,7 +117,7 @@ describe('sequencer', () => {
       l2BlockSource,
       l1ToL2MessageSource,
       publicProcessorFactory,
-      new TxValidatorFactory(merkleTreeOps, contractSource, EthAddress.random()),
+      new TxValidatorFactory(merkleTreeOps, contractSource, dummyProofVerifier),
     );
   });
 

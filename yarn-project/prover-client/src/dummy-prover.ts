@@ -10,8 +10,14 @@ import {
   type ProvingRequest,
   type ProvingSuccess,
   type ProvingTicket,
+  type Tx,
 } from '@aztec/circuit-types';
-import { type GlobalVariables, makeEmptyProof } from '@aztec/circuits.js';
+import {
+  type GlobalVariables,
+  type VerificationKeys,
+  getMockVerificationKeys,
+  makeEmptyProof,
+} from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 
 export class DummyProver implements ProverClient {
@@ -68,6 +74,14 @@ export class DummyProver implements ProverClient {
 
   updateProverConfig(_config: Partial<ProverConfig>): Promise<void> {
     return Promise.resolve();
+  }
+
+  getVerificationKeys(): Promise<VerificationKeys> {
+    return Promise.resolve(getMockVerificationKeys());
+  }
+
+  verifyProof(_tx: Tx): Promise<boolean> {
+    return Promise.resolve(true);
   }
 }
 

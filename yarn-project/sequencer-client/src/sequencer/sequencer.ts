@@ -287,7 +287,7 @@ export class Sequencer {
   protected async takeValidTxs<T extends Tx | ProcessedTx>(txs: T[], validator: TxValidator<T>): Promise<T[]> {
     const [valid, invalid] = await validator.validateTxs(txs);
     if (invalid.length > 0) {
-      this.log.debug(`Dropping invalid txs from the p2p pool ${Tx.getHashes(invalid).join(', ')}`);
+      this.log.info(`Dropping invalid txs from the p2p pool ${Tx.getHashes(invalid).join(', ')}`);
       await this.p2pClient.deleteTxs(Tx.getHashes(invalid));
     }
 

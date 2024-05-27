@@ -1,12 +1,13 @@
-import { BBCircuitVerifier, type BBProverConfig } from '@aztec/bb-prover';
-import { type ProcessedTx } from '@aztec/circuit-types';
+import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import { type ProcessedTx, type Tx } from '@aztec/circuit-types';
 import {
   type BlockResult,
+  type ClientProtocolCircuitVerifier,
   type ProverClient,
   type ProvingJobSource,
   type ProvingTicket,
 } from '@aztec/circuit-types/interfaces';
-import { type Fr, type GlobalVariables, type VerificationKeys, getMockVerificationKeys } from '@aztec/circuits.js';
+import { type Fr, type GlobalVariables, type VerificationKeys } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type SimulationProvider } from '@aztec/simulator';
 import { type WorldStateSynchronizer } from '@aztec/world-state';
@@ -18,19 +19,6 @@ import { ProverPool } from '../prover-pool/prover-pool.js';
 
 const logger = createDebugLogger('aztec:tx-prover');
 
-const PRIVATE_KERNEL = 'PrivateKernelTailArtifact';
-const PRIVATE_KERNEL_TO_PUBLIC = 'PrivateKernelTailToPublicArtifact';
-
-async function retrieveRealPrivateKernelVerificationKeys(config: BBProverConfig) {
-  logger.info(`Retrieving private kernel verification keys`);
-  const bbVerifier = await BBCircuitVerifier.new(config, [PRIVATE_KERNEL, PRIVATE_KERNEL_TO_PUBLIC]);
-  const vks: VerificationKeys = {
-    privateKernelCircuit: await bbVerifier.getVerificationKeyData(PRIVATE_KERNEL),
-    privateKernelToPublicCircuit: await bbVerifier.getVerificationKeyData(PRIVATE_KERNEL_TO_PUBLIC),
-  };
-  return vks;
-}
-
 /**
  * A prover accepting individual transaction requests
  */
@@ -41,7 +29,7 @@ export class TxProver implements ProverClient {
   constructor(
     private config: ProverClientConfig,
     private worldStateSynchronizer: WorldStateSynchronizer,
-    protected vks: VerificationKeys,
+    private verifier: ClientProtocolCircuitVerifier,
     private proverPool?: ProverPool,
   ) {
     logger.info(`BB ${config.bbBinaryPath}, directory: ${config.bbWorkingDirectory}`);
@@ -52,8 +40,11 @@ export class TxProver implements ProverClient {
     if (typeof config.proverAgents === 'number') {
       await this.proverPool?.rescale(config.proverAgents);
     }
-    if (typeof config.realProofs === 'boolean' && config.realProofs) {
-      this.vks = await retrieveRealPrivateKernelVerificationKeys(this.config);
+
+    if (config.realProofs !== this.config.realProofs) {
+      const newConfig = { ...this.config, ...config };
+      this.verifier = await TxProver.createVerifier(newConfig);
+      this.config = newConfig;
     }
   }
 
@@ -100,9 +91,8 @@ export class TxProver implements ProverClient {
       pool = ProverPool.testPool(simulationProvider, config.proverAgents, config.proverAgentPollInterval);
     }
 
-    const vks = config.realProofs ? await retrieveRealPrivateKernelVerificationKeys(config) : getMockVerificationKeys();
-
-    const prover = new TxProver(config, worldStateSynchronizer, vks, pool);
+    const verifier = await TxProver.createVerifier(config);
+    const prover = new TxProver(config, worldStateSynchronizer, verifier, pool);
     await prover.start();
     return prover;
   }
@@ -122,7 +112,13 @@ export class TxProver implements ProverClient {
   ): Promise<ProvingTicket> {
     const previousBlockNumber = globalVariables.blockNumber.toNumber() - 1;
     await this.worldStateSynchronizer.syncImmediate(previousBlockNumber);
-    return this.orchestrator.startNewBlock(numTxs, globalVariables, newL1ToL2Messages, emptyTx, this.vks);
+    return this.orchestrator.startNewBlock(
+      numTxs,
+      globalVariables,
+      newL1ToL2Messages,
+      emptyTx,
+      await this.verifier.getVerificationKeys(),
+    );
   }
 
   /**
@@ -155,7 +151,20 @@ export class TxProver implements ProverClient {
     return this.orchestrator.setBlockCompleted();
   }
 
+  verifyProof(tx: Tx): Promise<boolean> {
+    return this.verifier.verifyProof(tx);
+  }
+
+  getVerificationKeys(): Promise<VerificationKeys> {
+    return this.verifier.getVerificationKeys();
+  }
+
   getProvingJobSource(): ProvingJobSource {
     return this.queue;
+  }
+
+  private static async createVerifier(config: ProverClientConfig): Promise<ClientProtocolCircuitVerifier> {
+    console.log({ realProofs: config.realProofs });
+    return config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
   }
 }

@@ -162,6 +162,7 @@ export class AztecNodeService implements AztecNode {
           archiver,
           archiver,
           prover,
+          prover,
           simulationProvider,
         );
 

@@ -1,5 +1,5 @@
 import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
-import { type BlockProver } from '@aztec/circuit-types/interfaces';
+import { type BlockProver, type ClientProtocolCircuitVerifier } from '@aztec/circuit-types/interfaces';
 import { type P2P } from '@aztec/p2p';
 import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
 import { type ContractDataSource } from '@aztec/types/contracts';
@@ -37,6 +37,7 @@ export class SequencerClient {
     l2BlockSource: L2BlockSource,
     l1ToL2MessageSource: L1ToL2MessageSource,
     prover: BlockProver,
+    verifier: ClientProtocolCircuitVerifier,
     simulationProvider: SimulationProvider,
   ) {
     const publisher = getL1Publisher(config);
@@ -54,7 +55,7 @@ export class SequencerClient {
       l2BlockSource,
       l1ToL2MessageSource,
       publicProcessorFactory,
-      new TxValidatorFactory(merkleTreeDb, contractDataSource, config.l1Contracts.gasPortalAddress),
+      new TxValidatorFactory(merkleTreeDb, contractDataSource, verifier),
       config,
     );
 
