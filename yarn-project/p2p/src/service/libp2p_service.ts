@@ -117,7 +117,7 @@ export class LibP2PService implements P2PService {
       const { msg } = e.detail;
       this.logger.debug(`Received PUBSUB message.`);
 
-      await this.handleNewGossipMessage(msg.topic, msg.data);
+      await this.jobQueue.put(() => this.handleNewGossipMessage(msg.topic, msg.data));
     });
   }
 
