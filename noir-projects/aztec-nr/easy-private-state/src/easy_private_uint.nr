@@ -66,6 +66,11 @@ impl<Context> EasyPrivateUint<&mut PrivateContext> {
         // Creates change note for the owner.
         let result_value = minuend - subtrahend;
         let mut result_note = ValueNote::new(result_value as Field, owner_npk_m_hash);
-        self.set.insert(&mut result_note, result_value != 0, msg_sender_ovpk_m, owner_ivpk_m);
+        self.set.insert(
+            &mut result_note,
+            result_value != 0,
+            msg_sender_ovpk_m,
+            owner_ivpk_m
+        );
     }
 }
