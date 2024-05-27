@@ -1,5 +1,4 @@
 use crate::tests::private_kernel_circuit_output_validator_builder::PrivateKernelCircuitOutputValidatorBuilder;
-use dep::types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
 
 #[test]
 fn validate_propagated_from_private_call_empty_data_succeeds() {
@@ -74,8 +73,9 @@ fn validate_propagated_from_private_call_note_hash_read_requests_output_extra_no
 
     builder.private_call.append_note_hash_read_requests(2);
     builder.output.append_note_hash_read_requests(2);
-    // Add a non-empty item to the output.
-    builder.output.note_hash_read_requests.storage[MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = builder.output.note_hash_read_requests.storage[0];
+    // Add a non-empty item to the end of the output.
+    let len = builder.output.note_hash_read_requests.storage.len();
+    builder.output.note_hash_read_requests.storage[len - 1] = builder.output.note_hash_read_requests.storage[0];
 
     builder.validate_as_inner_call();
 }
@@ -85,17 +85,20 @@ fn validate_propagated_from_private_call_note_hash_read_requests_output_extra_no
  * With previous kernel.
  */
 
-fn append_note_hash_read_requests_to_previous_kernel(builder: &mut PrivateKernelCircuitOutputValidatorBuilder) {
-    builder.previous_kernel.append_note_hash_read_requests(3);
-    builder.output.append_note_hash_read_requests(3);
-    builder.offset_values(3);
+fn append_note_hash_read_requests_to_previous_kernel(
+    builder: &mut PrivateKernelCircuitOutputValidatorBuilder,
+    num_requests: u64
+) {
+    builder.previous_kernel.append_note_hash_read_requests(num_requests);
+    builder.output.append_note_hash_read_requests(num_requests);
+    builder.offset_values(num_requests as Field);
 }
 
 #[test]
 fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    append_note_hash_read_requests_to_previous_kernel(&mut builder);
+    append_note_hash_read_requests_to_previous_kernel(&mut builder, 3);
     builder.private_call.append_note_hash_read_requests(2);
     builder.output.append_note_hash_read_requests(2);
 
@@ -106,7 +109,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_s
 fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_mismatch_value_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    append_note_hash_read_requests_to_previous_kernel(&mut builder);
+    append_note_hash_read_requests_to_previous_kernel(&mut builder, 3);
     builder.private_call.append_note_hash_read_requests(2);
     builder.output.append_note_hash_read_requests(2);
     // Tweak the value in the output.
@@ -119,7 +122,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_m
 fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_mismatch_contract_address_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    append_note_hash_read_requests_to_previous_kernel(&mut builder);
+    append_note_hash_read_requests_to_previous_kernel(&mut builder, 3);
     builder.private_call.append_note_hash_read_requests(2);
     builder.output.append_note_hash_read_requests(2);
     // Tweak the contract address in the output.
@@ -132,7 +135,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_m
 fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_output_one_less_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    append_note_hash_read_requests_to_previous_kernel(&mut builder);
+    append_note_hash_read_requests_to_previous_kernel(&mut builder, 3);
     builder.private_call.append_note_hash_read_requests(2);
     // Propagate 1 less item to the output.
     builder.output.append_note_hash_read_requests(1);
@@ -144,7 +147,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_o
 fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    append_note_hash_read_requests_to_previous_kernel(&mut builder);
+    append_note_hash_read_requests_to_previous_kernel(&mut builder, 3);
     builder.private_call.append_note_hash_read_requests(2);
     // Propagate 1 more item to the output.
     builder.output.append_note_hash_read_requests(3);
@@ -156,11 +159,25 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_o
 fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_output_extra_non_empty_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    append_note_hash_read_requests_to_previous_kernel(&mut builder);
+    append_note_hash_read_requests_to_previous_kernel(&mut builder, 3);
     builder.private_call.append_note_hash_read_requests(2);
     builder.output.append_note_hash_read_requests(2);
-    // Add a non-empty item to the output.
-    builder.output.note_hash_read_requests.storage[MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = builder.output.note_hash_read_requests.storage[0];
+    // Add a non-empty item to the end of the output.
+    let len = builder.output.note_hash_read_requests.storage.len();
+    builder.output.note_hash_read_requests.storage[len - 1] = builder.output.note_hash_read_requests.storage[0];
+
+    builder.validate_as_inner_call();
+}
+
+#[test(should_fail_with="number of total items exceeds limit")]
+fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_output_exceeds_max_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+
+    // Make the previous array to be full, therefore no more items can be added.
+    let max_len = builder.output.note_hash_read_requests.max_len();
+    append_note_hash_read_requests_to_previous_kernel(&mut builder, max_len);
+    // Add 1 item to the current call.
+    builder.private_call.append_note_hash_read_requests(1);
 
     builder.validate_as_inner_call();
 }
@@ -410,6 +427,20 @@ fn validate_propagated_from_private_call_note_encrypted_log_hashes_output_one_mo
     builder.validate_as_inner_call();
 }
 
+#[test(should_fail_with="number of total items exceeds limit")]
+fn validate_propagated_from_private_call_note_encrypted_log_hashes_with_previous_output_exceeds_max_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+
+    // Make the previous array to be full, therefore no more items can be added.
+    let max_len = builder.previous_kernel.note_encrypted_logs_hashes.max_len();
+    builder.previous_kernel.append_note_encrypted_log_hashes(max_len);
+    builder.output.append_note_encrypted_log_hashes(max_len);
+    // Add 1 item to the current call.
+    builder.private_call.append_note_encrypted_log_hashes(1);
+
+    builder.validate_as_inner_call();
+}
+
 /**
  * encrypted_log_hashes
  */
@@ -489,7 +520,7 @@ fn validate_propagated_from_private_call_private_call_requests_not_reversed_fail
 }
 
 #[test]
-fn validate_propagated_from_private_call_private_call_requests_with_private_call_succeeds() {
+fn validate_propagated_from_private_call_private_call_requests_with_previous_output_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.output.append_private_call_requests(5);
@@ -504,6 +535,21 @@ fn validate_propagated_from_private_call_private_call_requests_with_private_call
     builder.private_call.private_call_requests.push(requests[0]);
     builder.private_call.private_call_requests.push(requests[1]);
     builder.private_call.private_call_requests.push(requests[2]);
+
+    builder.validate_as_inner_call();
+}
+
+#[test(should_fail_with="number of total items exceeds limit")]
+fn validate_propagated_from_private_call_private_call_requests_with_previous_output_exceeds_max_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+
+    // Make the previous array to be full, therefore no more items can be added.
+    // Minus one because an extra request for the current call will be added in validate_as_inner_call().
+    let max_len = builder.previous_kernel.private_call_requests.max_len() - 1;
+    builder.previous_kernel.append_private_call_requests(max_len);
+    builder.output.append_private_call_requests(max_len);
+    // Add 2 item to the current call.
+    builder.private_call.append_private_call_requests(2);
 
     builder.validate_as_inner_call();
 }

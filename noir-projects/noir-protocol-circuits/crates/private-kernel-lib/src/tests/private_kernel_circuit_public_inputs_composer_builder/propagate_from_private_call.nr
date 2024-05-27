@@ -23,9 +23,22 @@ fn propagate_from_private_call_empty_data_succeeds() {
     expected_array_lengths.new_nullifiers = 1;
     assert_eq(array_lengths, expected_array_lengths);
 
+    assert_eq(output.min_revertible_side_effect_counter, 0);
+    assert(is_empty(output.validation_requests));
     assert(output.validation_requests.for_rollup.max_block_number.is_none());
     assert(is_empty(output.public_teardown_call_request));
     assert(is_empty(output.fee_payer));
+}
+
+#[test]
+fn propagate_from_private_call_min_revertible_side_effect_counter_succeeds() {
+    let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
+
+    builder.private_call.min_revertible_side_effect_counter = 123;
+
+    let output = builder.compose_from_tx_request();
+
+    assert_eq(output.min_revertible_side_effect_counter, 123);
 }
 
 #[test]

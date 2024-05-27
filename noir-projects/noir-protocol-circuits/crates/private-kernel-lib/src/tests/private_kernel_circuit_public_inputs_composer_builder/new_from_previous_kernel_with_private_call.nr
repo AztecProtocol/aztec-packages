@@ -20,6 +20,38 @@ fn new_from_previous_kernel_with_private_call_empty_data_succeeds() {
 }
 
 #[test]
+fn new_from_previous_kernel_with_private_call_min_revertible_side_effect_counter_prev_empty_succeeds() {
+    let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
+
+    builder.private_call.min_revertible_side_effect_counter = 123;
+
+    let output = builder.compose_from_previous_kernel();
+
+    assert_eq(output.min_revertible_side_effect_counter, 123);
+}
+
+#[test]
+fn new_from_previous_kernel_with_private_call_min_revertible_side_effect_counter_curr_empty_succeeds() {
+    let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
+
+    builder.previous_kernel.min_revertible_side_effect_counter = 123;
+
+    let output = builder.compose_from_previous_kernel();
+
+    assert_eq(output.min_revertible_side_effect_counter, 123);
+}
+
+#[test(should_fail_with="cannot overwrite non-zero min_revertible_side_effect_counter")]
+fn new_from_previous_kernel_with_private_call_min_revertible_side_effect_counter_overwrite_fails() {
+    let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
+
+    builder.previous_kernel.min_revertible_side_effect_counter = 123;
+    builder.private_call.min_revertible_side_effect_counter = 123;
+
+    let _ = builder.compose_from_previous_kernel();
+}
+
+#[test]
 fn new_from_previous_kernel_with_private_call_max_block_number_prev_empty_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 

@@ -29,7 +29,8 @@ fn validate_array_appended<T, N, M>(
     let mut should_check = false;
     let mut is_non_empty_item = true;
     let items_propagated = num_prepended_items + num_source_items;
-    for i in 0..dest.len() {
+    assert(items_propagated <= N, "number of total items exceeds limit");
+    for i in 0..dest.len() { // Loop through dest instead of source because we also need to check that dest is appended with empty items.
         should_check |= i == num_prepended_items; // Prepended items have been checked in validate_array_prepended() and can be skipped here.
         if should_check {
             is_non_empty_item &= i != items_propagated;
@@ -53,6 +54,7 @@ fn validate_array_appended_scoped<ST, T, N, M>(
     let mut should_check = false;
     let mut is_non_empty_item = true;
     let items_propagated = num_prepended_items + num_source_items;
+    assert(items_propagated <= N, "number of total items exceeds limit");
     for i in 0..dest.len() {
         should_check |= i == num_prepended_items;
         if should_check {
@@ -82,6 +84,7 @@ fn validate_array_appended_reversed_scoped<ST, T, N, M>(
     let mut should_check = false;
     let mut is_non_empty_item = true;
     let items_propagated = num_prepended_items + num_source_items;
+    assert(items_propagated <= N, "number of total items exceeds limit");
     for i in 0..dest.len() {
         should_check |= i == num_prepended_items;
         if should_check {
@@ -222,6 +225,19 @@ impl PrivateKernelCircuitOutputValidator {
         private_call: PrivateCircuitPublicInputs,
         public_teardown_call_request: CallRequest
     ) {
+        // min_revertible_side_effect_counter
+        let propagated_min_revertible_counter = if previous_kernel.min_revertible_side_effect_counter != 0 {
+            assert(
+                private_call.min_revertible_side_effect_counter == 0, "cannot overwrite min_revertible_side_effect_counter"
+            );
+            previous_kernel.min_revertible_side_effect_counter
+        } else {
+            private_call.min_revertible_side_effect_counter
+        };
+        assert_eq(
+            self.output.min_revertible_side_effect_counter, propagated_min_revertible_counter, "incorrect output min_revertible_side_effect_counter"
+        );
+
         // max_block_number
         let max_block_number = MaxBlockNumber::min(
             previous_kernel.validation_requests.for_rollup.max_block_number,
@@ -260,9 +276,6 @@ impl PrivateKernelCircuitOutputValidator {
         array_lengths: PrivateKernelCircuitPublicInputsArrayLengths
     ) {
         assert_eq(self.output.constants, previous_kernel.constants, "mismatch constants");
-        assert_eq(
-            self.output.min_revertible_side_effect_counter, previous_kernel.min_revertible_side_effect_counter, "mismatch min_revertible_side_effect_counter"
-        );
 
         validate_array_prepended(
             self.output.validation_requests.note_hash_read_requests,

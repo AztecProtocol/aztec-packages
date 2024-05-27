@@ -16,7 +16,6 @@ fn new_from_tx_request_succeeds() {
     builder.private_call.historical_header.total_fees = 979797;
     builder.private_call.historical_header.content_commitment.out_hash = 122122;
     let historical_header = builder.private_call.historical_header;
-    builder.private_call.min_revertible_side_effect_counter = 37;
 
     let output = builder.new_from_tx_request().public_inputs.finish();
 
@@ -25,8 +24,7 @@ fn new_from_tx_request_succeeds() {
     assert_eq(output.constants.historical_header, historical_header);
     assert(is_empty(output.constants.global_variables));
 
-    // Check output requests and accumulated data.
-    assert_eq(output.min_revertible_side_effect_counter, 37);
+    // Check first nullifier is set.
     assert_eq(output.end.new_nullifiers[0], first_nullifier);
 
     let array_lengths = PrivateKernelCircuitPublicInputsArrayLengths::new(output);
@@ -35,6 +33,8 @@ fn new_from_tx_request_succeeds() {
     assert_eq(array_lengths, expected_array_lengths);
 
     // Check values default to empty.
+    assert_eq(output.min_revertible_side_effect_counter, 0);
+    assert(is_empty(output.validation_requests));
     assert(output.validation_requests.for_rollup.max_block_number.is_none());
     assert(is_empty(output.public_teardown_call_request));
     assert(is_empty(output.fee_payer));

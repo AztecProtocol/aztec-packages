@@ -7,6 +7,70 @@ fn validate_aggregated_values_empty_data_succeeds() {
 }
 
 /**
+ * min_revertible_side_effect_counter
+ */
+
+#[test]
+fn validate_aggregated_values_min_revertible_side_effect_counter_from_previous_succeeds() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+
+    builder.previous_kernel.min_revertible_side_effect_counter = 123;
+    builder.output.min_revertible_side_effect_counter = 123;
+
+    builder.validate_as_inner_call();
+}
+
+#[test]
+fn validate_aggregated_values_min_revertible_side_effect_counter_from_private_call_succeeds() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+
+    builder.private_call.min_revertible_side_effect_counter = 123;
+    builder.output.min_revertible_side_effect_counter = 123;
+
+    builder.validate_as_inner_call();
+}
+
+#[test(should_fail_with="cannot overwrite min_revertible_side_effect_counter")]
+fn validate_aggregated_values_min_revertible_side_effect_counter_overwrite_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+
+    builder.previous_kernel.min_revertible_side_effect_counter = 123;
+    builder.private_call.min_revertible_side_effect_counter = 4567;
+    builder.output.min_revertible_side_effect_counter = 123;
+
+    builder.validate_as_inner_call();
+}
+
+#[test(should_fail_with="incorrect output min_revertible_side_effect_counter")]
+fn validate_aggregated_values_min_revertible_side_effect_counter_from_previous_mismatch_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+
+    builder.previous_kernel.min_revertible_side_effect_counter = 123;
+    builder.output.min_revertible_side_effect_counter = 4567;
+
+    builder.validate_as_inner_call();
+}
+
+#[test(should_fail_with="incorrect output min_revertible_side_effect_counter")]
+fn validate_aggregated_values_min_revertible_side_effect_counter_from_private_call_mismatch_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+
+    builder.private_call.min_revertible_side_effect_counter = 123;
+    builder.output.min_revertible_side_effect_counter = 4567;
+
+    builder.validate_as_inner_call();
+}
+
+#[test(should_fail_with="incorrect output min_revertible_side_effect_counter")]
+fn validate_aggregated_values_min_revertible_side_effect_counter_random_output_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+
+    builder.output.min_revertible_side_effect_counter = 123;
+
+    builder.validate_as_inner_call();
+}
+
+/**
  * max_block_number
  */
 
@@ -142,6 +206,15 @@ fn validate_aggregated_values_public_teardown_call_request_from_private_call_mis
     builder.validate_as_inner_call();
 }
 
+#[test(should_fail_with="incorrect output public_teardown_call_request")]
+fn validate_aggregated_values_public_teardown_call_request_random_output_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+
+    builder.output.append_public_teardown_call_request();
+
+    builder.validate_as_inner_call();
+}
+
 /**
  * fee_payer
  */
@@ -197,6 +270,15 @@ fn validate_aggregated_values_fee_payer_from_private_call_mismatch_fails() {
     builder.output.set_fee_payer(fee_payer);
     // Tweak the output.
     builder.output.fee_payer.inner += 1;
+
+    builder.validate_as_inner_call();
+}
+
+#[test(should_fail_with="incorrect output fee_payer")]
+fn validate_aggregated_values_fee_payer_random_output_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+
+    builder.output.set_fee_payer(builder.private_call.storage_contract_address);
 
     builder.validate_as_inner_call();
 }

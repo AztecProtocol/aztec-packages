@@ -38,20 +38,6 @@ fn validate_propagated_from_previous_kernel_constants_non_empty_global_variables
 }
 
 /**
-* min_revertible_side_effect_counter
-*/
-
-#[test(should_fail_with="mismatch min_revertible_side_effect_counter")]
-fn validate_propagated_from_previous_kernel_min_revertible_side_effect_counter_mismatch_fails() {
-    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
-
-    builder.previous_kernel.min_revertible_side_effect_counter = 8989;
-    builder.output.min_revertible_side_effect_counter = 50;
-
-    builder.validate_as_inner_call();
-}
-
-/**
  * note_hash_read_requests
  */
 

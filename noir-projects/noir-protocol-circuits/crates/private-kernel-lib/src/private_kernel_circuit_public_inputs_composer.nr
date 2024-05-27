@@ -42,8 +42,6 @@ impl PrivateKernelCircuitPublicInputsComposer {
             tx_request.tx_context,
         );
 
-        public_inputs.min_revertible_side_effect_counter = private_call_public_inputs.min_revertible_side_effect_counter;
-
         // Since it's the first iteration, we need to push the tx hash nullifier into the `new_nullifiers` array
         public_inputs.end.new_nullifiers.push(create_first_nullifier(tx_request));
         // Note that we do not need to nullify the transaction request nonce anymore.
@@ -127,10 +125,12 @@ impl PrivateKernelCircuitPublicInputsComposer {
     }
 
     fn propagate_min_revertible_side_effect_counter(&mut self, source: DataSource) {
-        self.public_inputs.min_revertible_side_effect_counter = if self.public_inputs.min_revertible_side_effect_counter > 0 {
-            self.public_inputs.min_revertible_side_effect_counter
+        if self.public_inputs.min_revertible_side_effect_counter != 0 {
+            assert(
+                source.private_call_public_inputs.min_revertible_side_effect_counter == 0, "cannot overwrite non-zero min_revertible_side_effect_counter"
+            );
         } else {
-            source.private_call_public_inputs.min_revertible_side_effect_counter
+            self.public_inputs.min_revertible_side_effect_counter = source.private_call_public_inputs.min_revertible_side_effect_counter;
         };
     }
 
