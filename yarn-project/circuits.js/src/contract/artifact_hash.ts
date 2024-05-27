@@ -52,15 +52,39 @@ export function computeArtifactHash(
 }
 
 export function computeArtifactHashPreimage(artifact: ContractArtifact) {
-  const privateFunctionRoot = computeArtifactFunctionTreeRoot(artifact, FunctionType.SECRET);
+  const privateFunctionRoot = computeArtifactFunctionTreeRoot(artifact, FunctionType.PRIVATE);
   const unconstrainedFunctionRoot = computeArtifactFunctionTreeRoot(artifact, FunctionType.UNCONSTRAINED);
   const metadataHash = computeArtifactMetadataHash(artifact);
   return { privateFunctionRoot, unconstrainedFunctionRoot, metadataHash };
 }
 
 export function computeArtifactMetadataHash(artifact: ContractArtifact) {
-  // TODO(@spalladino): Should we use the sorted event selectors instead? They'd need to be unique for that.
+  // TODO: #6021: Should we use the sorted event selectors instead? They'd need to be unique for that.
+  // Response - The output selectors need to be sorted, because if not noir makes no guarantees on the order of outputs for some reason
+
   const metadata = { name: artifact.name, outputs: artifact.outputs };
+
+  // This is a temporary workaround for the Key Registry
+  // TODO: #6021 We need to make sure the artifact is deterministic from any specific compiler run. This relates to selectors not being sorted and being
+  // apparently random in the order they appear after compiled w/ nargo. We can try to sort this upon loading an artifact.
+  if (artifact.name === 'KeyRegistry') {
+    return sha256Fr(Buffer.from(JSON.stringify({ name: artifact.name }), 'utf-8'));
+  }
+
+  // TODO(palla/gas) The GasToken depends on protocol-circuits/types, which in turn includes the address of the GasToken as a constant.
+  // Even though it is not being used, it seems that it is affecting the generated metadata hash. So we ignore it
+  // for the time being until we can determine whether it's an issue in how Noir deals with unused code in imported packages,
+  // or we move that constant out of protocol-circuits/types and into the rollup-lib, which is the only place where we actually need it.
+  if (artifact.name === 'GasToken') {
+    return sha256Fr(Buffer.from(JSON.stringify({ name: artifact.name }), 'utf-8'));
+  }
+
+  // TODO(palla) Minimize impact of contract instance deployer address changing, using the same
+  // trick as in the contracts above.
+  if (artifact.name === 'ContractInstanceDeployer') {
+    return sha256Fr(Buffer.from(JSON.stringify({ name: artifact.name }), 'utf-8'));
+  }
+
   return sha256Fr(Buffer.from(JSON.stringify(metadata), 'utf-8'));
 }
 
@@ -94,9 +118,11 @@ export function computeFunctionArtifactHash(
     | (Pick<FunctionArtifact, 'bytecode'> & { functionMetadataHash: Fr; selector: FunctionSelector }),
 ) {
   const selector = 'selector' in fn ? fn.selector : FunctionSelector.fromNameAndParameters(fn);
-  const bytecodeHash = sha256Fr(fn.bytecode).toBuffer();
-  const metadataHash = 'functionMetadataHash' in fn ? fn.functionMetadataHash : computeFunctionMetadataHash(fn);
-  return sha256Fr(Buffer.concat([numToUInt8(VERSION), selector.toBuffer(), metadataHash.toBuffer(), bytecodeHash]));
+  // TODO(#5860): make bytecode part of artifact hash preimage again
+  // const bytecodeHash = sha256Fr(fn.bytecode).toBuffer();
+  // const metadataHash = 'functionMetadataHash' in fn ? fn.functionMetadataHash : computeFunctionMetadataHash(fn);
+  // return sha256Fr(Buffer.concat([numToUInt8(VERSION), selector.toBuffer(), metadataHash.toBuffer(), bytecodeHash]));
+  return sha256Fr(Buffer.concat([numToUInt8(VERSION), selector.toBuffer()]));
 }
 
 export function computeFunctionMetadataHash(fn: FunctionArtifact) {

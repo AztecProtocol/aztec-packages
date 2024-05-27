@@ -3,6 +3,7 @@
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -12,23 +13,19 @@ namespace bb {
 // We won't compile this class with Standard, but we will like want to compile it (at least for testing)
 // with a flavor that uses the curve Grumpkin, or a flavor that does/does not have zk, etc.
 class ECCVMProver {
+  public:
     using Flavor = ECCVMFlavor;
     using FF = typename Flavor::FF;
+    using BF = typename Flavor::BF;
     using PCS = typename Flavor::PCS;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using ProvingKey = typename Flavor::ProvingKey;
     using Polynomial = typename Flavor::Polynomial;
-    using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Transcript = typename Flavor::Transcript;
-    using TranslationEvaluations = bb::TranslationEvaluations;
+    using TranslationEvaluations = bb::TranslationEvaluations_<FF, BF>;
     using ZeroMorph = ZeroMorphProver_<PCS>;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
-
-  public:
-    explicit ECCVMProver(const std::shared_ptr<ProvingKey>& input_key,
-                         const std::shared_ptr<CommitmentKey>& commitment_key,
-                         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     explicit ECCVMProver(CircuitBuilder& builder,
                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
@@ -41,8 +38,8 @@ class ECCVMProver {
     BB_PROFILE void execute_zeromorph_rounds();
     BB_PROFILE void execute_transcript_consistency_univariate_opening_round();
 
-    HonkProof& export_proof();
-    HonkProof& construct_proof();
+    HonkProof export_proof();
+    HonkProof construct_proof();
 
     std::shared_ptr<Transcript> transcript;
 
@@ -53,9 +50,6 @@ class ECCVMProver {
     bb::RelationParameters<FF> relation_parameters;
 
     std::shared_ptr<ProvingKey> key;
-
-    // Container for spans of all polynomials required by the prover (i.e. all multivariates evaluated by Sumcheck).
-    ProverPolynomials prover_polynomials;
 
     CommitmentLabels commitment_labels;
 

@@ -1,5 +1,6 @@
-import { type FunctionCall, PackedArguments, emptyFunctionCall } from '@aztec/circuit-types';
-import { Fr, GeneratorIndex } from '@aztec/circuits.js';
+import { FunctionCall, PackedValues } from '@aztec/circuit-types';
+import { type AztecAddress, Fr, type GasSettings, GeneratorIndex } from '@aztec/circuits.js';
+import { FunctionType } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { type Tuple } from '@aztec/foundation/serialize';
@@ -12,8 +13,8 @@ import { type FeePaymentMethod } from '../fee/fee_payment_method.js';
 export type FeeOptions = {
   /** The fee payment method to use */
   paymentMethod: FeePaymentMethod;
-  /** The fee limit to pay */
-  maxFee: bigint | number | Fr;
+  /** The gas settings */
+  gasSettings: GasSettings;
 };
 
 // These must match the values defined in:
@@ -33,27 +34,30 @@ type EncodedFunctionCall = {
   target_address: Fr;
   /** Whether the function is public or private */
   is_public: boolean;
+  /** Whether the function can alter state */
+  is_static: boolean;
 };
 /* eslint-enable camelcase */
 
 /** Assembles an entrypoint payload */
-export class EntrypointPayload {
-  #packedArguments: PackedArguments[] = [];
+export abstract class EntrypointPayload {
+  #packedArguments: PackedValues[] = [];
   #functionCalls: EncodedFunctionCall[] = [];
   #nonce = Fr.random();
   #generatorIndex: number;
 
-  private constructor(functionCalls: FunctionCall[], generatorIndex: number) {
+  protected constructor(functionCalls: FunctionCall[], generatorIndex: number) {
     for (const call of functionCalls) {
-      this.#packedArguments.push(PackedArguments.fromArgs(call.args));
+      this.#packedArguments.push(PackedValues.fromValues(call.args));
     }
 
     /* eslint-disable camelcase */
     this.#functionCalls = functionCalls.map((call, index) => ({
       args_hash: this.#packedArguments[index].hash,
-      function_selector: call.functionData.selector.toField(),
+      function_selector: call.selector.toField(),
       target_address: call.to.toField(),
-      is_public: !call.functionData.isPrivate,
+      is_public: call.type == FunctionType.PUBLIC,
+      is_static: call.isStatic,
     }));
     /* eslint-enable camelcase */
 
@@ -89,17 +93,7 @@ export class EntrypointPayload {
    * Serializes the payload to an array of fields
    * @returns The fields of the payload
    */
-  toFields(): Fr[] {
-    return [
-      ...this.#functionCalls.flatMap(call => [
-        call.args_hash,
-        call.function_selector,
-        call.target_address,
-        new Fr(call.is_public),
-      ]),
-      this.#nonce,
-    ];
-  }
+  abstract toFields(): Fr[];
 
   /**
    * Hashes the payload
@@ -109,13 +103,24 @@ export class EntrypointPayload {
     return pedersenHash(this.toFields(), this.#generatorIndex);
   }
 
+  /** Serializes the function calls to an array of fields. */
+  protected functionCallsToFields() {
+    return this.#functionCalls.flatMap(call => [
+      call.args_hash,
+      call.function_selector,
+      call.target_address,
+      new Fr(call.is_public),
+      new Fr(call.is_static),
+    ]);
+  }
+
   /**
-   * Creates an execution payload from a set of function calls
+   * Creates an execution payload for a dapp from a set of function calls
    * @param functionCalls - The function calls to execute
    * @returns The execution payload
    */
   static fromFunctionCalls(functionCalls: FunctionCall[]) {
-    return new EntrypointPayload(functionCalls, 0);
+    return new AppEntrypointPayload(functionCalls, 0);
   }
 
   /**
@@ -127,18 +132,49 @@ export class EntrypointPayload {
     if (functionCalls.length > APP_MAX_CALLS) {
       throw new Error(`Expected at most ${APP_MAX_CALLS} function calls, got ${functionCalls.length}`);
     }
-    const paddedCalls = padArrayEnd(functionCalls, emptyFunctionCall(), APP_MAX_CALLS);
-    return new EntrypointPayload(paddedCalls, GeneratorIndex.SIGNATURE_PAYLOAD);
+    const paddedCalls = padArrayEnd(functionCalls, FunctionCall.empty(), APP_MAX_CALLS);
+    return new AppEntrypointPayload(paddedCalls, GeneratorIndex.SIGNATURE_PAYLOAD);
   }
 
   /**
    * Creates an execution payload to pay the fee for a transaction
+   * @param sender - The address sending this payload
    * @param feeOpts - The fee payment options
    * @returns The execution payload
    */
-  static async fromFeeOptions(feeOpts?: FeeOptions) {
-    const calls = feeOpts ? await feeOpts.paymentMethod.getFunctionCalls(new Fr(feeOpts.maxFee)) : [];
-    const paddedCalls = padArrayEnd(calls, emptyFunctionCall(), FEE_MAX_CALLS);
-    return new EntrypointPayload(paddedCalls, GeneratorIndex.FEE_PAYLOAD);
+  static async fromFeeOptions(sender: AztecAddress, feeOpts?: FeeOptions) {
+    const calls = (await feeOpts?.paymentMethod.getFunctionCalls(feeOpts?.gasSettings)) ?? [];
+    const feePayer = await feeOpts?.paymentMethod.getFeePayer(feeOpts?.gasSettings);
+    const isFeePayer = !!feePayer && feePayer.equals(sender);
+    const paddedCalls = padArrayEnd(calls, FunctionCall.empty(), FEE_MAX_CALLS);
+    return new FeeEntrypointPayload(paddedCalls, GeneratorIndex.FEE_PAYLOAD, isFeePayer);
   }
+}
+
+/** Entrypoint payload for app phase execution. */
+class AppEntrypointPayload extends EntrypointPayload {
+  override toFields(): Fr[] {
+    return [...this.functionCallsToFields(), this.nonce];
+  }
+}
+
+/** Entrypoint payload for fee payment to be run during setup phase. */
+class FeeEntrypointPayload extends EntrypointPayload {
+  #isFeePayer: boolean;
+
+  constructor(functionCalls: FunctionCall[], generatorIndex: number, isFeePayer: boolean) {
+    super(functionCalls, generatorIndex);
+    this.#isFeePayer = isFeePayer;
+  }
+
+  override toFields(): Fr[] {
+    return [...this.functionCallsToFields(), this.nonce, new Fr(this.#isFeePayer)];
+  }
+
+  /* eslint-disable camelcase */
+  /** Whether the sender should be appointed as fee payer. */
+  get is_fee_payer() {
+    return this.#isFeePayer;
+  }
+  /* eslint-enable camelcase */
 }

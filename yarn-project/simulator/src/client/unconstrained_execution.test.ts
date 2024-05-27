@@ -1,8 +1,8 @@
 import { type AztecNode, type FunctionCall, Note } from '@aztec/circuit-types';
-import { CompleteAddress, FunctionData, Header } from '@aztec/circuits.js';
-import { FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { CompleteAddress, Header } from '@aztec/circuits.js';
+import { FunctionSelector, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 
 import { mock } from 'jest-mock-extended';
@@ -21,7 +21,7 @@ describe('Unconstrained Execution test suite', () => {
   });
 
   describe('private token contract', () => {
-    const ownerPk = GrumpkinScalar.fromString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
+    const ownerSecretKey = Fr.fromString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
 
     let owner: AztecAddress;
 
@@ -30,14 +30,14 @@ describe('Unconstrained Execution test suite', () => {
     };
 
     beforeEach(() => {
-      const ownerCompleteAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(ownerPk, Fr.random());
+      const ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSecretKey, Fr.random());
       owner = ownerCompleteAddress.address;
 
-      oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
-        if (address.equals(owner)) {
+      oracle.getCompleteAddress.mockImplementation((account: AztecAddress) => {
+        if (account.equals(owner)) {
           return Promise.resolve(ownerCompleteAddress);
         }
-        throw new Error(`Unknown address ${address}`);
+        throw new Error(`Unknown address ${account}`);
       });
     });
 
@@ -62,9 +62,13 @@ describe('Unconstrained Execution test suite', () => {
       );
 
       const execRequest: FunctionCall = {
+        name: artifact.name,
         to: contractAddress,
-        functionData: new FunctionData(FunctionSelector.empty(), true),
+        selector: FunctionSelector.empty(),
+        type: FunctionType.UNCONSTRAINED,
+        isStatic: false,
         args: encodeArguments(artifact, [owner]),
+        returnTypes: artifact.returnTypes,
       };
 
       const result = await acirSimulator.runUnconstrained(execRequest, artifact, AztecAddress.random());

@@ -31,6 +31,18 @@ template <typename FF_> class LookupRelationImpl {
         4, // grand product construction sub-relation
         0  // left-shiftable polynomial sub-relation
     };
+
+    /**
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
+     *
+     */
+    template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
+    {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/952): figure out why skip condition described in
+        // issue causes failures in acir tests.
+        return false;
+    }
+
     /**
      * @brief Get the grand product polynomial object (either from the proving key or AllEntities depending on context)
      *
@@ -172,7 +184,7 @@ template <typename FF_> class LookupRelationImpl {
                                   const Parameters& params,
                                   const FF& scaling_factor)
     {
-
+        BB_OP_COUNT_TIME_NAME("Lookup::accumulate");
         {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
             using View = typename Accumulator::View;

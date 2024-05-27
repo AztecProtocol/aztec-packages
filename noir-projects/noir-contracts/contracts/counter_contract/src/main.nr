@@ -1,7 +1,6 @@
 contract Counter {
     // docs:start:imports
     use dep::aztec::prelude::{AztecAddress, Map};
-    use dep::aztec::context::Context;
     use dep::value_note::{balance_utils, value_note::{ValueNote, VALUE_NOTE_LEN}};
     use dep::easy_private_state::EasyPrivateUint;
     // docs:end:imports
@@ -26,6 +25,7 @@ contract Counter {
     // docs:start:increment
     #[aztec(private)]
     fn increment(owner: AztecAddress) {
+        dep::aztec::oracle::debug_log::debug_log_format("Incrementing counter for owner {0}", [owner.to_field()]);
         let counters = storage.counters;
         counters.at(owner).add(1, owner);
     }

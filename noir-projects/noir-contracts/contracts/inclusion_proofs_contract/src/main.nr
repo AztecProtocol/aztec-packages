@@ -5,23 +5,10 @@ contract InclusionProofs {
         PrivateSet, PublicMutable
     };
 
-    use dep::aztec::protocol_types::{grumpkin_point::GrumpkinPoint, contract_class_id::ContractClassId};
-    use dep::aztec::{context::Context, note::note_getter_options::NoteStatus};
+    use dep::aztec::protocol_types::{grumpkin_point::GrumpkinPoint, contract_class_id::ContractClassId, header::Header};
+    use dep::aztec::{note::note_getter_options::NoteStatus};
     // docs:start:imports
-    use dep::aztec::history::{
-        contract_inclusion::{
-        prove_contract_deployment_at, prove_contract_non_deployment_at,
-        prove_contract_initialization_at, prove_contract_non_initialization_at
-    },
-        note_inclusion::{prove_note_inclusion, prove_note_inclusion_at},
-        note_validity::{prove_note_validity, prove_note_validity_at},
-        nullifier_inclusion::{
-        prove_nullifier_inclusion, prove_nullifier_inclusion_at, prove_note_is_nullified,
-        prove_note_is_nullified_at
-    },
-        nullifier_non_inclusion::{prove_note_not_nullified, prove_note_not_nullified_at},
-        public_storage::{public_storage_historical_read, public_storage_historical_read_at}
-    };
+    // Imports are not needed as inclusion / non_inclusion proofs are accessible on the header.
     // docs:end:imports
     // docs:start:value_note_imports
     use dep::value_note::value_note::ValueNote;
@@ -44,8 +31,12 @@ contract InclusionProofs {
     #[aztec(private)]
     fn create_note(owner: AztecAddress, value: Field) {
         let owner_private_values = storage.private_values.at(owner);
-        let mut note = ValueNote::new(value, owner);
-        owner_private_values.insert(&mut note, true);
+        let header = context.get_header();
+        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
+
+        let mut note = ValueNote::new(value, owner_npk_m_hash);
+        owner_private_values.insert(&mut note, true, owner_ivpk_m);
     }
     // docs:end:create_note
 
@@ -60,11 +51,7 @@ contract InclusionProofs {
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
-        options = options.select(
-            ValueNote::properties().owner,
-            owner.to_field(),
-            Option::none()
-        ).set_limit(1);
+        options = options.set_limit(1);
         if (nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
@@ -73,13 +60,14 @@ contract InclusionProofs {
         // docs:end:get_note_from_pxe
 
         // 2) Prove the note inclusion
-        if (use_block_number) {
-            // docs:start:prove_note_inclusion
-            prove_note_inclusion_at(maybe_note.unwrap_unchecked(), block_number, context);
-            // docs:end:prove_note_inclusion
+        let header = if (use_block_number) {
+            context.get_header_at(block_number)
         } else {
-            prove_note_inclusion(maybe_note.unwrap_unchecked(), context);
-        }
+            context.get_header()
+        };
+        // docs:start:prove_note_inclusion
+        header.prove_note_inclusion(maybe_note.unwrap_unchecked());
+        // docs:end:prove_note_inclusion
     }
 
     #[aztec(private)]
@@ -88,13 +76,17 @@ contract InclusionProofs {
         use_block_number: bool,
         block_number: u32 // The block at which we'll prove that the note exists
     ) {
-        let mut note = ValueNote::new(1, owner);
+        let header = context.get_header();
+        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let mut note = ValueNote::new(1, owner_npk_m_hash);
 
-        if (use_block_number) {
-            prove_note_inclusion_at(note, block_number, context);
+        let header = if (use_block_number) {
+            context.get_header_at(block_number)
         } else {
-            prove_note_inclusion(note, context);
-        }
+            context.get_header()
+        };
+
+        header.prove_note_inclusion(note);
     }
 
     // Proves that the note was not yet nullified at block `block_number`.
@@ -108,27 +100,23 @@ contract InclusionProofs {
         // because PXE performs note commitment inclusion check when you add a new note).
         fail_case: bool
     ) {
-        // 2) Get the note from PXE
+        // 1) Get the note from PXE
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
-        options = options.select(
-            ValueNote::properties().owner,
-            owner.to_field(),
-            Option::none()
-        ).set_limit(1);
+        options = options.set_limit(1);
         if (fail_case) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
         let notes = private_values.get_notes(options);
         let maybe_note = notes[0];
 
-        // 3) Compute the nullifier from the note
-        // docs:start:prove_note_not_nullified
-        if (use_block_number) {
-            prove_note_not_nullified_at(maybe_note.unwrap_unchecked(), block_number, &mut context);
+        let header = if (use_block_number) {
+            context.get_header_at(block_number)
         } else {
-            prove_note_not_nullified(maybe_note.unwrap_unchecked(), &mut context);
-        }
+            context.get_header()
+        };
+        // docs:start:prove_note_not_nullified
+        header.prove_note_not_nullified(maybe_note.unwrap_unchecked(), &mut context);
         // docs:end:prove_note_not_nullified
     }
 
@@ -142,11 +130,7 @@ contract InclusionProofs {
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
-        options = options.select(
-            ValueNote::properties().owner,
-            owner.to_field(),
-            Option::none()
-        ).set_limit(1);
+        options = options.set_limit(1);
         if (nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
@@ -154,13 +138,14 @@ contract InclusionProofs {
         let note = notes[0].unwrap();
 
         // 2) Prove the note validity
-        if (use_block_number) {
-            // docs:start:prove_note_validity
-            prove_note_validity_at(note, block_number, &mut context);
-            // docs:end:prove_note_validity
+        let header = if (use_block_number) {
+            context.get_header_at(block_number)
         } else {
-            prove_note_validity(note, &mut context);
-        }
+            context.get_header()
+        };
+        // docs:start:prove_note_validity
+        header.prove_note_validity(note, &mut context);
+        // docs:end:prove_note_validity
     }
 
     // docs:start:nullify_note
@@ -168,11 +153,7 @@ contract InclusionProofs {
     fn nullify_note(owner: AztecAddress) {
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
-        options = options.select(
-            ValueNote::properties().owner,
-            owner.to_field(),
-            Option::none()
-        ).set_limit(1);
+        options = options.set_limit(1);
         let notes = private_values.get_notes(options);
         let note = notes[0].unwrap();
 
@@ -189,30 +170,36 @@ contract InclusionProofs {
         use_block_number: bool,
         block_number: u32 // The block at which we'll prove that the nullifier exists in the nullifier tree
     ) {
-        if (use_block_number) {
-            // docs:start:prove_nullifier_inclusion
-            prove_nullifier_inclusion_at(nullifier, block_number, context);
-            // docs:end:prove_nullifier_inclusion
+        let header = if (use_block_number) {
+            context.get_header_at(block_number)
         } else {
-            prove_nullifier_inclusion(nullifier, context);
-        }
+            context.get_header()
+        };
+        // docs:start:prove_nullifier_inclusion
+        header.prove_nullifier_inclusion(nullifier);
+        // docs:end:prove_nullifier_inclusion
+    }
+
+    #[aztec(public)]
+    fn push_nullifier_public(nullifier: Field) {
+        context.push_new_nullifier(nullifier, 0);
     }
 
     // Proves nullifier existed at latest block
     #[aztec(public)]
     fn test_nullifier_inclusion_from_public(nullifier: Field) {
-        prove_nullifier_inclusion(nullifier, context);
+        assert(context.nullifier_exists(nullifier, context.this_address()));
     }
 
     #[aztec(private)]
     fn test_storage_historical_read_unset_slot(block_number: u32 // The block at which we'll read the public storage value
     ) {
+        let header = context.get_header_at(block_number);
+
         assert_eq(
-            public_storage_historical_read_at(
-                context,
+            header.public_storage_historical_read(
                 storage.public_unused_value.storage_slot,
-                context.this_address(),
-                block_number
+                context.this_address()
             ), 0
         );
     }
@@ -223,20 +210,13 @@ contract InclusionProofs {
         use_block_number: bool,
         block_number: u32 // The block at which we'll read the public storage value
     ) {
-        let actual = if (use_block_number) {
-            public_storage_historical_read_at(
-                context,
-                storage.public_value.storage_slot,
-                context.this_address(),
-                block_number
-            )
+        let header = if (use_block_number) {
+            context.get_header_at(block_number)
         } else {
-            public_storage_historical_read(
-                context,
-                storage.public_value.storage_slot,
-                context.this_address()
-            )
+            context.get_header()
         };
+
+        let actual = header.public_storage_historical_read(storage.public_value.storage_slot, context.this_address());
 
         assert_eq(actual, expected, "Actual public value does not match expected");
     }
@@ -249,11 +229,13 @@ contract InclusionProofs {
         test_deployment: bool,
         test_initialization: bool
     ) {
+        let header = context.get_header_at(block_number);
+
         if test_deployment {
-            prove_contract_deployment_at(contract_address, block_number, context);
+            header.prove_contract_deployment(contract_address);
         }
         if test_initialization {
-            prove_contract_initialization_at(contract_address, block_number, context);
+            header.prove_contract_initialization(contract_address);
         }
     }
 
@@ -265,11 +247,13 @@ contract InclusionProofs {
         test_deployment: bool,
         test_initialization: bool
     ) {
+        let header = context.get_header_at(block_number);
+
         if test_deployment {
-            prove_contract_non_deployment_at(contract_address, block_number, context);
+            header.prove_contract_non_deployment(contract_address);
         }
         if test_initialization {
-            prove_contract_non_initialization_at(contract_address, block_number, context);
+            header.prove_contract_non_initialization(contract_address);
         }
     }
 }

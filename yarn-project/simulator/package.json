@@ -2,7 +2,10 @@
   "name": "@aztec/simulator",
   "version": "0.1.0",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    ".": "./dest/index.js",
+    "./avm/fixtures": "./dest/avm/fixtures/index.js"
+  },
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts"
@@ -34,13 +37,24 @@
     },
     "extensionsToTreatAsEsm": [
       ".ts"
+    ],
+    "reporters": [
+      [
+        "default",
+        {
+          "summaryThreshold": 9999
+        }
+      ]
     ]
   },
   "dependencies": {
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/noir-protocol-circuits-types": "workspace:^",
+    "@aztec/protocol-contracts": "workspace:^",
     "@aztec/types": "workspace:^",
+    "@aztec/world-state": "workspace:^",
     "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js",
     "@noir-lang/types": "portal:../../noir/packages/types",
     "levelup": "^5.1.1",

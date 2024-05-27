@@ -1,23 +1,23 @@
 VERSION 0.8
-FROM ubuntu:lunar
-
-# Install nargo
-COPY ../noir/+nargo/nargo /usr/bin/nargo
-# Install transpiler
-COPY ../avm-transpiler/+build/avm-transpiler /usr/bin/avm-transpiler
-
-WORKDIR /usr/src/noir-projects
-
-# Copy source.
-COPY --dir aztec-nr noir-contracts noir-protocol-circuits .
 
 source:
+  FROM ../build-images+build
+
+  # Install nargo
+  COPY ../noir/+nargo/nargo /usr/bin/nargo
+  # Install transpiler
+  COPY ../avm-transpiler/+build/avm-transpiler /usr/bin/avm-transpiler
+
+  WORKDIR /usr/src/noir-projects
+
+  # Copy source.
+  COPY --dir aztec-nr noir-contracts noir-protocol-circuits .
+
   # for debugging rebuilds
   RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
 
 build:
   FROM +source
-  RUN apt-get update && apt-get install -y parallel
   RUN cd noir-contracts && NARGO=nargo TRANSPILER=avm-transpiler ./bootstrap.sh
   RUN cd noir-protocol-circuits && NARGO=nargo ./bootstrap.sh
   SAVE ARTIFACT aztec-nr
@@ -29,3 +29,27 @@ test:
   RUN cd noir-protocol-circuits && nargo test --silence-warnings
   RUN cd aztec-nr && nargo test --silence-warnings
   RUN cd noir-contracts && nargo test --silence-warnings
+
+format:
+  FROM +build
+
+  WORKDIR /usr/src/noir-projects/noir-protocol-circuits
+  RUN nargo fmt --check
+
+  WORKDIR /usr/src/noir-projects/noir-contracts
+  RUN nargo fmt --check
+
+  WORKDIR /usr/src/noir-projects/aztec-nr
+  RUN nargo fmt --check
+
+gates-report:
+  FROM +build
+  WORKDIR /usr/src/noir-projects
+
+  COPY ./gates_report.sh ./gates_report.sh
+  COPY ../barretenberg/cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+
+  ENV BB_BIN /usr/src/barretenberg/cpp/build/bin/bb
+  RUN ./gates_report.sh
+   
+  SAVE ARTIFACT ./noir-protocol-circuits/gates_report.json gates_report.json

@@ -7,13 +7,8 @@ import { mock } from 'jest-mock-extended';
 import { type CommitmentsDB } from '../../index.js';
 import { type AvmContext } from '../avm_context.js';
 import { Field, Uint8 } from '../avm_memory_types.js';
-import { InstructionExecutionError } from '../errors.js';
-import {
-  initContext,
-  initExecutionEnvironment,
-  initHostStorage,
-  initL1ToL2MessageOracleInput,
-} from '../fixtures/index.js';
+import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
+import { initContext, initExecutionEnvironment, initHostStorage } from '../fixtures/index.js';
 import { AvmPersistableStateManager } from '../journal/journal.js';
 import {
   EmitNoteHash,
@@ -24,7 +19,6 @@ import {
   NullifierExists,
   SendL2ToL1Message,
 } from './accrued_substate.js';
-import { StaticCallStorageAlterError } from './storage.js';
 
 describe('Accrued Substate', () => {
   let context: AvmContext;
@@ -167,11 +161,13 @@ describe('Accrued Substate', () => {
         NullifierExists.opcode, // opcode
         0x01, // indirect
         ...Buffer.from('12345678', 'hex'), // nullifierOffset
+        ...Buffer.from('02345678', 'hex'), // addressOffset
         ...Buffer.from('456789AB', 'hex'), // existsOffset
       ]);
       const inst = new NullifierExists(
         /*indirect=*/ 0x01,
         /*nullifierOffset=*/ 0x12345678,
+        /*addressOffset=*/ 0x02345678,
         /*existsOffset=*/ 0x456789ab,
       );
 
@@ -182,30 +178,34 @@ describe('Accrued Substate', () => {
     it('Should correctly show false when nullifier does not exist', async () => {
       const value = new Field(69n);
       const nullifierOffset = 0;
-      const existsOffset = 1;
+      const addressOffset = 1;
+      const existsOffset = 2;
 
       // mock host storage this so that persistable state's checkNullifierExists returns UNDEFINED
       const commitmentsDb = mock<CommitmentsDB>();
       commitmentsDb.getNullifierIndex.mockResolvedValue(Promise.resolve(undefined));
       const hostStorage = initHostStorage({ commitmentsDb });
       context = initContext({ persistableState: new AvmPersistableStateManager(hostStorage) });
+      const address = new Field(context.environment.storageAddress.toField());
 
       context.machineState.memory.set(nullifierOffset, value);
-      await new NullifierExists(/*indirect=*/ 0, nullifierOffset, existsOffset).execute(context);
+      context.machineState.memory.set(addressOffset, address);
+      await new NullifierExists(/*indirect=*/ 0, nullifierOffset, addressOffset, existsOffset).execute(context);
 
       const exists = context.machineState.memory.getAs<Uint8>(existsOffset);
       expect(exists).toEqual(new Uint8(0));
 
       const journalState = context.persistableState.flush();
       expect(journalState.nullifierChecks).toEqual([
-        expect.objectContaining({ nullifier: value.toFr(), exists: false }),
+        expect.objectContaining({ nullifier: value.toFr(), storageAddress: address.toFr(), exists: false }),
       ]);
     });
 
     it('Should correctly show true when nullifier exists', async () => {
       const value = new Field(69n);
       const nullifierOffset = 0;
-      const existsOffset = 1;
+      const addressOffset = 1;
+      const existsOffset = 2;
       const storedLeafIndex = BigInt(42);
 
       // mock host storage this so that persistable state's checkNullifierExists returns true
@@ -213,16 +213,18 @@ describe('Accrued Substate', () => {
       commitmentsDb.getNullifierIndex.mockResolvedValue(Promise.resolve(storedLeafIndex));
       const hostStorage = initHostStorage({ commitmentsDb });
       context = initContext({ persistableState: new AvmPersistableStateManager(hostStorage) });
+      const address = new Field(context.environment.storageAddress.toField());
 
       context.machineState.memory.set(nullifierOffset, value);
-      await new NullifierExists(/*indirect=*/ 0, nullifierOffset, existsOffset).execute(context);
+      context.machineState.memory.set(addressOffset, address);
+      await new NullifierExists(/*indirect=*/ 0, nullifierOffset, addressOffset, existsOffset).execute(context);
 
       const exists = context.machineState.memory.getAs<Uint8>(existsOffset);
       expect(exists).toEqual(new Uint8(1));
 
       const journalState = context.persistableState.flush();
       expect(journalState.nullifierChecks).toEqual([
-        expect.objectContaining({ nullifier: value.toFr(), exists: true }),
+        expect.objectContaining({ nullifier: value.toFr(), storageAddress: address.toFr(), exists: true }),
       ]);
     });
   });
@@ -340,7 +342,32 @@ describe('Accrued Substate', () => {
 
       // mock commitments db to show message exists
       const commitmentsDb = mock<CommitmentsDB>();
-      commitmentsDb.getL1ToL2MembershipWitness.mockResolvedValue(initL1ToL2MessageOracleInput(leafIndex.toBigInt()));
+      commitmentsDb.getL1ToL2LeafValue.mockResolvedValue(msgHash.toFr());
+      const hostStorage = initHostStorage({ commitmentsDb });
+      context = initContext({ persistableState: new AvmPersistableStateManager(hostStorage) });
+
+      context.machineState.memory.set(msgHashOffset, msgHash);
+      context.machineState.memory.set(msgLeafIndexOffset, leafIndex);
+      await new L1ToL2MessageExists(/*indirect=*/ 0, msgHashOffset, msgLeafIndexOffset, existsOffset).execute(context);
+
+      const exists = context.machineState.memory.getAs<Uint8>(existsOffset);
+      expect(exists).toEqual(new Uint8(1));
+
+      const journalState = context.persistableState.flush();
+      expect(journalState.l1ToL2MessageChecks).toEqual([
+        expect.objectContaining({ leafIndex: leafIndex.toFr(), msgHash: msgHash.toFr(), exists: true }),
+      ]);
+    });
+
+    it('Should correctly show false when another L1ToL2 message exists at that index', async () => {
+      const msgHash = new Field(69n);
+      const leafIndex = new Field(42n);
+      const msgHashOffset = 0;
+      const msgLeafIndexOffset = 1;
+      const existsOffset = 2;
+
+      const commitmentsDb = mock<CommitmentsDB>();
+      commitmentsDb.getL1ToL2LeafValue.mockResolvedValue(Fr.ZERO);
       const hostStorage = initHostStorage({ commitmentsDb });
       context = initContext({ persistableState: new AvmPersistableStateManager(hostStorage) });
 
@@ -350,11 +377,11 @@ describe('Accrued Substate', () => {
 
       // never created, doesn't exist!
       const exists = context.machineState.memory.getAs<Uint8>(existsOffset);
-      expect(exists).toEqual(new Uint8(1));
+      expect(exists).toEqual(new Uint8(0));
 
       const journalState = context.persistableState.flush();
       expect(journalState.l1ToL2MessageChecks).toEqual([
-        expect.objectContaining({ leafIndex: leafIndex.toFr(), msgHash: msgHash.toFr(), exists: true }),
+        expect.objectContaining({ leafIndex: leafIndex.toFr(), msgHash: msgHash.toFr(), exists: false }),
       ]);
     });
   });
@@ -437,7 +464,9 @@ describe('Accrued Substate', () => {
       ).execute(context);
 
       const journalState = context.persistableState.flush();
-      expect(journalState.newL1Messages).toEqual([{ recipient: EthAddress.fromField(recipient), content }]);
+      expect(journalState.newL1Messages).toEqual([
+        expect.objectContaining({ recipient: EthAddress.fromField(recipient), content }),
+      ]);
     });
   });
 
@@ -452,7 +481,7 @@ describe('Accrued Substate', () => {
     ];
 
     for (const instruction of instructions) {
-      await expect(instruction.execute(context)).rejects.toThrow(StaticCallStorageAlterError);
+      await expect(instruction.execute(context)).rejects.toThrow(StaticCallAlterationError);
     }
   });
 });

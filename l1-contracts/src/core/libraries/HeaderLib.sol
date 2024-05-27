@@ -48,8 +48,11 @@ import {Hash} from "./Hash.sol";
  *  | 0x0194                                                                           | 0x20         |     timestamp
  *  | 0x01b4                                                                           | 0x14         |     coinbase
  *  | 0x01c8                                                                           | 0x20         |     feeRecipient
+ *  | 0x01e8                                                                           | 0x20         |     gasFees.feePerDaGas
+ *  | 0x0208                                                                           | 0x20         |     gasFees.feePerL2Gas
  *  |                                                                                  |              |   }
  *  |                                                                                  |              | }
+ *  | 0x0228                                                                           | 0x20         | total_fees
  *  | ---                                                                              | ---          | ---
  */
 library HeaderLib {
@@ -67,8 +70,13 @@ library HeaderLib {
 
   struct StateReference {
     AppendOnlyTreeSnapshot l1ToL2MessageTree;
-    // Note: Can't use "partial" name here as in yellow paper because it is a reserved solidity keyword
+    // Note: Can't use "partial" name here as in protocol specs because it is a reserved solidity keyword
     PartialStateReference partialStateReference;
+  }
+
+  struct GasFees {
+    uint256 feePerDaGas;
+    uint256 feePerL2Gas;
   }
 
   struct GlobalVariables {
@@ -78,6 +86,7 @@ library HeaderLib {
     uint256 timestamp;
     address coinbase;
     bytes32 feeRecipient;
+    GasFees gasFees;
   }
 
   struct ContentCommitment {
@@ -92,9 +101,10 @@ library HeaderLib {
     ContentCommitment contentCommitment;
     StateReference stateReference;
     GlobalVariables globalVariables;
+    uint256 totalFees;
   }
 
-  uint256 private constant HEADER_LENGTH = 0x1e8; // Header byte length
+  uint256 private constant HEADER_LENGTH = 0x248; // Header byte length
 
   /**
    * @notice Validates the header
@@ -178,8 +188,53 @@ library HeaderLib {
     header.globalVariables.blockNumber = uint256(bytes32(_header[0x0174:0x0194]));
     header.globalVariables.timestamp = uint256(bytes32(_header[0x0194:0x01b4]));
     header.globalVariables.coinbase = address(bytes20(_header[0x01b4:0x01c8]));
-    header.globalVariables.feeRecipient = bytes32(_header[0x01c8:HEADER_LENGTH]);
+    header.globalVariables.feeRecipient = bytes32(_header[0x01c8:0x01e8]);
+    header.globalVariables.gasFees.feePerDaGas = uint256(bytes32(_header[0x01e8:0x0208]));
+    header.globalVariables.gasFees.feePerL2Gas = uint256(bytes32(_header[0x0208:0x0228]));
+
+    // Reading totalFees
+    header.totalFees = uint256(bytes32(_header[0x0228:0x0248]));
 
     return header;
+  }
+
+  function toFields(Header memory _header) internal pure returns (bytes32[] memory) {
+    bytes32[] memory fields = new bytes32[](23);
+
+    // must match the order in the Header.getFields
+    fields[0] = _header.lastArchive.root;
+    fields[1] = bytes32(uint256(_header.lastArchive.nextAvailableLeafIndex));
+    fields[2] = bytes32(_header.contentCommitment.txTreeHeight);
+    fields[3] = _header.contentCommitment.txsEffectsHash;
+    fields[4] = _header.contentCommitment.inHash;
+    fields[5] = _header.contentCommitment.outHash;
+    fields[6] = _header.stateReference.l1ToL2MessageTree.root;
+    fields[7] = bytes32(uint256(_header.stateReference.l1ToL2MessageTree.nextAvailableLeafIndex));
+    fields[8] = _header.stateReference.partialStateReference.noteHashTree.root;
+    fields[9] = bytes32(
+      uint256(_header.stateReference.partialStateReference.noteHashTree.nextAvailableLeafIndex)
+    );
+    fields[10] = _header.stateReference.partialStateReference.nullifierTree.root;
+    fields[11] = bytes32(
+      uint256(_header.stateReference.partialStateReference.nullifierTree.nextAvailableLeafIndex)
+    );
+    fields[12] = _header.stateReference.partialStateReference.publicDataTree.root;
+    fields[13] = bytes32(
+      uint256(_header.stateReference.partialStateReference.publicDataTree.nextAvailableLeafIndex)
+    );
+    fields[14] = bytes32(_header.globalVariables.chainId);
+    fields[15] = bytes32(_header.globalVariables.version);
+    fields[16] = bytes32(_header.globalVariables.blockNumber);
+    fields[17] = bytes32(_header.globalVariables.timestamp);
+    fields[18] = bytes32(uint256(uint160(_header.globalVariables.coinbase)));
+    fields[19] = bytes32(_header.globalVariables.feeRecipient);
+    fields[20] = bytes32(_header.globalVariables.gasFees.feePerDaGas);
+    fields[21] = bytes32(_header.globalVariables.gasFees.feePerL2Gas);
+    fields[22] = bytes32(_header.totalFees);
+
+    // fail if the header structure has changed without updating this function
+    assert(fields.length == Constants.HEADER_LENGTH);
+
+    return fields;
   }
 }

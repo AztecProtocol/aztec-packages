@@ -1,6 +1,13 @@
+import { AztecAddress } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 import type { PublicStateDB } from '../../index.js';
+
+type PublicStorageReadResult = {
+  value: Fr;
+  exists: boolean;
+  cached: boolean;
+};
 
 /**
  * A class to manage public storage reads and writes during a contract call's AVM simulation.
@@ -10,14 +17,13 @@ import type { PublicStateDB } from '../../index.js';
 export class PublicStorage {
   /** Cached storage writes. */
   private cache: PublicStorageCache;
-  /** Parent's storage cache. Checked on cache-miss. */
-  private readonly parentCache: PublicStorageCache | undefined;
-  /** Reference to node storage. Checked on parent cache-miss. */
-  private readonly hostPublicStorage: PublicStateDB;
 
-  constructor(hostPublicStorage: PublicStateDB, parent?: PublicStorage) {
-    this.hostPublicStorage = hostPublicStorage;
-    this.parentCache = parent?.cache;
+  constructor(
+    /** Reference to node storage. Checked on parent cache-miss. */
+    private readonly hostPublicStorage: PublicStateDB,
+    /** Parent's storage. Checked on this' cache-miss. */
+    private readonly parent?: PublicStorage,
+  ) {
     this.cache = new PublicStorageCache();
   }
 
@@ -29,9 +35,28 @@ export class PublicStorage {
   }
 
   /**
+   * Read a storage value from this' cache or parent's (recursively).
+   * DOES NOT CHECK HOST STORAGE!
+   *
+   * @param storageAddress - the address of the contract whose storage is being read from
+   * @param slot - the slot in the contract's storage being read from
+   * @returns value: the latest value written according to this cache or the parent's. undefined on cache miss.
+   */
+  public readHereOrParent(storageAddress: Fr, slot: Fr): Fr | undefined {
+    // First try check this storage cache
+    let value = this.cache.read(storageAddress, slot);
+    // Then try parent's storage cache
+    if (!value && this.parent) {
+      // Note: this will recurse to grandparent/etc until a cache-hit is encountered.
+      value = this.parent.readHereOrParent(storageAddress, slot);
+    }
+    return value;
+  }
+
+  /**
    * Read a value from storage.
    * 1. Check cache.
-   * 2. Check parent's cache.
+   * 2. Check parent cache.
    * 3. Fall back to the host state.
    * 4. Not found! Value has never been written to before. Flag it as non-existent and return value zero.
    *
@@ -39,21 +64,20 @@ export class PublicStorage {
    * @param slot - the slot in the contract's storage being read from
    * @returns exists: whether the slot has EVER been written to before, value: the latest value written to slot, or 0 if never written to before
    */
-  public async read(storageAddress: Fr, slot: Fr): Promise<[/*exists=*/ boolean, /*value=*/ Fr]> {
-    // First try check this storage cache
-    let value = this.cache.read(storageAddress, slot);
-    // Then try parent's storage cache (if it exists / written to earlier in this TX)
-    if (!value && this.parentCache) {
-      value = this.parentCache?.read(storageAddress, slot);
-    }
+  public async read(storageAddress: Fr, slot: Fr): Promise<PublicStorageReadResult> {
+    let cached = false;
+    // Check this cache and parent's (recursively)
+    let value = this.readHereOrParent(storageAddress, slot);
     // Finally try the host's Aztec state (a trip to the database)
     if (!value) {
       value = await this.hostPublicStorage.storageRead(storageAddress, slot);
+    } else {
+      cached = true;
     }
     // if value is undefined, that means this slot has never been written to!
     const exists = value !== undefined;
     const valueOrZero = exists ? value : Fr.ZERO;
-    return Promise.resolve([exists, valueOrZero]);
+    return Promise.resolve({ value: valueOrZero, exists, cached });
   }
 
   /**
@@ -63,8 +87,8 @@ export class PublicStorage {
    * @param slot - the slot in the contract's storage being written to
    * @param value - the value being written to the slot
    */
-  public write(storageAddress: Fr, key: Fr, value: Fr) {
-    this.cache.write(storageAddress, key, value);
+  public write(storageAddress: Fr, slot: Fr, value: Fr) {
+    this.cache.write(storageAddress, slot, value);
   }
 
   /**
@@ -74,6 +98,17 @@ export class PublicStorage {
    */
   public acceptAndMerge(incomingPublicStorage: PublicStorage) {
     this.cache.acceptAndMerge(incomingPublicStorage.cache);
+  }
+
+  /**
+   * Commits ALL staged writes to the host's state.
+   */
+  public async commitToDB() {
+    for (const [storageAddress, cacheAtContract] of this.cache.cachePerContract) {
+      for (const [slot, value] of cacheAtContract) {
+        await this.hostPublicStorage.storageWrite(AztecAddress.fromBigInt(storageAddress), new Fr(slot), value);
+      }
+    }
   }
 }
 

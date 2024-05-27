@@ -225,7 +225,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
   }
 
   /** Returns a MeteredTaggedMemory instance to track the number of reads and writes if TRACK_MEMORY_ACCESSES is set. */
-  public track(type: string = 'instruction') {
+  public track(type: string = 'instruction'): TaggedMemoryInterface {
     return TaggedMemory.TRACK_MEMORY_ACCESSES ? new MeteredTaggedMemory(this, type) : this;
   }
 
@@ -240,7 +240,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
     const word = this._mem[offset];
     TaggedMemory.log.debug(`get(${offset}) = ${word}`);
     if (word === undefined) {
-      TaggedMemory.log.warn(`Memory at offset ${offset} is undefined! This might be OK if it's stack dumping.`);
+      TaggedMemory.log.debug(`WARNING: Memory at offset ${offset} is undefined!`);
     }
     return word as T;
   }

@@ -20,7 +20,7 @@ describe('private_function_membership_proof', () => {
   beforeAll(() => {
     artifact = getBenchmarkContractArtifact();
     contractClass = getContractClassFromArtifact(artifact);
-    privateFunction = artifact.functions.findLast(fn => fn.functionType === FunctionType.SECRET)!;
+    privateFunction = artifact.functions.findLast(fn => fn.functionType === FunctionType.PRIVATE)!;
     vkHash = computeVerificationKeyHash(privateFunction.verificationKey!);
     selector = FunctionSelector.fromNameAndParameters(privateFunction);
   });
@@ -31,7 +31,8 @@ describe('private_function_membership_proof', () => {
     expect(isValidPrivateFunctionMembershipProof(fn, contractClass)).toBeTruthy();
   });
 
-  test.each([
+  // TODO(#5860): Re-enable this test once noir non-determinism is addressed
+  test.skip.each([
     'artifactTreeSiblingPath',
     'artifactMetadataHash',
     'functionMetadataHash',

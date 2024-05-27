@@ -125,10 +125,6 @@
   "[javascript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  // Now when a new file is pasted in /yellow-paper/docs/readme.md, the image file is created at /yellow-paper/docs/images/readme/image.png.
-  "markdown.copyFiles.destination": {
-    "/yellow-paper/**/*": "images/${documentBaseName}/"
-  },
   ///////////////////////////////////////
   // C++/Circuits settings
   ///////////////////////////////////////
@@ -140,7 +136,7 @@
   // Clangd. Note that this setting may be overridden by user settings
   // to the default value "clangd".
   //
-  "clangd.path": "clangd-15",
+  "clangd.path": "clangd-16",
   //
   // C/C++ (should be disabled)
   //
@@ -170,5 +166,7 @@
     "**/l1-contracts/lib/**": true,
     "**/barretenberg/cpp/build*/**": true
   },
-  "files.trimTrailingWhitespace": true
+  "files.trimTrailingWhitespace": true,
+  "cmake.sourceDirectory": "${workspaceFolder}/barretenberg/cpp",
+  "noir.nargoPath": "./noir/noir-repo/target/release/nargo"
 }

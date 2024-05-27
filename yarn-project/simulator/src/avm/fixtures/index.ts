@@ -1,22 +1,19 @@
-import { SiblingPath } from '@aztec/circuit-types';
-import { GlobalVariables, Header, L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
+import { GasFees, GasSettings, GlobalVariables, Header } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { AvmNestedCallsTestContractArtifact, AvmTestContractArtifact } from '@aztec/noir-contracts.js';
 
+import { strict as assert } from 'assert';
 import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
-import {
-  type CommitmentsDB,
-  MessageLoadOracleInputs,
-  type PublicContractsDB,
-  type PublicStateDB,
-} from '../../index.js';
+import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from '../../index.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmContextInputs, AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
+import { Field, Uint8 } from '../avm_memory_types.js';
 import { HostStorage } from '../journal/host_storage.js';
 import { AvmPersistableStateManager } from '../journal/journal.js';
 
@@ -60,10 +57,7 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
   return new AvmExecutionEnvironment(
     overrides?.address ?? AztecAddress.zero(),
     overrides?.storageAddress ?? AztecAddress.zero(),
-    overrides?.origin ?? AztecAddress.zero(),
     overrides?.sender ?? AztecAddress.zero(),
-    overrides?.portal ?? EthAddress.ZERO,
-    overrides?.feePerL1Gas ?? Fr.zero(),
     overrides?.feePerL2Gas ?? Fr.zero(),
     overrides?.feePerDaGas ?? Fr.zero(),
     overrides?.contractCallDepth ?? Fr.zero(),
@@ -72,6 +66,8 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
     overrides?.isStaticCall ?? false,
     overrides?.isDelegateCall ?? false,
     overrides?.calldata ?? [],
+    overrides?.gasSettings ?? GasSettings.empty(),
+    overrides?.transactionFee ?? Fr.ZERO,
     overrides?.temporaryFunctionSelector ?? FunctionSelector.empty(),
   );
 }
@@ -87,6 +83,7 @@ export function initGlobalVariables(overrides?: Partial<GlobalVariables>): Globa
     overrides?.timestamp ?? Fr.zero(),
     overrides?.coinbase ?? EthAddress.ZERO,
     overrides?.feeRecipient ?? AztecAddress.zero(),
+    overrides?.gasFees ?? GasFees.empty(),
   );
 }
 
@@ -95,9 +92,8 @@ export function initGlobalVariables(overrides?: Partial<GlobalVariables>): Globa
  */
 export function initMachineState(overrides?: Partial<AvmMachineState>): AvmMachineState {
   return AvmMachineState.fromState({
-    l1GasLeft: overrides?.l1GasLeft ?? 100e6,
-    l2GasLeft: overrides?.l2GasLeft ?? 100e6,
-    daGasLeft: overrides?.daGasLeft ?? 100e6,
+    l2GasLeft: overrides?.l2GasLeft ?? 1e8,
+    daGasLeft: overrides?.daGasLeft ?? 1e8,
   });
 }
 
@@ -106,18 +102,6 @@ export function initMachineState(overrides?: Partial<AvmMachineState>): AvmMachi
  */
 export function allSameExcept(original: any, overrides: any): any {
   return merge({}, original, overrides);
-}
-
-/**
- * Create an empty L1ToL2Message oracle input
- */
-export function initL1ToL2MessageOracleInput(
-  leafIndex?: bigint,
-): MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT> {
-  return new MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>(
-    leafIndex ?? 0n,
-    new SiblingPath(L1_TO_L2_MSG_TREE_HEIGHT, Array(L1_TO_L2_MSG_TREE_HEIGHT)),
-  );
 }
 
 /**
@@ -134,4 +118,30 @@ export function anyAvmContextInputs() {
     tv.push(expect.any(Fr));
   }
   return tv;
+}
+
+export function randomMemoryBytes(length: number): Uint8[] {
+  return [...Array(length)].map(_ => new Uint8(Math.floor(Math.random() * 255)));
+}
+
+export function randomMemoryFields(length: number): Field[] {
+  return [...Array(length)].map(_ => new Field(Fr.random()));
+}
+
+export function getAvmTestContractBytecode(functionName: string): Buffer {
+  const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
+  assert(
+    !!artifact?.bytecode,
+    `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
+  );
+  return artifact.bytecode;
+}
+
+export function getAvmNestedCallsTestContractBytecode(functionName: string): Buffer {
+  const artifact = AvmNestedCallsTestContractArtifact.functions.find(f => f.name === functionName)!;
+  assert(
+    !!artifact?.bytecode,
+    `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
+  );
+  return artifact.bytecode;
 }

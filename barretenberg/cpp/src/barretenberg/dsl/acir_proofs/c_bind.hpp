@@ -42,12 +42,12 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* constraint_syst
                                                   bool* result);
 
 /**
- * @brief Construct and verify a GoblinUltraHonk proof
+ * @brief Construct and verify a MegaHonk proof
  *
  */
-WASM_EXPORT void acir_prove_and_verify_goblin_ultra_honk(uint8_t const* constraint_system_buf,
-                                                         uint8_t const* witness_buf,
-                                                         bool* result);
+WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* constraint_system_buf,
+                                                 uint8_t const* witness_buf,
+                                                 bool* result);
 
 /**
  * @brief Construct a full goblin proof
@@ -70,7 +70,7 @@ WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr, uint8_t const* a
 WASM_EXPORT void acir_verify_proof(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result);
 
 /**
- * @brief Verifies a full goblin proof (and the GUH proof produced by accumulation)
+ * @brief Verifies a full goblin proof (and the MegaHonk proof produced by accumulation)
  *
  */
 WASM_EXPORT void acir_goblin_verify(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result);
@@ -85,3 +85,13 @@ WASM_EXPORT void acir_serialize_proof_into_fields(in_ptr acir_composer_ptr,
 WASM_EXPORT void acir_serialize_verification_key_into_fields(in_ptr acir_composer_ptr,
                                                              fr::vec_out_buf out_vkey,
                                                              fr::out_buf out_key_hash);
+
+WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out);
+
+WASM_EXPORT void acir_verify_ultra_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result);
+
+WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, uint8_t** out);
+
+WASM_EXPORT void acir_proof_as_fields_ultra_honk(uint8_t const* proof_buf, fr::vec_out_buf out);
+
+WASM_EXPORT void acir_vk_as_fields_ultra_honk(uint8_t const* vk_buf, fr::vec_out_buf out_vkey);

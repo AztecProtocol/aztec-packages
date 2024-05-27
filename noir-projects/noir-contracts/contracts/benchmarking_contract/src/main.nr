@@ -4,13 +4,10 @@
 // subject being tested as unmodified as possible so we can detect metric changes that
 
 contract Benchmarking {
-    use dep::aztec::prelude::{
-        AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, emit_unencrypted_log, Map,
-        PublicMutable, PrivateSet
-    };
+    use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, Map, PublicMutable, PrivateSet};
     use dep::value_note::{utils::{increment, decrement}, value_note::ValueNote};
 
-    use dep::aztec::{context::{Context, gas::GasOpts}};
+    use dep::aztec::context::gas::GasOpts;
 
     #[aztec(storage)]
     struct Storage {
@@ -44,17 +41,12 @@ contract Benchmarking {
     fn increment_balance(owner: AztecAddress, value: Field) {
         let current = storage.balances.at(owner).read();
         storage.balances.at(owner).write(current + value);
-        let _callStackItem1 = context.call_public_function(
-            context.this_address(),
-            FunctionSelector::from_signature("broadcast((Field))"),
-            [owner.to_field()],
-            GasOpts::default()
-        );
+        Benchmarking::at(context.this_address()).broadcast(owner).call(&mut context);
     }
 
     // Emits a public log.
     #[aztec(public)]
     fn broadcast(owner: AztecAddress) {
-        emit_unencrypted_log(&mut context, storage.balances.at(owner).read());
+        context.emit_unencrypted_log(storage.balances.at(owner).read());
     }
 }

@@ -101,7 +101,7 @@ export const browserTestSuite = (
         pageLogger.verbose('Waiting for window.AztecJs...');
         await AztecJs.sleep(1000);
       }
-    }, 120_000);
+    });
 
     afterAll(async () => {
       await browser.close();
@@ -119,11 +119,11 @@ export const browserTestSuite = (
 
     it('Creates an account', async () => {
       const result = await page.evaluate(
-        async (rpcUrl, privateKeyString) => {
-          const { GrumpkinScalar, createPXEClient: createPXEClient, getUnsafeSchnorrAccount } = window.AztecJs;
+        async (rpcUrl, secretKeyString) => {
+          const { Fr, createPXEClient, getUnsafeSchnorrAccount } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
-          const privateKey = GrumpkinScalar.fromString(privateKeyString);
-          const account = getUnsafeSchnorrAccount(pxe, privateKey);
+          const secretKey = Fr.fromString(secretKeyString);
+          const account = getUnsafeSchnorrAccount(pxe, secretKey);
           await account.waitSetup();
           const completeAddress = account.getCompleteAddress();
           const addressString = completeAddress.address.toString();
@@ -136,23 +136,24 @@ export const browserTestSuite = (
       const accounts = await testClient.getRegisteredAccounts();
       const stringAccounts = accounts.map(acc => acc.address.toString());
       expect(stringAccounts.includes(result)).toBeTruthy();
-    }, 15_000);
+    });
 
     it('Deploys Token contract', async () => {
       await deployTokenContract();
-    }, 60_000);
+    });
 
     it('Can access CompleteAddress class in browser', async () => {
       const result: string = await page.evaluate(() => {
         const completeAddress = window.AztecJs.CompleteAddress.fromString(
-          '0x115f123bbc6cc6af9890055821cfba23a7c4e8832377a32ccb719a1ba3a86483',
+          '0x06f73ae2ba011a157808a670dd52231347a3b46897ea00945d69fb35d08e68d02c93b9572b35f9c9e07e9003ae1ca444442a165f927bce00e347dab57cc19391148730d0deec722eb6c54747df7345bc2ab3bd8e81f438b17b81ccabd9e6a3ac0708920251ccaf6664d769cbc47c8d767f64912639e13d9f9e441b225066161900c48a65eea83f1dbf217c43daf1be6ba9cefd2754f07e3cc13e81e5432e47f30dfb47c8b1e11368bec638fd9d22c696bf9c323a0fd09050745f4b7cf150bfa529a9f3062ee5f9d0a099ac53b4e1130653fb797ed2b59914a8915951d13ad8252521211957a854707af85ad40e9ab4d474a4fcbdcbe7a47866cae0db4fd86ed2261669d85a9cfbd09365a6db5d7acfe5560104a0cb893a375d6c08ffb9cbb8270be446a16361f271ac11899ee19f990c68035da18703ba00c8e9773dfe6a784a',
         );
         // NOTE: browser does not know how to serialize CompleteAddress for return, so return a string
         // otherwise returning a CompleteAddress makes result undefined.
         return completeAddress.toString();
       });
-      // a lot of trailing 0s get added in the return value
-      expect(result.slice(0, 66)).toBe('0x115f123bbc6cc6af9890055821cfba23a7c4e8832377a32ccb719a1ba3a86483');
+      expect(result).toBe(
+        '0x06f73ae2ba011a157808a670dd52231347a3b46897ea00945d69fb35d08e68d02c93b9572b35f9c9e07e9003ae1ca444442a165f927bce00e347dab57cc19391148730d0deec722eb6c54747df7345bc2ab3bd8e81f438b17b81ccabd9e6a3ac0708920251ccaf6664d769cbc47c8d767f64912639e13d9f9e441b225066161900c48a65eea83f1dbf217c43daf1be6ba9cefd2754f07e3cc13e81e5432e47f30dfb47c8b1e11368bec638fd9d22c696bf9c323a0fd09050745f4b7cf150bfa529a9f3062ee5f9d0a099ac53b4e1130653fb797ed2b59914a8915951d13ad8252521211957a854707af85ad40e9ab4d474a4fcbdcbe7a47866cae0db4fd86ed2261669d85a9cfbd09365a6db5d7acfe5560104a0cb893a375d6c08ffb9cbb8270be446a16361f271ac11899ee19f990c68035da18703ba00c8e9773dfe6a784a',
+      );
     });
 
     it("Gets the owner's balance", async () => {
@@ -190,7 +191,7 @@ export const browserTestSuite = (
             getUnsafeSchnorrAccount,
           } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
-          const newReceiverAccount = await getUnsafeSchnorrAccount(pxe, AztecJs.GrumpkinScalar.random()).waitSetup();
+          const newReceiverAccount = await getUnsafeSchnorrAccount(pxe, AztecJs.Fr.random()).waitSetup();
           const receiverAddress = newReceiverAccount.getCompleteAddress().address;
           const [wallet] = await getDeployedTestAccountsWallets(pxe);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
@@ -207,7 +208,7 @@ export const browserTestSuite = (
         TokenContractArtifact,
       );
       expect(result).toEqual(transferAmount);
-    }, 60_000);
+    });
 
     const deployTokenContract = async () => {
       const [txHash, tokenAddress] = await page.evaluate(
@@ -220,17 +221,17 @@ export const browserTestSuite = (
             Fr,
             ExtendedNote,
             Note,
-            computeMessageSecretHash,
+            computeSecretHash,
             getDeployedTestAccountsWallets,
-            INITIAL_TEST_ENCRYPTION_KEYS,
+            INITIAL_TEST_SECRET_KEYS,
             INITIAL_TEST_SIGNING_KEYS,
             INITIAL_TEST_ACCOUNT_SALTS,
             Buffer,
+            contractArtifactFromBuffer,
           } = window.AztecJs;
           // We serialize the artifact since buffers (used for bytecode) do not cross well from one realm to another
-          const TokenContractArtifact = JSON.parse(
-            Buffer.from(serializedTokenContractArtifact, 'base64').toString('utf-8'),
-            (key, value) => (key === 'bytecode' && typeof value === 'string' ? Buffer.from(value, 'base64') : value),
+          const TokenContractArtifact = contractArtifactFromBuffer(
+            Buffer.from(serializedTokenContractArtifact, 'base64'),
           );
           const pxe = createPXEClient(rpcUrl!);
 
@@ -239,7 +240,7 @@ export const browserTestSuite = (
           if (!knownAccounts.length) {
             const newAccount = await getSchnorrAccount(
               pxe,
-              INITIAL_TEST_ENCRYPTION_KEYS[0],
+              INITIAL_TEST_SECRET_KEYS[0],
               INITIAL_TEST_SIGNING_KEYS[0],
               INITIAL_TEST_ACCOUNT_SALTS[0],
             ).waitSetup();
@@ -248,7 +249,7 @@ export const browserTestSuite = (
           const owner = knownAccounts[0];
           const ownerAddress = owner.getAddress();
           const tx = new DeployMethod(
-            owner.getCompleteAddress().publicKey,
+            owner.getCompleteAddress().publicKeys.hash(),
             owner,
             TokenContractArtifact,
             (a: AztecJs.AztecAddress) => Contract.at(a, TokenContractArtifact, owner),
@@ -258,12 +259,12 @@ export const browserTestSuite = (
 
           console.log(`Contract Deployed: ${token.address}`);
           const secret = Fr.random();
-          const secretHash = computeMessageSecretHash(secret);
+          const secretHash = computeSecretHash(secret);
           const mintPrivateReceipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
 
-          const storageSlot = new Fr(5);
+          const storageSlot = token.artifact.storageLayout['pending_shields'].slot;
 
-          const noteTypeId = new Fr(84114971101151129711410111011678111116101n);
+          const noteTypeId = token.artifact.notes['TransparentNote'].id;
           const note = new Note([new Fr(initialBalance), secretHash]);
           const extendedNote = new ExtendedNote(
             note,
@@ -285,7 +286,7 @@ export const browserTestSuite = (
       );
 
       const txResult = await testClient.getTxReceipt(AztecJs.TxHash.fromString(txHash));
-      expect(txResult.status).toEqual(AztecJs.TxStatus.MINED);
+      expect(txResult.status).toEqual(AztecJs.TxStatus.SUCCESS);
       contractAddress = AztecJs.AztecAddress.fromString(tokenAddress);
     };
 

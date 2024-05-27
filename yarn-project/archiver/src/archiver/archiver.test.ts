@@ -1,4 +1,11 @@
-import { type Body, EncryptedL2BlockL2Logs, L2Block, LogType, UnencryptedL2BlockL2Logs } from '@aztec/circuit-types';
+import {
+  type Body,
+  EncryptedL2BlockL2Logs,
+  EncryptedNoteL2BlockL2Logs,
+  L2Block,
+  LogType,
+  UnencryptedL2BlockL2Logs,
+} from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
@@ -47,7 +54,7 @@ describe('Archiver', () => {
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
-    const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, x * 2, x * 3));
+    const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, 2, 2));
     const publishTxs = blocks.map(block => block.body).map(makePublishTx);
     const rollupTxs = blocks.map(makeRollupTx);
 
@@ -105,11 +112,20 @@ describe('Archiver', () => {
     }
 
     // Expect logs to correspond to what is set by L2Block.random(...)
+    const noteEncryptedLogs = await archiver.getLogs(1, 100, LogType.NOTEENCRYPTED);
+    expect(noteEncryptedLogs.length).toEqual(blockNumbers.length);
+
+    for (const [index, x] of blockNumbers.entries()) {
+      const expectedTotalNumEncryptedLogs = 4 * x * 2;
+      const totalNumEncryptedLogs = EncryptedNoteL2BlockL2Logs.unrollLogs([noteEncryptedLogs[index]]).length;
+      expect(totalNumEncryptedLogs).toEqual(expectedTotalNumEncryptedLogs);
+    }
+
     const encryptedLogs = await archiver.getLogs(1, 100, LogType.ENCRYPTED);
     expect(encryptedLogs.length).toEqual(blockNumbers.length);
 
     for (const [index, x] of blockNumbers.entries()) {
-      const expectedTotalNumEncryptedLogs = 4 * x * (x * 2);
+      const expectedTotalNumEncryptedLogs = 4 * x * 2;
       const totalNumEncryptedLogs = EncryptedL2BlockL2Logs.unrollLogs([encryptedLogs[index]]).length;
       expect(totalNumEncryptedLogs).toEqual(expectedTotalNumEncryptedLogs);
     }
@@ -118,7 +134,7 @@ describe('Archiver', () => {
     expect(unencryptedLogs.length).toEqual(blockNumbers.length);
 
     blockNumbers.forEach((x, index) => {
-      const expectedTotalNumUnencryptedLogs = 4 * (x + 1) * (x * 3);
+      const expectedTotalNumUnencryptedLogs = 4 * (x + 1) * 2;
       const totalNumUnencryptedLogs = UnencryptedL2BlockL2Logs.unrollLogs([unencryptedLogs[index]]).length;
       expect(totalNumUnencryptedLogs).toEqual(expectedTotalNumUnencryptedLogs);
     });
@@ -141,7 +157,7 @@ describe('Archiver', () => {
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
-    const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, x * 2, x * 3));
+    const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, 2, 2));
 
     const publishTxs = blocks.map(block => block.body).map(makePublishTx);
     const rollupTxs = blocks.map(makeRollupTx);
@@ -229,11 +245,12 @@ function makeMessageSentEvent(l1BlockNum: bigint, l2BlockNumber: bigint, index: 
 function makeRollupTx(l2Block: L2Block) {
   const header = toHex(l2Block.header.toBuffer());
   const archive = toHex(l2Block.archive.root.toBuffer());
+  const aggregationObject = `0x`;
   const proof = `0x`;
   const input = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'process',
-    args: [header, archive, proof],
+    args: [header, archive, aggregationObject, proof],
   });
   return { input } as Transaction<bigint, number>;
 }

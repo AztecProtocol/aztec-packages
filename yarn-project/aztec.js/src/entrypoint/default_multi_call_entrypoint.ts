@@ -1,7 +1,7 @@
 import { type EntrypointInterface, EntrypointPayload, type ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
-import { PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
-import { type AztecAddress, FunctionData, TxContext } from '@aztec/circuits.js';
-import { type FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
+import { PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
+import { type AztecAddress, GasSettings, TxContext } from '@aztec/circuits.js';
+import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
 
 /**
@@ -18,14 +18,15 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
     const { calls, authWitnesses = [], packedArguments = [] } = executions;
     const payload = EntrypointPayload.fromAppExecution(calls);
     const abi = this.getEntrypointAbi();
-    const entrypointPackedArgs = PackedArguments.fromArgs(encodeArguments(abi, [payload]));
+    const entrypointPackedArgs = PackedValues.fromValues(encodeArguments(abi, [payload]));
+    const gasSettings = executions.fee?.gasSettings ?? GasSettings.default();
 
     const txRequest = TxExecutionRequest.from({
-      argsHash: entrypointPackedArgs.hash,
+      firstCallArgsHash: entrypointPackedArgs.hash,
       origin: this.address,
-      functionData: FunctionData.fromAbi(abi),
-      txContext: TxContext.empty(this.chainId, this.version),
-      packedArguments: [...payload.packedArguments, ...packedArguments, entrypointPackedArgs],
+      functionSelector: FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
+      txContext: new TxContext(this.chainId, this.version, gasSettings),
+      argsOfCalls: [...payload.packedArguments, ...packedArguments, entrypointPackedArgs],
       authWitnesses,
     });
 
@@ -36,8 +37,9 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
     return {
       name: 'entrypoint',
       isInitializer: false,
-      functionType: 'secret',
+      functionType: 'private',
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'app_payload',
@@ -72,6 +74,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
                         },
                       },
                       { name: 'is_public', type: { kind: 'boolean' } },
+                      { name: 'is_static', type: { kind: 'boolean' } },
                     ],
                   },
                 },

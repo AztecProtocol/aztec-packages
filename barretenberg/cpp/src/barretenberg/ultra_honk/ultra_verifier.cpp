@@ -57,7 +57,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     }
 
     // Execute Sumcheck Verifier
-    const size_t log_circuit_size = numeric::get_msb(key->circuit_size);
+    const size_t log_circuit_size = static_cast<size_t>(numeric::get_msb(key->circuit_size));
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
 
     auto gate_challenges = std::vector<FF>(log_circuit_size);
@@ -85,6 +85,6 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 }
 
 template class UltraVerifier_<UltraFlavor>;
-template class UltraVerifier_<GoblinUltraFlavor>;
+template class UltraVerifier_<MegaFlavor>;
 
 } // namespace bb

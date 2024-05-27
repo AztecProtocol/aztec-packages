@@ -2,14 +2,12 @@ import { type Fr } from '@aztec/circuits.js';
 
 import { type Gas, GasDimensions } from './avm_gas.js';
 import { TaggedMemory } from './avm_memory_types.js';
-import { AvmContractCallResults } from './avm_message_call_result.js';
 import { OutOfGasError } from './errors.js';
 
 /**
  * A few fields of machine state are initialized from AVM session inputs or call instruction arguments
  */
 export type InitialAvmMachineState = {
-  l1GasLeft: number;
   l2GasLeft: number;
   daGasLeft: number;
 };
@@ -18,7 +16,6 @@ export type InitialAvmMachineState = {
  * Avm state modified on an instruction-per-instruction basis.
  */
 export class AvmMachineState {
-  public l1GasLeft: number;
   /** gas remaining of the gas allocated for a contract call */
   public l2GasLeft: number;
   public daGasLeft: number;
@@ -38,20 +35,29 @@ export class AvmMachineState {
    * Signals that execution should end.
    * AvmContext execution continues executing instructions until the machine state signals "halted"
    */
-  public halted: boolean = false;
+  private halted: boolean = false;
   /** Signals that execution has reverted normally (this does not cover exceptional halts) */
   private reverted: boolean = false;
   /** Output data must NOT be modified once it is set */
   private output: Fr[] = [];
 
-  constructor(l1GasLeft: number, l2GasLeft: number, daGasLeft: number) {
-    this.l1GasLeft = l1GasLeft;
-    this.l2GasLeft = l2GasLeft;
-    this.daGasLeft = daGasLeft;
+  constructor(gasLeft: Gas);
+  constructor(l2GasLeft: number, daGasLeft: number);
+  constructor(gasLeftOrL2GasLeft: Gas | number, daGasLeft?: number) {
+    if (typeof gasLeftOrL2GasLeft === 'object') {
+      ({ l2Gas: this.l2GasLeft, daGas: this.daGasLeft } = gasLeftOrL2GasLeft);
+    } else {
+      this.l2GasLeft = gasLeftOrL2GasLeft!;
+      this.daGasLeft = daGasLeft!;
+    }
+  }
+
+  public get gasLeft(): Gas {
+    return { l2Gas: this.l2GasLeft, daGas: this.daGasLeft };
   }
 
   public static fromState(state: InitialAvmMachineState): AvmMachineState {
-    return new AvmMachineState(state.l1GasLeft, state.l2GasLeft, state.daGasLeft);
+    return new AvmMachineState(state.l2GasLeft, state.daGasLeft);
   }
 
   /**
@@ -111,23 +117,24 @@ export class AvmMachineState {
     this.output = output;
   }
 
-  /**
-   * Flag an exceptional halt. Clears gas left and sets the reverted flag. No output data.
-   */
-  protected exceptionalHalt() {
-    GasDimensions.forEach(dimension => (this[`${dimension}Left`] = 0));
-    this.reverted = true;
-    this.halted = true;
+  public getHalted(): boolean {
+    return this.halted;
+  }
+
+  public getReverted(): boolean {
+    return this.reverted;
+  }
+
+  public getOutput(): Fr[] {
+    return this.output;
   }
 
   /**
-   * Get a summary of execution results for a halted machine state
-   * @returns summary of execution results
+   * Flag an exceptional halt. Clears gas left and sets the reverted flag. No output data.
    */
-  public getResults(): AvmContractCallResults {
-    if (!this.halted) {
-      throw new Error('Execution results are not ready! Execution is ongoing.');
-    }
-    return new AvmContractCallResults(this.reverted, this.output);
+  private exceptionalHalt() {
+    GasDimensions.forEach(dimension => (this[`${dimension}Left`] = 0));
+    this.reverted = true;
+    this.halted = true;
   }
 }

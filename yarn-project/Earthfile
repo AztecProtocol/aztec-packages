@@ -4,8 +4,9 @@ deps:
     LOCALLY
     LET packages = $(git ls-files "**/package*.json" package*.json)
     LET tsconfigs = $(git ls-files "**/tsconfig*.json" tsconfig*.json)
-    FROM node:18.19.0
-    # copy bb-js and noir-packages
+    FROM ../build-images+build
+    # copy bb, bb-js and noir-packages
+    COPY ../barretenberg/cpp/+preset-release/bin /usr/src/barretenberg/cpp/build/
     COPY ../barretenberg/ts/+build/build /usr/src/barretenberg/ts
     COPY ../noir/+packages/packages /usr/src/noir/packages
     WORKDIR /usr/src/yarn-project
@@ -29,11 +30,17 @@ deps:
     RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
 
 build:
+    # Prefetch targets to not wait for +deps.
+    BUILD ../barretenberg/cpp/+preset-release
+    BUILD ../noir/+nargo
+    BUILD ../noir-projects/+build
+    BUILD ../l1-contracts/+build
+    BUILD ../barretenberg/ts/+build
+    BUILD ../noir/+packages
     FROM +deps
-    RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
 
     COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-    COPY ../noir/+nargo/acvm /usr/bin/acvm
+    COPY ../noir/+nargo/acvm /usr/src/noir/noir-repo/target/release/acvm
     COPY --dir ../noir-projects/+build/. /usr/src/noir-projects
     COPY ../l1-contracts/+build/usr/src/l1-contracts /usr/src/l1-contracts
 
@@ -42,50 +49,186 @@ build:
     ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
     RUN ./bootstrap.sh full
 
-aztec-prod:
+build-dev:
     FROM +build
-    RUN yarn workspaces focus @aztec/cli @aztec/aztec --production && yarn cache clean
     SAVE ARTIFACT /usr/src /usr/src
 
-aztec-prod-slim:
-    FROM node:18.19.1-slim
-    COPY +aztec-prod/usr/src /usr/src
+bb-cli:
+    FROM +build
+
+    ENV BB_WORKING_DIRECTORY=/usr/src/bb
+    ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
+    ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
+    ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
+
+    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY
+
+    RUN yarn workspaces focus @aztec/bb-prover --production && yarn cache clean
+    RUN rm -rf \
+        ../noir-projects \
+        ../l1-contracts \
+        ../barretenberg/ts/src \
+        ../barretenberg/ts/dest/node-cjs \
+        ../barretenberg/ts/dest/browser \
+        aztec.js/dest/main.js \
+        end-to-end \
+        **/src \
+        **/artifacts
+
+    # yarn symlinks the binary to node_modules/.bin
+    ENTRYPOINT ["/usr/src/yarn-project/node_modules/.bin/bb-cli"]
+
+# helper target to generate vks in parallel
+verification-key:
+    ARG circuit="RootRollupArtifact"
+    FROM +bb-cli
+
+    # this needs to be exported as an env var for RUN to pick it up
+    ENV CIRCUIT=$circuit
+    RUN --entrypoint write-vk -c $CIRCUIT
+
+    SAVE ARTIFACT /usr/src/bb /usr/src/bb
+
+protocol-verification-keys:
+    LOCALLY
+    LET circuits = "RootRollupArtifact PrivateKernelTailArtifact PrivateKernelTailToPublicArtifact"
+
+    FOR circuit IN $circuits
+        BUILD +verification-key --circuit=$circuit
+    END
+
+    # this could be FROM scratch
+    # but FOR doesn't work without /bin/sh
+    FROM ubuntu:noble
+    WORKDIR /usr/src/bb
+
+    FOR circuit IN $circuits
+        COPY (+verification-key/usr/src/bb --circuit=$circuit) .
+    END
+
+    SAVE ARTIFACT /usr/src/bb /usr/src/bb
+
+rollup-verifier-contract:
+    FROM +bb-cli
+    COPY --dir +protocol-verification-keys/usr/src/bb /usr/src
+    RUN --entrypoint write-contract -c RootRollupArtifact -n UltraVerifier.sol
+    SAVE ARTIFACT /usr/src/bb /usr/src/bb
+
+aztec-prod:
+    FROM +build
+    RUN yarn workspaces focus @aztec/aztec @aztec/builder --production && yarn cache clean
+    # Remove a bunch of stuff that we don't need that takes up space.
+    RUN rm -rf \
+        ../noir-projects \
+        ../l1-contracts \
+        ../barretenberg/ts/src \
+        ../barretenberg/ts/dest/node-cjs \
+        ../barretenberg/ts/dest/browser \
+        aztec.js/dest/main.js \
+        end-to-end \
+        **/src \
+        **/artifacts
+    COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
+    SAVE ARTIFACT /usr/src /usr/src
 
 aztec:
-    FROM +aztec-prod-slim
+    FROM ubuntu:noble
+    RUN apt update && apt install nodejs curl -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    COPY +aztec-prod/usr/src /usr/src
+    ENV BB_WORKING_DIRECTORY=/usr/src/bb
+    ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
+    ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
+    ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
+    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY
     ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
-    EXPOSE 8080
+    LET port=8080
+    ENV PORT=$port
+    HEALTHCHECK --interval=10s --timeout=10s --retries=6 \
+        CMD curl -fsSd '{\"jsonrpc\":\"2.0\",\"method\":\"pxe_getNodeInfo\",\"id\":1}' http://127.0.0.1:$port
+    EXPOSE $port
 
-cli:
-    FROM +aztec-prod-slim
-    ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/cli/dest/bin/index.js"]
-    EXPOSE 8080
-
+# We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
 end-to-end-prod:
     FROM +build
     RUN yarn workspaces focus @aztec/end-to-end --production && yarn cache clean
+    # Remove a bunch of stuff that we don't need that takes up space.
+    RUN rm -rf \
+        ../noir-projects \
+        ../l1-contracts \
+        ../barretenberg/ts/src \
+        ../barretenberg/ts/dest/node-cjs \
+        ../barretenberg/ts/dest/browser \
+        **/artifacts
+    COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
     SAVE ARTIFACT /usr/src /usr/src
 
+anvil:
+    FROM ../build-images+build
+    SAVE ARTIFACT /opt/foundry/bin/anvil
+
 end-to-end:
-    FROM node:18.19.1-slim
-    RUN apt-get update && apt-get install jq chromium netcat-openbsd -y
+    FROM ubuntu:noble
+    # add repository for chromium
+    RUN apt-get update && apt-get install -y software-properties-common \
+        && add-apt-repository ppa:xtradeb/apps -y && apt-get update \
+        && apt-get install -y wget gnupg \
+        && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+        && echo "deb [arch=$(dpkg --print-architecture)] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
+        && apt update && apt install curl chromium nodejs netcat-openbsd -y \
+        && rm -rf /var/lib/apt/lists/*
     ENV CHROME_BIN="/usr/bin/chromium"
+    ENV PATH=/opt/foundry/bin:$PATH
+    ENV HARDWARE_CONCURRENCY=""
+    ENV BB_WORKING_DIRECTORY=/usr/src/bb
+    ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
+    ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
+    ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
+    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY
+    COPY +anvil/anvil /opt/foundry/bin/anvil
     COPY +end-to-end-prod/usr/src /usr/src
     WORKDIR /usr/src/yarn-project/end-to-end
+    RUN ln -s /usr/src/yarn-project/.yarn/releases/yarn-3.6.3.cjs /usr/local/bin/yarn
     ENTRYPOINT ["yarn", "test"]
+
+scripts-prod:
+    FROM +build
+    RUN yarn workspaces focus @aztec/scripts --production && yarn cache clean
+    SAVE ARTIFACT /usr/src /usr/src
 
 all:
     BUILD +aztec
-    BUILD +cli
     BUILD +end-to-end
 
-# for use with yarn-project/end-to-end and its e2e_mode=cache option
-export-end-to-end:
+export-aztec:
     ARG EARTHLY_GIT_HASH
-    # pushes the foundry image to local docker images
-    FROM ../foundry/+build
-    SAVE IMAGE aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991:latest
-    FROM +end-to-end
-    SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
     FROM +aztec
     SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH
+
+export-end-to-end:
+    ARG EARTHLY_GIT_HASH
+    FROM +end-to-end
+    SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
+
+export-e2e-test-images:
+    BUILD +export-aztec
+    BUILD +export-end-to-end
+
+format-check:
+    FROM +build
+    RUN yarn formatting
+
+test:
+    FROM +build
+    RUN yarn test
+
+run-e2e:
+    ARG test
+    ARG debug=""
+    FROM +end-to-end
+    RUN DEBUG=$debug yarn test $test
+
+prover-client-test:
+    FROM +build
+    ARG test
+    ARG debug=""
+    RUN cd prover-client && DEBUG=$debug yarn test $test

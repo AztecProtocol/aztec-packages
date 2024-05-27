@@ -14,7 +14,9 @@ import {
   MerkleTreeId,
   NullifierMembershipWitness,
   type ProverClient,
+  type ProverConfig,
   PublicDataWitness,
+  PublicSimulationOutput,
   type SequencerConfig,
   type SiblingPath,
   type Tx,
@@ -31,8 +33,6 @@ import {
   type Header,
   INITIAL_L2_BLOCK_NUM,
   type L1_TO_L2_MSG_TREE_HEIGHT,
-  L2_TO_L1_MESSAGE_LENGTH,
-  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -43,7 +43,6 @@ import {
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
@@ -51,13 +50,8 @@ import { initStoreForRollup, openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { AztecKVTxPool, type P2P, createP2PClient } from '@aztec/p2p';
 import { DummyProver, TxProver } from '@aztec/prover-client';
-import {
-  type GlobalVariableBuilder,
-  PublicProcessorFactory,
-  SequencerClient,
-  getGlobalVariableBuilder,
-} from '@aztec/sequencer-client';
-import { WASMSimulator } from '@aztec/simulator';
+import { type GlobalVariableBuilder, SequencerClient, getGlobalVariableBuilder } from '@aztec/sequencer-client';
+import { PublicProcessorFactory, WASMSimulator } from '@aztec/simulator';
 import {
   type ContractClassPublic,
   type ContractDataSource,
@@ -155,7 +149,7 @@ export class AztecNodeService implements AztecNode {
     const simulationProvider = await getSimulationProvider(config, log);
     const prover = config.disableProver
       ? await DummyProver.new()
-      : await TxProver.new(config, worldStateSynchronizer, simulationProvider);
+      : await TxProver.new(config, simulationProvider, worldStateSynchronizer);
 
     // now create the sequencer
     const sequencer = config.disableSequencer
@@ -196,6 +190,10 @@ export class AztecNodeService implements AztecNode {
    */
   public getSequencer(): SequencerClient | undefined {
     return this.sequencer;
+  }
+
+  public getProver(): ProverClient {
+    return this.prover;
   }
 
   /**
@@ -453,11 +451,7 @@ export class AztecNodeService implements AztecNode {
       throw new Error('Block is not defined');
     }
 
-    // We multiply the number of messages per block by the length of each message because each message occupies
-    // 2 leaves in the tree!
-    const l2ToL1Messages = block.body.txEffects.flatMap(txEffect =>
-      padArrayEnd(txEffect.l2ToL1Msgs, Fr.ZERO, MAX_NEW_L2_TO_L1_MSGS_PER_TX * L2_TO_L1_MESSAGE_LENGTH),
-    );
+    const l2ToL1Messages = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
     const indexOfL2ToL1Message = BigInt(
       l2ToL1Messages.findIndex(l2ToL1MessageInBlock => l2ToL1MessageInBlock.equals(l2ToL1Message)),
@@ -467,7 +461,8 @@ export class AztecNodeService implements AztecNode {
       throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
     }
 
-    const treeHeight = Math.ceil(Math.log2(l2ToL1Messages.length));
+    // Match how l2ToL1TreeHeight is calculated in Rollup.sol.
+    const treeHeight = block.header.contentCommitment.txTreeHeight.toNumber() + 1;
     // The root of this tree is the out_hash calculated in Noir => we truncate to match Noir's SHA
     const tree = new StandardTree(
       openTmpStore(true),
@@ -639,7 +634,7 @@ export class AztecNodeService implements AztecNode {
    * Simulates the public part of a transaction with the current state.
    * @param tx - The transaction to simulate.
    **/
-  public async simulatePublicCalls(tx: Tx) {
+  public async simulatePublicCalls(tx: Tx): Promise<PublicSimulationOutput> {
     this.log.info(`Simulating tx ${tx.getTxHash()}`);
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
 
@@ -665,7 +660,9 @@ export class AztecNodeService implements AztecNode {
       new WASMSimulator(),
     );
     const processor = await publicProcessorFactory.create(prevHeader, newGlobalVariables);
+    // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
     const [processedTxs, failedTxs, returns] = await processor.process([tx]);
+    // REFACTOR: Consider returning the error/revert rather than throwing
     if (failedTxs.length) {
       this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`);
       throw failedTxs[0].error;
@@ -675,13 +672,22 @@ export class AztecNodeService implements AztecNode {
       this.log.warn(`Simulated tx ${tx.getTxHash()} reverts: ${reverted[0].revertReason}`);
       throw reverted[0].revertReason;
     }
-    this.log.info(`Simulated tx ${tx.getTxHash()} succeeds`);
-    return returns;
+    this.log.debug(`Simulated tx ${tx.getTxHash()} succeeds`);
+    const [processedTx] = processedTxs;
+    return new PublicSimulationOutput(
+      processedTx.encryptedLogs,
+      processedTx.unencryptedLogs,
+      processedTx.revertReason,
+      processedTx.data.constants,
+      processedTx.data.end,
+      returns,
+      processedTx.gasUsed,
+    );
   }
 
-  public setConfig(config: Partial<SequencerConfig>): Promise<void> {
+  public async setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {
     this.sequencer?.updateSequencerConfig(config);
-    return Promise.resolve();
+    await this.prover.updateProverConfig(config);
   }
 
   /**

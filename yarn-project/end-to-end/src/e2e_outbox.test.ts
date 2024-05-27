@@ -1,5 +1,5 @@
 import {
-  type AccountWalletWithPrivateKey,
+  type AccountWalletWithSecretKey,
   type AztecNode,
   BatchCall,
   type DeployL1Contracts,
@@ -24,7 +24,7 @@ describe('E2E Outbox Tests', () => {
   let aztecNode: AztecNode;
   const merkleSha256 = new SHA256();
   let contract: TestContract;
-  let wallets: AccountWalletWithPrivateKey[];
+  let wallets: AccountWalletWithSecretKey[];
   let deployL1ContractsValues: DeployL1Contracts;
 
   beforeEach(async () => {
@@ -32,7 +32,7 @@ describe('E2E Outbox Tests', () => {
 
     const receipt = await TestContract.deploy(wallets[0]).send({ contractAddressSalt: Fr.ZERO }).wait();
     contract = receipt.contract;
-  }, 100_000);
+  });
 
   afterAll(() => teardown());
 
@@ -58,7 +58,7 @@ describe('E2E Outbox Tests', () => {
     const l2ToL1Messages = block?.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
     expect(l2ToL1Messages?.map(l2ToL1Message => l2ToL1Message.toString())).toStrictEqual(
-      [makeL2ToL1Message(recipient2, content2), makeL2ToL1Message(recipient1, content1)].map(expectedL2ToL1Message =>
+      [makeL2ToL1Message(recipient1, content1), makeL2ToL1Message(recipient2, content2)].map(expectedL2ToL1Message =>
         expectedL2ToL1Message.toString(),
       ),
     );
@@ -84,7 +84,7 @@ describe('E2E Outbox Tests', () => {
     expect(index2).toBe(1n);
     const expectedRoot2 = calculateExpectedRoot(l2ToL1Messages![1], siblingPath2 as SiblingPath<2>, index2);
     expect(expectedRoot2.toString('hex')).toEqual(block?.header.contentCommitment.outHash.toString('hex'));
-  }, 360_000);
+  });
 
   function calculateExpectedRoot(l2ToL1Message: Fr, siblingPath: SiblingPath<2>, index: bigint): Buffer {
     const firstLayerInput: [Buffer, Buffer] =

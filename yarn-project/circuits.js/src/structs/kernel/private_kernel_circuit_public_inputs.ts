@@ -1,7 +1,8 @@
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { AggregationObject } from '../aggregation_object.js';
+import { CallRequest } from '../call_request.js';
 import { ValidationRequests } from '../validation_requests.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 import { PrivateAccumulatedData } from './private_accumulated_data.js';
@@ -11,10 +12,6 @@ import { PrivateAccumulatedData } from './private_accumulated_data.js';
  */
 export class PrivateKernelCircuitPublicInputs {
   constructor(
-    /**
-     * Aggregated proof of all the previous kernel iterations.
-     */
-    public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
     /**
      * The side effect counter that non-revertible side effects are all beneath.
      */
@@ -31,15 +28,24 @@ export class PrivateKernelCircuitPublicInputs {
      * Data which is not modified by the circuits.
      */
     public constants: CombinedConstantData,
+    /**
+     * The call request for the public teardown function
+     */
+    public publicTeardownCallRequest: CallRequest,
+    /**
+     * The address of the fee payer for the transaction
+     */
+    public feePayer: AztecAddress,
   ) {}
 
   toBuffer() {
     return serializeToBuffer(
-      this.aggregationObject,
       this.minRevertibleSideEffectCounter,
       this.validationRequests,
       this.end,
       this.constants,
+      this.publicTeardownCallRequest,
+      this.feePayer,
     );
   }
 
@@ -51,21 +57,23 @@ export class PrivateKernelCircuitPublicInputs {
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new PrivateKernelCircuitPublicInputs(
-      reader.readObject(AggregationObject),
       reader.readObject(Fr),
       reader.readObject(ValidationRequests),
       reader.readObject(PrivateAccumulatedData),
       reader.readObject(CombinedConstantData),
+      reader.readObject(CallRequest),
+      reader.readObject(AztecAddress),
     );
   }
 
   static empty() {
     return new PrivateKernelCircuitPublicInputs(
-      AggregationObject.makeFake(),
       Fr.zero(),
       ValidationRequests.empty(),
       PrivateAccumulatedData.empty(),
       CombinedConstantData.empty(),
+      CallRequest.empty(),
+      AztecAddress.ZERO,
     );
   }
 }

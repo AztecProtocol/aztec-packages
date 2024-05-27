@@ -11,7 +11,7 @@ pub trait BlackBoxFunctionSolver {
         &self,
         public_key_x: &FieldElement,
         public_key_y: &FieldElement,
-        signature: &[u8],
+        signature: &[u8; 64],
         message: &[u8],
     ) -> Result<bool, BlackBoxResolutionError>;
     fn pedersen_commitment(
@@ -24,18 +24,21 @@ pub trait BlackBoxFunctionSolver {
         inputs: &[FieldElement],
         domain_separator: u32,
     ) -> Result<FieldElement, BlackBoxResolutionError>;
-    fn fixed_base_scalar_mul(
+    fn multi_scalar_mul(
         &self,
-        low: &FieldElement,
-        high: &FieldElement,
-    ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError>;
+        points: &[FieldElement],
+        scalars_lo: &[FieldElement],
+        scalars_hi: &[FieldElement],
+    ) -> Result<(FieldElement, FieldElement, FieldElement), BlackBoxResolutionError>;
     fn ec_add(
         &self,
         input1_x: &FieldElement,
         input1_y: &FieldElement,
+        input1_infinite: &FieldElement,
         input2_x: &FieldElement,
         input2_y: &FieldElement,
-    ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError>;
+        input2_infinite: &FieldElement,
+    ) -> Result<(FieldElement, FieldElement, FieldElement), BlackBoxResolutionError>;
     fn poseidon2_permutation(
         &self,
         _inputs: &[FieldElement],
@@ -59,7 +62,7 @@ impl BlackBoxFunctionSolver for StubbedBlackBoxSolver {
         &self,
         _public_key_x: &FieldElement,
         _public_key_y: &FieldElement,
-        _signature: &[u8],
+        _signature: &[u8; 64],
         _message: &[u8],
     ) -> Result<bool, BlackBoxResolutionError> {
         Err(Self::fail(BlackBoxFunc::SchnorrVerify))
@@ -78,20 +81,23 @@ impl BlackBoxFunctionSolver for StubbedBlackBoxSolver {
     ) -> Result<FieldElement, BlackBoxResolutionError> {
         Err(Self::fail(BlackBoxFunc::PedersenHash))
     }
-    fn fixed_base_scalar_mul(
+    fn multi_scalar_mul(
         &self,
-        _low: &FieldElement,
-        _high: &FieldElement,
-    ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
-        Err(Self::fail(BlackBoxFunc::FixedBaseScalarMul))
+        _points: &[FieldElement],
+        _scalars_lo: &[FieldElement],
+        _scalars_hi: &[FieldElement],
+    ) -> Result<(FieldElement, FieldElement, FieldElement), BlackBoxResolutionError> {
+        Err(Self::fail(BlackBoxFunc::MultiScalarMul))
     }
     fn ec_add(
         &self,
         _input1_x: &FieldElement,
         _input1_y: &FieldElement,
+        _input1_infinite: &FieldElement,
         _input2_x: &FieldElement,
         _input2_y: &FieldElement,
-    ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
+        _input2_infinite: &FieldElement,
+    ) -> Result<(FieldElement, FieldElement, FieldElement), BlackBoxResolutionError> {
         Err(Self::fail(BlackBoxFunc::EmbeddedCurveAdd))
     }
     fn poseidon2_permutation(

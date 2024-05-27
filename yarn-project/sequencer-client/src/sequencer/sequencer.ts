@@ -1,20 +1,26 @@
-import { type L1ToL2MessageSource, type L2Block, type L2BlockSource, type ProcessedTx, Tx } from '@aztec/circuit-types';
-import { type BlockProver, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
+import {
+  type L1ToL2MessageSource,
+  type L2Block,
+  type L2BlockSource,
+  type ProcessedTx,
+  Tx,
+  type TxValidator,
+} from '@aztec/circuit-types';
+import { type AllowedFunction, type BlockProver, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
-import { AztecAddress, EthAddress } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, type Proof } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer, elapsed } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
+import { type PublicProcessorFactory } from '@aztec/simulator';
 import { type WorldStateStatus, type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
+import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';
-import { type PublicProcessorFactory } from './public_processor.js';
-import { type TxValidator } from './tx_validator.js';
-import { type TxValidatorFactory } from './tx_validator_factory.js';
 
 /**
  * Sequencer client
@@ -35,8 +41,8 @@ export class Sequencer {
   private _feeRecipient = AztecAddress.ZERO;
   private lastPublishedBlock = 0;
   private state = SequencerState.STOPPED;
-  private allowedFeePaymentContractClasses: Fr[] = [];
-  private allowedFeePaymentContractInstances: AztecAddress[] = [];
+  private allowedFunctionsInSetup: AllowedFunction[] = [];
+  private allowedFunctionsInTeardown: AllowedFunction[] = [];
 
   constructor(
     private publisher: L1Publisher,
@@ -75,11 +81,12 @@ export class Sequencer {
     if (config.feeRecipient) {
       this._feeRecipient = config.feeRecipient;
     }
-    if (config.allowedFeePaymentContractClasses) {
-      this.allowedFeePaymentContractClasses = config.allowedFeePaymentContractClasses;
+    if (config.allowedFunctionsInSetup) {
+      this.allowedFunctionsInSetup = config.allowedFunctionsInSetup;
     }
-    if (config.allowedFeePaymentContractInstances) {
-      this.allowedFeePaymentContractInstances = config.allowedFeePaymentContractInstances;
+    // TODO(#5917) remove this. it is no longer needed since we don't need to whitelist functions in teardown
+    if (config.allowedFunctionsInTeardown) {
+      this.allowedFunctionsInTeardown = config.allowedFunctionsInTeardown;
     }
   }
 
@@ -154,7 +161,7 @@ export class Sequencer {
       if (pendingTxs.length < this.minTxsPerBLock) {
         return;
       }
-      this.log.info(`Retrieved ${pendingTxs.length} txs from P2P pool`);
+      this.log.debug(`Retrieved ${pendingTxs.length} txs from P2P pool`);
 
       const historicalHeader = (await this.l2BlockSource.getBlock(-1))?.header;
       const newBlockNumber =
@@ -178,14 +185,11 @@ export class Sequencer {
         this._feeRecipient,
       );
 
-      const txValidator = this.txValidatorFactory.buildTxValidator(
-        newGlobalVariables,
-        this.allowedFeePaymentContractClasses,
-        this.allowedFeePaymentContractInstances,
-      );
-
       // TODO: It should be responsibility of the P2P layer to validate txs before passing them on here
-      const validTxs = await this.takeValidTxs(pendingTxs, txValidator);
+      const validTxs = await this.takeValidTxs(
+        pendingTxs,
+        this.txValidatorFactory.validatorForNewTxs(newGlobalVariables, this.allowedFunctionsInSetup),
+      );
       if (validTxs.length < this.minTxsPerBLock) {
         return;
       }
@@ -213,7 +217,7 @@ export class Sequencer {
       const blockTicket = await this.prover.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages, emptyTx);
 
       const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
-        processor.process(validTxs, blockSize, this.prover, txValidator),
+        processor.process(validTxs, blockSize, this.prover, this.txValidatorFactory.validatorForProcessedTxs()),
       );
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
@@ -243,8 +247,7 @@ export class Sequencer {
       await assertBlockHeight();
 
       // Block is proven, now finalise and publish!
-      const blockResult = await this.prover.finaliseBlock();
-      const block = blockResult.block;
+      const { block, aggregationObject, proof } = await this.prover.finaliseBlock();
 
       await assertBlockHeight();
 
@@ -256,7 +259,7 @@ export class Sequencer {
         ...block.getStats(),
       } satisfies L2BlockBuiltStats);
 
-      await this.publishL2Block(block);
+      await this.publishL2Block(block, aggregationObject, proof);
       this.log.info(`Submitted rollup block ${block.number} with ${processedTxs.length} transactions`);
     } catch (err) {
       this.log.error(`Rolling back world state DB due to error assembling block`, (err as any).stack);
@@ -270,10 +273,10 @@ export class Sequencer {
    * Publishes the L2Block to the rollup contract.
    * @param block - The L2Block to be published.
    */
-  protected async publishL2Block(block: L2Block) {
+  protected async publishL2Block(block: L2Block, aggregationObject: Fr[], proof: Proof) {
     // Publishes new block to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_BLOCK;
-    const publishedL2Block = await this.publisher.processL2Block(block);
+    const publishedL2Block = await this.publisher.processL2Block(block, aggregationObject, proof);
     if (publishedL2Block) {
       this.lastPublishedBlock = block.number;
     } else {
@@ -281,7 +284,7 @@ export class Sequencer {
     }
   }
 
-  protected async takeValidTxs<T extends Tx | ProcessedTx>(txs: T[], validator: TxValidator): Promise<T[]> {
+  protected async takeValidTxs<T extends Tx | ProcessedTx>(txs: T[], validator: TxValidator<T>): Promise<T[]> {
     const [valid, invalid] = await validator.validateTxs(txs);
     if (invalid.length > 0) {
       this.log.debug(`Dropping invalid txs from the p2p pool ${Tx.getHashes(invalid).join(', ')}`);

@@ -4,14 +4,17 @@ use acvm::acir::acir_field::FieldOptions;
 use fm::{FileId, FileManager, FILE_EXTENSION};
 use noirc_errors::Location;
 
+use crate::ast::{
+    FunctionDefinition, Ident, ItemVisibility, LetStatement, ModuleDeclaration, NoirFunction,
+    NoirStruct, NoirTrait, NoirTraitImpl, NoirTypeAlias, Pattern, TraitImplItem, TraitItem,
+    TypeImpl,
+};
 use crate::{
     graph::CrateId,
     hir::def_collector::dc_crate::{UnresolvedStruct, UnresolvedTrait},
     macros_api::MacroProcessor,
     node_interner::{FunctionModifiers, TraitId, TypeAliasId},
     parser::{SortedModule, SortedSubModule},
-    FunctionDefinition, Ident, ItemVisibility, LetStatement, ModuleDeclaration, NoirFunction,
-    NoirStruct, NoirTrait, NoirTraitImpl, NoirTypeAlias, TraitImplItem, TraitItem, TypeImpl,
 };
 
 use super::{
@@ -67,7 +70,7 @@ pub fn collect_defs(
 
     // Then add the imports to defCollector to resolve once all modules in the hierarchy have been resolved
     for import in ast.imports {
-        collector.def_collector.collected_imports.push(ImportDirective {
+        collector.def_collector.imports.push(ImportDirective {
             module_id: collector.module_id,
             path: import.path,
             alias: import.alias,
@@ -107,6 +110,7 @@ impl<'a> ModCollector<'a> {
                 self.module_id,
                 self.file_id,
                 global.attributes.clone(),
+                matches!(global.pattern, Pattern::Mutable { .. }),
             );
 
             // Add the statement to the scope so its path can be looked up later
@@ -122,7 +126,7 @@ impl<'a> ModCollector<'a> {
                 errors.push((err.into(), self.file_id));
             }
 
-            self.def_collector.collected_globals.push(UnresolvedGlobal {
+            self.def_collector.items.globals.push(UnresolvedGlobal {
                 file_id: self.file_id,
                 module_id: self.module_id,
                 global_id,
@@ -150,7 +154,7 @@ impl<'a> ModCollector<'a> {
             }
 
             let key = (r#impl.object_type, self.module_id);
-            let methods = self.def_collector.collected_impls.entry(key).or_default();
+            let methods = self.def_collector.items.impls.entry(key).or_default();
             methods.push((r#impl.generics, r#impl.type_span, unresolved_functions));
         }
     }
@@ -187,7 +191,7 @@ impl<'a> ModCollector<'a> {
                 trait_generics: trait_impl.trait_generics,
             };
 
-            self.def_collector.collected_traits_impls.push(unresolved_trait_impl);
+            self.def_collector.items.trait_impls.push(unresolved_trait_impl);
         }
     }
 
@@ -265,7 +269,7 @@ impl<'a> ModCollector<'a> {
             }
         }
 
-        self.def_collector.collected_functions.push(unresolved_functions);
+        self.def_collector.items.functions.push(unresolved_functions);
         errors
     }
 
@@ -312,7 +316,7 @@ impl<'a> ModCollector<'a> {
             }
 
             // And store the TypeId -> StructType mapping somewhere it is reachable
-            self.def_collector.collected_types.insert(id, unresolved);
+            self.def_collector.items.types.insert(id, unresolved);
         }
         definition_errors
     }
@@ -350,7 +354,7 @@ impl<'a> ModCollector<'a> {
                 errors.push((err.into(), self.file_id));
             }
 
-            self.def_collector.collected_type_aliases.insert(type_alias_id, unresolved);
+            self.def_collector.items.type_aliases.insert(type_alias_id, unresolved);
         }
         errors
     }
@@ -416,6 +420,8 @@ impl<'a> ModCollector<'a> {
                             // TODO(Maddiaa): Investigate trait implementations with attributes see: https://github.com/noir-lang/noir/issues/2629
                             attributes: crate::token::Attributes::empty(),
                             is_unconstrained: false,
+                            generic_count: generics.len(),
+                            is_comptime: false,
                         };
 
                         let location = Location::new(name.span(), self.file_id);
@@ -460,6 +466,7 @@ impl<'a> ModCollector<'a> {
                             trait_id.0.local_id,
                             self.file_id,
                             vec![],
+                            false,
                         );
 
                         if let Err((first_def, second_def)) = self.def_collector.def_map.modules
@@ -500,7 +507,7 @@ impl<'a> ModCollector<'a> {
                 method_ids,
                 fns_with_default_impl: unresolved_functions,
             };
-            self.def_collector.collected_traits.insert(trait_id, unresolved);
+            self.def_collector.items.traits.insert(trait_id, unresolved);
         }
         errors
     }

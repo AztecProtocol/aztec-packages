@@ -1,4 +1,4 @@
-import { type FunctionCall, PackedArguments } from '@aztec/circuit-types';
+import { type FunctionCall, PackedValues } from '@aztec/circuit-types';
 import { type AztecAddress, type Fr, GeneratorIndex } from '@aztec/circuits.js';
 import { pedersenHash } from '@aztec/foundation/crypto';
 
@@ -22,11 +22,7 @@ export const computeAuthWitMessageHash = (caller: AztecAddress, chainId: Fr, ver
     action.to.toField(),
     chainId,
     version,
-    computeInnerAuthWitHash([
-      caller.toField(),
-      action.functionData.selector.toField(),
-      PackedArguments.fromArgs(action.args).hash,
-    ]),
+    computeInnerAuthWitHash([caller.toField(), action.selector.toField(), PackedValues.fromValues(action.args).hash]),
   );
 };
 // docs:end:authwit_computeAuthWitMessageHash

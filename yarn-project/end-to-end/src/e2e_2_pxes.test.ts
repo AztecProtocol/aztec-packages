@@ -1,24 +1,24 @@
 import { getUnsafeSchnorrAccount } from '@aztec/accounts/single_key';
+import { createAccounts } from '@aztec/accounts/testing';
 import {
   type AztecAddress,
   type AztecNode,
   type DebugLogger,
   ExtendedNote,
   Fr,
-  GrumpkinScalar,
   Note,
   type PXE,
   type Wallet,
-  computeMessageSecretHash,
+  computeSecretHash,
   retryUntil,
 } from '@aztec/aztec.js';
 import { ChildContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
-import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup, setupPXEService } from './fixtures/utils.js';
+import { expectsNumOfNoteEncryptedLogsInTheLastBlockToBe, setup, setupPXEService } from './fixtures/utils.js';
 
-const TIMEOUT = 90_000;
+const TIMEOUT = 120_000;
 
 describe('e2e_2_pxes', () => {
   jest.setTimeout(TIMEOUT);
@@ -30,6 +30,7 @@ describe('e2e_2_pxes', () => {
   let walletB: Wallet;
   let logger: DebugLogger;
   let teardownA: () => Promise<void>;
+  let teardownB: () => Promise<void>;
 
   beforeEach(async () => {
     ({
@@ -40,17 +41,14 @@ describe('e2e_2_pxes', () => {
       teardown: teardownA,
     } = await setup(1));
 
-    ({
-      pxe: pxeB,
-      wallets: [walletB],
-    } = await setupPXEService(1, aztecNode!, {}, undefined, true));
-  }, 100_000);
+    ({ pxe: pxeB, teardown: teardownB } = await setupPXEService(aztecNode!, {}, undefined, true));
+
+    [walletB] = await createAccounts(pxeB, 1);
+  });
 
   afterEach(async () => {
+    await teardownB();
     await teardownA();
-    if ((pxeB as any).stop) {
-      await (pxeB as any).stop();
-    }
   });
 
   const awaitUserSynchronized = async (wallet: Wallet, owner: AztecAddress) => {
@@ -94,7 +92,7 @@ describe('e2e_2_pxes', () => {
 
   const mintTokens = async (contract: TokenContract, recipient: AztecAddress, balance: bigint, pxe: PXE) => {
     const secret = Fr.random();
-    const secretHash = computeMessageSecretHash(secret);
+    const secretHash = computeSecretHash(secret);
 
     const receipt = await contract.methods.mint_private(balance, secretHash).send().wait();
 
@@ -134,7 +132,7 @@ describe('e2e_2_pxes', () => {
     // Check initial balances and logs are as expected
     await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance);
     await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), 0n);
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 1);
+    await expectsNumOfNoteEncryptedLogsInTheLastBlockToBe(aztecNode, 1);
 
     // Transfer funds from A to B via PXE A
     const contractWithWalletA = await TokenContract.at(tokenAddress, walletA);
@@ -146,7 +144,7 @@ describe('e2e_2_pxes', () => {
     // Check balances and logs are as expected
     await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance - transferAmount1);
     await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), transferAmount1);
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
+    await expectsNumOfNoteEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
 
     // Transfer funds from B to A via PXE B
     const contractWithWalletB = await TokenContract.at(tokenAddress, walletB);
@@ -163,8 +161,8 @@ describe('e2e_2_pxes', () => {
       initialBalance - transferAmount1 + transferAmount2,
     );
     await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), transferAmount1 - transferAmount2);
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
-  }, 120_000);
+    await expectsNumOfNoteEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
+  });
 
   const deployChildContractViaServerA = async () => {
     logger.info(`Deploying Child contract...`);
@@ -245,13 +243,13 @@ describe('e2e_2_pxes', () => {
   });
 
   it('permits migrating an account from one PXE to another', async () => {
-    const privateKey = GrumpkinScalar.random();
-    const account = getUnsafeSchnorrAccount(pxeA, privateKey, Fr.random());
+    const secretKey = Fr.random();
+    const account = getUnsafeSchnorrAccount(pxeA, secretKey, Fr.random());
     const completeAddress = account.getCompleteAddress();
     const wallet = await account.waitSetup();
 
     await expect(wallet.isAccountStateSynchronized(completeAddress.address)).resolves.toBe(true);
-    const accountOnB = getUnsafeSchnorrAccount(pxeB, privateKey, account.salt);
+    const accountOnB = getUnsafeSchnorrAccount(pxeB, secretKey, account.salt);
     const walletOnB = await accountOnB.getWallet();
 
     // need to register first otherwise the new PXE won't know about the account
@@ -278,7 +276,7 @@ describe('e2e_2_pxes', () => {
     await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance);
     // don't check userB yet
 
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 1);
+    await expectsNumOfNoteEncryptedLogsInTheLastBlockToBe(aztecNode, 1);
 
     // Transfer funds from A to B via PXE A
     const contractWithWalletA = await TokenContract.at(tokenAddress, walletA);
@@ -302,16 +300,17 @@ describe('e2e_2_pxes', () => {
     const transferAmount2 = 323n;
 
     // setup an account that is shared across PXEs
-    const sharedPrivateKey = GrumpkinScalar.random();
-    const sharedAccountOnA = getUnsafeSchnorrAccount(pxeA, sharedPrivateKey, Fr.random());
+    const sharedSecretKey = Fr.random();
+    const sharedAccountOnA = getUnsafeSchnorrAccount(pxeA, sharedSecretKey, Fr.random());
     const sharedAccountAddress = sharedAccountOnA.getCompleteAddress();
     const sharedWalletOnA = await sharedAccountOnA.waitSetup();
     await expect(sharedWalletOnA.isAccountStateSynchronized(sharedAccountAddress.address)).resolves.toBe(true);
 
-    const sharedAccountOnB = getUnsafeSchnorrAccount(pxeB, sharedPrivateKey, sharedAccountOnA.salt);
+    const sharedAccountOnB = getUnsafeSchnorrAccount(pxeB, sharedSecretKey, sharedAccountOnA.salt);
     await sharedAccountOnB.register();
     const sharedWalletOnB = await sharedAccountOnB.getWallet();
 
+    // Register wallet B in the pxe of wallet A
     await pxeA.registerRecipient(walletB.getCompleteAddress());
 
     // deploy the contract on PXE A

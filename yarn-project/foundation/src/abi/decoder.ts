@@ -1,20 +1,19 @@
 import { AztecAddress } from '../aztec-address/index.js';
 import { type Fr } from '../fields/index.js';
-import { type ABIParameter, type ABIVariable, type AbiType, type FunctionArtifact } from './abi.js';
+import { type ABIParameter, type ABIVariable, type AbiType } from './abi.js';
 import { isAztecAddressStruct } from './utils.js';
 
 /**
  * The type of our decoded ABI.
  */
 export type DecodedReturn = bigint | boolean | AztecAddress | DecodedReturn[] | { [key: string]: DecodedReturn };
-export type ProcessReturnValues = (DecodedReturn | undefined)[] | undefined;
 
 /**
  * Decodes return values from a function call.
  * Missing support for integer and string.
  */
 class ReturnValuesDecoder {
-  constructor(private artifact: FunctionArtifact, private flattened: Fr[]) {}
+  constructor(private returnTypes: AbiType[], private flattened: Fr[]) {}
 
   /**
    * Decodes a single return value from field to the given type.
@@ -81,13 +80,13 @@ class ReturnValuesDecoder {
    * @returns The decoded return values.
    */
   public decode(): DecodedReturn {
-    if (this.artifact.returnTypes.length > 1) {
+    if (this.returnTypes.length > 1) {
       throw new Error('Multiple return values not supported');
     }
-    if (this.artifact.returnTypes.length === 0) {
+    if (this.returnTypes.length === 0) {
       return [];
     }
-    return this.decodeReturn(this.artifact.returnTypes[0]);
+    return this.decodeReturn(this.returnTypes[0]);
   }
 }
 
@@ -97,8 +96,8 @@ class ReturnValuesDecoder {
  * @param returnValues - The decoded return values.
  * @returns
  */
-export function decodeReturnValues(abi: FunctionArtifact, returnValues: Fr[]) {
-  return new ReturnValuesDecoder(abi, returnValues.slice()).decode();
+export function decodeReturnValues(returnTypes: AbiType[], returnValues: Fr[]) {
+  return new ReturnValuesDecoder(returnTypes, returnValues.slice()).decode();
 }
 
 /**

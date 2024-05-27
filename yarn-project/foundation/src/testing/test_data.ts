@@ -4,7 +4,7 @@ import { dirname, join, resolve } from 'path';
 import { createConsoleLogger } from '../log/console.js';
 import { fileURLToPath } from '../url/index.js';
 
-const testData: { [key: string]: { toBuffer(): Buffer }[] } = {};
+const testData: { [key: string]: unknown[] } = {};
 
 /** Returns whether test data generation is enabled */
 export function isGenerateTestDataEnabled() {
@@ -12,7 +12,7 @@ export function isGenerateTestDataEnabled() {
 }
 
 /** Pushes test data with the given name, only if test data generation is enabled. */
-export function pushTestData(itemName: string, data: { toBuffer(): Buffer }) {
+export function pushTestData<T>(itemName: string, data: T) {
   if (!isGenerateTestDataEnabled()) {
     return;
   }
@@ -31,7 +31,7 @@ export function pushTestData(itemName: string, data: { toBuffer(): Buffer }) {
 }
 
 /** Returns all instances of pushed test data with the given name, or empty if test data generation is not enabled. */
-export function getTestData(itemName: string): { toBuffer(): Buffer }[] {
+export function getTestData(itemName: string): unknown[] {
   if (!isGenerateTestDataEnabled()) {
     return [];
   }
@@ -66,7 +66,7 @@ export function updateInlineTestData(targetFileFromRepoRoot: string, itemName: s
   const logger = createConsoleLogger('aztec:testing:test_data');
   const targetFile = getPathToFile(targetFileFromRepoRoot);
   const contents = readFileSync(targetFile, 'utf8').toString();
-  const regex = new RegExp(`let ${itemName} = .*;`, 'g');
+  const regex = new RegExp(`let ${itemName} = [\\s\\S]*?;`, 'g');
   if (!regex.exec(contents)) {
     throw new Error(`Test data marker for ${itemName} not found in ${targetFile}`);
   }

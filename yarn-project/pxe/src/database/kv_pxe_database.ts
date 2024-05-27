@@ -189,7 +189,7 @@ export class KVPxeDatabase implements PxeDatabase {
   removeDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]> {
     return this.#db.transaction(() => {
       const deferredNotes: DeferredNoteDao[] = [];
-      const indices = this.#deferredNotesByContract.getValues(contractAddress.toString());
+      const indices = Array.from(this.#deferredNotesByContract.getValues(contractAddress.toString()));
 
       for (const index of indices) {
         const deferredNoteBuffer = this.#deferredNotes.at(index);
@@ -209,7 +209,7 @@ export class KVPxeDatabase implements PxeDatabase {
 
   #getNotes(filter: NoteFilter): NoteDao[] {
     const publicKey: PublicKey | undefined = filter.owner
-      ? this.#getCompleteAddress(filter.owner)?.publicKey
+      ? this.#getCompleteAddress(filter.owner)?.publicKeys.masterIncomingViewingPublicKey
       : undefined;
 
     filter.status = filter.status ?? NoteStatus.ACTIVE;
@@ -385,8 +385,8 @@ export class KVPxeDatabase implements PxeDatabase {
     return value ? CompleteAddress.fromBuffer(value) : undefined;
   }
 
-  getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    return Promise.resolve(this.#getCompleteAddress(address));
+  getCompleteAddress(account: AztecAddress): Promise<CompleteAddress | undefined> {
+    return Promise.resolve(this.#getCompleteAddress(account));
   }
 
   getCompleteAddresses(): Promise<CompleteAddress[]> {

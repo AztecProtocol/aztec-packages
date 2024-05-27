@@ -1,21 +1,11 @@
-use rustc_version::{version, Version};
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
-fn check_rustc_version() {
-    assert!(
-        version().unwrap() >= Version::parse("1.73.0").unwrap(),
-        "The minimal supported rustc version is 1.73.0."
-    );
-}
-
 const GIT_COMMIT: &&str = &"GIT_COMMIT";
 
 fn main() {
-    check_rustc_version();
-
     // Only use build_data if the environment variable isn't set.
     if std::env::var(GIT_COMMIT).is_err() {
         build_data::set_GIT_COMMIT();
@@ -73,7 +63,6 @@ fn execution_success_{test_name}() {{
     let test_program_dir = PathBuf::from("{test_dir}");
 
     let mut cmd = Command::cargo_bin("nargo").unwrap();
-    cmd.env("NARGO_BACKEND_PATH", path_to_mock_backend());
     cmd.arg("--program-dir").arg(test_program_dir);
     cmd.arg("execute").arg("--force");
 
@@ -111,7 +100,6 @@ fn execution_failure_{test_name}() {{
     let test_program_dir = PathBuf::from("{test_dir}");
 
     let mut cmd = Command::cargo_bin("nargo").unwrap();
-    cmd.env("NARGO_BACKEND_PATH", path_to_mock_backend());
     cmd.arg("--program-dir").arg(test_program_dir);
     cmd.arg("execute").arg("--force");
 
@@ -149,7 +137,6 @@ fn noir_test_success_{test_name}() {{
     let test_program_dir = PathBuf::from("{test_dir}");
 
     let mut cmd = Command::cargo_bin("nargo").unwrap();
-    cmd.env("NARGO_BACKEND_PATH", path_to_mock_backend());
     cmd.arg("--program-dir").arg(test_program_dir);
     cmd.arg("test");
 
@@ -187,7 +174,6 @@ fn noir_test_failure_{test_name}() {{
     let test_program_dir = PathBuf::from("{test_dir}");
 
     let mut cmd = Command::cargo_bin("nargo").unwrap();
-    cmd.env("NARGO_BACKEND_PATH", path_to_mock_backend());
     cmd.arg("--program-dir").arg(test_program_dir);
     cmd.arg("test");
 
@@ -228,7 +214,6 @@ fn compile_success_empty_{test_name}() {{
 
     let test_program_dir = PathBuf::from("{test_dir}");
     let mut cmd = Command::cargo_bin("nargo").unwrap();
-    cmd.env("NARGO_BACKEND_PATH", path_to_mock_backend());
     cmd.arg("--program-dir").arg(test_program_dir);
     cmd.arg("info");
     cmd.arg("--json");
@@ -279,7 +264,6 @@ fn compile_success_contract_{test_name}() {{
     let test_program_dir = PathBuf::from("{test_dir}");
 
     let mut cmd = Command::cargo_bin("nargo").unwrap();
-    cmd.env("NARGO_BACKEND_PATH", path_to_mock_backend());
     cmd.arg("--program-dir").arg(test_program_dir);
     cmd.arg("compile").arg("--force");
 
@@ -317,7 +301,6 @@ fn compile_failure_{test_name}() {{
     let test_program_dir = PathBuf::from("{test_dir}");
 
     let mut cmd = Command::cargo_bin("nargo").unwrap();
-    cmd.env("NARGO_BACKEND_PATH", path_to_mock_backend());
     cmd.arg("--program-dir").arg(test_program_dir);
     cmd.arg("compile").arg("--force");
 

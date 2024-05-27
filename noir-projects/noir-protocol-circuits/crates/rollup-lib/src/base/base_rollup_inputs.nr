@@ -8,28 +8,32 @@ use crate::{
 };
 use dep::types::{
     hash::sha256_to_field,
+    data::{
+    public_data_hint::PublicDataHint,
+    hash::{compute_public_data_tree_index, compute_public_data_tree_value}
+},
+    storage::map::derive_storage_slot_in_map, address::AztecAddress,
     abis::{
-    append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-    membership_witness::{ArchiveRootMembershipWitness, NullifierMembershipWitness, PublicDataMembershipWitness},
-    nullifier_leaf_preimage::NullifierLeafPreimage, public_data_update_request::PublicDataUpdateRequest,
-    public_data_read::PublicDataRead, kernel_data::KernelData,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    append_only_tree_snapshot::AppendOnlyTreeSnapshot, nullifier_leaf_preimage::NullifierLeafPreimage,
+    public_data_update_request::PublicDataUpdateRequest, public_data_read::PublicDataRead,
+    kernel_data::KernelData
 },
     constants::{
     NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
     PUBLIC_DATA_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT, MAX_NEW_NOTE_HASHES_PER_TX,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
-    NUM_ENCRYPTED_LOGS_HASHES_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX, NUM_UNENCRYPTED_LOGS_HASHES_PER_TX,
-    NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
-    PUBLIC_DATA_SUBTREE_HEIGHT
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX,
+    MAX_NEW_NULLIFIERS_PER_TX, NUM_ENCRYPTED_LOGS_HASHES_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+    NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
+    PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT,
+    PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, ARCHIVE_HEIGHT, GAS_TOKEN_ADDRESS,
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
 },
     merkle_tree::{
     append_only_tree, assert_check_membership, calculate_empty_tree_root, calculate_subtree_root,
     indexed_tree, MembershipWitness
 },
-    mocked::{AggregationObject, Proof}, partial_state_reference::PartialStateReference,
-    public_data_tree_leaf::PublicDataTreeLeaf,
-    public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
+    partial_state_reference::PartialStateReference, public_data_tree_leaf::PublicDataTreeLeaf,
+    public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage, traits::is_empty,
     utils::{field::{full_field_less_than, full_field_greater_than}, uint256::U256}
 };
 
@@ -38,23 +42,24 @@ struct BaseRollupInputs {
     start: PartialStateReference,
 
     state_diff_hints: StateDiffHints,
+    fee_payer_gas_token_balance_read_hint: PublicDataHint,
 
     // TODO: The following 6 values are eventually going to be nuked from here. See discussion:
     // https://aztecprotocol.slack.com/archives/C060PU5R327/p1701965354071269
-    sorted_public_data_writes: [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    sorted_public_data_writes_indexes: [u64; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    low_public_data_writes_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    low_public_data_writes_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    sorted_public_data_writes: [PublicDataTreeLeaf; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    sorted_public_data_writes_indexes: [u64; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    low_public_data_writes_preimages: [PublicDataTreeLeafPreimage; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    low_public_data_writes_witnesses: [MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 
-    archive_root_membership_witness: ArchiveRootMembershipWitness,
+    archive_root_membership_witness: MembershipWitness<ARCHIVE_HEIGHT>,
 
     constants: ConstantRollupData,
 }
 
 impl BaseRollupInputs {
     pub fn base_rollup_circuit(self) -> BaseOrMergeRollupPublicInputs {
-        // Verify the previous kernel proof
-        assert(verify_kernel_proof(self.kernel_data.proof), "kernel proof verification failed");
+        // Verify the kernel circuit proof
+        self.kernel_data.verify();
 
         // Verify the kernel chain_id and versions
         assert(
@@ -65,6 +70,16 @@ impl BaseRollupInputs {
             self.kernel_data.public_inputs.constants.tx_context.version
             == self.constants.global_variables.version, "kernel version does not match the rollup version"
         );
+
+        // Verify the kernel global variables if set, note these can be empty if this is a request coming directly from the private kernel tail.
+        // TODO(@spalladino) How can we check that this is a request coming from the private kernel tail?
+        assert(
+            self.kernel_data.public_inputs.constants.global_variables.is_empty()
+            | (self.kernel_data.public_inputs.constants.global_variables
+                == self.constants.global_variables), "kernel global variables do not match the rollup global variables"
+        );
+
+        self.validate_kernel_start_state();
 
         let rollup_validation_requests = self.kernel_data.public_inputs.rollup_validation_requests;
 
@@ -92,25 +107,29 @@ impl BaseRollupInputs {
         // Insert nullifiers:
         let end_nullifier_tree_snapshot = self.check_nullifier_tree_non_membership_and_insert_to_tree();
 
-        // Validate public public data reads and public data update requests, and update public data tree
-        let end_public_data_tree_snapshot = self.validate_and_process_public_state();
+        // Inject protocol update requests for deducting tx_fee from fee_payer's balance
+        let gas_fees = self.constants.global_variables.gas_fees;
+        let transaction_fee = self.kernel_data.public_inputs.compute_transaction_fee(gas_fees);
+        let all_public_data_update_requests = self.calculate_all_public_data_update_requests(transaction_fee);
+
+        // Validate public data update requests and update public data tree
+        let end_public_data_tree_snapshot = self.validate_and_process_public_state(all_public_data_update_requests);
 
         // Calculate the tx effects hash of the transaction
         let tx_effects_hash = compute_tx_effects_hash(
             self.kernel_data.public_inputs.end,
-            self.kernel_data.public_inputs.revert_code
+            self.kernel_data.public_inputs.revert_code,
+            transaction_fee,
+            all_public_data_update_requests
         );
         let out_hash = compute_kernel_out_hash(self.kernel_data.public_inputs.end);
 
         // Perform membership checks that the notes provided exist within the historical trees data
         self.perform_archive_membership_checks();
 
-        let aggregation_object = self.aggregate_proofs();
-
         BaseOrMergeRollupPublicInputs {
             rollup_type: BASE_ROLLUP_TYPE,
             height_in_block_tree: 0,
-            aggregation_object,
             constants: self.constants,
             start: self.start,
             end: PartialStateReference {
@@ -119,7 +138,8 @@ impl BaseRollupInputs {
                 public_data_tree: end_public_data_tree_snapshot
             },
             txs_effects_hash: tx_effects_hash,
-            out_hash
+            out_hash,
+            accumulated_fees: transaction_fee
         }
     }
 
@@ -138,7 +158,7 @@ impl BaseRollupInputs {
             self.state_diff_hints.nullifier_subtree_sibling_path,
             self.state_diff_hints.nullifier_predecessor_preimages,
             self.state_diff_hints.nullifier_predecessor_membership_witnesses.map(
-                |witness: NullifierMembershipWitness| {
+                |witness: MembershipWitness<NULLIFIER_TREE_HEIGHT>| {
                 MembershipWitness {
                     leaf_index: witness.leaf_index,
                     sibling_path: witness.sibling_path,
@@ -177,28 +197,28 @@ impl BaseRollupInputs {
         calculate_subtree_root(leaves.map(|leaf:NullifierLeafPreimage| leaf.hash()))
     }
 
-    fn validate_and_process_public_state(self) -> AppendOnlyTreeSnapshot {
-        // TODO(#2521) - data read validation should happen against the current state of the tx and not the start state.
-        // Blocks all interesting usecases that read and write to the same public state in the same tx.
-        // https://aztecprotocol.slack.com/archives/C02M7VC7TN0/p1695809629015719?thread_ts=1695653252.007339&cid=C02M7VC7TN0
+    fn validate_kernel_start_state(self) {
+        let kernel_state = self.kernel_data.public_inputs.start_state;
+        if !is_empty(kernel_state) {
+            assert(
+                kernel_state.note_hash_tree.eq(self.start.note_hash_tree), "Mismatch start state for note hash tree"
+            );
+            assert(
+                kernel_state.nullifier_tree.eq(self.start.nullifier_tree), "Mismatch start state for nullifier tree"
+            );
+            assert(
+                kernel_state.public_data_tree.eq(self.start.public_data_tree), "Mismatch start state for public data tree"
+            );
+        }
+    }
 
-        // Process public data reads and public data update requests for left input
-        // validate_public_data_reads(
-        //                            self.start_public_data_tree_root,
-        //                            self.kernel_data[0].public_inputs.end.public_data_reads,
-        //                            0,
-        //                            self.new_public_data_reads_sibling_paths);
-
+    fn validate_and_process_public_state(
+        self,
+        all_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]
+    ) -> AppendOnlyTreeSnapshot {
         let end_public_data_tree_snapshot = insert_public_data_update_requests(
             self.start.public_data_tree,
-            self.kernel_data.public_inputs.end.public_data_update_requests.map(
-                |request: PublicDataUpdateRequest| {
-                PublicDataTreeLeaf {
-                    slot: request.leaf_slot,
-                    value: request.new_value,
-                }
-            }
-            ),
+            all_update_requests.map(PublicDataTreeLeaf::from),
             self.sorted_public_data_writes,
             self.sorted_public_data_writes_indexes,
             self.low_public_data_writes_preimages,
@@ -207,6 +227,70 @@ impl BaseRollupInputs {
         );
 
         end_public_data_tree_snapshot
+    }
+
+    // Returns an array with all public data update requests for this tx. This includes all update requests
+    // generated by app circuits, plus the protocol update requests injected by this circuit. The only protocol
+    // update request we have at the time of this writing is deducting the tx_fee from the fee_payer balance.
+    fn calculate_all_public_data_update_requests(
+        self,
+        tx_fee: Field
+    ) -> [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
+        let mut all_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = [PublicDataUpdateRequest::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+        for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
+            all_update_requests[i] = self.kernel_data.public_inputs.end.public_data_update_requests[i];
+        }
+
+        let (payment_update_request, payment_update_index) = self.build_or_patch_payment_update_request(tx_fee);
+        all_update_requests[payment_update_index] = payment_update_request;
+
+        all_update_requests
+    }
+
+    // Deducts the tx_fee from the GasToken balance of the fee_payer. If there is already a PublicDataUpdateRequest
+    // in this tx for their balance (because they issued a 'claim' to increase their balance by bridging from L1), 
+    // update it by subtracting the tx_fee. Otherwise, build a new PublicDataUpdateRequest to subtract the tx_fee
+    // from the balance of the fee_payer, using the fee_payer_gas_token_balance_read_hint to read the current balance.
+    // Returns the data update request that subtracts the tx_fee from the fee_payer's balance, and the index where it
+    // should be inserted in the public data update requests array.
+    fn build_or_patch_payment_update_request(self, tx_fee: Field) -> (PublicDataUpdateRequest, u64) {
+        let fee_payer = self.kernel_data.public_inputs.fee_payer;
+
+        // TODO(@spalladino) Eventually remove the is_zero condition as we should always charge fees to every tx
+        if !fee_payer.is_zero() {
+            let read_hint = self.fee_payer_gas_token_balance_read_hint;
+            let leaf_slot = compute_fee_payer_gas_token_balance_leaf_slot(fee_payer);
+
+            if read_hint.leaf_slot == 0 {
+                // Is there a balance update already in this tx? If so, update it and return its index.
+                let existing_update_index = self.find_fee_payer_gas_token_update_index(leaf_slot);
+                let existing_update = self.kernel_data.public_inputs.end.public_data_update_requests[existing_update_index];
+                assert(
+                    existing_update.leaf_slot == leaf_slot, "Wrong leaf slot for gas token balance update request"
+                );
+                assert(
+                    !existing_update.new_value.lt(tx_fee), "Not enough balance for fee payer after claim to pay for transaction"
+                );
+
+                let new_value = compute_public_data_tree_value(existing_update.new_value - tx_fee);
+                let protocol_update_request = PublicDataUpdateRequest { leaf_slot, new_value };
+                (protocol_update_request, existing_update_index as u64)
+            } else {
+                // Otherwise, build a new one to be inserted into the protocol update requests at the end of the array.
+                read_hint.validate(self.start.public_data_tree.root);
+
+                let balance = read_hint.value;
+                assert(read_hint.leaf_slot == leaf_slot, "Wrong leaf slot for gas token balance read hint");
+                assert(!balance.lt(tx_fee), "Not enough balance for fee payer to pay for transaction");
+
+                let new_value = compute_public_data_tree_value(balance - tx_fee);
+                let protocol_update_request = PublicDataUpdateRequest { leaf_slot, new_value };
+                (protocol_update_request, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
+            }
+        } else {
+            // Nothing to do, just place an empty update request at the end of the array
+            (PublicDataUpdateRequest::empty(), MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
+        }
     }
 
     // Check that the block header used by each kernel is a member of the blocks tree --> since the block header
@@ -231,28 +315,27 @@ impl BaseRollupInputs {
         );
     }
 
-    // TODO(Kev): This aggregate_proof method is duplicated in a lot of places
-    fn aggregate_proofs(self) -> AggregationObject {
-        // TODO: for now we simply return the aggregation object from the first proof
-        self.kernel_data.public_inputs.aggregation_object
+    unconstrained fn find_fee_payer_gas_token_update_index(self, leaf_slot: Field) -> u64 {
+        let mut update_index = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1;
+        for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
+            if self.kernel_data.public_inputs.end.public_data_update_requests[i].leaf_slot == leaf_slot {
+                update_index = i;
+            }
+        }
+        assert(
+            update_index < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, "Could not find fee payer gas token update request"
+        );
+        update_index
     }
-}
-
-fn verify_kernel_proof(_proof: Proof) -> bool {
-    // TODO: Just return true as we are mocking out the proof verification
-    // and aggregation.
-    // TODO(Kev): It may make sense to move all of these methods into a
-    // separate module.
-    true
 }
 
 fn insert_public_data_update_requests(
     prev_snapshot: AppendOnlyTreeSnapshot,
-    public_data_writes: [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    sorted_public_data_writes: [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    sorted_public_data_writes_indexes: [u64; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    low_public_data_writes_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    low_public_data_writes_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    public_data_writes: [PublicDataTreeLeaf; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    sorted_public_data_writes: [PublicDataTreeLeaf; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    sorted_public_data_writes_indexes: [u64; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    low_public_data_writes_preimages: [PublicDataTreeLeafPreimage; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    low_public_data_writes_witnesses: [MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     public_data_writes_subtree_sibling_path: [Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH]
 ) -> AppendOnlyTreeSnapshot {
     indexed_tree::batch_insert(
@@ -263,7 +346,7 @@ fn insert_public_data_update_requests(
         public_data_writes_subtree_sibling_path,
         low_public_data_writes_preimages,
         low_public_data_writes_witnesses.map(
-            |witness: PublicDataMembershipWitness| {
+            |witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>| {
             MembershipWitness {
                 leaf_index: witness.leaf_index,
                 sibling_path: witness.sibling_path,
@@ -318,41 +401,11 @@ fn insert_public_data_update_requests(
     )
 }
 
-fn validate_public_data_reads(
-    tree_root: Field,
-    public_data_reads: [PublicDataRead; MAX_PUBLIC_DATA_READS_PER_TX],
-    public_data_reads_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_READS_PER_TX],
-    public_data_reads_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_READS_PER_TX]
-) {
-    for i in 0..MAX_PUBLIC_DATA_READS_PER_TX {
-        let read = public_data_reads[i];
-        let low_preimage = public_data_reads_preimages[i];
-        let witness = public_data_reads_witnesses[i];
-
-        let is_low_empty = low_preimage.is_empty();
-        let is_exact = low_preimage.slot == read.leaf_slot;
-
-        let is_less_than_slot = full_field_less_than(low_preimage.slot, read.leaf_slot);
-        let is_next_greater_than = full_field_less_than(read.leaf_slot, low_preimage.next_slot);
-        let is_in_range = is_less_than_slot
-            & (is_next_greater_than | ((low_preimage.next_index == 0) & (low_preimage.next_slot == 0)));
-
-        if (!read.is_empty()) {
-            assert(!is_low_empty, "public data read is not empty but low preimage is empty");
-            if is_in_range {
-                assert_eq(read.value, 0, "low leaf for public data read is in range but value is not zero");
-            } else {
-                assert(is_exact, "low leaf for public data read is invalid");
-                assert_eq(read.value, low_preimage.value, "low leaf for public data has different value");
-            }
-            assert_check_membership(
-                low_preimage.hash(),
-                witness.leaf_index,
-                witness.sibling_path,
-                tree_root
-            );
-        }
-    }
+fn compute_fee_payer_gas_token_balance_leaf_slot(fee_payer: AztecAddress) -> Field {
+    let balances_slot_in_gas_token_contract = 1;
+    let gas_token = AztecAddress::from_field(GAS_TOKEN_ADDRESS);
+    let fee_payer_balance_slot_in_gas_token_contract = derive_storage_slot_in_map(balances_slot_in_gas_token_contract, fee_payer);
+    compute_public_data_tree_index(gas_token, fee_payer_balance_slot_in_gas_token_contract)
 }
 
 #[test]
@@ -386,34 +439,39 @@ mod tests {
         constant_rollup_data::ConstantRollupData,
         base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs
     },
-        base::{state_diff_hints::StateDiffHints, base_rollup_inputs::BaseRollupInputs},
+        base::{
+        state_diff_hints::StateDiffHints,
+        base_rollup_inputs::{BaseRollupInputs, compute_fee_payer_gas_token_balance_leaf_slot}
+    },
         components::{TX_EFFECTS_HASH_INPUT_FIELDS, compute_kernel_out_hash}
     };
     use dep::types::{
         abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        membership_witness::{ArchiveRootMembershipWitness, NullifierMembershipWitness, PublicDataMembershipWitness},
         nullifier_leaf_preimage::NullifierLeafPreimage, public_data_read::PublicDataRead,
         public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData,
-        side_effect::SideEffect, accumulated_data::CombinedAccumulatedData
+        side_effect::SideEffect, accumulated_data::CombinedAccumulatedData, gas::Gas
     },
+        merkle_tree::MembershipWitness, data::public_data_hint::PublicDataHint,
         address::{AztecAddress, EthAddress},
         constants::{
-        ARCHIVE_HEIGHT, MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        ARCHIVE_HEIGHT, MAX_PUBLIC_DATA_READS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
         NOTE_HASH_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
         NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT,
         PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
-        MAX_NEW_L2_TO_L1_MSGS_PER_TX
+        MAX_NEW_L2_TO_L1_MSGS_PER_TX, PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
     },
         contract_class_id::ContractClassId, partial_state_reference::PartialStateReference,
         public_data_tree_leaf::PublicDataTreeLeaf,
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
         tests::{
-        fixture_builder::FixtureBuilder, merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes},
-        sort::sort_high_to_low
+        fixtures, fixture_builder::FixtureBuilder,
+        merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes}, sort::sort_high_to_low
     },
-        utils::{field::{full_field_less_than, field_from_bytes_32_trunc, field_from_bytes}, uint256::U256}
+        utils::{field::{full_field_less_than, field_from_bytes_32_trunc, field_from_bytes}, uint256::U256},
+        traits::Empty
     };
 
     struct NullifierInsertion {
@@ -422,26 +480,27 @@ mod tests {
     }
 
     global MAX_NEW_NULLIFIERS_PER_TEST = 4;
-    global MAX_PUBLIC_DATA_WRITES_PER_TEST = 2;
     global MAX_PUBLIC_DATA_READS_PER_TEST = 2;
 
     fn update_public_data_tree<EXISTING_LEAVES, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>(
         public_data_tree: &mut NonEmptyMerkleTree<EXISTING_LEAVES, PUBLIC_DATA_TREE_HEIGHT, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>,
         kernel_data: &mut KernelData,
         snapshot: AppendOnlyTreeSnapshot,
-        public_data_writes: BoundedVec<(u64, PublicDataTreeLeaf), 2>,
+        user_public_data_writes: BoundedVec<(u64, PublicDataTreeLeaf), MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+        protocol_public_data_writes: BoundedVec<(u64, PublicDataTreeLeaf), PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+        mut final_public_data_writes: BoundedVec<(u64, PublicDataTreeLeaf), MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
         mut pre_existing_public_data: [PublicDataTreeLeafPreimage; EXISTING_LEAVES]
-    ) -> ([Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH], [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [u64; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [PublicDataMembershipWitness; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [PublicDataTreeLeafPreimage; EXISTING_LEAVES]) {
-        let mut subtree_path: [Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH] = dep::std::unsafe::zeroed();
-        let mut sorted_public_data_writes: [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
-        let mut sorted_public_data_writes_indexes: [u64; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
-        let mut low_public_data_writes_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
-        let mut low_public_data_writes_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
-        let mut new_subtree: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
+    ) -> ([Field; 35], [PublicDataTreeLeaf; 32], [u64; 32], [PublicDataTreeLeafPreimage; 32], [MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>; 32], [PublicDataTreeLeafPreimage; EXISTING_LEAVES]) {
+        let mut subtree_path = [0; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH];
+        let mut sorted_public_data_writes = [PublicDataTreeLeaf::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+        let mut sorted_public_data_writes_indexes = [0 as u64; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+        let mut low_public_data_writes_preimages = [PublicDataTreeLeafPreimage::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+        let mut low_public_data_writes_witnesses = [MembershipWitness::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+        let mut new_subtree = [PublicDataTreeLeafPreimage::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
 
-        for i in 0..MAX_PUBLIC_DATA_WRITES_PER_TEST {
-            if i < (public_data_writes.len()) {
-                let leaf = public_data_writes.get_unchecked(i).1;
+        for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
+            if i < (user_public_data_writes.len()) {
+                let leaf = user_public_data_writes.get_unchecked(i).1;
 
                 kernel_data.public_inputs.end.public_data_update_requests[i] = PublicDataUpdateRequest {
                     leaf_slot : leaf.slot,
@@ -449,13 +508,20 @@ mod tests {
                 };
             }
         }
+
+        // Default final_public_data_writes to user_public_data_writes + protocol_public_data_writes if not set
+        if final_public_data_writes.len() == 0 {
+            final_public_data_writes.extend_from_array(user_public_data_writes.storage);
+            final_public_data_writes.extend_from_array(protocol_public_data_writes.storage);
+        }
+
         let mut sorted_write_tuples = sort_high_to_low(
-            public_data_writes.storage,
+            final_public_data_writes.storage,
             |(_, leaf_a): (u64, PublicDataTreeLeaf),(_,leaf_b):(u64, PublicDataTreeLeaf)| full_field_less_than(leaf_a.slot, leaf_b.slot)
         );
 
-        for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-            if i < MAX_PUBLIC_DATA_WRITES_PER_TEST {
+        for i in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
+            if i < final_public_data_writes.len() {
                 let (low_leaf_index, leaf): (u64, PublicDataTreeLeaf) = sorted_write_tuples[i].value;
 
                 sorted_public_data_writes[i] = leaf;
@@ -476,11 +542,11 @@ mod tests {
                             slot: low_leaf.slot,
                             value: low_leaf.value,
                             next_slot: leaf.slot,
-                            next_index: MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + i
+                            next_index: MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + i
                         };
                     }
                     low_public_data_writes_preimages[i] = low_leaf;
-                    low_public_data_writes_witnesses[i] = PublicDataMembershipWitness {
+                    low_public_data_writes_witnesses[i] = MembershipWitness {
                         leaf_index: low_leaf_index as Field,
                         sibling_path: public_data_tree.get_sibling_path(low_leaf_index)
                     };
@@ -508,12 +574,20 @@ mod tests {
         pre_existing_notes: [Field; MAX_NEW_NOTE_HASHES_PER_TX],
         pre_existing_nullifiers: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX],
         pre_existing_contracts: [Field; 2],
-        pre_existing_public_data: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+        pre_existing_public_data: [PublicDataTreeLeafPreimage; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
         pre_existing_blocks: [Field; 2],
         public_data_reads: BoundedVec<u64, MAX_PUBLIC_DATA_READS_PER_TEST>,
-        public_data_writes:BoundedVec<(u64, PublicDataTreeLeaf), MAX_PUBLIC_DATA_WRITES_PER_TEST>,
+        // Public data writes as returned from the last public kernel (ie all data writes generated by app code)
+        public_data_writes: BoundedVec<(u64, PublicDataTreeLeaf), MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+        // New public data writes to be created by the protocol (eg a data update request for updating fee payer balance)
+        protocol_public_data_writes: BoundedVec<(u64, PublicDataTreeLeaf), PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+        // Public data writes after processing by the base rollup circuit (defaults to public_data_writes ++ protocol_public_data_writes if empty)
+        final_public_data_writes: BoundedVec<(u64, PublicDataTreeLeaf), MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
         new_nullifiers: BoundedVec<NullifierInsertion, MAX_NEW_NULLIFIERS_PER_TEST>,
         constants: ConstantRollupData,
+        // Index of the item in the pre_existing_public_data array that contains the fee payer's gas token balance.
+        // Used for building the public data hint read for the payment update request. If set to none, no hint is built.
+        fee_payer_gas_token_balance_pre_existing_public_data_index: Option<u64>
     }
 
     fn test_compute_empty_root<N>(size: [Field; N]) -> Field {
@@ -522,14 +596,35 @@ mod tests {
 
     impl BaseRollupInputsBuilder {
         fn new() -> Self {
-            let mut inputs: BaseRollupInputsBuilder = dep::std::unsafe::zeroed();
+            let mut inputs = BaseRollupInputsBuilder::empty();
             inputs.kernel_data = FixtureBuilder::new();
-            inputs.constants.global_variables.chain_id = 1;
-            inputs.constants.global_variables.version = 0;
+            inputs.constants.global_variables.chain_id = fixtures::CHAIN_ID;
+            inputs.constants.global_variables.version = fixtures::VERSION;
 
             inputs.pre_existing_blocks[0] = inputs.kernel_data.historical_header.hash();
 
             inputs
+        }
+
+        fn build_fee_payer_gas_token_balance_read_hint(
+            self,
+            start_public_data_tree: NonEmptyMerkleTree<MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT - PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT>
+        ) -> PublicDataHint {
+            self.fee_payer_gas_token_balance_pre_existing_public_data_index.map_or(
+                PublicDataHint::empty(),
+                |leaf_index_u64: u64| {
+                    let leaf_index = leaf_index_u64 as Field;
+                    let leaf_preimage = self.pre_existing_public_data[leaf_index];
+                    let membership_witness = MembershipWitness { leaf_index, sibling_path: start_public_data_tree.get_sibling_path(leaf_index_u64) };
+                    PublicDataHint {
+                        leaf_slot: leaf_preimage.slot,
+                        value: leaf_preimage.value,
+                        override_counter: 0,
+                        membership_witness,
+                        leaf_preimage
+                    }
+                }
+            )
         }
 
         fn extract_subtree_sibling_path<FULL_HEIGHT, SIBLING_PATH_LENGTH>(
@@ -548,9 +643,9 @@ mod tests {
             nullifier_tree: &mut NonEmptyMerkleTree<MAX_NEW_NULLIFIERS_PER_TX, NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT>,
             kernel_data: &mut KernelData,
             start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot
-        ) -> ([NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX], [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_TX], [Field; MAX_NEW_NULLIFIERS_PER_TX], [u64; MAX_NEW_NULLIFIERS_PER_TX]) {
-            let mut nullifier_predecessor_preimages: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX] = dep::std::unsafe::zeroed();
-            let mut low_nullifier_membership_witness: [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_TX] = dep::std::unsafe::zeroed();
+        ) -> ([NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX], [MembershipWitness<NULLIFIER_TREE_HEIGHT>; MAX_NEW_NULLIFIERS_PER_TX], [Field; MAX_NEW_NULLIFIERS_PER_TX], [u64; MAX_NEW_NULLIFIERS_PER_TX]) {
+            let mut nullifier_predecessor_preimages = [NullifierLeafPreimage::empty(); MAX_NEW_NULLIFIERS_PER_TX];
+            let mut low_nullifier_membership_witness = [MembershipWitness::empty(); MAX_NEW_NULLIFIERS_PER_TX];
 
             let sorted_new_nullifier_tuples = sort_high_to_low(
                 self.new_nullifiers.storage.map(|insertion: NullifierInsertion| insertion.value),
@@ -584,7 +679,7 @@ mod tests {
 
                     let mut low_preimage = pre_existing_nullifiers[low_index];
                     nullifier_predecessor_preimages[i] = low_preimage;
-                    low_nullifier_membership_witness[i] = NullifierMembershipWitness {
+                    low_nullifier_membership_witness[i] = MembershipWitness {
                         leaf_index: low_index as Field,
                         sibling_path: nullifier_tree.get_sibling_path(low_index)
                     };
@@ -643,6 +738,8 @@ mod tests {
                 next_available_leaf_index: start_public_data_tree.get_next_available_index() as u32
             };
 
+            let fee_payer_gas_token_balance_read_hint = self.build_fee_payer_gas_token_balance_read_hint(start_public_data_tree);
+
             let start_archive = NonEmptyMerkleTree::new(
                 self.pre_existing_blocks,
                 [0; ARCHIVE_HEIGHT],
@@ -682,6 +779,8 @@ mod tests {
                 &mut kernel_data,
                 start_public_data_tree_snapshot,
                 self.public_data_writes,
+                self.protocol_public_data_writes,
+                self.final_public_data_writes,
                 self.pre_existing_public_data
             );
 
@@ -709,8 +808,9 @@ mod tests {
                 sorted_public_data_writes_indexes,
                 low_public_data_writes_preimages,
                 low_public_data_writes_witnesses,
-                archive_root_membership_witness: ArchiveRootMembershipWitness { leaf_index: 0, sibling_path: start_archive.get_sibling_path(0) },
-                constants: self.constants
+                archive_root_membership_witness: MembershipWitness { leaf_index: 0, sibling_path: start_archive.get_sibling_path(0) },
+                constants: self.constants,
+                fee_payer_gas_token_balance_read_hint
             }
         }
 
@@ -727,16 +827,34 @@ mod tests {
         }
     }
 
+    impl Empty for BaseRollupInputsBuilder {
+        fn empty() -> Self {
+            BaseRollupInputsBuilder {
+                kernel_data: FixtureBuilder::new(),
+                pre_existing_notes: [0; MAX_NEW_NOTE_HASHES_PER_TX],
+                pre_existing_nullifiers: [NullifierLeafPreimage::empty(); MAX_NEW_NULLIFIERS_PER_TX],
+                pre_existing_contracts: [0; 2],
+                pre_existing_public_data: [PublicDataTreeLeafPreimage::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+                pre_existing_blocks: [0; 2],
+                public_data_reads: BoundedVec::new(),
+                public_data_writes: BoundedVec::new(),
+                protocol_public_data_writes: BoundedVec::new(),
+                final_public_data_writes: BoundedVec::new(),
+                new_nullifiers: BoundedVec::new(),
+                constants: ConstantRollupData::empty(),
+                fee_payer_gas_token_balance_pre_existing_public_data_index: Option::none()
+            }
+        }
+    }
+
     #[test]
     unconstrained fn new_note_hashes_tree() {
         let mut builder = BaseRollupInputsBuilder::new();
 
         let new_note_hashes = [27, 28, 29, 30, 31, 32];
-        let mut new_note_hashes_vec = builder.kernel_data.new_note_hashes;
         for i in 0..new_note_hashes.len() {
-            new_note_hashes_vec.push(SideEffect { value: new_note_hashes[i], counter: 0 });
+            builder.kernel_data.add_new_note_hash(new_note_hashes[i]);
         }
-        builder.kernel_data.new_note_hashes = new_note_hashes_vec;
         let mut expected_commitments_tree = NonEmptyMerkleTree::new(
             [0; MAX_NEW_NOTE_HASHES_PER_TX * 2],
             [0; NOTE_HASH_TREE_HEIGHT],
@@ -955,7 +1073,7 @@ mod tests {
 
     #[test]
     unconstrained fn nonempty_block_out_hash() {
-        let mut end: CombinedAccumulatedData = dep::std::unsafe::zeroed();
+        let mut end = CombinedAccumulatedData::empty();
         end.new_l2_to_l1_msgs[MAX_NEW_L2_TO_L1_MSGS_PER_TX - 1] = 123;
 
         let out_hash = compute_kernel_out_hash(end);
@@ -992,7 +1110,15 @@ mod tests {
     #[test(should_fail_with = "kernel version does not match the rollup version")]
     unconstrained fn constants_dont_match_kernels_version() {
         let mut builder = BaseRollupInputsBuilder::new();
-        builder.constants.global_variables.version = 3;
+        builder.constants.global_variables.version += 1;
+        builder.fails();
+    }
+
+    #[test(should_fail_with = "kernel global variables do not match the rollup global variables")]
+    unconstrained fn constants_global_variables_dont_match_kernels() {
+        let mut builder = BaseRollupInputsBuilder::new();
+        builder.kernel_data.global_variables.block_number = 6;
+        builder.constants.global_variables.block_number = 7;
         builder.fails();
     }
 
@@ -1087,12 +1213,12 @@ mod tests {
 
         let outputs = builder.execute();
 
-        let mut public_data_leaves = [0; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2];
+        let mut public_data_leaves = [0; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2];
         public_data_leaves[0] = PublicDataTreeLeafPreimage {
             slot: 20,
             value: 90,
             next_slot: 25,
-            next_index: MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+            next_index: MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         }.hash();
         public_data_leaves[1] = PublicDataTreeLeafPreimage {
             slot: 28,
@@ -1112,7 +1238,7 @@ mod tests {
             next_slot: 0,
             next_index: 0,
         }.hash();
-        public_data_leaves[MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = PublicDataTreeLeafPreimage {
+        public_data_leaves[MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = PublicDataTreeLeafPreimage {
             slot: 25,
             value: 60,
             next_slot: 28,
@@ -1127,5 +1253,163 @@ mod tests {
         );
 
         assert_eq(outputs.end.public_data_tree.root, expected_public_data_tree.get_root());
+    }
+
+    #[test]
+    unconstrained fn updates_fee_payer_balance_with_new_data_write() {
+        let fee_payer = AztecAddress::from_field(0x1234);
+        let balance_slot = compute_fee_payer_gas_token_balance_leaf_slot(fee_payer);
+        let initial_balance = 300_000;
+        let tx_fee = 100_000;
+        let expected_balance = 200_000;
+
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        // Set fee payer
+        builder.kernel_data.fee_payer = fee_payer;
+
+        // Set pre-existing balance
+        builder.pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
+            slot: balance_slot,
+            value: initial_balance,
+            next_slot: 0,
+            next_index: 0,
+        };
+        builder.fee_payer_gas_token_balance_pre_existing_public_data_index = Option::some(0);
+
+        // Set values for computing exact tx_fee
+        builder.kernel_data.tx_context.gas_settings.inclusion_fee = tx_fee;
+
+        // Set expected protocol data update
+        builder.protocol_public_data_writes.push((0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance }));
+
+        let outputs = builder.execute();
+
+        // The new public data tree should have updated the balance of the fee payer
+        let updated_leaf = PublicDataTreeLeafPreimage { slot: balance_slot, value: expected_balance, next_slot: 0, next_index: 0 };
+        let mut expected_public_data_tree = NonEmptyMerkleTree::new(
+            [updated_leaf.hash(), 0],
+            [0; PUBLIC_DATA_TREE_HEIGHT],
+            [0; PUBLIC_DATA_TREE_HEIGHT - 1],
+            [0; 1]
+        );
+
+        assert_eq(outputs.end.public_data_tree.root, expected_public_data_tree.get_root());
+    }
+
+    #[test]
+    unconstrained fn updates_fee_payer_balance_in_existing_data_write() {
+        let fee_payer = AztecAddress::from_field(0x1234);
+        let balance_slot = compute_fee_payer_gas_token_balance_leaf_slot(fee_payer);
+        let initial_balance = 100_000;
+        let after_claim_balance = 300_000;
+        let tx_fee = 100_000;
+        let expected_balance = 200_000;
+
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        // Set fee payer
+        builder.kernel_data.fee_payer = fee_payer;
+
+        // Set pre-existing balance, but set no hint for it since we'll update a user update request
+        builder.pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
+            slot: balance_slot,
+            value: initial_balance,
+            next_slot: 0,
+            next_index: 0,
+        };
+
+        // Set values for computing exact tx_fee
+        builder.kernel_data.tx_context.gas_settings.inclusion_fee = tx_fee;
+
+        // Create an existing data update that corresponds to a claim
+        builder.public_data_writes.push((0, PublicDataTreeLeaf { slot: balance_slot, value: after_claim_balance }));
+
+        // Set expected data updates after base rollup runs
+        // Note that we tweak the final_public_data_writes directly, since we need to overwrite the output of the user public_data_writes
+        builder.final_public_data_writes.push((0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance }));
+
+        let outputs = builder.execute();
+
+        // The new public data tree should have updated the balance of the fee payer
+        let updated_leaf = PublicDataTreeLeafPreimage { slot: balance_slot, value: expected_balance, next_slot: 0, next_index: 0 };
+        let mut expected_public_data_tree = NonEmptyMerkleTree::new(
+            [updated_leaf.hash(), 0],
+            [0; PUBLIC_DATA_TREE_HEIGHT],
+            [0; PUBLIC_DATA_TREE_HEIGHT - 1],
+            [0; 1]
+        );
+
+        assert_eq(outputs.end.public_data_tree.root, expected_public_data_tree.get_root());
+    }
+
+    #[test(should_fail_with="Not enough balance for fee payer to pay for transaction")]
+    unconstrained fn fails_to_update_fee_payer_balance_if_not_enough_funds() {
+        let fee_payer = AztecAddress::from_field(0x1234);
+        let balance_slot = compute_fee_payer_gas_token_balance_leaf_slot(fee_payer);
+        // Set low initial balance so it fails!
+        let initial_balance = 10_000;
+        let tx_fee = 100_000;
+
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        // Set fee payer
+        builder.kernel_data.fee_payer = fee_payer;
+
+        // Set pre-existing balance
+        builder.pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
+            slot: balance_slot,
+            value: initial_balance,
+            next_slot: 0,
+            next_index: 0,
+        };
+        builder.fee_payer_gas_token_balance_pre_existing_public_data_index = Option::some(0);
+
+        // Set values for computing exact tx_fee
+        builder.kernel_data.tx_context.gas_settings.inclusion_fee = tx_fee;
+
+        // Set expected protocol data update
+        builder.protocol_public_data_writes.push((0, PublicDataTreeLeaf { slot: balance_slot, value: -90_000 }));
+
+        builder.fails();
+    }
+
+    #[test(should_fail_with="Wrong leaf slot for gas token balance read hint")]
+    unconstrained fn fails_to_update_fee_payer_balance_if_wrong_read_hint() {
+        let fee_payer = AztecAddress::from_field(0x1234);
+        let balance_slot = compute_fee_payer_gas_token_balance_leaf_slot(fee_payer);
+        let initial_balance = 300_000;
+        let expected_balance = 200_000;
+        let tx_fee = 100_000;
+
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        // Set fee payer
+        builder.kernel_data.fee_payer = fee_payer;
+
+        // Set pre-existing balance in index 0
+        builder.pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
+            slot: balance_slot,
+            value: initial_balance,
+            next_slot: 0,
+            next_index: 0,
+        };
+        builder.pre_existing_public_data[1] = PublicDataTreeLeafPreimage {
+            slot: 1,
+            value: initial_balance,
+            next_slot: balance_slot,
+            next_index: 0,
+        };
+
+        // But point the read hint to the wrong one!
+        builder.fee_payer_gas_token_balance_pre_existing_public_data_index = Option::some(1);
+
+        // Set values for computing exact tx_fee
+        builder.kernel_data.tx_context.gas_settings.inclusion_fee = tx_fee;
+
+        // Set expected protocol data update
+        builder.protocol_public_data_writes.push((0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance }));
+
+        builder.fails();
     }
 }

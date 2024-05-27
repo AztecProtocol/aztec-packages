@@ -1,16 +1,10 @@
-import {
-  type AztecNode,
-  type KeyStore,
-  type L2Block,
-  L2BlockL2Logs,
-  MerkleTreeId,
-  type TxHash,
-} from '@aztec/circuit-types';
+import { type AztecNode, type L2Block, L2BlockL2Logs, MerkleTreeId, type TxHash } from '@aztec/circuit-types';
 import { type NoteProcessorCaughtUpStats } from '@aztec/circuit-types/stats';
 import { type AztecAddress, type Fr, INITIAL_L2_BLOCK_NUM, type PublicKey } from '@aztec/circuits.js';
 import { type SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { type KeyStore } from '@aztec/key-store';
 
 import { type DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
@@ -105,18 +99,18 @@ export class Synchronizer {
         return false;
       }
 
-      const encryptedLogs = blocks.flatMap(block => block.body.encryptedLogs);
+      const noteEncryptedLogs = blocks.flatMap(block => block.body.noteEncryptedLogs);
 
       // Update latest tree roots from the most recent block
       const latestBlock = blocks[blocks.length - 1];
       await this.setHeaderFromBlock(latestBlock);
 
-      const logCount = L2BlockL2Logs.getTotalLogCount(encryptedLogs);
+      const logCount = L2BlockL2Logs.getTotalLogCount(noteEncryptedLogs);
       this.log.debug(
         `Forwarding ${logCount} encrypted logs and blocks to ${this.noteProcessors.length} note processors`,
       );
       for (const noteProcessor of this.noteProcessors) {
-        await noteProcessor.process(blocks, encryptedLogs);
+        await noteProcessor.process(blocks, noteEncryptedLogs);
       }
       return true;
     } catch (err) {
@@ -182,9 +176,9 @@ export class Synchronizer {
         throw new Error('No blocks in processor catch up mode');
       }
 
-      const encryptedLogs = blocks.flatMap(block => block.body.encryptedLogs);
+      const noteEncryptedLogs = blocks.flatMap(block => block.body.noteEncryptedLogs);
 
-      const logCount = L2BlockL2Logs.getTotalLogCount(encryptedLogs);
+      const logCount = L2BlockL2Logs.getTotalLogCount(noteEncryptedLogs);
       this.log.debug(`Forwarding ${logCount} encrypted logs and blocks to note processors in catch up mode`);
 
       for (const noteProcessor of catchUpGroup) {
@@ -198,24 +192,27 @@ export class Synchronizer {
         }
 
         this.log.debug(
-          `Catching up note processor ${noteProcessor.publicKey.toString()} by processing ${
+          `Catching up note processor ${noteProcessor.masterIncomingViewingPublicKey.toString()} by processing ${
             blocks.length - index
           } blocks`,
         );
-        await noteProcessor.process(blocks.slice(index), encryptedLogs.slice(index));
+        await noteProcessor.process(blocks.slice(index), noteEncryptedLogs.slice(index));
 
         if (noteProcessor.status.syncedToBlock === toBlockNumber) {
           // Note processor caught up, move it to `noteProcessors` from `noteProcessorsToCatchUp`.
-          this.log.debug(`Note processor for ${noteProcessor.publicKey.toString()} has caught up`, {
-            eventName: 'note-processor-caught-up',
-            publicKey: noteProcessor.publicKey.toString(),
-            duration: noteProcessor.timer.ms(),
-            dbSize: this.db.estimateSize(),
-            ...noteProcessor.stats,
-          } satisfies NoteProcessorCaughtUpStats);
+          this.log.debug(
+            `Note processor for ${noteProcessor.masterIncomingViewingPublicKey.toString()} has caught up`,
+            {
+              eventName: 'note-processor-caught-up',
+              publicKey: noteProcessor.masterIncomingViewingPublicKey.toString(),
+              duration: noteProcessor.timer.ms(),
+              dbSize: this.db.estimateSize(),
+              ...noteProcessor.stats,
+            } satisfies NoteProcessorCaughtUpStats,
+          );
 
           this.noteProcessorsToCatchUp = this.noteProcessorsToCatchUp.filter(
-            np => !np.publicKey.equals(noteProcessor.publicKey),
+            np => !np.masterIncomingViewingPublicKey.equals(noteProcessor.masterIncomingViewingPublicKey),
           );
           this.noteProcessors.push(noteProcessor);
         }
@@ -260,7 +257,7 @@ export class Synchronizer {
    * @returns A promise that resolves once the account is added to the Synchronizer.
    */
   public addAccount(publicKey: PublicKey, keyStore: KeyStore, startingBlock: number) {
-    const predicate = (x: NoteProcessor) => x.publicKey.equals(publicKey);
+    const predicate = (x: NoteProcessor) => x.masterIncomingViewingPublicKey.equals(publicKey);
     const processor = this.noteProcessors.find(predicate) ?? this.noteProcessorsToCatchUp.find(predicate);
     if (processor) {
       return;
@@ -282,7 +279,8 @@ export class Synchronizer {
     if (!completeAddress) {
       throw new Error(`Checking if account is synched is not possible for ${account} because it is not registered.`);
     }
-    const findByPublicKey = (x: NoteProcessor) => x.publicKey.equals(completeAddress.publicKey);
+    const findByPublicKey = (x: NoteProcessor) =>
+      x.masterIncomingViewingPublicKey.equals(completeAddress.publicKeys.masterIncomingViewingPublicKey);
     const processor = this.noteProcessors.find(findByPublicKey) ?? this.noteProcessorsToCatchUp.find(findByPublicKey);
     if (!processor) {
       throw new Error(
@@ -315,7 +313,9 @@ export class Synchronizer {
     const lastBlockNumber = this.getSynchedBlockNumber();
     return {
       blocks: lastBlockNumber,
-      notes: Object.fromEntries(this.noteProcessors.map(n => [n.publicKey.toString(), n.status.syncedToBlock])),
+      notes: Object.fromEntries(
+        this.noteProcessors.map(n => [n.masterIncomingViewingPublicKey.toString(), n.status.syncedToBlock]),
+      ),
     };
   }
 
@@ -345,7 +345,7 @@ export class Synchronizer {
       // to be safe, try each note processor in case the deferred notes are for different accounts.
       for (const processor of this.noteProcessors) {
         const decodedNotes = await processor.decodeDeferredNotes(
-          deferredNotes.filter(n => n.publicKey.equals(processor.publicKey)),
+          deferredNotes.filter(n => n.publicKey.equals(processor.masterIncomingViewingPublicKey)),
         );
         newNotes.push(...decodedNotes);
       }

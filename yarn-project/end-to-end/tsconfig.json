@@ -19,13 +19,13 @@
       "path": "../aztec.js"
     },
     {
+      "path": "../bb-prover"
+    },
+    {
       "path": "../circuit-types"
     },
     {
       "path": "../circuits.js"
-    },
-    {
-      "path": "../cli"
     },
     {
       "path": "../entrypoints"

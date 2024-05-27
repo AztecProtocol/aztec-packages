@@ -1,12 +1,13 @@
-import { GrumpkinScalar, createPXEClient, AccountManager, Fr, Wallet } from '@aztec/aztec.js';
+import { createPXEClient, AccountManager, Fr, Wallet, deriveMasterIncomingViewingSecretKey } from '@aztec/aztec.js';
 
 import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
 import { VanillaContract } from '../artifacts/Vanilla';
 
-const privateKey: GrumpkinScalar = GrumpkinScalar.random();
+const secretKey = Fr.random();
 const pxe = createPXEClient(process.env.PXE_URL || 'http://localhost:8080');
 
-const account = new AccountManager(pxe, privateKey, new SingleKeyAccountContract(privateKey));
+const encryptionPrivateKey = deriveMasterIncomingViewingSecretKey(secretKey);
+const account = new AccountManager(pxe, secretKey, new SingleKeyAccountContract(encryptionPrivateKey));
 let contract: any = null;
 let wallet: Wallet | null = null;
 
@@ -19,7 +20,7 @@ const setWait = (state: boolean): void =>
 document.querySelector('#deploy').addEventListener('click', async ({ target }: any) => {
   setWait(true);
   wallet = await account.register();
-  contract = await VanillaContract.deploy(wallet, Fr.random(), wallet.getCompleteAddress().address)
+  contract = await VanillaContract.deploy(wallet, Fr.random(), wallet.getCompleteAddress().address, wallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash(), wallet.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey)
     .send({ contractAddressSalt: Fr.random() })
     .deployed();
   alert(`Contract deployed at ${contract.address}`);
@@ -34,8 +35,8 @@ document.querySelector('#set').addEventListener('submit', async (e: Event) => {
   setWait(true);
 
   const { value } = document.querySelector('#number') as HTMLInputElement;
-  const owner = wallet.getCompleteAddress().address;
-  await contract.methods.setNumber(parseInt(value), owner).send().wait();
+  const { address: owner, publicKeys } = wallet.getCompleteAddress();
+  await contract.methods.setNumber(parseInt(value), owner, publicKeys.masterNullifierPublicKey.hash(), publicKeys.masterIncomingViewingPublicKey).send().wait();
 
   setWait(false);
   alert('Number set!');

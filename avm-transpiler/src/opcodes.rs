@@ -1,5 +1,6 @@
 /// All AVM opcodes
-/// Keep updated with TS and yellow paper!
+/// Keep updated with TS, cpp, and docs protocol specs!
+#[allow(clippy::upper_case_acronyms, dead_code)]
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum AvmOpcode {
     // Compute
@@ -21,24 +22,20 @@ pub enum AvmOpcode {
     // Execution environment
     ADDRESS,
     STORAGEADDRESS,
-    ORIGIN,
     SENDER,
-    PORTAL,
-    FEEPERL1GAS,
     FEEPERL2GAS,
     FEEPERDAGAS,
+    TRANSACTIONFEE,
     CONTRACTCALLDEPTH,
     CHAINID,
     VERSION,
     BLOCKNUMBER,
     TIMESTAMP,
     COINBASE,
-    BLOCKL1GASLIMIT,
     BLOCKL2GASLIMIT,
     BLOCKDAGASLIMIT,
     CALLDATACOPY,
     // Gas
-    L1GASLEFT,
     L2GASLEFT,
     DAGASLEFT,
     // Control flow
@@ -68,11 +65,15 @@ pub enum AvmOpcode {
     DELEGATECALL,
     RETURN,
     REVERT,
+    // Misc
+    DEBUGLOG,
     // Gadgets
     KECCAK,
-    POSEIDON,
+    POSEIDON2,
     SHA256,   // temp - may be removed, but alot of contracts rely on it
     PEDERSEN, // temp - may be removed, but alot of contracts rely on it
+    // Conversions
+    TORADIXLE,
 }
 
 impl AvmOpcode {
@@ -102,12 +103,10 @@ impl AvmOpcode {
             // Execution Environment
             AvmOpcode::ADDRESS => "ADDRESS",
             AvmOpcode::STORAGEADDRESS => "STORAGEADDRESS",
-            AvmOpcode::ORIGIN => "ORIGIN",
             AvmOpcode::SENDER => "SENDER",
-            AvmOpcode::PORTAL => "PORTAL",
-            AvmOpcode::FEEPERL1GAS => "FEEPERL1GAS",
             AvmOpcode::FEEPERL2GAS => "FEEPERL2GAS",
             AvmOpcode::FEEPERDAGAS => "FEEPERDAGAS",
+            AvmOpcode::TRANSACTIONFEE => "TRANSACTIONFEE",
             AvmOpcode::CONTRACTCALLDEPTH => "CONTRACTCALLDEPTH",
             // Execution Environment - Globals
             AvmOpcode::CHAINID => "CHAINID",
@@ -115,7 +114,6 @@ impl AvmOpcode {
             AvmOpcode::BLOCKNUMBER => "BLOCKNUMBER",
             AvmOpcode::TIMESTAMP => "TIMESTAMP",
             AvmOpcode::COINBASE => "COINBASE",
-            AvmOpcode::BLOCKL1GASLIMIT => "BLOCKL1GASLIMIT",
             AvmOpcode::BLOCKL2GASLIMIT => "BLOCKL2GASLIMIT",
             AvmOpcode::BLOCKDAGASLIMIT => "BLOCKDAGASLIMIT",
             // Execution Environment - Calldata
@@ -123,7 +121,6 @@ impl AvmOpcode {
 
             // Machine State
             // Machine State - Gas
-            AvmOpcode::L1GASLEFT => "L1GASLEFT",
             AvmOpcode::L2GASLEFT => "L2GASLEFT",
             AvmOpcode::DAGASLEFT => "DAGASLEFT",
             // Machine State - Internal Control Flow
@@ -158,11 +155,16 @@ impl AvmOpcode {
             AvmOpcode::RETURN => "RETURN",
             AvmOpcode::REVERT => "REVERT",
 
+            // Misc
+            AvmOpcode::DEBUGLOG => "DEBUGLOG",
+
             // Gadgets
             AvmOpcode::KECCAK => "KECCAK",
-            AvmOpcode::POSEIDON => "POSEIDON",
+            AvmOpcode::POSEIDON2 => "POSEIDON2",
             AvmOpcode::SHA256 => "SHA256 ",
             AvmOpcode::PEDERSEN => "PEDERSEN",
+            // Conversions
+            AvmOpcode::TORADIXLE => "TORADIXLE",
         }
     }
 }

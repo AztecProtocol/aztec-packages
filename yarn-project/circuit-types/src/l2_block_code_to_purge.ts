@@ -4,12 +4,14 @@ import {
   ContentCommitment,
   EthAddress,
   Fr,
+  GasFees,
   GlobalVariables,
   Header,
   NUM_BYTES_PER_SHA256,
   PartialStateReference,
   StateReference,
 } from '@aztec/circuits.js';
+import { fr } from '@aztec/circuits.js/testing';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 
 /**
@@ -26,6 +28,7 @@ export function makeHeader(
     makeContentCommitment(seed + 0x200, txsEffectsHash, inHash),
     makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), blockNumber),
+    fr(seed + 0x800),
   );
 }
 
@@ -92,6 +95,7 @@ export function makeGlobalVariables(seed = 1, blockNumber: number | undefined = 
       new Fr(seed + 3),
       EthAddress.fromField(new Fr(seed + 4)),
       AztecAddress.fromField(new Fr(seed + 5)),
+      new GasFees(new Fr(seed + 6), new Fr(seed + 7)),
     );
   }
   return new GlobalVariables(
@@ -101,5 +105,6 @@ export function makeGlobalVariables(seed = 1, blockNumber: number | undefined = 
     new Fr(seed + 3),
     EthAddress.fromField(new Fr(seed + 4)),
     AztecAddress.fromField(new Fr(seed + 5)),
+    new GasFees(new Fr(seed + 6), new Fr(seed + 7)),
   );
 }

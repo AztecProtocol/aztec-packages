@@ -5,14 +5,13 @@ import {
   type NullifierMembershipWitness,
   type PublicDataWitness,
 } from '@aztec/circuit-types';
-import { type CompleteAddress, type Header } from '@aztec/circuits.js';
-import { type FunctionArtifactWithDebugMetadata, type FunctionSelector } from '@aztec/foundation/abi';
+import { type CompleteAddress, type Header, type KeyValidationRequest } from '@aztec/circuits.js';
+import { type FunctionArtifact, type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
 
-import { type KeyPair, type NoteData } from '../acvm/index.js';
+import { type NoteData } from '../acvm/index.js';
 import { type CommitmentsDB } from '../public/db.js';
 
 /**
@@ -46,10 +45,11 @@ export interface DBOracle extends CommitmentsDB {
 
   /**
    * Retrieve the complete address associated to a given address.
-   * @param address - Address to fetch the pubkey for.
+   * @param account - The account address.
    * @returns A complete address associated with the input address.
+   * @throws An error if the account is not registered in the database.
    */
-  getCompleteAddress(address: AztecAddress): Promise<CompleteAddress>;
+  getCompleteAddress(account: AztecAddress): Promise<CompleteAddress>;
 
   /**
    * Retrieve the auth witness for a given message hash.
@@ -66,16 +66,12 @@ export interface DBOracle extends CommitmentsDB {
   popCapsule(): Promise<Fr[]>;
 
   /**
-   * Retrieve the nullifier key pair associated with a specific account.
-   * The function only allows access to the secret keys of the transaction creator,
-   * and throws an error if the address does not match the account address of the key pair.
-   *
-   * @param accountAddress - The account address.
-   * @param contractAddress - The contract address.
-   * @returns A Promise that resolves to the nullifier key pair.
-   * @throws An Error if the input address does not match the account address of the key pair.
+   * Retrieve keys associated with a specific master public key and app address.
+   * @param pkMHash - The master public key hash.
+   * @returns A Promise that resolves to nullifier keys.
+   * @throws If the keys are not registered in the key store.
    */
-  getNullifierKeyPair(accountAddress: AztecAddress, contractAddress: AztecAddress): Promise<KeyPair>;
+  getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest>;
 
   /**
    * Retrieves a set of notes stored in the database for a given contract address and storage slot.
@@ -97,10 +93,14 @@ export interface DBOracle extends CommitmentsDB {
    * @param selector - The corresponding function selector.
    * @returns A Promise that resolves to a FunctionArtifact object.
    */
-  getFunctionArtifact(
-    contractAddress: AztecAddress,
-    selector: FunctionSelector,
-  ): Promise<FunctionArtifactWithDebugMetadata>;
+  getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector): Promise<FunctionArtifact>;
+
+  /**
+   * Generates a stable function name for debug purposes.
+   * @param contractAddress - The contract address.
+   * @param selector - The corresponding function selector.
+   */
+  getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string>;
 
   /**
    * Retrieves the artifact of a specified function within a given contract.
@@ -110,19 +110,7 @@ export interface DBOracle extends CommitmentsDB {
    * @param functionName - The name of the function.
    * @returns The corresponding function's artifact as an object.
    */
-  getFunctionArtifactByName(
-    contractAddress: AztecAddress,
-    functionName: string,
-  ): Promise<FunctionArtifactWithDebugMetadata | undefined>;
-
-  /**
-   * Retrieves the portal contract address associated with the given contract address.
-   * Throws an error if the input contract address is not found or invalid.
-   *
-   * @param contractAddress - The address of the contract whose portal address is to be fetched.
-   * @returns A Promise that resolves to an EthAddress instance, representing the portal contract address.
-   */
-  getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress>;
+  getFunctionArtifactByName(contractAddress: AztecAddress, functionName: string): Promise<FunctionArtifact | undefined>;
 
   /**
    * Gets the index of a nullifier in the nullifier tree.

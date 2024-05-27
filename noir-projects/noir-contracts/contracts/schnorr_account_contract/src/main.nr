@@ -7,7 +7,6 @@ contract SchnorrAccount {
 
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, PrivateContext, PrivateImmutable};
     use dep::aztec::state_vars::{Map, PublicMutable};
-    use dep::aztec::{context::Context, oracle::get_public_key::get_public_key};
     use dep::authwit::{
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
         auth_witness::get_auth_witness
@@ -28,19 +27,23 @@ contract SchnorrAccount {
     // Constructs the contract
     #[aztec(private)]
     #[aztec(initializer)]
-    fn constructor(signing_pub_key_x: pub Field, signing_pub_key_y: pub Field) {
+    fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let this = context.this_address();
+        let header = context.get_header();
+        let this_npk_m_hash = header.get_npk_m_hash(&mut context, this);
+        let this_ivpk_m = header.get_ivpk_m(&mut context, this);
+
         // docs:start:initialize
-        let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
-        storage.signing_public_key.initialize(&mut pub_key_note, true);
+        let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_npk_m_hash);
+        storage.signing_public_key.initialize(&mut pub_key_note, true, this_ivpk_m);
         // docs:end:initialize
     }
 
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts file
     #[aztec(private)]
     #[aztec(noinitcheck)]
-    fn entrypoint(app_payload: pub AppPayload, fee_payload: pub FeePayload) {
-        let actions = AccountActions::private(
+    fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload) {
+        let actions = AccountActions::init(
             &mut context,
             storage.approved_actions.storage_slot,
             is_valid_impl
@@ -50,19 +53,8 @@ contract SchnorrAccount {
 
     #[aztec(private)]
     #[aztec(noinitcheck)]
-    fn pay_init_fee(fee_payload: pub FeePayload) {
-        let actions = AccountActions::private(
-            &mut context,
-            storage.approved_actions.storage_slot,
-            is_valid_impl
-        );
-        actions.pay_init_fee(fee_payload);
-    }
-
-    #[aztec(private)]
-    #[aztec(noinitcheck)]
     fn spend_private_authwit(inner_hash: Field) -> Field {
-        let actions = AccountActions::private(
+        let actions = AccountActions::init(
             &mut context,
             storage.approved_actions.storage_slot,
             is_valid_impl
@@ -73,7 +65,7 @@ contract SchnorrAccount {
     #[aztec(public)]
     #[aztec(noinitcheck)]
     fn spend_public_authwit(inner_hash: Field) -> Field {
-        let actions = AccountActions::public(
+        let actions = AccountActions::init(
             &mut context,
             storage.approved_actions.storage_slot,
             is_valid_impl
@@ -91,7 +83,7 @@ contract SchnorrAccount {
     #[aztec(internal)]
     #[aztec(noinitcheck)]
     fn approve_public_authwit(outer_hash: Field) {
-        let actions = AccountActions::public(
+        let actions = AccountActions::init(
             &mut context,
             storage.approved_actions.storage_slot,
             is_valid_impl
@@ -103,7 +95,7 @@ contract SchnorrAccount {
     fn is_valid_impl(context: &mut PrivateContext, outer_hash: Field) -> bool {
         // docs:start:entrypoint
         // Load public key from storage
-        let storage = Storage::init(Context::private(context));
+        let storage = Storage::init(context);
         // docs:start:get_note
         let public_key = storage.signing_public_key.get_note();
         // docs:end:get_note

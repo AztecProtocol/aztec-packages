@@ -1,6 +1,12 @@
-import { type FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
-import { type AztecAddress, FunctionData, TxContext } from '@aztec/circuits.js';
-import { type FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
+import type { FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
+import { type AztecAddress, type GasSettings } from '@aztec/circuits.js';
+import {
+  type FunctionAbi,
+  FunctionSelector,
+  FunctionType,
+  decodeReturnValues,
+  encodeArguments,
+} from '@aztec/foundation/abi';
 
 import { type Wallet } from '../account/wallet.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
@@ -13,10 +19,10 @@ export { SendMethodOptions };
  * Disregarded for simulation of public functions
  */
 export type SimulateMethodOptions = {
-  /**
-   * The sender's Aztec address.
-   */
+  /** The sender's Aztec address. */
   from?: AztecAddress;
+  /** Gas settings for the simulation. */
+  gasSettings?: GasSettings;
 };
 
 /**
@@ -25,7 +31,7 @@ export type SimulateMethodOptions = {
  */
 export class ContractFunctionInteraction extends BaseContractInteraction {
   constructor(
-    protected wallet: Wallet,
+    wallet: Wallet,
     protected contractAddress: AztecAddress,
     protected functionDao: FunctionAbi,
     protected args: any[],
@@ -47,10 +53,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
     if (!this.txRequest) {
-      this.txRequest = await this.wallet.createTxExecutionRequest({
-        calls: [this.request()],
-        fee: opts?.fee,
-      });
+      const calls = [this.request()];
+      const fee = opts?.estimateGas ? await this.getFeeOptions({ calls, fee: opts?.fee }) : opts?.fee;
+      this.txRequest = await this.wallet.createTxExecutionRequest({ calls, fee });
     }
     return this.txRequest;
   }
@@ -62,8 +67,15 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    */
   public request(): FunctionCall {
     const args = encodeArguments(this.functionDao, this.args);
-    const functionData = FunctionData.fromAbi(this.functionDao);
-    return { args, functionData, to: this.contractAddress };
+    return {
+      name: this.functionDao.name,
+      args,
+      selector: FunctionSelector.fromNameAndParameters(this.functionDao.name, this.functionDao.parameters),
+      type: this.functionDao.functionType,
+      to: this.contractAddress,
+      isStatic: this.functionDao.isStatic,
+      returnTypes: this.functionDao.returnTypes,
+    };
   }
 
   /**
@@ -71,44 +83,26 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * Differs from prove in a few important ways:
    * 1. It returns the values of the function execution
    * 2. It supports `unconstrained`, `private` and `public` functions
-   * 3. For `private` execution it:
-   * 3.a SKIPS the entrypoint and starts directly at the function
-   * 3.b SKIPS public execution entirely
-   * 4. For `public` execution it:
-   * 4.a Removes the `txRequest` value after ended simulation
-   * 4.b Ignores the `from` in the options
    *
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the transaction as returned by the contract function.
    */
   public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
     if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
-      return this.wallet.viewTx(this.functionDao.name, this.args, this.contractAddress, options.from);
+      return this.wallet.simulateUnconstrained(this.functionDao.name, this.args, this.contractAddress, options?.from);
     }
 
-    // TODO: If not unconstrained, we return a size 4 array of fields.
-    // TODO: It should instead return the correctly decoded value
-    // TODO: The return type here needs to be fixed! @LHerskind
+    const txRequest = await this.create();
+    const simulatedTx = await this.wallet.simulateTx(txRequest, true, options?.from);
 
-    if (this.functionDao.functionType == FunctionType.SECRET) {
-      const nodeInfo = await this.wallet.getNodeInfo();
-      const packedArgs = PackedArguments.fromArgs(encodeArguments(this.functionDao, this.args));
+    // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
+    // since we're interested in the first set of values AFTER the account entrypoint
+    // For public functions we retrieve the first values directly from the public output.
+    const rawReturnValues =
+      this.functionDao.functionType == FunctionType.PRIVATE
+        ? simulatedTx.privateReturnValues?.nested?.[0].values
+        : simulatedTx.publicOutput?.publicReturnValues?.[0].values;
 
-      const txRequest = TxExecutionRequest.from({
-        argsHash: packedArgs.hash,
-        origin: this.contractAddress,
-        functionData: FunctionData.fromAbi(this.functionDao),
-        txContext: TxContext.empty(nodeInfo.chainId, nodeInfo.protocolVersion),
-        packedArguments: [packedArgs],
-        authWitnesses: [],
-      });
-      const simulatedTx = await this.pxe.simulateTx(txRequest, false, options.from ?? this.wallet.getAddress());
-      return simulatedTx.privateReturnValues?.[0];
-    } else {
-      const txRequest = await this.create();
-      const simulatedTx = await this.pxe.simulateTx(txRequest, true);
-      this.txRequest = undefined;
-      return simulatedTx.publicReturnValues?.[0];
-    }
+    return rawReturnValues ? decodeReturnValues(this.functionDao.returnTypes, rawReturnValues) : [];
   }
 }

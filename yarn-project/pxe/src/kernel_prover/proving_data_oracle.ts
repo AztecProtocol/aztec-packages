@@ -8,7 +8,7 @@ import {
   type NOTE_HASH_TREE_HEIGHT,
   type Point,
   type VK_TREE_HEIGHT,
-  type VerificationKey,
+  type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 
@@ -50,7 +50,7 @@ export interface ProvingDataOracle {
    * @param vk - The VerificationKey for which the membership witness is needed.
    * @returns A Promise that resolves to the MembershipWitness instance.
    */
-  getVkMembershipWitness(vk: VerificationKey): Promise<MembershipWitness<typeof VK_TREE_HEIGHT>>;
+  getVkMembershipWitness(vk: VerificationKeyAsFields): Promise<MembershipWitness<typeof VK_TREE_HEIGHT>>;
 
   /**
    * Get the note membership witness for a note in the note hash tree at the given leaf index.
@@ -58,7 +58,7 @@ export interface ProvingDataOracle {
    * @param leafIndex - The leaf index of the note in the note hash tree.
    * @returns the MembershipWitness for the note.
    */
-  getNoteMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>>;
+  getNoteHashMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>>;
 
   getNullifierMembershipWitness(nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
 
@@ -70,10 +70,13 @@ export interface ProvingDataOracle {
   getNoteHashTreeRoot(): Promise<Fr>;
 
   /**
-   * Get the master secret key of the nullifier public key.
-   *
-   * @param nullifierPublicKey - The nullifier public key.
-   * @returns the master nullifier secret key.
+   * Retrieves the sk_m corresponding to the pk_m.
+   * @throws If the provided public key is not associated with any of the registered accounts.
+   * @param pkM - The master public key to get secret key for.
+   * @returns A Promise that resolves to sk_m.
+   * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
-  getMasterNullifierSecretKey(nullifierPublicKey: Point): Promise<GrumpkinPrivateKey>;
+  getMasterSecretKey(masterPublicKey: Point): Promise<GrumpkinPrivateKey>;
+
+  getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 }

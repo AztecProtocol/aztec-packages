@@ -1,16 +1,13 @@
-import { FunctionSelector } from '@aztec/circuits.js';
+import { FunctionSelector, Gas } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 
-import { executePublicFunction } from '../../public/executor.js';
-import {
-  convertPublicExecutionResult,
-  createPublicExecutionContext,
-  updateAvmContextFromPublicExecutionResult,
-} from '../../public/transitional_adaptors.js';
+import { convertAvmResultsToPxResult, createPublicExecution } from '../../public/transitional_adaptors.js';
 import type { AvmContext } from '../avm_context.js';
-import { gasLeftToGas, sumGas } from '../avm_gas.js';
+import { gasLeftToGas } from '../avm_gas.js';
 import { Field, Uint8 } from '../avm_memory_types.js';
 import { type AvmContractCallResults } from '../avm_message_call_result.js';
+import { AvmSimulator } from '../avm_simulator.js';
+import { RethrownError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -36,50 +33,71 @@ abstract class ExternalCall extends Instruction {
     private gasOffset: number /* Unused due to no formal gas implementation at this moment */,
     private addrOffset: number,
     private argsOffset: number,
-    private argsSize: number,
+    private argsSizeOffset: number,
     private retOffset: number,
     private retSize: number,
     private successOffset: number,
     // Function selector is temporary since eventually public contract bytecode will be one blob
     // containing all functions, and function selector will become an application-level mechanism
     // (e.g. first few bytes of calldata + compiler-generated jump table)
-    private temporaryFunctionSelectorOffset: number,
+    private functionSelectorOffset: number,
   ) {
     super();
   }
 
   public async execute(context: AvmContext) {
     const memory = context.machineState.memory.track(this.type);
-    const [gasOffset, addrOffset, argsOffset, retOffset, successOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.gasOffset, this.addrOffset, this.argsOffset, this.retOffset, this.successOffset],
+    const [gasOffset, addrOffset, argsOffset, argsSizeOffset, retOffset, successOffset] = Addressing.fromWire(
+      this.indirect,
+    ).resolve(
+      [this.gasOffset, this.addrOffset, this.argsOffset, this.argsSizeOffset, this.retOffset, this.successOffset],
       memory,
     );
 
     const callAddress = memory.getAs<Field>(addrOffset);
-    const calldata = memory.getSlice(argsOffset, this.argsSize).map(f => f.toFr());
-    const l1Gas = memory.get(gasOffset).toNumber();
-    const l2Gas = memory.getAs<Field>(gasOffset + 1).toNumber();
-    const daGas = memory.getAs<Field>(gasOffset + 2).toNumber();
-    const functionSelector = memory.getAs<Field>(this.temporaryFunctionSelectorOffset).toFr();
+    const calldataSize = memory.get(argsSizeOffset).toNumber();
+    const calldata = memory.getSlice(argsOffset, calldataSize).map(f => f.toFr());
+    const functionSelector = memory.getAs<Field>(this.functionSelectorOffset).toFr();
+    // If we are already in a static call, we propagate the environment.
+    const callType = context.environment.isStaticCall ? 'STATICCALL' : this.type;
 
-    const allocatedGas = { l1Gas, l2Gas, daGas };
-    const memoryOperations = { reads: this.argsSize + 5, writes: 1 + this.retSize, indirect: this.indirect };
-    const totalGas = sumGas(this.gasCost(memoryOperations), allocatedGas);
-    context.machineState.consumeGas(totalGas);
+    // First we consume the gas for this operation.
+    const memoryOperations = { reads: calldataSize + 5, writes: 1 + this.retSize, indirect: this.indirect };
+    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    // Then we consume the gas allocated for the nested call. The excess will be refunded later.
+    // Gas allocation is capped by the amount of gas left in the current context.
+    // We have to do some dancing here because the gas allocation is a field,
+    // but in the machine state we track gas as a number.
+    const allocatedL2Gas = Number(BigIntMin(memory.get(gasOffset).toBigInt(), BigInt(context.machineState.l2GasLeft)));
+    const allocatedDaGas = Number(
+      BigIntMin(memory.get(gasOffset + 1).toBigInt(), BigInt(context.machineState.daGasLeft)),
+    );
+    const allocatedGas = { l2Gas: allocatedL2Gas, daGas: allocatedDaGas };
+    context.machineState.consumeGas(allocatedGas);
 
-    // TRANSITIONAL: This should be removed once the AVM is fully operational and the public executor is gone.
+    // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
     const nestedContext = context.createNestedContractCallContext(
       callAddress.toFr(),
       calldata,
       allocatedGas,
-      this.type,
+      callType,
       FunctionSelector.fromField(functionSelector),
     );
-    const pxContext = createPublicExecutionContext(nestedContext, calldata);
-    const pxResults = await executePublicFunction(pxContext, /*nested=*/ true);
-    const nestedCallResults: AvmContractCallResults = convertPublicExecutionResult(pxResults);
-    updateAvmContextFromPublicExecutionResult(nestedContext, pxResults);
-    const nestedPersistableState = nestedContext.persistableState;
+    const startSideEffectCounter = nestedContext.persistableState.trace.accessCounter;
+
+    const oldStyleExecution = createPublicExecution(startSideEffectCounter, nestedContext.environment, calldata);
+    const nestedCallResults: AvmContractCallResults = await new AvmSimulator(nestedContext).execute();
+    const pxResults = convertAvmResultsToPxResult(
+      nestedCallResults,
+      startSideEffectCounter,
+      oldStyleExecution,
+      Gas.from(allocatedGas),
+      nestedContext,
+    );
+    // store the old PublicExecutionResult object to maintain a recursive data structure for the old kernel
+    context.persistableState.transitionalExecutionResult.nestedExecutions.push(pxResults);
+    // END TRANSITIONAL
+
     // const nestedContext = context.createNestedContractCallContext(
     //   callAddress.toFr(),
     //   calldata,
@@ -88,9 +106,18 @@ abstract class ExternalCall extends Instruction {
     //   FunctionSelector.fromField(functionSelector),
     // );
     // const nestedCallResults: AvmContractCallResults = await new AvmSimulator(nestedContext).execute();
-    // const nestedPersistableState = nestedContext.persistableState;
 
     const success = !nestedCallResults.reverted;
+
+    // TRANSITIONAL: We rethrow here so that the MESSAGE gets propagated.
+    //               This means that for now, the caller cannot recover from errors.
+    if (!success) {
+      if (!nestedCallResults.revertReason) {
+        throw new Error('A reverted nested call should be assigned a revert reason in the AVM execution loop');
+      }
+      // The nested call's revertReason will be used to track the stack of error causes down to the root.
+      throw new RethrownError(nestedCallResults.revertReason.message, nestedCallResults.revertReason);
+    }
 
     // We only take as much data as was specified in the return size and pad with zeroes if the return data is smaller
     // than the specified size in order to prevent that memory to be left with garbage
@@ -110,16 +137,16 @@ abstract class ExternalCall extends Instruction {
 
     // TODO: Should we merge the changes from a nested call in the case of a STATIC call?
     if (success) {
-      context.persistableState.acceptNestedCallState(nestedPersistableState);
+      context.persistableState.acceptNestedCallState(nestedContext.persistableState);
     } else {
-      context.persistableState.rejectNestedCallState(nestedPersistableState);
+      context.persistableState.rejectNestedCallState(nestedContext.persistableState);
     }
 
     memory.assert(memoryOperations);
     context.machineState.incrementPc();
   }
 
-  public abstract get type(): 'CALL' | 'STATICCALL';
+  public abstract override get type(): 'CALL' | 'STATICCALL';
 }
 
 export class Call extends ExternalCall {
@@ -196,4 +223,9 @@ export class Revert extends Instruction {
     context.machineState.revert(output);
     memory.assert(memoryOperations);
   }
+}
+
+/** Returns the smaller of two bigints. */
+function BigIntMin(a: bigint, b: bigint): bigint {
+  return a < b ? a : b;
 }

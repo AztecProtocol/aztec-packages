@@ -8,6 +8,7 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_bools_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_lookup_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_msm_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_point_table_relation.hpp"
@@ -27,25 +28,27 @@ class ECCVMFlavor {
     using Curve = curve::Grumpkin;
     using G1 = typename Curve::Group;
     using PCS = IPA<Curve>;
-    using FF = typename G1::subgroup_field;
+    using FF = typename Curve::ScalarField;
+    using BF = typename Curve::BaseField;
     using Polynomial = bb::Polynomial<FF>;
     using GroupElement = typename G1::element;
     using Commitment = typename G1::affine_element;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using RelationSeparator = FF;
+    using MSM = bb::eccvm::MSM<CycleGroup>;
 
-    static constexpr size_t NUM_WIRES = 74;
+    static constexpr size_t NUM_WIRES = 85;
 
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 105;
+    static constexpr size_t NUM_ALL_ENTITIES = 116;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 3;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 76;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 87;
 
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
@@ -54,7 +57,8 @@ class ECCVMFlavor {
                                  ECCVMWnafRelation<FF>,
                                  ECCVMMSMRelation<FF>,
                                  ECCVMSetRelation<FF>,
-                                 ECCVMLookupRelation<FF>>;
+                                 ECCVMLookupRelation<FF>,
+                                 ECCVMBoolsRelation<FF>>;
 
     using LookupRelation = ECCVMLookupRelation<FF>;
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
@@ -107,80 +111,91 @@ class ECCVMFlavor {
     template <typename DataType> class WireEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              transcript_add,               // column 0
-                              transcript_mul,               // column 1
-                              transcript_eq,                // column 2
-                              transcript_collision_check,   // column 3
-                              transcript_msm_transition,    // column 4
-                              transcript_pc,                // column 5
-                              transcript_msm_count,         // column 6
-                              transcript_Px,                // column 7
-                              transcript_Py,                // column 8
-                              transcript_z1,                // column 9
-                              transcript_z2,                // column 10
-                              transcript_z1zero,            // column 11
-                              transcript_z2zero,            // column 12
-                              transcript_op,                // column 13
-                              transcript_accumulator_x,     // column 14
-                              transcript_accumulator_y,     // column 15
-                              transcript_msm_x,             // column 16
-                              transcript_msm_y,             // column 17
-                              precompute_pc,                // column 18
-                              precompute_point_transition,  // column 19
-                              precompute_round,             // column 20
-                              precompute_scalar_sum,        // column 21
-                              precompute_s1hi,              // column 22
-                              precompute_s1lo,              // column 23
-                              precompute_s2hi,              // column 24
-                              precompute_s2lo,              // column 25
-                              precompute_s3hi,              // column 26
-                              precompute_s3lo,              // column 27
-                              precompute_s4hi,              // column 28
-                              precompute_s4lo,              // column 29
-                              precompute_skew,              // column 30
-                              precompute_dx,                // column 31
-                              precompute_dy,                // column 32
-                              precompute_tx,                // column 33
-                              precompute_ty,                // column 34
-                              msm_transition,               // column 35
-                              msm_add,                      // column 36
-                              msm_double,                   // column 37
-                              msm_skew,                     // column 38
-                              msm_accumulator_x,            // column 39
-                              msm_accumulator_y,            // column 40
-                              msm_pc,                       // column 41
-                              msm_size_of_msm,              // column 42
-                              msm_count,                    // column 43
-                              msm_round,                    // column 44
-                              msm_add1,                     // column 45
-                              msm_add2,                     // column 46
-                              msm_add3,                     // column 47
-                              msm_add4,                     // column 48
-                              msm_x1,                       // column 49
-                              msm_y1,                       // column 50
-                              msm_x2,                       // column 51
-                              msm_y2,                       // column 52
-                              msm_x3,                       // column 53
-                              msm_y3,                       // column 54
-                              msm_x4,                       // column 55
-                              msm_y4,                       // column 56
-                              msm_collision_x1,             // column 57
-                              msm_collision_x2,             // column 58
-                              msm_collision_x3,             // column 59
-                              msm_collision_x4,             // column 60
-                              msm_lambda1,                  // column 61
-                              msm_lambda2,                  // column 62
-                              msm_lambda3,                  // column 63
-                              msm_lambda4,                  // column 64
-                              msm_slice1,                   // column 65
-                              msm_slice2,                   // column 66
-                              msm_slice3,                   // column 67
-                              msm_slice4,                   // column 68
-                              transcript_accumulator_empty, // column 69
-                              transcript_reset_accumulator, // column 70
-                              precompute_select,            // column 71
-                              lookup_read_counts_0,         // column 72
-                              lookup_read_counts_1);        // column 73
+                              transcript_add,                              // column 0
+                              transcript_mul,                              // column 1
+                              transcript_eq,                               // column 2
+                              transcript_msm_transition,                   // column 3
+                              transcript_pc,                               // column 4
+                              transcript_msm_count,                        // column 5
+                              transcript_Px,                               // column 6
+                              transcript_Py,                               // column 7
+                              transcript_z1,                               // column 8
+                              transcript_z2,                               // column 9
+                              transcript_z1zero,                           // column 10
+                              transcript_z2zero,                           // column 11
+                              transcript_op,                               // column 12
+                              transcript_accumulator_x,                    // column 13
+                              transcript_accumulator_y,                    // column 14
+                              transcript_msm_x,                            // column 15
+                              transcript_msm_y,                            // column 16
+                              precompute_pc,                               // column 17
+                              precompute_point_transition,                 // column 18
+                              precompute_round,                            // column 19
+                              precompute_scalar_sum,                       // column 20
+                              precompute_s1hi,                             // column 21
+                              precompute_s1lo,                             // column 22
+                              precompute_s2hi,                             // column 23
+                              precompute_s2lo,                             // column 24
+                              precompute_s3hi,                             // column 25
+                              precompute_s3lo,                             // column 26
+                              precompute_s4hi,                             // column 27
+                              precompute_s4lo,                             // column 28
+                              precompute_skew,                             // column 29
+                              precompute_dx,                               // column 30
+                              precompute_dy,                               // column 31
+                              precompute_tx,                               // column 32
+                              precompute_ty,                               // column 33
+                              msm_transition,                              // column 34
+                              msm_add,                                     // column 35
+                              msm_double,                                  // column 36
+                              msm_skew,                                    // column 37
+                              msm_accumulator_x,                           // column 38
+                              msm_accumulator_y,                           // column 39
+                              msm_pc,                                      // column 40
+                              msm_size_of_msm,                             // column 41
+                              msm_count,                                   // column 42
+                              msm_round,                                   // column 43
+                              msm_add1,                                    // column 44
+                              msm_add2,                                    // column 45
+                              msm_add3,                                    // column 46
+                              msm_add4,                                    // column 47
+                              msm_x1,                                      // column 48
+                              msm_y1,                                      // column 49
+                              msm_x2,                                      // column 50
+                              msm_y2,                                      // column 51
+                              msm_x3,                                      // column 52
+                              msm_y3,                                      // column 53
+                              msm_x4,                                      // column 54
+                              msm_y4,                                      // column 55
+                              msm_collision_x1,                            // column 56
+                              msm_collision_x2,                            // column 57
+                              msm_collision_x3,                            // column 58
+                              msm_collision_x4,                            // column 59
+                              msm_lambda1,                                 // column 60
+                              msm_lambda2,                                 // column 61
+                              msm_lambda3,                                 // column 62
+                              msm_lambda4,                                 // column 63
+                              msm_slice1,                                  // column 64
+                              msm_slice2,                                  // column 65
+                              msm_slice3,                                  // column 66
+                              msm_slice4,                                  // column 67
+                              transcript_accumulator_empty,                // column 68
+                              transcript_reset_accumulator,                // column 69
+                              precompute_select,                           // column 70
+                              lookup_read_counts_0,                        // column 71
+                              lookup_read_counts_1,                        // column 72
+                              transcript_base_infinity,                    // column 73
+                              transcript_base_x_inverse,                   // column 74
+                              transcript_base_y_inverse,                   // column 75
+                              transcript_add_x_equal,                      // column 76
+                              transcript_add_y_equal,                      // column 77
+                              transcript_add_lambda,                       // column 78
+                              transcript_msm_intermediate_x,               // column 79
+                              transcript_msm_intermediate_y,               // column 80
+                              transcript_msm_infinity,                     // column 81
+                              transcript_msm_x_inverse,                    // column 82
+                              transcript_msm_count_zero_at_transition,     // column 83
+                              transcript_msm_count_at_transition_inverse); // column 84
     };
 
     /**
@@ -234,32 +249,32 @@ class ECCVMFlavor {
     static auto get_to_be_shifted(PrecomputedAndWitnessEntitiesSuperset& entities)
     {
         // NOTE: must match order of ShiftedEntities above!
-        return RefArray{ entities.transcript_mul,
-                         entities.transcript_msm_count,
-                         entities.transcript_accumulator_x,
-                         entities.transcript_accumulator_y,
-                         entities.precompute_scalar_sum,
-                         entities.precompute_s1hi,
-                         entities.precompute_dx,
-                         entities.precompute_dy,
-                         entities.precompute_tx,
-                         entities.precompute_ty,
-                         entities.msm_transition,
-                         entities.msm_add,
-                         entities.msm_double,
-                         entities.msm_skew,
-                         entities.msm_accumulator_x,
-                         entities.msm_accumulator_y,
-                         entities.msm_count,
-                         entities.msm_round,
-                         entities.msm_add1,
-                         entities.msm_pc,
-                         entities.precompute_pc,
-                         entities.transcript_pc,
-                         entities.precompute_round,
-                         entities.transcript_accumulator_empty,
-                         entities.precompute_select,
-                         entities.z_perm };
+        return RefArray{ entities.transcript_mul,               // column 0
+                         entities.transcript_msm_count,         // column 1
+                         entities.transcript_accumulator_x,     // column 2
+                         entities.transcript_accumulator_y,     // column 3
+                         entities.precompute_scalar_sum,        // column 4
+                         entities.precompute_s1hi,              // column 5
+                         entities.precompute_dx,                // column 6
+                         entities.precompute_dy,                // column 7
+                         entities.precompute_tx,                // column 8
+                         entities.precompute_ty,                // column 9
+                         entities.msm_transition,               // column 10
+                         entities.msm_add,                      // column 11
+                         entities.msm_double,                   // column 12
+                         entities.msm_skew,                     // column 13
+                         entities.msm_accumulator_x,            // column 14
+                         entities.msm_accumulator_y,            // column 15
+                         entities.msm_count,                    // column 16
+                         entities.msm_round,                    // column 17
+                         entities.msm_add1,                     // column 18
+                         entities.msm_pc,                       // column 19
+                         entities.precompute_pc,                // column 20
+                         entities.transcript_pc,                // column 21
+                         entities.precompute_round,             // column 22
+                         entities.transcript_accumulator_empty, // column 23
+                         entities.precompute_select,            // column 24
+                         entities.z_perm };                     // column 25
     }
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
@@ -293,72 +308,10 @@ class ECCVMFlavor {
 
         auto get_to_be_shifted() { return ECCVMFlavor::get_to_be_shifted<DataType>(*this); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+        auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
   public:
-    /**
-     * @brief The proving key is responsible for storing the polynomials used by the prover.
-     * @note TODO(Cody): Maybe multiple inheritance is the right thing here. In that case, nothing should eve
-     * inherit from ProvingKey.
-     */
-    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey> {
-      public:
-        // Expose constructors on the base class
-        using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
-        using Base::Base;
-
-        ProvingKey(const CircuitBuilder& builder)
-            : ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>(
-                  builder.get_circuit_subgroup_size(builder.get_num_gates()), 0)
-        {
-            const auto [_lagrange_first, _lagrange_last] =
-                compute_first_and_last_lagrange_polynomials<FF>(circuit_size);
-            lagrange_first = _lagrange_first;
-            lagrange_last = _lagrange_last;
-            {
-                Polynomial _lagrange_second(circuit_size);
-                _lagrange_second[1] = 1;
-                lagrange_second = _lagrange_second.share();
-            }
-        }
-
-        auto get_to_be_shifted() { return ECCVMFlavor::get_to_be_shifted<Polynomial>(*this); }
-        // The plookup wires that store plookup read data.
-        RefArray<Polynomial, 0> get_table_column_wires() { return {}; };
-    };
-
-    /**
-     * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
-     * polynomials used by the verifier.
-     *
-     * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to
-     * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
-     * portability of our circuits.
-     */
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
-      public:
-        std::vector<FF> public_inputs;
-
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : VerificationKey_(circuit_size, num_public_inputs)
-        {}
-
-        VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
-            : public_inputs(proving_key->public_inputs)
-        {
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(proving_key->circuit_size);
-            this->circuit_size = proving_key->circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = proving_key->num_public_inputs;
-            this->pub_inputs_offset = proving_key->pub_inputs_offset;
-
-            for (auto [polynomial, commitment] :
-                 zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
-                commitment = proving_key->commitment_key->commit(polynomial);
-            }
-        }
-    };
-
     /**
      * @brief A container for polynomials produced after the first round of sumcheck.
      * @todo TODO(#394) Use polynomial classes for guaranteed memory alignment.
@@ -420,6 +373,7 @@ class ECCVMFlavor {
         ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
         ~ProverPolynomials() = default;
         [[nodiscard]] size_t get_polynomial_size() const { return this->lagrange_first.size(); }
+
         /**
          * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
          * represents one row in the execution trace.
@@ -432,6 +386,13 @@ class ECCVMFlavor {
             }
             return result;
         }
+        // Set all shifted polynomials based on their to-be-shifted counterpart
+        void set_shifted()
+        {
+            for (auto [shifted, to_be_shifted] : zip_view(get_shifted(), get_to_be_shifted())) {
+                shifted = to_be_shifted.shifted();
+            }
+        }
 
         /**
          * @brief Compute the ECCVM flavor polynomial data required to generate an ECCVM Proof
@@ -443,7 +404,6 @@ class ECCVMFlavor {
          *          lagrange_second: lagrange_second[1] = 1, 0 elsewhere
          *          lagrange_last: lagrange_last[lagrange_last.size() - 1] = 1, 0 elsewhere
          *          transcript_add/mul/eq/reset_accumulator: boolean selectors that toggle add/mul/eq/reset opcodes
-         *          transcript_collision_check: used to ensure any point being added into eccvm accumulator does not
          trigger
          * incomplete addition rules
          *          transcript_msm_transition: is current transcript row the final `mul` opcode of a multiscalar
@@ -464,6 +424,18 @@ class ECCVMFlavor {
          *          transcript_msm_x: x-coordinate of MSM output
          *          transcript_msm_y: y-coordinate of MSM output
          *          transcript_accumulator_empty: if 1, transcript_accumulator = point at infinity
+         *          transcript_base_infinity: if 1, transcript_Px, transcript_Py is a point at infinity
+         *          transcript_add_x_equal: if adding a point into the accumulator, is 1 if x-coordinates are equal
+         *          transcript_add_y_equal: if adding a point into the accumulator, is 1 if y-coordinates are equal
+         *          transcript_base_x_inverse: to check transcript_add_x_equal (if x-vals not equal inverse exists)
+         *          transcript_base_y_inverse: to check transcript_add_x_equal (if y-vals not equal inverse exists)
+         *          transcript_add_lambda: if adding a point into the accumulator, contains the lambda gradient
+         *          transcript_msm_intermediate_x: if add MSM result into accumulator, is msm_output - offset_generator
+         *          transcript_msm_intermediate_y: if add MSM result into accumulator, is msm_output - offset_generator
+         *          transcript_msm_infinity: is MSM result the point at infinity?
+         *          transcript_msm_x_inverse: used to validate transcript_msm_infinity correct
+         *          transcript_msm_count_zero_at_transition: does an MSM only contain points at infinity/zero scalars
+         *          transcript_msm_count_at_transition_inverse: used to validate transcript_msm_count_zero_at_transition
          *          precompute_pc: point counter for Straus precomputation columns
          *          precompute_select: if 1, evaluate Straus precomputation algorithm at current row
          *          precompute_point_transition: 1 if current row operating on a different point to previous row
@@ -513,35 +485,30 @@ class ECCVMFlavor {
          table (reads come from msm_x/y3, msm_x/y4)
          * @return ProverPolynomials
          */
-        ProverPolynomials(CircuitBuilder& builder)
+        ProverPolynomials(const CircuitBuilder& builder)
         {
-            const auto msms = builder.get_msms();
-            const auto flattened_muls = builder.get_flattened_scalar_muls(msms);
+            // compute rows for the three different sections of the ECCVM execution trace
+            const auto transcript_rows =
+                ECCVMTranscriptBuilder::compute_rows(builder.op_queue->get_raw_ops(), builder.get_number_of_muls());
+            const std::vector<MSM> msms = builder.get_msms();
+            const auto point_table_rows =
+                ECCVMPointTablePrecomputationBuilder::compute_rows(CircuitBuilder::get_flattened_scalar_muls(msms));
+            const auto [msm_rows, point_table_read_counts] = ECCVMMSMMBuilder::compute_rows(
+                msms, builder.get_number_of_muls(), builder.op_queue->get_num_msm_rows());
 
-            std::array<std::vector<size_t>, 2> point_table_read_counts;
-            const auto transcript_state = ECCVMTranscriptBuilder::compute_transcript_state(
-                builder.op_queue->raw_ops, builder.get_number_of_muls());
-            const auto precompute_table_state = ECCVMPrecomputedTablesBuilder::compute_precompute_state(flattened_muls);
-            const auto msm_state = ECCVMMSMMBuilder::compute_msm_state(
-                msms, point_table_read_counts, builder.get_number_of_muls(), builder.op_queue->get_num_msm_rows());
+            const size_t num_rows = std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() });
+            const auto log_num_rows = static_cast<size_t>(numeric::get_msb64(num_rows));
+            const size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
 
-            const size_t msm_size = msm_state.size();
-            const size_t transcript_size = transcript_state.size();
-            const size_t precompute_table_size = precompute_table_state.size();
-
-            const size_t num_rows = std::max(precompute_table_size, std::max(msm_size, transcript_size));
-
-            const auto num_rows_log2 = static_cast<size_t>(numeric::get_msb64(num_rows));
-            size_t num_rows_pow2 = 1UL << (num_rows_log2 + (1UL << num_rows_log2 == num_rows ? 0 : 1));
+            // allocate polynomials; define lagrange and lookup read count polynomials
             for (auto& poly : get_all()) {
-                poly = Polynomial(num_rows_pow2);
+                poly = Polynomial(dyadic_num_rows);
             }
             lagrange_first[0] = 1;
             lagrange_second[1] = 1;
             lagrange_last[lagrange_last.size() - 1] = 1;
-
             for (size_t i = 0; i < point_table_read_counts[0].size(); ++i) {
-                // Explanation of off-by-one offset
+                // Explanation of off-by-one offset:
                 // When computing the WNAF slice for a point at point counter value `pc` and a round index `round`, the
                 // row number that computes the slice can be derived. This row number is then mapped to the index of
                 // `lookup_read_counts`. We do this mapping in `ecc_msm_relation`. We are off-by-one because we add an
@@ -550,133 +517,178 @@ class ECCVMFlavor {
                 lookup_read_counts_0[i + 1] = point_table_read_counts[0][i];
                 lookup_read_counts_1[i + 1] = point_table_read_counts[1][i];
             }
-            run_loop_in_parallel(transcript_state.size(), [&](size_t start, size_t end) {
+
+            // compute polynomials for transcript columns
+            run_loop_in_parallel(transcript_rows.size(), [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
-                    transcript_accumulator_empty[i] = transcript_state[i].accumulator_empty;
-                    transcript_add[i] = transcript_state[i].q_add;
-                    transcript_mul[i] = transcript_state[i].q_mul;
-                    transcript_eq[i] = transcript_state[i].q_eq;
-                    transcript_reset_accumulator[i] = transcript_state[i].q_reset_accumulator;
-                    transcript_msm_transition[i] = transcript_state[i].msm_transition;
-                    transcript_pc[i] = transcript_state[i].pc;
-                    transcript_msm_count[i] = transcript_state[i].msm_count;
-                    transcript_Px[i] = transcript_state[i].base_x;
-                    transcript_Py[i] = transcript_state[i].base_y;
-                    transcript_z1[i] = transcript_state[i].z1;
-                    transcript_z2[i] = transcript_state[i].z2;
-                    transcript_z1zero[i] = transcript_state[i].z1_zero;
-                    transcript_z2zero[i] = transcript_state[i].z2_zero;
-                    transcript_op[i] = transcript_state[i].opcode;
-                    transcript_accumulator_x[i] = transcript_state[i].accumulator_x;
-                    transcript_accumulator_y[i] = transcript_state[i].accumulator_y;
-                    transcript_msm_x[i] = transcript_state[i].msm_output_x;
-                    transcript_msm_y[i] = transcript_state[i].msm_output_y;
-                    transcript_collision_check[i] = transcript_state[i].collision_check;
+                    transcript_accumulator_empty[i] = transcript_rows[i].accumulator_empty;
+                    transcript_add[i] = transcript_rows[i].q_add;
+                    transcript_mul[i] = transcript_rows[i].q_mul;
+                    transcript_eq[i] = transcript_rows[i].q_eq;
+                    transcript_reset_accumulator[i] = transcript_rows[i].q_reset_accumulator;
+                    transcript_msm_transition[i] = transcript_rows[i].msm_transition;
+                    transcript_pc[i] = transcript_rows[i].pc;
+                    transcript_msm_count[i] = transcript_rows[i].msm_count;
+                    transcript_Px[i] = transcript_rows[i].base_x;
+                    transcript_Py[i] = transcript_rows[i].base_y;
+                    transcript_z1[i] = transcript_rows[i].z1;
+                    transcript_z2[i] = transcript_rows[i].z2;
+                    transcript_z1zero[i] = transcript_rows[i].z1_zero;
+                    transcript_z2zero[i] = transcript_rows[i].z2_zero;
+                    transcript_op[i] = transcript_rows[i].opcode;
+                    transcript_accumulator_x[i] = transcript_rows[i].accumulator_x;
+                    transcript_accumulator_y[i] = transcript_rows[i].accumulator_y;
+                    transcript_msm_x[i] = transcript_rows[i].msm_output_x;
+                    transcript_msm_y[i] = transcript_rows[i].msm_output_y;
+                    transcript_base_infinity[i] = transcript_rows[i].base_infinity;
+                    transcript_base_x_inverse[i] = transcript_rows[i].base_x_inverse;
+                    transcript_base_y_inverse[i] = transcript_rows[i].base_y_inverse;
+                    transcript_add_x_equal[i] = transcript_rows[i].transcript_add_x_equal;
+                    transcript_add_y_equal[i] = transcript_rows[i].transcript_add_y_equal;
+                    transcript_add_lambda[i] = transcript_rows[i].transcript_add_lambda;
+                    transcript_msm_intermediate_x[i] = transcript_rows[i].transcript_msm_intermediate_x;
+                    transcript_msm_intermediate_y[i] = transcript_rows[i].transcript_msm_intermediate_y;
+                    transcript_msm_infinity[i] = transcript_rows[i].transcript_msm_infinity;
+                    transcript_msm_x_inverse[i] = transcript_rows[i].transcript_msm_x_inverse;
+                    transcript_msm_count_zero_at_transition[i] = transcript_rows[i].msm_count_zero_at_transition;
+                    transcript_msm_count_at_transition_inverse[i] = transcript_rows[i].msm_count_at_transition_inverse;
                 }
             });
 
             // TODO(@zac-williamson) if final opcode resets accumulator, all subsequent "is_accumulator_empty" row
             // values must be 1. Ideally we find a way to tweak this so that empty rows that do nothing have column
             // values that are all zero (issue #2217)
-            if (transcript_state[transcript_state.size() - 1].accumulator_empty == 1) {
-                for (size_t i = transcript_state.size(); i < num_rows_pow2; ++i) {
+            if (transcript_rows[transcript_rows.size() - 1].accumulator_empty) {
+                for (size_t i = transcript_rows.size(); i < dyadic_num_rows; ++i) {
                     transcript_accumulator_empty[i] = 1;
                 }
             }
-            run_loop_in_parallel(precompute_table_state.size(), [&](size_t start, size_t end) {
+            // in addition, unless the accumulator is reset, it contains the value from the previous row so this
+            // must be propagated
+            for (size_t i = transcript_rows.size(); i < dyadic_num_rows; ++i) {
+                transcript_accumulator_x[i] = transcript_accumulator_x[i - 1];
+                transcript_accumulator_y[i] = transcript_accumulator_y[i - 1];
+            }
+
+            run_loop_in_parallel(point_table_rows.size(), [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
                     // first row is always an empty row (to accommodate shifted polynomials which must have 0 as 1st
-                    // coefficient). All other rows in the precompute_table_state represent active wnaf gates (i.e.
+                    // coefficient). All other rows in the point_table_rows represent active wnaf gates (i.e.
                     // precompute_select = 1)
                     precompute_select[i] = (i != 0) ? 1 : 0;
-                    precompute_pc[i] = precompute_table_state[i].pc;
-                    precompute_point_transition[i] = static_cast<uint64_t>(precompute_table_state[i].point_transition);
-                    precompute_round[i] = precompute_table_state[i].round;
-                    precompute_scalar_sum[i] = precompute_table_state[i].scalar_sum;
-
-                    precompute_s1hi[i] = precompute_table_state[i].s1;
-                    precompute_s1lo[i] = precompute_table_state[i].s2;
-                    precompute_s2hi[i] = precompute_table_state[i].s3;
-                    precompute_s2lo[i] = precompute_table_state[i].s4;
-                    precompute_s3hi[i] = precompute_table_state[i].s5;
-                    precompute_s3lo[i] = precompute_table_state[i].s6;
-                    precompute_s4hi[i] = precompute_table_state[i].s7;
-                    precompute_s4lo[i] = precompute_table_state[i].s8;
+                    precompute_pc[i] = point_table_rows[i].pc;
+                    precompute_point_transition[i] = static_cast<uint64_t>(point_table_rows[i].point_transition);
+                    precompute_round[i] = point_table_rows[i].round;
+                    precompute_scalar_sum[i] = point_table_rows[i].scalar_sum;
+                    precompute_s1hi[i] = point_table_rows[i].s1;
+                    precompute_s1lo[i] = point_table_rows[i].s2;
+                    precompute_s2hi[i] = point_table_rows[i].s3;
+                    precompute_s2lo[i] = point_table_rows[i].s4;
+                    precompute_s3hi[i] = point_table_rows[i].s5;
+                    precompute_s3lo[i] = point_table_rows[i].s6;
+                    precompute_s4hi[i] = point_table_rows[i].s7;
+                    precompute_s4lo[i] = point_table_rows[i].s8;
                     // If skew is active (i.e. we need to subtract a base point from the msm result),
                     // write `7` into rows.precompute_skew. `7`, in binary representation, equals `-1` when converted
                     // into WNAF form
-                    precompute_skew[i] = precompute_table_state[i].skew ? 7 : 0;
-
-                    precompute_dx[i] = precompute_table_state[i].precompute_double.x;
-                    precompute_dy[i] = precompute_table_state[i].precompute_double.y;
-                    precompute_tx[i] = precompute_table_state[i].precompute_accumulator.x;
-                    precompute_ty[i] = precompute_table_state[i].precompute_accumulator.y;
+                    precompute_skew[i] = point_table_rows[i].skew ? 7 : 0;
+                    precompute_dx[i] = point_table_rows[i].precompute_double.x;
+                    precompute_dy[i] = point_table_rows[i].precompute_double.y;
+                    precompute_tx[i] = point_table_rows[i].precompute_accumulator.x;
+                    precompute_ty[i] = point_table_rows[i].precompute_accumulator.y;
                 }
             });
 
-            run_loop_in_parallel(msm_state.size(), [&](size_t start, size_t end) {
+            // compute polynomials for the msm columns
+            run_loop_in_parallel(msm_rows.size(), [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
-                    msm_transition[i] = static_cast<int>(msm_state[i].msm_transition);
-                    msm_add[i] = static_cast<int>(msm_state[i].q_add);
-                    msm_double[i] = static_cast<int>(msm_state[i].q_double);
-                    msm_skew[i] = static_cast<int>(msm_state[i].q_skew);
-                    msm_accumulator_x[i] = msm_state[i].accumulator_x;
-                    msm_accumulator_y[i] = msm_state[i].accumulator_y;
-                    msm_pc[i] = msm_state[i].pc;
-                    msm_size_of_msm[i] = msm_state[i].msm_size;
-                    msm_count[i] = msm_state[i].msm_count;
-                    msm_round[i] = msm_state[i].msm_round;
-                    msm_add1[i] = static_cast<int>(msm_state[i].add_state[0].add);
-                    msm_add2[i] = static_cast<int>(msm_state[i].add_state[1].add);
-                    msm_add3[i] = static_cast<int>(msm_state[i].add_state[2].add);
-                    msm_add4[i] = static_cast<int>(msm_state[i].add_state[3].add);
-                    msm_x1[i] = msm_state[i].add_state[0].point.x;
-                    msm_y1[i] = msm_state[i].add_state[0].point.y;
-                    msm_x2[i] = msm_state[i].add_state[1].point.x;
-                    msm_y2[i] = msm_state[i].add_state[1].point.y;
-                    msm_x3[i] = msm_state[i].add_state[2].point.x;
-                    msm_y3[i] = msm_state[i].add_state[2].point.y;
-                    msm_x4[i] = msm_state[i].add_state[3].point.x;
-                    msm_y4[i] = msm_state[i].add_state[3].point.y;
-                    msm_collision_x1[i] = msm_state[i].add_state[0].collision_inverse;
-                    msm_collision_x2[i] = msm_state[i].add_state[1].collision_inverse;
-                    msm_collision_x3[i] = msm_state[i].add_state[2].collision_inverse;
-                    msm_collision_x4[i] = msm_state[i].add_state[3].collision_inverse;
-                    msm_lambda1[i] = msm_state[i].add_state[0].lambda;
-                    msm_lambda2[i] = msm_state[i].add_state[1].lambda;
-                    msm_lambda3[i] = msm_state[i].add_state[2].lambda;
-                    msm_lambda4[i] = msm_state[i].add_state[3].lambda;
-                    msm_slice1[i] = msm_state[i].add_state[0].slice;
-                    msm_slice2[i] = msm_state[i].add_state[1].slice;
-                    msm_slice3[i] = msm_state[i].add_state[2].slice;
-                    msm_slice4[i] = msm_state[i].add_state[3].slice;
+                    msm_transition[i] = static_cast<int>(msm_rows[i].msm_transition);
+                    msm_add[i] = static_cast<int>(msm_rows[i].q_add);
+                    msm_double[i] = static_cast<int>(msm_rows[i].q_double);
+                    msm_skew[i] = static_cast<int>(msm_rows[i].q_skew);
+                    msm_accumulator_x[i] = msm_rows[i].accumulator_x;
+                    msm_accumulator_y[i] = msm_rows[i].accumulator_y;
+                    msm_pc[i] = msm_rows[i].pc;
+                    msm_size_of_msm[i] = msm_rows[i].msm_size;
+                    msm_count[i] = msm_rows[i].msm_count;
+                    msm_round[i] = msm_rows[i].msm_round;
+                    msm_add1[i] = static_cast<int>(msm_rows[i].add_state[0].add);
+                    msm_add2[i] = static_cast<int>(msm_rows[i].add_state[1].add);
+                    msm_add3[i] = static_cast<int>(msm_rows[i].add_state[2].add);
+                    msm_add4[i] = static_cast<int>(msm_rows[i].add_state[3].add);
+                    msm_x1[i] = msm_rows[i].add_state[0].point.x;
+                    msm_y1[i] = msm_rows[i].add_state[0].point.y;
+                    msm_x2[i] = msm_rows[i].add_state[1].point.x;
+                    msm_y2[i] = msm_rows[i].add_state[1].point.y;
+                    msm_x3[i] = msm_rows[i].add_state[2].point.x;
+                    msm_y3[i] = msm_rows[i].add_state[2].point.y;
+                    msm_x4[i] = msm_rows[i].add_state[3].point.x;
+                    msm_y4[i] = msm_rows[i].add_state[3].point.y;
+                    msm_collision_x1[i] = msm_rows[i].add_state[0].collision_inverse;
+                    msm_collision_x2[i] = msm_rows[i].add_state[1].collision_inverse;
+                    msm_collision_x3[i] = msm_rows[i].add_state[2].collision_inverse;
+                    msm_collision_x4[i] = msm_rows[i].add_state[3].collision_inverse;
+                    msm_lambda1[i] = msm_rows[i].add_state[0].lambda;
+                    msm_lambda2[i] = msm_rows[i].add_state[1].lambda;
+                    msm_lambda3[i] = msm_rows[i].add_state[2].lambda;
+                    msm_lambda4[i] = msm_rows[i].add_state[3].lambda;
+                    msm_slice1[i] = msm_rows[i].add_state[0].slice;
+                    msm_slice2[i] = msm_rows[i].add_state[1].slice;
+                    msm_slice3[i] = msm_rows[i].add_state[2].slice;
+                    msm_slice4[i] = msm_rows[i].add_state[3].slice;
                 }
             });
-            transcript_mul_shift = transcript_mul.shifted();
-            transcript_msm_count_shift = transcript_msm_count.shifted();
-            transcript_accumulator_x_shift = transcript_accumulator_x.shifted();
-            transcript_accumulator_y_shift = transcript_accumulator_y.shifted();
-            precompute_scalar_sum_shift = precompute_scalar_sum.shifted();
-            precompute_s1hi_shift = precompute_s1hi.shifted();
-            precompute_dx_shift = precompute_dx.shifted();
-            precompute_dy_shift = precompute_dy.shifted();
-            precompute_tx_shift = precompute_tx.shifted();
-            precompute_ty_shift = precompute_ty.shifted();
-            msm_transition_shift = msm_transition.shifted();
-            msm_add_shift = msm_add.shifted();
-            msm_double_shift = msm_double.shifted();
-            msm_skew_shift = msm_skew.shifted();
-            msm_accumulator_x_shift = msm_accumulator_x.shifted();
-            msm_accumulator_y_shift = msm_accumulator_y.shifted();
-            msm_count_shift = msm_count.shifted();
-            msm_round_shift = msm_round.shifted();
-            msm_add1_shift = msm_add1.shifted();
-            msm_pc_shift = msm_pc.shifted();
-            precompute_pc_shift = precompute_pc.shifted();
-            transcript_pc_shift = transcript_pc.shifted();
-            precompute_round_shift = precompute_round.shifted();
-            transcript_accumulator_empty_shift = transcript_accumulator_empty.shifted();
-            precompute_select_shift = precompute_select.shifted();
+            this->set_shifted();
+        }
+    };
+
+    /**
+     * @brief The proving key is responsible for storing the polynomials used by the prover.
+     *
+     */
+    class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
+      public:
+        // Expose constructors on the base class
+        using Base = ProvingKey_<FF, CommitmentKey>;
+        using Base::Base;
+
+        ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
+
+        ProvingKey(const CircuitBuilder& builder)
+            : Base(builder.get_circuit_subgroup_size(builder.get_num_gates()), 0)
+            , polynomials(builder)
+        {}
+    };
+
+    /**
+     * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
+     * polynomials used by the verifier.
+     *
+     * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to
+     * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
+     * portability of our circuits.
+     */
+    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+      public:
+        std::vector<FF> public_inputs;
+
+        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
+            : VerificationKey_(circuit_size, num_public_inputs)
+        {}
+
+        VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
+            : public_inputs(proving_key->public_inputs)
+        {
+            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(proving_key->circuit_size);
+            this->circuit_size = proving_key->circuit_size;
+            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->num_public_inputs = proving_key->num_public_inputs;
+            this->pub_inputs_offset = proving_key->pub_inputs_offset;
+
+            for (auto [polynomial, commitment] :
+                 zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {
+                commitment = proving_key->commitment_key->commit(polynomial);
+            }
         }
     };
 
@@ -697,7 +709,6 @@ class ECCVMFlavor {
             Base::transcript_add = "TRANSCRIPT_ADD";
             Base::transcript_mul = "TRANSCRIPT_MUL";
             Base::transcript_eq = "TRANSCRIPT_EQ";
-            Base::transcript_collision_check = "TRANSCRIPT_COLLISION_CHECK";
             Base::transcript_msm_transition = "TRANSCRIPT_MSM_TRANSITION";
             Base::transcript_pc = "TRANSCRIPT_PC";
             Base::transcript_msm_count = "TRANSCRIPT_MSM_COUNT";
@@ -768,6 +779,18 @@ class ECCVMFlavor {
             Base::precompute_select = "PRECOMPUTE_SELECT";
             Base::lookup_read_counts_0 = "LOOKUP_READ_COUNTS_0";
             Base::lookup_read_counts_1 = "LOOKUP_READ_COUNTS_1";
+            Base::transcript_base_infinity = "TRANSCRIPT_BASE_INFINITY";
+            Base::transcript_base_x_inverse = "TRANSCRIPT_BASE_X_INVERSE";
+            Base::transcript_base_y_inverse = "TRANSCRIPT_BASE_Y_INVERSE";
+            Base::transcript_add_x_equal = "TRANSCRIPT_ADD_X_EQUAL";
+            Base::transcript_add_y_equal = "TRANSCRIPT_ADD_Y_EQUAL";
+            Base::transcript_add_lambda = "TRANSCRIPT_ADD_LAMBDA";
+            Base::transcript_msm_intermediate_x = "TRANSCRIPT_MSM_INTERMEDIATE_X";
+            Base::transcript_msm_intermediate_y = "TRANSCRIPT_MSM_INTERMEDIATE_Y";
+            Base::transcript_msm_infinity = "TRANSCRIPT_MSM_INFINITY";
+            Base::transcript_msm_x_inverse = "TRANSCRIPT_MSM_X_INVERSE";
+            Base::transcript_msm_count_zero_at_transition = "TRANSCRIPT_MSM_COUNT_ZERO_AT_TRANSITION";
+            Base::transcript_msm_count_at_transition_inverse = "TRANSCRIPT_MSM_COUNT_AT_TRANSITION_INVERSE";
             Base::z_perm = "Z_PERM";
             Base::lookup_inverses = "LOOKUP_INVERSES";
             // The ones beginning with "__" are only used for debugging
@@ -797,7 +820,6 @@ class ECCVMFlavor {
         Commitment transcript_add_comm;
         Commitment transcript_mul_comm;
         Commitment transcript_eq_comm;
-        Commitment transcript_collision_check_comm;
         Commitment transcript_msm_transition_comm;
         Commitment transcript_pc_comm;
         Commitment transcript_msm_count_comm;
@@ -868,6 +890,18 @@ class ECCVMFlavor {
         Commitment precompute_select_comm;
         Commitment lookup_read_counts_0_comm;
         Commitment lookup_read_counts_1_comm;
+        Commitment transcript_base_infinity_comm;
+        Commitment transcript_base_x_inverse_comm;
+        Commitment transcript_base_y_inverse_comm;
+        Commitment transcript_add_x_equal_comm;
+        Commitment transcript_add_y_equal_comm;
+        Commitment transcript_add_lambda_comm;
+        Commitment transcript_msm_intermediate_x_comm;
+        Commitment transcript_msm_intermediate_y_comm;
+        Commitment transcript_msm_infinity_comm;
+        Commitment transcript_msm_x_inverse_comm;
+        Commitment transcript_msm_count_zero_at_transition_comm;
+        Commitment transcript_msm_count_at_transition_inverse_comm;
         Commitment z_perm_comm;
         Commitment lookup_inverses_comm;
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
@@ -908,8 +942,6 @@ class ECCVMFlavor {
             transcript_mul_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
             transcript_eq_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_collision_check_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
             transcript_msm_transition_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
@@ -1051,6 +1083,32 @@ class ECCVMFlavor {
                 NativeTranscript::proof_data, num_frs_read);
             lookup_read_counts_1_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
+            transcript_base_infinity_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
+                NativeTranscript::proof_data, num_frs_read);
+            transcript_base_x_inverse_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
+                NativeTranscript::proof_data, num_frs_read);
+            transcript_base_y_inverse_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
+                NativeTranscript::proof_data, num_frs_read);
+            transcript_add_x_equal_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
+                NativeTranscript::proof_data, num_frs_read);
+            transcript_add_y_equal_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
+                NativeTranscript::proof_data, num_frs_read);
+            transcript_add_lambda_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
+                NativeTranscript::proof_data, num_frs_read);
+            transcript_msm_intermediate_x_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
+                NativeTranscript::proof_data, num_frs_read);
+            transcript_msm_intermediate_y_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
+                NativeTranscript::proof_data, num_frs_read);
+            transcript_msm_infinity_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
+                NativeTranscript::proof_data, num_frs_read);
+            transcript_msm_x_inverse_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
+                NativeTranscript::proof_data, num_frs_read);
+            transcript_msm_count_zero_at_transition_comm =
+                NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
+                                                                               num_frs_read);
+            transcript_msm_count_at_transition_inverse_comm =
+                NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
+                                                                               num_frs_read);
             lookup_inverses_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
             z_perm_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
@@ -1119,8 +1177,6 @@ class ECCVMFlavor {
             NativeTranscript::template serialize_to_buffer(transcript_add_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(transcript_mul_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(transcript_eq_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_collision_check_comm,
-                                                           NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(transcript_msm_transition_comm,
                                                            NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(transcript_pc_comm, NativeTranscript::proof_data);
@@ -1195,6 +1251,25 @@ class ECCVMFlavor {
             NativeTranscript::template serialize_to_buffer(precompute_select_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(lookup_read_counts_0_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(lookup_read_counts_1_comm, NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_base_infinity_comm, NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_base_x_inverse_comm,
+                                                           NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_base_y_inverse_comm,
+                                                           NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_add_x_equal_comm, NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_add_y_equal_comm, NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_add_lambda_comm, NativeTranscript::proof_data);
+
+            NativeTranscript::template serialize_to_buffer(transcript_msm_intermediate_x_comm,
+                                                           NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_msm_intermediate_y_comm,
+                                                           NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_msm_infinity_comm, NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_msm_x_inverse_comm, NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_msm_count_zero_at_transition_comm,
+                                                           NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer(transcript_msm_count_at_transition_inverse_comm,
+                                                           NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(lookup_inverses_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(z_perm_comm, NativeTranscript::proof_data);
             for (size_t i = 0; i < log_n; ++i) {

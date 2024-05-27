@@ -19,14 +19,15 @@ describe('e2e_counter_contract', () => {
     counterContract = await CounterContract.deploy(wallet, 0, owner).send().deployed();
 
     logger.info(`Counter contract deployed at ${counterContract.address}`);
-  }, 25_000);
+  });
 
   afterAll(() => teardown());
 
   describe('increments', () => {
     it('counts', async () => {
-      await counterContract.methods.increment(owner).send().wait();
+      const receipt = await counterContract.methods.increment(owner).send().wait();
       expect(await counterContract.methods.get_counter(owner).simulate()).toBe(1n);
+      expect(receipt.transactionFee).toBeGreaterThan(0n);
     });
   });
 });

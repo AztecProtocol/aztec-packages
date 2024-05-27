@@ -1,5 +1,5 @@
 use super::big_int::BigIntContext;
-use super::generated_acir::GeneratedAcir;
+use super::generated_acir::{BrilligStdlibFunc, GeneratedAcir, PLACEHOLDER_BRILLIG_INDEX};
 use crate::brillig::brillig_gen::brillig_directive;
 use crate::brillig::brillig_ir::artifact::GeneratedBrillig;
 use crate::errors::{InternalError, RuntimeError, SsaReport};
@@ -8,8 +8,8 @@ use crate::ssa::ir::dfg::CallStack;
 use crate::ssa::ir::types::Type as SsaType;
 use crate::ssa::ir::{instruction::Endian, types::NumericType};
 use acvm::acir::circuit::brillig::{BrilligInputs, BrilligOutputs};
-use acvm::acir::circuit::opcodes::{BlockId, MemOp};
-use acvm::acir::circuit::Opcode;
+use acvm::acir::circuit::opcodes::{BlockId, BlockType, MemOp};
+use acvm::acir::circuit::{AssertionPayload, ExpressionOrMemory, Opcode};
 use acvm::blackbox_solver;
 use acvm::brillig_vm::{MemoryValue, VMStatus, VM};
 use acvm::{
@@ -236,7 +236,10 @@ impl AcirContext {
         self.acir_ir.call_stack = call_stack;
     }
 
-    fn get_or_create_witness_var(&mut self, var: AcirVar) -> Result<AcirVar, InternalError> {
+    pub(crate) fn get_or_create_witness_var(
+        &mut self,
+        var: AcirVar,
+    ) -> Result<AcirVar, InternalError> {
         if self.var_to_expression(var)?.to_witness().is_some() {
             // If called with a variable which is already a witness then return the same variable.
             return Ok(var);
@@ -326,13 +329,15 @@ impl AcirContext {
         // Compute the inverse with brillig code
         let inverse_code = brillig_directive::directive_invert();
 
-        let results = self.brillig(
+        let results = self.brillig_call(
             predicate,
-            inverse_code,
+            &inverse_code,
             vec![AcirValue::Var(var, AcirType::field())],
             vec![AcirType::field()],
             true,
             false,
+            PLACEHOLDER_BRILLIG_INDEX,
+            Some(BrilligStdlibFunc::Inverse),
         )?;
         let inverted_var = Self::expect_one_var(results);
 
@@ -493,7 +498,7 @@ impl AcirContext {
         &mut self,
         lhs: AcirVar,
         rhs: AcirVar,
-        assert_message: Option<String>,
+        assert_message: Option<AssertionPayload>,
     ) -> Result<(), RuntimeError> {
         let lhs_expr = self.var_to_expression(lhs)?;
         let rhs_expr = self.var_to_expression(rhs)?;
@@ -509,12 +514,36 @@ impl AcirContext {
         }
 
         self.acir_ir.assert_is_zero(diff_expr);
-        if let Some(message) = assert_message {
-            self.acir_ir.assert_messages.insert(self.acir_ir.last_acir_opcode_location(), message);
+        if let Some(payload) = assert_message {
+            self.acir_ir
+                .assertion_payloads
+                .insert(self.acir_ir.last_acir_opcode_location(), payload);
         }
         self.mark_variables_equivalent(lhs, rhs)?;
 
         Ok(())
+    }
+
+    pub(crate) fn vars_to_expressions_or_memory(
+        &self,
+        values: &[AcirValue],
+    ) -> Result<Vec<ExpressionOrMemory>, RuntimeError> {
+        let mut result = Vec::with_capacity(values.len());
+        for value in values {
+            match value {
+                AcirValue::Var(var, _) => {
+                    result.push(ExpressionOrMemory::Expression(self.var_to_expression(*var)?));
+                }
+                AcirValue::Array(vars) => {
+                    let vars_as_vec: Vec<_> = vars.iter().cloned().collect();
+                    result.extend(self.vars_to_expressions_or_memory(&vars_as_vec)?);
+                }
+                AcirValue::DynamicArray(AcirDynamicArray { block_id, .. }) => {
+                    result.push(ExpressionOrMemory::Memory(*block_id));
+                }
+            }
+        }
+        Ok(result)
     }
 
     /// Adds a new Variable to context whose value will
@@ -585,13 +614,44 @@ impl AcirContext {
                 expr.push_multiplication_term(FieldElement::one(), lhs_witness, rhs_witness);
                 self.add_data(AcirVarData::Expr(expr))
             }
-            (
-                AcirVarData::Expr(_) | AcirVarData::Witness(_),
-                AcirVarData::Expr(_) | AcirVarData::Witness(_),
-            ) => {
+            (AcirVarData::Expr(expression), AcirVarData::Witness(witness))
+            | (AcirVarData::Witness(witness), AcirVarData::Expr(expression))
+                if expression.is_linear() =>
+            {
+                let mut expr = Expression::default();
+                for term in expression.linear_combinations.iter() {
+                    expr.push_multiplication_term(term.0, term.1, witness);
+                }
+                expr.push_addition_term(expression.q_c, witness);
+                self.add_data(AcirVarData::Expr(expr))
+            }
+            (AcirVarData::Expr(lhs_expr), AcirVarData::Expr(rhs_expr)) => {
+                let degree_one = if lhs_expr.is_linear() && rhs_expr.is_degree_one_univariate() {
+                    Some((lhs_expr, rhs_expr))
+                } else if rhs_expr.is_linear() && lhs_expr.is_degree_one_univariate() {
+                    Some((rhs_expr, lhs_expr))
+                } else {
+                    None
+                };
+                if let Some((lin, univariate)) = degree_one {
+                    let mut expr = Expression::default();
+                    let rhs_term = univariate.linear_combinations[0];
+                    for term in lin.linear_combinations.iter() {
+                        expr.push_multiplication_term(term.0 * rhs_term.0, term.1, rhs_term.1);
+                    }
+                    expr.push_addition_term(lin.q_c * rhs_term.0, rhs_term.1);
+                    expr.sort();
+                    expr = expr.add_mul(univariate.q_c, &lin);
+                    self.add_data(AcirVarData::Expr(expr))
+                } else {
+                    let lhs = self.get_or_create_witness_var(lhs)?;
+                    let rhs = self.get_or_create_witness_var(rhs)?;
+                    self.mul_var(lhs, rhs)?
+                }
+            }
+            _ => {
                 let lhs = self.get_or_create_witness_var(lhs)?;
                 let rhs = self.get_or_create_witness_var(rhs)?;
-
                 self.mul_var(lhs, rhs)?
             }
         };
@@ -711,9 +771,9 @@ impl AcirContext {
         }
 
         let [q_value, r_value]: [AcirValue; 2] = self
-            .brillig(
+            .brillig_call(
                 predicate,
-                brillig_directive::directive_quotient(bit_size + 1),
+                &brillig_directive::directive_quotient(bit_size + 1),
                 vec![
                     AcirValue::Var(lhs, AcirType::unsigned(bit_size)),
                     AcirValue::Var(rhs, AcirType::unsigned(bit_size)),
@@ -721,6 +781,8 @@ impl AcirContext {
                 vec![AcirType::unsigned(max_q_bits), AcirType::unsigned(max_rhs_bits)],
                 true,
                 false,
+                PLACEHOLDER_BRILLIG_INDEX,
+                Some(BrilligStdlibFunc::Quotient(bit_size + 1)),
             )?
             .try_into()
             .expect("quotient only returns two values");
@@ -981,9 +1043,10 @@ impl AcirContext {
                 let witness = self.var_to_witness(witness_var)?;
                 self.acir_ir.range_constraint(witness, *bit_size)?;
                 if let Some(message) = message {
-                    self.acir_ir
-                        .assert_messages
-                        .insert(self.acir_ir.last_acir_opcode_location(), message);
+                    self.acir_ir.assertion_payloads.insert(
+                        self.acir_ir.last_acir_opcode_location(),
+                        AssertionPayload::StaticString(message.clone()),
+                    );
                 }
             }
             NumericType::NativeField => {
@@ -1261,7 +1324,8 @@ impl AcirContext {
                 let modulus = self.big_int_ctx.modulus(bigint.modulus_id());
                 let bytes_len = ((modulus - BigUint::from(1_u32)).bits() - 1) / 8 + 1;
                 output_count = bytes_len as usize;
-                (field_inputs, vec![FieldElement::from(bytes_len as u128)])
+                assert!(bytes_len == 32);
+                (field_inputs, vec![])
             }
             BlackBoxFunc::BigIntFromLeBytes => {
                 let invalid_input = "ICE - bigint operation requires 2 inputs";
@@ -1293,6 +1357,21 @@ impl AcirContext {
                 let result_id =
                     self.big_int_ctx.new_big_int(FieldElement::from(modulus_id as u128));
                 (modulus, vec![result_id.bigint_id(), result_id.modulus_id()])
+            }
+            BlackBoxFunc::AES128Encrypt => {
+                let invalid_input = "aes128_encrypt - operation requires a plaintext to encrypt";
+                let input_size = match inputs.first().expect(invalid_input) {
+                    AcirValue::Array(values) => Ok::<usize, RuntimeError>(values.len()),
+                    AcirValue::DynamicArray(dyn_array) => Ok::<usize, RuntimeError>(dyn_array.len),
+                    _ => {
+                        return Err(RuntimeError::InternalError(InternalError::General {
+                            message: "aes128_encrypt requires an array of inputs".to_string(),
+                            call_stack: self.get_call_stack(),
+                        }));
+                    }
+                }?;
+                output_count = input_size + (16 - input_size % 16);
+                (vec![], vec![FieldElement::from(output_count as u128)])
             }
             _ => (vec![], vec![]),
         };
@@ -1463,16 +1542,19 @@ impl AcirContext {
         id
     }
 
-    pub(crate) fn brillig(
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn brillig_call(
         &mut self,
         predicate: AcirVar,
-        generated_brillig: GeneratedBrillig,
+        generated_brillig: &GeneratedBrillig,
         inputs: Vec<AcirValue>,
         outputs: Vec<AcirType>,
         attempt_execution: bool,
         unsafe_return_values: bool,
+        brillig_function_index: u32,
+        brillig_stdlib_func: Option<BrilligStdlibFunc>,
     ) -> Result<Vec<AcirValue>, RuntimeError> {
-        let b_inputs = try_vecmap(inputs, |i| -> Result<_, InternalError> {
+        let brillig_inputs = try_vecmap(inputs, |i| -> Result<_, InternalError> {
             match i {
                 AcirValue::Var(var, _) => Ok(BrilligInputs::Single(self.var_to_expression(var)?)),
                 AcirValue::Array(vars) => {
@@ -1495,29 +1577,37 @@ impl AcirContext {
         // the entire program will be replaced with witness constraints to its outputs.
         if attempt_execution {
             if let Some(brillig_outputs) =
-                self.execute_brillig(&generated_brillig.byte_code, &b_inputs, &outputs)
+                self.execute_brillig(&generated_brillig.byte_code, &brillig_inputs, &outputs)
             {
                 return Ok(brillig_outputs);
             }
         }
 
         // Otherwise we must generate ACIR for it and execute at runtime.
-        let mut b_outputs = Vec::new();
+        let mut brillig_outputs = Vec::new();
         let outputs_var = vecmap(outputs, |output| match output {
             AcirType::NumericType(_) => {
                 let witness_index = self.acir_ir.next_witness_index();
-                b_outputs.push(BrilligOutputs::Simple(witness_index));
+                brillig_outputs.push(BrilligOutputs::Simple(witness_index));
                 let var = self.add_data(AcirVarData::Witness(witness_index));
                 AcirValue::Var(var, output.clone())
             }
             AcirType::Array(element_types, size) => {
                 let (acir_value, witnesses) = self.brillig_array_output(&element_types, size);
-                b_outputs.push(BrilligOutputs::Array(witnesses));
+                brillig_outputs.push(BrilligOutputs::Array(witnesses));
                 acir_value
             }
         });
         let predicate = self.var_to_expression(predicate)?;
-        self.acir_ir.brillig(Some(predicate), generated_brillig, b_inputs, b_outputs);
+
+        self.acir_ir.brillig_call(
+            Some(predicate),
+            generated_brillig,
+            brillig_inputs,
+            brillig_outputs,
+            brillig_function_index,
+            brillig_stdlib_func,
+        );
 
         fn range_constraint_value(
             context: &mut AcirContext,
@@ -1717,6 +1807,7 @@ impl AcirContext {
         block_id: BlockId,
         len: usize,
         optional_value: Option<AcirValue>,
+        databus: BlockType,
     ) -> Result<(), InternalError> {
         let initialized_values = match optional_value {
             None => {
@@ -1731,7 +1822,11 @@ impl AcirContext {
             }
         };
 
-        self.acir_ir.push_opcode(Opcode::MemoryInit { block_id, init: initialized_values });
+        self.acir_ir.push_opcode(Opcode::MemoryInit {
+            block_id,
+            init: initialized_values,
+            block_type: databus,
+        });
 
         Ok(())
     }

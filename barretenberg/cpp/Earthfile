@@ -1,80 +1,13 @@
 VERSION 0.8
 
-build-base:
-    ARG TARGETARCH
-    FROM --platform=linux/$TARGETARCH ubuntu:lunar
-    RUN apt-get update && apt-get install -y \
-        build-essential \
-        curl \
-        git \
-        cmake \
-        lsb-release \
-        wget \
-        software-properties-common \
-        gnupg \
-        ninja-build \
-        npm \
-        libssl-dev \
-        jq \
-        bash \
-        libstdc++6 \
-        clang-format \
-        clang-16
-
-    IF [ $TARGETARCH = arm64 ]
-        # publish arm after, assumes x86 already exists, becomes multiplatform image
-        SAVE IMAGE --push aztecprotocol/bb-ubuntu-lunar
-        FROM --platform=linux/amd64 aztecprotocol/bb-ubuntu-lunar:x86-latest
-        SAVE IMAGE --push aztecprotocol/bb-ubuntu-lunar
-    ELSE
-        SAVE IMAGE --push aztecprotocol/bb-ubuntu-lunar:x86-latest
-    END
-
-build-wasi-sdk-image:
-    WORKDIR /
-    RUN git clone --recursive https://github.com/WebAssembly/wasi-sdk.git
-    WORKDIR /wasi-sdk
-    RUN git checkout 9389ea5eeec98afc61039683ae92c6147fee9c54
-    ENV NINJA_FLAGS=-v
-    ENV MAKEFLAGS="-j$(nproc)"
-    RUN make build/llvm.BUILT
-    RUN make build/wasi-libc.BUILT
-    RUN make build/compiler-rt.BUILT
-    RUN make build/libcxx.BUILT
-    RUN make build/config.BUILT
-    SAVE ARTIFACT build/install/opt/wasi-sdk
-
-build-wasi-sdk:
-    ARG TARGETARCH
-    # Wrapper just exists share files.
-    FROM scratch
-    WORKDIR /usr/src
-    COPY +get-wasi-sdk-image/wasi-sdk wasi-sdk
-    SAVE ARTIFACT wasi-sdk
-    SAVE IMAGE --push aztecprotocol/cache:wasi-sdk-threads-v21.0-$TARGETARCH
-
-get-wasi-sdk-threads:
-    ARG TARGETARCH
-    # If this is failing, we need to run earthly --push +build-wasi-sdk
-    FROM aztecprotocol/cache:wasi-sdk-threads-v21.0-$TARGETARCH
-    SAVE ARTIFACT wasi-sdk
-
-get-wasi-sdk:
-    # NOTE: currently only works with x86
-    # TODO Align with above
-    FROM +source
-    COPY ./scripts/install-wasi-sdk.sh ./scripts/
-    RUN ./scripts/install-wasi-sdk.sh
-    # TODO better output name to mirror wasi-sdk
-    SAVE ARTIFACT src/wasi-sdk-20.0 wasi-sdk
-
 wasmtime:
-    FROM aztecprotocol/bb-ubuntu-lunar
+    FROM ubuntu:noble
+    RUN apt update && apt install -y curl xz-utils
     RUN curl https://wasmtime.dev/install.sh -sSf | bash
     SAVE ARTIFACT /root/.wasmtime/bin/wasmtime
 
 source:
-    FROM aztecprotocol/bb-ubuntu-lunar
+    FROM ../../build-images+build
     WORKDIR /usr/src/barretenberg
     # cpp source
     COPY --dir src/barretenberg src/CMakeLists.txt src
@@ -82,6 +15,14 @@ source:
     COPY --dir cmake CMakeLists.txt CMakePresets.json .
     # for debugging rebuilds
     RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
+
+preset-darwin-arm64:
+    FROM +source
+    LET OSX_SDK="MacOSX14.0.sdk"
+    LET OSX_SDK_URL="https://github.com/joseluisq/macosx-sdks/releases/download/14.0/${OSX_SDK}.tar.xz"
+    RUN curl -sSL "$OSX_SDK_URL" | tar -xJ -C /opt/osxcross/SDK && rm -rf /opt/osxcross/SDK/$OSX_SDK/System
+    RUN cmake --preset darwin-arm64 -Bbuild && cmake --build build --target bb
+    SAVE ARTIFACT build/bin AS LOCAL build-darwin-arm64/bin
 
 preset-release:
     FROM +source
@@ -106,18 +47,22 @@ preset-wasm:
         FROM +preset-wasm-threads
         SAVE ARTIFACT build/bin
     ELSE
-        COPY +get-wasi-sdk/wasi-sdk src/wasi-sdk
         RUN cmake --preset wasm -Bbuild && cmake --build build --target barretenberg.wasm
-        RUN src/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
+        RUN /opt/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
         SAVE ARTIFACT build/bin
         SAVE IMAGE --cache-hint
     END
 
+preset-sol:
+    FROM +source
+    RUN cmake --preset clang16  && cmake --build --preset clang16 --target solidity_key_gen solidity_proof_gen
+    SAVE ARTIFACT build/bin
+
 preset-wasm-threads:
     FROM +source
-    COPY +get-wasi-sdk-threads/wasi-sdk src/wasi-sdk
     RUN cmake --preset wasm-threads -Bbuild && cmake --build build --target barretenberg.wasm
-    RUN src/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
+    # TODO(https://github.com/AztecProtocol/barretenberg/issues/941) We currently do not strip barretenberg threaded wasm, for stack traces.
+    # RUN /opt/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
     SAVE ARTIFACT build/bin
 
 preset-gcc:
@@ -162,30 +107,34 @@ preset-wasm-bench:
 preset-release-assert-test:
     FROM +preset-release-assert
     # build all targets for tests
-    RUN cmake --build build 
+    RUN cmake --build build
     SAVE ARTIFACT build/bin
 
-# Sent to the bench runner using a earthly-cloud build x86 --push +bench-base --bench_mode=true
-# then we can run earthly-cloud bench x86 +bench-ultra-honk etc
-bench-base:
+# Sent to the bench runner using a earthly --push +bench-binaries
+# then we can run earthly +bench-ultra-honk --bench_mode=cache
+bench-binaries:
     ARG EARTHLY_GIT_HASH
     ARG TARGETARCH
     ARG bench_mode=build
     LOCALLY
     IF [ $bench_mode = cache ]
-        FROM aztecprotocol/bb-bench-base:$TARGETARCH-$EARTHLY_GIT_HASH
+        FROM aztecprotocol/bb-bench-binaries:$TARGETARCH-$EARTHLY_GIT_HASH
+        SAVE ARTIFACT ./*
     ELSE
-        FROM +source
+        FROM scratch
         COPY +preset-op-count-time-bench/bin/*_bench op-count-time/bin/
         COPY +preset-op-count-bench/bin/*_bench op-count/bin/
         COPY +preset-release-bench/bin/*_bench release/bin/
         COPY +preset-wasm-bench/bin/*_bench wasm/bin/
-        SAVE IMAGE --push aztecprotocol/bb-bench-base:$TARGETARCH-$EARTHLY_GIT_HASH
+        SAVE ARTIFACT ./*
+        SAVE IMAGE --push aztecprotocol/bb-bench-binaries:$TARGETARCH-$EARTHLY_GIT_HASH
     END
 
 # Runs on the bench image, sent from the builder runner
 bench-ultra-honk:
-    FROM +bench-base
+    BUILD +wasmtime # prefetch
+    FROM ubuntu:noble
+    COPY --dir +bench-binaries/* .
     # install SRS needed for proving
     COPY --dir ./srs_db/+build/. srs_db
     RUN cd release && ./bin/ultra_honk_bench --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
@@ -195,7 +144,9 @@ bench-ultra-honk:
     RUN cd wasm && wasmtime run --env HARDWARE_CONCURRENCY=16 -Wthreads=y -Sthreads=y --dir=".." ./bin/ultra_honk_bench --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
 
 bench-client-ivc:
-    FROM +bench-base
+    BUILD +wasmtime # prefetch
+    FROM ubuntu:noble
+    COPY --dir +bench-binaries/* .
     # install SRS needed for proving
     COPY --dir ./srs_db/+build/. srs_db
     RUN cd release && ./bin/client_ivc_bench --benchmark_filter="ClientIVCBench/Full/6$"
@@ -204,6 +155,23 @@ bench-client-ivc:
     COPY +wasmtime/wasmtime /usr/bin/wasmtime
     RUN cd wasm && wasmtime run --env HARDWARE_CONCURRENCY=16 -Wthreads=y -Sthreads=y --dir=".." ./bin/client_ivc_bench --benchmark_filter="ClientIVCBench/Full/6$"
 
+# Sent to the bench runner using a earthly --push +test-binaries
+# then we can run earthly +test --test_mode=cache
+test-binaries:
+    ARG EARTHLY_GIT_HASH
+    ARG TARGETARCH
+    ARG test_mode=build
+    LOCALLY
+    IF [ $test_mode = cache ]
+        FROM aztecprotocol/bb-test-binaries:$TARGETARCH-$EARTHLY_GIT_HASH
+        SAVE ARTIFACT build
+    ELSE
+        FROM scratch
+        COPY +preset-release-assert-test/bin/*_tests build/bin/
+        SAVE ARTIFACT build
+        SAVE IMAGE --push aztecprotocol/bb-test-binaries:$TARGETARCH-$EARTHLY_GIT_HASH
+    END
+
 test-clang-format:
     FROM +source
     COPY .clang-format .
@@ -211,7 +179,18 @@ test-clang-format:
     RUN ./format.sh check
 
 test:
+    ARG hardware_concurrency=""
+    # prefetch
+    BUILD +test-binaries
+    BUILD +preset-release-assert-test
     BUILD +test-clang-format
+    BUILD ./srs_db/+build # prefetch
+    FROM +source
+    COPY --dir +test-binaries/build build
     FROM +preset-release-assert-test
     COPY --dir ./srs_db/+build/. srs_db
+    # limit hardware concurrency, if provided
+    IF [ "$HARDWARE_CONCURRENCY" != "" ]
+        ENV HARDWARE_CONCURRENCY=$hardware_concurrency
+    END
     RUN cd build && GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure

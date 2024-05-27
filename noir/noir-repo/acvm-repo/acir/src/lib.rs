@@ -41,8 +41,9 @@ mod reflection {
         circuit::{
             brillig::{BrilligInputs, BrilligOutputs},
             directives::Directive,
-            opcodes::BlackBoxFuncCall,
-            Circuit, ExpressionWidth, Opcode, OpcodeLocation, Program,
+            opcodes::{BlackBoxFuncCall, BlockType},
+            AssertionPayload, Circuit, ExpressionOrMemory, ExpressionWidth, Opcode, OpcodeLocation,
+            Program,
         },
         native_types::{Witness, WitnessMap, WitnessStack},
     };
@@ -59,6 +60,7 @@ mod reflection {
         };
 
         let mut tracer = Tracer::new(TracerConfig::default());
+        tracer.trace_simple_type::<BlockType>().unwrap();
         tracer.trace_simple_type::<Program>().unwrap();
         tracer.trace_simple_type::<Circuit>().unwrap();
         tracer.trace_simple_type::<ExpressionWidth>().unwrap();
@@ -74,6 +76,8 @@ mod reflection {
         tracer.trace_simple_type::<Directive>().unwrap();
         tracer.trace_simple_type::<ValueOrArray>().unwrap();
         tracer.trace_simple_type::<HeapValueType>().unwrap();
+        tracer.trace_simple_type::<AssertionPayload>().unwrap();
+        tracer.trace_simple_type::<ExpressionOrMemory>().unwrap();
 
         let registry = tracer.registry().unwrap();
 

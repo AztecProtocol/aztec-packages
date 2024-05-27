@@ -1,16 +1,17 @@
+import { createAccounts } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
   type AztecAddress,
+  type AztecNode,
   type CheatCodes,
   type DebugLogger,
   ExtendedNote,
   Fr,
-  GrumpkinScalar,
   Note,
   type PXE,
   type TxHash,
-  computeMessageSecretHash,
-  generatePublicKey,
+  computeSecretHash,
+  deriveKeys,
 } from '@aztec/aztec.js';
 import { computePartialAddress } from '@aztec/circuits.js';
 import { InclusionProofsContract } from '@aztec/noir-contracts.js';
@@ -20,7 +21,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
-import { setup } from './fixtures/utils.js';
+import { setup, setupPXEService } from './fixtures/utils.js';
 
 jest.setTimeout(200_000);
 
@@ -38,7 +39,10 @@ describe('e2e_crowdfunding_and_claim', () => {
     decimals: 18n,
   };
 
-  let teardown: () => Promise<void>;
+  let teardownA: () => Promise<void>;
+  let teardownB: () => Promise<void>;
+
+  let aztecNode: AztecNode;
   let operatorWallet: AccountWallet;
   let donorWallets: AccountWallet[];
   let wallets: AccountWallet[];
@@ -49,8 +53,8 @@ describe('e2e_crowdfunding_and_claim', () => {
   let crowdfundingContract: CrowdfundingContract;
   let claimContract: ClaimContract;
 
-  let crowdfundingPrivateKey;
-  let crowdfundingPublicKey;
+  let crowdfundingSecretKey;
+  let crowdfundingPublicKeysHash;
   let pxe: PXE;
   let cheatCodes: CheatCodes;
   let deadline: number; // end of crowdfunding period
@@ -77,7 +81,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   };
 
   beforeAll(async () => {
-    ({ cheatCodes, teardown, logger, pxe, wallets } = await setup(3));
+    ({ cheatCodes, teardown: teardownA, logger, pxe, wallets, aztecNode } = await setup(3));
     operatorWallet = wallets[0];
     donorWallets = wallets.slice(1);
 
@@ -106,18 +110,18 @@ describe('e2e_crowdfunding_and_claim', () => {
       .deployed();
     logger.info(`Reward Token deployed to ${rewardToken.address}`);
 
-    crowdfundingPrivateKey = GrumpkinScalar.random();
-    crowdfundingPublicKey = generatePublicKey(crowdfundingPrivateKey);
+    crowdfundingSecretKey = Fr.random();
+    crowdfundingPublicKeysHash = deriveKeys(crowdfundingSecretKey).publicKeys.hash();
 
-    const crowdfundingDeployment = CrowdfundingContract.deployWithPublicKey(
-      crowdfundingPublicKey,
+    const crowdfundingDeployment = CrowdfundingContract.deployWithPublicKeysHash(
+      crowdfundingPublicKeysHash,
       operatorWallet,
       donationToken.address,
       operatorWallet.getAddress(),
       deadline,
     );
     const crowdfundingInstance = crowdfundingDeployment.getInstance();
-    await pxe.registerAccount(crowdfundingPrivateKey, computePartialAddress(crowdfundingInstance));
+    await pxe.registerAccount(crowdfundingSecretKey, computePartialAddress(crowdfundingInstance));
     crowdfundingContract = await crowdfundingDeployment.send().deployed();
     logger.info(`Crowdfunding contract deployed at ${crowdfundingContract.address}`);
 
@@ -131,11 +135,14 @@ describe('e2e_crowdfunding_and_claim', () => {
     await mintDNTToDonors();
   });
 
-  afterAll(() => teardown());
+  afterAll(async () => {
+    await teardownA();
+    await teardownB();
+  });
 
   const mintDNTToDonors = async () => {
     const secret = Fr.random();
-    const secretHash = computeMessageSecretHash(secret);
+    const secretHash = computeSecretHash(secret);
 
     const [txReceipt1, txReceipt2] = await Promise.all([
       donationToken.withWallet(operatorWallet).methods.mint_private(1234n, secretHash).send().wait(),
@@ -189,7 +196,8 @@ describe('e2e_crowdfunding_and_claim', () => {
         nonce: noteNonces[0],
       },
       value: extendedNote.note.items[0],
-      owner: extendedNote.note.items[1],
+      // eslint-disable-next-line camelcase
+      npk_m_hash: extendedNote.note.items[1],
       randomness: extendedNote.note.items[2],
     };
   };
@@ -262,7 +270,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     ).rejects.toThrow();
   });
 
-  it('cannot claim with a different address than the one that donated', async () => {
+  it('cannot claim without access to the nsk_app tied to the npk_m specified in the proof note', async () => {
     const donationAmount = 1000n;
     {
       const action = donationToken
@@ -291,15 +299,27 @@ describe('e2e_crowdfunding_and_claim', () => {
     // Set the value note in a format which can be passed to claim function
     const anotherDonationNote = await processExtendedNote(notes![0]);
 
-    // 3) We claim the reward token via the Claim contract
+    // We create an unrelated pxe and wallet without access to the nsk_app that correlates to the npk_m specified in the proof note.
+    let unrelatedWallet: AccountWallet;
+    {
+      const { pxe: pxeB, teardown: _teardown } = await setupPXEService(aztecNode!, {}, undefined, true);
+      teardownB = _teardown;
+      [unrelatedWallet] = await createAccounts(pxeB, 1);
+      await pxeB.registerContract({
+        artifact: ClaimContract.artifact,
+        instance: claimContract.instance,
+      });
+    }
+
+    // 3) We try to claim the reward token via the Claim contract with the unrelated wallet
     {
       await expect(
         claimContract
-          .withWallet(donorWallets[0])
-          .methods.claim(anotherDonationNote, donorWallets[1].getAddress())
+          .withWallet(unrelatedWallet)
+          .methods.claim(anotherDonationNote, unrelatedWallet.getAddress())
           .send()
           .wait(),
-      ).rejects.toThrow('Note does not belong to the sender');
+      ).rejects.toThrow('Could not find key prefix.');
     }
   });
 

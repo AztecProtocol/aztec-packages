@@ -31,7 +31,6 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     commitments.transcript_add = receive_commitment(commitment_labels.transcript_add);
     commitments.transcript_mul = receive_commitment(commitment_labels.transcript_mul);
     commitments.transcript_eq = receive_commitment(commitment_labels.transcript_eq);
-    commitments.transcript_collision_check = receive_commitment(commitment_labels.transcript_collision_check);
     commitments.transcript_msm_transition = receive_commitment(commitment_labels.transcript_msm_transition);
     commitments.transcript_pc = receive_commitment(commitment_labels.transcript_pc);
     commitments.transcript_msm_count = receive_commitment(commitment_labels.transcript_msm_count);
@@ -102,6 +101,20 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     commitments.precompute_select = receive_commitment(commitment_labels.precompute_select);
     commitments.lookup_read_counts_0 = receive_commitment(commitment_labels.lookup_read_counts_0);
     commitments.lookup_read_counts_1 = receive_commitment(commitment_labels.lookup_read_counts_1);
+    commitments.transcript_base_infinity = receive_commitment(commitment_labels.transcript_base_infinity);
+    commitments.transcript_base_x_inverse = receive_commitment(commitment_labels.transcript_base_x_inverse);
+    commitments.transcript_base_y_inverse = receive_commitment(commitment_labels.transcript_base_y_inverse);
+    commitments.transcript_add_x_equal = receive_commitment(commitment_labels.transcript_add_x_equal);
+    commitments.transcript_add_y_equal = receive_commitment(commitment_labels.transcript_add_y_equal);
+    commitments.transcript_add_lambda = receive_commitment(commitment_labels.transcript_add_lambda);
+    commitments.transcript_msm_intermediate_x = receive_commitment(commitment_labels.transcript_msm_intermediate_x);
+    commitments.transcript_msm_intermediate_y = receive_commitment(commitment_labels.transcript_msm_intermediate_y);
+    commitments.transcript_msm_infinity = receive_commitment(commitment_labels.transcript_msm_infinity);
+    commitments.transcript_msm_x_inverse = receive_commitment(commitment_labels.transcript_msm_x_inverse);
+    commitments.transcript_msm_count_zero_at_transition =
+        receive_commitment(commitment_labels.transcript_msm_count_zero_at_transition);
+    commitments.transcript_msm_count_at_transition_inverse =
+        receive_commitment(commitment_labels.transcript_msm_count_at_transition_inverse);
 
     // Get challenge for sorted list batching and wire four memory records
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
@@ -123,7 +136,7 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
+    std::vector<FF> gate_challenges(static_cast<size_t>(numeric::get_msb(key->circuit_size)));
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }

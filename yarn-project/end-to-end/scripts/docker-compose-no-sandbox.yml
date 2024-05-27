@@ -1,7 +1,8 @@
 version: '3'
 services:
   fork:
-    image: aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991:latest
+    image: aztecprotocol/foundry:de33b6af53005037b463318d2628b5cfcaf39916
+    pull_policy: always
     entrypoint: >
       sh -c '
       if [ -n "$FORK_BLOCK_NUMBER" ] && [ -n "$FORK_URL" ]; then
@@ -28,6 +29,7 @@ services:
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
       ENABLE_GAS: ${ENABLE_GAS:-''}
       JOB_NAME: ${JOB_NAME:-''}
+      HARDWARE_CONCURRENCY: ${HARDWARE_CONCURRENCY:-}
     command: ${TEST:-./src/e2e_deploy_contract.test.ts}
     volumes:
       - ../log:/usr/src/yarn-project/end-to-end/log:rw

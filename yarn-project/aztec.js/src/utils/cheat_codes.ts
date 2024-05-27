@@ -1,7 +1,7 @@
 import { type Note, type PXE } from '@aztec/circuit-types';
 import { type AztecAddress, type EthAddress, Fr } from '@aztec/circuits.js';
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
-import { keccak, pedersenHash } from '@aztec/foundation/crypto';
+import { keccak256, pedersenHash } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import fs from 'fs';
@@ -167,7 +167,7 @@ export class EthCheatCodes {
   public keccak256(baseSlot: bigint, key: bigint): bigint {
     // abi encode (removing the 0x) - concat key and baseSlot (both padded to 32 bytes)
     const abiEncoded = toHex(key, true).substring(2) + toHex(baseSlot, true).substring(2);
-    return toBigIntBE(keccak(Buffer.from(abiEncoded, 'hex')));
+    return toBigIntBE(keccak256(Buffer.from(abiEncoded, 'hex')));
   }
 
   /**
@@ -265,11 +265,11 @@ export class AztecCheatCodes {
   public async warp(to: number): Promise<void> {
     const rollupContract = (await this.pxe.getNodeInfo()).l1ContractAddresses.rollupAddress;
     await this.eth.setNextBlockTimestamp(to);
-    // also store this time on the rollup contract (slot 1 tracks `lastBlockTs`).
+    // also store this time on the rollup contract (slot 2 tracks `lastBlockTs`).
     // This is because when the sequencer executes public functions, it uses the timestamp stored in the rollup contract.
-    await this.eth.store(rollupContract, 1n, BigInt(to));
-    // also store this on slot 2 of the rollup contract (`lastWarpedBlockTs`) which tracks the last time warp was used.
     await this.eth.store(rollupContract, 2n, BigInt(to));
+    // also store this on slot 3 of the rollup contract (`lastWarpedBlockTs`) which tracks the last time warp was used.
+    await this.eth.store(rollupContract, 3n, BigInt(to));
   }
 
   /**
