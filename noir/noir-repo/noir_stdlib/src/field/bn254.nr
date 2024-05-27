@@ -1,3 +1,5 @@
+use crate::unsafe::UnconstrainedWrapper;
+
 // The low and high decomposition of the field modulus
 global PLO: Field = 53438638232309528389504892708671455233;
 global PHI: Field = 64323764613183177041862057485226039389;
@@ -5,7 +7,7 @@ global PHI: Field = 64323764613183177041862057485226039389;
 global TWO_POW_128: Field = 0x100000000000000000000000000000000;
 
 /// A hint for decomposing a single field into two 16 byte fields.
-unconstrained fn decompose_unsafe(x: Field) -> (Field, Field) {
+unconstrained fn decompose_unsafe(x: Field) -> Unconstrained<(Field, Field)> {
     let x_bytes = x.to_le_bytes(32);
 
     let mut low: Field = 0;
@@ -18,14 +20,14 @@ unconstrained fn decompose_unsafe(x: Field) -> (Field, Field) {
         offset *= 256;
     }
 
-    (low, high)
+    Unconstrained::new((low, high))
 }
 
 // Assert that (alo > blo && ahi >= bhi) || (alo <= blo && ahi > bhi)
 fn assert_gt_limbs(a: (Field, Field), b: (Field, Field)) {
     let (alo, ahi) = a;
     let (blo, bhi) = b;
-    let borrow = lte_unsafe_16(alo, blo);
+    let borrow = lte_unsafe_16(alo, blo).unwrap();
 
     let rlo = alo - blo - 1 + (borrow as Field) * TWO_POW_128;
     let rhi = ahi - bhi - (borrow as Field);
@@ -37,7 +39,7 @@ fn assert_gt_limbs(a: (Field, Field), b: (Field, Field)) {
 /// Decompose a single field into two 16 byte fields.
 pub fn decompose(x: Field) -> (Field, Field) {
     // Take hints of the decomposition
-    let (xlo, xhi) = decompose_unsafe(x);
+    let (xlo, xhi) = decompose_unsafe(x).unwrap();
 
     // Range check the limbs
     xlo.assert_max_bit_size(128);
@@ -78,12 +80,12 @@ fn lte_unsafe_internal(x: Field, y: Field, num_bytes: u32) -> bool {
     }
 }
 
-unconstrained fn lt_unsafe_32(x: Field, y: Field) -> bool {
-    lt_unsafe_internal(x, y, 32)
+unconstrained fn lt_unsafe_32(x: Field, y: Field) -> Unconstrained<bool> {
+    Unconstrained::new(lt_unsafe_internal(x, y, 32))
 }
 
-unconstrained fn lte_unsafe_16(x: Field, y: Field) -> bool {
-    lte_unsafe_internal(x, y, 16)
+unconstrained fn lte_unsafe_16(x: Field, y: Field) -> Unconstrained<bool> {
+    Unconstrained::new(lte_unsafe_internal(x, y, 16))
 }
 
 pub fn assert_gt(a: Field, b: Field) {
@@ -102,7 +104,7 @@ pub fn assert_lt(a: Field, b: Field) {
 pub fn gt(a: Field, b: Field) -> bool {
     if a == b {
         false
-    } else if lt_unsafe_32(a, b) {
+    } else if lt_unsafe_32(a, b).unwrap() {
         assert_gt(b, a);
         false
     } else {
@@ -124,9 +126,9 @@ mod tests {
 
     #[test]
     fn check_decompose_unsafe() {
-        assert_eq(decompose_unsafe(TWO_POW_128), (0, 1));
-        assert_eq(decompose_unsafe(TWO_POW_128 + 0x1234567890), (0x1234567890, 1));
-        assert_eq(decompose_unsafe(0x1234567890), (0x1234567890, 0));
+        assert_eq(decompose_unsafe(TWO_POW_128).unwrap(), (0, 1));
+        assert_eq(decompose_unsafe(TWO_POW_128 + 0x1234567890).unwrap(), (0x1234567890, 1));
+        assert_eq(decompose_unsafe(0x1234567890).unwrap(), (0x1234567890, 0));
     }
 
     #[test]

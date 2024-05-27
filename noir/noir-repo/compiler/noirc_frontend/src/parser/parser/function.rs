@@ -4,6 +4,7 @@ use super::{
     parameter_name_recovery, parameter_recovery, parenthesized, parse_type, pattern,
     self_parameter, where_clause, NoirParser,
 };
+use crate::macros_api::UnresolvedTypeData;
 use crate::parser::labels::ParsingRuleLabel;
 use crate::parser::spanned;
 use crate::token::{Keyword, Token};
@@ -34,6 +35,19 @@ pub(super) fn function_definition(allow_self: bool) -> impl NoirParser<NoirFunct
 
             // Validate collected attributes, filtering them into function and secondary variants
             let attributes = validate_attributes(attributes, span, emit);
+
+            // Unconstrained function
+            if modifiers.0 {
+                if let FunctionReturnType::Ty(unresolved_type) = &ret.1 {
+                    if !matches!(unresolved_type.typ, UnresolvedTypeData::Unconstrained(_)) {
+                        emit(ParserError::with_reason(
+                            ParserErrorReason::UnconstrainedReturnType,
+                            span,
+                        ));
+                    }
+                }
+            }
+
             FunctionDefinition {
                 span: body_span,
                 name,

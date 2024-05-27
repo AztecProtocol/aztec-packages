@@ -1,11 +1,13 @@
+use crate::unsafe::UnconstrainedWrapper;
+
 #[oracle(create_mock)]
-unconstrained fn create_mock_oracle<N>(name: str<N>) -> Field {}
+unconstrained fn create_mock_oracle<N, P>(name: str<N>) -> Unconstrained<P> {}
 
 #[oracle(set_mock_params)]
 unconstrained fn set_mock_params_oracle<P>(id: Field, params: P) {}
 
 #[oracle(get_mock_last_params)]
-unconstrained fn get_mock_last_params_oracle<P>(id: Field) -> P {}
+unconstrained fn get_mock_last_params_oracle<P>(id: Field) -> Unconstrained<P> {}
 
 #[oracle(set_mock_returns)]
 unconstrained fn set_mock_returns_oracle<R>(id: Field, returns: R) {}
@@ -21,27 +23,27 @@ struct OracleMock {
 }
 
 impl OracleMock {
-    unconstrained pub fn mock<N>(name: str<N>) -> Self {
-        Self { id: create_mock_oracle(name) }
+    unconstrained pub fn mock<N>(name: str<N>) -> Unconstrained<Self> {
+        Unconstrained::new(Self { id: create_mock_oracle(name).unwrap() })
     }
 
-    unconstrained pub fn with_params<P>(self, params: P) -> Self {
+    unconstrained pub fn with_params<P>(self, params: P) -> Unconstrained<Self> {
         set_mock_params_oracle(self.id, params);
-        self
+        Unconstrained::new(self)
     }
 
-    unconstrained pub fn get_last_params<P>(self) -> P {
+    unconstrained pub fn get_last_params<P>(self) -> Unconstrained<P> {
         get_mock_last_params_oracle(self.id)
     }
 
-    unconstrained pub fn returns<R>(self, returns: R) -> Self {
+    unconstrained pub fn returns<R>(self, returns: R) -> Unconstrained<Self> {
         set_mock_returns_oracle(self.id, returns);
-        self
+        Unconstrained::new(self)
     }
 
-    unconstrained pub fn times(self, times: u64) -> Self {
+    unconstrained pub fn times(self, times: u64) -> Unconstrained<Self> {
         set_mock_times_oracle(self.id, times);
-        self
+        Unconstrained::new(self)
     }
 
     unconstrained pub fn clear(self) {

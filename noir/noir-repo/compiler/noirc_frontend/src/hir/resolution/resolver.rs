@@ -601,6 +601,11 @@ impl<'a> Resolver<'a> {
                 Type::MutableReference(Box::new(self.resolve_type_inner(*element, new_variables)))
             }
             Parenthesized(typ) => self.resolve_type_inner(*typ, new_variables),
+            Unconstrained(arg) => self.resolve_named_type(
+                Path::from_ident(Ident::new("UnconstrainedWrapper".to_string(), Span::default())),
+                vec![*arg],
+                new_variables,
+            ),
         };
 
         if let Type::Struct(_, _) = resolved_type {

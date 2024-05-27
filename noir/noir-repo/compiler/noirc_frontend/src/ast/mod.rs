@@ -118,7 +118,9 @@ pub enum UnresolvedTypeData {
     // The type of quoted code for metaprogramming
     Code,
 
-    Unspecified, // This is for when the user declares a variable without specifying it's type
+    Unspecified, // This is for when the user declares a variable without specifying it's type,
+
+    Unconstrained(Box<UnresolvedType>),
     Error,
 }
 
@@ -215,6 +217,9 @@ impl std::fmt::Display for UnresolvedTypeData {
             Error => write!(f, "error"),
             Unspecified => write!(f, "unspecified"),
             Parenthesized(typ) => write!(f, "({typ})"),
+            Unconstrained(arg) => {
+                write!(f, "Unconstrained<{}>", arg)
+            }
         }
     }
 }

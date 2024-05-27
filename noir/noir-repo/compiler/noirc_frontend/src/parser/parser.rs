@@ -685,6 +685,7 @@ fn parse_type_inner<'a>(
         bool_type(),
         string_type(),
         format_string_type(recursive_type_parser.clone()),
+        unconstrained_type(recursive_type_parser.clone()),
         named_type(recursive_type_parser.clone()),
         named_trait(recursive_type_parser.clone()),
         slice_type(recursive_type_parser.clone()),
@@ -789,6 +790,19 @@ fn named_type<'a>(
     path().then(generic_type_args(type_parser)).map_with_span(|(path, args), span| {
         UnresolvedTypeData::Named(path, args, false).with_span(span)
     })
+}
+
+fn unconstrained_type<'a>(
+    type_parser: impl NoirParser<UnresolvedType> + 'a,
+) -> impl NoirParser<UnresolvedType> + 'a {
+    keyword(Keyword::UnconstrainedType).then(generic_type_args(type_parser)).validate(
+        |(_, args), span, emit| {
+            if args.len() != 1 {
+                emit(ParserError::with_reason(ParserErrorReason::UnconstrainedReturnType, span))
+            }
+            UnresolvedTypeData::Unconstrained(Box::new(args[0].clone())).with_span(span)
+        },
+    )
 }
 
 fn named_trait<'a>(

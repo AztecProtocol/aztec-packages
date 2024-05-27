@@ -1342,12 +1342,42 @@ impl Type {
         let mut bindings = TypeBindings::new();
 
         if let Err(UnificationError) = self.try_unify(expected, &mut bindings) {
-            if !self.try_array_to_slice_coercion(expected, expression, interner) {
+            if !self.try_array_to_slice_coercion(expected, expression, interner)
+                && !self.try_unconstrained_wrapper_coercion(expected, expression, interner)
+            {
                 errors.push(make_error());
             }
         } else {
             Type::apply_type_bindings(bindings);
         }
+    }
+
+    /// Try to apply the unconstrained wrapper coercion to this given type pair and expression.
+    /// If self can be converted to target this way, do so and return true to indicate success.
+    fn try_unconstrained_wrapper_coercion(
+        &self,
+        target: &Type,
+        expression: ExprId,
+        interner: &mut NodeInterner,
+    ) -> bool {
+        let this = self.follow_bindings();
+        let target = target.follow_bindings();
+
+        if let Type::Struct(typ, generics) = &target {
+            // Still have to ensure the element types match.
+            // Don't need to issue an error here if not, it will be done in unify_with_coercions
+            let mut bindings = TypeBindings::new();
+            if typ.borrow().name.0.contents == "UnconstrainedWrapper"
+                && generics[0].try_unify(&this, &mut bindings).is_ok()
+            {
+                let expr_id =
+                    wrap_unconstrained_return(expression, this, typ.borrow().id, &target, interner);
+                Self::apply_type_bindings(bindings.clone());
+                interner.store_instantiation_bindings(expr_id, bindings);
+                return true;
+            }
+        }
+        false
     }
 
     /// Try to apply the array to slice coercion to this given type pair and expression.
@@ -1783,6 +1813,47 @@ fn convert_array_expression_to_slice(
 
     let func_type = Type::Function(vec![array_type], Box::new(target_type), Box::new(Type::Unit));
     interner.push_expr_type(func, func_type);
+}
+
+/// Wraps a given `expression` in `UnconstrainedWrapper::new()`
+fn wrap_unconstrained_return(
+    expression: ExprId,
+    original_type: Type,
+    unconstrained_wrapper_id: StructId,
+    unconstrained_wrapper_type: &Type,
+    interner: &mut NodeInterner,
+) -> ExprId {
+    let new_method = interner
+        .lookup_method(&unconstrained_wrapper_type, unconstrained_wrapper_id, "new", false)
+        .expect("Expected 'UnconstrainedWrapper::new' method to be present in Noir's stdlib");
+
+    let new_method_id = interner.function_definition_id(new_method);
+    let location = interner.expr_location(&expression);
+    let new_unconstrained_wrapper =
+        HirExpression::Ident(HirIdent::non_trait_method(new_method_id, location), None);
+    let func = interner.push_expr(new_unconstrained_wrapper);
+
+    // Copy the expression and give it a new ExprId. The old one
+    // will be mutated in place into a Call expression.
+    let argument = interner.expression(&expression);
+    let argument = interner.push_expr(argument);
+    interner.push_expr_type(argument, original_type.clone());
+    interner.push_expr_location(argument, location.span, location.file);
+
+    let arguments = vec![argument];
+    let call = HirExpression::Call(HirCallExpression { func, arguments, location });
+    interner.replace_expr(&expression, call);
+
+    interner.push_expr_location(func, location.span, location.file);
+    interner.push_expr_type(expression, unconstrained_wrapper_type.clone());
+
+    let func_type = Type::Function(
+        vec![original_type],
+        Box::new(unconstrained_wrapper_type.clone()),
+        Box::new(Type::Unit),
+    );
+    interner.push_expr_type(func, func_type);
+    func
 }
 
 impl BinaryTypeOperator {
