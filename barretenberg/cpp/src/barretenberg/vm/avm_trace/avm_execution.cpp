@@ -214,6 +214,36 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                         std::get<uint32_t>(inst.operands.at(3)),
                                         calldata);
             break;
+        case OpCode::SENDER:
+            trace_builder.op_sender(std::get<uint32_t>(inst.operands.at(0)));
+            break;
+        case OpCode::ADDRESS:
+            trace_builder.op_address(std::get<uint32_t>(inst.operands.at(0)));
+            break;
+        case OpCode::FEEPERL2GAS:
+            trace_builder.op_fee_per_l2_gas(std::get<uint32_t>(inst.operands.at(0)));
+            break;
+        case OpCode::FEEPERDAGAS:
+            trace_builder.op_fee_per_da_gas(std::get<uint32_t>(inst.operands.at(0)));
+            break;
+        case OpCode::TRANSACTIONFEE:
+            trace_builder.op_transaction_fee(std::get<uint32_t>(inst.operands.at(0)));
+            break;
+        case OpCode::CHAINID:
+            trace_builder.op_chain_id(std::get<uint32_t>(inst.operands.at(0)));
+            break;
+        case OpCode::VERSION:
+            trace_builder.op_version(std::get<uint32_t>(inst.operands.at(0)));
+            break;
+        case OpCode::BLOCKNUMBER:
+            trace_builder.op_block_number(std::get<uint32_t>(inst.operands.at(0)));
+            break;
+        case OpCode::COINBASE:
+            trace_builder.op_coinbase(std::get<uint32_t>(inst.operands.at(0)));
+            break;
+        case OpCode::TIMESTAMP:
+            trace_builder.op_timestamp(std::get<uint32_t>(inst.operands.at(0)));
+            break;
             // Machine State - Internal Control Flow
         case OpCode::JUMP:
             trace_builder.jump(std::get<uint32_t>(inst.operands.at(0)));
