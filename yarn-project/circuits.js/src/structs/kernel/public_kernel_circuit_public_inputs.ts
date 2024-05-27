@@ -1,14 +1,24 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { type Fr } from '@aztec/foundation/fields';
-import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { arrayNonEmptyLength } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, FieldReader, type Tuple, mapTuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
-import { MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX } from '../../constants.gen.js';
+import {
+  MAX_ENCRYPTED_LOGS_PER_TX,
+  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+} from '../../constants.gen.js';
+import { mergeAccumulatedData } from '../../utils/index.js';
 import { CallRequest } from '../call_request.js';
 import { RevertCode } from '../revert_code.js';
 import { ValidationRequests } from '../validation_requests.js';
+import { CombinedAccumulatedData } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 import { PublicAccumulatedData } from './public_accumulated_data.js';
 
@@ -82,6 +92,68 @@ export class PublicKernelCircuitPublicInputs {
 
   get needsTeardown() {
     return !this.publicTeardownCallStack[0].isEmpty();
+  }
+
+  recombineAccumulatedData(): CombinedAccumulatedData {
+    const newNoteHashes: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX> = mapTuple(
+      mergeAccumulatedData(this.endNonRevertibleData.newNoteHashes, this.end.newNoteHashes, MAX_NEW_NOTE_HASHES_PER_TX),
+      n => n.value,
+    );
+
+    const newNullifiers: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX> = mapTuple(
+      mergeAccumulatedData(this.endNonRevertibleData.newNullifiers, this.end.newNullifiers, MAX_NEW_NOTE_HASHES_PER_TX),
+      n => n.value,
+    );
+
+    const newL2ToL1Msgs = mergeAccumulatedData(
+      this.endNonRevertibleData.newL2ToL1Msgs,
+      this.end.newL2ToL1Msgs,
+      MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+    );
+
+    const noteEncryptedLogHashes = mergeAccumulatedData(
+      this.endNonRevertibleData.noteEncryptedLogsHashes,
+      this.end.noteEncryptedLogsHashes,
+      MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+    );
+    const noteEncryptedLogPreimagesLength = new Fr(arrayNonEmptyLength(noteEncryptedLogHashes, x => x.isEmpty()));
+
+    const encryptedLogHashes = mergeAccumulatedData(
+      this.endNonRevertibleData.encryptedLogsHashes,
+      this.end.encryptedLogsHashes,
+      MAX_ENCRYPTED_LOGS_PER_TX,
+    );
+    const encryptedLogPreimagesLength = new Fr(arrayNonEmptyLength(encryptedLogHashes, x => x.isEmpty()));
+
+    const unencryptedLogHashes = mergeAccumulatedData(
+      this.endNonRevertibleData.unencryptedLogsHashes,
+      this.end.unencryptedLogsHashes,
+      MAX_ENCRYPTED_LOGS_PER_TX,
+    );
+
+    const unencryptedLogPreimagesLength = new Fr(arrayNonEmptyLength(unencryptedLogHashes, x => x.isEmpty()));
+
+    const publicDataUpdateRequests = mergeAccumulatedData(
+      this.endNonRevertibleData.publicDataUpdateRequests,
+      this.end.publicDataUpdateRequests,
+      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    );
+
+    const gasUsed = this.endNonRevertibleData.gasUsed.add(this.end.gasUsed);
+
+    return CombinedAccumulatedData.from({
+      newNoteHashes,
+      newNullifiers,
+      newL2ToL1Msgs,
+      noteEncryptedLogsHash: noteEncryptedLogHashes[0].value,
+      noteEncryptedLogPreimagesLength,
+      encryptedLogsHash: encryptedLogHashes[0].value,
+      encryptedLogPreimagesLength,
+      unencryptedLogsHash: unencryptedLogHashes[0].value,
+      unencryptedLogPreimagesLength,
+      publicDataUpdateRequests: publicDataUpdateRequests,
+      gasUsed,
+    });
   }
 
   /**

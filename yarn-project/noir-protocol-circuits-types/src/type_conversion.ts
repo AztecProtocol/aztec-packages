@@ -1766,6 +1766,11 @@ export function mapPublicKernelTailCircuitPrivateInputsToNoir(
     public_data_hints: mapTuple(inputs.publicDataHints, mapPublicDataHintToNoir),
     public_data_read_request_hints: mapPublicDataReadRequestHintsToNoir(inputs.publicDataReadRequestHints),
     start_state: mapPartialStateReferenceToNoir(inputs.startState),
+    sorted_public_data_update_requests: mapTuple(
+      inputs.sortedPublicDataUpdateRequests,
+      mapPublicDataUpdateRequestToNoir,
+    ),
+    sorted_public_data_update_requests_indexes: mapTuple(inputs.sortedPublicDataUpdateRequestsIndexes, mapNumberToNoir),
   };
 }
 

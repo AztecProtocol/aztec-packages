@@ -682,6 +682,8 @@ export function makePublicKernelTailCircuitPrivateInputs(seed = 1): PublicKernel
     makeTuple(MAX_PUBLIC_DATA_HINTS, PublicDataHint.empty, seed + 0x100),
     PublicDataReadRequestHintsBuilder.empty(),
     makePartialStateReference(seed + 0x200),
+    makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataUpdateRequest, seed + 0x300),
+    makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => i, seed + 0x400),
   );
 }
 

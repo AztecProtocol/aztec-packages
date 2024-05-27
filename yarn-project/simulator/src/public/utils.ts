@@ -27,8 +27,8 @@ export function lastSideEffectCounter(tx: Tx): number {
       max = Math.max(max, sideEffect.startSideEffectCounter.toNumber(), sideEffect.endSideEffectCounter.toNumber());
     } else if ('counter' in sideEffect) {
       max = Math.max(max, sideEffect.counter);
-    } else if ('sideEffectCounter' in sideEffect) {
-      max = Math.max(max, sideEffect.sideEffectCounter);
+    } else {
+      throw new Error('Unknown side effect type');
     }
   }
 

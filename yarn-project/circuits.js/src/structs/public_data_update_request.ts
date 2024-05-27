@@ -40,6 +40,10 @@ export class PublicDataUpdateRequest {
     return new PublicDataUpdateRequest(args.leafIndex, args.newValue, args.sideEffectCounter);
   }
 
+  get counter() {
+    return this.sideEffectCounter;
+  }
+
   toBuffer() {
     return serializeToBuffer(this.leafSlot, this.newValue, this.sideEffectCounter);
   }

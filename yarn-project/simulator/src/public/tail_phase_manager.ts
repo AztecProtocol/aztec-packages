@@ -14,6 +14,7 @@ import {
   PublicKernelTailCircuitPrivateInputs,
   mergeAccumulatedData,
   sortByCounter,
+  sortByCounterGetSortedHints,
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
@@ -136,6 +137,13 @@ export class TailPhaseManager extends AbstractPhaseManager {
 
     const currentState = await this.db.getStateReference();
 
+    const combinedData = previousKernel.publicInputs.recombineAccumulatedData();
+
+    const [sortedPublicDataUpdateRequests, sortedPublicDataUpdateRequestsIndexes] = sortByCounterGetSortedHints(
+      combinedData.publicDataUpdateRequests,
+      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    );
+
     return new PublicKernelTailCircuitPrivateInputs(
       previousKernel,
       nullifierReadRequestHints,
@@ -143,6 +151,8 @@ export class TailPhaseManager extends AbstractPhaseManager {
       publicDataHints,
       publicDataReadRequestHints,
       currentState.partial,
+      sortedPublicDataUpdateRequests,
+      sortedPublicDataUpdateRequestsIndexes,
     );
   }
 
