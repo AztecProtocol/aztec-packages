@@ -71,6 +71,20 @@ export function computeArtifactMetadataHash(artifact: ContractArtifact) {
     return sha256Fr(Buffer.from(JSON.stringify({ name: artifact.name }), 'utf-8'));
   }
 
+  // TODO(palla/gas) The GasToken depends on protocol-circuits/types, which in turn includes the address of the GasToken as a constant.
+  // Even though it is not being used, it seems that it is affecting the generated metadata hash. So we ignore it
+  // for the time being until we can determine whether it's an issue in how Noir deals with unused code in imported packages,
+  // or we move that constant out of protocol-circuits/types and into the rollup-lib, which is the only place where we actually need it.
+  if (artifact.name === 'GasToken') {
+    return sha256Fr(Buffer.from(JSON.stringify({ name: artifact.name }), 'utf-8'));
+  }
+
+  // TODO(palla) Minimize impact of contract instance deployer address changing, using the same
+  // trick as in the contracts above.
+  if (artifact.name === 'ContractInstanceDeployer') {
+    return sha256Fr(Buffer.from(JSON.stringify({ name: artifact.name }), 'utf-8'));
+  }
+
   return sha256Fr(Buffer.from(JSON.stringify(metadata), 'utf-8'));
 }
 

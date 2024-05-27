@@ -4,8 +4,7 @@ use crate::{
 };
 use dep::types::{
     abis::{
-    private_kernel_data::{PrivateKernelData, verify_previous_kernel_proof},
-    private_kernel::private_call_data::{PrivateCallData, verify_private_call},
+    private_kernel_data::PrivateKernelData, private_kernel::private_call_data::PrivateCallData,
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs
 },
     constants::MAX_NEW_NOTE_HASHES_PER_CALL, utils::arrays::array_length
@@ -24,10 +23,10 @@ struct PrivateKernelInnerCircuitPrivateInputs {
 impl PrivateKernelInnerCircuitPrivateInputs {
     pub fn native_private_kernel_circuit_inner(self) -> PrivateKernelCircuitPublicInputs {
         // verify/aggregate the private call proof
-        verify_private_call(self.private_call);
+        self.private_call.verify();
 
         // verify/aggregate the previous kernel
-        verify_previous_kernel_proof(self.previous_kernel);
+        self.previous_kernel.verify();
 
         let privateCallDataValidator = PrivateCallDataValidator::new(self.private_call);
         privateCallDataValidator.validate();
@@ -57,7 +56,7 @@ mod tests {
         abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         max_block_number::MaxBlockNumber, note_hash::NoteHash, nullifier::Nullifier,
-        read_request::ReadRequest, log_hash::{LogHash, NoteLogHash}
+        read_request::ReadRequest, log_hash::{LogHash, NoteLogHash, ScopedLogHash}
     },
         address::{AztecAddress, EthAddress}, constants::MAX_NEW_NOTE_HASHES_PER_CALL,
         messaging::l2_to_l1_message::L2ToL1Message, utils::arrays::{array_length, array_eq},
@@ -233,10 +232,10 @@ mod tests {
         );
 
         let expected_unencrypted_logs = [
-            builder.previous_kernel.unencrypted_logs_hashes.storage[0], builder.private_call.public_inputs.unencrypted_logs_hashes.storage[0]
+            builder.previous_kernel.unencrypted_logs_hashes.storage[0], builder.private_call.public_inputs.unencrypted_logs_hashes.storage[0].scope(builder.private_call.contract_address)
         ];
         let expected_encrypted_logs = [
-            builder.previous_kernel.encrypted_logs_hashes.storage[0], builder.private_call.public_inputs.encrypted_logs_hashes.storage[0]
+            builder.previous_kernel.encrypted_logs_hashes.storage[0], builder.private_call.public_inputs.encrypted_logs_hashes.storage[0].scope(builder.private_call.contract_address)
         ];
 
         let public_inputs = builder.execute();
