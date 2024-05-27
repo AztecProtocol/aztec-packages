@@ -1,22 +1,27 @@
 # Checks bb prover with memory sanitizer
 name: BB MSAN
 on:
-  push:
-    branches: [master]
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - 'barretenberg/**'
   workflow_dispatch:
     inputs: {}
 concurrency:
-  # force parallelism when NOT in master, just let it run overnight assuming no commits into barretenberg
-  group: ci-${{ github.ref_name != 'master' && github.ref_name || github.run_id }}
+  # don't run 
+  group: ci-${{ github.ref_name }}
   cancel-in-progress: true
 jobs:
   bb-msan-check:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'bb-msan-check')
     runs-on: ubuntu-latest
     steps:
-      - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
-      - {uses: earthly/actions-setup@v1, with: {github-token: "${{ secrets.GITHUB_TOKEN }}"}}
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: earthly/actions-setup@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: "Barretenberg Prover MSAN Check"
-        timeout-minutes: 720 # 12 hour timeout. Yes, it's slow.
+        timeout-minutes: 720 # 12 hour timeout. Yes, it's slow, and we just want to use the github runner.
         run: earthly ./barretenberg/cpp/+preset-msan-check
