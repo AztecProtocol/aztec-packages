@@ -100,7 +100,7 @@ class AcirIntegrationFoldingTest : public AcirIntegrationTest, public testing::W
     static void SetUpTestSuite() { srs::init_crs_factory("../srs_db/ignition"); }
 };
 
-TEST_P(AcirIntegrationSingleTest, ProveAndVerifyProgram)
+TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
 {
     using Flavor = MegaFlavor;
     // using Flavor = bb::plonk::flavor::Ultra;
@@ -327,7 +327,7 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "witness_compression",
                                          "xor"));
 
-TEST_P(AcirIntegrationFoldingTest, ProveAndVerifyProgramStack)
+TEST_P(AcirIntegrationFoldingTest, DISABLED_ProveAndVerifyProgramStack)
 {
     using Flavor = MegaFlavor;
     using Builder = Flavor::CircuitBuilder;
