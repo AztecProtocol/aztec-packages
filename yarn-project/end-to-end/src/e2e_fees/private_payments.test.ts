@@ -129,7 +129,7 @@ describe('e2e_fees private_payment', () => {
      * The default teardown gas allocation at present is
      * 100_000_000 for both DA and L2 gas.
      *
-     * That produces a grand total of 200243972n.
+     * That produces a grand total of 200192012n.
      *
      * This will change because we are presently squashing notes/nullifiers across non/revertible during
      * private execution, but we shouldn't.
@@ -137,7 +137,7 @@ describe('e2e_fees private_payment', () => {
      * TODO(6583): update this comment properly now that public execution consumes gas
      */
 
-    expect(tx.transactionFee).toEqual(200243972n);
+    expect(tx.transactionFee).toEqual(200192012n);
     await expect(t.getCoinbaseBalance()).resolves.toEqual(InitialSequencerL1Gas + tx.transactionFee!);
     const [feeAmount, refundAmount] = getFeeAndRefund(tx);
 
