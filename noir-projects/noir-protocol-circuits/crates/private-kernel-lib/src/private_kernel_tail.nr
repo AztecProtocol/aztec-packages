@@ -275,14 +275,14 @@ mod tests {
         // Logs for the previous call stack.
         let prev_encrypted_logs_hash = 80;
         let prev_encrypted_log_preimages_length = 13;
-        builder.previous_kernel.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
+        builder.previous_kernel.add_encrypted_log_hash(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
 
         // Set the randomness to 0 to signal not masking the address to silo with
         builder.previous_kernel.encrypted_logs_hashes.storage[0].log_hash.randomness = 0;
 
         let new_encrypted_logs_hash = 26;
         let new_encrypted_log_preimages_length = 50;
-        builder.previous_kernel.set_encrypted_logs(new_encrypted_logs_hash, new_encrypted_log_preimages_length);
+        builder.previous_kernel.add_encrypted_log_hash(new_encrypted_logs_hash, new_encrypted_log_preimages_length);
 
         let public_inputs = builder.execute();
 

@@ -186,7 +186,7 @@ mod tests {
             let sorted_unencrypted_log_hashes_indexes = sorted.sorted_index_hints;
 
             let sorted = sort_get_sorted_hints(
-                self.previous_kernel.public_call_stack.storage,
+                self.previous_kernel.public_call_requests.storage,
                 |a: CallRequest, b: CallRequest| a.counter() > b.counter()
             );
             let sorted_call_requests = sorted.sorted_array;
