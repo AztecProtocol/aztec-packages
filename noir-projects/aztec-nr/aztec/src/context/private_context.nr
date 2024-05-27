@@ -190,6 +190,10 @@ impl PrivateContext {
     }
 
     pub fn end_setup(&mut self) {
+        dep::protocol_types::debug_log::debug_log_format(
+            "Ending setup at counter {0}",
+            [self.side_effect_counter as Field]
+        );
         self.min_revertible_side_effect_counter = self.side_effect_counter;
     }
 
@@ -299,6 +303,8 @@ impl PrivateContext {
         self.unencrypted_logs_hashes.push(side_effect);
     }
 
+    // NB: A randomness value of 0 signals that the kernels should not mask the contract address
+    // used in siloing later on e.g. 'handshaking' contract w/ known address.
     pub fn encrypt_and_emit_log<N, M>(
         &mut self,
         contract_address: AztecAddress,
