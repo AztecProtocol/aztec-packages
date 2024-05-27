@@ -150,13 +150,13 @@ export-aztec-arch:
     FROM +aztec
     ARG DIST_TAG="latest"
     ARG ARCH
-    SAVE IMAGE --push aztecprotocol/aztec:${DIST_TAG}${ARCH ? "-${ARCH}"}
+    SAVE IMAGE --push aztecprotocol/aztec:${DIST_TAG}${ARCH:+-$ARCH}
 
 export-aztec-faucet:
     FROM +aztec-faucet
     ARG DIST_TAG="latest"
     ARG ARCH
-    SAVE IMAGE --push aztecprotocol/aztec-faucet:${DIST_TAG}${ARCH ? "-${ARCH}"}
+    SAVE IMAGE --push aztecprotocol/aztec-faucet:${DIST_TAG}${ARCH:+-$ARCH}
 
 export-end-to-end:
     ARG EARTHLY_GIT_HASH
