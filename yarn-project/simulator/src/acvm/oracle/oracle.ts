@@ -40,12 +40,10 @@ export class Oracle {
     return unpacked.map(toACVMField);
   }
 
-  async getKeyValidationRequest([masterPublicKeyHash]: ACVMField[]): Promise<ACVMField[]> {
-    const { masterPublicKey, appSecretKey } = await this.typedOracle.getKeyValidationRequest(
-      fromACVMField(masterPublicKeyHash),
-    );
+  async getKeyValidationRequest([pkMHash]: ACVMField[]): Promise<ACVMField[]> {
+    const { pkM, skApp } = await this.typedOracle.getKeyValidationRequest(fromACVMField(pkMHash));
 
-    return [toACVMField(masterPublicKey.x), toACVMField(masterPublicKey.y), toACVMField(appSecretKey)];
+    return [toACVMField(pkM.x), toACVMField(pkM.y), toACVMField(skApp)];
   }
 
   async getContractInstance([address]: ACVMField[]) {
@@ -282,10 +280,20 @@ export class Oracle {
     return newValues.map(toACVMField);
   }
 
-  emitEncryptedLog(encryptedLog: ACVMField[], [counter]: ACVMField[]): void {
+  emitEncryptedLog(
+    [contractAddress]: ACVMField[],
+    [randomness]: ACVMField[],
+    encryptedLog: ACVMField[],
+    [counter]: ACVMField[],
+  ): void {
     // Convert each field to a number and then to a buffer (1 byte is stored in 1 field)
     const processedInput = Buffer.from(encryptedLog.map(fromACVMField).map(f => f.toNumber()));
-    this.typedOracle.emitEncryptedLog(processedInput, +counter);
+    this.typedOracle.emitEncryptedLog(
+      AztecAddress.fromString(contractAddress),
+      Fr.fromString(randomness),
+      processedInput,
+      +counter,
+    );
   }
 
   emitEncryptedNoteLog([noteHash]: ACVMField[], encryptedNote: ACVMField[], [counter]: ACVMField[]): void {

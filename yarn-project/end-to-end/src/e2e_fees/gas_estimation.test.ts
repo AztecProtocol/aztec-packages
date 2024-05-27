@@ -23,6 +23,7 @@ describe('e2e_fees gas_estimation', () => {
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
+    await t.applyFPCSetupSnapshot();
     await t.applyFundAliceWithBananas();
     await t.applyFundAliceWithGasToken();
     ({ aliceWallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings } = await t.setup());
@@ -46,7 +47,7 @@ describe('e2e_fees gas_estimation', () => {
     );
 
   it('estimates gas with native fee payment method', async () => {
-    const paymentMethod = new NativeFeePaymentMethod();
+    const paymentMethod = new NativeFeePaymentMethod(aliceAddress);
     const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod);
 
     // Estimation should yield that teardown has no cost, so should send the tx with zero for teardown
