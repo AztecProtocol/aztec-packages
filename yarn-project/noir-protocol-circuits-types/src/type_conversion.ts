@@ -1041,6 +1041,7 @@ export function mapPublicDataUpdateRequestFromNoir(
   return new PublicDataUpdateRequest(
     mapFieldFromNoir(publicDataUpdateRequest.leaf_slot),
     mapFieldFromNoir(publicDataUpdateRequest.new_value),
+    mapNumberFromNoir(publicDataUpdateRequest.counter),
   );
 }
 
@@ -1055,6 +1056,7 @@ export function mapPublicDataUpdateRequestToNoir(
   return {
     leaf_slot: mapFieldToNoir(publicDataUpdateRequest.leafSlot),
     new_value: mapFieldToNoir(publicDataUpdateRequest.newValue),
+    counter: mapNumberToNoir(publicDataUpdateRequest.sideEffectCounter),
   };
 }
 
@@ -1792,6 +1794,7 @@ export function mapStorageUpdateRequestToNoir(
   return {
     storage_slot: mapFieldToNoir(storageUpdateRequest.storageSlot),
     new_value: mapFieldToNoir(storageUpdateRequest.newValue),
+    counter: mapNumberToNoir(storageUpdateRequest.sideEffectCounter),
   };
 }
 /**

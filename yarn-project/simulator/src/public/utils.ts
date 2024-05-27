@@ -1,5 +1,4 @@
 import { type Tx } from '@aztec/circuit-types';
-import { CallRequest } from '@aztec/circuits.js';
 
 /**
  * Looks at the side effects of a transaction and returns the highest counter
@@ -13,19 +12,23 @@ export function lastSideEffectCounter(tx: Tx): number {
     ...data.endNonRevertibleData.newNullifiers,
     ...data.endNonRevertibleData.unencryptedLogsHashes,
     ...data.endNonRevertibleData.publicCallStack,
+    ...data.endNonRevertibleData.publicDataUpdateRequests,
     ...data.end.newNoteHashes,
     ...data.end.newNullifiers,
     ...data.end.unencryptedLogsHashes,
     ...data.end.publicCallStack,
+    ...data.end.publicDataUpdateRequests,
   ];
 
   let max = 0;
   for (const sideEffect of sideEffectCounters) {
-    if (sideEffect instanceof CallRequest) {
+    if ('startSideEffectCounter' in sideEffect) {
       // look at both start and end counters because for enqueued public calls start > 0 while end === 0
       max = Math.max(max, sideEffect.startSideEffectCounter.toNumber(), sideEffect.endSideEffectCounter.toNumber());
-    } else {
+    } else if ('counter' in sideEffect) {
       max = Math.max(max, sideEffect.counter);
+    } else if ('sideEffectCounter' in sideEffect) {
+      max = Math.max(max, sideEffect.sideEffectCounter);
     }
   }
 

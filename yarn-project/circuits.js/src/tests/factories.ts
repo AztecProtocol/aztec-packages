@@ -249,7 +249,7 @@ function makeScopedKeyValidationRequestAndGenerators(seed: number): ScopedKeyVal
  * @returns A public data update request.
  */
 export function makePublicDataUpdateRequest(seed = 1): PublicDataUpdateRequest {
-  return new PublicDataUpdateRequest(fr(seed), fr(seed + 1));
+  return new PublicDataUpdateRequest(fr(seed), fr(seed + 1), seed + 2);
 }
 
 /**
@@ -257,7 +257,7 @@ export function makePublicDataUpdateRequest(seed = 1): PublicDataUpdateRequest {
  * @returns An empty public data update request.
  */
 export function makeEmptyPublicDataUpdateRequest(): PublicDataUpdateRequest {
-  return new PublicDataUpdateRequest(fr(0), fr(0));
+  return new PublicDataUpdateRequest(fr(0), fr(0), 0);
 }
 
 /**
@@ -283,7 +283,7 @@ export function makeEmptyPublicDataRead(): PublicDataRead {
  * @returns A contract storage update request.
  */
 export function makeContractStorageUpdateRequest(seed = 1): ContractStorageUpdateRequest {
-  return new ContractStorageUpdateRequest(fr(seed), fr(seed + 1));
+  return new ContractStorageUpdateRequest(fr(seed), fr(seed + 1), seed + 2);
 }
 
 /**

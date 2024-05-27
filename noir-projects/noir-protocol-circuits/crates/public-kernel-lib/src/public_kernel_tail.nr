@@ -6,13 +6,19 @@ use dep::reset_kernel_lib::{
 use dep::types::{
     abis::{
     accumulated_data::CombinedAccumulatedData, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-    public_kernel_data::PublicKernelData
+    public_kernel_data::PublicKernelData, public_data_update_request::PublicDataUpdateRequest,
+    side_effect::Ordered
 },
-    constants::{MAX_PUBLIC_DATA_HINTS, MAX_NULLIFIER_READ_REQUESTS_PER_TX},
+    constants::{MAX_PUBLIC_DATA_HINTS, MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX},
     data::public_data_hint::PublicDataHint,
     merkle_tree::{conditionally_assert_check_membership, MembershipWitness},
-    partial_state_reference::PartialStateReference, utils::{arrays::array_length}, address::AztecAddress
+    partial_state_reference::PartialStateReference,
+    utils::{arrays::{array_length, assert_sorted_array}}, address::AztecAddress
 };
+
+fn asc_sort_by_counters<T>(a: T, b: T) -> bool where T: Ordered {
+    a.counter() < b.counter()
+}
 
 struct PublicKernelTailCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
@@ -21,6 +27,8 @@ struct PublicKernelTailCircuitPrivateInputs {
     public_data_hints: [PublicDataHint; MAX_PUBLIC_DATA_HINTS],
     public_data_read_request_hints: PublicDataReadRequestHints,
     start_state: PartialStateReference,
+    sorted_public_data_update_requests: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    sorted_public_data_update_requests_indexes: [u64; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]
 }
 
 impl PublicKernelTailCircuitPrivateInputs {
@@ -47,10 +55,21 @@ impl PublicKernelTailCircuitPrivateInputs {
     fn propagate_accumulated_data(self) -> CombinedAccumulatedData {
         let previous_public_inputs = self.previous_kernel.public_inputs;
         // TODO: Sort the combined data.
-        CombinedAccumulatedData::combine(
+        let mut data = CombinedAccumulatedData::combine(
             previous_public_inputs.end_non_revertible,
             previous_public_inputs.end
-        )
+        );
+
+        assert_sorted_array(
+            data.public_data_update_requests,
+            self.sorted_public_data_update_requests,
+            self.sorted_public_data_update_requests_indexes,
+            asc_sort_by_counters
+        );
+
+        data.public_data_update_requests = self.sorted_public_data_update_requests;
+
+        data
     }
 
     pub fn public_kernel_tail(self) -> KernelCircuitPublicInputs {
@@ -98,7 +117,8 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, public_kernel_data::PublicKernelData,
-        nullifier::ScopedNullifier, nullifier_leaf_preimage::NullifierLeafPreimage
+        nullifier::ScopedNullifier, nullifier_leaf_preimage::NullifierLeafPreimage,
+        accumulated_data::CombinedAccumulatedData, public_data_update_request::PublicDataUpdateRequest
     },
         address::AztecAddress,
         constants::{
@@ -110,7 +130,7 @@ mod tests {
     },
         hash::{silo_nullifier, sha256_to_field},
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-        tests::{fixture_builder::FixtureBuilder, merkle_tree_utils::NonEmptyMerkleTree},
+        tests::{fixture_builder::FixtureBuilder, merkle_tree_utils::NonEmptyMerkleTree, sort::sort_get_sorted_hints},
         traits::is_empty, partial_state_reference::PartialStateReference, utils::arrays::array_merge,
         merkle_tree::MembershipWitness
     };
@@ -292,13 +312,27 @@ mod tests {
             let mut previous_kernel = self.previous_kernel.to_public_kernel_data(false);
             previous_kernel.public_inputs.end = self.previous_revertible.to_public_accumulated_data();
 
+            let combined = CombinedAccumulatedData::combine(
+                previous_kernel.public_inputs.end_non_revertible,
+                previous_kernel.public_inputs.end
+            );
+
+            let sorted = sort_get_sorted_hints(
+                combined.public_data_update_requests,
+                |a: PublicDataUpdateRequest, b: PublicDataUpdateRequest| a.counter() < b.counter()
+            );
+            let sorted_public_data_update_requests = sorted.sorted_array;
+            let sorted_public_data_update_requests_indexes = sorted.sorted_index_hints;
+
             let kernel = PublicKernelTailCircuitPrivateInputs {
                 previous_kernel,
                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
                 nullifier_non_existent_read_request_hints: self.nullifier_non_existent_read_request_hints_builder.to_hints(),
                 public_data_hints: self.public_data_hints.storage,
                 public_data_read_request_hints: self.public_data_read_request_hints_builder.to_hints(),
-                start_state: self.start_state
+                start_state: self.start_state,
+                sorted_public_data_update_requests,
+                sorted_public_data_update_requests_indexes
             };
 
             kernel.public_kernel_tail()

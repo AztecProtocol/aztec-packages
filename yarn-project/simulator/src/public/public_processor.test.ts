@@ -1021,6 +1021,7 @@ describe('public_processor', () => {
           PublicDataUpdateRequest.from({
             leafIndex: computeFeePayerBalanceLeafSlot(feePayer),
             newValue: new Fr(initialBalance - inclusionFee),
+            sideEffectCounter: 0,
           }),
         );
 
@@ -1071,6 +1072,7 @@ describe('public_processor', () => {
           PublicDataUpdateRequest.from({
             leafIndex: computeFeePayerBalanceLeafSlot(feePayer),
             newValue: new Fr(initialBalance - inclusionFee),
+            sideEffectCounter: 0,
           }),
         );
 
@@ -1110,6 +1112,7 @@ describe('public_processor', () => {
         tx.data.publicInputs.end.publicDataUpdateRequests[0] = PublicDataUpdateRequest.from({
           leafIndex: computeFeePayerBalanceLeafSlot(feePayer),
           newValue: new Fr(initialBalance),
+          sideEffectCounter: 0,
         });
 
         const [processed, failed] = await processor.process([tx], 1, prover);
@@ -1126,6 +1129,7 @@ describe('public_processor', () => {
           PublicDataUpdateRequest.from({
             leafIndex: computeFeePayerBalanceLeafSlot(feePayer),
             newValue: new Fr(initialBalance - inclusionFee),
+            sideEffectCounter: 0,
           }),
         );
 
