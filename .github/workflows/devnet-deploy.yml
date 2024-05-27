@@ -24,7 +24,7 @@ jobs:
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: build-release-artifacts-${{ github.actor }}
-      - name: "Build images"
+      - name: "Build & Push images"
         timeout-minutes: 40
         # Run the build steps for each image with version and arch, push to dockerhub
         run: |
