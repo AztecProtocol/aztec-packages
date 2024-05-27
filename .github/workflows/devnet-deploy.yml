@@ -2,11 +2,10 @@ name: Deploy to devnet
 on:
   push:
     branches: [devnet]
-  pull_request: {}
 
 env:
   DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-  GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+  GIT_COMMIT: ${{ github.sha }}
 
 jobs:
   setup:
@@ -17,7 +16,7 @@ jobs:
     secrets: inherit
 
   build:
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
