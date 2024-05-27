@@ -5,7 +5,7 @@
 
 namespace bb {
 template class ECCVMTranscriptRelationImpl<stdlib::bigfield<UltraCircuitBuilder, bb::Bn254FqParams>>;
-template class ECCVMTranscriptRelationImpl<stdlib::bigfield<GoblinUltraCircuitBuilder, bb::Bn254FqParams>>;
+template class ECCVMTranscriptRelationImpl<stdlib::bigfield<MegaCircuitBuilder, bb::Bn254FqParams>>;
 DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(ECCVMTranscriptRelationImpl, ECCVMRecursiveFlavor_<UltraCircuitBuilder>);
-DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(ECCVMTranscriptRelationImpl, ECCVMRecursiveFlavor_<GoblinUltraCircuitBuilder>);
+DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(ECCVMTranscriptRelationImpl, ECCVMRecursiveFlavor_<MegaCircuitBuilder>);
 } // namespace bb
