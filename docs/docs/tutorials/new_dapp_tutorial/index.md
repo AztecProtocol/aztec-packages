@@ -25,4 +25,80 @@ Using codespaces allows us to skip all the tooling regarding development network
 
 ### Setting up a project
 
-The codespace comes with aztec-nargo
+You can immediately start a new project by using a handy `npx` command:
+
+<span id="new_project">
+
+```bash
+npx aztec-app init
+```
+
+</span>
+
+Your file structure should look something like this:
+
+```tree
+| |--src
+| |  |--main.nr
+| |--Nargo.toml
+```
+
+As you can imagine, this is little more than a stub, but still we can see the `main.nr` file which holds our contract, and Nargo.toml which will hold our dependencies.
+
+![Why can't you just compile it](@site/img/tutorials/private_voting/just_compile.jpg)
+
+Yes yes I'll shut up a little bit. Let's compile this little guy. Write:
+
+<span id="compile">
+
+```bash
+aztec-nargo compile
+```
+
+</span>
+
+You'll see a new folder `target` showing up. Feel free to have a look: it contains both the ABI (a "skeleton" of the contract), the partial witness that represents the public inputs, and the bytecode, along with other useful information.
+
+## Deploy and run 😈
+
+Deploying is quite easy now. Once upon a time, we could do it via CLI, but we have submitted to the Typescript cult for the time being. This is where Aztec.JS comes in: a simple library to interact with your contract. 
+
+![Aztec team submitting to Typescript](@site/img/tutorials/private_voting/submit_to_typescript.jpeg)
+
+Let's write a quick JS script to do this for us. But wait... How does Javascript know which functions to call on the contract? We made yet another tool `aztec-builder` for that, of course! Just run it:
+
+```bash
+aztec-builder codegen -o artifacts target
+```
+
+
+Pick your favourite Node.js package manager and install `@aztec/aztec.js`:
+
+<span id="yarn_add">
+
+```bash
+yarn add @aztec/aztec.js # or npm i @aztec/aztec.js
+```
+
+</span>
+
+This will bootrap a JS app for you. We need to create our `index.js` file and tell `node` how to run it by adding it to a "start" property in `package.json`.
+
+:::tip
+
+You can do this in one line with:
+
+<span id="create_index_js">
+
+```bash
+touch index.js && npm pkg set scripts.start="node index.js"
+```
+
+</span>
+
+__Oh the wonders of bash ❤️__
+
+:::
+
+Now we write the deployment logic. Don't sweat it, it will only take a minute.
+

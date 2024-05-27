@@ -1,0 +1,119 @@
+{
+    "noir_version": "0.29.0+78f13d9e0070502a980003c7ded3738fd353dd5a",
+    "name": "Main",
+    "functions": [
+        {
+            "name": "triple",
+            "is_unconstrained": false,
+            "custom_attributes": [],
+            "abi": {
+                "parameters": [
+                    {
+                        "name": "x",
+                        "type": {
+                            "kind": "field"
+                        },
+                        "visibility": "private"
+                    }
+                ],
+                "param_witnesses": {
+                    "x": [
+                        {
+                            "start": 0,
+                            "end": 1
+                        }
+                    ]
+                },
+                "return_type": {
+                    "abi_type": {
+                        "kind": "field"
+                    },
+                    "visibility": "public"
+                },
+                "return_witnesses": [
+                    2
+                ],
+                "error_types": {}
+            },
+            "bytecode": "H4sIAAAAAAAA/7WQ0QqAMAhFM/ogndr0rV9ptP3/J0S0oNZj64AIPlzuEYaTsU7LdVvqxm/wPYtxFskxZGJaMXgyRdE0Gxmp6RaMOZtY9OQRnYQzFXUuNQz69cIfnQk6Oo8dnY9eU82C4Q00/3iwA0AxXjE5AgAA",
+            "debug_symbols": "TclRCoAgDADQu+y7E3SViJimMZAtSoMYu7uCfvj5eApncOU6iKO8sG4KSTxmEm5SW+DDh9ClMBgL+2nzf/ex3So="
+        },
+        {
+            "name": "quadruple",
+            "is_unconstrained": false,
+            "custom_attributes": [],
+            "abi": {
+                "parameters": [
+                    {
+                        "name": "x",
+                        "type": {
+                            "kind": "field"
+                        },
+                        "visibility": "private"
+                    }
+                ],
+                "param_witnesses": {
+                    "x": [
+                        {
+                            "start": 0,
+                            "end": 1
+                        }
+                    ]
+                },
+                "return_type": {
+                    "abi_type": {
+                        "kind": "field"
+                    },
+                    "visibility": "public"
+                },
+                "return_witnesses": [
+                    2
+                ],
+                "error_types": {}
+            },
+            "bytecode": "H4sIAAAAAAAA/7WQ0QqAMAhFM/ogndr0rV9ptP3/J0S0oNZj64AIPlzuEYaTsU7LdVvqxm/IPYtxFskxZGJaMXgyRdE0Gxmp6RaMOZtY9OQRnYQzFXUuNQz69cIfnQk6Oo8dnY9eU82C4Q00/3iwA1uRRrY5AgAA",
+            "debug_symbols": "TclRCoAgDADQu+y7E3SViJimMZAtSoMYu7uCfvj5eApncOU6iKO8sG4KSTxmEm5SW+DDh9ClMBgL+2nzf/ex3So="
+        },
+        {
+            "name": "double",
+            "is_unconstrained": false,
+            "custom_attributes": [],
+            "abi": {
+                "parameters": [
+                    {
+                        "name": "x",
+                        "type": {
+                            "kind": "field"
+                        },
+                        "visibility": "private"
+                    }
+                ],
+                "param_witnesses": {
+                    "x": [
+                        {
+                            "start": 0,
+                            "end": 1
+                        }
+                    ]
+                },
+                "return_type": {
+                    "abi_type": {
+                        "kind": "field"
+                    },
+                    "visibility": "public"
+                },
+                "return_witnesses": [
+                    2
+                ],
+                "error_types": {}
+            },
+            "bytecode": "H4sIAAAAAAAA/7WQ0QqAMAhFM/ogndr0rV9ptP3/J0S0oNZj64AIPlzuEYaTsU7LdVvqxm+EexbjLJJjyMS0YvBkiqJpNjJS0y0Yczax6MkjOglnKupcahj064U/OhN0dB47Oh+9ppoFwxto/vFgB0XRgAY5AgAA",
+            "debug_symbols": "TclRCoAgDADQu+y7E3SViJimMZAtSoMYu7uCfvj5eApncOU6iKO8sG4KSTxmEm5SW+DDh9ClMBgL+2nzf/ex3So="
+        }
+    ],
+    "outputs": {
+        "structs": {},
+        "globals": {}
+    },
+    "file_map": {}
+}

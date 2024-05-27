@@ -19,7 +19,8 @@ if [ "$TYPE" != "sandbox_only" ]; then
     yes | npx create-aztec-app -t $TYPE -n $NAME -s
     mv $NAME/* $NAME/.* .
     rm -rf $NAME
-
+    corepack enable
+    
     yarn
 
     npx -y playwright install --with-deps
