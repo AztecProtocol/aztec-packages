@@ -351,7 +351,6 @@ TEST_P(AcirIntegrationFoldingTest, ProveAndVerifyProgramStack)
     }
 }
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1003): Reinstate when ClientIvc is fixed.
 TEST_P(AcirIntegrationFoldingTest, DISABLED_FoldAndVerifyProgramStack)
 {
     using Flavor = MegaFlavor;
