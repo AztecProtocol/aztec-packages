@@ -23,6 +23,8 @@ TEST_F(MegaMockCircuitsPinning, FunctionSizes)
         Goblin goblin;
         MegaCircuitBuilder app_circuit{ goblin.op_queue };
         GoblinMockCircuits::construct_mock_function_circuit(app_circuit, large);
+        info("num gates: ", app_circuit.get_num_gates());
+        app_circuit.blocks.summarize();
         auto instance = std::make_shared<ProverInstance>(app_circuit);
         if (large) {
             EXPECT_EQ(instance->proving_key.log_circuit_size, 19);

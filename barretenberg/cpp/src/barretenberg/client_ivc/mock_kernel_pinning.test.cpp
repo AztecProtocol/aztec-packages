@@ -32,6 +32,9 @@ TEST_F(MockKernelTest, PinFoldingKernelSizes)
     GoblinMockCircuits::construct_mock_function_circuit(circuit_2);
     GoblinMockCircuits::construct_mock_folding_kernel(kernel_circuit);
 
+    info("num gates: ", kernel_circuit.get_num_gates());
+    kernel_circuit.blocks.summarize();
+
     // Accumulate all three; The kernel will contain a single recursive folding verifier
     ivc.accumulate(circuit_1);
     ivc.accumulate(circuit_2);
