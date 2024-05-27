@@ -54,7 +54,10 @@ export class PublicAccumulatedData {
     /**
      * All the public data update requests made in this transaction.
      */
-    public publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+    public readonly publicDataUpdateRequests: Tuple<
+      PublicDataUpdateRequest,
+      typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+    >,
     /**
      * Current public call stack.
      */

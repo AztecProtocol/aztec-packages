@@ -61,7 +61,6 @@ import {
   type PublicExecutor,
   accumulateReturnValues,
   collectPublicDataReads,
-  collectPublicDataUpdateRequests,
   isPublicExecutionResult,
 } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
@@ -511,9 +510,6 @@ export abstract class AbstractPhaseManager {
     publicInputs: PublicKernelCircuitPublicInputs,
     execResult: PublicExecutionResult,
   ) {
-    const { publicDataUpdateRequests } = PhaseIsRevertible[this.phase]
-      ? publicInputs.end
-      : publicInputs.endNonRevertibleData;
     const { publicDataReads } = publicInputs.validationRequests;
 
     // Convert ContractStorage* objects to PublicData* objects and sort them in execution order.
@@ -522,12 +518,8 @@ export abstract class AbstractPhaseManager {
 
     const simPublicDataReads = collectPublicDataReads(execResult);
 
-    const simPublicDataUpdateRequests = collectPublicDataUpdateRequests(execResult);
-
     // We only want to reorder the items from the public inputs of the
     // most recently processed top/enqueued call.
-
-    const effectSet = PhaseIsRevertible[this.phase] ? 'end' : 'endNonRevertibleData';
 
     const numReadsInKernel = arrayNonEmptyLength(publicDataReads, f => f.isEmpty());
     const numReadsBeforeThisEnqueuedCall = numReadsInKernel - simPublicDataReads.length;
@@ -539,18 +531,6 @@ export abstract class AbstractPhaseManager {
       ],
       PublicDataRead.empty(),
       MAX_PUBLIC_DATA_READS_PER_TX,
-    );
-
-    const numUpdatesInKernel = arrayNonEmptyLength(publicDataUpdateRequests, f => f.isEmpty());
-    const numUpdatesBeforeThisEnqueuedCall = numUpdatesInKernel - simPublicDataUpdateRequests.length;
-
-    publicInputs[effectSet].publicDataUpdateRequests = padArrayEnd(
-      [
-        ...publicInputs[effectSet].publicDataUpdateRequests.slice(0, numUpdatesBeforeThisEnqueuedCall),
-        ...simPublicDataUpdateRequests,
-      ],
-      PublicDataUpdateRequest.empty(),
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );
   }
 }
