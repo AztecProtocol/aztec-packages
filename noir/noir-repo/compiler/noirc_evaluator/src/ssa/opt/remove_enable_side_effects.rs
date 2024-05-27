@@ -157,7 +157,9 @@ impl Context {
                     | Intrinsic::BlackBox(_)
                     | Intrinsic::FromField
                     | Intrinsic::AsField
-                    | Intrinsic::AsSlice => false,
+                    | Intrinsic::AsSlice
+                    | Intrinsic::AsWitness
+                    | Intrinsic::IsUnconstrained => false,
                 },
 
                 // We must assume that functions contain a side effect as we cannot inspect more deeply.

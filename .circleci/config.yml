@@ -129,17 +129,18 @@ jobs:
           command: cond_spot_run_build barretenberg-x86_64-linux-clang 128
           aztec_manifest_key: barretenberg-x86_64-linux-clang
 
-  barretenberg-x86_64-linux-clang-fuzzing:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 128
-          aztec_manifest_key: barretenberg-x86_64-linux-clang-fuzzing
+  # to be reenabled with https://github.com/AztecProtocol/aztec-packages/issues/6682
+  # barretenberg-x86_64-linux-clang-fuzzing:
+  #   docker:
+  #     - image: aztecprotocol/alpine-build-image
+  #   resource_class: small
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Build"
+  #         command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 128
+  #         aztec_manifest_key: barretenberg-x86_64-linux-clang-fuzzing
 
   barretenberg-x86_64-linux-clang-assert:
     docker:
@@ -267,15 +268,15 @@ jobs:
           aztec_manifest_key: l1-contracts
 
   noir-projects:
-    machine:
-      image: default
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Build and test"
-          command: build noir-projects
+          command: cond_spot_run_build noir-projects 32
           aztec_manifest_key: noir-projects
 
   yarn-project-pre-join:
@@ -483,6 +484,9 @@ workflows:
     #   # Used to generate a dynamic 'system' workflow
     #   # This is rewritten to 'system' on the real workflow (otherwise this is ignored by circleci)
     #   equal: [NEVER, << pipeline.parameters.workflow >>]
+    when:
+      and:
+        - equal: [ master, << pipeline.git.branch >> ]
     jobs:
       # Noir
       - noir-x86_64: *defaults
@@ -504,7 +508,7 @@ workflows:
       - barretenberg-x86_64-linux-gcc: *defaults
       - barretenberg-x86_64-linux-clang: *defaults
       - barretenberg-x86_64-linux-clang-assert: *defaults
-      - barretenberg-x86_64-linux-clang-fuzzing: *defaults
+      # - barretenberg-x86_64-linux-clang-fuzzing: *defaults
       - barretenberg-wasm-linux-clang: *defaults
       - barretenberg-docs: *defaults
       - bb-js:
@@ -554,7 +558,7 @@ workflows:
             - barretenberg-x86_64-linux-gcc
             - barretenberg-x86_64-linux-clang
             - barretenberg-x86_64-linux-clang-assert
-            - barretenberg-x86_64-linux-clang-fuzzing
+            # - barretenberg-x86_64-linux-clang-fuzzing
             - barretenberg-wasm-linux-clang
             - barretenberg-docs
             - e2e-join

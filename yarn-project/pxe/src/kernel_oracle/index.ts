@@ -1,15 +1,18 @@
-import { type AztecNode, type KeyStore } from '@aztec/circuit-types';
+import { type AztecNode } from '@aztec/circuit-types';
 import {
   type AztecAddress,
   type Fr,
   type FunctionSelector,
+  type GrumpkinPrivateKey,
   MembershipWitness,
   type NOTE_HASH_TREE_HEIGHT,
   type Point,
   computeContractClassIdPreimage,
   computeSaltedInitializationHash,
 } from '@aztec/circuits.js';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
+import { type KeyStore } from '@aztec/key-store';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
@@ -20,7 +23,12 @@ import { type ProvingDataOracle } from './../kernel_prover/proving_data_oracle.j
  * A data oracle that provides information needed for simulating a transaction.
  */
 export class KernelOracle implements ProvingDataOracle {
-  constructor(private contractDataOracle: ContractDataOracle, private keyStore: KeyStore, private node: AztecNode) {}
+  constructor(
+    private contractDataOracle: ContractDataOracle,
+    private keyStore: KeyStore,
+    private node: AztecNode,
+    private log = createDebugLogger('aztec:pxe:kernel_oracle'),
+  ) {}
 
   public async getContractAddressPreimage(address: AztecAddress) {
     const instance = await this.contractDataOracle.getContractInstance(address);
@@ -61,7 +69,11 @@ export class KernelOracle implements ProvingDataOracle {
     return header.state.partial.noteHashTree.root;
   }
 
-  public getMasterNullifierSecretKey(nullifierPublicKey: Point) {
-    return this.keyStore.getMasterNullifierSecretKeyForPublicKey(nullifierPublicKey);
+  public getMasterSecretKey(masterPublicKey: Point): Promise<GrumpkinPrivateKey> {
+    return this.keyStore.getMasterSecretKey(masterPublicKey);
+  }
+
+  public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {
+    return this.contractDataOracle.getDebugFunctionName(contractAddress, selector);
   }
 }

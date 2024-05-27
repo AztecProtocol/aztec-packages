@@ -1,6 +1,5 @@
 import {
   type PXE,
-  TxExecutionRequest,
   randomContractArtifact,
   randomContractInstanceWithAddress,
   randomDeployedContract,
@@ -9,10 +8,9 @@ import {
   AztecAddress,
   CompleteAddress,
   Fr,
-  FunctionData,
   INITIAL_L2_BLOCK_NUM,
   Point,
-  TxContext,
+  PublicKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 
@@ -68,14 +66,12 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
       await pxe.registerAccount(randomSecretKey, randomPartialAddress);
     });
 
-    it('cannot register a recipient with the same aztec address but different pub key or partial address', async () => {
+    // Disabled as CompleteAddress constructor now performs preimage validation.
+    it.skip('cannot register a recipient with the same aztec address but different pub key or partial address', async () => {
       const recipient1 = CompleteAddress.random();
       const recipient2 = new CompleteAddress(
         recipient1.address,
-        Point.random(),
-        Point.random(),
-        Point.random(),
-        Point.random(),
+        new PublicKeys(Point.random(), Point.random(), Point.random(), Point.random()),
         Fr.random(),
       );
 
@@ -127,24 +123,7 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
       await expect(pxe.registerContract({ instance, artifact })).rejects.toThrow(/Artifact does not match/i);
     });
 
-    it('throws when simulating a tx targeting public entrypoint', async () => {
-      const functionData = FunctionData.empty();
-      functionData.isPrivate = false;
-      const txExecutionRequest = TxExecutionRequest.from({
-        origin: AztecAddress.random(),
-        firstCallArgsHash: new Fr(0),
-        functionData,
-        txContext: TxContext.empty(),
-        argsOfCalls: [],
-        authWitnesses: [],
-      });
-
-      await expect(async () => await pxe.proveTx(txExecutionRequest, false)).rejects.toThrow(
-        'Public entrypoints are not allowed',
-      );
-    });
-
-    // Note: Not testing a successful run of `proveTx`, `sendTx`, `getTxReceipt` and `viewTx` here as it requires
+    // Note: Not testing a successful run of `proveTx`, `sendTx`, `getTxReceipt` and `simulateUnconstrained` here as it requires
     //       a larger setup and it's sufficiently tested in the e2e tests.
 
     it('throws when getting public storage for non-existent contract', async () => {

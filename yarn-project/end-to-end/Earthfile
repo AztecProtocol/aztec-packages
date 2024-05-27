@@ -1,15 +1,16 @@
 VERSION 0.8
-ARG --global skip_build=false
 
 E2E_COMPOSE_TEST:
   FUNCTION
   ARG test
   ARG compose_file=./scripts/docker-compose.yml
   ARG debug="aztec:*"
+  ARG hardware_concurrency=""
   LOCALLY
   ENV TEST=$test
   ENV DEBUG=$debug
-  LET project_name=$(echo $test | sed 's/\./_/g')
+  ENV HARDWARE_CONCURRENCY=$hardware_concurrency
+  LET project_name=$(echo $test | sed 's/\./_/g' | sed 's/\//_/g')
   IF docker compose > /dev/null 2>&1
     LET CMD="docker compose"
   ELSE
@@ -25,153 +26,148 @@ E2E_COMPOSE_TEST:
     END
   END
   # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
+  ENV JOB_NAME=$project_name
   RUN $CMD -p $project_name -f $compose_file up --exit-code-from=end-to-end --force-recreate
 
-UPLOAD_LOGS:
+E2E_TEST:
   FUNCTION
-  ARG PULL_REQUEST
-  ARG BRANCH
-  ARG COMMIT_HASH
+  ARG hardware_concurrency=""
+  ARG test
+  ARG allow_fail=false
   LOCALLY
-  LET COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
-  FROM ../../+scripts
-  COPY ./log /usr/var/log
-  ENV PULL_REQUEST=$PULL_REQUEST
-  ENV BRANCH=$BRANCH
-  ENV COMMIT_HASH=$COMMIT_HASH
-  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY /usr/src/scripts/logs/upload_logs_to_s3.sh /usr/var/log
+  # Let docker compose know about the pushed tags above
+  ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
+  # Optimize to not cause serial behavior if image already exists
+  IF ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"
+    WAIT
+      BUILD ../+export-end-to-end
+    END
+  END
+  # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
+  RUN docker run -e HARDWARE_CONCURRENCY=$hardware_concurrency --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $test || $allow_fail
 
 e2e-2-pxes:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_2_pxes.test.ts
+  DO +E2E_TEST --test=./src/e2e_2_pxes.test.ts
+
+e2e-prover:
+  DO +E2E_TEST --test=./src/e2e_prover --hardware_concurrency=${HARDWARE_CONCURRENCY:-32}
 
 e2e-account-contracts:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_account_contracts.test.ts
+  DO +E2E_TEST --test=./src/e2e_account_contracts.test.ts
 
 e2e-auth-contract:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_auth_contract.test.ts
+  DO +E2E_TEST --test=./src/e2e_auth_contract.test.ts
 
 e2e-authwit:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_authwit.test.ts
+  DO +E2E_TEST --test=./src/e2e_authwit.test.ts
 
 e2e-avm-simulator:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_avm_simulator.test.ts
+  DO +E2E_TEST --test=./src/e2e_avm_simulator.test.ts
 
 e2e-blacklist-token-contract:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_blacklist_token_contract
+  DO +E2E_TEST --test=./src/e2e_blacklist_token_contract
 
 e2e-block-building:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_block_building.test.ts
+  DO +E2E_TEST --test=./src/e2e_block_building.test.ts
 
 e2e-card-game:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_card_game.test.ts
+  DO +E2E_TEST --test=./src/e2e_card_game.test.ts
 
 e2e-cheat-codes:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_cheat_codes.test.ts
+  DO +E2E_TEST --test=./src/e2e_cheat_codes.test.ts
 
 e2e-counter-contract:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_counter_contract.test.ts
+  DO +E2E_TEST --test=./src/e2e_counter_contract.test.ts
 
 e2e-cross-chain-messaging:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_cross_chain_messaging.test.ts
+  DO +E2E_TEST --test=./src/e2e_cross_chain_messaging.test.ts
 
 e2e-crowdfunding-and-claim:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_crowdfunding_and_claim.test.ts
+  DO +E2E_TEST --test=./src/e2e_crowdfunding_and_claim.test.ts
 
 e2e-delegate-calls:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_delegate_calls
+  DO +E2E_TEST --test=./src/e2e_delegate_calls
 
 e2e-deploy-contract:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_deploy_contract
+  DO +E2E_TEST --test=./src/e2e_deploy_contract
 
 e2e-encryption:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_encryption.test.ts
+  DO +E2E_TEST --test=./src/e2e_encryption.test.ts
 
 e2e-escrow-contract:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_escrow_contract.test.ts
+  DO +E2E_TEST --test=./src/e2e_escrow_contract.test.ts
 
 e2e-key-registry:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_key_registry.test.ts
+  DO +E2E_TEST --test=./src/e2e_key_registry.test.ts
+
+e2e-keys:
+  DO +E2E_TEST --test=./src/e2e_keys.test.ts
 
 e2e-lending-contract:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_lending_contract.test.ts
+  DO +E2E_TEST --test=./src/e2e_lending_contract.test.ts
 
 e2e-max-block-number:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_max_block_number.test.ts
+  DO +E2E_TEST --test=./src/e2e_max_block_number.test.ts
 
 e2e-multiple-accounts-1-enc-key:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_multiple_accounts_1_enc_key.test.ts
+  DO +E2E_TEST --test=./src/e2e_multiple_accounts_1_enc_key.test.ts
 
 e2e-nested-contract:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_nested_contract
+  DO +E2E_TEST --test=./src/e2e_nested_contract
 
 e2e-non-contract-account:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_non_contract_account.test.ts
+  DO +E2E_TEST --test=./src/e2e_non_contract_account.test.ts
 
 e2e-note-getter:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_note_getter.test.ts
+  DO +E2E_TEST --test=./src/e2e_note_getter.test.ts
 
 e2e-ordering:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_ordering.test.ts
+  DO +E2E_TEST --test=./src/e2e_ordering.test.ts
 
 e2e-outbox:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_outbox.test.ts
+  DO +E2E_TEST --test=./src/e2e_outbox.test.ts
 
 e2e-pending-note-hashes-contract:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_pending_note_hashes_contract.test.ts
+  DO +E2E_TEST --test=./src/e2e_pending_note_hashes_contract.test.ts
 
 e2e-private-voting-contract:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_private_voting_contract.test.ts
+  DO +E2E_TEST --test=./src/e2e_private_voting_contract.test.ts
+
+e2e-fees-private-payments:
+  DO +E2E_TEST --test=./src/e2e_fees/private_payments.test.ts
+
+e2e-fees-gas-estimation:
+  DO +E2E_TEST --test=./src/e2e_fees/gas_estimation.test.ts
+
+e2e-fees-dapp-subscription:
+  DO +E2E_TEST --test=./src/e2e_fees/dapp_subscription.test.ts
+
+e2e-fees-failures:
+  DO +E2E_TEST --test=./src/e2e_fees/failures.test.ts
+
+e2e-fees-native-payments:
+  DO +E2E_TEST --test=./src/e2e_fees/native_payments.test.ts
+
+e2e-fees-account-init:
+  DO +E2E_TEST --test=./src/e2e_fees/account_init.test.ts
 
 e2e-public-cross-chain-messaging:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_public_cross_chain_messaging
+  DO +E2E_TEST --test=./src/e2e_public_cross_chain_messaging
 
 e2e-public-to-private-messaging:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_public_to_private_messaging.test.ts
+  DO +E2E_TEST --test=./src/e2e_public_to_private_messaging.test.ts
 
 e2e-state-vars:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_state_vars.test.ts
+  DO +E2E_TEST --test=./src/e2e_state_vars.test.ts
 
 e2e-static-calls:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_static_calls.test.ts
+  DO +E2E_TEST --test=./src/e2e_static_calls.test.ts
 
 e2e-token-contract:
-  FROM ../+end-to-end
-  RUN yarn test ./src/e2e_token_contract
+  DO +E2E_TEST --test=./src/e2e_token_contract
 
 flakey-e2e-tests:
-  FROM ../+end-to-end
-  RUN yarn test --passWithNoTests ./src/flakey || true
+  DO +E2E_TEST --test=./src/flakey --allow_fail=true
 
 e2e-sandbox-example:
   DO +E2E_COMPOSE_TEST --test=e2e_sandbox_example.test.ts
@@ -181,6 +177,10 @@ uniswap-trade-on-l1-from-l2:
 
 integration-l1-publisher:
   DO +E2E_COMPOSE_TEST --test=integration_l1_publisher.test.ts
+
+# Disabled, TODO https://github.com/AztecProtocol/aztec-packages/issues/6624
+# integration-proof-verification:
+#  DO +E2E_COMPOSE_TEST --compose_file=./scripts/docker-compose-no-sandbox.yml --test=integration_proof_verification.test.ts
 
 e2e-browser:
   DO +E2E_COMPOSE_TEST --test=e2e_aztec_js_browser.test.ts
@@ -210,26 +210,25 @@ bench-publish-rollup:
   ARG BRANCH
   ARG COMMIT_HASH
   DO +E2E_COMPOSE_TEST --test=benchmarks/bench_publish_rollup.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --compose_file=./scripts/docker-compose-no-sandbox.yml
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+  DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
 bench-process-history:
   ARG PULL_REQUEST
   ARG BRANCH
   ARG COMMIT_HASH
   DO +E2E_COMPOSE_TEST --test=benchmarks/bench_process_history.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --compose_file=./scripts/docker-compose-no-sandbox.yml
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+  DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
 bench-tx-size:
   ARG PULL_REQUEST
   ARG BRANCH
   ARG COMMIT_HASH
   DO +E2E_COMPOSE_TEST --test=benchmarks/bench_tx_size_fees.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+  DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
-bench-proving:
-  ARG e2e_mode=local
+bench-prover:
   ARG PULL_REQUEST
   ARG BRANCH
   ARG COMMIT_HASH
-  DO +E2E_COMPOSE_TEST --test=bench_proving --debug="aztec:benchmarks:*,aztec:prover*,aztec:bb*" --e2e_mode=$e2e_mode --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+  DO +E2E_COMPOSE_TEST --test=bench_prover --debug="aztec:benchmarks:*,aztec:prover*,aztec:bb*,aztec:pxe*" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml --hardware_concurrency=${HARDWARE_CONCURRENCY:-32}
+  DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH

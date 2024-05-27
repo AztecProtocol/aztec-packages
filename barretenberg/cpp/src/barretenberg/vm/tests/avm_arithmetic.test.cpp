@@ -5,6 +5,7 @@
 #include <cstdint>
 
 namespace tests_avm {
+using namespace bb;
 using namespace bb::avm_trace;
 
 namespace {
@@ -377,7 +378,7 @@ TEST_F(AvmArithmeticTestsFF, addition)
     EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
     EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0));
 
-    validate_trace(std::move(trace), true);
+    validate_trace(std::move(trace), {}, true);
 }
 
 // Test on basic subtraction over finite field type.
@@ -554,7 +555,7 @@ TEST_F(AvmArithmeticTestsFF, mixedOperationsWithError)
     trace_builder.halt();
 
     auto trace = trace_builder.finalize();
-    validate_trace(std::move(trace), true);
+    validate_trace(std::move(trace), {}, true);
 }
 
 // Test of equality on FF elements

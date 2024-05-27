@@ -3,13 +3,13 @@ use crate::recursion::verification_key::VerificationKey;
 use crate::abis::function_selector::FunctionSelector;
 use crate::abis::contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage;
 use crate::contract_class_id::ContractClassId;
-use crate::abis::side_effect::SideEffect;
+use crate::abis::log_hash::LogHash;
 use crate::traits::is_empty;
 use crate::utils::{uint256::U256, field::field_from_bytes_32_trunc};
 use crate::constants::{
     FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__OUTER_NULLIFIER,
     GENERATOR_INDEX__VK, GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__UNIQUE_NOTE_HASH,
-    MAX_ENCRYPTED_LOGS_PER_TX
+    MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 };
 use crate::traits::Hash;
 use crate::messaging::l2_to_l1_message::L2ToL1Message;
@@ -72,6 +72,23 @@ pub fn silo_nullifier(address: AztecAddress, nullifier: Field) -> Field {
     ],
         GENERATOR_INDEX__OUTER_NULLIFIER
     )
+}
+
+pub fn silo_encrypted_log(address: AztecAddress, randomness: Field, log_hash: Field) -> Field {
+    // TODO: Using 0 GENERATOR_INDEX here as interim before we move to posiedon
+    // NB: A unique separator will be needed for masked_contract_address
+    let mut masked_contract_address = pedersen_hash([address.to_field(), randomness], 0);
+    if randomness == 0 {
+        // In some cases, we actually want to reveal the contract address we are siloing with:
+        // e.g. 'handshaking' contract w/ known address
+        // An app providing randomness = 0 signals to not mask the address.
+        masked_contract_address = address.to_field();
+    }
+    accumulate_sha256([masked_contract_address, log_hash])
+}
+
+pub fn silo_unencrypted_log(address: AztecAddress, log_hash: Field) -> Field {
+    accumulate_sha256([address.to_field(), log_hash])
 }
 
 pub fn merkle_hash(left: Field, right: Field) -> Field {
@@ -142,10 +159,31 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
 // Computes the final logs hash for a tx.
 // NB: this assumes MAX_ENCRYPTED_LOGS_PER_TX == MAX_UNENCRYPTED_LOGS_PER_TX
 // to avoid doubling code, since we can't define the byte len to be 32*N directly. 
-pub fn compute_tx_logs_hash(logs: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field {
+pub fn compute_tx_logs_hash(logs: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field {
     // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
     let mut hash_input_flattened = [0; MAX_ENCRYPTED_LOGS_PER_TX * 32];
     for offset in 0..MAX_ENCRYPTED_LOGS_PER_TX {
+        let input_as_bytes = logs[offset].value.to_be_bytes(32);
+        for byte_index in 0..32 {
+            hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
+        }
+    }
+    // Ideally we would push to a slice then hash, but there is no sha_slice
+    // Hardcode to 256 bytes for now
+    let mut hash = sha256_to_field(hash_input_flattened);
+    // Not having a 0 value hash for empty logs causes issues with empty txs
+    // used for padding. Returning early is currently unsupported.
+    // We always provide sorted logs here, so 0 being empty means all are empty.
+    if is_empty(logs[0]) {
+        hash = 0;
+    }
+    hash
+}
+
+pub fn compute_tx_note_logs_hash(logs: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX]) -> Field {
+    // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
+    let mut hash_input_flattened = [0; MAX_NOTE_ENCRYPTED_LOGS_PER_TX * 32];
+    for offset in 0..MAX_NOTE_ENCRYPTED_LOGS_PER_TX {
         let input_as_bytes = logs[offset].value.to_be_bytes(32);
         for byte_index in 0..32 {
             hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];

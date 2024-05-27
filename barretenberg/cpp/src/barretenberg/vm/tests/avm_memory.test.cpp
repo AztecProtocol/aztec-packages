@@ -2,6 +2,7 @@
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 
 namespace tests_avm {
+using namespace bb;
 using namespace bb::avm_trace;
 
 class AvmMemoryTests : public ::testing::Test {
@@ -69,7 +70,7 @@ TEST_F(AvmMemoryTests, mismatchedTagAddOperation)
     EXPECT_EQ(row->avm_mem_r_in_tag, FF(static_cast<uint32_t>(AvmMemoryTag::U8)));
     EXPECT_EQ(row->avm_mem_tag, FF(static_cast<uint32_t>(AvmMemoryTag::FF)));
 
-    validate_trace(std::move(trace), true);
+    validate_trace(std::move(trace), {}, true);
 }
 
 // Testing an equality operation with a mismatched memory tag.

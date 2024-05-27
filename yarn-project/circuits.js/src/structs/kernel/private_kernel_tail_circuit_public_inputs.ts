@@ -1,9 +1,9 @@
 import { makeTuple } from '@aztec/foundation/array';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX } from '../../constants.gen.js';
 import { countAccumulatedItems, mergeAccumulatedData } from '../../utils/index.js';
-import { AggregationObject } from '../aggregation_object.js';
 import { CallRequest } from '../call_request.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { RevertCode } from '../revert_code.js';
@@ -102,10 +102,6 @@ export class PartialPrivateTailPublicInputsForRollup {
 export class PrivateKernelTailCircuitPublicInputs {
   constructor(
     /**
-     * Aggregated proof of all the previous kernel iterations.
-     */
-    public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
-    /**
      * Data which is not modified by the circuits.
      */
     public constants: CombinedConstantData,
@@ -113,6 +109,11 @@ export class PrivateKernelTailCircuitPublicInputs {
      * Indicates whether execution of the public circuit reverted.
      */
     public revertCode: RevertCode,
+    /**
+     * The address of the fee payer for the transaction.
+     */
+    public feePayer: AztecAddress,
+
     public forPublic?: PartialPrivateTailPublicInputsForPublic,
     public forRollup?: PartialPrivateTailPublicInputsForRollup,
   ) {
@@ -135,13 +136,13 @@ export class PrivateKernelTailCircuitPublicInputs {
       throw new Error('Private tail public inputs is not for public circuit.');
     }
     return new PublicKernelCircuitPublicInputs(
-      this.aggregationObject,
       this.forPublic.validationRequests,
       this.forPublic.endNonRevertibleData,
       this.forPublic.end,
       this.constants,
       this.revertCode,
       this.forPublic.publicTeardownCallStack,
+      this.feePayer,
     );
   }
 
@@ -150,12 +151,12 @@ export class PrivateKernelTailCircuitPublicInputs {
       throw new Error('Private tail public inputs is not for rollup circuit.');
     }
     return new KernelCircuitPublicInputs(
-      this.aggregationObject,
       this.forRollup.rollupValidationRequests,
       this.forRollup.end,
       this.constants,
       PartialStateReference.empty(),
       this.revertCode,
+      this.feePayer,
     );
   }
 
@@ -188,9 +189,9 @@ export class PrivateKernelTailCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     const isForPublic = reader.readBoolean();
     return new PrivateKernelTailCircuitPublicInputs(
-      reader.readObject(AggregationObject),
       reader.readObject(CombinedConstantData),
       reader.readObject(RevertCode),
+      reader.readObject(AztecAddress),
       isForPublic ? reader.readObject(PartialPrivateTailPublicInputsForPublic) : undefined,
       !isForPublic ? reader.readObject(PartialPrivateTailPublicInputsForRollup) : undefined,
     );
@@ -200,18 +201,18 @@ export class PrivateKernelTailCircuitPublicInputs {
     const isForPublic = !!this.forPublic;
     return serializeToBuffer(
       isForPublic,
-      this.aggregationObject,
       this.constants,
       this.revertCode,
+      this.feePayer,
       isForPublic ? this.forPublic!.toBuffer() : this.forRollup!.toBuffer(),
     );
   }
 
   static empty() {
     return new PrivateKernelTailCircuitPublicInputs(
-      AggregationObject.makeFake(),
       CombinedConstantData.empty(),
       RevertCode.OK,
+      AztecAddress.ZERO,
       undefined,
       PartialPrivateTailPublicInputsForRollup.empty(),
     );

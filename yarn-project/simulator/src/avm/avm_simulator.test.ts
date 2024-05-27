@@ -5,17 +5,17 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { keccak256, pedersenHash, poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type Fieldable } from '@aztec/foundation/serialize';
-import { AvmNestedCallsTestContractArtifact, AvmTestContractArtifact } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
-import { strict as assert } from 'assert';
 
-import { isAvmBytecode } from '../public/transitional_adaptors.js';
+import { isAvmBytecode, markBytecodeAsAvm } from '../public/transitional_adaptors.js';
 import { AvmMachineState } from './avm_machine_state.js';
 import { type MemoryValue, TypeTag, type Uint8 } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
 import {
   adjustCalldataIndex,
+  getAvmNestedCallsTestContractBytecode,
+  getAvmTestContractBytecode,
   initContext,
   initExecutionEnvironment,
   initGlobalVariables,
@@ -39,14 +39,14 @@ describe('AVM simulator: injected bytecode', () => {
     ]);
   });
 
-  it('Should not be recognized as AVM bytecode (magic missing)', () => {
-    expect(!isAvmBytecode(bytecode));
+  it('Should not be recognized as AVM bytecode (magic missing)', async () => {
+    expect(!(await isAvmBytecode(bytecode)));
   });
 
   it('Should execute bytecode that performs basic addition', async () => {
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
     const { l2GasLeft: initialL2GasLeft } = AvmMachineState.fromState(context.machineState);
-    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+    const results = await new AvmSimulator(context).executeBytecode(markBytecodeAsAvm(bytecode));
 
     expect(results.reverted).toBe(false);
     expect(results.output).toEqual([new Fr(3)]);
@@ -59,7 +59,7 @@ describe('AVM simulator: injected bytecode', () => {
       machineState: initMachineState({ l2GasLeft: 5 }),
     });
 
-    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+    const results = await new AvmSimulator(context).executeBytecode(markBytecodeAsAvm(bytecode));
     expect(results.reverted).toBe(true);
     expect(results.output).toEqual([]);
     expect(results.revertReason?.message).toEqual('Not enough L2GAS gas left');
@@ -80,9 +80,20 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(results.output).toEqual([new Fr(3)]);
   });
 
-  it('Should be recognized as AVM bytecode (magic present)', () => {
+  it('modulo and u1', async () => {
+    const calldata: Fr[] = [new Fr(2)];
+    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+    const bytecode = getAvmTestContractBytecode('modulo2');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+    expect(results.reverted).toBe(false);
+    expect(results.output).toEqual([new Fr(0)]);
+  });
+
+  it('Should be recognized as AVM bytecode (magic present)', async () => {
     const bytecode = getAvmTestContractBytecode('add_args_return');
-    expect(isAvmBytecode(bytecode));
+    expect(await isAvmBytecode(bytecode));
   });
 
   describe('U128 addition and overflows', () => {
@@ -119,6 +130,15 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       // Note: compiler intrinsic messages (like below) are not known to the AVM
       //expect(results.revertReason?.message).toEqual("Assertion failed: call to assert_max_bit_size 'self.__assert_max_bit_size(bit_size)'");
     });
+  });
+
+  it('Logging', async () => {
+    const context = initContext();
+    const bytecode = getAvmTestContractBytecode('debug_logging');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+    expect(results.reverted).toBe(false);
+    expect(results.output).toEqual([]);
   });
 
   it('Assertion message', async () => {
@@ -860,7 +880,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(callBytecode);
 
       expect(results.reverted).toBe(true); // The outer call should revert.
-      expect(results.revertReason?.message).toEqual('Static calls cannot alter storage');
+      expect(results.revertReason?.message).toEqual(
+        'Static call cannot update the state, emit L2->L1 messages or generate logs',
+      );
     });
 
     it(`Nested calls rethrow exceptions`, async () => {
@@ -894,24 +916,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(resultBuffer.equals(expectedResults)).toBe(true);
   });
 });
-
-function getAvmTestContractBytecode(functionName: string): Buffer {
-  const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
-  assert(
-    !!artifact?.bytecode,
-    `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
-  );
-  return artifact.bytecode;
-}
-
-function getAvmNestedCallsTestContractBytecode(functionName: string): Buffer {
-  const artifact = AvmNestedCallsTestContractArtifact.functions.find(f => f.name === functionName)!;
-  assert(
-    !!artifact?.bytecode,
-    `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
-  );
-  return artifact.bytecode;
-}
 
 function sha256FromMemoryBytes(bytes: Uint8[]): Fr[] {
   return [...sha256(Buffer.concat(bytes.map(b => b.toBuffer())))].map(b => new Fr(b));

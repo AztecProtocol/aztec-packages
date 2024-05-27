@@ -2,8 +2,6 @@
 contract Escrow {
     use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, NoteHeader, PrivateContext, PrivateImmutable};
 
-    use dep::aztec::context::{PublicContext, Context};
-
     use dep::address_note::address_note::AddressNote;
 
     use dep::token::Token;
@@ -16,9 +14,13 @@ contract Escrow {
     // Creates a new instance
     #[aztec(private)]
     #[aztec(initializer)]
-    fn constructor(owner: pub AztecAddress) {
-        let mut note = AddressNote::new(owner, owner);
-        storage.owner.initialize(&mut note, true);
+    fn constructor(owner: AztecAddress) {
+        let header = context.get_header();
+        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
+
+        let mut note = AddressNote::new(owner, owner_npk_m_hash);
+        storage.owner.initialize(&mut note, true, owner_ivpk_m);
     }
 
     // Withdraws balance. Requires that msg.sender is the owner.

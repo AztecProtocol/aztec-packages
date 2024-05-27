@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 namespace tests_avm {
+using namespace bb;
 using namespace bb::avm_trace;
 using namespace testing;
 
@@ -106,7 +107,7 @@ class AvmCastTests : public ::testing::Test {
         // We still want the ability to enable proving through the environment variable and therefore we do not pass
         // the boolean variable force_proof to validate_trace second argument.
         if (force_proof) {
-            validate_trace(std::move(trace), true);
+            validate_trace(std::move(trace), {}, true);
         } else {
             validate_trace(std::move(trace));
         }

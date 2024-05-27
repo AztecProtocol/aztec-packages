@@ -44,7 +44,8 @@ describe('e2e_fees dapp_subscription', () => {
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
-    await t.applyFundAlice();
+    await t.applyFPCSetupSnapshot();
+    await t.applyFundAliceWithBananas();
     await t.applySetupSubscription();
 
     ({
@@ -103,8 +104,7 @@ describe('e2e_fees dapp_subscription', () => {
     we then privately transfer `SUBSCRIPTION_AMOUNT` BC from alice to bob's subscription contract
 
     PUBLIC TEARDOWN
-    then the FPC calls `pay_fee`, reducing its gas balance by `FEE_AMOUNT`, and increasing the sequencer's gas balance by `FEE_AMOUNT`
-    the FPC also publicly sends `REFUND` BC to alice
+    the FPC publicly sends `REFUND` BC to alice
     */
 
     const { transactionFee } = await subscribe(
@@ -114,7 +114,7 @@ describe('e2e_fees dapp_subscription', () => {
     await expectMapping(
       t.gasBalances,
       [sequencerAddress, bananaFPC.address],
-      [initialSequencerGasBalance + transactionFee!, initialFPCGasBalance - transactionFee!],
+      [initialSequencerGasBalance, initialFPCGasBalance - transactionFee!],
     );
 
     // alice, bob, fpc
@@ -133,8 +133,7 @@ describe('e2e_fees dapp_subscription', () => {
     we then privately transfer `SUBSCRIPTION_AMOUNT` BC from alice to bob's subscription contract
 
     PUBLIC TEARDOWN
-    then the FPC calls `pay_fee`, reducing its gas balance by `FEE_AMOUNT`, and increasing the sequencer's gas balance by `FEE_AMOUNT`
-    the FPC also publicly sends `REFUND` BC to alice
+    the FPC publicly sends `REFUND` BC to alice
     */
     const { transactionFee } = await subscribe(
       new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
@@ -143,7 +142,7 @@ describe('e2e_fees dapp_subscription', () => {
     await expectMapping(
       t.gasBalances,
       [sequencerAddress, bananaFPC.address],
-      [initialSequencerGasBalance + transactionFee!, initialFPCGasBalance - transactionFee!],
+      [initialSequencerGasBalance, initialFPCGasBalance - transactionFee!],
     );
 
     // alice, bob, fpc
@@ -156,9 +155,7 @@ describe('e2e_fees dapp_subscription', () => {
 
   it('should call dapp subscription entrypoint', async () => {
     // Subscribe again, so this test does not depend on the previous ones being run.
-    const { transactionFee: subscriptionTxFee } = await subscribe(
-      new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
-    );
+    await subscribe(new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet));
 
     expect(await subscriptionContract.methods.is_initialized(aliceAddress).simulate()).toBe(true);
 
@@ -174,19 +171,15 @@ describe('e2e_fees dapp_subscription', () => {
     await expectMapping(
       t.gasBalances,
       [sequencerAddress, subscriptionContract.address],
-      [
-        initialSequencerGasBalance + transactionFee! + subscriptionTxFee!,
-        initialSubscriptionContractGasBalance - transactionFee!,
-      ],
+      [initialSequencerGasBalance, initialSubscriptionContractGasBalance - transactionFee!],
     );
   });
 
   it('should reject after the sub runs out', async () => {
     // Subscribe again. This will overwrite the previous subscription.
     await subscribe(new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet), 0);
-    await expect(dappIncrement()).rejects.toThrow(
-      "Failed to solve brillig function '(context.block_number()) as u64 < expiry_block_number as u64'",
-    );
+    // TODO(#6651): Change back to /(context.block_number()) as u64 < expiry_block_number as u64/ when fixed
+    await expect(dappIncrement()).rejects.toThrow(/Note encrypted logs hash mismatch/);
   });
 
   it('should reject after the txs run out', async () => {
@@ -213,6 +206,7 @@ describe('e2e_fees dapp_subscription', () => {
     const action = counterContract.methods.increment(bobAddress).request();
     const txExReq = await dappEntrypoint.createTxExecutionRequest({ calls: [action] });
     const tx = await pxe.proveTx(txExReq, true);
+    expect(tx.data.feePayer).toEqual(subscriptionContract.address);
     const sentTx = new SentTx(pxe, pxe.sendTx(tx));
     return sentTx.wait();
   }

@@ -1,4 +1,5 @@
 mod asset;
+mod position;
 mod interest_math;
 mod helpers;
 
@@ -11,9 +12,10 @@ mod helpers;
 // - Liquidations
 contract Lending {
     use dep::aztec::prelude::{FunctionSelector, AztecAddress, PrivateContext, Map, PublicMutable};
-    use dep::aztec::context::{PublicContext, Context, gas::GasOpts};
+    use dep::aztec::context::{PublicContext, gas::GasOpts};
 
     use crate::asset::Asset;
+    use crate::position::Position;
     use crate::interest_math::compute_multiplier;
     use crate::helpers::{covered_by_collateral, DebtReturn, debt_updates, debt_value, compute_identifier};
     use dep::token::Token;
@@ -27,12 +29,6 @@ contract Lending {
         assets: Map<Field, PublicMutable<Asset>>,
         collateral: Map<AztecAddress, PublicMutable<Field>>,
         static_debt: Map<AztecAddress, PublicMutable<Field>>, // abusing keys very heavily
-    }
-
-    struct Position {
-        collateral: Field,
-        static_debt: Field,
-        debt: Field,
     }
 
     // Constructs the contract.
@@ -151,7 +147,7 @@ contract Lending {
     #[aztec(internal)]
     fn _withdraw(owner: AztecAddress, recipient: AztecAddress, amount: Field) {
         let asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
-        let price = PriceFeed::at(asset.oracle).get_price(0).static_call(&mut context).price;
+        let price = PriceFeed::at(asset.oracle).get_price(0).view(&mut context).price;
 
         let coll_loc = storage.collateral.at(owner);
         let collateral: Field = coll_loc.read();
@@ -199,7 +195,7 @@ contract Lending {
     #[aztec(internal)]
     fn _borrow(owner: AztecAddress, to: AztecAddress, amount: Field) {
         let asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
-        let price = PriceFeed::at(asset.oracle).get_price(0).static_call(&mut context).price;
+        let price = PriceFeed::at(asset.oracle).get_price(0).view(&mut context).price;
 
         // Fetch collateral and static_debt, compute health of current position
         let collateral = U128::from_integer(storage.collateral.at(owner).read());
@@ -269,11 +265,15 @@ contract Lending {
         storage.static_debt.at(owner).write(debt_returns.static_debt.to_integer());
     }
 
-    unconstrained fn get_asset(asset_id: Field) -> pub Asset {
+    #[aztec(public)]
+    #[aztec(view)]
+    fn get_asset(asset_id: Field) -> pub Asset {
         storage.assets.at(asset_id).read()
     }
 
-    unconstrained fn get_position(owner: AztecAddress) -> pub Position {
+    #[aztec(public)]
+    #[aztec(view)]
+    fn get_position(owner: AztecAddress) -> pub Position {
         let collateral = storage.collateral.at(owner).read();
         let static_debt = storage.static_debt.at(owner).read();
         let asset: Asset = storage.assets.at(0).read();
@@ -284,7 +284,9 @@ contract Lending {
         Position { collateral, static_debt, debt }
     }
 
-    unconstrained fn get_assets() -> pub [AztecAddress; 2] {
+    #[aztec(public)]
+    #[aztec(view)]
+    fn get_assets() -> pub [AztecAddress; 2] {
         [storage.collateral_asset.read(), storage.stable_coin.read()]
     }
 }

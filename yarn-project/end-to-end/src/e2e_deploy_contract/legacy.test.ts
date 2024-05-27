@@ -33,7 +33,7 @@ describe('e2e_deploy_contract legacy', () => {
    */
   it('should deploy a test contract', async () => {
     const salt = Fr.random();
-    const publicKeysHash = wallet.getCompleteAddress().publicKeysHash;
+    const publicKeysHash = wallet.getCompleteAddress().publicKeys.hash();
     const deploymentData = getContractInstanceFromDeployParams(TestContractArtifact, {
       salt,
       publicKeysHash,
@@ -110,7 +110,7 @@ describe('e2e_deploy_contract legacy', () => {
     expect(goodTxReceipt.blockNumber).toEqual(expect.any(Number));
     expect(badTxReceipt.blockNumber).toEqual(expect.any(Number));
 
-    expect(badTxReceipt.status).toEqual(TxStatus.REVERTED);
+    expect(badTxReceipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
 
     // But the bad tx did not deploy
     await expect(pxe.isContractClassPubliclyRegistered(badDeploy.getInstance().address)).resolves.toBeFalsy();

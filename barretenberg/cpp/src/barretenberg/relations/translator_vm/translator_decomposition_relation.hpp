@@ -4,7 +4,7 @@
 
 namespace bb {
 
-template <typename FF_> class GoblinTranslatorDecompositionRelationImpl {
+template <typename FF_> class TranslatorDecompositionRelationImpl {
   public:
     using FF = FF_;
 
@@ -63,6 +63,15 @@ template <typename FF_> class GoblinTranslatorDecompositionRelationImpl {
     };
 
     /**
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
+     *
+     */
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.lagrange_odd_in_minicircuit.is_zero();
+    }
+
+    /**
      * @brief Expression for decomposition of various values into smaller limbs or microlimbs.
      * @details This relation enforces three types of subrelations:
      * 1) A subrelation decomposing a value from the transcript (for example, z1) into 68-bit limbs. These relations
@@ -87,7 +96,6 @@ template <typename FF_> class GoblinTranslatorDecompositionRelationImpl {
                            const FF& scaling_factor);
 };
 
-template <typename FF>
-using GoblinTranslatorDecompositionRelation = Relation<GoblinTranslatorDecompositionRelationImpl<FF>>;
+template <typename FF> using TranslatorDecompositionRelation = Relation<TranslatorDecompositionRelationImpl<FF>>;
 
 } // namespace bb

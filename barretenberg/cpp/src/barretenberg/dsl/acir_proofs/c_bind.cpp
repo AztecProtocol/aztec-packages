@@ -78,20 +78,18 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8
     *result = verifier.verify_proof(proof);
 }
 
-WASM_EXPORT void acir_prove_and_verify_goblin_ultra_honk(uint8_t const* acir_vec,
-                                                         uint8_t const* witness_vec,
-                                                         bool* result)
+WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, bool* result)
 {
     auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
-    auto builder = acir_format::create_circuit<GoblinUltraCircuitBuilder>(constraint_system, 0, witness);
+    auto builder = acir_format::create_circuit<MegaCircuitBuilder>(constraint_system, 0, witness);
 
-    GoblinUltraProver prover{ builder };
+    MegaProver prover{ builder };
     auto proof = prover.construct_proof();
 
-    auto verification_key = std::make_shared<GoblinUltraFlavor::VerificationKey>(prover.instance->proving_key);
-    GoblinUltraVerifier verifier{ verification_key };
+    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover.instance->proving_key);
+    MegaVerifier verifier{ verification_key };
 
     *result = verifier.verify_proof(proof);
 }
@@ -230,4 +228,19 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, uint8_t** out
     ProverInstance prover_inst(builder);
     VerificationKey vk(prover_inst.proving_key);
     *out = to_heap_buffer(to_buffer(vk));
+}
+
+WASM_EXPORT void acir_proof_as_fields_ultra_honk(uint8_t const* proof_buf, fr::vec_out_buf out)
+{
+    auto proof = from_buffer<std::vector<bb::fr>>(from_buffer<std::vector<uint8_t>>(proof_buf));
+    *out = to_heap_buffer(proof);
+}
+
+WASM_EXPORT void acir_vk_as_fields_ultra_honk(uint8_t const* vk_buf, fr::vec_out_buf out_vkey)
+{
+    using VerificationKey = UltraFlavor::VerificationKey;
+
+    auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
+    std::vector<bb::fr> vkey_as_fields = verification_key->to_field_elements();
+    *out_vkey = to_heap_buffer(vkey_as_fields);
 }

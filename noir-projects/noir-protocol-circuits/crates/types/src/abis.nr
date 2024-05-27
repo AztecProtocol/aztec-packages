@@ -13,9 +13,9 @@ mod combined_constant_data;
 
 mod side_effect;
 mod read_request;
+mod log_hash;
 mod note_hash;
 mod nullifier;
-mod nullifier_key_validation_request;
 mod public_data_read;
 mod public_data_update_request;
 
@@ -28,8 +28,10 @@ mod private_kernel;
 mod kernel_circuit_public_inputs;
 mod kernel_data;
 mod private_kernel_data;
+mod public_kernel_data;
 
 mod call_request;
+mod private_call_request;
 mod private_call_stack_item;
 mod public_call_stack_item;
 mod call_context;

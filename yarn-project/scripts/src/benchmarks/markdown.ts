@@ -162,10 +162,11 @@ function getTableContent(
   baseBenchmark: Record<string, Record<string, number>> | undefined,
   groupUnit = '',
   col1Title = 'Metric',
+  colPrefixToRemove = '',
 ) {
   const rowKeys = Object.keys(data);
   const groups = [...new Set(rowKeys.flatMap(key => Object.keys(data[key])))];
-  const makeHeader = (colTitle: string) => `${withDesc(colTitle)} ${groupUnit}`;
+  const makeHeader = (colTitle: string) => `${withDesc(colTitle.replace(colPrefixToRemove, ''))} ${groupUnit}`;
   const header = `| ${col1Title} | ${groups.map(makeHeader).join(' | ')} |`;
   const separator = `| - | ${groups.map(() => '-').join(' | ')} |`;
   const makeCell = (row: string, col: string) => getCell(data, baseBenchmark, row, col);
@@ -183,15 +184,14 @@ export function getMarkdown(prNumber: number) {
   const benchmark = JSON.parse(fs.readFileSync(inputFile, 'utf-8'));
   const baseBenchmark = getBaseBenchmark();
 
+  const metricsByThreads = Metrics.filter(m => m.groupBy === 'threads').map(m => m.name);
   const metricsByBlockSize = Metrics.filter(m => m.groupBy === 'block-size').map(m => m.name);
   const metricsByChainLength = Metrics.filter(m => m.groupBy === 'chain-length').map(m => m.name);
-  const metricsByCircuitName = Metrics.filter(m => m.groupBy === 'circuit-name').map(m => m.name);
+  const kernelCircuitMetrics = Metrics.filter(m => m.groupBy === 'protocol-circuit-name').map(m => m.name);
+  const appCircuitMetrics = Metrics.filter(m => m.groupBy === 'app-circuit-name').map(m => m.name);
   const metricsByClassesRegistered = Metrics.filter(m => m.groupBy === 'classes-registered').map(m => m.name);
   const metricsByFeePaymentMethod = Metrics.filter(m => m.groupBy === 'fee-payment-method').map(m => m.name);
   const metricsByLeafCount = Metrics.filter(m => m.groupBy === 'leaf-count').map(m => m.name);
-
-  const metricsTxPxeProcessing = Metrics.filter(m => m.name === 'tx_pxe_processing_time_ms').map(m => m.name);
-  const metricsTxSeqProcessing = Metrics.filter(m => m.name === 'tx_sequencer_processing_time_ms').map(m => m.name);
 
   const baseHash = process.env.BASE_COMMIT_HASH;
   const baseUrl = baseHash && `[\`${baseHash.slice(0, 8)}\`](${S3_URL}/benchmarks-v1/master/${baseHash}.json)`;
@@ -217,6 +217,11 @@ All benchmarks are run on txs on the \`Benchmarking\` contract on the repository
 ${prSourceDataText}
 ${baseCommitText}
 
+### Proof generation
+
+Each column represents the number of threads used in proof generation.
+${getTableContent(pick(benchmark, metricsByThreads), baseBenchmark, 'threads')}
+
 ### L2 block published to L1
 
 Each column represents the number of txs on an L2 block published to L1.
@@ -229,8 +234,23 @@ ${getTableContent(pick(benchmark, metricsByChainLength), baseBenchmark, 'blocks'
 
 ### Circuits stats
 
-Stats on running time and I/O sizes collected for every circuit run across all benchmarks.
-${getTableContent(transpose(pick(benchmark, metricsByCircuitName)), transpose(baseBenchmark), '', 'Circuit')}
+Stats on running time and I/O sizes collected for every kernel circuit run across all benchmarks.
+${getTableContent(
+  transpose(pick(benchmark, kernelCircuitMetrics)),
+  transpose(baseBenchmark),
+  '',
+  'Circuit',
+  'protocol_circuit_',
+)}
+
+Stats on running time collected for app circuits
+${getTableContent(
+  transpose(pick(benchmark, appCircuitMetrics)),
+  transpose(baseBenchmark),
+  '',
+  'Function',
+  'app_circuit_',
+)}
 
 ### Tree insertion stats
 
@@ -244,10 +264,6 @@ ${getTableContent(pick(benchmark, metricsByClassesRegistered), baseBenchmark, 'r
 
 Transaction size based on fee payment method
 ${getTableContent(pick(benchmark, metricsByFeePaymentMethod), baseBenchmark, 'fee payment method')}
-
-Transaction processing duration by data writes.
-${getTableContent(pick(benchmark, metricsTxPxeProcessing), baseBenchmark, 'new note hashes')}
-${getTableContent(pick(benchmark, metricsTxSeqProcessing), baseBenchmark, 'public data writes')}
 
 </details>
 ${COMMENT_MARK}

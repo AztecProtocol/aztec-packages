@@ -12,6 +12,7 @@
 #include <vector>
 
 namespace tests_avm {
+using namespace bb;
 using namespace bb::avm_trace;
 
 namespace {
@@ -488,7 +489,7 @@ TEST_P(AvmBitwiseTestsAnd, AllAndTest)
 
     auto trace = trace_builder.finalize();
     common_validate_bit_op(trace, 0, a, b, output, FF(0), FF(1), FF(2), mem_tag);
-    validate_trace(std::move(trace), true);
+    validate_trace(std::move(trace), {}, true);
 }
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseTests,
                          AvmBitwiseTestsAnd,

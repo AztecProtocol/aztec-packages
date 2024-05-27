@@ -2,15 +2,11 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
   type AztecAddress,
   type AztecNode,
-  BatchCall,
   ContractDeployer,
   ContractFunctionInteraction,
   type DebugLogger,
   Fr,
   type PXE,
-  type SentTx,
-  type TxReceipt,
-  TxStatus,
   type Wallet,
   deriveKeys,
 } from '@aztec/aztec.js';
@@ -20,7 +16,10 @@ import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
+import 'jest-extended';
+
 import { TaggedNote } from '../../circuit-types/src/logs/l1_note_payload/tagged_note.js';
+import { DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_block_building', () => {
@@ -127,63 +126,104 @@ describe('e2e_block_building', () => {
     afterAll(() => teardown());
 
     // Regressions for https://github.com/AztecProtocol/aztec-packages/issues/2502
-    describe('in the same block', () => {
-      it('drops tx with private nullifier already emitted on the same block', async () => {
+    // Note that the order in which the TX are processed is not guaranteed.
+    describe('in the same block, different tx', () => {
+      it('private <-> private', async () => {
         const nullifier = Fr.random();
-        const calls = times(2, () => contract.methods.emit_nullifier(nullifier));
-        for (const call of calls) {
-          await call.prove();
-        }
-        const [tx1, tx2] = calls.map(call => call.send());
-        await expectXorTx(tx1, tx2);
+        const txs = await sendAndWait([
+          contract.methods.emit_nullifier(nullifier),
+          contract.methods.emit_nullifier(nullifier),
+        ]);
+
+        // One transaction should succeed, the other should fail, but in any order.
+        expect(txs).toIncludeSameMembers([
+          { status: 'fulfilled', value: expect.anything() },
+          {
+            status: 'rejected',
+            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_ERROR) }),
+          },
+        ]);
       });
 
-      it('drops tx with public nullifier already emitted on the same block', async () => {
-        const secret = Fr.random();
-        const calls = times(2, () => contract.methods.create_nullifier_public(140n, secret));
-        for (const call of calls) {
-          await call.prove();
-        }
-        const [tx1, tx2] = calls.map(call => call.send());
-        await expectXorTx(tx1, tx2);
-      });
-
-      it('drops tx with two equal nullifiers', async () => {
+      it('public -> public', async () => {
         const nullifier = Fr.random();
-        const calls = times(2, () => contract.methods.emit_nullifier(nullifier).request());
-        await expect(new BatchCall(owner, calls).send().wait()).rejects.toThrow(/dropped/);
+        const txs = await sendAndWait([
+          contract.methods.emit_nullifier_public(nullifier),
+          contract.methods.emit_nullifier_public(nullifier),
+        ]);
+
+        // One transaction should succeed, the other should fail, but in any order.
+        expect(txs).toIncludeSameMembers([
+          { status: 'fulfilled', value: expect.anything() },
+          {
+            status: 'rejected',
+            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_ERROR) }),
+          },
+        ]);
       });
 
-      it('drops tx with private nullifier already emitted from public on the same block', async () => {
-        const secret = Fr.random();
-        // See yarn-project/simulator/src/public/index.test.ts 'Should be able to create a nullifier from the public context'
-        const emittedPublicNullifier = pedersenHash([new Fr(140), secret]);
+      it('private -> public', async () => {
+        const nullifier = Fr.random();
+        const txs = await sendAndWait([
+          contract.methods.emit_nullifier(nullifier),
+          contract.methods.emit_nullifier_public(nullifier),
+        ]);
 
-        const calls = [
-          contract.methods.create_nullifier_public(140n, secret),
-          contract.methods.emit_nullifier(emittedPublicNullifier),
-        ];
+        // One transaction should succeed, the other should fail, but in any order.
+        expect(txs).toIncludeSameMembers([
+          { status: 'fulfilled', value: expect.anything() },
+          {
+            status: 'rejected',
+            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_ERROR) }),
+          },
+        ]);
+      });
 
-        for (const call of calls) {
-          await call.prove();
-        }
-        const [tx1, tx2] = calls.map(call => call.send());
-        await expectXorTx(tx1, tx2);
+      it('public -> private', async () => {
+        const nullifier = Fr.random();
+        const txs = await sendAndWait([
+          contract.methods.emit_nullifier_public(nullifier),
+          contract.methods.emit_nullifier(nullifier),
+        ]);
+
+        // One transaction should succeed, the other should fail, but in any order.
+        expect(txs).toIncludeSameMembers([
+          { status: 'fulfilled', value: expect.anything() },
+          {
+            status: 'rejected',
+            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_ERROR) }),
+          },
+        ]);
       });
     });
 
     describe('across blocks', () => {
-      it('drops a tx that tries to spend a nullifier already emitted on a previous block', async () => {
-        const secret = Fr.random();
-        const emittedPublicNullifier = pedersenHash([new Fr(140), secret]);
+      it('private -> private', async () => {
+        const nullifier = Fr.random();
+        await contract.methods.emit_nullifier(nullifier).send().wait();
+        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow('dropped');
+      });
 
-        await expect(contract.methods.create_nullifier_public(140n, secret).send().wait()).resolves.toEqual(
-          expect.objectContaining({
-            status: TxStatus.MINED,
-          }),
+      it('public -> public', async () => {
+        const nullifier = Fr.random();
+        await contract.methods.emit_nullifier_public(nullifier).send().wait();
+        await expect(contract.methods.emit_nullifier_public(nullifier).send().wait()).rejects.toThrow(
+          DUPLICATE_NULLIFIER_ERROR,
         );
+      });
 
-        await expect(contract.methods.emit_nullifier(emittedPublicNullifier).send().wait()).rejects.toThrow(/dropped/);
+      it('private -> public', async () => {
+        const nullifier = Fr.random();
+        await contract.methods.emit_nullifier(nullifier).send().wait();
+        await expect(contract.methods.emit_nullifier_public(nullifier).send().wait()).rejects.toThrow(
+          DUPLICATE_NULLIFIER_ERROR,
+        );
+      });
+
+      it('public -> private', async () => {
+        const nullifier = Fr.random();
+        await contract.methods.emit_nullifier_public(nullifier).send().wait();
+        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow('dropped');
       });
     });
   });
@@ -200,7 +240,7 @@ describe('e2e_block_building', () => {
     }, 60_000);
 
     it('calls a method with nested unencrypted logs', async () => {
-      const tx = await testContract.methods.emit_unencrypted_logs_nested([1, 2, 3, 4, 5]).send().wait();
+      const tx = await testContract.methods.emit_unencrypted_logs([1, 2, 3, 4, 5], true).send().wait();
       const logs = (await pxe.getUnencryptedLogs({ txHash: tx.txHash })).logs.map(l => l.log);
 
       // First log should be contract address
@@ -217,7 +257,7 @@ describe('e2e_block_building', () => {
       expect(logs[2].data.subarray(-32 * 5)).toEqual(expectedBuffer);
     }, 60_000);
 
-    it('calls a method with nested encrypted logs', async () => {
+    it('calls a method with nested note encrypted logs', async () => {
       // account setup
       const privateKey = new Fr(7n);
       const keys = deriveKeys(privateKey);
@@ -231,29 +271,52 @@ describe('e2e_block_building', () => {
       const rct = await action.send().wait();
 
       // compare logs
-      expect(rct.status).toEqual('mined');
-      const decryptedLogs = tx.encryptedLogs
+      expect(rct.status).toEqual('success');
+      const decryptedLogs = tx.noteEncryptedLogs
         .unrollLogs()
-        .map(l => TaggedNote.fromEncryptedBuffer(l.data, keys.masterIncomingViewingSecretKey));
+        .map(l => TaggedNote.decryptAsIncoming(l.data, keys.masterIncomingViewingSecretKey));
       const notevalues = decryptedLogs.map(l => l?.notePayload.note.items[0]);
       expect(notevalues[0]).toEqual(new Fr(10));
       expect(notevalues[1]).toEqual(new Fr(11));
       expect(notevalues[2]).toEqual(new Fr(12));
     }, 30_000);
+
+    it('calls a method with nested encrypted logs', async () => {
+      // account setup
+      const privateKey = new Fr(7n);
+      const keys = deriveKeys(privateKey);
+      const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
+      await account.deploy().wait();
+      const thisWallet = await account.getWallet();
+
+      // call test contract
+      const action = testContract.methods.emit_array_as_encrypted_log([5, 4, 3, 2, 1], thisWallet.getAddress(), true);
+      const tx = await action.prove();
+      const rct = await action.send().wait();
+
+      // compare logs
+      expect(rct.status).toEqual('success');
+      const encryptedLogs = tx.encryptedLogs.unrollLogs();
+      expect(encryptedLogs[0].maskedContractAddress).toEqual(pedersenHash([testContract.address, new Fr(5)], 0));
+      expect(encryptedLogs[1].maskedContractAddress).toEqual(pedersenHash([testContract.address, new Fr(5)], 0));
+      // Setting randomness = 0 in app means 'do not mask the address'
+      expect(encryptedLogs[2].maskedContractAddress).toEqual(testContract.address.toField());
+      const expectedEncryptedLogsHash = tx.encryptedLogs.hash();
+      expect(tx.data.forRollup?.end.encryptedLogsHash).toEqual(new Fr(expectedEncryptedLogsHash));
+
+      // TODO(1139 | 6408): We currently encrypted generic event logs the same way as notes, so the below
+      // will likely not be useful when complete.
+      // const decryptedLogs = encryptedLogs.map(l => TaggedNote.decryptAsIncoming(l.data, keys.masterIncomingViewingSecretKey));
+    }, 60_000);
   });
 });
 
-/**
- * Checks that only one of the two provided transactions succeeds.
- * @param tx1 - A transaction.
- * @param tx2 - Another transaction.
- */
-async function expectXorTx(tx1: SentTx, tx2: SentTx) {
-  const receipts = await Promise.allSettled([tx1.wait(), tx2.wait()]);
-  const succeeded = receipts.find((r): r is PromiseSettledResult<TxReceipt> => r.status === 'fulfilled');
-  const failed = receipts.find((r): r is PromiseRejectedResult => r.status === 'rejected');
-
-  expect(succeeded).toBeDefined();
-  expect(failed).toBeDefined();
-  expect((failed?.reason as Error).message).toMatch(/dropped/);
+async function sendAndWait(calls: ContractFunctionInteraction[]) {
+  return await Promise.allSettled(
+    calls
+      // First we send them all.
+      .map(call => call.send())
+      // Onlt then we wait.
+      .map(p => p.wait()),
+  );
 }
