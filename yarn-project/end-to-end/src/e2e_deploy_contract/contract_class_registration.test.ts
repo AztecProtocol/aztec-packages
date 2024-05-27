@@ -24,6 +24,7 @@ import { writeTestData } from '@aztec/foundation/testing';
 import { StatefulTestContract } from '@aztec/noir-contracts.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
+import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
 
 describe('e2e_deploy_contract contract class registration', () => {
@@ -160,7 +161,7 @@ describe('e2e_deploy_contract contract class registration', () => {
             .increment_public_value(whom, 10)
             .send({ skipPublicSimulation: true })
             .wait({ dontThrowOnRevert: true });
-          expect(receipt.status).toEqual(TxStatus.REVERTED);
+          expect(receipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
 
           // Meanwhile we check we didn't increment the value
           expect(await contract.methods.get_public_value(whom).simulate()).toEqual(0n);
@@ -189,7 +190,8 @@ describe('e2e_deploy_contract contract class registration', () => {
               .constructor(...initArgs)
               .send({ skipPublicSimulation: true })
               .wait(),
-          ).rejects.toThrow(/dropped/i);
+            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/5818): Make these a fixed error after transition.
+          ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
         });
       });
 
@@ -204,7 +206,7 @@ describe('e2e_deploy_contract contract class registration', () => {
             .public_constructor(whom, 43)
             .send({ skipPublicSimulation: true })
             .wait({ dontThrowOnRevert: true });
-          expect(receipt.status).toEqual(TxStatus.REVERTED);
+          expect(receipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
           expect(await contract.methods.get_public_value(whom).simulate()).toEqual(0n);
         });
 
@@ -225,7 +227,7 @@ describe('e2e_deploy_contract contract class registration', () => {
               .public_constructor(...initArgs)
               .send({ skipPublicSimulation: true })
               .wait(),
-          ).rejects.toThrow(/dropped/i);
+          ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
         });
       });
     });

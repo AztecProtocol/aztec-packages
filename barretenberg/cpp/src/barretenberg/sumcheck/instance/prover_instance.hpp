@@ -4,7 +4,7 @@
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
 #include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 
 namespace bb {
@@ -44,13 +44,12 @@ template <class Flavor> class ProverInstance_ {
     ProverInstance_(Circuit& circuit, bool is_structured = false)
     {
         BB_OP_COUNT_TIME_NAME("ProverInstance(Circuit&)");
+        circuit.add_gates_to_ensure_all_polys_are_non_zero();
         circuit.finalize_circuit();
 
         // If using a structured trace, ensure that no block exceeds the fixed size
         if (is_structured) {
-            for (auto& block : circuit.blocks.get()) {
-                ASSERT(block.size() <= circuit.FIXED_BLOCK_SIZE);
-            }
+            circuit.blocks.check_within_fixed_sizes();
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/905): This is adding ops to the op queue but NOT to
@@ -109,8 +108,7 @@ template <class Flavor> class ProverInstance_ {
      */
     size_t compute_structured_dyadic_size(Circuit& builder)
     {
-        size_t num_blocks = builder.blocks.get().size();
-        size_t minimum_size = num_blocks * builder.FIXED_BLOCK_SIZE;
+        size_t minimum_size = builder.blocks.get_total_structured_size();
         return builder.get_circuit_subgroup_size(minimum_size);
     }
 

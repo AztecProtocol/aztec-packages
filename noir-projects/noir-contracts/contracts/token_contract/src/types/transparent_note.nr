@@ -1,11 +1,13 @@
 // docs:start:token_types_all
 use dep::aztec::{
     note::{note_getter_options::PropertySelector, utils::compute_note_hash_for_consumption},
-    hash::poseidon2_hash, prelude::{NoteHeader, NoteInterface, PrivateContext},
-    protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+    prelude::{NoteHeader, NoteInterface, PrivateContext},
+    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_point::GrumpkinPoint, hash::poseidon2_hash}
 };
 
 global TRANSPARENT_NOTE_LEN: Field = 2;
+// TRANSPARENT_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
+global TRANSPARENT_NOTE_BYTES_LEN: Field = 2 * 32 + 64;
 
 // Transparent note represents a note that is created in the clear (public execution), but can only be spent by those
 // that know the preimage of the "secret_hash" (the secret). This is typically used when shielding a token balance.
@@ -22,7 +24,7 @@ struct TransparentNoteProperties {
     secret_hash: PropertySelector,
 }
 
-impl NoteInterface<TRANSPARENT_NOTE_LEN> for TransparentNote {
+impl NoteInterface<TRANSPARENT_NOTE_LEN, TRANSPARENT_NOTE_BYTES_LEN> for TransparentNote {
 
     // Custom serialization to avoid disclosing the secret field
     fn serialize_content(self) -> [Field; TRANSPARENT_NOTE_LEN] {
@@ -59,7 +61,7 @@ impl NoteInterface<TRANSPARENT_NOTE_LEN> for TransparentNote {
         ])
     }
 
-    fn broadcast(self, context: &mut PrivateContext, slot: Field) {
+    fn broadcast(self, context: &mut PrivateContext, slot: Field, ivpk_m: GrumpkinPoint) {
         assert(false, "TransparentNote does not support broadcast");
     }
 }

@@ -1,6 +1,7 @@
 import {
   type Body,
   type EncryptedL2BlockL2Logs,
+  type EncryptedNoteL2BlockL2Logs,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,
@@ -85,12 +86,14 @@ export interface ArchiverDataStore {
 
   /**
    * Append new logs to the store's list.
+   * @param noteEncryptedLogs - The note encrypted logs to be added to the store.
    * @param encryptedLogs - The encrypted logs to be added to the store.
    * @param unencryptedLogs - The unencrypted logs to be added to the store.
    * @param blockNumber - The block for which to add the logs.
    * @returns True if the operation is successful.
    */
   addLogs(
+    noteEncryptedLogs: EncryptedNoteL2BlockL2Logs | undefined,
     encryptedLogs: EncryptedL2BlockL2Logs | undefined,
     unencryptedLogs: UnencryptedL2BlockL2Logs | undefined,
     blockNumber: number,

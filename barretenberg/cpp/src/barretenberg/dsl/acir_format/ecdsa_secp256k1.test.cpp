@@ -91,6 +91,7 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintSucceed)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .recursive = false,
+        .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
@@ -110,6 +111,7 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintSucceed)
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
         .recursion_constraints = {},
+        .honk_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
@@ -141,6 +143,7 @@ TEST_F(ECDSASecp256k1, TestECDSACompilesForVerifier)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .recursive = false,
+        .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
@@ -160,6 +163,7 @@ TEST_F(ECDSASecp256k1, TestECDSACompilesForVerifier)
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
         .recursion_constraints = {},
+        .honk_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
@@ -186,6 +190,7 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .recursive = false,
+        .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
@@ -205,6 +210,7 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
         .recursion_constraints = {},
+        .honk_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},

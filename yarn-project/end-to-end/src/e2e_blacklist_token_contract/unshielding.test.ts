@@ -1,5 +1,6 @@
 import { Fr, computeAuthWitMessageHash } from '@aztec/aztec.js';
 
+import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
 describe('e2e_blacklist_token_contract unshielding', () => {
@@ -20,7 +21,7 @@ describe('e2e_blacklist_token_contract unshielding', () => {
   });
 
   afterEach(async () => {
-    await t.tokenSim.check();
+    await t.tokenSim.check(wallets[0]);
   });
 
   it('on behalf of self', async () => {
@@ -57,7 +58,7 @@ describe('e2e_blacklist_token_contract unshielding', () => {
       .withWallet(wallets[1])
       .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce)
       .send();
-    await expect(txReplay.wait()).rejects.toThrow('Transaction ');
+    await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     // @todo @LHerskind This error is weird?
   });
 

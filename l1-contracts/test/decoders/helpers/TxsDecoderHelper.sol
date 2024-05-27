@@ -13,9 +13,9 @@ contract TxsDecoderHelper {
   function computeKernelLogsHash(bytes calldata _kernelLogs)
     external
     pure
-    returns (bytes32, uint256)
+    returns (bytes32, uint256, uint256)
   {
-    return TxsDecoder.computeKernelLogsHash(0, _kernelLogs);
+    return TxsDecoder.computeKernelEncryptedLogsHash(0, _kernelLogs);
   }
 
   function computeNumTxEffectsToPad(uint32 _numTxEffects) external pure returns (uint32) {

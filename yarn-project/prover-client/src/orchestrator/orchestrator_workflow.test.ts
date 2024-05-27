@@ -1,9 +1,11 @@
+import { type ServerCircuitProver } from '@aztec/circuit-types';
 import {
   Fr,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   RECURSIVE_PROOF_LENGTH,
   type RootParityInput,
+  getMockVerificationKeys,
 } from '@aztec/circuits.js';
 import { makeGlobalVariables, makeRootParityInput } from '@aztec/circuits.js/testing';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -14,17 +16,16 @@ import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { makeEmptyProcessedTestTx } from '../mocks/fixtures.js';
-import { type CircuitProver } from '../prover/index.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
 describe('prover/orchestrator', () => {
   describe('workflow', () => {
     let orchestrator: ProvingOrchestrator;
-    let mockProver: MockProxy<CircuitProver>;
+    let mockProver: MockProxy<ServerCircuitProver>;
     let actualDb: MerkleTreeOperations;
     beforeEach(async () => {
       actualDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
-      mockProver = mock<CircuitProver>();
+      mockProver = mock<ServerCircuitProver>();
       orchestrator = new ProvingOrchestrator(actualDb, mockProver);
     });
 
@@ -46,7 +47,13 @@ describe('prover/orchestrator', () => {
         }
       });
 
-      await orchestrator.startNewBlock(2, makeGlobalVariables(1), [message], await makeEmptyProcessedTestTx(actualDb));
+      await orchestrator.startNewBlock(
+        2,
+        makeGlobalVariables(1),
+        [message],
+        await makeEmptyProcessedTestTx(actualDb),
+        getMockVerificationKeys(),
+      );
 
       await sleep(10);
       expect(mockProver.getBaseParityProof).toHaveBeenCalledTimes(NUM_BASE_PARITY_PER_ROOT_PARITY);

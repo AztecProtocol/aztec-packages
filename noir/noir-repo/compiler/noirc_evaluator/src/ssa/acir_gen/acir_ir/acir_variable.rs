@@ -8,7 +8,7 @@ use crate::ssa::ir::dfg::CallStack;
 use crate::ssa::ir::types::Type as SsaType;
 use crate::ssa::ir::{instruction::Endian, types::NumericType};
 use acvm::acir::circuit::brillig::{BrilligInputs, BrilligOutputs};
-use acvm::acir::circuit::opcodes::{BlockId, MemOp};
+use acvm::acir::circuit::opcodes::{BlockId, BlockType, MemOp};
 use acvm::acir::circuit::{AssertionPayload, ExpressionOrMemory, Opcode};
 use acvm::blackbox_solver;
 use acvm::brillig_vm::{MemoryValue, VMStatus, VM};
@@ -236,7 +236,10 @@ impl AcirContext {
         self.acir_ir.call_stack = call_stack;
     }
 
-    fn get_or_create_witness_var(&mut self, var: AcirVar) -> Result<AcirVar, InternalError> {
+    pub(crate) fn get_or_create_witness_var(
+        &mut self,
+        var: AcirVar,
+    ) -> Result<AcirVar, InternalError> {
         if self.var_to_expression(var)?.to_witness().is_some() {
             // If called with a variable which is already a witness then return the same variable.
             return Ok(var);
@@ -611,13 +614,44 @@ impl AcirContext {
                 expr.push_multiplication_term(FieldElement::one(), lhs_witness, rhs_witness);
                 self.add_data(AcirVarData::Expr(expr))
             }
-            (
-                AcirVarData::Expr(_) | AcirVarData::Witness(_),
-                AcirVarData::Expr(_) | AcirVarData::Witness(_),
-            ) => {
+            (AcirVarData::Expr(expression), AcirVarData::Witness(witness))
+            | (AcirVarData::Witness(witness), AcirVarData::Expr(expression))
+                if expression.is_linear() =>
+            {
+                let mut expr = Expression::default();
+                for term in expression.linear_combinations.iter() {
+                    expr.push_multiplication_term(term.0, term.1, witness);
+                }
+                expr.push_addition_term(expression.q_c, witness);
+                self.add_data(AcirVarData::Expr(expr))
+            }
+            (AcirVarData::Expr(lhs_expr), AcirVarData::Expr(rhs_expr)) => {
+                let degree_one = if lhs_expr.is_linear() && rhs_expr.is_degree_one_univariate() {
+                    Some((lhs_expr, rhs_expr))
+                } else if rhs_expr.is_linear() && lhs_expr.is_degree_one_univariate() {
+                    Some((rhs_expr, lhs_expr))
+                } else {
+                    None
+                };
+                if let Some((lin, univariate)) = degree_one {
+                    let mut expr = Expression::default();
+                    let rhs_term = univariate.linear_combinations[0];
+                    for term in lin.linear_combinations.iter() {
+                        expr.push_multiplication_term(term.0 * rhs_term.0, term.1, rhs_term.1);
+                    }
+                    expr.push_addition_term(lin.q_c * rhs_term.0, rhs_term.1);
+                    expr.sort();
+                    expr = expr.add_mul(univariate.q_c, &lin);
+                    self.add_data(AcirVarData::Expr(expr))
+                } else {
+                    let lhs = self.get_or_create_witness_var(lhs)?;
+                    let rhs = self.get_or_create_witness_var(rhs)?;
+                    self.mul_var(lhs, rhs)?
+                }
+            }
+            _ => {
                 let lhs = self.get_or_create_witness_var(lhs)?;
                 let rhs = self.get_or_create_witness_var(rhs)?;
-
                 self.mul_var(lhs, rhs)?
             }
         };
@@ -1773,6 +1807,7 @@ impl AcirContext {
         block_id: BlockId,
         len: usize,
         optional_value: Option<AcirValue>,
+        databus: BlockType,
     ) -> Result<(), InternalError> {
         let initialized_values = match optional_value {
             None => {
@@ -1787,7 +1822,11 @@ impl AcirContext {
             }
         };
 
-        self.acir_ir.push_opcode(Opcode::MemoryInit { block_id, init: initialized_values });
+        self.acir_ir.push_opcode(Opcode::MemoryInit {
+            block_id,
+            init: initialized_values,
+            block_type: databus,
+        });
 
         Ok(())
     }

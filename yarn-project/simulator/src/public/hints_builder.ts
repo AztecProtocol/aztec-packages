@@ -3,7 +3,7 @@ import {
   type Fr,
   type MAX_NEW_NULLIFIERS_PER_TX,
   type MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
-  type MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   type MAX_PUBLIC_DATA_HINTS,
   type MAX_PUBLIC_DATA_READS_PER_TX,
   type MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -15,11 +15,12 @@ import {
   type PublicDataRead,
   type PublicDataTreeLeafPreimage,
   type PublicDataUpdateRequest,
-  type ReadRequestContext,
+  type ScopedReadRequest,
   buildNullifierNonExistentReadRequestHints,
-  buildNullifierReadRequestHints,
+  buildPublicDataHint,
   buildPublicDataHints,
   buildPublicDataReadRequestHints,
+  buildSiloedNullifierReadRequestHints,
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type IndexedTreeId, type MerkleTreeOperations } from '@aztec/world-state';
@@ -27,15 +28,23 @@ import { type IndexedTreeId, type MerkleTreeOperations } from '@aztec/world-stat
 export class HintsBuilder {
   constructor(private db: MerkleTreeOperations) {}
 
-  getNullifierReadRequestHints(
-    nullifierReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+  async getNullifierReadRequestHints(
+    nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     pendingNullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
   ) {
-    return buildNullifierReadRequestHints(this, nullifierReadRequests, pendingNullifiers);
+    return (
+      await buildSiloedNullifierReadRequestHints(
+        this,
+        nullifierReadRequests,
+        pendingNullifiers,
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+      )
+    ).hints;
   }
 
   getNullifierNonExistentReadRequestHints(
-    nullifierNonExistentReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
+    nullifierNonExistentReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
     pendingNullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
   ) {
     return buildNullifierNonExistentReadRequestHints(this, nullifierNonExistentReadRequests, pendingNullifiers);
@@ -46,6 +55,11 @@ export class HintsBuilder {
     publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
   ) {
     return buildPublicDataHints(this, publicDataReads, publicDataUpdateRequests);
+  }
+
+  getPublicDataHint(dataAction: PublicDataRead | PublicDataUpdateRequest | bigint) {
+    const slot = typeof dataAction === 'bigint' ? dataAction : dataAction.leafSlot.toBigInt();
+    return buildPublicDataHint(this, slot);
   }
 
   getPublicDataReadRequestHints(

@@ -1,8 +1,9 @@
 use crate::common;
 use dep::types::abis::{
     kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder},
-    kernel_data::PublicKernelData, public_call_data::PublicCallData
+    public_kernel_data::PublicKernelData, public_call_data::PublicCallData
 };
+use dep::types::utils::arrays::array_to_bounded_vec;
 
 struct PublicKernelSetupCircuitPrivateInputs {
     // Note: One might think that our previous_kernel ought to be
@@ -19,21 +20,33 @@ struct PublicKernelSetupCircuitPrivateInputs {
 }
 
 impl PublicKernelSetupCircuitPrivateInputs {
+    fn initialize_revert_code(self, circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder) {
+        // since this phase is non-revertible, we must assert the public call did not revert
+        common::validate_public_call_non_revert(self.public_call);
+        circuit_outputs.revert_code = 0;
+    }
+
+    fn initialize_values(self, circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder) {
+        // initialise the end state with our provided previous kernel state
+        common::initialize_non_revertible_values(self.previous_kernel, circuit_outputs);
+        common::initialize_end_values(self.previous_kernel, circuit_outputs);
+        circuit_outputs.public_teardown_call_stack = array_to_bounded_vec(self.previous_kernel.public_inputs.public_teardown_call_stack);
+    }
+
     fn validate_inputs(self) {
         let needs_setup = self.previous_kernel.public_inputs.needs_setup();
         assert(needs_setup == true, "Cannot run unnecessary setup circuit");
     }
 
     fn public_kernel_setup(self) -> PublicKernelCircuitPublicInputs {
+        // verify the previous kernel proof
+        self.previous_kernel.verify();
+
         // construct the circuit outputs
         let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();
-        // since this phase is non-revertible, we must assert the public call did not revert
-        common::validate_public_call_non_revert(self.public_call);
-        common::initialize_revert_code(self.previous_kernel, self.public_call, &mut public_inputs);
+        self.initialize_revert_code(&mut public_inputs);
 
-        // initialise the end state with our provided previous kernel state
-        common::initialize_end_values(self.previous_kernel, &mut public_inputs);
-
+        self.initialize_values(&mut public_inputs);
         // validate the inputs common to all invocation circumstances
         common::validate_inputs(self.public_call);
 
@@ -54,6 +67,7 @@ impl PublicKernelSetupCircuitPrivateInputs {
 
         common::update_validation_requests(self.public_call, &mut public_inputs);
 
+        common::update_end_non_revertible_call_stack(self.public_call, &mut public_inputs);
         common::update_public_end_non_revertible_values(self.public_call, &mut public_inputs);
 
         public_inputs.finish()
@@ -76,9 +90,9 @@ mod tests {
         public_call_data::PublicCallData, read_request::ReadRequest
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
-        contrakt::storage_read::StorageRead,
+        contrakt::storage_read::StorageRead, hash::silo_unencrypted_log,
         tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
-        utils::{arrays::{array_eq, array_length}}
+        utils::{arrays::{array_eq, array_length}}, traits::is_empty
     };
     use dep::types::constants::{
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
@@ -406,23 +420,6 @@ mod tests {
     //     let _ = kernel.public_kernel_setup();
     // }
 
-    #[test(should_fail_with="Cannot run unnecessary setup circuit")]
-    fn unnecessary_public_kernel_setup_with_teardown_should_fail() {
-        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-
-        // in this case, we only push a single call, which is interpreted as the teardown call
-        let teardown_call = builder.public_call.finish();
-        let teardown_call_hash = teardown_call.call_stack_item.hash();
-        let teardown_is_delegate_call = teardown_call.call_stack_item.public_inputs.call_context.is_delegate_call;
-        builder.previous_kernel.push_public_call_request(teardown_call_hash, teardown_is_delegate_call);
-        let previous_kernel = builder.previous_kernel.to_public_kernel_data(false);
-
-        // Run the kernel on the setup call
-        let kernel = PublicKernelSetupCircuitPrivateInputs { previous_kernel, public_call: teardown_call };
-
-        let _ = kernel.public_kernel_setup();
-    }
-
     #[test(should_fail_with="No contract storage update requests are allowed for static calls")]
     fn previous_private_kernel_fails_if_contract_storage_update_requests_on_static_call() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
@@ -452,20 +449,28 @@ mod tests {
             prev_unencrypted_log_preimages_length
         );
 
+        let mut expected_unencrypted_logs = [
+            builder.previous_kernel.unencrypted_logs_hashes.storage[0].log_hash, builder.public_call.public_inputs.unencrypted_logs_hashes.storage[0]
+        ];
+        // silo the new log hash
+        expected_unencrypted_logs[1].value = silo_unencrypted_log(builder.public_call.contract_address, expected_unencrypted_logs[1].value);
+        // we assume the encrypted log is already siloed from private kernels
+        let expected_encrypted_logs = [builder.previous_kernel.encrypted_logs_hashes.storage[0].expose_to_public()];
+
         let public_inputs = builder.execute();
 
-        assert_eq(
-            public_inputs.end_non_revertible.encrypted_log_preimages_length, prev_encrypted_log_preimages_length
+        assert(
+            array_eq(
+                public_inputs.end_non_revertible.encrypted_logs_hashes,
+                expected_encrypted_logs
+            )
         );
-        assert_eq(
-            public_inputs.end_non_revertible.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
+        assert(
+            array_eq(
+                public_inputs.end_non_revertible.unencrypted_logs_hashes,
+                expected_unencrypted_logs
+            )
         );
-
-        assert_eq(public_inputs.end_non_revertible.encrypted_logs_hashes[0].value, prev_encrypted_logs_hash);
-        assert_eq(
-            public_inputs.end_non_revertible.unencrypted_logs_hashes[0].value, prev_unencrypted_logs_hash
-        );
-        assert_eq(public_inputs.end_non_revertible.unencrypted_logs_hashes[1].value, unencrypted_logs_hash);
     }
 
     #[test]
@@ -483,15 +488,13 @@ mod tests {
         let end_requests = public_inputs.validation_requests.nullifier_non_existent_read_requests;
         assert_eq(array_length(end_requests), 2);
 
-        let request_context = end_requests[0];
-        assert_eq(request_context.value, request_0.value);
-        assert_eq(request_context.counter, request_0.counter);
-        assert_eq(request_context.contract_address, storage_contract_address);
+        let request = end_requests[0];
+        assert_eq(request.read_request, request_0);
+        assert_eq(request.contract_address, storage_contract_address);
 
-        let request_context = end_requests[1];
-        assert_eq(request_context.value, request_1.value);
-        assert_eq(request_context.counter, request_1.counter);
-        assert_eq(request_context.contract_address, storage_contract_address);
+        let request = end_requests[1];
+        assert_eq(request.read_request, request_1);
+        assert_eq(request.contract_address, storage_contract_address);
     }
 
     #[test(should_fail_with="Public call cannot be reverted")]
@@ -565,5 +568,42 @@ mod tests {
         builder.public_call.public_inputs.global_variables.block_number = 11;
 
         builder.failed();
+    }
+
+    #[test]
+    unconstrained fn propagate_fee_payer() {
+        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
+        let fee_payer = AztecAddress::from_field(123);
+        builder.previous_kernel.set_fee_payer(fee_payer);
+        let public_inputs = builder.execute();
+        assert_eq(public_inputs.fee_payer, fee_payer);
+
+        // Check that the fee payer is not set if is_fee_payer is false
+        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
+        assert_eq(is_empty(builder.previous_kernel.fee_payer), true);
+        let public_inputs = builder.execute();
+        assert_eq(public_inputs.fee_payer, AztecAddress::empty());
+    }
+
+    #[test]
+    fn propagate_call_stacks_on_success() {
+        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
+        builder.public_call.public_inputs.revert_code = 0;
+        let public_call = builder.public_call.finish();
+        let hash = public_call.call_stack_item.hash();
+
+        builder.previous_kernel.push_public_call_request(hash, false);
+        builder.previous_kernel.push_public_call_request(hash, false);
+
+        builder.previous_kernel.push_public_teardown_call_request(hash, false);
+        builder.previous_kernel.push_public_teardown_call_request(hash, false);
+
+        let previous_kernel = builder.previous_kernel.to_public_kernel_data(false);
+        let kernel = PublicKernelSetupCircuitPrivateInputs { previous_kernel, public_call };
+
+        let public_inputs = kernel.public_kernel_setup();
+
+        assert_eq(array_length(public_inputs.end_non_revertible.public_call_stack), 1);
+        assert_eq(array_length(public_inputs.public_teardown_call_stack), 2);
     }
 }

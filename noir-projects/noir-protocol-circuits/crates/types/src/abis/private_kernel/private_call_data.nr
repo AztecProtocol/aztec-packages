@@ -1,17 +1,20 @@
-use crate::abis::{call_request::CallRequest, private_call_stack_item::PrivateCallStackItem};
 use crate::address::{SaltedInitializationHash, PublicKeysHash, EthAddress};
 use crate::contract_class_id::ContractClassId;
-use crate::mocked::{Proof, VerificationKey};
-use crate::constants::{MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, FUNCTION_TREE_HEIGHT};
+use crate::recursion::{verification_key::VerificationKey, proof::RecursiveProof, traits::Verifiable};
+use crate::abis::{
+    call_request::CallRequest, private_call_stack_item::PrivateCallStackItem,
+    private_circuit_public_inputs::PrivateCircuitPublicInputs
+};
+use crate::constants::{MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, FUNCTION_TREE_HEIGHT};
 use crate::merkle_tree::membership::MembershipWitness;
 
 struct PrivateCallData {
     call_stack_item: PrivateCallStackItem,
 
-    private_call_stack: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
     public_call_stack: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+    public_teardown_call_request: CallRequest,
 
-    proof: Proof,
+    proof: RecursiveProof,
     vk: VerificationKey,
 
     salted_initialization_hash: SaltedInitializationHash,
@@ -21,4 +24,16 @@ struct PrivateCallData {
     function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
     
     acir_hash: Field,
+}
+
+impl Verifiable for PrivateCallData {
+  fn verify(self) {
+    let inputs = PrivateCircuitPublicInputs::serialize(self.call_stack_item.public_inputs);
+    dep::std::verify_proof(
+        self.vk.key.as_slice(),
+        self.proof.fields.as_slice(),
+        inputs.as_slice(),
+        self.vk.hash
+    );
+  }
 }

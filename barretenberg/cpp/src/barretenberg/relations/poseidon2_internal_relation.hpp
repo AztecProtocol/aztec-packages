@@ -21,7 +21,7 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return (in.q_poseidon2_internal.value_at(0).is_zero() && in.q_poseidon2_internal.value_at(1).is_zero());
+        return in.q_poseidon2_internal.is_zero();
     }
 
     /**
@@ -49,6 +49,7 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
                            const Parameters&,
                            const FF& scaling_factor)
     {
+        BB_OP_COUNT_TIME_NAME("PoseidonInt::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
         auto w_l = View(in.w_l);
@@ -66,8 +67,8 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         auto s1 = w_l + q_l;
 
         // apply s-box round
-        auto u1 = s1 * s1;
-        u1 *= u1;
+        auto u1 = s1.sqr();
+        u1 = u1.sqr();
         u1 *= s1;
         auto u2 = w_r;
         auto u3 = w_o;

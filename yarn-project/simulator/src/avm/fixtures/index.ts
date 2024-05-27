@@ -3,7 +3,9 @@ import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { AvmNestedCallsTestContractArtifact, AvmTestContractArtifact } from '@aztec/noir-contracts.js';
 
+import { strict as assert } from 'assert';
 import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
@@ -90,8 +92,8 @@ export function initGlobalVariables(overrides?: Partial<GlobalVariables>): Globa
  */
 export function initMachineState(overrides?: Partial<AvmMachineState>): AvmMachineState {
   return AvmMachineState.fromState({
-    l2GasLeft: overrides?.l2GasLeft ?? 100e6,
-    daGasLeft: overrides?.daGasLeft ?? 100e6,
+    l2GasLeft: overrides?.l2GasLeft ?? 1e8,
+    daGasLeft: overrides?.daGasLeft ?? 1e8,
   });
 }
 
@@ -124,4 +126,22 @@ export function randomMemoryBytes(length: number): Uint8[] {
 
 export function randomMemoryFields(length: number): Field[] {
   return [...Array(length)].map(_ => new Field(Fr.random()));
+}
+
+export function getAvmTestContractBytecode(functionName: string): Buffer {
+  const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
+  assert(
+    !!artifact?.bytecode,
+    `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
+  );
+  return artifact.bytecode;
+}
+
+export function getAvmNestedCallsTestContractBytecode(functionName: string): Buffer {
+  const artifact = AvmNestedCallsTestContractArtifact.functions.find(f => f.name === functionName)!;
+  assert(
+    !!artifact?.bytecode,
+    `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
+  );
+  return artifact.bytecode;
 }

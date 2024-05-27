@@ -86,6 +86,20 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     const Fr& value_at(size_t i) const { return evaluations[i - domain_start]; };
     size_t size() { return evaluations.size(); };
 
+    // Check if the univariate is identically zero
+    bool is_zero() const
+    {
+        if (!evaluations[0].is_zero()) {
+            return false;
+        }
+        for (size_t i = skip_count + 1; i < LENGTH; ++i) {
+            if (!evaluations[i].is_zero()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     // Write the Univariate evaluations to a buffer
     [[nodiscard]] std::vector<uint8_t> to_buffer() const { return ::to_buffer(evaluations); }
 
@@ -147,6 +161,14 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         }
         return *this;
     }
+    Univariate& self_sqr()
+    {
+        evaluations[0].self_sqr();
+        for (size_t i = skip_count + 1; i < LENGTH; ++i) {
+            evaluations[i].self_sqr();
+        }
+        return *this;
+    }
     Univariate operator+(const Univariate& other) const
     {
         Univariate res(*this);
@@ -177,6 +199,13 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     {
         Univariate res(*this);
         res *= other;
+        return res;
+    }
+
+    Univariate sqr() const
+    {
+        Univariate res(*this);
+        res.self_sqr();
         return res;
     }
 
@@ -539,6 +568,12 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     {
         Univariate<Fr, domain_end, domain_start, skip_count> res(*this);
         res *= other;
+        return res;
+    }
+    Univariate<Fr, domain_end, domain_start, skip_count> sqr() const
+    {
+        Univariate<Fr, domain_end, domain_start, skip_count> res(*this);
+        res = res.sqr();
         return res;
     }
 

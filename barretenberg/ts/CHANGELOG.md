@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.41.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.40.1...barretenberg.js-v0.41.0) (2024-05-21)
+
+
+### Features
+
+* Vk_as_fields, proof_as_fields flows for honk ([#6406](https://github.com/AztecProtocol/aztec-packages/issues/6406)) ([a6100ad](https://github.com/AztecProtocol/aztec-packages/commit/a6100ad3d5126321d457b5c336ab4a3521ff1fb2))
+
+
+### Miscellaneous
+
+* Remove acvmInfo from bb.js CLI ([#6507](https://github.com/AztecProtocol/aztec-packages/issues/6507)) ([e298c76](https://github.com/AztecProtocol/aztec-packages/commit/e298c766d17029a9dbfce694b48327c5e76dfddb))
+
+## [0.40.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.40.0...barretenberg.js-v0.40.1) (2024-05-14)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.40.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.39.0...barretenberg.js-v0.40.0) (2024-05-14)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.39.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.38.0...barretenberg.js-v0.39.0) (2024-05-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* switch `bb` over to read ACIR from nargo artifacts ([#6283](https://github.com/AztecProtocol/aztec-packages/issues/6283))
+
+### Features
+
+* Switch `bb` over to read ACIR from nargo artifacts ([#6283](https://github.com/AztecProtocol/aztec-packages/issues/6283)) ([78adcc0](https://github.com/AztecProtocol/aztec-packages/commit/78adcc0f6bd74d7ead6de58099dda1a3f88eefb0))
+
 ## [0.38.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.37.0...barretenberg.js-v0.38.0) (2024-05-07)
 
 

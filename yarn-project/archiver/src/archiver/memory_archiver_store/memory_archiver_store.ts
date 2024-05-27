@@ -1,6 +1,7 @@
 import {
   type Body,
   type EncryptedL2BlockL2Logs,
+  type EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
   type FromLogType,
   type GetUnencryptedLogsResponse,
@@ -13,7 +14,6 @@ import {
   type TxEffect,
   type TxHash,
   TxReceipt,
-  TxStatus,
   type UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
 import { Fr, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
@@ -47,6 +47,12 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * An array containing all the the tx effects in the L2 blocks that have been fetched so far.
    */
   private txEffects: TxEffect[] = [];
+
+  /**
+   * An array containing all the encrypted logs that have been fetched so far.
+   * Note: Index in the "outer" array equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
+   */
+  private noteEncryptedLogsPerBlock: EncryptedNoteL2BlockL2Logs[] = [];
 
   /**
    * An array containing all the encrypted logs that have been fetched so far.
@@ -185,10 +191,15 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addLogs(
+    noteEncryptedLogs: EncryptedNoteL2BlockL2Logs,
     encryptedLogs: EncryptedL2BlockL2Logs,
     unencryptedLogs: UnencryptedL2BlockL2Logs,
     blockNumber: number,
   ): Promise<boolean> {
+    if (noteEncryptedLogs) {
+      this.noteEncryptedLogsPerBlock[blockNumber - INITIAL_L2_BLOCK_NUM] = noteEncryptedLogs;
+    }
+
     if (encryptedLogs) {
       this.encryptedLogsPerBlock[blockNumber - INITIAL_L2_BLOCK_NUM] = encryptedLogs;
     }
@@ -271,7 +282,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
           return Promise.resolve(
             new TxReceipt(
               txHash,
-              TxStatus.MINED,
+              TxReceipt.statusFromRevertCode(txEffect.revertCode),
               '',
               txEffect.transactionFee.toBigInt(),
               block.hash().toBuffer(),
@@ -308,9 +319,18 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     if (from < INITIAL_L2_BLOCK_NUM || limit < 1) {
       throw new Error(`Invalid limit: ${limit}`);
     }
-    const logs = (
-      logType === LogType.ENCRYPTED ? this.encryptedLogsPerBlock : this.unencryptedLogsPerBlock
-    ) as L2BlockL2Logs<FromLogType<TLogType>>[];
+    const logs = (() => {
+      switch (logType) {
+        case LogType.ENCRYPTED:
+          return this.encryptedLogsPerBlock;
+        case LogType.NOTEENCRYPTED:
+          return this.noteEncryptedLogsPerBlock;
+        case LogType.UNENCRYPTED:
+        default:
+          return this.unencryptedLogsPerBlock;
+      }
+    })() as L2BlockL2Logs<FromLogType<TLogType>>[];
+
     if (from > logs.length) {
       return Promise.resolve([]);
     }

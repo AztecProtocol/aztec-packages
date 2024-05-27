@@ -1,19 +1,17 @@
 import { type PublicKernelRequest, PublicKernelType, type Tx } from '@aztec/circuit-types';
 import {
-  Fr,
+  type Fr,
   type GlobalVariables,
   type Header,
   type KernelCircuitPublicInputs,
+  type LogHash,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   type MAX_UNENCRYPTED_LOGS_PER_TX,
   type NoteHash,
-  type Proof,
   type PublicKernelCircuitPublicInputs,
   PublicKernelTailCircuitPrivateInputs,
-  SideEffect,
-  makeEmptyProof,
   mergeAccumulatedData,
   sortByCounter,
 } from '@aztec/circuits.js';
@@ -21,7 +19,7 @@ import { type Tuple } from '@aztec/foundation/serialize';
 import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
+import { AbstractPhaseManager, PublicKernelPhase, removeRedundantPublicDataWrites } from './abstract_phase_manager.js';
 import { type ContractsDataSourcePublicDB } from './public_executor.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 
@@ -39,20 +37,20 @@ export class TailPhaseManager extends AbstractPhaseManager {
     super(db, publicExecutor, publicKernel, globalVariables, historicalHeader, phase);
   }
 
-  async handle(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs, previousPublicKernelProof: Proof) {
+  override async handle(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs) {
     this.log.verbose(`Processing tx ${tx.getTxHash()}`);
-    const [inputs, finalKernelOutput] = await this.runTailKernelCircuit(
-      previousPublicKernelOutput,
-      previousPublicKernelProof,
-    ).catch(
+    const [inputs, finalKernelOutput] = await this.runTailKernelCircuit(previousPublicKernelOutput).catch(
       // the abstract phase manager throws if simulation gives error in non-revertible phase
       async err => {
         await this.publicStateDB.rollbackToCommit();
         throw err;
       },
     );
-    // commit the state updates from this transaction
-    await this.publicStateDB.commit();
+
+    // TODO(#3675): This should be done in a public kernel circuit
+    finalKernelOutput.end.publicDataUpdateRequests = removeRedundantPublicDataWrites(
+      finalKernelOutput.end.publicDataUpdateRequests,
+    );
 
     // Return a tail proving request
     const request: PublicKernelRequest = {
@@ -64,21 +62,20 @@ export class TailPhaseManager extends AbstractPhaseManager {
       kernelRequests: [request],
       publicKernelOutput: previousPublicKernelOutput,
       finalKernelOutput,
-      publicKernelProof: makeEmptyProof(),
       revertReason: undefined,
-      returnValues: undefined,
+      returnValues: [],
+      gasUsed: undefined,
     };
   }
 
   private async runTailKernelCircuit(
     previousOutput: PublicKernelCircuitPublicInputs,
-    previousProof: Proof,
   ): Promise<[PublicKernelTailCircuitPrivateInputs, KernelCircuitPublicInputs]> {
     // Temporary hack. Should sort them in the tail circuit.
     previousOutput.end.unencryptedLogsHashes = this.sortLogsHashes<typeof MAX_UNENCRYPTED_LOGS_PER_TX>(
       previousOutput.end.unencryptedLogsHashes,
     );
-    const [inputs, output] = await this.simulate(previousOutput, previousProof);
+    const [inputs, output] = await this.simulate(previousOutput);
 
     // Temporary hack. Should sort them in the tail circuit.
     const noteHashes = mergeAccumulatedData(
@@ -93,15 +90,14 @@ export class TailPhaseManager extends AbstractPhaseManager {
 
   private async simulate(
     previousOutput: PublicKernelCircuitPublicInputs,
-    previousProof: Proof,
   ): Promise<[PublicKernelTailCircuitPrivateInputs, KernelCircuitPublicInputs]> {
-    const inputs = await this.buildPrivateInputs(previousOutput, previousProof);
+    const inputs = await this.buildPrivateInputs(previousOutput);
     // We take a deep copy (clone) of these to pass to the prover
     return [inputs.clone(), await this.publicKernel.publicKernelCircuitTail(inputs)];
   }
 
-  private async buildPrivateInputs(previousOutput: PublicKernelCircuitPublicInputs, previousProof: Proof) {
-    const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
+  private async buildPrivateInputs(previousOutput: PublicKernelCircuitPublicInputs) {
+    const previousKernel = this.getPreviousKernelData(previousOutput);
 
     const { validationRequests, endNonRevertibleData, end } = previousOutput;
 
@@ -154,10 +150,8 @@ export class TailPhaseManager extends AbstractPhaseManager {
     return sortByCounter(noteHashes).map(n => n.value) as Tuple<Fr, N>;
   }
 
-  private sortLogsHashes<N extends number>(unencryptedLogsHashes: Tuple<SideEffect, N>): Tuple<SideEffect, N> {
+  private sortLogsHashes<N extends number>(unencryptedLogsHashes: Tuple<LogHash, N>): Tuple<LogHash, N> {
     // TODO(6052): logs here may have duplicate counters from nested calls
-    return sortByCounter(
-      unencryptedLogsHashes.map(n => ({ ...n, counter: n.counter.toNumber(), isEmpty: () => n.isEmpty() })),
-    ).map(h => new SideEffect(h.value, new Fr(h.counter))) as Tuple<SideEffect, N>;
+    return sortByCounter(unencryptedLogsHashes);
   }
 }

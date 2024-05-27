@@ -1,28 +1,34 @@
 import { type AllowedFunction, Tx, type TxValidator } from '@aztec/circuit-types';
 import { type PublicCallRequest } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AbstractPhaseManager, PublicKernelPhase } from '@aztec/simulator';
+import { AbstractPhaseManager, ContractsDataSourcePublicDB, PublicKernelPhase } from '@aztec/simulator';
 import { type ContractDataSource } from '@aztec/types/contracts';
 
 export class PhasesTxValidator implements TxValidator<Tx> {
   #log = createDebugLogger('aztec:sequencer:tx_validator:tx_phases');
+  private contractDataSource: ContractsDataSourcePublicDB;
 
-  constructor(
-    private contractDataSource: ContractDataSource,
-    private setupAllowList: AllowedFunction[],
-    private teardownAllowList: AllowedFunction[],
-  ) {}
+  constructor(contracts: ContractDataSource, private setupAllowList: AllowedFunction[]) {
+    this.contractDataSource = new ContractsDataSourcePublicDB(contracts);
+  }
 
   async validateTxs(txs: Tx[]): Promise<[validTxs: Tx[], invalidTxs: Tx[]]> {
     const validTxs: Tx[] = [];
     const invalidTxs: Tx[] = [];
 
     for (const tx of txs) {
+      // TODO(@spalladino): We add this just to handle public authwit-check calls during setup
+      // which are needed for public FPC flows, but fail if the account contract hasnt been deployed yet,
+      // which is what we're trying to do as part of the current txs.
+      await this.contractDataSource.addNewContracts(tx);
+
       if (await this.#validateTx(tx)) {
         validTxs.push(tx);
       } else {
         invalidTxs.push(tx);
       }
+
+      await this.contractDataSource.removeNewContracts(tx);
     }
 
     return Promise.resolve([validTxs, invalidTxs]);
@@ -34,27 +40,14 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       return true;
     }
 
-    const { [PublicKernelPhase.SETUP]: setupFns, [PublicKernelPhase.TEARDOWN]: teardownFns } =
-      AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx.data, tx.enqueuedPublicFunctionCalls);
+    const { [PublicKernelPhase.SETUP]: setupFns } = AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx);
 
     for (const setupFn of setupFns) {
       if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
         this.#log.warn(
           `Rejecting tx ${Tx.getHash(tx)} because it calls setup function not on allow list: ${
             setupFn.contractAddress
-          }:${setupFn.functionData.selector}`,
-        );
-
-        return false;
-      }
-    }
-
-    for (const teardownFn of teardownFns) {
-      if (!(await this.isOnAllowList(teardownFn, this.teardownAllowList))) {
-        this.#log.warn(
-          `Rejecting tx ${Tx.getHash(tx)} because it calls teardown function not on allowlist: ${
-            teardownFn.contractAddress
-          }:${teardownFn.functionData.selector}`,
+          }:${setupFn.functionSelector}`,
         );
 
         return false;
@@ -65,10 +58,11 @@ export class PhasesTxValidator implements TxValidator<Tx> {
   }
 
   async isOnAllowList(publicCall: PublicCallRequest, allowList: AllowedFunction[]): Promise<boolean> {
-    const {
-      contractAddress,
-      functionData: { selector },
-    } = publicCall;
+    if (publicCall.isEmpty()) {
+      return true;
+    }
+
+    const { contractAddress, functionSelector } = publicCall;
 
     // do these checks first since they don't require the contract class
     for (const entry of allowList) {
@@ -76,12 +70,12 @@ export class PhasesTxValidator implements TxValidator<Tx> {
         continue;
       }
 
-      if (contractAddress.equals(entry.address) && entry.selector.equals(selector)) {
+      if (contractAddress.equals(entry.address) && entry.selector.equals(functionSelector)) {
         return true;
       }
     }
 
-    const contractClass = await this.contractDataSource.getContract(contractAddress);
+    const contractClass = await this.contractDataSource.getContractInstance(contractAddress);
     if (!contractClass) {
       throw new Error(`Contract not found: ${publicCall.contractAddress.toString()}`);
     }
@@ -91,7 +85,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
         continue;
       }
 
-      if (contractClass.contractClassId.equals(entry.classId) && entry.selector.equals(selector)) {
+      if (contractClass.contractClassId.equals(entry.classId) && entry.selector.equals(functionSelector)) {
         return true;
       }
     }

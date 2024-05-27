@@ -2,11 +2,11 @@ use crate::{
     abis::{
     gas_settings::GasSettings, gas::Gas, call_context::CallContext,
     call_request::{CallerContext, CallRequest}, function_data::FunctionData,
-    public_call_data::PublicCallData, public_call_stack_item::PublicCallStackItem,
-    public_circuit_public_inputs::PublicCircuitPublicInputs, side_effect::SideEffect
+    public_call_data::{PublicCallData, Proof}, public_call_stack_item::PublicCallStackItem,
+    public_circuit_public_inputs::PublicCircuitPublicInputs, log_hash::LogHash
 },
     address::{AztecAddress, EthAddress},
-    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest}, mocked::Proof,
+    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     tests::{fixtures, public_circuit_public_inputs_builder::PublicCircuitPublicInputsBuilder}
 };
 use crate::constants::{
@@ -145,9 +145,8 @@ impl PublicCallDataBuilder {
 
     pub fn set_unencrypted_logs(&mut self, hash: Field, preimages_length: Field) {
         // Counter set as 0 for testing, like note read requests
-        let side_effect = SideEffect { value: hash, counter: 0 };
+        let side_effect = LogHash { value: hash, counter: 0, length: preimages_length };
         self.public_inputs.unencrypted_logs_hashes.push(side_effect);
-        self.public_inputs.unencrypted_log_preimages_length += preimages_length;
     }
 
     pub fn finish(self) -> PublicCallData {

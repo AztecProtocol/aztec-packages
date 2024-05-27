@@ -8,7 +8,7 @@
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/utils.hpp"
-#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
 
@@ -146,7 +146,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * that help establishing each subrelation is independently valid in Honk - from the Plonk paper, DO NOT confuse
      * with α in ProtoGalaxy).
      *
-     * @details When folding GoblinUltra instances, one of the relations is linearly dependent. We define such relations
+     * @details When folding Mega instances, one of the relations is linearly dependent. We define such relations
      * as acting on the entire execution trace and hence requiring to be accumulated separately as we iterate over each
      * row. At the end of the function, the linearly dependent contribution is accumulated at index 0 representing the
      * sum f_0(ω) + α_j*g(ω) where f_0 represents the full honk evaluation at row 0, g(ω) is the linearly dependent
@@ -323,8 +323,23 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                                          const FF& scaling_factor)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
-        Relation::accumulate(
-            std::get<relation_idx>(univariate_accumulators), extended_univariates, relation_parameters, scaling_factor);
+
+        //  Check if the relation is skippable to speed up accumulation
+        if constexpr (!isSkippable<Relation, decltype(extended_univariates)>) {
+            // If not, accumulate normally
+            Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
+                                 extended_univariates,
+                                 relation_parameters,
+                                 scaling_factor);
+        } else {
+            // If so, only compute the contribution if the relation is active
+            if (!Relation::skip(extended_univariates)) {
+                Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
+                                     extended_univariates,
+                                     relation_parameters,
+                                     scaling_factor);
+            }
+        }
 
         // Repeat for the next relation.
         if constexpr (relation_idx + 1 < Flavor::NUM_RELATIONS) {
@@ -349,9 +364,23 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                                          const FF& scaling_factor)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
-        Relation::accumulate(
-            std::get<relation_idx>(univariate_accumulators), extended_univariates, relation_parameters, scaling_factor);
-
+        // WORKTODO: disable skipping for the combiner for now..
+        //  Check if the relation is skippable to speed up accumulation
+        if constexpr (!isSkippable<Relation, decltype(extended_univariates)>) {
+            // If not, accumulate normally
+            Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
+                                 extended_univariates,
+                                 relation_parameters,
+                                 scaling_factor);
+        } else {
+            // If so, only compute the contribution if the relation is active
+            if (!Relation::skip(extended_univariates)) {
+                Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
+                                     extended_univariates,
+                                     relation_parameters,
+                                     scaling_factor);
+            }
+        }
         // Repeat for the next relation.
         if constexpr (relation_idx + 1 < Flavor::NUM_RELATIONS) {
             accumulate_relation_univariates<

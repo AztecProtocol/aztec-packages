@@ -15,7 +15,7 @@ import {
   type TxHash,
   type TxReceipt,
 } from '@aztec/circuit-types';
-import { type AztecAddress, type CompleteAddress, type Fr, type PartialAddress } from '@aztec/circuits.js';
+import { type AztecAddress, type CompleteAddress, type Fq, type Fr, type PartialAddress } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
@@ -31,8 +31,6 @@ export abstract class BaseWallet implements Wallet {
   constructor(protected readonly pxe: PXE) {}
 
   abstract getCompleteAddress(): CompleteAddress;
-
-  abstract getPublicKeysHash(): Fr;
 
   abstract getChainId(): Fr;
 
@@ -56,6 +54,8 @@ export abstract class BaseWallet implements Wallet {
         },
   ): Promise<AuthWitness>;
 
+  abstract rotateNullifierKeys(newNskM: Fq): Promise<void>;
+
   getAddress() {
     return this.getCompleteAddress().address;
   }
@@ -71,6 +71,9 @@ export abstract class BaseWallet implements Wallet {
   registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     return this.pxe.registerAccount(secretKey, partialAddress);
   }
+  rotateNskM(address: AztecAddress, secretKey: Fq) {
+    return this.pxe.rotateNskM(address, secretKey);
+  }
   registerRecipient(account: CompleteAddress): Promise<void> {
     return this.pxe.registerRecipient(account);
   }
@@ -79,9 +82,6 @@ export abstract class BaseWallet implements Wallet {
   }
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
     return this.pxe.getRegisteredAccount(address);
-  }
-  getRegisteredAccountPublicKeysHash(address: AztecAddress): Promise<Fr | undefined> {
-    return this.pxe.getRegisteredAccountPublicKeysHash(address);
   }
   getRecipients(): Promise<CompleteAddress[]> {
     return this.pxe.getRecipients();
@@ -132,8 +132,13 @@ export abstract class BaseWallet implements Wallet {
   getBlock(number: number): Promise<L2Block | undefined> {
     return this.pxe.getBlock(number);
   }
-  viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress | undefined): Promise<any> {
-    return this.pxe.viewTx(functionName, args, to, from);
+  simulateUnconstrained(
+    functionName: string,
+    args: any[],
+    to: AztecAddress,
+    from?: AztecAddress | undefined,
+  ): Promise<any> {
+    return this.pxe.simulateUnconstrained(functionName, args, to, from);
   }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     return this.pxe.getUnencryptedLogs(filter);

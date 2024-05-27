@@ -1,6 +1,6 @@
 import { Fr, computeSecretHash } from '@aztec/aztec.js';
 
-import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
+import { DUPLICATE_NULLIFIER_ERROR, U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract shield + redeem shield', () => {
@@ -23,7 +23,7 @@ describe('e2e_token_contract shield + redeem shield', () => {
   });
 
   afterEach(async () => {
-    await t.tokenSim.check();
+    await t.tokenSim.check(wallets[0]);
   });
 
   it('on behalf of self', async () => {
@@ -34,7 +34,7 @@ describe('e2e_token_contract shield + redeem shield', () => {
     const receipt = await asset.methods.shield(accounts[0].address, amount, secretHash, 0).send().wait();
 
     tokenSim.shield(accounts[0].address, amount);
-    await tokenSim.check();
+    await tokenSim.check(wallets[0]);
 
     // Redeem it
     await t.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
@@ -56,11 +56,11 @@ describe('e2e_token_contract shield + redeem shield', () => {
     const receipt = await action.send().wait();
 
     tokenSim.shield(accounts[0].address, amount);
-    await tokenSim.check();
+    await tokenSim.check(wallets[0]);
 
     // Check that replaying the shield should fail!
     const txReplay = asset.withWallet(wallets[1]).methods.shield(accounts[0].address, amount, secretHash, nonce).send();
-    await expect(txReplay.wait()).rejects.toThrow('Transaction ');
+    await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
 
     // Redeem it
     await t.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);

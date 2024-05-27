@@ -1,6 +1,7 @@
 import { DelegateCallsTest } from './delegate_calls_test.js';
 
-describe('e2e_delegate_calls', () => {
+// TODO(https://github.com/AztecProtocol/aztec-packages/issues/6423): delegate call not implemented.
+describe.skip('e2e_delegate_calls', () => {
   const t = new DelegateCallsTest('delegate_calls');
   let { delegatorContract, delegatedOnContract, wallet } = t;
 
@@ -24,14 +25,13 @@ describe('e2e_delegate_calls', () => {
         .wait();
 
       const delegatorValue = await delegatorContract.methods
-        .view_private_value(sentValue, wallet.getCompleteAddress().address)
+        .get_private_value(sentValue, wallet.getCompleteAddress().address)
         .simulate();
 
-      const delegatedOnValue = await delegatedOnContract.methods
-        .view_private_value(sentValue, wallet.getCompleteAddress().address)
-        .simulate();
+      await expect(
+        delegatedOnContract.methods.get_private_value(sentValue, wallet.getCompleteAddress().address).simulate(),
+      ).rejects.toThrow(`Assertion failed: Cannot return zero notes 'num_notes != 0'`);
 
-      expect(delegatedOnValue).toEqual(0n);
       expect(delegatorValue).toEqual(sentValue);
     });
 

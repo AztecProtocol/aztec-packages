@@ -32,6 +32,11 @@ export class CombinedAccumulatedData {
      */
     public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     /**
+     * Accumulated encrypted note logs hash from all the previous kernel iterations.
+     * Note: Truncated to 31 bytes to fit in Fr.
+     */
+    public noteEncryptedLogsHash: Fr,
+    /**
      * Accumulated encrypted logs hash from all the previous kernel iterations.
      * Note: Truncated to 31 bytes to fit in Fr.
      */
@@ -41,6 +46,10 @@ export class CombinedAccumulatedData {
      * Note: Truncated to 31 bytes to fit in Fr.
      */
     public unencryptedLogsHash: Fr,
+    /**
+     * Total accumulated length of the encrypted note log preimages emitted in all the previous kernel iterations
+     */
+    public noteEncryptedLogPreimagesLength: Fr,
     /**
      * Total accumulated length of the encrypted log preimages emitted in all the previous kernel iterations
      */
@@ -63,8 +72,10 @@ export class CombinedAccumulatedData {
       this.newNoteHashes,
       this.newNullifiers,
       this.newL2ToL1Msgs,
+      this.noteEncryptedLogsHash,
       this.encryptedLogsHash,
       this.unencryptedLogsHash,
+      this.noteEncryptedLogPreimagesLength,
       this.encryptedLogPreimagesLength,
       this.unencryptedLogPreimagesLength,
       this.publicDataUpdateRequests,
@@ -87,6 +98,8 @@ export class CombinedAccumulatedData {
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
@@ -114,6 +127,8 @@ export class CombinedAccumulatedData {
       Fr.zero(),
       Fr.zero(),
       Fr.zero(),
+      Fr.zero(),
+      Fr.zero(),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
       Gas.empty(),
     );
@@ -133,8 +148,10 @@ export class CombinedAccumulatedData {
         .filter(x => !x.isZero())
         .map(x => inspect(x))
         .join(', ')}],
+      noteEncryptedLogsHash: ${this.noteEncryptedLogsHash.toString()},
       encryptedLogsHash: ${this.encryptedLogsHash.toString()},
       unencryptedLogsHash: ${this.unencryptedLogsHash.toString()},
+      noteEncryptedLogPreimagesLength: ${this.noteEncryptedLogPreimagesLength.toString()},
       encryptedLogPreimagesLength: ${this.encryptedLogPreimagesLength.toString()},
       unencryptedLogPreimagesLength: ${this.unencryptedLogPreimagesLength.toString()},
       publicDataUpdateRequests: [${this.publicDataUpdateRequests

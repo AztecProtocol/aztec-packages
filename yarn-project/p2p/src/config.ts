@@ -1,3 +1,5 @@
+import { SemVer } from 'semver';
+
 /**
  * P2P client configuration values.
  */
@@ -86,6 +88,11 @@ export interface P2PConfig {
    * Data directory for peer & tx databases.
    */
   dataDirectory?: string;
+
+  /**
+   * The transaction gossiping message version.
+   */
+  txGossipVersion: SemVer;
 }
 
 /**
@@ -110,6 +117,8 @@ export function getP2PConfigEnvVars(): P2PConfig {
     P2P_MIN_PEERS,
     P2P_MAX_PEERS,
     DATA_DIRECTORY,
+    TX_GOSSIP_VERSION,
+    P2P_TX_PROTOCOL,
   } = process.env;
   const envVars: P2PConfig = {
     p2pEnabled: P2P_ENABLED === 'true',
@@ -122,13 +131,14 @@ export function getP2PConfigEnvVars(): P2PConfig {
     udpListenIp: P2P_UDP_LISTEN_IP ? P2P_UDP_LISTEN_IP : '0.0.0.0',
     peerIdPrivateKey: PEER_ID_PRIVATE_KEY,
     bootstrapNodes: BOOTSTRAP_NODES ? BOOTSTRAP_NODES.split(',') : [],
-    transactionProtocol: '',
+    transactionProtocol: P2P_TX_PROTOCOL ? P2P_TX_PROTOCOL : '/aztec/0.1.0',
     announceHostname: P2P_ANNOUNCE_HOSTNAME,
     announcePort: P2P_ANNOUNCE_PORT ? +P2P_ANNOUNCE_PORT : undefined,
     enableNat: P2P_NAT_ENABLED === 'true',
     minPeerCount: P2P_MIN_PEERS ? +P2P_MIN_PEERS : 10,
     maxPeerCount: P2P_MAX_PEERS ? +P2P_MAX_PEERS : 100,
     dataDirectory: DATA_DIRECTORY,
+    txGossipVersion: TX_GOSSIP_VERSION ? new SemVer(TX_GOSSIP_VERSION) : new SemVer('0.1.0'),
   };
   return envVars;
 }

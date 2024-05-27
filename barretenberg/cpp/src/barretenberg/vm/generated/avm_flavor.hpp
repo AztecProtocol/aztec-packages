@@ -15,14 +15,25 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/relations/generated/avm/avm_alu.hpp"
 #include "barretenberg/relations/generated/avm/avm_binary.hpp"
+#include "barretenberg/relations/generated/avm/avm_conversion.hpp"
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
 #include "barretenberg/relations/generated/avm/avm_mem.hpp"
 #include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/incl_mem_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_lengths.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_operations.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_0.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_1.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_2.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_3.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_4.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_5.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_6.hpp"
+#include "barretenberg/relations/generated/avm/lookup_div_u16_7.hpp"
+#include "barretenberg/relations/generated/avm/lookup_into_kernel.hpp"
 #include "barretenberg/relations/generated/avm/lookup_mem_rng_chk_hi.hpp"
 #include "barretenberg/relations/generated/avm/lookup_mem_rng_chk_lo.hpp"
+#include "barretenberg/relations/generated/avm/lookup_mem_rng_chk_mid.hpp"
 #include "barretenberg/relations/generated/avm/lookup_pow_2_0.hpp"
 #include "barretenberg/relations/generated/avm/lookup_pow_2_1.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u16_0.hpp"
@@ -44,6 +55,7 @@
 #include "barretenberg/relations/generated/avm/lookup_u8_1.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_alu.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_bin.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_conv.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_a.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_b.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_c.hpp"
@@ -73,14 +85,15 @@ class AvmFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 236;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 301;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 280;
+    static constexpr size_t NUM_ALL_ENTITIES = 355;
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
+                                             perm_main_conv_relation<FF>,
                                              perm_main_mem_a_relation<FF>,
                                              perm_main_mem_b_relation<FF>,
                                              perm_main_mem_c_relation<FF>,
@@ -91,9 +104,11 @@ class AvmFlavor {
                                              perm_main_mem_ind_d_relation<FF>,
                                              lookup_byte_lengths_relation<FF>,
                                              lookup_byte_operations_relation<FF>,
+                                             lookup_into_kernel_relation<FF>,
                                              incl_main_tag_err_relation<FF>,
                                              incl_mem_tag_err_relation<FF>,
                                              lookup_mem_rng_chk_lo_relation<FF>,
+                                             lookup_mem_rng_chk_mid_relation<FF>,
                                              lookup_mem_rng_chk_hi_relation<FF>,
                                              lookup_pow_2_0_relation<FF>,
                                              lookup_pow_2_1_relation<FF>,
@@ -113,14 +128,24 @@ class AvmFlavor {
                                              lookup_u16_11_relation<FF>,
                                              lookup_u16_12_relation<FF>,
                                              lookup_u16_13_relation<FF>,
-                                             lookup_u16_14_relation<FF>>;
+                                             lookup_u16_14_relation<FF>,
+                                             lookup_div_u16_0_relation<FF>,
+                                             lookup_div_u16_1_relation<FF>,
+                                             lookup_div_u16_2_relation<FF>,
+                                             lookup_div_u16_3_relation<FF>,
+                                             lookup_div_u16_4_relation<FF>,
+                                             lookup_div_u16_5_relation<FF>,
+                                             lookup_div_u16_6_relation<FF>,
+                                             lookup_div_u16_7_relation<FF>>;
 
     using Relations = std::tuple<Avm_vm::avm_alu<FF>,
                                  Avm_vm::avm_binary<FF>,
+                                 Avm_vm::avm_conversion<FF>,
                                  Avm_vm::avm_main<FF>,
                                  Avm_vm::avm_mem<FF>,
                                  perm_main_alu_relation<FF>,
                                  perm_main_bin_relation<FF>,
+                                 perm_main_conv_relation<FF>,
                                  perm_main_mem_a_relation<FF>,
                                  perm_main_mem_b_relation<FF>,
                                  perm_main_mem_c_relation<FF>,
@@ -131,9 +156,11 @@ class AvmFlavor {
                                  perm_main_mem_ind_d_relation<FF>,
                                  lookup_byte_lengths_relation<FF>,
                                  lookup_byte_operations_relation<FF>,
+                                 lookup_into_kernel_relation<FF>,
                                  incl_main_tag_err_relation<FF>,
                                  incl_mem_tag_err_relation<FF>,
                                  lookup_mem_rng_chk_lo_relation<FF>,
+                                 lookup_mem_rng_chk_mid_relation<FF>,
                                  lookup_mem_rng_chk_hi_relation<FF>,
                                  lookup_pow_2_0_relation<FF>,
                                  lookup_pow_2_1_relation<FF>,
@@ -153,7 +180,15 @@ class AvmFlavor {
                                  lookup_u16_11_relation<FF>,
                                  lookup_u16_12_relation<FF>,
                                  lookup_u16_13_relation<FF>,
-                                 lookup_u16_14_relation<FF>>;
+                                 lookup_u16_14_relation<FF>,
+                                 lookup_div_u16_0_relation<FF>,
+                                 lookup_div_u16_1_relation<FF>,
+                                 lookup_div_u16_2_relation<FF>,
+                                 lookup_div_u16_3_relation<FF>,
+                                 lookup_div_u16_4_relation<FF>,
+                                 lookup_div_u16_5_relation<FF>,
+                                 lookup_div_u16_6_relation<FF>,
+                                 lookup_div_u16_7_relation<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -197,6 +232,17 @@ class AvmFlavor {
                               avm_alu_clk,
                               avm_alu_cmp_rng_ctr,
                               avm_alu_cmp_sel,
+                              avm_alu_div_rng_chk_selector,
+                              avm_alu_div_u16_r0,
+                              avm_alu_div_u16_r1,
+                              avm_alu_div_u16_r2,
+                              avm_alu_div_u16_r3,
+                              avm_alu_div_u16_r4,
+                              avm_alu_div_u16_r5,
+                              avm_alu_div_u16_r6,
+                              avm_alu_div_u16_r7,
+                              avm_alu_divisor_hi,
+                              avm_alu_divisor_lo,
                               avm_alu_ff_tag,
                               avm_alu_ia,
                               avm_alu_ib,
@@ -206,6 +252,8 @@ class AvmFlavor {
                               avm_alu_op_cast,
                               avm_alu_op_cast_prev,
                               avm_alu_op_div,
+                              avm_alu_op_div_a_lt_b,
+                              avm_alu_op_div_std,
                               avm_alu_op_eq,
                               avm_alu_op_eq_diff_inv,
                               avm_alu_op_lt,
@@ -221,6 +269,11 @@ class AvmFlavor {
                               avm_alu_p_sub_a_lo,
                               avm_alu_p_sub_b_hi,
                               avm_alu_p_sub_b_lo,
+                              avm_alu_partial_prod_hi,
+                              avm_alu_partial_prod_lo,
+                              avm_alu_quotient_hi,
+                              avm_alu_quotient_lo,
+                              avm_alu_remainder,
                               avm_alu_res_hi,
                               avm_alu_res_lo,
                               avm_alu_rng_chk_lookup_selector,
@@ -272,10 +325,19 @@ class AvmFlavor {
                               avm_byte_lookup_table_input_b,
                               avm_byte_lookup_table_op_id,
                               avm_byte_lookup_table_output,
+                              avm_conversion_clk,
+                              avm_conversion_input,
+                              avm_conversion_num_limbs,
+                              avm_conversion_radix,
+                              avm_conversion_to_radix_le_sel,
+                              avm_kernel_kernel_inputs__is_public,
+                              avm_kernel_kernel_sel,
+                              avm_kernel_q_public_input_kernel_add_to_table,
                               avm_main_alu_in_tag,
                               avm_main_alu_sel,
                               avm_main_bin_op_id,
                               avm_main_bin_sel,
+                              avm_main_call_ptr,
                               avm_main_ia,
                               avm_main_ib,
                               avm_main_ic,
@@ -302,6 +364,7 @@ class AvmFlavor {
                               avm_main_mem_op_d,
                               avm_main_op_err,
                               avm_main_pc,
+                              avm_main_q_kernel_lookup,
                               avm_main_r_in_tag,
                               avm_main_rwa,
                               avm_main_rwb,
@@ -316,22 +379,35 @@ class AvmFlavor {
                               avm_main_sel_mov_a,
                               avm_main_sel_mov_b,
                               avm_main_sel_op_add,
+                              avm_main_sel_op_address,
                               avm_main_sel_op_and,
+                              avm_main_sel_op_block_number,
                               avm_main_sel_op_cast,
+                              avm_main_sel_op_chain_id,
+                              avm_main_sel_op_coinbase,
                               avm_main_sel_op_div,
                               avm_main_sel_op_eq,
                               avm_main_sel_op_fdiv,
+                              avm_main_sel_op_fee_per_da_gas,
+                              avm_main_sel_op_fee_per_l2_gas,
                               avm_main_sel_op_lt,
                               avm_main_sel_op_lte,
                               avm_main_sel_op_mul,
                               avm_main_sel_op_not,
                               avm_main_sel_op_or,
+                              avm_main_sel_op_portal,
+                              avm_main_sel_op_radix_le,
+                              avm_main_sel_op_sender,
                               avm_main_sel_op_shl,
                               avm_main_sel_op_shr,
                               avm_main_sel_op_sub,
+                              avm_main_sel_op_timestamp,
+                              avm_main_sel_op_transaction_fee,
+                              avm_main_sel_op_version,
                               avm_main_sel_op_xor,
                               avm_main_sel_rng_16,
                               avm_main_sel_rng_8,
+                              avm_main_space_id,
                               avm_main_table_pow_2,
                               avm_main_tag_err,
                               avm_main_w_in_tag,
@@ -339,6 +415,8 @@ class AvmFlavor {
                               avm_mem_clk,
                               avm_mem_diff_hi,
                               avm_mem_diff_lo,
+                              avm_mem_diff_mid,
+                              avm_mem_glob_addr,
                               avm_mem_ind_op_a,
                               avm_mem_ind_op_b,
                               avm_mem_ind_op_c,
@@ -358,6 +436,7 @@ class AvmFlavor {
                               avm_mem_sel_mov_a,
                               avm_mem_sel_mov_b,
                               avm_mem_skip_check_tag,
+                              avm_mem_space_id,
                               avm_mem_tag,
                               avm_mem_tag_err,
                               avm_mem_tsp,
@@ -365,6 +444,7 @@ class AvmFlavor {
                               avm_mem_w_in_tag,
                               perm_main_alu,
                               perm_main_bin,
+                              perm_main_conv,
                               perm_main_mem_a,
                               perm_main_mem_b,
                               perm_main_mem_c,
@@ -375,9 +455,11 @@ class AvmFlavor {
                               perm_main_mem_ind_d,
                               lookup_byte_lengths,
                               lookup_byte_operations,
+                              lookup_into_kernel,
                               incl_main_tag_err,
                               incl_mem_tag_err,
                               lookup_mem_rng_chk_lo,
+                              lookup_mem_rng_chk_mid,
                               lookup_mem_rng_chk_hi,
                               lookup_pow_2_0,
                               lookup_pow_2_1,
@@ -398,11 +480,21 @@ class AvmFlavor {
                               lookup_u16_12,
                               lookup_u16_13,
                               lookup_u16_14,
+                              lookup_div_u16_0,
+                              lookup_div_u16_1,
+                              lookup_div_u16_2,
+                              lookup_div_u16_3,
+                              lookup_div_u16_4,
+                              lookup_div_u16_5,
+                              lookup_div_u16_6,
+                              lookup_div_u16_7,
                               lookup_byte_lengths_counts,
                               lookup_byte_operations_counts,
+                              lookup_into_kernel_counts,
                               incl_main_tag_err_counts,
                               incl_mem_tag_err_counts,
                               lookup_mem_rng_chk_lo_counts,
+                              lookup_mem_rng_chk_mid_counts,
                               lookup_mem_rng_chk_hi_counts,
                               lookup_pow_2_0_counts,
                               lookup_pow_2_1_counts,
@@ -422,7 +514,15 @@ class AvmFlavor {
                               lookup_u16_11_counts,
                               lookup_u16_12_counts,
                               lookup_u16_13_counts,
-                              lookup_u16_14_counts)
+                              lookup_u16_14_counts,
+                              lookup_div_u16_0_counts,
+                              lookup_div_u16_1_counts,
+                              lookup_div_u16_2_counts,
+                              lookup_div_u16_3_counts,
+                              lookup_div_u16_4_counts,
+                              lookup_div_u16_5_counts,
+                              lookup_div_u16_6_counts,
+                              lookup_div_u16_7_counts)
 
         RefVector<DataType> get_wires()
         {
@@ -436,6 +536,17 @@ class AvmFlavor {
                      avm_alu_clk,
                      avm_alu_cmp_rng_ctr,
                      avm_alu_cmp_sel,
+                     avm_alu_div_rng_chk_selector,
+                     avm_alu_div_u16_r0,
+                     avm_alu_div_u16_r1,
+                     avm_alu_div_u16_r2,
+                     avm_alu_div_u16_r3,
+                     avm_alu_div_u16_r4,
+                     avm_alu_div_u16_r5,
+                     avm_alu_div_u16_r6,
+                     avm_alu_div_u16_r7,
+                     avm_alu_divisor_hi,
+                     avm_alu_divisor_lo,
                      avm_alu_ff_tag,
                      avm_alu_ia,
                      avm_alu_ib,
@@ -445,6 +556,8 @@ class AvmFlavor {
                      avm_alu_op_cast,
                      avm_alu_op_cast_prev,
                      avm_alu_op_div,
+                     avm_alu_op_div_a_lt_b,
+                     avm_alu_op_div_std,
                      avm_alu_op_eq,
                      avm_alu_op_eq_diff_inv,
                      avm_alu_op_lt,
@@ -460,6 +573,11 @@ class AvmFlavor {
                      avm_alu_p_sub_a_lo,
                      avm_alu_p_sub_b_hi,
                      avm_alu_p_sub_b_lo,
+                     avm_alu_partial_prod_hi,
+                     avm_alu_partial_prod_lo,
+                     avm_alu_quotient_hi,
+                     avm_alu_quotient_lo,
+                     avm_alu_remainder,
                      avm_alu_res_hi,
                      avm_alu_res_lo,
                      avm_alu_rng_chk_lookup_selector,
@@ -511,10 +629,19 @@ class AvmFlavor {
                      avm_byte_lookup_table_input_b,
                      avm_byte_lookup_table_op_id,
                      avm_byte_lookup_table_output,
+                     avm_conversion_clk,
+                     avm_conversion_input,
+                     avm_conversion_num_limbs,
+                     avm_conversion_radix,
+                     avm_conversion_to_radix_le_sel,
+                     avm_kernel_kernel_inputs__is_public,
+                     avm_kernel_kernel_sel,
+                     avm_kernel_q_public_input_kernel_add_to_table,
                      avm_main_alu_in_tag,
                      avm_main_alu_sel,
                      avm_main_bin_op_id,
                      avm_main_bin_sel,
+                     avm_main_call_ptr,
                      avm_main_ia,
                      avm_main_ib,
                      avm_main_ic,
@@ -541,6 +668,7 @@ class AvmFlavor {
                      avm_main_mem_op_d,
                      avm_main_op_err,
                      avm_main_pc,
+                     avm_main_q_kernel_lookup,
                      avm_main_r_in_tag,
                      avm_main_rwa,
                      avm_main_rwb,
@@ -555,22 +683,35 @@ class AvmFlavor {
                      avm_main_sel_mov_a,
                      avm_main_sel_mov_b,
                      avm_main_sel_op_add,
+                     avm_main_sel_op_address,
                      avm_main_sel_op_and,
+                     avm_main_sel_op_block_number,
                      avm_main_sel_op_cast,
+                     avm_main_sel_op_chain_id,
+                     avm_main_sel_op_coinbase,
                      avm_main_sel_op_div,
                      avm_main_sel_op_eq,
                      avm_main_sel_op_fdiv,
+                     avm_main_sel_op_fee_per_da_gas,
+                     avm_main_sel_op_fee_per_l2_gas,
                      avm_main_sel_op_lt,
                      avm_main_sel_op_lte,
                      avm_main_sel_op_mul,
                      avm_main_sel_op_not,
                      avm_main_sel_op_or,
+                     avm_main_sel_op_portal,
+                     avm_main_sel_op_radix_le,
+                     avm_main_sel_op_sender,
                      avm_main_sel_op_shl,
                      avm_main_sel_op_shr,
                      avm_main_sel_op_sub,
+                     avm_main_sel_op_timestamp,
+                     avm_main_sel_op_transaction_fee,
+                     avm_main_sel_op_version,
                      avm_main_sel_op_xor,
                      avm_main_sel_rng_16,
                      avm_main_sel_rng_8,
+                     avm_main_space_id,
                      avm_main_table_pow_2,
                      avm_main_tag_err,
                      avm_main_w_in_tag,
@@ -578,6 +719,8 @@ class AvmFlavor {
                      avm_mem_clk,
                      avm_mem_diff_hi,
                      avm_mem_diff_lo,
+                     avm_mem_diff_mid,
+                     avm_mem_glob_addr,
                      avm_mem_ind_op_a,
                      avm_mem_ind_op_b,
                      avm_mem_ind_op_c,
@@ -597,6 +740,7 @@ class AvmFlavor {
                      avm_mem_sel_mov_a,
                      avm_mem_sel_mov_b,
                      avm_mem_skip_check_tag,
+                     avm_mem_space_id,
                      avm_mem_tag,
                      avm_mem_tag_err,
                      avm_mem_tsp,
@@ -604,6 +748,7 @@ class AvmFlavor {
                      avm_mem_w_in_tag,
                      perm_main_alu,
                      perm_main_bin,
+                     perm_main_conv,
                      perm_main_mem_a,
                      perm_main_mem_b,
                      perm_main_mem_c,
@@ -614,9 +759,11 @@ class AvmFlavor {
                      perm_main_mem_ind_d,
                      lookup_byte_lengths,
                      lookup_byte_operations,
+                     lookup_into_kernel,
                      incl_main_tag_err,
                      incl_mem_tag_err,
                      lookup_mem_rng_chk_lo,
+                     lookup_mem_rng_chk_mid,
                      lookup_mem_rng_chk_hi,
                      lookup_pow_2_0,
                      lookup_pow_2_1,
@@ -637,11 +784,21 @@ class AvmFlavor {
                      lookup_u16_12,
                      lookup_u16_13,
                      lookup_u16_14,
+                     lookup_div_u16_0,
+                     lookup_div_u16_1,
+                     lookup_div_u16_2,
+                     lookup_div_u16_3,
+                     lookup_div_u16_4,
+                     lookup_div_u16_5,
+                     lookup_div_u16_6,
+                     lookup_div_u16_7,
                      lookup_byte_lengths_counts,
                      lookup_byte_operations_counts,
+                     lookup_into_kernel_counts,
                      incl_main_tag_err_counts,
                      incl_mem_tag_err_counts,
                      lookup_mem_rng_chk_lo_counts,
+                     lookup_mem_rng_chk_mid_counts,
                      lookup_mem_rng_chk_hi_counts,
                      lookup_pow_2_0_counts,
                      lookup_pow_2_1_counts,
@@ -661,7 +818,15 @@ class AvmFlavor {
                      lookup_u16_11_counts,
                      lookup_u16_12_counts,
                      lookup_u16_13_counts,
-                     lookup_u16_14_counts };
+                     lookup_u16_14_counts,
+                     lookup_div_u16_0_counts,
+                     lookup_div_u16_1_counts,
+                     lookup_div_u16_2_counts,
+                     lookup_div_u16_3_counts,
+                     lookup_div_u16_4_counts,
+                     lookup_div_u16_5_counts,
+                     lookup_div_u16_6_counts,
+                     lookup_div_u16_7_counts };
         };
     };
 
@@ -680,6 +845,17 @@ class AvmFlavor {
                               avm_alu_clk,
                               avm_alu_cmp_rng_ctr,
                               avm_alu_cmp_sel,
+                              avm_alu_div_rng_chk_selector,
+                              avm_alu_div_u16_r0,
+                              avm_alu_div_u16_r1,
+                              avm_alu_div_u16_r2,
+                              avm_alu_div_u16_r3,
+                              avm_alu_div_u16_r4,
+                              avm_alu_div_u16_r5,
+                              avm_alu_div_u16_r6,
+                              avm_alu_div_u16_r7,
+                              avm_alu_divisor_hi,
+                              avm_alu_divisor_lo,
                               avm_alu_ff_tag,
                               avm_alu_ia,
                               avm_alu_ib,
@@ -689,6 +865,8 @@ class AvmFlavor {
                               avm_alu_op_cast,
                               avm_alu_op_cast_prev,
                               avm_alu_op_div,
+                              avm_alu_op_div_a_lt_b,
+                              avm_alu_op_div_std,
                               avm_alu_op_eq,
                               avm_alu_op_eq_diff_inv,
                               avm_alu_op_lt,
@@ -704,6 +882,11 @@ class AvmFlavor {
                               avm_alu_p_sub_a_lo,
                               avm_alu_p_sub_b_hi,
                               avm_alu_p_sub_b_lo,
+                              avm_alu_partial_prod_hi,
+                              avm_alu_partial_prod_lo,
+                              avm_alu_quotient_hi,
+                              avm_alu_quotient_lo,
+                              avm_alu_remainder,
                               avm_alu_res_hi,
                               avm_alu_res_lo,
                               avm_alu_rng_chk_lookup_selector,
@@ -755,10 +938,19 @@ class AvmFlavor {
                               avm_byte_lookup_table_input_b,
                               avm_byte_lookup_table_op_id,
                               avm_byte_lookup_table_output,
+                              avm_conversion_clk,
+                              avm_conversion_input,
+                              avm_conversion_num_limbs,
+                              avm_conversion_radix,
+                              avm_conversion_to_radix_le_sel,
+                              avm_kernel_kernel_inputs__is_public,
+                              avm_kernel_kernel_sel,
+                              avm_kernel_q_public_input_kernel_add_to_table,
                               avm_main_alu_in_tag,
                               avm_main_alu_sel,
                               avm_main_bin_op_id,
                               avm_main_bin_sel,
+                              avm_main_call_ptr,
                               avm_main_ia,
                               avm_main_ib,
                               avm_main_ic,
@@ -785,6 +977,7 @@ class AvmFlavor {
                               avm_main_mem_op_d,
                               avm_main_op_err,
                               avm_main_pc,
+                              avm_main_q_kernel_lookup,
                               avm_main_r_in_tag,
                               avm_main_rwa,
                               avm_main_rwb,
@@ -799,22 +992,35 @@ class AvmFlavor {
                               avm_main_sel_mov_a,
                               avm_main_sel_mov_b,
                               avm_main_sel_op_add,
+                              avm_main_sel_op_address,
                               avm_main_sel_op_and,
+                              avm_main_sel_op_block_number,
                               avm_main_sel_op_cast,
+                              avm_main_sel_op_chain_id,
+                              avm_main_sel_op_coinbase,
                               avm_main_sel_op_div,
                               avm_main_sel_op_eq,
                               avm_main_sel_op_fdiv,
+                              avm_main_sel_op_fee_per_da_gas,
+                              avm_main_sel_op_fee_per_l2_gas,
                               avm_main_sel_op_lt,
                               avm_main_sel_op_lte,
                               avm_main_sel_op_mul,
                               avm_main_sel_op_not,
                               avm_main_sel_op_or,
+                              avm_main_sel_op_portal,
+                              avm_main_sel_op_radix_le,
+                              avm_main_sel_op_sender,
                               avm_main_sel_op_shl,
                               avm_main_sel_op_shr,
                               avm_main_sel_op_sub,
+                              avm_main_sel_op_timestamp,
+                              avm_main_sel_op_transaction_fee,
+                              avm_main_sel_op_version,
                               avm_main_sel_op_xor,
                               avm_main_sel_rng_16,
                               avm_main_sel_rng_8,
+                              avm_main_space_id,
                               avm_main_table_pow_2,
                               avm_main_tag_err,
                               avm_main_w_in_tag,
@@ -822,6 +1028,8 @@ class AvmFlavor {
                               avm_mem_clk,
                               avm_mem_diff_hi,
                               avm_mem_diff_lo,
+                              avm_mem_diff_mid,
+                              avm_mem_glob_addr,
                               avm_mem_ind_op_a,
                               avm_mem_ind_op_b,
                               avm_mem_ind_op_c,
@@ -841,6 +1049,7 @@ class AvmFlavor {
                               avm_mem_sel_mov_a,
                               avm_mem_sel_mov_b,
                               avm_mem_skip_check_tag,
+                              avm_mem_space_id,
                               avm_mem_tag,
                               avm_mem_tag_err,
                               avm_mem_tsp,
@@ -848,6 +1057,7 @@ class AvmFlavor {
                               avm_mem_w_in_tag,
                               perm_main_alu,
                               perm_main_bin,
+                              perm_main_conv,
                               perm_main_mem_a,
                               perm_main_mem_b,
                               perm_main_mem_c,
@@ -858,9 +1068,11 @@ class AvmFlavor {
                               perm_main_mem_ind_d,
                               lookup_byte_lengths,
                               lookup_byte_operations,
+                              lookup_into_kernel,
                               incl_main_tag_err,
                               incl_mem_tag_err,
                               lookup_mem_rng_chk_lo,
+                              lookup_mem_rng_chk_mid,
                               lookup_mem_rng_chk_hi,
                               lookup_pow_2_0,
                               lookup_pow_2_1,
@@ -881,11 +1093,21 @@ class AvmFlavor {
                               lookup_u16_12,
                               lookup_u16_13,
                               lookup_u16_14,
+                              lookup_div_u16_0,
+                              lookup_div_u16_1,
+                              lookup_div_u16_2,
+                              lookup_div_u16_3,
+                              lookup_div_u16_4,
+                              lookup_div_u16_5,
+                              lookup_div_u16_6,
+                              lookup_div_u16_7,
                               lookup_byte_lengths_counts,
                               lookup_byte_operations_counts,
+                              lookup_into_kernel_counts,
                               incl_main_tag_err_counts,
                               incl_mem_tag_err_counts,
                               lookup_mem_rng_chk_lo_counts,
+                              lookup_mem_rng_chk_mid_counts,
                               lookup_mem_rng_chk_hi_counts,
                               lookup_pow_2_0_counts,
                               lookup_pow_2_1_counts,
@@ -906,6 +1128,14 @@ class AvmFlavor {
                               lookup_u16_12_counts,
                               lookup_u16_13_counts,
                               lookup_u16_14_counts,
+                              lookup_div_u16_0_counts,
+                              lookup_div_u16_1_counts,
+                              lookup_div_u16_2_counts,
+                              lookup_div_u16_3_counts,
+                              lookup_div_u16_4_counts,
+                              lookup_div_u16_5_counts,
+                              lookup_div_u16_6_counts,
+                              lookup_div_u16_7_counts,
                               avm_alu_a_hi_shift,
                               avm_alu_a_lo_shift,
                               avm_alu_alu_sel_shift,
@@ -913,9 +1143,19 @@ class AvmFlavor {
                               avm_alu_b_lo_shift,
                               avm_alu_cmp_rng_ctr_shift,
                               avm_alu_cmp_sel_shift,
+                              avm_alu_div_rng_chk_selector_shift,
+                              avm_alu_div_u16_r0_shift,
+                              avm_alu_div_u16_r1_shift,
+                              avm_alu_div_u16_r2_shift,
+                              avm_alu_div_u16_r3_shift,
+                              avm_alu_div_u16_r4_shift,
+                              avm_alu_div_u16_r5_shift,
+                              avm_alu_div_u16_r6_shift,
+                              avm_alu_div_u16_r7_shift,
                               avm_alu_op_add_shift,
                               avm_alu_op_cast_prev_shift,
                               avm_alu_op_cast_shift,
+                              avm_alu_op_div_shift,
                               avm_alu_op_mul_shift,
                               avm_alu_op_shl_shift,
                               avm_alu_op_shr_shift,
@@ -942,7 +1182,7 @@ class AvmFlavor {
                               avm_binary_op_id_shift,
                               avm_main_internal_return_ptr_shift,
                               avm_main_pc_shift,
-                              avm_mem_addr_shift,
+                              avm_mem_glob_addr_shift,
                               avm_mem_mem_sel_shift,
                               avm_mem_rw_shift,
                               avm_mem_tag_shift,
@@ -963,6 +1203,17 @@ class AvmFlavor {
                      avm_alu_clk,
                      avm_alu_cmp_rng_ctr,
                      avm_alu_cmp_sel,
+                     avm_alu_div_rng_chk_selector,
+                     avm_alu_div_u16_r0,
+                     avm_alu_div_u16_r1,
+                     avm_alu_div_u16_r2,
+                     avm_alu_div_u16_r3,
+                     avm_alu_div_u16_r4,
+                     avm_alu_div_u16_r5,
+                     avm_alu_div_u16_r6,
+                     avm_alu_div_u16_r7,
+                     avm_alu_divisor_hi,
+                     avm_alu_divisor_lo,
                      avm_alu_ff_tag,
                      avm_alu_ia,
                      avm_alu_ib,
@@ -972,6 +1223,8 @@ class AvmFlavor {
                      avm_alu_op_cast,
                      avm_alu_op_cast_prev,
                      avm_alu_op_div,
+                     avm_alu_op_div_a_lt_b,
+                     avm_alu_op_div_std,
                      avm_alu_op_eq,
                      avm_alu_op_eq_diff_inv,
                      avm_alu_op_lt,
@@ -987,6 +1240,11 @@ class AvmFlavor {
                      avm_alu_p_sub_a_lo,
                      avm_alu_p_sub_b_hi,
                      avm_alu_p_sub_b_lo,
+                     avm_alu_partial_prod_hi,
+                     avm_alu_partial_prod_lo,
+                     avm_alu_quotient_hi,
+                     avm_alu_quotient_lo,
+                     avm_alu_remainder,
                      avm_alu_res_hi,
                      avm_alu_res_lo,
                      avm_alu_rng_chk_lookup_selector,
@@ -1038,10 +1296,19 @@ class AvmFlavor {
                      avm_byte_lookup_table_input_b,
                      avm_byte_lookup_table_op_id,
                      avm_byte_lookup_table_output,
+                     avm_conversion_clk,
+                     avm_conversion_input,
+                     avm_conversion_num_limbs,
+                     avm_conversion_radix,
+                     avm_conversion_to_radix_le_sel,
+                     avm_kernel_kernel_inputs__is_public,
+                     avm_kernel_kernel_sel,
+                     avm_kernel_q_public_input_kernel_add_to_table,
                      avm_main_alu_in_tag,
                      avm_main_alu_sel,
                      avm_main_bin_op_id,
                      avm_main_bin_sel,
+                     avm_main_call_ptr,
                      avm_main_ia,
                      avm_main_ib,
                      avm_main_ic,
@@ -1068,6 +1335,7 @@ class AvmFlavor {
                      avm_main_mem_op_d,
                      avm_main_op_err,
                      avm_main_pc,
+                     avm_main_q_kernel_lookup,
                      avm_main_r_in_tag,
                      avm_main_rwa,
                      avm_main_rwb,
@@ -1082,22 +1350,35 @@ class AvmFlavor {
                      avm_main_sel_mov_a,
                      avm_main_sel_mov_b,
                      avm_main_sel_op_add,
+                     avm_main_sel_op_address,
                      avm_main_sel_op_and,
+                     avm_main_sel_op_block_number,
                      avm_main_sel_op_cast,
+                     avm_main_sel_op_chain_id,
+                     avm_main_sel_op_coinbase,
                      avm_main_sel_op_div,
                      avm_main_sel_op_eq,
                      avm_main_sel_op_fdiv,
+                     avm_main_sel_op_fee_per_da_gas,
+                     avm_main_sel_op_fee_per_l2_gas,
                      avm_main_sel_op_lt,
                      avm_main_sel_op_lte,
                      avm_main_sel_op_mul,
                      avm_main_sel_op_not,
                      avm_main_sel_op_or,
+                     avm_main_sel_op_portal,
+                     avm_main_sel_op_radix_le,
+                     avm_main_sel_op_sender,
                      avm_main_sel_op_shl,
                      avm_main_sel_op_shr,
                      avm_main_sel_op_sub,
+                     avm_main_sel_op_timestamp,
+                     avm_main_sel_op_transaction_fee,
+                     avm_main_sel_op_version,
                      avm_main_sel_op_xor,
                      avm_main_sel_rng_16,
                      avm_main_sel_rng_8,
+                     avm_main_space_id,
                      avm_main_table_pow_2,
                      avm_main_tag_err,
                      avm_main_w_in_tag,
@@ -1105,6 +1386,8 @@ class AvmFlavor {
                      avm_mem_clk,
                      avm_mem_diff_hi,
                      avm_mem_diff_lo,
+                     avm_mem_diff_mid,
+                     avm_mem_glob_addr,
                      avm_mem_ind_op_a,
                      avm_mem_ind_op_b,
                      avm_mem_ind_op_c,
@@ -1124,6 +1407,7 @@ class AvmFlavor {
                      avm_mem_sel_mov_a,
                      avm_mem_sel_mov_b,
                      avm_mem_skip_check_tag,
+                     avm_mem_space_id,
                      avm_mem_tag,
                      avm_mem_tag_err,
                      avm_mem_tsp,
@@ -1131,6 +1415,7 @@ class AvmFlavor {
                      avm_mem_w_in_tag,
                      perm_main_alu,
                      perm_main_bin,
+                     perm_main_conv,
                      perm_main_mem_a,
                      perm_main_mem_b,
                      perm_main_mem_c,
@@ -1141,9 +1426,11 @@ class AvmFlavor {
                      perm_main_mem_ind_d,
                      lookup_byte_lengths,
                      lookup_byte_operations,
+                     lookup_into_kernel,
                      incl_main_tag_err,
                      incl_mem_tag_err,
                      lookup_mem_rng_chk_lo,
+                     lookup_mem_rng_chk_mid,
                      lookup_mem_rng_chk_hi,
                      lookup_pow_2_0,
                      lookup_pow_2_1,
@@ -1164,11 +1451,21 @@ class AvmFlavor {
                      lookup_u16_12,
                      lookup_u16_13,
                      lookup_u16_14,
+                     lookup_div_u16_0,
+                     lookup_div_u16_1,
+                     lookup_div_u16_2,
+                     lookup_div_u16_3,
+                     lookup_div_u16_4,
+                     lookup_div_u16_5,
+                     lookup_div_u16_6,
+                     lookup_div_u16_7,
                      lookup_byte_lengths_counts,
                      lookup_byte_operations_counts,
+                     lookup_into_kernel_counts,
                      incl_main_tag_err_counts,
                      incl_mem_tag_err_counts,
                      lookup_mem_rng_chk_lo_counts,
+                     lookup_mem_rng_chk_mid_counts,
                      lookup_mem_rng_chk_hi_counts,
                      lookup_pow_2_0_counts,
                      lookup_pow_2_1_counts,
@@ -1189,6 +1486,14 @@ class AvmFlavor {
                      lookup_u16_12_counts,
                      lookup_u16_13_counts,
                      lookup_u16_14_counts,
+                     lookup_div_u16_0_counts,
+                     lookup_div_u16_1_counts,
+                     lookup_div_u16_2_counts,
+                     lookup_div_u16_3_counts,
+                     lookup_div_u16_4_counts,
+                     lookup_div_u16_5_counts,
+                     lookup_div_u16_6_counts,
+                     lookup_div_u16_7_counts,
                      avm_alu_a_hi_shift,
                      avm_alu_a_lo_shift,
                      avm_alu_alu_sel_shift,
@@ -1196,9 +1501,19 @@ class AvmFlavor {
                      avm_alu_b_lo_shift,
                      avm_alu_cmp_rng_ctr_shift,
                      avm_alu_cmp_sel_shift,
+                     avm_alu_div_rng_chk_selector_shift,
+                     avm_alu_div_u16_r0_shift,
+                     avm_alu_div_u16_r1_shift,
+                     avm_alu_div_u16_r2_shift,
+                     avm_alu_div_u16_r3_shift,
+                     avm_alu_div_u16_r4_shift,
+                     avm_alu_div_u16_r5_shift,
+                     avm_alu_div_u16_r6_shift,
+                     avm_alu_div_u16_r7_shift,
                      avm_alu_op_add_shift,
                      avm_alu_op_cast_prev_shift,
                      avm_alu_op_cast_shift,
+                     avm_alu_op_div_shift,
                      avm_alu_op_mul_shift,
                      avm_alu_op_shl_shift,
                      avm_alu_op_shr_shift,
@@ -1225,7 +1540,7 @@ class AvmFlavor {
                      avm_binary_op_id_shift,
                      avm_main_internal_return_ptr_shift,
                      avm_main_pc_shift,
-                     avm_mem_addr_shift,
+                     avm_mem_glob_addr_shift,
                      avm_mem_mem_sel_shift,
                      avm_mem_rw_shift,
                      avm_mem_tag_shift,
@@ -1246,6 +1561,17 @@ class AvmFlavor {
                      avm_alu_clk,
                      avm_alu_cmp_rng_ctr,
                      avm_alu_cmp_sel,
+                     avm_alu_div_rng_chk_selector,
+                     avm_alu_div_u16_r0,
+                     avm_alu_div_u16_r1,
+                     avm_alu_div_u16_r2,
+                     avm_alu_div_u16_r3,
+                     avm_alu_div_u16_r4,
+                     avm_alu_div_u16_r5,
+                     avm_alu_div_u16_r6,
+                     avm_alu_div_u16_r7,
+                     avm_alu_divisor_hi,
+                     avm_alu_divisor_lo,
                      avm_alu_ff_tag,
                      avm_alu_ia,
                      avm_alu_ib,
@@ -1255,6 +1581,8 @@ class AvmFlavor {
                      avm_alu_op_cast,
                      avm_alu_op_cast_prev,
                      avm_alu_op_div,
+                     avm_alu_op_div_a_lt_b,
+                     avm_alu_op_div_std,
                      avm_alu_op_eq,
                      avm_alu_op_eq_diff_inv,
                      avm_alu_op_lt,
@@ -1270,6 +1598,11 @@ class AvmFlavor {
                      avm_alu_p_sub_a_lo,
                      avm_alu_p_sub_b_hi,
                      avm_alu_p_sub_b_lo,
+                     avm_alu_partial_prod_hi,
+                     avm_alu_partial_prod_lo,
+                     avm_alu_quotient_hi,
+                     avm_alu_quotient_lo,
+                     avm_alu_remainder,
                      avm_alu_res_hi,
                      avm_alu_res_lo,
                      avm_alu_rng_chk_lookup_selector,
@@ -1321,10 +1654,19 @@ class AvmFlavor {
                      avm_byte_lookup_table_input_b,
                      avm_byte_lookup_table_op_id,
                      avm_byte_lookup_table_output,
+                     avm_conversion_clk,
+                     avm_conversion_input,
+                     avm_conversion_num_limbs,
+                     avm_conversion_radix,
+                     avm_conversion_to_radix_le_sel,
+                     avm_kernel_kernel_inputs__is_public,
+                     avm_kernel_kernel_sel,
+                     avm_kernel_q_public_input_kernel_add_to_table,
                      avm_main_alu_in_tag,
                      avm_main_alu_sel,
                      avm_main_bin_op_id,
                      avm_main_bin_sel,
+                     avm_main_call_ptr,
                      avm_main_ia,
                      avm_main_ib,
                      avm_main_ic,
@@ -1351,6 +1693,7 @@ class AvmFlavor {
                      avm_main_mem_op_d,
                      avm_main_op_err,
                      avm_main_pc,
+                     avm_main_q_kernel_lookup,
                      avm_main_r_in_tag,
                      avm_main_rwa,
                      avm_main_rwb,
@@ -1365,22 +1708,35 @@ class AvmFlavor {
                      avm_main_sel_mov_a,
                      avm_main_sel_mov_b,
                      avm_main_sel_op_add,
+                     avm_main_sel_op_address,
                      avm_main_sel_op_and,
+                     avm_main_sel_op_block_number,
                      avm_main_sel_op_cast,
+                     avm_main_sel_op_chain_id,
+                     avm_main_sel_op_coinbase,
                      avm_main_sel_op_div,
                      avm_main_sel_op_eq,
                      avm_main_sel_op_fdiv,
+                     avm_main_sel_op_fee_per_da_gas,
+                     avm_main_sel_op_fee_per_l2_gas,
                      avm_main_sel_op_lt,
                      avm_main_sel_op_lte,
                      avm_main_sel_op_mul,
                      avm_main_sel_op_not,
                      avm_main_sel_op_or,
+                     avm_main_sel_op_portal,
+                     avm_main_sel_op_radix_le,
+                     avm_main_sel_op_sender,
                      avm_main_sel_op_shl,
                      avm_main_sel_op_shr,
                      avm_main_sel_op_sub,
+                     avm_main_sel_op_timestamp,
+                     avm_main_sel_op_transaction_fee,
+                     avm_main_sel_op_version,
                      avm_main_sel_op_xor,
                      avm_main_sel_rng_16,
                      avm_main_sel_rng_8,
+                     avm_main_space_id,
                      avm_main_table_pow_2,
                      avm_main_tag_err,
                      avm_main_w_in_tag,
@@ -1388,6 +1744,8 @@ class AvmFlavor {
                      avm_mem_clk,
                      avm_mem_diff_hi,
                      avm_mem_diff_lo,
+                     avm_mem_diff_mid,
+                     avm_mem_glob_addr,
                      avm_mem_ind_op_a,
                      avm_mem_ind_op_b,
                      avm_mem_ind_op_c,
@@ -1407,6 +1765,7 @@ class AvmFlavor {
                      avm_mem_sel_mov_a,
                      avm_mem_sel_mov_b,
                      avm_mem_skip_check_tag,
+                     avm_mem_space_id,
                      avm_mem_tag,
                      avm_mem_tag_err,
                      avm_mem_tsp,
@@ -1414,6 +1773,7 @@ class AvmFlavor {
                      avm_mem_w_in_tag,
                      perm_main_alu,
                      perm_main_bin,
+                     perm_main_conv,
                      perm_main_mem_a,
                      perm_main_mem_b,
                      perm_main_mem_c,
@@ -1424,9 +1784,11 @@ class AvmFlavor {
                      perm_main_mem_ind_d,
                      lookup_byte_lengths,
                      lookup_byte_operations,
+                     lookup_into_kernel,
                      incl_main_tag_err,
                      incl_mem_tag_err,
                      lookup_mem_rng_chk_lo,
+                     lookup_mem_rng_chk_mid,
                      lookup_mem_rng_chk_hi,
                      lookup_pow_2_0,
                      lookup_pow_2_1,
@@ -1447,11 +1809,21 @@ class AvmFlavor {
                      lookup_u16_12,
                      lookup_u16_13,
                      lookup_u16_14,
+                     lookup_div_u16_0,
+                     lookup_div_u16_1,
+                     lookup_div_u16_2,
+                     lookup_div_u16_3,
+                     lookup_div_u16_4,
+                     lookup_div_u16_5,
+                     lookup_div_u16_6,
+                     lookup_div_u16_7,
                      lookup_byte_lengths_counts,
                      lookup_byte_operations_counts,
+                     lookup_into_kernel_counts,
                      incl_main_tag_err_counts,
                      incl_mem_tag_err_counts,
                      lookup_mem_rng_chk_lo_counts,
+                     lookup_mem_rng_chk_mid_counts,
                      lookup_mem_rng_chk_hi_counts,
                      lookup_pow_2_0_counts,
                      lookup_pow_2_1_counts,
@@ -1471,7 +1843,15 @@ class AvmFlavor {
                      lookup_u16_11_counts,
                      lookup_u16_12_counts,
                      lookup_u16_13_counts,
-                     lookup_u16_14_counts };
+                     lookup_u16_14_counts,
+                     lookup_div_u16_0_counts,
+                     lookup_div_u16_1_counts,
+                     lookup_div_u16_2_counts,
+                     lookup_div_u16_3_counts,
+                     lookup_div_u16_4_counts,
+                     lookup_div_u16_5_counts,
+                     lookup_div_u16_6_counts,
+                     lookup_div_u16_7_counts };
         };
         RefVector<DataType> get_to_be_shifted()
         {
@@ -1482,9 +1862,19 @@ class AvmFlavor {
                      avm_alu_b_lo,
                      avm_alu_cmp_rng_ctr,
                      avm_alu_cmp_sel,
+                     avm_alu_div_rng_chk_selector,
+                     avm_alu_div_u16_r0,
+                     avm_alu_div_u16_r1,
+                     avm_alu_div_u16_r2,
+                     avm_alu_div_u16_r3,
+                     avm_alu_div_u16_r4,
+                     avm_alu_div_u16_r5,
+                     avm_alu_div_u16_r6,
+                     avm_alu_div_u16_r7,
                      avm_alu_op_add,
                      avm_alu_op_cast_prev,
                      avm_alu_op_cast,
+                     avm_alu_op_div,
                      avm_alu_op_mul,
                      avm_alu_op_shl,
                      avm_alu_op_shr,
@@ -1511,7 +1901,7 @@ class AvmFlavor {
                      avm_binary_op_id,
                      avm_main_internal_return_ptr,
                      avm_main_pc,
-                     avm_mem_addr,
+                     avm_mem_glob_addr,
                      avm_mem_mem_sel,
                      avm_mem_rw,
                      avm_mem_tag,
@@ -1527,9 +1917,19 @@ class AvmFlavor {
                      avm_alu_b_lo_shift,
                      avm_alu_cmp_rng_ctr_shift,
                      avm_alu_cmp_sel_shift,
+                     avm_alu_div_rng_chk_selector_shift,
+                     avm_alu_div_u16_r0_shift,
+                     avm_alu_div_u16_r1_shift,
+                     avm_alu_div_u16_r2_shift,
+                     avm_alu_div_u16_r3_shift,
+                     avm_alu_div_u16_r4_shift,
+                     avm_alu_div_u16_r5_shift,
+                     avm_alu_div_u16_r6_shift,
+                     avm_alu_div_u16_r7_shift,
                      avm_alu_op_add_shift,
                      avm_alu_op_cast_prev_shift,
                      avm_alu_op_cast_shift,
+                     avm_alu_op_div_shift,
                      avm_alu_op_mul_shift,
                      avm_alu_op_shl_shift,
                      avm_alu_op_shr_shift,
@@ -1556,7 +1956,7 @@ class AvmFlavor {
                      avm_binary_op_id_shift,
                      avm_main_internal_return_ptr_shift,
                      avm_main_pc_shift,
-                     avm_mem_addr_shift,
+                     avm_mem_glob_addr_shift,
                      avm_mem_mem_sel_shift,
                      avm_mem_rw_shift,
                      avm_mem_tag_shift,
@@ -1582,9 +1982,19 @@ class AvmFlavor {
                      avm_alu_b_lo,
                      avm_alu_cmp_rng_ctr,
                      avm_alu_cmp_sel,
+                     avm_alu_div_rng_chk_selector,
+                     avm_alu_div_u16_r0,
+                     avm_alu_div_u16_r1,
+                     avm_alu_div_u16_r2,
+                     avm_alu_div_u16_r3,
+                     avm_alu_div_u16_r4,
+                     avm_alu_div_u16_r5,
+                     avm_alu_div_u16_r6,
+                     avm_alu_div_u16_r7,
                      avm_alu_op_add,
                      avm_alu_op_cast_prev,
                      avm_alu_op_cast,
+                     avm_alu_op_div,
                      avm_alu_op_mul,
                      avm_alu_op_shl,
                      avm_alu_op_shr,
@@ -1611,7 +2021,7 @@ class AvmFlavor {
                      avm_binary_op_id,
                      avm_main_internal_return_ptr,
                      avm_main_pc,
-                     avm_mem_addr,
+                     avm_mem_glob_addr,
                      avm_mem_mem_sel,
                      avm_mem_rw,
                      avm_mem_tag,
@@ -1626,6 +2036,8 @@ class AvmFlavor {
             bb::compute_logderivative_inverse<AvmFlavor, perm_main_alu_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, perm_main_bin_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, perm_main_conv_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_a_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
@@ -1647,11 +2059,15 @@ class AvmFlavor {
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, lookup_byte_operations_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_into_kernel_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, incl_main_tag_err_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, incl_mem_tag_err_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, lookup_mem_rng_chk_lo_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_mem_rng_chk_mid_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, lookup_mem_rng_chk_hi_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
@@ -1692,6 +2108,22 @@ class AvmFlavor {
             bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_13_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_14_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_0_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_1_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_2_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_3_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_4_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_5_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_6_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_div_u16_7_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
         }
     };
@@ -1765,6 +2197,7 @@ class AvmFlavor {
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
     template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
+
     /**
      * @brief A container for univariates used during Protogalaxy folding and sumcheck with some of the computation
      * optmistically ignored
@@ -1804,6 +2237,17 @@ class AvmFlavor {
             Base::avm_alu_clk = "AVM_ALU_CLK";
             Base::avm_alu_cmp_rng_ctr = "AVM_ALU_CMP_RNG_CTR";
             Base::avm_alu_cmp_sel = "AVM_ALU_CMP_SEL";
+            Base::avm_alu_div_rng_chk_selector = "AVM_ALU_DIV_RNG_CHK_SELECTOR";
+            Base::avm_alu_div_u16_r0 = "AVM_ALU_DIV_U16_R0";
+            Base::avm_alu_div_u16_r1 = "AVM_ALU_DIV_U16_R1";
+            Base::avm_alu_div_u16_r2 = "AVM_ALU_DIV_U16_R2";
+            Base::avm_alu_div_u16_r3 = "AVM_ALU_DIV_U16_R3";
+            Base::avm_alu_div_u16_r4 = "AVM_ALU_DIV_U16_R4";
+            Base::avm_alu_div_u16_r5 = "AVM_ALU_DIV_U16_R5";
+            Base::avm_alu_div_u16_r6 = "AVM_ALU_DIV_U16_R6";
+            Base::avm_alu_div_u16_r7 = "AVM_ALU_DIV_U16_R7";
+            Base::avm_alu_divisor_hi = "AVM_ALU_DIVISOR_HI";
+            Base::avm_alu_divisor_lo = "AVM_ALU_DIVISOR_LO";
             Base::avm_alu_ff_tag = "AVM_ALU_FF_TAG";
             Base::avm_alu_ia = "AVM_ALU_IA";
             Base::avm_alu_ib = "AVM_ALU_IB";
@@ -1813,6 +2257,8 @@ class AvmFlavor {
             Base::avm_alu_op_cast = "AVM_ALU_OP_CAST";
             Base::avm_alu_op_cast_prev = "AVM_ALU_OP_CAST_PREV";
             Base::avm_alu_op_div = "AVM_ALU_OP_DIV";
+            Base::avm_alu_op_div_a_lt_b = "AVM_ALU_OP_DIV_A_LT_B";
+            Base::avm_alu_op_div_std = "AVM_ALU_OP_DIV_STD";
             Base::avm_alu_op_eq = "AVM_ALU_OP_EQ";
             Base::avm_alu_op_eq_diff_inv = "AVM_ALU_OP_EQ_DIFF_INV";
             Base::avm_alu_op_lt = "AVM_ALU_OP_LT";
@@ -1828,6 +2274,11 @@ class AvmFlavor {
             Base::avm_alu_p_sub_a_lo = "AVM_ALU_P_SUB_A_LO";
             Base::avm_alu_p_sub_b_hi = "AVM_ALU_P_SUB_B_HI";
             Base::avm_alu_p_sub_b_lo = "AVM_ALU_P_SUB_B_LO";
+            Base::avm_alu_partial_prod_hi = "AVM_ALU_PARTIAL_PROD_HI";
+            Base::avm_alu_partial_prod_lo = "AVM_ALU_PARTIAL_PROD_LO";
+            Base::avm_alu_quotient_hi = "AVM_ALU_QUOTIENT_HI";
+            Base::avm_alu_quotient_lo = "AVM_ALU_QUOTIENT_LO";
+            Base::avm_alu_remainder = "AVM_ALU_REMAINDER";
             Base::avm_alu_res_hi = "AVM_ALU_RES_HI";
             Base::avm_alu_res_lo = "AVM_ALU_RES_LO";
             Base::avm_alu_rng_chk_lookup_selector = "AVM_ALU_RNG_CHK_LOOKUP_SELECTOR";
@@ -1879,10 +2330,19 @@ class AvmFlavor {
             Base::avm_byte_lookup_table_input_b = "AVM_BYTE_LOOKUP_TABLE_INPUT_B";
             Base::avm_byte_lookup_table_op_id = "AVM_BYTE_LOOKUP_TABLE_OP_ID";
             Base::avm_byte_lookup_table_output = "AVM_BYTE_LOOKUP_TABLE_OUTPUT";
+            Base::avm_conversion_clk = "AVM_CONVERSION_CLK";
+            Base::avm_conversion_input = "AVM_CONVERSION_INPUT";
+            Base::avm_conversion_num_limbs = "AVM_CONVERSION_NUM_LIMBS";
+            Base::avm_conversion_radix = "AVM_CONVERSION_RADIX";
+            Base::avm_conversion_to_radix_le_sel = "AVM_CONVERSION_TO_RADIX_LE_SEL";
+            Base::avm_kernel_kernel_inputs__is_public = "AVM_KERNEL_KERNEL_INPUTS__IS_PUBLIC";
+            Base::avm_kernel_kernel_sel = "AVM_KERNEL_KERNEL_SEL";
+            Base::avm_kernel_q_public_input_kernel_add_to_table = "AVM_KERNEL_Q_PUBLIC_INPUT_KERNEL_ADD_TO_TABLE";
             Base::avm_main_alu_in_tag = "AVM_MAIN_ALU_IN_TAG";
             Base::avm_main_alu_sel = "AVM_MAIN_ALU_SEL";
             Base::avm_main_bin_op_id = "AVM_MAIN_BIN_OP_ID";
             Base::avm_main_bin_sel = "AVM_MAIN_BIN_SEL";
+            Base::avm_main_call_ptr = "AVM_MAIN_CALL_PTR";
             Base::avm_main_ia = "AVM_MAIN_IA";
             Base::avm_main_ib = "AVM_MAIN_IB";
             Base::avm_main_ic = "AVM_MAIN_IC";
@@ -1909,6 +2369,7 @@ class AvmFlavor {
             Base::avm_main_mem_op_d = "AVM_MAIN_MEM_OP_D";
             Base::avm_main_op_err = "AVM_MAIN_OP_ERR";
             Base::avm_main_pc = "AVM_MAIN_PC";
+            Base::avm_main_q_kernel_lookup = "AVM_MAIN_Q_KERNEL_LOOKUP";
             Base::avm_main_r_in_tag = "AVM_MAIN_R_IN_TAG";
             Base::avm_main_rwa = "AVM_MAIN_RWA";
             Base::avm_main_rwb = "AVM_MAIN_RWB";
@@ -1923,22 +2384,35 @@ class AvmFlavor {
             Base::avm_main_sel_mov_a = "AVM_MAIN_SEL_MOV_A";
             Base::avm_main_sel_mov_b = "AVM_MAIN_SEL_MOV_B";
             Base::avm_main_sel_op_add = "AVM_MAIN_SEL_OP_ADD";
+            Base::avm_main_sel_op_address = "AVM_MAIN_SEL_OP_ADDRESS";
             Base::avm_main_sel_op_and = "AVM_MAIN_SEL_OP_AND";
+            Base::avm_main_sel_op_block_number = "AVM_MAIN_SEL_OP_BLOCK_NUMBER";
             Base::avm_main_sel_op_cast = "AVM_MAIN_SEL_OP_CAST";
+            Base::avm_main_sel_op_chain_id = "AVM_MAIN_SEL_OP_CHAIN_ID";
+            Base::avm_main_sel_op_coinbase = "AVM_MAIN_SEL_OP_COINBASE";
             Base::avm_main_sel_op_div = "AVM_MAIN_SEL_OP_DIV";
             Base::avm_main_sel_op_eq = "AVM_MAIN_SEL_OP_EQ";
             Base::avm_main_sel_op_fdiv = "AVM_MAIN_SEL_OP_FDIV";
+            Base::avm_main_sel_op_fee_per_da_gas = "AVM_MAIN_SEL_OP_FEE_PER_DA_GAS";
+            Base::avm_main_sel_op_fee_per_l2_gas = "AVM_MAIN_SEL_OP_FEE_PER_L2_GAS";
             Base::avm_main_sel_op_lt = "AVM_MAIN_SEL_OP_LT";
             Base::avm_main_sel_op_lte = "AVM_MAIN_SEL_OP_LTE";
             Base::avm_main_sel_op_mul = "AVM_MAIN_SEL_OP_MUL";
             Base::avm_main_sel_op_not = "AVM_MAIN_SEL_OP_NOT";
             Base::avm_main_sel_op_or = "AVM_MAIN_SEL_OP_OR";
+            Base::avm_main_sel_op_portal = "AVM_MAIN_SEL_OP_PORTAL";
+            Base::avm_main_sel_op_radix_le = "AVM_MAIN_SEL_OP_RADIX_LE";
+            Base::avm_main_sel_op_sender = "AVM_MAIN_SEL_OP_SENDER";
             Base::avm_main_sel_op_shl = "AVM_MAIN_SEL_OP_SHL";
             Base::avm_main_sel_op_shr = "AVM_MAIN_SEL_OP_SHR";
             Base::avm_main_sel_op_sub = "AVM_MAIN_SEL_OP_SUB";
+            Base::avm_main_sel_op_timestamp = "AVM_MAIN_SEL_OP_TIMESTAMP";
+            Base::avm_main_sel_op_transaction_fee = "AVM_MAIN_SEL_OP_TRANSACTION_FEE";
+            Base::avm_main_sel_op_version = "AVM_MAIN_SEL_OP_VERSION";
             Base::avm_main_sel_op_xor = "AVM_MAIN_SEL_OP_XOR";
             Base::avm_main_sel_rng_16 = "AVM_MAIN_SEL_RNG_16";
             Base::avm_main_sel_rng_8 = "AVM_MAIN_SEL_RNG_8";
+            Base::avm_main_space_id = "AVM_MAIN_SPACE_ID";
             Base::avm_main_table_pow_2 = "AVM_MAIN_TABLE_POW_2";
             Base::avm_main_tag_err = "AVM_MAIN_TAG_ERR";
             Base::avm_main_w_in_tag = "AVM_MAIN_W_IN_TAG";
@@ -1946,6 +2420,8 @@ class AvmFlavor {
             Base::avm_mem_clk = "AVM_MEM_CLK";
             Base::avm_mem_diff_hi = "AVM_MEM_DIFF_HI";
             Base::avm_mem_diff_lo = "AVM_MEM_DIFF_LO";
+            Base::avm_mem_diff_mid = "AVM_MEM_DIFF_MID";
+            Base::avm_mem_glob_addr = "AVM_MEM_GLOB_ADDR";
             Base::avm_mem_ind_op_a = "AVM_MEM_IND_OP_A";
             Base::avm_mem_ind_op_b = "AVM_MEM_IND_OP_B";
             Base::avm_mem_ind_op_c = "AVM_MEM_IND_OP_C";
@@ -1965,6 +2441,7 @@ class AvmFlavor {
             Base::avm_mem_sel_mov_a = "AVM_MEM_SEL_MOV_A";
             Base::avm_mem_sel_mov_b = "AVM_MEM_SEL_MOV_B";
             Base::avm_mem_skip_check_tag = "AVM_MEM_SKIP_CHECK_TAG";
+            Base::avm_mem_space_id = "AVM_MEM_SPACE_ID";
             Base::avm_mem_tag = "AVM_MEM_TAG";
             Base::avm_mem_tag_err = "AVM_MEM_TAG_ERR";
             Base::avm_mem_tsp = "AVM_MEM_TSP";
@@ -1972,6 +2449,7 @@ class AvmFlavor {
             Base::avm_mem_w_in_tag = "AVM_MEM_W_IN_TAG";
             Base::perm_main_alu = "PERM_MAIN_ALU";
             Base::perm_main_bin = "PERM_MAIN_BIN";
+            Base::perm_main_conv = "PERM_MAIN_CONV";
             Base::perm_main_mem_a = "PERM_MAIN_MEM_A";
             Base::perm_main_mem_b = "PERM_MAIN_MEM_B";
             Base::perm_main_mem_c = "PERM_MAIN_MEM_C";
@@ -1982,9 +2460,11 @@ class AvmFlavor {
             Base::perm_main_mem_ind_d = "PERM_MAIN_MEM_IND_D";
             Base::lookup_byte_lengths = "LOOKUP_BYTE_LENGTHS";
             Base::lookup_byte_operations = "LOOKUP_BYTE_OPERATIONS";
+            Base::lookup_into_kernel = "LOOKUP_INTO_KERNEL";
             Base::incl_main_tag_err = "INCL_MAIN_TAG_ERR";
             Base::incl_mem_tag_err = "INCL_MEM_TAG_ERR";
             Base::lookup_mem_rng_chk_lo = "LOOKUP_MEM_RNG_CHK_LO";
+            Base::lookup_mem_rng_chk_mid = "LOOKUP_MEM_RNG_CHK_MID";
             Base::lookup_mem_rng_chk_hi = "LOOKUP_MEM_RNG_CHK_HI";
             Base::lookup_pow_2_0 = "LOOKUP_POW_2_0";
             Base::lookup_pow_2_1 = "LOOKUP_POW_2_1";
@@ -2005,11 +2485,21 @@ class AvmFlavor {
             Base::lookup_u16_12 = "LOOKUP_U16_12";
             Base::lookup_u16_13 = "LOOKUP_U16_13";
             Base::lookup_u16_14 = "LOOKUP_U16_14";
+            Base::lookup_div_u16_0 = "LOOKUP_DIV_U16_0";
+            Base::lookup_div_u16_1 = "LOOKUP_DIV_U16_1";
+            Base::lookup_div_u16_2 = "LOOKUP_DIV_U16_2";
+            Base::lookup_div_u16_3 = "LOOKUP_DIV_U16_3";
+            Base::lookup_div_u16_4 = "LOOKUP_DIV_U16_4";
+            Base::lookup_div_u16_5 = "LOOKUP_DIV_U16_5";
+            Base::lookup_div_u16_6 = "LOOKUP_DIV_U16_6";
+            Base::lookup_div_u16_7 = "LOOKUP_DIV_U16_7";
             Base::lookup_byte_lengths_counts = "LOOKUP_BYTE_LENGTHS_COUNTS";
             Base::lookup_byte_operations_counts = "LOOKUP_BYTE_OPERATIONS_COUNTS";
+            Base::lookup_into_kernel_counts = "LOOKUP_INTO_KERNEL_COUNTS";
             Base::incl_main_tag_err_counts = "INCL_MAIN_TAG_ERR_COUNTS";
             Base::incl_mem_tag_err_counts = "INCL_MEM_TAG_ERR_COUNTS";
             Base::lookup_mem_rng_chk_lo_counts = "LOOKUP_MEM_RNG_CHK_LO_COUNTS";
+            Base::lookup_mem_rng_chk_mid_counts = "LOOKUP_MEM_RNG_CHK_MID_COUNTS";
             Base::lookup_mem_rng_chk_hi_counts = "LOOKUP_MEM_RNG_CHK_HI_COUNTS";
             Base::lookup_pow_2_0_counts = "LOOKUP_POW_2_0_COUNTS";
             Base::lookup_pow_2_1_counts = "LOOKUP_POW_2_1_COUNTS";
@@ -2030,6 +2520,14 @@ class AvmFlavor {
             Base::lookup_u16_12_counts = "LOOKUP_U16_12_COUNTS";
             Base::lookup_u16_13_counts = "LOOKUP_U16_13_COUNTS";
             Base::lookup_u16_14_counts = "LOOKUP_U16_14_COUNTS";
+            Base::lookup_div_u16_0_counts = "LOOKUP_DIV_U16_0_COUNTS";
+            Base::lookup_div_u16_1_counts = "LOOKUP_DIV_U16_1_COUNTS";
+            Base::lookup_div_u16_2_counts = "LOOKUP_DIV_U16_2_COUNTS";
+            Base::lookup_div_u16_3_counts = "LOOKUP_DIV_U16_3_COUNTS";
+            Base::lookup_div_u16_4_counts = "LOOKUP_DIV_U16_4_COUNTS";
+            Base::lookup_div_u16_5_counts = "LOOKUP_DIV_U16_5_COUNTS";
+            Base::lookup_div_u16_6_counts = "LOOKUP_DIV_U16_6_COUNTS";
+            Base::lookup_div_u16_7_counts = "LOOKUP_DIV_U16_7_COUNTS";
         };
     };
 
@@ -2059,6 +2557,17 @@ class AvmFlavor {
         Commitment avm_alu_clk;
         Commitment avm_alu_cmp_rng_ctr;
         Commitment avm_alu_cmp_sel;
+        Commitment avm_alu_div_rng_chk_selector;
+        Commitment avm_alu_div_u16_r0;
+        Commitment avm_alu_div_u16_r1;
+        Commitment avm_alu_div_u16_r2;
+        Commitment avm_alu_div_u16_r3;
+        Commitment avm_alu_div_u16_r4;
+        Commitment avm_alu_div_u16_r5;
+        Commitment avm_alu_div_u16_r6;
+        Commitment avm_alu_div_u16_r7;
+        Commitment avm_alu_divisor_hi;
+        Commitment avm_alu_divisor_lo;
         Commitment avm_alu_ff_tag;
         Commitment avm_alu_ia;
         Commitment avm_alu_ib;
@@ -2068,6 +2577,8 @@ class AvmFlavor {
         Commitment avm_alu_op_cast;
         Commitment avm_alu_op_cast_prev;
         Commitment avm_alu_op_div;
+        Commitment avm_alu_op_div_a_lt_b;
+        Commitment avm_alu_op_div_std;
         Commitment avm_alu_op_eq;
         Commitment avm_alu_op_eq_diff_inv;
         Commitment avm_alu_op_lt;
@@ -2083,6 +2594,11 @@ class AvmFlavor {
         Commitment avm_alu_p_sub_a_lo;
         Commitment avm_alu_p_sub_b_hi;
         Commitment avm_alu_p_sub_b_lo;
+        Commitment avm_alu_partial_prod_hi;
+        Commitment avm_alu_partial_prod_lo;
+        Commitment avm_alu_quotient_hi;
+        Commitment avm_alu_quotient_lo;
+        Commitment avm_alu_remainder;
         Commitment avm_alu_res_hi;
         Commitment avm_alu_res_lo;
         Commitment avm_alu_rng_chk_lookup_selector;
@@ -2134,10 +2650,19 @@ class AvmFlavor {
         Commitment avm_byte_lookup_table_input_b;
         Commitment avm_byte_lookup_table_op_id;
         Commitment avm_byte_lookup_table_output;
+        Commitment avm_conversion_clk;
+        Commitment avm_conversion_input;
+        Commitment avm_conversion_num_limbs;
+        Commitment avm_conversion_radix;
+        Commitment avm_conversion_to_radix_le_sel;
+        Commitment avm_kernel_kernel_inputs__is_public;
+        Commitment avm_kernel_kernel_sel;
+        Commitment avm_kernel_q_public_input_kernel_add_to_table;
         Commitment avm_main_alu_in_tag;
         Commitment avm_main_alu_sel;
         Commitment avm_main_bin_op_id;
         Commitment avm_main_bin_sel;
+        Commitment avm_main_call_ptr;
         Commitment avm_main_ia;
         Commitment avm_main_ib;
         Commitment avm_main_ic;
@@ -2164,6 +2689,7 @@ class AvmFlavor {
         Commitment avm_main_mem_op_d;
         Commitment avm_main_op_err;
         Commitment avm_main_pc;
+        Commitment avm_main_q_kernel_lookup;
         Commitment avm_main_r_in_tag;
         Commitment avm_main_rwa;
         Commitment avm_main_rwb;
@@ -2178,22 +2704,35 @@ class AvmFlavor {
         Commitment avm_main_sel_mov_a;
         Commitment avm_main_sel_mov_b;
         Commitment avm_main_sel_op_add;
+        Commitment avm_main_sel_op_address;
         Commitment avm_main_sel_op_and;
+        Commitment avm_main_sel_op_block_number;
         Commitment avm_main_sel_op_cast;
+        Commitment avm_main_sel_op_chain_id;
+        Commitment avm_main_sel_op_coinbase;
         Commitment avm_main_sel_op_div;
         Commitment avm_main_sel_op_eq;
         Commitment avm_main_sel_op_fdiv;
+        Commitment avm_main_sel_op_fee_per_da_gas;
+        Commitment avm_main_sel_op_fee_per_l2_gas;
         Commitment avm_main_sel_op_lt;
         Commitment avm_main_sel_op_lte;
         Commitment avm_main_sel_op_mul;
         Commitment avm_main_sel_op_not;
         Commitment avm_main_sel_op_or;
+        Commitment avm_main_sel_op_portal;
+        Commitment avm_main_sel_op_radix_le;
+        Commitment avm_main_sel_op_sender;
         Commitment avm_main_sel_op_shl;
         Commitment avm_main_sel_op_shr;
         Commitment avm_main_sel_op_sub;
+        Commitment avm_main_sel_op_timestamp;
+        Commitment avm_main_sel_op_transaction_fee;
+        Commitment avm_main_sel_op_version;
         Commitment avm_main_sel_op_xor;
         Commitment avm_main_sel_rng_16;
         Commitment avm_main_sel_rng_8;
+        Commitment avm_main_space_id;
         Commitment avm_main_table_pow_2;
         Commitment avm_main_tag_err;
         Commitment avm_main_w_in_tag;
@@ -2201,6 +2740,8 @@ class AvmFlavor {
         Commitment avm_mem_clk;
         Commitment avm_mem_diff_hi;
         Commitment avm_mem_diff_lo;
+        Commitment avm_mem_diff_mid;
+        Commitment avm_mem_glob_addr;
         Commitment avm_mem_ind_op_a;
         Commitment avm_mem_ind_op_b;
         Commitment avm_mem_ind_op_c;
@@ -2220,6 +2761,7 @@ class AvmFlavor {
         Commitment avm_mem_sel_mov_a;
         Commitment avm_mem_sel_mov_b;
         Commitment avm_mem_skip_check_tag;
+        Commitment avm_mem_space_id;
         Commitment avm_mem_tag;
         Commitment avm_mem_tag_err;
         Commitment avm_mem_tsp;
@@ -2227,6 +2769,7 @@ class AvmFlavor {
         Commitment avm_mem_w_in_tag;
         Commitment perm_main_alu;
         Commitment perm_main_bin;
+        Commitment perm_main_conv;
         Commitment perm_main_mem_a;
         Commitment perm_main_mem_b;
         Commitment perm_main_mem_c;
@@ -2237,9 +2780,11 @@ class AvmFlavor {
         Commitment perm_main_mem_ind_d;
         Commitment lookup_byte_lengths;
         Commitment lookup_byte_operations;
+        Commitment lookup_into_kernel;
         Commitment incl_main_tag_err;
         Commitment incl_mem_tag_err;
         Commitment lookup_mem_rng_chk_lo;
+        Commitment lookup_mem_rng_chk_mid;
         Commitment lookup_mem_rng_chk_hi;
         Commitment lookup_pow_2_0;
         Commitment lookup_pow_2_1;
@@ -2260,11 +2805,21 @@ class AvmFlavor {
         Commitment lookup_u16_12;
         Commitment lookup_u16_13;
         Commitment lookup_u16_14;
+        Commitment lookup_div_u16_0;
+        Commitment lookup_div_u16_1;
+        Commitment lookup_div_u16_2;
+        Commitment lookup_div_u16_3;
+        Commitment lookup_div_u16_4;
+        Commitment lookup_div_u16_5;
+        Commitment lookup_div_u16_6;
+        Commitment lookup_div_u16_7;
         Commitment lookup_byte_lengths_counts;
         Commitment lookup_byte_operations_counts;
+        Commitment lookup_into_kernel_counts;
         Commitment incl_main_tag_err_counts;
         Commitment incl_mem_tag_err_counts;
         Commitment lookup_mem_rng_chk_lo_counts;
+        Commitment lookup_mem_rng_chk_mid_counts;
         Commitment lookup_mem_rng_chk_hi_counts;
         Commitment lookup_pow_2_0_counts;
         Commitment lookup_pow_2_1_counts;
@@ -2285,6 +2840,14 @@ class AvmFlavor {
         Commitment lookup_u16_12_counts;
         Commitment lookup_u16_13_counts;
         Commitment lookup_u16_14_counts;
+        Commitment lookup_div_u16_0_counts;
+        Commitment lookup_div_u16_1_counts;
+        Commitment lookup_div_u16_2_counts;
+        Commitment lookup_div_u16_3_counts;
+        Commitment lookup_div_u16_4_counts;
+        Commitment lookup_div_u16_5_counts;
+        Commitment lookup_div_u16_6_counts;
+        Commitment lookup_div_u16_7_counts;
 
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
@@ -2314,6 +2877,17 @@ class AvmFlavor {
             avm_alu_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_cmp_rng_ctr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_cmp_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_div_rng_chk_selector = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_div_u16_r0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_div_u16_r1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_div_u16_r2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_div_u16_r3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_div_u16_r4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_div_u16_r5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_div_u16_r6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_div_u16_r7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_divisor_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_divisor_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_ff_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_ia = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_ib = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2323,6 +2897,8 @@ class AvmFlavor {
             avm_alu_op_cast = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_op_cast_prev = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_op_div = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_op_div_a_lt_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_op_div_std = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_op_eq = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_op_eq_diff_inv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_op_lt = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2338,6 +2914,11 @@ class AvmFlavor {
             avm_alu_p_sub_a_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_p_sub_b_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_p_sub_b_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_partial_prod_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_partial_prod_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_quotient_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_quotient_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_remainder = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_res_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_res_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_rng_chk_lookup_selector = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2390,10 +2971,21 @@ class AvmFlavor {
             avm_byte_lookup_table_input_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_byte_lookup_table_op_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_byte_lookup_table_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_conversion_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_conversion_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_conversion_num_limbs = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_conversion_radix = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_conversion_to_radix_le_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_kernel_kernel_inputs__is_public =
+                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_kernel_kernel_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_kernel_q_public_input_kernel_add_to_table =
+                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_alu_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_alu_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_bin_op_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_bin_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_call_ptr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_ia = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_ib = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2420,6 +3012,7 @@ class AvmFlavor {
             avm_main_mem_op_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_op_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_pc = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_q_kernel_lookup = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_r_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_rwa = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_rwb = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2434,22 +3027,35 @@ class AvmFlavor {
             avm_main_sel_mov_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_mov_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_add = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_address = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_and = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_block_number = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_cast = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_chain_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_coinbase = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_div = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_eq = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_fdiv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_fee_per_da_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_fee_per_l2_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_lt = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_lte = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_mul = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_not = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_or = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_portal = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_radix_le = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_sender = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_shl = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_shr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_sub = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_timestamp = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_transaction_fee = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_version = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_xor = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_rng_16 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_rng_8 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_space_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_table_pow_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_w_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2457,6 +3063,8 @@ class AvmFlavor {
             avm_mem_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_diff_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_diff_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_mem_diff_mid = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_mem_glob_addr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_ind_op_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_ind_op_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_ind_op_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2476,6 +3084,7 @@ class AvmFlavor {
             avm_mem_sel_mov_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_sel_mov_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_skip_check_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_mem_space_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_tsp = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2483,6 +3092,7 @@ class AvmFlavor {
             avm_mem_w_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_alu = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_bin = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            perm_main_conv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_mem_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_mem_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_mem_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2493,9 +3103,11 @@ class AvmFlavor {
             perm_main_mem_ind_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_byte_lengths = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_byte_operations = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_into_kernel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             incl_main_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             incl_mem_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_mem_rng_chk_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_mem_rng_chk_mid = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_mem_rng_chk_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_pow_2_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_pow_2_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2516,11 +3128,21 @@ class AvmFlavor {
             lookup_u16_12 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_u16_13 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_u16_14 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_div_u16_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_div_u16_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_div_u16_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_div_u16_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_div_u16_4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_div_u16_5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_div_u16_6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_div_u16_7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_byte_lengths_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_byte_operations_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_into_kernel_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             incl_main_tag_err_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             incl_mem_tag_err_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_mem_rng_chk_lo_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_mem_rng_chk_mid_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_mem_rng_chk_hi_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_pow_2_0_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_pow_2_1_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2541,6 +3163,14 @@ class AvmFlavor {
             lookup_u16_12_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_u16_13_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_u16_14_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_div_u16_0_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_div_u16_1_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_div_u16_2_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_div_u16_3_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_div_u16_4_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_div_u16_5_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_div_u16_6_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_div_u16_7_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
 
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.emplace_back(
@@ -2574,6 +3204,17 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_alu_clk, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_cmp_rng_ctr, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_cmp_sel, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_div_rng_chk_selector, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_div_u16_r0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_div_u16_r1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_div_u16_r2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_div_u16_r3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_div_u16_r4, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_div_u16_r5, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_div_u16_r6, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_div_u16_r7, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_divisor_hi, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_divisor_lo, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_ff_tag, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_ia, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_ib, Transcript::proof_data);
@@ -2583,6 +3224,8 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_alu_op_cast, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_op_cast_prev, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_op_div, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_op_div_a_lt_b, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_op_div_std, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_op_eq, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_op_eq_diff_inv, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_op_lt, Transcript::proof_data);
@@ -2598,6 +3241,11 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_alu_p_sub_a_lo, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_p_sub_b_hi, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_p_sub_b_lo, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_partial_prod_hi, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_partial_prod_lo, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_quotient_hi, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_quotient_lo, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_remainder, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_res_hi, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_res_lo, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_rng_chk_lookup_selector, Transcript::proof_data);
@@ -2649,10 +3297,19 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_byte_lookup_table_input_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_byte_lookup_table_op_id, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_byte_lookup_table_output, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_conversion_clk, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_conversion_input, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_conversion_num_limbs, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_conversion_radix, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_conversion_to_radix_le_sel, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_kernel_kernel_inputs__is_public, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_kernel_kernel_sel, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_kernel_q_public_input_kernel_add_to_table, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_alu_in_tag, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_alu_sel, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_bin_op_id, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_bin_sel, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_call_ptr, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_ia, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_ib, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_ic, Transcript::proof_data);
@@ -2679,6 +3336,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_mem_op_d, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_op_err, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_pc, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_q_kernel_lookup, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_r_in_tag, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_rwa, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_rwb, Transcript::proof_data);
@@ -2693,22 +3351,35 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_sel_mov_a, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_mov_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_add, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_address, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_and, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_block_number, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_cast, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_chain_id, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_coinbase, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_div, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_eq, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_fdiv, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_fee_per_da_gas, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_fee_per_l2_gas, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_lt, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_lte, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_mul, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_not, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_or, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_portal, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_radix_le, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_sender, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_shl, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_shr, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_sub, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_timestamp, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_transaction_fee, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_version, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_xor, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_rng_16, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_rng_8, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_space_id, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_table_pow_2, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_tag_err, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_w_in_tag, Transcript::proof_data);
@@ -2716,6 +3387,8 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_mem_clk, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_diff_hi, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_diff_lo, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_mem_diff_mid, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_mem_glob_addr, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_ind_op_a, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_ind_op_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_ind_op_c, Transcript::proof_data);
@@ -2735,6 +3408,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_mem_sel_mov_a, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_sel_mov_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_skip_check_tag, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_mem_space_id, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_tag, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_tag_err, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_tsp, Transcript::proof_data);
@@ -2742,6 +3416,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_mem_w_in_tag, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_alu, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_bin, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(perm_main_conv, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_mem_a, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_mem_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_mem_c, Transcript::proof_data);
@@ -2752,9 +3427,11 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(perm_main_mem_ind_d, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_byte_lengths, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_byte_operations, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_into_kernel, Transcript::proof_data);
             serialize_to_buffer<Commitment>(incl_main_tag_err, Transcript::proof_data);
             serialize_to_buffer<Commitment>(incl_mem_tag_err, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_mem_rng_chk_lo, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_mem_rng_chk_mid, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_mem_rng_chk_hi, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_pow_2_0, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_pow_2_1, Transcript::proof_data);
@@ -2775,11 +3452,21 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(lookup_u16_12, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_u16_13, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_u16_14, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_div_u16_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_div_u16_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_div_u16_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_div_u16_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_div_u16_4, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_div_u16_5, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_div_u16_6, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_div_u16_7, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_byte_lengths_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_byte_operations_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_into_kernel_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(incl_main_tag_err_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(incl_mem_tag_err_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_mem_rng_chk_lo_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_mem_rng_chk_mid_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_mem_rng_chk_hi_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_pow_2_0_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_pow_2_1_counts, Transcript::proof_data);
@@ -2800,6 +3487,14 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(lookup_u16_12_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_u16_13_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_u16_14_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_div_u16_0_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_div_u16_1_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_div_u16_2_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_div_u16_3_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_div_u16_4_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_div_u16_5_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_div_u16_6_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_div_u16_7_counts, Transcript::proof_data);
 
             for (size_t i = 0; i < log_n; ++i) {
                 serialize_to_buffer(sumcheck_univariates[i], Transcript::proof_data);

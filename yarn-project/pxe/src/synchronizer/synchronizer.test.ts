@@ -1,9 +1,9 @@
 import { type AztecNode, L2Block } from '@aztec/circuit-types';
-import { CompleteAddress, Fr, type Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
+import { Fr, type Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { randomInt } from '@aztec/foundation/crypto';
 import { SerialQueue } from '@aztec/foundation/fifo';
-import { TestKeyStore } from '@aztec/key-store';
+import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -126,16 +126,13 @@ describe('Synchronizer', () => {
     expect(await synchronizer.isGlobalStateSynchronized()).toBe(true);
 
     // Manually adding account to database so that we can call synchronizer.isAccountStateSynchronized
-    const keyStore = new TestKeyStore(openTmpStore());
+    const keyStore = new KeyStore(openTmpStore());
     const addAddress = async (startingBlockNum: number) => {
       const secretKey = Fr.random();
       const partialAddress = Fr.random();
-      const accountAddress = await keyStore.addAccount(secretKey, partialAddress);
-      const masterIncomingViewingPublicKey = await keyStore.getMasterIncomingViewingPublicKey(accountAddress);
-
-      const completeAddress = new CompleteAddress(accountAddress, masterIncomingViewingPublicKey, partialAddress);
+      const completeAddress = await keyStore.addAccount(secretKey, partialAddress);
       await database.addCompleteAddress(completeAddress);
-      synchronizer.addAccount(completeAddress.publicKey, keyStore, startingBlockNum);
+      synchronizer.addAccount(completeAddress.publicKeys.masterIncomingViewingPublicKey, keyStore, startingBlockNum);
       return completeAddress;
     };
 

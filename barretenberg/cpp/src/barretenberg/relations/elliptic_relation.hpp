@@ -18,10 +18,7 @@ template <typename FF_> class EllipticRelationImpl {
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return (in.q_elliptic.value_at(0).is_zero() && in.q_elliptic.value_at(1).is_zero());
-    }
+    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_elliptic.is_zero(); }
 
     // TODO(@zac-williamson #2609 find more generic way of doing this)
     static constexpr FF get_curve_b()
@@ -51,6 +48,7 @@ template <typename FF_> class EllipticRelationImpl {
                                   const Parameters&,
                                   const FF& scaling_factor)
     {
+        BB_OP_COUNT_TIME_NAME("Elliptic::accumulate");
         // TODO(@zac - williamson #2608 when Pedersen refactor is completed,
         // replace old addition relations with these ones and
         // remove endomorphism coefficient in ecc add gate(not used))
@@ -72,8 +70,8 @@ template <typename FF_> class EllipticRelationImpl {
         // Contribution (1) point addition, x-coordinate check
         // q_elliptic * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
         auto x_diff = (x_2 - x_1);
-        auto y2_sqr = (y_2 * y_2);
-        auto y1_sqr = (y_1 * y_1);
+        auto y2_sqr = y_2.sqr();
+        auto y1_sqr = y_1.sqr();
         auto y1y2 = y_1 * y_2 * q_sign;
         auto x_add_identity = (x_3 + x_2 + x_1) * x_diff * x_diff - y2_sqr - y1_sqr + y1y2 + y1y2;
 

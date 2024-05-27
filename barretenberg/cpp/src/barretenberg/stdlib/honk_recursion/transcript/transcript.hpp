@@ -1,5 +1,8 @@
 #pragma once
 
+#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
+#include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -9,7 +12,7 @@ template <typename Builder> struct StdlibTranscriptParams {
     using Proof = std::vector<Fr>;
     static inline Fr hash(const std::vector<Fr>& data)
     {
-        if constexpr (std::is_same_v<Builder, GoblinUltraCircuitBuilder>) {
+        if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
             ASSERT(!data.empty() && data[0].get_context() != nullptr);
             Builder* builder = data[0].get_context();
             return stdlib::poseidon2<Builder>::hash(*builder, data);
@@ -53,5 +56,5 @@ template <typename Builder> struct StdlibTranscriptParams {
 };
 
 using UltraStdlibTranscript = BaseTranscript<StdlibTranscriptParams<UltraCircuitBuilder>>;
-using GoblinUltraStdlibTranscript = BaseTranscript<StdlibTranscriptParams<GoblinUltraCircuitBuilder>>;
+using MegaStdlibTranscript = BaseTranscript<StdlibTranscriptParams<MegaCircuitBuilder>>;
 } // namespace bb::stdlib::recursion::honk

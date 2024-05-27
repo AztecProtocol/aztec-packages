@@ -1,13 +1,13 @@
 // A contract used along with `Parent` contract to test nested calls.
 contract Delegator {
-    use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteViewerOptions, PublicMutable, PrivateSet, Deserialize};
+    use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, PublicMutable, PrivateSet, Deserialize, Map};
     use dep::value_note::value_note::ValueNote;
     use dep::delegated_on::DelegatedOn;
 
     #[aztec(storage)]
     struct Storage {
         current_value: PublicMutable<Field>,
-        a_private_value: PrivateSet<ValueNote>,
+        a_map_with_private_values: Map<AztecAddress, PrivateSet<ValueNote>>,
     }
 
     #[aztec(private)]
@@ -30,14 +30,11 @@ contract Delegator {
         DelegatedOn::at(target_contract).public_set_value(value).delegate_call(&mut context)
     }
 
-    unconstrained fn view_private_value(amount: Field, owner: AztecAddress) -> pub Field {
-        let mut options = NoteViewerOptions::new();
-        options = options.select(ValueNote::properties().value, amount, Option::none()).select(
-            ValueNote::properties().owner,
-            owner.to_field(),
-            Option::none()
-        ).set_limit(1);
-        let notes = storage.a_private_value.view_notes(options);
+    #[aztec(private)]
+    fn get_private_value(amount: Field, owner: AztecAddress) -> pub Field {
+        let mut options = NoteGetterOptions::new();
+        options = options.select(ValueNote::properties().value, amount, Option::none()).set_limit(1);
+        let notes = storage.a_map_with_private_values.at(owner).get_notes(options);
         notes[0].unwrap_unchecked().value
     }
 

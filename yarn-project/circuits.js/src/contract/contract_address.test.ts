@@ -1,11 +1,10 @@
 import { ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
-import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
+import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
 import { AztecAddress, deriveKeys } from '../index.js';
 import {
   computeContractAddressFromInstance,
-  computeContractAddressFromPartial,
   computeInitializationHash,
   computePartialAddress,
   computeSaltedInitializationHash,
@@ -34,9 +33,10 @@ describe('ContractAddress', () => {
 
   it('computeInitializationHash', () => {
     const mockInitFn: FunctionAbi = {
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInitializer: false,
       isInternal: false,
+      isStatic: false,
       name: 'fun',
       parameters: [{ name: 'param1', type: { kind: 'boolean' }, visibility: ABIParameterVisibility.SECRET }],
       returnTypes: [],
@@ -57,7 +57,7 @@ describe('ContractAddress', () => {
     const contractClassId = new Fr(4n);
     const initializationHash = new Fr(5n);
     const deployer = AztecAddress.fromField(new Fr(7));
-    const publicKeysHash = deriveKeys(secretKey).publicKeysHash;
+    const publicKeysHash = deriveKeys(secretKey).publicKeys.hash();
 
     const address = computeContractAddressFromInstance({
       publicKeysHash,
@@ -69,40 +69,5 @@ describe('ContractAddress', () => {
     }).toString();
 
     expect(address).toMatchSnapshot();
-
-    // TODO(#5834): the following was removed from aztec_address.nr, should it be re-introduced?
-    // // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
-    // updateInlineTestData(
-    //   'noir-projects/noir-protocol-circuits/crates/types/src/address/aztec_address.nr',
-    //   'expected_computed_address_from_preimage',
-    //   address.toString(),
-    // );
-  });
-
-  it('Public key hash matches Noir', () => {
-    const secretKey = new Fr(2n);
-    const hash = deriveKeys(secretKey).publicKeysHash.toString();
-    expect(hash).toMatchSnapshot();
-
-    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
-    updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/address/public_keys_hash.nr',
-      'expected_public_keys_hash',
-      hash.toString(),
-    );
-  });
-
-  it('Address from partial matches Noir', () => {
-    const publicKeysHash = new Fr(1n);
-    const partialAddress = new Fr(2n);
-    const address = computeContractAddressFromPartial({ publicKeysHash, partialAddress }).toString();
-    expect(address).toMatchSnapshot();
-
-    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
-    updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/address/aztec_address.nr',
-      'expected_computed_address_from_partial_and_pubkey',
-      address.toString(),
-    );
   });
 });

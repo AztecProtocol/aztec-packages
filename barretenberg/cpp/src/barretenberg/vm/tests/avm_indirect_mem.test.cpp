@@ -2,6 +2,7 @@
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 
 namespace tests_avm {
+using namespace bb;
 using namespace bb::avm_trace;
 
 class AvmIndirectMemTests : public ::testing::Test {
@@ -63,7 +64,7 @@ TEST_F(AvmIndirectMemTests, allIndirectAdd)
     EXPECT_EQ(row->avm_main_mem_op_b, FF(1));
     EXPECT_EQ(row->avm_main_mem_op_c, FF(1));
 
-    validate_trace(std::move(trace), true);
+    validate_trace(std::move(trace), {}, true);
 }
 
 // Testing a subtraction operation with direct input operands a, b, and an indirect
