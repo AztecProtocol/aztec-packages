@@ -10,7 +10,7 @@ import {
   type ContractMethod,
   type DebugLogger,
   type DeployL1Contracts,
-  EncryptedL2BlockL2Logs,
+  EncryptedNoteL2BlockL2Logs,
   EthCheatCodes,
   type L1ContractArtifactsForDeployment,
   LogType,
@@ -52,7 +52,7 @@ import {
 } from '@aztec/l1-artifacts';
 import { KeyRegistryContract } from '@aztec/noir-contracts.js';
 import { GasTokenContract } from '@aztec/noir-contracts.js/GasToken';
-import { getCanonicalGasToken, getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
+import { GasTokenAddress, getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
 import { type ProverClient } from '@aztec/prover-client';
 import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
@@ -77,6 +77,7 @@ import { foundry } from 'viem/chains';
 
 import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
+import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
@@ -140,7 +141,7 @@ async function initGasBridge({ walletClient, l1ContractAddresses }: DeployL1Cont
     [
       l1ContractAddresses.registryAddress.toString(),
       l1ContractAddresses.gasTokenAddress.toString(),
-      getCanonicalGasTokenAddress(l1ContractAddresses.gasPortalAddress).toString(),
+      GasTokenAddress.toString(),
     ],
     {} as any,
   );
@@ -323,8 +324,6 @@ export async function setup(
 
   let anvil: Anvil | undefined;
 
-  // spawn an anvil instance if one isn't already running
-  // and we're not connecting to a remote PXE
   if (!config.rpcUrl) {
     if (PXE_URL) {
       throw new Error(
@@ -332,19 +331,9 @@ export async function setup(
       );
     }
 
-    // Start anvil.
-    // We go via a wrapper script to ensure if the parent dies, anvil dies.
-    anvil = await retry(
-      async () => {
-        const ethereumHostPort = await getPort();
-        config.rpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
-        const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
-        await anvil.start();
-        return anvil;
-      },
-      'Start anvil',
-      makeBackoff([5, 5, 5]),
-    );
+    const res = await startAnvil();
+    anvil = res.anvil;
+    config.rpcUrl = res.rpcUrl;
   }
 
   // Enable logging metrics to a local file named after the test suite
@@ -380,6 +369,12 @@ export async function setup(
   if (acvmConfig) {
     config.acvmWorkingDirectory = acvmConfig.acvmWorkingDirectory;
     config.acvmBinaryPath = acvmConfig.acvmBinaryPath;
+  }
+
+  const bbConfig = await getBBConfig(logger);
+  if (bbConfig) {
+    config.bbBinaryPath = bbConfig.bbBinaryPath;
+    config.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
   config.l1BlockPublishRetryIntervalMS = 100;
   const aztecNode = await AztecNodeService.createAndSync(config);
@@ -438,11 +433,40 @@ export async function setup(
 }
 
 /**
+ * Ensures there's a running Anvil instance and returns the RPC URL.
+ * @returns
+ */
+export async function startAnvil(): Promise<{ anvil: Anvil; rpcUrl: string }> {
+  let rpcUrl: string | undefined = undefined;
+
+  // Start anvil.
+  // We go via a wrapper script to ensure if the parent dies, anvil dies.
+  const anvil = await retry(
+    async () => {
+      const ethereumHostPort = await getPort();
+      rpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
+      const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
+      await anvil.start();
+      return anvil;
+    },
+    'Start anvil',
+    makeBackoff([5, 5, 5]),
+  );
+
+  if (!rpcUrl) {
+    throw new Error('Failed to start anvil');
+  }
+
+  return { anvil, rpcUrl };
+}
+/**
  * Registers the contract class used for test accounts and publicly deploys the instances requested.
  * Use this when you need to make a public call to an account contract, such as for requesting a public authwit.
  * @param sender - Wallet to send the deployment tx.
  * @param accountsToDeploy - Which accounts to publicly deploy.
  */
+
+// docs:start:public_deploy_accounts
 export async function publicDeployAccounts(sender: Wallet, accountsToDeploy: Wallet[]) {
   const accountAddressesToDeploy = accountsToDeploy.map(a => a.getAddress());
   const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));
@@ -452,6 +476,7 @@ export async function publicDeployAccounts(sender: Wallet, accountsToDeploy: Wal
   ]);
   await batch.send().wait();
 }
+// docs:end:public_deploy_accounts
 
 /**
  * Sets the timestamp of the next block.
@@ -501,7 +526,7 @@ export const expectsNumOfNoteEncryptedLogsInTheLastBlockToBe = async (
   }
   const l2BlockNum = await aztecNode.getBlockNumber();
   const encryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.NOTEENCRYPTED);
-  const unrolledLogs = EncryptedL2BlockL2Logs.unrollLogs(encryptedLogs);
+  const unrolledLogs = EncryptedNoteL2BlockL2Logs.unrollLogs(encryptedLogs);
   expect(unrolledLogs.length).toBe(numEncryptedLogs);
 };
 
@@ -586,7 +611,7 @@ export async function expectMappingDelta<K, V extends number | bigint>(
 export async function deployCanonicalGasToken(deployer: Wallet) {
   // "deploy" the Gas token as it contains public functions
   const gasPortalAddress = (await deployer.getNodeInfo()).l1ContractAddresses.gasPortalAddress;
-  const canonicalGasToken = getCanonicalGasToken(gasPortalAddress);
+  const canonicalGasToken = getCanonicalGasToken();
 
   if (await deployer.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)) {
     getLogger().debug('Gas token already deployed');
@@ -594,9 +619,10 @@ export async function deployCanonicalGasToken(deployer: Wallet) {
     return;
   }
 
-  const gasToken = await GasTokenContract.deploy(deployer, gasPortalAddress)
+  const gasToken = await GasTokenContract.deploy(deployer)
     .send({ contractAddressSalt: canonicalGasToken.instance.salt, universalDeploy: true })
     .deployed();
+  await gasToken.methods.set_portal(gasPortalAddress).send().wait();
 
   getLogger().info(`Gas token publicly deployed at ${gasToken.address}`);
 
