@@ -3,12 +3,9 @@ import {
   ARGS_LENGTH,
   type AztecAddress,
   CallContext,
-  CallRequest,
   type ContractStorageUpdateRequest,
   Fr,
   Gas,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  type PrivateKernelTailCircuitPublicInputs,
   type PublicCallRequest,
 } from '@aztec/circuits.js';
 import { makeAztecAddress, makeSelector } from '@aztec/circuits.js/testing';
@@ -34,17 +31,22 @@ export class PublicExecutionResultBuilder {
     returnValues = [new Fr(1n)],
     nestedExecutions = [],
     contractStorageUpdateRequests = [],
+    revertReason = undefined,
   }: {
     request: PublicCallRequest;
     returnValues?: Fr[];
     nestedExecutions?: PublicExecutionResult[];
     contractStorageUpdateRequests?: ContractStorageUpdateRequest[];
+    revertReason?: SimulationError;
   }): PublicExecutionResultBuilder {
     const builder = new PublicExecutionResultBuilder(request);
 
     builder.withNestedExecutions(...nestedExecutions);
     builder.withContractStorageUpdateRequest(...contractStorageUpdateRequests);
     builder.withReturnValues(...returnValues);
+    if (revertReason) {
+      builder.withReverted(revertReason);
+    }
 
     return builder;
   }
@@ -138,28 +140,3 @@ export const makeFunctionCall = (
   isStatic = false,
   returnTypes = [],
 ) => ({ name, to, selector, type, args, isStatic, returnTypes });
-
-export function addKernelPublicCallStack(
-  kernelOutput: PrivateKernelTailCircuitPublicInputs,
-  calls: {
-    setupCalls: PublicCallRequest[];
-    appLogicCalls: PublicCallRequest[];
-    teardownCall: PublicCallRequest;
-  },
-) {
-  // the first two calls are non-revertible
-  // the first is for setup, the second is for teardown
-  kernelOutput.forPublic!.endNonRevertibleData.publicCallStack = padArrayEnd(
-    // this is a stack, so the first item is the last call
-    // and callRequests is in the order of the calls
-    [calls.teardownCall.toCallRequest(), ...calls.setupCalls.map(c => c.toCallRequest())],
-    CallRequest.empty(),
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  );
-
-  kernelOutput.forPublic!.end.publicCallStack = padArrayEnd(
-    calls.appLogicCalls.map(c => c.toCallRequest()),
-    CallRequest.empty(),
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  );
-}

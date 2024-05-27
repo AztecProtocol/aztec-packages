@@ -70,14 +70,14 @@ describe('e2e_avm_simulator', () => {
     describe('Storage', () => {
       it('Modifies storage (Field)', async () => {
         await avmContract.methods.set_storage_single(20n).send().wait();
-        expect(await avmContract.methods.view_storage_single().simulate()).toEqual(20n);
+        expect(await avmContract.methods.read_storage_single().simulate()).toEqual(20n);
       });
 
       it('Modifies storage (Map)', async () => {
         const address = AztecAddress.fromBigInt(9090n);
         await avmContract.methods.set_storage_map(address, 100).send().wait();
         await avmContract.methods.add_storage_map(address, 100).send().wait();
-        expect(await avmContract.methods.view_storage_map(address).simulate()).toEqual(200n);
+        expect(await avmContract.methods.read_storage_map(address).simulate()).toEqual(200n);
       });
 
       it('Preserves storage across enqueued public calls', async () => {
@@ -90,14 +90,14 @@ describe('e2e_avm_simulator', () => {
           .send()
           .wait();
         // On a separate tx, we check the result.
-        expect(await avmContract.methods.view_storage_map(address).simulate()).toEqual(200n);
+        expect(await avmContract.methods.read_storage_map(address).simulate()).toEqual(200n);
       });
     });
 
     describe('Contract instance', () => {
       it('Works', async () => {
         const tx = await avmContract.methods.test_get_contract_instance().send().wait();
-        expect(tx.status).toEqual(TxStatus.MINED);
+        expect(tx.status).toEqual(TxStatus.SUCCESS);
       });
     });
 
@@ -105,17 +105,17 @@ describe('e2e_avm_simulator', () => {
       // Nullifier will not yet be siloed by the kernel.
       it('Emit and check in the same tx', async () => {
         const tx = await avmContract.methods.emit_nullifier_and_check(123456).send().wait();
-        expect(tx.status).toEqual(TxStatus.MINED);
+        expect(tx.status).toEqual(TxStatus.SUCCESS);
       });
 
       // Nullifier will have been siloed by the kernel, but we check against the unsiloed one.
       it('Emit and check in separate tx', async () => {
         const nullifier = new Fr(123456);
         let tx = await avmContract.methods.new_nullifier(nullifier).send().wait();
-        expect(tx.status).toEqual(TxStatus.MINED);
+        expect(tx.status).toEqual(TxStatus.SUCCESS);
 
         tx = await avmContract.methods.assert_nullifier_exists(nullifier).send().wait();
-        expect(tx.status).toEqual(TxStatus.MINED);
+        expect(tx.status).toEqual(TxStatus.SUCCESS);
       });
 
       it('Emit and check in separate enqueued calls but same tx', async () => {
@@ -179,13 +179,13 @@ describe('e2e_avm_simulator', () => {
           .setPublicAuthWit({ caller: wallet.getCompleteAddress().address, action }, /*authorized=*/ true)
           .send()
           .wait();
-        expect(tx.status).toEqual(TxStatus.MINED);
+        expect(tx.status).toEqual(TxStatus.SUCCESS);
 
         tx = await avmContract.methods
           .test_authwit_send_money(/*from=*/ wallet.getCompleteAddress(), recipient, 100)
           .send()
           .wait();
-        expect(tx.status).toEqual(TxStatus.MINED);
+        expect(tx.status).toEqual(TxStatus.SUCCESS);
       });
 
       it('Fails if authwit not provided', async () => {
@@ -236,7 +236,7 @@ describe('e2e_avm_simulator', () => {
         .create_different_nullifier_in_nested_call(avmContract.address, nullifier)
         .send()
         .wait();
-      expect(tx.status).toEqual(TxStatus.MINED);
+      expect(tx.status).toEqual(TxStatus.SUCCESS);
     });
 
     it('Should be able to emit the same unsiloed nullifier from two different contracts', async () => {
@@ -245,7 +245,7 @@ describe('e2e_avm_simulator', () => {
         .create_same_nullifier_in_nested_call(secondAvmContract.address, nullifier)
         .send()
         .wait();
-      expect(tx.status).toEqual(TxStatus.MINED);
+      expect(tx.status).toEqual(TxStatus.SUCCESS);
     });
 
     it('Should be able to emit different unsiloed nullifiers from two different contracts', async () => {
@@ -254,7 +254,7 @@ describe('e2e_avm_simulator', () => {
         .create_different_nullifier_in_nested_call(secondAvmContract.address, nullifier)
         .send()
         .wait();
-      expect(tx.status).toEqual(TxStatus.MINED);
+      expect(tx.status).toEqual(TxStatus.SUCCESS);
     });
   });
 });
