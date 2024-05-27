@@ -1,5 +1,6 @@
 #include "barretenberg/vm/tests/helpers.test.hpp"
 #include "avm_common.test.hpp"
+#include "barretenberg/vm/avm_trace/avm_helper.hpp"
 #include "barretenberg/vm/avm_trace/constants.hpp"
 #include "barretenberg/vm/generated/avm_flavor.hpp"
 #include <bits/utility.h>
@@ -27,39 +28,6 @@ void validate_trace_check_circuit(std::vector<Row>&& trace, VmPublicInputs publi
     validate_trace(std::move(trace), public_inputs, false);
 };
 
-// Copy Public Input Columns
-// There are 4 public input columns, one for inputs, and 3 for the kernel outputs {value, side effect counter, metadata}
-// The verifier is generic, and so accepts vectors of these values rather than the fixed length arrays that are used
-// during circuit building. This method copies each array into a vector to be used by the verifier.
-std::vector<std::vector<FF>> copy_public_inputs_columns(VmPublicInputs public_inputs)
-{
-    // We convert to a vector as the pil generated verifier is generic and unaware of the KERNEL_INPUTS_LENGTH
-    // For each of the public input vectors
-    std::vector<FF> public_inputs_kernel_inputs(KERNEL_INPUTS_LENGTH);
-    std::vector<FF> public_inputs_kernel_value_outputs(KERNEL_OUTPUTS_LENGTH);
-    std::vector<FF> public_inputs_kernel_side_effect_outputs(KERNEL_OUTPUTS_LENGTH);
-    std::vector<FF> public_inputs_kernel_metadata_outputs(KERNEL_OUTPUTS_LENGTH);
-
-    std::copy(std::get<0>(public_inputs).begin(), std::get<0>(public_inputs).end(), public_inputs_kernel_inputs.data());
-    std::copy(std::get<1>(public_inputs).begin(),
-              std::get<1>(public_inputs).end(),
-              public_inputs_kernel_value_outputs.data());
-    std::copy(std::get<2>(public_inputs).begin(),
-              std::get<2>(public_inputs).end(),
-              public_inputs_kernel_side_effect_outputs.data());
-    std::copy(std::get<3>(public_inputs).begin(),
-              std::get<3>(public_inputs).end(),
-              public_inputs_kernel_metadata_outputs.data());
-
-    std::vector<std::vector<FF>> public_inputs_as_vec(4);
-    public_inputs_as_vec[0] = public_inputs_kernel_inputs;
-    public_inputs_as_vec[1] = public_inputs_kernel_value_outputs;
-    public_inputs_as_vec[2] = public_inputs_kernel_side_effect_outputs;
-    public_inputs_as_vec[3] = public_inputs_kernel_metadata_outputs;
-
-    return public_inputs_as_vec;
-}
-
 /**
  * @brief Helper routine which checks the circuit constraints and depending on
  *         the boolean with_proof value performs a proof generation and verification.
@@ -79,7 +47,7 @@ void validate_trace(std::vector<Row>&& trace, VmPublicInputs public_inputs, bool
 
         AvmVerifier verifier = composer.create_verifier(circuit_builder);
 
-        std::vector<std::vector<FF>> public_inputs_as_vec = copy_public_inputs_columns(public_inputs);
+        std::vector<std::vector<FF>> public_inputs_as_vec = bb::avm_trace::copy_public_inputs_columns(public_inputs);
 
         bool verified = verifier.verify_proof(proof, public_inputs_as_vec);
 
