@@ -6,6 +6,7 @@
 #include "barretenberg/vm/tests/helpers.test.hpp"
 
 namespace tests_avm {
+using namespace bb;
 using namespace bb::avm_trace;
 
 class AvmKernelTests : public ::testing::Test {

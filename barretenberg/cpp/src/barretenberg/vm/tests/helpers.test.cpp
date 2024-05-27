@@ -4,7 +4,9 @@
 #include "barretenberg/vm/generated/avm_flavor.hpp"
 #include <bits/utility.h>
 
+using namespace bb;
 namespace tests_avm {
+using namespace bb;
 
 std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<ThreeOpParam> operands,
                                                  std::vector<bb::avm_trace::AvmMemoryTag> mem_tags)
@@ -71,7 +73,6 @@ void validate_trace(std::vector<Row>&& trace, VmPublicInputs public_inputs, bool
     EXPECT_TRUE(circuit_builder.check_circuit());
 
     if (with_proof) {
-        info("With proof");
         AvmComposer composer = AvmComposer();
         AvmProver prover = composer.create_prover(circuit_builder);
         HonkProof proof = prover.construct_proof();

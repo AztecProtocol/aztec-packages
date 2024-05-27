@@ -25,7 +25,7 @@ class AvmTraceBuilder {
   public:
     AvmTraceBuilder(VmPublicInputs public_inputs = {});
 
-    std::vector<Row> finalize();
+    std::vector<Row> finalize(uint32_t min_trace_size = 0, bool range_check_required = false);
     void reset();
 
     uint32_t getPc() const { return pc; }
