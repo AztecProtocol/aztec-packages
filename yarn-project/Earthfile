@@ -80,7 +80,7 @@ aztec:
         CMD curl -fsSd '{\"jsonrpc\":\"2.0\",\"method\":\"pxe_getNodeInfo\",\"id\":1}' http://127.0.0.1:$port
     EXPOSE $port
 
-aztec-faucet:
+aztec-faucet-build:
     FROM +build
     RUN yarn workspaces focus @aztec/aztec-faucet --production && yarn cache clean
     RUN rm -rf \
@@ -94,6 +94,13 @@ aztec-faucet:
         **/src \
         **/artifacts
     SAVE ARTIFACT /usr/src /usr/src
+
+aztec-faucet:
+    FROM ubuntu:noble
+    RUN apt update && apt install nodejs curl -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    COPY +aztec-faucet/usr/src /usr/src
+    ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec-faucet/dest/bin/index.js"]
+    LET port=8080
 
 # We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
 end-to-end-prod:
