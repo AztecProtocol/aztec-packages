@@ -159,6 +159,8 @@ impl Context {
                     | Intrinsic::AsField
                     | Intrinsic::AsSlice
                     | Intrinsic::AsWitness => false,
+
+                    Intrinsic::IsUnconstrained(is_assertion) => is_assertion,
                 },
 
                 // We must assume that functions contain a side effect as we cannot inspect more deeply.

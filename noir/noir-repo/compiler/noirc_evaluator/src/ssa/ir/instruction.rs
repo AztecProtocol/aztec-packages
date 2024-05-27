@@ -65,6 +65,8 @@ pub(crate) enum Intrinsic {
     FromField,
     AsField,
     AsWitness,
+    // Boolean determines whether to return a boolean or halt compilation
+    IsUnconstrained(bool),
 }
 
 impl std::fmt::Display for Intrinsic {
@@ -89,6 +91,9 @@ impl std::fmt::Display for Intrinsic {
             Intrinsic::FromField => write!(f, "from_field"),
             Intrinsic::AsField => write!(f, "as_field"),
             Intrinsic::AsWitness => write!(f, "as_witness"),
+            Intrinsic::IsUnconstrained(is_assertion) => {
+                write!(f, "{}_unconstrained", if *is_assertion { "assert" } else { "is" })
+            }
         }
     }
 }
@@ -118,6 +123,8 @@ impl Intrinsic {
             | Intrinsic::FromField
             | Intrinsic::AsField => false,
 
+            Intrinsic::IsUnconstrained(is_assertion) => *is_assertion,
+
             // Some black box functions have side-effects
             Intrinsic::BlackBox(func) => matches!(func, BlackBoxFunc::RecursiveAggregation),
         }
@@ -145,6 +152,8 @@ impl Intrinsic {
             "from_field" => Some(Intrinsic::FromField),
             "as_field" => Some(Intrinsic::AsField),
             "as_witness" => Some(Intrinsic::AsWitness),
+            "is_unconstrained" => Some(Intrinsic::IsUnconstrained(false)),
+            "assert_unconstrained" => Some(Intrinsic::IsUnconstrained(true)),
             other => BlackBoxFunc::lookup(other).map(Intrinsic::BlackBox),
         }
     }
