@@ -66,7 +66,7 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
     ) where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
         let context = self.map.context;
         let header = context.get_header();
-        let sender_ovpk_m = header.get_ovpk_m(context, owner);
+        let sender_ovpk_m = header.get_ovpk_m(context, sender);
         let owner_ivpk_m = header.get_ivpk_m(context, owner);
 
         // We fetch the nullifier public key hash from the registry / from our PXE

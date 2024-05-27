@@ -89,7 +89,7 @@ contract Test {
 
         let header = context.get_header();
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
-        let msg_sender_ovpk_m = header.get_ivpk_m(&mut context, context.msg_sender());
+        let msg_sender_ovpk_m = header.get_ovpk_m(&mut context, context.msg_sender());
         let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
 
         let mut note = ValueNote::new(value, owner_npk_m_hash);
@@ -258,7 +258,7 @@ contract Test {
     #[aztec(private)]
     fn emit_array_as_encrypted_log(fields: [Field; 5], owner: AztecAddress, nest: bool) {
         let header = context.get_header();
-        let msg_sender_ovpk = header.get_ivpk_m(&mut context, context.msg_sender());
+        let msg_sender_ovpk = header.get_ovpk_m(&mut context, context.msg_sender());
         let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
         context.encrypt_and_emit_log(
             context.this_address(),

@@ -18,12 +18,12 @@ pub fn increment(
 ) {
     let header = balance.context.get_header();
     let recipient_npk_m_hash = header.get_npk_m_hash(balance.context, recipient);
-    let recipient_ovpk_m = header.get_ovpk_m(balance.context, recipient);
+    let msg_sender_ovpk_m = header.get_ovpk_m(balance.context, balance.context.msg_sender());
     let recipient_ivpk_m = header.get_ivpk_m(balance.context, recipient);
 
     let mut note = ValueNote::new(amount, recipient_npk_m_hash);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
-    balance.insert(&mut note, amount != 0, recipient_ovpk_m, recipient_ivpk_m);
+    balance.insert(&mut note, amount != 0, msg_sender_ovpk_m, recipient_ivpk_m);
 }
 
 // Find some of the `owner`'s notes whose values add up to the `amount`.

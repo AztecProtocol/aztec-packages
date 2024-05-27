@@ -43,9 +43,9 @@ contract AppSubscription {
         note.remaining_txs -= 1;
 
         let header = context.get_header();
-        let subscriber_ovpk_m = header.get_ovpk_m(&mut context, user_address);
+        let msg_sender_ovpk_m = header.get_ovpk_m(&mut context, context.msg_sender());
         let subscriber_ivpk_m = header.get_ivpk_m(&mut context, user_address);
-        storage.subscriptions.at(user_address).replace(&mut note, true, subscriber_ovpk_m, subscriber_ivpk_m);
+        storage.subscriptions.at(user_address).replace(&mut note, true, msg_sender_ovpk_m, subscriber_ivpk_m);
 
         context.set_as_fee_payer();
 
@@ -114,14 +114,14 @@ contract AppSubscription {
         AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).enqueue_view(&mut context);
         let header = context.get_header();
         let subscriber_npk_m_hash = header.get_npk_m_hash(&mut context, subscriber_address);
-        let subscriber_ovpk_m = header.get_ovpk_m(&mut context, context.msg_sender());
+        let msg_sender_ovpk_m = header.get_ovpk_m(&mut context, context.msg_sender());
         let subscriber_ivpk_m = header.get_ivpk_m(&mut context, subscriber_address);
 
         let mut subscription_note = SubscriptionNote::new(subscriber_npk_m_hash, expiry_block_number, tx_count);
         storage.subscriptions.at(subscriber_address).initialize_or_replace(
             &mut subscription_note,
             true,
-            subscriber_ovpk_m,
+            msg_sender_ovpk_m,
             subscriber_ivpk_m
         );
     }
