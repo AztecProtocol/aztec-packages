@@ -253,8 +253,9 @@ export class ProvingOrchestrator {
     await validateRootOutput(rootRollupOutputs, this.db);
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
+    const gasFees = this.provingState.globalVariables.gasFees;
     const nonEmptyTxEffects: TxEffect[] = this.provingState!.allTxs.map(txProvingState =>
-      toTxEffect(txProvingState.processedTx),
+      toTxEffect(txProvingState.processedTx, gasFees),
     ).filter(txEffect => !txEffect.isEmpty());
     const blockBody = new Body(nonEmptyTxEffects);
 
@@ -446,12 +447,12 @@ export class ProvingOrchestrator {
     if (
       !tx.baseRollupInputs.kernelData.publicInputs.end.noteEncryptedLogsHash
         .toBuffer()
-        .equals(tx.processedTx.noteEncryptedLogs.hash(0))
+        .equals(tx.processedTx.noteEncryptedLogs.hash())
     ) {
       provingState.reject(
         `Note encrypted logs hash mismatch: ${
           tx.baseRollupInputs.kernelData.publicInputs.end.noteEncryptedLogsHash
-        } === ${Fr.fromBuffer(tx.processedTx.noteEncryptedLogs.hash(0))}`,
+        } === ${Fr.fromBuffer(tx.processedTx.noteEncryptedLogs.hash())}`,
       );
       return;
     }

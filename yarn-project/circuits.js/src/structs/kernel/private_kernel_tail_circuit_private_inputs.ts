@@ -5,10 +5,12 @@ import {
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { countAccumulatedItems } from '../../utils/index.js';
-import { LogHash, NoteLogHash } from '../log_hash.js';
+import { CallRequest } from '../call_request.js';
+import { NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash } from '../log_hash.js';
 import { ScopedNoteHash } from '../note_hash.js';
 import { ScopedNullifier } from '../nullifier.js';
 import { PrivateKernelData } from './private_kernel_data.js';
@@ -42,7 +44,7 @@ export class PrivateKernelTailHints {
     /**
      * The sorted encrypted log hashes.
      */
-    public sortedEncryptedLogHashes: Tuple<LogHash, typeof MAX_ENCRYPTED_LOGS_PER_TX>,
+    public sortedEncryptedLogHashes: Tuple<ScopedEncryptedLogHash, typeof MAX_ENCRYPTED_LOGS_PER_TX>,
     /**
      * The sorted encrypted log hashes indexes. Maps original to sorted.
      */
@@ -50,11 +52,19 @@ export class PrivateKernelTailHints {
     /**
      * The sorted unencrypted log hashes.
      */
-    public sortedUnencryptedLogHashes: Tuple<LogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
+    public sortedUnencryptedLogHashes: Tuple<ScopedLogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
     /**
      * The sorted encrypted log hashes indexes. Maps original to sorted.
      */
     public sortedUnencryptedLogHashesIndexes: Tuple<number, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
+    /**
+     * The sorted public call requests.
+     */
+    public sortedCallRequests: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    /**
+     * The sorted public call requests indexes. Maps original to sorted.
+     */
+    public sortedCallRequestsIndexes: Tuple<number, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
   ) {}
 
   toBuffer() {
@@ -69,6 +79,8 @@ export class PrivateKernelTailHints {
       this.sortedEncryptedLogHashesIndexes,
       this.sortedUnencryptedLogHashes,
       this.sortedUnencryptedLogHashesIndexes,
+      this.sortedCallRequests,
+      this.sortedCallRequestsIndexes,
     );
   }
 
@@ -86,10 +98,12 @@ export class PrivateKernelTailHints {
       reader.readNumbers(MAX_NEW_NULLIFIERS_PER_TX),
       reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, NoteLogHash),
       reader.readNumbers(MAX_NOTE_ENCRYPTED_LOGS_PER_TX),
-      reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, LogHash),
+      reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, ScopedEncryptedLogHash),
       reader.readNumbers(MAX_ENCRYPTED_LOGS_PER_TX),
-      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, LogHash),
+      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       reader.readNumbers(MAX_UNENCRYPTED_LOGS_PER_TX),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
+      reader.readNumbers(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX),
     );
   }
 }
