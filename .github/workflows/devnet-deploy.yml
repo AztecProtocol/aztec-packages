@@ -1,0 +1,34 @@
+name: Deploy to devnet
+on:
+  push:
+    branches: [devnet]
+  pull_request: {}
+
+env:
+  DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+  GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  setup:
+    uses: ./.github/workflows/setup-runner.yml
+    with:
+      username: master
+      runner_type: builder-x86
+    secrets: inherit
+
+  build:
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_key: build-release-artifacts-${{ github.actor }}
+      - name: "Build images"
+        timeout-minutes: 40
+        # Run the build steps for each image with version and arch, push to dockerhub
+        run: |
+          earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=aztec-dev
+          earrhly-ci --no-output --push ./yarn-project+export-aztec-faucet --DIST_TAG=aztec-dev
+          earthly-ci --no-output --push ./iac/mainnet-fork+export-mainnet-fork --DIST_TAG=aztec-dev
