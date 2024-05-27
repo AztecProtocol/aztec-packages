@@ -121,8 +121,11 @@ export async function getExampleContractArtifacts(): Promise<ArtifactsType> {
 export async function getContractArtifact(fileDir: string, log: LogFn) {
   // first check if it's a noir-contracts example
   const artifacts = await getExampleContractArtifacts();
-  if (artifacts[fileDir]) {
-    return artifacts[fileDir] as ContractArtifact;
+  for (const key of [fileDir, fileDir + 'Artifact', fileDir + 'ContractArtifact']) {
+    if (artifacts[key]) {
+      return artifacts[key] as ContractArtifact;
+    
+    }
   }
 
   let contents: string;
