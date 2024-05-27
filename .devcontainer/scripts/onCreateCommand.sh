@@ -14,13 +14,15 @@ if ! grep -q "alias sandbox" ~/.bashrc; then
     echo "alias sandbox=\"npx aztec-app sandbox\"" >> ~/.bashrc
 fi
 
-source ~/.bashrc
-yes | npx aztec-app -t $TYPE -n $NAME -s
-mv $NAME/* $NAME/.* .
-rm -rf $NAME
+if [ "$TYPE" != "sandbox_only" ]; then
+    source ~/.bashrc
+    yes | npx create-aztec-app -t $TYPE -n $NAME -s
+    mv $NAME/* $NAME/.* .
+    rm -rf $NAME
 
-yarn
+    yarn
 
-npx -y playwright install --with-deps
-yarn add @aztec/builder
-yarn prep
+    npx -y playwright install --with-deps
+    yarn add @aztec/builder
+    yarn prep
+fi
