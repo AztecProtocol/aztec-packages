@@ -500,7 +500,7 @@ AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit)
             gate.value);
     }
     for (const auto& [block_id, block] : block_id_to_block_constraint) {
-        if (!block.trace.empty()) {
+        if (!block.trace.empty() || block.type == BlockType::ReturnData) {
             af.block_constraints.push_back(block);
         }
     }
