@@ -1163,20 +1163,22 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
                                + to_hex(OpCode::BLOCKNUMBER) +    // opcode BLOCKNUMBER
                                "00"                               // Indirect flag
                                "00000008"                         // dst_offset 8
-                               + to_hex(OpCode::COINBASE) +       // opcode COINBASE
-                               "00"                               // Indirect flag
-                               "00000009"                         // dst_offset 9
                                + to_hex(OpCode::TIMESTAMP) +      // opcode TIMESTAMP
                                "00"                               // Indirect flag
-                               "0000000a"                         // dst_offset 10
-                               + to_hex(OpCode::RETURN) +         // opcode RETURN
-                               "00"                               // Indirect flag
-                               "00000000"                         // ret offset 0
-                               "0000000a";                        // ret size 0
+                               "00000009"                         // dst_offset 9
+                                                                  // Not in simulator
+                               //    + to_hex(OpCode::COINBASE) +       // opcode COINBASE
+                               //    "00"                               // Indirect flag
+                               //    "0000000a"                         // dst_offset 10
+                               + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
+                               "00000001"                 // ret offset 0
+                               "00000009";                // ret size 0
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
-    ASSERT_THAT(instructions, SizeIs(11));
+
+    ASSERT_THAT(instructions, SizeIs(10));
 
     // SENDER
     EXPECT_THAT(instructions.at(0),
@@ -1218,15 +1220,17 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
                 AllOf(Field(&Instruction::op_code, OpCode::BLOCKNUMBER),
                       Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(8)))));
 
-    // COINBASE
+    // TIMESTAMP
     EXPECT_THAT(instructions.at(8),
-                AllOf(Field(&Instruction::op_code, OpCode::COINBASE),
+                AllOf(Field(&Instruction::op_code, OpCode::TIMESTAMP),
                       Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(9)))));
 
-    // TIMESTAMP
-    EXPECT_THAT(instructions.at(9),
-                AllOf(Field(&Instruction::op_code, OpCode::TIMESTAMP),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(10)))));
+    // COINBASE
+    // Not in simulator
+    // EXPECT_THAT(instructions.at(9),
+    //             AllOf(Field(&Instruction::op_code, OpCode::COINBASE),
+    //                   Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0),
+    //                   VariantWith<uint32_t>(10)))));
 
     // Public inputs for the circuit
     std::vector<FF> calldata = {};
@@ -1239,13 +1243,15 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
     FF chainid = 6;
     FF version = 7;
     FF blocknumber = 8;
-    FF coinbase = 9;
-    FF timestamp = 10;
+    FF timestamp = 9;
+    // Not in simulator
+    // FF coinbase = 10;
 
-    // The return data for this test should be a the opcodes in sequence, as the opcodes dst address lines up with
-    // this array The returndata call above will then return this array
-    std::vector<FF> returndata = { sender,  address, feeperl2gas, feeperdagas, transactionfee,
-                                   chainid, version, blocknumber, coinbase,    timestamp };
+    // The return data for this test should be a the opcodes in sequence, as the opcodes dst address lines up with this
+    // array The returndata call above will then return this array
+    std::vector<FF> returndata = { sender,      address,        feeperl2gas,
+                                   feeperdagas, transactionfee, chainid,
+                                   version,     blocknumber,    /*coinbase,*/ timestamp };
 
     std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
@@ -1260,7 +1266,8 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
     public_inputs_vec[VERSION_OFFSET] = version;
     public_inputs_vec[BLOCK_NUMBER_OFFSET] = blocknumber;
     public_inputs_vec[TIMESTAMP_OFFSET] = timestamp;
-    public_inputs_vec[COINBASE_OFFSET] = coinbase;
+    // Not in the simulator yet
+    // public_inputs_vec[COINBASE_OFFSET] = coinbase;
 
     // Fees
     public_inputs_vec[FEE_PER_DA_GAS_OFFSET] = feeperdagas;
@@ -1302,11 +1309,6 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_timestamp == 1; });
     EXPECT_EQ(timestamp_row->avm_main_ia, timestamp);
 
-    // Check coinbase
-    auto coinbase_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_coinbase == 1; });
-    EXPECT_EQ(coinbase_row->avm_main_ia, coinbase);
-
     // Check feeperdagas
     auto feeperdagas_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fee_per_da_gas == 1; });
@@ -1321,6 +1323,12 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
     auto transactionfee_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_transaction_fee == 1; });
     EXPECT_EQ(transactionfee_row->avm_main_ia, transactionfee);
+
+    // // Check coinbase
+    // Not in simulator
+    // auto coinbase_row =
+    //     std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_coinbase == 1; });
+    // EXPECT_EQ(coinbase_row->avm_main_ia, coinbase);
 
     validate_trace(std::move(trace));
 }
