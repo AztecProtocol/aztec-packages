@@ -746,26 +746,6 @@
     "isAsync": false
   },
   {
-    "functionName": "acir_goblin_verify",
-    "inArgs": [
-      {
-        "name": "acir_composer_ptr",
-        "type": "in_ptr"
-      },
-      {
-        "name": "proof_buf",
-        "type": "const uint8_t *"
-      }
-    ],
-    "outArgs": [
-      {
-        "name": "result",
-        "type": "bool *"
-      }
-    ],
-    "isAsync": false
-  },
-  {
     "functionName": "acir_get_solidity_verifier",
     "inArgs": [
       {

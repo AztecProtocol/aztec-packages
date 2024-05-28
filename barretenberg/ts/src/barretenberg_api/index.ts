@@ -500,18 +500,6 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirGoblinVerify(acirComposerPtr: Ptr, proofBuf: Uint8Array): Promise<boolean> {
-    const inArgs = [acirComposerPtr, proofBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BoolDeserializer()];
-    const result = await this.wasm.callWasmExport(
-      'acir_goblin_verify',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
   async acirGetSolidityVerifier(acirComposerPtr: Ptr): Promise<string> {
     const inArgs = [acirComposerPtr].map(serializeBufferable);
     const outTypes: OutputType[] = [StringDeserializer()];
@@ -1089,18 +1077,6 @@ export class BarretenbergApiSync {
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_verify_proof',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
-  acirGoblinVerify(acirComposerPtr: Ptr, proofBuf: Uint8Array): boolean {
-    const inArgs = [acirComposerPtr, proofBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BoolDeserializer()];
-    const result = this.wasm.callWasmExport(
-      'acir_goblin_verify',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );

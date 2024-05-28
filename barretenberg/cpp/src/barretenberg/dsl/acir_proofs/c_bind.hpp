@@ -65,12 +65,6 @@ WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr, uint8_t const* a
 
 WASM_EXPORT void acir_verify_proof(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result);
 
-/**
- * @brief Verifies a full goblin proof (and the MegaHonk proof produced by accumulation)
- *
- */
-WASM_EXPORT void acir_goblin_verify(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result);
-
 WASM_EXPORT void acir_get_solidity_verifier(in_ptr acir_composer_ptr, out_str_buf out);
 
 WASM_EXPORT void acir_serialize_proof_into_fields(in_ptr acir_composer_ptr,
