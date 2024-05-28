@@ -107,7 +107,7 @@ mod tests {
 
     impl PublicKernelSetupCircuitPrivateInputsBuilder {
         pub fn new() -> Self {
-            let previous_kernel = FixtureBuilder::new();
+            let previous_kernel = FixtureBuilder::new().as_parent_contract();
             let previous_revertible = FixtureBuilder::new();
             let public_call = PublicCallDataBuilder::new();
 

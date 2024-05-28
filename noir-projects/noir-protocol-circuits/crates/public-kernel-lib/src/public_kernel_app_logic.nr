@@ -121,7 +121,7 @@ mod tests {
 
     impl PublicKernelAppLogicCircuitPrivateInputsBuilder {
         pub fn new() -> Self {
-            let previous_kernel = FixtureBuilder::new();
+            let previous_kernel = FixtureBuilder::new().as_parent_contract();
             let public_call = PublicCallDataBuilder::new();
 
             PublicKernelAppLogicCircuitPrivateInputsBuilder { previous_kernel, public_call }

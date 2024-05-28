@@ -745,7 +745,7 @@ impl FixtureBuilder {
         let mut caller_context = CallerContext::empty();
         if is_delegate_call {
             caller_context.msg_sender = self.msg_sender;
-            caller_context.storage_contract_address = self.contract_address;
+            caller_context.storage_contract_address = self.storage_contract_address;
         }
         let start_counter = self.next_counter();
         CallRequest {
