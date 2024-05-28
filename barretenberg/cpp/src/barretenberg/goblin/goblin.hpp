@@ -203,6 +203,7 @@ class Goblin {
      * @return true
      * @return false
      */
+    // WORKTODO: make this static-able by passing in an ECCVM verification key instead of constructing one from the pkey
     bool verify(const Proof& proof)
     {
         MergeVerifier merge_verifier;
