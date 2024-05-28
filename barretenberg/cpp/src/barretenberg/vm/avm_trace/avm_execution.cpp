@@ -64,6 +64,22 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
 }
 
 /**
+ * @brief Generate the execution trace pertaining to the supplied instructions.
+ *
+ * @param instructions A vector of the instructions to be executed.
+ * @param calldata expressed as a vector of finite field elements.
+ * @param public_inputs expressed as a vector of finite field elements.
+ * @return The trace as a vector of Row.
+ */
+std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructions,
+                                      std::vector<FF> const& calldata,
+                                      std::vector<FF> const& public_inputs)
+{
+    std::vector<FF> returndata{};
+    return gen_trace(instructions, returndata, calldata, public_inputs);
+}
+
+/**
  * @brief Convert Public Inputs
  *
  * **Transitional**
@@ -135,22 +151,6 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
  *
  * @param instructions A vector of the instructions to be executed.
  * @param calldata expressed as a vector of finite field elements.
- * @param public_inputs expressed as a vector of finite field elements.
- * @return The trace as a vector of Row.
- */
-std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructions,
-                                      std::vector<FF> const& calldata,
-                                      std::vector<FF> const& public_inputs)
-{
-    std::vector<FF> returndata{};
-    return gen_trace(instructions, returndata, calldata, public_inputs);
-}
-
-/**
- * @brief Generate the execution trace pertaining to the supplied instructions.
- *
- * @param instructions A vector of the instructions to be executed.
- * @param calldata expressed as a vector of finite field elements.
  * @return The trace as a vector of Row.
  */
 std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructions, std::vector<FF> const& calldata)
@@ -173,6 +173,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                       std::vector<FF> const& calldata,
                                       std::vector<FF> const& public_inputs_vec)
 
+// TODO: add the entire kernel inputs to this - all of the public inputs for the prover - will the simulator know these?
 {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6718): construction of the public input columns
     // should be done in the kernel - this is stubbed and underconstrained

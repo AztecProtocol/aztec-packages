@@ -1000,6 +1000,7 @@ TEST_F(AvmExecutionTests, sha256Opcode)
 
     validate_trace(std::move(trace));
 }
+
 // Positive test with POSEIDON2_PERM.
 TEST_F(AvmExecutionTests, poseidon2PermutationOpCode)
 {

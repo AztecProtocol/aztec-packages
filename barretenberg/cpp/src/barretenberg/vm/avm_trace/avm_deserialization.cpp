@@ -17,6 +17,7 @@ namespace {
 const std::vector<OperandType> three_operand_format = {
     OperandType::INDIRECT, OperandType::TAG, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32,
 };
+const std::vector<OperandType> kernel_input_operand_format = { OperandType::INDIRECT, OperandType::UINT32 };
 
 const std::vector<OperandType> getter_format = {
     OperandType::INDIRECT,
@@ -143,6 +144,7 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
 
     while (pos < length) {
         const uint8_t opcode_byte = bytecode.at(pos);
+        // info("opcode_byte: ", opcode_byte);
 
         if (!Bytecode::is_valid(opcode_byte)) {
             throw_or_abort("Invalid opcode byte: " + to_hex(opcode_byte) + " at position: " + std::to_string(pos));
