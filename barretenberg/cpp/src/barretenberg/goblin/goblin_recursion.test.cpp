@@ -20,6 +20,8 @@ class GoblinRecursionTests : public ::testing::Test {
     using KernelInput = GoblinProver::AccumulationOutput;
     using ProverInstance = ProverInstance_<MegaFlavor>;
     using VerifierInstance = VerifierInstance_<MegaFlavor>;
+    using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
+    using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
 
     static GoblinProver::AccumulationOutput construct_accumulator(MegaCircuitBuilder& builder)
     {
@@ -67,7 +69,10 @@ TEST_F(GoblinRecursionTests, Vanilla)
     MegaVerifier ultra_verifier{ kernel_accum.verification_key };
     bool ultra_verified = ultra_verifier.verify_proof(kernel_accum.proof);
     // Verify the goblin proof (eccvm, translator, merge)
-    bool verified = goblin.verify(proof);
+    auto eccvm_vkey = std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key());
+    auto translator_vkey = std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key());
+    GoblinVerifier goblin_verifier{ eccvm_vkey, translator_vkey };
+    bool verified = goblin_verifier.verify(proof);
     EXPECT_TRUE(ultra_verified && verified);
 }
 
