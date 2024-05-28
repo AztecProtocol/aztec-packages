@@ -29,7 +29,7 @@ on:
         required: true
 
 concurrency:
-  group: ci-${{ inputs.username }}-${{ inputs.runner_type }}-${{ inputs.runner_action }}
+  group: ci-${{ inputs.username }}-${{ inputs.runner_type }}-${{ inputs.runner_action }}-setup-runner
 env:
   DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
   RUN_ID: ${{ github.run_id }}
