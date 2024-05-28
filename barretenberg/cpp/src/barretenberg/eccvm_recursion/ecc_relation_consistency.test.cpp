@@ -17,7 +17,7 @@ class EccRelationsConsistency : public testing::Test {
      */
     template <template <typename> class Relation> static void validate_relation_execution()
     {
-        auto builder = UltraCircuitBuilder();
+        auto builder = MegaCircuitBuilder();
         using RecursiveFlavor = ECCVMRecursiveFlavor_<UltraCircuitBuilder>;
         using RecursiveRelation = Relation<typename RecursiveFlavor::FF>;
         const RelationParameters<typename RecursiveFlavor::FF> parameters;

@@ -360,7 +360,7 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                        UltraRecursiveFlavor_<CircuitSimulatorBN254>,
                                        MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaRecursiveFlavor_<MegaCircuitBuilder>
-,MegaRecursiveFlavor_<CircuitSimulatorBN254>, TranslatorRecursiveFlavor_<UltraCircuitBuilder>, TranslatorRecursiveFlavor_<MegaCircuitBuilder>,  TranslatorRecursiveFlavor_<CircuitSimulatorBN254>, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
+,MegaRecursiveFlavor_<CircuitSimulatorBN254>, TranslatorRecursiveFlavor_<UltraCircuitBuilder>, TranslatorRecursiveFlavor_<MegaCircuitBuilder>,  TranslatorRecursiveFlavor_<CircuitSimulatorBN254>, ECCVMRecursiveFlavor_<UltraCircuitBuilder>, ECCVMRecursiveFlavor_<MegaCircuitBuilder>>;
 
 
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor>;

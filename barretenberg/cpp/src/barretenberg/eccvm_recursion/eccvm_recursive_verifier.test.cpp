@@ -27,7 +27,11 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
-    static void SetUpTestSuite() { srs::init_grumpkin_crs_factory("../srs_db/grumpkin"); }
+    static void SetUpTestSuite()
+    {
+        srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+        bb::srs::init_crs_factory("../srs_db/ignition");
+    }
 
     /**
      * @brief Adds operations in BN254 to the op_queue and then constructs and ECCVM circuit from the op_queue.
@@ -69,14 +73,10 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
     static void test_recursive_verification()
     {
         InnerBuilder builder = generate_circuit(&engine);
-        // builder.op_queue->add_erroneous_equality_op_for_testing();
         InnerProver prover(builder);
         auto proof = prover.construct_proof();
         auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key);
-        // InnerVerifier native_verifier(prover.key);
-        // bool verified = native_verifier.verify_proof(proof);
 
-        // ASSERT_TRUE(verified);
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
         verifier.verify_proof(proof);
@@ -84,10 +84,47 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
+
+        // Ensure verification key is the same
+        EXPECT_EQ(verifier.key->circuit_size, verification_key->circuit_size);
+        EXPECT_EQ(verifier.key->log_circuit_size, verification_key->log_circuit_size);
+        EXPECT_EQ(verifier.key->num_public_inputs, verification_key->num_public_inputs);
+        for (auto [vk_poly, native_vk_poly] : zip_view(verifier.key->get_all(), verification_key->get_all())) {
+            EXPECT_EQ(vk_poly.get_value(), native_vk_poly);
+        }
+
+        // Construct a full proof from the recursive verifier circuit
+        {
+            auto instance = std::make_shared<OuterProverInstance>(outer_circuit);
+            OuterProver prover(instance);
+            auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(instance->proving_key);
+            OuterVerifier verifier(verification_key);
+            auto proof = prover.construct_proof();
+            bool verified = verifier.verify_proof(proof);
+
+            ASSERT(verified);
+        }
+    }
+
+    static void test_recursive_verification_failure()
+    {
+        InnerBuilder builder = generate_circuit(&engine);
+        builder.op_queue->add_erroneous_equality_op_for_testing();
+        InnerProver prover(builder);
+        auto proof = prover.construct_proof();
+        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key);
+
+        OuterBuilder outer_circuit;
+        RecursiveVerifier verifier{ &outer_circuit, verification_key };
+        verifier.verify_proof(proof);
+        info("Recursive Verifier: num gates = ", outer_circuit.num_gates);
+
+        // Check for a failure flag in the recursive verifier circuit
+        EXPECT_EQ(outer_circuit.failed(), true) << outer_circuit.err();
     }
 };
-using FlavorTypes = testing::Types<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
-//  ECCVMRecursiveFlavor_<GoblinUltraCircuitBuilder>,
+using FlavorTypes =
+    testing::Types<ECCVMRecursiveFlavor_<UltraCircuitBuilder>, ECCVMRecursiveFlavor_<MegaCircuitBuilder>>;
 //  ECCVMRecursiveFlavor_<CircuitSimulatorBN254>>;
 
 TYPED_TEST_SUITE(ECCVMRecursiveTests, FlavorTypes);
@@ -95,5 +132,10 @@ TYPED_TEST_SUITE(ECCVMRecursiveTests, FlavorTypes);
 TYPED_TEST(ECCVMRecursiveTests, SingleRecursiveVerification)
 {
     TestFixture::test_recursive_verification();
+};
+
+TYPED_TEST(ECCVMRecursiveTests, SingleRecursiveVerificationFailure)
+{
+    TestFixture::test_recursive_verification_failure();
 };
 } // namespace bb

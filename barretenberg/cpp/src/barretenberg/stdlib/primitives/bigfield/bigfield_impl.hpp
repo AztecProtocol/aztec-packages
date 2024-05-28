@@ -1867,6 +1867,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
                 t4.assert_is_zero();
                 return;
             } else if (is_constant()) {
+                (*this).assert_is_in_field();
                 other.assert_equal(*this);
                 return;
             }

@@ -69,6 +69,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
+        info("here");
         return false;
     }
 

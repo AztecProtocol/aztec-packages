@@ -63,11 +63,6 @@ template <typename Flavor> bool ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    // If Sumcheck did not verify, return false
-    if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
-        return false;
-    }
-
     // bool multivariate_opening_verified = ZeroMorph::verify(commitments.get_unshifted(),
     //                                                        commitments.get_to_be_shifted(),
     //                                                        claimed_evaluations.get_unshifted(),
@@ -122,5 +117,5 @@ template <typename Flavor> bool ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
 }
 
 template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
-// template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
+template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<MegaCircuitBuilder>>;
 } // namespace bb
