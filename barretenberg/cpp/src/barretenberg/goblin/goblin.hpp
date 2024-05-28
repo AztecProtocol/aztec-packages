@@ -33,9 +33,13 @@ class Goblin {
     using ECCVMFlavor = bb::ECCVMFlavor;
     using ECCVMBuilder = bb::ECCVMCircuitBuilder;
     using ECCVMProver = bb::ECCVMProver;
+    using ECCVMProvingKey = ECCVMFlavor::ProvingKey;
+    using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslationEvaluations = ECCVMProver::TranslationEvaluations;
     using TranslatorBuilder = bb::TranslatorCircuitBuilder;
     using TranslatorProver = bb::TranslatorProver;
+    using TranslatorProvingKey = bb::TranslatorFlavor::ProvingKey;
+    using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
     using RecursiveMergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaCircuitBuilder>;
     using MergeProver = bb::MergeProver_<MegaFlavor>;
     using MergeVerifier = bb::MergeVerifier_<MegaFlavor>;
@@ -83,6 +87,9 @@ class Goblin {
 
     // on the first call to accumulate there is no merge proof to verify
     bool merge_proof_exists{ false };
+
+    std::shared_ptr<ECCVMProvingKey> get_eccvm_proving_key() const { return eccvm_prover->key; }
+    std::shared_ptr<TranslatorProvingKey> get_translator_proving_key() const { return translator_prover->key; }
 
   private:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/798) unique_ptr use is a hack
@@ -317,6 +324,48 @@ class Goblin {
 
         return /* merge_verified && */ eccvm_verified && translation_accumulator_construction_verified &&
                translation_verified;
+    };
+};
+class GoblinVerifier {
+  public:
+    using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
+    using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
+    using MergeVerifier = bb::MergeVerifier_<MegaFlavor>;
+
+  private:
+    std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key;
+    std::shared_ptr<TranslatorVerificationKey> translator_verification_key;
+
+  public:
+    GoblinVerifier(std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key,
+                   std::shared_ptr<TranslatorVerificationKey> translator_verification_key)
+        : eccvm_verification_key(eccvm_verification_key)
+        , translator_verification_key(translator_verification_key)
+    {}
+
+    /**
+     * @brief Verify a full Goblin proof (ECCVM, Translator, merge)
+     *
+     * @param proof
+     * @return true
+     * @return false
+     */
+    bool verify(const Goblin::Proof& proof)
+    {
+        MergeVerifier merge_verifier;
+        bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
+
+        ECCVMVerifier eccvm_verifier(eccvm_verification_key);
+        bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
+
+        TranslatorVerifier translator_verifier(translator_verification_key, eccvm_verifier.transcript);
+
+        bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/799): Ensure translation_evaluations are passed
+        // correctly
+        bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations);
+
+        return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified;
     };
 };
 } // namespace bb
