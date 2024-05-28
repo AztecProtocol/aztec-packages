@@ -75,11 +75,11 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
 
     using VerifierCommitmentKey = VerifierCommitmentKey<Curve>;
     /**
-     * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
+     * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witness)
      * polynomials used by the verifier.
      *
      * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to
-     * resolve that, and split out separate PrecomputedPolynom    ials/Commitments data for clarity but also for
+     * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
     class VerificationKey
