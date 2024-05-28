@@ -1,20 +1,16 @@
 import { type PublicKernelRequest, PublicKernelType, type Tx } from '@aztec/circuit-types';
 import {
-  type Fr,
   type GlobalVariables,
   type Header,
   type KernelCircuitPublicInputs,
   type LogHash,
-  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   type MAX_UNENCRYPTED_LOGS_PER_TX,
-  type NoteHash,
   type PublicKernelCircuitPublicInputs,
   PublicKernelTailCircuitPrivateInputs,
   mergeAccumulatedData,
   sortByCounter,
-  sortByCounterGetSortedHints,
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
@@ -78,14 +74,6 @@ export class TailPhaseManager extends AbstractPhaseManager {
     );
     const [inputs, output] = await this.simulate(previousOutput);
 
-    // Temporary hack. Should sort them in the tail circuit.
-    const noteHashes = mergeAccumulatedData(
-      previousOutput.endNonRevertibleData.newNoteHashes,
-      previousOutput.end.newNoteHashes,
-      MAX_NEW_NOTE_HASHES_PER_TX,
-    );
-    output.end.newNoteHashes = this.sortNoteHashes<typeof MAX_NEW_NOTE_HASHES_PER_TX>(noteHashes);
-
     return [inputs, output];
   }
 
@@ -137,12 +125,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
 
     const currentState = await this.db.getStateReference();
 
-    const combinedData = previousKernel.publicInputs.recombineAccumulatedData();
-
-    const [sortedPublicDataUpdateRequests, sortedPublicDataUpdateRequestsIndexes] = sortByCounterGetSortedHints(
-      combinedData.publicDataUpdateRequests,
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    );
+    const { hints } = previousKernel.publicInputs.combineAndSortAccumulatedData();
 
     return new PublicKernelTailCircuitPrivateInputs(
       previousKernel,
@@ -151,17 +134,11 @@ export class TailPhaseManager extends AbstractPhaseManager {
       publicDataHints,
       publicDataReadRequestHints,
       currentState.partial,
-      sortedPublicDataUpdateRequests,
-      sortedPublicDataUpdateRequestsIndexes,
+      hints,
     );
   }
 
-  private sortNoteHashes<N extends number>(noteHashes: Tuple<NoteHash, N>): Tuple<Fr, N> {
-    return sortByCounter(noteHashes).map(n => n.value) as Tuple<Fr, N>;
-  }
-
   private sortLogsHashes<N extends number>(unencryptedLogsHashes: Tuple<LogHash, N>): Tuple<LogHash, N> {
-    // TODO(6052): logs here may have duplicate counters from nested calls
     return sortByCounter(unencryptedLogsHashes);
   }
 }

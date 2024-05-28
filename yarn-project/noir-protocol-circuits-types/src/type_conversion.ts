@@ -101,6 +101,7 @@ import {
   PublicKernelCircuitPublicInputs,
   type PublicKernelData,
   type PublicKernelTailCircuitPrivateInputs,
+  type PublicKernelTailCombineHints,
   type RECURSIVE_PROOF_LENGTH,
   ReadRequest,
   type ReadRequestStatus,
@@ -216,6 +217,7 @@ import type {
   PublicKernelData as PublicKernelDataNoir,
   PublicKernelSetupCircuitPrivateInputs as PublicKernelSetupCircuitPrivateInputsNoir,
   PublicKernelTailCircuitPrivateInputs as PublicKernelTailCircuitPrivateInputsNoir,
+  PublicKernelTailCombineHints as PublicKernelTailCombineHintsNoir,
   ReadRequest as ReadRequestNoir,
   ReadRequestStatus as ReadRequestStatusNoir,
   RollupValidationRequests as RollupValidationRequestsNoir,
@@ -1754,6 +1756,23 @@ export function mapPublicKernelCircuitPrivateInputsToNoir(
   };
 }
 
+export function mapPublicKernelTailCombineHintsToNoir(
+  combineHints: PublicKernelTailCombineHints,
+): PublicKernelTailCombineHintsNoir {
+  return {
+    sorted_note_hashes: mapTuple(combineHints.sortedNoteHashes, mapFieldToNoir),
+    sorted_note_hashes_indexes: mapTuple(combineHints.sortedNoteHashesIndexes, mapNumberToNoir),
+    sorted_public_data_update_requests: mapTuple(
+      combineHints.sortedPublicDataUpdateRequests,
+      mapPublicDataUpdateRequestToNoir,
+    ),
+    sorted_public_data_update_requests_indexes: mapTuple(
+      combineHints.sortedPublicDataUpdateRequestsIndexes,
+      mapNumberToNoir,
+    ),
+  };
+}
+
 export function mapPublicKernelTailCircuitPrivateInputsToNoir(
   inputs: PublicKernelTailCircuitPrivateInputs,
 ): PublicKernelTailCircuitPrivateInputsNoir {
@@ -1766,11 +1785,7 @@ export function mapPublicKernelTailCircuitPrivateInputsToNoir(
     public_data_hints: mapTuple(inputs.publicDataHints, mapPublicDataHintToNoir),
     public_data_read_request_hints: mapPublicDataReadRequestHintsToNoir(inputs.publicDataReadRequestHints),
     start_state: mapPartialStateReferenceToNoir(inputs.startState),
-    sorted_public_data_update_requests: mapTuple(
-      inputs.sortedPublicDataUpdateRequests,
-      mapPublicDataUpdateRequestToNoir,
-    ),
-    sorted_public_data_update_requests_indexes: mapTuple(inputs.sortedPublicDataUpdateRequestsIndexes, mapNumberToNoir),
+    combine_hints: mapPublicKernelTailCombineHintsToNoir(inputs.combineHints),
   };
 }
 

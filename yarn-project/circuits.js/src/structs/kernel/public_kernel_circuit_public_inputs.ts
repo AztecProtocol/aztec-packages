@@ -14,13 +14,14 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '../../constants.gen.js';
-import { mergeAccumulatedData } from '../../utils/index.js';
+import { mergeAccumulatedData, sortByCounterGetSortedHints } from '../../utils/index.js';
 import { CallRequest } from '../call_request.js';
 import { RevertCode } from '../revert_code.js';
 import { ValidationRequests } from '../validation_requests.js';
 import { CombinedAccumulatedData } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 import { PublicAccumulatedData } from './public_accumulated_data.js';
+import { PublicKernelTailCombineHints } from './public_kernel_tail_circuit_private_inputs.js';
 
 /**
  * Outputs from the public kernel circuits.
@@ -94,9 +95,25 @@ export class PublicKernelCircuitPublicInputs {
     return !this.publicTeardownCallStack[0].isEmpty();
   }
 
-  recombineAccumulatedData(): CombinedAccumulatedData {
-    const newNoteHashes: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX> = mapTuple(
-      mergeAccumulatedData(this.endNonRevertibleData.newNoteHashes, this.end.newNoteHashes, MAX_NEW_NOTE_HASHES_PER_TX),
+  combineAndSortAccumulatedData(): {
+    data: CombinedAccumulatedData;
+    hints: PublicKernelTailCombineHints;
+  } {
+    const mergedNoteHashes = mergeAccumulatedData(
+      this.endNonRevertibleData.newNoteHashes,
+      this.end.newNoteHashes,
+      MAX_NEW_NOTE_HASHES_PER_TX,
+    );
+
+    const newNoteHashes = mapTuple(mergedNoteHashes, n => n.value);
+
+    const [sortedNoteHashesObjects, sortedNoteHashesIndexes] = sortByCounterGetSortedHints(
+      mergedNoteHashes,
+      MAX_NEW_NOTE_HASHES_PER_TX,
+    );
+
+    const sortedNoteHashes: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX> = mapTuple(
+      sortedNoteHashesObjects,
       n => n.value,
     );
 
@@ -139,9 +156,14 @@ export class PublicKernelCircuitPublicInputs {
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );
 
+    const [sortedPublicDataUpdateRequests, sortedPublicDataUpdateRequestsIndexes] = sortByCounterGetSortedHints(
+      publicDataUpdateRequests,
+      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    );
+
     const gasUsed = this.endNonRevertibleData.gasUsed.add(this.end.gasUsed);
 
-    return CombinedAccumulatedData.from({
+    const data = CombinedAccumulatedData.from({
       newNoteHashes,
       newNullifiers,
       newL2ToL1Msgs,
@@ -151,9 +173,21 @@ export class PublicKernelCircuitPublicInputs {
       encryptedLogPreimagesLength,
       unencryptedLogsHash: unencryptedLogHashes[0].value,
       unencryptedLogPreimagesLength,
-      publicDataUpdateRequests: publicDataUpdateRequests,
+      publicDataUpdateRequests: sortedPublicDataUpdateRequests,
       gasUsed,
     });
+
+    const hints = PublicKernelTailCombineHints.from({
+      sortedNoteHashes,
+      sortedNoteHashesIndexes,
+      sortedPublicDataUpdateRequests,
+      sortedPublicDataUpdateRequestsIndexes,
+    });
+
+    return {
+      data,
+      hints,
+    };
   }
 
   /**
