@@ -62,8 +62,10 @@ impl RuntimeSeparatorContext {
 
         // Trim all the functions that were cloned to brillig but are not called from ACIR in any part of the program.
         ssa.functions.retain(|id, _value| {
-            !runtime_separator.acir_functions_called_from_brillig.contains(id)
-                || runtime_separator.mapped_functions_called_from_acir.contains(id)
+            // Some functions in SSA might be unreachable, remove those too
+            processed_functions.contains(id)
+                && (!runtime_separator.acir_functions_called_from_brillig.contains(id)
+                    || runtime_separator.mapped_functions_called_from_acir.contains(id))
         });
     }
 
