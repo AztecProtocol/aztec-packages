@@ -137,13 +137,6 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * Return the note encrypted logs emitted during this execution and nested executions.
-   */
-  public getAllNoteEncryptedLogs() {
-    return this.noteCache.getLogs();
-  }
-
-  /**
    * Return the encrypted logs emitted during this execution.
    */
   public getEncryptedLogs() {

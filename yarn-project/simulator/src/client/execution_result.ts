@@ -101,10 +101,10 @@ export function collectNullifiedNoteHashCounters(execResult: ExecutionResult, ac
  */
 function collectNoteEncryptedLogs(
   execResult: ExecutionResult,
-  nullifiedNoteHashCounters: number[],
+  nullifiedNoteHashCounters: Map<number, number>,
 ): CountedLog<EncryptedL2NoteLog>[] {
   return [
-    execResult.noteEncryptedLogs.filter(noteLog => !nullifiedNoteHashCounters.includes(noteLog.noteHashCounter)),
+    execResult.noteEncryptedLogs.filter(noteLog => !nullifiedNoteHashCounters.has(noteLog.noteHashCounter)),
     ...execResult.nestedExecutions.flatMap(res => collectNoteEncryptedLogs(res, nullifiedNoteHashCounters)),
   ].flat();
 }
@@ -115,7 +115,7 @@ function collectNoteEncryptedLogs(
  * @returns All encrypted logs.
  */
 export function collectSortedNoteEncryptedLogs(execResult: ExecutionResult): EncryptedNoteFunctionL2Logs {
-  const nullifiedNoteHashCounters = Array.from(collectNullifiedNoteHashCounters(execResult).keys()).flat();
+  const nullifiedNoteHashCounters = collectNullifiedNoteHashCounters(execResult);
   const allLogs = collectNoteEncryptedLogs(execResult, nullifiedNoteHashCounters);
   const sortedLogs = sortByCounter(allLogs);
   return new EncryptedNoteFunctionL2Logs(sortedLogs.map(l => l.log));
