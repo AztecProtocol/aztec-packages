@@ -32,7 +32,7 @@ variable "BOOTNODE_2_PEER_ID" {
   type = string
 }
 
-variable "NODE_TCP_PORT" {
+variable "NODE_P2P_PORT" {
   type    = number
   default = 40400
 }
