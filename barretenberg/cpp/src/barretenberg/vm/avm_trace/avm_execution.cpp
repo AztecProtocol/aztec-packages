@@ -64,7 +64,16 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
     return verifier.verify_proof(proof, public_inputs_vec);
 }
 
-// Conversion function from public inputs array into the VmPublicInputs object
+/**
+ * @brief Convert Public Inputs
+ *
+ * **Transitional**
+ * Converts public inputs from the public inputs vec (PublicCircuitPublicInputs) into it's respective public input
+ * columns Which are represented by the `VmPublicInputs` object.
+ *
+ * @param public_inputs_vec
+ * @return VmPublicInputs
+ */
 VmPublicInputs convert_public_inputs(std::vector<FF> const& public_inputs_vec)
 {
     VmPublicInputs public_inputs = {};
@@ -76,14 +85,9 @@ VmPublicInputs convert_public_inputs(std::vector<FF> const& public_inputs_vec)
 
     // Convert the public inputs into the VmPublicInputs object, the public inputs vec must be the correct length - else
     // we throw an exception
-    // TODO: test for this case
     if (public_inputs_vec.size() != PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH) {
-        // TODO: more information
         throw_or_abort("Public inputs vector is not of PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH");
     }
-
-    // TODO: change how public inputs are processed to use one input column then just copy constrain it into the correct
-    // place
 
     std::array<FF, KERNEL_INPUTS_LENGTH>& kernel_inputs = std::get<KERNEL_INPUTS>(public_inputs);
 
@@ -151,11 +155,9 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                       std::vector<FF> const& calldata,
                                       std::vector<FF> const& public_inputs_vec)
 
-// TODO: add the entire kernel inputs to this - all of the public inputs for the prover - will the simulator know these?
 {
-    // TODO(ISSUE_NUMBER): construction of the public input columns should be done in the kernel - this is stubbed and
-    // underconstrained
-    // TODO: build the correct public input columns here
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6718): construction of the public input columns
+    // should be done in the kernel - this is stubbed and underconstrained
     VmPublicInputs public_inputs = convert_public_inputs(public_inputs_vec);
     AvmTraceBuilder trace_builder(public_inputs);
 
@@ -287,7 +289,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                         calldata);
             break;
 
-        // TODO: support indirect for below
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6284): support indirect for below
         case OpCode::SENDER:
             trace_builder.op_sender(std::get<uint32_t>(inst.operands.at(1)));
             break;
