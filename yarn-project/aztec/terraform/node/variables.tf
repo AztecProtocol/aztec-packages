@@ -19,9 +19,14 @@ variable "CHAIN_ID" {
   default = 31337
 }
 
-variable "NODE_P2P_PORT" {
+variable "NODE_P2P_TCP_PORT" {
   type    = number
   default = 40400
+}
+
+variable "NODE_P2P_UDP_PORT" {
+  type    = number
+  default = 40300
 }
 
 variable "NODE_1_PRIVATE_KEY" {
