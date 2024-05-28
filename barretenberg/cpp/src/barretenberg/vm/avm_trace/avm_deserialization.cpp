@@ -140,6 +140,7 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
 
     while (pos < length) {
         const uint8_t opcode_byte = bytecode.at(pos);
+        // info("opcode_byte: ", opcode_byte);
 
         if (!Bytecode::is_valid(opcode_byte)) {
             throw_or_abort("Invalid opcode byte: " + std::to_string(opcode_byte) +
