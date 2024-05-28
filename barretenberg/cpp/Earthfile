@@ -110,7 +110,6 @@ preset-fuzzing:
 preset-clang-assert:
     FROM +source
     RUN cmake --preset clang16-assert -Bbuild && cmake --build build --target bb && rm -rf build/{deps,lib,src}
-    RUN false
     SAVE ARTIFACT build/bin
 
 # benchmarking images
