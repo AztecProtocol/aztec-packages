@@ -15,7 +15,7 @@ export async function deploy(
   rpcUrl: string,
   publicKeys: PublicKeys | undefined,
   rawArgs: any[],
-  salt: Fr,
+  salt: Fr | undefined,
   privateKey: Fr,
   initializer: string | undefined,
   skipPublicDeployment: boolean,
@@ -26,6 +26,7 @@ export async function deploy(
   log: LogFn,
   logJson: (output: any) => void,
 ) {
+  salt ??= Fr.random();
   const contractArtifact = await getContractArtifact(artifactPath, log);
   const constructorArtifact = getInitializer(contractArtifact, initializer);
 
