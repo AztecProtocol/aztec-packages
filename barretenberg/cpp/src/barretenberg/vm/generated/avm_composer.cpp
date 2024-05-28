@@ -6,6 +6,7 @@
 #include "barretenberg/vm/generated/avm_circuit_builder.hpp"
 #include "barretenberg/vm/generated/avm_verifier.hpp"
 
+
 namespace bb {
 
 using Flavor = AvmFlavor;
@@ -36,7 +37,8 @@ AvmProver AvmComposer::create_prover(CircuitConstructor& circuit_constructor)
     return output_state;
 }
 
-AvmVerifier AvmComposer::create_verifier(CircuitConstructor& circuit_constructor)
+AvmVerifier AvmComposer::create_verifier(
+    CircuitConstructor& circuit_constructor)
 {
     auto verification_key = compute_verification_key(circuit_constructor);
 
@@ -49,7 +51,8 @@ AvmVerifier AvmComposer::create_verifier(CircuitConstructor& circuit_constructor
     return output_state;
 }
 
-std::shared_ptr<Flavor::ProvingKey> AvmComposer::compute_proving_key(CircuitConstructor& circuit_constructor)
+std::shared_ptr<Flavor::ProvingKey> AvmComposer::compute_proving_key(
+    CircuitConstructor& circuit_constructor)
 {
     if (proving_key) {
         return proving_key;
@@ -66,7 +69,8 @@ std::shared_ptr<Flavor::ProvingKey> AvmComposer::compute_proving_key(CircuitCons
     return proving_key;
 }
 
-std::shared_ptr<Flavor::VerificationKey> AvmComposer::compute_verification_key(CircuitConstructor& circuit_constructor)
+std::shared_ptr<Flavor::VerificationKey> AvmComposer::compute_verification_key(
+    CircuitConstructor& circuit_constructor)
 {
     if (verification_key) {
         return verification_key;
@@ -82,4 +86,4 @@ std::shared_ptr<Flavor::VerificationKey> AvmComposer::compute_verification_key(C
     return verification_key;
 }
 
-} // namespace bb
+}    

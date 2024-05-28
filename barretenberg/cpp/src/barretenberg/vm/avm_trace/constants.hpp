@@ -35,6 +35,8 @@ inline const uint32_t DA_GAS_LEFT_PCPI_OFFSET = PUBLIC_CIRCUIT_PUBLIC_INPUTS_LEN
 inline const uint32_t L2_GAS_LEFT_PCPI_OFFSET = PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH - 2 - GAS_LENGTH;
 
 // Kernel output pil offset (Where update objects are inlined)
+// Kernel outputs public inputs offsets
+// Kernel outputs offsets
 
 // Kernel outputs public inputs offsets
 inline const uint32_t NULLIFIER_EXISTS_OFFSET = CALL_CONTEXT_LENGTH + 2;

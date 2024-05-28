@@ -14,6 +14,21 @@ using FF = Flavor::FF;
 
 } // namespace bb::avm_trace
 
+namespace bb::avm_trace {} // namespace bb::avm_trace
+
+// TODO: where is the best place for this to live?
+namespace std {
+template <> struct hash<bb::avm_trace::FF> {
+    // We define a hash function for the AVM FF type for an unordered_map integration
+    size_t operator()(const bb::avm_trace::FF& ff) const
+    {
+        return (
+            std::hash<uint64_t>()(ff.data[0]) ^
+            std::hash<uint64_t>()(ff.data[1] ^ std::hash<uint64_t>()(ff.data[2]) ^ std::hash<uint64_t>()(ff.data[3])));
+    }
+};
+} // namespace std
+
 namespace bb::avm_trace {
 
 // There are 4 public input columns, 1 for context inputs, and 3 for emitting side effects
@@ -41,6 +56,9 @@ static const uint8_t INTERNAL_CALL_SPACE_ID = 255;
 static const uint32_t MAX_SIZE_INTERNAL_STACK = 1 << 16;
 
 // Side effect counter -> value
-using ExecutionHints = std::unordered_map<uint32_t, FF>;
+struct ExecutionHints {
+    std::unordered_map<uint32_t, FF> side_effect_hints;
+    std::vector<std::vector<FF>> returndata_hints;
+};
 
 } // namespace bb::avm_trace
