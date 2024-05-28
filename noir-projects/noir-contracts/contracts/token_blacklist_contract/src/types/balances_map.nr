@@ -60,13 +60,13 @@ impl<T> BalancesMap<T, ()> {
 impl<T> BalancesMap<T, &mut PrivateContext> {
     pub fn add<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
         self: Self,
-        sender: AztecAddress,
+        outgoing_viewer: AztecAddress,
         owner: AztecAddress,
         addend: U128
     ) where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
         let context = self.map.context;
         let header = context.get_header();
-        let sender_ovpk_m = header.get_ovpk_m(context, sender);
+        let outgoing_viewer_ovpk_m = header.get_ovpk_m(context, outgoing_viewer);
         let owner_ivpk_m = header.get_ivpk_m(context, owner);
 
         // We fetch the nullifier public key hash from the registry / from our PXE
@@ -74,7 +74,7 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         let mut addend_note = T::new(addend, owner_npk_m_hash);
 
         // docs:start:insert
-        self.map.at(owner).insert(&mut addend_note, true, sender_ovpk_m, owner_ivpk_m);
+        self.map.at(owner).insert(&mut addend_note, true, outgoing_viewer_ovpk_m, owner_ivpk_m);
         // docs:end:insert
     }
 
