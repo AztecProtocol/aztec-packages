@@ -1,10 +1,10 @@
-import { type EncryptedL2NoteLog } from '@aztec/circuit-types';
+import { EncryptedL2NoteLog } from '@aztec/circuit-types';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type NoteData } from '../acvm/index.js';
-import { type CountedLog } from './execution_result.js';
+import { CountedNoteLog } from './execution_result.js';
 
 export interface PendingNote {
   note: NoteData;
@@ -34,7 +34,7 @@ export class ExecutionNoteCache {
    * This mapping maps from inner note hash to log(s) emitted for that note hash.
    * Note that their value (bigint representation) is used because Frs cannot be looked up in Sets.
    */
-  private logs: Map<bigint, CountedLog<EncryptedL2NoteLog>[]> = new Map();
+  private logs: Map<bigint, CountedNoteLog[]> = new Map();
 
   /**
    * Add a new note to cache.
@@ -50,10 +50,18 @@ export class ExecutionNoteCache {
    * Add a new note to cache.
    * @param note - New note created during execution.
    */
-  public addNewLog(log: CountedLog<EncryptedL2NoteLog>, innerNoteHash: Fr) {
+  public addNewLog(encryptedNote: Buffer, counter: number, innerNoteHash: Fr) {
     const logs = this.logs.get(innerNoteHash.toBigInt()) ?? [];
+    const note = Array.from(this.newNotes.values())
+      .flat()
+      .find(n => n.note.innerNoteHash.equals(innerNoteHash));
+    if (!note) {
+      throw new Error('Attempt to add a note log for note that does not exist.');
+    }
+    const log = new CountedNoteLog(new EncryptedL2NoteLog(encryptedNote), counter, note.counter);
     logs.push(log);
     this.logs.set(innerNoteHash.toBigInt(), logs);
+    return log;
   }
 
   /**
@@ -121,7 +129,7 @@ export class ExecutionNoteCache {
   /**
    * Return all note logs emitted from a contract.
    */
-  public getLogs(): CountedLog<EncryptedL2NoteLog>[] {
+  public getLogs(): CountedNoteLog[] {
     return Array.from(this.logs.values()).flat();
   }
 }
