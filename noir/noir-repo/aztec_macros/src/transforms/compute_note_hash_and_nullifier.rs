@@ -135,14 +135,14 @@ pub fn inject_compute_note_hash_and_nullifier(
         // pass an empty span. This function should not produce errors anyway so this should not matter.
         let location = Location::new(Span::empty(0), file_id);
 
-        // inject_fn(crate_id, context, func, location, module_id, file_id).map_err(|err| {
-        //     (
-        //         AztecMacroError::CouldNotImplementComputeNoteHashAndNullifier {
-        //             secondary_message: err.secondary_message,
-        //         },
-        //         file_id,
-        //     )
-        // })?;
+        inject_fn(crate_id, context, func, location, module_id, file_id).map_err(|err| {
+            (
+                AztecMacroError::CouldNotImplementComputeNoteHashAndNullifier {
+                    secondary_message: err.secondary_message,
+                },
+                file_id,
+            )
+        })?;
     }
     Ok(())
 }
