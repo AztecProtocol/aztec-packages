@@ -34,7 +34,7 @@ pub(super) fn token_kind(token_kind: TokenKind) -> impl NoirParser<Token> {
 
 pub(super) fn ident() -> impl NoirParser<Ident> {
     keyword(Keyword::UnconstrainedType)
-        .map(|_| Token::Ident("UnconstrainedWrapper".to_string()))
+        .map(|_| Token::Ident(Keyword::UnconstrainedType.to_string()))
         .or(token_kind(TokenKind::Ident))
         .map_with_span(Ident::from_token)
 }

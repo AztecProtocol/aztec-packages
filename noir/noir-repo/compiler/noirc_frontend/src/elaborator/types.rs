@@ -33,6 +33,7 @@ use crate::{
         DefinitionKind, DependencyId, ExprId, GlobalId, TraitId, TraitImplKind, TraitMethodId,
         TypeAliasId,
     },
+    token::{Keyword, Token},
     Generics, Shared, StructType, Type, TypeAlias, TypeBinding, TypeVariable, TypeVariableKind,
 };
 
@@ -122,7 +123,10 @@ impl<'context> Elaborator<'context> {
             }
             Parenthesized(typ) => self.resolve_type_inner(*typ, new_variables),
             Unconstrained(arg) => self.resolve_named_type(
-                Path::from_ident(Ident::new("UnconstrainedWrapper".to_string(), Span::default())),
+                Path::from_ident(Ident::from_token(
+                    Token::Ident(Keyword::UnconstrainedType.to_string()),
+                    arg.span.unwrap_or_default(),
+                )),
                 vec![*arg],
                 new_variables,
             ),

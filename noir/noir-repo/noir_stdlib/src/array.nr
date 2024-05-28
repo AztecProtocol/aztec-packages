@@ -1,5 +1,5 @@
 use crate::cmp::Ord;
-use crate::unsafe::UnconstrainedWrapper;
+use crate::runtime::Unconstrained;
 
 // TODO: Once we fully move to the new SSA pass this module can be removed and replaced
 // by the methods in the `slice` module

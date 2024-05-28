@@ -9,6 +9,7 @@ use crate::{
     ast::IntegerBitSize,
     hir::type_check::TypeCheckError,
     node_interner::{ExprId, NodeInterner, TraitId, TypeAliasId},
+    token::Keyword,
 };
 use iter_extended::vecmap;
 use noirc_errors::{Location, Span};
@@ -1367,7 +1368,7 @@ impl Type {
             // Still have to ensure the element types match.
             // Don't need to issue an error here if not, it will be done in unify_with_coercions
             let mut bindings = TypeBindings::new();
-            if typ.borrow().name.0.contents == "UnconstrainedWrapper"
+            if typ.borrow().name.0.contents == Keyword::UnconstrainedType.to_string()
                 && generics[0].try_unify(&this, &mut bindings).is_ok()
             {
                 let expr_id =
@@ -1815,7 +1816,7 @@ fn convert_array_expression_to_slice(
     interner.push_expr_type(func, func_type);
 }
 
-/// Wraps a given `expression` in `UnconstrainedWrapper::new()`
+/// Wraps a given `expression` in `Unconstrained::new()`
 fn wrap_unconstrained_return(
     expression: ExprId,
     original_type: Type,
@@ -1825,7 +1826,7 @@ fn wrap_unconstrained_return(
 ) -> ExprId {
     let new_method = interner
         .lookup_method(&unconstrained_wrapper_type, unconstrained_wrapper_id, "new", false)
-        .expect("Expected 'UnconstrainedWrapper::new' method to be present in Noir's stdlib");
+        .expect("Expected 'Unconstrained::new' method to be present in Noir's stdlib");
 
     let new_method_id = interner.function_definition_id(new_method);
     let location = interner.expr_location(&expression);

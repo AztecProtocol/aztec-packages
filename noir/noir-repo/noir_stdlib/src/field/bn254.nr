@@ -1,5 +1,5 @@
 use crate::runtime::is_unconstrained;
-use crate::unsafe::UnconstrainedWrapper;
+use crate::runtime::Unconstrained;
 
 // The low and high decomposition of the field modulus
 global PLO: Field = 53438638232309528389504892708671455233;

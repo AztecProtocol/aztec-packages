@@ -65,8 +65,8 @@ pub(crate) enum Intrinsic {
     FromField,
     AsField,
     AsWitness,
-    // Boolean determines whether to return a boolean or halt compilation
-    IsUnconstrained(bool),
+    IsUnconstrained,
+    AssertUnconstrained,
 }
 
 impl std::fmt::Display for Intrinsic {
@@ -91,9 +91,8 @@ impl std::fmt::Display for Intrinsic {
             Intrinsic::FromField => write!(f, "from_field"),
             Intrinsic::AsField => write!(f, "as_field"),
             Intrinsic::AsWitness => write!(f, "as_witness"),
-            Intrinsic::IsUnconstrained(is_assertion) => {
-                write!(f, "{}_unconstrained", if *is_assertion { "assert" } else { "is" })
-            }
+            Intrinsic::IsUnconstrained => write!(f, "is_unconstrained"),
+            Intrinsic::AssertUnconstrained => write!(f, "assert_unconstrained"),
         }
     }
 }
@@ -104,9 +103,10 @@ impl Intrinsic {
     /// If there are no side effects then the `Intrinsic` can be removed if the result is unused.
     pub(crate) fn has_side_effects(&self) -> bool {
         match self {
-            Intrinsic::AssertConstant | Intrinsic::ApplyRangeConstraint | Intrinsic::AsWitness => {
-                true
-            }
+            Intrinsic::AssertConstant
+            | Intrinsic::ApplyRangeConstraint
+            | Intrinsic::AsWitness
+            | Intrinsic::AssertUnconstrained => true,
 
             // These apply a constraint that the input must fit into a specified number of limbs.
             Intrinsic::ToBits(_) | Intrinsic::ToRadix(_) => true,
@@ -121,9 +121,8 @@ impl Intrinsic {
             | Intrinsic::SliceRemove
             | Intrinsic::StrAsBytes
             | Intrinsic::FromField
-            | Intrinsic::AsField => false,
-
-            Intrinsic::IsUnconstrained(is_assertion) => *is_assertion,
+            | Intrinsic::AsField
+            | Intrinsic::IsUnconstrained => false,
 
             // Some black box functions have side-effects
             Intrinsic::BlackBox(func) => matches!(func, BlackBoxFunc::RecursiveAggregation),
@@ -152,8 +151,8 @@ impl Intrinsic {
             "from_field" => Some(Intrinsic::FromField),
             "as_field" => Some(Intrinsic::AsField),
             "as_witness" => Some(Intrinsic::AsWitness),
-            "is_unconstrained" => Some(Intrinsic::IsUnconstrained(false)),
-            "assert_unconstrained" => Some(Intrinsic::IsUnconstrained(true)),
+            "is_unconstrained" => Some(Intrinsic::IsUnconstrained),
+            "assert_unconstrained" => Some(Intrinsic::AssertUnconstrained),
             other => BlackBoxFunc::lookup(other).map(Intrinsic::BlackBox),
         }
     }

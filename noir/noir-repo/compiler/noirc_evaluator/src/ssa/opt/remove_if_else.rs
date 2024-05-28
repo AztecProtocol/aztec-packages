@@ -233,6 +233,7 @@ fn slice_capacity_change(
         | Intrinsic::FromField
         | Intrinsic::AsField
         | Intrinsic::AsWitness
-        | Intrinsic::IsUnconstrained(_) => SizeChange::None,
+        | Intrinsic::IsUnconstrained
+        | Intrinsic::AssertUnconstrained => SizeChange::None,
     }
 }

@@ -1,4 +1,4 @@
-use crate::unsafe::UnconstrainedWrapper;
+use crate::runtime::Unconstrained;
 
 #[oracle(create_mock)]
 unconstrained fn create_mock_oracle<N, P>(name: str<N>) -> Unconstrained<P> {}

@@ -1,7 +1,7 @@
 use crate::ops::{Add, Sub, Mul, Div, Rem, Not, BitOr, BitAnd, BitXor, Shl, Shr};
 use crate::cmp::{Eq, Ord, Ordering};
 use crate::println;
-use crate::unsafe::UnconstrainedWrapper;
+use crate::runtime::Unconstrained;
 
 global pow64 : Field = 18446744073709551616; //2^64;
 global pow63 : Field = 9223372036854775808; // 2^63;
