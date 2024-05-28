@@ -26,14 +26,14 @@ fn validate_array_appended<T, N, M>(
     num_source_items: u64,
     num_prepended_items: u64
 ) where T: Empty + Eq {
-    let mut should_check = false;
-    let mut is_non_empty_item = true;
     let items_propagated = num_prepended_items + num_source_items;
     assert(items_propagated <= N, "number of total items exceeds limit");
+    let mut should_check = false;
+    let mut is_non_empty_item = true;
     for i in 0..dest.len() { // Loop through dest instead of source because we also need to check that dest is appended with empty items.
         should_check |= i == num_prepended_items; // Prepended items have been checked in validate_array_prepended() and can be skipped here.
+        is_non_empty_item &= i != items_propagated;
         if should_check {
-            is_non_empty_item &= i != items_propagated;
             if is_non_empty_item {
                 assert_eq(dest[i], source[i - num_prepended_items], "source item does not append to dest");
             } else {
@@ -51,14 +51,14 @@ fn validate_array_appended_scoped<ST, T, N, M>(
     num_prepended_items: u64,
     contract_address: AztecAddress
 ) where ST: Scoped<T> + Empty + Eq, T: Eq {
-    let mut should_check = false;
-    let mut is_non_empty_item = true;
     let items_propagated = num_prepended_items + num_source_items;
     assert(items_propagated <= N, "number of total items exceeds limit");
+    let mut should_check = false;
+    let mut is_non_empty_item = true;
     for i in 0..dest.len() {
         should_check |= i == num_prepended_items;
+        is_non_empty_item &= i != items_propagated;
         if should_check {
-            is_non_empty_item &= i != items_propagated;
             if is_non_empty_item {
                 assert_eq(
                     dest[i].inner(), source[i - num_prepended_items], "source item does not append to dest"
@@ -81,14 +81,14 @@ fn validate_array_appended_reversed_scoped<ST, T, N, M>(
     num_prepended_items: u64,
     contract_address: AztecAddress
 ) where ST: Scoped<T> + Empty + Eq, T: Eq {
-    let mut should_check = false;
-    let mut is_non_empty_item = true;
     let items_propagated = num_prepended_items + num_source_items;
     assert(items_propagated <= N, "number of total items exceeds limit");
+    let mut should_check = false;
+    let mut is_non_empty_item = true;
     for i in 0..dest.len() {
         should_check |= i == num_prepended_items;
+        is_non_empty_item &= i != items_propagated;
         if should_check {
-            is_non_empty_item &= i != items_propagated;
             if is_non_empty_item {
                 assert_eq(
                     dest[i].inner(), source[items_propagated - i - 1], "source item does not reversed append to dest"

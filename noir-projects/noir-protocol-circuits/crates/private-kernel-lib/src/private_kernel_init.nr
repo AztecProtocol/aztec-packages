@@ -38,35 +38,30 @@ impl PrivateKernelInitCircuitPrivateInputs {
         ).finish()
     }
 
-    fn validate_inputs(self) -> PrivateCallDataValidator {
+    pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
+        // Validate inputs.
         let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
         private_call_data_validator.validate();
         private_call_data_validator.validate_as_first_call(self.hints.first_revertible_private_call_request_index);
         private_call_data_validator.validate_against_tx_request(self.tx_request);
-        private_call_data_validator
-    }
+        if !dep::std::runtime::is_unconstrained() {
+            // verify/aggregate the private call proof
+            self.private_call.verify();
+        }
 
-    pub fn simulate(self) -> PrivateKernelCircuitPublicInputs {
-        let private_call_data_validator = self.validate_inputs();
-        self.prepare_output(private_call_data_validator)
-    }
-
-    pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
-        // verify/aggregate the private call proof
-        self.private_call.verify();
-        let private_call_data_validator = self.validate_inputs();
-
+        // Validate output.
         let output = self.prepare_output(private_call_data_validator);
-        let output_validator = PrivateKernelCircuitOutputValidator::new(output);
-        output_validator.validate_as_first_call(
-            self.tx_request,
-            self.private_call.call_stack_item.public_inputs,
-            private_call_data_validator.array_lengths,
-            self.private_call.call_stack_item.contract_address,
-            self.hints.note_hash_nullifier_counters,
-            self.private_call.public_call_stack,
-            self.private_call.public_teardown_call_request
-        );
+        if !dep::std::runtime::is_unconstrained() {
+            PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
+                self.tx_request,
+                self.private_call.call_stack_item.public_inputs,
+                private_call_data_validator.array_lengths,
+                self.private_call.call_stack_item.contract_address,
+                self.hints.note_hash_nullifier_counters,
+                self.private_call.public_call_stack,
+                self.private_call.public_teardown_call_request
+            );
+        }
         output
     }
 }

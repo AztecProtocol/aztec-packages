@@ -10,7 +10,7 @@ use dep::types::{
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsArrayLengths},
     private_kernel_data::PrivateKernelData, private_kernel::private_call_data::PrivateCallData
 },
-    constants::MAX_NEW_NOTE_HASHES_PER_CALL, utils::arrays::array_length
+    constants::MAX_NEW_NOTE_HASHES_PER_CALL
 };
 
 struct PrivateKernelInnerHints {
@@ -35,43 +35,36 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         ).finish()
     }
 
-    fn validate_inputs(self, private_call_stack_size: u64) -> PrivateCallDataValidator {
+    pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
+        // Validate inputs.
+        let previous_kernel_array_lengths = PrivateKernelCircuitPublicInputsArrayLengths::new(self.previous_kernel.public_inputs);
         let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
         private_call_data_validator.validate();
+        let private_call_stack_size = previous_kernel_array_lengths.private_call_stack;
         let call_request = self.previous_kernel.public_inputs.end.private_call_stack[private_call_stack_size - 1];
         private_call_data_validator.validate_against_call_request(call_request);
         private_call_data_validator.validate_against_previous_kernel(self.previous_kernel.public_inputs);
-        private_call_data_validator
-    }
+        if !dep::std::runtime::is_unconstrained() {
+            // verify/aggregate the private call proof
+            self.private_call.verify();
+            // verify/aggregate the previous kernel
+            self.previous_kernel.verify();
+        }
 
-    pub fn simulate(self) -> PrivateKernelCircuitPublicInputs {
-        let private_call_stack_size = array_length(self.previous_kernel.public_inputs.end.private_call_stack);
-        let private_call_data_validator = self.validate_inputs(private_call_stack_size);
-        self.prepare_output(private_call_data_validator)
-    }
-
-    pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
-        // verify/aggregate the private call proof
-        self.private_call.verify();
-
-        // verify/aggregate the previous kernel
-        self.previous_kernel.verify();
-
-        let previous_kernel_array_lengths = PrivateKernelCircuitPublicInputsArrayLengths::new(self.previous_kernel.public_inputs);
-        let private_call_data_validator = self.validate_inputs(previous_kernel_array_lengths.private_call_stack);
-
+        // Validate output.
         let output = self.prepare_output(private_call_data_validator);
-        let output_validator = PrivateKernelCircuitOutputValidator::new(output);
-        output_validator.validate_as_inner_call(
-            self.previous_kernel.public_inputs,
-            previous_kernel_array_lengths,
-            self.private_call.call_stack_item.public_inputs,
-            private_call_data_validator.array_lengths,
-            self.private_call.call_stack_item.contract_address,
-            self.hints.note_hash_nullifier_counters,
-            self.private_call.public_call_stack,
-            self.private_call.public_teardown_call_request
-        );
+        if !dep::std::runtime::is_unconstrained() {
+            PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
+                self.previous_kernel.public_inputs,
+                previous_kernel_array_lengths,
+                self.private_call.call_stack_item.public_inputs,
+                private_call_data_validator.array_lengths,
+                self.private_call.call_stack_item.contract_address,
+                self.hints.note_hash_nullifier_counters,
+                self.private_call.public_call_stack,
+                self.private_call.public_teardown_call_request
+            );
+        }
         output
     }
 }
