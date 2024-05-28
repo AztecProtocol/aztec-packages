@@ -1,12 +1,15 @@
 use dep::std::merkle::compute_merkle_root;
-use dep::protocol_types::{constants::HEADER_LENGTH, header::Header};
+use dep::protocol_types::{constants::{ARCHIVE_HEIGHT, HEADER_LENGTH}, header::Header};
 
-use crate::{context::PrivateContext, oracle::get_membership_witness::get_archive_membership_witness};
+use crate::{
+    context::PrivateContext,
+    oracle::get_membership_witness::{MembershipWitness, get_archive_membership_witness}
+};
 
 #[oracle(getHeader)]
 fn get_header_at_oracle(_block_number: u32) -> [Field; HEADER_LENGTH] {}
 
-unconstrained pub fn get_header_at_internal(block_number: u32) -> Header {
+unconstrained pub fn get_header_at_internal(block_number: u32) -> Unconstrained<Header> {
     let header = get_header_at_oracle(block_number);
     Header::deserialize(header)
 }
@@ -31,18 +34,23 @@ pub fn get_header_at(block_number: u32, context: PrivateContext) -> Header {
         );
 
         // 3) Get the header of a given block from oracle
-        let header = get_header_at_internal(block_number);
+        let header = get_header_at_internal(block_number).make_constrained(
+            | header: Header | {
+                // 4) Compute the block hash from the block header
+                let block_hash = header.hash();
 
-        // 4) Compute the block hash from the block header
-        let block_hash = header.hash();
+                // 5) Get the membership witness of the block in the archive
+                get_archive_membership_witness(last_archive_block_number, block_hash).make_constrained(| witness: MembershipWitness<ARCHIVE_HEIGHT, ARCHIVE_HEIGHT + 1> | {
+                    // 6) Check that the block is in the archive (i.e. the witness is valid)
+                    assert(
+                        context.historical_header.last_archive.root
+                        == compute_merkle_root(block_hash, witness.index, witness.path), "Proving membership of a block in archive failed"
+                    );
+                });
 
-        // 5) Get the membership witness of the block in the archive
-        let witness = get_archive_membership_witness(last_archive_block_number, block_hash);
-
-        // 6) Check that the block is in the archive (i.e. the witness is valid)
-        assert(
-            context.historical_header.last_archive.root
-            == compute_merkle_root(block_hash, witness.index, witness.path), "Proving membership of a block in archive failed"
+             
+                header
+            }
         );
 
         // 7) Return the block header

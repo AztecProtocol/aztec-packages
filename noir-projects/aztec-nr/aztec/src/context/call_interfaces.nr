@@ -1,5 +1,5 @@
 use dep::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::Deserialize};
-
+use crate::hash::hash_args;
 use crate::context::private_context::PrivateContext;
 use crate::context::public_context::PublicContext;
 use crate::context::gas::GasOpts;
@@ -118,7 +118,12 @@ impl<T> PublicCallInterface<T> {
 
     pub fn enqueue(self, context: &mut PrivateContext) {
         // This packing is only here because PrivateContext's call_public* functions do not accept a slice for the args.
-        let args_hash = arguments::pack_arguments(self.args);
+        let args_hash = hash_args(self.args);
+        arguments::pack_arguments(self.args).make_constrained(
+            | packed_hash | {
+                assert(args_hash == packed_hash);
+            }
+        );
         context.call_public_function_with_packed_args(
             self.target_contract,
             self.selector,
@@ -130,7 +135,12 @@ impl<T> PublicCallInterface<T> {
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         // This packing is only here because PrivateContext's call_public* functions do not accept a slice for the args.
-        let args_hash = arguments::pack_arguments(self.args);
+        let args_hash = hash_args(self.args);
+        arguments::pack_arguments(self.args).make_constrained(
+            | packed_hash | {
+                assert(args_hash == packed_hash);
+            }
+        );
         context.call_public_function_with_packed_args(
             self.target_contract,
             self.selector,
@@ -142,7 +152,12 @@ impl<T> PublicCallInterface<T> {
 
     pub fn delegate_enqueue(self, context: &mut PrivateContext) {
         // This packing is only here because PrivateContext's call_public* functions do not accept a slice for the args.
-        let args_hash = arguments::pack_arguments(self.args);
+        let args_hash = hash_args(self.args);
+        arguments::pack_arguments(self.args).make_constrained(
+            | packed_hash | {
+                assert(args_hash == packed_hash);
+            }
+        );
         context.call_public_function_with_packed_args(
             self.target_contract,
             self.selector,
@@ -183,7 +198,12 @@ impl PublicVoidCallInterface {
 
     pub fn enqueue(self, context: &mut PrivateContext) {
         // This packing is only here because PrivateContext's call_public* functions do not accept a slice for the args.
-        let args_hash = arguments::pack_arguments(self.args);
+        let args_hash = hash_args(self.args);
+        arguments::pack_arguments(self.args).make_constrained(
+            | packed_hash | {
+                assert(args_hash == packed_hash);
+            }
+        );
         context.call_public_function_with_packed_args(
             self.target_contract,
             self.selector,
@@ -195,7 +215,12 @@ impl PublicVoidCallInterface {
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         // This packing is only here because PrivateContext's call_public* functions do not accept a slice for the args.
-        let args_hash = arguments::pack_arguments(self.args);
+        let args_hash = hash_args(self.args);
+        arguments::pack_arguments(self.args).make_constrained(
+            | packed_hash | {
+                assert(args_hash == packed_hash);
+            }
+        );
         context.call_public_function_with_packed_args(
             self.target_contract,
             self.selector,
@@ -207,7 +232,12 @@ impl PublicVoidCallInterface {
 
     pub fn delegate_enqueue(self, context: &mut PrivateContext) {
         // This packing is only here because PrivateContext's call_public* functions do not accept a slice for the args.
-        let args_hash = arguments::pack_arguments(self.args);
+        let args_hash = hash_args(self.args);
+        arguments::pack_arguments(self.args).make_constrained(
+            | packed_hash | {
+                assert(args_hash == packed_hash);
+            }
+        );
         context.call_public_function_with_packed_args(
             self.target_contract,
             self.selector,
@@ -238,7 +268,12 @@ impl<T> PublicStaticCallInterface<T> {
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         // This packing is only here because PrivateContext's call_public* functions do not accept a slice for the args.
-        let args_hash = arguments::pack_arguments(self.args);
+        let args_hash = hash_args(self.args);
+        arguments::pack_arguments(self.args).make_constrained(
+            | packed_hash | {
+                assert(args_hash == packed_hash);
+            }
+        );
         context.call_public_function_with_packed_args(
             self.target_contract,
             self.selector,
@@ -269,7 +304,7 @@ impl PublicStaticVoidCallInterface {
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         // This packing is only here because PrivateContext's call_public* functions do not accept a slice for the args.
-        let args_hash = arguments::pack_arguments(self.args);
+        let args_hash = arguments::pack_arguments(self.args).make_constrained(| x | x);
         context.call_public_function_with_packed_args(
             self.target_contract,
             self.selector,

@@ -134,9 +134,9 @@ contract SchnorrAccount {
         block_number: u32,
         check_private: bool,
         message_hash: Field
-    ) -> pub [bool; 2] {
+    ) -> pub Unconstrained<[bool; 2]> {
         let valid_in_private = if check_private {
-            let public_key = storage.signing_public_key.view_note();
+            let public_key = storage.signing_public_key.view_note().unwrap();
             let witness: [Field; 64] = get_auth_witness(message_hash);
             let mut signature: [u8; 64] = [0; 64];
             for i in 0..64 {

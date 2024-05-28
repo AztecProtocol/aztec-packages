@@ -228,7 +228,7 @@ contract Uniswap {
     // /// Unconstrained ///
 
     // this method exists solely for e2e tests to test that nonce gets incremented each time.
-    unconstrained fn nonce_for_burn_approval() -> pub Field {
+    unconstrained fn nonce_for_burn_approval() -> pub Unconstrained<Field> {
         storage.nonce_for_burn_approval.read()
     }
     // docs:end:assert_token_is_same

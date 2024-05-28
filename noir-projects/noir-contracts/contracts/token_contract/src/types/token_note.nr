@@ -69,7 +69,7 @@ impl OwnedNote for TokenNote {
         Self {
             amount,
             npk_m_hash: owner_npk_m_hash,
-            randomness: unsafe_rand(),
+            randomness: unsafe_rand().make_constrained(| x | x),
             header: NoteHeader::empty(),
         }
     }

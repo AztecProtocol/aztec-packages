@@ -119,7 +119,7 @@ contract AppSubscription {
         storage.subscriptions.at(subscriber_address).initialize_or_replace(&mut subscription_note, true, subscriber_ivpk_m);
     }
 
-    unconstrained fn is_initialized(subscriber_address: AztecAddress) -> pub bool {
+    unconstrained fn is_initialized(subscriber_address: AztecAddress) -> pub Unconstrained<bool> {
         storage.subscriptions.at(subscriber_address).is_initialized()
     }
 }

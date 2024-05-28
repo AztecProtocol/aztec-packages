@@ -14,6 +14,6 @@ unconstrained pub fn get_l1_to_l2_membership_witness(
     contract_address: AztecAddress,
     message_hash: Field,
     secret: Field
-) -> [Field; L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH] {
+) -> Unconstrained<[Field; L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH]> {
     get_l1_to_l2_membership_witness_oracle(contract_address, message_hash, secret)
 }

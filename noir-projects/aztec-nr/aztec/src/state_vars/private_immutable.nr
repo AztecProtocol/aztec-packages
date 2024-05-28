@@ -5,8 +5,8 @@ use dep::protocol_types::{
 
 use crate::context::PrivateContext;
 use crate::note::{
-    lifecycle::create_note, note_getter::{get_note, view_notes}, note_interface::NoteInterface,
-    note_viewer_options::NoteViewerOptions
+    lifecycle::create_note, note_getter::{get_note, view_notes, MAX_NOTES_PER_PAGE},
+    note_interface::NoteInterface, note_viewer_options::NoteViewerOptions
 };
 use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::Storage;
@@ -68,7 +68,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
 
 impl<Note> PrivateImmutable<Note, ()> {
     // docs:start:is_initialized
-    unconstrained pub fn is_initialized(self) -> bool {
+    unconstrained pub fn is_initialized(self) -> Unconstrained<bool> {
         let nullifier = self.compute_initialization_nullifier();
         check_nullifier_exists(nullifier)
     }
@@ -76,9 +76,10 @@ impl<Note> PrivateImmutable<Note, ()> {
 
     // view_note does not actually use the context, but it calls oracles that are only available in private
     // docs:start:view_note
-    unconstrained pub fn view_note<N, M>(self) -> Note  where Note: NoteInterface<N, M> {
+    unconstrained pub fn view_note<N, M>(self) -> Unconstrained<Note> where Note: NoteInterface<N, M> {
         let mut options = NoteViewerOptions::new();
-        view_notes(self.storage_slot, options.set_limit(1))[0].unwrap()
+        let note:[Option<Note>; MAX_NOTES_PER_PAGE] = view_notes(self.storage_slot, options.set_limit(1)).unwrap();
+        note[0].unwrap()
     }
     // docs:end:view_note
 }

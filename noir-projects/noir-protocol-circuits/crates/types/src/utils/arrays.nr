@@ -13,7 +13,7 @@ pub fn array_to_bounded_vec<T, N>(array: [T; N]) -> BoundedVec<T, N> where T: Em
     BoundedVec { storage: array, len }
 }
 
-unconstrained fn filter_array_to_bounded_vec_unsafe<T, N>(arr: [T; N], should_propagate: [bool; N]) -> BoundedVec<T, N> {
+unconstrained fn filter_array_to_bounded_vec_unsafe<T, N>(arr: [T; N], should_propagate: [bool; N]) -> Unconstrained<BoundedVec<T, N>> {
     let mut vec = BoundedVec::new();
     for i in 0..N {
         if should_propagate[i] {
@@ -24,18 +24,20 @@ unconstrained fn filter_array_to_bounded_vec_unsafe<T, N>(arr: [T; N], should_pr
 }
 
 pub fn filter_array_to_bounded_vec<T, N>(arr: [T; N], should_propagate: [bool; N]) -> BoundedVec<T, N> where T: Eq {
-    let vec_hint = filter_array_to_bounded_vec_unsafe(arr, should_propagate);
-    let mut verifying_index = 0;
+    filter_array_to_bounded_vec_unsafe(arr, should_propagate).make_constrained(
+        | vec_hint: BoundedVec<T, N> | {
+        let mut verifying_index = 0;
 
-    for i in 0..N {
-        if should_propagate[i] {
-            assert_eq(arr[i], vec_hint.get(verifying_index));
-            verifying_index += 1;
+        for i in 0..N {
+            if should_propagate[i] {
+                assert_eq(arr[i], vec_hint.get(verifying_index));
+                verifying_index += 1;
+            }
         }
+        assert_eq(verifying_index, vec_hint.len());
+        vec_hint
     }
-    assert_eq(verifying_index, vec_hint.len());
-
-    vec_hint
+    )
 }
 
 // Routine which validates that all zero values of an array form a contiguous region at the end, i.e.,

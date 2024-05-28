@@ -24,15 +24,16 @@ pub fn create_note<Note, N, M>(
     // TODO: Strong typing required because of https://github.com/noir-lang/noir/issues/4088
     let serialized_note: [Field; N] = Note::serialize_content(*note);
     let note_hash_counter = context.side_effect_counter;
-    assert(
-        notify_created_note(
+    notify_created_note(
         storage_slot,
         Note::get_note_type_id(),
         serialized_note,
         inner_note_hash,
         note_hash_counter
-    )
-        == 0
+    ).make_constrained(
+        | result | {
+            assert(result== 0);
+        }
     );
 
     context.push_new_note_hash(inner_note_hash);
@@ -78,7 +79,11 @@ pub fn destroy_note<Note, N, M>(
     }
 
     let nullifier_counter = context.side_effect_counter;
-    assert(notify_nullified_note(nullifier, consumed_note_hash, nullifier_counter) == 0);
+    notify_nullified_note(nullifier, consumed_note_hash, nullifier_counter).make_constrained(
+        | result | {
+        assert(result == 0);
+    }
+    );
 
     context.push_new_nullifier(nullifier, consumed_note_hash)
 }

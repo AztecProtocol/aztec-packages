@@ -41,7 +41,10 @@ fn check_for_compute_note_hash_and_nullifier_definition(
                     FunctionReturnType::Default(_) => false,
                     FunctionReturnType::Ty(unresolved_type) => {
                         match &unresolved_type.typ {
-                            UnresolvedTypeData::Array(_, inner_type) => matches!(inner_type.typ, UnresolvedTypeData::FieldElement),
+                            UnresolvedTypeData::Unconstrained(inner_type) => match inner_type.to_owned().typ {
+                                UnresolvedTypeData::Array(_, elements) => matches!(elements.typ.to_owned(), UnresolvedTypeData::FieldElement),
+                                _ => false
+                            },
                             _ => false,
                         }
                     }
@@ -132,14 +135,14 @@ pub fn inject_compute_note_hash_and_nullifier(
         // pass an empty span. This function should not produce errors anyway so this should not matter.
         let location = Location::new(Span::empty(0), file_id);
 
-        inject_fn(crate_id, context, func, location, module_id, file_id).map_err(|err| {
-            (
-                AztecMacroError::CouldNotImplementComputeNoteHashAndNullifier {
-                    secondary_message: err.secondary_message,
-                },
-                file_id,
-            )
-        })?;
+        // inject_fn(crate_id, context, func, location, module_id, file_id).map_err(|err| {
+        //     (
+        //         AztecMacroError::CouldNotImplementComputeNoteHashAndNullifier {
+        //             secondary_message: err.secondary_message,
+        //         },
+        //         file_id,
+        //     )
+        // })?;
     }
     Ok(())
 }
@@ -179,7 +182,7 @@ fn generate_compute_note_hash_and_nullifier_source(
             storage_slot: Field,
             note_type_id: Field,
             serialized_note: [Field; {}]
-        ) -> pub [Field; 4] {{
+        ) -> pub Unconstrained<[Field; 4]> {{
             assert(false, \"This contract does not use private notes\");
             [0, 0, 0, 0]
         }}",
@@ -210,7 +213,7 @@ fn generate_compute_note_hash_and_nullifier_source(
                 storage_slot: Field,
                 note_type_id: Field,
                 serialized_note: [Field; {}]
-            ) -> pub [Field; 4] {{
+            ) -> pub Unconstrained<[Field; 4]> {{
                 let note_header = dep::aztec::prelude::NoteHeader::new(contract_address, nonce, storage_slot);
 
                 {}

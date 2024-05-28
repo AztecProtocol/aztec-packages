@@ -20,7 +20,7 @@ unconstrained pub fn call_private_function_internal(
     start_side_effect_counter: u32,
     is_static_call: bool,
     is_delegate_call: bool
-) -> PrivateCallStackItem {
+) -> Unconstrained<PrivateCallStackItem> {
     let fields = call_private_function_oracle(
         contract_address,
         function_selector,

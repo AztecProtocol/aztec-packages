@@ -26,7 +26,7 @@ unconstrained pub fn get_membership_witness<N, M>(
     block_number: u32,
     tree_id: Field,
     leaf_value: Field
-) -> MembershipWitness<N, M> {
+) -> Unconstrained<MembershipWitness<N, M>> {
     let fields: [Field; M] = get_membership_witness_oracle(block_number, tree_id, leaf_value);
     MembershipWitness { index: fields[0], path: arr_copy_slice(fields, [0; N], 1) }
 }
@@ -36,7 +36,7 @@ unconstrained pub fn get_membership_witness<N, M>(
 unconstrained pub fn get_note_hash_membership_witness<N, M>(
     block_number: u32,
     leaf_value: Field
-) -> MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> {
+) -> Unconstrained<MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1>> {
     get_membership_witness(block_number, NOTE_HASH_TREE_ID, leaf_value)
 }
 
@@ -46,6 +46,6 @@ unconstrained pub fn get_note_hash_membership_witness<N, M>(
 unconstrained pub fn get_archive_membership_witness(
     block_number: u32,
     leaf_value: Field
-) -> MembershipWitness<ARCHIVE_HEIGHT, ARCHIVE_HEIGHT + 1> {
+) -> Unconstrained<MembershipWitness<ARCHIVE_HEIGHT, ARCHIVE_HEIGHT + 1>> {
     get_membership_witness(block_number, ARCHIVE_TREE_ID, leaf_value)
 }

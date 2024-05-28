@@ -215,20 +215,23 @@ impl PrivateKernelCircuitPublicInputsComposer {
         let note_logs = source.private_call_public_inputs.note_encrypted_logs_hashes;
         for i in 0..note_logs.len() {
             if !is_empty(note_logs[i]) {
-                let note_index = self.match_log_to_note(note_logs[i]);
-                assert(
-                    note_index < MAX_NEW_NOTE_HASHES_PER_TX, "Could not find note hash linked to note log."
-                );
-                assert(
-                    note_logs[i].note_hash_counter
-                    == self.public_inputs.end.new_note_hashes.get_unchecked(note_index).counter(), "Could not find note hash linked to note log."
+                self.match_log_to_note(note_logs[i]).make_constrained(
+                    | note_index | {
+                        assert(
+                            note_index < MAX_NEW_NOTE_HASHES_PER_TX, "Could not find note hash linked to note log."
+                        );
+                        assert(
+                            note_logs[i].note_hash_counter
+                            == self.public_inputs.end.new_note_hashes.get_unchecked(note_index).counter(), "Could not find note hash linked to note log."
+                        );
+                    }
                 );
                 self.public_inputs.end.note_encrypted_logs_hashes.push(note_logs[i]);
             }
         }
     }
 
-    unconstrained fn match_log_to_note(self, note_log: NoteLogHash) -> u64 {
+    unconstrained fn match_log_to_note(self, note_log: NoteLogHash) -> Unconstrained<u64> {
         find_index(
             self.public_inputs.end.new_note_hashes.storage,
             |n: ScopedNoteHash| n.counter() == note_log.note_hash_counter

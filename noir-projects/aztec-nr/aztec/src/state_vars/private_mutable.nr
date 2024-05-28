@@ -5,7 +5,7 @@ use dep::protocol_types::{
 
 use crate::context::PrivateContext;
 use crate::note::{
-    lifecycle::{create_note, destroy_note}, note_getter::{get_note, view_notes},
+    lifecycle::{create_note, destroy_note}, note_getter::{get_note, view_notes, MAX_NOTES_PER_PAGE},
     note_interface::NoteInterface, note_viewer_options::NoteViewerOptions
 };
 use crate::oracle::notes::check_nullifier_exists;
@@ -85,7 +85,7 @@ impl<Note> PrivateMutable<Note, &mut PrivateContext> {
         broadcast: bool,
         ivpk_m: GrumpkinPoint
     ) where Note: NoteInterface<N, M> {
-        let is_initialized = check_nullifier_exists(self.compute_initialization_nullifier());
+        let is_initialized = check_nullifier_exists(self.compute_initialization_nullifier()).make_constrained(| x | x);
 
         // check_nullifier_exists() is an unconstrained function - we can constrain a true value by providing an 
         // inclusion proof of the nullifier, but cannot constrain a false value since a non-inclusion proof would only 
@@ -125,15 +125,16 @@ impl<Note> PrivateMutable<Note, &mut PrivateContext> {
 }
 
 impl<Note> PrivateMutable<Note, ()> {
-    unconstrained pub fn is_initialized(self) -> bool {
+    unconstrained pub fn is_initialized(self) -> Unconstrained<bool> {
         let nullifier = self.compute_initialization_nullifier();
         check_nullifier_exists(nullifier)
     }
 
     // docs:start:view_note
-    unconstrained pub fn view_note<N, M>(self) -> Note where Note: NoteInterface<N, M> {
+    unconstrained pub fn view_note<N, M>(self) -> Unconstrained<Note> where Note: NoteInterface<N, M> {
         let mut options = NoteViewerOptions::new();
-        view_notes(self.storage_slot, options.set_limit(1))[0].unwrap()
+        let opt_notes: [Option<Note>; MAX_NOTES_PER_PAGE] = view_notes(self.storage_slot, options.set_limit(1)).unwrap();
+        opt_notes[0].unwrap()
     }
     // docs:end:view_note
 }

@@ -7,7 +7,7 @@ unconstrained pub fn get_sibling_path<N>(
     block_number: u32,
     tree_id: Field,
     leaf_index: Field
-) -> [Field; N] {
+) -> Unconstrained<[Field; N]> {
     let value: [Field; N] = get_sibling_path_oracle(block_number, tree_id, leaf_index);
     value
 }

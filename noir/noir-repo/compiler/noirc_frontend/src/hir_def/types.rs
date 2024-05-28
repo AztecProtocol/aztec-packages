@@ -1837,6 +1837,7 @@ fn wrap_unconstrained_return(
     // Copy the expression and give it a new ExprId. The old one
     // will be mutated in place into a Call expression.
     let argument = interner.expression(&expression);
+    println!("wtf is this {:?}", argument);
     let argument = interner.push_expr(argument);
     interner.push_expr_type(argument, original_type.clone());
     interner.push_expr_location(argument, location.span, location.file);

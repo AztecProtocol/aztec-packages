@@ -166,6 +166,5 @@
     "**/l1-contracts/lib/**": true,
     "**/barretenberg/cpp/build*/**": true
   },
-  "cmake.sourceDirectory": "${workspaceFolder}/barretenberg/cpp",
-  "noir.nargoPath": "./noir/noir-repo/target/release/nargo"
+  "cmake.sourceDirectory": "${workspaceFolder}/barretenberg/cpp"
 }

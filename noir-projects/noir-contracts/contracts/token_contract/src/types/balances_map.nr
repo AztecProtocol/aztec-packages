@@ -29,7 +29,7 @@ impl<T> BalancesMap<T, ()> {
     unconstrained pub fn balance_of<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
         self: Self,
         owner: AztecAddress
-    ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
+    ) -> Unconstrained<U128> where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
         self.balance_of_with_offset(owner, 0)
     }
 
@@ -37,11 +37,11 @@ impl<T> BalancesMap<T, ()> {
         self: Self,
         owner: AztecAddress,
         offset: u32
-    ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
+    ) -> Unconstrained<U128> where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
         let mut balance = U128::from_integer(0);
         // docs:start:view_notes
         let mut options = NoteViewerOptions::new();
-        let opt_notes = self.map.at(owner).view_notes(options.set_offset(offset));
+        let opt_notes = self.map.at(owner).view_notes(options.set_offset(offset)).unwrap();
         // docs:end:view_notes
         let len = opt_notes.len();
         for i in 0..len {
@@ -50,7 +50,7 @@ impl<T> BalancesMap<T, ()> {
             }
         }
         if (opt_notes[len - 1].is_some()) {
-            balance = balance + self.balance_of_with_offset(owner, offset + opt_notes.len() as u32);
+            balance = balance + self.balance_of_with_offset(owner, offset + opt_notes.len() as u32).unwrap();
         }
 
         balance

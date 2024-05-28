@@ -45,6 +45,6 @@ unconstrained pub fn compute_encrypted_log<N, M>(
     note_type_id: Field,
     ivpk_m: GrumpkinPoint,
     preimage: [Field; N]
-) -> [u8; M] {
+) -> Unconstrained<[u8; M]> {
     compute_encrypted_log_oracle(contract_address, storage_slot, note_type_id, ivpk_m, preimage)
 }

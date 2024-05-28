@@ -17,7 +17,7 @@ unconstrained pub fn notify_created_note<N>(
     serialized_note: [Field; N],
     inner_note_hash: Field,
     counter: u32
-) -> Field {
+) -> Unconstrained<Field> {
     notify_created_note_oracle(
         storage_slot,
         note_type_id,
@@ -38,7 +38,7 @@ unconstrained pub fn notify_nullified_note<N>(
     nullifier: Field,
     inner_note_hash: Field,
     counter: u32
-) -> Field {
+) -> Unconstrained<Field> {
     notify_nullified_note_oracle(nullifier, inner_note_hash, counter)
 }
 
@@ -78,7 +78,7 @@ unconstrained fn get_notes_oracle_wrapper<N, S>(
     offset: u32,
     status: u8,
     mut placeholder_fields: [Field; S]
-) -> [Field; S] {
+) -> Unconstrained<[Field; S]> {
     let return_size = placeholder_fields.len() as u32;
     get_notes_oracle(
         storage_slot,
@@ -118,7 +118,7 @@ unconstrained pub fn get_notes<Note, N, NB, M, S, NS>(
     mut placeholder_opt_notes: [Option<Note>; S], // TODO: Remove it and use `limit` to initialize the note array.
     placeholder_fields: [Field; NS], // TODO: Remove it and use `limit` to initialize the note array.
     _placeholder_note_length: [Field; N] // Turbofish hack? Compiler breaks calculating read_offset unless we add this parameter
-) -> [Option<Note>; S] where Note: NoteInterface<N, NB> {
+) -> Unconstrained<[Option<Note>; S]> where Note: NoteInterface<N, NB> {
     let fields = get_notes_oracle_wrapper(
         storage_slot,
         num_selects,
@@ -135,7 +135,7 @@ unconstrained pub fn get_notes<Note, N, NB, M, S, NS>(
         offset,
         status,
         placeholder_fields
-    );
+    ).unwrap();
     let num_notes = fields[0] as u64;
     let contract_address = AztecAddress::from_field(fields[1]);
     for i in 0..placeholder_opt_notes.len() {
@@ -162,6 +162,6 @@ unconstrained pub fn get_notes<Note, N, NB, M, S, NS>(
 fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
 
 // Only ever use this in private!
-unconstrained pub fn check_nullifier_exists(inner_nullifier: Field) -> bool {
+unconstrained pub fn check_nullifier_exists(inner_nullifier: Field) -> Unconstrained<bool> {
     check_nullifier_exists_oracle(inner_nullifier) == 1
 }

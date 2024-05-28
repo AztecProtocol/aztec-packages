@@ -86,7 +86,7 @@ contract StatefulTest {
         loc.write(loc.read() + value);
     }
 
-    unconstrained fn summed_values(owner: AztecAddress) -> pub Field {
+    unconstrained fn summed_values(owner: AztecAddress) -> pub Unconstrained<Field> {
         let owner_balance = storage.notes.at(owner);
 
         // Return the sum of all notes in the set.

@@ -4,12 +4,12 @@ use dep::protocol_types::{address::{AztecAddress, PartialAddress}, grumpkin_poin
 #[oracle(getPublicKeysAndPartialAddress)]
 fn get_public_keys_and_partial_address_oracle(_address: AztecAddress) -> [Field; 9] {}
 
-unconstrained fn get_public_keys_and_partial_address_oracle_wrapper(address: AztecAddress) -> [Field; 9] {
+unconstrained fn get_public_keys_and_partial_address_oracle_wrapper(address: AztecAddress) -> Unconstrained<[Field; 9]> {
     get_public_keys_and_partial_address_oracle(address)
 }
 
 fn get_public_keys_and_partial_address(address: AztecAddress) -> (PublicKeys, PartialAddress) {
-    let result = get_public_keys_and_partial_address_oracle_wrapper(address);
+    let result = get_public_keys_and_partial_address_oracle_wrapper(address).make_constrained(| x | x);
 
     let keys = PublicKeys {
         npk_m: GrumpkinPoint::new(result[0], result[1]),

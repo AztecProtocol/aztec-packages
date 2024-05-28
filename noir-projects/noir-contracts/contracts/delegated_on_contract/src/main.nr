@@ -38,7 +38,7 @@ contract DelegatedOn {
         notes[0].unwrap_unchecked().value
     }
 
-    unconstrained fn view_public_value() -> pub Field {
+    unconstrained fn view_public_value() -> pub Unconstrained<Field> {
         storage.current_value.read()
     }
 }

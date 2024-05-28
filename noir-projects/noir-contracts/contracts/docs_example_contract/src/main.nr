@@ -147,7 +147,7 @@ contract DocsExample {
         storage.shared_immutable.read_private()
     }
 
-    unconstrained fn get_shared_immutable() -> pub Leader {
+    unconstrained fn get_shared_immutable() -> pub Unconstrained<Leader> {
         storage.shared_immutable.read_public()
     }
 
@@ -159,7 +159,7 @@ contract DocsExample {
         // docs:end:initialize_public_immutable
     }
 
-    unconstrained fn get_public_immutable() -> pub Leader {
+    unconstrained fn get_public_immutable() -> pub Unconstrained<Leader> {
         // docs:start:read_public_immutable
         storage.public_immutable.read()
         // docs:end:read_public_immutable
@@ -212,7 +212,7 @@ contract DocsExample {
     }
 
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
-    unconstrained fn read_note(amount: Field, comparator: u8) -> pub [Option<CardNote>; 10] {
+    unconstrained fn read_note(amount: Field, comparator: u8) -> pub Unconstrained<[Option<CardNote>; 10]> {
         let mut options = NoteViewerOptions::new();
         let notes = storage.set.view_notes(
             options.select(
@@ -277,16 +277,16 @@ contract DocsExample {
         storage.leader.write(new_leader);
     }
 
-    unconstrained fn get_leader() -> pub Leader {
+    unconstrained fn get_leader() -> pub Unconstrained<Leader> {
         storage.leader.read()
     }
 
-    unconstrained fn get_legendary_card() -> pub CardNote {
+    unconstrained fn get_legendary_card() -> pub Unconstrained<CardNote> {
         storage.legendary_card.view_note()
     }
 
     // docs:start:private_mutable_is_initialized
-    unconstrained fn is_legendary_initialized() -> pub bool {
+    unconstrained fn is_legendary_initialized() -> pub Unconstrained<bool> {
         storage.legendary_card.is_initialized()
     }
     // docs:end:private_mutable_is_initialized
@@ -298,11 +298,11 @@ contract DocsExample {
     }
     // docs:end:get_note-private-immutable
 
-    unconstrained fn view_imm_card() -> pub CardNote {
+    unconstrained fn view_imm_card() -> pub Unconstrained<CardNote> {
         storage.private_immutable.view_note()
     }
 
-    unconstrained fn is_priv_imm_initialized() -> pub bool {
+    unconstrained fn is_priv_imm_initialized() -> pub Unconstrained<bool> {
         storage.private_immutable.is_initialized()
     }
 

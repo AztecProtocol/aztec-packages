@@ -3,12 +3,12 @@ use dep::protocol_types::traits::{Deserialize, Serialize};
 #[oracle(storageRead)]
 fn storage_read_oracle<N>(_storage_slot: Field, _number_of_elements: Field) -> [Field; N] {}
 
-unconstrained fn storage_read_oracle_wrapper<N>(_storage_slot: Field) -> [Field; N] {
+unconstrained fn storage_read_oracle_wrapper<N>(_storage_slot: Field) -> Unconstrained<[Field; N]> {
     storage_read_oracle(_storage_slot, N)
 }
 
 pub fn storage_read<N>(storage_slot: Field) -> [Field; N] {
-    storage_read_oracle_wrapper(storage_slot)
+    storage_read_oracle_wrapper(storage_slot).make_constrained(| x | x)
 }
 
 #[oracle(storageWrite)]

@@ -34,7 +34,7 @@ unconstrained pub fn enqueue_public_function_call_internal(
     side_effect_counter: u32,
     is_static_call: bool,
     is_delegate_call: bool
-) -> [Field; ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH] {
+) -> Unconstrained<[Field; ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH]> {
     enqueue_public_function_call_oracle(
         contract_address,
         function_selector,
@@ -62,7 +62,7 @@ unconstrained pub fn set_public_teardown_function_call_internal(
     side_effect_counter: u32,
     is_static_call: bool,
     is_delegate_call: bool
-) -> [Field; ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH] {
+) -> Unconstrained<[Field; ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH]> {
     set_public_teardown_function_call_oracle(
         contract_address,
         function_selector,

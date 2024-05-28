@@ -263,13 +263,17 @@ impl BaseRollupInputs {
 
             if read_hint.leaf_slot == 0 {
                 // Is there a balance update already in this tx? If so, update it and return its index.
-                let existing_update_index = self.find_fee_payer_gas_token_update_index(leaf_slot);
-                let existing_update = self.kernel_data.public_inputs.end.public_data_update_requests[existing_update_index];
-                assert(
-                    existing_update.leaf_slot == leaf_slot, "Wrong leaf slot for gas token balance update request"
-                );
-                assert(
-                    !existing_update.new_value.lt(tx_fee), "Not enough balance for fee payer after claim to pay for transaction"
+                let (existing_update_index, existing_update) = self.find_fee_payer_gas_token_update_index(leaf_slot).make_constrained(
+                    | existing_update_index | {
+                        let existing_update = self.kernel_data.public_inputs.end.public_data_update_requests[existing_update_index];
+                        assert(
+                            existing_update.leaf_slot == leaf_slot, "Wrong leaf slot for gas token balance update request"
+                        );
+                        assert(
+                            !existing_update.new_value.lt(tx_fee), "Not enough balance for fee payer after claim to pay for transaction"
+                        );
+                        (existing_update_index, existing_update)
+                    }
                 );
 
                 let new_value = compute_public_data_tree_value(existing_update.new_value - tx_fee);
@@ -315,7 +319,7 @@ impl BaseRollupInputs {
         );
     }
 
-    unconstrained fn find_fee_payer_gas_token_update_index(self, leaf_slot: Field) -> u64 {
+    unconstrained fn find_fee_payer_gas_token_update_index(self, leaf_slot: Field) -> Unconstrained<u64> {
         let mut update_index = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1;
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
             if self.kernel_data.public_inputs.end.public_data_update_requests[i].leaf_slot == leaf_slot {

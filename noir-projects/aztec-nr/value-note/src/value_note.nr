@@ -60,7 +60,7 @@ impl NoteInterface<VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN> for ValueNote {
 
 impl ValueNote {
     pub fn new(value: Field, npk_m_hash: Field) -> Self {
-        let randomness = unsafe_rand();
+        let randomness = unsafe_rand().make_constrained(| x | x);
         let header = NoteHeader::empty();
         ValueNote { value, npk_m_hash, randomness, header }
     }

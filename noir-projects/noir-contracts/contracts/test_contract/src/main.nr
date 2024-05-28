@@ -127,7 +127,7 @@ contract Test {
         [opt_notes[0].unwrap().value, opt_notes[1].unwrap().value]
     }
 
-    unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> pub Field {
+    unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> pub Unconstrained<Field> {
         assert(
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
         );
@@ -137,12 +137,15 @@ contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let opt_notes: [Option<ValueNote>; MAX_NOTES_PER_PAGE] = view_notes(storage_slot, options);
+        let opt_notes: [Option<ValueNote>; MAX_NOTES_PER_PAGE] = view_notes(storage_slot, options).unwrap();
 
         opt_notes[0].unwrap().value
     }
 
-    unconstrained fn call_view_notes_many(storage_slot: Field, active_or_nullified: bool) -> pub [Field; 2] {
+    unconstrained fn call_view_notes_many(
+        storage_slot: Field,
+        active_or_nullified: bool
+    ) -> pub Unconstrained<[Field; 2]> {
         assert(
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
         );
@@ -152,7 +155,7 @@ contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let opt_notes: [Option<ValueNote>; MAX_NOTES_PER_PAGE] = view_notes(storage_slot, options);
+        let opt_notes: [Option<ValueNote>; MAX_NOTES_PER_PAGE] = view_notes(storage_slot, options).unwrap();
 
         [opt_notes[0].unwrap().value, opt_notes[1].unwrap().value]
     }
@@ -468,8 +471,8 @@ contract Test {
         notes_set.remove(note);
     }
 
-    unconstrained fn get_constant() -> pub Field {
-        let constant = storage.example_constant.view_note();
+    unconstrained fn get_constant() -> pub Unconstrained<Field> {
+        let constant = storage.example_constant.view_note().unwrap();
         constant.value
     }
 
@@ -516,8 +519,8 @@ contract Test {
     }
 
     // Purely exists for testing
-    unconstrained fn get_random(kinda_seed: Field) -> pub Field {
-        kinda_seed * unsafe_rand()
+    unconstrained fn get_random(kinda_seed: Field) -> pub Unconstrained<Field> {
+        kinda_seed * unsafe_rand().unwrap()
     }
 
     struct DummyNote {

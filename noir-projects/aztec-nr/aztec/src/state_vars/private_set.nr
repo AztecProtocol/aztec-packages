@@ -90,7 +90,7 @@ impl<Note> PrivateSet<Note, ()> {
     unconstrained pub fn view_notes<N, M>(
         self,
         options: NoteViewerOptions<Note, N, M>
-    ) -> [Option<Note>; MAX_NOTES_PER_PAGE] where Note: NoteInterface<N, M> {
+    ) -> Unconstrained<[Option<Note>; MAX_NOTES_PER_PAGE]> where Note: NoteInterface<N, M> {
         view_notes(self.storage_slot, options)
     }
     // docs:end:view_notes

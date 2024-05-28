@@ -9,7 +9,7 @@ fn pack_arguments_oracle(_args: [Field]) -> Field {}
 /// - When the external call is made later, the simulator will know what the values unpack to.
 /// - This oracle will not be required in public vm functions, as the vm will keep track of arguments 
 ///   itself.
-unconstrained pub fn pack_arguments_array<N>(args: [Field; N]) -> Field {
+unconstrained pub fn pack_arguments_array<N>(args: [Field; N]) -> Unconstrained<Field> {
     pack_arguments_array_oracle(args)
 }
 
@@ -18,7 +18,7 @@ unconstrained pub fn pack_arguments_array<N>(args: [Field; N]) -> Field {
 /// - When the external call is made later, the simulator will know what the values unpack to.
 /// - This oracle will not be required in public vm functions, as the vm will keep track of arguments 
 ///   itself.
-unconstrained pub fn pack_arguments(args: [Field]) -> Field {
+unconstrained pub fn pack_arguments(args: [Field]) -> Unconstrained<Field> {
     pack_arguments_oracle(args)
 }
 

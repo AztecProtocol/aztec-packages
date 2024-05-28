@@ -18,8 +18,8 @@ use crate::{
 use dep::protocol_types::{
     hash::sha256_to_field,
     abis::{
-    caller_context::CallerContext, function_selector::FunctionSelector,
-    max_block_number::MaxBlockNumber,
+    private_call_stack_item::PrivateCallStackItem, caller_context::CallerContext,
+    function_selector::FunctionSelector, max_block_number::MaxBlockNumber,
     validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
     private_call_request::PrivateCallRequest, private_circuit_public_inputs::PrivateCircuitPublicInputs,
     public_call_stack_item::PublicCallStackItem, read_request::ReadRequest, note_hash::NoteHash,
@@ -296,7 +296,7 @@ impl PrivateContext {
         let event_selector = 5; // TODO: compute actual event selector.
         let contract_address = self.this_address();
         let counter = self.next_counter();
-        let log_hash = emit_contract_class_unencrypted_log_private_internal(contract_address, event_selector, log, counter);
+        let log_hash = emit_contract_class_unencrypted_log_private_internal(contract_address, event_selector, log, counter).make_constrained(| x | x);
         // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4)
         let len = 44 + N * 32;
         let side_effect = LogHash { value: log_hash, counter, length: len };
@@ -315,7 +315,7 @@ impl PrivateContext {
     ) where [Field; N]: LensForEncryptedLog<N, M> {
         // We are currently just encrypting it EXACTLY the same way as if it was a note.
         let counter = self.next_counter();
-        let encrypted_log: [u8; M] = compute_encrypted_log(contract_address, randomness, event_type_id, ivpk_m, preimage);
+        let encrypted_log: [u8; M] = compute_encrypted_log(contract_address, randomness, event_type_id, ivpk_m, preimage).make_constrained(| x | x);
         emit_encrypted_log(contract_address, randomness, encrypted_log, counter);
         let len = 32 + 32 + 64 + 48 + 48 + 176 + 64 + (preimage.len() as Field * 32) + 16 + 4;
         let log_hash = sha256_to_field(encrypted_log);
@@ -344,7 +344,7 @@ impl PrivateContext {
         let counter = self.next_counter();
 
         // TODO(#1139 | #6408): perform encryption in the circuit
-        let encrypted_log: [u8; M] = compute_encrypted_log(contract_address, storage_slot, note_type_id, ivpk_m, preimage);
+        let encrypted_log: [u8; M] = compute_encrypted_log(contract_address, storage_slot, note_type_id, ivpk_m, preimage).make_constrained(| x | x);
         emit_encrypted_note_log(note_hash, encrypted_log, counter);
 
         // Current unoptimized size of the encrypted log
@@ -371,7 +371,11 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) -> PackedReturns {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args).make_constrained(
+            | packed_hash | {
+                assert(args_hash == packed_hash);
+            }
+        );
         self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
@@ -382,7 +386,11 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) -> PackedReturns {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args).make_constrained(
+            | packed_hash | {
+                assert(args_hash == packed_hash);
+            }
+        );
         self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
     }
 
@@ -393,7 +401,11 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) -> PackedReturns {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args).make_constrained(
+            | packed_hash | {
+                assert(args_hash == packed_hash);
+            }
+        );
         self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
     }
 
@@ -438,10 +450,14 @@ impl PrivateContext {
             start_side_effect_counter,
             is_static_call,
             is_delegate_call
+        ).make_constrained(
+            | item: PrivateCallStackItem | {
+                assert_eq(item.public_inputs.call_context.side_effect_counter, start_side_effect_counter);
+                assert_eq(item.public_inputs.start_side_effect_counter, start_side_effect_counter);
+                item
+            }
         );
 
-        assert_eq(item.public_inputs.call_context.side_effect_counter, start_side_effect_counter);
-        assert_eq(item.public_inputs.start_side_effect_counter, start_side_effect_counter);
         let end_side_effect_counter = item.public_inputs.end_side_effect_counter;
         self.side_effect_counter = end_side_effect_counter + 1;
 
@@ -501,7 +517,11 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args).make_constrained(
+            | packed_hash | {
+                assert(args_hash == packed_hash);
+            }
+        );
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
@@ -512,7 +532,11 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args).make_constrained(
+            | packed_hash | {
+                assert(args_hash == packed_hash);
+            }
+        );
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
     }
 
@@ -523,7 +547,11 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args).make_constrained(
+            | packed_hash | {
+                assert(args_hash == packed_hash);
+            }
+        );
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
     }
 
@@ -560,23 +588,26 @@ impl PrivateContext {
         is_delegate_call: bool
     ) {
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
-        let fields = enqueue_public_function_call_internal(
+        let item = enqueue_public_function_call_internal(
             contract_address,
             function_selector,
             args_hash,
             self.side_effect_counter,
             is_static_call,
             is_delegate_call
-        );
-
-        let item = parse_public_call_stack_item_from_oracle(fields);
-        self.validate_call_stack_item_from_oracle(
-            item,
-            contract_address,
-            function_selector,
-            args_hash,
-            is_static_call,
-            is_delegate_call
+        ).make_constrained(
+            | fields | {
+                let item = parse_public_call_stack_item_from_oracle(fields);
+                self.validate_call_stack_item_from_oracle(
+                    item,
+                    contract_address,
+                    function_selector,
+                    args_hash,
+                    is_static_call,
+                    is_delegate_call
+                );
+                item
+            }
         );
 
         self.side_effect_counter = self.side_effect_counter + 1;
@@ -590,7 +621,11 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
+        arguments::pack_arguments_array(args).make_constrained(
+            | packed_hash | {
+                assert(args_hash == packed_hash);
+            }
+        );
         self.set_public_teardown_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
@@ -603,23 +638,26 @@ impl PrivateContext {
         is_delegate_call: bool
     ) {
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
-        let fields = set_public_teardown_function_call_internal(
+        let item = set_public_teardown_function_call_internal(
             contract_address,
             function_selector,
             args_hash,
             self.side_effect_counter,
             is_static_call,
             is_delegate_call
-        );
-
-        let item = parse_public_call_stack_item_from_oracle(fields);
-        self.validate_call_stack_item_from_oracle(
-            item,
-            contract_address,
-            function_selector,
-            args_hash,
-            is_static_call,
-            is_delegate_call
+        ).make_constrained(
+            | fields | {
+                let item = parse_public_call_stack_item_from_oracle(fields);
+                self.validate_call_stack_item_from_oracle(
+                    item,
+                    contract_address,
+                    function_selector,
+                    args_hash,
+                    is_static_call,
+                    is_delegate_call
+                );
+                item
+            }
         );
 
         self.side_effect_counter = self.side_effect_counter + 1;
@@ -714,9 +752,12 @@ impl PackedReturns {
     }
 
     pub fn unpack<N>(self) -> [Field; N] {
-        let unpacked: [Field; N] = returns::unpack_returns(self.packed_returns);
-        assert_eq(self.packed_returns, hash_args_array(unpacked));
-        unpacked
+        returns::unpack_returns(self.packed_returns).make_constrained(
+            | unpacked: [Field; N] | {
+                assert_eq(self.packed_returns, hash_args_array(unpacked));
+                unpacked
+            }
+        )
     }
 
     pub fn unpack_into<T, N>(self) -> T where T: Deserialize<N> {
@@ -738,7 +779,7 @@ unconstrained pub fn emit_unencrypted_log_private_internal<T>(
     event_selector: Field,
     message: T,
     counter: u32
-) -> Field {
+) -> Unconstrained<Field> {
     emit_unencrypted_log_oracle_private(contract_address, event_selector, message, counter)
 }
 
@@ -755,7 +796,7 @@ unconstrained pub fn emit_contract_class_unencrypted_log_private_internal<N>(
     event_selector: Field,
     message: [Field; N],
     counter: u32
-) -> Field {
+) -> Unconstrained<Field> {
     emit_contract_class_unencrypted_log_private(contract_address, event_selector, message, counter)
 }
 

@@ -1,9 +1,9 @@
 use dep::std::merkle::compute_merkle_root;
-use dep::protocol_types::header::Header;
+use dep::protocol_types::{header::Header, constants::NOTE_HASH_TREE_HEIGHT};
 
 use crate::{
     note::{utils::compute_note_hash_for_consumption, note_interface::NoteInterface},
-    oracle::get_membership_witness::get_note_hash_membership_witness
+    oracle::get_membership_witness::{MembershipWitness, get_note_hash_membership_witness}
 };
 
 trait ProveNoteInclusion {
@@ -16,11 +16,11 @@ impl ProveNoteInclusion for Header {
         let note_hash = compute_note_hash_for_consumption(note);
 
         // 2) Get the membership witness of the note in the note hash tree
-        let witness = get_note_hash_membership_witness(self.global_variables.block_number as u32, note_hash);
-
-        // 3) Prove that the commitment is in the note hash tree
-        assert_eq(
-            self.state.partial.note_hash_tree.root, compute_merkle_root(note_hash, witness.index, witness.path), "Proving note inclusion failed"
-        );
+        get_note_hash_membership_witness(self.global_variables.block_number as u32, note_hash).make_constrained(| witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> | {
+            // 3) Prove that the commitment is in the note hash tree
+            assert_eq(
+                self.state.partial.note_hash_tree.root, compute_merkle_root(note_hash, witness.index, witness.path), "Proving note inclusion failed"
+            );
+        });
     }
 }

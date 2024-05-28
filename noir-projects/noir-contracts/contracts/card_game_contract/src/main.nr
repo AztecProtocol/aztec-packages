@@ -117,19 +117,26 @@ contract CardGame {
         game_storage.write(game_data);
     }
 
-    unconstrained fn view_collection_cards(owner: AztecAddress, offset: u32) -> pub [Option<Card>; MAX_NOTES_PER_PAGE] {
+    unconstrained fn view_collection_cards(
+        owner: AztecAddress,
+        offset: u32
+    ) -> pub Unconstrained<[Option<Card>; MAX_NOTES_PER_PAGE]> {
         let collection = storage.collections.at(owner);
 
         collection.view_cards(offset)
     }
 
-    unconstrained fn view_game_cards(game: u32, player: AztecAddress, offset: u32) -> pub [Option<Card>; MAX_NOTES_PER_PAGE] {
+    unconstrained fn view_game_cards(
+        game: u32,
+        player: AztecAddress,
+        offset: u32
+    ) -> pub Unconstrained<[Option<Card>; MAX_NOTES_PER_PAGE]> {
         let game_deck = storage.game_decks.at(game as Field).at(player);
 
         game_deck.view_cards(offset)
     }
 
-    unconstrained fn view_game(game: u32) -> pub Game {
+    unconstrained fn view_game(game: u32) -> pub Unconstrained<Game> {
         storage.games.at(game as Field).read()
     }
 }

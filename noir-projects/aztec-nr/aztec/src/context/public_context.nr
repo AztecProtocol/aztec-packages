@@ -16,13 +16,13 @@ impl PublicContext {
     }
 
     pub fn storage_address(self) -> AztecAddress {
-        storage_address()
+        storage_address().make_constrained(| x | x)
     }
     pub fn fee_per_l2_gas(self) -> Field {
-        fee_per_l2_gas()
+        fee_per_l2_gas().make_constrained(| x | x)
     }
     pub fn fee_per_da_gas(self) -> Field {
-        fee_per_da_gas()
+        fee_per_da_gas().make_constrained(| x | x)
     }
     /**
     * Emit a log with the given event selector and message.
@@ -36,20 +36,20 @@ impl PublicContext {
         emit_unencrypted_log(event_selector, log);
     }
     pub fn note_hash_exists(self, note_hash: Field, leaf_index: Field) -> bool {
-        note_hash_exists(note_hash, leaf_index) == 1
+        note_hash_exists(note_hash, leaf_index).make_constrained(| x | x) == 1
     }
     pub fn l1_to_l2_msg_exists(self, msg_hash: Field, msg_leaf_index: Field) -> bool {
-        l1_to_l2_msg_exists(msg_hash, msg_leaf_index) == 1
+        l1_to_l2_msg_exists(msg_hash, msg_leaf_index).make_constrained(| x | x) == 1
     }
 }
 
 impl PublicContextInterface for PublicContext {
     fn block_number(self) -> Field {
-        block_number()
+        block_number().make_constrained(| x | x)
     }
 
     fn timestamp(self) -> u64 {
-        timestamp()
+        timestamp().make_constrained(| x | x)
     }
 
     fn coinbase(self) -> EthAddress {
@@ -73,11 +73,11 @@ impl PublicContextInterface for PublicContext {
     }
 
     fn transaction_fee(self) -> Field {
-        transaction_fee()
+        transaction_fee().make_constrained(| x | x)
     }
 
     fn nullifier_exists(self, unsiloed_nullifier: Field, address: AztecAddress) -> bool {
-        nullifier_exists(unsiloed_nullifier, address.to_field()) == 1
+        nullifier_exists(unsiloed_nullifier, address.to_field()).make_constrained(| x | x) == 1
     }
 
     fn emit_unencrypted_log<T,N,M>(&mut self, log: T) {
@@ -115,17 +115,15 @@ impl PublicContextInterface for PublicContext {
         args: [Field],
         gas_opts: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {        
-        let results = call(
+        call(
             gas_for_call(gas_opts),
             contract_address,
             args,
             temporary_function_selector.to_field()
-        );
-        let data_to_return: [Field; RETURNS_COUNT] = results.0;
-        let success: u8 = results.1;
-        assert(success == 1, "Nested call failed!");
-
-        FunctionReturns::new(data_to_return)
+        ).make_constrained(| (data_to_return, success): ([Field; RETURNS_COUNT], u8) | {
+            assert(success == 1, "Nested call failed!");
+            FunctionReturns::new(data_to_return)
+        })
     }
 
     fn static_call_public_function<RETURNS_COUNT>(
@@ -135,15 +133,15 @@ impl PublicContextInterface for PublicContext {
         args: [Field],
         gas_opts: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {
-        let (data_to_return, success): ([Field; RETURNS_COUNT], u8) = call_static(
+        call_static(
             gas_for_call(gas_opts),
             contract_address,
             args,
             temporary_function_selector.to_field()
-        );
-
-        assert(success == 1, "Nested static call failed!");
-        FunctionReturns::new(data_to_return)
+        ).make_constrained(| (data_to_return, success): ([Field; RETURNS_COUNT], u8) | {
+            assert(success == 1, "Nested static call failed!");
+            FunctionReturns::new(data_to_return)
+        })
     }
 
     fn delegate_call_public_function<RETURNS_COUNT>(
@@ -166,16 +164,16 @@ impl ContextInterface for PublicContext {
         emit_nullifier(nullifier);
     }
     fn msg_sender(self) -> AztecAddress {
-        sender()
+        sender().make_constrained(| x | x)
     }
     fn this_address(self) -> AztecAddress {
-        address()
+        address().make_constrained(| x | x)
     }
     fn chain_id(self) -> Field {
-        chain_id()
+        chain_id().make_constrained(| x | x)
     }
     fn version(self) -> Field {
-        version()
+        version().make_constrained(| x | x)
     }
     fn selector(self) -> FunctionSelector {
         FunctionSelector::from_field(self.inputs.selector)
@@ -198,52 +196,52 @@ fn gas_for_call(user_gas: GasOpts) -> [Field; 2] {
 
 // Unconstrained opcode wrappers (do not use directly).
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6420): reconsider.
-unconstrained fn address() -> AztecAddress {
+unconstrained fn address() -> Unconstrained<AztecAddress> {
     address_opcode()
 }
-unconstrained fn storage_address() -> AztecAddress {
+unconstrained fn storage_address() -> Unconstrained<AztecAddress> {
     storage_address_opcode()
 }
-unconstrained fn sender() -> AztecAddress {
+unconstrained fn sender() -> Unconstrained<AztecAddress> {
     sender_opcode()
 }
-unconstrained fn portal() -> EthAddress {
+unconstrained fn portal() -> Unconstrained<EthAddress> {
     portal_opcode()
 }
-unconstrained fn fee_per_l2_gas() -> Field {
+unconstrained fn fee_per_l2_gas() -> Unconstrained<Field> {
     fee_per_l2_gas_opcode()
 }
-unconstrained fn fee_per_da_gas() -> Field {
+unconstrained fn fee_per_da_gas() -> Unconstrained<Field> {
     fee_per_da_gas_opcode()
 }
-unconstrained fn transaction_fee() -> Field {
+unconstrained fn transaction_fee() -> Unconstrained<Field> {
     transaction_fee_opcode()
 }
-unconstrained fn chain_id() -> Field {
+unconstrained fn chain_id() -> Unconstrained<Field> {
     chain_id_opcode()
 }
-unconstrained fn version() -> Field {
+unconstrained fn version() -> Unconstrained<Field> {
     version_opcode()
 }
-unconstrained fn block_number() -> Field {
+unconstrained fn block_number() -> Unconstrained<Field> {
     block_number_opcode()
 }
-unconstrained fn timestamp() -> u64 {
+unconstrained fn timestamp() -> Unconstrained<u64> {
     timestamp_opcode()
 }
-unconstrained fn l2_gas_left() -> Field {
+unconstrained fn l2_gas_left() -> Unconstrained<Field> {
     l2_gas_left_opcode()
 }
-unconstrained fn da_gas_left() -> Field {
+unconstrained fn da_gas_left() -> Unconstrained<Field> {
     da_gas_left_opcode()
 }
-unconstrained fn note_hash_exists(note_hash: Field, leaf_index: Field) -> u8 {
+unconstrained fn note_hash_exists(note_hash: Field, leaf_index: Field) -> Unconstrained<u8> {
     note_hash_exists_opcode(note_hash, leaf_index)
 }
 unconstrained fn emit_note_hash(note_hash: Field) {
     emit_note_hash_opcode(note_hash)
 }
-unconstrained fn nullifier_exists(nullifier: Field, address: Field) -> u8 {
+unconstrained fn nullifier_exists(nullifier: Field, address: Field) -> Unconstrained<u8> {
     nullifier_exists_opcode(nullifier, address)
 }
 unconstrained fn emit_nullifier(nullifier: Field) {
@@ -252,7 +250,7 @@ unconstrained fn emit_nullifier(nullifier: Field) {
 unconstrained fn emit_unencrypted_log<T>(event_selector: Field, message: T) {
     emit_unencrypted_log_opcode(event_selector, message)
 }
-unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> u8 {
+unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> Unconstrained<u8> {
     l1_to_l2_msg_exists_opcode(msg_hash, msg_leaf_index)
 }
 unconstrained fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
@@ -263,7 +261,7 @@ unconstrained fn call<RET_SIZE>(
     address: AztecAddress,
     args: [Field],
     function_selector: Field
-) -> ([Field; RET_SIZE], u8) {
+) -> Unconstrained<([Field; RET_SIZE], u8)> {
     call_opcode(gas, address, args, function_selector)
 }
 unconstrained fn call_static<RET_SIZE>(
@@ -271,7 +269,7 @@ unconstrained fn call_static<RET_SIZE>(
     address: AztecAddress,
     args: [Field],
     function_selector: Field
-) -> ([Field; RET_SIZE], u8) {
+) -> Unconstrained<([Field; RET_SIZE], u8)> {
     call_static_opcode(gas, address, args, function_selector)
 }
 

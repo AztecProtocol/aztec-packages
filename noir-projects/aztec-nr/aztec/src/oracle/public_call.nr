@@ -17,7 +17,7 @@ unconstrained pub fn call_public_function_internal<RETURNS_COUNT>(
     side_effect_counter: u32,
     is_static_call: bool,
     is_delegate_call: bool
-) -> [Field; RETURNS_COUNT] {
+) -> Unconstrained<[Field; RETURNS_COUNT]> {
     call_public_function_oracle(
         contract_address,
         function_selector,
