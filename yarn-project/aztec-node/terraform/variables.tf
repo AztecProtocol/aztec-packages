@@ -19,19 +19,6 @@ variable "CHAIN_ID" {
   default = 31337
 }
 
-variable "BOOTNODE_LISTEN_PORT" {
-  type    = number
-  default = 40500
-}
-
-variable "BOOTNODE_1_PEER_ID" {
-  type = string
-}
-
-variable "BOOTNODE_2_PEER_ID" {
-  type = string
-}
-
 variable "NODE_P2P_PORT" {
   type    = number
   default = 40400

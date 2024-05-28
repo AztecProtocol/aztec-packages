@@ -55,14 +55,9 @@ data "terraform_remote_state" "l1_contracts" {
 # Compute local variables
 locals {
   publisher_private_keys = [var.SEQ_1_PUBLISHER_PRIVATE_KEY, var.SEQ_2_PUBLISHER_PRIVATE_KEY]
-  bootnode_ids           = [var.BOOTNODE_1_PEER_ID, var.BOOTNODE_2_PEER_ID]
   node_p2p_private_keys  = [var.NODE_1_PRIVATE_KEY, var.NODE_2_PRIVATE_KEY]
   node_count             = length(local.publisher_private_keys)
-  bootnodes = [for i in range(0, local.node_count) :
-    "/dns4/${var.DEPLOY_TAG}-p2p-bootstrap-${i + 1}.local/tcp/${var.BOOTNODE_LISTEN_PORT + i}/p2p/${local.bootnode_ids[i]}"
-  ]
-  combined_bootnodes = join(",", local.bootnodes)
-  data_dir           = "/usr/src/yarn-project/aztec/data"
+  data_dir               = "/usr/src/yarn-project/aztec/data"
 }
 
 resource "aws_cloudwatch_log_group" "aztec-node-log-group" {
@@ -279,7 +274,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         "name": "BOOTSTRAP_NODES",
-        "value": "${local.combined_bootnodes}"
+        "value": "enr:-JO4QNvVz7yYHQ4nzZQ7JCng9LOQkDnFqeLntDEfrAAGOS_eMFWOE4ZlyjYKb3J-yCGu8xoXXEUnUqI8iTJj1K43KH0EjWF6dGVjX25ldHdvcmsBgmlkgnY0gmlwhA0pYm6Jc2VjcDI1NmsxoQLzGvsxdzM9VhPjrMnxLmMxvrEcvSg-QZq7PWXDnnIy1YN1ZHCCnjQ"
       },
       {
         "name": "P2P_ENABLED",
