@@ -155,7 +155,6 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                       std::vector<FF> const& calldata,
                                       std::vector<FF> const& public_inputs_vec)
 
-// TODO: add the entire kernel inputs to this - all of the public inputs for the prover - will the simulator know these?
 {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6718): construction of the public input columns
     // should be done in the kernel - this is stubbed and underconstrained
