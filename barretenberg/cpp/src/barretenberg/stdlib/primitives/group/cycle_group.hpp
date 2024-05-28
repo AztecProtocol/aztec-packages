@@ -191,6 +191,7 @@ template <typename Builder> class cycle_group {
     cycle_group unconditional_subtract(const cycle_group& other) const;
     cycle_group checked_unconditional_add(const cycle_group& other) const;
     cycle_group checked_unconditional_subtract(const cycle_group& other) const;
+    static cycle_group one(Builder* _context = nullptr);
     cycle_group operator+(const cycle_group& other) const;
     cycle_group operator-(const cycle_group& other) const;
     cycle_group operator-() const;

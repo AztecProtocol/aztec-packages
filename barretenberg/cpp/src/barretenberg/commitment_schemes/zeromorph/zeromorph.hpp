@@ -785,8 +785,8 @@ template <typename PCS> class ZeroMorphVerifier_ {
         Commitment first_g1;
         // Retrieve the first element in the SRS [1]_1 which will be different depending on the curve we operate on
         if constexpr (Curve::is_stdlib_type) {
-            auto builder = multivariate_challenge[0].get_context();
-            first_g1 = Commitment(builder, vk->srs->get_first_g1());
+            // this is already what we want and this only gets compiled for IPA anyways
+            first_g1 = vk->get_first_g1();
         } else {
             first_g1 = vk->get_first_g1();
         }

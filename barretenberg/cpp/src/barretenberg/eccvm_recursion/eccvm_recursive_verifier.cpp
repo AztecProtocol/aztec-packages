@@ -18,7 +18,7 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1007): Finish this
 template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
-
+    using ZeroMorph = ZeroMorphVerifier_<PCS>;
     RelationParameters<FF> relation_parameters;
 
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
@@ -64,6 +64,57 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
 
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
+
+    ZeroMorph::verify(commitments.get_unshifted(),
+                      commitments.get_to_be_shifted(),
+                      claimed_evaluations.get_unshifted(),
+                      claimed_evaluations.get_shifted(),
+                      multivariate_challenge,
+                      key->pcs_verification_key,
+                      transcript);
+    // Execute transcript consistency univariate opening round
+    // TODO(#768): Find a better way to do this. See issue for details.
+    // bool univariate_opening_verified = false;
+    // {
+    //     auto hack_commitment = transcript->template receive_from_prover<Commitment>("Translation:hack_commitment");
+
+    //     FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
+
+    //     // Construct arrays of commitments and evaluations to be batched
+    //     const size_t NUM_UNIVARIATES = 6;
+    //     std::array<Commitment, NUM_UNIVARIATES> transcript_commitments = {
+    //         commitments.transcript_op, commitments.transcript_Px, commitments.transcript_Py,
+    //         commitments.transcript_z1, commitments.transcript_z2, hack_commitment
+    //     };
+    //     std::array<FF, NUM_UNIVARIATES> transcript_evaluations = {
+    //         transcript->template receive_from_prover<FF>("Translation:op"),
+    //         transcript->template receive_from_prover<FF>("Translation:Px"),
+    //         transcript->template receive_from_prover<FF>("Translation:Py"),
+    //         transcript->template receive_from_prover<FF>("Translation:z1"),
+    //         transcript->template receive_from_prover<FF>("Translation:z2"),
+    //         transcript->template receive_from_prover<FF>("Translation:hack_evaluation")
+    //     };
+
+    //     // Get another challenge for batching the univariate claims
+    //     FF ipa_batching_challenge = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");
+
+    //     // Construct batched commitment and batched evaluation
+    //     auto batched_commitment = transcript_commitments[0];
+    //     auto batched_transcript_eval = transcript_evaluations[0];
+    //     auto batching_scalar = ipa_batching_challenge;
+    //     for (size_t idx = 1; idx < transcript_commitments.size(); ++idx) {
+    //         batched_commitment = batched_commitment + transcript_commitments[idx] * batching_scalar;
+    //         batched_transcript_eval += batching_scalar * transcript_evaluations[idx];
+    //         batching_scalar *= ipa_batching_challenge;
+    //     }
+
+    //     // Construct and verify batched opening claim
+    //     OpeningClaim<Curve> batched_univariate_claim = { { evaluation_challenge_x, batched_transcript_eval },
+    //                                                      batched_commitment };
+    //     PCS::reduce_verify(key->pcs_verification_key, batched_univariate_claim, transcript);
+    // }
+
+    // return sumcheck_verified.value() && multivariate_opening_verified && univariate_opening_verified;
 }
 
 template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
