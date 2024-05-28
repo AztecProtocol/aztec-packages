@@ -10,6 +10,7 @@ import { dirname, resolve } from 'path';
 import { FeeOpts } from './fees.js';
 import {
   parseAztecAddress,
+  parseBigint,
   parseEthereumAddress,
   parseField,
   parseFieldFromHexString,
@@ -144,6 +145,37 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     });
 
   program
+    .command('bridge-l1-gas')
+    .description('Mints L1 gas tokens and pushes them to L2.')
+    .argument('<amount>', 'The amount of gas tokens to mint and bridge.', parseBigint)
+    .argument('<recipient>', 'Aztec address of the recipient.', parseAztecAddress)
+    .requiredOption(
+      '--l1-rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .option('-a, --api-key <string>', 'Api key for the ethereum host', API_KEY)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use for deriving the Ethereum address that will mint and bridge',
+      'test test test test test test test test test test test junk',
+    )
+    .addOption(pxeOption)
+    .action(async (amount, recipient, options) => {
+      const { bridgeL1Gas } = await import('./cmds/bridge_l1_gas.js');
+      await bridgeL1Gas(
+        amount,
+        recipient,
+        options.rpcUrl,
+        options.l1RpcUrl,
+        options.apiKey ?? '',
+        options.mnemonic,
+        log,
+        debugLogger,
+      );
+    });
+
+  program
     .command('generate-keys')
     .summary('Generates encryption and signing private keys.')
     .description('Generates and encryption and signing private key pair.')
@@ -174,6 +206,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .summary('Creates an aztec account that can be used for sending transactions.')
     .addOption(createPrivateKeyOption('Private key for account. Uses random by default.', false))
     .addOption(pxeOption)
+    .addOptions(FeeOpts.getOptions())
     .option(
       '--register-only',
       'Just register the account on the PXE. Do not deploy or initialize the account contract.',
