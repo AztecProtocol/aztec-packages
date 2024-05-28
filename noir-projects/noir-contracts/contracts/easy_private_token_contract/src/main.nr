@@ -33,7 +33,7 @@ contract EasyPrivateToken {
     fn transfer(amount: u64, sender: AztecAddress, recipient: AztecAddress) {
         let balances = storage.balances;
 
-        balances.at(sender).sub(amount, sender);
+        balances.at(sender).sub(amount, sender, sender);
         balances.at(recipient).add(amount, recipient, sender);
     }
 

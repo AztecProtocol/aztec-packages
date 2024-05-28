@@ -36,10 +36,10 @@ impl<Context> EasyPrivateUint<&mut PrivateContext> {
     }
 
     // Very similar to `value_note::utils::decrement`.
-    pub fn sub(self, subtrahend: u64, owner: AztecAddress) {
+    pub fn sub(self, subtrahend: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let header = self.context.get_header();
         let owner_npk_m_hash = header.get_npk_m_hash(self.context, owner);
-        let msg_sender_ovpk_m = header.get_ovpk_m(self.context, self.context.msg_sender());
+        let outgoing_viewer_ovpk_m = header.get_ovpk_m(self.context, outgoing_viewer);
         let owner_ivpk_m = header.get_ivpk_m(self.context, owner);
 
         // docs:start:get_notes
@@ -69,7 +69,7 @@ impl<Context> EasyPrivateUint<&mut PrivateContext> {
         self.set.insert(
             &mut result_note,
             result_value != 0,
-            msg_sender_ovpk_m,
+            outgoing_viewer_ovpk_m,
             owner_ivpk_m
         );
     }
