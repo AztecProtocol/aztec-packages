@@ -4,7 +4,6 @@ pub fn is_unconstrained() -> bool {}
 #[builtin(assert_unconstrained)]
 pub fn assert_unconstrained() {}
 
-
 struct Unconstrained<T> {
     _value: T,
 }
@@ -14,7 +13,7 @@ impl<T> Unconstrained<T> {
         Self { _value: value }
     }
 
-    fn make_constrained<Env>(self, constrainer: fn[Env](T) -> T) -> T {
+    fn make_constrained<Env, P>(self, constrainer: fn[Env](T) -> P) -> P {
         constrainer(self._value)
     }
 

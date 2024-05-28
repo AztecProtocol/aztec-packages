@@ -12,13 +12,20 @@ impl<T, N> [T; N] {
     }
 
     pub fn sort_via<Env>(self, ordering: fn[Env](T, T) -> bool) -> Self {
-        let sorted_index = self.get_sorting_index(ordering).unwrap();
-        let mut result = self;
-        // Ensure the indexes are correct
-        for i in 0..N {
-            let pos = find_index(sorted_index, i).unwrap();
-            assert(sorted_index[pos] == i);
+        let sorted_index = self.get_sorting_index(ordering).make_constrained(
+            | sorted_index |{
+
+            // Ensure the indexes are correct
+            for i in 0..N {
+                find_index(sorted_index, i).make_constrained(| pos | {
+                    assert(sorted_index[pos] == i);
+                });
+            }
+            sorted_index
         }
+        );
+        let mut result = self;
+
         // Sort the array using the indexes
         for i in 0..N {
             result[i] = self[sorted_index[i]];
@@ -50,7 +57,7 @@ impl<T, N> [T; N] {
                 }
             }
         }
-        Unconstrained::new(result)
+        result
     }
 
     #[builtin(as_slice)]
@@ -118,5 +125,5 @@ unconstrained fn find_index<N>(a: [u64; N], find: u64) -> Unconstrained<u64> {
             result = i;
         }
     }
-    Unconstrained::new(result)
+    result
 }

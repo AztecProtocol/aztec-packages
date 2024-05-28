@@ -94,7 +94,9 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
                 "let mut args_acc: [Field] = &[];
                 {}
                 let args_hash = dep::aztec::hash::hash_args(args_acc);
-                assert(args_hash == dep::aztec::oracle::arguments::pack_arguments(args_acc));",
+                dep::aztec::oracle::arguments::pack_arguments(args_acc).make_constrained(| packed_hash | {{
+                    assert(args_hash == packed_hash);
+                }});",
                 call_args
             )
         } else {
