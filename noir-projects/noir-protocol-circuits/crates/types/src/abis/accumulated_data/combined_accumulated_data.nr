@@ -44,7 +44,7 @@ struct CombinedAccumulatedData {
 }
 
 fn asc_sort_by_counters<T>(a: T, b: T) -> bool where T: Ordered {
-    a.counter() < b.counter()
+    a.counter() <= b.counter()
 }
 
 impl CombinedAccumulatedData {

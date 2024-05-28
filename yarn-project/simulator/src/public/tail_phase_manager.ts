@@ -1,5 +1,6 @@
 import { type PublicKernelRequest, PublicKernelType, type Tx } from '@aztec/circuit-types';
 import {
+  CombineHints,
   type GlobalVariables,
   type Header,
   type KernelCircuitPublicInputs,
@@ -109,7 +110,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
 
     const currentState = await this.db.getStateReference();
 
-    const { hints } = previousKernel.publicInputs.combineAndSortAccumulatedData();
+    const hints = CombineHints.fromPublicData(endNonRevertibleData, end);
 
     return new PublicKernelTailCircuitPrivateInputs(
       previousKernel,
