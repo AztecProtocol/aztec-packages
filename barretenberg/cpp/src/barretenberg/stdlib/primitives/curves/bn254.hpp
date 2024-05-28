@@ -41,6 +41,7 @@ template <typename CircuitBuilder, bool isEmbeddingGrumpkin = false> struct bn25
                                      cycle_group<Builder>,
                                      element<CircuitBuilder, BaseField, ScalarField, GroupNative>>;
     using AffineElement = Group;
+    using Element = Group;
 
     // Additional types with no analog in the native description of the curve
     using witness_ct = witness_t<CircuitBuilder>;
