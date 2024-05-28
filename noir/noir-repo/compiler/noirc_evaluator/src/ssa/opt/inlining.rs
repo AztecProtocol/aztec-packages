@@ -27,7 +27,7 @@ const RECURSION_LIMIT: u32 = 1000;
 impl Ssa {
     /// Inline all functions within the IR.
     ///
-    /// In the case of recursive functions, this will attempt
+    /// In the case of recursive Acir functions, this will attempt
     /// to recursively inline until the RECURSION_LIMIT is reached.
     ///
     /// Functions are recursively inlined into main until either we finish
@@ -41,6 +41,8 @@ impl Ssa {
     /// There are some attributes that allow inlining a function at a different step of codegen.
     /// Currently this is just `InlineType::NoPredicates` for which we have a flag indicating
     /// whether treating that inline functions. The default is to treat these functions as entry points.
+    ///
+    /// This step should run after runtime separation, since it relies on the runtime of the called functions being final.
     #[tracing::instrument(level = "trace", skip(self))]
     pub(crate) fn inline_functions(self) -> Ssa {
         Self::inline_functions_inner(self, true)
@@ -85,7 +87,7 @@ struct InlineContext {
     entry_point: FunctionId,
 
     no_predicates_is_entry_point: bool,
-
+    // We keep track of the recursive functions in the SSA to avoid inlining them in a brillig context.
     recursive_functions: BTreeSet<FunctionId>,
 }
 
@@ -120,6 +122,7 @@ struct PerFunctionContext<'function> {
     inlining_entry: bool,
 }
 
+/// Utility function to find out the direct calls of a function.
 fn called_functions(func: &Function) -> BTreeSet<FunctionId> {
     let mut called_function_ids = BTreeSet::default();
     for block_id in func.reachable_blocks() {
@@ -137,36 +140,7 @@ fn called_functions(func: &Function) -> BTreeSet<FunctionId> {
     called_function_ids
 }
 
-fn find_top_level_brillig_functions(
-    ssa: &Ssa,
-    current_function: FunctionId,
-    explored_functions: &mut BTreeSet<FunctionId>,
-    entry_points: &mut BTreeSet<FunctionId>,
-) {
-    if !explored_functions.insert(current_function) {
-        return;
-    }
-
-    let function = &ssa.functions[&current_function];
-    if function.runtime() == RuntimeType::Brillig {
-        entry_points.insert(current_function);
-        return;
-    }
-
-    let called_functions = called_functions(function);
-
-    for called_function in called_functions {
-        find_top_level_brillig_functions(ssa, called_function, explored_functions, entry_points);
-    }
-}
-
-fn find_all_brillig_entry_points(ssa: &Ssa) -> BTreeSet<FunctionId> {
-    let mut explored_functions = BTreeSet::default();
-    let mut entry_points = BTreeSet::default();
-    find_top_level_brillig_functions(ssa, ssa.main_id, &mut explored_functions, &mut entry_points);
-    entry_points
-}
-
+// Recursively explore the SSA to find the functions that end up calling themselves
 fn find_recursive_functions(
     ssa: &Ssa,
     current_function: FunctionId,
@@ -205,18 +179,39 @@ fn find_all_recursive_functions(ssa: &Ssa) -> BTreeSet<FunctionId> {
     recursive_functions
 }
 
-/// The entry point functions are each function we should inline into - and each function that
-/// should be left in the final program.
-/// This is the `main` function, any Acir functions with a [fold inline type][InlineType::Fold],
-/// and any brillig functions used.
+/// The functions we should inline into (and that should be left in the final program) are:
+///  - main
+///  - Any Brillig function called from Acir
+///  - Any Brillig recursive function (Acir recursive functions will be inlined into the main function)
+///  - Any Acir functions with a [fold inline type][InlineType::Fold],
 fn get_functions_to_inline_into(
     ssa: &Ssa,
     no_predicates_is_entry_point: bool,
 ) -> BTreeSet<FunctionId> {
-    let brillig_entry_points = find_all_brillig_entry_points(ssa);
-    let functions = ssa.functions.iter();
+    let brillig_entry_points: BTreeSet<_> = ssa
+        .functions
+        .iter()
+        .flat_map(|(_, function)| {
+            if function.runtime() != RuntimeType::Brillig {
+                called_functions(function)
+                    .into_iter()
+                    .filter(|called_function_id| {
+                        ssa.functions
+                            .get(called_function_id)
+                            .expect("Function should exist in SSA")
+                            .runtime()
+                            == RuntimeType::Brillig
+                    })
+                    .collect()
+            } else {
+                vec![]
+            }
+        })
+        .collect();
 
-    let acir_entry_points: BTreeSet<_> = functions
+    let acir_entry_points: BTreeSet<_> = ssa
+        .functions
+        .iter()
         .filter(|(_, function)| {
             // If we have not already finished the flattening pass, functions marked
             // to not have predicates should be marked as entry points.
@@ -514,7 +509,7 @@ impl<'function> PerFunctionContext<'function> {
                                         && function.is_no_predicates();
                                 inline_type.is_entry_point() || no_predicates_is_entry_point
                             } else {
-                                // If the called function is brillig, we inline if we are inlining into a brillig function and the function is not recursive
+                                // If the called function is brillig, we inline only if it's into brillig and the function is not recursive
                                 ssa.functions[&self.context.entry_point].runtime()
                                     != RuntimeType::Brillig
                                     || self.context.recursive_functions.contains(&func_id)

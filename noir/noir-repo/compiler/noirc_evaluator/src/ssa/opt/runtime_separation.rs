@@ -1,3 +1,7 @@
+use std::collections::BTreeSet;
+
+use fxhash::{FxHashMap as HashMap, FxHashSet as HashSet};
+
 use crate::ssa::{
     ir::{
         function::{Function, FunctionId, RuntimeType},
@@ -6,9 +10,14 @@ use crate::ssa::{
     },
     ssa_gen::Ssa,
 };
-use fxhash::{FxHashMap as HashMap, FxHashSet as HashSet};
 
 impl Ssa {
+    /// This SSA step separates the runtime of the functions in the SSA.
+    /// After this step, all functions with runtime `Acir` will be converted to Acir and
+    /// the functions with runtime `Brillig` will be converted to Brillig.
+    /// It does so by cloning all ACIR functions called from a Brillig context
+    /// and changing the runtime of the cloned functions to Brillig.
+    /// This pass needs to run after functions as values have been resolved (defunctionalization).
     #[tracing::instrument(level = "trace", skip(self))]
     pub(crate) fn separate_runtime(mut self) -> Self {
         RuntimeSeparatorContext::separate_runtime(&mut self);
@@ -17,51 +26,45 @@ impl Ssa {
     }
 }
 
-fn called_functions_values(func: &Function) -> HashSet<ValueId> {
-    let mut called_function_ids = HashSet::default();
-    for block_id in func.reachable_blocks() {
-        for instruction_id in func.dfg[block_id].instructions() {
-            let Instruction::Call { func: called_value_id, .. } = &func.dfg[*instruction_id] else {
-                continue;
-            };
-
-            if let Value::Function(_) = func.dfg[*called_value_id] {
-                called_function_ids.insert(*called_value_id);
-            }
-        }
-    }
-
-    called_function_ids
-}
-
-fn called_functions(func: &Function) -> HashSet<FunctionId> {
-    called_functions_values(func)
-        .into_iter()
-        .map(|value_id| {
-            let Value::Function(func_id) = func.dfg[value_id] else {
-                unreachable!("Value should be a function")
-            };
-            func_id
-        })
-        .collect()
-}
-
 #[derive(Debug, Default)]
 struct RuntimeSeparatorContext {
-    acir_functions_called_from_brillig: HashSet<FunctionId>,
-    processed_functions: HashSet<(/* within_brillig */ bool, FunctionId)>,
+    // Original functions to clone to brillig
+    acir_functions_called_from_brillig: BTreeSet<FunctionId>,
+    // Tracks the original => cloned version
     mapped_functions: HashMap<FunctionId, FunctionId>,
+    // Some original functions might not be called from ACIR at all, we store the ones that are to delete the others.
+    mapped_functions_called_from_acir: HashSet<FunctionId>,
 }
 
 impl RuntimeSeparatorContext {
-    fn separate_runtime(ssa: &mut Ssa) {
+    pub(crate) fn separate_runtime(ssa: &mut Ssa) {
         let mut runtime_separator = RuntimeSeparatorContext::default();
 
-        runtime_separator.collect_acir_functions_called_from_brillig(ssa, ssa.main_id, false);
-        runtime_separator.processed_functions = HashSet::default();
-
+        // We first collect all the acir functions called from a brillig context by exploring the SSA recursively
+        let mut processed_functions = HashSet::default();
+        runtime_separator.collect_acir_functions_called_from_brillig(
+            ssa,
+            ssa.main_id,
+            false,
+            &mut processed_functions,
+        );
+        // Now we clone the relevant acir functions and change their runtime to brillig
         runtime_separator.convert_acir_functions_called_from_brillig_to_brillig(ssa);
-        runtime_separator.replace_calls_to_mapped_functions(ssa, ssa.main_id, false);
+
+        // Now we update any calls within a brillig context to the mapped functions exploring the SSA recursively
+        let mut processed_functions = HashSet::default();
+        runtime_separator.replace_calls_to_mapped_functions(
+            ssa,
+            ssa.main_id,
+            false,
+            &mut processed_functions,
+        );
+
+        // Trim all the functions that were cloned to brillig but are not called from ACIR in any part of the program.
+        ssa.functions.retain(|id, _value| {
+            !runtime_separator.acir_functions_called_from_brillig.contains(id)
+                || runtime_separator.mapped_functions_called_from_acir.contains(id)
+        });
     }
 
     fn collect_acir_functions_called_from_brillig(
@@ -69,11 +72,13 @@ impl RuntimeSeparatorContext {
         ssa: &Ssa,
         current_func_id: FunctionId,
         mut within_brillig: bool,
+        processed_functions: &mut HashSet<(/* within_brillig */ bool, FunctionId)>,
     ) {
-        if self.processed_functions.contains(&(within_brillig, current_func_id)) {
+        // Processed functions needs the within brillig flag, since it is possible to call the same function from both brillig and acir
+        if processed_functions.contains(&(within_brillig, current_func_id)) {
             return;
         }
-        self.processed_functions.insert((within_brillig, current_func_id));
+        processed_functions.insert((within_brillig, current_func_id));
 
         let func = ssa.functions.get(&current_func_id).expect("Function should exist in SSA");
         if func.runtime() == RuntimeType::Brillig {
@@ -93,7 +98,12 @@ impl RuntimeSeparatorContext {
         }
 
         for called_func_id in called_functions.into_iter() {
-            self.collect_acir_functions_called_from_brillig(ssa, called_func_id, within_brillig);
+            self.collect_acir_functions_called_from_brillig(
+                ssa,
+                called_func_id,
+                within_brillig,
+                processed_functions,
+            );
         }
     }
 
@@ -112,11 +122,13 @@ impl RuntimeSeparatorContext {
         ssa: &mut Ssa,
         current_func_id: FunctionId,
         mut within_brillig: bool,
+        processed_functions: &mut HashSet<FunctionId>,
     ) {
-        if self.processed_functions.contains(&(within_brillig, current_func_id)) {
+        // Processed functions no longer needs the within brillig flag since we've already cloned the acir functions called from brillig
+        if processed_functions.contains(&current_func_id) {
             return;
         }
-        self.processed_functions.insert((within_brillig, current_func_id));
+        processed_functions.insert(current_func_id);
 
         let func = ssa.functions.get_mut(&current_func_id).expect("Function should exist in SSA");
         if func.runtime() == RuntimeType::Brillig {
@@ -125,16 +137,19 @@ impl RuntimeSeparatorContext {
 
         let called_functions_values = called_functions_values(func);
 
-        // If we are within brillig, swap the called functions with the mapped functions
-        if within_brillig {
-            for called_func_value_id in called_functions_values.iter() {
-                let Value::Function(called_func_id) = &func.dfg[*called_func_value_id] else {
-                    unreachable!("Value should be a function")
-                };
-                if let Some(mapped_func_id) = self.mapped_functions.get(called_func_id) {
+        for called_func_value_id in called_functions_values.iter() {
+            let Value::Function(called_func_id) = &func.dfg[*called_func_value_id] else {
+                unreachable!("Value should be a function")
+            };
+            if let Some(mapped_func_id) = self.mapped_functions.get(called_func_id) {
+                // If we are within brillig, swap the called functions with the mapped functions
+                if within_brillig {
                     let new_target_value = Value::Function(*mapped_func_id);
                     let mapped_value_id = func.dfg.make_value(new_target_value);
                     func.dfg.set_value_from_id(*called_func_value_id, mapped_value_id);
+                } else {
+                    // If we are not, we keep track of the original functions that are still called to delete the ones that aren't
+                    self.mapped_functions_called_from_acir.insert(*called_func_id);
                 }
             }
         }
@@ -142,7 +157,42 @@ impl RuntimeSeparatorContext {
         // Get the called functions again after the replacements
         let called_functions = called_functions(func);
         for called_func_id in called_functions.into_iter() {
-            self.replace_calls_to_mapped_functions(ssa, called_func_id, within_brillig);
+            self.replace_calls_to_mapped_functions(
+                ssa,
+                called_func_id,
+                within_brillig,
+                processed_functions,
+            );
         }
     }
+}
+
+// We only consider direct calls to functions since functions as values should have been resolved
+fn called_functions_values(func: &Function) -> BTreeSet<ValueId> {
+    let mut called_function_ids = BTreeSet::default();
+    for block_id in func.reachable_blocks() {
+        for instruction_id in func.dfg[block_id].instructions() {
+            let Instruction::Call { func: called_value_id, .. } = &func.dfg[*instruction_id] else {
+                continue;
+            };
+
+            if let Value::Function(_) = func.dfg[*called_value_id] {
+                called_function_ids.insert(*called_value_id);
+            }
+        }
+    }
+
+    called_function_ids
+}
+
+fn called_functions(func: &Function) -> BTreeSet<FunctionId> {
+    called_functions_values(func)
+        .into_iter()
+        .map(|value_id| {
+            let Value::Function(func_id) = func.dfg[value_id] else {
+                unreachable!("Value should be a function")
+            };
+            func_id
+        })
+        .collect()
 }
