@@ -43,9 +43,11 @@ contract AppSubscription {
         note.remaining_txs -= 1;
 
         let header = context.get_header();
-        let msg_sender_ovpk_m = header.get_ovpk_m(&mut context, context.msg_sender());
+        // We are emitting both the outgoing and the incoming logs to the subscriber here because passing a separate
+        // outgoing_viewer arg to entrypoint function is impractical and the outgoing are not so valuable here.
+        let subscriber_ovpk_m = header.get_ovpk_m(&mut context, user_address);
         let subscriber_ivpk_m = header.get_ivpk_m(&mut context, user_address);
-        storage.subscriptions.at(user_address).replace(&mut note, true, msg_sender_ovpk_m, subscriber_ivpk_m);
+        storage.subscriptions.at(user_address).replace(&mut note, true, subscriber_ovpk_m, subscriber_ivpk_m);
 
         context.set_as_fee_payer();
 

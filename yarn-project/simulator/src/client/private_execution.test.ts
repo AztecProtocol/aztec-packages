@@ -302,7 +302,9 @@ describe('Private Execution test suite', () => {
       // NB: this test does NOT cover correct enc/dec of values, just whether
       // the kernels correctly populate non-note encrypted logs
       const artifact = getFunctionArtifact(TestContractArtifact, 'emit_array_as_encrypted_log');
-      const args = [times(5, () => Fr.random()), owner, false];
+      // We emit the outgoing here to recipient for no reason at all
+      const outgoingViewer = recipient;
+      const args = [times(5, () => Fr.random()), owner, outgoingViewer, false];
       const result = await runSimulator({ artifact, msgSender: owner, args });
 
       const newEncryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.encryptedLogsHashes);

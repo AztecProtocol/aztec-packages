@@ -51,10 +51,7 @@ describe('e2e_static_calls', () => {
     it('performs legal private to private static calls', async () => {
       // Using low level calls
       await parentContract.methods
-        .private_static_call(childContract.address, childContract.methods.private_get_value.selector, [
-          42n,
-          owner,
-        ])
+        .private_static_call(childContract.address, childContract.methods.private_get_value.selector, [42n, owner])
         .send()
         .wait();
 
