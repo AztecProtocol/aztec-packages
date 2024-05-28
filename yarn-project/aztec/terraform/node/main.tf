@@ -158,7 +158,12 @@ resource "aws_ecs_task_definition" "aztec-node" {
         "containerPort": 80
       },
       {
-        "containerPort": ${var.P2P_TCP_LISTEN_PORT + count.index}
+        "containerPort": ${var.NODE_P2P_PORT + count.index},
+        "protocol": "tcp"
+      },
+      {
+        "containerPort": ${var.NODE_P2P_PORT + count.index},
+        "protocol": "udp"
       }
     ],
     "environment": [
@@ -249,7 +254,11 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         "name": "P2P_TCP_LISTEN_PORT",
-        "value": "${var.P2P_TCP_LISTEN_PORT + count.index}"
+        "value": "${var.NODE_P2P_PORT + count.index}"
+      },
+      {
+        "name": "P2P_UDP_LISTEN_PORT",
+        "value": "${var.NODE_P2P_PORT + count.index}"
       },
       {
         "name": "P2P_TCP_LISTEN_IP",
@@ -257,11 +266,11 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         "name": "P2P_ANNOUNCE_HOSTNAME",
-        "value": "/dns4/${data.terraform_remote_state.aztec-network_iac.outputs.nlb_dns}"
+        "value": "/ip4/${data.terraform_remote_state.aztec-network_iac.outputs.p2p_eip}"
       },
       {
         "name": "P2P_ANNOUNCE_PORT",
-        "value": "${var.P2P_TCP_LISTEN_PORT + count.index}"
+        "value": "${var.NODE_P2P_PORT + count.index}"
       },
       {
         "name": "BOOTSTRAP_NODES",
@@ -359,17 +368,23 @@ resource "aws_ecs_service" "aztec-node" {
   }
 
   load_balancer {
-    target_group_arn = aws_alb_target_group.aztec-node[count.index].arn
+    target_group_arn = aws_alb_target_group.aztec-node-http[count.index].arn
     container_name   = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
     container_port   = 80
   }
 
 
-  # load_balancer {
-  #   target_group_arn = aws_lb_target_group.aztec-node-target-group[count.index].arn
-  #   container_name   = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
-  #   container_port   = var.P2P_TCP_LISTEN_PORT + count.index
-  # }
+  load_balancer {
+    target_group_arn = aws_lb_target_group.aztec-node-tcp[count.index].arn
+    container_name   = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
+    container_port   = var.NODE_P2P_PORT + count.index
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.aztec-node-udp[count.index].arn
+    container_name   = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
+    container_port   = var.NODE_P2P_PORT + count.index
+  }
 
   service_registries {
     registry_arn   = aws_service_discovery_service.aztec-node[count.index].arn
@@ -381,7 +396,7 @@ resource "aws_ecs_service" "aztec-node" {
 }
 
 # Configure ALB to route /aztec-node to server.
-resource "aws_alb_target_group" "aztec-node" {
+resource "aws_alb_target_group" "aztec-node-http" {
   count                = local.node_count
   name                 = "${var.DEPLOY_TAG}-node-${count.index + 1}-http-target"
   port                 = 80
@@ -411,7 +426,7 @@ resource "aws_lb_listener_rule" "api" {
 
   action {
     type             = "forward"
-    target_group_arn = aws_alb_target_group.aztec-node[count.index].arn
+    target_group_arn = aws_alb_target_group.aztec-node-http[count.index].arn
   }
 
   condition {
@@ -421,29 +436,38 @@ resource "aws_lb_listener_rule" "api" {
   }
 }
 
-resource "aws_lb_target_group" "aztec-node-target-group" {
+resource "aws_lb_target_group" "aztec-node-tcp" {
   count       = local.node_count
   name        = "${var.DEPLOY_TAG}-node-${count.index + 1}-p2p-target"
-  port        = var.P2P_TCP_LISTEN_PORT + count.index
+  port        = var.NODE_P2P_PORT + count.index
   protocol    = "TCP"
   target_type = "ip"
   vpc_id      = data.terraform_remote_state.setup_iac.outputs.vpc_id
 
-  # health_check {
-  #   protocol            = "TCP"
-  #   interval            = 10
-  #   healthy_threshold   = 2
-  #   unhealthy_threshold = 2
-  #   port                = var.P2P_TCP_LISTEN_PORT + count.index
-  #   enabled             = var.P2P_ENABLED
-  # }
+  health_check {
+    protocol            = "TCP"
+    interval            = 10
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    port                = var.NODE_P2P_PORT + count.index
+  }
 }
 
-resource "aws_security_group_rule" "allow-node-tcp" {
+resource "aws_security_group_rule" "allow-node-tcp-in" {
   count             = local.node_count
   type              = "ingress"
-  from_port         = var.P2P_TCP_LISTEN_PORT + count.index
-  to_port           = var.P2P_TCP_LISTEN_PORT + count.index
+  from_port         = var.NODE_P2P_PORT + count.index
+  to_port           = var.NODE_P2P_PORT + count.index
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
+}
+
+resource "aws_security_group_rule" "allow-node-tcp-out" {
+  count             = local.node_count
+  type              = "outgress"
+  from_port         = var.NODE_P2P_PORT + count.index
+  to_port           = var.NODE_P2P_PORT + count.index
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
@@ -452,7 +476,7 @@ resource "aws_security_group_rule" "allow-node-tcp" {
 resource "aws_lb_listener" "aztec-node-tcp-listener" {
   count             = local.node_count
   load_balancer_arn = data.terraform_remote_state.aztec-network_iac.outputs.nlb_arn
-  port              = var.P2P_TCP_LISTEN_PORT + count.index
+  port              = var.NODE_P2P_PORT + count.index
   protocol          = "TCP"
 
   tags = {
@@ -461,7 +485,61 @@ resource "aws_lb_listener" "aztec-node-tcp-listener" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.aztec-node-target-group[count.index].arn
+    target_group_arn = aws_lb_target_group.aztec-node-tcp[count.index].arn
+  }
+}
+
+
+resource "aws_lb_target_group" "aztec-node-udp" {
+  count       = local.node_count
+  name        = "${var.DEPLOY_TAG}-node-${count.index + 1}-p2p-target"
+  port        = var.NODE_P2P_PORT + count.index
+  protocol    = "UDP"
+  target_type = "ip"
+  vpc_id      = data.terraform_remote_state.setup_iac.outputs.vpc_id
+
+  health_check {
+    protocol            = "TCP"
+    interval            = 10
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    port                = var.NODE_P2P_PORT + count.index
+  }
+}
+
+resource "aws_security_group_rule" "allow-node-udp-in" {
+  count             = local.node_count
+  type              = "ingress"
+  from_port         = var.NODE_P2P_PORT + count.index
+  to_port           = var.NODE_P2P_PORT + count.index
+  protocol          = "udp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
+}
+
+resource "aws_security_group_rule" "allow-node-udp-out" {
+  count             = local.node_count
+  type              = "outgress"
+  from_port         = var.NODE_P2P_PORT + count.index
+  to_port           = var.NODE_P2P_PORT + count.index
+  protocol          = "udp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
+}
+
+resource "aws_lb_listener" "aztec-node-udp-listener" {
+  count             = local.node_count
+  load_balancer_arn = data.terraform_remote_state.aztec-network_iac.outputs.nlb_arn
+  port              = var.NODE_P2P_PORT + count.index
+  protocol          = "UDP"
+
+  tags = {
+    name = "aztec-node-${count.index}-udp-listener"
+  }
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.aztec-node-tcp[count.index].arn
   }
 }
 
