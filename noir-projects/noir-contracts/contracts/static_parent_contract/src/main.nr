@@ -30,6 +30,16 @@ contract StaticParent {
         context.call_private_function(target_contract, target_selector, args).unpack_into()
     }
 
+    // Just like function above but with 3 args.
+    #[aztec(private)]
+    fn private_call_3_args(
+        target_contract: AztecAddress,
+        target_selector: FunctionSelector,
+        args: [Field; 3]
+    ) -> Field {
+        context.call_private_function(target_contract, target_selector, args).unpack_into()
+    }
+
     // Private function to enqueue a call to a public function of another contract, passing the target arguments provided
     #[aztec(private)]
     fn enqueue_call(
@@ -79,13 +89,14 @@ contract StaticParent {
         StaticParent::at(context.this_address()).private_call(target_contract, target_selector, args).view(&mut context)
     }
 
+    // Just like function above but with 3 args.
     #[aztec(private)]
     fn private_nested_static_call_3_args(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
         args: [Field; 3]
     ) -> Field {
-        StaticParent::at(context.this_address()).private_nested_static_call_3_args(target_contract, target_selector, args).view(&mut context)
+        StaticParent::at(context.this_address()).private_call_3_args(target_contract, target_selector, args).view(&mut context)
     }
 
     // Public function to statically call another public function to the target_contract using the selector and value provided
