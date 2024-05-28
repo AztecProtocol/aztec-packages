@@ -25,7 +25,7 @@ import { StatefulTestContract } from '@aztec/noir-contracts.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
-import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
+import { DeployTest, type StatefulContractCtorArgs, type StatefulContractPublicCtorArgs } from './deploy_test.js';
 
 describe('e2e_deploy_contract contract class registration', () => {
   const t = new DeployTest('contract class');
@@ -94,7 +94,8 @@ describe('e2e_deploy_contract contract class registration', () => {
       let contract: StatefulTestContract;
 
       const deployInstance = async (opts: { constructorName?: string; deployer?: AztecAddress } = {}) => {
-        const initArgs = [wallet.getAddress(), 42] as StatefulContractCtorArgs;
+        const initArgs = [wallet.getAddress(), wallet.getAddress(), 42] as StatefulContractCtorArgs;
+        const publicCtorInitArgs = [wallet.getAddress(), 42] as StatefulContractPublicCtorArgs;
         const salt = Fr.random();
         const publicKeysHash = Fr.random();
         const instance = getContractInstanceFromDeployParams(artifact, {
@@ -126,7 +127,7 @@ describe('e2e_deploy_contract contract class registration', () => {
         });
         expect(registered.address).toEqual(instance.address);
         const contract = await StatefulTestContract.at(instance.address, wallet);
-        return { contract, initArgs, instance, publicKeysHash };
+        return { contract, initArgs, publicCtorInitArgs, instance, publicKeysHash };
       };
 
       describe('using a private constructor', () => {
@@ -168,9 +169,9 @@ describe('e2e_deploy_contract contract class registration', () => {
         });
 
         it('refuses to initialize the instance with wrong args via a private function', async () => {
-          await expect(contract.methods.constructor(AztecAddress.random(), 43).prove()).rejects.toThrow(
-            /initialization hash does not match/i,
-          );
+          await expect(
+            contract.methods.constructor(AztecAddress.random(), AztecAddress.random(), 43).prove(),
+          ).rejects.toThrow(/initialization hash does not match/i);
         });
 
         it('initializes the contract and calls a public function', async () => {
@@ -196,8 +197,11 @@ describe('e2e_deploy_contract contract class registration', () => {
       });
 
       describe('using a public constructor', () => {
+        let publicCtorInitArgs: StatefulContractPublicCtorArgs;
         beforeAll(async () => {
-          ({ instance, initArgs, contract } = await deployInstance({ constructorName: 'public_constructor' }));
+          ({ instance, publicCtorInitArgs, contract } = await deployInstance({
+            constructorName: 'public_constructor',
+          }));
         });
 
         it('refuses to initialize the instance with wrong args via a public function', async () => {
@@ -212,7 +216,7 @@ describe('e2e_deploy_contract contract class registration', () => {
 
         it('initializes the contract and calls a public function', async () => {
           await contract.methods
-            .public_constructor(...initArgs)
+            .public_constructor(...publicCtorInitArgs)
             .send()
             .wait();
           const whom = AztecAddress.random();
@@ -224,7 +228,7 @@ describe('e2e_deploy_contract contract class registration', () => {
         it('refuses to reinitialize the contract', async () => {
           await expect(
             contract.methods
-              .public_constructor(...initArgs)
+              .public_constructor(...publicCtorInitArgs)
               .send({ skipPublicSimulation: true })
               .wait(),
           ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);

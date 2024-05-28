@@ -21,7 +21,7 @@ describe('e2e_deploy_contract deploy method', () => {
   it('publicly deploys and initializes a contract', async () => {
     const owner = wallet.getAddress();
     logger.debug(`Deploying stateful test contract`);
-    const contract = await StatefulTestContract.deploy(wallet, owner, 42).send().deployed();
+    const contract = await StatefulTestContract.deploy(wallet, owner, owner, 42).send().deployed();
     expect(await contract.methods.summed_values(owner).simulate()).toEqual(42n);
     logger.debug(`Calling public method on stateful test contract at ${contract.address.toString()}`);
     await contract.methods.increment_public_value(owner, 84).send().wait();
@@ -31,7 +31,7 @@ describe('e2e_deploy_contract deploy method', () => {
   it('publicly universally deploys and initializes a contract', async () => {
     const owner = wallet.getAddress();
     const opts = { universalDeploy: true };
-    const contract = await StatefulTestContract.deploy(wallet, owner, 42).send(opts).deployed();
+    const contract = await StatefulTestContract.deploy(wallet, owner, owner, 42).send(opts).deployed();
     expect(await contract.methods.summed_values(owner).simulate()).toEqual(42n);
     await contract.methods.increment_public_value(owner, 84).send().wait();
     expect(await contract.methods.get_public_value(owner).simulate()).toEqual(84n);

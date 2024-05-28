@@ -14,18 +14,24 @@ pub fn create_note_getter_options_for_decreasing_balance(amount: Field) -> NoteG
 pub fn increment(
     balance: PrivateSet<ValueNote, &mut PrivateContext>,
     amount: Field,
-    recipient: AztecAddress
+    recipient: AztecAddress,
+    outgoing_viewer: AztecAddress
 ) {
     let header = balance.context.get_header();
     let recipient_npk_m_hash = header.get_npk_m_hash(balance.context, recipient);
     // Using recipient's ovpk_m here instead of msg_sender's because this function is commonly called from contracts
     // without registered keys (e.g. from StatefulTest contract).
-    let recipient_ovpk_m = header.get_ovpk_m(balance.context, recipient);
+    let outgoing_viewer_ovpk_m = header.get_ovpk_m(balance.context, outgoing_viewer);
     let recipient_ivpk_m = header.get_ivpk_m(balance.context, recipient);
 
     let mut note = ValueNote::new(amount, recipient_npk_m_hash);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
-    balance.insert(&mut note, amount != 0, recipient_ovpk_m, recipient_ivpk_m);
+    balance.insert(
+        &mut note,
+        amount != 0,
+        outgoing_viewer_ovpk_m,
+        recipient_ivpk_m
+    );
 }
 
 // Find some of the `owner`'s notes whose values add up to the `amount`.
@@ -35,9 +41,10 @@ pub fn increment(
 pub fn decrement(
     balance: PrivateSet<ValueNote, &mut PrivateContext>,
     amount: Field,
-    owner: AztecAddress
+    owner: AztecAddress,
+    outgoing_viewer: AztecAddress
 ) {
-    let sum = decrement_by_at_most(balance, amount, owner);
+    let sum = decrement_by_at_most(balance, amount, owner, outgoing_viewer);
     assert(sum == amount, "Balance too low");
 }
 
@@ -52,7 +59,8 @@ pub fn decrement(
 pub fn decrement_by_at_most(
     balance: PrivateSet<ValueNote, &mut PrivateContext>,
     max_amount: Field,
-    owner: AztecAddress
+    owner: AztecAddress,
+    outgoing_viewer: AztecAddress
 ) -> Field {
     let options = create_note_getter_options_for_decreasing_balance(max_amount);
     let opt_notes = balance.get_notes(options);
@@ -72,7 +80,7 @@ pub fn decrement_by_at_most(
         change_value = decremented - max_amount;
         decremented -= change_value;
     }
-    increment(balance, change_value, owner);
+    increment(balance, change_value, owner, outgoing_viewer);
 
     decremented
 }

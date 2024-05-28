@@ -362,8 +362,8 @@ describe('Private Execution test suite', () => {
       );
     });
 
-    it('should have a constructor with arguments that inserts notes', async () => {
-      const initArgs = [owner, 140];
+    it.only('should have a constructor with arguments that inserts notes', async () => {
+      const initArgs = [owner, owner, 140];
       const instance = getContractInstanceFromDeployParams(StatefulTestContractArtifact, { constructorArgs: initArgs });
       oracle.getContractInstance.mockResolvedValue(instance);
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'constructor');
@@ -399,11 +399,12 @@ describe('Private Execution test suite', () => {
     it('should run the create_note function', async () => {
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'create_note_no_init_check');
 
-      const result = await runSimulator({ args: [owner, 140], artifact });
+      const result = await runSimulator({ args: [owner, owner, 140], artifact });
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
       expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner));
+      // TODO(#6640): update the constants here
       expect(newNote.noteTypeId).toEqual(new Fr(869710811710178111116101n)); // ValueNote
 
       const newNoteHashes = getNonEmptyItems(result.callStackItem.publicInputs.newNoteHashes);

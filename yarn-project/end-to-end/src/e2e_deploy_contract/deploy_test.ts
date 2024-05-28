@@ -86,6 +86,7 @@ export class DeployTest {
 }
 
 export type StatefulContractCtorArgs = Parameters<StatefulTestContract['methods']['constructor']>;
+export type StatefulContractPublicCtorArgs = Parameters<StatefulTestContract['methods']['public_constructor']>;
 
 export type ContractArtifactClass<T extends ContractBase> = {
   at(address: AztecAddress, wallet: Wallet): Promise<T>;
