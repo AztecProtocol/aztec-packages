@@ -1,4 +1,18 @@
-use crate::tests::private_call_data_validator_builder::PrivateCallDataValidatorBuilder;
+use crate::{
+    components::private_call_data_validator::PrivateCallDataValidator,
+    tests::private_call_data_validator_builder::PrivateCallDataValidatorBuilder
+};
+use dep::types::abis::private_kernel::private_call_data::PrivateCallData;
+
+impl PrivateCallDataValidatorBuilder {
+    pub fn get_private_call_data(self) -> PrivateCallData {
+        self.private_call.to_private_call_data()
+    }
+
+    pub fn validate_with_private_call(private_call: PrivateCallData) {
+        PrivateCallDataValidator::new(private_call).validate([]);
+    }
+}
 
 /**
  * validate_public_call_requests

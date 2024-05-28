@@ -6,8 +6,7 @@ use crate::components::private_kernel_circuit_public_inputs_composer::PrivateKer
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-    private_call_request::ScopedPrivateCallRequest,
-    private_circuit_public_inputs::PrivateCircuitPublicInputsArrayLengths
+    private_call_request::ScopedPrivateCallRequest
 },
     constants::MAX_NEW_NOTE_HASHES_PER_CALL, tests::fixture_builder::FixtureBuilder,
     transaction::tx_request::TxRequest
@@ -49,10 +48,8 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
 
     pub fn compose_from_tx_request(self) -> PrivateKernelCircuitPublicInputs {
         let private_call = self.private_call.to_private_call_data();
-        let array_lengths = PrivateCircuitPublicInputsArrayLengths::new(private_call.call_stack_item.public_inputs);
         self.new_from_tx_request().compose(
             private_call.call_stack_item.public_inputs,
-            array_lengths,
             private_call.call_stack_item.contract_address,
             self.note_hash_nullifier_counters,
             private_call.public_call_stack,
@@ -62,10 +59,8 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
 
     pub fn compose_from_previous_kernel(self) -> PrivateKernelCircuitPublicInputs {
         let private_call = self.private_call.to_private_call_data();
-        let array_lengths = PrivateCircuitPublicInputsArrayLengths::new(private_call.call_stack_item.public_inputs);
         self.new_from_previous_kernel().compose(
             private_call.call_stack_item.public_inputs,
-            array_lengths,
             private_call.call_stack_item.contract_address,
             self.note_hash_nullifier_counters,
             private_call.public_call_stack,

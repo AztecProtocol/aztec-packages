@@ -24,10 +24,9 @@ struct PrivateKernelInnerCircuitPrivateInputs {
 }
 
 impl PrivateKernelInnerCircuitPrivateInputs {
-    unconstrained fn prepare_output(self, private_call_data_validator: PrivateCallDataValidator) -> PrivateKernelCircuitPublicInputs {
+    unconstrained fn generate_output(self) -> PrivateKernelCircuitPublicInputs {
         PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(self.previous_kernel.public_inputs).compose(
             self.private_call.call_stack_item.public_inputs,
-            private_call_data_validator.array_lengths,
             self.private_call.call_stack_item.contract_address,
             self.hints.note_hash_nullifier_counters,
             self.private_call.public_call_stack,
@@ -36,14 +35,17 @@ impl PrivateKernelInnerCircuitPrivateInputs {
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
+        // Generate output.
+        let output = self.generate_output();
+
         // Validate inputs.
-        let previous_kernel_array_lengths = PrivateKernelCircuitPublicInputsArrayLengths::new(self.previous_kernel.public_inputs);
         let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
-        private_call_data_validator.validate();
+        let previous_kernel_array_lengths = PrivateKernelCircuitPublicInputsArrayLengths::new(self.previous_kernel.public_inputs);
         let private_call_stack_size = previous_kernel_array_lengths.private_call_stack;
         let call_request = self.previous_kernel.public_inputs.end.private_call_stack[private_call_stack_size - 1];
         private_call_data_validator.validate_against_call_request(call_request);
         private_call_data_validator.validate_against_previous_kernel(self.previous_kernel.public_inputs);
+        private_call_data_validator.validate(output.end.new_note_hashes);
         if !dep::std::runtime::is_unconstrained() {
             // verify/aggregate the private call proof
             self.private_call.verify();
@@ -52,7 +54,6 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         }
 
         // Validate output.
-        let output = self.prepare_output(private_call_data_validator);
         if !dep::std::runtime::is_unconstrained() {
             PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
                 self.previous_kernel.public_inputs,

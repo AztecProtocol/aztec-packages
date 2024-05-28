@@ -261,9 +261,9 @@ fn new_from_previous_kernel_with_private_call_new_l2_to_l1_msgs_succeeds() {
 fn new_from_previous_kernel_with_private_call_note_encrypted_log_hashes_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.previous_kernel.append_new_note_hashes_with_logs(2);
+    builder.previous_kernel.append_note_encrypted_log_hashes(2);
     let prev = builder.previous_kernel.note_encrypted_logs_hashes.storage;
-    builder.private_call.append_new_note_hashes_with_logs(2);
+    builder.private_call.append_note_encrypted_log_hashes(2);
     let curr = builder.private_call.note_encrypted_logs_hashes.storage;
 
     let output = builder.compose_from_previous_kernel();
@@ -272,29 +272,6 @@ fn new_from_previous_kernel_with_private_call_note_encrypted_log_hashes_succeeds
         output.end.note_encrypted_logs_hashes,
         [prev[0], prev[1], curr[0], curr[1]]
     );
-}
-
-#[test(should_fail_with="Could not find note hash linked to note log")]
-fn new_from_previous_kernel_with_private_call_note_encrypted_log_hashes_zero_note_hash_counter_fails() {
-    let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
-
-    builder.private_call.append_new_note_hashes_with_logs(2);
-    // Tweak the note_hash_counter to be 0.
-    builder.private_call.note_encrypted_logs_hashes.storage[1].note_hash_counter = 0;
-
-    let _ = builder.compose_from_previous_kernel();
-}
-
-#[test(should_fail_with="Could not find note hash linked to note log")]
-fn new_from_previous_kernel_with_private_call_note_encrypted_log_hashes_random_note_hash_counter_fails() {
-    let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
-
-    builder.previous_kernel.append_new_note_hashes_with_logs(2);
-    builder.private_call.append_new_note_hashes_with_logs(2);
-    // Tweak the note_hash_counter to not match any note hash's counter.
-    builder.private_call.note_encrypted_logs_hashes.storage[1].note_hash_counter += 100;
-
-    let _ = builder.compose_from_previous_kernel();
 }
 
 #[test]

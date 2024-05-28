@@ -7,8 +7,8 @@ use crate::{
 };
 use dep::types::{
     abis::{
-    private_kernel::private_call_data::PrivateCallData,
-    kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs
+    kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+    private_kernel::private_call_data::PrivateCallData
 },
     constants::MAX_NEW_NOTE_HASHES_PER_CALL, transaction::tx_request::TxRequest
 };
@@ -26,11 +26,10 @@ struct PrivateKernelInitCircuitPrivateInputs {
 }
 
 impl PrivateKernelInitCircuitPrivateInputs {
-    unconstrained fn prepare_output(self, private_call_data_validator: PrivateCallDataValidator) -> PrivateKernelCircuitPublicInputs {
+    unconstrained fn generate_output(self) -> PrivateKernelCircuitPublicInputs {
         let private_call_public_inputs = self.private_call.call_stack_item.public_inputs;
         PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(self.tx_request, private_call_public_inputs).compose(
             private_call_public_inputs,
-            private_call_data_validator.array_lengths,
             self.private_call.call_stack_item.contract_address,
             self.hints.note_hash_nullifier_counters,
             self.private_call.public_call_stack,
@@ -39,18 +38,20 @@ impl PrivateKernelInitCircuitPrivateInputs {
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
+        // Generate output.
+        let output = self.generate_output();
+
         // Validate inputs.
         let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
-        private_call_data_validator.validate();
         private_call_data_validator.validate_as_first_call(self.hints.first_revertible_private_call_request_index);
         private_call_data_validator.validate_against_tx_request(self.tx_request);
+        private_call_data_validator.validate(output.end.new_note_hashes);
         if !dep::std::runtime::is_unconstrained() {
             // verify/aggregate the private call proof
             self.private_call.verify();
         }
 
         // Validate output.
-        let output = self.prepare_output(private_call_data_validator);
         if !dep::std::runtime::is_unconstrained() {
             PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
                 self.tx_request,

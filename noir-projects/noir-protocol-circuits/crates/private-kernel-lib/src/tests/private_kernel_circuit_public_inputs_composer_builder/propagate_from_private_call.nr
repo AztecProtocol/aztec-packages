@@ -189,52 +189,12 @@ fn propagate_from_private_call_new_l2_to_l1_msgs_succeeds() {
 fn propagate_from_private_call_note_encrypted_log_hashes_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.private_call.append_new_note_hashes_with_logs(2);
+    builder.private_call.append_note_encrypted_log_hashes(2);
     let res = builder.private_call.note_encrypted_logs_hashes.storage;
 
     let output = builder.compose_from_tx_request();
 
     assert_array_eq(output.end.note_encrypted_logs_hashes, [res[0], res[1]]);
-}
-
-#[test]
-fn propagate_from_private_call_note_encrypted_log_hashes_extra_log_hashes_succeeds() {
-    let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
-
-    builder.private_call.append_new_note_hashes_with_logs(2);
-    let note_hashes = builder.private_call.new_note_hashes.storage;
-    // Add an extra log hash for the note at index 1.
-    builder.private_call.add_note_encrypted_log_hash(123, 2, note_hashes[1].counter());
-    let res = builder.private_call.note_encrypted_logs_hashes.storage;
-
-    let output = builder.compose_from_tx_request();
-
-    assert_array_eq(
-        output.end.note_encrypted_logs_hashes,
-        [res[0], res[1], res[2]]
-    );
-}
-
-#[test(should_fail_with="Could not find note hash linked to note log")]
-fn propagate_from_private_call_note_encrypted_log_hashes_zero_note_hash_counter_fails() {
-    let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
-
-    builder.private_call.append_new_note_hashes_with_logs(2);
-    // Tweak the note_hash_counter to be 0.
-    builder.private_call.note_encrypted_logs_hashes.storage[1].note_hash_counter = 0;
-
-    let _ = builder.compose_from_tx_request();
-}
-
-#[test(should_fail_with="Could not find note hash linked to note log")]
-fn propagate_from_private_call_note_encrypted_log_hashes_random_note_hash_counter_fails() {
-    let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
-
-    builder.private_call.append_new_note_hashes_with_logs(2);
-    // Tweak the note_hash_counter to not match any note hash's counter.
-    builder.private_call.note_encrypted_logs_hashes.storage[1].note_hash_counter += 100;
-
-    let _ = builder.compose_from_tx_request();
 }
 
 #[test]

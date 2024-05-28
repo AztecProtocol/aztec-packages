@@ -3,8 +3,7 @@ use dep::types::{
     call_request::CallRequest, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
     max_block_number::MaxBlockNumber, nullifier::{Nullifier, ScopedNullifier},
-    note_hash::ScopedNoteHash, log_hash::NoteLogHash,
-    private_circuit_public_inputs::{PrivateCircuitPublicInputs, PrivateCircuitPublicInputsArrayLengths}
+    private_circuit_public_inputs::PrivateCircuitPublicInputs
 },
     address::AztecAddress,
     constants::{
@@ -12,12 +11,11 @@ use dep::types::{
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL
 },
     traits::is_empty, transaction::tx_request::TxRequest,
-    utils::arrays::{array_to_bounded_vec, find_index}
+    utils::arrays::{array_length, array_to_bounded_vec}
 };
 
 struct DataSource {
     private_call_public_inputs: PrivateCircuitPublicInputs,
-    array_lengths: PrivateCircuitPublicInputsArrayLengths,
     contract_address: AztecAddress,
     storage_contract_address: AztecAddress,
     note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
@@ -83,7 +81,6 @@ impl PrivateKernelCircuitPublicInputsComposer {
     pub fn compose(
         &mut self,
         private_call_public_inputs: PrivateCircuitPublicInputs,
-        array_lengths: PrivateCircuitPublicInputsArrayLengths,
         contract_address: AztecAddress,
         note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
         public_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
@@ -92,7 +89,6 @@ impl PrivateKernelCircuitPublicInputsComposer {
         let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
         let source = DataSource {
             private_call_public_inputs,
-            array_lengths,
             contract_address,
             storage_contract_address,
             note_hash_nullifier_counters,
@@ -221,29 +217,16 @@ impl PrivateKernelCircuitPublicInputsComposer {
         }
 
         let note_logs = source.private_call_public_inputs.note_encrypted_logs_hashes;
-        let new_note_hashes = self.public_inputs.end.new_note_hashes;
         for i in 0..note_logs.len() {
             if !is_empty(note_logs[i]) {
-                let note_index = self.match_log_to_note(note_logs[i]);
-                assert(note_index < new_note_hashes.len(), "Could not find note hash linked to note log");
-                assert_eq(
-                    note_logs[i].note_hash_counter, new_note_hashes.get_unchecked(note_index).counter(), "Could not find note hash linked to note log"
-                );
                 self.public_inputs.end.note_encrypted_logs_hashes.push(note_logs[i]);
             }
         }
     }
 
-    unconstrained fn match_log_to_note(self, note_log: NoteLogHash) -> u64 {
-        find_index(
-            self.public_inputs.end.new_note_hashes.storage,
-            |n: ScopedNoteHash| n.counter() == note_log.note_hash_counter
-        )
-    }
-
     fn propagate_private_call_requests(&mut self, source: DataSource) {
         let call_requests = source.private_call_public_inputs.private_call_requests;
-        let num_requests = source.array_lengths.private_call_requests;
+        let num_requests = array_length(call_requests);
         let mut proceed = true;
         for i in 0..call_requests.len() {
             proceed &= i != num_requests;
