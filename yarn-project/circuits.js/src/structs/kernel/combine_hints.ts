@@ -60,10 +60,16 @@ export class CombineHints {
     );
   }
 
-  static fromPublicData(revertible: PublicAccumulatedData, nonRevertible: PublicAccumulatedData): CombineHints {
+  static fromPublicData({
+    revertibleData,
+    nonRevertibleData,
+  }: {
+    revertibleData: PublicAccumulatedData;
+    nonRevertibleData: PublicAccumulatedData;
+  }): CombineHints {
     const mergedNoteHashes = mergeAccumulatedData(
-      nonRevertible.newNoteHashes,
-      revertible.newNoteHashes,
+      nonRevertibleData.newNoteHashes,
+      revertibleData.newNoteHashes,
       MAX_NEW_NOTE_HASHES_PER_TX,
     );
 
@@ -73,8 +79,8 @@ export class CombineHints {
     );
 
     const unencryptedLogHashes = mergeAccumulatedData(
-      nonRevertible.unencryptedLogsHashes,
-      revertible.unencryptedLogsHashes,
+      nonRevertibleData.unencryptedLogsHashes,
+      revertibleData.unencryptedLogsHashes,
       MAX_ENCRYPTED_LOGS_PER_TX,
     );
 
@@ -84,8 +90,8 @@ export class CombineHints {
     );
 
     const publicDataUpdateRequests = mergeAccumulatedData(
-      nonRevertible.publicDataUpdateRequests,
-      revertible.publicDataUpdateRequests,
+      nonRevertibleData.publicDataUpdateRequests,
+      revertibleData.publicDataUpdateRequests,
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );
 
@@ -106,15 +112,18 @@ export class CombineHints {
 
   [inspect.custom](): string {
     return `CombineHints {
-  sortedNoteHashes: ${getNonEmptyItems(this.sortedNoteHashes)},
+  sortedNoteHashes: ${getNonEmptyItems(this.sortedNoteHashes)
+    .map(h => inspect(h))
+    .join(', ')},
   sortedNoteHashesIndexes: ${removeArrayPaddingEnd(this.sortedNoteHashesIndexes, n => n === 0)},
-  sortedUnencryptedLogsHashes: ${getNonEmptyItems(this.sortedUnencryptedLogsHashes)},
+  sortedUnencryptedLogsHashes: ${getNonEmptyItems(this.sortedUnencryptedLogsHashes)
+    .map(h => inspect(h))
+    .join(', ')},
   sortedUnencryptedLogsHashesIndexes: ${removeArrayPaddingEnd(this.sortedUnencryptedLogsHashesIndexes, n => n === 0)},
-  sortedPublicDataUpdateRequests: ${getNonEmptyItems(this.sortedPublicDataUpdateRequests)},
-  sortedPublicDataUpdateRequestsIndexes: ${removeArrayPaddingEnd(
-    this.sortedPublicDataUpdateRequestsIndexes,
-    n => n === 0,
-  )}
+  sortedPublicDataUpdateRequests: ${getNonEmptyItems(this.sortedPublicDataUpdateRequests)
+    .map(h => inspect(h))
+    .join(', ')},
+  sortedPublicDataUpdateRequestsIndexes: ${this.sortedPublicDataUpdateRequestsIndexes}
 }`;
   }
 }
