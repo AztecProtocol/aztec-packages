@@ -1,12 +1,13 @@
-import { Fr, PublicKeys, deriveSigningKey } from '@aztec/circuits.js';
+import { Fr, PublicKeys } from '@aztec/circuits.js';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 
-import { Command, Option } from 'commander';
+import { Command as CommanderCommand, Option } from 'commander';
 import { lookup } from 'dns/promises';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
+import { FeeOpts } from './fees.js';
 import {
   parseAztecAddress,
   parseEthereumAddress,
@@ -34,6 +35,17 @@ const getLocalhost = () =>
 
 const LOCALHOST = await getLocalhost();
 const { ETHEREUM_HOST = `http://${LOCALHOST}:8545`, PRIVATE_KEY, API_KEY, CLI_VERSION } = process.env;
+
+class Command extends CommanderCommand {
+  addOptions(options: Option[]) {
+    options.forEach(option => this.addOption(option));
+    return this;
+  }
+
+  override createCommand(name?: string): Command {
+    return new Command(name);
+  }
+}
 
 /**
  * Returns commander program that defines the CLI.
@@ -162,12 +174,17 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .summary('Creates an aztec account that can be used for sending transactions.')
     .addOption(createPrivateKeyOption('Private key for account. Uses random by default.', false))
     .addOption(pxeOption)
+    .option(
+      '--register-only',
+      'Just register the account on the PXE. Do not deploy or initialize the account contract.',
+    )
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
-    .action(async ({ rpcUrl, privateKey, wait }) => {
+    .action(async args => {
       const { createAccount } = await import('./cmds/create_account.js');
-      await createAccount(rpcUrl, privateKey, wait, debugLogger, log);
+      const { rpcUrl, privateKey, wait, registerOnly } = args;
+      await createAccount(rpcUrl, privateKey, registerOnly, wait, FeeOpts.fromCli(args, log), debugLogger, log);
     });
 
   program
@@ -227,42 +244,40 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('--no-class-registration', 'Skip registering the contract class')
     .option('--public-deployment', 'Deploy the public bytecode of contract')
     .option('--no-public-deployment', "Skip deploying the contract's public bytecode")
-    .action(
-      async (
+    .addOptions(FeeOpts.getOptions())
+    .action(async (artifactPath, opts) => {
+      const { deploy } = await import('./cmds/deploy.js');
+      const {
+        json,
+        rpcUrl,
+        publicKey,
+        args: rawArgs,
+        salt,
+        wait,
+        privateKey,
+        classRegistration,
+        initialize,
+        publicDeployment,
+      } = opts;
+      await deploy(
         artifactPath,
-        {
-          json,
-          rpcUrl,
-          publicKey,
-          args: rawArgs,
-          salt,
-          wait,
-          privateKey,
-          classRegistration,
-          initialize,
-          publicDeployment,
-        },
-      ) => {
-        const { deploy } = await import('./cmds/deploy.js');
-        await deploy(
-          artifactPath,
-          json,
-          rpcUrl,
-          publicKey ? PublicKeys.fromString(publicKey) : undefined,
-          rawArgs,
-          salt,
-          privateKey,
-          typeof initialize === 'string' ? initialize : undefined,
-          !publicDeployment,
-          !classRegistration,
-          typeof initialize === 'string' ? false : initialize,
-          wait,
-          debugLogger,
-          log,
-          logJson,
-        );
-      },
-    );
+        json,
+        rpcUrl,
+        publicKey ? PublicKeys.fromString(publicKey) : undefined,
+        rawArgs,
+        salt,
+        privateKey,
+        typeof initialize === 'string' ? initialize : undefined,
+        !publicDeployment,
+        !classRegistration,
+        typeof initialize === 'string' ? false : initialize,
+        wait,
+        FeeOpts.fromCli(opts, log),
+        debugLogger,
+        log,
+        logJson,
+      );
+    });
 
   program
     .command('check-deploy')
@@ -406,6 +421,17 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     });
 
   program
+    .command('get-balance')
+    .description('Gets the token balance for an account. Does NOT format according to decimals.')
+    .argument('<address>', 'Aztec address to query balance for.', parseAztecAddress)
+    .option('-t, --token-address <address>', 'Token address to query balance for (defaults to gas token).')
+    .addOption(pxeOption)
+    .action(async (address, options) => {
+      const { getBalance } = await import('./cmds/get_balance.js');
+      await getBalance(address, options.tokenAddress, options.rpcUrl, debugLogger, log);
+    });
+
+  program
     .command('send')
     .description('Calls a function on an Aztec contract.')
     .argument('<functionName>', 'Name of function to execute')
@@ -418,6 +444,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .addOption(createPrivateKeyOption("The sender's private key.", true))
     .addOption(pxeOption)
     .option('--no-wait', 'Print transaction hash without waiting for it to be mined')
+    .addOptions(FeeOpts.getOptions())
     .action(async (functionName, options) => {
       const { send } = await import('./cmds/send.js');
       await send(
@@ -428,6 +455,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         options.privateKey,
         options.rpcUrl,
         !options.noWait,
+        FeeOpts.fromCli(options, log),
         debugLogger,
         log,
       );

@@ -1,7 +1,7 @@
 import { FunctionSelector } from '@aztec/aztec.js/abi';
 import { AztecAddress } from '@aztec/aztec.js/aztec_address';
 import { EthAddress } from '@aztec/aztec.js/eth_address';
-import { Fr, Point } from '@aztec/aztec.js/fields';
+import { Fr } from '@aztec/aztec.js/fields';
 import { LogId } from '@aztec/aztec.js/log_id';
 import { TxHash } from '@aztec/aztec.js/tx_hash';
 import { PublicKeys } from '@aztec/circuits.js';
@@ -19,6 +19,10 @@ const stripLeadingHex = (hex: string) => {
   }
   return hex;
 };
+
+export function parseBigint(bigint: string): bigint | undefined {
+  return bigint ? BigInt(bigint) : undefined;
+}
 
 /**
  * Parses a hex encoded string to an Fr integer
