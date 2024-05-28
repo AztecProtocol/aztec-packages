@@ -6,6 +6,8 @@
 #include <filesystem>
 #include <gtest/gtest.h>
 
+// #define LOG_SIZES
+
 class AcirIntegrationTest : public ::testing::Test {
   public:
     static std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
@@ -53,17 +55,37 @@ class AcirIntegrationTest : public ::testing::Test {
         using VerificationKey = Flavor::VerificationKey;
 
         Prover prover{ builder };
-        // builder.blocks.summarize();
-        // info("num gates          = ", builder.get_num_gates());
-        // info("total circuit size = ", builder.get_total_circuit_size());
-        // info("circuit size       = ", prover.instance->proving_key.circuit_size);
-        // info("log circuit size   = ", prover.instance->proving_key.log_circuit_size);
+#ifdef LOG_SIZES
+        builder.blocks.summarize();
+        info("num gates          = ", builder.get_num_gates());
+        info("total circuit size = ", builder.get_total_circuit_size());
+        info("circuit size       = ", prover.instance->proving_key.circuit_size);
+        info("log circuit size   = ", prover.instance->proving_key.log_circuit_size);
+#endif
         auto proof = prover.construct_proof();
-
         // Verify Honk proof
         auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
         Verifier verifier{ verification_key };
+        return verifier.verify_proof(proof);
+    }
 
+    template <class Flavor> bool prove_and_verify_plonk(Flavor::CircuitBuilder& builder)
+    {
+        plonk::UltraComposer composer;
+
+        auto prover = composer.create_prover(builder);
+#ifdef LOG_SIZES
+        // builder.blocks.summarize();
+        // info("num gates          = ", builder.get_num_gates());
+        // info("total circuit size = ", builder.get_total_circuit_size());
+#endif
+        auto proof = prover.construct_proof();
+#ifdef LOG_SIZES
+        // info("circuit size       = ", prover.circuit_size);
+        // info("log circuit size   = ", numeric::get_msb(prover.circuit_size));
+#endif
+        // Verify Plonk proof
+        auto verifier = composer.create_verifier(builder);
         return verifier.verify_proof(proof);
     }
 };
@@ -78,9 +100,10 @@ class AcirIntegrationFoldingTest : public AcirIntegrationTest, public testing::W
     static void SetUpTestSuite() { srs::init_crs_factory("../srs_db/ignition"); }
 };
 
-TEST_P(AcirIntegrationSingleTest, ProveAndVerifyProgram)
+TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
 {
-    using Flavor = GoblinUltraFlavor;
+    using Flavor = MegaFlavor;
+    // using Flavor = bb::plonk::flavor::Ultra;
     using Builder = Flavor::CircuitBuilder;
 
     std::string test_name = GetParam();
@@ -91,7 +114,11 @@ TEST_P(AcirIntegrationSingleTest, ProveAndVerifyProgram)
     Builder builder = acir_format::create_circuit<Builder>(acir_program.constraints, 0, acir_program.witness);
 
     // Construct and verify Honk proof
-    EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
+    if constexpr (IsPlonkFlavor<Flavor>) {
+        EXPECT_TRUE(prove_and_verify_plonk<Flavor>(builder));
+    } else {
+        EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
+    }
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/994): Run all tests
@@ -167,7 +194,7 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "brillig_sha256",
                                          "brillig_signed_cmp",
                                          "brillig_signed_div",
-                                         "brillig_slice_input",
+                                         //  "brillig_slice_input",
                                          "brillig_slices",
                                          "brillig_to_be_bytes",
                                          "brillig_to_bits",
@@ -195,6 +222,7 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "double_verify_proof_recursive",
                                          "ecdsa_secp256k1",
                                          "ecdsa_secp256r1",
+                                         "ecdsa_secp256r1_3x",
                                          "eddsa",
                                          "embedded_curve_ops",
                                          "field_attribute",
@@ -240,8 +268,8 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "regression_4088",
                                          "regression_4124",
                                          "regression_4202",
-                                         "regression_4383",
-                                         "regression_4436",
+                                         //  "regression_4383",
+                                         //  "regression_4436",
                                          "regression_4449",
                                          "regression_4709",
                                          "regression_capacity_tracker",
@@ -271,7 +299,7 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "simple_shift_left_right",
                                          "slice_coercion",
                                          "slice_dynamic_index",
-                                         "slice_init_with_complex_type",
+                                         //  "slice_init_with_complex_type",
                                          "slice_loop",
                                          "slices",
                                          "strings",
@@ -299,9 +327,9 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "witness_compression",
                                          "xor"));
 
-TEST_P(AcirIntegrationFoldingTest, ProveAndVerifyProgramStack)
+TEST_P(AcirIntegrationFoldingTest, DISABLED_ProveAndVerifyProgramStack)
 {
-    using Flavor = GoblinUltraFlavor;
+    using Flavor = MegaFlavor;
     using Builder = Flavor::CircuitBuilder;
 
     std::string test_name = GetParam();

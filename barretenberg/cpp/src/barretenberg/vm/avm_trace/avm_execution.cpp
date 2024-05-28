@@ -2,7 +2,6 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
-#include "barretenberg/vm/avm_trace/avm_instructions.hpp"
 #include "barretenberg/vm/avm_trace/avm_opcode.hpp"
 #include "barretenberg/vm/avm_trace/avm_trace.hpp"
 #include "barretenberg/vm/generated/avm_circuit_builder.hpp"
@@ -56,8 +55,9 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
     // output_state.pcs_verification_key = std::move(pcs_verification_key);
 
     // TODO: We hardcode public inputs for now
-    std::vector<FF> public_inputs = {};
-    return verifier.verify_proof(proof, public_inputs);
+    VmPublicInputs public_inputs = {};
+    std::vector<std::vector<FF>> public_inputs_vec = copy_public_inputs_columns(public_inputs);
+    return verifier.verify_proof(proof, public_inputs_vec);
 }
 
 /**
@@ -91,9 +91,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
     // on opcode logic and therefore is not maintained here. However, the next opcode in the execution
     // is determined by this value which require read access to the code below.
     uint32_t pc = 0;
-    auto const inst_size = instructions.size();
-
-    while ((pc = trace_builder.getPc()) < inst_size) {
+    while ((pc = trace_builder.getPc()) < instructions.size()) {
         auto inst = instructions.at(pc);
 
         // TODO: We do not yet support the indirect flag. Therefore we do not extract
@@ -275,6 +273,11 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             returndata.insert(returndata.end(), ret.begin(), ret.end());
             break;
         }
+        case OpCode::DEBUGLOG:
+            // We want a noop, but we need to execute something that both advances the PC,
+            // and adds a valid row to the trace.
+            trace_builder.jump(pc + 1);
+            break;
         case OpCode::TORADIXLE:
             trace_builder.op_to_radix_le(std::get<uint8_t>(inst.operands.at(0)),
                                          std::get<uint32_t>(inst.operands.at(1)),
@@ -283,6 +286,8 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                          std::get<uint32_t>(inst.operands.at(4)));
             break;
         default:
+            throw_or_abort("Don't know how to execute opcode " + to_hex(inst.op_code) + " at pc " + std::to_string(pc) +
+                           ".");
             break;
         }
     }
