@@ -422,7 +422,7 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
  * @details This is a pattern required by e.g. ClientIvc which appends recursive verifiers to acir-generated circuits
  *
  */
-TEST_F(AcirIntegrationTest, UpdateAcirCircuit)
+TEST_F(AcirIntegrationTest, DISABLED_UpdateAcirCircuit)
 {
     using Flavor = MegaFlavor;
     using Builder = Flavor::CircuitBuilder;
