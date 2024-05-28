@@ -9,7 +9,7 @@ mod validate_contract_address;
 mod validate_counters;
 mod validate_private_call_requests;
 
-use crate::private_call_data_validator::PrivateCallDataValidator;
+use crate::components::private_call_data_validator::PrivateCallDataValidator;
 use dep::types::{
     abis::{private_kernel::private_call_data::PrivateCallData, private_call_request::ScopedPrivateCallRequest},
     tests::fixture_builder::FixtureBuilder, transaction::tx_request::TxRequest

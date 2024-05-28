@@ -1,4 +1,4 @@
-use crate::kernel_circuit_public_inputs_composer::KernelCircuitPublicInputsComposer;
+use crate::components::kernel_circuit_public_inputs_composer::KernelCircuitPublicInputsComposer;
 use dep::types::{
     abis::{
     private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::KernelCircuitPublicInputs,

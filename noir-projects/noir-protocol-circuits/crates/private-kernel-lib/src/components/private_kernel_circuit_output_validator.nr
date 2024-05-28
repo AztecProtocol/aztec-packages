@@ -1,4 +1,4 @@
-use crate::private_kernel_circuit_public_inputs_composer::create_first_nullifier;
+use crate::components::private_kernel_circuit_public_inputs_composer::create_first_nullifier;
 use dep::types::{
     abis::{
     call_request::CallRequest,

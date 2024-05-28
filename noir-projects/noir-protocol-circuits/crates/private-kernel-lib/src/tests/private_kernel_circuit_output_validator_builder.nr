@@ -4,8 +4,10 @@ mod validate_propagated_from_previous_kernel;
 mod validate_propagated_from_private_call;
 
 use crate::{
-    components::private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
+    components::{
+    private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
     private_kernel_circuit_public_inputs_composer::create_first_nullifier
+}
 };
 use dep::types::{
     abis::{

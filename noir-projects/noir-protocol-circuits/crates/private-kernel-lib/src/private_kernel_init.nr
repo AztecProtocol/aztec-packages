@@ -1,7 +1,9 @@
 use crate::{
-    components::private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
+    components::{
     private_call_data_validator::PrivateCallDataValidator,
+    private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
     private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer
+}
 };
 use dep::types::{
     abis::{
@@ -24,10 +26,7 @@ struct PrivateKernelInitCircuitPrivateInputs {
 }
 
 impl PrivateKernelInitCircuitPrivateInputs {
-    unconstrained fn prepare_output(
-        self,
-        private_call_data_validator: PrivateCallDataValidator
-    ) -> PrivateKernelCircuitPublicInputs {
+    unconstrained fn prepare_output(self, private_call_data_validator: PrivateCallDataValidator) -> PrivateKernelCircuitPublicInputs {
         let private_call_public_inputs = self.private_call.call_stack_item.public_inputs;
         PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(self.tx_request, private_call_public_inputs).compose(
             private_call_public_inputs,

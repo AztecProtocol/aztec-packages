@@ -2,7 +2,7 @@ mod new_from_previous_kernel_with_private_call;
 mod new_from_tx_request;
 mod propagate_from_private_call;
 
-use crate::private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer;
+use crate::components::private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer;
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,

@@ -1,4 +1,3 @@
-use crate::private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer;
 use dep::reset_kernel_lib::{
     NoteHashReadRequestHints, NullifierReadRequestHints, PrivateValidationRequestProcessor,
     verify_squashed_transient_note_hashes_and_nullifiers, reset::key_validation_hint::KeyValidationHint

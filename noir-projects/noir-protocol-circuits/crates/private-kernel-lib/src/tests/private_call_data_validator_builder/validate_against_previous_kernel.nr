@@ -1,5 +1,5 @@
 use crate::{
-    private_call_data_validator::PrivateCallDataValidator,
+    components::private_call_data_validator::PrivateCallDataValidator,
     tests::private_call_data_validator_builder::PrivateCallDataValidatorBuilder
 };
 use dep::types::{

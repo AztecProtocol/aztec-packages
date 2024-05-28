@@ -1,7 +1,9 @@
 use crate::{
-    components::private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
+    components::{
     private_call_data_validator::PrivateCallDataValidator,
+    private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
     private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer
+}
 };
 use dep::types::{
     abis::{
@@ -22,10 +24,7 @@ struct PrivateKernelInnerCircuitPrivateInputs {
 }
 
 impl PrivateKernelInnerCircuitPrivateInputs {
-    unconstrained fn prepare_output(
-        self,
-        private_call_data_validator: PrivateCallDataValidator
-    ) -> PrivateKernelCircuitPublicInputs {
+    unconstrained fn prepare_output(self, private_call_data_validator: PrivateCallDataValidator) -> PrivateKernelCircuitPublicInputs {
         PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(self.previous_kernel.public_inputs).compose(
             self.private_call.call_stack_item.public_inputs,
             private_call_data_validator.array_lengths,
