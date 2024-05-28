@@ -73,7 +73,7 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
         using Base::Base;
     };
 
-    using VerifierCommitmentKey = VerifierCommitmentKey<Curve>;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     /**
      * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witness)
      * polynomials used by the verifier.
