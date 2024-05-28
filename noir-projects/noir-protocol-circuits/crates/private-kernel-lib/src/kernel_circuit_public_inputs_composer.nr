@@ -3,18 +3,25 @@ use dep::types::{
     private_kernel_data::PrivateKernelData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder, PublicKernelCircuitPublicInputs},
     note_hash::ScopedNoteHash, nullifier::ScopedNullifier, side_effect::Ordered,
-    log_hash::{LogHash, NoteLogHash}, gas::Gas
+    log_hash::{NoteLogHash, ScopedLogHash, ScopedEncryptedLogHash}, gas::Gas, call_request::CallRequest
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
-    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
+    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX
 },
-    hash::{compute_l2_to_l1_hash, compute_note_hash_nonce, compute_unique_note_hash, silo_note_hash, silo_nullifier},
+    hash::{
+    compute_l2_to_l1_hash, compute_note_hash_nonce, compute_unique_note_hash, silo_note_hash,
+    silo_nullifier, silo_encrypted_log, silo_unencrypted_log
+},
     utils::arrays::{array_length, array_to_bounded_vec, assert_sorted_array}
 };
 
 fn asc_sort_by_counters<T>(a: T, b: T) -> bool where T: Ordered {
     a.counter() < b.counter()
+}
+
+fn desc_sort_by_counters<T>(a: T, b: T) -> bool where T: Ordered {
+    a.counter() > b.counter()
 }
 
 // Builds:
@@ -30,9 +37,9 @@ struct KernelCircuitPublicInputsComposer {
     sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_note_encrypted_log_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
     sorted_note_encrypted_log_hashes_indexes: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-    sorted_encrypted_log_hashes: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX],
+    sorted_encrypted_log_hashes: [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
-    sorted_unencrypted_log_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
+    sorted_unencrypted_log_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
     sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX],
 }
 
@@ -45,9 +52,9 @@ impl KernelCircuitPublicInputsComposer {
         sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
         sorted_note_encrypted_log_hashes: [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
         sorted_note_encrypted_log_hashes_indexes: [u64; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-        sorted_encrypted_log_hashes: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX],
+        sorted_encrypted_log_hashes: [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
         sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
-        sorted_unencrypted_log_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
+        sorted_unencrypted_log_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
         sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX]
     ) -> Self {
         let public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
@@ -89,10 +96,14 @@ impl KernelCircuitPublicInputsComposer {
         *self
     }
 
-    pub fn compose_public(&mut self) -> Self {
+    pub fn compose_public(
+        &mut self,
+        sorted_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+        sorted_call_requests_indexes: [u64; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX]
+    ) -> Self {
         let _ = self.compose();
 
-        self.propagate_sorted_public_call_requests();
+        self.propagate_sorted_public_call_requests(sorted_call_requests, sorted_call_requests_indexes);
         self.propagate_public_teardown_call_request();
 
         *self
@@ -120,7 +131,8 @@ impl KernelCircuitPublicInputsComposer {
         self.silo_note_hashes();
         self.silo_nullifiers();
         self.silo_l2_to_l1_messages();
-        // TODO(Miranda): Silo logs here
+        self.silo_encrypted_logs();
+        self.silo_unencrypted_logs();
     }
 
     fn silo_note_hashes(&mut self) {
@@ -165,6 +177,28 @@ impl KernelCircuitPublicInputsComposer {
                     msg.message
                 );
                 self.public_inputs.end.new_l2_to_l1_msgs.storage[i].message.content = siloed;
+            }
+        }
+    }
+
+    fn silo_encrypted_logs(&mut self) {
+        let logs = self.public_inputs.end.encrypted_logs_hashes.storage;
+        for i in 0..logs.len() {
+            let log = logs[i];
+            if log.value() != 0 {
+                let siloed = silo_encrypted_log(log.contract_address, log.log_hash.randomness, log.value());
+                self.public_inputs.end.encrypted_logs_hashes.storage[i].log_hash.value = siloed;
+            }
+        }
+    }
+
+    fn silo_unencrypted_logs(&mut self) {
+        let logs = self.public_inputs.end.unencrypted_logs_hashes.storage;
+        for i in 0..logs.len() {
+            let log = logs[i];
+            if log.value() != 0 {
+                let siloed = silo_unencrypted_log(log.contract_address, log.value());
+                self.public_inputs.end.unencrypted_logs_hashes.storage[i].log_hash.value = siloed;
             }
         }
     }
@@ -223,9 +257,19 @@ impl KernelCircuitPublicInputsComposer {
         self.public_inputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(accumulated_data.new_l2_to_l1_msgs);
     }
 
-    fn propagate_sorted_public_call_requests(&mut self) {
+    fn propagate_sorted_public_call_requests(
+        &mut self,
+        sorted_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+        sorted_call_requests_indexes: [u64; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX]
+    ) {
         let accumulated_data = self.previous_kernel.public_inputs.end;
-        self.public_inputs.end.public_call_stack = array_to_bounded_vec(accumulated_data.public_call_stack);
+        assert_sorted_array(
+            accumulated_data.public_call_stack,
+            sorted_call_requests,
+            sorted_call_requests_indexes,
+            desc_sort_by_counters
+        );
+        self.public_inputs.end.public_call_stack = array_to_bounded_vec(sorted_call_requests);
     }
 
     fn propagate_public_teardown_call_request(&mut self) {
@@ -257,7 +301,9 @@ impl KernelCircuitPublicInputsComposer {
         );
 
         assert_eq(
-            array_length(self.previous_kernel.public_inputs.validation_requests.key_validation_requests), 0, "Non empty key validation requests"
+            array_length(
+                self.previous_kernel.public_inputs.validation_requests.scoped_key_validation_requests_and_generators
+            ), 0, "Non empty key validation requests"
         );
     }
 }

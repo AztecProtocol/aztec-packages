@@ -2,7 +2,6 @@ mod asset;
 
 contract PriceFeed {
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, PrivateContext, Map, PublicMutable};
-    use dep::aztec::{context::{PublicContext, Context}};
     use crate::asset::Asset;
 
     // Storage structure, containing all storage, and specifying what slots they use.
@@ -20,10 +19,6 @@ contract PriceFeed {
     #[aztec(public)]
     #[aztec(view)]
     fn get_price(asset_id: Field) -> Asset {
-        storage.assets.at(asset_id).read()
-    }
-
-    unconstrained fn fetch_price(asset_id: Field) -> pub Asset {
         storage.assets.at(asset_id).read()
     }
 }

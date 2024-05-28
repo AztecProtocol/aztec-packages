@@ -5,9 +5,8 @@ use dep::reset_kernel_lib::{
 };
 use dep::types::{
     abis::{
-    private_kernel_data::{PrivateKernelData, verify_previous_kernel_proof},
-    kernel_circuit_public_inputs::KernelCircuitPublicInputs, note_hash::ScopedNoteHash,
-    nullifier::ScopedNullifier, log_hash::NoteLogHash
+    private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+    note_hash::ScopedNoteHash, nullifier::ScopedNullifier, log_hash::NoteLogHash
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
@@ -45,7 +44,7 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
         let mut previous_public_inputs = self.previous_kernel.public_inputs;
 
         // verify/aggregate the previous kernel
-        verify_previous_kernel_proof(self.previous_kernel);
+        self.previous_kernel.verify();
 
         previous_public_inputs.validation_requests = PrivateValidationRequestProcessor {
             validation_requests: previous_public_inputs.validation_requests,
@@ -93,7 +92,7 @@ mod tests {
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
         MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-        DA_BYTES_PER_FIELD
+        DA_BYTES_PER_FIELD, GENERATOR_INDEX__OVSK_M
     };
     use dep::types::{
         abis::{
@@ -300,15 +299,15 @@ mod tests {
         let remaining_nullifier_rr_index = builder.previous_kernel.add_read_request_for_pending_nullifier(1);
         let nullifier_rr = builder.previous_kernel.nullifier_read_requests.storage[remaining_nullifier_rr_index];
 
-        let key_validation_index = builder.previous_kernel.add_request_for_key_validation(GrumpkinPoint::new(1, 2), 27);
-        let key_validation = builder.previous_kernel.key_validation_requests.storage[key_validation_index];
+        let key_validation_index = builder.previous_kernel.add_request_for_key_validation(GrumpkinPoint::new(1, 2), 27, GENERATOR_INDEX__OVSK_M);
+        let key_validation = builder.previous_kernel.scoped_key_validation_requests_and_generators.storage[key_validation_index];
 
         // Check that they have been propagated to the next kernel
         let result = builder.execute();
 
         assert_eq(result.validation_requests.note_hash_read_requests[0], note_hash_rr);
         assert_eq(result.validation_requests.nullifier_read_requests[0], nullifier_rr);
-        assert_eq(result.validation_requests.key_validation_requests[0], key_validation);
+        assert_eq(result.validation_requests.scoped_key_validation_requests_and_generators[0], key_validation);
     }
 
     #[test]

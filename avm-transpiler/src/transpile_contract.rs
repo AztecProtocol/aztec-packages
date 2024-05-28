@@ -1,5 +1,6 @@
 use std::io::Read;
 
+use acvm::FieldElement;
 use base64::Engine;
 use log::info;
 use serde::{Deserialize, Serialize};
@@ -62,7 +63,7 @@ pub struct AcirContractFunctionArtifact {
         serialize_with = "Program::serialize_program_base64",
         deserialize_with = "Program::deserialize_program_base64"
     )]
-    pub bytecode: Program,
+    pub bytecode: Program<FieldElement>,
     #[serde(
         serialize_with = "ProgramDebugInfo::serialize_compressed_base64_json",
         deserialize_with = "ProgramDebugInfo::deserialize_compressed_base64_json"
@@ -89,7 +90,7 @@ impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
             // TODO(4269): once functions are tagged for transpilation to AVM, check tag
             if function
                 .custom_attributes
-                .contains(&"aztec(public-vm)".to_string())
+                .contains(&"aztec(public)".to_string())
             {
                 info!(
                     "Transpiling AVM function {} on contract {}",

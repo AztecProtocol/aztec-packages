@@ -104,11 +104,47 @@ struct AcirFormat {
 using WitnessVector = std::vector<fr, ContainerSlabAllocator<fr>>;
 using WitnessVectorStack = std::vector<std::pair<uint32_t, WitnessVector>>;
 
+struct AcirProgram {
+    AcirFormat constraints;
+    WitnessVector witness;
+};
+
+/**
+ * @brief Storage for constaint_systems/witnesses for a stack of acir programs
+ * @details In general the number of items in the witness stack will be equal or greater than the number of constraint
+ * systems because the program may consist of multiple calls to the same function.
+ *
+ */
+struct AcirProgramStack {
+    std::vector<AcirFormat> constraint_systems;
+    WitnessVectorStack witness_stack;
+
+    AcirProgramStack(std::vector<AcirFormat>& constraint_systems_in, WitnessVectorStack& witness_stack_in)
+        : constraint_systems(constraint_systems_in)
+        , witness_stack(witness_stack_in)
+    {}
+
+    size_t size() const { return witness_stack.size(); }
+    bool empty() const { return witness_stack.empty(); }
+
+    AcirProgram back()
+    {
+        auto witness_stack_item = witness_stack.back();
+        auto witness = witness_stack_item.second;
+        auto constraint_system = constraint_systems[witness_stack_item.first];
+
+        return { constraint_system, witness };
+    }
+
+    void pop_back() { witness_stack.pop_back(); }
+};
+
 template <typename Builder = UltraCircuitBuilder>
 Builder create_circuit(const AcirFormat& constraint_system,
                        size_t size_hint = 0,
                        WitnessVector const& witness = {},
-                       bool honk_recursion = false);
+                       bool honk_recursion = false,
+                       std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>());
 
 template <typename Builder>
 void build_constraints(Builder& builder,
