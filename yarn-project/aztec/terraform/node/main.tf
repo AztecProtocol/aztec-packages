@@ -55,14 +55,9 @@ data "terraform_remote_state" "l1_contracts" {
 # Compute local variables
 locals {
   publisher_private_keys = [var.SEQ_1_PUBLISHER_PRIVATE_KEY, var.SEQ_2_PUBLISHER_PRIVATE_KEY]
-  bootnode_ids           = [var.BOOTNODE_1_PEER_ID, var.BOOTNODE_2_PEER_ID]
   node_p2p_private_keys  = [var.NODE_1_PRIVATE_KEY, var.NODE_2_PRIVATE_KEY]
   node_count             = length(local.publisher_private_keys)
-  bootnodes = [for i in range(0, local.node_count) :
-    "/dns4/${var.DEPLOY_TAG}-p2p-bootstrap-${i + 1}.local/tcp/${var.BOOTNODE_LISTEN_PORT + i}/p2p/${local.bootnode_ids[i]}"
-  ]
-  combined_bootnodes = join(",", local.bootnodes)
-  data_dir           = "/usr/src/yarn-project/aztec/data"
+  data_dir               = "/usr/src/yarn-project/aztec/data"
 }
 
 resource "aws_cloudwatch_log_group" "aztec-node-log-group" {
@@ -163,7 +158,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
         "containerPort": 80
       },
       {
-        "containerPort": ${var.NODE_TCP_PORT + count.index}
+        "containerPort": ${var.P2P_TCP_LISTEN_PORT + count.index}
       }
     ],
     "environment": [
@@ -185,7 +180,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         "name": "DEBUG",
-        "value": "aztec:*"
+        "value": "aztec:*,-json-rpc:json_proxy:*,-aztec:avm_simulator:*"
       },
       {
         "name": "ETHEREUM_HOST",
@@ -218,31 +213,31 @@ resource "aws_ecs_task_definition" "aztec-node" {
 
       {
         "name": "ROLLUP_CONTRACT_ADDRESS",
-        "value": "${data.terraform_remote_state.l1_contracts.outputs.rollup_contract_address}"
+        "value": "${var.ROLLUP_CONTRACT_ADDRESS}"
       },
       {
         "name": "INBOX_CONTRACT_ADDRESS",
-        "value": "${data.terraform_remote_state.l1_contracts.outputs.inbox_contract_address}"
+        "value": "${var.INBOX_CONTRACT_ADDRESS}"
       },
       {
         "name": "OUTBOX_CONTRACT_ADDRESS",
-        "value": "${data.terraform_remote_state.l1_contracts.outputs.outbox_contract_address}"
+        "value": "${var.OUTBOX_CONTRACT_ADDRESS}"
       },
       {
         "name": "REGISTRY_CONTRACT_ADDRESS",
-        "value": "${data.terraform_remote_state.l1_contracts.outputs.registry_contract_address}"
+        "value": "${var.REGISTRY_CONTRACT_ADDRESS}"
       },
       {
         "name": "AVAILABILITY_ORACLE_CONTRACT_ADDRESS",
-        "value": "${data.terraform_remote_state.l1_contracts.outputs.availability_oracle_contract_address}"
+        "value": "${var.AVAILABILITY_ORACLE_CONTRACT_ADDRESS}"
       },
       {
         "name": "GAS_TOKEN_CONTRACT_ADDRESS",
-        "value": "${data.terraform_remote_state.l1_contracts.outputs.gas_token_contract_address}"
+        "value": "${var.GAS_TOKEN_CONTRACT_ADDRESS}"
       },
       {
         "name": "GAS_PORTAL_CONTRACT_ADDRESS",
-        "value": "${data.terraform_remote_state.l1_contracts.outputs.gas_portal_contract_address}"
+        "value": "${var.GAS_PORTAL_CONTRACT_ADDRESS}"
       },
       {
         "name": "API_KEY",
@@ -254,7 +249,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         "name": "P2P_TCP_LISTEN_PORT",
-        "value": "${var.NODE_TCP_PORT + count.index}"
+        "value": "${var.P2P_TCP_LISTEN_PORT + count.index}"
       },
       {
         "name": "P2P_TCP_LISTEN_IP",
@@ -266,15 +261,15 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         "name": "P2P_ANNOUNCE_PORT",
-        "value": "${var.NODE_TCP_PORT + count.index}"
+        "value": "${var.P2P_TCP_LISTEN_PORT + count.index}"
       },
       {
         "name": "BOOTSTRAP_NODES",
-        "value": "${local.combined_bootnodes}"
+        "value": "enr:-JO4QNvVz7yYHQ4nzZQ7JCng9LOQkDnFqeLntDEfrAAGOS_eMFWOE4ZlyjYKb3J-yCGu8xoXXEUnUqI8iTJj1K43KH0EjWF6dGVjX25ldHdvcmsBgmlkgnY0gmlwhA0pYm6Jc2VjcDI1NmsxoQLzGvsxdzM9VhPjrMnxLmMxvrEcvSg-QZq7PWXDnnIy1YN1ZHCCnjQ"
       },
       {
         "name": "P2P_ENABLED",
-        "value": "true"
+        "value": "${var.P2P_ENABLED}"
       },
       {
         "name": "CHAIN_ID",
@@ -300,6 +295,30 @@ resource "aws_ecs_task_definition" "aztec-node" {
         "name": "P2P_PEER_CHECK_INTERVAL_MS",
         "value": "2000"
       },
+      {
+        "name": "ACVM_WORKING_DIRECTORY",
+        "value": "/usr/src/acvm"
+      },
+      {
+        "name": "BB_WORKING_DIRECTORY",
+        "value": "/usr/src/bb"
+      },
+      {
+        "name": "ACVM_BINARY_PATH",
+        "value": "/usr/src/noir/noir-repo/target/release/acvm"
+      },
+      {
+        "name": "BB_BINARY_PATH",
+        "value": "/usr/src/barretenberg/cpp/build/bin/bb"
+      },
+      {
+        "name": "PROVER_AGENTS",
+        "value": "0"
+      },
+      {
+        "name": "PROVER_REAL_PROOFS",
+        "value": "false"
+      }
     ],
     "mountPoints": [
       {
@@ -346,11 +365,11 @@ resource "aws_ecs_service" "aztec-node" {
   }
 
 
-  load_balancer {
-    target_group_arn = aws_lb_target_group.aztec-node-target-group[count.index].arn
-    container_name   = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
-    container_port   = var.NODE_TCP_PORT + count.index
-  }
+  # load_balancer {
+  #   target_group_arn = aws_lb_target_group.aztec-node-target-group[count.index].arn
+  #   container_name   = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
+  #   container_port   = var.P2P_TCP_LISTEN_PORT + count.index
+  # }
 
   service_registries {
     registry_arn   = aws_service_discovery_service.aztec-node[count.index].arn
@@ -405,25 +424,26 @@ resource "aws_lb_listener_rule" "api" {
 resource "aws_lb_target_group" "aztec-node-target-group" {
   count       = local.node_count
   name        = "${var.DEPLOY_TAG}-node-${count.index + 1}-p2p-target"
-  port        = var.NODE_TCP_PORT + count.index
+  port        = var.P2P_TCP_LISTEN_PORT + count.index
   protocol    = "TCP"
   target_type = "ip"
   vpc_id      = data.terraform_remote_state.setup_iac.outputs.vpc_id
 
-  health_check {
-    protocol            = "TCP"
-    interval            = 10
-    healthy_threshold   = 2
-    unhealthy_threshold = 2
-    port                = var.NODE_TCP_PORT + count.index
-  }
+  # health_check {
+  #   protocol            = "TCP"
+  #   interval            = 10
+  #   healthy_threshold   = 2
+  #   unhealthy_threshold = 2
+  #   port                = var.P2P_TCP_LISTEN_PORT + count.index
+  #   enabled             = var.P2P_ENABLED
+  # }
 }
 
 resource "aws_security_group_rule" "allow-node-tcp" {
   count             = local.node_count
   type              = "ingress"
-  from_port         = var.NODE_TCP_PORT + count.index
-  to_port           = var.NODE_TCP_PORT + count.index
+  from_port         = var.P2P_TCP_LISTEN_PORT + count.index
+  to_port           = var.P2P_TCP_LISTEN_PORT + count.index
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
@@ -432,7 +452,7 @@ resource "aws_security_group_rule" "allow-node-tcp" {
 resource "aws_lb_listener" "aztec-node-tcp-listener" {
   count             = local.node_count
   load_balancer_arn = data.terraform_remote_state.aztec-network_iac.outputs.nlb_arn
-  port              = var.NODE_TCP_PORT + count.index
+  port              = var.P2P_TCP_LISTEN_PORT + count.index
   protocol          = "TCP"
 
   tags = {
@@ -443,4 +463,155 @@ resource "aws_lb_listener" "aztec-node-tcp-listener" {
     type             = "forward"
     target_group_arn = aws_lb_target_group.aztec-node-target-group[count.index].arn
   }
+}
+
+
+
+
+
+
+// Configuration for proving agents
+
+resource "aws_cloudwatch_log_group" "aztec-proving-agent-log-group" {
+  count             = local.node_count
+  name              = "/fargate/service/${var.DEPLOY_TAG}/aztec-proving-agent-${count.index + 1}"
+  retention_in_days = 14
+}
+
+resource "aws_service_discovery_service" "aztec-proving-agent" {
+  count = local.node_count
+  name  = "${var.DEPLOY_TAG}-aztec-proving-agent-${count.index + 1}"
+
+  health_check_custom_config {
+    failure_threshold = 1
+  }
+
+  dns_config {
+    namespace_id = data.terraform_remote_state.setup_iac.outputs.local_service_discovery_id
+
+    dns_records {
+      ttl  = 60
+      type = "A"
+    }
+
+    dns_records {
+      ttl  = 60
+      type = "SRV"
+    }
+
+    routing_policy = "MULTIVALUE"
+  }
+
+  # Terraform just fails if this resource changes and you have registered instances.
+  provisioner "local-exec" {
+    when    = destroy
+    command = "${path.module}/servicediscovery-drain.sh ${self.id}"
+  }
+}
+
+# Define task definitions for each node.
+resource "aws_ecs_task_definition" "aztec-proving-agent" {
+  count                    = local.node_count
+  family                   = "${var.DEPLOY_TAG}-aztec-proving-agent-${count.index + 1}"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = "16384"
+  memory                   = "65536"
+  execution_role_arn       = data.terraform_remote_state.setup_iac.outputs.ecs_task_execution_role_arn
+  task_role_arn            = data.terraform_remote_state.aztec2_iac.outputs.cloudwatch_logging_ecs_role_arn
+
+  container_definitions = <<DEFINITIONS
+[
+  {
+    "name": "${var.DEPLOY_TAG}-aztec-proving-agent-${count.index + 1}",
+    "image": "${var.DOCKERHUB_ACCOUNT}/aztec:${var.DEPLOY_TAG}",
+    "command": ["start", "--prover", "simulate=true"],
+    "essential": true,
+    "memoryReservation": 65536,
+    "portMappings": [
+      {
+        "containerPort": 80
+      }
+    ],
+    "environment": [
+      {
+        "name": "NODE_ENV",
+        "value": "production"
+      },
+      {
+        "name": "DEBUG",
+        "value": "aztec:*"
+      },
+      {
+        "name": "DEPLOY_TAG",
+        "value": "${var.DEPLOY_TAG}"
+      },
+      {
+        "name": "PROVER_URL",
+        "value": "http://${var.DEPLOY_TAG}-aztec-node-${count.index + 1}.local/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}"
+      },
+      {
+        "name": "PROVER_AGENTS",
+        "value": "1"
+      },
+      {
+        "name": "PROVER_REAL_PROOFS",
+        "value": "false"
+      },
+      {
+        "name": "ACVM_WORKING_DIRECTORY",
+        "value": "/usr/src/acvm"
+      },
+      {
+        "name": "BB_WORKING_DIRECTORY",
+        "value": "/usr/src/bb"
+      },
+      {
+        "name": "ACVM_BINARY_PATH",
+        "value": "/usr/src/noir/noir-repo/target/release/acvm"
+      },
+      {
+        "name": "BB_BINARY_PATH",
+        "value": "/usr/src/barretenberg/cpp/build/bin/bb"
+      }
+    ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group": "/fargate/service/${var.DEPLOY_TAG}/aztec-proving-agent-${count.index + 1}",
+        "awslogs-region": "eu-west-2",
+        "awslogs-stream-prefix": "ecs"
+      }
+    }
+  }
+]
+DEFINITIONS
+}
+
+resource "aws_ecs_service" "aztec-proving-agent" {
+  count                              = local.node_count
+  name                               = "${var.DEPLOY_TAG}-aztec-proving-agent-${count.index + 1}"
+  cluster                            = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id
+  launch_type                        = "FARGATE"
+  desired_count                      = 1
+  deployment_maximum_percent         = 100
+  deployment_minimum_healthy_percent = 0
+  platform_version                   = "1.4.0"
+
+
+  network_configuration {
+    subnets = [
+      data.terraform_remote_state.setup_iac.outputs.subnet_az1_private_id,
+      data.terraform_remote_state.setup_iac.outputs.subnet_az2_private_id
+    ]
+    security_groups = [data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id, data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
+  }
+
+  service_registries {
+    registry_arn   = aws_service_discovery_service.aztec-proving-agent[count.index].arn
+    container_name = "${var.DEPLOY_TAG}-aztec-proving-agent-${count.index + 1}"
+    container_port = 80
+  }
+
+  task_definition = aws_ecs_task_definition.aztec-proving-agent[count.index].family
 }
