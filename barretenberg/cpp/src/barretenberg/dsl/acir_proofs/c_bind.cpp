@@ -68,7 +68,7 @@ WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
 WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, bool* result)
 {
     auto constraint_system =
-        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/false);
+        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
     auto builder = acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, witness);
@@ -200,7 +200,7 @@ WASM_EXPORT void acir_serialize_verification_key_into_fields(in_ptr acir_compose
 WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out)
 {
     auto constraint_system =
-        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/false);
+        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
     auto builder = acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, witness);
@@ -231,7 +231,7 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, uint8_t** out
     using VerificationKey = UltraFlavor::VerificationKey;
 
     auto constraint_system =
-        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/false);
+        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
     auto builder = acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, {});
 
     ProverInstance prover_inst(builder);

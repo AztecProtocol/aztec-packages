@@ -600,7 +600,9 @@ WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf)
 AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::string const& witness_path)
 {
     auto bytecode = get_bytecode(bytecode_path);
-    auto constraint_systems = program_buf_to_acir_format(bytecode, /*honk_recursion=*/false);
+    auto constraint_systems =
+        program_buf_to_acir_format(bytecode, /*honk_recursion=*/true); // TODO(): Remove honk recursion flag. This
+                                                                       // assumes that folding is always done with honk.
 
     auto witness_data = get_bytecode(witness_path);
     auto witness_stack = witness_buf_to_witness_stack(witness_data);
