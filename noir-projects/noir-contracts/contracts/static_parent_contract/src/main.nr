@@ -85,7 +85,7 @@ contract StaticParent {
         target_selector: FunctionSelector,
         args: [Field; 3]
     ) -> Field {
-        StaticParent::at(context.this_address()).private_call(target_contract, target_selector, args).view(&mut context)
+        StaticParent::at(context.this_address()).private_nested_static_call_3_args(target_contract, target_selector, args).view(&mut context)
     }
 
     // Public function to statically call another public function to the target_contract using the selector and value provided
