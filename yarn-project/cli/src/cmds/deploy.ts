@@ -103,6 +103,7 @@ export async function deploy(
         txHash: txHash.toString(),
         initializationHash: instance.initializationHash.toString(),
         salt: salt.toString(),
+        deployer: instance.deployer.toString(),
       });
     } else {
       log(`Contract deployed at ${address?.toString()}`);
@@ -110,6 +111,7 @@ export async function deploy(
       log(`Contract init hash ${instance.initializationHash.toString()}`);
       log(`Deployment tx hash: ${txHash.toString()}`);
       log(`Deployment salt: ${salt.toString()}`);
+      log(`Deployer: ${instance.deployer.toString()}`);
     }
   }
 }

@@ -18,10 +18,10 @@ export async function createAccount(
   const client = await createCompatibleClient(rpcUrl, debugLogger);
   const printPK = typeof privateKey === 'undefined';
   privateKey ??= Fr.random();
+  const salt = Fr.ZERO;
 
-  const account = getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), Fr.ZERO);
+  const account = getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), salt);
   const { address, publicKeys, partialAddress } = account.getCompleteAddress();
-  await account.register();
 
   if (!registerOnly) {
     const wallet = await account.getWallet();
@@ -49,4 +49,7 @@ export async function createAccount(
     log(`Private key:     ${privateKey.toString()}`);
   }
   log(`Partial address: ${partialAddress.toString()}`);
+  log(`Salt:            ${salt.toString()}`);
+  log(`Init hash:       ${account.getInstance().initializationHash.toString()}`);
+  log(`Deployer:        ${account.getInstance().deployer.toString()}`);
 }
