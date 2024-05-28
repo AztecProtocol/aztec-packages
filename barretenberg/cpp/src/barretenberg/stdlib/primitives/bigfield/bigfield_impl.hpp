@@ -1824,10 +1824,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
                       << std::endl;
             return;
         } else if (other.is_constant()) {
-            // Ensure the non-constant value is not in relaxed form because otherwise assert_equal might fail because
-            // the limbs are not equal
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/998): Something is fishy here
-            (*this).assert_is_in_field();
             // evaluate a strict equality - make sure *this is reduced first, or an honest prover
             // might not be able to satisfy these constraints.
             field_t<Builder> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);
@@ -1842,9 +1839,6 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
             t4.assert_is_zero();
             return;
         } else if (is_constant()) {
-            // Ensure the non-constant value is not in relaxed form because otherwise assert_equal might fail because
-            // the limbs are not equal
-            other.assert_is_in_field();
             other.assert_equal(*this);
             return;
         } else {
@@ -1867,7 +1861,6 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
                 t4.assert_is_zero();
                 return;
             } else if (is_constant()) {
-                (*this).assert_is_in_field();
                 other.assert_equal(*this);
                 return;
             }
