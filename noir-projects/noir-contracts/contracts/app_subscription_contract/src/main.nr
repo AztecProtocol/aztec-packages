@@ -9,8 +9,7 @@ contract AppSubscription {
         AztecAddress, FunctionSelector, PrivateContext, NoteHeader, Map, PrivateMutable, PublicMutable,
         SharedImmutable
     },
-        protocol_types::{traits::is_empty, grumpkin_point::GrumpkinPoint},
-        keys::getters::{get_npk_m_hash, get_ivpk_m}
+        protocol_types::{traits::is_empty, grumpkin_point::GrumpkinPoint}
     },
         authwit::{account::AccountActions, auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit},
         gas_token::GasToken, token::Token
@@ -43,16 +42,14 @@ contract AppSubscription {
 
         note.remaining_txs -= 1;
 
-        let subscriber_ivpk_m = get_ivpk_m(&mut context, user_address);
+        let header = context.get_header();
+        let subscriber_ivpk_m = header.get_ivpk_m(&mut context, user_address);
         storage.subscriptions.at(user_address).replace(&mut note, true, subscriber_ivpk_m);
 
         context.set_as_fee_payer();
-        let gas_limit = storage.gas_token_limit_per_tx.read_private();
-        context.set_public_teardown_function(
-            storage.gas_token_address.read_private(),
-            FunctionSelector::from_signature("pay_fee(Field)"),
-            [gas_limit]
-        );
+
+        // TODO(palla/gas) Assert gas_token_limit_per_tx is less than this tx gas_limit
+        let _gas_limit = storage.gas_token_limit_per_tx.read_private();
 
         context.end_setup();
 
@@ -114,21 +111,12 @@ contract AppSubscription {
 
         // Assert that the given expiry_block_number < current_block_number + SUBSCRIPTION_DURATION_IN_BLOCKS.
         AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).enqueue_view(&mut context);
-        let subscriber_npk_m_hash = get_npk_m_hash(&mut context, subscriber_address);
-        let subscriber_ivpk_m = get_ivpk_m(&mut context, subscriber_address);
+        let header = context.get_header();
+        let subscriber_npk_m_hash = header.get_npk_m_hash(&mut context, subscriber_address);
+        let subscriber_ivpk_m = header.get_ivpk_m(&mut context, subscriber_address);
 
         let mut subscription_note = SubscriptionNote::new(subscriber_npk_m_hash, expiry_block_number, tx_count);
-
-        // is_initialized is an unconstrained function, so we must first convert the state variable to an unconstrained
-        // one to avoid having a mutable reference (to the private context) cross the constrained <> unconstrained
-        // boundary, which is not allowed.
-        let is_initialized = storage.subscriptions.at(subscriber_address).to_unconstrained().is_initialized();
-
-        if (!is_initialized) {
-            storage.subscriptions.at(subscriber_address).initialize(&mut subscription_note, true, subscriber_ivpk_m);
-        } else {
-            storage.subscriptions.at(subscriber_address).replace(&mut subscription_note, true, subscriber_ivpk_m)
-        }
+        storage.subscriptions.at(subscriber_address).initialize_or_replace(&mut subscription_note, true, subscriber_ivpk_m);
     }
 
     unconstrained fn is_initialized(subscriber_address: AztecAddress) -> pub bool {
