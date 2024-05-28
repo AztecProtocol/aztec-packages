@@ -262,41 +262,50 @@ contract PendingNoteHashes {
     //}
 
     #[aztec(private)]
-    fn test_recursively_create_notes(owner: AztecAddress, how_many_recursions: u64) {
-        create_max_notes(owner, storage, &mut context);
+    fn test_recursively_create_notes(
+        owner: AztecAddress,
+        outgoing_viewer: AztecAddress,
+        how_many_recursions: u64
+    ) {
+        create_max_notes(owner, outgoing_viewer, storage, &mut context);
 
-        PendingNoteHashes::at(context.this_address()).recursively_destroy_and_create_notes(owner, how_many_recursions).call(&mut context);
+        PendingNoteHashes::at(context.this_address()).recursively_destroy_and_create_notes(owner, outgoing_viewer, how_many_recursions).call(&mut context);
     }
 
     #[aztec(private)]
-    fn recursively_destroy_and_create_notes(owner: AztecAddress, executions_left: u64) {
+    fn recursively_destroy_and_create_notes(
+        owner: AztecAddress,
+        outgoing_viewer: AztecAddress,
+        executions_left: u64
+    ) {
         assert(executions_left > 0);
 
         destroy_max_notes(owner, storage);
-        create_max_notes(owner, storage, &mut context);
+        create_max_notes(owner, outgoing_viewer, storage, &mut context);
 
         let executions_left = executions_left - 1;
 
         if executions_left > 0 {
-            PendingNoteHashes::at(context.this_address()).recursively_destroy_and_create_notes(owner, executions_left).call(&mut context);
+            PendingNoteHashes::at(context.this_address()).recursively_destroy_and_create_notes(owner, outgoing_viewer, executions_left).call(&mut context);
         }
     }
 
     #[contract_library_method]
     fn create_max_notes(
         owner: AztecAddress,
+        outgoing_viewer: AztecAddress,
         storage: Storage<&mut PrivateContext>,
         context: &mut PrivateContext
     ) {
         let owner_balance = storage.balances.at(owner);
         let header = context.get_header();
         let owner_npk_m_hash = header.get_npk_m_hash(context, owner);
-        let msg_sender_ovpk_m = header.get_ovpk_m(context, context.msg_sender());
+        let outgoing_viewer_ovpk_m = header.get_ovpk_m(context, outgoing_viewer);
         let owner_ivpk_m = header.get_ivpk_m(context, owner);
 
         for i in 0..max_notes_per_call() {
             let mut note = ValueNote::new(i as Field, owner_npk_m_hash);
-            owner_balance.insert(&mut note, true, msg_sender_ovpk_m, owner_ivpk_m);
+            owner_balance.insert(&mut note, true, outgoing_viewer_ovpk_m, owner_ivpk_m);
         }
     }
 

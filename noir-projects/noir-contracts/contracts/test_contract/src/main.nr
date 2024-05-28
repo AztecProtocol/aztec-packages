@@ -82,14 +82,19 @@ contract Test {
     fn dummy_public_call() {}
 
     #[aztec(private)]
-    fn call_create_note(value: Field, owner: AztecAddress, storage_slot: Field) {
+    fn call_create_note(
+        value: Field,
+        owner: AztecAddress,
+        outgoing_viewer: AztecAddress,
+        storage_slot: Field
+    ) {
         assert(
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
         );
 
         let header = context.get_header();
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
-        let msg_sender_ovpk_m = header.get_ovpk_m(&mut context, context.msg_sender());
+        let outgoing_viewer_ovpk_m = header.get_ovpk_m(&mut context, outgoing_viewer);
         let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
 
         let mut note = ValueNote::new(value, owner_npk_m_hash);
@@ -98,7 +103,7 @@ contract Test {
             storage_slot,
             &mut note,
             true,
-            msg_sender_ovpk_m,
+            outgoing_viewer_ovpk_m,
             owner_ivpk_m
         );
     }
@@ -256,27 +261,32 @@ contract Test {
 
     // For testing non-note encrypted logs
     #[aztec(private)]
-    fn emit_array_as_encrypted_log(fields: [Field; 5], owner: AztecAddress, nest: bool) {
+    fn emit_array_as_encrypted_log(
+        fields: [Field; 5],
+        owner: AztecAddress,
+        outgoing_viewer: AztecAddress,
+        nest: bool
+    ) {
         let header = context.get_header();
-        let msg_sender_ovpk = header.get_ovpk_m(&mut context, context.msg_sender());
+        let outgoing_viewer_ovpk_m = header.get_ovpk_m(&mut context, outgoing_viewer);
         let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
         context.encrypt_and_emit_log(
             context.this_address(),
             5, // testing only - this should be a secret random value to salt the addr
             1,
-            msg_sender_ovpk,
+            outgoing_viewer_ovpk_m,
             owner_ivpk_m,
             fields
         );
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
         if nest {
-            Test::at(context.this_address()).emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, false).call(&mut context);
+            Test::at(context.this_address()).emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, outgoing_viewer, false).call(&mut context);
             context.encrypt_and_emit_log(
                 context.this_address(),
                 0, // testing only - this signals to the kerels to not mask the address
                 1,
-                msg_sender_ovpk,
+                outgoing_viewer_ovpk_m,
                 owner_ivpk_m,
                 [1, 2, 3, 4, 5]
             );
@@ -303,9 +313,9 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn emit_encrypted_logs_nested(value: Field, owner: AztecAddress) {
+    fn emit_encrypted_logs_nested(value: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let mut storage_slot = storage.example_constant.get_storage_slot() + 1;
-        Test::at(context.this_address()).call_create_note(value, owner, storage_slot).call(&mut context);
+        Test::at(context.this_address()).call_create_note(value, owner, outgoing_viewer, storage_slot).call(&mut context);
         storage_slot += 1;
 
         let header = context.get_header();
@@ -323,7 +333,7 @@ contract Test {
             owner_ivpk_m
         );
         storage_slot += 1;
-        Test::at(context.this_address()).call_create_note(value + 2, owner, storage_slot).call(&mut context);
+        Test::at(context.this_address()).call_create_note(value + 2, owner, outgoing_viewer, storage_slot).call(&mut context);
     }
 
     // docs:start:is-time-equal
