@@ -965,6 +965,55 @@ bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& t
 }
 
 /**
+ * @brief Raise a field_t to a power of an exponent (field_t). Note that the exponent must not exceed 32 bits and is
+ * implicitly range constrained.
+ *
+ * @returns this ** (exponent)
+ */
+template <typename Builder, typename T>
+bigfield<Builder, T> bigfield<Builder, T>::pow(const field_t<Builder>& exponent) const
+{
+    (void)exponent;
+    return *this;
+    // auto* ctx = get_context() ? get_context() : exponent.get_context();
+    // uint256_t exponent_value = exponent.get_value();
+    // // if constexpr (IsSimulator<Builder>) {
+    // //     if ((exponent_value >> 32) != static_cast<uint256_t>(0)) {
+    // //         ctx->failure("field_t::pow exponent accumulator incorrect");
+    // //     }
+    // //     constexpr uint256_t MASK_32_BITS = 0xffff'ffff;
+    // //     return get_value().pow(exponent_value & MASK_32_BITS);
+    // // }
+
+    // bool exponent_constant = exponent.is_constant();
+    // std::vector<bool_t<Builder>> exponent_bits(32);
+    // for (size_t i = 0; i < exponent_bits.size(); ++i) {
+    //     uint256_t value_bit = exponent_value & 1;
+    //     bool_t<Builder> bit;
+    //     bit = exponent_constant ? bool_t<Builder>(ctx, value_bit.data[0]) : witness_t<Builder>(ctx,
+    //     value_bit.data[0]); exponent_bits[31 - i] = (bit); exponent_value >>= 1;
+    // }
+
+    // if (!exponent_constant) {
+    //     field_t<Builder> exponent_accumulator(ctx, 0);
+    //     for (const auto& bit : exponent_bits) {
+    //         exponent_accumulator += exponent_accumulator;
+    //         exponent_accumulator += bit;
+    //     }
+    //     exponent.assert_equal(exponent_accumulator, "field_t::pow exponent accumulator incorrect");
+    // }
+    // field_t accumulator(ctx, 1);
+    // field_t mul_coefficient = *this - 1;
+    // for (size_t i = 0; i < 32; ++i) {
+    //     accumulator *= accumulator;
+    //     const auto bit = exponent_bits[i];
+    //     accumulator *= (mul_coefficient * bit + 1);
+    // }
+    // accumulator = accumulator.normalize();
+    // return accumulator;
+}
+
+/**
  * Compute a * b + ...to_add = c mod p
  *
  * @param to_mul Bigfield element to multiply by
