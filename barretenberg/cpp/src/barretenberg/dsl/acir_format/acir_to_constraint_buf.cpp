@@ -467,8 +467,9 @@ void handle_memory_op(Program::Opcode::MemoryOp const& mem_op, BlockConstraint& 
     block.trace.push_back(acir_mem_op);
 }
 
-AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit)
+AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit, bool honk_recursion)
 {
+    static_cast<void>(honk_recursion);
     AcirFormat af;
     // `varnum` is the true number of variables, thus we add one to the index which starts at zero
     af.varnum = circuit.current_witness_index + 1;
@@ -507,14 +508,14 @@ AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit)
     return af;
 }
 
-AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
+AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, bool honk_recursion)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just `program_buf_to_acir_format`
     // once Honk fully supports all ACIR test flows
     // For now the backend still expects to work with a single ACIR function
     auto circuit = Program::Program::bincodeDeserialize(buf).functions[0];
 
-    return circuit_serde_to_acir_format(circuit);
+    return circuit_serde_to_acir_format(circuit, honk_recursion);
 }
 
 /**
@@ -562,14 +563,14 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
     return witness_map_to_witness_vector(w);
 }
 
-std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf)
+std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf, bool honk_recursion)
 {
     auto program = Program::Program::bincodeDeserialize(buf);
 
     std::vector<AcirFormat> constraint_systems;
     constraint_systems.reserve(program.functions.size());
     for (auto const& function : program.functions) {
-        constraint_systems.emplace_back(circuit_serde_to_acir_format(function));
+        constraint_systems.emplace_back(circuit_serde_to_acir_format(function, honk_recursion));
     }
 
     return constraint_systems;
@@ -591,7 +592,7 @@ WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf)
 AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::string const& witness_path)
 {
     auto bytecode = get_bytecode(bytecode_path);
-    auto constraint_systems = program_buf_to_acir_format(bytecode);
+    auto constraint_systems = program_buf_to_acir_format(bytecode, /*honk_recursion=*/false);
 
     auto witness_data = get_bytecode(witness_path);
     auto witness_stack = witness_buf_to_witness_stack(witness_data);
