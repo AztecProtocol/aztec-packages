@@ -861,7 +861,7 @@ int main(int argc, char* argv[])
         if (command == "prove_and_verify_ultra_honk_program") {
             return proveAndVerifyHonkProgram<UltraFlavor>(bytecode_path, witness_path) ? 0 : 1;
         }
-        if (command == "prove_and_verify_goblin_ultra_honk_program") {
+        if (command == "prove_and_verify_mega_honk_program") {
             return proveAndVerifyHonkProgram<MegaFlavor>(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "fold_and_verify_program") {
