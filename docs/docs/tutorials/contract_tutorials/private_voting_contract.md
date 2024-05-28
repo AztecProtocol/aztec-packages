@@ -21,7 +21,7 @@ To keep things simple, we won't create ballots or allow for delegate voting.
 
 ## Prerequisites
 
-- You have followed the [quickstart](/getting_started) to install `aztec-nargo` and `aztec-sandbox`.
+- You have followed the [quickstart](../../getting_started.md) to install `aztec-nargo` and `aztec-sandbox`.
 - Running Aztec Sandbox
 
 ## Set up a project
@@ -44,7 +44,7 @@ Your file structure should look something like this:
 
 The file `main.nr` will soon turn into our smart contract!
 
-We will need the Aztec library to create this contract. In your `Nargo.toml` you should see `[dependencies]` - paste this bellow it.
+We will need the Aztec library to create this contract. In your `Nargo.toml` you should see `[dependencies]` - paste this below it.
 
 ```toml
 [dependencies]
@@ -110,9 +110,9 @@ Create a private function called `cast_vote`:
 
 #include_code cast_vote noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
 
-In this function, we do not create a nullifier with the address directly. This would leak privacy as it would be easy to reverse-engineer. We must add some randomness or some form of secret, like [nullifier secrets](/aztec/concepts/accounts/keys.md#nullifier-secrets).
+In this function, we do not create a nullifier with the address directly. This would leak privacy as it would be easy to reverse-engineer. We must add some randomness or some form of secret, like [nullifier secrets](../../aztec/concepts/accounts/keys.md#nullifier-secrets).
 
-To do this, we make an [oracle call](/aztec/concepts/smart_contracts/oracles/index.md) to fetch the caller's secret key, hash it to create a nullifier, and push the nullifier to Aztec. The `secret.high` and `secret.low` values here refer to how we divide a large [Grumpkin scalar](https://github.com/AztecProtocol/aztec-packages/blob/7fb35874eae3f2cad5cb922282a619206573592c/noir/noir_stdlib/src/grumpkin_scalar.nr) value into its higher and lower parts. This allows for faster cryptographic computations so our hash can still be secure but is calculated faster.
+To do this, we make an [oracle call](../../aztec/concepts/smart_contracts/oracles/index.md) to fetch the caller's secret key, hash it to create a nullifier, and push the nullifier to Aztec. The `secret.high` and `secret.low` values here refer to how we divide a large [Grumpkin scalar](https://github.com/AztecProtocol/aztec-packages/blob/7fb35874eae3f2cad5cb922282a619206573592c/noir/noir_stdlib/src/grumpkin_scalar.nr) value into its higher and lower parts. This allows for faster cryptographic computations so our hash can still be secure but is calculated faster.
 
 After pushing the nullifier, we update the `tally` to reflect this vote. As we know from before, a private function cannot update public state directly, so we are calling a public function.
 
@@ -126,13 +126,17 @@ The first thing we do here is assert that the vote has not ended.
 
 The code after the assertion will only run if the assertion is true. In this snippet, we read the current vote tally at the voteId, add 1 to it, and write this new number to the voteId. The `Field` element allows us to use `+` to add to an integer.
 
+:::danger
+Note that due to [key rotation](../../aztec/concepts/accounts/keys.md#key-rotation), it would be possible for a user to rotate their nullifier secret key and be able to vote again. Refer to [common patterns](../../guides/smart_contracts/writing_contracts/common_patterns/key_rotation.md) for more information
+:::
+
 ## Getting the number of votes
 
 We will create a function that anyone can call that will return the number of votes at a given vote Id. Paste this in your contract:
 
 #include_code get_vote noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
 
-We set it as `unconstrained` and do not annotate it because it is only reading from state. You can read more about unconstrained functions [here](/aztec/concepts/pxe/acir_simulator.md#unconstrained-functions).
+We set it as `unconstrained` and do not annotate it because it is only reading from state. You can read more about unconstrained functions [here](../../aztec/concepts/pxe/acir_simulator.md#unconstrained-functions).
 
 ## Allowing an admin to end a voting period
 
@@ -154,18 +158,18 @@ aztec-nargo compile
 
 This will create a new directory called `target` and a JSON artifact inside it.
 
-Once it is compiled you can [deploy](/reference/sandbox_reference/index.md). 
+Once it is compiled you can [deploy](../../reference/sandbox_reference/index.md). 
 
 ```bash
 aztec-builder target -o src/artifacts
 ```
 
-Once it is compiled you can [deploy](/guides/smart_contracts/how_to_deploy_contract.md) it to the sandbox. This is out of scope for this tutorial but you can learn how to do this in the [Aztec.js getting-started guide](/getting_started/aztecjs-getting-started.md).
+Once it is compiled you can [deploy](../../guides/smart_contracts/how_to_deploy_contract.md) it to the sandbox. This is out of scope for this tutorial but you can learn how to do this in the [Aztec.js getting-started guide](../../getting_started/aztecjs-getting-started.md).
 
 ## Next steps
 
 Now you have learned the foundations of Aztec smart contracts, you can start to play around with some more advanced features. Some ideas:
 
 - Add some more features into this contract, like the admin can distribute votes, people can delegate their votes, or voteIds can have more data like names, descriptions, etc
-- Create a frontend for this contract using [Aztec.js](/getting_started/aztecjs-getting-started.md).
-- Go to the [next tutorial](/tutorials/contract_tutorials/token_contract.md) and learn how to write a token contract
+- Create a frontend for this contract using [Aztec.js](../../getting_started/aztecjs-getting-started.md).
+- Go to the [next tutorial](token_contract.md) and learn how to write a token contract

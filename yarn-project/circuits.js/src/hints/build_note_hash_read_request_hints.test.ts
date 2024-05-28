@@ -30,10 +30,14 @@ describe('buildNoteHashReadRequestHints', () => {
   let noteHashReadRequests: Tuple<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>;
   let noteHashes: Tuple<ScopedNoteHash, typeof MAX_NEW_NOTE_HASHES_PER_TX>;
   let noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
-  let expectedHints: NoteHashReadRequestHints;
+  let expectedHints: NoteHashReadRequestHints<
+    typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+    typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX
+  >;
   let numReadRequests = 0;
   let numPendingReads = 0;
   let numSettledReads = 0;
+  let futureNoteHashes: ScopedNoteHash[];
 
   const innerNoteHash = (index: number) => index + 9999;
 
@@ -64,17 +68,39 @@ describe('buildNoteHashReadRequestHints', () => {
     numSettledReads++;
   };
 
-  const buildHints = () =>
-    buildNoteHashReadRequestHints(oracle, noteHashReadRequests, noteHashes, noteHashLeafIndexMap);
+  const readFutureNoteHash = (noteHashIndex: number) => {
+    const readRequestIndex = numReadRequests;
+    noteHashReadRequests[readRequestIndex] = makeReadRequest(futureNoteHashes[noteHashIndex].value.toNumber());
+    numReadRequests++;
+  };
+
+  const buildHints = async () =>
+    (
+      await buildNoteHashReadRequestHints(
+        oracle,
+        noteHashReadRequests,
+        noteHashes,
+        noteHashLeafIndexMap,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+        futureNoteHashes,
+      )
+    ).hints;
 
   beforeEach(() => {
     noteHashReadRequests = makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest.empty);
     noteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, i => makeNoteHash(innerNoteHash(i)));
     noteHashLeafIndexMap = new Map();
-    expectedHints = NoteHashReadRequestHintsBuilder.empty();
+    expectedHints = NoteHashReadRequestHintsBuilder.empty(
+      MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+      MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+    );
     numReadRequests = 0;
     numPendingReads = 0;
     numSettledReads = 0;
+    futureNoteHashes = new Array(MAX_NEW_NOTE_HASHES_PER_TX)
+      .fill(null)
+      .map((_, i) => makeNoteHash(innerNoteHash(i + MAX_NEW_NOTE_HASHES_PER_TX)));
   });
 
   it('builds empty hints', async () => {
@@ -96,11 +122,13 @@ describe('buildNoteHashReadRequestHints', () => {
     expect(hints).toEqual(expectedHints);
   });
 
-  it('builds hints for mixed pending and settled note hash read requests', async () => {
+  it('builds hints for mixed pending, settled and future note hash read requests', async () => {
     readPendingNoteHash(2);
     readSettledNoteHash(2);
     readSettledNoteHash(0);
+    readFutureNoteHash(0);
     readPendingNoteHash(1);
+    readFutureNoteHash(1);
     readPendingNoteHash(1);
     readSettledNoteHash(2);
     const hints = await buildHints();

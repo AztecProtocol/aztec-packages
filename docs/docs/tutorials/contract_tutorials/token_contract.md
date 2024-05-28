@@ -21,7 +21,7 @@ We are going to start with a blank project and fill in the token contract source
 
 ## Requirements
 
-You will need to have `aztec-nargo` installed in order to compile Aztec.nr contracts. See the [sandbox reference](/reference/sandbox_reference/index.md) for installation instructions.
+You will need to have `aztec-nargo` installed in order to compile Aztec.nr contracts. See the [sandbox reference](../../reference/sandbox_reference/index.md) for installation instructions.
 
 You should also install the [Noir Language Support extension](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir) for VS Code.
 
@@ -151,7 +151,7 @@ These are functions that have transparent logic, will execute in a publicly veri
 
 ### Private functions
 
-These are functions that have private logic and will be executed on user devices to maintain privacy. The only data that is submitted to the network is a proof of correct execution, new data [commitments](https://en.wikipedia.org/wiki/Commitment_scheme) and [nullifiers](/aztec/concepts/storage/trees/index.md#nullifier-tree), so users will not reveal which contract they are interacting with or which function they are executing. The only information that will be revealed publicly is that someone executed a private transaction on Aztec.
+These are functions that have private logic and will be executed on user devices to maintain privacy. The only data that is submitted to the network is a proof of correct execution, new data [commitments](https://en.wikipedia.org/wiki/Commitment_scheme) and [nullifiers](../../aztec/concepts/storage/trees/index.md#nullifier-tree), so users will not reveal which contract they are interacting with or which function they are executing. The only information that will be revealed publicly is that someone executed a private transaction on Aztec.
 
 - `redeem_shield` enables accounts to claim tokens that have been made private via `mint_private` or `shield` by providing the secret
 - `unshield` enables an account to send tokens from their private balance to any other account's public balance
@@ -209,17 +209,17 @@ We are importing:
 - `compute_secret_hash` that will help with the shielding and unshielding, allowing someone to claim a token from private to public
 - Types for storing note types
 
-For more detail on execution contexts, see [Contract Communication](/aztec/concepts/smart_contracts/communication).
+For more detail on execution contexts, see [Contract Communication](../../aztec/concepts/smart_contracts/communication/index.md).
 
 ### Types files
 
 We are also importing types from a `types.nr` file, which imports types from the `types` folder. You can view them [here](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src).
 
-The main thing to note from this types folder is the `TransparentNote` definition. This defines how the contract moves value from the public domain into the private domain. It is similar to the `value_note` that we imported, but with some modifications namely, instead of a defined `owner`, it allows anyone that can produce the pre-image to the stored `secret_hash` to spend the note.
+The main thing to note from this types folder is the `TransparentNote` definition. This defines how the contract moves value from the public domain into the private domain. It is similar to the `value_note` that we imported, but with some modifications namely, instead of a defined nullifier key, it allows anyone that can produce the pre-image to the stored `secret_hash` to spend the note.
 
 ### Note on private state
 
-Private state in Aztec is all [UTXOs](/aztec/concepts/storage/index.md) to learn more about public and private state in Aztec.
+Private state in Aztec is all [UTXOs](../../aztec/concepts/storage/index.md) to learn more about public and private state in Aztec.
 
 ## Contract Storage
 
@@ -233,12 +233,12 @@ Reading through the storage variables:
 
 - `admin` an Aztec address stored in public state.
 - `minters` is a mapping of Aztec addresses in public state. This will store whether an account is an approved minter on the contract.
-- `balances` is a mapping of private balances. Private balances are stored in a `PrivateSet` of `ValueNote`s. The balance is the sum of all of an account's `ValueNote`s.
+- `balances` is a mapping of private balances. Private balances are stored in a `PrivateSet` of `TokenNote`s. The balance is the sum of all of an account's `TokenNote`s.
 - `total_supply` is an unsigned integer (max 128 bit value) stored in public state and represents the total number of tokens minted.
 - `pending_shields` is a `PrivateSet` of `TransparentNote`s stored in private state. What is stored publicly is a set of commitments to `TransparentNote`s.
 - `public_balances` is a mapping of Aztec addresses in public state and represents the publicly viewable balances of accounts.
 
-You can read more about it [here](/aztec/concepts/storage/index.md).
+You can read more about it [here](../../aztec/concepts/storage/index.md).
 
 ## Functions
 
@@ -337,7 +337,7 @@ Storage is referenced as `storage.variable`.
 
 #### `redeem_shield`
 
-This private function enables an account to move tokens from a `TransparentNote` in the `pending_shields` mapping to any Aztec account as a `ValueNote` in private `balances`.
+This private function enables an account to move tokens from a `TransparentNote` in the `pending_shields` mapping to a `TokenNote` in private `balances`. The `TokenNote` will be associated with a nullifier key, so any account that knows this key can spend this note.
 
 Going through the function logic, first the `secret_hash` is generated from the given secret. This ensures that only the entity possessing the secret can use it to redeem the note. Following this, a `TransparentNote` is retrieved from the set, using the provided amount and secret. The note is subsequently removed from the set, allowing it to be redeemed only once. The recipient's private balance is then increased using the `increment` helper function from the `value_note` [library](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/value-note/src/utils.nr).
 
@@ -347,7 +347,7 @@ The function returns `1` to indicate successful execution.
 
 #### `unshield`
 
-This private function enables un-shielding of private `ValueNote`s stored in `balances` to any Aztec account's `public_balance`.
+This private function enables un-shielding of private `TokenNote`s stored in `balances` to any Aztec account's `public_balance`.
 
 After initializing storage, the function checks that the `msg_sender` is authorized to spend tokens. See [the Authorizing token spends section](#authorizing-token-spends) above for more detail--the only difference being that `assert_valid_message_for` is modified to work specifically in the private context. After the authorization check, the sender's private balance is decreased using the `decrement` helper function for the `value_note` library. Then it stages a public function call on this contract ([`_increase_public_balance`](#_increase_public_balance)) to be executed in the [public execution phase](#execution-contexts) of transaction execution. `_increase_public_balance` is marked as an `internal` function, so can only be called by this token contract.
 
@@ -411,7 +411,7 @@ A getter function for checking the token `total_supply`.
 
 #### `balance_of_private`
 
-A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/yarn-project/pxe) must have access to the `owner`s decryption keys in order to decrypt their notes.
+A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/yarn-project/pxe) must have `ivsk_app` ([app-specific secret key](../../aztec/concepts/accounts/keys.md#scoped-keys)) in order to decrypt the notes.
 
 #include_code balance_of_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
@@ -423,7 +423,7 @@ A getter function for checking the public balance of the provided Aztec account.
 
 ## Compiling
 
-Now that the contract is complete, you can compile it with `aztec-nargo`. See the [Sandbox reference page](/reference/sandbox_reference/index.md) for instructions on setting it up.
+Now that the contract is complete, you can compile it with `aztec-nargo`. See the [Sandbox reference page](../../reference/sandbox_reference/index.md) for instructions on setting it up.
 
 Run the following command in the directory where your `Nargo.toml` file is located:
 
@@ -447,6 +447,6 @@ https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn
 
 ### Token Bridge Contract
 
-The [token bridge tutorial](/tutorials/contract_tutorials/advanced/token_bridge) is a great follow up to this one.
+The [token bridge tutorial](advanced/token_bridge/index.md) is a great follow up to this one.
 
 It builds on the Token contract described here and goes into more detail about Aztec contract composability and Ethereum (L1) and Aztec (L2) cross-chain messaging.

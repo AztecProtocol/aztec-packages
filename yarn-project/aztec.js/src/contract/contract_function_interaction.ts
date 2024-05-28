@@ -1,6 +1,12 @@
 import type { FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
-import { type AztecAddress, FunctionData, type GasSettings } from '@aztec/circuits.js';
-import { type FunctionAbi, FunctionType, decodeReturnValues, encodeArguments } from '@aztec/foundation/abi';
+import { type AztecAddress, type GasSettings } from '@aztec/circuits.js';
+import {
+  type FunctionAbi,
+  FunctionSelector,
+  FunctionType,
+  decodeReturnValues,
+  encodeArguments,
+} from '@aztec/foundation/abi';
 
 import { type Wallet } from '../account/wallet.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
@@ -48,7 +54,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
     if (!this.txRequest) {
       const calls = [this.request()];
-      const fee = opts?.estimateGas ? await this.getFeeOptions({ calls, fee: opts?.fee }) : opts?.fee;
+      const fee = opts?.estimateGas ? await this.getFeeOptionsFromEstimatedGas({ calls, fee: opts?.fee }) : opts?.fee;
       this.txRequest = await this.wallet.createTxExecutionRequest({ calls, fee });
     }
     return this.txRequest;
@@ -61,8 +67,15 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    */
   public request(): FunctionCall {
     const args = encodeArguments(this.functionDao, this.args);
-    const functionData = FunctionData.fromAbi(this.functionDao);
-    return { args, functionData, to: this.contractAddress };
+    return {
+      name: this.functionDao.name,
+      args,
+      selector: FunctionSelector.fromNameAndParameters(this.functionDao.name, this.functionDao.parameters),
+      type: this.functionDao.functionType,
+      to: this.contractAddress,
+      isStatic: this.functionDao.isStatic,
+      returnTypes: this.functionDao.returnTypes,
+    };
   }
 
   /**
@@ -80,19 +93,16 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
 
     const txRequest = await this.create();
-    // const from =
-    //   this.functionDao.functionType == FunctionType.SECRET ? options.from ?? this.wallet.getAddress() : undefined;
-
     const simulatedTx = await this.wallet.simulateTx(txRequest, true, options?.from);
 
     // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
     // since we're interested in the first set of values AFTER the account entrypoint
     // For public functions we retrieve the first values directly from the public output.
     const rawReturnValues =
-      this.functionDao.functionType == FunctionType.SECRET
+      this.functionDao.functionType == FunctionType.PRIVATE
         ? simulatedTx.privateReturnValues?.nested?.[0].values
-        : simulatedTx.publicOutput?.publicReturnValues?.values;
+        : simulatedTx.publicOutput?.publicReturnValues?.[0].values;
 
-    return rawReturnValues ? decodeReturnValues(this.functionDao, rawReturnValues) : [];
+    return rawReturnValues ? decodeReturnValues(this.functionDao.returnTypes, rawReturnValues) : [];
   }
 }

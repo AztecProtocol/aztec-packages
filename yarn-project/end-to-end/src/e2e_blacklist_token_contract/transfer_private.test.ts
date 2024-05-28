@@ -21,7 +21,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
   });
 
   afterEach(async () => {
-    await t.tokenSim.check();
+    await t.tokenSim.check(wallets[0]);
   });
 
   it('transfer less than balance', async () => {
@@ -54,9 +54,12 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       .withWallet(wallets[1])
       .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
     // docs:end:authwit_computeAuthWitMessageHash
-
+    // docs:start:create_authwit
     const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
+    // docs:end:create_authwit
+    // docs:start:add_authwit
     await wallets[1].addAuthWitness(witness);
+    // docs:end:add_authwit
     // docs:end:authwit_transfer_example
 
     // Perform the transfer

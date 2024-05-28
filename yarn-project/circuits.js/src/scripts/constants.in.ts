@@ -7,6 +7,31 @@ const TS_CONSTANTS_FILE = '../constants.gen.ts';
 const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/vm/avm_trace/aztec_constants.hpp';
 const SOLIDITY_CONSTANTS_FILE = '../../../../l1-contracts/src/core/libraries/ConstantsGen.sol';
 
+// Whitelist of constants that will be copied to aztec_constants.hpp.
+// We don't copy everything as just a handful are needed, and updating them breaks the cache and triggers expensive bb builds.
+const CPP_CONSTANTS = [
+  'TOTAL_FEES_LENGTH',
+  'GAS_FEES_LENGTH',
+  'GAS_LENGTH',
+  'CONTENT_COMMITMENT_LENGTH',
+  'GLOBAL_VARIABLES_LENGTH',
+  'APPEND_ONLY_TREE_SNAPSHOT_LENGTH',
+  'PARTIAL_STATE_REFERENCE_LENGTH',
+  'STATE_REFERENCE_LENGTH',
+  'HEADER_LENGTH',
+  'CALL_CONTEXT_LENGTH',
+  'PUBLIC_CONTEXT_INPUTS_LENGTH',
+  'MAX_NOTE_HASH_READ_REQUESTS_PER_CALL',
+  'MAX_NEW_NOTE_HASHES_PER_CALL',
+  'MAX_NULLIFIER_READ_REQUESTS_PER_CALL',
+  'MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL',
+  'MAX_NEW_NULLIFIERS_PER_CALL',
+  'MAX_NEW_L2_TO_L1_MSGS_PER_CALL',
+  'MAX_UNENCRYPTED_LOGS_PER_CALL',
+  'MAX_PUBLIC_DATA_READS_PER_CALL',
+  'MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL',
+];
+
 /**
  * Parsed content.
  */
@@ -46,7 +71,7 @@ function processConstantsCpp(constants: { [key: string]: string }): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
     // We exclude large numbers
-    if (!(value.startsWith('0x') || value.includes('0_0'))) {
+    if (CPP_CONSTANTS.includes(key) && !(value.startsWith('0x') || value.includes('0_0'))) {
       code.push(`const size_t ${key} = ${value};`);
     }
   });

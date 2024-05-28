@@ -1,6 +1,5 @@
 import {
   type AztecNode,
-  type KeyStore,
   type L2Block,
   MerkleTreeId,
   type NoteStatus,
@@ -14,12 +13,14 @@ import {
   type Fr,
   type FunctionSelector,
   type Header,
+  type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type DBOracle, MessageLoadOracleInputs, type NullifierKeys } from '@aztec/simulator';
+import { type KeyStore } from '@aztec/key-store';
+import { type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
 import { type ContractInstance } from '@aztec/types/contracts';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -37,10 +38,8 @@ export class SimulatorOracle implements DBOracle {
     private log = createDebugLogger('aztec:pxe:simulator_oracle'),
   ) {}
 
-  async getNullifierKeys(npkMHash: Fr, contractAddress: AztecAddress): Promise<NullifierKeys> {
-    const masterNullifierPublicKey = await this.keyStore.getMasterNullifierPublicKey(npkMHash);
-    const appNullifierSecretKey = await this.keyStore.getAppNullifierSecretKey(npkMHash, contractAddress);
-    return { masterNullifierPublicKey, appNullifierSecretKey };
+  getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
+    return this.keyStore.getKeyValidationRequest(pkMHash, contractAddress);
   }
 
   async getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
@@ -230,5 +229,9 @@ export class SimulatorOracle implements DBOracle {
    */
   public async getBlockNumber(): Promise<number> {
     return await this.aztecNode.getBlockNumber();
+  }
+
+  public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {
+    return this.contractDataOracle.getDebugFunctionName(contractAddress, selector);
   }
 }
