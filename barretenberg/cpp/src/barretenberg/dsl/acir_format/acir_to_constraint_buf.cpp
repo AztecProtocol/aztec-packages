@@ -177,7 +177,7 @@ void handle_arithmetic(Program::Opcode::AssertZero const& arg, AcirFormat& af)
     }
 }
 
-void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg, AcirFormat& af)
+void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg, AcirFormat& af, bool honk_recursion)
 {
     std::visit(
         [&](auto&& arg) {
@@ -354,13 +354,22 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg, Aci
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::RecursiveAggregation>) {
-                auto c = RecursionConstraint{
-                    .key = map(arg.verification_key, [](auto& e) { return e.witness.value; }),
-                    .proof = map(arg.proof, [](auto& e) { return e.witness.value; }),
-                    .public_inputs = map(arg.public_inputs, [](auto& e) { return e.witness.value; }),
-                    .key_hash = arg.key_hash.witness.value,
-                };
-                af.recursion_constraints.push_back(c);
+                if (honk_recursion) { // if we're using the honk recursive verifier
+                    auto c = HonkRecursionConstraint{
+                        .key = map(arg.verification_key, [](auto& e) { return e.witness.value; }),
+                        .proof = map(arg.proof, [](auto& e) { return e.witness.value; }),
+                        .public_inputs = map(arg.public_inputs, [](auto& e) { return e.witness.value; }),
+                    };
+                    af.honk_recursion_constraints.push_back(c);
+                } else {
+                    auto c = RecursionConstraint{
+                        .key = map(arg.verification_key, [](auto& e) { return e.witness.value; }),
+                        .proof = map(arg.proof, [](auto& e) { return e.witness.value; }),
+                        .public_inputs = map(arg.public_inputs, [](auto& e) { return e.witness.value; }),
+                        .key_hash = arg.key_hash.witness.value,
+                    };
+                    af.recursion_constraints.push_back(c);
+                }
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::BigIntFromLeBytes>) {
                 af.bigint_from_le_bytes_constraints.push_back(BigIntFromLeBytes{
                     .inputs = map(arg.inputs, [](auto& e) { return e.witness.value; }),
@@ -469,7 +478,6 @@ void handle_memory_op(Program::Opcode::MemoryOp const& mem_op, BlockConstraint& 
 
 AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit, bool honk_recursion)
 {
-    static_cast<void>(honk_recursion);
     AcirFormat af;
     // `varnum` is the true number of variables, thus we add one to the index which starts at zero
     af.varnum = circuit.current_witness_index + 1;
@@ -485,7 +493,7 @@ AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit, bool ho
                 if constexpr (std::is_same_v<T, Program::Opcode::AssertZero>) {
                     handle_arithmetic(arg, af);
                 } else if constexpr (std::is_same_v<T, Program::Opcode::BlackBoxFuncCall>) {
-                    handle_blackbox_func_call(arg, af);
+                    handle_blackbox_func_call(arg, af, honk_recursion);
                 } else if constexpr (std::is_same_v<T, Program::Opcode::MemoryInit>) {
                     auto block = handle_memory_init(arg);
                     uint32_t block_id = arg.block_id.value;
