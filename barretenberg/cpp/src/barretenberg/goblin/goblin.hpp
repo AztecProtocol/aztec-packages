@@ -34,15 +34,12 @@ class GoblinProver {
     using ECCVMBuilder = bb::ECCVMCircuitBuilder;
     using ECCVMProver = bb::ECCVMProver;
     using ECCVMProvingKey = ECCVMFlavor::ProvingKey;
-    using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslationEvaluations = ECCVMProver::TranslationEvaluations;
     using TranslatorBuilder = bb::TranslatorCircuitBuilder;
     using TranslatorProver = bb::TranslatorProver;
     using TranslatorProvingKey = bb::TranslatorFlavor::ProvingKey;
-    using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
     using RecursiveMergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaCircuitBuilder>;
     using MergeProver = bb::MergeProver_<MegaFlavor>;
-    using MergeVerifier = bb::MergeVerifier_<MegaFlavor>;
     using VerificationKey = MegaFlavor::VerificationKey;
     /**
      * @brief Output of goblin::accumulate; an Ultra proof and the corresponding verification key
@@ -210,31 +207,6 @@ class GoblinProver {
         prove_eccvm();
         prove_translator();
         return goblin_proof;
-    };
-
-    /**
-     * @brief Verify a full Goblin proof (ECCVM, Translator, merge)
-     *
-     * @param proof
-     * @return true
-     * @return false
-     */
-    bool verify(const Proof& proof)
-    {
-        MergeVerifier merge_verifier;
-        bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
-
-        ECCVMVerifier eccvm_verifier(eccvm_prover->key);
-        bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
-
-        TranslatorVerifier translator_verifier(translator_prover->key, eccvm_verifier.transcript);
-
-        bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/799): Ensure translation_evaluations are passed
-        // correctly
-        bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations);
-
-        return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified;
     };
 };
 
