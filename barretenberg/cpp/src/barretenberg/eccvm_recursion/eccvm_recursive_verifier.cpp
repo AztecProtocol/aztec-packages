@@ -18,11 +18,7 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1007): Finish this
 template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
-<<<<<<< HEAD
     using ZeroMorph = ZeroMorphVerifier_<PCS>;
-=======
-
->>>>>>> origin
     RelationParameters<FF> relation_parameters;
 
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
