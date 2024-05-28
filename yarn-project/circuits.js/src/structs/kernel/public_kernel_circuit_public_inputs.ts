@@ -18,10 +18,10 @@ import { mergeAccumulatedData, sortByCounterGetSortedHints } from '../../utils/i
 import { CallRequest } from '../call_request.js';
 import { RevertCode } from '../revert_code.js';
 import { ValidationRequests } from '../validation_requests.js';
+import { CombineHints } from './combine_hints.js';
 import { CombinedAccumulatedData } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 import { PublicAccumulatedData } from './public_accumulated_data.js';
-import { PublicKernelTailCombineHints } from './public_kernel_tail_circuit_private_inputs.js';
 
 /**
  * Outputs from the public kernel circuits.
@@ -97,7 +97,7 @@ export class PublicKernelCircuitPublicInputs {
 
   combineAndSortAccumulatedData(): {
     data: CombinedAccumulatedData;
-    hints: PublicKernelTailCombineHints;
+    hints: CombineHints;
   } {
     const mergedNoteHashes = mergeAccumulatedData(
       this.endNonRevertibleData.newNoteHashes,
@@ -107,14 +107,9 @@ export class PublicKernelCircuitPublicInputs {
 
     const newNoteHashes = mapTuple(mergedNoteHashes, n => n.value);
 
-    const [sortedNoteHashesObjects, sortedNoteHashesIndexes] = sortByCounterGetSortedHints(
+    const [sortedNoteHashes, sortedNoteHashesIndexes] = sortByCounterGetSortedHints(
       mergedNoteHashes,
       MAX_NEW_NOTE_HASHES_PER_TX,
-    );
-
-    const sortedNoteHashes: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX> = mapTuple(
-      sortedNoteHashesObjects,
-      n => n.value,
     );
 
     const newNullifiers: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX> = mapTuple(
@@ -177,7 +172,7 @@ export class PublicKernelCircuitPublicInputs {
       gasUsed,
     });
 
-    const hints = PublicKernelTailCombineHints.from({
+    const hints = CombineHints.from({
       sortedNoteHashes,
       sortedNoteHashesIndexes,
       sortedPublicDataUpdateRequests,

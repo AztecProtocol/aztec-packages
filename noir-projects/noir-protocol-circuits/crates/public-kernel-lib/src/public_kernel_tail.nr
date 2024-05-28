@@ -5,9 +5,9 @@ use dep::reset_kernel_lib::{
 };
 use dep::types::{
     abis::{
-    accumulated_data::CombinedAccumulatedData, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-    public_kernel_data::PublicKernelData, public_data_update_request::PublicDataUpdateRequest,
-    side_effect::Ordered
+    accumulated_data::{CombinedAccumulatedData, CombineHints},
+    kernel_circuit_public_inputs::KernelCircuitPublicInputs, public_kernel_data::PublicKernelData,
+    public_data_update_request::PublicDataUpdateRequest, side_effect::Ordered
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_PUBLIC_DATA_HINTS, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
@@ -19,17 +19,6 @@ use dep::types::{
     utils::{arrays::{array_length, assert_sorted_array}}, address::AztecAddress
 };
 
-fn asc_sort_by_counters<T>(a: T, b: T) -> bool where T: Ordered {
-    a.counter() < b.counter()
-}
-
-struct PublicKernelTailCombineHints {
-    sorted_note_hashes: [Field; MAX_NEW_NOTE_HASHES_PER_TX],
-    sorted_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-    sorted_public_data_update_requests: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    sorted_public_data_update_requests_indexes: [u64; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-}
-
 struct PublicKernelTailCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
     nullifier_read_request_hints: NullifierReadRequestHints<MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
@@ -37,7 +26,7 @@ struct PublicKernelTailCircuitPrivateInputs {
     public_data_hints: [PublicDataHint; MAX_PUBLIC_DATA_HINTS],
     public_data_read_request_hints: PublicDataReadRequestHints,
     start_state: PartialStateReference,
-    combine_hints: PublicKernelTailCombineHints
+    combine_hints: CombineHints
 }
 
 impl PublicKernelTailCircuitPrivateInputs {
@@ -63,22 +52,11 @@ impl PublicKernelTailCircuitPrivateInputs {
 
     fn propagate_accumulated_data(self) -> CombinedAccumulatedData {
         let previous_public_inputs = self.previous_kernel.public_inputs;
-        // TODO: Sort the combined data.
-        let mut data = CombinedAccumulatedData::combine(
+        CombinedAccumulatedData::combine(
             previous_public_inputs.end_non_revertible,
-            previous_public_inputs.end
-        );
-
-        assert_sorted_array(
-            data.public_data_update_requests,
-            self.combine_hints.sorted_public_data_update_requests,
-            self.combine_hints.sorted_public_data_update_requests_indexes,
-            asc_sort_by_counters
-        );
-
-        data.public_data_update_requests = self.combine_hints.sorted_public_data_update_requests;
-
-        data
+            previous_public_inputs.end,
+            self.combine_hints
+        )
     }
 
     pub fn public_kernel_tail(self) -> KernelCircuitPublicInputs {
@@ -114,7 +92,7 @@ impl PublicKernelTailCircuitPrivateInputs {
 }
 
 mod tests {
-    use crate::public_kernel_tail::{PublicKernelTailCircuitPrivateInputs, PublicKernelTailCombineHints};
+    use crate::public_kernel_tail::PublicKernelTailCircuitPrivateInputs;
     use dep::reset_kernel_lib::{
         tests::{
         nullifier_non_existent_read_request_hints_builder::NullifierNonExistentReadRequestHintsBuilder,
@@ -127,8 +105,8 @@ mod tests {
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, public_kernel_data::PublicKernelData,
         nullifier::ScopedNullifier, nullifier_leaf_preimage::NullifierLeafPreimage,
-        accumulated_data::CombinedAccumulatedData, public_data_update_request::PublicDataUpdateRequest,
-        note_hash::NoteHash
+        accumulated_data::{CombinedAccumulatedData, CombineHints},
+        public_data_update_request::PublicDataUpdateRequest, note_hash::NoteHash
     },
         address::AztecAddress,
         constants::{
@@ -324,31 +302,26 @@ mod tests {
 
             // Note: note hashes are a bit odd here: whereas we'd like to use `combined` and then
             // sort the result, we cannot because we lose the side effect counters when we combine.
-            let new_note_hashes = array_merge(
+            let merged = array_merge(
                 previous_kernel.public_inputs.end_non_revertible.new_note_hashes,
                 previous_kernel.public_inputs.end.new_note_hashes
             );
-            let sorted = sort_get_sorted_hints(
-                new_note_hashes,
-                |a: NoteHash, b: NoteHash| a.counter() < b.counter()
-            );
-            let sorted_note_hashes = sorted.sorted_array.map(|note_hash: NoteHash| note_hash.value);
+            let sorted = sort_get_sorted_hints(merged, |a: NoteHash, b: NoteHash| a.counter() < b.counter());
+            let sorted_note_hashes = sorted.sorted_array;
             let sorted_note_hashes_indexes = sorted.sorted_index_hints;
 
-            // Proceed as normal
-            let combined = CombinedAccumulatedData::combine(
-                previous_kernel.public_inputs.end_non_revertible,
-                previous_kernel.public_inputs.end
+            let merged = array_merge(
+                previous_kernel.public_inputs.end_non_revertible.public_data_update_requests,
+                previous_kernel.public_inputs.end.public_data_update_requests
             );
-
             let sorted = sort_get_sorted_hints(
-                combined.public_data_update_requests,
+                merged,
                 |a: PublicDataUpdateRequest, b: PublicDataUpdateRequest| a.counter() < b.counter()
             );
             let sorted_public_data_update_requests = sorted.sorted_array;
             let sorted_public_data_update_requests_indexes = sorted.sorted_index_hints;
 
-            let combine_hints = PublicKernelTailCombineHints {
+            let combine_hints = CombineHints {
                 sorted_note_hashes,
                 sorted_note_hashes_indexes,
                 sorted_public_data_update_requests,

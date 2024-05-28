@@ -21,6 +21,7 @@ import {
   CallContext,
   CallRequest,
   CallerContext,
+  CombineHints,
   CombinedAccumulatedData,
   CombinedConstantData,
   ConstantRollupData,
@@ -110,7 +111,6 @@ import {
   PublicKernelCircuitPublicInputs,
   PublicKernelData,
   PublicKernelTailCircuitPrivateInputs,
-  PublicKernelTailCombineHints,
   RECURSIVE_PROOF_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
   ReadRequest,
@@ -670,9 +670,9 @@ export function makePublicKernelCircuitPrivateInputs(seed = 1): PublicKernelCirc
   return new PublicKernelCircuitPrivateInputs(makePublicKernelData(seed), makePublicCallData(seed + 0x1000));
 }
 
-export function makePublicKernelTailCombineHints(seed = 1): PublicKernelTailCombineHints {
-  return PublicKernelTailCombineHints.from({
-    sortedNoteHashes: makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, fr, seed + 0x100),
+export function makeCombineHints(seed = 1): CombineHints {
+  return CombineHints.from({
+    sortedNoteHashes: makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, makeNoteHash, seed + 0x100),
     sortedNoteHashesIndexes: makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, i => i, seed + 0x200),
     sortedPublicDataUpdateRequests: makeTuple(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -696,7 +696,7 @@ export function makePublicKernelTailCircuitPrivateInputs(seed = 1): PublicKernel
     makeTuple(MAX_PUBLIC_DATA_HINTS, PublicDataHint.empty, seed + 0x100),
     PublicDataReadRequestHintsBuilder.empty(),
     makePartialStateReference(seed + 0x200),
-    makePublicKernelTailCombineHints(seed + 0x300),
+    makeCombineHints(seed + 0x300),
   );
 }
 

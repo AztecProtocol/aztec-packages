@@ -7,6 +7,7 @@ import {
   CallContext,
   CallRequest,
   CallerContext,
+  type CombineHints,
   CombinedAccumulatedData,
   CombinedConstantData,
   ConstantRollupData,
@@ -101,7 +102,6 @@ import {
   PublicKernelCircuitPublicInputs,
   type PublicKernelData,
   type PublicKernelTailCircuitPrivateInputs,
-  type PublicKernelTailCombineHints,
   type RECURSIVE_PROOF_LENGTH,
   ReadRequest,
   type ReadRequestStatus,
@@ -139,6 +139,7 @@ import type {
   CallContext as CallContextNoir,
   CallRequest as CallRequestNoir,
   CallerContext as CallerContextNoir,
+  CombineHints as CombineHintsNoir,
   CombinedAccumulatedData as CombinedAccumulatedDataNoir,
   CombinedConstantData as CombinedConstantDataNoir,
   ConstantRollupData as ConstantRollupDataNoir,
@@ -217,7 +218,6 @@ import type {
   PublicKernelData as PublicKernelDataNoir,
   PublicKernelSetupCircuitPrivateInputs as PublicKernelSetupCircuitPrivateInputsNoir,
   PublicKernelTailCircuitPrivateInputs as PublicKernelTailCircuitPrivateInputsNoir,
-  PublicKernelTailCombineHints as PublicKernelTailCombineHintsNoir,
   ReadRequest as ReadRequestNoir,
   ReadRequestStatus as ReadRequestStatusNoir,
   RollupValidationRequests as RollupValidationRequestsNoir,
@@ -1756,11 +1756,9 @@ export function mapPublicKernelCircuitPrivateInputsToNoir(
   };
 }
 
-export function mapPublicKernelTailCombineHintsToNoir(
-  combineHints: PublicKernelTailCombineHints,
-): PublicKernelTailCombineHintsNoir {
+export function mapCombineHintsToNoir(combineHints: CombineHints): CombineHintsNoir {
   return {
-    sorted_note_hashes: mapTuple(combineHints.sortedNoteHashes, mapFieldToNoir),
+    sorted_note_hashes: mapTuple(combineHints.sortedNoteHashes, mapNoteHashToNoir),
     sorted_note_hashes_indexes: mapTuple(combineHints.sortedNoteHashesIndexes, mapNumberToNoir),
     sorted_public_data_update_requests: mapTuple(
       combineHints.sortedPublicDataUpdateRequests,
@@ -1785,7 +1783,7 @@ export function mapPublicKernelTailCircuitPrivateInputsToNoir(
     public_data_hints: mapTuple(inputs.publicDataHints, mapPublicDataHintToNoir),
     public_data_read_request_hints: mapPublicDataReadRequestHintsToNoir(inputs.publicDataReadRequestHints),
     start_state: mapPartialStateReferenceToNoir(inputs.startState),
-    combine_hints: mapPublicKernelTailCombineHintsToNoir(inputs.combineHints),
+    combine_hints: mapCombineHintsToNoir(inputs.combineHints),
   };
 }
 
