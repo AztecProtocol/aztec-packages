@@ -28,7 +28,7 @@ AvmVerifier& AvmVerifier::operator=(AvmVerifier&& other) noexcept
 using FF = AvmFlavor::FF;
 
 // Evaluate the given public input column over the multivariate challenge points
-[[maybe_unused]] inline FF evaluate_public_input_column(std::vector<FF> points,
+[[maybe_unused]] inline FF evaluate_public_input_column(const std::vector<FF>& points,
                                                         const size_t circuit_size,
                                                         std::vector<FF> challenges)
 {
@@ -36,11 +36,7 @@ using FF = AvmFlavor::FF;
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6361): we pad the points to the circuit size in order
     // to get the correct evaluation. This is not efficient, and will not be valid in production.
     std::vector<FF> new_points(circuit_size, 0);
-
-    // We need to shift the points by one to match the public inputs column in the circuit.
-    // Namely, the latter is prepended with an extra first row to support shifted polynomials.
-    ASSERT(circuit_size > points.size());
-    std::copy(points.begin(), points.end(), new_points.data() + 1);
+    std::copy(points.begin(), points.end(), new_points.data());
 
     Polynomial<FF> polynomial(new_points);
     return polynomial.evaluate_mle(challenges);
