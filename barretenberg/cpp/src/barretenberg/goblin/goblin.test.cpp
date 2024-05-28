@@ -34,7 +34,7 @@ class GoblinTests : public ::testing::Test {
  */
 TEST_F(GoblinTests, SingleCircuit)
 {
-    Goblin goblin;
+    GoblinProver goblin;
 
     // Construct a simple circuit containing goblin ecc op gates
     auto circuit = construct_mock_circuit(goblin.op_queue);
@@ -43,7 +43,7 @@ TEST_F(GoblinTests, SingleCircuit)
     goblin.merge(circuit);
 
     // Construct a goblin proof which consists of a merge proof and ECCVM/Translator proofs
-    Goblin::Proof proof = goblin.prove();
+    GoblinProver::Proof proof = goblin.prove();
 
     // Verify the goblin proof (eccvm, translator, merge); (Construct ECCVM/Translator verification keys from their
     // respective proving keys)
@@ -61,7 +61,7 @@ TEST_F(GoblinTests, SingleCircuit)
  */
 TEST_F(GoblinTests, MultipleCircuits)
 {
-    Goblin goblin;
+    GoblinProver goblin;
 
     // Construct and accumulate multiple circuits
     size_t NUM_CIRCUITS = 3;
@@ -71,7 +71,7 @@ TEST_F(GoblinTests, MultipleCircuits)
     }
 
     // Construct a goblin proof which consists of a merge proof and ECCVM/Translator proofs
-    Goblin::Proof proof = goblin.prove();
+    GoblinProver::Proof proof = goblin.prove();
 
     // Verify the goblin proof (eccvm, translator, merge); (Construct ECCVM/Translator verification keys from their
     // respective proving keys)

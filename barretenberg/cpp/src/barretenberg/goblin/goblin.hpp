@@ -19,7 +19,7 @@
 
 namespace bb {
 
-class Goblin {
+class GoblinProver {
     using MegaCircuitBuilder = bb::MegaCircuitBuilder;
     using Commitment = MegaFlavor::Commitment;
     using FF = MegaFlavor::FF;
@@ -101,7 +101,7 @@ class Goblin {
     AccumulationOutput accumulator; // Used only for ACIR methods for now
 
   public:
-    Goblin()
+    GoblinProver()
     { // Mocks the interaction of a first circuit with the op queue due to the inability to currently handle zero
       // commitments (https://github.com/AztecProtocol/barretenberg/issues/871) which would otherwise appear in the
       // first round of the merge protocol. To be removed once the issue has been resolved.
@@ -262,7 +262,7 @@ class GoblinVerifier {
      * @return true
      * @return false
      */
-    bool verify(const Goblin::Proof& proof)
+    bool verify(const GoblinProver::Proof& proof)
     {
         MergeVerifier merge_verifier;
         bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);

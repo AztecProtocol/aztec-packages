@@ -78,21 +78,6 @@ async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride 
   return { api, acirComposer, circuitSize, subgroupSize };
 }
 
-async function initGoblin(bytecodePath: string, crsPath: string) {
-  // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove this subgroup size hack
-  const hardcodedGrumpkinSubgroupSizeHack = 262144;
-  const initData = await init(bytecodePath, crsPath, hardcodedGrumpkinSubgroupSizeHack);
-  const { api } = initData;
-  initData.acirComposer = await api.acirNewGoblinAcirComposer();
-
-  // Plus 1 needed! (Move +1 into Crs?)
-  // Need both grumpkin and bn254 SRS's currently
-  const grumpkinCrs = await GrumpkinCrs.new(hardcodedGrumpkinSubgroupSizeHack + 1, crsPath);
-  await api.srsInitGrumpkinSrs(new RawBuffer(grumpkinCrs.getG1Data()), grumpkinCrs.numPoints);
-
-  return initData;
-}
-
 async function initLite() {
   const api = await Barretenberg.new({ threads: 1 });
 
@@ -174,34 +159,6 @@ export async function foldAndVerifyProgram(bytecodePath: string, witnessPath: st
     const witness = getWitness(witnessPath);
 
     const verified = await api.acirFoldAndVerifyProgramStack(bytecode, witness);
-    return verified;
-  } finally {
-    await api.destroy();
-  }
-  /* eslint-enable camelcase */
-}
-
-export async function proveAndVerifyGoblin(bytecodePath: string, witnessPath: string, crsPath: string) {
-  /* eslint-disable camelcase */
-  const acir_test = path.basename(process.cwd());
-
-  const { api, acirComposer, circuitSize, subgroupSize } = await initGoblin(bytecodePath, crsPath);
-  try {
-    debug(`creating proof...`);
-    const bytecode = getBytecode(bytecodePath);
-    const witness = getWitness(witnessPath);
-
-    writeBenchmark('gate_count', circuitSize, { acir_test, threads });
-    writeBenchmark('subgroup_size', subgroupSize, { acir_test, threads });
-
-    const proofTimer = new Timer();
-    const proof = await api.acirGoblinProve(acirComposer, bytecode, witness);
-    writeBenchmark('proof_construction_time', proofTimer.ms(), { acir_test, threads });
-
-    debug(`verifying...`);
-    const verified = await api.acirGoblinVerify(acirComposer, proof);
-    debug(`verified: ${verified}`);
-    console.log({ verified });
     return verified;
   } finally {
     await api.destroy();
@@ -515,17 +472,6 @@ program
   .action(async ({ bytecodePath, witnessPath, crsPath }) => {
     handleGlobalOptions();
     const result = await foldAndVerifyProgram(bytecodePath, witnessPath, crsPath);
-    process.exit(result ? 0 : 1);
-  });
-
-program
-  .command('prove_and_verify_goblin')
-  .description('Generate a Goblin proof and verify it. Process exits with success or failure code.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
-  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
-  .action(async ({ bytecodePath, witnessPath, crsPath }) => {
-    handleGlobalOptions();
-    const result = await proveAndVerifyGoblin(bytecodePath, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
 
