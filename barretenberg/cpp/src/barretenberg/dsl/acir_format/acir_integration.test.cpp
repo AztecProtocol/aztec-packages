@@ -371,7 +371,7 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
  */
 TEST_F(AcirIntegrationTest, Databus)
 {
-    using Flavor = GoblinUltraFlavor;
+    using Flavor = MegaFlavor;
     using Builder = Flavor::CircuitBuilder;
 
     std::string test_name = "databus";
