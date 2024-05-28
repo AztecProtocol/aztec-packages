@@ -369,8 +369,8 @@ template <typename Flavor> class SumcheckVerifier {
      * @param relation_parameters
      * @param transcript
      */
-    SumcheckOutput<Flavor> verify([[maybe_unused]] const bb::RelationParameters<FF>& relation_parameters,
-                                  [[maybe_unused]] RelationSeparator alpha,
+    SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters,
+                                  RelationSeparator alpha,
                                   const std::vector<FF>& gate_challenges)
     {
         bool verified(true);
@@ -406,6 +406,7 @@ template <typename Flavor> class SumcheckVerifier {
         ClaimedEvaluations purported_evaluations;
         auto transcript_evaluations =
             transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
+
         for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
             eval = transcript_eval;
         }
@@ -413,7 +414,7 @@ template <typename Flavor> class SumcheckVerifier {
         FF full_honk_relation_purported_value = round.compute_full_honk_relation_purported_value(
             purported_evaluations, relation_parameters, pow_univariate, alpha);
 
-        bool checked = true;
+        bool checked = false;
         //! [Final Verification Step]
         if constexpr (IsRecursiveFlavor<Flavor>) {
             full_honk_relation_purported_value.assert_equal(round.target_total_sum);

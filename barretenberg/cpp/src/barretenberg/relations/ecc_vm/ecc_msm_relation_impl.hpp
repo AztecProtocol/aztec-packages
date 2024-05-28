@@ -43,6 +43,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
 {
     using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;
+
     const auto& x1 = View(in.msm_x1);
     const auto& y1 = View(in.msm_y1);
     const auto& x2 = View(in.msm_x2);

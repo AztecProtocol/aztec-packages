@@ -176,7 +176,7 @@ class ProvingKeyAvm_ : public PrecomputedPolynomials, public WitnessPolynomials 
  * @brief Base verification key class.
  *
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
- * @tparam VerifierCommitmentKey The PCS verification key (should this really be here??)
+ * @tparam VerifierCommitmentKey The PCS verification key
  */
 template <typename PrecomputedCommitments, typename VerifierCommitmentKey>
 class VerificationKey_ : public PrecomputedCommitments {
@@ -359,8 +359,12 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                        UltraRecursiveFlavor_<MegaCircuitBuilder>, 
                                        UltraRecursiveFlavor_<CircuitSimulatorBN254>,
                                        MegaRecursiveFlavor_<UltraCircuitBuilder>,
-                                       MegaRecursiveFlavor_<MegaCircuitBuilder>
-,MegaRecursiveFlavor_<CircuitSimulatorBN254>, TranslatorRecursiveFlavor_<UltraCircuitBuilder>, TranslatorRecursiveFlavor_<MegaCircuitBuilder>,  TranslatorRecursiveFlavor_<CircuitSimulatorBN254>, ECCVMRecursiveFlavor_<UltraCircuitBuilder>, ECCVMRecursiveFlavor_<MegaCircuitBuilder>>;
+                                       MegaRecursiveFlavor_<MegaCircuitBuilder>,
+MegaRecursiveFlavor_<CircuitSimulatorBN254>, 
+TranslatorRecursiveFlavor_<UltraCircuitBuilder>, 
+TranslatorRecursiveFlavor_<MegaCircuitBuilder>, 
+TranslatorRecursiveFlavor_<CircuitSimulatorBN254>,
+ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 
 
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor>;

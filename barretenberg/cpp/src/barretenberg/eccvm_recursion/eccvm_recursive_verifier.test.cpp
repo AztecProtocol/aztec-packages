@@ -123,9 +123,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         EXPECT_EQ(outer_circuit.failed(), true) << outer_circuit.err();
     }
 };
-using FlavorTypes =
-    testing::Types<ECCVMRecursiveFlavor_<UltraCircuitBuilder>, ECCVMRecursiveFlavor_<MegaCircuitBuilder>>;
-//  ECCVMRecursiveFlavor_<CircuitSimulatorBN254>>;
+using FlavorTypes = testing::Types<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 
 TYPED_TEST_SUITE(ECCVMRecursiveTests, FlavorTypes);
 

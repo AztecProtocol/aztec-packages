@@ -207,10 +207,10 @@ class ECCVMCircuitBuilder {
         return result;
     }
 
-    // why are this nodiscard??
     [[nodiscard]] size_t get_num_gates() const
     {
-        // (issue #2218): ?
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/2218): Reduce the amount of computation needed
+        // for this method
         return op_queue->get_num_rows();
     }
 

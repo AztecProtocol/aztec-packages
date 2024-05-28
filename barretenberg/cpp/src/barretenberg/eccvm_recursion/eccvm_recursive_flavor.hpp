@@ -22,16 +22,10 @@ namespace bb {
 template <typename BuilderType> class ECCVMRecursiveFlavor_ {
   public:
     using CircuitBuilder = BuilderType; // determines the arithmetisation of recursive verifier
-
-    // I need to somehow make this bn254 hashtag confusion
-    // the native stuff becomes nonnative and the nonnative stuff becomes native and everything is in circuit land
-    // is probably what's going on
     using Curve = stdlib::bn254<CircuitBuilder, true>;
-
-    using Commitment = stdlib::cycle_group<CircuitBuilder>;
-    using FF = stdlib::bigfield<CircuitBuilder, bb::Bn254FqParams>;
-    using BF = stdlib::field_t<CircuitBuilder>;
-
+    using Commitment = Curve::AffineElement;
+    using FF = Curve::ScalarField;
+    using BF = Curve::BaseField;
     using RelationSeparator = FF;
     using NativeFlavor = ECCVMFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;

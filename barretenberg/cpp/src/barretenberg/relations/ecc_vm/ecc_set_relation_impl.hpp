@@ -132,7 +132,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         const auto& precompute_skew = View(in.precompute_skew);
         const auto negative_inverse_seven = []() {
             if constexpr (std::same_as<FF, grumpkin::fr>) {
-                static FF negative_inverse_seven = FF(-7).invert();
+                static constexpr FF negative_inverse_seven = FF(-7).invert();
                 return negative_inverse_seven;
             } else {
                 FF negative_inverse_seven = FF(-7).invert();

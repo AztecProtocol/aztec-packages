@@ -117,5 +117,4 @@ template <typename Flavor> bool ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
 }
 
 template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
-template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<MegaCircuitBuilder>>;
 } // namespace bb
