@@ -541,12 +541,9 @@ template <typename PCS> class ZeroMorphVerifier_ {
         auto phi_n_x = phi_numerator / (x_challenge - 1);
 
         // Add contribution: -v * x * \Phi_n(x) * [1]_1
-        if constexpr (Curve::is_stdlib_type) {
-            auto builder = x_challenge.get_context();
-            scalars.emplace_back(FF(builder, -1) * batched_evaluation * x_challenge * phi_n_x);
-        } else {
-            scalars.emplace_back(FF(-1) * batched_evaluation * x_challenge * phi_n_x);
-        }
+        // I think FF(-1) is fine here, it's a constant
+        scalars.emplace_back(FF(-1) * batched_evaluation * x_challenge * phi_n_x);
+
         commitments.emplace_back(first_g1);
 
         // Add contribution: x * \sum_{i=0}^{m-1} \rho^i*[f_i]
