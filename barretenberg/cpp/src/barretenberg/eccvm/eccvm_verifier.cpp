@@ -12,9 +12,7 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     using ZeroMorph = ZeroMorphVerifier_<PCS>;
 
     RelationParameters<FF> relation_parameters;
-
     transcript = std::make_shared<Transcript>(proof);
-
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
@@ -27,7 +25,7 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
 
     // Get challenge for sorted list batching and wire four memory records
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
-    // there is an issue somewhere to simplify this :-?
+
     auto beta_sqr = beta * beta;
     relation_parameters.gamma = gamma;
     relation_parameters.beta = beta;
@@ -37,7 +35,6 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
         gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
 
-    // these are the derived stuff only
     // Get commitment to permutation and lookup grand products
     commitments.lookup_inverses =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);

@@ -371,9 +371,7 @@ template <typename Flavor> class SumcheckVerifierRound {
      */
     bool check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate)
     {
-
         FF total_sum = univariate.value_at(0) + univariate.value_at(1);
-
         // TODO(#673): Conditionals like this can go away once native verification is is just recursive verification
         // with a simulated builder.
         bool sumcheck_round_failed(false);
@@ -416,23 +414,6 @@ template <typename Flavor> class SumcheckVerifierRound {
                                                   const bb::PowPolynomial<FF>& pow_polynomial,
                                                   const RelationSeparator alpha)
     {
-        // The verifier should never skip computation of contributions from any relation
-        Utils::template accumulate_relation_evaluations_without_skipping<>(
-            purported_evaluations, relation_evaluations, relation_parameters, pow_polynomial.partial_evaluation_result);
-
-        auto running_challenge = FF(1);
-        auto output = FF(0);
-        Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
-        return output;
-    }
-
-    static FF compute_full_honk_relation_purported_value(ClaimedEvaluations purported_evaluations,
-                                                         const bb::RelationParameters<FF>& relation_parameters,
-                                                         TupleOfArraysOfValues relation_evaluations,
-                                                         const bb::PowPolynomial<FF>& pow_polynomial,
-                                                         const RelationSeparator alpha)
-    {
-
         // The verifier should never skip computation of contributions from any relation
         Utils::template accumulate_relation_evaluations_without_skipping<>(
             purported_evaluations, relation_evaluations, relation_parameters, pow_polynomial.partial_evaluation_result);

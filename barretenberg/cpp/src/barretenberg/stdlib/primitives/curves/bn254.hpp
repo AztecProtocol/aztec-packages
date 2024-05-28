@@ -52,5 +52,4 @@ template <typename CircuitBuilder, bool isEmbeddingGrumpkin = false> struct bn25
     using bigfr_ct = bigfield<CircuitBuilder, bb::Bn254FrParams>;
     using g1_bigfr_ct = element<CircuitBuilder, BaseField, bigfr_ct, GroupNative>;
 };
-
 } // namespace bb::stdlib

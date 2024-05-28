@@ -9,7 +9,7 @@ template <typename FF> class UnivariateTest : public testing::Test {
     template <size_t view_length> using UnivariateView = UnivariateView<FF, view_length>;
 };
 
-using FieldTypes = testing::Types<bb::fr>;
+using FieldTypes = testing::Types<fr>;
 TYPED_TEST_SUITE(UnivariateTest, FieldTypes);
 
 TYPED_TEST(UnivariateTest, Constructors)
