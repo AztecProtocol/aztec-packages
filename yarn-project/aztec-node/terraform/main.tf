@@ -441,7 +441,7 @@ resource "aws_security_group_rule" "allow-node-tcp-in" {
 
 resource "aws_security_group_rule" "allow-node-tcp-out" {
   count             = local.node_count
-  type              = "outgress"
+  type              = "egress"
   from_port         = var.NODE_P2P_PORT + count.index
   to_port           = var.NODE_P2P_PORT + count.index
   protocol          = "tcp"
@@ -495,7 +495,7 @@ resource "aws_security_group_rule" "allow-node-udp-in" {
 
 resource "aws_security_group_rule" "allow-node-udp-out" {
   count             = local.node_count
-  type              = "outgress"
+  type              = "egress"
   from_port         = var.NODE_P2P_PORT + count.index
   to_port           = var.NODE_P2P_PORT + count.index
   protocol          = "udp"
