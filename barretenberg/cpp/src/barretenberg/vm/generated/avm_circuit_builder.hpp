@@ -534,6 +534,7 @@ class AvmCircuitBuilder {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t num_fixed_columns = 414;
     static constexpr size_t num_polys = 352;
 =======
@@ -541,6 +542,8 @@ class AvmCircuitBuilder {
 >>>>>>> 4f9c41f1ba (6542: fix conflicts after rebase to master)
 =======
 >>>>>>> a3e8ac80ca (6542: rebase on master and fix kernel output)
+=======
+>>>>>>> 7a6639c345 (6542: fix conflicts after rebase)
 <<<<<<< HEAD
     static constexpr size_t num_fixed_columns = 408;
     static constexpr size_t num_polys = 346;
@@ -549,6 +552,8 @@ class AvmCircuitBuilder {
 >>>>>>> f36e6a6ba3 (6542: fix conflicts after rebase to master)
 =======
 >>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
+=======
+>>>>>>> 5032a0edfb (6542: fix conflicts after rebase)
 <<<<<<< HEAD
     static constexpr size_t num_fixed_columns = 398;
     static constexpr size_t num_polys = 336;
@@ -606,8 +611,18 @@ class AvmCircuitBuilder {
     static constexpr size_t num_polys = 341;
 >>>>>>> 529d3ad9ef (6542: rebase on master and fix kernel output)
 >>>>>>> e3ee7a9c26 (6542: rebase on master and fix kernel output)
+<<<<<<< HEAD
 >>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
+<<<<<<< HEAD
 >>>>>>> a3e8ac80ca (6542: rebase on master and fix kernel output)
+=======
+=======
+=======
+    static constexpr size_t num_fixed_columns = 404;
+    static constexpr size_t num_polys = 340;
+>>>>>>> 641cfcb7d5 (6542: fix conflicts after rebase)
+>>>>>>> 5032a0edfb (6542: fix conflicts after rebase)
+>>>>>>> 7a6639c345 (6542: fix conflicts after rebase)
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }

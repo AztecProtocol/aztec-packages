@@ -97,6 +97,7 @@ class AvmFlavor {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 350;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
@@ -107,6 +108,8 @@ class AvmFlavor {
 >>>>>>> 4f9c41f1ba (6542: fix conflicts after rebase to master)
 =======
 >>>>>>> a3e8ac80ca (6542: rebase on master and fix kernel output)
+=======
+>>>>>>> 7a6639c345 (6542: fix conflicts after rebase)
 <<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 344;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
@@ -118,6 +121,8 @@ class AvmFlavor {
 >>>>>>> f36e6a6ba3 (6542: fix conflicts after rebase to master)
 =======
 >>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
+=======
+>>>>>>> 5032a0edfb (6542: fix conflicts after rebase)
 <<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 334;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
@@ -196,8 +201,21 @@ class AvmFlavor {
     static constexpr size_t NUM_ALL_ENTITIES = 405;
 >>>>>>> 529d3ad9ef (6542: rebase on master and fix kernel output)
 >>>>>>> e3ee7a9c26 (6542: rebase on master and fix kernel output)
+<<<<<<< HEAD
 >>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
+<<<<<<< HEAD
 >>>>>>> a3e8ac80ca (6542: rebase on master and fix kernel output)
+=======
+=======
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 338;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
+    // the unshifted and one for the shifted
+    static constexpr size_t NUM_ALL_ENTITIES = 404;
+>>>>>>> 641cfcb7d5 (6542: fix conflicts after rebase)
+>>>>>>> 5032a0edfb (6542: fix conflicts after rebase)
+>>>>>>> 7a6639c345 (6542: fix conflicts after rebase)
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
