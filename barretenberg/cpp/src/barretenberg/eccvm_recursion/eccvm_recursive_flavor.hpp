@@ -14,6 +14,7 @@
 #include "barretenberg/relations/ecc_vm/ecc_wnaf_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
+#include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members) ?
 
@@ -22,7 +23,7 @@ namespace bb {
 template <typename BuilderType> class ECCVMRecursiveFlavor_ {
   public:
     using CircuitBuilder = BuilderType; // determines the arithmetisation of recursive verifier
-    using Curve = stdlib::bn254<CircuitBuilder, true>;
+    using Curve = stdlib::grumpkin<CircuitBuilder>;
     using Commitment = Curve::AffineElement;
     using FF = Curve::ScalarField;
     using BF = Curve::BaseField;
