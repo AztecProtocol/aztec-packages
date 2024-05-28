@@ -17,8 +17,6 @@ class AvmGasTests : public ::testing::Test {
 class AvmGasPositiveTests : public AvmGasTests {};
 class AvmGasNegativeTests : public AvmGasTests {};
 
-using KernelInputs = std::array<FF, KERNEL_INPUTS_LENGTH>;
-
 // Helper to set the initial gas parameters for each test
 struct StartGas {
     uint32_t l2_gas;
@@ -30,12 +28,14 @@ struct StartGas {
 template <typename OpcodesFunc, typename CheckFunc>
 void test_lookup(StartGas startGas, OpcodesFunc apply_opcodes, CheckFunc check_trace)
 {
-    KernelInputs kernel_inputs = {};
+    std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs = {};
 
     kernel_inputs[L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET] = FF(startGas.l2_gas);
     kernel_inputs[DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET] = FF(startGas.da_gas);
 
-    AvmTraceBuilder trace_builder(kernel_inputs);
+    VmPublicInputs public_inputs{};
+    std::get<0>(public_inputs) = kernel_inputs;
+    AvmTraceBuilder trace_builder(public_inputs);
 
     // We should return a value of 1 for the sender, as it exists at index 0
     apply_opcodes(trace_builder);
@@ -46,7 +46,7 @@ void test_lookup(StartGas startGas, OpcodesFunc apply_opcodes, CheckFunc check_t
 
     check_trace(trace);
 
-    validate_trace(std::move(trace), kernel_inputs);
+    validate_trace(std::move(trace), public_inputs);
 }
 
 TEST_F(AvmGasPositiveTests, gasAdd)

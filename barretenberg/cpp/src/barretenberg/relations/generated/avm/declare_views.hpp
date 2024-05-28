@@ -114,6 +114,7 @@
     [[maybe_unused]] auto avm_conversion_to_radix_le_sel = View(new_term.avm_conversion_to_radix_le_sel);              \
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     [[maybe_unused]] auto avm_keccakf1600_clk = View(new_term.avm_keccakf1600_clk);                                    \
     [[maybe_unused]] auto avm_keccakf1600_input = View(new_term.avm_keccakf1600_input);                                \
     [[maybe_unused]] auto avm_keccakf1600_keccakf1600_sel = View(new_term.avm_keccakf1600_keccakf1600_sel);            \
@@ -136,6 +137,20 @@
     [[maybe_unused]] auto avm_gas_l2_gas_fixed_table = View(new_term.avm_gas_l2_gas_fixed_table);                      \
 >>>>>>> df5862de90 (6542: some renaming and comments)
 >>>>>>> 60d1f31c9b (6542: some renaming and comments)
+=======
+    [[maybe_unused]] auto avm_gas_da_gas_fixed_table = View(new_term.avm_gas_da_gas_fixed_table);                      \
+    [[maybe_unused]] auto avm_gas_gas_cost_sel = View(new_term.avm_gas_gas_cost_sel);                                  \
+    [[maybe_unused]] auto avm_gas_l2_gas_fixed_table = View(new_term.avm_gas_l2_gas_fixed_table);                      \
+    [[maybe_unused]] auto avm_kernel_emit_l2_to_l1_msg_write_offset =                                                  \
+        View(new_term.avm_kernel_emit_l2_to_l1_msg_write_offset);                                                      \
+    [[maybe_unused]] auto avm_kernel_emit_note_hash_write_offset =                                                     \
+        View(new_term.avm_kernel_emit_note_hash_write_offset);                                                         \
+    [[maybe_unused]] auto avm_kernel_emit_nullifier_write_offset =                                                     \
+        View(new_term.avm_kernel_emit_nullifier_write_offset);                                                         \
+    [[maybe_unused]] auto avm_kernel_emit_unencrypted_log_write_offset =                                               \
+        View(new_term.avm_kernel_emit_unencrypted_log_write_offset);                                                   \
+    [[maybe_unused]] auto avm_kernel_kernel_in_offset = View(new_term.avm_kernel_kernel_in_offset);                    \
+>>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
     [[maybe_unused]] auto avm_kernel_kernel_inputs__is_public = View(new_term.avm_kernel_kernel_inputs__is_public);    \
     [[maybe_unused]] auto avm_kernel_kernel_metadata_out__is_public =                                                  \
         View(new_term.avm_kernel_kernel_metadata_out__is_public);                                                      \
@@ -313,6 +328,8 @@
     [[maybe_unused]] auto perm_main_mem_ind_d = View(new_term.perm_main_mem_ind_d);                                    \
     [[maybe_unused]] auto lookup_byte_lengths = View(new_term.lookup_byte_lengths);                                    \
     [[maybe_unused]] auto lookup_byte_operations = View(new_term.lookup_byte_operations);                              \
+    [[maybe_unused]] auto lookup_opcode_gas = View(new_term.lookup_opcode_gas);                                        \
+    [[maybe_unused]] auto kernel_output_lookup = View(new_term.kernel_output_lookup);                                  \
     [[maybe_unused]] auto lookup_into_kernel = View(new_term.lookup_into_kernel);                                      \
     [[maybe_unused]] auto incl_main_tag_err = View(new_term.incl_main_tag_err);                                        \
     [[maybe_unused]] auto incl_mem_tag_err = View(new_term.incl_mem_tag_err);                                          \
@@ -348,6 +365,8 @@
     [[maybe_unused]] auto lookup_div_u16_7 = View(new_term.lookup_div_u16_7);                                          \
     [[maybe_unused]] auto lookup_byte_lengths_counts = View(new_term.lookup_byte_lengths_counts);                      \
     [[maybe_unused]] auto lookup_byte_operations_counts = View(new_term.lookup_byte_operations_counts);                \
+    [[maybe_unused]] auto lookup_opcode_gas_counts = View(new_term.lookup_opcode_gas_counts);                          \
+    [[maybe_unused]] auto kernel_output_lookup_counts = View(new_term.kernel_output_lookup_counts);                    \
     [[maybe_unused]] auto lookup_into_kernel_counts = View(new_term.lookup_into_kernel_counts);                        \
     [[maybe_unused]] auto incl_main_tag_err_counts = View(new_term.incl_main_tag_err_counts);                          \
     [[maybe_unused]] auto incl_mem_tag_err_counts = View(new_term.incl_mem_tag_err_counts);                            \
@@ -426,6 +445,24 @@
     [[maybe_unused]] auto avm_binary_acc_ic_shift = View(new_term.avm_binary_acc_ic_shift);                            \
     [[maybe_unused]] auto avm_binary_mem_tag_ctr_shift = View(new_term.avm_binary_mem_tag_ctr_shift);                  \
     [[maybe_unused]] auto avm_binary_op_id_shift = View(new_term.avm_binary_op_id_shift);                              \
+    [[maybe_unused]] auto avm_kernel_emit_l2_to_l1_msg_write_offset_shift =                                            \
+        View(new_term.avm_kernel_emit_l2_to_l1_msg_write_offset_shift);                                                \
+    [[maybe_unused]] auto avm_kernel_emit_note_hash_write_offset_shift =                                               \
+        View(new_term.avm_kernel_emit_note_hash_write_offset_shift);                                                   \
+    [[maybe_unused]] auto avm_kernel_emit_nullifier_write_offset_shift =                                               \
+        View(new_term.avm_kernel_emit_nullifier_write_offset_shift);                                                   \
+    [[maybe_unused]] auto avm_kernel_emit_unencrypted_log_write_offset_shift =                                         \
+        View(new_term.avm_kernel_emit_unencrypted_log_write_offset_shift);                                             \
+    [[maybe_unused]] auto avm_kernel_l1_to_l2_msg_exists_write_offset_shift =                                          \
+        View(new_term.avm_kernel_l1_to_l2_msg_exists_write_offset_shift);                                              \
+    [[maybe_unused]] auto avm_kernel_note_hash_exist_write_offset_shift =                                              \
+        View(new_term.avm_kernel_note_hash_exist_write_offset_shift);                                                  \
+    [[maybe_unused]] auto avm_kernel_nullifier_exists_write_offset_shift =                                             \
+        View(new_term.avm_kernel_nullifier_exists_write_offset_shift);                                                 \
+    [[maybe_unused]] auto avm_kernel_side_effect_counter_shift = View(new_term.avm_kernel_side_effect_counter_shift);  \
+    [[maybe_unused]] auto avm_kernel_sload_write_offset_shift = View(new_term.avm_kernel_sload_write_offset_shift);    \
+    [[maybe_unused]] auto avm_kernel_sstore_write_offset_shift = View(new_term.avm_kernel_sstore_write_offset_shift);  \
+    [[maybe_unused]] auto avm_main_da_gas_remaining_shift = View(new_term.avm_main_da_gas_remaining_shift);            \
     [[maybe_unused]] auto avm_main_internal_return_ptr_shift = View(new_term.avm_main_internal_return_ptr_shift);      \
     [[maybe_unused]] auto avm_main_l2_gas_remaining_shift = View(new_term.avm_main_l2_gas_remaining_shift);            \
     [[maybe_unused]] auto avm_main_pc_shift = View(new_term.avm_main_pc_shift);                                        \

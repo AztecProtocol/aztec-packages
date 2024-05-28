@@ -11,7 +11,7 @@ using namespace testing;
 
 class AvmCastTests : public ::testing::Test {
   protected:
-    std::array<FF, KERNEL_INPUTS_LENGTH> public_inputs{};
+    VmPublicInputs public_inputs{};
     AvmTraceBuilder trace_builder;
     std::vector<Row> trace;
     size_t main_idx;
@@ -22,8 +22,10 @@ class AvmCastTests : public ::testing::Test {
     void SetUp() override
     {
         srs::init_crs_factory("../srs_db/ignition");
-        public_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000;
-        public_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000;
+        std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
+        kernel_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000;
+        kernel_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000;
+        std::get<0>(public_inputs) = kernel_inputs;
         trace_builder = AvmTraceBuilder(public_inputs);
     };
 

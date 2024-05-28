@@ -193,6 +193,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_conversion_to_radix_le_sel{};
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     FF avm_keccakf1600_clk{};
     FF avm_keccakf1600_input{};
     FF avm_keccakf1600_keccakf1600_sel{};
@@ -203,19 +204,16 @@ template <typename FF> struct AvmFullRow {
 =======
 <<<<<<< HEAD
 >>>>>>> 60d1f31c9b (6542: some renaming and comments)
+=======
+    FF avm_gas_da_gas_fixed_table{};
+    FF avm_gas_gas_cost_sel{};
+    FF avm_gas_l2_gas_fixed_table{};
+>>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
     FF avm_kernel_emit_l2_to_l1_msg_write_offset{};
     FF avm_kernel_emit_note_hash_write_offset{};
     FF avm_kernel_emit_nullifier_write_offset{};
     FF avm_kernel_emit_unencrypted_log_write_offset{};
     FF avm_kernel_kernel_in_offset{};
-=======
-    FF avm_gas_add_to_gas_lookup_table{};
-=======
->>>>>>> df5862de90 (6542: some renaming and comments)
-    FF avm_gas_da_gas_fixed_table{};
-    FF avm_gas_gas_cost_sel{};
-    FF avm_gas_l2_gas_fixed_table{};
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
     FF avm_kernel_kernel_inputs__is_public{};
     FF avm_kernel_kernel_metadata_out__is_public{};
     FF avm_kernel_kernel_out_offset{};
@@ -385,11 +383,8 @@ template <typename FF> struct AvmFullRow {
     FF perm_main_mem_ind_d{};
     FF lookup_byte_lengths{};
     FF lookup_byte_operations{};
-<<<<<<< HEAD
-    FF kernel_output_lookup{};
-=======
     FF lookup_opcode_gas{};
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+    FF kernel_output_lookup{};
     FF lookup_into_kernel{};
     FF incl_main_tag_err{};
     FF incl_mem_tag_err{};
@@ -425,11 +420,8 @@ template <typename FF> struct AvmFullRow {
     FF lookup_div_u16_7{};
     FF lookup_byte_lengths_counts{};
     FF lookup_byte_operations_counts{};
-<<<<<<< HEAD
-    FF kernel_output_lookup_counts{};
-=======
     FF lookup_opcode_gas_counts{};
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+    FF kernel_output_lookup_counts{};
     FF lookup_into_kernel_counts{};
     FF incl_main_tag_err_counts{};
     FF incl_mem_tag_err_counts{};
@@ -507,7 +499,6 @@ template <typename FF> struct AvmFullRow {
     FF avm_binary_acc_ic_shift{};
     FF avm_binary_mem_tag_ctr_shift{};
     FF avm_binary_op_id_shift{};
-<<<<<<< HEAD
     FF avm_kernel_emit_l2_to_l1_msg_write_offset_shift{};
     FF avm_kernel_emit_note_hash_write_offset_shift{};
     FF avm_kernel_emit_nullifier_write_offset_shift{};
@@ -518,9 +509,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_kernel_side_effect_counter_shift{};
     FF avm_kernel_sload_write_offset_shift{};
     FF avm_kernel_sstore_write_offset_shift{};
-=======
     FF avm_main_da_gas_remaining_shift{};
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
     FF avm_main_internal_return_ptr_shift{};
     FF avm_main_l2_gas_remaining_shift{};
     FF avm_main_pc_shift{};
@@ -544,23 +533,30 @@ class AvmCircuitBuilder {
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t num_fixed_columns = 414;
     static constexpr size_t num_polys = 352;
 =======
 =======
 >>>>>>> 4f9c41f1ba (6542: fix conflicts after rebase to master)
+=======
+>>>>>>> a3e8ac80ca (6542: rebase on master and fix kernel output)
 <<<<<<< HEAD
     static constexpr size_t num_fixed_columns = 408;
     static constexpr size_t num_polys = 346;
 =======
 =======
 >>>>>>> f36e6a6ba3 (6542: fix conflicts after rebase to master)
+=======
+>>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
 <<<<<<< HEAD
     static constexpr size_t num_fixed_columns = 398;
     static constexpr size_t num_polys = 336;
 =======
 =======
 >>>>>>> 221f3ac2d7 (6542: fix conflicts after rebase to master)
+=======
+>>>>>>> e3ee7a9c26 (6542: rebase on master and fix kernel output)
 <<<<<<< HEAD
     static constexpr size_t num_fixed_columns = 391;
     static constexpr size_t num_polys = 329;
@@ -596,9 +592,22 @@ class AvmCircuitBuilder {
     static constexpr size_t num_polys = 314;
 >>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
 >>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
 >>>>>>> 221f3ac2d7 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
 >>>>>>> f36e6a6ba3 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
 >>>>>>> 4f9c41f1ba (6542: fix conflicts after rebase to master)
+=======
+=======
+=======
+=======
+    static constexpr size_t num_fixed_columns = 405;
+    static constexpr size_t num_polys = 341;
+>>>>>>> 529d3ad9ef (6542: rebase on master and fix kernel output)
+>>>>>>> e3ee7a9c26 (6542: rebase on master and fix kernel output)
+>>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
+>>>>>>> a3e8ac80ca (6542: rebase on master and fix kernel output)
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -726,6 +735,7 @@ class AvmCircuitBuilder {
             polys.avm_conversion_to_radix_le_sel[i] = rows[i].avm_conversion_to_radix_le_sel;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
             polys.avm_keccakf1600_clk[i] = rows[i].avm_keccakf1600_clk;
             polys.avm_keccakf1600_input[i] = rows[i].avm_keccakf1600_input;
             polys.avm_keccakf1600_keccakf1600_sel[i] = rows[i].avm_keccakf1600_keccakf1600_sel;
@@ -736,20 +746,17 @@ class AvmCircuitBuilder {
 =======
 <<<<<<< HEAD
 >>>>>>> 60d1f31c9b (6542: some renaming and comments)
+=======
+            polys.avm_gas_da_gas_fixed_table[i] = rows[i].avm_gas_da_gas_fixed_table;
+            polys.avm_gas_gas_cost_sel[i] = rows[i].avm_gas_gas_cost_sel;
+            polys.avm_gas_l2_gas_fixed_table[i] = rows[i].avm_gas_l2_gas_fixed_table;
+>>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
             polys.avm_kernel_emit_l2_to_l1_msg_write_offset[i] = rows[i].avm_kernel_emit_l2_to_l1_msg_write_offset;
             polys.avm_kernel_emit_note_hash_write_offset[i] = rows[i].avm_kernel_emit_note_hash_write_offset;
             polys.avm_kernel_emit_nullifier_write_offset[i] = rows[i].avm_kernel_emit_nullifier_write_offset;
             polys.avm_kernel_emit_unencrypted_log_write_offset[i] =
                 rows[i].avm_kernel_emit_unencrypted_log_write_offset;
             polys.avm_kernel_kernel_in_offset[i] = rows[i].avm_kernel_kernel_in_offset;
-=======
-            polys.avm_gas_add_to_gas_lookup_table[i] = rows[i].avm_gas_add_to_gas_lookup_table;
-=======
->>>>>>> df5862de90 (6542: some renaming and comments)
-            polys.avm_gas_da_gas_fixed_table[i] = rows[i].avm_gas_da_gas_fixed_table;
-            polys.avm_gas_gas_cost_sel[i] = rows[i].avm_gas_gas_cost_sel;
-            polys.avm_gas_l2_gas_fixed_table[i] = rows[i].avm_gas_l2_gas_fixed_table;
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
             polys.avm_kernel_kernel_inputs__is_public[i] = rows[i].avm_kernel_kernel_inputs__is_public;
             polys.avm_kernel_kernel_metadata_out__is_public[i] = rows[i].avm_kernel_kernel_metadata_out__is_public;
             polys.avm_kernel_kernel_out_offset[i] = rows[i].avm_kernel_kernel_out_offset;
@@ -909,11 +916,8 @@ class AvmCircuitBuilder {
             polys.avm_sha256_state[i] = rows[i].avm_sha256_state;
             polys.lookup_byte_lengths_counts[i] = rows[i].lookup_byte_lengths_counts;
             polys.lookup_byte_operations_counts[i] = rows[i].lookup_byte_operations_counts;
-<<<<<<< HEAD
-            polys.kernel_output_lookup_counts[i] = rows[i].kernel_output_lookup_counts;
-=======
             polys.lookup_opcode_gas_counts[i] = rows[i].lookup_opcode_gas_counts;
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+            polys.kernel_output_lookup_counts[i] = rows[i].kernel_output_lookup_counts;
             polys.lookup_into_kernel_counts[i] = rows[i].lookup_into_kernel_counts;
             polys.incl_main_tag_err_counts[i] = rows[i].incl_main_tag_err_counts;
             polys.incl_mem_tag_err_counts[i] = rows[i].incl_mem_tag_err_counts;
@@ -993,7 +997,6 @@ class AvmCircuitBuilder {
         polys.avm_binary_acc_ic_shift = Polynomial(polys.avm_binary_acc_ic.shifted());
         polys.avm_binary_mem_tag_ctr_shift = Polynomial(polys.avm_binary_mem_tag_ctr.shifted());
         polys.avm_binary_op_id_shift = Polynomial(polys.avm_binary_op_id.shifted());
-<<<<<<< HEAD
         polys.avm_kernel_emit_l2_to_l1_msg_write_offset_shift =
             Polynomial(polys.avm_kernel_emit_l2_to_l1_msg_write_offset.shifted());
         polys.avm_kernel_emit_note_hash_write_offset_shift =
@@ -1011,9 +1014,7 @@ class AvmCircuitBuilder {
         polys.avm_kernel_side_effect_counter_shift = Polynomial(polys.avm_kernel_side_effect_counter.shifted());
         polys.avm_kernel_sload_write_offset_shift = Polynomial(polys.avm_kernel_sload_write_offset.shifted());
         polys.avm_kernel_sstore_write_offset_shift = Polynomial(polys.avm_kernel_sstore_write_offset.shifted());
-=======
         polys.avm_main_da_gas_remaining_shift = Polynomial(polys.avm_main_da_gas_remaining.shifted());
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
         polys.avm_main_internal_return_ptr_shift = Polynomial(polys.avm_main_internal_return_ptr.shifted());
         polys.avm_main_l2_gas_remaining_shift = Polynomial(polys.avm_main_l2_gas_remaining.shifted());
         polys.avm_main_pc_shift = Polynomial(polys.avm_main_pc.shifted());
@@ -1205,14 +1206,13 @@ class AvmCircuitBuilder {
                 "LOOKUP_BYTE_OPERATIONS");
         };
 
-<<<<<<< HEAD
+        auto lookup_opcode_gas = [=]() {
+            return evaluate_logderivative.template operator()<lookup_opcode_gas_relation<FF>>("LOOKUP_OPCODE_GAS");
+        };
+
         auto kernel_output_lookup = [=]() {
             return evaluate_logderivative.template operator()<kernel_output_lookup_relation<FF>>(
                 "KERNEL_OUTPUT_LOOKUP");
-=======
-        auto lookup_opcode_gas = [=]() {
-            return evaluate_logderivative.template operator()<lookup_opcode_gas_relation<FF>>("LOOKUP_OPCODE_GAS");
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
         };
 
         auto lookup_into_kernel = [=]() {
@@ -1405,11 +1405,9 @@ class AvmCircuitBuilder {
 
         relation_futures.emplace_back(std::async(std::launch::async, lookup_byte_operations));
 
-<<<<<<< HEAD
-        relation_futures.emplace_back(std::async(std::launch::async, kernel_output_lookup));
-=======
         relation_futures.emplace_back(std::async(std::launch::async, lookup_opcode_gas));
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+
+        relation_futures.emplace_back(std::async(std::launch::async, kernel_output_lookup));
 
         relation_futures.emplace_back(std::async(std::launch::async, lookup_into_kernel));
 
@@ -1536,11 +1534,9 @@ class AvmCircuitBuilder {
 
         lookup_byte_operations();
 
-<<<<<<< HEAD
-        kernel_output_lookup();
-=======
         lookup_opcode_gas();
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+
+        kernel_output_lookup();
 
         lookup_into_kernel();
 

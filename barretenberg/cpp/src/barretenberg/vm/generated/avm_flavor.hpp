@@ -96,6 +96,7 @@ class AvmFlavor {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 350;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
@@ -104,6 +105,8 @@ class AvmFlavor {
 =======
 =======
 >>>>>>> 4f9c41f1ba (6542: fix conflicts after rebase to master)
+=======
+>>>>>>> a3e8ac80ca (6542: rebase on master and fix kernel output)
 <<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 344;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
@@ -113,6 +116,8 @@ class AvmFlavor {
 =======
 =======
 >>>>>>> f36e6a6ba3 (6542: fix conflicts after rebase to master)
+=======
+>>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
 <<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 334;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
@@ -122,6 +127,8 @@ class AvmFlavor {
 =======
 =======
 >>>>>>> 221f3ac2d7 (6542: fix conflicts after rebase to master)
+=======
+>>>>>>> e3ee7a9c26 (6542: rebase on master and fix kernel output)
 <<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 327;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
@@ -172,9 +179,25 @@ class AvmFlavor {
     static constexpr size_t NUM_ALL_ENTITIES = 368;
 >>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
 >>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
 >>>>>>> 221f3ac2d7 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
 >>>>>>> f36e6a6ba3 (6542: fix conflicts after rebase to master)
+<<<<<<< HEAD
 >>>>>>> 4f9c41f1ba (6542: fix conflicts after rebase to master)
+=======
+=======
+=======
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 339;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
+    // the unshifted and one for the shifted
+    static constexpr size_t NUM_ALL_ENTITIES = 405;
+>>>>>>> 529d3ad9ef (6542: rebase on master and fix kernel output)
+>>>>>>> e3ee7a9c26 (6542: rebase on master and fix kernel output)
+>>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
+>>>>>>> a3e8ac80ca (6542: rebase on master and fix kernel output)
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
@@ -191,11 +214,8 @@ class AvmFlavor {
                                              perm_main_mem_ind_d_relation<FF>,
                                              lookup_byte_lengths_relation<FF>,
                                              lookup_byte_operations_relation<FF>,
-<<<<<<< HEAD
-                                             kernel_output_lookup_relation<FF>,
-=======
                                              lookup_opcode_gas_relation<FF>,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+                                             kernel_output_lookup_relation<FF>,
                                              lookup_into_kernel_relation<FF>,
                                              incl_main_tag_err_relation<FF>,
                                              incl_mem_tag_err_relation<FF>,
@@ -255,11 +275,8 @@ class AvmFlavor {
                                  perm_main_mem_ind_d_relation<FF>,
                                  lookup_byte_lengths_relation<FF>,
                                  lookup_byte_operations_relation<FF>,
-<<<<<<< HEAD
-                                 kernel_output_lookup_relation<FF>,
-=======
                                  lookup_opcode_gas_relation<FF>,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+                                 kernel_output_lookup_relation<FF>,
                                  lookup_into_kernel_relation<FF>,
                                  incl_main_tag_err_relation<FF>,
                                  incl_mem_tag_err_relation<FF>,
@@ -436,6 +453,7 @@ class AvmFlavor {
                               avm_conversion_to_radix_le_sel,
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                               avm_keccakf1600_clk,
                               avm_keccakf1600_input,
                               avm_keccakf1600_keccakf1600_sel,
@@ -446,19 +464,16 @@ class AvmFlavor {
 =======
 <<<<<<< HEAD
 >>>>>>> 60d1f31c9b (6542: some renaming and comments)
+=======
+                              avm_gas_da_gas_fixed_table,
+                              avm_gas_gas_cost_sel,
+                              avm_gas_l2_gas_fixed_table,
+>>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
                               avm_kernel_emit_l2_to_l1_msg_write_offset,
                               avm_kernel_emit_note_hash_write_offset,
                               avm_kernel_emit_nullifier_write_offset,
                               avm_kernel_emit_unencrypted_log_write_offset,
                               avm_kernel_kernel_in_offset,
-=======
-                              avm_gas_add_to_gas_lookup_table,
-=======
->>>>>>> df5862de90 (6542: some renaming and comments)
-                              avm_gas_da_gas_fixed_table,
-                              avm_gas_gas_cost_sel,
-                              avm_gas_l2_gas_fixed_table,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
                               avm_kernel_kernel_inputs__is_public,
                               avm_kernel_kernel_metadata_out__is_public,
                               avm_kernel_kernel_out_offset,
@@ -628,11 +643,8 @@ class AvmFlavor {
                               perm_main_mem_ind_d,
                               lookup_byte_lengths,
                               lookup_byte_operations,
-<<<<<<< HEAD
-                              kernel_output_lookup,
-=======
                               lookup_opcode_gas,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+                              kernel_output_lookup,
                               lookup_into_kernel,
                               incl_main_tag_err,
                               incl_mem_tag_err,
@@ -668,11 +680,8 @@ class AvmFlavor {
                               lookup_div_u16_7,
                               lookup_byte_lengths_counts,
                               lookup_byte_operations_counts,
-<<<<<<< HEAD
-                              kernel_output_lookup_counts,
-=======
                               lookup_opcode_gas_counts,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+                              kernel_output_lookup_counts,
                               lookup_into_kernel_counts,
                               incl_main_tag_err_counts,
                               incl_mem_tag_err_counts,
@@ -819,6 +828,7 @@ class AvmFlavor {
                      avm_conversion_to_radix_le_sel,
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                      avm_keccakf1600_clk,
                      avm_keccakf1600_input,
                      avm_keccakf1600_keccakf1600_sel,
@@ -829,19 +839,16 @@ class AvmFlavor {
 =======
 <<<<<<< HEAD
 >>>>>>> 60d1f31c9b (6542: some renaming and comments)
+=======
+                     avm_gas_da_gas_fixed_table,
+                     avm_gas_gas_cost_sel,
+                     avm_gas_l2_gas_fixed_table,
+>>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
                      avm_kernel_emit_l2_to_l1_msg_write_offset,
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
                      avm_kernel_emit_unencrypted_log_write_offset,
                      avm_kernel_kernel_in_offset,
-=======
-                     avm_gas_add_to_gas_lookup_table,
-=======
->>>>>>> df5862de90 (6542: some renaming and comments)
-                     avm_gas_da_gas_fixed_table,
-                     avm_gas_gas_cost_sel,
-                     avm_gas_l2_gas_fixed_table,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
                      avm_kernel_kernel_inputs__is_public,
                      avm_kernel_kernel_metadata_out__is_public,
                      avm_kernel_kernel_out_offset,
@@ -1011,11 +1018,8 @@ class AvmFlavor {
                      perm_main_mem_ind_d,
                      lookup_byte_lengths,
                      lookup_byte_operations,
-<<<<<<< HEAD
-                     kernel_output_lookup,
-=======
                      lookup_opcode_gas,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+                     kernel_output_lookup,
                      lookup_into_kernel,
                      incl_main_tag_err,
                      incl_mem_tag_err,
@@ -1051,11 +1055,8 @@ class AvmFlavor {
                      lookup_div_u16_7,
                      lookup_byte_lengths_counts,
                      lookup_byte_operations_counts,
-<<<<<<< HEAD
-                     kernel_output_lookup_counts,
-=======
                      lookup_opcode_gas_counts,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+                     kernel_output_lookup_counts,
                      lookup_into_kernel_counts,
                      incl_main_tag_err_counts,
                      incl_mem_tag_err_counts,
@@ -1207,6 +1208,7 @@ class AvmFlavor {
                               avm_conversion_to_radix_le_sel,
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                               avm_keccakf1600_clk,
                               avm_keccakf1600_input,
                               avm_keccakf1600_keccakf1600_sel,
@@ -1217,19 +1219,16 @@ class AvmFlavor {
 =======
 <<<<<<< HEAD
 >>>>>>> 60d1f31c9b (6542: some renaming and comments)
+=======
+                              avm_gas_da_gas_fixed_table,
+                              avm_gas_gas_cost_sel,
+                              avm_gas_l2_gas_fixed_table,
+>>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
                               avm_kernel_emit_l2_to_l1_msg_write_offset,
                               avm_kernel_emit_note_hash_write_offset,
                               avm_kernel_emit_nullifier_write_offset,
                               avm_kernel_emit_unencrypted_log_write_offset,
                               avm_kernel_kernel_in_offset,
-=======
-                              avm_gas_add_to_gas_lookup_table,
-=======
->>>>>>> df5862de90 (6542: some renaming and comments)
-                              avm_gas_da_gas_fixed_table,
-                              avm_gas_gas_cost_sel,
-                              avm_gas_l2_gas_fixed_table,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
                               avm_kernel_kernel_inputs__is_public,
                               avm_kernel_kernel_metadata_out__is_public,
                               avm_kernel_kernel_out_offset,
@@ -1399,11 +1398,8 @@ class AvmFlavor {
                               perm_main_mem_ind_d,
                               lookup_byte_lengths,
                               lookup_byte_operations,
-<<<<<<< HEAD
-                              kernel_output_lookup,
-=======
                               lookup_opcode_gas,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+                              kernel_output_lookup,
                               lookup_into_kernel,
                               incl_main_tag_err,
                               incl_mem_tag_err,
@@ -1439,11 +1435,8 @@ class AvmFlavor {
                               lookup_div_u16_7,
                               lookup_byte_lengths_counts,
                               lookup_byte_operations_counts,
-<<<<<<< HEAD
-                              kernel_output_lookup_counts,
-=======
                               lookup_opcode_gas_counts,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+                              kernel_output_lookup_counts,
                               lookup_into_kernel_counts,
                               incl_main_tag_err_counts,
                               incl_mem_tag_err_counts,
@@ -1521,7 +1514,6 @@ class AvmFlavor {
                               avm_binary_acc_ic_shift,
                               avm_binary_mem_tag_ctr_shift,
                               avm_binary_op_id_shift,
-<<<<<<< HEAD
                               avm_kernel_emit_l2_to_l1_msg_write_offset_shift,
                               avm_kernel_emit_note_hash_write_offset_shift,
                               avm_kernel_emit_nullifier_write_offset_shift,
@@ -1532,9 +1524,7 @@ class AvmFlavor {
                               avm_kernel_side_effect_counter_shift,
                               avm_kernel_sload_write_offset_shift,
                               avm_kernel_sstore_write_offset_shift,
-=======
                               avm_main_da_gas_remaining_shift,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
                               avm_main_internal_return_ptr_shift,
                               avm_main_l2_gas_remaining_shift,
                               avm_main_pc_shift,
@@ -1659,6 +1649,7 @@ class AvmFlavor {
                      avm_conversion_to_radix_le_sel,
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                      avm_keccakf1600_clk,
                      avm_keccakf1600_input,
                      avm_keccakf1600_keccakf1600_sel,
@@ -1669,19 +1660,16 @@ class AvmFlavor {
 =======
 <<<<<<< HEAD
 >>>>>>> 60d1f31c9b (6542: some renaming and comments)
+=======
+                     avm_gas_da_gas_fixed_table,
+                     avm_gas_gas_cost_sel,
+                     avm_gas_l2_gas_fixed_table,
+>>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
                      avm_kernel_emit_l2_to_l1_msg_write_offset,
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
                      avm_kernel_emit_unencrypted_log_write_offset,
                      avm_kernel_kernel_in_offset,
-=======
-                     avm_gas_add_to_gas_lookup_table,
-=======
->>>>>>> df5862de90 (6542: some renaming and comments)
-                     avm_gas_da_gas_fixed_table,
-                     avm_gas_gas_cost_sel,
-                     avm_gas_l2_gas_fixed_table,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
                      avm_kernel_kernel_inputs__is_public,
                      avm_kernel_kernel_metadata_out__is_public,
                      avm_kernel_kernel_out_offset,
@@ -1851,11 +1839,8 @@ class AvmFlavor {
                      perm_main_mem_ind_d,
                      lookup_byte_lengths,
                      lookup_byte_operations,
-<<<<<<< HEAD
-                     kernel_output_lookup,
-=======
                      lookup_opcode_gas,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+                     kernel_output_lookup,
                      lookup_into_kernel,
                      incl_main_tag_err,
                      incl_mem_tag_err,
@@ -1891,11 +1876,8 @@ class AvmFlavor {
                      lookup_div_u16_7,
                      lookup_byte_lengths_counts,
                      lookup_byte_operations_counts,
-<<<<<<< HEAD
-                     kernel_output_lookup_counts,
-=======
                      lookup_opcode_gas_counts,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+                     kernel_output_lookup_counts,
                      lookup_into_kernel_counts,
                      incl_main_tag_err_counts,
                      incl_mem_tag_err_counts,
@@ -1973,7 +1955,6 @@ class AvmFlavor {
                      avm_binary_acc_ic_shift,
                      avm_binary_mem_tag_ctr_shift,
                      avm_binary_op_id_shift,
-<<<<<<< HEAD
                      avm_kernel_emit_l2_to_l1_msg_write_offset_shift,
                      avm_kernel_emit_note_hash_write_offset_shift,
                      avm_kernel_emit_nullifier_write_offset_shift,
@@ -1984,9 +1965,7 @@ class AvmFlavor {
                      avm_kernel_side_effect_counter_shift,
                      avm_kernel_sload_write_offset_shift,
                      avm_kernel_sstore_write_offset_shift,
-=======
                      avm_main_da_gas_remaining_shift,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
                      avm_main_internal_return_ptr_shift,
                      avm_main_l2_gas_remaining_shift,
                      avm_main_pc_shift,
@@ -2111,6 +2090,7 @@ class AvmFlavor {
                      avm_conversion_to_radix_le_sel,
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                      avm_keccakf1600_clk,
                      avm_keccakf1600_input,
                      avm_keccakf1600_keccakf1600_sel,
@@ -2121,19 +2101,16 @@ class AvmFlavor {
 =======
 <<<<<<< HEAD
 >>>>>>> 60d1f31c9b (6542: some renaming and comments)
+=======
+                     avm_gas_da_gas_fixed_table,
+                     avm_gas_gas_cost_sel,
+                     avm_gas_l2_gas_fixed_table,
+>>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
                      avm_kernel_emit_l2_to_l1_msg_write_offset,
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
                      avm_kernel_emit_unencrypted_log_write_offset,
                      avm_kernel_kernel_in_offset,
-=======
-                     avm_gas_add_to_gas_lookup_table,
-=======
->>>>>>> df5862de90 (6542: some renaming and comments)
-                     avm_gas_da_gas_fixed_table,
-                     avm_gas_gas_cost_sel,
-                     avm_gas_l2_gas_fixed_table,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
                      avm_kernel_kernel_inputs__is_public,
                      avm_kernel_kernel_metadata_out__is_public,
                      avm_kernel_kernel_out_offset,
@@ -2303,11 +2280,8 @@ class AvmFlavor {
                      perm_main_mem_ind_d,
                      lookup_byte_lengths,
                      lookup_byte_operations,
-<<<<<<< HEAD
-                     kernel_output_lookup,
-=======
                      lookup_opcode_gas,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+                     kernel_output_lookup,
                      lookup_into_kernel,
                      incl_main_tag_err,
                      incl_mem_tag_err,
@@ -2343,11 +2317,8 @@ class AvmFlavor {
                      lookup_div_u16_7,
                      lookup_byte_lengths_counts,
                      lookup_byte_operations_counts,
-<<<<<<< HEAD
-                     kernel_output_lookup_counts,
-=======
                      lookup_opcode_gas_counts,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+                     kernel_output_lookup_counts,
                      lookup_into_kernel_counts,
                      incl_main_tag_err_counts,
                      incl_mem_tag_err_counts,
@@ -2428,7 +2399,6 @@ class AvmFlavor {
                      avm_binary_acc_ic,
                      avm_binary_mem_tag_ctr,
                      avm_binary_op_id,
-<<<<<<< HEAD
                      avm_kernel_emit_l2_to_l1_msg_write_offset,
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
@@ -2439,9 +2409,7 @@ class AvmFlavor {
                      avm_kernel_side_effect_counter,
                      avm_kernel_sload_write_offset,
                      avm_kernel_sstore_write_offset,
-=======
                      avm_main_da_gas_remaining,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
                      avm_main_internal_return_ptr,
                      avm_main_l2_gas_remaining,
                      avm_main_pc,
@@ -2498,7 +2466,6 @@ class AvmFlavor {
                      avm_binary_acc_ic_shift,
                      avm_binary_mem_tag_ctr_shift,
                      avm_binary_op_id_shift,
-<<<<<<< HEAD
                      avm_kernel_emit_l2_to_l1_msg_write_offset_shift,
                      avm_kernel_emit_note_hash_write_offset_shift,
                      avm_kernel_emit_nullifier_write_offset_shift,
@@ -2509,9 +2476,7 @@ class AvmFlavor {
                      avm_kernel_side_effect_counter_shift,
                      avm_kernel_sload_write_offset_shift,
                      avm_kernel_sstore_write_offset_shift,
-=======
                      avm_main_da_gas_remaining_shift,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
                      avm_main_internal_return_ptr_shift,
                      avm_main_l2_gas_remaining_shift,
                      avm_main_pc_shift,
@@ -2578,7 +2543,6 @@ class AvmFlavor {
                      avm_binary_acc_ic,
                      avm_binary_mem_tag_ctr,
                      avm_binary_op_id,
-<<<<<<< HEAD
                      avm_kernel_emit_l2_to_l1_msg_write_offset,
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
@@ -2589,9 +2553,7 @@ class AvmFlavor {
                      avm_kernel_side_effect_counter,
                      avm_kernel_sload_write_offset,
                      avm_kernel_sstore_write_offset,
-=======
                      avm_main_da_gas_remaining,
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
                      avm_main_internal_return_ptr,
                      avm_main_l2_gas_remaining,
                      avm_main_pc,
@@ -2637,11 +2599,9 @@ class AvmFlavor {
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, lookup_byte_operations_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
-<<<<<<< HEAD
-            bb::compute_logderivative_inverse<AvmFlavor, kernel_output_lookup_relation<FF>>(
-=======
             bb::compute_logderivative_inverse<AvmFlavor, lookup_opcode_gas_relation<FF>>(
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, kernel_output_lookup_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, lookup_into_kernel_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
@@ -2917,6 +2877,7 @@ class AvmFlavor {
             Base::avm_conversion_to_radix_le_sel = "AVM_CONVERSION_TO_RADIX_LE_SEL";
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
             Base::avm_keccakf1600_clk = "AVM_KECCAKF1600_CLK";
             Base::avm_keccakf1600_input = "AVM_KECCAKF1600_INPUT";
             Base::avm_keccakf1600_keccakf1600_sel = "AVM_KECCAKF1600_KECCAKF1600_SEL";
@@ -2927,19 +2888,16 @@ class AvmFlavor {
 =======
 <<<<<<< HEAD
 >>>>>>> 60d1f31c9b (6542: some renaming and comments)
+=======
+            Base::avm_gas_da_gas_fixed_table = "AVM_GAS_DA_GAS_FIXED_TABLE";
+            Base::avm_gas_gas_cost_sel = "AVM_GAS_GAS_COST_SEL";
+            Base::avm_gas_l2_gas_fixed_table = "AVM_GAS_L2_GAS_FIXED_TABLE";
+>>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
             Base::avm_kernel_emit_l2_to_l1_msg_write_offset = "AVM_KERNEL_EMIT_L2_TO_L1_MSG_WRITE_OFFSET";
             Base::avm_kernel_emit_note_hash_write_offset = "AVM_KERNEL_EMIT_NOTE_HASH_WRITE_OFFSET";
             Base::avm_kernel_emit_nullifier_write_offset = "AVM_KERNEL_EMIT_NULLIFIER_WRITE_OFFSET";
             Base::avm_kernel_emit_unencrypted_log_write_offset = "AVM_KERNEL_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET";
             Base::avm_kernel_kernel_in_offset = "AVM_KERNEL_KERNEL_IN_OFFSET";
-=======
-            Base::avm_gas_add_to_gas_lookup_table = "AVM_GAS_ADD_TO_GAS_LOOKUP_TABLE";
-=======
->>>>>>> df5862de90 (6542: some renaming and comments)
-            Base::avm_gas_da_gas_fixed_table = "AVM_GAS_DA_GAS_FIXED_TABLE";
-            Base::avm_gas_gas_cost_sel = "AVM_GAS_GAS_COST_SEL";
-            Base::avm_gas_l2_gas_fixed_table = "AVM_GAS_L2_GAS_FIXED_TABLE";
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
             Base::avm_kernel_kernel_inputs__is_public = "AVM_KERNEL_KERNEL_INPUTS__IS_PUBLIC";
             Base::avm_kernel_kernel_metadata_out__is_public = "AVM_KERNEL_KERNEL_METADATA_OUT__IS_PUBLIC";
             Base::avm_kernel_kernel_out_offset = "AVM_KERNEL_KERNEL_OUT_OFFSET";
@@ -3110,11 +3068,8 @@ class AvmFlavor {
             Base::perm_main_mem_ind_d = "PERM_MAIN_MEM_IND_D";
             Base::lookup_byte_lengths = "LOOKUP_BYTE_LENGTHS";
             Base::lookup_byte_operations = "LOOKUP_BYTE_OPERATIONS";
-<<<<<<< HEAD
-            Base::kernel_output_lookup = "KERNEL_OUTPUT_LOOKUP";
-=======
             Base::lookup_opcode_gas = "LOOKUP_OPCODE_GAS";
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+            Base::kernel_output_lookup = "KERNEL_OUTPUT_LOOKUP";
             Base::lookup_into_kernel = "LOOKUP_INTO_KERNEL";
             Base::incl_main_tag_err = "INCL_MAIN_TAG_ERR";
             Base::incl_mem_tag_err = "INCL_MEM_TAG_ERR";
@@ -3150,11 +3105,8 @@ class AvmFlavor {
             Base::lookup_div_u16_7 = "LOOKUP_DIV_U16_7";
             Base::lookup_byte_lengths_counts = "LOOKUP_BYTE_LENGTHS_COUNTS";
             Base::lookup_byte_operations_counts = "LOOKUP_BYTE_OPERATIONS_COUNTS";
-<<<<<<< HEAD
-            Base::kernel_output_lookup_counts = "KERNEL_OUTPUT_LOOKUP_COUNTS";
-=======
             Base::lookup_opcode_gas_counts = "LOOKUP_OPCODE_GAS_COUNTS";
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+            Base::kernel_output_lookup_counts = "KERNEL_OUTPUT_LOOKUP_COUNTS";
             Base::lookup_into_kernel_counts = "LOOKUP_INTO_KERNEL_COUNTS";
             Base::incl_main_tag_err_counts = "INCL_MAIN_TAG_ERR_COUNTS";
             Base::incl_mem_tag_err_counts = "INCL_MEM_TAG_ERR_COUNTS";
@@ -3317,6 +3269,7 @@ class AvmFlavor {
         Commitment avm_conversion_to_radix_le_sel;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         Commitment avm_keccakf1600_clk;
         Commitment avm_keccakf1600_input;
         Commitment avm_keccakf1600_keccakf1600_sel;
@@ -3327,19 +3280,16 @@ class AvmFlavor {
 =======
 <<<<<<< HEAD
 >>>>>>> 60d1f31c9b (6542: some renaming and comments)
+=======
+        Commitment avm_gas_da_gas_fixed_table;
+        Commitment avm_gas_gas_cost_sel;
+        Commitment avm_gas_l2_gas_fixed_table;
+>>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
         Commitment avm_kernel_emit_l2_to_l1_msg_write_offset;
         Commitment avm_kernel_emit_note_hash_write_offset;
         Commitment avm_kernel_emit_nullifier_write_offset;
         Commitment avm_kernel_emit_unencrypted_log_write_offset;
         Commitment avm_kernel_kernel_in_offset;
-=======
-        Commitment avm_gas_add_to_gas_lookup_table;
-=======
->>>>>>> df5862de90 (6542: some renaming and comments)
-        Commitment avm_gas_da_gas_fixed_table;
-        Commitment avm_gas_gas_cost_sel;
-        Commitment avm_gas_l2_gas_fixed_table;
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
         Commitment avm_kernel_kernel_inputs__is_public;
         Commitment avm_kernel_kernel_metadata_out__is_public;
         Commitment avm_kernel_kernel_out_offset;
@@ -3509,11 +3459,8 @@ class AvmFlavor {
         Commitment perm_main_mem_ind_d;
         Commitment lookup_byte_lengths;
         Commitment lookup_byte_operations;
-<<<<<<< HEAD
-        Commitment kernel_output_lookup;
-=======
         Commitment lookup_opcode_gas;
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+        Commitment kernel_output_lookup;
         Commitment lookup_into_kernel;
         Commitment incl_main_tag_err;
         Commitment incl_mem_tag_err;
@@ -3549,11 +3496,8 @@ class AvmFlavor {
         Commitment lookup_div_u16_7;
         Commitment lookup_byte_lengths_counts;
         Commitment lookup_byte_operations_counts;
-<<<<<<< HEAD
-        Commitment kernel_output_lookup_counts;
-=======
         Commitment lookup_opcode_gas_counts;
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+        Commitment kernel_output_lookup_counts;
         Commitment lookup_into_kernel_counts;
         Commitment incl_main_tag_err_counts;
         Commitment incl_mem_tag_err_counts;
@@ -3717,6 +3661,7 @@ class AvmFlavor {
             avm_conversion_to_radix_le_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
             avm_keccakf1600_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_keccakf1600_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_keccakf1600_keccakf1600_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3727,6 +3672,11 @@ class AvmFlavor {
 =======
 <<<<<<< HEAD
 >>>>>>> 60d1f31c9b (6542: some renaming and comments)
+=======
+            avm_gas_da_gas_fixed_table = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_gas_gas_cost_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_gas_l2_gas_fixed_table = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+>>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
             avm_kernel_emit_l2_to_l1_msg_write_offset =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_kernel_emit_note_hash_write_offset =
@@ -3736,14 +3686,6 @@ class AvmFlavor {
             avm_kernel_emit_unencrypted_log_write_offset =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_kernel_kernel_in_offset = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-=======
-            avm_gas_add_to_gas_lookup_table = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-=======
->>>>>>> df5862de90 (6542: some renaming and comments)
-            avm_gas_da_gas_fixed_table = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_gas_gas_cost_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_gas_l2_gas_fixed_table = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
             avm_kernel_kernel_inputs__is_public =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_kernel_kernel_metadata_out__is_public =
@@ -3928,11 +3870,8 @@ class AvmFlavor {
             perm_main_mem_ind_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_byte_lengths = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_byte_operations = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-<<<<<<< HEAD
-            kernel_output_lookup = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-=======
             lookup_opcode_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+            kernel_output_lookup = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_into_kernel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             incl_main_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             incl_mem_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3968,11 +3907,8 @@ class AvmFlavor {
             lookup_div_u16_7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_byte_lengths_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_byte_operations_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-<<<<<<< HEAD
-            kernel_output_lookup_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-=======
             lookup_opcode_gas_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+            kernel_output_lookup_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_into_kernel_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             incl_main_tag_err_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             incl_mem_tag_err_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -4139,6 +4075,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_conversion_to_radix_le_sel, Transcript::proof_data);
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
             serialize_to_buffer<Commitment>(avm_keccakf1600_clk, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_keccakf1600_input, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_keccakf1600_keccakf1600_sel, Transcript::proof_data);
@@ -4149,19 +4086,16 @@ class AvmFlavor {
 =======
 <<<<<<< HEAD
 >>>>>>> 60d1f31c9b (6542: some renaming and comments)
+=======
+            serialize_to_buffer<Commitment>(avm_gas_da_gas_fixed_table, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_gas_gas_cost_sel, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_gas_l2_gas_fixed_table, Transcript::proof_data);
+>>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
             serialize_to_buffer<Commitment>(avm_kernel_emit_l2_to_l1_msg_write_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_emit_note_hash_write_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_emit_nullifier_write_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_emit_unencrypted_log_write_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_kernel_in_offset, Transcript::proof_data);
-=======
-            serialize_to_buffer<Commitment>(avm_gas_add_to_gas_lookup_table, Transcript::proof_data);
-=======
->>>>>>> df5862de90 (6542: some renaming and comments)
-            serialize_to_buffer<Commitment>(avm_gas_da_gas_fixed_table, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_gas_gas_cost_sel, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_gas_l2_gas_fixed_table, Transcript::proof_data);
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
             serialize_to_buffer<Commitment>(avm_kernel_kernel_inputs__is_public, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_kernel_metadata_out__is_public, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_kernel_out_offset, Transcript::proof_data);
@@ -4331,11 +4265,8 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(perm_main_mem_ind_d, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_byte_lengths, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_byte_operations, Transcript::proof_data);
-<<<<<<< HEAD
-            serialize_to_buffer<Commitment>(kernel_output_lookup, Transcript::proof_data);
-=======
             serialize_to_buffer<Commitment>(lookup_opcode_gas, Transcript::proof_data);
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+            serialize_to_buffer<Commitment>(kernel_output_lookup, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_into_kernel, Transcript::proof_data);
             serialize_to_buffer<Commitment>(incl_main_tag_err, Transcript::proof_data);
             serialize_to_buffer<Commitment>(incl_mem_tag_err, Transcript::proof_data);
@@ -4371,11 +4302,8 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(lookup_div_u16_7, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_byte_lengths_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_byte_operations_counts, Transcript::proof_data);
-<<<<<<< HEAD
-            serialize_to_buffer<Commitment>(kernel_output_lookup_counts, Transcript::proof_data);
-=======
             serialize_to_buffer<Commitment>(lookup_opcode_gas_counts, Transcript::proof_data);
->>>>>>> 40e0367df1 (feat: simple gas decrement test)
+            serialize_to_buffer<Commitment>(kernel_output_lookup_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_into_kernel_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(incl_main_tag_err_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(incl_mem_tag_err_counts, Transcript::proof_data);

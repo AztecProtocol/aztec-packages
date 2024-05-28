@@ -17,13 +17,10 @@ class Execution {
 
     static std::vector<Row> gen_trace(std::vector<Instruction> const& instructions,
                                       std::vector<FF>& returndata,
-<<<<<<< HEAD
                                       std::vector<FF> const& calldata,
                                       std::vector<FF> const& public_inputs);
     static std::vector<Row> gen_trace(std::vector<Instruction> const& instructions,
-=======
-                                      std::array<FF, KERNEL_INPUTS_LENGTH> const& public_inputs,
->>>>>>> 7d6b7890fa (6542: fixing all unit tests)
+                                      VmPublicInputs const& public_inputs,
                                       std::vector<FF> const& calldata = {});
     static std::vector<Row> gen_trace(std::vector<Instruction> const& instructions,
                                       std::vector<FF> const& calldata,

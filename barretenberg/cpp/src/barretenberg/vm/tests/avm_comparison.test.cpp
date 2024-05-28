@@ -82,15 +82,17 @@ std::vector<AvmMemoryTag> mem_tag_arr{
 class AvmCmpTests : public ::testing::Test {
   public:
     AvmTraceBuilder trace_builder;
-    std::array<FF, KERNEL_INPUTS_LENGTH> public_inputs{};
+    VmPublicInputs public_inputs{};
 
   protected:
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
     void SetUp() override
     {
         srs::init_crs_factory("../srs_db/ignition");
-        public_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000;
-        public_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000;
+        std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
+        kernel_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000;
+        kernel_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000;
+        std::get<0>(public_inputs) = kernel_inputs;
         trace_builder = AvmTraceBuilder(public_inputs);
     };
 };
