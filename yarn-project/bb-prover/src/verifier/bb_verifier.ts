@@ -131,7 +131,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       await this.verifyProofForCircuit(expectedCircuit, proof);
       return true;
     } catch (err) {
-      this.logger.error(`Failed to verify ${expectedCircuit} proof for tx ${Tx.getHash(tx)}: ${String(err)}`);
+      this.logger.warn(`Failed to verify ${expectedCircuit} proof for tx ${Tx.getHash(tx)}: ${String(err)}`);
       return false;
     }
   }
