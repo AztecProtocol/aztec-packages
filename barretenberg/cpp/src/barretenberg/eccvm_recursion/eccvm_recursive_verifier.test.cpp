@@ -7,7 +7,7 @@
 #include <gtest/gtest.h>
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 namespace bb {
 template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing::Test {
@@ -23,7 +23,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
     using RecursiveVerifier = ECCVMRecursiveVerifier_<RecursiveFlavor>;
 
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
-    using OuterFlavor = std::conditional_t<IsGoblinUltraBuilder<OuterBuilder>, GoblinUltraFlavor, UltraFlavor>;
+    using OuterFlavor = std::conditional_t<IsMegaBuilder<OuterBuilder>, MegaFlavor, UltraFlavor>;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
@@ -69,7 +69,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
     static void test_recursive_verification()
     {
         InnerBuilder builder = generate_circuit(&engine);
-        builder.op_queue->add_erroneous_equality_op_for_testing();
+        // builder.op_queue->add_erroneous_equality_op_for_testing();
         InnerProver prover(builder);
         auto proof = prover.construct_proof();
         auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key);

@@ -13,7 +13,7 @@ class EccRelationsConsistency : public testing::Test {
      * @brief Validate that we can instantiate ECCVM relations on bigfield and that they return the same values as their
      * native counterpart instantiated on grumpkin::fr.
      *
-     * @tparam Relation the Relation whose instantiation on stdlib and native we want to test,
+     * @tparam Relation the Relation whose instantiation on stdlib and native we want to test
      */
     template <template <typename> class Relation> static void validate_relation_execution()
     {
@@ -55,6 +55,6 @@ TEST_F(EccRelationsConsistency, RecursiveToNativeConsistency)
     validate_relation_execution<ECCVMPointTableRelation>();
     validate_relation_execution<ECCVMTranscriptRelation>();
     validate_relation_execution<ECCVMWnafRelation>();
+    validate_relation_execution<ECCVMBoolsRelation>();
 }
-
 } // namespace bb

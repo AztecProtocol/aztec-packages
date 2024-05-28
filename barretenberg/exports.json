@@ -635,27 +635,7 @@
     "isAsync": false
   },
   {
-    "functionName": "acir_prove_and_verify_goblin_ultra_honk",
-    "inArgs": [
-      {
-        "name": "constraint_system_buf",
-        "type": "const uint8_t *"
-      },
-      {
-        "name": "witness_buf",
-        "type": "const uint8_t *"
-      }
-    ],
-    "outArgs": [
-      {
-        "name": "result",
-        "type": "bool *"
-      }
-    ],
-    "isAsync": false
-  },
-  {
-    "functionName": "acir_fold_and_verify_program_stack",
+    "functionName": "acir_prove_and_verify_mega_honk",
     "inArgs": [
       {
         "name": "constraint_system_buf",

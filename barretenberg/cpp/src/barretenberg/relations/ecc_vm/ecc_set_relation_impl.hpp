@@ -1,5 +1,7 @@
 #pragma once
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "ecc_set_relation.hpp"
+#include <type_traits>
 
 namespace bb {
 
@@ -128,9 +130,16 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         const auto& table_y = View(in.precompute_ty);
 
         const auto& precompute_skew = View(in.precompute_skew);
-        static FF negative_inverse_seven = FF(-7).invert();
-
-        auto adjusted_skew = precompute_skew * negative_inverse_seven;
+        const auto negative_inverse_seven = []() {
+            if constexpr (std::same_as<FF, grumpkin::fr>) {
+                static FF negative_inverse_seven = FF(-7).invert();
+                return negative_inverse_seven;
+            } else {
+                FF negative_inverse_seven = FF(-7).invert();
+                return negative_inverse_seven;
+            }
+        };
+        auto adjusted_skew = precompute_skew * negative_inverse_seven();
 
         const auto& wnaf_scalar_sum = View(in.precompute_scalar_sum);
         const auto w0 = convert_to_wnaf<Accumulator>(View(in.precompute_s1hi), View(in.precompute_s1lo));
@@ -294,28 +303,38 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
         auto z2 = View(in.transcript_z2);
         auto z1_zero = View(in.transcript_z1zero);
         auto z2_zero = View(in.transcript_z2zero);
+        auto base_infinity = View(in.transcript_base_infinity);
         auto transcript_mul = View(in.transcript_mul);
 
         auto lookup_first = (-z1_zero + 1);
         auto lookup_second = (-z2_zero + 1);
+        // FF endomorphism_base_field_shift = FF::cube_root_of_unity();
         FF endomorphism_base_field_shift = FF(bb::fq::cube_root_of_unity());
 
         auto transcript_input1 = transcript_pc + transcript_Px * beta + transcript_Py * beta_sqr + z1 * beta_cube;
         auto transcript_input2 = (transcript_pc - 1) + transcript_Px * endomorphism_base_field_shift * beta -
                                  transcript_Py * beta_sqr + z2 * beta_cube;
 
-        // | q_mul | z2_zero | z1_zero | lookup                 |
-        // | ----- | ------- | ------- | ---------------------- |
-        // | 0     | -       | -       | 1                      |
-        // | 1     | 0       | 1       | X + gamma              |
-        // | 1     | 1       | 0       | Y + gamma              |
-        // | 1     | 1       | 1       | (X + gamma)(Y + gamma) |
+        // | q_mul | z2_zero | z1_zero | base_infinity | lookup                 |
+        // | ----- | ------- | ------- | ------------- |----------------------- |
+        // | 0     | -       | -       |             - | 1                      |
+        // | 1     | 0       | 0       |             0 | 1                      |
+        // | 1     | 0       | 1       |             0 | X + gamma              |
+        // | 1     | 1       | 0       |             0 | Y + gamma              |
+        // | 1     | 1       | 1       |             0 | (X + gamma)(Y + gamma) |
+        // | 1     | 0       | 0       |             1 | 1                      |
+        // | 1     | 0       | 1       |             1 | 1                      |
+        // | 1     | 1       | 0       |             1 | 1                      |
+        // | 1     | 1       | 1       |             1 | 1                      |
         transcript_input1 = (transcript_input1 + gamma) * lookup_first + (-lookup_first + 1);
         transcript_input2 = (transcript_input2 + gamma) * lookup_second + (-lookup_second + 1);
-        // point_table_init_write = degree 2
 
-        auto point_table_init_write = transcript_mul * transcript_input1 * transcript_input2 + (-transcript_mul + 1);
-        denominator *= point_table_init_write; // degree-13
+        // transcript_product = degree 3
+        auto transcript_product = (transcript_input1 * transcript_input2) * (-base_infinity + 1) + base_infinity;
+
+        // point_table_init_write = degree 4
+        auto point_table_init_write = transcript_mul * transcript_product + (-transcript_mul + 1);
+        denominator *= point_table_init_write; // degree-14
 
         // auto point_table_init_write_1 = transcript_mul * transcript_input1 + (-transcript_mul + 1);
         // denominator *= point_table_init_write_1; // degree-11
@@ -339,15 +358,16 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
         auto z1_zero = View(in.transcript_z1zero);
         auto z2_zero = View(in.transcript_z2zero);
         auto transcript_mul = View(in.transcript_mul);
+        auto base_infinity = View(in.transcript_base_infinity);
 
-        auto full_msm_count = transcript_msm_count + transcript_mul * ((-z1_zero + 1) + (-z2_zero + 1));
-        //      auto count_test = transcript_msm_count
+        // do not add to count if point at infinity!
+        auto full_msm_count =
+            transcript_msm_count + transcript_mul * ((-z1_zero + 1) + (-z2_zero + 1)) * (-base_infinity + 1);
         // msm_result_read = degree 2
         auto msm_result_read =
             transcript_pc_shift + transcript_msm_x * beta + transcript_msm_y * beta_sqr + full_msm_count * beta_cube;
-
         msm_result_read = transcript_msm_transition * (msm_result_read + gamma) + (-transcript_msm_transition + 1);
-        denominator *= msm_result_read; // degree-17
+        denominator *= msm_result_read; // degree-20
     }
     return denominator;
 }

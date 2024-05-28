@@ -33,7 +33,7 @@ template <typename Curve> class RecursiveVeriferCommitmentKeyTest : public testi
     }
 };
 
-using Curves = testing::Types<stdlib::bn254<UltraCircuitBuilder>, stdlib::bn254<GoblinUltraCircuitBuilder>>;
+using Curves = testing::Types<stdlib::bn254<UltraCircuitBuilder>, stdlib::bn254<MegaCircuitBuilder>>;
 
 TYPED_TEST_SUITE(RecursiveVeriferCommitmentKeyTest, Curves);
 
