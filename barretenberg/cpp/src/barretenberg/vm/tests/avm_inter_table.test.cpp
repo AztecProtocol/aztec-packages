@@ -249,14 +249,14 @@ TEST_F(AvmRangeCheckNegativeTests, additionU8Reg1)
     alu_row.avm_alu_u8_r1 = FF(r1);
 
     // We adjust counter to pass range check lookup for u8_r0
-    trace.at(39 + 1).lookup_u8_0_counts -= FF(1);
-    trace.at(40 + 1).lookup_u8_0_counts += FF(1);
+    trace.at(39).lookup_u8_0_counts -= FF(1);
+    trace.at(40).lookup_u8_0_counts += FF(1);
 
     auto trace_same_cnt = trace;
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace_same_cnt)), "LOOKUP_U8_1");
 
     // Second attempt by decreasing counter for u8_r1 range check lookup
-    trace.at(1).lookup_u8_1_counts -= FF(1);
+    trace.at(0).lookup_u8_1_counts -= FF(1);
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "LOOKUP_U8_1");
 }
 
@@ -289,14 +289,14 @@ TEST_F(AvmRangeCheckNegativeTests, additionU16Reg0)
     alu_row.avm_alu_u16_r0 = FF(u16_r0);
 
     // We adjust counter to pass range check lookup for u8_r0
-    trace.at(128 + 1).lookup_u8_0_counts -= FF(1);
-    trace.at(129 + 1).lookup_u8_0_counts += FF(1);
+    trace.at(128).lookup_u8_0_counts -= FF(1);
+    trace.at(129).lookup_u8_0_counts += FF(1);
 
     auto trace_same_cnt = trace;
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace_same_cnt)), "LOOKUP_U16_0");
 
     // Second attempt by decreasing counter for u16_r0 range check lookup
-    trace.at(1).lookup_u16_0_counts -= FF(1);
+    trace.at(0).lookup_u16_0_counts -= FF(1);
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "LOOKUP_U16_0");
 }
 

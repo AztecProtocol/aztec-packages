@@ -520,7 +520,7 @@ TEST_F(AvmMemOpcodeTests, directSet)
     trace_builder.return_op(0, 0, 0);
     trace = trace_builder.finalize();
 
-    compute_index_c(0, false);
+    compute_index_c(1, false);
     auto const& row = trace.at(1);
 
     EXPECT_THAT(row,
@@ -548,7 +548,7 @@ TEST_F(AvmMemOpcodeTests, indirectSet)
     trace_builder.return_op(0, 0, 0);
     trace = trace_builder.finalize();
 
-    compute_index_c(1, true);
+    compute_index_c(2, true);
     auto const& row = trace.at(2);
 
     EXPECT_THAT(row,
@@ -588,7 +588,7 @@ TEST_F(AvmMemOpcodeTests, indirectSetWrongTag)
     trace_builder.return_op(0, 0, 0);
     trace = trace_builder.finalize();
 
-    compute_index_c(1, true);
+    compute_index_c(2, true);
     auto const& row = trace.at(2);
 
     EXPECT_THAT(row,
