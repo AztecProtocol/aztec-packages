@@ -6,7 +6,6 @@ import { gunzipSync } from 'zlib';
 import { Command } from 'commander';
 import { Timer, writeBenchmark } from './benchmark/index.js';
 import path from 'path';
-import { GrumpkinCrs } from './crs/node/index.js';
 createDebug.log = console.error.bind(console);
 const debug = createDebug('bb.js');
 
