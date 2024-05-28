@@ -7,6 +7,13 @@
 
 namespace bb::stdlib {
 
+/**
+ * @brief Curve bn254 in circuit setting
+ *
+ * @tparam CircuitBuilder The type of builder the curve is going to be used within
+ * @tparam isEmbeddingGrumpkin Whether we are embedding operations on Grumpkin inside a bn254 circuit which is the case
+ * for the ECCVM recursive verifier.
+ */
 template <typename CircuitBuilder, bool isEmbeddingGrumpkin = false> struct bn254 {
 
     static constexpr bb::CurveType type = bb::CurveType::BN254;
@@ -15,14 +22,6 @@ template <typename CircuitBuilder, bool isEmbeddingGrumpkin = false> struct bn25
     // with stdlib types, and "native" verification will be acheived via a simulated builder.
     static constexpr bool is_stdlib_type = true;
 
-    // Additional types with no analog in the native description of the curve
-    using Builder = CircuitBuilder;
-    using witness_ct = witness_t<CircuitBuilder>;
-    using public_witness_ct = public_witness_t<CircuitBuilder>;
-    using byte_array_ct = byte_array<CircuitBuilder>;
-    using bool_ct = bool_t<CircuitBuilder>;
-    using uint32_ct = stdlib::uint32<CircuitBuilder>;
-
     // Corresponding native types (used exclusively for testing)
     using ScalarFieldNative = curve::BN254::ScalarField;
     using BaseFieldNative = curve::BN254::BaseField;
@@ -30,9 +29,11 @@ template <typename CircuitBuilder, bool isEmbeddingGrumpkin = false> struct bn25
     using ElementNative = GroupNative::element;
     using AffineElementNative = GroupNative::affine_element;
 
+    using Builder = CircuitBuilder;
+
     // Stdlib types corresponding to those defined in the native description of the curve.
     // Note: its useful to have these type names match the native analog exactly so that components that digest a
-    // Curve (e.g. Gemini) can be agnostic as to whether they're operating on native or stdlib types.
+    // Curve (e.g. the PCS) can be agnostic as to whether they're operating on native or stdlib types.
     using ScalarField = std::conditional_t<isEmbeddingGrumpkin, bigfield<Builder, bb::Bn254FqParams>, field_t<Builder>>;
     using BaseField =
         std::conditional_t<isEmbeddingGrumpkin, field_t<Builder>, bigfield<CircuitBuilder, bb::Bn254FqParams>>;
@@ -40,8 +41,13 @@ template <typename CircuitBuilder, bool isEmbeddingGrumpkin = false> struct bn25
                                      cycle_group<Builder>,
                                      element<CircuitBuilder, BaseField, ScalarField, GroupNative>>;
     using AffineElement = Group;
-    // We dont need the projective form inside a circuit because
-    using Element = Group;
+
+    // Additional types with no analog in the native description of the curve
+    using witness_ct = witness_t<CircuitBuilder>;
+    using public_witness_ct = public_witness_t<CircuitBuilder>;
+    using byte_array_ct = byte_array<CircuitBuilder>;
+    using bool_ct = bool_t<CircuitBuilder>;
+    using uint32_ct = stdlib::uint32<CircuitBuilder>;
 
     using bigfr_ct = bigfield<CircuitBuilder, bb::Bn254FrParams>;
     using g1_bigfr_ct = element<CircuitBuilder, BaseField, bigfr_ct, GroupNative>;
