@@ -7,10 +7,8 @@ on:
       - 'barretenberg/**'
   workflow_dispatch:
     inputs: {}
-concurrency:
-  # don't run 
-  group: ci-${{ github.ref_name }}
-  cancel-in-progress: true
+# unlike most jobs, we have no concurrency limits - note that we should have spare capacity (of total 1000 concurrency)
+# to run a good number of these, but we should still be mindful that we don't queue, say, dozens of these.
 jobs:
   bb-msan-check:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'bb-msan-check')
