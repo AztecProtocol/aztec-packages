@@ -561,19 +561,11 @@ jobs:
         with:
           runner_type: 16core-tester-x86
           run: |
-            scripts/earthly-ci --no-output ./barretenberg/cpp/+bench-client-ivc --bench_mode=cache
-            scripts/earthly-ci --no-output ./barretenberg/cpp/+bench-ultra-honk --bench_mode=cache
-      # Use bench_mode=cache to read the pushed build above
-      - name: Client IVC Bench
-        working-directory: ./barretenberg/cpp/
-        timeout-minutes: 15
-        run: earthly-ci --no-output +bench-client-ivc --bench_mode=cache
+            scripts/earthly-ci --artifact ./barretenberg/cpp/+bench/bench.json --bench_mode=cache
 
-      - name: Ultrahonk Bench
-        working-directory: ./barretenberg/cpp/
-        timeout-minutes: 15
-        run: earthly-ci --artifact +bench/bench.json --bench_mode=cache
-
+      # TODO(AD): revisit this model as it's currently fiddly to get these artifacts off of the 'tester'
+      - name: Copy Bench.json
+        run: copy_from_tester /home/ubuntu/run-${{ env.RUN_ID }}/barretenberg/cpp/bench.json bench.json
       # Utilize github-action-benchmark to automatically update the plots at
       # https://aztecprotocol.github.io/aztec-packages/dev/bench/ with new benchmark data.
       # This also creates an alert if benchmarks exceed the threshold specified below.
@@ -625,7 +617,8 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
-          concurrency_key: boxes-x86-${{ matrix.box }}-${{ matrix.browser }}
+          # must be globally unique for build x runner
+          concurrency_key: boxes-${{ github.event.pull_request.user.login || github.actor }}-x86-${{ matrix.box }}-${{ matrix.browser }}
       - name: Box test
         working-directory: ./boxes
         timeout-minutes: 10
