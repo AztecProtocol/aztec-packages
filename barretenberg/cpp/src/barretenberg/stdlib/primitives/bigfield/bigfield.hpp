@@ -91,7 +91,7 @@ template <typename Builder, typename T> class bigfield {
      *
      * @param value
      */
-    bigfield(const bb::fq value)
+    bigfield(const native value)
         : bigfield(nullptr, uint256_t(value))
     {}
 
