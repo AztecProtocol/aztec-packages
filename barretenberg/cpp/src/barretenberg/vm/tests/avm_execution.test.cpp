@@ -5,6 +5,7 @@
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
 #include "barretenberg/vm/avm_trace/avm_opcode.hpp"
+#include "barretenberg/vm/avm_trace/aztec_constants.hpp"
 #include <cstdint>
 #include <memory>
 #include <sys/types.h>
@@ -883,6 +884,7 @@ TEST_F(AvmExecutionTests, sha256Opcode)
 
     validate_trace(std::move(trace));
 }
+
 // Positive test with POSEIDON2_PERM.
 TEST_F(AvmExecutionTests, poseidon2PermutationOpCode)
 {
