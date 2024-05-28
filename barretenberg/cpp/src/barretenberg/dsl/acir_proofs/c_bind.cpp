@@ -14,10 +14,11 @@
 #include <cstdint>
 #include <memory>
 
-WASM_EXPORT void acir_get_circuit_sizes(uint8_t const* acir_vec, uint32_t* exact, uint32_t* total, uint32_t* subgroup)
+WASM_EXPORT void acir_get_circuit_sizes(
+    uint8_t const* acir_vec, bool const* honk_recursion, uint32_t* exact, uint32_t* total, uint32_t* subgroup)
 {
     auto constraint_system =
-        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/false);
+        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), *honk_recursion);
     auto builder = acir_format::create_circuit(constraint_system, 1 << 19);
     *exact = htonl((uint32_t)builder.get_num_gates());
     *total = htonl((uint32_t)builder.get_total_circuit_size());
@@ -88,7 +89,8 @@ WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec, uin
     using ProgramStack = acir_format::AcirProgramStack;
     using Builder = MegaCircuitBuilder;
 
-    auto constraint_systems = acir_format::program_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
+    auto constraint_systems =
+        acir_format::program_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/false);
     auto witness_stack = acir_format::witness_buf_to_witness_stack(from_buffer<std::vector<uint8_t>>(witness_vec));
 
     ProgramStack program_stack{ constraint_systems, witness_stack };
