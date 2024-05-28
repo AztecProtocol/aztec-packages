@@ -1760,6 +1760,8 @@ export function mapCombineHintsToNoir(combineHints: CombineHints): CombineHintsN
   return {
     sorted_note_hashes: mapTuple(combineHints.sortedNoteHashes, mapNoteHashToNoir),
     sorted_note_hashes_indexes: mapTuple(combineHints.sortedNoteHashesIndexes, mapNumberToNoir),
+    sorted_unencrypted_logs_hashes: mapTuple(combineHints.sortedUnencryptedLogsHashes, mapLogHashToNoir),
+    sorted_unencrypted_logs_hashes_indexes: mapTuple(combineHints.sortedUnencryptedLogsHashesIndexes, mapNumberToNoir),
     sorted_public_data_update_requests: mapTuple(
       combineHints.sortedPublicDataUpdateRequests,
       mapPublicDataUpdateRequestToNoir,

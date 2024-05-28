@@ -7,7 +7,8 @@ use crate::{
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, COMBINED_ACCUMULATED_DATA_LENGTH
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, COMBINED_ACCUMULATED_DATA_LENGTH,
+    MAX_UNENCRYPTED_LOGS_PER_TX
 },
     utils::{arrays::{array_merge, assert_sorted_array}, reader::Reader},
     traits::{Empty, Serialize, Deserialize}
@@ -16,6 +17,8 @@ use crate::{
 struct CombineHints {
     sorted_note_hashes: [NoteHash; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
+    sorted_unencrypted_logs_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
+    sorted_unencrypted_logs_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX],
     sorted_public_data_update_requests: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     sorted_public_data_update_requests_indexes: [u64; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 }
@@ -82,12 +85,19 @@ impl CombinedAccumulatedData {
                 revertible.encrypted_logs_hashes
             )
         );
-        let unencrypted_logs_hash = compute_tx_logs_hash(
-            array_merge(
-                non_revertible.unencrypted_logs_hashes,
-                revertible.unencrypted_logs_hashes
-            )
+
+        let merged_unencrypted_logs_hashes = array_merge(
+            non_revertible.unencrypted_logs_hashes,
+            revertible.unencrypted_logs_hashes
         );
+        assert_sorted_array(
+            merged_unencrypted_logs_hashes,
+            combine_hints.sorted_unencrypted_logs_hashes,
+            combine_hints.sorted_unencrypted_logs_hashes_indexes,
+            asc_sort_by_counters
+        );
+        let unencrypted_logs_hash = compute_tx_logs_hash(combine_hints.sorted_unencrypted_logs_hashes);
+
         let note_encrypted_log_preimages_length = non_revertible.note_encrypted_logs_hashes.fold(0, |a, b: LogHash| a + b.length)
             + revertible.note_encrypted_logs_hashes.fold(0, |a, b: LogHash| a + b.length);
         let encrypted_log_preimages_length = non_revertible.encrypted_logs_hashes.fold(0, |a, b: LogHash| a + b.length)

@@ -143,6 +143,11 @@ export class PublicKernelCircuitPublicInputs {
       MAX_ENCRYPTED_LOGS_PER_TX,
     );
 
+    const [sortedUnencryptedLogsHashes, sortedUnencryptedLogsHashesIndexes] = sortByCounterGetSortedHints(
+      unencryptedLogHashes,
+      MAX_ENCRYPTED_LOGS_PER_TX,
+    );
+
     const unencryptedLogPreimagesLength = new Fr(arrayNonEmptyLength(unencryptedLogHashes, x => x.isEmpty()));
 
     const publicDataUpdateRequests = mergeAccumulatedData(
@@ -175,6 +180,8 @@ export class PublicKernelCircuitPublicInputs {
     const hints = CombineHints.from({
       sortedNoteHashes,
       sortedNoteHashesIndexes,
+      sortedUnencryptedLogsHashes,
+      sortedUnencryptedLogsHashesIndexes,
       sortedPublicDataUpdateRequests,
       sortedPublicDataUpdateRequestsIndexes,
     });

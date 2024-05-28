@@ -674,6 +674,8 @@ export function makeCombineHints(seed = 1): CombineHints {
   return CombineHints.from({
     sortedNoteHashes: makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, makeNoteHash, seed + 0x100),
     sortedNoteHashesIndexes: makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, i => i, seed + 0x200),
+    sortedUnencryptedLogsHashes: makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x300),
+    sortedUnencryptedLogsHashesIndexes: makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, i => i, seed + 0x400),
     sortedPublicDataUpdateRequests: makeTuple(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       makePublicDataUpdateRequest,

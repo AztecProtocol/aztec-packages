@@ -3,16 +3,12 @@ import {
   type GlobalVariables,
   type Header,
   type KernelCircuitPublicInputs,
-  type LogHash,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  type MAX_UNENCRYPTED_LOGS_PER_TX,
   type PublicKernelCircuitPublicInputs,
   PublicKernelTailCircuitPrivateInputs,
   mergeAccumulatedData,
-  sortByCounter,
 } from '@aztec/circuits.js';
-import { type Tuple } from '@aztec/foundation/serialize';
 import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
@@ -36,7 +32,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
 
   override async handle(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs) {
     this.log.verbose(`Processing tx ${tx.getTxHash()}`);
-    const [inputs, finalKernelOutput] = await this.runTailKernelCircuit(previousPublicKernelOutput).catch(
+    const [inputs, finalKernelOutput] = await this.simulate(previousPublicKernelOutput).catch(
       // the abstract phase manager throws if simulation gives error in non-revertible phase
       async err => {
         await this.publicStateDB.rollbackToCommit();
@@ -63,18 +59,6 @@ export class TailPhaseManager extends AbstractPhaseManager {
       returnValues: [],
       gasUsed: undefined,
     };
-  }
-
-  private async runTailKernelCircuit(
-    previousOutput: PublicKernelCircuitPublicInputs,
-  ): Promise<[PublicKernelTailCircuitPrivateInputs, KernelCircuitPublicInputs]> {
-    // Temporary hack. Should sort them in the tail circuit.
-    previousOutput.end.unencryptedLogsHashes = this.sortLogsHashes<typeof MAX_UNENCRYPTED_LOGS_PER_TX>(
-      previousOutput.end.unencryptedLogsHashes,
-    );
-    const [inputs, output] = await this.simulate(previousOutput);
-
-    return [inputs, output];
   }
 
   private async simulate(
@@ -136,9 +120,5 @@ export class TailPhaseManager extends AbstractPhaseManager {
       currentState.partial,
       hints,
     );
-  }
-
-  private sortLogsHashes<N extends number>(unencryptedLogsHashes: Tuple<LogHash, N>): Tuple<LogHash, N> {
-    return sortByCounter(unencryptedLogsHashes);
   }
 }

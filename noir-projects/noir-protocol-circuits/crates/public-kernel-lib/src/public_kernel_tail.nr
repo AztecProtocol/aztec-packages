@@ -106,7 +106,7 @@ mod tests {
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, public_kernel_data::PublicKernelData,
         nullifier::ScopedNullifier, nullifier_leaf_preimage::NullifierLeafPreimage,
         accumulated_data::{CombinedAccumulatedData, CombineHints},
-        public_data_update_request::PublicDataUpdateRequest, note_hash::NoteHash
+        public_data_update_request::PublicDataUpdateRequest, note_hash::NoteHash, log_hash::LogHash
     },
         address::AztecAddress,
         constants::{
@@ -311,6 +311,14 @@ mod tests {
             let sorted_note_hashes_indexes = sorted.sorted_index_hints;
 
             let merged = array_merge(
+                previous_kernel.public_inputs.end_non_revertible.unencrypted_logs_hashes,
+                previous_kernel.public_inputs.end.unencrypted_logs_hashes
+            );
+            let sorted = sort_get_sorted_hints(merged, |a: LogHash, b: LogHash| a.counter() < b.counter());
+            let sorted_unencrypted_logs_hashes = sorted.sorted_array;
+            let sorted_unencrypted_logs_hashes_indexes = sorted.sorted_index_hints;
+
+            let merged = array_merge(
                 previous_kernel.public_inputs.end_non_revertible.public_data_update_requests,
                 previous_kernel.public_inputs.end.public_data_update_requests
             );
@@ -324,6 +332,8 @@ mod tests {
             let combine_hints = CombineHints {
                 sorted_note_hashes,
                 sorted_note_hashes_indexes,
+                sorted_unencrypted_logs_hashes,
+                sorted_unencrypted_logs_hashes_indexes,
                 sorted_public_data_update_requests,
                 sorted_public_data_update_requests_indexes
             };
