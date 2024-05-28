@@ -1,23 +1,26 @@
-import { type Tx } from '@aztec/circuit-types';
+import { type PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
 
 /**
  * Looks at the side effects of a transaction and returns the highest counter
  * @param tx - A transaction
  * @returns The highest side effect counter in the transaction so far
  */
-export function lastSideEffectCounter(tx: Tx): number {
-  const data = tx.data.forPublic!;
+export function lastSideEffectCounter(inputs: PublicKernelCircuitPublicInputs): number {
   const sideEffectCounters = [
-    ...data.endNonRevertibleData.newNoteHashes,
-    ...data.endNonRevertibleData.newNullifiers,
-    ...data.endNonRevertibleData.unencryptedLogsHashes,
-    ...data.endNonRevertibleData.publicCallStack,
-    ...data.endNonRevertibleData.publicDataUpdateRequests,
-    ...data.end.newNoteHashes,
-    ...data.end.newNullifiers,
-    ...data.end.unencryptedLogsHashes,
-    ...data.end.publicCallStack,
-    ...data.end.publicDataUpdateRequests,
+    ...inputs.endNonRevertibleData.newNoteHashes,
+    ...inputs.endNonRevertibleData.newNullifiers,
+    ...inputs.endNonRevertibleData.noteEncryptedLogsHashes,
+    ...inputs.endNonRevertibleData.encryptedLogsHashes,
+    ...inputs.endNonRevertibleData.unencryptedLogsHashes,
+    ...inputs.endNonRevertibleData.publicCallStack,
+    ...inputs.endNonRevertibleData.publicDataUpdateRequests,
+    ...inputs.end.newNoteHashes,
+    ...inputs.end.newNullifiers,
+    ...inputs.end.noteEncryptedLogsHashes,
+    ...inputs.end.encryptedLogsHashes,
+    ...inputs.end.unencryptedLogsHashes,
+    ...inputs.end.publicCallStack,
+    ...inputs.end.publicDataUpdateRequests,
   ];
 
   let max = 0;

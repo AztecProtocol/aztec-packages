@@ -52,7 +52,7 @@ import {
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
-import { arrayNonEmptyLength, padArrayEnd, removeArrayPaddingEnd } from '@aztec/foundation/collection';
+import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
 import {
@@ -64,8 +64,6 @@ import {
   isPublicExecutionResult,
 } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
-
-import { inspect } from 'util';
 
 import { HintsBuilder } from './hints_builder.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
@@ -228,7 +226,7 @@ export abstract class AbstractPhaseManager {
       Gas,
     ]
   > {
-    let kernelOutput = previousPublicKernelOutput;
+    let kernelOutput: PublicKernelCircuitPublicInputs = previousPublicKernelOutput;
     const publicKernelInputs: PublicKernelCircuitPrivateInputs[] = [];
 
     const enqueuedCalls = this.extractEnqueuedPublicCalls(tx);
@@ -259,8 +257,7 @@ export abstract class AbstractPhaseManager {
       while (executionStack.length) {
         const current = executionStack.pop()!;
         const isExecutionRequest = !isPublicExecutionResult(current);
-        // TODO(6052): Extract correct new counter from nested calls
-        const sideEffectCounter = lastSideEffectCounter(tx) + 1;
+        const sideEffectCounter = lastSideEffectCounter(kernelOutput) + 1;
         const availableGas = this.getAvailableGas(tx, kernelOutput);
         const pendingNullifiers = this.getSiloedPendingNullifiers(kernelOutput);
 
@@ -343,7 +340,6 @@ export abstract class AbstractPhaseManager {
       // HACK(#1622): Manually patches the ordering of public state actions
       // TODO(#757): Enforce proper ordering of public state actions
       this.patchPublicStorageActionOrdering(kernelOutput, enqueuedExecutionResult!);
-      this.debug(kernelOutput);
     }
 
     return [publicKernelInputs, kernelOutput, newUnencryptedFunctionLogs, undefined, enqueuedCallResults, gasUsed];
@@ -535,11 +531,6 @@ export abstract class AbstractPhaseManager {
       PublicDataRead.empty(),
       MAX_PUBLIC_DATA_READS_PER_TX,
     );
-  }
-
-  private debug(publicInputs: PublicKernelCircuitPublicInputs) {
-    this.log.debug('CUSTOM DEBUG');
-    this.log.debug(inspect(removeArrayPaddingEnd(publicInputs.end.publicDataUpdateRequests, x => x.isEmpty())));
   }
 }
 
