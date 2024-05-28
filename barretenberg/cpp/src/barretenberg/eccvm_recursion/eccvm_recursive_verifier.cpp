@@ -18,7 +18,11 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1007): Finish this
 template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
+<<<<<<< HEAD
     using ZeroMorph = ZeroMorphVerifier_<PCS>;
+=======
+
+>>>>>>> origin
     RelationParameters<FF> relation_parameters;
 
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
@@ -65,6 +69,7 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
+    // removed return bool
     ZeroMorph::verify(commitments.get_unshifted(),
                       commitments.get_to_be_shifted(),
                       claimed_evaluations.get_unshifted(),
