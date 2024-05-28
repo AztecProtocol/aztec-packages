@@ -13,7 +13,7 @@ namespace {
 
 class GoblinBench : public benchmark::Fixture {
   public:
-    GoblinProver::AccumulationOutput kernel_accum;
+    GoblinAccumulationOutput kernel_accum;
 
     // Number of function circuits to accumulate(based on Zacs target numbers)
     static constexpr size_t NUM_ITERATIONS_MEDIUM_COMPLEXITY = 6;

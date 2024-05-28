@@ -43,7 +43,7 @@ TEST_F(GoblinTests, SingleCircuit)
     goblin.merge(circuit);
 
     // Construct a goblin proof which consists of a merge proof and ECCVM/Translator proofs
-    GoblinProver::Proof proof = goblin.prove();
+    GoblinProof proof = goblin.prove();
 
     // Verify the goblin proof (eccvm, translator, merge); (Construct ECCVM/Translator verification keys from their
     // respective proving keys)
@@ -71,7 +71,7 @@ TEST_F(GoblinTests, MultipleCircuits)
     }
 
     // Construct a goblin proof which consists of a merge proof and ECCVM/Translator proofs
-    GoblinProver::Proof proof = goblin.prove();
+    GoblinProof proof = goblin.prove();
 
     // Verify the goblin proof (eccvm, translator, merge); (Construct ECCVM/Translator verification keys from their
     // respective proving keys)

@@ -5,6 +5,7 @@
 #include "barretenberg/eccvm/eccvm_trace_checker.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/goblin/types.hpp"
 #include "barretenberg/plonk_honk_shared/instance_inspector.hpp"
 #include "barretenberg/stdlib/honk_recursion/verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -45,42 +46,11 @@ class GoblinProver {
      * @brief Output of goblin::accumulate; an Ultra proof and the corresponding verification key
      *
      */
-    struct AccumulationOutput {
-        HonkProof proof;
-        std::shared_ptr<MegaFlavor::VerificationKey> verification_key;
-    };
-
-    struct Proof {
-        HonkProof merge_proof;
-        HonkProof eccvm_proof;
-        HonkProof translator_proof;
-        TranslationEvaluations translation_evaluations;
-
-        size_t size() const
-        {
-            return merge_proof.size() + eccvm_proof.size() + translator_proof.size() + TranslationEvaluations::size();
-        };
-
-        std::vector<Fr> to_buffer() const
-        {
-            // ACIRHACK: so much copying and duplication added here and elsewhere
-            std::vector<Fr> result;
-            result.reserve(size());
-            const auto insert = [&result](const std::vector<Fr>& buf) {
-                result.insert(result.end(), buf.begin(), buf.end());
-            };
-            insert(merge_proof);
-            insert(eccvm_proof);
-            insert(translator_proof);
-            insert(translation_evaluations.to_buffer());
-            return result;
-        }
-    };
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
 
     HonkProof merge_proof;
-    Proof goblin_proof;
+    GoblinProof goblin_proof;
 
     // on the first call to accumulate there is no merge proof to verify
     bool merge_proof_exists{ false };
@@ -95,7 +65,7 @@ class GoblinProver {
     std::unique_ptr<TranslatorProver> translator_prover;
     std::unique_ptr<ECCVMProver> eccvm_prover;
 
-    AccumulationOutput accumulator; // Used only for ACIR methods for now
+    GoblinAccumulationOutput accumulator; // Used only for ACIR methods for now
 
   public:
     GoblinProver()
@@ -110,7 +80,7 @@ class GoblinProver {
      *
      * @param circuit_builder
      */
-    AccumulationOutput accumulate(MegaCircuitBuilder& circuit_builder)
+    GoblinAccumulationOutput accumulate(MegaCircuitBuilder& circuit_builder)
     {
         // Complete the circuit logic by recursively verifying previous merge proof if it exists
         if (merge_proof_exists) {
@@ -201,7 +171,7 @@ class GoblinProver {
      *
      * @return Proof
      */
-    Proof prove()
+    GoblinProof prove()
     {
         goblin_proof.merge_proof = std::move(merge_proof);
         prove_eccvm();
@@ -234,7 +204,7 @@ class GoblinVerifier {
      * @return true
      * @return false
      */
-    bool verify(const GoblinProver::Proof& proof)
+    bool verify(const GoblinProof& proof)
     {
         MergeVerifier merge_verifier;
         bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);

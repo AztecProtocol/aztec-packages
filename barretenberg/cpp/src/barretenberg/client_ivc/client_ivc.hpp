@@ -44,7 +44,7 @@ class ClientIVC {
     struct Proof {
         FoldProof folding_proof; // final fold proof
         HonkProof decider_proof;
-        GoblinProver::Proof goblin_proof;
+        GoblinProof goblin_proof;
 
         std::vector<FF> to_buffer() const
         {

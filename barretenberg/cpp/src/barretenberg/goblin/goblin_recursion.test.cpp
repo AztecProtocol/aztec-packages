@@ -17,13 +17,13 @@ class GoblinRecursionTests : public ::testing::Test {
 
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
-    using KernelInput = GoblinProver::AccumulationOutput;
+    using KernelInput = GoblinAccumulationOutput;
     using ProverInstance = ProverInstance_<MegaFlavor>;
     using VerifierInstance = VerifierInstance_<MegaFlavor>;
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
 
-    static GoblinProver::AccumulationOutput construct_accumulator(MegaCircuitBuilder& builder)
+    static GoblinAccumulationOutput construct_accumulator(MegaCircuitBuilder& builder)
     {
         auto prover_instance = std::make_shared<ProverInstance>(builder);
         auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover_instance->proving_key);
@@ -42,7 +42,7 @@ TEST_F(GoblinRecursionTests, Vanilla)
 {
     GoblinProver goblin;
 
-    GoblinProver::AccumulationOutput kernel_accum;
+    GoblinAccumulationOutput kernel_accum;
 
     size_t NUM_CIRCUITS = 2;
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
@@ -64,7 +64,7 @@ TEST_F(GoblinRecursionTests, Vanilla)
         kernel_accum = construct_accumulator(kernel_circuit);
     }
 
-    GoblinProver::Proof proof = goblin.prove();
+    GoblinProof proof = goblin.prove();
     // Verify the final ultra proof
     MegaVerifier ultra_verifier{ kernel_accum.verification_key };
     bool ultra_verified = ultra_verifier.verify_proof(kernel_accum.proof);

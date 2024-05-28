@@ -39,7 +39,7 @@ TEST_F(MegaMockCircuitsPinning, RecursionKernelSizes)
     const auto run_test = [](bool large) {
         {
             GoblinProver goblin;
-            GoblinProver::AccumulationOutput kernel_accum;
+            GoblinAccumulationOutput kernel_accum;
             MegaCircuitBuilder app_circuit{ goblin.op_queue };
             GoblinMockCircuits::construct_mock_function_circuit(app_circuit, large);
             auto function_accum = goblin.accumulate(app_circuit);
