@@ -20,7 +20,10 @@ use crate::{
     node_interner::StructId,
 };
 
-use super::expr::{HirCallExpression, HirExpression, HirIdent};
+use super::{
+    expr::{HirBlockExpression, HirCallExpression, HirExpression, HirIdent},
+    stmt::HirStatement,
+};
 
 #[derive(PartialEq, Eq, Clone, Hash)]
 pub enum Type {
@@ -1799,7 +1802,7 @@ fn convert_array_expression_to_slice(
     let func = interner.push_expr(as_slice);
 
     // Copy the expression and give it a new ExprId. The old one
-    // will be mutated in place into a Call expression.
+    // will be mutated in place into a Block with a statement pointing to a Call expression.
     let argument = interner.expression(&expression);
     let argument = interner.push_expr(argument);
     interner.push_expr_type(argument, array_type.clone());
@@ -1807,7 +1810,14 @@ fn convert_array_expression_to_slice(
 
     let arguments = vec![argument];
     let call = HirExpression::Call(HirCallExpression { func, arguments, location });
-    interner.replace_expr(&expression, call);
+    let call_id = interner.push_expr(call);
+    interner.push_expr_location(call_id, location.span, location.file);
+    interner.push_expr_type(call_id, target_type.clone());
+    let call_stmt_id = interner.push_stmt(HirStatement::Expression(call_id));
+    interner.replace_expr(
+        &expression,
+        HirExpression::Block(HirBlockExpression { statements: vec![call_stmt_id] }),
+    );
 
     interner.push_expr_location(func, location.span, location.file);
     interner.push_expr_type(expression, target_type.clone());
@@ -1835,7 +1845,7 @@ fn wrap_unconstrained_return(
     let func = interner.push_expr(new_unconstrained_wrapper);
 
     // Copy the expression and give it a new ExprId. The old one
-    // will be mutated in place into a Call expression.
+    // will be mutated in place into a Block with a statement pointing to a Call expression.
     let argument = interner.expression(&expression);
     println!("wtf is this {:?}", argument);
     let argument = interner.push_expr(argument);
@@ -1844,7 +1854,14 @@ fn wrap_unconstrained_return(
 
     let arguments = vec![argument];
     let call = HirExpression::Call(HirCallExpression { func, arguments, location });
-    interner.replace_expr(&expression, call);
+    let call_id = interner.push_expr(call);
+    interner.push_expr_location(call_id, location.span, location.file);
+    interner.push_expr_type(call_id, unconstrained_wrapper_type.clone());
+    let call_stmt_id = interner.push_stmt(HirStatement::Expression(call_id));
+    interner.replace_expr(
+        &expression,
+        HirExpression::Block(HirBlockExpression { statements: vec![call_stmt_id] }),
+    );
 
     interner.push_expr_location(func, location.span, location.file);
     interner.push_expr_type(expression, unconstrained_wrapper_type.clone());

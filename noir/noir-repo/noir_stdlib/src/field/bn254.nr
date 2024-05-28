@@ -73,7 +73,7 @@ fn assert_gt_limbs(a: (Field, Field), b: (Field, Field)) {
 
             rlo.assert_max_bit_size(128);
             rhi.assert_max_bit_size(128);
-    }
+        }
     )
 }
 
@@ -85,17 +85,17 @@ pub fn decompose(x: Field) -> (Field, Field) {
         // Take hints of the decomposition
         decompose_hint(x).make_constrained(
             | (xlo, xhi): (Field, Field) | {
-            // Range check the limbs
-            xlo.assert_max_bit_size(128);
-            xhi.assert_max_bit_size(128);
+                // Range check the limbs
+                xlo.assert_max_bit_size(128);
+                xhi.assert_max_bit_size(128);
 
-            // Check that the decomposition is correct
-            assert_eq(x, xlo + TWO_POW_128 * xhi);
+                // Check that the decomposition is correct
+                assert_eq(x, xlo + TWO_POW_128 * xhi);
 
-            // Assert that the decomposition of P is greater than the decomposition of x
-            assert_gt_limbs((PLO, PHI), (xlo, xhi));
-            (xlo, xhi)
-        }
+                // Assert that the decomposition of P is greater than the decomposition of x
+                assert_gt_limbs((PLO, PHI), (xlo, xhi));
+                (xlo, xhi)
+            }
         )
     }
 }
@@ -126,14 +126,14 @@ pub fn gt(a: Field, b: Field) -> bool {
         // Take a hint of the comparison and verify it
         lt_32_hint(a, b).make_constrained(
             | lt | {
-            if lt {
-                assert_gt(b, a);
-                false
-            } else {
-                assert_gt(a, b);
-                true
+                if lt {
+                    assert_gt(b, a);
+                    false
+                } else {
+                    assert_gt(a, b);
+                    true
+                }
             }
-        }
         )
     }
 }
