@@ -16,7 +16,7 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
  * @brief This function verifies an ECCVM Honk proof for given program settings up to sumcheck.
  */
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1007): Finish this
-template <typename Flavor> bool ECCVMRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
+template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
 
     RelationParameters<FF> relation_parameters;
@@ -51,6 +51,9 @@ template <typename Flavor> bool ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1009): probably the size of this should be fixed to the
+    // maximum possible size of an ECCVM circuit otherwise we might run into problem because the number of rounds of
+    // sumcheck is dependent on circuit size.
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript, FF(0));
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
@@ -61,8 +64,6 @@ template <typename Flavor> bool ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
 
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
-
-    return sumcheck_verified.value();
 }
 
 template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;

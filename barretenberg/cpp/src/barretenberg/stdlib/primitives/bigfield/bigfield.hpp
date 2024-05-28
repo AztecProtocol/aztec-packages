@@ -77,12 +77,12 @@ template <typename Builder, typename T> class bigfield {
 
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
     bigfield(const unsigned long value)
-        : bigfield(nullptr, uint256_t(native(value)))
+        : bigfield(nullptr, value)
     {}
 
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
     bigfield(const unsigned long long value)
-        : bigfield(nullptr, uint256_t(native(value)))
+        : bigfield(nullptr, value)
     {}
 
     /**

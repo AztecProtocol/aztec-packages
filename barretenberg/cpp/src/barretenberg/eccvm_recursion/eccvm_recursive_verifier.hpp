@@ -19,7 +19,8 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
     explicit ECCVMRecursiveVerifier_(Builder* builder,
                                      const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
 
-    bool verify_proof(const HonkProof& proof); // return type?!
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/991): switch recursive verifiers to StdlibProof
+    void verify_proof(const HonkProof& proof);
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
