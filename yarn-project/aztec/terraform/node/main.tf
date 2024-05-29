@@ -375,17 +375,17 @@ resource "aws_ecs_service" "aztec-node" {
   }
 
 
-  load_balancer {
-    target_group_arn = aws_lb_target_group.aztec-node-tcp[count.index].arn
-    container_name   = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
-    container_port   = var.NODE_P2P_TCP_PORT + count.index
-  }
+  # load_balancer {
+  #   target_group_arn = aws_lb_target_group.aztec-node-tcp[count.index].arn
+  #   container_name   = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
+  #   container_port   = var.NODE_P2P_TCP_PORT + count.index
+  # }
 
-  load_balancer {
-    target_group_arn = aws_lb_target_group.aztec-node-udp[count.index].arn
-    container_name   = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
-    container_port   = var.NODE_P2P_UDP_PORT + count.index
-  }
+  # load_balancer {
+  #   target_group_arn = aws_lb_target_group.aztec-node-udp[count.index].arn
+  #   container_name   = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
+  #   container_port   = var.NODE_P2P_UDP_PORT + count.index
+  # }
 
   service_registries {
     registry_arn   = aws_service_discovery_service.aztec-node[count.index].arn
