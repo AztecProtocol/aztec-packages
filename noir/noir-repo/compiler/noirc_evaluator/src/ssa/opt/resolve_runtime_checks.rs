@@ -60,27 +60,31 @@ fn replace_is_unconstrained_result(func: &mut Function) {
 }
 
 fn assert_unconstrained_calls(func: &mut Function) -> Result<(), RuntimeError> {
-    let mut assert_unconstrained_calls = HashSet::default();
-    // Collect all calls to is_unconstrained and assert_unconstrained
+    let is_within_unconstrained = matches!(func.runtime(), RuntimeType::Brillig);
     for block_id in func.reachable_blocks() {
-        for &instruction_id in func.dfg[block_id].instructions() {
+        let instructions = func.dfg[block_id].take_instructions();
+        let mut filtered_instructions = Vec::with_capacity(instructions.len());
+
+        for instruction_id in instructions {
             let target_func = match &func.dfg[instruction_id] {
                 Instruction::Call { func, .. } => *func,
-                _ => continue,
+                _ => {
+                    filtered_instructions.push(instruction_id);
+                    continue;
+                }
             };
             if let Value::Intrinsic(Intrinsic::AssertUnconstrained) = &func.dfg[target_func] {
-                assert_unconstrained_calls.insert(instruction_id);
+                if !is_within_unconstrained {
+                    return Err(RuntimeError::OnlyWithinUnconstrained {
+                        call_stack: func.dfg.get_call_stack(instruction_id),
+                    });
+                }
+            } else {
+                filtered_instructions.push(instruction_id);
             }
         }
-    }
 
-    for instruction_id in assert_unconstrained_calls {
-        let is_within_unconstrained = matches!(func.runtime(), RuntimeType::Brillig);
-
-        if !is_within_unconstrained {
-            let call_stack = func.dfg.get_call_stack(instruction_id);
-            return Err(RuntimeError::OnlyWithinUnconstrained { call_stack });
-        }
+        *func.dfg[block_id].instructions_mut() = filtered_instructions;
     }
     Ok(())
 }
