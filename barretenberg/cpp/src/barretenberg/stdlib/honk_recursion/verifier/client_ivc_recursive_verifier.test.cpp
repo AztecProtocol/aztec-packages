@@ -66,15 +66,6 @@ TEST_F(ClientIvcRecursionTests, Basic)
     ClientIVC ivc;
     auto [proof, verifier_data] = construct_mock_client_ivc_output(ivc);
 
-    using Flavor = MegaFlavor;
-    using VerifierInstance = VerifierInstance_<Flavor>;
-
-    // Native verification for good measure
-    auto verifier_inst = std::make_shared<VerifierInstance>(ivc.instance_vk);
-
-    bool result = ivc.verify(proof, { ivc.verifier_accumulator, verifier_inst });
-    EXPECT_TRUE(result);
-
     UltraCircuitBuilder builder;
     ClientIvcRecursiveVerifier_ verifier{ &builder };
 

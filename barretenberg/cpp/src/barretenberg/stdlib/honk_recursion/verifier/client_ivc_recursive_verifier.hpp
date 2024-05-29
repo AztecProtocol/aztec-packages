@@ -28,6 +28,6 @@ class ClientIvcRecursiveVerifier_ {
     ClientIvcRecursiveVerifier_(Builder* builder)
         : builder(builder){};
 
-    void verify(const ClientIVC::Proof&, const VerifierData&);
+    void verify(const ClientIVC::Proof&, VerifierData&);
 };
 } // namespace bb::stdlib::recursion::honk
