@@ -21,20 +21,22 @@ contract PendingNoteHashes {
     // getting / reading that note all in the same contract function
     // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
     #[aztec(private)]
-    fn test_insert_then_get_then_nullify_flat(amount: Field, owner: AztecAddress) -> Field {
+    fn test_insert_then_get_then_nullify_flat(
+        amount: Field,
+        owner: AztecAddress,
+        outgoing_viewer: AztecAddress
+    ) -> Field {
         let owner_balance = storage.balances.at(owner);
 
         let header = context.get_header();
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
-        // Using owner's ovpk_m here instead of msg_sender's because this function is only used in tests and it makes
-        // test setups easier (no need to register keys for msg_sender or send from owner).
-        let owner_ovpk_m = header.get_ovpk_m(&mut context, owner);
+        let outgoing_viewer_ovpk_m = header.get_ovpk_m(&mut context, outgoing_viewer);
         let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
 
         let mut note = ValueNote::new(amount, owner_npk_m_hash);
 
         // Insert note
-        owner_balance.insert(&mut note, true, owner_ovpk_m, owner_ivpk_m);
+        owner_balance.insert(&mut note, true, outgoing_viewer_ovpk_m, owner_ivpk_m);
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note inserted above
@@ -79,20 +81,18 @@ contract PendingNoteHashes {
 
     // Nested/inner function to create and insert a note
     #[aztec(private)]
-    fn insert_note(amount: Field, owner: AztecAddress) {
+    fn insert_note(amount: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
 
         let header = context.get_header();
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
-        // Using owner's ovpk_m here instead of msg_sender's because this function is called from
-        // this.test_insert_then_get_then_nullify_all_in_nested_calls and this contract doesn't have keys registered.
-        let owner_ovpk_m = header.get_ovpk_m(&mut context, owner);
+        let outgoing_viewer_ovpk_m = header.get_ovpk_m(&mut context, outgoing_viewer);
         let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
 
         let mut note = ValueNote::new(amount, owner_npk_m_hash);
 
         // Insert note
-        owner_balance.insert(&mut note, true, owner_ovpk_m, owner_ivpk_m);
+        owner_balance.insert(&mut note, true, outgoing_viewer_ovpk_m, owner_ivpk_m);
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value

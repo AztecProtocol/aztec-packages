@@ -961,7 +961,8 @@ describe('Private Execution test suite', () => {
       const contractAddress = AztecAddress.random();
       const artifact = getFunctionArtifact(PendingNoteHashesContractArtifact, 'test_insert_then_get_then_nullify_flat');
 
-      const args = [amountToTransfer, owner];
+      const outgoingViewer = owner;
+      const args = [amountToTransfer, owner, outgoingViewer];
       const result = await runSimulator({
         args: args,
         artifact: artifact,

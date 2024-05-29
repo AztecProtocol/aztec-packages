@@ -30,11 +30,16 @@ contract EasyPrivateToken {
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
     #[aztec(private)]
-    fn transfer(amount: u64, sender: AztecAddress, recipient: AztecAddress) {
+    fn transfer(
+        amount: u64,
+        sender: AztecAddress,
+        recipient: AztecAddress,
+        outgoing_viewer: AztecAddress
+    ) {
         let balances = storage.balances;
 
-        balances.at(sender).sub(amount, sender, sender);
-        balances.at(recipient).add(amount, recipient, sender);
+        balances.at(sender).sub(amount, sender, outgoing_viewer);
+        balances.at(recipient).add(amount, recipient, outgoing_viewer);
     }
 
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).

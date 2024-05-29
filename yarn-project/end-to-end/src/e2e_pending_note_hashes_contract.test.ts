@@ -83,7 +83,8 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     const deployedContract = await deployContract();
 
-    await deployedContract.methods.test_insert_then_get_then_nullify_flat(mintAmount, owner).send().wait();
+    const outgoingViewer = owner;
+    await deployedContract.methods.test_insert_then_get_then_nullify_flat(mintAmount, owner, outgoingViewer).send().wait();
   });
 
   it('Squash! Aztec.nr function can "create" and "nullify" note in the same TX', async () => {
@@ -167,7 +168,8 @@ describe('e2e_pending_note_hashes_contract', () => {
     const deployedContract = await deployContract();
 
     // create persistent note
-    await deployedContract.methods.insert_note(mintAmount, owner).send().wait();
+    const outgoingViewer = owner;
+    await deployedContract.methods.insert_note(mintAmount, owner, outgoingViewer).send().wait();
 
     await expectNoteHashesSquashedExcept(1); // first TX just creates 1 persistent note
     await expectNullifiersSquashedExcept(0);
@@ -204,7 +206,8 @@ describe('e2e_pending_note_hashes_contract', () => {
     const mintAmount = 65n;
 
     const deployedContract = await deployContract();
-    await deployedContract.methods.insert_note(mintAmount, owner).send().wait();
+    const outgoingViewer = owner;
+    await deployedContract.methods.insert_note(mintAmount, owner, outgoingViewer).send().wait();
 
     // There is a single new note hash.
     await expectNoteHashesSquashedExcept(1);
