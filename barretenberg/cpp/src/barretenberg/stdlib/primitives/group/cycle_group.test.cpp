@@ -3,6 +3,7 @@
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
@@ -16,7 +17,8 @@
     using AffineElement = typename Curve::AffineElement;                                                               \
     using Group = typename Curve::Group;                                                                               \
     using bool_ct = stdlib::bool_t<Builder>;                                                                           \
-    using witness_ct = stdlib::witness_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;                                                                     \
+    using cycle_scalar_ct = cycle_group_ct::cycle_scalar;
 
 using namespace bb;
 
@@ -619,5 +621,32 @@ TYPED_TEST(CycleGroupTest, TestMul)
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
+}
+
+TYPED_TEST(CycleGroupTest, TestOne)
+{
+    STDLIB_TYPE_ALIASES
+    auto builder = Builder();
+    cycle_group_ct one = cycle_group_ct::one(&builder);
+    auto expected_one_native = Group::one;
+    auto one_native = one.get_value();
+    EXPECT_EQ(one_native.x, expected_one_native.x);
+    EXPECT_EQ(one_native.y, expected_one_native.y);
+}
+
+/**
+ * @brief Ensures naive conversion from a bigfield representation of bb::fq (Grumpkin::ScalarField) to cycle_scalar
+ * preserves the same value until we implement a smarter function.
+ *
+ */
+TYPED_TEST(CycleGroupTest, TestBigfieldFqCycleScalarConversion)
+{
+    STDLIB_TYPE_ALIASES
+    using bigfield_t = stdlib::bigfield<Builder, bb::Bn254FqParams>;
+    auto native_element = Curve::ScalarField::random_element(&engine);
+    auto big_fq = bigfield_t(native_element);
+    auto val = bb::fq((big_fq.get_value() % uint512_t(bb::fq::modulus)).lo);
+    auto cycle_fq = cycle_scalar_ct(val);
+    EXPECT_EQ(native_element, cycle_fq.get_value());
 }
 #pragma GCC diagnostic pop

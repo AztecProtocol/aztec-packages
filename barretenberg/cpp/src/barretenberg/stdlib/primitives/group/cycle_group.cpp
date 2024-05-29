@@ -82,6 +82,13 @@ cycle_group<Builder>::cycle_group(const AffineElement& _in)
     , context(nullptr)
 {}
 
+template <typename Builder> cycle_group<Builder> cycle_group<Builder>::one(Builder* _context)
+{
+    field_t x(_context, Group::one.x);
+    field_t y(_context, Group::one.y);
+    return cycle_group<Builder>(x, y, false);
+}
+
 /**
  * @brief Converts an AffineElement into a circuit witness.
  *

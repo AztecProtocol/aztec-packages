@@ -541,12 +541,8 @@ template <typename PCS> class ZeroMorphVerifier_ {
         auto phi_n_x = phi_numerator / (x_challenge - 1);
 
         // Add contribution: -v * x * \Phi_n(x) * [1]_1
-        if constexpr (Curve::is_stdlib_type) {
-            auto builder = x_challenge.get_context();
-            scalars.emplace_back(FF(builder, -1) * batched_evaluation * x_challenge * phi_n_x);
-        } else {
-            scalars.emplace_back(FF(-1) * batched_evaluation * x_challenge * phi_n_x);
-        }
+        scalars.emplace_back(FF(-1) * batched_evaluation * x_challenge * phi_n_x);
+
         commitments.emplace_back(first_g1);
 
         // Add contribution: x * \sum_{i=0}^{m-1} \rho^i*[f_i]
@@ -707,11 +703,11 @@ template <typename PCS> class ZeroMorphVerifier_ {
         FF evaluation;
         if constexpr (Curve::is_stdlib_type) {
             // Express operation as a batch_mul in order to use Goblinization if available
-            auto builder = z_challenge.get_context();
-            std::vector<FF> scalars = { FF(builder, 1), z_challenge };
+            // auto builder = z_challenge.get_context();
+            std::vector<FF> scalars = { FF(1), z_challenge };
             std::vector<Commitment> points = { C_zeta_x, C_Z_x };
             C_zeta_Z = Commitment::batch_mul(points, scalars);
-            evaluation = FF(builder, 0);
+            evaluation = FF(0);
         } else {
             C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
             evaluation = FF(0);
@@ -763,8 +759,8 @@ template <typename PCS> class ZeroMorphVerifier_ {
      * @brief Verify a set of multilinear evaluation claims for unshifted polynomials f_i and to-be-shifted
      * polynomials g_i.
      *
-     * @details Identical purpose as the function above but used when the verification of the PCS evaluation protocol
-     * requires the verification key prior to the last step that is accumulated.
+     * @details Identical purpose as the function above but used when the verification of the PCS evaluation
+     * protocol requires the verification key prior to the last step that is accumulated.
      *
      * @param commitments Commitments to polynomials f_i and g_i (unshifted and to-be-shifted)
      * @param claimed_evaluations Claimed evaluations v_i = f_i(u) and w_i = h_i(u) = g_i_shifted(u)
