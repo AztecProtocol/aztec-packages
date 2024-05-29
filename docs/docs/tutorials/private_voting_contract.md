@@ -1,0 +1,351 @@
+---
+title: Private Voting Tutorial
+---
+
+Aztec is the most powerful blockchain since Ethereum was born. While several projects provide privacy at the protocol level, Aztec leverages extremely complex cryptography for client-side privacy, while keeping the network fully transparent.
+
+But not everything that is complex must be difficult. In this tutorial, you will build a simple project and learn about private and public functions and their composability, state management, and other core principles of Aztec. 
+
+For simplicity's sake, the tally will be public, there won't be delegate voting, there will be an admin, and etc. But at the end of the tutorial, it will be clear to you that these requirements are easily met with Aztec.
+
+## Getting started
+
+Follow the [quickstart guide](../getting_started.md) to install the sandbox locally.
+
+You can also click on this badge and start a codespace - a free remote server that comes with a running sandbox and everything else you may need:
+
+[![One-Click React Starter](/img/codespaces_badges/sandbox_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Fsandbox_only%2Fdevcontainer.json)
+
+### Setting up a project
+
+Start a new project by using the very same `npx` command that powers the codespace:
+
+<span id="new_project">
+
+```bash
+yes | npx aztec-app init
+```
+
+</span>
+
+:::tip
+
+🦆 Did you know this little hack? Just prepend `yes |` to pipe a "yes" into your next command 🦆
+
+:::
+
+
+### Compile 😈
+
+Once upon a time, we could compile and deploy on the CLI. It will come back one day, but for the time being we submitted to the Typescript cult. This is where Aztec.JS comes in: a simple library to interact with your contract. 
+
+![Aztec team submitting to Typescript](@site/static/img/tutorials/private_voting/submit_to_typescript.jpeg)
+
+Ok ok let's compile this little guy. While we're here, we can also use the handy `aztec-builder` package to generate some TS bindings.
+
+<span id="compile_and_gen">
+
+```bash
+aztec-nargo compile
+aztec-builder codegen -o artifacts target
+```
+
+</span>
+
+
+Wait, we don't yet have a project, right? Let's do it now, and btw let's install `@aztec/aztec.js` and `@aztec/accounts`.
+
+<span id="yarn_create_and_add">
+
+```bash
+yes | yarn add @aztec/aztec.js @aztec/accounts
+```
+
+</span>
+
+These two packages are quite useful. `aztec.js` gives us a nice interface to interact with the PXE (your "wallet"), and `accounts` is just a nice collection of account contracts.
+
+So, let's create an `index.ts` file and add those imports. Since we're here, let's import the contract artifact we generated above.
+
+<span id="add_js_code_0">
+
+```js
+import { createPXEClient } from "@aztec/aztec.js";
+import { createAccount } from "@aztec/accounts/testing";
+import { MainContract } from "./artifacts/Main";
+```
+
+</span>
+
+### Deploy 🚀
+
+Deploying is quite easy now. 
+
+![Why can't you just deploy it](@site/static/img/tutorials/private_voting/just_deploy.jpeg)
+
+Since the sandbox is running already, our PXE is also running. Yey! So we call it and pass the resulting `pxe` to `createAccount`, which will give us a nice testing wallet.
+
+Then we can deploy our artifact, broadcast it, and wait for the result:
+
+<span id="add_js_code_1">
+
+```ts
+const pxe = createPXEClient("http://localhost:8080");
+const wallet = await createAccount(pxe);
+
+const contract = await MainContract.deploy(wallet).send().deployed()
+console.log("Yey! Address: ", contract.address)
+```
+
+</span>
+
+With the infra ready, all we need is <s>love</s> hit the button:
+
+<span class="deploy">
+
+```bash
+yes | npx tsx index.ts
+```
+
+</span>
+
+:::tip
+
+Do you hate tsconfig? 
+I do.
+
+So I like tsx, which uses sensible defaults that "just work" 💡
+
+:::
+
+## Voting contract plzzzz
+
+Ok ok let's dive in the actual voting logic. Let's have a look at our `main.nr`. There's not much in there, but there's an initializer that runs when you deploy it, and turns out we would like to have an admin for our little election. So we pass it as a parameter:
+
+<!-- Purposefully out of order, as the test will "write" from top to bottom -->
+<span id="add_noir_code_3">
+
+```rust
+#[aztec(public)]
+#[aztec(initializer)]
+fn constructor(admin: AztecAddress) { 
+    storage.admin.write(admin);
+    storage.vote_ended.write(false);
+}
+```
+
+</span>
+
+### Storage
+
+What's this storage thing? Well, that's something we need to define. Thankfully, there's a `#[aztec(storage)]` macro for that. Above our initializer, we can add our admin:
+
+```rust
+#[aztec(storage)]
+struct Storage {
+    admin: PublicMutable<AztecAddress>, // admin can end vote
+}
+```
+
+`PublicMutable` is more or less self-explanatory: it is a public value that can change. As for _who_ can change it, that's up to the contract logic.
+
+We can also add another storage value `tally`, which is a map that relates a key (the persona) with its current vote count.
+
+Here's all the code we have so far:
+
+<span id="add_noir_code_2">
+
+```rust
+contract Main {
+    #[aztec(storage)]
+    struct Storage {
+        admin: PublicMutable<AztecAddress>,
+        // highlight-start
+        tally: Map<Field, PublicMutable<Field>>
+        // highlight-end
+    }
+
+    #[aztec(public)]
+    #[aztec(initializer)]
+    fn constructor(admin: AztecAddress) { 
+        storage.admin.write(admin);
+    }
+}
+
+```
+
+</span>
+
+:::tip
+
+If want to see stuff working, you can [deploy](#deploy--1) now!
+
+![Finish the whole tutorial or draw 25](@site/static/img/tutorials/private_voting/hurried_deployment.jpg)
+
+:::
+
+
+### Voting logic
+
+We need the logic now. Just like with an old-school manual election, there are only two operations: write votes, and count them.
+
+On this simple example, the easiest way to write the votes is actually through one private function that calls a public function. Since public functions [run last](../protocol-specs/calls/enqueued-calls), this should work:
+
+- The private function runs on the user's device and proves they voted.
+- The public function adds +1 to the persona they voted for.
+
+:::info
+
+Why can't we simply add +1 and call it a day?
+
+Well, although counting is no more than reading an integer, writing can be non-trivial in this case. To update some public value, a user needs to get its value and prove it has changed in a verifiable way. How could they prove this value doesn't change in the meantime?
+
+This is quite of a famously difficult problem to solve in distributed systems. We designed the `SharedMutable` type which helps dealing with it, but it falls out of the scope of this tutorial.
+
+:::
+
+
+#### Casting votes
+
+Ok, let's buidl 😈 
+
+We're gonna write the first private function. First thing is to get the [master nullifying key hash](../reference/smart_contract_reference/aztec-nr/aztec/keys/getters.md#get_npk_m_hash). Once the [specification on key rotation](../protocol-specs/addresses-and-keys/keys.md) is implemented, the user will be able to just rotate keys and vote multiple times. But for now, this should work:
+
+```rust
+#[aztec(private)] // annotation to mark function as private and expose private context
+fn cast_vote(candidate: Field) {
+    let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
+}
+```
+
+We then get the secret key of the caller by getting it from the [private context](../reference/smart_contract_reference/aztec-nr/aztec/context/private_context#request_nsk_app):
+
+```rust
+//...
+#[aztec(private)]
+fn cast_vote(candidate: Field) {
+    let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
+    // highlight-next-line
+    let secret = context.request_nsk_app(msg_sender_npk_m_hash);
+}
+```
+
+:::info
+
+If you're a Solidity dev, you're probably screaming right now 🚨 But remember this is a private function, it runs on the user device. The only thing coming out is a proof!
+
+This is done using an Oracle Call, and is a key piece of the Aztec puzzle. Read more about Oracle Calls [here](../aztec/concepts/smart_contracts/oracles/index.md)
+
+:::
+
+Lastly, we just hash the sender and the key with Noir's highly optimized [`pedersen_hash`](https://noir-lang.org/docs/noir/standard_library/cryptographic_primitives/hashes#pedersen_hash), and push a nullifier back to the private context. This ensures users can't vote twice, as they wouldn't be able to prove a nullifier doesn't exist already.
+
+```rust
+#[aztec(private)]
+fn cast_vote(candidate: Field) {
+    let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
+    let secret = context.request_nsk_app(msg_sender_npk_m_hash);
+    // highlight-start
+    let nullifier = dep::std::hash::pedersen_hash([context.msg_sender().to_field(), secret]);
+    context.push_new_nullifier(nullifier, 0);
+    // highlight-end
+}
+```
+
+#### Adding votes
+
+We now need to add +1 to the person we chose to vote for. So we call a public function to update a public value. Easy, isn't it?
+
+Let's call our own contract with our current execution context, and enqueue our call. And that's it for this function. Feel free to copy it, you lazy goblin!
+
+```rust
+#[aztec(private)]
+fn cast_vote(candidate: Field) {
+    let msg_sender_npk_m_hash = get_npk_m_hash(&mut context, context.msg_sender());
+    let secret = context.request_nsk_app(msg_sender_npk_m_hash);
+    let nullifier = dep::std::hash::pedersen_hash([context.msg_sender().to_field(), secret]);
+    context.push_new_nullifier(nullifier, 0); // push nullifier
+    // highlight-start
+    Main::at(context.this_address()).add_to_tally_public(candidate).enqueue(&mut context);
+    // highlight-end
+}
+```
+
+The `add_to_tally_public` function is quite straightforward. It just reads and writes a public value from the `tally` [Map](../reference/smart_contract_reference/aztec-nr/aztec/state_vars/map#at):
+
+```rust
+#[aztec(public)]
+fn add_to_tally_public(candidate: Field) {
+    let new_tally = storage.tally.at(candidate).read() + 1;
+    storage.tally.at(candidate).write(new_tally);
+}
+```
+
+## Deploying 🔥
+
+You can deploy now! Just make sure to add the address as a parameter to the `deploy` method in your `index.ts` file:
+
+````diff
+-   const { address } = await MainContract.deploy(wallet).send().deployed()
++   const { address } = await MainContract.deploy(wallet, wallet.getAddress()).send().deployed()
+````
+
+You also want to import some dependencies we're using, like `AztecAddress` or `get_npk_m_hash`. Make sure to do it _inside_ the `Contract` block:
+
+```rust
+contract Main {
+    // highlight-start
+    use dep::aztec::prelude::{ AztecAddress, Map, PublicMutable };
+    use dep::aztec::keys::getters::get_npk_m_hash;
+    // highlight-end
+    // ...
+```
+
+Head to your terminal to recompile, generate the artifact, and run:
+
+```bash
+aztec-nargo compile
+aztec-builder codegen -o artifacts target
+npx tsx index.ts
+```
+
+![Gentlemen it is with great plesaure to inform you that your code is deployed](@site/static/img/tutorials/private_voting/deployed_frog.jpeg)
+
+## Extra points for testing
+
+So you're _that_ kind of person... 🤔 We like you!
+
+To properly test, we can add a quick `view` function to our contract. For those unfamiliar with Solidity `view` functions, they're methods that don't alter any state, so they have no gas cost.
+
+```rust
+    #[aztec(public)]
+    #[aztec(view)]
+    fn get_tally(candidate: Field) -> Field { storage.tally.at(candidate).read() }
+```
+
+Now let's call it in our TS file. Since it is a view function, you just need to simulate it. We can then call `cast_vote` and see the new value:
+
+```ts
+const tally1 = await methods.get_tally(1).simulate();
+await contract.methods.cast_vote(1).send().wait();
+const tally2 = await contract.methods.get_tally(1).simulate();
+
+console.log(tally1, tally2)
+```
+
+This should return 0 and 1, which is correct!
+
+## Next steps! 🎉
+
+Congratulations! In this beginner tutorial, we started from scratch and ended up with a nice little voting app that took less than 50 lines of code and already presents some of Aztec's strongest points!
+
+If you want to keep building, you may want to add more features. Here are some cool exercises:
+- Add a field to track the end of the voting period.
+- Use a merkle tree to track who is elligible to vote.
+- Write a portal contract to the L1 layer that mints an NFT to every voter.
+- Use a different account contract
+
+
+If you're in learning mode, you may want to explore some of things we "skimmed" through. For example:
+- The sandbox was hidden away from you. This development environment is the brain of the whole thing, and you can do some cool things with it, such as warping time, get some values about the node, etc. Check the [Sandbox Reference for more info!](../reference/sandbox_reference)
+- Another key component of Aztec is the Private Execution Environment (PXE). We briefly referred to it as a "wallet", but it is no more than a library. A _very_ powerful one, for that matter. It handles all the client-side proving, storage, key management, etc. [Learn about the PXE in the concepts section](../aztec/concepts/pxe).

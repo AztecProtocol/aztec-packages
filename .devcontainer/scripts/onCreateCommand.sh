@@ -13,13 +13,13 @@ fi
 if ! grep -q "alias sandbox" ~/.bashrc; then
     echo "alias sandbox=\"npx aztec-app sandbox\"" >> ~/.bashrc
 fi
+corepack enable
 
 if [ "$TYPE" != "sandbox_only" ]; then
     source ~/.bashrc
     yes | npx create-aztec-app -t $TYPE -n $NAME -s
     mv $NAME/* $NAME/.* .
     rm -rf $NAME
-    corepack enable
     
     yarn
 
