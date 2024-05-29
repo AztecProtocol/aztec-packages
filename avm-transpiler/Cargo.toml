@@ -9,8 +9,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 # local
-acvm = { path = "../noir/noir-repo/acvm-repo/acvm" }
-noirc_driver = { path = "../noir/noir-repo/compiler/noirc_driver" }
+acvm = { path = "../noir/noir-repo/acvm-repo/acvm", features=["bn254"] }
 noirc_errors = { path = "../noir/noir-repo/compiler/noirc_errors" }
 
 # external
