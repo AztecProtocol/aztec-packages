@@ -58,7 +58,8 @@ describe('e2e_deploy_contract deploy method', () => {
       .deployed();
     expect(await contract.methods.get_public_value(owner).simulate()).toEqual(42n);
     logger.debug(`Calling a private function to ensure the contract was properly initialized`);
-    await contract.methods.create_note(owner, 30).send().wait();
+    const outgoingViewer = owner;
+    await contract.methods.create_note(owner, outgoingViewer, 30).send().wait();
     expect(await contract.methods.summed_values(owner).simulate()).toEqual(30n);
   });
 
