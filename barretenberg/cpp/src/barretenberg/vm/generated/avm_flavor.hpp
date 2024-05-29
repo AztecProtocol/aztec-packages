@@ -19,6 +19,8 @@
 #include "barretenberg/relations/generated/avm/avm_kernel.hpp"
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
 #include "barretenberg/relations/generated/avm/avm_mem.hpp"
+#include "barretenberg/relations/generated/avm/avm_poseidon2.hpp"
+#include "barretenberg/relations/generated/avm/avm_sha256.hpp"
 #include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/incl_mem_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/kernel_output_lookup.hpp"
@@ -66,6 +68,8 @@
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_b.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_c.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_d.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_pos2_perm.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_sha256.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -87,15 +91,17 @@ class AvmFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 327;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 340;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 391;
+    static constexpr size_t NUM_ALL_ENTITIES = 404;
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
                                              perm_main_conv_relation<FF>,
+                                             perm_main_sha256_relation<FF>,
+                                             perm_main_pos2_perm_relation<FF>,
                                              perm_main_mem_a_relation<FF>,
                                              perm_main_mem_b_relation<FF>,
                                              perm_main_mem_c_relation<FF>,
@@ -147,9 +153,13 @@ class AvmFlavor {
                                  Avm_vm::avm_kernel<FF>,
                                  Avm_vm::avm_main<FF>,
                                  Avm_vm::avm_mem<FF>,
+                                 Avm_vm::avm_poseidon2<FF>,
+                                 Avm_vm::avm_sha256<FF>,
                                  perm_main_alu_relation<FF>,
                                  perm_main_bin_relation<FF>,
                                  perm_main_conv_relation<FF>,
+                                 perm_main_sha256_relation<FF>,
+                                 perm_main_pos2_perm_relation<FF>,
                                  perm_main_mem_a_relation<FF>,
                                  perm_main_mem_b_relation<FF>,
                                  perm_main_mem_c_relation<FF>,
@@ -423,8 +433,10 @@ class AvmFlavor {
                               avm_main_sel_op_note_hash_exists,
                               avm_main_sel_op_nullifier_exists,
                               avm_main_sel_op_or,
+                              avm_main_sel_op_poseidon2,
                               avm_main_sel_op_radix_le,
                               avm_main_sel_op_sender,
+                              avm_main_sel_op_sha256,
                               avm_main_sel_op_shl,
                               avm_main_sel_op_shr,
                               avm_main_sel_op_sload,
@@ -471,9 +483,20 @@ class AvmFlavor {
                               avm_mem_tsp,
                               avm_mem_val,
                               avm_mem_w_in_tag,
+                              avm_poseidon2_clk,
+                              avm_poseidon2_input,
+                              avm_poseidon2_output,
+                              avm_poseidon2_poseidon_perm_sel,
+                              avm_sha256_clk,
+                              avm_sha256_input,
+                              avm_sha256_output,
+                              avm_sha256_sha256_compression_sel,
+                              avm_sha256_state,
                               perm_main_alu,
                               perm_main_bin,
                               perm_main_conv,
+                              perm_main_sha256,
+                              perm_main_pos2_perm,
                               perm_main_mem_a,
                               perm_main_mem_b,
                               perm_main_mem_c,
@@ -753,8 +776,10 @@ class AvmFlavor {
                      avm_main_sel_op_note_hash_exists,
                      avm_main_sel_op_nullifier_exists,
                      avm_main_sel_op_or,
+                     avm_main_sel_op_poseidon2,
                      avm_main_sel_op_radix_le,
                      avm_main_sel_op_sender,
+                     avm_main_sel_op_sha256,
                      avm_main_sel_op_shl,
                      avm_main_sel_op_shr,
                      avm_main_sel_op_sload,
@@ -801,9 +826,20 @@ class AvmFlavor {
                      avm_mem_tsp,
                      avm_mem_val,
                      avm_mem_w_in_tag,
+                     avm_poseidon2_clk,
+                     avm_poseidon2_input,
+                     avm_poseidon2_output,
+                     avm_poseidon2_poseidon_perm_sel,
+                     avm_sha256_clk,
+                     avm_sha256_input,
+                     avm_sha256_output,
+                     avm_sha256_sha256_compression_sel,
+                     avm_sha256_state,
                      perm_main_alu,
                      perm_main_bin,
                      perm_main_conv,
+                     perm_main_sha256,
+                     perm_main_pos2_perm,
                      perm_main_mem_a,
                      perm_main_mem_b,
                      perm_main_mem_c,
@@ -1088,8 +1124,10 @@ class AvmFlavor {
                               avm_main_sel_op_note_hash_exists,
                               avm_main_sel_op_nullifier_exists,
                               avm_main_sel_op_or,
+                              avm_main_sel_op_poseidon2,
                               avm_main_sel_op_radix_le,
                               avm_main_sel_op_sender,
+                              avm_main_sel_op_sha256,
                               avm_main_sel_op_shl,
                               avm_main_sel_op_shr,
                               avm_main_sel_op_sload,
@@ -1136,9 +1174,20 @@ class AvmFlavor {
                               avm_mem_tsp,
                               avm_mem_val,
                               avm_mem_w_in_tag,
+                              avm_poseidon2_clk,
+                              avm_poseidon2_input,
+                              avm_poseidon2_output,
+                              avm_poseidon2_poseidon_perm_sel,
+                              avm_sha256_clk,
+                              avm_sha256_input,
+                              avm_sha256_output,
+                              avm_sha256_sha256_compression_sel,
+                              avm_sha256_state,
                               perm_main_alu,
                               perm_main_bin,
                               perm_main_conv,
+                              perm_main_sha256,
+                              perm_main_pos2_perm,
                               perm_main_mem_a,
                               perm_main_mem_b,
                               perm_main_mem_c,
@@ -1482,8 +1531,10 @@ class AvmFlavor {
                      avm_main_sel_op_note_hash_exists,
                      avm_main_sel_op_nullifier_exists,
                      avm_main_sel_op_or,
+                     avm_main_sel_op_poseidon2,
                      avm_main_sel_op_radix_le,
                      avm_main_sel_op_sender,
+                     avm_main_sel_op_sha256,
                      avm_main_sel_op_shl,
                      avm_main_sel_op_shr,
                      avm_main_sel_op_sload,
@@ -1530,9 +1581,20 @@ class AvmFlavor {
                      avm_mem_tsp,
                      avm_mem_val,
                      avm_mem_w_in_tag,
+                     avm_poseidon2_clk,
+                     avm_poseidon2_input,
+                     avm_poseidon2_output,
+                     avm_poseidon2_poseidon_perm_sel,
+                     avm_sha256_clk,
+                     avm_sha256_input,
+                     avm_sha256_output,
+                     avm_sha256_sha256_compression_sel,
+                     avm_sha256_state,
                      perm_main_alu,
                      perm_main_bin,
                      perm_main_conv,
+                     perm_main_sha256,
+                     perm_main_pos2_perm,
                      perm_main_mem_a,
                      perm_main_mem_b,
                      perm_main_mem_c,
@@ -1876,8 +1938,10 @@ class AvmFlavor {
                      avm_main_sel_op_note_hash_exists,
                      avm_main_sel_op_nullifier_exists,
                      avm_main_sel_op_or,
+                     avm_main_sel_op_poseidon2,
                      avm_main_sel_op_radix_le,
                      avm_main_sel_op_sender,
+                     avm_main_sel_op_sha256,
                      avm_main_sel_op_shl,
                      avm_main_sel_op_shr,
                      avm_main_sel_op_sload,
@@ -1924,9 +1988,20 @@ class AvmFlavor {
                      avm_mem_tsp,
                      avm_mem_val,
                      avm_mem_w_in_tag,
+                     avm_poseidon2_clk,
+                     avm_poseidon2_input,
+                     avm_poseidon2_output,
+                     avm_poseidon2_poseidon_perm_sel,
+                     avm_sha256_clk,
+                     avm_sha256_input,
+                     avm_sha256_output,
+                     avm_sha256_sha256_compression_sel,
+                     avm_sha256_state,
                      perm_main_alu,
                      perm_main_bin,
                      perm_main_conv,
+                     perm_main_sha256,
+                     perm_main_pos2_perm,
                      perm_main_mem_a,
                      perm_main_mem_b,
                      perm_main_mem_c,
@@ -2224,6 +2299,10 @@ class AvmFlavor {
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, perm_main_conv_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, perm_main_sha256_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, perm_main_pos2_perm_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_a_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_b_relation<FF>>(
@@ -2317,8 +2396,6 @@ class AvmFlavor {
 
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
 
-    using FoldedPolynomials = AllEntities<std::vector<FF>>;
-
     class AllValues : public AllEntities<FF> {
       public:
         using Base = AllEntities<FF>;
@@ -2365,8 +2442,6 @@ class AvmFlavor {
         }
     };
 
-    using RowPolynomials = AllEntities<FF>;
-
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
       public:
         PartiallyEvaluatedMultivariates() = default;
@@ -2387,7 +2462,7 @@ class AvmFlavor {
 
     /**
      * @brief A container for univariates used during Protogalaxy folding and sumcheck with some of the computation
-     * optmistically ignored
+     * optimistically ignored
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
     template <size_t LENGTH, size_t SKIP_COUNT>
@@ -2611,8 +2686,10 @@ class AvmFlavor {
             Base::avm_main_sel_op_note_hash_exists = "AVM_MAIN_SEL_OP_NOTE_HASH_EXISTS";
             Base::avm_main_sel_op_nullifier_exists = "AVM_MAIN_SEL_OP_NULLIFIER_EXISTS";
             Base::avm_main_sel_op_or = "AVM_MAIN_SEL_OP_OR";
+            Base::avm_main_sel_op_poseidon2 = "AVM_MAIN_SEL_OP_POSEIDON2";
             Base::avm_main_sel_op_radix_le = "AVM_MAIN_SEL_OP_RADIX_LE";
             Base::avm_main_sel_op_sender = "AVM_MAIN_SEL_OP_SENDER";
+            Base::avm_main_sel_op_sha256 = "AVM_MAIN_SEL_OP_SHA256";
             Base::avm_main_sel_op_shl = "AVM_MAIN_SEL_OP_SHL";
             Base::avm_main_sel_op_shr = "AVM_MAIN_SEL_OP_SHR";
             Base::avm_main_sel_op_sload = "AVM_MAIN_SEL_OP_SLOAD";
@@ -2659,9 +2736,20 @@ class AvmFlavor {
             Base::avm_mem_tsp = "AVM_MEM_TSP";
             Base::avm_mem_val = "AVM_MEM_VAL";
             Base::avm_mem_w_in_tag = "AVM_MEM_W_IN_TAG";
+            Base::avm_poseidon2_clk = "AVM_POSEIDON2_CLK";
+            Base::avm_poseidon2_input = "AVM_POSEIDON2_INPUT";
+            Base::avm_poseidon2_output = "AVM_POSEIDON2_OUTPUT";
+            Base::avm_poseidon2_poseidon_perm_sel = "AVM_POSEIDON2_POSEIDON_PERM_SEL";
+            Base::avm_sha256_clk = "AVM_SHA256_CLK";
+            Base::avm_sha256_input = "AVM_SHA256_INPUT";
+            Base::avm_sha256_output = "AVM_SHA256_OUTPUT";
+            Base::avm_sha256_sha256_compression_sel = "AVM_SHA256_SHA256_COMPRESSION_SEL";
+            Base::avm_sha256_state = "AVM_SHA256_STATE";
             Base::perm_main_alu = "PERM_MAIN_ALU";
             Base::perm_main_bin = "PERM_MAIN_BIN";
             Base::perm_main_conv = "PERM_MAIN_CONV";
+            Base::perm_main_sha256 = "PERM_MAIN_SHA256";
+            Base::perm_main_pos2_perm = "PERM_MAIN_POS2_PERM";
             Base::perm_main_mem_a = "PERM_MAIN_MEM_A";
             Base::perm_main_mem_b = "PERM_MAIN_MEM_B";
             Base::perm_main_mem_c = "PERM_MAIN_MEM_C";
@@ -2957,8 +3045,10 @@ class AvmFlavor {
         Commitment avm_main_sel_op_note_hash_exists;
         Commitment avm_main_sel_op_nullifier_exists;
         Commitment avm_main_sel_op_or;
+        Commitment avm_main_sel_op_poseidon2;
         Commitment avm_main_sel_op_radix_le;
         Commitment avm_main_sel_op_sender;
+        Commitment avm_main_sel_op_sha256;
         Commitment avm_main_sel_op_shl;
         Commitment avm_main_sel_op_shr;
         Commitment avm_main_sel_op_sload;
@@ -3005,9 +3095,20 @@ class AvmFlavor {
         Commitment avm_mem_tsp;
         Commitment avm_mem_val;
         Commitment avm_mem_w_in_tag;
+        Commitment avm_poseidon2_clk;
+        Commitment avm_poseidon2_input;
+        Commitment avm_poseidon2_output;
+        Commitment avm_poseidon2_poseidon_perm_sel;
+        Commitment avm_sha256_clk;
+        Commitment avm_sha256_input;
+        Commitment avm_sha256_output;
+        Commitment avm_sha256_sha256_compression_sel;
+        Commitment avm_sha256_state;
         Commitment perm_main_alu;
         Commitment perm_main_bin;
         Commitment perm_main_conv;
+        Commitment perm_main_sha256;
+        Commitment perm_main_pos2_perm;
         Commitment perm_main_mem_a;
         Commitment perm_main_mem_b;
         Commitment perm_main_mem_c;
@@ -3322,8 +3423,10 @@ class AvmFlavor {
             avm_main_sel_op_nullifier_exists =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_or = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_poseidon2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_radix_le = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_sender = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_sha256 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_shl = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_shr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_sload = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3370,9 +3473,21 @@ class AvmFlavor {
             avm_mem_tsp = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_val = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_w_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_poseidon2_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_poseidon2_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_poseidon2_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_poseidon2_poseidon_perm_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_sha256_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_sha256_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_sha256_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_sha256_sha256_compression_sel =
+                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_sha256_state = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_alu = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_bin = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_conv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            perm_main_sha256 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            perm_main_pos2_perm = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_mem_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_mem_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_mem_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -3672,8 +3787,10 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_sel_op_note_hash_exists, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_nullifier_exists, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_or, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_poseidon2, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_radix_le, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_sender, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_sha256, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_shl, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_shr, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_sload, Transcript::proof_data);
@@ -3720,9 +3837,20 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_mem_tsp, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_val, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_w_in_tag, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_poseidon2_clk, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_poseidon2_input, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_poseidon2_output, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_poseidon2_poseidon_perm_sel, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_sha256_clk, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_sha256_input, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_sha256_output, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_sha256_sha256_compression_sel, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_sha256_state, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_alu, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_bin, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_conv, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(perm_main_sha256, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(perm_main_pos2_perm, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_mem_a, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_mem_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_mem_c, Transcript::proof_data);
