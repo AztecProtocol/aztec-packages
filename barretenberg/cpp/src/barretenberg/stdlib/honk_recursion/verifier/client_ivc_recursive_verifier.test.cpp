@@ -41,6 +41,10 @@ class ClientIvcRecursionTests : public testing::Test {
     }
 };
 
+/**
+ * @brief Ensure the ClientIvc proof used herein can be natively verified
+ *
+ */
 TEST_F(ClientIvcRecursionTests, NativeVerification)
 {
     ClientIVC ivc;
@@ -52,17 +56,25 @@ TEST_F(ClientIvcRecursionTests, NativeVerification)
         instances.emplace_back(std::make_shared<VerifierInstance>(vk));
     }
 
+    // Confirm that the IVC proof can be natively verified
     EXPECT_TRUE(ivc.verify(proof, instances));
 }
 
+/**
+ * @brief Construct and Check a recursive ClientIvc verification circuit
+ *
+ */
 TEST_F(ClientIvcRecursionTests, Basic)
 {
+    // Generate a genuine ClientIvc prover output
     ClientIVC ivc;
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
+    // Construct the ClientIvc recursive verifier
     Builder builder;
     ClientIvcVerifier verifier{ &builder };
 
+    // Generate the recursive verification circuit
     verifier.verify(proof, verifier_input);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
