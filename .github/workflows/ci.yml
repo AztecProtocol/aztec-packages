@@ -48,8 +48,10 @@ jobs:
       non-docs: ${{ steps.filter.outputs.non-docs }}
       non-misc-ci: ${{ steps.filter.outputs.non-misc-ci }}
     steps:
-    # For pull requests it's not necessary to checkout the code
+      # A checkout is only necessary when running CI on master.
+      # For pull requests it's not necessary to checkout the code.
       - uses: actions/checkout@v4
+        if: github.event_name == 'push'
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
         id: filter
