@@ -433,7 +433,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             points.emplace_back(cycle_group_ct(element));
             scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
         }
-        auto result = cycle_group_ct::batch_mul(scalars, points);
+        auto result = cycle_group_ct::batch_mul(points, scalars);
         EXPECT_EQ(result.get_value(), AffineElement(expected));
     }
 
@@ -450,7 +450,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         points.emplace_back(cycle_group_ct::from_witness(&builder, element));
         scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, -scalar));
 
-        auto result = cycle_group_ct::batch_mul(scalars, points);
+        auto result = cycle_group_ct::batch_mul(points, scalars);
         EXPECT_TRUE(result.is_point_at_infinity().get_value());
     }
 
@@ -463,7 +463,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         typename Group::subgroup_field scalar = 0;
         points.emplace_back(cycle_group_ct::from_witness(&builder, element));
         scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
-        auto result = cycle_group_ct::batch_mul(scalars, points);
+        auto result = cycle_group_ct::batch_mul(points, scalars);
         EXPECT_TRUE(result.is_point_at_infinity().get_value());
     }
 
@@ -489,7 +489,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             points.emplace_back(point);
             scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
         }
-        auto result = cycle_group_ct::batch_mul(scalars, points);
+        auto result = cycle_group_ct::batch_mul(points, scalars);
         EXPECT_TRUE(result.is_point_at_infinity().get_value());
     }
 
@@ -517,7 +517,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
             scalars_native.emplace_back(uint256_t(scalar));
         }
-        auto result = cycle_group_ct::batch_mul(scalars, points);
+        auto result = cycle_group_ct::batch_mul(points, scalars);
         EXPECT_EQ(result.get_value(), AffineElement(expected));
         EXPECT_EQ(result.get_value(), crypto::pedersen_commitment::commit_native(scalars_native));
     }
@@ -554,7 +554,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
             scalars_native.emplace_back(scalar);
         }
-        auto result = cycle_group_ct::batch_mul(scalars, points);
+        auto result = cycle_group_ct::batch_mul(points, scalars);
         EXPECT_EQ(result.get_value(), AffineElement(expected));
     }
 
@@ -575,7 +575,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             points.emplace_back((element));
             scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
         }
-        auto result = cycle_group_ct::batch_mul(scalars, points);
+        auto result = cycle_group_ct::batch_mul(points, scalars);
         EXPECT_EQ(result.is_point_at_infinity().get_value(), true);
     }
 
@@ -647,5 +647,29 @@ TYPED_TEST(CycleGroupTest, TestBigfieldFqConversion)
     auto big_fq = bigfield_t(native_element);
     auto cycle_fq = cycle_scalar_ct::from_bigfield(big_fq);
     EXPECT_EQ(native_element, cycle_fq.get_value());
+
+    auto direct_cycle_fq = cycle_scalar_ct(native_element);
+    EXPECT_EQ(cycle_fq.get_value(), direct_cycle_fq.get_value());
+}
+
+TYPED_TEST(CycleGroupTest, TestBatchMulIsConsistent)
+{
+    STDLIB_TYPE_ALIASES
+    auto builder = Builder();
+
+    using bigfield_t = stdlib::bigfield<Builder, bb::Bn254FqParams>;
+    auto scalar1 = Curve::ScalarField::random_element(&engine);
+    auto scalar2 = Curve::ScalarField::random_element(&engine);
+
+    auto resut1 = cycle_group_ct::batch_mul({ TestFixture::generators[0], TestFixture::generators[1] },
+                                            { bigfield_t(scalar1), bigfield_t(scalar2) });
+
+    auto result2 = cycle_group_ct::batch_mul({ TestFixture::generators[0], TestFixture::generators[1] },
+                                             { cycle_scalar_ct(scalar1), cycle_scalar_ct(scalar2) });
+
+    auto result1_native = resut1.get_value();
+    auto result2_native = result2.get_value();
+    EXPECT_EQ(result1_native.x, result2_native.x);
+    EXPECT_EQ(result1_native.y, result2_native.y);
 }
 #pragma GCC diagnostic pop

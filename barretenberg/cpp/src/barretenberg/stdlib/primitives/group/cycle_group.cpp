@@ -1193,8 +1193,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
  * @return cycle_group<Builder>
  */
 template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_scalar>& scalars,
-                                                     const std::vector<cycle_group>& base_points,
+cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_group>& base_points,
+                                                     const std::vector<cycle_scalar>& scalars,
                                                      const GeneratorContext context)
 {
     ASSERT(scalars.size() == base_points.size());
@@ -1330,7 +1330,7 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_sca
 
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator*(const cycle_scalar& scalar) const
 {
-    return batch_mul({ scalar }, { *this });
+    return batch_mul({ *this }, { scalar });
 }
 
 template <typename Builder> cycle_group<Builder>& cycle_group<Builder>::operator*=(const cycle_scalar& scalar)
