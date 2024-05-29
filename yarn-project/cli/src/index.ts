@@ -565,6 +565,29 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       );
     });
 
+  program
+    .command('add-pending-shield')
+    .description('Adds a pending shield note to the database in the PXE.')
+    .argument('<address>', 'Aztec address of the note owner.', parseAztecAddress)
+    .argument('<amount>', 'Amount of the pending shield note.', parseBigint)
+    .requiredOption('-ca, --contract-address <address>', 'Aztec address of the token contract.', parseAztecAddress)
+    .requiredOption('-tx, --tx-hash <txHash>', 'Tx hash in which the note was created.', parseOptionalTxHash)
+    .requiredOption('--secret <secret>', 'Secret used for shielding the note.', parseField)
+    .addOption(pxeOption)
+    .action(async (address, amount, options) => {
+      const { addPendingShield } = await import('./cmds/add_pending_shield.js');
+      await addPendingShield(
+        address,
+        options.contractAddress,
+        amount,
+        options.secret,
+        options.txHash,
+        options.rpcUrl,
+        debugLogger,
+        log,
+      );
+    });
+
   // Helper for users to decode hex strings into structs if needed.
   program
     .command('parse-parameter-struct')
