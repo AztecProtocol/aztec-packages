@@ -176,6 +176,22 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     });
 
   program
+    .command('get-l1-balance')
+    .description('Gets the balance of gas tokens in L1 for the given Ethereum address.')
+    .argument('<who>', 'Ethereum address to check.', parseEthereumAddress)
+    .requiredOption(
+      '--l1-rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .option('-a, --api-key <string>', 'Api key for the ethereum host', API_KEY)
+    .addOption(pxeOption)
+    .action(async (who, options) => {
+      const { getL1Balance } = await import('./cmds/get_l1_balance.js');
+      await getL1Balance(who, options.rpcUrl, options.l1RpcUrl, options.apiKey ?? '', log, debugLogger);
+    });
+
+  program
     .command('generate-keys')
     .summary('Generates encryption and signing private keys.')
     .description('Generates and encryption and signing private key pair.')

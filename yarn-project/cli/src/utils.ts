@@ -124,7 +124,6 @@ export async function getContractArtifact(fileDir: string, log: LogFn) {
   for (const key of [fileDir, fileDir + 'Artifact', fileDir + 'ContractArtifact']) {
     if (artifacts[key]) {
       return artifacts[key] as ContractArtifact;
-    
     }
   }
 
