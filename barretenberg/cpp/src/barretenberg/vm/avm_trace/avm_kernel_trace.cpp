@@ -38,6 +38,8 @@ void AvmKernelTraceBuilder::perform_kernel_output_lookup(uint32_t write_offset, 
     std::get<KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER>(public_inputs)[write_offset] = side_effect_counter;
     std::get<KERNEL_OUTPUTS_METADATA>(public_inputs)[write_offset] = metadata;
 
+    info("output writing side effect counter: ", side_effect_counter);
+
     // Lookup counts
     kernel_output_selector_counter[write_offset]++;
 

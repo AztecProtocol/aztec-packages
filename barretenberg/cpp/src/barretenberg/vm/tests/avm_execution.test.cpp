@@ -4,11 +4,15 @@
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
+#include "barretenberg/vm/avm_trace/avm_kernel_trace.hpp"
 #include "barretenberg/vm/avm_trace/avm_opcode.hpp"
 #include "barretenberg/vm/avm_trace/aztec_constants.hpp"
 #include <cstdint>
 #include <memory>
 #include <sys/types.h>
+
+// TODO: remove
+#include "barretenberg/vm/avm_trace/avm_helper.cpp"
 
 namespace tests_avm {
 using namespace bb;
@@ -1360,6 +1364,85 @@ TEST_F(AvmExecutionTests, ExecutorThrowsWithIncorrectNumberOfPublicInputs)
 
     EXPECT_THROW_WITH_MESSAGE(Execution::gen_trace(instructions, calldata, returndata, public_inputs_vec),
                               "Public inputs vector is not of PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH");
+}
+
+TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
+{
+    // Set values into the first register to emit
+    std::string bytecode_hex = to_hex(OpCode::SET) + // opcode Set
+                               "00"                  // Indirect flag
+                               "03"                  // U32
+                               "00000001"            // value 1
+                               "00000001"            // dst_offset 1
+                               // Cast set to field
+                               + to_hex(OpCode::CAST) +               // opcode CAST
+                               "00"                                   // Indirect flag
+                               "06"                                   // tag field
+                               "00000001"                             // dst 1
+                               "00000001"                             // dst 1
+                               + to_hex(OpCode::EMITNOTEHASH) +       // opcode EMITNOTEHASH
+                               "00"                                   // Indirect flag
+                               "00000001"                             // src offset 1
+                               + to_hex(OpCode::EMITNULLIFIER) +      // opcode EMITNOTEHASH
+                               "00"                                   // Indirect flag
+                               "00000001"                             // src offset 1
+                               + to_hex(OpCode::EMITUNENCRYPTEDLOG) + // opcode EMITNOTEHASH
+                               "00"                                   // Indirect flag
+                               "00000001"                             // src offset 1
+                               + to_hex(OpCode::RETURN) +             // opcode RETURN
+                               "00"                                   // Indirect flag
+                               "00000000"                             // ret offset 0
+                               "00000000";                            // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    // 2 instructions
+    ASSERT_THAT(instructions, SizeIs(6));
+
+    auto trace = Execution::gen_trace(instructions);
+
+    log_avm_trace(trace, 3, 6, true);
+
+    // CHECK EMIT NOTE HASH
+    // Check output data + side effect counters have been set correctly
+    auto emit_note_hash_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_emit_note_hash == 1; });
+    EXPECT_EQ(emit_note_hash_row->avm_main_ia, 1);
+    EXPECT_EQ(emit_note_hash_row->avm_kernel_side_effect_counter, 0);
+
+    // Get the row of the first note hash out
+    uint32_t emit_note_hash_out_offset = AvmKernelTraceBuilder::START_EMIT_NOTE_HASH_WRITE_OFFSET;
+    auto emit_note_hash_kernel_out_row = std::ranges::find_if(
+        trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == emit_note_hash_out_offset; });
+    EXPECT_EQ(emit_note_hash_kernel_out_row->avm_kernel_kernel_value_out__is_public, 1);
+    EXPECT_EQ(emit_note_hash_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 0);
+
+    // CHECK EMIT NULLIFIER
+    auto emit_nullifier_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_emit_nullifier == 1; });
+    EXPECT_EQ(emit_nullifier_row->avm_main_ia, 1);
+    EXPECT_EQ(emit_nullifier_row->avm_kernel_side_effect_counter, 1);
+
+    uint32_t emit_nullifier_out_offset = AvmKernelTraceBuilder::START_EMIT_NULLIFIER_WRITE_OFFSET;
+    auto emit_nullifier_kernel_out_row = std::ranges::find_if(
+        trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == emit_nullifier_out_offset; });
+    EXPECT_EQ(emit_nullifier_kernel_out_row->avm_kernel_kernel_value_out__is_public, 1);
+    EXPECT_EQ(emit_nullifier_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 1);
+
+    // CHECK EMIT UNENCRYPTED LOG
+    auto emit_log_row = std::ranges::find_if(
+        trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_emit_unencrypted_log == 1; });
+    EXPECT_EQ(emit_log_row->avm_main_ia, 1);
+    EXPECT_EQ(emit_log_row->avm_kernel_side_effect_counter, 2);
+
+    uint32_t emit_log_out_offset = AvmKernelTraceBuilder::START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET;
+    auto emit_log_kernel_out_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.avm_main_clk == emit_log_out_offset; });
+    EXPECT_EQ(emit_log_kernel_out_row->avm_kernel_kernel_value_out__is_public, 1);
+    EXPECT_EQ(emit_log_kernel_out_row->avm_kernel_kernel_side_effect_out__is_public, 2);
+
+    validate_trace(std::move(trace));
 }
 
 // Negative test detecting an invalid opcode byte.
