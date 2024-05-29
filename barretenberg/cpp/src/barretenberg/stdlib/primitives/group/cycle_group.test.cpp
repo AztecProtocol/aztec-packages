@@ -639,14 +639,13 @@ TYPED_TEST(CycleGroupTest, TestOne)
  * preserves the same value until we implement a smarter function.
  *
  */
-TYPED_TEST(CycleGroupTest, TestBigfieldFqCycleScalarConversion)
+TYPED_TEST(CycleGroupTest, TestBigfieldFqConversion)
 {
     STDLIB_TYPE_ALIASES
     using bigfield_t = stdlib::bigfield<Builder, bb::Bn254FqParams>;
     auto native_element = Curve::ScalarField::random_element(&engine);
     auto big_fq = bigfield_t(native_element);
-    auto val = bb::fq((big_fq.get_value() % uint512_t(bb::fq::modulus)).lo);
-    auto cycle_fq = cycle_scalar_ct(val);
+    auto cycle_fq = cycle_scalar_ct::from_bigfield(big_fq);
     EXPECT_EQ(native_element, cycle_fq.get_value());
 }
 #pragma GCC diagnostic pop
