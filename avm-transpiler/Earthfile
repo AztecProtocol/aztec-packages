@@ -10,7 +10,7 @@ source:
   # work in avm-transpiler
   WORKDIR /usr/src/avm-transpiler
 
-  COPY --dir scripts src Cargo.lock Cargo.toml rust-toolchain.toml .
+  COPY --dir scripts src Cargo.lock Cargo.toml rust-toolchain.toml .rustfmt.toml .
 
   # for debugging rebuilds
   RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
@@ -19,6 +19,11 @@ build:
     FROM +source
     RUN ./scripts/bootstrap_native.sh
     SAVE ARTIFACT target/release/avm-transpiler avm-transpiler
+
+format:
+  FROM +source
+  RUN cargo fmt --check
+  RUN cargo clippy
 
 run:
     #TODO needed?
