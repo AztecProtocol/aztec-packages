@@ -50,6 +50,7 @@ import {
   VerificationKeyData,
   makeEmptyProof,
   makeEmptyRecursiveProof,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
@@ -418,6 +419,7 @@ export abstract class AbstractPhaseManager {
       startSideEffectCounter: result.startSideEffectCounter,
       endSideEffectCounter: result.endSideEffectCounter,
       returnsHash: computeVarArgsHash(result.returnValues),
+      noteHashReadRequests: padArrayEnd(result.noteHashReadRequests, ReadRequest.empty(), MAX_NOTE_HASH_READ_REQUESTS_PER_CALL),
       nullifierReadRequests: padArrayEnd(
         result.nullifierReadRequests,
         ReadRequest.empty(),
