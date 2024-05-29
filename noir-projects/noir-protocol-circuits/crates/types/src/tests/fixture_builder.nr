@@ -503,8 +503,8 @@ impl FixtureBuilder {
         let index_offset = self.public_data_update_requests.len();
         for i in 0..self.public_data_update_requests.max_len() {
             if i < num_updates {
-                let write = self.mock_public_data_write(index_offset + i);
-                self.add_public_data_update_request(write.leaf_slot, write.new_value);
+                let (leaf_slot, value) = self.mock_public_data_write(index_offset + i);
+                self.add_public_data_update_request(leaf_slot, value);
             }
         }
     }
@@ -776,9 +776,11 @@ impl FixtureBuilder {
         PublicDataRead { leaf_slot: value_offset, value: 1 + value_offset }
     }
 
-    fn mock_public_data_write(self, index: u64) -> PublicDataUpdateRequest {
+    fn mock_public_data_write(self, index: u64) -> (Field, Field) {
         let value_offset = 7788 + self.value_offset + index as Field;
-        PublicDataUpdateRequest { leaf_slot: value_offset, new_value: 1 + value_offset }
+        let leaf_slot = value_offset;
+        let value = 1 + value_offset;
+        (leaf_slot, value)
     }
 
     fn mock_note_hash_value(self, index: u64) -> Field {
