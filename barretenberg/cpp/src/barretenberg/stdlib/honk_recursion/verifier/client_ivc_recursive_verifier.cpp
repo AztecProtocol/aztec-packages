@@ -9,7 +9,7 @@ void ClientIvcRecursiveVerifier_::verify(const ClientIVC::Proof& proof, Verifier
     (void)proof;
     (void)builder;
 
-    FoldingVerifier folding_verifier{ builder, data.verifier_accumulator_instance, { data.honk_verification_key } };
+    FoldingVerifier folding_verifier{ builder, data.verifier_accumulator_instance, data.honk_verification_keys };
     auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(proof.folding_proof);
     auto native_verifier_acc =
         std::make_shared<VerifierData::NativeInstance>(recursive_verifier_accumulator->get_value());

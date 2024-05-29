@@ -21,8 +21,7 @@ class ClientIvcRecursiveVerifier_ {
         using NativeVerificationKey = NativeFlavor::VerificationKey;
 
         std::shared_ptr<NativeInstance> verifier_accumulator_instance;
-        std::shared_ptr<NativeVerificationKey> honk_verification_key;
-        // std::vector<std::shared_ptr<NativeVerificationKey>> honk_verification_keys;
+        std::vector<std::shared_ptr<NativeVerificationKey>> honk_verification_keys;
     };
 
     ClientIvcRecursiveVerifier_(Builder* builder)

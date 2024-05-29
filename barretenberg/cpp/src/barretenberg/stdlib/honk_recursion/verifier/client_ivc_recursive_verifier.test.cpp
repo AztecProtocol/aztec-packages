@@ -25,8 +25,6 @@ class ClientIvcRecursionTests : public testing::Test {
     static ClientIvcProverOutput construct_mock_client_ivc_output(ClientIVC& ivc)
     {
         using Builder = MegaCircuitBuilder;
-        // using Flavor = MegaFlavor;
-        // using VerifierInstance = VerifierInstance_<Flavor>;
 
         size_t NUM_CIRCUITS = 3;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -35,12 +33,10 @@ class ClientIvcRecursionTests : public testing::Test {
             ivc.accumulate(circuit);
         }
 
-        // auto verifier_inst = std::make_shared<VerifierInstance>(ivc.instance_vk);
-
         ClientIvcProverOutput output;
         output.proof = ivc.prove();
         output.verifier_data.verifier_accumulator_instance = ivc.verifier_accumulator;
-        output.verifier_data.honk_verification_key = ivc.instance_vk;
+        output.verifier_data.honk_verification_keys = { ivc.instance_vk };
 
         return output;
         // return { ivc.prove(), { ivc.verifier_accumulator, ivc.instance_vk } };
