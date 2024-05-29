@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1717012560092,
+  "lastUpdate": 1717012943701,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -3060,6 +3060,78 @@ window.BENCHMARK_DATA = {
             "value": 163144367,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 163144367 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8e9ab3d84cc9430352512da13089afc43a212566",
+          "message": "chore: Goblin cleanup (#6722)\n\nGoblin cleanup/refactoring including:\r\n- Splitting Goblin into prover and verifier classes to match model used\r\nelsewhere and to prep for forthcoming implementation of\r\nGoblinRecursiveVerifier\r\n- Adding a new Goblin test suite\r\n- Moving some goblin related types to a types.hpp file",
+          "timestamp": "2024-05-29T12:53:27-07:00",
+          "tree_id": "306b4511e83c3c31fa090df18c39a36dd8f51c61",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8e9ab3d84cc9430352512da13089afc43a212566"
+        },
+        "date": 1717012943074,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 15448.408654999981,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10755.868991 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5523.934721999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 5142.979769 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 49142.218658000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 49142220000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 16853.947884,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16853948000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5176859334,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5176859334 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197188353,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 197188353 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4267471461,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4267471461 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 164383307,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 164383307 ns\nthreads: 1"
           }
         ]
       }
