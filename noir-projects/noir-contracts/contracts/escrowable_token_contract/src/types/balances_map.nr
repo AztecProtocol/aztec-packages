@@ -62,30 +62,29 @@ impl<T> BalancesMap<T, ()> {
 impl<T> BalancesMap<T, &mut PrivateContext> {
     /**
      * Adds a note to the balance of the owner.
-     * 
-     * @note The _klix is currently unused as the outgoing logs atm are unused.
      *
      * @param owner: The address of the note owner.
-     * @param sage: The address to use for `ivpk` and `npk` lookups
-     * @param _klix: The address to use for `ovpk` lookup
      * @param addend: The amount to add to the balance
+     * @param sage: The address to use for `ivpk` and `npk` lookups
+     * @param klix: The address to use for `ovpk` lookup
      */
     pub fn add<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
         self: Self,
         owner: AztecAddress,
+        addend: U128,
         sage: AztecAddress,
-        _klix: AztecAddress,
-        addend: U128
+        klix: AztecAddress
     ) where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
         let context = self.map.context;
         let header = context.get_header();
 
         let ivpk_m = header.get_ivpk_m(context, sage);
         let npk_m_hash = header.get_npk_m_hash(context, sage);
+        let ovpk_m = header.get_ovpk_m(context, klix);
 
         let mut addend_note = T::new(addend, npk_m_hash);
 
-        self.map.at(owner).insert(&mut addend_note, true, ivpk_m);
+        self.map.at(owner).insert(&mut addend_note, true, ovpk_m, ivpk_m);
     }
 
     /**
@@ -93,16 +92,16 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
      * If removing "too much" adds a note to the balance of the owner with the diff.
      *
      * @param owner: The address of the note owner.
+     * @param subtrahend: The amount to remove from the balance
      * @param sage: The address to use for `ivpk` and `npk` lookups
      * @param klix: The address to use for `ovpk` lookup
-     * @param subtrahend: The amount to remove from the balance
      */
     pub fn sub<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
         self: Self,
         owner: AztecAddress,
+        subtrahend: U128,
         sage: AztecAddress,
-        klix: AztecAddress,
-        subtrahend: U128
+        klix: AztecAddress
     ) where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend);
         let maybe_notes = self.map.at(owner).get_notes(options);
@@ -120,7 +119,7 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
 
         assert(minuend >= subtrahend, "Balance too low");
 
-        self.add(owner, sage, klix, minuend - subtrahend);
+        self.add(owner, minuend - subtrahend, sage, klix);
     }
 }
 

@@ -171,6 +171,8 @@ contract EscrowableToken {
      * 
      * @param to: The recipient of the assets
      * @param amount: The amount to mint 
+     * @param sage: The address to use for `ivpk` and `npk` for the shielded notes - if not provided, the `to` address is used
+     * @param klix: The address to use for `ovpk` when creating outgoing logs - if not provided, the `from` address is used
      */
     #[aztec(private)]
     fn mint_private(
@@ -186,9 +188,9 @@ contract EscrowableToken {
         let amount = U128::from_integer(amount);
         storage.balances.add(
             to,
+            amount,
             sage.unwrap_or(to),
-            klix.unwrap_or(context.msg_sender()),
-            amount
+            klix.unwrap_or(context.msg_sender())
         );
     }
 
@@ -223,7 +225,7 @@ contract EscrowableToken {
         }
         EscrowableToken::at(context.this_address())._reduce_public_balance(from, amount).enqueue(&mut context);
         let amount = U128::from_integer(amount);
-        storage.balances.add(to, sage.unwrap_or(to), klix.unwrap_or(from), amount);
+        storage.balances.add(to, amount, sage.unwrap_or(to), klix.unwrap_or(from));
     }
 
     /**
@@ -256,9 +258,9 @@ contract EscrowableToken {
 
         storage.balances.sub(
             from,
+            U128::from_integer(amount),
             change_sage.unwrap_or(from),
-            klix.unwrap_or(from),
-            U128::from_integer(amount)
+            klix.unwrap_or(from)
         );
 
         EscrowableToken::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
@@ -295,8 +297,8 @@ contract EscrowableToken {
 
         let amount = U128::from_integer(amount);
 
-        storage.balances.sub(from, change_sage.unwrap_or(from), klix.unwrap_or(from), amount);
-        storage.balances.add(to, to_sage.unwrap_or(to), klix.unwrap_or(from), amount);
+        storage.balances.sub(from, amount, change_sage.unwrap_or(from), klix.unwrap_or(from));
+        storage.balances.add(to, amount, to_sage.unwrap_or(to), klix.unwrap_or(from));
     }
 
     /**
@@ -327,9 +329,9 @@ contract EscrowableToken {
 
         storage.balances.sub(
             from,
+            U128::from_integer(amount),
             change_sage.unwrap_or(from),
-            klix.unwrap_or(from),
-            U128::from_integer(amount)
+            klix.unwrap_or(from)
         );
 
         EscrowableToken::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
