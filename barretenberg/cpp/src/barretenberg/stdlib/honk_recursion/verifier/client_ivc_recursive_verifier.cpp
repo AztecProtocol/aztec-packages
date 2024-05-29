@@ -2,17 +2,16 @@
 
 namespace bb::stdlib::recursion::honk {
 
-void ClientIvcRecursiveVerifier_::verify(const ClientIVC::Proof& proof, VerifierData& data)
+void ClientIvcRecursiveVerifier_::verify(const ClientIVC::Proof& proof, VerifierInput& data)
 {
     // Verify some stuff
     (void)data;
     (void)proof;
     (void)builder;
 
-    FoldingVerifier folding_verifier{ builder, data.verifier_accumulator_instance, data.honk_verification_keys };
+    FoldingVerifier folding_verifier{ builder, data.accumulator, data.instance_vks };
     auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(proof.folding_proof);
-    auto native_verifier_acc =
-        std::make_shared<VerifierData::NativeInstance>(recursive_verifier_accumulator->get_value());
+    auto native_verifier_acc = std::make_shared<VerifierInput::Instance>(recursive_verifier_accumulator->get_value());
 
     DeciderVerifier decider{ builder, native_verifier_acc };
     decider.verify_proof(proof.decider_proof);

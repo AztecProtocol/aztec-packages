@@ -27,6 +27,12 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     static constexpr size_t NUM = VerifierInstances::NUM;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 
+    struct VerifierInput {
+        using Instance = NativeInstance;
+        std::shared_ptr<Instance> accumulator;
+        std::vector<std::shared_ptr<NativeVerificationKey>> instance_vks;
+    };
+
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
     CommitmentLabels commitment_labels;

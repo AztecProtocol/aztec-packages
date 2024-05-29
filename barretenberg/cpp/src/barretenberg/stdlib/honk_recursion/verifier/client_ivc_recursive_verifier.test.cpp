@@ -6,25 +6,29 @@
 namespace bb::stdlib::recursion::honk {
 class ClientIvcRecursionTests : public testing::Test {
   public:
+    using Builder = UltraCircuitBuilder;
+    using ClientIvcVerifier = ClientIvcRecursiveVerifier_;
+    using VerifierInput = ClientIvcVerifier::FoldingVerifier::VerifierInput;
+    using VerifierInstance = VerifierInput::Instance;
+
     static void SetUpTestSuite()
     {
         bb::srs::init_crs_factory("../srs_db/ignition");
         srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
     }
 
-    // WORKTODO: if this is really needed then move it to client_ivc or something
     struct ClientIvcProverOutput {
-        using Flavor = MegaFlavor;
-        using VerifierInstance = VerifierInstance_<Flavor>;
-        using VerifierData = ClientIvcRecursiveVerifier_::VerifierData;
         ClientIVC::Proof proof;
-
-        VerifierData verifier_data;
+        VerifierInput verifier_input;
     };
 
-    static ClientIvcProverOutput construct_mock_client_ivc_output(ClientIVC& ivc)
+    /**
+     * @brief Construct a genuine ClientIvc prover output based on accumulation of an arbitrary set of mock circuits
+     *
+     */
+    static ClientIvcProverOutput construct_client_ivc_prover_output(ClientIVC& ivc)
     {
-        using Builder = MegaCircuitBuilder;
+        using Builder = ClientIVC::ClientCircuit;
 
         size_t NUM_CIRCUITS = 3;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -33,39 +37,33 @@ class ClientIvcRecursionTests : public testing::Test {
             ivc.accumulate(circuit);
         }
 
-        ClientIvcProverOutput output;
-        output.proof = ivc.prove();
-        output.verifier_data.verifier_accumulator_instance = ivc.verifier_accumulator;
-        output.verifier_data.honk_verification_keys = { ivc.instance_vk };
-
-        return output;
-        // return { ivc.prove(), { ivc.verifier_accumulator, ivc.instance_vk } };
+        return { ivc.prove(), { ivc.verifier_accumulator, { ivc.instance_vk } } };
     }
 };
 
 TEST_F(ClientIvcRecursionTests, NativeVerification)
 {
     ClientIVC ivc;
-    auto [proof, verifier_instances] = construct_mock_client_ivc_output(ivc);
+    auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
-    using Flavor = MegaFlavor;
-    using VerifierInstance = VerifierInstance_<Flavor>;
+    // Construct the set of native verifier instances to be processed by the folding verifier
+    std::vector<std::shared_ptr<VerifierInstance>> instances{ verifier_input.accumulator };
+    for (auto vk : verifier_input.instance_vks) {
+        instances.emplace_back(std::make_shared<VerifierInstance>(vk));
+    }
 
-    auto verifier_inst = std::make_shared<VerifierInstance>(ivc.instance_vk);
-
-    bool result = ivc.verify(proof, { ivc.verifier_accumulator, verifier_inst });
-    EXPECT_TRUE(result);
+    EXPECT_TRUE(ivc.verify(proof, instances));
 }
 
 TEST_F(ClientIvcRecursionTests, Basic)
 {
     ClientIVC ivc;
-    auto [proof, verifier_data] = construct_mock_client_ivc_output(ivc);
+    auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
-    UltraCircuitBuilder builder;
-    ClientIvcRecursiveVerifier_ verifier{ &builder };
+    Builder builder;
+    ClientIvcVerifier verifier{ &builder };
 
-    verifier.verify(proof, verifier_data);
+    verifier.verify(proof, verifier_input);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }

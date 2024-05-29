@@ -8,25 +8,16 @@ class ClientIvcRecursiveVerifier_ {
     using RecursiveFlavor = MegaRecursiveFlavor_<Builder>; // The verifier algorithms are Mega
     using RecursiveVerifierInstances = RecursiveVerifierInstances_<RecursiveFlavor, 2>;
 
-    using DeciderVerifier = DeciderRecursiveVerifier_<RecursiveFlavor>;
-    using FoldingVerifier = ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
-
     Builder* builder;
 
   public:
-    struct VerifierData {
-
-        using NativeFlavor = MegaFlavor;
-        using NativeInstance = bb::VerifierInstance_<NativeFlavor>;
-        using NativeVerificationKey = NativeFlavor::VerificationKey;
-
-        std::shared_ptr<NativeInstance> verifier_accumulator_instance;
-        std::vector<std::shared_ptr<NativeVerificationKey>> honk_verification_keys;
-    };
+    using DeciderVerifier = DeciderRecursiveVerifier_<RecursiveFlavor>;
+    using FoldingVerifier = ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
+    using VerifierInput = FoldingVerifier::VerifierInput;
 
     ClientIvcRecursiveVerifier_(Builder* builder)
         : builder(builder){};
 
-    void verify(const ClientIVC::Proof&, VerifierData&);
+    void verify(const ClientIVC::Proof&, VerifierInput&);
 };
 } // namespace bb::stdlib::recursion::honk
