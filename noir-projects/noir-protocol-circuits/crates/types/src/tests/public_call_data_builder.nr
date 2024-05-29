@@ -2,11 +2,11 @@ use crate::{
     abis::{
     gas_settings::GasSettings, gas::Gas, call_context::CallContext,
     call_request::{CallerContext, CallRequest}, function_data::FunctionData,
-    public_call_data::PublicCallData, public_call_stack_item::PublicCallStackItem,
+    public_call_data::{PublicCallData, Proof}, public_call_stack_item::PublicCallStackItem,
     public_circuit_public_inputs::PublicCircuitPublicInputs, log_hash::LogHash
 },
     address::{AztecAddress, EthAddress},
-    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest}, mocked::Proof,
+    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     tests::{fixtures, public_circuit_public_inputs_builder::PublicCircuitPublicInputsBuilder}
 };
 use crate::constants::{
@@ -128,7 +128,8 @@ impl PublicCallDataBuilder {
                     // The default storage slot is its index + 1.
                     storage_slot: (value_offset + i + 1) as Field,
                     // The default value is its index + 890.
-                    new_value: (value_offset + i + 890) as Field
+                    new_value: (value_offset + i + 890) as Field,
+                    counter: i as u32
                 };
                 self.public_inputs.contract_storage_update_requests.push(update_request);
             }

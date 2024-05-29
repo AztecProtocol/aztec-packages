@@ -19,7 +19,7 @@ This page will focus on how private variables are implemented with Notes and sto
 
 #### Side-note about execution
 Under the hood, the Aztec protocol handles some important details around public and private function calls. Calls between them are asynchronous due to different execution contexts (local execution vs. node execution).
-A detailed explanation of the transaction lifecycle can be found [here](/aztec/concepts/transactions.md#simple-example-of-the-private-transaction-lifecycle).
+A detailed explanation of the transaction lifecycle can be found [here](../../../../aztec/concepts/transactions.md#simple-example-of-the-private-transaction-lifecycle).
 
 ## Private state variables in Aztec
 State variables in an Aztec contract are defined inside a struct specifically named `Storage`, and must satisfy the [Note Interface](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_interface.nr) and contain a [Note header](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_header.nr).
@@ -29,7 +29,7 @@ The Note header struct contains the contract address which the value is effectiv
 A couple of things to unpack here:
 
 #### Storage "slot"
-Storage slots are more literal for public storage, a place where a value is stored. For private storage, a storage slot is logical (more [here](/aztec/concepts/storage/index.md#private-state-slots---slots-arent-real)).
+Storage slots are more literal for public storage, a place where a value is stored. For private storage, a storage slot is logical (more [here](../../../../aztec/concepts/storage/index.md#private-state-slots---slots-arent-real)).
 
 #### Silos
 The address of the contract is included in a Note's data to ensure that different contracts don't arrive at the same hash with an identical variable. This is handled in the protocol's execution.
@@ -50,7 +50,7 @@ By virtue of being append only, notes are not edited. If two transactions amend 
 :::info
 - Only those with appropriate keys/information will be able to successfully read private values that they have permission to
 - Notes can be read outside of a transaction or "off-chain" with no changes to data structures on-chain
-:::info
+:::
 
 When a note is read in a transaction, a subsequent read from another transaction of the same note would reveal a link between the two. So to preserve privacy, notes that are read in a transaction are said to be "consumed" (defined below), and new note(s) are then created with a unique hash (includes transaction identifier).
 
@@ -63,15 +63,15 @@ When interpreting a value, the local private execution checks that its notes (of
 ### Updating
 :::note
 Only those with appropriate keys/information will be able to successfully nullify a value that they have permission to.
-:::note
+:::
 
 To update a value, its previous note hash(es) are nullified. The new note value is updated in the PXE, and the updated note hash inserted into the note hash tree.
 
 ## Supplementary components
 Some optional background resources on notes can be found here:
-- [High level network architecture](/aztec/core_components.md#high-level-network-architecture), specifically the Private Execution Environment
-- [Transaction lifecycle (simple diagram)](/aztec/concepts/transactions.md#simple-example-of-the-private-transaction-lifecycle)
-- [Public and Private state](/aztec/concepts/state_model)
+- [High level network architecture](../../../../aztec/core_components.md#high-level-network-architecture), specifically the Private Execution Environment
+- [Transaction lifecycle (simple diagram)](../../../../aztec/concepts/transactions.md#simple-example-of-the-private-transaction-lifecycle)
+- [Public and Private state](../../../../aztec/concepts/state_model/index.md)
 
 Notes touch several core components of the protocol, but we will focus on a the essentials first.
 
@@ -126,10 +126,10 @@ Notice how the `add` function shows the simplicity of appending a new note to al
 -----
 
 ### Apply
-Try the [Token tutorial](/tutorials/contract_tutorials/token_contract.md) to see what notes can achieve. In this section you will also find other tutorials using notes in different ways.
+Try the [Token tutorial](../../../../tutorials/contract_tutorials/token_contract.md) to see what notes can achieve. In this section you will also find other tutorials using notes in different ways.
 
 ### Further reading
-- [Storage Trees](/aztec/concepts/storage/trees)
+- [Storage Trees](../../../../aztec/concepts/storage/trees/index.md)
 - [Proof of prior notes](../how_to_prove_history.md) - public/private reading of public/private proof of state (public or private)
 
 If you're curious about any of the following related topics, search the documentation for...

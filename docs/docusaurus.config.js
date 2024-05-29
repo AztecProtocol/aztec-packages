@@ -55,6 +55,7 @@ const config = {
             );
           },
           routeBasePath: "/",
+          include: ["**/*.{md,mdx}"],
           remarkPlugins: [math],
           rehypePlugins: [
             [
@@ -297,6 +298,7 @@ const config = {
         // https://prismjs.com/#supported-languages
         // Commented-out languages exists in `node_modules/prismjs/components/` so I'm not sure why they don't work.
         additionalLanguages: [
+          "diff",
           "rust",
           "solidity",
           "cpp",

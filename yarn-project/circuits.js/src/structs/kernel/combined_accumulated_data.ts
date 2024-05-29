@@ -1,4 +1,4 @@
-import { makeTuple } from '@aztec/foundation/array';
+import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -47,6 +47,10 @@ export class CombinedAccumulatedData {
      */
     public unencryptedLogsHash: Fr,
     /**
+     * Total accumulated length of the encrypted note log preimages emitted in all the previous kernel iterations
+     */
+    public noteEncryptedLogPreimagesLength: Fr,
+    /**
      * Total accumulated length of the encrypted log preimages emitted in all the previous kernel iterations
      */
     public encryptedLogPreimagesLength: Fr,
@@ -63,19 +67,28 @@ export class CombinedAccumulatedData {
     public gasUsed: Gas,
   ) {}
 
+  static getFields(fields: FieldsOf<CombinedAccumulatedData>) {
+    return [
+      fields.newNoteHashes,
+      fields.newNullifiers,
+      fields.newL2ToL1Msgs,
+      fields.noteEncryptedLogsHash,
+      fields.encryptedLogsHash,
+      fields.unencryptedLogsHash,
+      fields.noteEncryptedLogPreimagesLength,
+      fields.encryptedLogPreimagesLength,
+      fields.unencryptedLogPreimagesLength,
+      fields.publicDataUpdateRequests,
+      fields.gasUsed,
+    ] as const;
+  }
+
+  static from(fields: FieldsOf<CombinedAccumulatedData>): CombinedAccumulatedData {
+    return new CombinedAccumulatedData(...CombinedAccumulatedData.getFields(fields));
+  }
+
   toBuffer() {
-    return serializeToBuffer(
-      this.newNoteHashes,
-      this.newNullifiers,
-      this.newL2ToL1Msgs,
-      this.noteEncryptedLogsHash,
-      this.encryptedLogsHash,
-      this.unencryptedLogsHash,
-      this.encryptedLogPreimagesLength,
-      this.unencryptedLogPreimagesLength,
-      this.publicDataUpdateRequests,
-      this.gasUsed,
-    );
+    return serializeToBuffer(...CombinedAccumulatedData.getFields(this));
   }
 
   toString() {
@@ -93,6 +106,7 @@ export class CombinedAccumulatedData {
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
@@ -122,6 +136,7 @@ export class CombinedAccumulatedData {
       Fr.zero(),
       Fr.zero(),
       Fr.zero(),
+      Fr.zero(),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
       Gas.empty(),
     );
@@ -144,6 +159,7 @@ export class CombinedAccumulatedData {
       noteEncryptedLogsHash: ${this.noteEncryptedLogsHash.toString()},
       encryptedLogsHash: ${this.encryptedLogsHash.toString()},
       unencryptedLogsHash: ${this.unencryptedLogsHash.toString()},
+      noteEncryptedLogPreimagesLength: ${this.noteEncryptedLogPreimagesLength.toString()},
       encryptedLogPreimagesLength: ${this.encryptedLogPreimagesLength.toString()},
       unencryptedLogPreimagesLength: ${this.unencryptedLogPreimagesLength.toString()},
       publicDataUpdateRequests: [${this.publicDataUpdateRequests

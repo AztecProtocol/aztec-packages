@@ -4,7 +4,6 @@ import {
   type Gas,
   type GlobalVariables,
   type Header,
-  type Proof,
   type PublicKernelCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
@@ -33,29 +32,23 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
     super(db, publicExecutor, publicKernel, globalVariables, historicalHeader, phase);
   }
 
-  override async handle(
-    tx: Tx,
-    previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
-    previousPublicKernelProof: Proof,
-  ) {
+  override async handle(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs) {
     this.log.verbose(`Processing tx ${tx.getTxHash()}`);
-    const [
-      kernelInputs,
-      publicKernelOutput,
-      publicKernelProof,
-      newUnencryptedFunctionLogs,
-      revertReason,
-      _returnValues,
-      gasUsed,
-    ] = await this.processEnqueuedPublicCalls(tx, previousPublicKernelOutput, previousPublicKernelProof).catch(
-      // the abstract phase manager throws if simulation gives error in a non-revertible phase
-      async err => {
-        await this.publicStateDB.rollbackToCommit();
-        throw err;
-      },
-    );
-    tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
-    await this.publicStateDB.checkpoint();
+    const [kernelInputs, publicKernelOutput, newUnencryptedFunctionLogs, revertReason, _returnValues, gasUsed] =
+      await this.processEnqueuedPublicCalls(tx, previousPublicKernelOutput).catch(
+        // the abstract phase manager throws if simulation gives error in a non-revertible phase
+        async err => {
+          await this.publicStateDB.rollbackToCommit();
+          throw err;
+        },
+      );
+    if (revertReason) {
+      await this.publicStateDB.rollbackToCheckpoint();
+    } else {
+      // TODO(#6464): Should we allow emitting contracts in the public teardown phase?
+      // if so, we should insert them here
+      tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
+    }
 
     // Return a list of teardown proving requests
     const kernelRequests = kernelInputs.map(input => {
@@ -69,7 +62,6 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
       kernelRequests,
       kernelInputs,
       publicKernelOutput,
-      publicKernelProof,
       revertReason,
       returnValues: [],
       gasUsed,

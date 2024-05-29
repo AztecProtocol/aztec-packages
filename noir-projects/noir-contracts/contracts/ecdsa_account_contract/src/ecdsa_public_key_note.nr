@@ -1,8 +1,7 @@
 use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteInterface, NoteGetterOptions, PrivateContext};
 
 use dep::aztec::{
-    keys::getters::get_ivpk_m, note::utils::compute_note_hash_for_consumption,
-    keys::getters::get_nsk_app,
+    note::utils::compute_note_hash_for_consumption, keys::getters::get_nsk_app,
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_point::GrumpkinPoint, hash::poseidon2_hash}
 };
 
@@ -87,11 +86,12 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN, ECDSA_PUBLIC_KEY_NOTE_BYTES_LEN> f
     }
 
     // Broadcasts the note as an encrypted log on L1.
-    fn broadcast(self, context: &mut PrivateContext, slot: Field, ivpk_m: GrumpkinPoint) {
+    fn broadcast(self, context: &mut PrivateContext, slot: Field, ovpk_m: GrumpkinPoint, ivpk_m: GrumpkinPoint) {
         context.encrypt_and_emit_note(
             (*context).this_address(),
             slot,
             Self::get_note_type_id(),
+            ovpk_m,
             ivpk_m,
             self,
         );

@@ -13,10 +13,20 @@ unconstrained pub fn emit_encrypted_note_log<M>(
 }
 
 #[oracle(emitEncryptedLog)]
-fn emit_encrypted_log_oracle<M>(_encrypted_note: [u8; M], _counter: u32) {}
+fn emit_encrypted_log_oracle<M>(
+    _contract_address: AztecAddress,
+    _randomness: Field,
+    _encrypted_note: [u8; M],
+    _counter: u32
+) {}
 
-unconstrained pub fn emit_encrypted_log<M>(encrypted_note: [u8; M], counter: u32) {
-    emit_encrypted_log_oracle(encrypted_note, counter)
+unconstrained pub fn emit_encrypted_log<M>(
+    contract_address: AztecAddress,
+    randomness: Field,
+    encrypted_note: [u8; M],
+    counter: u32
+) {
+    emit_encrypted_log_oracle(contract_address, randomness, encrypted_note, counter)
 }
 
 // = 480 + 32 * N bytes
@@ -25,7 +35,9 @@ fn compute_encrypted_log_oracle<N, M>(
     _contract_address: AztecAddress,
     _storage_slot: Field,
     _note_type_id: Field,
-    _encryption_pub_key: GrumpkinPoint,
+    _ovsk_app: Field,
+    _ovpk_m: GrumpkinPoint,
+    _ivpk_m: GrumpkinPoint,
     _preimage: [Field; N]
 ) -> [u8; M] {}
 
@@ -33,8 +45,18 @@ unconstrained pub fn compute_encrypted_log<N, M>(
     contract_address: AztecAddress,
     storage_slot: Field,
     note_type_id: Field,
+    ovsk_app: Field,
+    ovpk_m: GrumpkinPoint,
     ivpk_m: GrumpkinPoint,
     preimage: [Field; N]
 ) -> [u8; M] {
-    compute_encrypted_log_oracle(contract_address, storage_slot, note_type_id, ivpk_m, preimage)
+    compute_encrypted_log_oracle(
+        contract_address,
+        storage_slot,
+        note_type_id,
+        ovsk_app,
+        ovpk_m,
+        ivpk_m,
+        preimage
+    )
 }

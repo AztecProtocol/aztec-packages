@@ -9,6 +9,8 @@
 #include "avm_mem_trace.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_conversion_trace.hpp"
+#include "barretenberg/vm/avm_trace/gadgets/avm_poseidon2.hpp"
+#include "barretenberg/vm/avm_trace/gadgets/avm_sha256.hpp"
 #include "constants.hpp"
 
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
@@ -23,9 +25,9 @@ namespace bb::avm_trace {
 class AvmTraceBuilder {
 
   public:
-    AvmTraceBuilder(std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs = {});
+    AvmTraceBuilder(VmPublicInputs public_inputs = {});
 
-    std::vector<Row> finalize();
+    std::vector<Row> finalize(uint32_t min_trace_size = 0, bool range_check_required = false);
     void reset();
 
     uint32_t getPc() const { return pc; }
@@ -82,7 +84,6 @@ class AvmTraceBuilder {
     // Call Context
     void op_sender(uint32_t dst_offset);
     void op_address(uint32_t dst_offset);
-    void op_portal(uint32_t dst_offset);
 
     // Fees
     void op_fee_per_da_gas(uint32_t dst_offset);
@@ -95,6 +96,21 @@ class AvmTraceBuilder {
     void op_block_number(uint32_t dst_offset);
     void op_coinbase(uint32_t dst_offset);
     void op_timestamp(uint32_t dst_offset);
+
+    // Outputs
+    // With single output values
+    void op_emit_note_hash(uint32_t note_hash_offset);
+    void op_emit_nullifier(uint32_t nullifier_offset);
+    void op_emit_unencrypted_log(uint32_t log_offset);
+    void op_emit_l2_to_l1_msg(uint32_t msg_offset);
+
+    // With additional metadata output
+    void op_l1_to_l2_msg_exists(uint32_t msg_offset, uint32_t dest_offset);
+    void op_note_hash_exists(uint32_t note_hash_offset, uint32_t dest_offset);
+    void op_nullifier_exists(uint32_t nullifier_offset, uint32_t dest_offset);
+
+    void op_sload(uint32_t slot_offset, uint32_t value_offset);
+    void op_sstore(uint32_t slot_offset, uint32_t value_offset);
 
     // Cast an element pointed by the address a_offset into type specified by dst_tag and
     // store the result in address given by dst_offset.
@@ -134,6 +150,11 @@ class AvmTraceBuilder {
     // --- Conversions
     // To Radix LE conversion operation.
     void op_to_radix_le(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset, uint32_t radix, uint32_t num_limbs);
+    // --- Hashing
+    // Sha256 compression operation
+    void op_sha256_compression(uint8_t indirect, uint32_t output_offset, uint32_t h_init_offset, uint32_t input_offset);
+    // Poseidon2 Permutation operation
+    void op_poseidon2_permutation(uint8_t indirect, uint32_t input_offset, uint32_t output_offset);
 
   private:
     // Used for the standard indirect address resolution of three operands opcode.
@@ -154,8 +175,67 @@ class AvmTraceBuilder {
     AvmBinaryTraceBuilder bin_trace_builder;
     AvmKernelTraceBuilder kernel_trace_builder;
     AvmConversionTraceBuilder conversion_trace_builder;
+    AvmSha256TraceBuilder sha256_trace_builder;
+    AvmPoseidon2TraceBuilder poseidon2_trace_builder;
 
+    /**
+     * @brief Create a kernel lookup opcode object
+     *
+     * Used for looking up into the kernel inputs (context) - {caller, address, etc.}
+     *
+     * @param dst_offset - Memory address to write the lookup result to
+     * @param selector - The index of the kernel input lookup column
+     * @param value - The value read from the memory address
+     * @param w_tag - The memory tag of the value read
+     * @return Row
+     */
     Row create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t selector, FF value, AvmMemoryTag w_tag);
+
+    /**
+     * @brief Create a kernel output opcode object
+     *
+     * Used for writing to the kernel app outputs - {new_note_hash, new_nullifier, etc.}
+     *
+     * @param clk - The trace clk
+     * @param data_offset - The memory address to read the output from
+     * @return Row
+     */
+    Row create_kernel_output_opcode(uint32_t clk, uint32_t data_offset);
+
+    /**
+     * @brief Create a kernel output opcode with metadata object
+     *
+     * Used for writing to the kernel app outputs with extra metadata - {sload, sstore} (value, slot)
+     *
+     * @param clk - The trace clk
+     * @param data_offset - The offset of the main value to output
+     * @param data_r_tag - The data type of the value
+     * @param metadata_offset - The offset of the metadata (slot in the sload example)
+     * @param metadata_r_tag - The data type of the metadata
+     * @return Row
+     */
+    Row create_kernel_output_opcode_with_metadata(uint32_t clk,
+                                                  uint32_t data_offset,
+                                                  AvmMemoryTag data_r_tag,
+                                                  uint32_t metadata_offset,
+                                                  AvmMemoryTag metadata_r_tag);
+
+    /**
+     * @brief Create a kernel output opcode with set metadata output object
+     *
+     * Used for writing output opcode where one value is written and comes from a hint
+     * {note_hash_exists, nullifier_exists, etc. } Where a boolean output if it exists must also be written
+     *
+     * @param clk - The trace clk
+     * @param data_offset - The offset of the main value to output
+     * @param data_r_tag - The data type of the value
+     * @param metadata_offset - The offset of the metadata (slot in the sload example)
+     * @param write_value - The value to be written into the result - in all instances this is used - it is a boolean
+     * @return Row
+     */
+    Row create_kernel_output_opcode_with_set_metadata_output(
+        uint32_t clk, uint32_t data_offset, AvmMemoryTag data_r_tag, uint32_t metadata_offset, FF write_value);
+
     void finalise_mem_trace_lookup_counts();
 
     IndirectThreeResolution resolve_ind_three(
@@ -165,5 +245,22 @@ class AvmTraceBuilder {
     uint32_t internal_return_ptr =
         0; // After a nested call, it should be initialized with MAX_SIZE_INTERNAL_STACK * call_ptr
     uint8_t call_ptr = 0;
+
+    // TODO(ilyas: #6383): Temporary way to bulk read slices
+    template <typename MEM, size_t T>
+    void read_slice_to_memory(uint8_t space_id,
+                              uint32_t clk,
+                              uint32_t src_offset,
+                              AvmMemoryTag r_tag,
+                              AvmMemoryTag w_tag,
+                              FF internal_return_ptr,
+                              std::array<MEM, T>& slice);
+    void write_slice_to_memory(uint8_t space_id,
+                               uint32_t clk,
+                               uint32_t dst_offset,
+                               AvmMemoryTag r_tag,
+                               AvmMemoryTag w_tag,
+                               FF internal_return_ptr,
+                               std::vector<FF> const& slice);
 };
 } // namespace bb::avm_trace

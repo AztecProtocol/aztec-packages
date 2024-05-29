@@ -352,18 +352,6 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirNewGoblinAcirComposer(): Promise<Ptr> {
-    const inArgs = [].map(serializeBufferable);
-    const outTypes: OutputType[] = [Ptr];
-    const result = await this.wasm.callWasmExport(
-      'acir_new_goblin_acir_composer',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
   async acirDeleteAcirComposer(acirComposerPtr: Ptr): Promise<void> {
     const inArgs = [acirComposerPtr].map(serializeBufferable);
     const outTypes: OutputType[] = [];
@@ -428,11 +416,11 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirProveAndVerifyGoblinUltraHonk(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Promise<boolean> {
+  async acirProveAndVerifyMegaHonk(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Promise<boolean> {
     const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = await this.wasm.callWasmExport(
-      'acir_prove_and_verify_goblin_ultra_honk',
+      'acir_prove_and_verify_mega_honk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -440,15 +428,11 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirGoblinProve(
-    acirComposerPtr: Ptr,
-    constraintSystemBuf: Uint8Array,
-    witnessBuf: Uint8Array,
-  ): Promise<Uint8Array> {
-    const inArgs = [acirComposerPtr, constraintSystemBuf, witnessBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BufferDeserializer()];
+  async acirFoldAndVerifyProgramStack(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Promise<boolean> {
+    const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
     const result = await this.wasm.callWasmExport(
-      'acir_goblin_prove',
+      'acir_fold_and_verify_program_stack',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -516,18 +500,6 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirGoblinVerify(acirComposerPtr: Ptr, proofBuf: Uint8Array): Promise<boolean> {
-    const inArgs = [acirComposerPtr, proofBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BoolDeserializer()];
-    const result = await this.wasm.callWasmExport(
-      'acir_goblin_verify',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
   async acirGetSolidityVerifier(acirComposerPtr: Ptr): Promise<string> {
     const inArgs = [acirComposerPtr].map(serializeBufferable);
     const outTypes: OutputType[] = [StringDeserializer()];
@@ -568,8 +540,8 @@ export class BarretenbergApi {
     return out as any;
   }
 
-  async acirProveUltraHonk(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Promise<Uint8Array> {
-    const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
+  async acirProveUltraHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Promise<Uint8Array> {
+    const inArgs = [acirVec, witnessVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_prove_ultra_honk',
@@ -592,8 +564,8 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirWriteVkUltraHonk(constraintSystemBuf: Uint8Array): Promise<Uint8Array> {
-    const inArgs = [constraintSystemBuf].map(serializeBufferable);
+  async acirWriteVkUltraHonk(acirVec: Uint8Array): Promise<Uint8Array> {
+    const inArgs = [acirVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_write_vk_ultra_honk',
@@ -625,7 +597,7 @@ export class BarretenbergApi {
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
     const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out as any;
+    return out[0];
   }
 }
 export class BarretenbergApiSync {
@@ -968,18 +940,6 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirNewGoblinAcirComposer(): Ptr {
-    const inArgs = [].map(serializeBufferable);
-    const outTypes: OutputType[] = [Ptr];
-    const result = this.wasm.callWasmExport(
-      'acir_new_goblin_acir_composer',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
   acirDeleteAcirComposer(acirComposerPtr: Ptr): void {
     const inArgs = [acirComposerPtr].map(serializeBufferable);
     const outTypes: OutputType[] = [];
@@ -1040,11 +1000,11 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirProveAndVerifyGoblinUltraHonk(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): boolean {
+  acirProveAndVerifyMegaHonk(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): boolean {
     const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = this.wasm.callWasmExport(
-      'acir_prove_and_verify_goblin_ultra_honk',
+      'acir_prove_and_verify_mega_honk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -1052,11 +1012,11 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirGoblinProve(acirComposerPtr: Ptr, constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Uint8Array {
-    const inArgs = [acirComposerPtr, constraintSystemBuf, witnessBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BufferDeserializer()];
+  acirFoldAndVerifyProgramStack(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): boolean {
+    const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
     const result = this.wasm.callWasmExport(
-      'acir_goblin_prove',
+      'acir_fold_and_verify_program_stack',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -1124,18 +1084,6 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirGoblinVerify(acirComposerPtr: Ptr, proofBuf: Uint8Array): boolean {
-    const inArgs = [acirComposerPtr, proofBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BoolDeserializer()];
-    const result = this.wasm.callWasmExport(
-      'acir_goblin_verify',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
   acirGetSolidityVerifier(acirComposerPtr: Ptr): string {
     const inArgs = [acirComposerPtr].map(serializeBufferable);
     const outTypes: OutputType[] = [StringDeserializer()];
@@ -1172,8 +1120,8 @@ export class BarretenbergApiSync {
     return out as any;
   }
 
-  acirUltraHonkProve(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Uint8Array {
-    const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
+  acirProveUltraHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Uint8Array {
+    const inArgs = [acirVec, witnessVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_prove_ultra_honk',
@@ -1196,8 +1144,8 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirWriteVkUltraHonk(constraintSystemBuf: Uint8Array): Uint8Array {
-    const inArgs = [constraintSystemBuf].map(serializeBufferable);
+  acirWriteVkUltraHonk(acirVec: Uint8Array): Uint8Array {
+    const inArgs = [acirVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_write_vk_ultra_honk',
@@ -1229,6 +1177,6 @@ export class BarretenbergApiSync {
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
     const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out as any;
+    return out[0];
   }
 }

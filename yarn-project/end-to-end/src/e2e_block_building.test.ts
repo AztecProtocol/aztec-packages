@@ -11,6 +11,7 @@ import {
   deriveKeys,
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -51,7 +52,10 @@ describe('e2e_block_building', () => {
       const TX_COUNT = 8;
       await aztecNode.setConfig({ minTxsPerBlock: TX_COUNT });
       const deployer = new ContractDeployer(artifact, owner);
-      const methods = times(TX_COUNT, i => deployer.deploy(owner.getCompleteAddress().address, i));
+
+      const ownerAddress = owner.getCompleteAddress().address;
+      const outgoingViewer = ownerAddress;
+      const methods = times(TX_COUNT, i => deployer.deploy(ownerAddress, outgoingViewer, i));
       for (let i = 0; i < TX_COUNT; i++) {
         await methods[i].create({
           contractAddressSalt: new Fr(BigInt(i + 1)),
@@ -239,7 +243,7 @@ describe('e2e_block_building', () => {
     }, 60_000);
 
     it('calls a method with nested unencrypted logs', async () => {
-      const tx = await testContract.methods.emit_unencrypted_logs_nested([1, 2, 3, 4, 5]).send().wait();
+      const tx = await testContract.methods.emit_unencrypted_logs([1, 2, 3, 4, 5], true).send().wait();
       const logs = (await pxe.getUnencryptedLogs({ txHash: tx.txHash })).logs.map(l => l.log);
 
       // First log should be contract address
@@ -256,21 +260,22 @@ describe('e2e_block_building', () => {
       expect(logs[2].data.subarray(-32 * 5)).toEqual(expectedBuffer);
     }, 60_000);
 
-    it('calls a method with nested encrypted logs', async () => {
+    it('calls a method with nested note encrypted logs', async () => {
       // account setup
       const privateKey = new Fr(7n);
       const keys = deriveKeys(privateKey);
       const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
       await account.deploy().wait();
       const thisWallet = await account.getWallet();
+      const outgoingViewer = thisWallet.getAddress();
 
       // call test contract
-      const action = testContract.methods.emit_encrypted_logs_nested(10, thisWallet.getAddress());
+      const action = testContract.methods.emit_encrypted_logs_nested(10, thisWallet.getAddress(), outgoingViewer);
       const tx = await action.prove();
       const rct = await action.send().wait();
 
       // compare logs
-      expect(rct.status).toEqual('mined');
+      expect(rct.status).toEqual('success');
       const decryptedLogs = tx.noteEncryptedLogs
         .unrollLogs()
         .map(l => TaggedNote.decryptAsIncoming(l.data, keys.masterIncomingViewingSecretKey));
@@ -279,6 +284,40 @@ describe('e2e_block_building', () => {
       expect(notevalues[1]).toEqual(new Fr(11));
       expect(notevalues[2]).toEqual(new Fr(12));
     }, 30_000);
+
+    it('calls a method with nested encrypted logs', async () => {
+      // account setup
+      const privateKey = new Fr(7n);
+      const keys = deriveKeys(privateKey);
+      const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
+      await account.deploy().wait();
+      const thisWallet = await account.getWallet();
+      const outgoingViewer = thisWallet.getAddress();
+
+      // call test contract
+      const action = testContract.methods.emit_array_as_encrypted_log(
+        [5, 4, 3, 2, 1],
+        thisWallet.getAddress(),
+        outgoingViewer,
+        true,
+      );
+      const tx = await action.prove();
+      const rct = await action.send().wait();
+
+      // compare logs
+      expect(rct.status).toEqual('success');
+      const encryptedLogs = tx.encryptedLogs.unrollLogs();
+      expect(encryptedLogs[0].maskedContractAddress).toEqual(pedersenHash([testContract.address, new Fr(5)], 0));
+      expect(encryptedLogs[1].maskedContractAddress).toEqual(pedersenHash([testContract.address, new Fr(5)], 0));
+      // Setting randomness = 0 in app means 'do not mask the address'
+      expect(encryptedLogs[2].maskedContractAddress).toEqual(testContract.address.toField());
+      const expectedEncryptedLogsHash = tx.encryptedLogs.hash();
+      expect(tx.data.forRollup?.end.encryptedLogsHash).toEqual(new Fr(expectedEncryptedLogsHash));
+
+      // TODO(1139 | 6408): We currently encrypted generic event logs the same way as notes, so the below
+      // will likely not be useful when complete.
+      // const decryptedLogs = encryptedLogs.map(l => TaggedNote.decryptAsIncoming(l.data, keys.masterIncomingViewingSecretKey));
+    }, 60_000);
   });
 });
 
@@ -287,7 +326,7 @@ async function sendAndWait(calls: ContractFunctionInteraction[]) {
     calls
       // First we send them all.
       .map(call => call.send())
-      // Onlt then we wait.
+      // Only then we wait.
       .map(p => p.wait()),
   );
 }
