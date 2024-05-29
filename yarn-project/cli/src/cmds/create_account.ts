@@ -23,6 +23,8 @@ export async function createAccount(
   const account = getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), salt);
   const { address, publicKeys, partialAddress } = account.getCompleteAddress();
 
+  let tx;
+  let txReceipt;
   if (registerOnly) {
     await account.register();
   } else {
@@ -32,21 +34,19 @@ export async function createAccount(
       const gas = await (await account.getDeployMethod()).estimateGas({ ...sendOpts });
       printGasEstimates(feeOpts, gas, log);
     } else {
-      const tx = account.deploy({ ...sendOpts });
+      tx = account.deploy({ ...sendOpts });
       const txHash = await tx.getTxHash();
       debugLogger.debug(`Account contract tx sent with hash ${txHash}`);
       if (wait) {
         log(`\nWaiting for account contract deployment...`);
-        await tx.wait();
-      } else {
-        log(`\nAccount deployment transaction hash: ${txHash}\n`);
+        txReceipt = await tx.wait();
       }
     }
   }
 
   log(`\nNew account:\n`);
   log(`Address:         ${address.toString()}`);
-  log(`Public key:      ${publicKeys.toString()}`);
+  log(`Public key:      0x${publicKeys.toString()}`);
   if (printPK) {
     log(`Private key:     ${privateKey.toString()}`);
   }
@@ -54,4 +54,10 @@ export async function createAccount(
   log(`Salt:            ${salt.toString()}`);
   log(`Init hash:       ${account.getInstance().initializationHash.toString()}`);
   log(`Deployer:        ${account.getInstance().deployer.toString()}`);
+  if (tx) {
+    log(`Deploy tx hash:  ${await tx.getTxHash()}`);
+  }
+  if (txReceipt) {
+    log(`Deploy tx fee:   ${txReceipt.transactionFee}`);
+  }
 }
