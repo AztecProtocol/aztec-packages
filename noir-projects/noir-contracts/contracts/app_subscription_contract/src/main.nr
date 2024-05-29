@@ -37,7 +37,7 @@ contract AppSubscription {
         assert(context.msg_sender().to_field() == 0);
         assert_current_call_valid_authwit(&mut context, user_address);
 
-        let mut note = storage.subscriptions.at(user_address).get_note(false, GrumpkinPoint::zero(), GrumpkinPoint::zero());
+        let mut note = storage.subscriptions.at(user_address).get_note(GrumpkinPoint::zero(), GrumpkinPoint::zero());
         assert(note.remaining_txs as u64 > 0, "you're out of txs");
 
         note.remaining_txs -= 1;
@@ -47,7 +47,7 @@ contract AppSubscription {
         // outgoing_viewer arg to entrypoint function is impractical and the outgoing are not so valuable here.
         let subscriber_ovpk_m = header.get_ovpk_m(&mut context, user_address);
         let subscriber_ivpk_m = header.get_ivpk_m(&mut context, user_address);
-        storage.subscriptions.at(user_address).replace(&mut note, true, subscriber_ovpk_m, subscriber_ivpk_m);
+        storage.subscriptions.at(user_address).replace(&mut note, subscriber_ovpk_m, subscriber_ivpk_m);
 
         context.set_as_fee_payer();
 
@@ -120,12 +120,7 @@ contract AppSubscription {
         let subscriber_ivpk_m = header.get_ivpk_m(&mut context, subscriber_address);
 
         let mut subscription_note = SubscriptionNote::new(subscriber_npk_m_hash, expiry_block_number, tx_count);
-        storage.subscriptions.at(subscriber_address).initialize_or_replace(
-            &mut subscription_note,
-            true,
-            msg_sender_ovpk_m,
-            subscriber_ivpk_m
-        );
+        storage.subscriptions.at(subscriber_address).initialize_or_replace(&mut subscription_note, msg_sender_ovpk_m, subscriber_ivpk_m);
     }
 
     unconstrained fn is_initialized(subscriber_address: AztecAddress) -> pub bool {
