@@ -58,6 +58,8 @@ locals {
   node_p2p_private_keys  = [var.NODE_1_PRIVATE_KEY, var.NODE_2_PRIVATE_KEY]
   node_count             = length(local.publisher_private_keys)
   data_dir               = "/usr/src/yarn-project/aztec/data"
+  agents_per_sequencer   = var.AGENTS_PER_SEQUENCER
+  total_agents           = local.node_count * local.agents_per_sequencer
 }
 
 resource "aws_cloudwatch_log_group" "aztec-node-log-group" {
@@ -374,17 +376,17 @@ resource "aws_ecs_service" "aztec-node" {
   }
 
 
-  load_balancer {
-    target_group_arn = aws_lb_target_group.aztec-node-tcp[count.index].arn
-    container_name   = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
-    container_port   = var.NODE_P2P_TCP_PORT + count.index
-  }
+  # load_balancer {
+  #   target_group_arn = aws_lb_target_group.aztec-node-tcp[count.index].arn
+  #   container_name   = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
+  #   container_port   = var.NODE_P2P_TCP_PORT + count.index
+  # }
 
-  load_balancer {
-    target_group_arn = aws_lb_target_group.aztec-node-udp[count.index].arn
-    container_name   = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
-    container_port   = var.NODE_P2P_UDP_PORT + count.index
-  }
+  # load_balancer {
+  #   target_group_arn = aws_lb_target_group.aztec-node-udp[count.index].arn
+  #   container_name   = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
+  #   container_port   = var.NODE_P2P_UDP_PORT + count.index
+  # }
 
   service_registries {
     registry_arn   = aws_service_discovery_service.aztec-node[count.index].arn
@@ -549,14 +551,14 @@ resource "aws_lb_listener" "aztec-node-udp-listener" {
 // Configuration for proving agents
 
 resource "aws_cloudwatch_log_group" "aztec-proving-agent-log-group" {
-  count             = local.node_count
-  name              = "/fargate/service/${var.DEPLOY_TAG}/aztec-proving-agent-${count.index + 1}"
+  count             = local.total_agents
+  name              = "/fargate/service/${var.DEPLOY_TAG}/aztec-proving-agent-${floor(count.index / local.agents_per_sequencer) + 1}-${(count.index % local.agents_per_sequencer) + 1}"
   retention_in_days = 14
 }
 
 resource "aws_service_discovery_service" "aztec-proving-agent" {
-  count = local.node_count
-  name  = "${var.DEPLOY_TAG}-aztec-proving-agent-${count.index + 1}"
+  count = local.total_agents
+  name  = "${var.DEPLOY_TAG}-aztec-proving-agent-${floor(count.index / local.agents_per_sequencer) + 1}-${(count.index % local.agents_per_sequencer) + 1}"
 
   health_check_custom_config {
     failure_threshold = 1
@@ -587,8 +589,8 @@ resource "aws_service_discovery_service" "aztec-proving-agent" {
 
 # Define task definitions for each node.
 resource "aws_ecs_task_definition" "aztec-proving-agent" {
-  count                    = local.node_count
-  family                   = "${var.DEPLOY_TAG}-aztec-proving-agent-${count.index + 1}"
+  count                    = local.total_agents
+  family                   = "${var.DEPLOY_TAG}-aztec-proving-agent-${floor(count.index / local.agents_per_sequencer) + 1}-${(count.index % local.agents_per_sequencer) + 1}"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   cpu                      = "16384"
@@ -599,7 +601,7 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
   container_definitions = <<DEFINITIONS
 [
   {
-    "name": "${var.DEPLOY_TAG}-aztec-proving-agent-${count.index + 1}",
+    "name": "${var.DEPLOY_TAG}-aztec-proving-agent-${floor(count.index / local.agents_per_sequencer) + 1}-${(count.index % local.agents_per_sequencer) + 1}",
     "image": "${var.DOCKERHUB_ACCOUNT}/aztec:${var.DEPLOY_TAG}",
     "command": ["start", "--prover", "simulate=true"],
     "essential": true,
@@ -624,7 +626,7 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
       },
       {
         "name": "PROVER_URL",
-        "value": "http://${var.DEPLOY_TAG}-aztec-node-${count.index + 1}.local/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}"
+        "value": "http://${var.DEPLOY_TAG}-aztec-node-${floor(count.index / local.agents_per_sequencer) + 1}.local/${var.DEPLOY_TAG}/aztec-node-${floor(count.index / local.agents_per_sequencer) + 1}"
       },
       {
         "name": "PROVER_AGENTS",
@@ -654,7 +656,7 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
     "logConfiguration": {
       "logDriver": "awslogs",
       "options": {
-        "awslogs-group": "/fargate/service/${var.DEPLOY_TAG}/aztec-proving-agent-${count.index + 1}",
+        "awslogs-group": "/fargate/service/${var.DEPLOY_TAG}/aztec-proving-agent-${floor(count.index / local.agents_per_sequencer) + 1}-${(count.index % local.agents_per_sequencer) + 1}",
         "awslogs-region": "eu-west-2",
         "awslogs-stream-prefix": "ecs"
       }
@@ -665,8 +667,8 @@ DEFINITIONS
 }
 
 resource "aws_ecs_service" "aztec-proving-agent" {
-  count                              = local.node_count
-  name                               = "${var.DEPLOY_TAG}-aztec-proving-agent-${count.index + 1}"
+  count                              = local.total_agents
+  name                               = "${var.DEPLOY_TAG}-aztec-proving-agent-${floor(count.index / local.agents_per_sequencer) + 1}-${(count.index % local.agents_per_sequencer) + 1}"
   cluster                            = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id
   launch_type                        = "FARGATE"
   desired_count                      = 1
@@ -685,7 +687,7 @@ resource "aws_ecs_service" "aztec-proving-agent" {
 
   service_registries {
     registry_arn   = aws_service_discovery_service.aztec-proving-agent[count.index].arn
-    container_name = "${var.DEPLOY_TAG}-aztec-proving-agent-${count.index + 1}"
+    container_name = "${var.DEPLOY_TAG}-aztec-proving-agent-${floor(count.index / local.agents_per_sequencer) + 1}-${(count.index % local.agents_per_sequencer) + 1}"
     container_port = 80
   }
 

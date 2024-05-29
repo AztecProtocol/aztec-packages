@@ -74,3 +74,4 @@ variable "INBOX_CONTRACT_ADDRESS" { type = string }
 variable "OUTBOX_CONTRACT_ADDRESS" { type = string }
 variable "GAS_TOKEN_CONTRACT_ADDRESS" { type = string }
 variable "GAS_PORTAL_CONTRACT_ADDRESS" { type = string }
+variable "AGENTS_PER_SEQUENCER" { type = string }
