@@ -416,7 +416,6 @@ TEST_P(AcirIntegrationFoldingTest, DISABLED_FoldAndVerifyProgramStack)
 INSTANTIATE_TEST_SUITE_P(AcirTests,
                          AcirIntegrationFoldingTest,
                          testing::Values("fold_basic", "fold_basic_nested_call"));
-#endif
 
 /**
  *@brief A basic test of a circuit generated in noir that makes use of the databus
