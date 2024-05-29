@@ -29,7 +29,6 @@ import {
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_CALL,
   MembershipWitness,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -40,7 +39,6 @@ import {
   PublicCallStackItem,
   PublicCircuitPublicInputs,
   PublicDataRead,
-  PublicDataUpdateRequest,
   PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
   PublicKernelData,
@@ -54,7 +52,6 @@ import {
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { type Tuple } from '@aztec/foundation/serialize';
 import {
   type PublicExecution,
   type PublicExecutionResult,
@@ -532,23 +529,4 @@ export abstract class AbstractPhaseManager {
       MAX_PUBLIC_DATA_READS_PER_TX,
     );
   }
-}
-
-export function removeRedundantPublicDataWrites(
-  writes: Tuple<PublicDataUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
-) {
-  const lastWritesMap = new Map<string, boolean>();
-  const patch = <N extends number>(requests: Tuple<PublicDataUpdateRequest, N>) =>
-    requests.filter(write => {
-      const leafSlot = write.leafSlot.toString();
-      const exists = lastWritesMap.get(leafSlot);
-      lastWritesMap.set(leafSlot, true);
-      return !exists;
-    });
-
-  return padArrayEnd(
-    patch(writes.reverse()).reverse(),
-    PublicDataUpdateRequest.empty(),
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  );
 }

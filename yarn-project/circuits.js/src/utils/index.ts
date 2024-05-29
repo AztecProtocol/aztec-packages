@@ -1,7 +1,7 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
 
-import { type IsEmpty, type Ordered } from '../interfaces/index.js';
+import type { IsEmpty, Ordered, Positioned } from '../interfaces/index.js';
 
 // Define these utils here as their design is very specific to kernel's accumulated data and not general enough to be put in foundation.
 
@@ -36,36 +36,47 @@ export function mergeAccumulatedData<T extends IsEmpty, N extends number>(
 }
 
 // Sort items by their counters in ascending order. All empty items (counter === 0) are padded to the right.
-export function sortByCounter<T extends Ordered & IsEmpty, N extends number>(
+export function genericSort<T extends IsEmpty, N extends number>(
   arr: Tuple<T, N>,
+  compareFn: (a: T, b: T) => number,
   ascending: boolean = true,
 ): Tuple<T, N> {
   return [...arr].sort((a, b) => {
-    if (a.counter === b.counter) {
-      return 0;
-    }
     if (a.isEmpty()) {
       return 1; // Move empty items to the right.
     }
     if (b.isEmpty()) {
       return -1; // Move non-empty items to the left.
     }
-    return ascending ? a.counter - b.counter : b.counter - a.counter;
+    return ascending ? compareFn(a, b) : compareFn(b, a);
   }) as Tuple<T, N>;
 }
 
-export function sortByCounterGetSortedHints<T extends Ordered & IsEmpty, N extends number>(
+export function compareByCounter<T extends Ordered>(a: T, b: T): number {
+  return a.counter - b.counter;
+}
+
+export function compareByPositionThenCounter<T extends Ordered & Positioned>(a: T, b: T): number {
+  const positionComp = a.position.cmp(b.position);
+  if (positionComp !== 0) {
+    return positionComp;
+  }
+  return a.counter - b.counter;
+}
+
+export function sortAndGetSortedHints<T extends IsEmpty, N extends number>(
   arr: Tuple<T, N>,
+  compareFn: (a: T, b: T) => number,
   length: N = arr.length as N, // Need this for ts to infer the return Tuple length.
   ascending: boolean = true,
 ): [Tuple<T, N>, Tuple<number, N>] {
   const itemsWithIndexes = arr.map((item, i) => ({
     item,
     originalIndex: i,
-    counter: item.counter,
     isEmpty: () => item.isEmpty(),
   }));
-  const sorted = sortByCounter(itemsWithIndexes, ascending);
+
+  const sorted = genericSort(itemsWithIndexes, (a, b) => compareFn(a.item, b.item), ascending);
   const items = sorted.map(({ item }) => item) as Tuple<T, N>;
 
   const indexHints = makeTuple(length, () => 0);
@@ -76,6 +87,68 @@ export function sortByCounterGetSortedHints<T extends Ordered & IsEmpty, N exten
   });
 
   return [items, indexHints];
+}
+
+export function sortByCounterGetSortedHints<T extends Ordered & IsEmpty, N extends number>(
+  arr: Tuple<T, N>,
+  length: N = arr.length as N, // Need this for ts to infer the return Tuple length.
+  ascending: boolean = true,
+): [Tuple<T, N>, Tuple<number, N>] {
+  return sortAndGetSortedHints(arr, compareByCounter, length, ascending);
+}
+
+export function sortByPositionThenCounterGetSortedHints<T extends Ordered & Positioned & IsEmpty, N extends number>(
+  arr: Tuple<T, N>,
+  length: N = arr.length as N, // Need this for ts to infer the return Tuple length.
+  ascending: boolean = true,
+): [Tuple<T, N>, Tuple<number, N>] {
+  return sortAndGetSortedHints(arr, compareByPositionThenCounter, length, ascending);
+}
+
+export function deduplicateArray<T extends Ordered & IsEmpty & Positioned, N extends number>(
+  arr: Tuple<T, N>,
+  length: N = arr.length as N,
+  getEmptyItem: () => T,
+): [Tuple<T, N>, Tuple<number, N>] {
+  const dedupedArray = makeTuple(length, getEmptyItem) as Tuple<T, N>;
+  const runLengths = makeTuple(length, () => 0);
+
+  let dedupedIndex = 0;
+  let runCounter = 0;
+  let currentPosition = arr[0].position;
+
+  let i = 0;
+  for (; i < length; i++) {
+    const item = arr[i];
+
+    if (item.isEmpty()) {
+      break; // Stop processing when encountering the first empty item.
+    }
+
+    if (item.position.equals(currentPosition)) {
+      runCounter++;
+    } else {
+      dedupedArray[dedupedIndex] = arr[i - 1];
+      runLengths[dedupedIndex] = runCounter;
+      dedupedIndex++;
+      runCounter = 1;
+      currentPosition = item.position;
+    }
+  }
+
+  if (runCounter > 0) {
+    dedupedArray[dedupedIndex] = arr[i - 1];
+    runLengths[dedupedIndex] = runCounter;
+    dedupedIndex++;
+  }
+
+  // Fill the remaining part of the deduped array and run lengths with empty items and zeros.
+  for (let i = dedupedIndex; i < length; i++) {
+    dedupedArray[i] = getEmptyItem();
+    runLengths[i] = 0;
+  }
+
+  return [dedupedArray, runLengths];
 }
 
 export function isEmptyArray<T extends IsEmpty>(arr: T[]): boolean {
