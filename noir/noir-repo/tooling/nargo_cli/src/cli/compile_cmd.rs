@@ -230,7 +230,7 @@ fn compiled_contracts(
 fn save_contract(
     contract: CompiledContract,
     package: &Package,
-    circuit_dir: &Path,
+    target_dir: &Path,
     show_artifact_paths: bool,
 ) {
     let contract_name = contract.name.clone();
