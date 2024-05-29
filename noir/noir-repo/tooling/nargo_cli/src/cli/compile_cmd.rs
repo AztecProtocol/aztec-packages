@@ -218,7 +218,7 @@ fn compiled_contracts(
                 compile_contract(file_manager, parsed_files, package, compile_options)?;
             let contract =
                 nargo::ops::transform_contract(contract, compile_options.expression_width);
-            save_contract(contract, &package, target_dir);
+            save_contract(contract, &package, target_dir, compile_options.show_artifact_paths);
             Ok(((), warnings))
         })
         .collect();
@@ -227,11 +227,19 @@ fn compiled_contracts(
     collect_errors(contract_results).map(|(_, warnings)| ((), warnings))
 }
 
-fn save_contract(contract: CompiledContract, package: &Package, target_dir: &Path) {
+fn save_contract(
+    contract: CompiledContract,
+    package: &Package,
+    circuit_dir: &Path,
+    show_artifact_paths: bool,
+) {
     let contract_name = contract.name.clone();
-    save_contract_to_file(
+    let artifact_path = save_contract_to_file(
         &contract.into(),
         &format!("{}-{}", package.name, contract_name),
         target_dir,
     );
+    if show_artifact_paths {
+        println!("Saved contract artifact to: {}", artifact_path.display());
+    }
 }
