@@ -328,7 +328,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         "name": "PROVER_REAL_PROOFS",
-        "value": "false"
+        "value": "${var.PROVING_ENABLED}"
       }
     ],
     "mountPoints": [
@@ -603,7 +603,7 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
   {
     "name": "${var.DEPLOY_TAG}-aztec-proving-agent-${floor(count.index / local.agents_per_sequencer) + 1}-${(count.index % local.agents_per_sequencer) + 1}",
     "image": "${var.DOCKERHUB_ACCOUNT}/aztec:${var.DEPLOY_TAG}",
-    "command": ["start", "--prover", "simulate=true"],
+    "command": ["start", "--prover"],
     "essential": true,
     "memoryReservation": 65536,
     "portMappings": [
@@ -634,7 +634,7 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
       },
       {
         "name": "PROVER_REAL_PROOFS",
-        "value": "false"
+        "value": "${var.PROVING_ENABLED}"
       },
       {
         "name": "ACVM_WORKING_DIRECTORY",

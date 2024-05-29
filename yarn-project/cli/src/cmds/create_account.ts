@@ -31,7 +31,7 @@ export async function createAccount(
       printGasEstimates(feeOpts, gas, log);
     } else {
       const tx = account.deploy({ ...sendOpts });
-      const txHash = tx.getTxHash();
+      const txHash = await tx.getTxHash();
       debugLogger.debug(`Account contract tx sent with hash ${txHash}`);
       if (wait) {
         log(`\nWaiting for account contract deployment...`);
