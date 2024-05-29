@@ -1036,7 +1036,14 @@ describe('Private Execution test suite', () => {
         getThenNullifyArtifact.parameters,
       );
 
-      const args = [amountToTransfer, owner, insertFnSelector.toField(), getThenNullifyFnSelector.toField()];
+      const outgoingViewer = owner;
+      const args = [
+        amountToTransfer,
+        owner,
+        outgoingViewer,
+        insertFnSelector.toField(),
+        getThenNullifyFnSelector.toField(),
+      ];
       const result = await runSimulator({
         args: args,
         artifact: artifact,

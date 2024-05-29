@@ -77,7 +77,7 @@ contract PendingNoteHashes {
 
     // Dummy nested/inner function (to pass a function which does nothing)
     #[aztec(private)]
-    fn dummy(amount: Field, owner: AztecAddress) {}
+    fn dummy(amount: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) {}
 
     // Nested/inner function to create and insert a note
     #[aztec(private)]
@@ -130,6 +130,7 @@ contract PendingNoteHashes {
     fn test_insert_then_get_then_nullify_all_in_nested_calls(
         amount: Field,
         owner: AztecAddress,
+        outgoing_viewer: AztecAddress,
         insert_fn_selector: FunctionSelector,
         get_then_nullify_fn_selector: FunctionSelector
     ) {
@@ -137,7 +138,7 @@ contract PendingNoteHashes {
         let _res = context.call_private_function(
             inputs.call_context.storage_contract_address,
             insert_fn_selector,
-            [amount, owner.to_field()]
+            [amount, owner.to_field(), outgoing_viewer.to_field()]
         );
         // nested call to read and nullify that note
         let _res = context.call_private_function(

@@ -84,7 +84,10 @@ describe('e2e_pending_note_hashes_contract', () => {
     const deployedContract = await deployContract();
 
     const outgoingViewer = owner;
-    await deployedContract.methods.test_insert_then_get_then_nullify_flat(mintAmount, owner, outgoingViewer).send().wait();
+    await deployedContract.methods
+      .test_insert_then_get_then_nullify_flat(mintAmount, owner, outgoingViewer)
+      .send()
+      .wait();
   });
 
   it('Squash! Aztec.nr function can "create" and "nullify" note in the same TX', async () => {
@@ -94,10 +97,12 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     const deployedContract = await deployContract();
 
+    const outgoingViewer = owner;
     await deployedContract.methods
       .test_insert_then_get_then_nullify_all_in_nested_calls(
         mintAmount,
         owner,
+        outgoingViewer,
         deployedContract.methods.insert_note.selector,
         deployedContract.methods.get_then_nullify_note.selector,
       )
@@ -217,6 +222,7 @@ describe('e2e_pending_note_hashes_contract', () => {
       .test_insert_then_get_then_nullify_all_in_nested_calls(
         mintAmount,
         owner,
+        outgoingViewer,
         deployedContract.methods.dummy.selector,
         deployedContract.methods.get_then_nullify_note.selector,
       )
