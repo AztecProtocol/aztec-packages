@@ -25,7 +25,6 @@ dependencies = [
  "cfg-if",
  "hex",
  "num-bigint",
- "num-traits",
  "serde",
 ]
 
@@ -324,6 +323,7 @@ dependencies = [
 name = "aztec_macros"
 version = "0.30.0"
 dependencies = [
+ "acvm",
  "convert_case",
  "iter-extended",
  "noirc_errors",
@@ -1281,6 +1281,7 @@ name = "noirc_frontend"
 version = "0.30.0"
 dependencies = [
  "acvm",
+ "cfg-if",
  "chumsky",
  "fm",
  "im",
@@ -1290,6 +1291,8 @@ dependencies = [
  "noirc_arena",
  "noirc_errors",
  "noirc_printable_type",
+ "num-bigint",
+ "num-traits",
  "petgraph",
  "regex",
  "rustc-hash",
