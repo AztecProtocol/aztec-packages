@@ -410,10 +410,14 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_nullifier_exists);
     commitments.avm_main_sel_op_or =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_or);
+    commitments.avm_main_sel_op_poseidon2 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_poseidon2);
     commitments.avm_main_sel_op_radix_le =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_radix_le);
     commitments.avm_main_sel_op_sender =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_sender);
+    commitments.avm_main_sel_op_sha256 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_sha256);
     commitments.avm_main_sel_op_shl =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_op_shl);
     commitments.avm_main_sel_op_shr =
@@ -495,6 +499,23 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     commitments.avm_mem_val = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_val);
     commitments.avm_mem_w_in_tag =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_w_in_tag);
+    commitments.avm_poseidon2_clk =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_poseidon2_clk);
+    commitments.avm_poseidon2_input =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_poseidon2_input);
+    commitments.avm_poseidon2_output =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_poseidon2_output);
+    commitments.avm_poseidon2_poseidon_perm_sel =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_poseidon2_poseidon_perm_sel);
+    commitments.avm_sha256_clk = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_sha256_clk);
+    commitments.avm_sha256_input =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_sha256_input);
+    commitments.avm_sha256_output =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_sha256_output);
+    commitments.avm_sha256_sha256_compression_sel =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_sha256_sha256_compression_sel);
+    commitments.avm_sha256_state =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_sha256_state);
     commitments.lookup_byte_lengths_counts =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_lengths_counts);
     commitments.lookup_byte_operations_counts =
@@ -576,6 +597,10 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     commitments.perm_main_alu = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_alu);
     commitments.perm_main_bin = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_bin);
     commitments.perm_main_conv = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_conv);
+    commitments.perm_main_sha256 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_sha256);
+    commitments.perm_main_pos2_perm =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_pos2_perm);
     commitments.perm_main_mem_a =
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_a);
     commitments.perm_main_mem_b =

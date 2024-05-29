@@ -22,6 +22,8 @@
 #include "barretenberg/relations/generated/avm/avm_kernel.hpp"
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
 #include "barretenberg/relations/generated/avm/avm_mem.hpp"
+#include "barretenberg/relations/generated/avm/avm_poseidon2.hpp"
+#include "barretenberg/relations/generated/avm/avm_sha256.hpp"
 #include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/incl_mem_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/kernel_output_lookup.hpp"
@@ -69,6 +71,8 @@
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_b.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_c.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_d.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_pos2_perm.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_sha256.hpp"
 #include "barretenberg/vm/generated/avm_flavor.hpp"
 
 namespace bb {
@@ -272,8 +276,10 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_op_note_hash_exists{};
     FF avm_main_sel_op_nullifier_exists{};
     FF avm_main_sel_op_or{};
+    FF avm_main_sel_op_poseidon2{};
     FF avm_main_sel_op_radix_le{};
     FF avm_main_sel_op_sender{};
+    FF avm_main_sel_op_sha256{};
     FF avm_main_sel_op_shl{};
     FF avm_main_sel_op_shr{};
     FF avm_main_sel_op_sload{};
@@ -320,9 +326,20 @@ template <typename FF> struct AvmFullRow {
     FF avm_mem_tsp{};
     FF avm_mem_val{};
     FF avm_mem_w_in_tag{};
+    FF avm_poseidon2_clk{};
+    FF avm_poseidon2_input{};
+    FF avm_poseidon2_output{};
+    FF avm_poseidon2_poseidon_perm_sel{};
+    FF avm_sha256_clk{};
+    FF avm_sha256_input{};
+    FF avm_sha256_output{};
+    FF avm_sha256_sha256_compression_sel{};
+    FF avm_sha256_state{};
     FF perm_main_alu{};
     FF perm_main_bin{};
     FF perm_main_conv{};
+    FF perm_main_sha256{};
+    FF perm_main_pos2_perm{};
     FF perm_main_mem_a{};
     FF perm_main_mem_b{};
     FF perm_main_mem_c{};
@@ -477,8 +494,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 391;
-    static constexpr size_t num_polys = 329;
+    static constexpr size_t num_fixed_columns = 404;
+    static constexpr size_t num_polys = 342;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -696,8 +713,10 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_op_note_hash_exists[i] = rows[i].avm_main_sel_op_note_hash_exists;
             polys.avm_main_sel_op_nullifier_exists[i] = rows[i].avm_main_sel_op_nullifier_exists;
             polys.avm_main_sel_op_or[i] = rows[i].avm_main_sel_op_or;
+            polys.avm_main_sel_op_poseidon2[i] = rows[i].avm_main_sel_op_poseidon2;
             polys.avm_main_sel_op_radix_le[i] = rows[i].avm_main_sel_op_radix_le;
             polys.avm_main_sel_op_sender[i] = rows[i].avm_main_sel_op_sender;
+            polys.avm_main_sel_op_sha256[i] = rows[i].avm_main_sel_op_sha256;
             polys.avm_main_sel_op_shl[i] = rows[i].avm_main_sel_op_shl;
             polys.avm_main_sel_op_shr[i] = rows[i].avm_main_sel_op_shr;
             polys.avm_main_sel_op_sload[i] = rows[i].avm_main_sel_op_sload;
@@ -744,6 +763,15 @@ class AvmCircuitBuilder {
             polys.avm_mem_tsp[i] = rows[i].avm_mem_tsp;
             polys.avm_mem_val[i] = rows[i].avm_mem_val;
             polys.avm_mem_w_in_tag[i] = rows[i].avm_mem_w_in_tag;
+            polys.avm_poseidon2_clk[i] = rows[i].avm_poseidon2_clk;
+            polys.avm_poseidon2_input[i] = rows[i].avm_poseidon2_input;
+            polys.avm_poseidon2_output[i] = rows[i].avm_poseidon2_output;
+            polys.avm_poseidon2_poseidon_perm_sel[i] = rows[i].avm_poseidon2_poseidon_perm_sel;
+            polys.avm_sha256_clk[i] = rows[i].avm_sha256_clk;
+            polys.avm_sha256_input[i] = rows[i].avm_sha256_input;
+            polys.avm_sha256_output[i] = rows[i].avm_sha256_output;
+            polys.avm_sha256_sha256_compression_sel[i] = rows[i].avm_sha256_sha256_compression_sel;
+            polys.avm_sha256_state[i] = rows[i].avm_sha256_state;
             polys.lookup_byte_lengths_counts[i] = rows[i].lookup_byte_lengths_counts;
             polys.lookup_byte_operations_counts[i] = rows[i].lookup_byte_operations_counts;
             polys.kernel_output_lookup_counts[i] = rows[i].kernel_output_lookup_counts;
@@ -952,6 +980,16 @@ class AvmCircuitBuilder {
                                                                               Avm_vm::get_relation_label_avm_mem);
         };
 
+        auto avm_poseidon2 = [=]() {
+            return evaluate_relation.template operator()<Avm_vm::avm_poseidon2<FF>>(
+                "avm_poseidon2", Avm_vm::get_relation_label_avm_poseidon2);
+        };
+
+        auto avm_sha256 = [=]() {
+            return evaluate_relation.template operator()<Avm_vm::avm_sha256<FF>>("avm_sha256",
+                                                                                 Avm_vm::get_relation_label_avm_sha256);
+        };
+
         auto perm_main_alu = [=]() {
             return evaluate_logderivative.template operator()<perm_main_alu_relation<FF>>("PERM_MAIN_ALU");
         };
@@ -962,6 +1000,14 @@ class AvmCircuitBuilder {
 
         auto perm_main_conv = [=]() {
             return evaluate_logderivative.template operator()<perm_main_conv_relation<FF>>("PERM_MAIN_CONV");
+        };
+
+        auto perm_main_sha256 = [=]() {
+            return evaluate_logderivative.template operator()<perm_main_sha256_relation<FF>>("PERM_MAIN_SHA256");
+        };
+
+        auto perm_main_pos2_perm = [=]() {
+            return evaluate_logderivative.template operator()<perm_main_pos2_perm_relation<FF>>("PERM_MAIN_POS2_PERM");
         };
 
         auto perm_main_mem_a = [=]() {
@@ -1162,11 +1208,19 @@ class AvmCircuitBuilder {
 
         relation_futures.emplace_back(std::async(std::launch::async, avm_mem));
 
+        relation_futures.emplace_back(std::async(std::launch::async, avm_poseidon2));
+
+        relation_futures.emplace_back(std::async(std::launch::async, avm_sha256));
+
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_alu));
 
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_bin));
 
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_conv));
+
+        relation_futures.emplace_back(std::async(std::launch::async, perm_main_sha256));
+
+        relation_futures.emplace_back(std::async(std::launch::async, perm_main_pos2_perm));
 
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_mem_a));
 
@@ -1277,11 +1331,19 @@ class AvmCircuitBuilder {
 
         avm_mem();
 
+        avm_poseidon2();
+
+        avm_sha256();
+
         perm_main_alu();
 
         perm_main_bin();
 
         perm_main_conv();
+
+        perm_main_sha256();
+
+        perm_main_pos2_perm();
 
         perm_main_mem_a();
 
