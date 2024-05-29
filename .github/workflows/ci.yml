@@ -61,6 +61,8 @@ jobs:
               - 'barretenberg/cpp/**'
             noir:
               - 'noir/**'
+            avm-transpiler:
+              - 'avm-transpiler/**'
             l1-contracts:
               - 'l1-contracts/**'
             noir-projects:
@@ -422,19 +424,14 @@ jobs:
   avm-format:
     needs: setup
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    if: ${{ needs.changes.outputs.avm-transpiler == 'true' || needs.changes.outputs.noir == 'true' }}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
-      - uses: ./.github/paths-filter
-        id: changes
-        with:
-          filters: |
-            src: [avm-transpiler/**]
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: avm-transpiler-format-x86
       - name: "Format AVM transpiler"
-        if: steps.changes.outputs.src == 'true'
         working-directory: ./avm-transpiler/
         timeout-minutes: 40
         run: earthly-ci --no-output ./+format
