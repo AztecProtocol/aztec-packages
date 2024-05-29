@@ -1,11 +1,12 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { ContractDeployer, Fr } from '@aztec/aztec.js';
-import { type PublicKeys, deriveSigningKey, computeInitializationHash, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
+import { type PublicKeys, deriveSigningKey } from '@aztec/circuits.js';
 import { getInitializer } from '@aztec/foundation/abi';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { createCompatibleClient } from '../client.js';
 import { encodeArgs } from '../encoding.js';
+import { type IFeeOpts, printGasEstimates } from '../fees.js';
 import { GITHUB_TAG_PREFIX } from '../github.js';
 import { getContractArtifact } from '../utils.js';
 
@@ -22,6 +23,7 @@ export async function deploy(
   skipClassRegistration: boolean,
   skipInitialization: boolean | undefined,
   wait: boolean,
+  feeOpts: IFeeOpts,
   debugLogger: DebugLogger,
   log: LogFn,
   logJson: (output: any) => void,
@@ -50,18 +52,25 @@ export async function deploy(
     debugLogger.debug(`Input arguments: ${rawArgs.map((x: any) => `"${x}"`).join(', ')}`);
     args = encodeArgs(rawArgs, constructorArtifact!.parameters);
     debugLogger.debug(`Encoded arguments: ${args.join(', ')}`);
-    log(`\nInitialisation hash: ${computeInitializationHash(constructorArtifact, rawArgs)}`);
   }
 
   const deploy = deployer.deploy(...args);
-
-  await deploy.create({ contractAddressSalt: salt, skipClassRegistration, skipInitialization, skipPublicDeployment });
-  const tx = deploy.send({
+  const deployOpts = {
+    ...feeOpts.toSendOpts(wallet),
     contractAddressSalt: salt,
     skipClassRegistration,
     skipInitialization,
     skipPublicDeployment,
-  });
+  };
+
+  if (feeOpts.estimateOnly) {
+    const gas = await deploy.estimateGas(deployOpts);
+    printGasEstimates(feeOpts, gas, log);
+    return;
+  }
+
+  await deploy.create(deployOpts);
+  const tx = deploy.send(deployOpts);
 
   const txHash = await tx.getTxHash();
   debugLogger.debug(`Deploy tx sent with hash ${txHash}`);
@@ -74,12 +83,15 @@ export async function deploy(
         partialAddress: partialAddress.toString(),
         initializationHash: instance.initializationHash.toString(),
         salt: salt.toString(),
+        transactionFee: deployed.transactionFee,
       });
     } else {
       log(`Contract deployed at ${address.toString()}`);
       log(`Contract partial address ${partialAddress.toString()}`);
       log(`Contract init hash ${instance.initializationHash.toString()}`);
+      log(`Deployment tx hash: ${txHash.toString()}`);
       log(`Deployment salt: ${salt.toString()}`);
+      log(`Deployment fee: ${deployed.transactionFee}`);
     }
   } else {
     const { address, partialAddress } = deploy;
@@ -91,13 +103,15 @@ export async function deploy(
         txHash: txHash.toString(),
         initializationHash: instance.initializationHash.toString(),
         salt: salt.toString(),
+        deployer: instance.deployer.toString(),
       });
     } else {
-      log(`Contract Address: ${address?.toString() ?? 'N/A'}`);
-      log(`Contract Partial Address: ${partialAddress?.toString() ?? 'N/A'}`);
-      log(`Deployment transaction hash: ${txHash}`);
+      log(`Contract deployed at ${address?.toString()}`);
+      log(`Contract partial address ${partialAddress?.toString()}`);
       log(`Contract init hash ${instance.initializationHash.toString()}`);
+      log(`Deployment tx hash: ${txHash.toString()}`);
       log(`Deployment salt: ${salt.toString()}`);
+      log(`Deployer: ${instance.deployer.toString()}`);
     }
   }
 }

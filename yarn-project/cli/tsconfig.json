@@ -37,6 +37,9 @@
       "path": "../protocol-contracts"
     },
     {
+      "path": "../simulator"
+    },
+    {
       "path": "../types"
     }
   ],
