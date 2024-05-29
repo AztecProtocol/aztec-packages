@@ -91,6 +91,7 @@ export class FeeOpts implements IFeeOpts {
       ...GasSettings.default(),
       ...(args.gasLimits ? parseGasLimits(args.gasLimits) : {}),
       ...(args.inclusionFee ? { inclusionFee: new Fr(args.inclusionFee) } : {}),
+      maxFeesPerGas: GasFees.default(),
     });
     return new FeeOpts(
       estimateOnly,
@@ -155,8 +156,11 @@ function parsePaymentMethod(payment: string, log: LogFn): (sender: AccountWallet
       }
       case 'fpc-private': {
         const [asset, fpc] = getFpcOpts(parsed);
-        log(`Using private fee payment with asset ${asset} via paymaster ${fpc}`);
-        return new PrivateFeePaymentMethod(asset, fpc, sender, Fr.fromString(parsed.rebateSecret));
+        const rebateSecret = parsed.rebateSecret ? Fr.fromString(parsed.rebateSecret) : Fr.random();
+        log(
+          `Using private fee payment with asset ${asset} via paymaster ${fpc} with rebate secret ${rebateSecret.toString()}`,
+        );
+        return new PrivateFeePaymentMethod(asset, fpc, sender, rebateSecret);
       }
       case undefined:
         throw new Error('Missing "method" in payment option');

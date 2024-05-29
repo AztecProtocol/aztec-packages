@@ -284,6 +284,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       'Optional deployment salt as a hex string for generating the deployment address.',
       parseFieldFromHexString,
     )
+    .option('--universal', 'Do not mix the sender address into the deployment.')
     .addOption(createPrivateKeyOption("The sender's private key.", true))
     .option('--json', 'Emit output as json')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
@@ -307,6 +308,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         classRegistration,
         initialize,
         publicDeployment,
+        universal,
       } = opts;
       await deploy(
         artifactPath,
@@ -320,6 +322,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         !publicDeployment,
         !classRegistration,
         typeof initialize === 'string' ? false : initialize,
+        universal,
         wait,
         FeeOpts.fromCli(opts, log),
         debugLogger,

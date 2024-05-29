@@ -1,5 +1,5 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { ContractDeployer, Fr } from '@aztec/aztec.js';
+import { ContractDeployer, type DeployMethod, Fr } from '@aztec/aztec.js';
 import { type PublicKeys, deriveSigningKey } from '@aztec/circuits.js';
 import { getInitializer } from '@aztec/foundation/abi';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
@@ -22,6 +22,7 @@ export async function deploy(
   skipPublicDeployment: boolean,
   skipClassRegistration: boolean,
   skipInitialization: boolean | undefined,
+  universalDeploy: boolean | undefined,
   wait: boolean,
   feeOpts: IFeeOpts,
   debugLogger: DebugLogger,
@@ -55,9 +56,10 @@ export async function deploy(
   }
 
   const deploy = deployer.deploy(...args);
-  const deployOpts = {
+  const deployOpts: Parameters<DeployMethod['send']>[0] = {
     ...feeOpts.toSendOpts(wallet),
     contractAddressSalt: salt,
+    universalDeploy,
     skipClassRegistration,
     skipInitialization,
     skipPublicDeployment,

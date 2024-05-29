@@ -23,7 +23,9 @@ export async function createAccount(
   const account = getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), salt);
   const { address, publicKeys, partialAddress } = account.getCompleteAddress();
 
-  if (!registerOnly) {
+  if (registerOnly) {
+    await account.register();
+  } else {
     const wallet = await account.getWallet();
     const sendOpts = feeOpts.toSendOpts(wallet);
     if (feeOpts.estimateOnly) {
