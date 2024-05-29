@@ -1339,6 +1339,19 @@ template <typename Builder> cycle_group<Builder>& cycle_group<Builder>::operator
     return *this;
 }
 
+template <typename Builder>
+cycle_group<Builder> cycle_group<Builder>::operator*(const bigfield<Builder, bb::Bn254FqParams>& scalar) const
+{
+    return batch_mul({ *this }, { scalar });
+}
+
+template <typename Builder>
+cycle_group<Builder>& cycle_group<Builder>::operator*=(const bigfield<Builder, bb::Bn254FqParams>& scalar)
+{
+    *this = operator*(scalar);
+    return *this;
+}
+
 template <typename Builder> bool_t<Builder> cycle_group<Builder>::operator==(const cycle_group& other) const
 {
     const auto equal_and_not_infinity =

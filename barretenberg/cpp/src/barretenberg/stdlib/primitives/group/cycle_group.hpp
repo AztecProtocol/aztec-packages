@@ -220,6 +220,8 @@ template <typename Builder> class cycle_group {
                                  GeneratorContext context = {});
     cycle_group operator*(const cycle_scalar& scalar) const;
     cycle_group& operator*=(const cycle_scalar& scalar);
+    cycle_group operator*(const stdlib::bigfield<Builder, bb::Bn254FqParams>& scalar) const;
+    cycle_group& operator*=(const stdlib::bigfield<Builder, bb::Bn254FqParams>& scalar);
     bool_t operator==(const cycle_group& other) const;
     void assert_equal(const cycle_group& other, std::string const& msg = "cycle_group::assert_equal") const;
     static cycle_group conditional_assign(const bool_t& predicate, const cycle_group& lhs, const cycle_group& rhs);
