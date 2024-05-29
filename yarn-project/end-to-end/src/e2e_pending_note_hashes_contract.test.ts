@@ -233,4 +233,17 @@ describe('e2e_pending_note_hashes_contract', () => {
       .send()
       .wait();
   });
+
+  it('Should drop note log for non existent note', async () => {
+    const deployedContract = await deployContract();
+    // Add a note of value 10
+    await deployedContract.methods.insert_note(10, owner).send().wait();
+    // Add a note log with the same counter as the one above, but with value 5
+    await deployedContract.methods.test_emit_bad_note_log(owner).send().wait();
+
+    const mIVPK = wallet.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey.toString();
+    const syncStats = await wallet.getSyncStats();
+    // Expect one note log to be dropped
+    expect(syncStats[mIVPK].failed).toEqual(1);
+  });
 });

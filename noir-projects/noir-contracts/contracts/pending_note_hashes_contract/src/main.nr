@@ -275,6 +275,32 @@ contract PendingNoteHashes {
         }
     }
 
+    // TESTING: Forces the private context to accept a note log for a non-existent note
+    // by using an existing note's counter via its header. This is used to check that
+    // the pxe rejects the note log later.
+    // A real note MUST be added before this call.
+    #[aztec(private)]
+    fn test_emit_bad_note_log(owner: AztecAddress) {
+        // We will emit a note log with an incorrect preimage to ensure the pxe throws
+        let header = context.get_header();
+        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
+        // This note has not been inserted...
+        let mut bad_note = ValueNote::new(5, owner_npk_m_hash);
+        // ...but we need a 'good' note header to get the context to add the note log
+        let notes = storage.balances.at(owner).get_notes(NoteGetterOptions::new());
+        let existing_note_header = notes[0].unwrap().get_header();
+        bad_note.set_header(existing_note_header);
+
+        context.encrypt_and_emit_note(
+            context.this_address(),
+            existing_note_header.storage_slot,
+            ValueNote::get_note_type_id(),
+            owner_ivpk_m,
+            bad_note
+        );
+    }
+
     #[contract_library_method]
     fn create_max_notes(
         owner: AztecAddress,
