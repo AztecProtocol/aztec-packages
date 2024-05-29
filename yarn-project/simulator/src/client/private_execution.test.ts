@@ -194,7 +194,6 @@ describe('Private Execution test suite', () => {
 
   beforeEach(async () => {
     trees = {};
-    // TODO(#6640) most of the oracles bellow seem to be stateless - move to beforeAll
     oracle = mock<DBOracle>();
     oracle.getKeyValidationRequest.mockImplementation((pkMHash: Fr, contractAddress: AztecAddress) => {
       if (pkMHash.equals(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
