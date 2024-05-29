@@ -153,33 +153,35 @@ contract PendingNoteHashes {
     fn test_insert2_then_get2_then_nullify2_all_in_nested_calls(
         amount: Field,
         owner: AztecAddress,
+        outgoing_viewer: AztecAddress,
         insert_fn_selector: FunctionSelector,
         get_then_nullify_fn_selector: FunctionSelector
     ) {
         // args for nested calls
-        let args = [amount, owner.to_field()];
+        let insertArgs = [amount, owner.to_field(), outgoing_viewer.to_field()];
+        let getNullifyArgs = [amount, owner.to_field()];
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(
             inputs.call_context.storage_contract_address,
             insert_fn_selector,
-            args
+            insertArgs
         );
         let _callStackItem2 = context.call_private_function(
             inputs.call_context.storage_contract_address,
             insert_fn_selector,
-            args
+            insertArgs
         );
         // nested call to read and nullify that note
         let _callStackItem3 = context.call_private_function(
             inputs.call_context.storage_contract_address,
             get_then_nullify_fn_selector,
-            args
+            getNullifyArgs
         );
         let _callStackItem4 = context.call_private_function(
             inputs.call_context.storage_contract_address,
             get_then_nullify_fn_selector,
-            args
+            getNullifyArgs
         );
         // nested call to confirm that balance is zero
         // TODO(dbanks12): once > 4 nested calls is supported, can confirm 0 balance:
@@ -191,28 +193,30 @@ contract PendingNoteHashes {
     fn test_insert2_then_get2_then_nullify1_all_in_nested_calls(
         amount: Field,
         owner: AztecAddress,
+        outgoing_viewer: AztecAddress,
         insert_fn_selector: FunctionSelector,
         get_then_nullify_fn_selector: FunctionSelector
     ) {
         // args for nested calls
-        let args = [amount, owner.to_field()];
+        let insertArgs = [amount, owner.to_field(), outgoing_viewer.to_field()];
+        let getNullifyArgs = [amount, owner.to_field()];
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(
             inputs.call_context.storage_contract_address,
             insert_fn_selector,
-            args
+            insertArgs
         );
         let _callStackItem2 = context.call_private_function(
             inputs.call_context.storage_contract_address,
             insert_fn_selector,
-            args
+            insertArgs
         );
         // nested call to read and nullify that note
         let _callStackItem3 = context.call_private_function(
             inputs.call_context.storage_contract_address,
             get_then_nullify_fn_selector,
-            args
+            getNullifyArgs
         );
     }
 
@@ -223,28 +227,30 @@ contract PendingNoteHashes {
     fn test_insert1_then_get2_then_nullify2_all_in_nested_calls(
         amount: Field,
         owner: AztecAddress,
+        outgoing_viewer: AztecAddress,
         insert_fn_selector: FunctionSelector,
         get_then_nullify_fn_selector: FunctionSelector
     ) {
         // args for nested calls
-        let args = [amount, owner.to_field()];
+        let insertArgs = [amount, owner.to_field(), outgoing_viewer.to_field()];
+        let getNullifyArgs = [amount, owner.to_field()];
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(
             inputs.call_context.storage_contract_address,
             insert_fn_selector,
-            args
+            insertArgs
         );
         // nested call to read and nullify that note
         let _callStackItem2 = context.call_private_function(
             inputs.call_context.storage_contract_address,
             get_then_nullify_fn_selector,
-            args
+            getNullifyArgs
         );
         let _callStackItem3 = context.call_private_function(
             inputs.call_context.storage_contract_address,
             get_then_nullify_fn_selector,
-            args
+            getNullifyArgs
         );
     }
     // Confirm cannot get/read a pending note hash in a nested call
