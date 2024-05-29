@@ -33,8 +33,8 @@ function getBytecode(bytecodePath: string) {
   return decompressed;
 }
 
-async function getGates(bytecodePath: string, honk_recursion: boolean, api: Barretenberg) {
-  const { total } = await computeCircuitSize(bytecodePath, honk_recursion, api);
+async function getGates(bytecodePath: string, honkRecursion: boolean, api: Barretenberg) {
+  const { total } = await computeCircuitSize(bytecodePath, honkRecursion, api);
   return total;
 }
 
@@ -51,7 +51,7 @@ async function computeCircuitSize(bytecodePath: string, honkRecursion: boolean, 
   return { exact, total, subgroup };
 }
 
-async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride = -1, honkRecursion: boolean = false) {
+async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride = -1, honkRecursion = false) {
   const api = await Barretenberg.new({ threads });
 
   const circuitSize = await getGates(bytecodePath, honkRecursion, api);
