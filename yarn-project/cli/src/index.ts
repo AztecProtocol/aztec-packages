@@ -650,18 +650,5 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       computeSelector(functionSignature, log);
     });
 
-  program
-    .command('update')
-    .description('Updates Nodejs and Noir dependencies')
-    .argument('[projectPath]', 'Path to the project directory', process.cwd())
-    .option('--contract [paths...]', 'Paths to contracts to update dependencies', [])
-    .option('--aztec-version <semver>', 'The version to update Aztec packages to. Defaults to latest', 'latest')
-    .addOption(pxeOption)
-    .action(async (projectPath: string, options) => {
-      const { update } = await import('./update/update.js');
-      const { contract, aztecVersion, rpcUrl } = options;
-      await update(projectPath, contract, rpcUrl, aztecVersion, log);
-    });
-
   return program;
 }
