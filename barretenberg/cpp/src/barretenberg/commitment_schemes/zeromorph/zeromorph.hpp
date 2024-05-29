@@ -547,8 +547,17 @@ template <typename PCS> class ZeroMorphVerifier_ {
 
         // Add contribution: x * \sum_{i=0}^{m-1} \rho^i*[f_i]
         auto rho_pow = FF(1);
+        size_t idx = 0;
         for (auto& commitment : f_commitments) {
             scalars.emplace_back(x_challenge * rho_pow);
+            if constexpr (Curve::is_stdlib_type) {
+
+                if (!commitment.get_value().on_curve()) {
+                    info("HM ", idx - 4);
+                    info("just to make sure", !commitment.get_value().on_curve());
+                }
+            }
+            idx++;
             commitments.emplace_back(commitment);
             rho_pow *= rho;
         }
@@ -557,6 +566,8 @@ template <typename PCS> class ZeroMorphVerifier_ {
         for (auto& commitment : g_commitments) {
             scalars.emplace_back(rho_pow);
             commitments.emplace_back(commitment);
+            if constexpr (Curve::is_stdlib_type) {
+            }
             rho_pow *= rho;
         }
 
@@ -702,10 +713,16 @@ template <typename PCS> class ZeroMorphVerifier_ {
         Commitment C_zeta_Z;
         FF evaluation;
         if constexpr (Curve::is_stdlib_type) {
+            auto builder = z_challenge.get_context();
             // Express operation as a batch_mul in order to use Goblinization if available
-            std::vector<FF> scalars = { FF(1), z_challenge };
+            std::vector<FF> scalars = { FF(builder, 1), z_challenge };
+            info("C_zeta_x ", C_zeta_x.get_value().on_curve());
+            info("C_Z_x ", C_Z_x.get_value().on_curve());
+
             std::vector<Commitment> points = { C_zeta_x, C_Z_x };
             C_zeta_Z = Commitment::batch_mul(points, scalars);
+            info("C_zeta_Z", C_zeta_Z.get_value().on_curve());
+
             evaluation = FF(0);
         } else {
             C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;

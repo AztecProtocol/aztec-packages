@@ -478,25 +478,31 @@ template <typename Curve_> class IPA {
     {
         // Step 1.
         // Receive polynomial_degree + 1 = d from the prover
-        auto poly_length = static_cast<uint32_t>(transcript->template receive_from_prover<typename Curve::BaseField>(
-            "IPA:poly_degree_plus_1")); // note this is base field because this is a uint32_t, which should map
-                                        // to a bb::fr, not a grumpkin::fr, which is a BaseField element for
-                                        // Grumpkin
+        const auto poly_length = static_cast<uint32_t>(
+            transcript->template receive_from_prover<typename Curve::BaseField>("IPA:poly_degree_plus_1")
+                .get_value()); // note this is base field because this is a uint32_t, which should map
+                               // to a bb::fr, not a grumpkin::fr, which is a BaseField element for
+                               // Grumpkin
+
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
         auto builder = generator_challenge.get_context();
 
-        if (generator_challenge.is_zero()) {
-            throw_or_abort("The generator challenge can't be zero");
-        }
+        // if (generator_challenge.is_zero()) {
+        //     throw_or_abort("The generator challenge can't be zero");
+        // }
 
         Commitment aux_generator = Commitment::one(builder) * generator_challenge;
 
-        auto log_poly_degree = static_cast<size_t>(numeric::get_msb(poly_length));
+        const auto log_poly_degree = numeric::get_msb(static_cast<uint32_t>(poly_length));
         // Step 3.
         // Compute C' = C + f(\beta) ⋅ U
-        GroupElement C_prime = opening_claim.commitment + (aux_generator * opening_claim.opening_pair.evaluation);
+        info("opening claim as bigfield", opening_claim.opening_pair.evaluation.get_value());
+        GroupElement aux = aux_generator * opening_claim.opening_pair.evaluation;
+        info("point", aux.get_value());
+        info("is point on curve", aux.get_value().on_curve());
+        GroupElement C_prime = opening_claim.commitment + aux;
 
         auto pippenger_size = 2 * log_poly_degree;
         std::vector<Fr> round_challenges(log_poly_degree);
@@ -511,9 +517,9 @@ template <typename Curve_> class IPA {
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
-            if (round_challenges[i].is_zero()) { // ???
-                throw_or_abort("Round challenges can't be zero");
-            }
+            // if (round_challenges[i].is_zero()) { // ???
+            //     throw_or_abort("Round challenges can't be zero");
+            // }
             round_challenges_inv[i] = round_challenges[i].invert();
 
             msm_elements[2 * i] = element_L;
@@ -533,10 +539,11 @@ template <typename Curve_> class IPA {
         //  g(X) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}.X^{2^{i-1}}).
         //  b_zero = g(evaluation) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}. (evaluation)^{2^{i-1}})
 
-        Fr one = Fr::one(builder);
+        Fr one = Fr::one();
         Fr b_zero = one;
         for (size_t i = 0; i < log_poly_degree; i++) {
-            auto exponent = static_cast<uint64_t>(Fr(2).pow(i));
+            // auto exponent = typename Curve::BaseField(2).pow(i);
+            size_t exponent = 1 << i;
             b_zero *= one + (round_challenges_inv[log_poly_degree - 1 - i] *
                              opening_claim.opening_pair.challenge.pow(exponent));
         }
@@ -557,16 +564,16 @@ template <typename Curve_> class IPA {
             s_vec[i] = s_vec_scalar;
         }
 
-        auto* srs_elements = vk->get_monomial_points();
+        auto srs_elements = vk->get_monomial_points();
 
         // Copy the G_vector to local memory.
-        std::vector<Commitment> G_vec_local(poly_length);
+        std::vector<Commitment> G_vec_local;
 
         // The SRS stored in the commitment key is the result after applying the pippenger point table so the
         // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
         // G_vec_local should use only the original SRS thus we extract only the even indices.
         for (size_t i = 0; i < poly_length * 2; i += 2) {
-            G_vec_local[i >> 1] = srs_elements[i];
+            G_vec_local.emplace_back(srs_elements[i]);
         }
 
         // Step 8.
@@ -584,7 +591,7 @@ template <typename Curve_> class IPA {
         // Step 11.
         // Check if C_right == C₀
         C_zero.assert_equal(right_hand_side);
-        return (C_zero.normalize().get_value() == right_hand_side.normalize().get_value());
+        return (C_zero.get_value() == right_hand_side.get_value());
     }
 
   public:

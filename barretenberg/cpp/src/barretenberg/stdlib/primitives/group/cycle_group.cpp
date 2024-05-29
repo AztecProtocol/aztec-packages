@@ -82,6 +82,15 @@ cycle_group<Builder>::cycle_group(const AffineElement& _in)
     , context(nullptr)
 {}
 
+template <typename Builder>
+cycle_group<Builder>::cycle_group(Builder* _context, const AffineElement& _in)
+    : x(_in.x)
+    , y(_in.y)
+    , _is_infinity(_in.is_point_at_infinity())
+    , _is_constant(true)
+    , context(_context)
+{}
+
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::one(Builder* _context)
 {
     field_t x(_context, Group::one.x);
@@ -1330,10 +1339,24 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
 
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator*(const cycle_scalar& scalar) const
 {
+    info(scalar.get_value());
     return batch_mul({ *this }, { scalar });
 }
 
 template <typename Builder> cycle_group<Builder>& cycle_group<Builder>::operator*=(const cycle_scalar& scalar)
+{
+    *this = operator*(scalar);
+    return *this;
+}
+
+template <typename Builder>
+cycle_group<Builder> cycle_group<Builder>::operator*(const bigfield<Builder, bb::Bn254FqParams>& scalar) const
+{
+    return batch_mul({ *this }, { scalar });
+}
+
+template <typename Builder>
+cycle_group<Builder>& cycle_group<Builder>::operator*=(const bigfield<Builder, bb::Bn254FqParams>& scalar)
 {
     *this = operator*(scalar);
     return *this;

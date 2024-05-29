@@ -104,13 +104,14 @@ template <typename Builder> class cycle_group {
             return _use_bn254_scalar_field_for_primality_test;
         }
         void validate_scalar_is_in_field() const;
-
-        // This is a HACK!!
-        static cycle_scalar from_bigfield(stdlib::bigfield<Builder, bb::Bn254FqParams>& value)
+        static cycle_scalar from_bigfield(const stdlib::bigfield<Builder, bb::Bn254FqParams>& value)
         {
+
             auto val = bb::fq((value.get_value() % uint512_t(bb::fq::modulus)).lo);
             return cycle_scalar(val);
         };
+
+        // This is a HACK!!
     };
 
     /**
@@ -178,6 +179,7 @@ template <typename Builder> class cycle_group {
     cycle_group(Builder* _context = nullptr);
     cycle_group(field_t _x, field_t _y, bool_t _is_infinity);
     cycle_group(const FF& _x, const FF& _y, bool _is_infinity);
+    cycle_group(Builder* _context, const AffineElement& _in);
     cycle_group(const AffineElement& _in);
     static cycle_group one(Builder* _context);
     static cycle_group from_witness(Builder* _context, const AffineElement& _in);
@@ -213,6 +215,7 @@ template <typename Builder> class cycle_group {
         for (auto scalar : scalars) {
             cycle_scalars.emplace_back(cycle_scalar::from_bigfield(scalar));
         }
+
         return batch_mul(base_points, cycle_scalars, context);
     }
     static cycle_group batch_mul(const std::vector<cycle_group>& base_points,
@@ -220,6 +223,8 @@ template <typename Builder> class cycle_group {
                                  GeneratorContext context = {});
     cycle_group operator*(const cycle_scalar& scalar) const;
     cycle_group& operator*=(const cycle_scalar& scalar);
+    cycle_group operator*(const stdlib::bigfield<Builder, bb::Bn254FqParams>& scalar) const;
+    cycle_group& operator*=(const stdlib::bigfield<Builder, bb::Bn254FqParams>& scalar);
     bool_t operator==(const cycle_group& other) const;
     void assert_equal(const cycle_group& other, std::string const& msg = "cycle_group::assert_equal") const;
     static cycle_group conditional_assign(const bool_t& predicate, const cycle_group& lhs, const cycle_group& rhs);

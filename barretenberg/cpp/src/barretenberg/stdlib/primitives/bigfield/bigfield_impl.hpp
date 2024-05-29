@@ -1002,6 +1002,7 @@ bigfield<Builder, T> bigfield<Builder, T>::pow(const field_t<Builder>& exponent)
         exponent.assert_equal(exponent_accumulator, "field_t::pow exponent accumulator incorrect");
     }
     bigfield accumulator(ctx, 1);
+
     bigfield mul_coefficient = *this - 1;
     for (size_t digit_idx = 0; digit_idx < 32; ++digit_idx) {
         accumulator *= accumulator;
@@ -1014,6 +1015,13 @@ bigfield<Builder, T> bigfield<Builder, T>::pow(const field_t<Builder>& exponent)
     }
     accumulator.self_reduce();
     return accumulator;
+}
+
+template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::pow(const size_t exponent) const
+{
+    auto* ctx = get_context() ? get_context() : nullptr;
+
+    return pow(witness_t<Builder>(ctx, exponent));
 }
 
 /**

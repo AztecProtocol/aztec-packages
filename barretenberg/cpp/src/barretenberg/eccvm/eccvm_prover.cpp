@@ -45,9 +45,20 @@ void ECCVMProver::execute_wire_commitments_round()
 {
     auto wire_polys = key->polynomials.get_wires();
     auto labels = commitment_labels.get_wires();
+    info("in prover");
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-        transcript->send_to_verifier(labels[idx], commitment_key->commit(wire_polys[idx]));
+
+        auto comm = commitment_key->commit(wire_polys[idx]);
+        if (!comm.on_curve()) {
+            info("something not on curve in prover");
+            info(labels[idx], " ", comm);
+        }
+        transcript->send_to_verifier(labels[idx], comm);
+        if (idx == 73 || idx == 76 || idx == 77 || idx == 81 || idx == 83) {
+            info(labels[idx], comm);
+        }
     }
+    info("out of prover");
 }
 
 /**

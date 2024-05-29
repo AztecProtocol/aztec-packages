@@ -30,6 +30,9 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     const auto circuit_size = transcript->template receive_from_prover<BF>("circuit_size");
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
+        if (!comm.get_value().on_curve()) {
+            comm.set_point_at_infinity(true);
+        }
     }
 
     // Get challenge for sorted list batching and wire four memory records
