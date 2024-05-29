@@ -188,7 +188,9 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
 
         // TODO: We do not yet support the indirect flag. Therefore we do not extract
         // inst.operands(0) (i.e. the indirect flag) when processiing the instructions.
+        info("opcode: ", static_cast<uint32_t>(inst.op_code));
         switch (inst.op_code) {
+
             // Compute
             // Compute - Arithmetic
         case OpCode::ADD:
@@ -337,6 +339,30 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
         case OpCode::TIMESTAMP:
             trace_builder.op_timestamp(std::get<uint32_t>(inst.operands.at(1)));
+            break;
+        case OpCode::NOTEHASHEXISTS:
+            trace_builder.op_note_hash_exists(std::get<uint32_t>(inst.operands.at(1)),
+                                              std::get<uint32_t>(inst.operands.at(2)));
+            break;
+        case OpCode::EMITNOTEHASH:
+            trace_builder.op_emit_note_hash(std::get<uint32_t>(inst.operands.at(1)));
+            break;
+        case OpCode::NULLIFIEREXISTS:
+            trace_builder.op_nullifier_exists(std::get<uint32_t>(inst.operands.at(1)),
+                                              std::get<uint32_t>(inst.operands.at(2)));
+            break;
+        case OpCode::EMITNULLIFIER:
+            trace_builder.op_emit_nullifier(std::get<uint32_t>(inst.operands.at(1)));
+            break;
+        case OpCode::L1TOL2MSGEXISTS:
+            trace_builder.op_l1_to_l2_msg_exists(std::get<uint32_t>(inst.operands.at(1)),
+                                                 std::get<uint32_t>(inst.operands.at(2)));
+            break;
+        case OpCode::EMITUNENCRYPTEDLOG:
+            trace_builder.op_emit_unencrypted_log(std::get<uint32_t>(inst.operands.at(1)));
+            break;
+        case OpCode::SENDL2TOL1MSG:
+            trace_builder.op_emit_l2_to_l1_msg(std::get<uint32_t>(inst.operands.at(1)));
             break;
             // Machine State - Internal Control Flow
         case OpCode::JUMP:

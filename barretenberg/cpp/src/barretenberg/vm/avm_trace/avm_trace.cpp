@@ -3621,27 +3621,29 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
         if (clk < main_trace_size) {
             Row& next = main_trace.at(clk + 1);
 
-            // Increment the write offset counter for the following row
-            if (src.op_note_hash_exists) {
-                next.avm_kernel_note_hash_exist_write_offset = curr.avm_kernel_note_hash_exist_write_offset + 1;
-            } else if (src.op_emit_note_hash) {
-                next.avm_kernel_emit_note_hash_write_offset = curr.avm_kernel_emit_note_hash_write_offset + 1;
-            } else if (src.op_emit_nullifier) {
-                next.avm_kernel_emit_nullifier_write_offset = curr.avm_kernel_emit_nullifier_write_offset + 1;
-            } else if (src.op_nullifier_exists) {
-                next.avm_kernel_nullifier_exists_write_offset = curr.avm_kernel_nullifier_exists_write_offset + 1;
-            } else if (src.op_l1_to_l2_msg_exists) {
-                next.avm_kernel_l1_to_l2_msg_exists_write_offset = curr.avm_kernel_l1_to_l2_msg_exists_write_offset + 1;
-            } else if (src.op_emit_l2_to_l1_msg) {
-                next.avm_kernel_emit_l2_to_l1_msg_write_offset = curr.avm_kernel_emit_l2_to_l1_msg_write_offset + 1;
-            } else if (src.op_emit_unencrypted_log) {
-                next.avm_kernel_emit_unencrypted_log_write_offset =
-                    curr.avm_kernel_emit_unencrypted_log_write_offset + 1;
-            } else if (src.op_sload) {
-                next.avm_kernel_sload_write_offset = curr.avm_kernel_sload_write_offset + 1;
-            } else if (src.op_sstore) {
-                next.avm_kernel_sstore_write_offset = curr.avm_kernel_sstore_write_offset + 1;
+            if (src.op_emit_unencrypted_log) {
+                info("side effect counter when emiting log: ", curr.avm_kernel_side_effect_counter);
             }
+
+            // Increment the write offset counter for the following row
+            next.avm_kernel_note_hash_exist_write_offset =
+                curr.avm_kernel_note_hash_exist_write_offset + static_cast<const int>(src.op_note_hash_exists);
+            next.avm_kernel_emit_note_hash_write_offset =
+                curr.avm_kernel_emit_note_hash_write_offset + static_cast<const int>(src.op_emit_note_hash);
+            next.avm_kernel_emit_nullifier_write_offset =
+                curr.avm_kernel_emit_nullifier_write_offset + static_cast<const int>(src.op_emit_nullifier);
+            next.avm_kernel_nullifier_exists_write_offset =
+                curr.avm_kernel_nullifier_exists_write_offset + static_cast<const int>(src.op_nullifier_exists);
+            next.avm_kernel_l1_to_l2_msg_exists_write_offset =
+                curr.avm_kernel_l1_to_l2_msg_exists_write_offset + static_cast<const int>(src.op_l1_to_l2_msg_exists);
+            next.avm_kernel_emit_l2_to_l1_msg_write_offset =
+                curr.avm_kernel_emit_l2_to_l1_msg_write_offset + static_cast<const int>(src.op_emit_l2_to_l1_msg);
+            next.avm_kernel_emit_unencrypted_log_write_offset =
+                curr.avm_kernel_emit_unencrypted_log_write_offset + static_cast<const int>(src.op_emit_unencrypted_log);
+            next.avm_kernel_sload_write_offset =
+                curr.avm_kernel_sload_write_offset + static_cast<const int>(src.op_sload);
+            next.avm_kernel_sstore_write_offset =
+                curr.avm_kernel_sstore_write_offset + static_cast<const int>(src.op_sstore);
 
             // The side effect counter will increment regardless of the offset value
             next.avm_kernel_side_effect_counter = curr.avm_kernel_side_effect_counter + 1;
