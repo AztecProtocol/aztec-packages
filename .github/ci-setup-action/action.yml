@@ -19,13 +19,6 @@ runs:
         echo HOME=$RUN_HOME >> $GITHUB_ENV
         mkdir -p $RUN_HOME
 
-    - name: Cache Submodules
-      id: cache-submodules
-      uses: actions/cache@v4
-      with:
-        path: .git/modules
-        key: submodules-${{ hashFiles('.gitmodules') }}-spot-ebs
-
     - name: Checkout Submodules
       shell: bash
       run: |
