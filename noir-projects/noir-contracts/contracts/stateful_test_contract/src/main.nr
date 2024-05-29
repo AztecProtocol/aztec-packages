@@ -26,9 +26,11 @@ contract StatefulTest {
         let _res = context.call_public_function(context.this_address(), selector, [42]);
     }
 
+    // Having _ignored_arg here as it makes the params the same as for the private constructor which makes
+    // contract_class_registration tests way less cluttered. This is a test contract. Don't judge me.
     #[aztec(public)]
     #[aztec(initializer)]
-    fn public_constructor(owner: AztecAddress, value: Field) {
+    fn public_constructor(owner: AztecAddress, _ignored_arg: AztecAddress, value: Field) {
         StatefulTest::at(context.this_address()).increment_public_value_no_init_check(owner, value).call(&mut context);
     }
 

@@ -1,4 +1,4 @@
-import { type DebugLogger, type PXE, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, type DebugLogger, type PXE, type Wallet } from '@aztec/aztec.js';
 import { CounterContract, StatefulTestContract } from '@aztec/noir-contracts.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -11,6 +11,8 @@ describe('e2e_deploy_contract deploy method', () => {
   let pxe: PXE;
   let logger: DebugLogger;
   let wallet: Wallet;
+
+  const ignoredArg = AztecAddress.random();
 
   beforeAll(async () => {
     ({ pxe, logger, wallet } = await t.setup());
@@ -46,7 +48,12 @@ describe('e2e_deploy_contract deploy method', () => {
   it('publicly deploys and initializes via a public function', async () => {
     const owner = wallet.getAddress();
     logger.debug(`Deploying contract via a public constructor`);
-    const contract = await StatefulTestContract.deployWithOpts({ wallet, method: 'public_constructor' }, owner, 42)
+    const contract = await StatefulTestContract.deployWithOpts(
+      { wallet, method: 'public_constructor' },
+      owner,
+      ignoredArg,
+      42,
+    )
       .send()
       .deployed();
     expect(await contract.methods.get_public_value(owner).simulate()).toEqual(42n);
