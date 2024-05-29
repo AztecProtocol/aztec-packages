@@ -363,8 +363,7 @@ resource "aws_ecs_service" "aztec-node" {
 
   network_configuration {
     subnets = [
-      data.terraform_remote_state.setup_iac.outputs.subnet_az1_private_id,
-      data.terraform_remote_state.setup_iac.outputs.subnet_az2_private_id
+      data.terraform_remote_state.setup_iac.outputs.subnet_az1_private_id
     ]
     security_groups = [data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id, data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
   }
