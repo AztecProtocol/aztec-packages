@@ -1400,9 +1400,15 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     // 2 instructions
     ASSERT_THAT(instructions, SizeIs(6));
 
-    auto trace = Execution::gen_trace(instructions);
+    std::vector<FF> calldata = {};
+    std::vector<FF> reutrndata = {};
 
-    log_avm_trace(trace, 3, 6, true);
+    // Craft public inputs object - in this case all return values are known to be a fixed value 1
+    std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
+
+    size_t public_inputs_emit_note_hash_offset =
+
+        auto trace = Execution::gen_trace(instructions);
 
     // CHECK EMIT NOTE HASH
     // Check output data + side effect counters have been set correctly
