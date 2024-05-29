@@ -304,7 +304,6 @@ dependencies = [
  "flate2",
  "log",
  "noirc_errors",
- "regex",
  "serde",
  "serde_json",
 ]

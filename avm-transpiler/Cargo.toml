@@ -14,7 +14,6 @@ noirc_errors = { path = "../noir/noir-repo/compiler/noirc_errors" }
 
 # external
 base64 = "0.21"
-regex = "1.10"
 env_logger = "0.11"
 log = "0.4"
 serde_json = "1.0"
