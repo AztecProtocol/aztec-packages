@@ -567,13 +567,13 @@ template <typename Curve_> class IPA {
         auto srs_elements = vk->get_monomial_points();
 
         // Copy the G_vector to local memory.
-        std::vector<Commitment> G_vec_local;
+        std::vector<Commitment> G_vec_local(poly_length);
 
         // The SRS stored in the commitment key is the result after applying the pippenger point table so the
         // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
         // G_vec_local should use only the original SRS thus we extract only the even indices.
         for (size_t i = 0; i < poly_length * 2; i += 2) {
-            G_vec_local.emplace_back(srs_elements[i]);
+            G_vec_local[i >> 1] = srs_elements[i];
         }
 
         // Step 8.
@@ -590,6 +590,8 @@ template <typename Curve_> class IPA {
 
         // Step 11.
         // Check if C_right == C₀
+        info("C_zero ", C_zero.get_value());
+        info("right hand side ", right_hand_side.get_value());
         C_zero.assert_equal(right_hand_side);
         return (C_zero.get_value() == right_hand_side.get_value());
     }

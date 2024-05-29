@@ -27,7 +27,7 @@ template <typename Curve> class VerifierCommitmentKey {
     {
 
         auto* native_points = native_pcs_verification_key->get_monomial_points();
-        for (size_t i = 0; i < num_points; i++) {
+        for (size_t i = 0; i < num_points * 2; i++) {
             monomial_points.emplace_back(Commitment(builder, native_points[i]));
         }
     }
