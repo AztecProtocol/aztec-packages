@@ -23,7 +23,7 @@ contract SimpleEscrow {
     /**
      * Donate to the account
      * 
-     * Primarily a helper function to avoid providing wrong `sage` arguments
+     * Primarily a helper function to avoid providing wrong `incoming_viewer_and_nullifier` arguments
      * to a transfer call.
      *
      * @param amount: The amount to donate to the vault
@@ -58,7 +58,7 @@ contract SimpleEscrow {
      * 
      */
     #[aztec(private)]
-    fn transfer(to: AztecAddress, amount: Field, sage: AztecAddressOption) {
+    fn transfer(to: AztecAddress, amount: Field, incoming_viewer_and_nullifier: AztecAddressOption) {
         let owner = storage.owner.read_private();
         assert_eq(context.msg_sender(), owner, "only callable by the owner");
         let owner_wrapped_option = AztecAddressOption::new(Option::some(owner));
@@ -72,7 +72,7 @@ contract SimpleEscrow {
             amount,
             0,
             owner_wrapped_option,
-            sage,
+            incoming_viewer_and_nullifier,
             owner_wrapped_option
         ).call(&mut context);
     }

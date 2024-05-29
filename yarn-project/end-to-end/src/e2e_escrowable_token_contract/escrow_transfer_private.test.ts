@@ -69,7 +69,7 @@ describe('e2e_token_contract transfer private', () => {
 
   describe('escrowing', () => {
     describe('simple escrow', () => {
-      it('donate to escrow, `sage != to`', async () => {
+      it('donate to escrow, `incoming_viewer_and_nullifier != to`', async () => {
         const amount = 100n;
         const nonce = Fr.random();
 
@@ -121,7 +121,7 @@ describe('e2e_token_contract transfer private', () => {
     describe('escrow to escrow', () => {
       /**
        * Interactions between 2 escrow contracts. To test cases where we have some `change` vault that need to be emitted somewhere
-       * different than the `from`, but at the same time different than the to, and the `to_sage`.
+       * different than the `from`, but at the same time different than the to, and the `to_incoming_viewer_and_nullifier`.
        */
 
       it('transfer from escrow a to escrow b', async () => {
@@ -147,7 +147,7 @@ describe('e2e_token_contract transfer private', () => {
       });
 
       describe('failure cases', () => {
-        it('FAIL: transfer from escrow to escrow (unspecified sage)', async () => {
+        it('FAIL: transfer from escrow to escrow (unspecified incoming_viewer_and_nullifier)', async () => {
           const amount = 9n;
 
           await expect(
@@ -162,7 +162,7 @@ describe('e2e_token_contract transfer private', () => {
 
     it('sending funds but using recipient as escrow, 🏦🤫💰', async () => {
       // For this test, I'm doing something quite strange, I am sending funds to Bob, but I am not allowing him to actually spend them
-      // I am still the "sage". This is a really annoying example as it will look like loss of funds to the users, and to get the funds
+      // I am still the "incoming_viewer_and_nullifier". This is a really annoying example as it will look like loss of funds to the users, and to get the funds
       // back, or spend them, I need to give Bob some secrets 💀
 
       await awaitUserSynchronized(wallets[0], accounts[0].address);
@@ -177,9 +177,9 @@ describe('e2e_token_contract transfer private', () => {
           walletGroup2[0].getAddress(),
           amount,
           0,
-          toAddressOption(accounts[0].address), // I'm setting myself af the change_sage
-          toAddressOption(accounts[0].address), // I'm setting myself af the to_sage
-          toAddressOption(accounts[0].address), // I'm setting myself as the klix
+          toAddressOption(accounts[0].address), // I'm setting myself af the change_incoming_viewer_and_nullifier
+          toAddressOption(accounts[0].address), // I'm setting myself af the to_incoming_viewer_and_nullifier
+          toAddressOption(accounts[0].address), // I'm setting myself as the outgoing_viewer
         )
         .send()
         .wait();

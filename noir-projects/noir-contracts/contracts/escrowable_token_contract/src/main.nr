@@ -38,9 +38,8 @@ mod types;
  * In most "direct" user to user transfers, it will belong to the `msg_sender`, but for escrowing, it might be someone
  * else. It needs to be provided.
  *
- * To much dismay for everyone else, I have been using:
- * - `sage` to refer to the address that is used to fetch `ivpk` and `npk` related values
- * - `klix` to refer to the address that is used to fetch `ovpk` related values.
+ * - `incoming_viewer_and_nullifier` to refer to the address that is used to fetch `ivpk` and `npk` related values
+ * - `outgoing_viewer` to refer to the address that is used to fetch `ovpk` related values.
  *
  * Beware, to use `ovpk` one must know the matching secret key `ovsk`, and thus it cannot be used to let "someone"
  * else learn about the notes, unless you are willing to share the `address` that emits the note and the `ovsk_app`
@@ -171,15 +170,15 @@ contract EscrowableToken {
      * 
      * @param to: The recipient of the assets
      * @param amount: The amount to mint 
-     * @param sage: The address to use for `ivpk` and `npk` for the shielded notes - if not provided, the `to` address is used
-     * @param klix: The address to use for `ovpk` when creating outgoing logs - if not provided, the `from` address is used
+     * @param incoming_viewer_and_nullifier: The address to use for `ivpk` and `npk` for the shielded notes - if not provided, the `to` address is used
+     * @param outgoing_viewer: The address to use for `ovpk` when creating outgoing logs - if not provided, the `from` address is used
      */
     #[aztec(private)]
     fn mint_private(
         to: AztecAddress,
         amount: Field,
-        sage: AztecAddressOption,
-        klix: AztecAddressOption
+        incoming_viewer_and_nullifier: AztecAddressOption,
+        outgoing_viewer: AztecAddressOption
     ) {
         assert(storage.admin.read_private() == context.msg_sender(), "caller is not admin");
 
@@ -189,8 +188,8 @@ contract EscrowableToken {
         storage.balances.add(
             to,
             amount,
-            sage.unwrap_or(to),
-            klix.unwrap_or(context.msg_sender())
+            incoming_viewer_and_nullifier.unwrap_or(to),
+            outgoing_viewer.unwrap_or(context.msg_sender())
         );
     }
 
@@ -206,8 +205,8 @@ contract EscrowableToken {
      * @param to: The address to shield to
      * @param amount: The amount to shield
      * @param nonce: The nonce of the shield - 0 if not using authwit
-     * @param sage: The address to use for `ivpk` and `npk` for the shielded notes - if not provided, the `to` address is used
-     * @param klix: The address to use for `ovpk` when creating outgoing logs - if not provided, the `from` address is used
+     * @param incoming_viewer_and_nullifier: The address to use for `ivpk` and `npk` for the shielded notes - if not provided, the `to` address is used
+     * @param outgoing_viewer: The address to use for `ovpk` when creating outgoing logs - if not provided, the `from` address is used
      */
     #[aztec(private)]
     fn shield_from_private(
@@ -215,8 +214,8 @@ contract EscrowableToken {
         to: AztecAddress,
         amount: Field,
         nonce: Field,
-        sage: AztecAddressOption,
-        klix: AztecAddressOption
+        incoming_viewer_and_nullifier: AztecAddressOption,
+        outgoing_viewer: AztecAddressOption
     ) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
@@ -225,7 +224,7 @@ contract EscrowableToken {
         }
         EscrowableToken::at(context.this_address())._reduce_public_balance(from, amount).enqueue(&mut context);
         let amount = U128::from_integer(amount);
-        storage.balances.add(to, amount, sage.unwrap_or(to), klix.unwrap_or(from));
+        storage.balances.add(to, amount, incoming_viewer_and_nullifier.unwrap_or(to), outgoing_viewer.unwrap_or(from));
     }
 
     /**
@@ -238,8 +237,8 @@ contract EscrowableToken {
      * @param to: The address to unshield to
      * @param amount: The amount to unshield
      * @param nonce: The nonce of the unshield - 0 if not using authwit
-     * @param change_sage: The address to use for `ivpk` and `npk` for change notes - if not provided, the `from` address is used
-     * @param klix: The address to use for `ovpk` when creating outgoing logs - if not provided, the `from` address is used
+     * @param change_incoming_viewer_and_nullifier: The address to use for `ivpk` and `npk` for change notes - if not provided, the `from` address is used
+     * @param outgoing_viewer: The address to use for `ovpk` when creating outgoing logs - if not provided, the `from` address is used
      */
     #[aztec(private)]
     fn unshield(
@@ -247,8 +246,8 @@ contract EscrowableToken {
         to: AztecAddress,
         amount: Field,
         nonce: Field,
-        change_sage: AztecAddressOption,
-        klix: AztecAddressOption
+        change_incoming_viewer_and_nullifier: AztecAddressOption,
+        outgoing_viewer: AztecAddressOption
     ) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
@@ -259,8 +258,8 @@ contract EscrowableToken {
         storage.balances.sub(
             from,
             U128::from_integer(amount),
-            change_sage.unwrap_or(from),
-            klix.unwrap_or(from)
+            change_incoming_viewer_and_nullifier.unwrap_or(from),
+            outgoing_viewer.unwrap_or(from)
         );
 
         EscrowableToken::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
@@ -269,15 +268,15 @@ contract EscrowableToken {
     /**
      * Transfers `amount` from the private balance of `from` to the private balance of `to`.
      *
-     * Support for escrowing by explicitly specifying the `sage` and `klix` addresses.
+     * Support for escrowing by explicitly specifying the `incoming_viewer_and_nullifier` and `outgoing_viewer` addresses.
      * 
      * @param from: The address to transfer from
      * @param to: The address to transfer to
      * @param amount: The amount to transfer
      * @param nonce: The nonce of the transfer
-     * @param change_sage: The address to use for `ivpk` and `npk` for change notes - if not provided, the `from` address is used
-     * @param to_sage: The address to use for `ivpk` and `npk` for the to notes - if not provided, the `to` address is used
-     * @param klix: The address to use for `ovpk` when creating outgoing logs - if not provided, the `from` address is used
+     * @param change_incoming_viewer_and_nullifier: The address to use for `ivpk` and `npk` for change notes - if not provided, the `from` address is used
+     * @param to_incoming_viewer_and_nullifier: The address to use for `ivpk` and `npk` for the to notes - if not provided, the `to` address is used
+     * @param outgoing_viewer: The address to use for `ovpk` when creating outgoing logs - if not provided, the `from` address is used
      */
     #[aztec(private)]
     fn transfer(
@@ -285,9 +284,9 @@ contract EscrowableToken {
         to: AztecAddress,
         amount: Field,
         nonce: Field,
-        change_sage: AztecAddressOption,
-        to_sage: AztecAddressOption,
-        klix: AztecAddressOption
+        change_incoming_viewer_and_nullifier: AztecAddressOption,
+        to_incoming_viewer_and_nullifier: AztecAddressOption,
+        outgoing_viewer: AztecAddressOption
     ) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
@@ -297,8 +296,8 @@ contract EscrowableToken {
 
         let amount = U128::from_integer(amount);
 
-        storage.balances.sub(from, amount, change_sage.unwrap_or(from), klix.unwrap_or(from));
-        storage.balances.add(to, amount, to_sage.unwrap_or(to), klix.unwrap_or(from));
+        storage.balances.sub(from, amount, change_incoming_viewer_and_nullifier.unwrap_or(from), outgoing_viewer.unwrap_or(from));
+        storage.balances.add(to, amount, to_incoming_viewer_and_nullifier.unwrap_or(to), outgoing_viewer.unwrap_or(from));
     }
 
     /**
@@ -310,16 +309,16 @@ contract EscrowableToken {
      * @param from: The address to burn from
      * @param amount: The amount to burn
      * @param nonce: The nonce of the burn - 0 if not using authwit
-     * @param change_sage: The address to use for `ivpk` and `npk` for change notes - if not provided, the `from` address is used
-     * @param klix: The address to use for `ovpk` when creating outgoing logs - if not provided, the `from` address is used
+     * @param change_incoming_viewer_and_nullifier: The address to use for `ivpk` and `npk` for change notes - if not provided, the `from` address is used
+     * @param outgoing_viewer: The address to use for `ovpk` when creating outgoing logs - if not provided, the `from` address is used
      */
     #[aztec(private)]
     fn burn(
         from: AztecAddress,
         amount: Field,
         nonce: Field,
-        change_sage: AztecAddressOption,
-        klix: AztecAddressOption
+        change_incoming_viewer_and_nullifier: AztecAddressOption,
+        outgoing_viewer: AztecAddressOption
     ) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
@@ -330,8 +329,8 @@ contract EscrowableToken {
         storage.balances.sub(
             from,
             U128::from_integer(amount),
-            change_sage.unwrap_or(from),
-            klix.unwrap_or(from)
+            change_incoming_viewer_and_nullifier.unwrap_or(from),
+            outgoing_viewer.unwrap_or(from)
         );
 
         EscrowableToken::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
