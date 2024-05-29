@@ -205,8 +205,18 @@ template <typename Builder> class cycle_group {
     cycle_group operator-() const;
     cycle_group& operator+=(const cycle_group& other);
     cycle_group& operator-=(const cycle_group& other);
-    static cycle_group batch_mul(const std::vector<cycle_scalar>& scalars,
-                                 const std::vector<cycle_group>& base_points,
+    static cycle_group batch_mul(const std::vector<cycle_group>& base_points,
+                                 const std::vector<bigfield<Builder, bb::Bn254FqParams>>& scalars,
+                                 GeneratorContext context = {})
+    {
+        std::vector<cycle_scalar> cycle_scalars;
+        for (auto scalar : scalars) {
+            cycle_scalars.emplace_back(cycle_scalar::from_bigfield(scalar));
+        }
+        return batch_mul(base_points, cycle_scalars, context);
+    }
+    static cycle_group batch_mul(const std::vector<cycle_group>& base_points,
+                                 const std::vector<cycle_scalar>& scalars,
                                  GeneratorContext context = {});
     cycle_group operator*(const cycle_scalar& scalar) const;
     cycle_group& operator*=(const cycle_scalar& scalar);
