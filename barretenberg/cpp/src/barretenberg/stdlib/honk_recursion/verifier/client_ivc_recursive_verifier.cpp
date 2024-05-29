@@ -4,15 +4,14 @@ namespace bb::stdlib::recursion::honk {
 
 void ClientIvcRecursiveVerifier_::verify(const ClientIVC::Proof& proof, VerifierInput& data)
 {
-    // Verify some stuff
-    (void)data;
-    (void)proof;
-    (void)builder;
+    // WORKTODO: Perform Goblin recursive verification here
 
-    FoldingVerifier folding_verifier{ builder, data.accumulator, data.instance_vks };
+    // Perform recursive folding verification
+    FoldingVerifier folding_verifier{ builder, data };
     auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(proof.folding_proof);
     auto native_verifier_acc = std::make_shared<VerifierInput::Instance>(recursive_verifier_accumulator->get_value());
 
+    // Perform recursive decider verification
     DeciderVerifier decider{ builder, native_verifier_acc };
     decider.verify_proof(proof.decider_proof);
 }
