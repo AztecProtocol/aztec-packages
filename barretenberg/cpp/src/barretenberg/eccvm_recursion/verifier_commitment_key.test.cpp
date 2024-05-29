@@ -1,5 +1,6 @@
 
 #include "barretenberg/eccvm_recursion/verifier_commitment_key.hpp"
+#include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include <gtest/gtest.h>
 namespace bb {
 template <typename Curve> class RecursiveVeriferCommitmentKeyTest : public testing::Test {
@@ -33,7 +34,7 @@ template <typename Curve> class RecursiveVeriferCommitmentKeyTest : public testi
     }
 };
 
-using Curves = testing::Types<stdlib::bn254<UltraCircuitBuilder>, stdlib::bn254<MegaCircuitBuilder>>;
+using Curves = testing::Types<stdlib::grumpkin<UltraCircuitBuilder>, stdlib::grumpkin<MegaCircuitBuilder>>;
 
 TYPED_TEST_SUITE(RecursiveVeriferCommitmentKeyTest, Curves);
 

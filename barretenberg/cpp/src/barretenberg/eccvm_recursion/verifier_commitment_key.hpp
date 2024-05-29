@@ -1,7 +1,5 @@
 #pragma once
 #include "barretenberg/commitment_schemes/verification_key.hpp"
-#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 namespace bb {
 
 /**
@@ -11,7 +9,7 @@ namespace bb {
  */
 template <typename Curve> class VerifierCommitmentKey {
     using Builder = Curve::Builder;
-    using Commitment = stdlib::cycle_group<Builder>;
+    using Commitment = Curve::AffineElement;
     using NativeEmbeddedCurve = typename Builder::EmbeddedCurve;
 
   public:

@@ -703,7 +703,6 @@ template <typename PCS> class ZeroMorphVerifier_ {
         FF evaluation;
         if constexpr (Curve::is_stdlib_type) {
             // Express operation as a batch_mul in order to use Goblinization if available
-            // auto builder = z_challenge.get_context();
             std::vector<FF> scalars = { FF(1), z_challenge };
             std::vector<Commitment> points = { C_zeta_x, C_Z_x };
             C_zeta_Z = Commitment::batch_mul(points, scalars);
@@ -778,14 +777,8 @@ template <typename PCS> class ZeroMorphVerifier_ {
                                       const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
                                       RefSpan<FF> concatenated_evaluations = {})
     {
-        Commitment first_g1;
-        // Retrieve the first element in the SRS [1]_1 which will be different depending on the curve we operate on
-        if constexpr (Curve::is_stdlib_type) {
-            // this is already what we want and this only gets compiled for IPA anyways
-            first_g1 = vk->get_first_g1();
-        } else {
-            first_g1 = vk->get_first_g1();
-        }
+        Commitment first_g1 = vk->get_first_g1();
+
         auto opening_claim = compute_univariate_evaluation_opening_claim(unshifted_commitments,
                                                                          to_be_shifted_commitments,
                                                                          unshifted_evaluations,

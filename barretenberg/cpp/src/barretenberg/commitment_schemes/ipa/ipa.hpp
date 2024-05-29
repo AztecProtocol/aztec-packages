@@ -546,7 +546,7 @@ template <typename Curve_> class IPA {
         std::vector<Fr> s_vec(poly_length);
 
         for (size_t i = 0; i < poly_length; i++) {
-            Fr s_vec_scalar = one();
+            Fr s_vec_scalar = one;
             for (size_t j = (log_poly_degree - 1); j != size_t(-1); j--) {
                 auto bit = (i >> j) & 1;
                 bool b = static_cast<bool>(bit);
