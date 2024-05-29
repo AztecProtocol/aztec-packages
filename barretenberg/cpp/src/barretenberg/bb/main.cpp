@@ -206,7 +206,11 @@ template <IsUltraFlavor Flavor> bool proveAndVerifyHonk(const std::string& bytec
 template <IsUltraFlavor Flavor>
 bool proveAndVerifyHonkProgram(const std::string& bytecodePath, const std::string& witnessPath)
 {
-    auto program_stack = acir_format::get_acir_program_stack(bytecodePath, witnessPath);
+    bool honk_recursion = false;
+    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+        honk_recursion = true;
+    }
+    auto program_stack = acir_format::get_acir_program_stack(bytecodePath, witnessPath, honk_recursion);
 
     while (!program_stack.empty()) {
         auto stack_item = program_stack.back();
@@ -230,7 +234,9 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
     ClientIVC ivc;
     ivc.structured_flag = true;
 
-    auto program_stack = acir_format::get_acir_program_stack(bytecodePath, witnessPath);
+    auto program_stack = acir_format::get_acir_program_stack(
+        bytecodePath, witnessPath, false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): this
+                                           // assumes that folding is never done with ultrahonk.
 
     // Accumulate the entire program stack into the IVC
     while (!program_stack.empty()) {
