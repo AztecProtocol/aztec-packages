@@ -144,7 +144,7 @@ fn compile_workspace(
 
     // Compile all of the packages in parallel.
     let program_warnings_or_errors: CompilationResult<()> =
-        compile_programs(file_manager, parsed_files, &workspace, &binary_packages, compile_options);
+        compile_programs(file_manager, parsed_files, workspace, &binary_packages, compile_options);
     let contract_warnings_or_errors: CompilationResult<()> = compiled_contracts(
         file_manager,
         parsed_files,
@@ -194,7 +194,7 @@ fn compile_programs(
             save_program_to_file(
                 &program.clone().into(),
                 &package.name,
-                &workspace.target_directory_path(),
+                workspace.target_directory_path(),
             );
             Ok(((), warnings))
         })
@@ -218,7 +218,7 @@ fn compiled_contracts(
                 compile_contract(file_manager, parsed_files, package, compile_options)?;
             let contract =
                 nargo::ops::transform_contract(contract, compile_options.expression_width);
-            save_contract(contract, &package, target_dir, compile_options.show_artifact_paths);
+            save_contract(contract, package, target_dir, compile_options.show_artifact_paths);
             Ok(((), warnings))
         })
         .collect();
