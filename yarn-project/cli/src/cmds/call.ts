@@ -1,4 +1,4 @@
-import { type AztecAddress, ContractFunctionInteraction, SignerlessWallet, Wallet } from '@aztec/aztec.js';
+import { type AztecAddress, ContractFunctionInteraction, SignerlessWallet } from '@aztec/aztec.js';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { format } from 'util';
