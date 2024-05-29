@@ -423,7 +423,7 @@ jobs:
         run: earthly-ci --no-output ./noir-projects/+test
 
   avm-format:
-    needs: setup
+    needs: [setup, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: ${{ needs.changes.outputs.avm-transpiler == 'true' || needs.changes.outputs.noir == 'true' }}
     steps:
