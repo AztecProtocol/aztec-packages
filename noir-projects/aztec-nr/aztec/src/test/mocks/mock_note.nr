@@ -78,8 +78,7 @@ impl NoteInterface<MOCK_NOTE_LENGTH, MOCK_NOTE_BYTES_LENGTH> for MockNote {
 
 impl Eq for MockNote {
     fn eq(self, other: Self) -> bool {
-      (self.header.contract_address == other.header.contract_address) & 
-      (self.header.storage_slot == other.header.storage_slot) & 
+      (self.header == other.header) & 
       (self.value == other.value)
     }
 }
