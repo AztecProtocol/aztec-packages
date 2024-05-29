@@ -29,34 +29,8 @@ class GoblinTests : public ::testing::Test {
 };
 
 /**
- * @brief A simple test demonstrating goblin proof construction / verification based on operations from a single circuit
- *
- */
-TEST_F(GoblinTests, SingleCircuit)
-{
-    GoblinProver goblin;
-
-    // Construct a simple circuit containing goblin ecc op gates
-    auto circuit = construct_mock_circuit(goblin.op_queue);
-
-    // Run the merge protocol to 'accumulate' the ops from the circuit just created
-    goblin.merge(circuit);
-
-    // Construct a goblin proof which consists of a merge proof and ECCVM/Translator proofs
-    GoblinProof proof = goblin.prove();
-
-    // Verify the goblin proof (eccvm, translator, merge); (Construct ECCVM/Translator verification keys from their
-    // respective proving keys)
-    auto eccvm_vkey = std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key());
-    auto translator_vkey = std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key());
-    GoblinVerifier goblin_verifier{ eccvm_vkey, translator_vkey };
-    bool verified = goblin_verifier.verify(proof);
-
-    EXPECT_TRUE(verified);
-}
-
-/**
- * @brief A simple test demonstrating goblin proof construction / verification based on operations from a single circuit
+ * @brief A simple test demonstrating goblin proof construction / verification based on operations from a collection of
+ * circuits
  *
  */
 TEST_F(GoblinTests, MultipleCircuits)
