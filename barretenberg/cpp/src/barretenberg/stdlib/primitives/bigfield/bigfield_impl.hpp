@@ -969,6 +969,8 @@ bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& t
  * implicitly range constrained.
  *
  * @returns this ** (exponent)
+ *
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1014) Improve the efficiency of this function.
  */
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::pow(const field_t<Builder>& exponent) const
@@ -1006,9 +1008,9 @@ bigfield<Builder, T> bigfield<Builder, T>::pow(const field_t<Builder>& exponent)
     for (size_t digit_idx = 0; digit_idx < 32; ++digit_idx) {
         accumulator *= accumulator;
         const bigfield bit(field_t<Builder>(exponent_bits[digit_idx]),
-                           field_t<Builder>(witness_t<Builder>(ctx /* WORKTODO: hack */, 0)),
-                           field_t<Builder>(witness_t<Builder>(ctx /* WORKTODO: hack */, 0)),
-                           field_t<Builder>(witness_t<Builder>(ctx /* WORKTODO: hack */, 0)),
+                           field_t<Builder>(witness_t<Builder>(ctx, 0)),
+                           field_t<Builder>(witness_t<Builder>(ctx, 0)),
+                           field_t<Builder>(witness_t<Builder>(ctx, 0)),
                            /*can_overflow=*/true);
         accumulator *= (mul_coefficient * bit + 1);
     }
