@@ -1,6 +1,6 @@
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/stdlib_circuit_builders/goblin_ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
 #include <gtest/gtest.h>
 
@@ -11,17 +11,17 @@ using namespace bb;
  * this, to the degree that matters for proof construction time, using these "pinning tests" that fix values.
  *
  */
-class MockCircuitsPinning : public ::testing::Test {
+class MegaMockCircuitsPinning : public ::testing::Test {
   protected:
-    using ProverInstance = ProverInstance_<GoblinUltraFlavor>;
+    using ProverInstance = ProverInstance_<MegaFlavor>;
     static void SetUpTestSuite() { srs::init_crs_factory("../srs_db/ignition"); }
 };
 
-TEST_F(MockCircuitsPinning, FunctionSizes)
+TEST_F(MegaMockCircuitsPinning, FunctionSizes)
 {
     const auto run_test = [](bool large) {
-        Goblin goblin;
-        GoblinUltraCircuitBuilder app_circuit{ goblin.op_queue };
+        GoblinProver goblin;
+        MegaCircuitBuilder app_circuit{ goblin.op_queue };
         GoblinMockCircuits::construct_mock_function_circuit(app_circuit, large);
         auto instance = std::make_shared<ProverInstance>(app_circuit);
         if (large) {
@@ -34,16 +34,16 @@ TEST_F(MockCircuitsPinning, FunctionSizes)
     run_test(false);
 }
 
-TEST_F(MockCircuitsPinning, RecursionKernelSizes)
+TEST_F(MegaMockCircuitsPinning, RecursionKernelSizes)
 {
     const auto run_test = [](bool large) {
         {
-            Goblin goblin;
-            Goblin::AccumulationOutput kernel_accum;
-            GoblinUltraCircuitBuilder app_circuit{ goblin.op_queue };
+            GoblinProver goblin;
+            GoblinAccumulationOutput kernel_accum;
+            MegaCircuitBuilder app_circuit{ goblin.op_queue };
             GoblinMockCircuits::construct_mock_function_circuit(app_circuit, large);
             auto function_accum = goblin.accumulate(app_circuit);
-            GoblinUltraCircuitBuilder kernel_circuit{ goblin.op_queue };
+            MegaCircuitBuilder kernel_circuit{ goblin.op_queue };
             GoblinMockCircuits::construct_mock_recursion_kernel_circuit(
                 kernel_circuit,
                 { function_accum.proof, function_accum.verification_key },
