@@ -1,14 +1,15 @@
-use crate::kernel_circuit_public_inputs_composer::KernelCircuitPublicInputsComposer;
+use crate::components::kernel_circuit_public_inputs_composer::KernelCircuitPublicInputsComposer;
 use dep::types::{
     abis::{
     private_kernel_data::PrivateKernelData,
     kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, note_hash::ScopedNoteHash,
-    nullifier::ScopedNullifier, log_hash::{ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}
+    nullifier::ScopedNullifier, log_hash::{ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash},
+    call_request::CallRequest
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
     MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
-    MAX_NOTE_ENCRYPTED_LOGS_PER_TX
+    MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX
 },
     grumpkin_private_key::GrumpkinPrivateKey, utils::arrays::array_length, traits::is_empty
 };
@@ -24,6 +25,8 @@ struct PrivateKernelTailToPublicHints {
     sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_unencrypted_log_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
     sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX],
+    sorted_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+    sorted_call_requests_indexes: [u64; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
 }
 
 struct PrivateKernelTailToPublicCircuitPrivateInputs {
@@ -55,7 +58,10 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
             self.hints.sorted_encrypted_log_hashes_indexes,
             self.hints.sorted_unencrypted_log_hashes,
             self.hints.sorted_unencrypted_log_hashes_indexes
-        ).compose_public().finish_to_public()
+        ).compose_public(
+            self.hints.sorted_call_requests,
+            self.hints.sorted_call_requests_indexes
+        ).finish_to_public()
     }
 }
 
@@ -76,6 +82,7 @@ mod tests {
     };
     use dep::types::{
         abis::{
+        call_request::CallRequest, side_effect::Ordered,
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, gas::Gas,
         note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
         log_hash::{LogHash, ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}
@@ -178,6 +185,13 @@ mod tests {
             let sorted_unencrypted_log_hashes = sorted.sorted_array;
             let sorted_unencrypted_log_hashes_indexes = sorted.sorted_index_hints;
 
+            let sorted = sort_get_sorted_hints(
+                self.previous_kernel.public_call_requests.storage,
+                |a: CallRequest, b: CallRequest| a.counter() > b.counter()
+            );
+            let sorted_call_requests = sorted.sorted_array;
+            let sorted_call_requests_indexes = sorted.sorted_index_hints;
+
             let hints = PrivateKernelTailToPublicHints {
                 sorted_new_note_hashes,
                 sorted_new_note_hashes_indexes,
@@ -188,7 +202,9 @@ mod tests {
                 sorted_encrypted_log_hashes,
                 sorted_encrypted_log_hashes_indexes,
                 sorted_unencrypted_log_hashes,
-                sorted_unencrypted_log_hashes_indexes
+                sorted_unencrypted_log_hashes_indexes,
+                sorted_call_requests,
+                sorted_call_requests_indexes
             };
 
             let kernel = PrivateKernelTailToPublicCircuitPrivateInputs { previous_kernel: self.previous_kernel.to_private_kernel_data(), hints };
@@ -208,7 +224,7 @@ mod tests {
     unconstrained fn ordering_of_note_hashes_and_nullifiers() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
 
-        builder.previous_kernel.append_new_note_hashes(10, false);
+        builder.previous_kernel.append_new_note_hashes(10);
         builder.previous_kernel.append_new_nullifiers(10);
 
         let sorted_note_hashes = builder.previous_kernel.new_note_hashes.storage;
@@ -238,21 +254,21 @@ mod tests {
     #[test(should_fail_with="Private call stack must be empty when executing the tail circuit")]
     unconstrained fn non_empty_private_call_stack_should_fail() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.push_private_call_request(1, false);
+        builder.previous_kernel.add_private_call_request(1, false);
         builder.failed();
     }
 
     #[test(should_fail_with="Must have public calls when exporting public kernel data from the tail circuit")]
     unconstrained fn no_public_calls_should_fail() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.public_call_stack = BoundedVec::new();
+        builder.previous_kernel.public_call_requests = BoundedVec::new();
         builder.failed();
     }
 
     #[test]
     unconstrained fn can_run_with_only_teardown() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.public_call_stack = BoundedVec::new();
+        builder.previous_kernel.public_call_requests = BoundedVec::new();
         builder.previous_kernel.push_public_teardown_call_request(1, false);
 
         builder.succeeded();
@@ -298,11 +314,11 @@ mod tests {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
 
         // expect 2 non-revertible note hashes
-        builder.previous_kernel.append_new_note_hashes(2, true);
+        builder.previous_kernel.append_new_note_hashes_with_logs(2);
         builder.previous_kernel.end_setup();
 
         // expect 2 revertible note hashes
-        builder.previous_kernel.append_new_note_hashes(2, true);
+        builder.previous_kernel.append_new_note_hashes_with_logs(2);
 
         let new_note_hashes = builder.previous_kernel.new_note_hashes.storage;
         let new_note_logs = builder.previous_kernel.note_encrypted_logs_hashes.storage;
@@ -360,7 +376,7 @@ mod tests {
     #[test(should_fail_with="Non empty note hash read requests")]
     unconstrained fn non_empty_note_hash_read_requests() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.append_new_note_hashes(3, false);
+        builder.previous_kernel.append_new_note_hashes(3);
         let _void = builder.previous_kernel.add_read_request_for_pending_note_hash(1);
         builder.failed();
     }
