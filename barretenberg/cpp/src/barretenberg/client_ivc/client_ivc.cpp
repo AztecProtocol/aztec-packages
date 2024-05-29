@@ -83,7 +83,7 @@ bool ClientIVC::verify(Proof& proof, const std::vector<std::shared_ptr<VerifierI
  */
 HonkProof ClientIVC::decider_prove() const
 {
-    GoblinUltraDeciderProver decider_prover(fold_output.accumulator);
+    MegaDeciderProver decider_prover(fold_output.accumulator);
     return decider_prover.construct_proof();
 }
 
@@ -115,6 +115,20 @@ std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_f
     this->structured_flag = structured;
 
     return vkeys;
+}
+
+/**
+ * @brief Construct and verify a proof for the IVC
+ * @note Use of this method only makes sense when the prover and verifier are the same entity, e.g. in
+ * development/testing.
+ *
+ */
+bool ClientIVC::prove_and_verify()
+{
+    auto proof = prove();
+
+    auto verifier_inst = std::make_shared<VerifierInstance>(this->instance_vk);
+    return verify(proof, { this->verifier_accumulator, verifier_inst });
 }
 
 } // namespace bb

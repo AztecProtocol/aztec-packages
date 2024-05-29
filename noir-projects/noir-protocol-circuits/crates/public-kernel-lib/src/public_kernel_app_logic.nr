@@ -107,7 +107,7 @@ mod tests {
         read_request::ReadRequest
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
-        hash::{compute_l2_to_l1_hash, silo_note_hash, silo_nullifier},
+        hash::{compute_l2_to_l1_hash, silo_note_hash, silo_nullifier, silo_unencrypted_log},
         messaging::l2_to_l1_message::L2ToL1Message,
         tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
         utils::arrays::{array_eq, array_length}, traits::is_empty
@@ -121,7 +121,7 @@ mod tests {
 
     impl PublicKernelAppLogicCircuitPrivateInputsBuilder {
         pub fn new() -> Self {
-            let previous_kernel = FixtureBuilder::new();
+            let previous_kernel = FixtureBuilder::new().as_parent_contract();
             let public_call = PublicCallDataBuilder::new();
 
             PublicKernelAppLogicCircuitPrivateInputsBuilder { previous_kernel, public_call }
@@ -210,7 +210,7 @@ mod tests {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         let contract_address = builder.public_call.contract_address;
         // Setup 2 new note hashes and logs on the previous kernel.
-        builder.previous_kernel.append_new_note_hashes(2, true);
+        builder.previous_kernel.append_new_note_hashes_with_logs(2);
         let previous = builder.previous_kernel.new_note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash);
         // Setup 2 new note hashes on the current public inputs.
         let current = [
@@ -230,7 +230,7 @@ mod tests {
         assert(
             array_eq(
                 public_inputs.end.note_encrypted_logs_hashes,
-                [note_logs[0], note_logs[1]]
+                [note_logs[0].expose_to_public(), note_logs[1].expose_to_public()]
             )
         );
     }
@@ -337,16 +337,19 @@ mod tests {
         let prev_encrypted_log_preimages_length = 13;
         let prev_unencrypted_logs_hash = 956;
         let prev_unencrypted_log_preimages_length = 24;
-        builder.previous_kernel.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
-        builder.previous_kernel.set_unencrypted_logs(
+        builder.previous_kernel.add_encrypted_log_hash(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
+        builder.previous_kernel.add_unencrypted_log_hash(
             prev_unencrypted_logs_hash,
             prev_unencrypted_log_preimages_length
         );
 
-        let expected_unencrypted_logs = [
-            builder.previous_kernel.unencrypted_logs_hashes.storage[0], builder.public_call.public_inputs.unencrypted_logs_hashes.storage[0]
+        let mut expected_unencrypted_logs = [
+            builder.previous_kernel.unencrypted_logs_hashes.storage[0].log_hash, builder.public_call.public_inputs.unencrypted_logs_hashes.storage[0]
         ];
-        let expected_encrypted_logs = [builder.previous_kernel.encrypted_logs_hashes.storage[0]];
+        // silo the new log hash
+        expected_unencrypted_logs[1].value = silo_unencrypted_log(builder.public_call.contract_address, expected_unencrypted_logs[1].value);
+        // we assume the encrypted log is already siloed from private kernels
+        let expected_encrypted_logs = [builder.previous_kernel.encrypted_logs_hashes.storage[0].expose_to_public()];
 
         let public_inputs = builder.execute();
 

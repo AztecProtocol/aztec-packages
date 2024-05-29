@@ -840,6 +840,58 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         fq_ct ret = fq_ct::div_check_denominator_nonzero({}, a_ct);
         EXPECT_NE(ret.get_context(), nullptr);
     }
+
+    static void test_inversion()
+    {
+        fq_ct a = fq_ct(-7);
+        fq_ct a_inverse = a.invert();
+        fq_ct a_inverse_division = fq_ct(1) / a;
+
+        fq a_native = fq(-7);
+        fq a_native_inverse = a_native.invert();
+        EXPECT_EQ(bb::fq((a.get_value() % uint512_t(bb::fq::modulus)).lo), a_native);
+        EXPECT_EQ(bb::fq((a_inverse.get_value() % uint512_t(bb::fq::modulus)).lo), a_native_inverse);
+        EXPECT_EQ(bb::fq((a_inverse_division.get_value() % uint512_t(bb::fq::modulus)).lo), a_native_inverse);
+    }
+
+    static void test_assert_equal_not_equal()
+    {
+        auto builder = Builder();
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            fq inputs[4]{ fq::random_element(), fq::random_element(), fq::random_element(), fq::random_element() };
+
+            fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                    witness_ct(&builder,
+                               fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+            fq_ct b(witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                    witness_ct(&builder,
+                               fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+            fq_ct c(witness_ct(&builder, fr(uint256_t(inputs[2]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                    witness_ct(&builder,
+                               fr(uint256_t(inputs[2]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+            fq_ct d(witness_ct(&builder, fr(uint256_t(inputs[3]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                    witness_ct(&builder,
+                               fr(uint256_t(inputs[3]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+
+            fq_ct two(witness_ct(&builder, fr(2)),
+                      witness_ct(&builder, fr(0)),
+                      witness_ct(&builder, fr(0)),
+                      witness_ct(&builder, fr(0)));
+            fq_ct t0 = a + a;
+            fq_ct t1 = a * two;
+
+            t0.assert_equal(t1);
+            t0.assert_is_not_equal(c);
+            t0.assert_is_not_equal(d);
+            stdlib::bool_t<Builder> is_equal_a = t0 == t1;
+            stdlib::bool_t<Builder> is_equal_b = t0 == c;
+            EXPECT_TRUE(is_equal_a.get_value());
+            EXPECT_FALSE(is_equal_b.get_value());
+        }
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
 };
 
 // Define types for which the above tests will be constructed.
@@ -927,6 +979,16 @@ TYPED_TEST(stdlib_bigfield, conditional_select_regression)
 TYPED_TEST(stdlib_bigfield, division_context)
 {
     TestFixture::test_division_context();
+}
+
+TYPED_TEST(stdlib_bigfield, inverse)
+{
+    TestFixture::test_inversion();
+}
+
+TYPED_TEST(stdlib_bigfield, assert_equal_not_equal)
+{
+    TestFixture::test_assert_equal_not_equal();
 }
 
 // // This test was disabled before the refactor to use TYPED_TEST's/

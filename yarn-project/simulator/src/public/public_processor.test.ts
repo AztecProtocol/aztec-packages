@@ -19,6 +19,8 @@ import {
   GasSettings,
   GlobalVariables,
   Header,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
   type Proof,
@@ -31,7 +33,7 @@ import {
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { fr, makeAztecAddress, makePublicCallRequest, makeSelector } from '@aztec/circuits.js/testing';
-import { arrayNonEmptyLength } from '@aztec/foundation/collection';
+import { arrayNonEmptyLength, times } from '@aztec/foundation/collection';
 import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
@@ -105,8 +107,7 @@ describe('public_processor', () => {
 
       expect(processed.length).toBe(1);
 
-      const p = processed[0];
-      const e: ProcessedTx = {
+      const expected: ProcessedTx = {
         hash,
         data: tx.data.toKernelCircuitPublicInputs(),
         proof: tx.proof,
@@ -117,24 +118,16 @@ describe('public_processor', () => {
         revertReason: undefined,
         publicKernelRequests: [],
         gasUsed: {},
-        protocolPublicDataUpdateRequests: [],
+        finalPublicDataUpdateRequests: times(
+          MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+          PublicDataUpdateRequest.empty,
+        ),
       };
 
-      // Jest is complaining that the two objects are not equal, but they are.
-      // It expects something and says "Received: serializes to the same string"
-      // TODO why can't we just expect(p).toEqual(e) here anymore?
-      expect(Object.keys(p)).toEqual(Object.keys(e));
-      for (const key in e) {
-        if (key === 'data') {
-          expect(p.data.toBuffer()).toEqual(e.data.toBuffer());
-        } else {
-          expect(p[key as keyof ProcessedTx]).toEqual(e[key as keyof ProcessedTx]);
-        }
-      }
-
+      expect(processed[0]).toEqual(expected);
       expect(failed).toEqual([]);
 
-      expect(prover.addNewTx).toHaveBeenCalledWith(p);
+      expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
 
     it('returns failed txs without aborting entire operation', async function () {
@@ -891,8 +884,8 @@ describe('public_processor', () => {
         PublicExecutionResultBuilder.fromPublicCallRequest({
           request: publicCallRequests[1],
           contractStorageUpdateRequests: [
-            new ContractStorageUpdateRequest(contractSlotA, fr(0x101), 14, baseContractAddress),
-            new ContractStorageUpdateRequest(contractSlotB, fr(0x151), 15, baseContractAddress),
+            new ContractStorageUpdateRequest(contractSlotA, fr(0x101), 10, baseContractAddress),
+            new ContractStorageUpdateRequest(contractSlotB, fr(0x151), 11, baseContractAddress),
           ],
         }).build({
           startGasLeft: afterSetupGas,
@@ -907,16 +900,16 @@ describe('public_processor', () => {
               from: teardown!.contractAddress,
               tx: makeFunctionCall('', baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
-                new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 11, baseContractAddress),
-                new ContractStorageUpdateRequest(contractSlotC, fr(0x201), 12, baseContractAddress),
+                new ContractStorageUpdateRequest(contractSlotA, fr(0x103), 14, baseContractAddress),
+                new ContractStorageUpdateRequest(contractSlotC, fr(0x201), 15, baseContractAddress),
               ],
             }).build({ startGasLeft: teardownGas, endGasLeft: teardownGas, transactionFee }),
             PublicExecutionResultBuilder.fromFunctionCall({
               from: teardown!.contractAddress,
               tx: makeFunctionCall('', baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
-                new ContractStorageUpdateRequest(contractSlotA, fr(0x103), 13, baseContractAddress),
-                new ContractStorageUpdateRequest(contractSlotB, fr(0x152), 15, baseContractAddress),
+                new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 12, baseContractAddress),
+                new ContractStorageUpdateRequest(contractSlotB, fr(0x152), 13, baseContractAddress),
               ],
             }).build({ startGasLeft: teardownGas, endGasLeft: teardownGas, transactionFee }),
           ],
@@ -980,13 +973,13 @@ describe('public_processor', () => {
       const txEffect = toTxEffect(processed[0], GasFees.default());
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toEqual(3);
       expect(txEffect.publicDataWrites[0]).toEqual(
-        new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotC), fr(0x201)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotB), fr(0x152)),
       );
       expect(txEffect.publicDataWrites[1]).toEqual(
         new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotA), fr(0x103)),
       );
       expect(txEffect.publicDataWrites[2]).toEqual(
-        new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotB), fr(0x152)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotC), fr(0x201)),
       );
       expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(0);
       expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(0);
@@ -1024,10 +1017,11 @@ describe('public_processor', () => {
         expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
         expect(publicWorldStateDB.storageWrite).toHaveBeenCalledTimes(1);
         expect(processed[0].data.feePayer).toEqual(feePayer);
-        expect(processed[0].protocolPublicDataUpdateRequests[0]).toEqual(
+        expect(processed[0].finalPublicDataUpdateRequests[MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]).toEqual(
           PublicDataUpdateRequest.from({
             leafIndex: computeFeePayerBalanceLeafSlot(feePayer),
             newValue: new Fr(initialBalance - inclusionFee),
+            sideEffectCounter: 0,
           }),
         );
 
@@ -1074,10 +1068,68 @@ describe('public_processor', () => {
         expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
         expect(publicWorldStateDB.storageWrite).toHaveBeenCalledTimes(1);
         expect(processed[0].data.feePayer).toEqual(feePayer);
-        expect(processed[0].protocolPublicDataUpdateRequests[0]).toEqual(
+        expect(processed[0].finalPublicDataUpdateRequests[MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]).toEqual(
           PublicDataUpdateRequest.from({
             leafIndex: computeFeePayerBalanceLeafSlot(feePayer),
             newValue: new Fr(initialBalance - inclusionFee),
+            sideEffectCounter: 0,
+          }),
+        );
+
+        expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
+      });
+
+      it('tweaks existing balance update from claim', async function () {
+        const feePayer = AztecAddress.random();
+        const initialBalance = BigInt(1e12);
+        const inclusionFee = 100n;
+        const tx = mockTxWithPartialState({
+          numberOfRevertiblePublicCallRequests: 2,
+          publicTeardownCallRequest: PublicCallRequest.empty(),
+          feePayer,
+        });
+
+        tx.data.constants.txContext.gasSettings = GasSettings.from({
+          ...GasSettings.default(),
+          inclusionFee: new Fr(inclusionFee),
+        });
+
+        publicWorldStateDB.storageRead.mockResolvedValue(Fr.ZERO);
+        publicWorldStateDB.storageWrite.mockImplementation((address: AztecAddress, slot: Fr) =>
+          Promise.resolve(computePublicDataTreeLeafSlot(address, slot).toBigInt()),
+        );
+
+        publicExecutor.simulate.mockImplementation(execution => {
+          for (const request of tx.enqueuedPublicFunctionCalls) {
+            if (execution.contractAddress.equals(request.contractAddress)) {
+              const result = PublicExecutionResultBuilder.fromPublicCallRequest({ request }).build();
+              return Promise.resolve(result);
+            }
+          }
+          throw new Error(`Unexpected execution request: ${execution}`);
+        });
+
+        tx.data.publicInputs.end.publicDataUpdateRequests[0] = PublicDataUpdateRequest.from({
+          leafIndex: computeFeePayerBalanceLeafSlot(feePayer),
+          newValue: new Fr(initialBalance),
+          sideEffectCounter: 0,
+        });
+
+        const [processed, failed] = await processor.process([tx], 1, prover);
+
+        expect(failed.map(f => f.error)).toEqual([]);
+        expect(processed).toHaveLength(1);
+        expect(processed).toEqual([expectedTxByHash(tx)]);
+        expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
+        expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
+        expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
+        expect(publicWorldStateDB.storageWrite).toHaveBeenCalledTimes(1);
+        expect(processed[0].data.feePayer).toEqual(feePayer);
+        expect(processed[0].finalPublicDataUpdateRequests[0]).toEqual(
+          PublicDataUpdateRequest.from({
+            leafIndex: computeFeePayerBalanceLeafSlot(feePayer),
+            newValue: new Fr(initialBalance - inclusionFee),
+            sideEffectCounter: 0,
           }),
         );
 

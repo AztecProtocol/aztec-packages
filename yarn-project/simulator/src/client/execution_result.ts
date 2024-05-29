@@ -1,6 +1,8 @@
 import {
   EncryptedFunctionL2Logs,
   type EncryptedL2Log,
+  type EncryptedL2NoteLog,
+  EncryptedNoteFunctionL2Logs,
   type Note,
   UnencryptedFunctionL2Logs,
   type UnencryptedL2Log,
@@ -22,7 +24,7 @@ export interface NoteAndSlot {
   noteTypeId: Fr;
 }
 
-export class CountedLog<TLog extends UnencryptedL2Log | EncryptedL2Log> implements IsEmpty {
+export class CountedLog<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log> implements IsEmpty {
   constructor(public log: TLog, public counter: number) {}
 
   isEmpty(): boolean {
@@ -30,6 +32,11 @@ export class CountedLog<TLog extends UnencryptedL2Log | EncryptedL2Log> implemen
   }
 }
 
+export class CountedNoteLog extends CountedLog<EncryptedL2NoteLog> {
+  constructor(log: EncryptedL2NoteLog, counter: number, public noteHashCounter: number) {
+    super(log, counter);
+  }
+}
 /**
  * The result of executing a private function.
  */
@@ -62,7 +69,7 @@ export interface ExecutionResult {
    * Encrypted note logs emitted during execution of this function call.
    * Note: These are preimages to `noteEncryptedLogsHashes`.
    */
-  noteEncryptedLogs: CountedLog<EncryptedL2Log>[];
+  noteEncryptedLogs: CountedNoteLog[];
   /**
    * Encrypted logs emitted during execution of this function call.
    * Note: These are preimages to `encryptedLogsHashes`.
@@ -92,8 +99,14 @@ export function collectNullifiedNoteHashCounters(execResult: ExecutionResult, ac
  * @param execResult - The topmost execution result.
  * @returns All encrypted logs.
  */
-function collectNoteEncryptedLogs(execResult: ExecutionResult): CountedLog<EncryptedL2Log>[] {
-  return [execResult.noteEncryptedLogs, ...execResult.nestedExecutions.flatMap(collectNoteEncryptedLogs)].flat();
+function collectNoteEncryptedLogs(
+  execResult: ExecutionResult,
+  nullifiedNoteHashCounters: Map<number, number>,
+): CountedLog<EncryptedL2NoteLog>[] {
+  return [
+    execResult.noteEncryptedLogs.filter(noteLog => !nullifiedNoteHashCounters.has(noteLog.noteHashCounter)),
+    ...execResult.nestedExecutions.flatMap(res => collectNoteEncryptedLogs(res, nullifiedNoteHashCounters)),
+  ].flat();
 }
 
 /**
@@ -101,10 +114,11 @@ function collectNoteEncryptedLogs(execResult: ExecutionResult): CountedLog<Encry
  * @param execResult - The topmost execution result.
  * @returns All encrypted logs.
  */
-export function collectSortedNoteEncryptedLogs(execResult: ExecutionResult): EncryptedFunctionL2Logs {
-  const allLogs = collectNoteEncryptedLogs(execResult);
+export function collectSortedNoteEncryptedLogs(execResult: ExecutionResult): EncryptedNoteFunctionL2Logs {
+  const nullifiedNoteHashCounters = collectNullifiedNoteHashCounters(execResult);
+  const allLogs = collectNoteEncryptedLogs(execResult, nullifiedNoteHashCounters);
   const sortedLogs = sortByCounter(allLogs);
-  return new EncryptedFunctionL2Logs(sortedLogs.map(l => l.log));
+  return new EncryptedNoteFunctionL2Logs(sortedLogs.map(l => l.log));
 }
 /**
  * Collect all encrypted logs across all nested executions.
