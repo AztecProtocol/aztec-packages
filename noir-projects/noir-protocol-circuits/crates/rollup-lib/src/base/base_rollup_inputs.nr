@@ -273,7 +273,7 @@ impl BaseRollupInputs {
                 );
 
                 let new_value = compute_public_data_tree_value(existing_update.new_value - tx_fee);
-                let protocol_update_request = PublicDataUpdateRequest { leaf_slot, new_value };
+                let protocol_update_request = PublicDataUpdateRequest { leaf_slot, new_value, counter: 0 };
                 (protocol_update_request, existing_update_index as u64)
             } else {
                 // Otherwise, build a new one to be inserted into the protocol update requests at the end of the array.
@@ -284,7 +284,7 @@ impl BaseRollupInputs {
                 assert(!balance.lt(tx_fee), "Not enough balance for fee payer to pay for transaction");
 
                 let new_value = compute_public_data_tree_value(balance - tx_fee);
-                let protocol_update_request = PublicDataUpdateRequest { leaf_slot, new_value };
+                let protocol_update_request = PublicDataUpdateRequest { leaf_slot, new_value, counter: 0 };
                 (protocol_update_request, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
             }
         } else {
@@ -450,7 +450,7 @@ mod tests {
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         nullifier_leaf_preimage::NullifierLeafPreimage, public_data_read::PublicDataRead,
         public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData,
-        side_effect::SideEffect, accumulated_data::CombinedAccumulatedData, gas::Gas
+        accumulated_data::CombinedAccumulatedData, gas::Gas
     },
         merkle_tree::MembershipWitness, data::public_data_hint::PublicDataHint,
         address::{AztecAddress, EthAddress},
@@ -505,6 +505,7 @@ mod tests {
                 kernel_data.public_inputs.end.public_data_update_requests[i] = PublicDataUpdateRequest {
                     leaf_slot : leaf.slot,
                     new_value : leaf.value,
+                    counter : 0
                 };
             }
         }
@@ -853,7 +854,7 @@ mod tests {
 
         let new_note_hashes = [27, 28, 29, 30, 31, 32];
         for i in 0..new_note_hashes.len() {
-            builder.kernel_data.add_new_note_hash(new_note_hashes[i]);
+            builder.kernel_data.add_new_note_hash(new_note_hashes[i], 0);
         }
         let mut expected_commitments_tree = NonEmptyMerkleTree::new(
             [0; MAX_NEW_NOTE_HASHES_PER_TX * 2],
