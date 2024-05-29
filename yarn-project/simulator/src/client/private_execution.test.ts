@@ -362,7 +362,7 @@ describe('Private Execution test suite', () => {
       );
     });
 
-    it.only('should have a constructor with arguments that inserts notes', async () => {
+    it('should have a constructor with arguments that inserts notes', async () => {
       const initArgs = [owner, owner, 140];
       const instance = getContractInstanceFromDeployParams(StatefulTestContractArtifact, { constructorArgs: initArgs });
       oracle.getContractInstance.mockResolvedValue(instance);
