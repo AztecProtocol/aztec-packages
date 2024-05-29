@@ -27,7 +27,6 @@ impl<Context> EasyPrivateUint<&mut PrivateContext> {
         let owner_ivpk_m = header.get_ivpk_m(self.context, owner);
         // Creates new note for the owner.
         let mut addend_note = ValueNote::new(addend as Field, owner_npk_m_hash);
-
         // Insert the new note to the owner's set of notes.
         // docs:start:insert
         self.set.insert(&mut addend_note, true, owner_ivpk_m);

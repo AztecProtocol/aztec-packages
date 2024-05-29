@@ -1866,7 +1866,6 @@ fn wrap_unconstrained_return(
     // will be mutated in place into a Block with a statement pointing to a Call expression.
     let location = interner.expr_location(&expression);
     let argument = interner.expression(&expression);
-    println!("wtf is this {:?}", argument);
     let argument = interner.push_expr(argument);
     interner.push_expr_type(argument, original_type.clone());
     interner.push_expr_location(argument, location.span, location.file);

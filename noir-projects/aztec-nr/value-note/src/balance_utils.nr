@@ -3,7 +3,7 @@ use dep::aztec::state_vars::PrivateSet;
 use crate::value_note::ValueNote;
 
 unconstrained pub fn get_balance(set: PrivateSet<ValueNote, ()>) -> Unconstrained<Field> {
-    get_balance_with_offset(set, 0)
+    get_balance_with_offset(set, 0).unwrap()
 }
 
 unconstrained pub fn get_balance_with_offset(

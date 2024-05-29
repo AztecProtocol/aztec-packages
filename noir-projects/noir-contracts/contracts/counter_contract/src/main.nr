@@ -28,20 +28,10 @@ contract Counter {
     }
     // docs:end:increment
     // docs:start:get_counter
-    // unconstrained fn get_counter(owner: AztecAddress) -> pub Unconstrained<Field> {
-    //     let counters = storage.counters;
-    //     let result = balance_utils::get_balance(counters.at(owner).set).unwrap();
-    //     Unconstrained::new(result)
-    // }
-    // docs:end:get_counter
-    unconstrained fn compute_note_hash_and_nullifier(
-        contract_address: dep::aztec::protocol_types::address::AztecAddress,
-        nonce: Field,
-        storage_slot: Field,
-        note_type_id: Field,
-        serialized_note: [Field; 20]
-    ) -> pub Unconstrained<[Field; 4]> {
-        assert(false, "This contract does not use private notes");
-        Unconstrained::new([0, 0, 0, 0])
+    unconstrained fn get_counter(owner: AztecAddress) -> pub Unconstrained<Field> {
+        let counters = storage.counters;
+        let result = balance_utils::get_balance(counters.at(owner).set).unwrap();
+        result
     }
+    // docs:end:get_counter
 }
