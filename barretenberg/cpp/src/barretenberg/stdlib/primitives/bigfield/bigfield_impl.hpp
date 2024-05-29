@@ -975,13 +975,13 @@ bigfield<Builder, T> bigfield<Builder, T>::pow(const field_t<Builder>& exponent)
 {
     auto* ctx = get_context() ? get_context() : exponent.get_context();
     uint256_t exponent_value = exponent.get_value();
-    // if constexpr (IsSimulator<Builder>) {
-    //     if ((exponent_value >> 32) != static_cast<uint256_t>(0)) {
-    //         ctx->failure("field_t::pow exponent accumulator incorrect");
-    //     }
-    //     constexpr uint256_t MASK_32_BITS = 0xffff'ffff;
-    //     return get_value().pow(exponent_value & MASK_32_BITS);
-    // }
+    if constexpr (IsSimulator<Builder>) {
+        if ((exponent_value >> 32) != static_cast<uint256_t>(0)) {
+            ctx->failure("field_t::pow exponent accumulator incorrect");
+        }
+        constexpr uint256_t MASK_32_BITS = 0xffff'ffff;
+        return native(get_value()).pow(exponent_value & MASK_32_BITS);
+    }
 
     bool exponent_constant = exponent.is_constant();
     std::vector<bool_t<Builder>> exponent_bits(32);
