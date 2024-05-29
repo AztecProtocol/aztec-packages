@@ -6,6 +6,19 @@ keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### [Aztec.nr] Unconstrained Context
+
+Top-level unconstrained execution is now marked by the new `UnconstrainedContext`, which provides access to the block number and contract address being used in the simulation. Any custom state variables that provided unconstrained functions should update their specialization parameter:
+
+```diff
++ use dep::aztec::context::UnconstrainedContext;
+
+- impl MyStateVariable<()> {
++ impl MyStateVariable<UnconstrainedContext> {
+```
+
 ## 0.42.0
 
 ## Public execution migrated to the Aztec Virtual Machine

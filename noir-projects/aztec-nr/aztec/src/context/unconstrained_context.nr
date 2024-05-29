@@ -7,6 +7,10 @@ struct UnconstrainedContext {
 
 impl UnconstrainedContext {
     fn new() -> Self {
+        // We could call these oracles on the getters instead of at creation, which makes sense given that they might
+        // not even be accessed. However any performance gains are minimal, and we'd rather fail early if a user
+        // incorrectly attempts to create an UnconstrainedContext in an environment in which these oracles are not
+        // available.
         let block_number = block_number_oracle();
         let contract_address = contract_address_oracle();
         Self { block_number, contract_address }

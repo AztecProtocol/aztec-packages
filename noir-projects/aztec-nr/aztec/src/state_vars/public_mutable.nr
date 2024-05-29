@@ -1,4 +1,4 @@
-use crate::context::PublicContext;
+use crate::context::{PublicContext, UnconstrainedContext};
 use crate::oracle::storage::storage_read;
 use crate::oracle::storage::storage_write;
 use dep::protocol_types::traits::{Deserialize, Serialize};
@@ -42,7 +42,7 @@ impl<T> PublicMutable<T, &mut PublicContext> {
     // docs:end:public_mutable_struct_write
 }
 
-impl<T> PublicMutable<T, ()> {
+impl<T> PublicMutable<T, UnconstrainedContext> {
     pub fn read<T_SERIALIZED_LEN>(self) -> T where T: Deserialize<T_SERIALIZED_LEN> {
         // This looks the same as the &mut PublicContext impl, but is actually very different. In public execution the
         // storage read oracle gets transpiled to SLOAD opcodes, whereas in unconstrained execution the PXE returns
