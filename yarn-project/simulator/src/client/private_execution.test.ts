@@ -209,8 +209,7 @@ describe('Private Execution test suite', () => {
         return Promise.resolve(
           new KeyValidationRequest(
             ownerCompleteAddress.publicKeys.masterOutgoingViewingPublicKey,
-            // TODO(#6640)): nuke this ugly conversion
-            Fr.fromBuffer(computeOvskApp(ownerOvskM, contractAddress).toBuffer()),
+            computeOvskApp(ownerOvskM, contractAddress),
           ),
         );
       }
@@ -226,8 +225,7 @@ describe('Private Execution test suite', () => {
         return Promise.resolve(
           new KeyValidationRequest(
             recipientCompleteAddress.publicKeys.masterOutgoingViewingPublicKey,
-            // TODO(#6640)): nuke this ugly conversion
-            Fr.fromBuffer(computeOvskApp(recipientOvskM, contractAddress).toBuffer()),
+            computeOvskApp(recipientOvskM, contractAddress),
           ),
         );
       }
