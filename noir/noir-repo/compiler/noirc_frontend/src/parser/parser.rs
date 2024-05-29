@@ -798,7 +798,7 @@ fn unconstrained_type<'a>(
     keyword(Keyword::UnconstrainedType).then(generic_type_args(type_parser)).validate(
         |(_, args), span, emit| {
             if args.len() != 1 {
-                emit(ParserError::with_reason(ParserErrorReason::UnconstrainedReturnType, span))
+                emit(ParserError::with_reason(ParserErrorReason::UnconstrainedReturnType, span));
             }
             UnresolvedTypeData::Unconstrained(Box::new(args[0].clone())).with_span(span)
         },

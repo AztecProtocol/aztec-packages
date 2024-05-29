@@ -1833,7 +1833,7 @@ fn wrap_unconstrained_return(
     interner: &mut NodeInterner,
 ) {
     let new_method_id = interner
-        .lookup_method(&unconstrained_wrapper_type, unconstrained_wrapper_id, "new", true)
+        .lookup_method(unconstrained_wrapper_type, unconstrained_wrapper_id, "new", true)
         .expect("Expected 'Unconstrained::new' method to be present in Noir's stdlib");
 
     let modifiers = interner.function_modifiers(&new_method_id).clone();
