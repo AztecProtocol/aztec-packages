@@ -19,6 +19,7 @@
 #include "barretenberg/relations/generated/avm/avm_alu.hpp"
 #include "barretenberg/relations/generated/avm/avm_binary.hpp"
 #include "barretenberg/relations/generated/avm/avm_conversion.hpp"
+#include "barretenberg/relations/generated/avm/avm_keccakf1600.hpp"
 #include "barretenberg/relations/generated/avm/avm_kernel.hpp"
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
 #include "barretenberg/relations/generated/avm/avm_mem.hpp"
@@ -72,7 +73,6 @@
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_c.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_d.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_pos2_perm.hpp"
-#include "barretenberg/relations/generated/avm/perm_main_sha256.hpp"
 #include "barretenberg/vm/generated/avm_flavor.hpp"
 
 namespace bb {
@@ -188,6 +188,10 @@ template <typename FF> struct AvmFullRow {
     FF avm_conversion_num_limbs{};
     FF avm_conversion_radix{};
     FF avm_conversion_to_radix_le_sel{};
+    FF avm_keccakf1600_clk{};
+    FF avm_keccakf1600_input{};
+    FF avm_keccakf1600_keccakf1600_sel{};
+    FF avm_keccakf1600_output{};
     FF avm_kernel_emit_l2_to_l1_msg_write_offset{};
     FF avm_kernel_emit_note_hash_write_offset{};
     FF avm_kernel_emit_nullifier_write_offset{};
@@ -268,6 +272,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_op_fdiv{};
     FF avm_main_sel_op_fee_per_da_gas{};
     FF avm_main_sel_op_fee_per_l2_gas{};
+    FF avm_main_sel_op_keccak{};
     FF avm_main_sel_op_l1_to_l2_msg_exists{};
     FF avm_main_sel_op_lt{};
     FF avm_main_sel_op_lte{};
@@ -338,7 +343,6 @@ template <typename FF> struct AvmFullRow {
     FF perm_main_alu{};
     FF perm_main_bin{};
     FF perm_main_conv{};
-    FF perm_main_sha256{};
     FF perm_main_pos2_perm{};
     FF perm_main_mem_a{};
     FF perm_main_mem_b{};
@@ -494,8 +498,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 404;
-    static constexpr size_t num_polys = 342;
+    static constexpr size_t num_fixed_columns = 408;
+    static constexpr size_t num_polys = 346;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -621,6 +625,10 @@ class AvmCircuitBuilder {
             polys.avm_conversion_num_limbs[i] = rows[i].avm_conversion_num_limbs;
             polys.avm_conversion_radix[i] = rows[i].avm_conversion_radix;
             polys.avm_conversion_to_radix_le_sel[i] = rows[i].avm_conversion_to_radix_le_sel;
+            polys.avm_keccakf1600_clk[i] = rows[i].avm_keccakf1600_clk;
+            polys.avm_keccakf1600_input[i] = rows[i].avm_keccakf1600_input;
+            polys.avm_keccakf1600_keccakf1600_sel[i] = rows[i].avm_keccakf1600_keccakf1600_sel;
+            polys.avm_keccakf1600_output[i] = rows[i].avm_keccakf1600_output;
             polys.avm_kernel_emit_l2_to_l1_msg_write_offset[i] = rows[i].avm_kernel_emit_l2_to_l1_msg_write_offset;
             polys.avm_kernel_emit_note_hash_write_offset[i] = rows[i].avm_kernel_emit_note_hash_write_offset;
             polys.avm_kernel_emit_nullifier_write_offset[i] = rows[i].avm_kernel_emit_nullifier_write_offset;
@@ -705,6 +713,7 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_op_fdiv[i] = rows[i].avm_main_sel_op_fdiv;
             polys.avm_main_sel_op_fee_per_da_gas[i] = rows[i].avm_main_sel_op_fee_per_da_gas;
             polys.avm_main_sel_op_fee_per_l2_gas[i] = rows[i].avm_main_sel_op_fee_per_l2_gas;
+            polys.avm_main_sel_op_keccak[i] = rows[i].avm_main_sel_op_keccak;
             polys.avm_main_sel_op_l1_to_l2_msg_exists[i] = rows[i].avm_main_sel_op_l1_to_l2_msg_exists;
             polys.avm_main_sel_op_lt[i] = rows[i].avm_main_sel_op_lt;
             polys.avm_main_sel_op_lte[i] = rows[i].avm_main_sel_op_lte;
@@ -965,6 +974,11 @@ class AvmCircuitBuilder {
                 "avm_conversion", Avm_vm::get_relation_label_avm_conversion);
         };
 
+        auto avm_keccakf1600 = [=]() {
+            return evaluate_relation.template operator()<Avm_vm::avm_keccakf1600<FF>>(
+                "avm_keccakf1600", Avm_vm::get_relation_label_avm_keccakf1600);
+        };
+
         auto avm_kernel = [=]() {
             return evaluate_relation.template operator()<Avm_vm::avm_kernel<FF>>("avm_kernel",
                                                                                  Avm_vm::get_relation_label_avm_kernel);
@@ -1000,10 +1014,6 @@ class AvmCircuitBuilder {
 
         auto perm_main_conv = [=]() {
             return evaluate_logderivative.template operator()<perm_main_conv_relation<FF>>("PERM_MAIN_CONV");
-        };
-
-        auto perm_main_sha256 = [=]() {
-            return evaluate_logderivative.template operator()<perm_main_sha256_relation<FF>>("PERM_MAIN_SHA256");
         };
 
         auto perm_main_pos2_perm = [=]() {
@@ -1202,6 +1212,8 @@ class AvmCircuitBuilder {
 
         relation_futures.emplace_back(std::async(std::launch::async, avm_conversion));
 
+        relation_futures.emplace_back(std::async(std::launch::async, avm_keccakf1600));
+
         relation_futures.emplace_back(std::async(std::launch::async, avm_kernel));
 
         relation_futures.emplace_back(std::async(std::launch::async, avm_main));
@@ -1217,8 +1229,6 @@ class AvmCircuitBuilder {
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_bin));
 
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_conv));
-
-        relation_futures.emplace_back(std::async(std::launch::async, perm_main_sha256));
 
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_pos2_perm));
 
@@ -1325,6 +1335,8 @@ class AvmCircuitBuilder {
 
         avm_conversion();
 
+        avm_keccakf1600();
+
         avm_kernel();
 
         avm_main();
@@ -1340,8 +1352,6 @@ class AvmCircuitBuilder {
         perm_main_bin();
 
         perm_main_conv();
-
-        perm_main_sha256();
 
         perm_main_pos2_perm();
 
