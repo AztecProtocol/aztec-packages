@@ -524,7 +524,7 @@ export function convertBaseRollupInputsToWitnessMap(inputs: BaseRollupInputs): W
 
 export function convertPrivateKernelEmptyInputsToWitnessMap(inputs: PrivateKernelEmptyInputs): WitnessMap {
   const mapped = mapEmptyKernelInputsToNoir(inputs);
-  const initialWitnessMap = abiEncode(PrivateKernelEmptyJson.abi as Abi, { inputs: mapped as any });
+  const initialWitnessMap = abiEncode(PrivateKernelEmptyJson.abi as Abi, { input: mapped as any });
   return initialWitnessMap;
 }
 
