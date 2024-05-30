@@ -24,6 +24,20 @@ using namespace bb;
 namespace bb::avm_trace {
 
 /**
+ * @brief Temporary routine to generate default public inputs (gas values) until we get
+ *        proper integration of public inputs.
+ */
+VmPublicInputs Execution::getDefaultPublicInputs()
+{
+    VmPublicInputs public_inputs = {};
+    std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
+    kernel_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000000000;
+    kernel_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000000000;
+    std::get<0>(public_inputs) = kernel_inputs;
+    return public_inputs;
+}
+
+/**
  * @brief Run the bytecode, generate the corresponding execution trace and prove the correctness
  *        of the execution of the supplied bytecode.
  *
@@ -37,7 +51,7 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
 {
     auto instructions = Deserialization::parse(bytecode);
     std::vector<FF> returndata{};
-    auto trace = gen_trace(instructions, returndata, {}, calldata);
+    auto trace = gen_trace(instructions, returndata, getDefaultPublicInputs(), calldata);
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
@@ -60,7 +74,7 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
     // output_state.pcs_verification_key = std::move(pcs_verification_key);
 
     // TODO: We hardcode public inputs for now
-    VmPublicInputs public_inputs = {};
+    VmPublicInputs public_inputs = getDefaultPublicInputs();
     std::vector<std::vector<FF>> public_inputs_vec = copy_public_inputs_columns(public_inputs);
     return verifier.verify_proof(proof, public_inputs_vec);
 }

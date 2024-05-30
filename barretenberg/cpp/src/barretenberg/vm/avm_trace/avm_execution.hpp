@@ -15,6 +15,8 @@ class Execution {
   public:
     Execution() = default;
 
+    static VmPublicInputs getDefaultPublicInputs();
+
     static std::vector<Row> gen_trace(std::vector<Instruction> const& instructions,
                                       std::vector<FF>& returndata,
                                       std::vector<FF> const& calldata,
