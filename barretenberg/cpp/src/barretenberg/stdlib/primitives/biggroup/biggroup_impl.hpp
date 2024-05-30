@@ -238,9 +238,15 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_subtract(cons
  */
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/657): This function is untested
 template <typename C, class Fq, class Fr, class G>
-std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditional_add_sub(const element& other) const
+std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditional_add_sub(
+    const element& other, const bool allow_collisions) const
 {
     if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
+        return { *this + other, *this - other };
+    }
+
+    // since a022220d1e, + and - handle collisions
+    if (allow_collisions) {
         return { *this + other, *this - other };
     }
 
@@ -778,7 +784,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         } else {
             const size_t num_points = points.size();
             ASSERT(scalars.size() == num_points);
-            batch_lookup_table point_table(points);
+            bool allow_collisions(true);
+            batch_lookup_table point_table(points, allow_collisions);
             const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
 
             std::vector<std::vector<bool_ct>> naf_entries;

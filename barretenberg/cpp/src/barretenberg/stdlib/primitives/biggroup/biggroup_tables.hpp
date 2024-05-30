@@ -179,30 +179,31 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::eight_bit_fixed_base_table<X>::oper
  **/
 template <typename C, class Fq, class Fr, class G>
 template <size_t length, typename X>
-element<C, Fq, Fr, G>::lookup_table_plookup<length, X>::lookup_table_plookup(const std::array<element, length>& inputs)
+element<C, Fq, Fr, G>::lookup_table_plookup<length, X>::lookup_table_plookup(const std::array<element, length>& inputs,
+                                                                             bool handle_collisions)
 {
     if constexpr (length == 2) {
-        auto [A0, A1] = inputs[1].checked_unconditional_add_sub(inputs[0]);
+        auto [A0, A1] = inputs[1].checked_unconditional_add_sub(inputs[0], handle_collisions);
         element_table[0] = A0;
         element_table[1] = A1;
     } else if constexpr (length == 3) {
-        auto [R0, R1] = inputs[1].checked_unconditional_add_sub(inputs[0]); // B ± A
+        auto [R0, R1] = inputs[1].checked_unconditional_add_sub(inputs[0], handle_collisions); // B ± A
 
-        auto [T0, T1] = inputs[2].checked_unconditional_add_sub(R0); // C ± (B + A)
-        auto [T2, T3] = inputs[2].checked_unconditional_add_sub(R1); // C ± (B - A)
+        auto [T0, T1] = inputs[2].checked_unconditional_add_sub(R0, handle_collisions); // C ± (B + A)
+        auto [T2, T3] = inputs[2].checked_unconditional_add_sub(R1, handle_collisions); // C ± (B - A)
 
         element_table[0] = T0;
         element_table[1] = T2;
         element_table[2] = T3;
         element_table[3] = T1;
     } else if constexpr (length == 4) {
-        auto [T0, T1] = inputs[1].checked_unconditional_add_sub(inputs[0]); // B ± A
-        auto [T2, T3] = inputs[3].checked_unconditional_add_sub(inputs[2]); // D ± C
+        auto [T0, T1] = inputs[1].checked_unconditional_add_sub(inputs[0], handle_collisions); // B ± A
+        auto [T2, T3] = inputs[3].checked_unconditional_add_sub(inputs[2], handle_collisions); // D ± C
 
-        auto [F0, F3] = T2.checked_unconditional_add_sub(T0); // (D + C) ± (B + A)
-        auto [F1, F2] = T2.checked_unconditional_add_sub(T1); // (D + C) ± (B - A)
-        auto [F4, F7] = T3.checked_unconditional_add_sub(T0); // (D - C) ± (B + A)
-        auto [F5, F6] = T3.checked_unconditional_add_sub(T1); // (D - C) ± (B - A)
+        auto [F0, F3] = T2.checked_unconditional_add_sub(T0, handle_collisions); // (D + C) ± (B + A)
+        auto [F1, F2] = T2.checked_unconditional_add_sub(T1, handle_collisions); // (D + C) ± (B - A)
+        auto [F4, F7] = T3.checked_unconditional_add_sub(T0, handle_collisions); // (D - C) ± (B + A)
+        auto [F5, F6] = T3.checked_unconditional_add_sub(T1, handle_collisions); // (D - C) ± (B - A)
 
         element_table[0] = F0;
         element_table[1] = F1;
@@ -213,20 +214,20 @@ element<C, Fq, Fr, G>::lookup_table_plookup<length, X>::lookup_table_plookup(con
         element_table[6] = F6;
         element_table[7] = F7;
     } else if constexpr (length == 5) {
-        auto [A0, A1] = inputs[1].checked_unconditional_add_sub(inputs[0]); // B ± A
-        auto [T2, T3] = inputs[3].checked_unconditional_add_sub(inputs[2]); // D ± C
+        auto [A0, A1] = inputs[1].checked_unconditional_add_sub(inputs[0], handle_collisions); // B ± A
+        auto [T2, T3] = inputs[3].checked_unconditional_add_sub(inputs[2], handle_collisions); // D ± C
 
-        auto [E0, E3] = inputs[4].checked_unconditional_add_sub(T2); // E ± (D + C)
-        auto [E1, E2] = inputs[4].checked_unconditional_add_sub(T3); // E ± (D - C)
+        auto [E0, E3] = inputs[4].checked_unconditional_add_sub(T2, handle_collisions); // E ± (D + C)
+        auto [E1, E2] = inputs[4].checked_unconditional_add_sub(T3, handle_collisions); // E ± (D - C)
 
-        auto [F0, F3] = E0.checked_unconditional_add_sub(A0);
-        auto [F1, F2] = E0.checked_unconditional_add_sub(A1);
-        auto [F4, F7] = E1.checked_unconditional_add_sub(A0);
-        auto [F5, F6] = E1.checked_unconditional_add_sub(A1);
-        auto [F8, F11] = E2.checked_unconditional_add_sub(A0);
-        auto [F9, F10] = E2.checked_unconditional_add_sub(A1);
-        auto [F12, F15] = E3.checked_unconditional_add_sub(A0);
-        auto [F13, F14] = E3.checked_unconditional_add_sub(A1);
+        auto [F0, F3] = E0.checked_unconditional_add_sub(A0, handle_collisions);
+        auto [F1, F2] = E0.checked_unconditional_add_sub(A1, handle_collisions);
+        auto [F4, F7] = E1.checked_unconditional_add_sub(A0, handle_collisions);
+        auto [F5, F6] = E1.checked_unconditional_add_sub(A1, handle_collisions);
+        auto [F8, F11] = E2.checked_unconditional_add_sub(A0, handle_collisions);
+        auto [F9, F10] = E2.checked_unconditional_add_sub(A1, handle_collisions);
+        auto [F12, F15] = E3.checked_unconditional_add_sub(A0, handle_collisions);
+        auto [F13, F14] = E3.checked_unconditional_add_sub(A1, handle_collisions);
 
         element_table[0] = F0;
         element_table[1] = F1;
@@ -247,33 +248,33 @@ element<C, Fq, Fr, G>::lookup_table_plookup<length, X>::lookup_table_plookup(con
     } else if constexpr (length == 6) {
         // 44 adds! Only use this if it saves us adding another table to a multi-scalar-multiplication
 
-        auto [A0, A1] = inputs[1].checked_unconditional_add_sub(inputs[0]);
-        auto [E0, E1] = inputs[4].checked_unconditional_add_sub(inputs[3]);
-        auto [C0, C3] = inputs[2].checked_unconditional_add_sub(A0);
-        auto [C1, C2] = inputs[2].checked_unconditional_add_sub(A1);
+        auto [A0, A1] = inputs[1].checked_unconditional_add_sub(inputs[0], handle_collisions);
+        auto [E0, E1] = inputs[4].checked_unconditional_add_sub(inputs[3], handle_collisions);
+        auto [C0, C3] = inputs[2].checked_unconditional_add_sub(A0, handle_collisions);
+        auto [C1, C2] = inputs[2].checked_unconditional_add_sub(A1, handle_collisions);
 
-        auto [F0, F3] = inputs[5].checked_unconditional_add_sub(E0);
-        auto [F1, F2] = inputs[5].checked_unconditional_add_sub(E1);
+        auto [F0, F3] = inputs[5].checked_unconditional_add_sub(E0, handle_collisions);
+        auto [F1, F2] = inputs[5].checked_unconditional_add_sub(E1, handle_collisions);
 
-        auto [R0, R7] = F0.checked_unconditional_add_sub(C0);
-        auto [R1, R6] = F0.checked_unconditional_add_sub(C1);
-        auto [R2, R5] = F0.checked_unconditional_add_sub(C2);
-        auto [R3, R4] = F0.checked_unconditional_add_sub(C3);
+        auto [R0, R7] = F0.checked_unconditional_add_sub(C0, handle_collisions);
+        auto [R1, R6] = F0.checked_unconditional_add_sub(C1, handle_collisions);
+        auto [R2, R5] = F0.checked_unconditional_add_sub(C2, handle_collisions);
+        auto [R3, R4] = F0.checked_unconditional_add_sub(C3, handle_collisions);
 
-        auto [S0, S7] = F1.checked_unconditional_add_sub(C0);
-        auto [S1, S6] = F1.checked_unconditional_add_sub(C1);
-        auto [S2, S5] = F1.checked_unconditional_add_sub(C2);
-        auto [S3, S4] = F1.checked_unconditional_add_sub(C3);
+        auto [S0, S7] = F1.checked_unconditional_add_sub(C0, handle_collisions);
+        auto [S1, S6] = F1.checked_unconditional_add_sub(C1, handle_collisions);
+        auto [S2, S5] = F1.checked_unconditional_add_sub(C2, handle_collisions);
+        auto [S3, S4] = F1.checked_unconditional_add_sub(C3, handle_collisions);
 
-        auto [U0, U7] = F2.checked_unconditional_add_sub(C0);
-        auto [U1, U6] = F2.checked_unconditional_add_sub(C1);
-        auto [U2, U5] = F2.checked_unconditional_add_sub(C2);
-        auto [U3, U4] = F2.checked_unconditional_add_sub(C3);
+        auto [U0, U7] = F2.checked_unconditional_add_sub(C0, handle_collisions);
+        auto [U1, U6] = F2.checked_unconditional_add_sub(C1, handle_collisions);
+        auto [U2, U5] = F2.checked_unconditional_add_sub(C2, handle_collisions);
+        auto [U3, U4] = F2.checked_unconditional_add_sub(C3, handle_collisions);
 
-        auto [W0, W7] = F3.checked_unconditional_add_sub(C0);
-        auto [W1, W6] = F3.checked_unconditional_add_sub(C1);
-        auto [W2, W5] = F3.checked_unconditional_add_sub(C2);
-        auto [W3, W4] = F3.checked_unconditional_add_sub(C3);
+        auto [W0, W7] = F3.checked_unconditional_add_sub(C0, handle_collisions);
+        auto [W1, W6] = F3.checked_unconditional_add_sub(C1, handle_collisions);
+        auto [W2, W5] = F3.checked_unconditional_add_sub(C2, handle_collisions);
+        auto [W3, W4] = F3.checked_unconditional_add_sub(C3, handle_collisions);
 
         element_table[0] = R0;
         element_table[1] = R1;

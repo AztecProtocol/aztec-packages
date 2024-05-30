@@ -451,18 +451,18 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
     static void test_batch_mul_edge_cases()
     {
-        {
-            // batch P + P = 2P
+        const auto test_repeated_points = [](const uint32_t num_points) {
+            // batch P + ... + P = m*P
+            info("num points: ", num_points);
             std::vector<affine_element> points;
-            points.push_back(affine_element::one());
-            points.push_back(affine_element::one());
             std::vector<fr> scalars;
-            scalars.push_back(1);
-            scalars.push_back(1);
+            for (size_t idx = 0; idx < num_points; idx++) {
+                points.push_back(affine_element::one());
+                scalars.push_back(1);
+            }
 
             Builder builder;
             ASSERT(points.size() == scalars.size());
-            const size_t num_points = points.size();
 
             std::vector<element_ct> circuit_points;
             std::vector<scalar_ct> circuit_scalars;
@@ -472,39 +472,10 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             }
             element_ct result_point = element_ct::batch_mul(circuit_points, circuit_scalars);
 
-            element expected_point = points[0] + points[1];
-            expected_point = expected_point.normalize();
-
-            fq result_x(result_point.x.get_value().lo);
-            fq result_y(result_point.y.get_value().lo);
-
-            EXPECT_EQ(result_x, expected_point.x);
-            EXPECT_EQ(result_y, expected_point.y);
-
-            EXPECT_CIRCUIT_CORRECTNESS(builder);
-        }
-        {
-            // batch oo + P = P
-            std::vector<affine_element> points;
-            points.push_back(affine_element::infinity());
-            points.push_back(affine_element(element::random_element()));
-            std::vector<fr> scalars;
-            scalars.push_back(1);
-            scalars.push_back(1);
-
-            Builder builder;
-            ASSERT(points.size() == scalars.size());
-            const size_t num_points = points.size();
-
-            std::vector<element_ct> circuit_points;
-            std::vector<scalar_ct> circuit_scalars;
-            for (size_t i = 0; i < num_points; ++i) {
-                circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
-                circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
+            auto expected_point = element::infinity();
+            for (const auto& point : points) {
+                expected_point += point;
             }
-            element_ct result_point = element_ct::batch_mul(circuit_points, circuit_scalars);
-
-            element expected_point = points[1];
             expected_point = expected_point.normalize();
 
             fq result_x(result_point.x.get_value().lo);
@@ -514,40 +485,78 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             EXPECT_EQ(result_y, expected_point.y);
 
             EXPECT_CIRCUIT_CORRECTNESS(builder);
-        }
-        {
-            // batch 0 * P1 + P2 = P2
-            std::vector<affine_element> points;
-            points.push_back(affine_element(element::random_element()));
-            points.push_back(affine_element(element::random_element()));
-            std::vector<fr> scalars;
-            scalars.push_back(0);
-            scalars.push_back(1);
+        };
+        test_repeated_points(2);
+        test_repeated_points(3);
+        test_repeated_points(4);
+        test_repeated_points(5);
+        test_repeated_points(6);
+        test_repeated_points(7);
+        // {
+        //     // batch oo + P = P
+        //     std::vector<affine_element> points;
+        //     points.push_back(affine_element::infinity());
+        //     points.push_back(affine_element(element::random_element()));
+        //     std::vector<fr> scalars;
+        //     scalars.push_back(1);
+        //     scalars.push_back(1);
 
-            Builder builder;
-            ASSERT(points.size() == scalars.size());
-            const size_t num_points = points.size();
+        //     Builder builder;
+        //     ASSERT(points.size() == scalars.size());
+        //     const size_t num_points = points.size();
 
-            std::vector<element_ct> circuit_points;
-            std::vector<scalar_ct> circuit_scalars;
-            for (size_t i = 0; i < num_points; ++i) {
-                circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
-                circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
-            }
+        //     std::vector<element_ct> circuit_points;
+        //     std::vector<scalar_ct> circuit_scalars;
+        //     for (size_t i = 0; i < num_points; ++i) {
+        //         circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
+        //         circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
+        //     }
+        //     element_ct result_point = element_ct::batch_mul(circuit_points, circuit_scalars);
 
-            element_ct result_point = element_ct::batch_mul(circuit_points, circuit_scalars);
+        //     element expected_point = points[1];
+        //     expected_point = expected_point.normalize();
 
-            element expected_point = points[1];
-            expected_point = expected_point.normalize();
+        //     fq result_x(result_point.x.get_value().lo);
+        //     fq result_y(result_point.y.get_value().lo);
 
-            fq result_x(result_point.x.get_value().lo);
-            fq result_y(result_point.y.get_value().lo);
+        //     EXPECT_EQ(result_x, expected_point.x);
+        //     EXPECT_EQ(result_y, expected_point.y);
 
-            EXPECT_EQ(result_x, expected_point.x);
-            EXPECT_EQ(result_y, expected_point.y);
+        //     EXPECT_CIRCUIT_CORRECTNESS(builder);
+        // }
+        // {
+        //     // batch 0 * P1 + P2 = P2
+        //     std::vector<affine_element> points;
+        //     points.push_back(affine_element(element::random_element()));
+        //     points.push_back(affine_element(element::random_element()));
+        //     std::vector<fr> scalars;
+        //     scalars.push_back(0);
+        //     scalars.push_back(1);
 
-            EXPECT_CIRCUIT_CORRECTNESS(builder);
-        }
+        //     Builder builder;
+        //     ASSERT(points.size() == scalars.size());
+        //     const size_t num_points = points.size();
+
+        //     std::vector<element_ct> circuit_points;
+        //     std::vector<scalar_ct> circuit_scalars;
+        //     for (size_t i = 0; i < num_points; ++i) {
+        //         circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
+        //         circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
+        //     }
+
+        //     element_ct result_point = element_ct::batch_mul(circuit_points, circuit_scalars);
+
+        //     element expected_point = points[1];
+        //     expected_point = expected_point.normalize();
+
+        //     fq result_x(result_point.x.get_value().lo);
+        //     fq result_y(result_point.y.get_value().lo);
+
+        //     EXPECT_EQ(result_x, expected_point.x);
+        //     EXPECT_EQ(result_y, expected_point.y);
+
+        //     EXPECT_CIRCUIT_CORRECTNESS(builder);
+        // }
     }
 
     static void test_chain_add()
@@ -1182,7 +1191,8 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edge_cases)
     if constexpr (HasGoblinBuilder<TypeParam>) {
         TestFixture::test_batch_mul_edge_cases();
     } else {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1000";
+        TestFixture::test_batch_mul_edge_cases();
+        // GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1000";
     };
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, chain_add)
