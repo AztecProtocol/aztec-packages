@@ -965,8 +965,26 @@ bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& t
 }
 
 /**
- * @brief Raise a field_t to a power of an exponent (field_t). Note that the exponent must not exceed 32 bits and is
- * implicitly range constrained.
+ * @brief Raise a bigfield to a power of an exponent. Note that the exponent must not exceed 32 bits and is
+ * implicitly range constrained. The exponent is turned into a field_t witness for the underlying pow method
+ * to work.
+ *
+ * @returns this ** (exponent)
+ *
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1014) Improve the efficiency of this function.
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1015) Security of this (as part of the whole class)
+ */
+
+template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::pow(const uint32_t exponent) const
+{
+    auto* ctx = get_context() ? get_context() : nullptr;
+
+    return pow(witness_t<Builder>(ctx, exponent));
+}
+
+/**
+ * @brief Raise a bigfield to a power of an exponent (field_t) that must be a witness. Note that the exponent must not
+ * exceed 32 bits and is implicitly range constrained.
  *
  * @returns this ** (exponent)
  *
