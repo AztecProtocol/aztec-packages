@@ -26,16 +26,18 @@ describe('prover/bb_prover/full-rollup', () => {
   });
 
   it('proves a private-only full rollup', async () => {
-    const numTransactions = 3;
-    const txs = times(numTransactions, (i: number) =>
-      mockTx(1000 * (i + 1), {
+    const totalTxs = 4;
+    const nonEmptyTxs = 1;
+
+    const initialHeader = await context.actualDb.buildInitialHeader();
+    const txs = times(nonEmptyTxs, (i: number) => {
+      const tx = mockTx(1000 * (i + 1), {
         numberOfNonRevertiblePublicCallRequests: 0,
         numberOfRevertiblePublicCallRequests: 0,
-      }),
-    );
-    for (const tx of txs) {
-      tx.data.constants.historicalHeader = await context.actualDb.buildInitialHeader();
-    }
+      });
+      tx.data.constants.historicalHeader = initialHeader;
+      return tx;
+    });
 
     const l1ToL2Messages = makeTuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>(
       NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -43,11 +45,15 @@ describe('prover/bb_prover/full-rollup', () => {
     );
 
     const provingTicket = await context.orchestrator.startNewBlock(
-      numTransactions,
+      totalTxs,
       context.globalVariables,
       l1ToL2Messages,
       getMockVerificationKeys(),
     );
+
+    const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs, context.blockProver);
+    expect(processed.length).toBe(nonEmptyTxs);
+    expect(failed.length).toBe(0);
 
     await context.orchestrator.setBlockCompleted();
 
