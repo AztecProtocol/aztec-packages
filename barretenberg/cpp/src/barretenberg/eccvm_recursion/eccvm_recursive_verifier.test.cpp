@@ -1,4 +1,5 @@
 #include "barretenberg/eccvm_recursion/eccvm_recursive_verifier.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
@@ -171,6 +172,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         translator_verifier.verify_translation(translation_evaluations);
 
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
+        EXPECT_TRUE(CircuitChecker::check(outer_circuit));
         info("Recursive Verifier: num gates = ", outer_circuit.num_gates);
     }
 };
