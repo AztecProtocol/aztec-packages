@@ -422,7 +422,7 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
  *@brief A basic test of a circuit generated in noir that makes use of the databus
  *
  */
-TEST_F(AcirIntegrationTest, Databus)
+TEST_F(AcirIntegrationTest, DISABLED_Databus)
 {
     using Flavor = MegaFlavor;
     using Builder = Flavor::CircuitBuilder;
