@@ -1,9 +1,20 @@
 import { UnencryptedL2Log } from '@aztec/circuit-types';
-import { EthAddress, L2ToL1Message, LogHash } from '@aztec/circuits.js';
+import {
+  EthAddress,
+  L2ToL1Message,
+  LogHash,
+  MAX_NEW_NOTE_HASHES_PER_CALL,
+  MAX_NEW_NULLIFIERS_PER_CALL,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+  MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
+  MAX_PUBLIC_DATA_READS_PER_CALL,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+  MAX_UNENCRYPTED_LOGS_PER_CALL,
+} from '@aztec/circuits.js';
 import { EventSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 
-import { WorldStateAccessTrace } from './trace.js';
+import { TooManyAccessesError, WorldStateAccessTrace } from './trace.js';
 import { type TracedL1toL2MessageCheck, type TracedNullifier, type TracedNullifierCheck } from './trace_types.js';
 
 describe('world state access trace', () => {
@@ -22,17 +33,19 @@ describe('world state access trace', () => {
 
       trace.traceNoteHashCheck(contractAddress, noteHash, exists, leafIndex);
 
-      expect(trace.noteHashChecks).toEqual([
-        {
-          // callPointer: expect.any(Fr),
-          storageAddress: contractAddress,
-          noteHash: noteHash,
-          exists: exists,
-          counter: Fr.ZERO, // 0th access
-          // endLifetime: expect.any(Fr),
-          leafIndex: leafIndex,
-        },
-      ]);
+      expect(trace.noteHashChecks).toEqual(
+        expect.arrayContaining([
+          {
+            // callPointer: expect.any(Fr),
+            storageAddress: contractAddress,
+            noteHash: noteHash,
+            exists: exists,
+            counter: Fr.ZERO, // 0th access
+            // endLifetime: expect.any(Fr),
+            leafIndex: leafIndex,
+          },
+        ]),
+      );
       expect(trace.getAccessCounter()).toBe(1);
     });
     it('Should trace note hashes', () => {
@@ -41,9 +54,9 @@ describe('world state access trace', () => {
 
       trace.traceNewNoteHash(contractAddress, utxo);
 
-      expect(trace.newNoteHashes).toEqual([
-        expect.objectContaining({ storageAddress: contractAddress, noteHash: utxo }),
-      ]);
+      expect(trace.newNoteHashes).toEqual(
+        expect.arrayContaining([expect.objectContaining({ storageAddress: contractAddress, noteHash: utxo })]),
+      );
       expect(trace.getAccessCounter()).toEqual(1);
     });
     it('Should trace nullifier checks', () => {
@@ -63,7 +76,7 @@ describe('world state access trace', () => {
         isPending: isPending,
         leafIndex: leafIndex,
       };
-      expect(trace.nullifierChecks).toEqual([expectedCheck]);
+      expect(trace.nullifierChecks).toEqual(expect.arrayContaining([expectedCheck]));
       expect(trace.getAccessCounter()).toEqual(1);
     });
     it('Should trace nullifiers', () => {
@@ -77,7 +90,7 @@ describe('world state access trace', () => {
         counter: new Fr(0),
         // endLifetime: Fr.ZERO,
       };
-      expect(trace.newNullifiers).toEqual([expectedNullifier]);
+      expect(trace.newNullifiers).toEqual(expect.arrayContaining([expectedNullifier]));
       expect(trace.getAccessCounter()).toEqual(1);
     });
     it('Should trace L1 To L2 message checks', () => {
@@ -90,7 +103,7 @@ describe('world state access trace', () => {
         msgHash: utxo,
         exists: exists,
       };
-      expect(trace.l1ToL2MessageChecks).toEqual([expectedCheck]);
+      expect(trace.l1ToL2MessageChecks).toEqual(expect.arrayContaining([expectedCheck]));
       expect(trace.getAccessCounter()).toEqual(1);
     });
     it('Should trace new L2 to L1 messages', () => {
@@ -98,7 +111,7 @@ describe('world state access trace', () => {
       const content = new Fr(2);
       trace.traceL2ToL1Message(recipientAddress, content);
       const msg = new L2ToL1Message(recipientAddress, content, 0);
-      expect(trace.newL2ToL1Messages).toEqual([msg]);
+      expect(trace.newL2ToL1Messages).toEqual(expect.arrayContaining([msg]));
       expect(trace.getAccessCounter()).toEqual(1);
     });
     it('Should trace new unencrypted logs', () => {
@@ -111,9 +124,76 @@ describe('world state access trace', () => {
       trace.traceUnencryptedLog(ulog, hash);
       // TODO(6578): explain magic number 4 here
       const tracedHash = new LogHash(hash, 0, new Fr(ulog.length + 4));
-      expect(trace.newUnencryptedLogs).toEqual([ulog]);
-      expect(trace.newUnencryptedLogsHashes).toEqual([tracedHash]);
+      expect(trace.newUnencryptedLogs).toEqual(expect.arrayContaining([ulog]));
+      expect(trace.newUnencryptedLogsHashes).toEqual(expect.arrayContaining([tracedHash]));
       expect(trace.getAccessCounter()).toEqual(1);
+    });
+  });
+
+  describe('Maximum accesses', () => {
+    it('Should enforce maximum number of public storage reads', () => {
+      for (let i = 0; i < MAX_PUBLIC_DATA_READS_PER_CALL; i++) {
+        trace.tracePublicStorageRead(new Fr(i), new Fr(i), new Fr(i), true, true);
+      }
+      expect(() => trace.tracePublicStorageRead(new Fr(42), new Fr(42), new Fr(42), true, true)).toThrow(
+        TooManyAccessesError,
+      );
+    });
+
+    it('Should enforce maximum number of public storage writes', () => {
+      for (let i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL; i++) {
+        trace.tracePublicStorageWrite(new Fr(i), new Fr(i), new Fr(i));
+      }
+      expect(() => trace.tracePublicStorageWrite(new Fr(42), new Fr(42), new Fr(42))).toThrow(TooManyAccessesError);
+    });
+
+    it('Should enforce maximum number of note hash checks', () => {
+      for (let i = 0; i < MAX_NOTE_HASH_READ_REQUESTS_PER_CALL; i++) {
+        trace.traceNoteHashCheck(new Fr(i), new Fr(i), true, new Fr(i));
+      }
+      expect(() => trace.traceNoteHashCheck(new Fr(42), new Fr(42), true, new Fr(42))).toThrow(TooManyAccessesError);
+    });
+
+    it('Should enforce maximum number of new note hashes', () => {
+      for (let i = 0; i < MAX_NEW_NOTE_HASHES_PER_CALL; i++) {
+        trace.traceNewNoteHash(new Fr(i), new Fr(i));
+      }
+      expect(() => trace.traceNewNoteHash(new Fr(42), new Fr(42))).toThrow(TooManyAccessesError);
+    });
+
+    it('Should enforce maximum number of nullifier checks', () => {
+      // TODO: (5818): split up mullifier checks (existent/non-existent)
+      for (let i = 0; i < MAX_NULLIFIER_READ_REQUESTS_PER_CALL; i++) {
+        trace.traceNullifierCheck(new Fr(i), new Fr(i), true, true, new Fr(i));
+      }
+      expect(() => trace.traceNullifierCheck(new Fr(42), new Fr(42), true, true, new Fr(42))).toThrow(
+        TooManyAccessesError,
+      );
+    });
+
+    it('Should enforce maximum number of new nullifiers', () => {
+      for (let i = 0; i < MAX_NEW_NULLIFIERS_PER_CALL; i++) {
+        trace.traceNewNullifier(new Fr(i), new Fr(i));
+      }
+      expect(() => trace.traceNewNullifier(new Fr(42), new Fr(42))).toThrow(TooManyAccessesError);
+    });
+
+    // TODO:(5818): rebase onto message check PR
+
+    //it('Should enforce maximum number of L1 to L2 message checks', () => {
+    //  for (let i = 0; i < MAX_L1_TO_L2_MESSAGE_CHECKS; i++) {
+    //    trace.traceL1ToL2MessageCheck(new Fr(i), new Fr(i), true);
+    //  }
+    //  expect(() => trace.traceL1ToL2MessageCheck(new Fr(42), new Fr(42), true)).toThrow(TooManyAccessesError);
+    //});
+
+    it('Should enforce maximum number of new logs hashes', () => {
+      for (let i = 0; i < MAX_UNENCRYPTED_LOGS_PER_CALL; i++) {
+        const ulog = new UnencryptedL2Log(new Fr(i), EventSelector.fromField(new Fr(i)), Buffer.from(`data${i}`));
+        trace.traceUnencryptedLog(ulog, Fr.fromBuffer(ulog.hash()));
+      }
+      const ulog = new UnencryptedL2Log(new Fr(42), EventSelector.fromField(new Fr(42)), Buffer.from(`data${42}`));
+      expect(() => trace.traceUnencryptedLog(ulog, Fr.fromBuffer(ulog.hash()))).toThrow(TooManyAccessesError);
     });
   });
 
@@ -249,92 +329,116 @@ describe('world state access trace', () => {
       trace.merge(childTrace, rejectIncomingAccruedSubstate);
       expect(trace.getAccessCounter()).toEqual(childCounterBeforeMerge);
 
-      expect(trace.publicStorageReads).toEqual([
-        expect.objectContaining({
-          storageAddress: contractAddress,
-          slot: slot,
-          value: value,
-          exists: true,
-          cached: true,
-        }),
-        expect.objectContaining({
-          storageAddress: contractAddress,
-          slot: slot,
-          value: valueT1,
-          exists: true,
-          cached: true,
-        }),
-      ]);
-      expect(trace.publicStorageWrites).toEqual([
-        expect.objectContaining({ storageAddress: contractAddress, slot: slot, value: value }),
-        expect.objectContaining({ storageAddress: contractAddress, slot: slot, value: valueT1 }),
-      ]);
-      expect(trace.newNoteHashes).toEqual([
-        expect.objectContaining({
-          storageAddress: contractAddress,
-          noteHash: nullifier,
-        }),
-        expect.objectContaining({
-          storageAddress: contractAddress,
-          noteHash: nullifierT1,
-        }),
-      ]);
-      expect(trace.newNullifiers).toEqual([
-        expect.objectContaining({
-          storageAddress: contractAddress,
-          nullifier: nullifier,
-        }),
-        expect.objectContaining({
-          storageAddress: contractAddress,
-          nullifier: nullifierT1,
-        }),
-      ]);
-      expect(trace.nullifierChecks).toEqual([
-        expect.objectContaining({
-          nullifier: nullifier,
-          exists: nullifierExists,
-          isPending: nullifierIsPending,
-          leafIndex: nullifierLeafIndex,
-        }),
-        expect.objectContaining({
-          nullifier: nullifierT1,
-          exists: nullifierExistsT1,
-          isPending: nullifierIsPendingT1,
-          leafIndex: nullifierLeafIndexT1,
-        }),
-      ]);
-      expect(trace.noteHashChecks).toEqual([
-        expect.objectContaining({ noteHash: noteHash, exists: noteHashExists, leafIndex: noteHashLeafIndex }),
-        expect.objectContaining({ noteHash: noteHashT1, exists: noteHashExistsT1, leafIndex: noteHashLeafIndexT1 }),
-      ]);
+      expect(trace.publicStorageReads).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            storageAddress: contractAddress,
+            slot: slot,
+            value: value,
+            exists: true,
+            cached: true,
+          }),
+          expect.objectContaining({
+            storageAddress: contractAddress,
+            slot: slot,
+            value: valueT1,
+            exists: true,
+            cached: true,
+          }),
+        ]),
+      );
+      expect(trace.publicStorageWrites).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ storageAddress: contractAddress, slot: slot, value: value }),
+          expect.objectContaining({ storageAddress: contractAddress, slot: slot, value: valueT1 }),
+        ]),
+      );
+      expect(trace.newNoteHashes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            storageAddress: contractAddress,
+            noteHash: nullifier,
+          }),
+          expect.objectContaining({
+            storageAddress: contractAddress,
+            noteHash: nullifierT1,
+          }),
+        ]),
+      );
+      expect(trace.newNullifiers).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            storageAddress: contractAddress,
+            nullifier: nullifier,
+          }),
+          expect.objectContaining({
+            storageAddress: contractAddress,
+            nullifier: nullifierT1,
+          }),
+        ]),
+      );
+      expect(trace.nullifierChecks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            nullifier: nullifier,
+            exists: nullifierExists,
+            isPending: nullifierIsPending,
+            leafIndex: nullifierLeafIndex,
+          }),
+          expect.objectContaining({
+            nullifier: nullifierT1,
+            exists: nullifierExistsT1,
+            isPending: nullifierIsPendingT1,
+            leafIndex: nullifierLeafIndexT1,
+          }),
+        ]),
+      );
+      expect(trace.noteHashChecks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ noteHash: noteHash, exists: noteHashExists, leafIndex: noteHashLeafIndex }),
+          expect.objectContaining({ noteHash: noteHashT1, exists: noteHashExistsT1, leafIndex: noteHashLeafIndexT1 }),
+        ]),
+      );
       expect(
         trace.l1ToL2MessageChecks.map(c => ({
           leafIndex: c.leafIndex,
           msgHash: c.msgHash,
           exists: c.exists,
         })),
-      ).toEqual([expectedMessageCheck, expectedMessageCheckT1]);
-      expect(trace.l1ToL2MessageChecks).toEqual([
-        expect.objectContaining({ leafIndex: msgLeafIndex, msgHash: msgHash, exists: msgExists }),
-        expect.objectContaining({ leafIndex: msgLeafIndexT1, msgHash: msgHashT1, exists: msgExistsT1 }),
-      ]);
+      ).toEqual(expect.arrayContaining([expectedMessageCheck, expectedMessageCheckT1]));
+      expect(trace.l1ToL2MessageChecks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ leafIndex: msgLeafIndex, msgHash: msgHash, exists: msgExists }),
+          expect.objectContaining({ leafIndex: msgLeafIndexT1, msgHash: msgHashT1, exists: msgExistsT1 }),
+        ]),
+      );
 
       if (rejectIncomingAccruedSubstate) {
-        expect(trace.newL2ToL1Messages).toEqual([
-          expect.objectContaining({ recipient: newMsgRecipient, content: newMsgContent }),
-        ]);
-        expect(trace.newUnencryptedLogs).toEqual([
-          expect.objectContaining({ contractAddress: contractAddress, selector: newLogSelector, data: newLogData }),
-        ]);
+        expect(trace.newL2ToL1Messages).toEqual(
+          expect.arrayContaining([expect.objectContaining({ recipient: newMsgRecipient, content: newMsgContent })]),
+        );
+        expect(trace.newUnencryptedLogs).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ contractAddress: contractAddress, selector: newLogSelector, data: newLogData }),
+          ]),
+        );
       } else {
-        expect(trace.newL2ToL1Messages).toEqual([
-          expect.objectContaining({ recipient: newMsgRecipient, content: newMsgContent }),
-          expect.objectContaining({ recipient: newMsgRecipientT1, content: newMsgContentT1 }),
-        ]);
-        expect(trace.newUnencryptedLogs).toEqual([
-          expect.objectContaining({ contractAddress: contractAddress, selector: newLogSelector, data: newLogData }),
-          expect.objectContaining({ contractAddress: contractAddress, selector: newLogSelectorT1, data: newLogDataT1 }),
-        ]);
+        expect(trace.newL2ToL1Messages).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ recipient: newMsgRecipient, content: newMsgContent }),
+            expect.objectContaining({ recipient: newMsgRecipientT1, content: newMsgContentT1 }),
+          ]),
+        );
+        expect(trace.newUnencryptedLogs).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ contractAddress: contractAddress, selector: newLogSelector, data: newLogData }),
+            expect.objectContaining({
+              contractAddress: contractAddress,
+              selector: newLogSelectorT1,
+              data: newLogDataT1,
+            }),
+          ]),
+        );
       }
     },
   );

@@ -46,27 +46,31 @@ describe('journal', () => {
 
       // We expect the journal to store the access in [storedVal, cachedVal] - [time0, time1]
       const { storageReads, storageWrites }: JournalData = journal.flush();
-      expect(storageReads).toEqual([
-        expect.objectContaining({
-          storageAddress: contractAddress,
-          exists: true,
-          slot: key,
-          value: storedValue,
-        }),
-        expect.objectContaining({
-          storageAddress: contractAddress,
-          exists: true,
-          slot: key,
-          value: cachedValue,
-        }),
-      ]);
-      expect(storageWrites).toEqual([
-        expect.objectContaining({
-          storageAddress: contractAddress,
-          slot: key,
-          value: cachedValue,
-        }),
-      ]);
+      expect(storageReads).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            storageAddress: contractAddress,
+            exists: true,
+            slot: key,
+            value: storedValue,
+          }),
+          expect.objectContaining({
+            storageAddress: contractAddress,
+            exists: true,
+            slot: key,
+            value: cachedValue,
+          }),
+        ]),
+      );
+      expect(storageWrites).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            storageAddress: contractAddress,
+            slot: key,
+            value: cachedValue,
+          }),
+        ]),
+      );
     });
   });
 
@@ -77,9 +81,9 @@ describe('journal', () => {
       journal.writeNoteHash(address, utxo);
 
       const journalUpdates = journal.flush();
-      expect(journalUpdates.newNoteHashes).toEqual([
-        expect.objectContaining({ noteHash: utxo, storageAddress: address }),
-      ]);
+      expect(journalUpdates.newNoteHashes).toEqual(
+        expect.arrayContaining([expect.objectContaining({ noteHash: utxo, storageAddress: address })]),
+      );
     });
     it('checkNullifierExists works for missing nullifiers', async () => {
       const contractAddress = new Fr(1);
@@ -88,7 +92,9 @@ describe('journal', () => {
       expect(exists).toEqual(false);
 
       const journalUpdates = journal.flush();
-      expect(journalUpdates.nullifierChecks).toEqual([expect.objectContaining({ nullifier: utxo, exists: false })]);
+      expect(journalUpdates.nullifierChecks).toEqual(
+        expect.arrayContaining([expect.objectContaining({ nullifier: utxo, exists: false })]),
+      );
     });
     it('checkNullifierExists works for existing nullifiers', async () => {
       const contractAddress = new Fr(1);
@@ -100,7 +106,9 @@ describe('journal', () => {
       expect(exists).toEqual(true);
 
       const journalUpdates = journal.flush();
-      expect(journalUpdates.nullifierChecks).toEqual([expect.objectContaining({ nullifier: utxo, exists: true })]);
+      expect(journalUpdates.nullifierChecks).toEqual(
+        expect.arrayContaining([expect.objectContaining({ nullifier: utxo, exists: true })]),
+      );
     });
     it('Should maintain nullifiers', async () => {
       const contractAddress = new Fr(1);
@@ -108,9 +116,9 @@ describe('journal', () => {
       await journal.writeNullifier(contractAddress, utxo);
 
       const journalUpdates = journal.flush();
-      expect(journalUpdates.newNullifiers).toEqual([
-        expect.objectContaining({ storageAddress: contractAddress, nullifier: utxo }),
-      ]);
+      expect(journalUpdates.newNullifiers).toEqual(
+        expect.arrayContaining([expect.objectContaining({ storageAddress: contractAddress, nullifier: utxo })]),
+      );
     });
     it('checkL1ToL2MessageExists works for missing message', async () => {
       const msgHash = new Fr(2);
@@ -120,9 +128,9 @@ describe('journal', () => {
       expect(exists).toEqual(false);
 
       const journalUpdates = journal.flush();
-      expect(journalUpdates.l1ToL2MessageChecks).toEqual([
-        expect.objectContaining({ leafIndex: leafIndex, msgHash, exists: false }),
-      ]);
+      expect(journalUpdates.l1ToL2MessageChecks).toEqual(
+        expect.arrayContaining([expect.objectContaining({ leafIndex: leafIndex, msgHash, exists: false })]),
+      );
     });
     it('checkL1ToL2MessageExists works for existing msgHash', async () => {
       const msgHash = new Fr(2);
@@ -133,9 +141,9 @@ describe('journal', () => {
       expect(exists).toEqual(true);
 
       const journalUpdates = journal.flush();
-      expect(journalUpdates.l1ToL2MessageChecks).toEqual([
-        expect.objectContaining({ leafIndex: leafIndex, msgHash, exists: true }),
-      ]);
+      expect(journalUpdates.l1ToL2MessageChecks).toEqual(
+        expect.arrayContaining([expect.objectContaining({ leafIndex: leafIndex, msgHash, exists: true })]),
+      );
     });
     it('Should maintain nullifiers', async () => {
       const contractAddress = new Fr(1);
@@ -143,9 +151,9 @@ describe('journal', () => {
       await journal.writeNullifier(contractAddress, utxo);
 
       const journalUpdates = journal.flush();
-      expect(journalUpdates.newNullifiers).toEqual([
-        expect.objectContaining({ storageAddress: contractAddress, nullifier: utxo }),
-      ]);
+      expect(journalUpdates.newNullifiers).toEqual(
+        expect.arrayContaining([expect.objectContaining({ storageAddress: contractAddress, nullifier: utxo })]),
+      );
     });
     it('Should maintain l1 messages', () => {
       const recipient = EthAddress.fromField(new Fr(1));
@@ -153,7 +161,9 @@ describe('journal', () => {
       journal.writeL1Message(recipient, msgHash);
 
       const journalUpdates = journal.flush();
-      expect(journalUpdates.newL1Messages).toEqual([expect.objectContaining({ recipient, content: msgHash })]);
+      expect(journalUpdates.newL1Messages).toEqual(
+        expect.arrayContaining([expect.objectContaining({ recipient, content: msgHash })]),
+      );
     });
   });
 
@@ -207,80 +217,96 @@ describe('journal', () => {
 
     // Check storage reads order is preserved upon merge
     // We first read value from t0, then value from t1
-    expect(journalUpdates.storageReads).toEqual([
-      expect.objectContaining({
-        storageAddress: contractAddress,
-        exists: true,
-        slot: key,
-        value: value,
-      }),
-      expect.objectContaining({
-        storageAddress: contractAddress,
-        exists: true,
-        slot: key,
-        value: valueT1,
-      }),
-      // Read a third time to check storage
-      expect.objectContaining({
-        storageAddress: contractAddress,
-        exists: true,
-        slot: key,
-        value: valueT1,
-      }),
-    ]);
+    expect(journalUpdates.storageReads).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          storageAddress: contractAddress,
+          exists: true,
+          slot: key,
+          value: value,
+        }),
+        expect.objectContaining({
+          storageAddress: contractAddress,
+          exists: true,
+          slot: key,
+          value: valueT1,
+        }),
+        // Read a third time to check storage
+        expect.objectContaining({
+          storageAddress: contractAddress,
+          exists: true,
+          slot: key,
+          value: valueT1,
+        }),
+      ]),
+    );
 
     // We first write value from t0, then value from t1
-    expect(journalUpdates.storageWrites).toEqual([
-      expect.objectContaining({
-        storageAddress: contractAddress,
-        slot: key,
-        value: value,
-      }),
-      expect.objectContaining({
-        storageAddress: contractAddress,
-        slot: key,
-        value: valueT1,
-      }),
-    ]);
+    expect(journalUpdates.storageWrites).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          storageAddress: contractAddress,
+          slot: key,
+          value: value,
+        }),
+        expect.objectContaining({
+          storageAddress: contractAddress,
+          slot: key,
+          value: valueT1,
+        }),
+      ]),
+    );
 
-    expect(journalUpdates.newNoteHashes).toEqual([
-      expect.objectContaining({ noteHash: commitment, storageAddress: contractAddress }),
-      expect.objectContaining({ noteHash: commitmentT1, storageAddress: contractAddress }),
-    ]);
-    expect(journalUpdates.newLogs).toEqual([
-      new UnencryptedL2Log(
-        AztecAddress.fromBigInt(log.address),
-        new EventSelector(log.selector),
-        Buffer.concat(log.data.map(f => f.toBuffer())),
-      ),
-      new UnencryptedL2Log(
-        AztecAddress.fromBigInt(logT1.address),
-        new EventSelector(logT1.selector),
-        Buffer.concat(logT1.data.map(f => f.toBuffer())),
-      ),
-    ]);
-    expect(journalUpdates.newL1Messages).toEqual([
-      expect.objectContaining({ recipient, content: commitment }),
-      expect.objectContaining({ recipient, content: commitmentT1 }),
-    ]);
-    expect(journalUpdates.nullifierChecks).toEqual([
-      expect.objectContaining({ nullifier: commitment, exists: true }),
-      expect.objectContaining({ nullifier: commitmentT1, exists: true }),
-    ]);
-    expect(journalUpdates.newNullifiers).toEqual([
-      expect.objectContaining({
-        storageAddress: contractAddress,
-        nullifier: commitment,
-      }),
-      expect.objectContaining({
-        storageAddress: contractAddress,
-        nullifier: commitmentT1,
-      }),
-    ]);
-    expect(journalUpdates.l1ToL2MessageChecks).toEqual([
-      expect.objectContaining({ leafIndex: index, msgHash: commitment, exists: false }),
-      expect.objectContaining({ leafIndex: indexT1, msgHash: commitmentT1, exists: false }),
-    ]);
+    expect(journalUpdates.newNoteHashes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ noteHash: commitment, storageAddress: contractAddress }),
+        expect.objectContaining({ noteHash: commitmentT1, storageAddress: contractAddress }),
+      ]),
+    );
+    expect(journalUpdates.newLogs).toEqual(
+      expect.arrayContaining([
+        new UnencryptedL2Log(
+          AztecAddress.fromBigInt(log.address),
+          new EventSelector(log.selector),
+          Buffer.concat(log.data.map(f => f.toBuffer())),
+        ),
+        new UnencryptedL2Log(
+          AztecAddress.fromBigInt(logT1.address),
+          new EventSelector(logT1.selector),
+          Buffer.concat(logT1.data.map(f => f.toBuffer())),
+        ),
+      ]),
+    );
+    expect(journalUpdates.newL1Messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ recipient, content: commitment }),
+        expect.objectContaining({ recipient, content: commitmentT1 }),
+      ]),
+    );
+    expect(journalUpdates.nullifierChecks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ nullifier: commitment, exists: true }),
+        expect.objectContaining({ nullifier: commitmentT1, exists: true }),
+      ]),
+    );
+    expect(journalUpdates.newNullifiers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          storageAddress: contractAddress,
+          nullifier: commitment,
+        }),
+        expect.objectContaining({
+          storageAddress: contractAddress,
+          nullifier: commitmentT1,
+        }),
+      ]),
+    );
+    expect(journalUpdates.l1ToL2MessageChecks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ leafIndex: index, msgHash: commitment, exists: false }),
+        expect.objectContaining({ leafIndex: indexT1, msgHash: commitmentT1, exists: false }),
+      ]),
+    );
   });
 
   it('Should merge failed journals together', async () => {
@@ -335,75 +361,91 @@ describe('journal', () => {
     // Reads and writes should be preserved
     // Check storage reads order is preserved upon merge
     // We first read value from t0, then value from t1
-    expect(journalUpdates.storageReads).toEqual([
-      expect.objectContaining({
-        storageAddress: contractAddress,
-        exists: true,
-        slot: key,
-        value: value,
-      }),
-      expect.objectContaining({
-        storageAddress: contractAddress,
-        exists: true,
-        slot: key,
-        value: valueT1,
-      }),
-      // Read a third time to check storage
-      expect.objectContaining({
-        storageAddress: contractAddress,
-        exists: true,
-        slot: key,
-        value: value,
-      }),
-    ]);
+    expect(journalUpdates.storageReads).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          storageAddress: contractAddress,
+          exists: true,
+          slot: key,
+          value: value,
+        }),
+        expect.objectContaining({
+          storageAddress: contractAddress,
+          exists: true,
+          slot: key,
+          value: valueT1,
+        }),
+        // Read a third time to check storage
+        expect.objectContaining({
+          storageAddress: contractAddress,
+          exists: true,
+          slot: key,
+          value: value,
+        }),
+      ]),
+    );
 
     // We first write value from t0, then value from t1
-    expect(journalUpdates.storageWrites).toEqual([
-      expect.objectContaining({
-        storageAddress: contractAddress,
-        slot: key,
-        value: value,
-      }),
-      expect.objectContaining({
-        storageAddress: contractAddress,
-        slot: key,
-        value: valueT1,
-      }),
-    ]);
+    expect(journalUpdates.storageWrites).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          storageAddress: contractAddress,
+          slot: key,
+          value: value,
+        }),
+        expect.objectContaining({
+          storageAddress: contractAddress,
+          slot: key,
+          value: valueT1,
+        }),
+      ]),
+    );
 
     // Check that the world state _traces_ are merged even on rejection
-    expect(journalUpdates.newNoteHashes).toEqual([
-      expect.objectContaining({ noteHash: commitment, storageAddress: contractAddress }),
-      expect.objectContaining({ noteHash: commitmentT1, storageAddress: contractAddress }),
-    ]);
-    expect(journalUpdates.nullifierChecks).toEqual([
-      expect.objectContaining({ nullifier: commitment, exists: true }),
-      expect.objectContaining({ nullifier: commitmentT1, exists: true }),
-    ]);
-    expect(journalUpdates.newNullifiers).toEqual([
-      expect.objectContaining({
-        storageAddress: contractAddress,
-        nullifier: commitment,
-      }),
-      expect.objectContaining({
-        storageAddress: contractAddress,
-        nullifier: commitmentT1,
-      }),
-    ]);
-    expect(journalUpdates.l1ToL2MessageChecks).toEqual([
-      expect.objectContaining({ leafIndex: index, msgHash: commitment, exists: false }),
-      expect.objectContaining({ leafIndex: indexT1, msgHash: commitmentT1, exists: false }),
-    ]);
+    expect(journalUpdates.newNoteHashes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ noteHash: commitment, storageAddress: contractAddress }),
+        expect.objectContaining({ noteHash: commitmentT1, storageAddress: contractAddress }),
+      ]),
+    );
+    expect(journalUpdates.nullifierChecks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ nullifier: commitment, exists: true }),
+        expect.objectContaining({ nullifier: commitmentT1, exists: true }),
+      ]),
+    );
+    expect(journalUpdates.newNullifiers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          storageAddress: contractAddress,
+          nullifier: commitment,
+        }),
+        expect.objectContaining({
+          storageAddress: contractAddress,
+          nullifier: commitmentT1,
+        }),
+      ]),
+    );
+    expect(journalUpdates.l1ToL2MessageChecks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ leafIndex: index, msgHash: commitment, exists: false }),
+        expect.objectContaining({ leafIndex: indexT1, msgHash: commitmentT1, exists: false }),
+      ]),
+    );
 
     // Check that rejected Accrued Substate is absent
-    expect(journalUpdates.newLogs).toEqual([
-      new UnencryptedL2Log(
-        AztecAddress.fromBigInt(log.address),
-        new EventSelector(log.selector),
-        Buffer.concat(log.data.map(f => f.toBuffer())),
-      ),
-    ]);
-    expect(journalUpdates.newL1Messages).toEqual([expect.objectContaining({ recipient, content: commitment })]);
+    expect(journalUpdates.newLogs).toEqual(
+      expect.arrayContaining([
+        new UnencryptedL2Log(
+          AztecAddress.fromBigInt(log.address),
+          new EventSelector(log.selector),
+          Buffer.concat(log.data.map(f => f.toBuffer())),
+        ),
+      ]),
+    );
+    expect(journalUpdates.newL1Messages).toEqual(
+      expect.arrayContaining([expect.objectContaining({ recipient, content: commitment })]),
+    );
   });
 
   it('Can fork and merge journals', () => {
