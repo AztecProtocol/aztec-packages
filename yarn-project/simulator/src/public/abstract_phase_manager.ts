@@ -23,6 +23,7 @@ import {
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
@@ -50,7 +51,6 @@ import {
   VerificationKeyData,
   makeEmptyProof,
   makeEmptyRecursiveProof,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
@@ -419,7 +419,11 @@ export abstract class AbstractPhaseManager {
       startSideEffectCounter: result.startSideEffectCounter,
       endSideEffectCounter: result.endSideEffectCounter,
       returnsHash: computeVarArgsHash(result.returnValues),
-      noteHashReadRequests: padArrayEnd(result.noteHashReadRequests, ReadRequest.empty(), MAX_NOTE_HASH_READ_REQUESTS_PER_CALL),
+      noteHashReadRequests: padArrayEnd(
+        result.noteHashReadRequests,
+        ReadRequest.empty(),
+        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+      ),
       nullifierReadRequests: padArrayEnd(
         result.nullifierReadRequests,
         ReadRequest.empty(),
