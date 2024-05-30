@@ -14,7 +14,7 @@ import { contractArtifactFromBuffer, contractArtifactToBuffer } from '@aztec/typ
 import { type ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
 import { DeferredNoteDao } from './deferred_note_dao.js';
-import { NoteDao } from './note_dao.js';
+import { IncomingNoteDao } from './incoming_note_dao.js';
 import { type PxeDatabase } from './pxe_database.js';
 
 /**
@@ -135,11 +135,11 @@ export class KVPxeDatabase implements PxeDatabase {
     return val?.map(b => Fr.fromBuffer(b));
   }
 
-  async addNote(note: NoteDao): Promise<void> {
+  async addNote(note: IncomingNoteDao): Promise<void> {
     await this.addNotes([note]);
   }
 
-  addNotes(notes: NoteDao[]): Promise<void> {
+  addNotes(notes: IncomingNoteDao[]): Promise<void> {
     return this.db.transaction(() => {
       for (const dao of notes) {
         // store notes by their index in the notes hash tree
@@ -207,7 +207,7 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  #getNotes(filter: NoteFilter): NoteDao[] {
+  #getNotes(filter: NoteFilter): IncomingNoteDao[] {
     const publicKey: PublicKey | undefined = filter.owner
       ? this.#getCompleteAddress(filter.owner)?.publicKeys.masterIncomingViewingPublicKey
       : undefined;
@@ -244,7 +244,7 @@ export class KVPxeDatabase implements PxeDatabase {
       });
     }
 
-    const result: NoteDao[] = [];
+    const result: IncomingNoteDao[] = [];
     for (const { ids, notes } of candidateNoteSources) {
       for (const id of ids) {
         const serializedNote = notes.get(id);
@@ -252,7 +252,7 @@ export class KVPxeDatabase implements PxeDatabase {
           continue;
         }
 
-        const note = NoteDao.fromBuffer(serializedNote);
+        const note = IncomingNoteDao.fromBuffer(serializedNote);
         if (filter.contractAddress && !note.contractAddress.equals(filter.contractAddress)) {
           continue;
         }
@@ -276,17 +276,17 @@ export class KVPxeDatabase implements PxeDatabase {
     return result;
   }
 
-  getNotes(filter: NoteFilter): Promise<NoteDao[]> {
+  getNotes(filter: NoteFilter): Promise<IncomingNoteDao[]> {
     return Promise.resolve(this.#getNotes(filter));
   }
 
-  removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<NoteDao[]> {
+  removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<IncomingNoteDao[]> {
     if (nullifiers.length === 0) {
       return Promise.resolve([]);
     }
 
     return this.#db.transaction(() => {
-      const nullifiedNotes: NoteDao[] = [];
+      const nullifiedNotes: IncomingNoteDao[] = [];
 
       for (const nullifier of nullifiers) {
         const noteIndex = this.#nullifierToNoteId.get(nullifier.toString());
@@ -301,7 +301,7 @@ export class KVPxeDatabase implements PxeDatabase {
           continue;
         }
 
-        const note = NoteDao.fromBuffer(noteBuffer);
+        const note = IncomingNoteDao.fromBuffer(noteBuffer);
         if (!note.publicKey.equals(account)) {
           // tried to nullify someone else's note
           continue;

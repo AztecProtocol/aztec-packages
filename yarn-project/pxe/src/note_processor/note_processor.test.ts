@@ -1,6 +1,7 @@
 import { type AztecNode, EncryptedL2NoteLog, L2Block, TaggedNote } from '@aztec/circuit-types';
 import {
   AztecAddress,
+  CompleteAddress,
   Fr,
   type GrumpkinPrivateKey,
   INITIAL_L2_BLOCK_NUM,
@@ -19,9 +20,9 @@ import { type AcirSimulator } from '@aztec/simulator';
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
-import { type NoteDao } from '../database/note_dao.js';
 import { NoteProcessor } from './note_processor.js';
 
 const TXS_PER_BLOCK = 4;
@@ -81,6 +82,7 @@ describe('Note Processor', () => {
   let ownerIvskM: GrumpkinPrivateKey;
   let ownerIvpkM: PublicKey;
   let ownerOvKeys: KeyValidationRequest;
+  let account: AztecAddress;
 
   function mockBlocks(requests: MockNoteRequest[]) {
     const blocks = [];
@@ -120,6 +122,8 @@ describe('Note Processor', () => {
     const ownerSk = Fr.random();
     const allOwnerKeys = deriveKeys(ownerSk);
     const app = AztecAddress.random();
+    const partialAddress = Fr.random();
+    account = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, partialAddress).address;
 
     ownerIvskM = allOwnerKeys.masterIncomingViewingSecretKey;
     ownerIvpkM = allOwnerKeys.publicKeys.masterIncomingViewingPublicKey;
@@ -129,7 +133,7 @@ describe('Note Processor', () => {
     );
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     database = new KVPxeDatabase(openTmpStore());
     addNotesSpy = jest.spyOn(database, 'addNotes');
 
@@ -137,7 +141,7 @@ describe('Note Processor', () => {
     keyStore = mock<KeyStore>();
     simulator = mock<AcirSimulator>();
     keyStore.getMasterSecretKey.mockResolvedValue(ownerIvskM);
-    noteProcessor = new NoteProcessor(ownerIvpkM, keyStore, database, aztecNode, INITIAL_L2_BLOCK_NUM, simulator);
+    noteProcessor = await NoteProcessor.create(account, keyStore, database, aztecNode, INITIAL_L2_BLOCK_NUM, simulator);
 
     simulator.computeNoteHashAndNullifier.mockImplementation((...args) =>
       Promise.resolve({
@@ -236,7 +240,7 @@ describe('Note Processor', () => {
     const encryptedLogs = blocks.flatMap(block => block.body.noteEncryptedLogs);
     await noteProcessor.process(blocks, encryptedLogs);
 
-    const addedNoteDaos: NoteDao[] = addNotesSpy.mock.calls[0][0];
+    const addedNoteDaos: IncomingNoteDao[] = addNotesSpy.mock.calls[0][0];
     expect(addedNoteDaos.map(dao => dao)).toEqual([
       expect.objectContaining({ ...requests[0].note.notePayload }),
       expect.objectContaining({ ...requests[1].note.notePayload }),
@@ -272,8 +276,8 @@ describe('Note Processor', () => {
     const encryptedLogs = blocks.flatMap(block => block.body.noteEncryptedLogs);
     await noteProcessor.process(blocks, encryptedLogs);
 
-    const newNoteProcessor = new NoteProcessor(
-      ownerIvpkM,
+    const newNoteProcessor = await NoteProcessor.create(
+      account,
       keyStore,
       database,
       aztecNode,

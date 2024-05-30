@@ -1,11 +1,12 @@
 import { type L1NotePayload, type TxHash } from '@aztec/circuit-types';
 import { Fr, type PublicKey } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
-import { ContractNotFoundError, type AcirSimulator } from '@aztec/simulator';
+import { type Logger } from '@aztec/foundation/log';
+import { type AcirSimulator, ContractNotFoundError } from '@aztec/simulator';
 
-import { NoteDao } from '../database/note_dao.js';
-import { Logger } from '@aztec/foundation/log';
 import { DeferredNoteDao } from '../database/deferred_note_dao.js';
+import { IncomingNoteDao } from '../database/incoming_note_dao.js';
+import { OutgoingNoteDao } from '../database/outgoing_note_dao.js';
 
 /**
  * Decodes a note from a transaction that we know was intended for us.
@@ -21,7 +22,7 @@ import { DeferredNoteDao } from '../database/deferred_note_dao.js';
  * @param dataStartIndexForTx - The next available leaf index for the note hash tree for this transaction.
  * @param excludedIndices - Indices that have been assigned a note in the same tx. Notes in a tx can have the same l1NotePayload, we need to find a different index for each replicate.
  * @param simulator - An instance of AcirSimulator.
- * @returns an instance of NoteDao, or throws. inserts the index of the note into the excludedIndices set.
+ * @returns An object containing the incoming note, outgoing note, and deferred note.
  */
 export async function produceNoteDaos(
   simulator: AcirSimulator,
@@ -33,29 +34,46 @@ export async function produceNoteDaos(
   dataStartIndexForTx: number,
   excludedIndices: Set<number>,
   log: Logger,
-) {
+): Promise<{
+  incomingNote: IncomingNoteDao | undefined;
+  outgoingNote: OutgoingNoteDao | undefined;
+  incomingDeferredNote: DeferredNoteDao | undefined;
+}> {
   if (!ivpkM && !ovpkM) {
     throw new Error('Both ivpkM and ovpkM are undefined. Cannot create note.');
   }
 
-  let incomingNoteDao: NoteDao | undefined;
-  let outgoingNoteDao: NoteDao | undefined;
+  let incomingNote: IncomingNoteDao | undefined;
+  let outgoingNote: OutgoingNoteDao | undefined;
 
-  let incomingDeferredNoteDao: DeferredNoteDao | undefined;
-  let outgoingDeferredNoteDao: DeferredNoteDao | undefined;
+  // Note that there are no deferred outgoing notes because we don't need the contract there for anything since we
+  // are not attempting to derive a nullifier.
+  let incomingDeferredNote: DeferredNoteDao | undefined;
+
+  if (ovpkM) {
+    outgoingNote = new OutgoingNoteDao(
+      payload.note,
+      payload.contractAddress,
+      payload.storageSlot,
+      payload.noteTypeId,
+      txHash,
+      ovpkM,
+    );
+  }
 
   try {
-    const { commitmentIndex, nonce, innerNoteHash, siloedNullifier } = await findNoteIndexAndNullifier(
-      simulator,
-      newNoteHashes,
-      txHash,
-      payload,
-      excludedIndices,
-    );
-    const index = BigInt(dataStartIndexForTx + commitmentIndex);
-    excludedIndices?.add(commitmentIndex);
     if (ivpkM) {
-      incomingNoteDao = new NoteDao(
+      const { commitmentIndex, nonce, innerNoteHash, siloedNullifier } = await findNoteIndexAndNullifier(
+        simulator,
+        newNoteHashes,
+        txHash,
+        payload,
+        excludedIndices,
+      );
+      const index = BigInt(dataStartIndexForTx + commitmentIndex);
+      excludedIndices?.add(commitmentIndex);
+
+      incomingNote = new IncomingNoteDao(
         payload.note,
         payload.contractAddress,
         payload.storageSlot,
@@ -68,39 +86,13 @@ export async function produceNoteDaos(
         ivpkM,
       );
     }
-    if (ovpkM) {
-      outgoingNoteDao = new NoteDao(
-        payload.note,
-        payload.contractAddress,
-        payload.storageSlot,
-        payload.noteTypeId,
-        txHash,
-        nonce,
-        innerNoteHash,
-        siloedNullifier,
-        index,
-        ovpkM,
-      );
-    }
   } catch (e) {
     if (e instanceof ContractNotFoundError) {
       log.warn(e.message);
 
       if (ivpkM) {
-        incomingDeferredNoteDao = new DeferredNoteDao(
+        incomingDeferredNote = new DeferredNoteDao(
           ivpkM,
-          payload.note,
-          payload.contractAddress,
-          payload.storageSlot,
-          payload.noteTypeId,
-          txHash,
-          newNoteHashes,
-          dataStartIndexForTx,
-        );
-      }
-      if (ovpkM) {
-        outgoingDeferredNoteDao = new DeferredNoteDao(
-          ovpkM,
           payload.note,
           payload.contractAddress,
           payload.storageSlot,
@@ -116,10 +108,9 @@ export async function produceNoteDaos(
   }
 
   return {
-    incomingNoteDao,
-    outgoingNoteDao,
-    incomingDeferredNoteDao,
-    outgoingDeferredNoteDao,
+    incomingNote,
+    outgoingNote,
+    incomingDeferredNote,
   };
 }
 
