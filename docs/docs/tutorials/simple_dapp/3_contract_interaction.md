@@ -126,4 +126,4 @@ Balance of 0x0e1f60e8566e2c6d32378bdcadb7c63696e853281be798c107266b8c3a88ea9b: 0
 
 ## Next steps
 
-In the next and final section, we'll [set up automated tests for our application](./testing.md).
+In the next and final section, we'll [set up automated tests for our application](./4_testing.md).

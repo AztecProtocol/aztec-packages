@@ -48,4 +48,4 @@ User accounts:
 
 ## Next steps
 
-With a working connection to PXE, let's now setup our application by [compiling and deploying our contracts](./contract_deployment.md).
+With a working connection to PXE, let's now setup our application by [compiling and deploying our contracts](./2_contract_deployment.md).

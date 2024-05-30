@@ -85,4 +85,4 @@ Token deployed to 0x2950b0f290422ff86b8ee8b91af4417e1464ddfd9dda26de8af52dac9ea4
 
 ## Next steps
 
-Now that we have our contracts set up, it's time to actually [start writing our application that will be interacting with them](./contract_interaction.md).
+Now that we have our contracts set up, it's time to actually [start writing our application that will be interacting with them](./3_contract_interaction.md).
