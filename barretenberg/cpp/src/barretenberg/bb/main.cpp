@@ -161,8 +161,12 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, aci
     using Verifier = UltraVerifier_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
 
+    bool honk_recursion = false;
+    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+        honk_recursion = true;
+    }
     // Construct a bberg circuit from the acir representation
-    auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness);
+    auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness, honk_recursion);
 
     auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
     size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
@@ -188,8 +192,12 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, aci
  */
 template <IsUltraFlavor Flavor> bool proveAndVerifyHonk(const std::string& bytecodePath, const std::string& witnessPath)
 {
+    bool honk_recursion = false;
+    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+        honk_recursion = true;
+    }
     // Populate the acir constraint system and witness from gzipped data
-    auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/true);
+    auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
     auto witness = get_witness(witnessPath);
 
     return proveAndVerifyHonkAcirFormat<Flavor>(constraint_system, witness);
@@ -578,7 +586,11 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
 
-    auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/true);
+    bool honk_recursion = false;
+    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+        honk_recursion = true;
+    }
+    auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
     auto witness = get_witness(witnessPath);
 
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness);
@@ -651,7 +663,11 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
 
-    auto constraint_system = get_constraint_system(bytecodePath, /*honk_recursion=*/true);
+    bool honk_recursion = false;
+    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+        honk_recursion = true;
+    }
+    auto constraint_system = get_constraint_system(bytecodePath, honk_recursion =);
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, {});
 
     auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();

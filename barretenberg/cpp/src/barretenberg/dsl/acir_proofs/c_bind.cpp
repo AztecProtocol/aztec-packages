@@ -18,7 +18,7 @@ WASM_EXPORT void acir_get_circuit_sizes(
 {
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), *honk_recursion);
-    auto builder = acir_format::create_circuit(constraint_system, 1 << 19);
+    auto builder = acir_format::create_circuit(constraint_system, 1 << 19, {}, *honk_recursion);
     *exact = htonl((uint32_t)builder.get_num_gates());
     *total = htonl((uint32_t)builder.get_total_circuit_size());
     *subgroup = htonl((uint32_t)builder.get_circuit_subgroup_size(builder.get_total_circuit_size()));
@@ -67,7 +67,8 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
-    auto builder = acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, witness);
+    auto builder =
+        acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, witness, /*honk_recursion=*/true);
 
     UltraProver prover{ builder };
     auto proof = prover.construct_proof();
@@ -97,7 +98,7 @@ WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec, uin
 
         // Construct a bberg circuit from the acir representation
         auto builder = acir_format::create_circuit<Builder>(
-            stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
+            stack_item.constraints, 0, stack_item.witness, /*honk_recursion=*/false, ivc.goblin.op_queue);
 
         ivc.accumulate(builder);
 
@@ -112,7 +113,8 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec, uint8_
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/false);
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
-    auto builder = acir_format::create_circuit<MegaCircuitBuilder>(constraint_system, 0, witness);
+    auto builder =
+        acir_format::create_circuit<MegaCircuitBuilder>(constraint_system, 0, witness, /*honk_recursion=*/false);
 
     MegaProver prover{ builder };
     auto proof = prover.construct_proof();
@@ -201,7 +203,8 @@ WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* w
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
-    auto builder = acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, witness);
+    auto builder =
+        acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, witness, /*honk_recursion=*/true);
 
     UltraProver prover{ builder };
     auto proof = prover.construct_proof();
@@ -230,7 +233,7 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, uint8_t** out
 
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
-    auto builder = acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, {});
+    auto builder = acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, {}, /*honk_recursion=*/true);
 
     ProverInstance prover_inst(builder);
     VerificationKey vk(prover_inst.proving_key);

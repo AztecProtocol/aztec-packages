@@ -16,10 +16,6 @@ WASM_EXPORT void acir_new_acir_composer(uint32_t const* size_hint, out_ptr out);
 
 WASM_EXPORT void acir_delete_acir_composer(in_ptr acir_composer_ptr);
 
-WASM_EXPORT void acir_create_circuit(in_ptr acir_composer_ptr,
-                                     uint8_t const* constraint_system_buf,
-                                     uint32_t const* size_hint);
-
 WASM_EXPORT void acir_init_proving_key(in_ptr acir_composer_ptr, uint8_t const* constraint_system_buf);
 
 /**
