@@ -81,8 +81,7 @@ describe('e2e_non_contract_account', () => {
     // Add the note
     const note = new Note([new Fr(value)]);
 
-    // We have to manually add the note because the note ciphertext is encrypted with zero keys since there
-    // is no account registered.
+    // We have to manually add the note because the note was not broadcasted.
     const extendedNote = new ExtendedNote(
       note,
       wallet.getCompleteAddress().address,
