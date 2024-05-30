@@ -161,8 +161,8 @@ export type L2BlockHandledStats = {
 export type NoteProcessorCaughtUpStats = {
   /** Name of the event. */
   eventName: 'note-processor-caught-up';
-  /** Public key of the note processor. */
-  publicKey: string;
+  /** Account the note processor belongs to. */
+  account: string;
   /** Total time to catch up with the tip of the chain from scratch in ms. */
   duration: number;
   /** Size of the notes db. */

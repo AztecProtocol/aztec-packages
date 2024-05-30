@@ -1,17 +1,16 @@
 import {
+  L1NotePayload,
+  TaggedNote,
   type AztecNode,
   type EncryptedNoteL2BlockL2Logs,
-  L1NotePayload,
   type L2Block,
-  TaggedNote,
 } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
-import { INITIAL_L2_BLOCK_NUM, MAX_NEW_NOTE_HASHES_PER_TX, type PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, INITIAL_L2_BLOCK_NUM, MAX_NEW_NOTE_HASHES_PER_TX, type PublicKey } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
-import { ContractNotFoundError } from '@aztec/simulator';
 
 import { DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
@@ -44,18 +43,36 @@ export class NoteProcessor {
   /** Stats accumulated for this processor. */
   public readonly stats: NoteProcessorStats = { seen: 0, decrypted: 0, deferred: 0, failed: 0, blocks: 0, txs: 0 };
 
-  constructor(
-    /** The public counterpart to the secret key to be used in the decryption of incoming note logs. */
-    public readonly ivpkM: PublicKey,
-    /** The public counterpart to the secret key to be used in the decryption of outgoing note logs. */
-    public readonly ovpkM: PublicKey,
+  private constructor(
+    public readonly account: AztecAddress,
+      /** The public counterpart to the secret key to be used in the decryption of incoming note logs. */
+      private readonly ivpkM: PublicKey,
+      /** The public counterpart to the secret key to be used in the decryption of outgoing note logs. */
+      private readonly ovpkM: PublicKey,
     private keyStore: KeyStore,
     private db: PxeDatabase,
     private node: AztecNode,
     private startingBlock: number = INITIAL_L2_BLOCK_NUM,
     private simulator = getAcirSimulator(db, node, keyStore),
     private log = createDebugLogger('aztec:note_processor'),
-  ) {}
+  ) {
+
+
+  }
+
+  public static async create(account: AztecAddress,
+    keyStore: KeyStore,
+    db: PxeDatabase,
+    node: AztecNode,
+    startingBlock: number = INITIAL_L2_BLOCK_NUM,
+    simulator = getAcirSimulator(db, node, keyStore),
+    log = createDebugLogger('aztec:note_processor')
+  ) {
+    const ivpkM = await keyStore.getMasterIncomingViewingPublicKey(account);
+    const ovpkM = await keyStore.getMasterOutgoingViewingPublicKey(account);
+
+    return new NoteProcessor(account, ivpkM, ovpkM, keyStore, db, node, startingBlock, simulator, log);
+  }
 
   /**
    * Check if the NoteProcessor is synchronized with the remote block number.
@@ -265,10 +282,10 @@ export class NoteProcessor {
    */
   public async decodeDeferredNotes(
     deferredNoteDaos: DeferredNoteDao[],
-  ): Promise<{ incomingNoteDaos: NoteDao[]; outgoingNoteDaos: NoteDao[] }> {
+  ): Promise<{ incomingNotes: NoteDao[]; outgoingNotes: NoteDao[] }> {
     const excludedIndices: Set<number> = new Set();
-    const incomingNoteDaos: NoteDao[] = [];
-    const outgoingNoteDaos: NoteDao[] = [];
+    const incomingNotes: NoteDao[] = [];
+    const outgoingNotes: NoteDao[] = [];
 
     for (const deferredNote of deferredNoteDaos) {
       const { publicKey, note, contractAddress, storageSlot, noteTypeId, txHash, newNoteHashes, dataStartIndexForTx } =
@@ -279,7 +296,8 @@ export class NoteProcessor {
       const isOutgoing = publicKey.equals(this.ovpkM);
 
       if (!isIncoming && !isOutgoing) {
-        throw new Error('Public key does not match ivpkM or ovpkM');
+        // The note is not for this account, so we skip it.
+        continue;
       }
 
       const { incomingNoteDao, outgoingNoteDao } = await produceNoteDaos(
@@ -295,15 +313,15 @@ export class NoteProcessor {
       );
 
       if (incomingNoteDao) {
-        incomingNoteDaos.push(incomingNoteDao);
+        incomingNotes.push(incomingNoteDao);
         this.stats.decrypted++;
       }
       if (outgoingNoteDao) {
-        outgoingNoteDaos.push(outgoingNoteDao);
+        outgoingNotes.push(outgoingNoteDao);
         this.stats.decrypted++;
       }
     }
 
-    return { incomingNoteDaos, outgoingNoteDaos };
+    return { incomingNotes, outgoingNotes };
   }
 }

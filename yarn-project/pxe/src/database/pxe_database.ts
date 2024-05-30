@@ -63,9 +63,10 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * This function is used to insert multiple notes to the database at once,
    * which can improve performance when dealing with large numbers of transactions.
    *
-   * @param notes - An array of notes.
+   * @param incomingNotes - An array of notes which were decrypted as incoming.
+   * @param outgoingNotes - An array of notes which were decrypted as outgoing.
    */
-  addNotes(notes: NoteDao[]): Promise<void>;
+  addNotes(incomingNotes: NoteDao[], outgoingNotes: NoteDao[]): Promise<void>;
 
   /**
    * Add notes to the database that are intended for us, but we don't yet have the contract.

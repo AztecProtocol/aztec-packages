@@ -193,7 +193,7 @@ export class Synchronizer {
         }
 
         this.log.debug(
-          `Catching up note processor ${noteProcessor.ivpkM.toString()} by processing ${
+          `Catching up note processor ${noteProcessor.account.toString()} by processing ${
             blocks.length - index
           } blocks`,
         );
@@ -201,19 +201,16 @@ export class Synchronizer {
 
         if (noteProcessor.status.syncedToBlock === toBlockNumber) {
           // Note processor caught up, move it to `noteProcessors` from `noteProcessorsToCatchUp`.
-          this.log.debug(
-            `Note processor for ${noteProcessor.ivpkM.toString()} has caught up`,
-            {
-              eventName: 'note-processor-caught-up',
-              publicKey: noteProcessor.ivpkM.toString(),
-              duration: noteProcessor.timer.ms(),
-              dbSize: this.db.estimateSize(),
-              ...noteProcessor.stats,
-            } satisfies NoteProcessorCaughtUpStats,
-          );
+          this.log.debug(`Note processor for ${noteProcessor.account.toString()} has caught up`, {
+            eventName: 'note-processor-caught-up',
+            account: noteProcessor.account.toString(),
+            duration: noteProcessor.timer.ms(),
+            dbSize: this.db.estimateSize(),
+            ...noteProcessor.stats,
+          } satisfies NoteProcessorCaughtUpStats);
 
           this.noteProcessorsToCatchUp = this.noteProcessorsToCatchUp.filter(
-            np => !np.ivpkM.equals(noteProcessor.ivpkM),
+            np => !np.account.equals(noteProcessor.account),
           );
           this.noteProcessors.push(noteProcessor);
         }
@@ -257,14 +254,14 @@ export class Synchronizer {
    * @param startingBlock - The block where to start scanning for notes for this accounts.
    * @returns A promise that resolves once the account is added to the Synchronizer.
    */
-  public addAccount(publicKey: PublicKey, keyStore: KeyStore, startingBlock: number) {
-    const predicate = (x: NoteProcessor) => x.ivpkM.equals(publicKey);
+  public addAccount(account: AztecAddress, keyStore: KeyStore, startingBlock: number) {
+    const predicate = (x: NoteProcessor) => x.account.equals(account);
     const processor = this.noteProcessors.find(predicate) ?? this.noteProcessorsToCatchUp.find(predicate);
     if (processor) {
       return;
     }
 
-    this.noteProcessorsToCatchUp.push(new NoteProcessor(publicKey, keyStore, this.db, this.node, startingBlock));
+    this.noteProcessorsToCatchUp.push(await NoteProcessor.create(account, keyStore, this.db, this.node, startingBlock));
   }
 
   /**
@@ -314,9 +311,7 @@ export class Synchronizer {
     const lastBlockNumber = this.getSynchedBlockNumber();
     return {
       blocks: lastBlockNumber,
-      notes: Object.fromEntries(
-        this.noteProcessors.map(n => [n.ivpkM.toString(), n.status.syncedToBlock]),
-      ),
+      notes: Object.fromEntries(this.noteProcessors.map(n => [n.ivpkM.toString(), n.status.syncedToBlock])),
     };
   }
 
@@ -348,23 +343,23 @@ export class Synchronizer {
     }
 
     // keep track of decoded notes
-    const newNotes: NoteDao[] = [];
+    const incomingNotes: NoteDao[] = [];
+    const outgoingNotes: NoteDao[] = [];
     // now process each txHash
     for (const deferredNotes of txHashToDeferredNotes.values()) {
       // to be safe, try each note processor in case the deferred notes are for different accounts.
       for (const processor of this.noteProcessors) {
-        const decodedNotes = await processor.decodeDeferredNotes(
-          deferredNotes.filter(n => n.publicKey.equals(processor.ivpkM)),
-        );
-        newNotes.push(...decodedNotes);
+        const notes = await processor.decodeDeferredNotes(deferredNotes);
+        incomingNotes.push(...notes.incomingNotes);
+        outgoingNotes.push(...notes.outgoingNotes);
       }
     }
 
     // now drop the deferred notes, and add the decoded notes
     await this.db.removeDeferredNotesByContract(contractAddress);
-    await this.db.addNotes(newNotes);
+    await this.db.addNotes(incomingNotes, outgoingNotes);
 
-    newNotes.forEach(noteDao => {
+    [...incomingNotes, ...outgoingNotes].forEach(noteDao => {
       this.log.debug(
         `Decoded deferred note for contract ${noteDao.contractAddress} at slot ${
           noteDao.storageSlot
