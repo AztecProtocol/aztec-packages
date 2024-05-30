@@ -23,6 +23,7 @@ import {
   type BaseRollupInputs,
   Fr,
   type GlobalVariables,
+  type Header,
   type KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -90,6 +91,7 @@ export class ProvingOrchestrator {
   private provingState: ProvingState | undefined = undefined;
   private pendingProvingJobs: AbortController[] = [];
   private paddingTx: ProcessedTx | undefined = undefined;
+  private initialHeader: Header | undefined = undefined;
 
   constructor(private db: MerkleTreeOperations, private prover: ServerCircuitProver) {}
 
@@ -107,6 +109,11 @@ export class ProvingOrchestrator {
     l1ToL2Messages: Fr[],
     verificationKeys: VerificationKeys,
   ): Promise<ProvingTicket> {
+    // Create initial header if not done so yet
+    if (!this.initialHeader) {
+      this.initialHeader = await this.db.buildInitialHeader();
+    }
+
     // Check that the length of the array of txs is a power of two
     // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
     if (!Number.isInteger(numTxs) || numTxs < 2 || (numTxs & (numTxs - 1)) !== 0) {
@@ -213,13 +220,14 @@ export class ProvingOrchestrator {
 
     logger.debug(`Padding rollup with ${paddingTxCount} empty transactions`);
     if (!this.paddingTx) {
+      logger.debug(`Generating padding transaction`);
       const emptyKernel = await this.prover.getEmptyPrivateKernelProof({
         // Chain id and version should not change even if the proving state does, so it's safe to use them for the padding tx
         // which gets cached across multiple runs of the orchestrator with different proving states. If they were to change,
         // we'd have to clear out the paddingTx here and regenerate it when they do.
         chainId: this.provingState.globalVariables.chainId,
         version: this.provingState.globalVariables.version,
-        header: await this.db.buildInitialHeader(),
+        header: this.initialHeader ?? (await this.db.buildInitialHeader()),
       });
       this.paddingTx = makePaddingProcessedTx(emptyKernel);
     }
