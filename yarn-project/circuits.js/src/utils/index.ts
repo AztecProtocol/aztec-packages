@@ -56,12 +56,26 @@ export function compareByCounter<T extends Ordered>(a: T, b: T): number {
   return a.counter - b.counter;
 }
 
+export function sortByCounter<T extends Ordered & IsEmpty, N extends number>(
+  arr: Tuple<T, N>,
+  ascending: boolean = true,
+): Tuple<T, N> {
+  return genericSort(arr, compareByCounter, ascending);
+}
+
 export function compareByPositionThenCounter<T extends Ordered & Positioned>(a: T, b: T): number {
   const positionComp = a.position.cmp(b.position);
   if (positionComp !== 0) {
     return positionComp;
   }
   return a.counter - b.counter;
+}
+
+export function sortByPositionThenCounter<T extends Ordered & Positioned & IsEmpty, N extends number>(
+  arr: Tuple<T, N>,
+  ascending: boolean = true,
+): Tuple<T, N> {
+  return genericSort(arr, compareByPositionThenCounter, ascending);
 }
 
 export function sortAndGetSortedHints<T extends IsEmpty, N extends number>(
@@ -105,7 +119,13 @@ export function sortByPositionThenCounterGetSortedHints<T extends Ordered & Posi
   return sortAndGetSortedHints(arr, compareByPositionThenCounter, length, ascending);
 }
 
-export function deduplicateArray<T extends Ordered & IsEmpty & Positioned, N extends number>(
+/**
+ * @param arr An array sorted on position then counter.
+ * @param length for type inference.
+ * @param getEmptyItem helper function to get an empty item.
+ * @returns the array deduplicated by position, and the original run lengths of each position.
+ */
+export function deduplicateSortedArray<T extends Ordered & IsEmpty & Positioned, N extends number>(
   arr: Tuple<T, N>,
   length: N = arr.length as N,
   getEmptyItem: () => T,
