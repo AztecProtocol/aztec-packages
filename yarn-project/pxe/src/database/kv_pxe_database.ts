@@ -15,8 +15,8 @@ import { type ContractInstanceWithAddress, SerializableContractInstance } from '
 
 import { DeferredNoteDao } from './deferred_note_dao.js';
 import { IncomingNoteDao } from './incoming_note_dao.js';
-import { type PxeDatabase } from './pxe_database.js';
 import { type OutgoingNoteDao } from './outgoing_note_dao.js';
+import { type PxeDatabase } from './pxe_database.js';
 
 /**
  * A PXE database backed by LMDB.

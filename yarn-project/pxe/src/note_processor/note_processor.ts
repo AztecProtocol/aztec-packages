@@ -16,6 +16,7 @@ import { type Fr } from '@aztec/foundation/fields';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
+import { type AcirSimulator } from '@aztec/simulator';
 
 import { type DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
@@ -23,7 +24,6 @@ import { type PxeDatabase } from '../database/index.js';
 import { type OutgoingNoteDao } from '../database/outgoing_note_dao.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { produceNoteDaos } from './produce_note_dao.js';
-import { type AcirSimulator } from '@aztec/simulator';
 
 /**
  * Contains all the decrypted data in this array so that we can later batch insert it all into the database.
@@ -157,7 +157,11 @@ export class NoteProcessor {
             const outgoingTaggedNote = TaggedNote.decryptAsOutgoing(log.data, ovskM)!;
 
             if (incomingTaggedNote || outgoingTaggedNote) {
-              if (incomingTaggedNote && outgoingTaggedNote && !incomingTaggedNote.notePayload.equals(outgoingTaggedNote.notePayload)) {
+              if (
+                incomingTaggedNote &&
+                outgoingTaggedNote &&
+                !incomingTaggedNote.notePayload.equals(outgoingTaggedNote.notePayload)
+              ) {
                 throw new Error('Incoming and outgoing note payloads do not match.');
               }
 

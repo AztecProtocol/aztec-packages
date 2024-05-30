@@ -82,7 +82,7 @@ describe('Note Processor', () => {
   let ownerIvskM: GrumpkinPrivateKey;
   let ownerIvpkM: PublicKey;
   let ownerOvKeys: KeyValidationRequest;
-  let account: AztecAddress;
+  let account: CompleteAddress;
 
   function mockBlocks(requests: MockNoteRequest[]) {
     const blocks = [];
@@ -123,7 +123,7 @@ describe('Note Processor', () => {
     const allOwnerKeys = deriveKeys(ownerSk);
     const app = AztecAddress.random();
     const partialAddress = Fr.random();
-    account = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, partialAddress).address;
+    account = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, partialAddress);
 
     ownerIvskM = allOwnerKeys.masterIncomingViewingSecretKey;
     ownerIvpkM = allOwnerKeys.publicKeys.masterIncomingViewingPublicKey;
@@ -140,8 +140,19 @@ describe('Note Processor', () => {
     aztecNode = mock<AztecNode>();
     keyStore = mock<KeyStore>();
     simulator = mock<AcirSimulator>();
+
     keyStore.getMasterSecretKey.mockResolvedValue(ownerIvskM);
-    noteProcessor = await NoteProcessor.create(account, keyStore, database, aztecNode, INITIAL_L2_BLOCK_NUM, simulator);
+    keyStore.getMasterIncomingViewingPublicKey.mockResolvedValue(account.publicKeys.masterIncomingViewingPublicKey);
+    keyStore.getMasterOutgoingViewingPublicKey.mockResolvedValue(account.publicKeys.masterOutgoingViewingPublicKey);
+
+    noteProcessor = await NoteProcessor.create(
+      account.address,
+      keyStore,
+      database,
+      aztecNode,
+      INITIAL_L2_BLOCK_NUM,
+      simulator,
+    );
 
     simulator.computeNoteHashAndNullifier.mockImplementation((...args) =>
       Promise.resolve({
@@ -277,7 +288,7 @@ describe('Note Processor', () => {
     await noteProcessor.process(blocks, encryptedLogs);
 
     const newNoteProcessor = await NoteProcessor.create(
-      account,
+      account.address,
       keyStore,
       database,
       aztecNode,
