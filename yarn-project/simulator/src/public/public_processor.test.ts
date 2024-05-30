@@ -12,6 +12,7 @@ import {
 import {
   AppendOnlyTreeSnapshot,
   AztecAddress,
+  ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
   Gas,
@@ -24,6 +25,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
   type Proof,
+  PublicAccumulatedDataBuilder,
   PublicCallRequest,
   PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
@@ -848,8 +850,14 @@ describe('public_processor', () => {
       });
 
       // Private kernel tail to public pushes teardown gas allocation into revertible gas used
-      tx.data.forPublic!.end.gasUsed = teardownGas;
-      tx.data.forPublic!.endNonRevertibleData.gasUsed = Gas.empty();
+      tx.data.forPublic!.end = PublicAccumulatedDataBuilder.fromPublicAccumulatedData(tx.data.forPublic!.end)
+        .withGasUsed(teardownGas)
+        .build();
+      tx.data.forPublic!.endNonRevertibleData = PublicAccumulatedDataBuilder.fromPublicAccumulatedData(
+        tx.data.forPublic!.endNonRevertibleData,
+      )
+        .withGasUsed(Gas.empty())
+        .build();
 
       const contractSlotA = fr(0x100);
       const contractSlotB = fr(0x150);
@@ -887,6 +895,7 @@ describe('public_processor', () => {
             new ContractStorageUpdateRequest(contractSlotA, fr(0x101), 10, baseContractAddress),
             new ContractStorageUpdateRequest(contractSlotB, fr(0x151), 11, baseContractAddress),
           ],
+          contractStorageReads: [new ContractStorageRead(contractSlotA, fr(0x100), 19, baseContractAddress)],
         }).build({
           startGasLeft: afterSetupGas,
           endGasLeft: afterAppGas,
@@ -900,17 +909,19 @@ describe('public_processor', () => {
               from: teardown!.contractAddress,
               tx: makeFunctionCall('', baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
-                new ContractStorageUpdateRequest(contractSlotA, fr(0x103), 14, baseContractAddress),
-                new ContractStorageUpdateRequest(contractSlotC, fr(0x201), 15, baseContractAddress),
+                new ContractStorageUpdateRequest(contractSlotA, fr(0x103), 16, baseContractAddress),
+                new ContractStorageUpdateRequest(contractSlotC, fr(0x201), 17, baseContractAddress),
               ],
+              contractStorageReads: [new ContractStorageRead(contractSlotA, fr(0x102), 15, baseContractAddress)],
             }).build({ startGasLeft: teardownGas, endGasLeft: teardownGas, transactionFee }),
             PublicExecutionResultBuilder.fromFunctionCall({
               from: teardown!.contractAddress,
               tx: makeFunctionCall('', baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
-                new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 12, baseContractAddress),
-                new ContractStorageUpdateRequest(contractSlotB, fr(0x152), 13, baseContractAddress),
+                new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 13, baseContractAddress),
+                new ContractStorageUpdateRequest(contractSlotB, fr(0x152), 14, baseContractAddress),
               ],
+              contractStorageReads: [new ContractStorageRead(contractSlotA, fr(0x101), 12, baseContractAddress)],
             }).build({ startGasLeft: teardownGas, endGasLeft: teardownGas, transactionFee }),
           ],
         }).build({
@@ -932,6 +943,7 @@ describe('public_processor', () => {
       const setupSpy = jest.spyOn(publicKernel, 'publicKernelCircuitSetup');
       const appLogicSpy = jest.spyOn(publicKernel, 'publicKernelCircuitAppLogic');
       const teardownSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTeardown');
+      const tailSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTail');
 
       const [processed, failed] = await processor.process([tx], 1, prover);
 
@@ -942,6 +954,7 @@ describe('public_processor', () => {
       expect(setupSpy).toHaveBeenCalledTimes(1);
       expect(appLogicSpy).toHaveBeenCalledTimes(1);
       expect(teardownSpy).toHaveBeenCalledTimes(3);
+      expect(tailSpy).toHaveBeenCalledTimes(1);
 
       const expectedSimulateCall = (availableGas: Partial<FieldsOf<Gas>>, txFee: number) => [
         expect.anything(), // PublicExecution
