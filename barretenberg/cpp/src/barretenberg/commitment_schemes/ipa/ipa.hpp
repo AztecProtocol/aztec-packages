@@ -82,7 +82,6 @@ template <typename Curve_> class IPA {
    using Polynomial = bb::Polynomial<Fr>;
    using VerifierAccumulator = bool;
 
-
 // These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of IPA specifically
 #ifdef IPA_TEST
    FRIEND_TEST(IPATest, ChallengesAreZero);
@@ -472,11 +471,13 @@ template <typename Curve_> class IPA {
      * @details  batch_mul is used instead of pippenger as pippenger is not implemented to be used in stdlib context for
      * now and under the hood we perform bigfield to cycle_scalar conversions for the batch_mul. That is because
      * cycle_scalar has very reduced functionality at the moment and doesn't support basic arithmetic operations between
-     * two cycle_scalar operands (just for one cycle_group and one cycle_scalar to enable batch_mul)
+     * two cycle_scalar operands (just for one cycle_group and one cycle_scalar to enable batch_mul).
      * @param vk
      * @param opening_claim
      * @param transcript
      * @return VerifierAccumulator
+     * @todo (https://github.com/AztecProtocol/barretenberg/issues/1018): simulator should use the native verify
+     * function with parallelisation
      */
     static VerifierAccumulator reduce_verify_internal(const std::shared_ptr<VK>& vk,
                                                       const OpeningClaim<Curve>& opening_claim,
@@ -562,6 +563,8 @@ template <typename Curve_> class IPA {
 
         // Step 8.
         // Compute G₀
+        // Unlike the native verification function, the verifier commitment key only containts the SRS so we can apply
+        // batch_mul directly on it.
         Commitment G_zero = Commitment::batch_mul(srs_elements, s_vec);
 
         // Step 9.

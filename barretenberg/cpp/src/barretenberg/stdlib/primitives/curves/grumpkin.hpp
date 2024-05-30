@@ -17,9 +17,6 @@ template <typename CircuitBuilder> struct grumpkin {
 
     using Builder = CircuitBuilder;
 
-    using NativeCurve = curve::Grumpkin;
-    using GroupNative = curve::Grumpkin::Group;
-
     // Stdlib types corresponding to those defined in the native description of the curve.
     // Note: its useful to have these type names match the native analog exactly so that components that digest a
     // Curve (e.g. the PCS) can be agnostic as to whether they're operating on native or stdlib types.
@@ -28,6 +25,7 @@ template <typename CircuitBuilder> struct grumpkin {
     using Group = cycle_group<Builder>;
     using AffineElement = Group;
     using Element = Group;
+
     // Additional types with no analog in the native description of the curve
     using witness_ct = witness_t<CircuitBuilder>;
     using public_witness_ct = public_witness_t<CircuitBuilder>;
