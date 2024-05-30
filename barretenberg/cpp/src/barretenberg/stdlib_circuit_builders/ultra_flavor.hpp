@@ -453,6 +453,8 @@ class UltraFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = proving_key.num_public_inputs;
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
+            this->contains_recursive_proof = proving_key.contains_recursive_proof;
+            this->recursive_proof_public_input_indices = proving_key.recursive_proof_public_input_indices;
 
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
                 commitment = proving_key.commitment_key->commit(polynomial);
@@ -462,6 +464,8 @@ class UltraFlavor {
         VerificationKey(const uint64_t circuit_size,
                         const uint64_t num_public_inputs,
                         const uint64_t pub_inputs_offset,
+                        const bool contains_recursive_proof,
+                        const std::vector<uint32_t>& recursive_proof_public_input_indices,
                         const Commitment& q_m,
                         const Commitment& q_c,
                         const Commitment& q_l,
@@ -492,6 +496,8 @@ class UltraFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = num_public_inputs;
             this->pub_inputs_offset = pub_inputs_offset;
+            this->contains_recursive_proof = contains_recursive_proof;
+            this->recursive_proof_public_input_indices = recursive_proof_public_input_indices;
             this->q_m = q_m;
             this->q_c = q_c;
             this->q_l = q_l;
@@ -521,6 +527,8 @@ class UltraFlavor {
         MSGPACK_FIELDS(circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
+                       contains_recursive_proof,
+                       recursive_proof_public_input_indices,
                        q_m,
                        q_c,
                        q_l,
@@ -557,13 +565,23 @@ class UltraFlavor {
             std::vector<FF> elements;
             std::vector<FF> circuit_size_elements = bb::field_conversion::convert_to_bn254_frs(this->circuit_size);
             elements.insert(elements.end(), circuit_size_elements.begin(), circuit_size_elements.end());
-            // do the same for the rest of the fields
+            // Do the same for the rest of the fields
             std::vector<FF> num_public_inputs_elements =
                 bb::field_conversion::convert_to_bn254_frs(this->num_public_inputs);
             elements.insert(elements.end(), num_public_inputs_elements.begin(), num_public_inputs_elements.end());
             std::vector<FF> pub_inputs_offset_elements =
                 bb::field_conversion::convert_to_bn254_frs(this->pub_inputs_offset);
             elements.insert(elements.end(), pub_inputs_offset_elements.begin(), pub_inputs_offset_elements.end());
+            std::vector<FF> contains_recursive_proof_elements =
+                bb::field_conversion::convert_to_bn254_frs(this->contains_recursive_proof);
+            elements.insert(
+                elements.end(), contains_recursive_proof_elements.begin(), contains_recursive_proof_elements.end());
+
+            std::vector<FF> recursive_proof_public_input_indices_elements =
+                bb::field_conversion::convert_to_bn254_frs(this->recursive_proof_public_input_indices);
+            elements.insert(elements.end(),
+                            recursive_proof_public_input_indices_elements.begin(),
+                            recursive_proof_public_input_indices_elements.end());
 
             for (Commitment& comm : this->get_all()) {
                 std::vector<FF> comm_elements = bb::field_conversion::convert_to_bn254_frs(comm);
