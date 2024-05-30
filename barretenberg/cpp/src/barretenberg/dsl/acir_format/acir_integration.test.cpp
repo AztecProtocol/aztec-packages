@@ -34,7 +34,8 @@ class AcirIntegrationTest : public ::testing::Test {
 
     acir_format::AcirProgramStack get_program_stack_data_from_test_file(const std::string& test_program_name)
     {
-        std::string base_path = "../../acir_tests/acir_tests/" + test_program_name + "/target";
+        std::string base_path =
+            "../../../noir/noir-repo/test_programs/execution_success/" + test_program_name + "/target";
         std::string bytecode_path = base_path + "/program.json";
         std::string witness_path = base_path + "/witness.gz";
 
