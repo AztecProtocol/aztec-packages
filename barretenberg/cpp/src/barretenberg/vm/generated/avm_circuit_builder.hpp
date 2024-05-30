@@ -258,6 +258,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_mem_idx_c{};
     FF avm_main_mem_idx_d{};
     FF avm_main_mem_op_a{};
+    FF avm_main_mem_op_activate_gas{};
     FF avm_main_mem_op_b{};
     FF avm_main_mem_op_c{};
     FF avm_main_mem_op_d{};
@@ -536,6 +537,7 @@ class AvmCircuitBuilder {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t num_fixed_columns = 414;
     static constexpr size_t num_polys = 352;
 =======
@@ -558,6 +560,8 @@ class AvmCircuitBuilder {
 <<<<<<< HEAD
 =======
 >>>>>>> 0ca3bbc142 (6542: rebase on top of sha256 compression)
+=======
+>>>>>>> d1c94119f0 (6542: Activate remaining opcodes for gas)
     static constexpr size_t num_fixed_columns = 398;
     static constexpr size_t num_polys = 336;
 =======
@@ -634,10 +638,17 @@ class AvmCircuitBuilder {
     static constexpr size_t num_polys = 340;
 >>>>>>> 641cfcb7d5 (6542: fix conflicts after rebase)
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> 5032a0edfb (6542: fix conflicts after rebase)
 >>>>>>> 7a6639c345 (6542: fix conflicts after rebase)
 =======
 >>>>>>> 0ca3bbc142 (6542: rebase on top of sha256 compression)
+=======
+=======
+    static constexpr size_t num_fixed_columns = 412;
+    static constexpr size_t num_polys = 348;
+>>>>>>> 5fb2ef20a7 (6542: Activate remaining opcodes for gas)
+>>>>>>> d1c94119f0 (6542: Activate remaining opcodes for gas)
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -834,6 +845,7 @@ class AvmCircuitBuilder {
             polys.avm_main_mem_idx_c[i] = rows[i].avm_main_mem_idx_c;
             polys.avm_main_mem_idx_d[i] = rows[i].avm_main_mem_idx_d;
             polys.avm_main_mem_op_a[i] = rows[i].avm_main_mem_op_a;
+            polys.avm_main_mem_op_activate_gas[i] = rows[i].avm_main_mem_op_activate_gas;
             polys.avm_main_mem_op_b[i] = rows[i].avm_main_mem_op_b;
             polys.avm_main_mem_op_c[i] = rows[i].avm_main_mem_op_c;
             polys.avm_main_mem_op_d[i] = rows[i].avm_main_mem_op_d;

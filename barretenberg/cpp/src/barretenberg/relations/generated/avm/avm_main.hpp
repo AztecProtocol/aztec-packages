@@ -52,6 +52,7 @@ template <typename FF> struct Avm_mainRow {
     FF avm_main_mem_idx_a{};
     FF avm_main_mem_idx_b{};
     FF avm_main_mem_op_a{};
+    FF avm_main_mem_op_activate_gas{};
     FF avm_main_mem_op_b{};
     FF avm_main_mem_op_c{};
     FF avm_main_mem_op_d{};
@@ -2485,7 +2486,6 @@ template <typename FF_> class avm_mainImpl {
             Avm_DECLARE_VIEWS(82);
 
             auto tmp = (avm_main_sel_internal_return * (avm_main_mem_op_a - FF(1)));
->>>>>>> 0ca3bbc142 (6542: rebase on top of sha256 compression)
             tmp *= scaling_factor;
             std::get<81>(evals) += tmp;
         }
@@ -2494,14 +2494,6 @@ template <typename FF_> class avm_mainImpl {
             Avm_DECLARE_VIEWS(74);
 
 <<<<<<< HEAD
-<<<<<<< HEAD
-            auto tmp = (avm_main_sel_internal_call * (avm_main_mem_op_b - FF(1)));
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
->>>>>>> f3ff5f2f84 (6542: activate gas metering for remaining opcodes except pure memory and)
 >>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
 =======
             auto tmp = ((-(((avm_main_first + avm_main_sel_internal_call) + avm_main_sel_internal_return) +
@@ -2613,18 +2605,12 @@ template <typename FF_> class avm_mainImpl {
             Avm_DECLARE_VIEWS(74);
 
 <<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
-            auto tmp = (avm_main_sel_internal_return * ((avm_main_internal_return_ptr - FF(1)) - avm_main_mem_idx_a));
->>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
-=======
             auto tmp = (avm_main_sel_internal_return * ((avm_main_internal_return_ptr - FF(1)) - avm_main_mem_idx_a));
 =======
             auto tmp = (avm_main_sel_mov_a - (avm_main_sel_mov + (avm_main_sel_cmov * (-avm_main_id_zero + FF(1)))));
 =======
 >>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
 >>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
->>>>>>> f3ff5f2f84 (6542: activate gas metering for remaining opcodes except pure memory and)
             tmp *= scaling_factor;
 <<<<<<< HEAD
             std::get<74>(evals) += tmp;
@@ -2634,10 +2620,6 @@ template <typename FF_> class avm_mainImpl {
             Avm_DECLARE_VIEWS(75);
 
 <<<<<<< HEAD
-            auto tmp = (avm_main_sel_internal_return *
-                        (avm_main_internal_return_ptr_shift - (avm_main_internal_return_ptr - FF(1))));
-=======
-<<<<<<< HEAD
             auto tmp = (avm_main_sel_internal_return * (avm_main_pc_shift - avm_main_ia));
 =======
 <<<<<<< HEAD
@@ -2646,7 +2628,6 @@ template <typename FF_> class avm_mainImpl {
             auto tmp = (avm_main_sel_cmov * (((avm_main_id * avm_main_inv) - FF(1)) + avm_main_id_zero));
 >>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
 >>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
->>>>>>> f3ff5f2f84 (6542: activate gas metering for remaining opcodes except pure memory and)
             tmp *= scaling_factor;
             std::get<75>(evals) += tmp;
         }
@@ -2654,9 +2635,6 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(76);
 
-<<<<<<< HEAD
-            auto tmp = (avm_main_sel_internal_return * ((avm_main_internal_return_ptr - FF(1)) - avm_main_mem_idx_a));
-=======
 <<<<<<< HEAD
             auto tmp = (avm_main_sel_internal_return * avm_main_rwa);
 =======
@@ -2666,7 +2644,6 @@ template <typename FF_> class avm_mainImpl {
             auto tmp = ((avm_main_sel_cmov * avm_main_id_zero) * (-avm_main_inv + FF(1)));
 >>>>>>> 16e2792b77 (6542: fix conflicts after rebase to master)
 >>>>>>> 0a245a54b3 (6542: fix conflicts after rebase to master)
->>>>>>> f3ff5f2f84 (6542: activate gas metering for remaining opcodes except pure memory and)
             tmp *= scaling_factor;
 =======
 >>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
@@ -2677,15 +2654,6 @@ template <typename FF_> class avm_mainImpl {
             Avm_DECLARE_VIEWS(77);
 
 <<<<<<< HEAD
-<<<<<<< HEAD
-            auto tmp = (avm_main_sel_internal_return * (avm_main_pc_shift - avm_main_ia));
-=======
-<<<<<<< HEAD
-            auto tmp = (avm_main_sel_internal_return * (avm_main_mem_op_a - FF(1)));
-=======
-<<<<<<< HEAD
-=======
->>>>>>> f3ff5f2f84 (6542: activate gas metering for remaining opcodes except pure memory and)
 <<<<<<< HEAD
             auto tmp = (avm_main_sel_internal_return * (avm_main_mem_op_a - FF(1)));
 =======
@@ -2703,11 +2671,6 @@ template <typename FF_> class avm_mainImpl {
             auto tmp = (avm_main_sel_cmov * (((avm_main_id * avm_main_inv) - FF(1)) + avm_main_id_zero));
 >>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
 >>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
-<<<<<<< HEAD
->>>>>>> 132cd10b12 (6542: work in progress witness gen and unit tests fixing)
->>>>>>> 9b9d492e79 (6542: work in progress witness gen and unit tests fixing)
-=======
->>>>>>> f3ff5f2f84 (6542: activate gas metering for remaining opcodes except pure memory and)
             tmp *= scaling_factor;
             std::get<77>(evals) += tmp;
         }
@@ -2715,48 +2678,6 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(78);
 
-<<<<<<< HEAD
-            auto tmp = (avm_main_sel_internal_return * (avm_main_pc_shift - avm_main_ia));
-            tmp *= scaling_factor;
-            std::get<78>(evals) += tmp;
-        }
-        // Contribution 79
-        {
-            Avm_DECLARE_VIEWS(79);
-
-            auto tmp = (avm_main_sel_internal_return * avm_main_rwa);
-            tmp *= scaling_factor;
-            std::get<79>(evals) += tmp;
-        }
-        // Contribution 80
-        {
-            Avm_DECLARE_VIEWS(80);
-
-            auto tmp = (avm_main_sel_internal_return * (avm_main_mem_op_a - FF(1)));
-            tmp *= scaling_factor;
-            std::get<80>(evals) += tmp;
-        }
-        // Contribution 81
-        {
-            Avm_DECLARE_VIEWS(81);
-
-<<<<<<< HEAD
-<<<<<<< HEAD
-            auto tmp = ((((-avm_main_first + FF(1)) * (-avm_main_sel_halt + FF(1))) *
-                         (((((((((((((((avm_main_sel_op_add + avm_main_sel_op_sub) + avm_main_sel_op_mul) +
-                                      avm_main_sel_op_div) +
-                                     avm_main_sel_op_not) +
-                                    avm_main_sel_op_eq) +
-                                   avm_main_sel_op_lt) +
-                                  avm_main_sel_op_lte) +
-                                 avm_main_sel_op_shr) +
-                                avm_main_sel_op_shl) +
-                               avm_main_sel_op_cast) +
-                              ((avm_main_sel_op_and + avm_main_sel_op_or) + avm_main_sel_op_xor)) +
-                             (avm_main_sel_cmov + avm_main_sel_mov)) +
-                            (((avm_main_sel_op_radix_le + avm_main_sel_op_sha256) + avm_main_sel_op_poseidon2) +
-                             avm_main_sel_op_keccak)) +
-=======
 <<<<<<< HEAD
 <<<<<<< HEAD
             auto tmp = ((((-avm_main_first + FF(1)) * (-avm_main_sel_halt + FF(1))) *
@@ -2769,7 +2690,6 @@ template <typename FF_> class avm_mainImpl {
                               avm_main_sel_op_or) +
                              avm_main_sel_op_xor) +
                             avm_main_sel_op_cast) +
->>>>>>> f3ff5f2f84 (6542: activate gas metering for remaining opcodes except pure memory and)
                            (((((((((avm_main_sel_op_sender + avm_main_sel_op_address) + avm_main_sel_op_chain_id) +
                                   avm_main_sel_op_version) +
                                  avm_main_sel_op_block_number) +
@@ -2803,19 +2723,11 @@ template <typename FF_> class avm_mainImpl {
 >>>>>>> 83b0cbeac9 (6542: work in progress witness gen and unit tests fixing)
 >>>>>>> da5c297557 (6542: work in progress witness gen and unit tests fixing)
             tmp *= scaling_factor;
-<<<<<<< HEAD
-            std::get<81>(evals) += tmp;
-        }
-        // Contribution 82
-        {
-            Avm_DECLARE_VIEWS(82);
-=======
             std::get<78>(evals) += tmp;
         }
         // Contribution 79
         {
             Avm_DECLARE_VIEWS(79);
->>>>>>> f3ff5f2f84 (6542: activate gas metering for remaining opcodes except pure memory and)
 
 <<<<<<< HEAD
 <<<<<<< HEAD

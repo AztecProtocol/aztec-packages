@@ -362,6 +362,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_mem_idx_d);
     commitments.avm_main_mem_op_a =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_mem_op_a);
+    commitments.avm_main_mem_op_activate_gas =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_mem_op_activate_gas);
     commitments.avm_main_mem_op_b =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_mem_op_b);
     commitments.avm_main_mem_op_c =

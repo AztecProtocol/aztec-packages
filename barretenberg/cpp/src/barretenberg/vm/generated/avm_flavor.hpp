@@ -99,6 +99,7 @@ class AvmFlavor {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 350;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
@@ -113,6 +114,8 @@ class AvmFlavor {
 >>>>>>> 7a6639c345 (6542: fix conflicts after rebase)
 =======
 >>>>>>> 0ca3bbc142 (6542: rebase on top of sha256 compression)
+=======
+>>>>>>> d1c94119f0 (6542: Activate remaining opcodes for gas)
 <<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 344;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
@@ -228,7 +231,17 @@ class AvmFlavor {
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 411;
 >>>>>>> a79671b8aa (6542: rebase on top of sha256 compression)
+<<<<<<< HEAD
 >>>>>>> 0ca3bbc142 (6542: rebase on top of sha256 compression)
+=======
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 346;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
+    // the unshifted and one for the shifted
+    static constexpr size_t NUM_ALL_ENTITIES = 412;
+>>>>>>> 5fb2ef20a7 (6542: Activate remaining opcodes for gas)
+>>>>>>> d1c94119f0 (6542: Activate remaining opcodes for gas)
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
@@ -549,6 +562,7 @@ class AvmFlavor {
                               avm_main_mem_idx_c,
                               avm_main_mem_idx_d,
                               avm_main_mem_op_a,
+                              avm_main_mem_op_activate_gas,
                               avm_main_mem_op_b,
                               avm_main_mem_op_c,
                               avm_main_mem_op_d,
@@ -924,6 +938,7 @@ class AvmFlavor {
                      avm_main_mem_idx_c,
                      avm_main_mem_idx_d,
                      avm_main_mem_op_a,
+                     avm_main_mem_op_activate_gas,
                      avm_main_mem_op_b,
                      avm_main_mem_op_c,
                      avm_main_mem_op_d,
@@ -1304,6 +1319,7 @@ class AvmFlavor {
                               avm_main_mem_idx_c,
                               avm_main_mem_idx_d,
                               avm_main_mem_op_a,
+                              avm_main_mem_op_activate_gas,
                               avm_main_mem_op_b,
                               avm_main_mem_op_c,
                               avm_main_mem_op_d,
@@ -1745,6 +1761,7 @@ class AvmFlavor {
                      avm_main_mem_idx_c,
                      avm_main_mem_idx_d,
                      avm_main_mem_op_a,
+                     avm_main_mem_op_activate_gas,
                      avm_main_mem_op_b,
                      avm_main_mem_op_c,
                      avm_main_mem_op_d,
@@ -2186,6 +2203,7 @@ class AvmFlavor {
                      avm_main_mem_idx_c,
                      avm_main_mem_idx_d,
                      avm_main_mem_op_a,
+                     avm_main_mem_op_activate_gas,
                      avm_main_mem_op_b,
                      avm_main_mem_op_c,
                      avm_main_mem_op_d,
@@ -2974,6 +2992,7 @@ class AvmFlavor {
             Base::avm_main_mem_idx_c = "AVM_MAIN_MEM_IDX_C";
             Base::avm_main_mem_idx_d = "AVM_MAIN_MEM_IDX_D";
             Base::avm_main_mem_op_a = "AVM_MAIN_MEM_OP_A";
+            Base::avm_main_mem_op_activate_gas = "AVM_MAIN_MEM_OP_ACTIVATE_GAS";
             Base::avm_main_mem_op_b = "AVM_MAIN_MEM_OP_B";
             Base::avm_main_mem_op_c = "AVM_MAIN_MEM_OP_C";
             Base::avm_main_mem_op_d = "AVM_MAIN_MEM_OP_D";
@@ -3365,6 +3384,7 @@ class AvmFlavor {
         Commitment avm_main_mem_idx_c;
         Commitment avm_main_mem_idx_d;
         Commitment avm_main_mem_op_a;
+        Commitment avm_main_mem_op_activate_gas;
         Commitment avm_main_mem_op_b;
         Commitment avm_main_mem_op_c;
         Commitment avm_main_mem_op_d;
@@ -3770,6 +3790,7 @@ class AvmFlavor {
             avm_main_mem_idx_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_mem_idx_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_mem_op_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_mem_op_activate_gas = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_mem_op_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_mem_op_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_mem_op_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -4171,6 +4192,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_mem_idx_c, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_mem_idx_d, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_mem_op_a, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_mem_op_activate_gas, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_mem_op_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_mem_op_c, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_mem_op_d, Transcript::proof_data);

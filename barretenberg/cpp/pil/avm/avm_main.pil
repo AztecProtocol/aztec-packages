@@ -405,13 +405,22 @@ namespace avm_main(256);
 
     //===== CONTROL_FLOW_CONSISTENCY ============================================
     pol INTERNAL_CALL_STACK_SELECTORS = (first + sel_internal_call + sel_internal_return + sel_halt);
+    pol ALL_CTRL_FLOW_SEL = sel_jump + sel_internal_call + sel_internal_return;
+
     pol ALL_BINARY_SEL = sel_op_and + sel_op_or + sel_op_xor;
     pol ALL_GADGET_SEL = sel_op_radix_le + sel_op_sha256 + sel_op_poseidon2 + sel_op_keccak + sel_op_pedersen;
     pol ALL_MEMORY_SEL = sel_cmov + sel_mov;
     pol OPCODE_SELECTORS = sel_op_fdiv + ALU_ALL_SEL + ALL_BINARY_SEL + ALL_MEMORY_SEL + ALL_GADGET_SEL + KERNEL_INPUT_SELECTORS + KERNEL_OUTPUT_SELECTORS;
 
+    // TODO: gas_cost_active is activating gas accounting on a given row. All opcode with selectors
+    //       are activated through the relation below. The other opcodes which are implemented purely
+    //       through memory sub-operations such as CALLDATACOPY, RETURN, SET are activated by
+    //       setting a newly introduced boolean mem_op_activate_gas which is set in witness generation.
+    //       We should remove this shortcut and constrain this activation through bytecode decomposition.
+    //       Alternatively, we introduce a boolean selector for the three opcodes mentioned above.
     pol commit gas_cost_active;
-    gas_cost_active - OPCODE_SELECTORS = 0;
+    pol commit mem_op_activate_gas; // TODO: remove this one
+    gas_cost_active - OPCODE_SELECTORS - ALL_CTRL_FLOW_SEL - mem_op_activate_gas = 0;
 
     // Program counter must increment if not jumping or returning
     #[PC_INCREMENT]

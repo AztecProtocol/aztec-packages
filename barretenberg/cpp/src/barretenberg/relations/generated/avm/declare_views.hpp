@@ -203,6 +203,7 @@
     [[maybe_unused]] auto avm_main_mem_idx_c = View(new_term.avm_main_mem_idx_c);                                      \
     [[maybe_unused]] auto avm_main_mem_idx_d = View(new_term.avm_main_mem_idx_d);                                      \
     [[maybe_unused]] auto avm_main_mem_op_a = View(new_term.avm_main_mem_op_a);                                        \
+    [[maybe_unused]] auto avm_main_mem_op_activate_gas = View(new_term.avm_main_mem_op_activate_gas);                  \
     [[maybe_unused]] auto avm_main_mem_op_b = View(new_term.avm_main_mem_op_b);                                        \
     [[maybe_unused]] auto avm_main_mem_op_c = View(new_term.avm_main_mem_op_c);                                        \
     [[maybe_unused]] auto avm_main_mem_op_d = View(new_term.avm_main_mem_op_d);                                        \

@@ -248,6 +248,7 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.avm_main_mem_idx_c = commitment_key->commit(key->avm_main_mem_idx_c);
     witness_commitments.avm_main_mem_idx_d = commitment_key->commit(key->avm_main_mem_idx_d);
     witness_commitments.avm_main_mem_op_a = commitment_key->commit(key->avm_main_mem_op_a);
+    witness_commitments.avm_main_mem_op_activate_gas = commitment_key->commit(key->avm_main_mem_op_activate_gas);
     witness_commitments.avm_main_mem_op_b = commitment_key->commit(key->avm_main_mem_op_b);
     witness_commitments.avm_main_mem_op_c = commitment_key->commit(key->avm_main_mem_op_c);
     witness_commitments.avm_main_mem_op_d = commitment_key->commit(key->avm_main_mem_op_d);
@@ -619,6 +620,8 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.avm_main_mem_idx_c, witness_commitments.avm_main_mem_idx_c);
     transcript->send_to_verifier(commitment_labels.avm_main_mem_idx_d, witness_commitments.avm_main_mem_idx_d);
     transcript->send_to_verifier(commitment_labels.avm_main_mem_op_a, witness_commitments.avm_main_mem_op_a);
+    transcript->send_to_verifier(commitment_labels.avm_main_mem_op_activate_gas,
+                                 witness_commitments.avm_main_mem_op_activate_gas);
     transcript->send_to_verifier(commitment_labels.avm_main_mem_op_b, witness_commitments.avm_main_mem_op_b);
     transcript->send_to_verifier(commitment_labels.avm_main_mem_op_c, witness_commitments.avm_main_mem_op_c);
     transcript->send_to_verifier(commitment_labels.avm_main_mem_op_d, witness_commitments.avm_main_mem_op_d);

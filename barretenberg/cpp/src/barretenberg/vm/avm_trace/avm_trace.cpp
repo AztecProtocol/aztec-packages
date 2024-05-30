@@ -944,6 +944,9 @@ void AvmTraceBuilder::op_set(uint8_t indirect, uint128_t val, uint32_t dst_offse
     mem_trace_builder.write_into_memory(
         call_ptr, clk, IntermRegister::IC, direct_dst_offset, val_ff, AvmMemoryTag::U0, in_tag);
 
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::SET);
+
     main_trace.push_back(Row{
         .avm_main_clk = clk,
         .avm_main_call_ptr = call_ptr,
@@ -952,6 +955,7 @@ void AvmTraceBuilder::op_set(uint8_t indirect, uint128_t val, uint32_t dst_offse
         .avm_main_ind_op_c = static_cast<uint32_t>(indirect_dst_flag),
         .avm_main_internal_return_ptr = internal_return_ptr,
         .avm_main_mem_idx_c = direct_dst_offset,
+        .avm_main_mem_op_activate_gas = 1, // TODO: remove in the long term
         .avm_main_mem_op_c = 1,
         .avm_main_pc = pc++,
         .avm_main_rwc = 1,
@@ -1738,6 +1742,9 @@ void AvmTraceBuilder::calldata_copy(
                 call_ptr, clk, IntermRegister::IC, mem_idx_c, ic, AvmMemoryTag::U0, AvmMemoryTag::FF);
         }
 
+        // Constrain gas cost
+        gas_trace_builder.constrain_gas_lookup(clk, OpCode::CALLDATACOPY);
+
         main_trace.push_back(Row{
             .avm_main_clk = clk,
             .avm_main_call_ptr = call_ptr,
@@ -1751,6 +1758,7 @@ void AvmTraceBuilder::calldata_copy(
             .avm_main_mem_idx_b = FF(mem_idx_b),
             .avm_main_mem_idx_c = FF(mem_idx_c),
             .avm_main_mem_op_a = FF(mem_op_a),
+            .avm_main_mem_op_activate_gas = FF(1), // TODO: remove in the long term
             .avm_main_mem_op_b = FF(mem_op_b),
             .avm_main_mem_op_c = FF(mem_op_c),
             .avm_main_pc = FF(pc++),
@@ -1858,6 +1866,9 @@ std::vector<FF> AvmTraceBuilder::return_op(uint8_t indirect, uint32_t ret_offset
             returnMem.push_back(ic);
         }
 
+        // Constrain gas cost
+        gas_trace_builder.constrain_gas_lookup(clk, OpCode::RETURN);
+
         main_trace.push_back(Row{
             .avm_main_clk = clk,
             .avm_main_call_ptr = call_ptr,
@@ -1871,6 +1882,7 @@ std::vector<FF> AvmTraceBuilder::return_op(uint8_t indirect, uint32_t ret_offset
             .avm_main_mem_idx_b = FF(mem_idx_b),
             .avm_main_mem_idx_c = FF(mem_idx_c),
             .avm_main_mem_op_a = FF(mem_op_a),
+            .avm_main_mem_op_activate_gas = FF(1), // TODO: remove in the long term
             .avm_main_mem_op_b = FF(mem_op_b),
             .avm_main_mem_op_c = FF(mem_op_c),
             .avm_main_pc = FF(pc),
@@ -1921,7 +1933,10 @@ void AvmTraceBuilder::halt()
  */
 void AvmTraceBuilder::jump(uint32_t jmp_dest)
 {
-    auto clk = main_trace.size() + 1;
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::JUMP);
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
@@ -1962,6 +1977,9 @@ void AvmTraceBuilder::internal_call(uint32_t jmp_dest)
                                         AvmMemoryTag::U0,
                                         AvmMemoryTag::U32);
 
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::INTERNALCALL);
+
     main_trace.push_back(Row{
         .avm_main_clk = clk,
         .avm_main_call_ptr = call_ptr,
@@ -2000,6 +2018,9 @@ void AvmTraceBuilder::internal_return()
     // We want to load the value pointed by the internal pointer
     auto read_a = mem_trace_builder.read_and_load_from_memory(
         INTERNAL_CALL_SPACE_ID, clk, IntermRegister::IA, internal_return_ptr - 1, AvmMemoryTag::U32, AvmMemoryTag::U0);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::INTERNALRETURN);
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
