@@ -12,7 +12,6 @@
 namespace bb {
 // clang-format off
 
-
 /**
 * @brief IPA (inner product argument) commitment scheme class.
 *
@@ -93,7 +92,6 @@ template <typename Curve_> class IPA {
    friend class ProxyCaller;
 #endif
    // clang-format off
-
 
    /**
     * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point.
@@ -312,7 +310,7 @@ template <typename Curve_> class IPA {
     }
 
     /**
-     * @brief Verify the correctness of a Proof
+     * @brief Natively verify the correctness of a Proof
      *
      * @tparam Transcript Allows to specify a transcript class. Useful for testing
      * @param vk Verification_key containing srs and pippenger_runtime_state to be used for MSM
@@ -390,19 +388,16 @@ template <typename Curve_> class IPA {
         // Compute C₀ = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
         GroupElement LR_sums = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
             &msm_scalars[0], &msm_elements[0], pippenger_size, vk->pippenger_runtime_state);
-
         GroupElement C_zero = C_prime + LR_sums;
 
         //  Step 6.
         // Compute b_zero where b_zero can be computed using the polynomial:
         //  g(X) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}.X^{2^{i-1}}).
         //  b_zero = g(evaluation) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}. (evaluation)^{2^{i-1}})
-
         Fr b_zero = Fr::one();
         for (size_t i = 0; i < log_poly_degree; i++) {
-            uint32_t exponent = 1 << i;
             b_zero *= Fr::one() + (round_challenges_inv[log_poly_degree - 1 - i] *
-                                   opening_claim.opening_pair.challenge.pow(exponent));
+                                   opening_claim.opening_pair.challenge.pow(1 << i));
         }
 
         // Step 7.
@@ -470,7 +465,19 @@ template <typename Curve_> class IPA {
         // Check if C_right == C₀
         return (C_zero.normalize() == right_hand_side.normalize());
     }
-
+    /**
+     * @brief  Recursively verify the correctness of an IPA proof. Unlike native verification, there is no
+     * parallelisation in this function as our circuit construction does not currently support parallelisation.
+     *
+     * @details  batch_mul is used instead of pippenger as pippenger is not implemented to be used in stdlib context for
+     * now and under the hood we perform bigfield to cycle_scalar conversions for the batch_mul. That is because
+     * cycle_scalar has very reduced functionality at the moment and doesn't support basic arithmetic operations between
+     * two cycle_scalar operands (just for one cycle_group and one cycle_scalar to enable batch_mul)
+     * @param vk
+     * @param opening_claim
+     * @param transcript
+     * @return VerifierAccumulator
+     */
     static VerifierAccumulator reduce_verify_internal(const std::shared_ptr<VK>& vk,
                                                       const OpeningClaim<Curve>& opening_claim,
                                                       auto& transcript)
@@ -529,12 +536,10 @@ template <typename Curve_> class IPA {
         //  g(X) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}.X^{2^{i-1}}).
         //  b_zero = g(evaluation) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}. (evaluation)^{2^{i-1}})
 
-        Fr one = Fr::one();
-        Fr b_zero = one;
+        Fr b_zero = Fr(1);
         for (size_t i = 0; i < log_poly_degree; i++) {
-            uint32_t exponent = 1 << i;
-            b_zero *= one + (round_challenges_inv[log_poly_degree - 1 - i] *
-                             opening_claim.opening_pair.challenge.pow(exponent));
+            b_zero *= Fr(1) + (round_challenges_inv[log_poly_degree - 1 - i] *
+                               opening_claim.opening_pair.challenge.pow(1 << i));
         }
 
         // Step 7.
@@ -542,7 +547,7 @@ template <typename Curve_> class IPA {
         std::vector<Fr> s_vec(poly_length);
 
         for (size_t i = 0; i < poly_length; i++) {
-            Fr s_vec_scalar = one;
+            Fr s_vec_scalar = Fr(1);
             for (size_t j = (log_poly_degree - 1); j != size_t(-1); j--) {
                 auto bit = (i >> j) & 1;
                 bool b = static_cast<bool>(bit);
@@ -555,19 +560,9 @@ template <typename Curve_> class IPA {
 
         auto srs_elements = vk->get_monomial_points();
 
-        // Copy the G_vector to local memory.
-        std::vector<Commitment> G_vec_local(poly_length);
-
-        // The SRS stored in the commitment key is the result after applying the pippenger point table so the
-        // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
-        // G_vec_local should use only the original SRS thus we extract only the even indices.
-        for (size_t i = 0; i < poly_length * 2; i += 2) {
-            G_vec_local[i >> 1] = srs_elements[i];
-        }
-
         // Step 8.
         // Compute G₀
-        Commitment G_zero = Commitment::batch_mul(G_vec_local, s_vec);
+        Commitment G_zero = Commitment::batch_mul(srs_elements, s_vec);
 
         // Step 9.
         // Receive a₀ from the prover

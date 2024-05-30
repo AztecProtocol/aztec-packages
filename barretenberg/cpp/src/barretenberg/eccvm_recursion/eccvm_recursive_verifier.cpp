@@ -72,16 +72,16 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     // removed return bool
-    ZeroMorph::verify(commitments.get_unshifted(),
-                      commitments.get_to_be_shifted(),
-                      claimed_evaluations.get_unshifted(),
-                      claimed_evaluations.get_shifted(),
-                      multivariate_challenge,
-                      key->pcs_verification_key,
-                      transcript);
+    bool multivariate_opening_verified = ZeroMorph::verify(commitments.get_unshifted(),
+                                                           commitments.get_to_be_shifted(),
+                                                           claimed_evaluations.get_unshifted(),
+                                                           claimed_evaluations.get_shifted(),
+                                                           multivariate_challenge,
+                                                           key->pcs_verification_key,
+                                                           transcript);
     // Execute transcript consistency univariate opening round
     // TODO(#768): Find a better way to do this. See issue for details.
-    // bool univariate_opening_verified = false;
+    bool univariate_opening_verified = false;
     {
         auto hack_commitment = transcript->template receive_from_prover<Commitment>("Translation:hack_commitment");
 
@@ -118,10 +118,10 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
         // Construct and verify batched opening claim
         OpeningClaim<Curve> batched_univariate_claim = { { evaluation_challenge_x, batched_transcript_eval },
                                                          batched_commitment };
-        PCS::reduce_verify(key->pcs_verification_key, batched_univariate_claim, transcript);
+        univariate_opening_verified =
+            PCS::reduce_verify(key->pcs_verification_key, batched_univariate_claim, transcript);
     }
-
-    // return sumcheck_verified.value() && multivariate_opening_verified && univariate_opening_verified;
+    ASSERT(sumcheck_verified && multivariate_opening_verified && univariate_opening_verified);
 }
 
 template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;

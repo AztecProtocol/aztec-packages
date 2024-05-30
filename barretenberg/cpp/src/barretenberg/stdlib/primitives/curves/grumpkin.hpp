@@ -28,7 +28,6 @@ template <typename CircuitBuilder> struct grumpkin {
     using Group = cycle_group<Builder>;
     using AffineElement = Group;
     using Element = Group;
-    using CycleScalar = Group::cycle_scalar;
     // Additional types with no analog in the native description of the curve
     using witness_ct = witness_t<CircuitBuilder>;
     using public_witness_ct = public_witness_t<CircuitBuilder>;
