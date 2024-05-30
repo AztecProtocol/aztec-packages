@@ -2,7 +2,6 @@ import { PROVING_STATUS, mockTx } from '@aztec/circuit-types';
 import { getMockVerificationKeys } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { makeEmptyProcessedTestTx } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 
 const logger = createDebugLogger('aztec:orchestrator-public-functions');
