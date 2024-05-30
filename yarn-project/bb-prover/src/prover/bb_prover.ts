@@ -19,6 +19,7 @@ import {
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  type PrivateKernelEmptyInputData,
   PrivateKernelEmptyInputs,
   Proof,
   type PublicKernelCircuitPublicInputs,
@@ -35,7 +36,6 @@ import {
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { type FieldsOf } from '@aztec/foundation/types';
 import {
   EmptyNestedArtifact,
   ServerCircuitArtifacts,
@@ -276,7 +276,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   public async getEmptyPrivateKernelProof(
-    inputs: Omit<FieldsOf<PrivateKernelEmptyInputs>, 'emptyNested'>,
+    inputs: PrivateKernelEmptyInputData,
   ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>> {
     const emptyNested = await this.getEmptyNestedProof();
     const emptyPrivateKernelProof = await this.getEmptyPrivateKernelProofFromEmptyNested(

@@ -7,6 +7,8 @@ import { type Header } from '../header.js';
 import { type RecursiveProof } from '../recursive_proof.js';
 import { type VerificationKeyAsFields } from '../verification_key.js';
 
+export type PrivateKernelEmptyInputData = Omit<FieldsOf<PrivateKernelEmptyInputs>, 'emptyNested'>;
+
 export class PrivateKernelEmptyInputs {
   constructor(
     public readonly emptyNested: EmptyNestedData,
