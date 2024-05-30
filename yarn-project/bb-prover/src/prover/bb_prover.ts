@@ -78,7 +78,10 @@ import { extractVkData } from '../verification_key/verification_key_data.js';
 
 const logger = createDebugLogger('aztec:bb-prover');
 
-const CIRCUITS_WITHOUT_AGGREGATION: Set<ServerProtocolArtifact> = new Set(['BaseParityArtifact']);
+const CIRCUITS_WITHOUT_AGGREGATION: Set<ServerProtocolArtifact> = new Set([
+  'BaseParityArtifact',
+  'EmptyNestedArtifact',
+]);
 
 export interface BBProverConfig extends BBConfig, ACVMConfig {
   // list of circuits supported by this prover. defaults to all circuits if empty
@@ -680,7 +683,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       true,
     );
     if (proof.proof.length !== proofLength) {
-      throw new Error("Proof length doesn't match expected length");
+      throw new Error(`Proof length doesn't match expected length (${proof.proof.length} != ${proofLength})`);
     }
 
     return proof;
