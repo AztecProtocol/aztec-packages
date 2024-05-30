@@ -136,7 +136,7 @@ describe('Note Processor', () => {
     aztecNode = mock<AztecNode>();
     keyStore = mock<KeyStore>();
     simulator = mock<AcirSimulator>();
-    keyStore.getMasterIncomingViewingSecretKeyForPublicKey.mockResolvedValue(ownerIvskM);
+    keyStore.getMasterSecretKey.mockResolvedValue(ownerIvskM);
     noteProcessor = new NoteProcessor(ownerIvpkM, keyStore, database, aztecNode, INITIAL_L2_BLOCK_NUM, simulator);
 
     simulator.computeNoteHashAndNullifier.mockImplementation((...args) =>
