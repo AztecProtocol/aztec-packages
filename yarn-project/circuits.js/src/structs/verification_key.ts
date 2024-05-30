@@ -268,6 +268,14 @@ export interface VerificationKeys {
    * Verification key for the default private kernel circuit.
    */
   privateKernelToPublicCircuit: VerificationKeyData;
+  /**
+   * Verification key for the empty private kernel circuit.
+   */
+  privateKernelEmpty: VerificationKeyData;
+  /**
+   * Verification key for the empty nested circuit consumed by the empty private kernel.
+   */
+  emptyNestedCircuit: VerificationKeyData;
 }
 
 /**
@@ -278,5 +286,7 @@ export function getMockVerificationKeys(): VerificationKeys {
   return {
     privateKernelCircuit: VerificationKeyData.makeFake(),
     privateKernelToPublicCircuit: VerificationKeyData.makeFake(),
+    privateKernelEmpty: VerificationKeyData.makeFake(),
+    emptyNestedCircuit: VerificationKeyData.makeFake(),
   };
 }

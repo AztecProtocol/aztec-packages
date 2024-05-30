@@ -7,9 +7,11 @@ import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
+  type EmptyNestedCircuitInputs,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
+  type PrivateKernelEmptyInputs,
   type Proof,
   type PublicCircuitPublicInputs,
   type PublicKernelCircuitPublicInputs,
@@ -85,6 +87,12 @@ export interface ServerCircuitProver {
   getPublicTailProof(
     kernelRequest: PublicKernelTailRequest,
     signal?: AbortSignal,
+  ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>>;
+
+  getEmptyNestedProof(): Promise<PublicInputsAndProof<EmptyNestedCircuitInputs>>;
+
+  getEmptyPrivateKernelProof(
+    inputs: PrivateKernelEmptyInputs,
   ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>>;
 }
 

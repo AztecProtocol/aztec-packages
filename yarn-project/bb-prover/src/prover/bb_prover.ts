@@ -13,10 +13,12 @@ import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
+  EmptyNestedCircuitInputs,
   Fr,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  type PrivateKernelEmptyInputs,
   Proof,
   type PublicKernelCircuitPublicInputs,
   RECURSIVE_PROOF_LENGTH,
@@ -33,6 +35,7 @@ import { runInDirectory } from '@aztec/foundation/fs';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
+  EmptyNestedArtifact,
   ServerCircuitArtifacts,
   type ServerProtocolArtifact,
   convertBaseParityInputsToWitnessMap,
@@ -41,6 +44,8 @@ import {
   convertBaseRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
+  convertPrivateKernelEmptyInputsToWitnessMap,
+  convertPrivateKernelEmptyOutputsFromWitnessMap,
   convertPublicTailInputsToWitnessMap,
   convertPublicTailOutputFromWitnessMap,
   convertRootParityInputsToWitnessMap,
@@ -50,7 +55,8 @@ import {
 } from '@aztec/noir-protocol-circuits-types';
 import { NativeACVMSimulator } from '@aztec/simulator';
 
-import { type WitnessMap } from '@noir-lang/types';
+import { abiEncode } from '@noir-lang/noirc_abi';
+import { type Abi, type WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
 
 import {
@@ -263,6 +269,41 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const verificationKey = await this.getVerificationKeyDataForCircuit('RootRollupArtifact');
 
     await this.verifyProof('RootRollupArtifact', proof);
+
+    return makePublicInputsAndProof(circuitOutput, recursiveProof, verificationKey);
+  }
+
+  public async getEmptyNestedProof(): Promise<PublicInputsAndProof<EmptyNestedCircuitInputs>> {
+    const inputs = new EmptyNestedCircuitInputs();
+    const { circuitOutput, proof } = await this.createProof(
+      inputs,
+      'EmptyNestedArtifact',
+      (nothing: any) => abiEncode(EmptyNestedArtifact.abi as Abi, { inputs: nothing as any }),
+      () => new EmptyNestedCircuitInputs(),
+    );
+
+    const recursiveProof = makeRecursiveProofFromBinary(proof, NESTED_RECURSIVE_PROOF_LENGTH);
+
+    const verificationKey = await this.getVerificationKeyDataForCircuit('EmptyNestedArtifact');
+    await this.verifyProof('EmptyNestedArtifact', proof);
+
+    return makePublicInputsAndProof(circuitOutput, recursiveProof, verificationKey);
+  }
+
+  public async getEmptyPrivateKernelProof(
+    inputs: PrivateKernelEmptyInputs,
+  ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>> {
+    const { circuitOutput, proof } = await this.createProof(
+      inputs,
+      'PrivateKernelEmptyArtifact',
+      convertPrivateKernelEmptyInputsToWitnessMap,
+      convertPrivateKernelEmptyOutputsFromWitnessMap,
+    );
+
+    const recursiveProof = makeRecursiveProofFromBinary(proof, NESTED_RECURSIVE_PROOF_LENGTH);
+
+    const verificationKey = await this.getVerificationKeyDataForCircuit('PrivateKernelEmptyArtifact');
+    await this.verifyProof('PrivateKernelEmptyArtifact', proof);
 
     return makePublicInputsAndProof(circuitOutput, recursiveProof, verificationKey);
   }

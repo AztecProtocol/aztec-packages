@@ -63,6 +63,8 @@ const VERIFICATION_KEYS: Record<ServerProtocolArtifact, VerificationKeyAsFields>
   BaseRollupArtifact: VerificationKeyAsFields.makeFake(),
   MergeRollupArtifact: VerificationKeyAsFields.makeFake(),
   RootRollupArtifact: VerificationKeyAsFields.makeFake(),
+  PrivateKernelEmptyArtifact: VerificationKeyAsFields.makeFake(),
+  EmptyNestedArtifact: VerificationKeyAsFields.makeFake(),
 };
 
 /**
