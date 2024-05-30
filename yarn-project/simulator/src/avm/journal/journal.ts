@@ -36,8 +36,8 @@ import {
  * Data held within the journal
  */
 export type JournalData = {
-  storageWrites: TracedPublicStorageWrite[];
-  storageReads: TracedPublicStorageRead[];
+  publicStorageWrites: TracedPublicStorageWrite[];
+  publicStorageReads: TracedPublicStorageRead[];
 
   noteHashChecks: TracedNoteHashCheck[];
   newNoteHashes: TracedNoteHash[];
@@ -45,13 +45,13 @@ export type JournalData = {
   newNullifiers: TracedNullifier[];
   l1ToL2MessageChecks: TracedL1toL2MessageCheck[];
 
-  newL1Messages: L2ToL1Message[];
-  newLogs: UnencryptedL2Log[];
-  newLogsHashes: TracedUnencryptedL2Log[];
+  newL2ToL1Messages: L2ToL1Message[];
+  newUnencryptedLogs: UnencryptedL2Log[];
+  newUnencryptedLogsHashes: TracedUnencryptedL2Log[];
   /** contract address -\> key -\> value */
   currentStorageValue: Map<bigint, Map<bigint, Fr>>;
 
-  sideEffectCounter: number;
+  accessCounter: number;
 };
 
 // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
@@ -162,29 +162,32 @@ export class AvmPersistableStateManager {
    *
    * @param storageAddress - the address of the contract whose storage is being read from
    * @param slot - the slot in the contract's storage being read from
+   * @param peek - don't trace this read (helpful for testing)
    * @returns the latest value written to slot, or 0 if never written to before
    */
-  public async readStorage(storageAddress: Fr, slot: Fr): Promise<Fr> {
+  public async readStorage(storageAddress: Fr, slot: Fr, peek: boolean = false): Promise<Fr> {
     const { value, exists, cached } = await this.publicStorage.read(storageAddress, slot);
     this.log.debug(
       `Storage read  (address=${storageAddress}, slot=${slot}): value=${value}, exists=${exists}, cached=${cached}`,
     );
 
-    // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
-    // The current info to the kernel kernel does not consider cached reads.
-    if (!cached) {
-      // The current info to the kernel removes any previous reads to the same slot.
-      this.transitionalExecutionResult.contractStorageReads =
-        this.transitionalExecutionResult.contractStorageReads.filter(
-          read => !read.storageSlot.equals(slot) || !read.contractAddress!.equals(storageAddress),
+    if (!peek) {
+      // TRANSITIONAL: This should be removed once the kernel handles and entire enqueued call per circuit
+      // The current info to the kernel kernel does not consider cached reads.
+      if (!cached) {
+        // The current info to the kernel removes any previous reads to the same slot.
+        this.transitionalExecutionResult.contractStorageReads =
+          this.transitionalExecutionResult.contractStorageReads.filter(
+            read => !read.storageSlot.equals(slot) || !read.contractAddress!.equals(storageAddress),
+          );
+        this.transitionalExecutionResult.contractStorageReads.push(
+          new ContractStorageRead(slot, value, this.trace.accessCounter, storageAddress),
         );
-      this.transitionalExecutionResult.contractStorageReads.push(
-        new ContractStorageRead(slot, value, this.trace.accessCounter, storageAddress),
-      );
-    }
+      }
 
-    // We want to keep track of all performed reads (even reverted ones)
-    this.trace.tracePublicStorageRead(storageAddress, slot, value, exists, cached);
+      // We want to keep track of all performed reads (even reverted ones)
+      this.trace.tracePublicStorageRead(storageAddress, slot, value, exists, cached);
+    }
     return Promise.resolve(value);
   }
 
@@ -350,17 +353,17 @@ export class AvmPersistableStateManager {
       nullifierChecks: this.trace.nullifierChecks,
       newNullifiers: this.trace.newNullifiers,
       l1ToL2MessageChecks: this.trace.l1ToL2MessageChecks,
-      newL1Messages: this.trace.newL2ToL1Messages,
-      newLogs: this.trace.newUnencryptedLogs,
+      newL2ToL1Messages: this.trace.newL2ToL1Messages,
+      newUnencryptedLogs: this.trace.newUnencryptedLogs,
       // TODO(5818): remove this hack
-      newLogsHashes: this.trace.newUnencryptedLogsHashes.map(logHash => {
+      newUnencryptedLogsHashes: this.trace.newUnencryptedLogsHashes.map(logHash => {
         const tracedLogHash: TracedUnencryptedL2Log = { logHash: logHash.value, counter: new Fr(logHash.counter) };
         return tracedLogHash;
       }),
       currentStorageValue: this.publicStorage.getCache().cachePerContract,
-      storageReads: this.trace.publicStorageReads,
-      storageWrites: this.trace.publicStorageWrites,
-      sideEffectCounter: this.trace.accessCounter,
+      publicStorageReads: this.trace.publicStorageReads,
+      publicStorageWrites: this.trace.publicStorageWrites,
+      accessCounter: this.trace.accessCounter,
     };
   }
 }

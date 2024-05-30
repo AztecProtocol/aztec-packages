@@ -343,7 +343,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const expectedCompressedString = Buffer.from(
         '\0A long time ago, in a galaxy fa' + '\0r far away...\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
       );
-      expect(context.persistableState.flush().newLogs).toEqual(
+      expect(context.persistableState.flush().newUnencryptedLogs).toEqual(
         expect.arrayContaining([
           new UnencryptedL2Log(
             context.environment.address,
@@ -552,7 +552,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
   describe('Storage accesses', () => {
     it('Should set value in storage (single)', async () => {
-      const slot = 1n;
+      const slot = 1;
       const address = AztecAddress.fromField(new Fr(420));
       const value = new Fr(88);
       const calldata = [value];
@@ -567,12 +567,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       // World state
       const worldState = context.persistableState.flush();
-      const storageSlot = worldState.currentStorageValue.get(address.toBigInt())!;
-      const adminSlotValue = storageSlot.get(slot);
+      const adminSlotValue = await context.persistableState.readStorage(address, new Fr(slot), /*peek=*/ true);
       expect(adminSlotValue).toEqual(value);
 
       // Tracing
-      expect(worldState.storageWrites).toEqual(
+      expect(worldState.publicStorageWrites).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             storageAddress: address,
@@ -604,7 +603,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       // Tracing
       const worldState = context.persistableState.flush();
-      expect(worldState.storageReads).toEqual(
+      expect(worldState.publicStorageReads).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             storageAddress: address,
@@ -633,7 +632,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       // Test read trace
       const worldState = context.persistableState.flush();
-      expect(worldState.storageReads).toEqual(
+      expect(worldState.publicStorageReads).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             storageAddress: address,
@@ -643,7 +642,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           }),
         ]),
       );
-      expect(worldState.storageWrites).toEqual(
+      expect(worldState.publicStorageWrites).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             storageAddress: address,
@@ -655,7 +654,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
 
     it('Should set a value in storage (list)', async () => {
-      const slot = 2n;
+      const slot = 2;
       const sender = AztecAddress.fromField(new Fr(1));
       const address = AztecAddress.fromField(new Fr(420));
       const calldata = [new Fr(1), new Fr(2)];
@@ -669,12 +668,14 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(results.reverted).toBe(false);
 
       const worldState = context.persistableState.flush();
-      const storageSlot = worldState.currentStorageValue.get(address.toBigInt())!;
-      expect(storageSlot.get(slot)).toEqual(calldata[0]);
-      expect(storageSlot.get(slot + 1n)).toEqual(calldata[1]);
+
+      expect(await context.persistableState.readStorage(address, new Fr(slot), /*peek=*/ true)).toEqual(calldata[0]);
+      expect(await context.persistableState.readStorage(address, new Fr(slot + 1), /*peek=*/ true)).toEqual(
+        calldata[1],
+      );
 
       // Tracing
-      expect(worldState.storageWrites).toEqual(
+      expect(worldState.publicStorageWrites).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             storageAddress: address,
@@ -683,7 +684,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           }),
           expect.objectContaining({
             storageAddress: address,
-            slot: new Fr(slot + 1n),
+            slot: new Fr(slot + 1),
             value: calldata[1],
           }),
         ]),
@@ -713,7 +714,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       // Tracing
       const worldState = context.persistableState.flush();
-      expect(worldState.storageReads).toEqual(
+      expect(worldState.publicStorageReads).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             storageAddress: address,
@@ -744,18 +745,17 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       expect(results.reverted).toBe(false);
       // returns the storage slot for modified key
-      const slotNumber = results.output[0].toBigInt();
+      const slot = results.output[0].toBigInt();
 
       const worldState = context.persistableState.flush();
-      const storageSlot = worldState.currentStorageValue.get(address.toBigInt())!;
-      expect(storageSlot.get(slotNumber)).toEqual(value);
+      expect(await context.persistableState.readStorage(address, new Fr(slot), /*peek=*/ true)).toEqual(value);
 
       // Tracing
-      expect(worldState.storageWrites).toEqual(
+      expect(worldState.publicStorageWrites).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             storageAddress: address,
-            slot: new Fr(slotNumber),
+            slot: new Fr(slot),
             value: value,
           }),
         ]),
@@ -775,28 +775,27 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       expect(results.reverted).toBe(false);
       // returns the storage slot for modified key
-      const slotNumber = results.output[0].toBigInt();
+      const slot = results.output[0].toBigInt();
 
       const worldState = context.persistableState.flush();
-      const storageSlot = worldState.currentStorageValue.get(address.toBigInt())!;
-      expect(storageSlot.get(slotNumber)).toEqual(value);
+      expect(await context.persistableState.readStorage(address, new Fr(slot), /*peek=*/ true)).toEqual(value);
 
       // Tracing
-      expect(worldState.storageReads).toEqual(
+      expect(worldState.publicStorageReads).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             storageAddress: address,
-            slot: new Fr(slotNumber),
+            slot: new Fr(slot),
             value: Fr.ZERO,
             exists: false,
           }),
         ]),
       );
-      expect(worldState.storageWrites).toEqual(
+      expect(worldState.publicStorageWrites).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             storageAddress: address,
-            slot: new Fr(slotNumber),
+            slot: new Fr(slot),
             value: value,
           }),
         ]),
@@ -823,7 +822,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       // Tracing
       const worldState = context.persistableState.flush();
-      expect(worldState.storageReads).toEqual(
+      expect(worldState.publicStorageReads).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             storageAddress: address,

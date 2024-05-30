@@ -444,7 +444,7 @@ describe('Accrued Substate', () => {
 
       const journalState = context.persistableState.flush();
       const expectedLog = Buffer.concat(values.map(v => v.toFr().toBuffer()));
-      expect(journalState.newLogs).toEqual(
+      expect(journalState.newUnencryptedLogs).toEqual(
         expect.arrayContaining([
           new UnencryptedL2Log(context.environment.address, new EventSelector(eventSelector), expectedLog),
         ]),
@@ -486,7 +486,7 @@ describe('Accrued Substate', () => {
       ).execute(context);
 
       const journalState = context.persistableState.flush();
-      expect(journalState.newL1Messages).toEqual(
+      expect(journalState.newL2ToL1Messages).toEqual(
         expect.arrayContaining([expect.objectContaining({ recipient: EthAddress.fromField(recipient), content })]),
       );
     });
