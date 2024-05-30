@@ -83,24 +83,6 @@ cycle_group<Builder>::cycle_group(const AffineElement& _in)
 {}
 
 /**
- * @brief Construct a cycle_group object out of an AffineElement object and a given Builder
- *
- * @note This produces a circuit-constant object i.e. known at compile-time, no constraints.
- *       If `_in` is not fixed for a given circuit, use `from_witness` instead
- *
- * @tparam Builder
- * @param _in
- */
-template <typename Builder>
-cycle_group<Builder>::cycle_group(Builder* _context, const AffineElement& _in)
-    : x(_in.x)
-    , y(_in.y)
-    , _is_infinity(_in.is_point_at_infinity())
-    , _is_constant(true)
-    , context(_context)
-{}
-
-/**
  * @brief Construct a cycle_group representation of Group::one.
  *
  * @tparam Builder
