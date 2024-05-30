@@ -25,11 +25,11 @@ describe('prover/bb_prover/full-rollup', () => {
     await context.cleanup();
   });
 
-  it('proves a private-only full rollup', async () => {
+  it('proves a private-only rollup full of empty txs', async () => {
     const totalTxs = 4;
-    const nonEmptyTxs = 1;
+    const nonEmptyTxs = 0;
 
-    logger.info(`Proving a private-only full rollup with ${nonEmptyTxs}/${totalTxs} valid transactions`);
+    logger.info(`Proving a private-only full rollup with ${nonEmptyTxs}/${totalTxs} non-empty transactions`);
     const initialHeader = await context.actualDb.buildInitialHeader();
     const txs = times(nonEmptyTxs, (i: number) => {
       const tx = mockTx(1000 * (i + 1), {
