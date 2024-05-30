@@ -118,15 +118,12 @@ describe('External Calls', () => {
       expect(retValue).toEqual([new Field(1n), new Field(2n)]);
 
       // Check that the storage call has been merged into the parent journal
-      const { currentStorageValue } = context.persistableState.flush();
-      expect(currentStorageValue.size).toEqual(1);
+      const { publicStorageWrites } = context.persistableState.flush();
+      expect(publicStorageWrites.length).toEqual(1);
 
-      const nestedContractWrites = currentStorageValue.get(addr.toBigInt());
-      expect(nestedContractWrites).toBeDefined();
-
-      const slotNumber = 1n;
+      const slot = new Fr(1);
       const expectedStoredValue = new Fr(1n);
-      expect(nestedContractWrites!.get(slotNumber)).toEqual(expectedStoredValue);
+      expect(await context.persistableState.readStorage(addr, slot, /*peek=*/ true)).toEqual(expectedStoredValue);
 
       expect(context.machineState.l2GasLeft).toBeLessThan(initialL2Gas);
       expect(context.machineState.daGasLeft).toEqual(initialDaGas);

@@ -45,7 +45,7 @@ describe('journal', () => {
       expect(cachedResult).toEqual(cachedValue);
 
       // We expect the journal to store the access in [storedVal, cachedVal] - [time0, time1]
-      const { storageReads, storageWrites }: JournalData = journal.flush();
+      const { publicStorageReads: storageReads, publicStorageWrites: storageWrites }: JournalData = journal.flush();
       expect(storageReads).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -161,7 +161,7 @@ describe('journal', () => {
       journal.writeL1Message(recipient, msgHash);
 
       const journalUpdates = journal.flush();
-      expect(journalUpdates.newL1Messages).toEqual(
+      expect(journalUpdates.newL2ToL1Messages).toEqual(
         expect.arrayContaining([expect.objectContaining({ recipient, content: msgHash })]),
       );
     });
@@ -217,7 +217,7 @@ describe('journal', () => {
 
     // Check storage reads order is preserved upon merge
     // We first read value from t0, then value from t1
-    expect(journalUpdates.storageReads).toEqual(
+    expect(journalUpdates.publicStorageReads).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           storageAddress: contractAddress,
@@ -242,7 +242,7 @@ describe('journal', () => {
     );
 
     // We first write value from t0, then value from t1
-    expect(journalUpdates.storageWrites).toEqual(
+    expect(journalUpdates.publicStorageWrites).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           storageAddress: contractAddress,
@@ -263,7 +263,7 @@ describe('journal', () => {
         expect.objectContaining({ noteHash: commitmentT1, storageAddress: contractAddress }),
       ]),
     );
-    expect(journalUpdates.newLogs).toEqual(
+    expect(journalUpdates.newUnencryptedLogs).toEqual(
       expect.arrayContaining([
         new UnencryptedL2Log(
           AztecAddress.fromBigInt(log.address),
@@ -277,7 +277,7 @@ describe('journal', () => {
         ),
       ]),
     );
-    expect(journalUpdates.newL1Messages).toEqual(
+    expect(journalUpdates.newL2ToL1Messages).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ recipient, content: commitment }),
         expect.objectContaining({ recipient, content: commitmentT1 }),
@@ -361,7 +361,7 @@ describe('journal', () => {
     // Reads and writes should be preserved
     // Check storage reads order is preserved upon merge
     // We first read value from t0, then value from t1
-    expect(journalUpdates.storageReads).toEqual(
+    expect(journalUpdates.publicStorageReads).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           storageAddress: contractAddress,
@@ -386,7 +386,7 @@ describe('journal', () => {
     );
 
     // We first write value from t0, then value from t1
-    expect(journalUpdates.storageWrites).toEqual(
+    expect(journalUpdates.publicStorageWrites).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           storageAddress: contractAddress,
@@ -434,7 +434,7 @@ describe('journal', () => {
     );
 
     // Check that rejected Accrued Substate is absent
-    expect(journalUpdates.newLogs).toEqual(
+    expect(journalUpdates.newUnencryptedLogs).toEqual(
       expect.arrayContaining([
         new UnencryptedL2Log(
           AztecAddress.fromBigInt(log.address),
@@ -443,7 +443,7 @@ describe('journal', () => {
         ),
       ]),
     );
-    expect(journalUpdates.newL1Messages).toEqual(
+    expect(journalUpdates.newL2ToL1Messages).toEqual(
       expect.arrayContaining([expect.objectContaining({ recipient, content: commitment })]),
     );
   });
