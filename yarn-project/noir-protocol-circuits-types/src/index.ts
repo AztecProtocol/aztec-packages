@@ -7,7 +7,7 @@ import {
   type MergeRollupInputs,
   type ParityPublicInputs,
   type PrivateKernelCircuitPublicInputs,
-  PrivateKernelEmptyInputs,
+  type PrivateKernelEmptyInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
   type PrivateKernelResetCircuitPrivateInputsVariants,

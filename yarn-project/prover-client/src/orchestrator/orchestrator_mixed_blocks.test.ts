@@ -4,7 +4,7 @@ import { fr } from '@aztec/circuits.js/testing';
 import { range } from '@aztec/foundation/array';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { makeBloatedProcessedTx, makeEmptyProcessedTestTx } from '../mocks/fixtures.js';
+import { makeBloatedProcessedTx } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 
 const logger = createDebugLogger('aztec:orchestrator-mixed-blocks');
