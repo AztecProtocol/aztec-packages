@@ -191,24 +191,13 @@ template <typename FF> struct AvmFullRow {
     FF avm_conversion_num_limbs{};
     FF avm_conversion_radix{};
     FF avm_conversion_to_radix_le_sel{};
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
+    FF avm_gas_da_gas_fixed_table{};
+    FF avm_gas_gas_cost_sel{};
+    FF avm_gas_l2_gas_fixed_table{};
     FF avm_keccakf1600_clk{};
     FF avm_keccakf1600_input{};
     FF avm_keccakf1600_keccakf1600_sel{};
     FF avm_keccakf1600_output{};
-=======
-<<<<<<< HEAD
->>>>>>> 961bb36ff6 (feat: simple gas decrement test)
-=======
-<<<<<<< HEAD
->>>>>>> 60d1f31c9b (6542: some renaming and comments)
-=======
-    FF avm_gas_da_gas_fixed_table{};
-    FF avm_gas_gas_cost_sel{};
-    FF avm_gas_l2_gas_fixed_table{};
->>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
     FF avm_kernel_emit_l2_to_l1_msg_write_offset{};
     FF avm_kernel_emit_note_hash_write_offset{};
     FF avm_kernel_emit_nullifier_write_offset{};
@@ -538,6 +527,7 @@ class AvmCircuitBuilder {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t num_fixed_columns = 414;
     static constexpr size_t num_polys = 352;
 =======
@@ -649,6 +639,10 @@ class AvmCircuitBuilder {
     static constexpr size_t num_polys = 348;
 >>>>>>> 5fb2ef20a7 (6542: Activate remaining opcodes for gas)
 >>>>>>> d1c94119f0 (6542: Activate remaining opcodes for gas)
+=======
+    static constexpr size_t num_fixed_columns = 422;
+    static constexpr size_t num_polys = 358;
+>>>>>>> 83c86d41dd (6542: rebase on master and activate gas for the new gadgets (keccak,)
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -774,24 +768,13 @@ class AvmCircuitBuilder {
             polys.avm_conversion_num_limbs[i] = rows[i].avm_conversion_num_limbs;
             polys.avm_conversion_radix[i] = rows[i].avm_conversion_radix;
             polys.avm_conversion_to_radix_le_sel[i] = rows[i].avm_conversion_to_radix_le_sel;
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
+            polys.avm_gas_da_gas_fixed_table[i] = rows[i].avm_gas_da_gas_fixed_table;
+            polys.avm_gas_gas_cost_sel[i] = rows[i].avm_gas_gas_cost_sel;
+            polys.avm_gas_l2_gas_fixed_table[i] = rows[i].avm_gas_l2_gas_fixed_table;
             polys.avm_keccakf1600_clk[i] = rows[i].avm_keccakf1600_clk;
             polys.avm_keccakf1600_input[i] = rows[i].avm_keccakf1600_input;
             polys.avm_keccakf1600_keccakf1600_sel[i] = rows[i].avm_keccakf1600_keccakf1600_sel;
             polys.avm_keccakf1600_output[i] = rows[i].avm_keccakf1600_output;
-=======
-<<<<<<< HEAD
->>>>>>> 961bb36ff6 (feat: simple gas decrement test)
-=======
-<<<<<<< HEAD
->>>>>>> 60d1f31c9b (6542: some renaming and comments)
-=======
-            polys.avm_gas_da_gas_fixed_table[i] = rows[i].avm_gas_da_gas_fixed_table;
-            polys.avm_gas_gas_cost_sel[i] = rows[i].avm_gas_gas_cost_sel;
-            polys.avm_gas_l2_gas_fixed_table[i] = rows[i].avm_gas_l2_gas_fixed_table;
->>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
             polys.avm_kernel_emit_l2_to_l1_msg_write_offset[i] = rows[i].avm_kernel_emit_l2_to_l1_msg_write_offset;
             polys.avm_kernel_emit_note_hash_write_offset[i] = rows[i].avm_kernel_emit_note_hash_write_offset;
             polys.avm_kernel_emit_nullifier_write_offset[i] = rows[i].avm_kernel_emit_nullifier_write_offset;

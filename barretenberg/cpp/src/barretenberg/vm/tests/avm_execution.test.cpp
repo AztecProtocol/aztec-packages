@@ -885,9 +885,13 @@ TEST_F(AvmExecutionTests, sha256Opcode)
 
     // Assign a vector that we will mutate internally in gen_trace to store the return values;
     std::vector<FF> returndata = std::vector<FF>();
+<<<<<<< HEAD
     std::vector<FF> calldata = std::vector<FF>();
     std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+=======
+    auto trace = Execution::gen_trace(instructions, returndata, public_inputs);
+>>>>>>> 83c86d41dd (6542: rebase on master and activate gas for the new gadgets (keccak,)
 
     // Find the first row enabling the sha256 selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sha256 == 1; });
@@ -968,8 +972,12 @@ TEST_F(AvmExecutionTests, poseidon2PermutationOpCode)
         FF(std::string("0x0cbea457c91c22c6c31fd89afd2541efc2edf31736b9f721e823b2165c90fd41"))
     };
 
+<<<<<<< HEAD
     std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+=======
+    auto trace = Execution::gen_trace(instructions, returndata, public_inputs, calldata);
+>>>>>>> 83c86d41dd (6542: rebase on master and activate gas for the new gadgets (keccak,)
 
     // Find the first row enabling the poseidon2 selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_poseidon2 == 1; });
@@ -1064,8 +1072,12 @@ TEST_F(AvmExecutionTests, keccakf1600OpCode)
     // Assign a vector that we will mutate internally in gen_trace to store the return values;
     std::vector<FF> calldata = std::vector<FF>();
     std::vector<FF> returndata = std::vector<FF>();
+<<<<<<< HEAD
     std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+=======
+    auto trace = Execution::gen_trace(instructions, returndata, public_inputs);
+>>>>>>> 83c86d41dd (6542: rebase on master and activate gas for the new gadgets (keccak,)
 
     // Find the first row enabling the keccak selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_keccak == 1; });
@@ -1147,8 +1159,12 @@ TEST_F(AvmExecutionTests, keccakOpCode)
     // Assign a vector that we will mutate internally in gen_trace to store the return values;
     std::vector<FF> calldata = std::vector<FF>();
     std::vector<FF> returndata = std::vector<FF>();
+<<<<<<< HEAD
     std::vector<FF> public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+=======
+    auto trace = Execution::gen_trace(instructions, returndata, public_inputs);
+>>>>>>> 83c86d41dd (6542: rebase on master and activate gas for the new gadgets (keccak,)
 
     // Find the first row enabling the keccak selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_keccak == 1; });

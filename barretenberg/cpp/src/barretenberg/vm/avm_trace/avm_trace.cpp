@@ -2386,7 +2386,7 @@ void AvmTraceBuilder::op_sha256(uint8_t indirect,
                                 uint32_t input_offset,
                                 uint32_t input_size_offset)
 {
-    auto clk = static_cast<uint32_t>(main_trace.size());
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
     bool tag_match = true;
     uint32_t direct_src_offset = input_offset;
     uint32_t direct_dst_offset = output_offset;
@@ -2413,6 +2413,9 @@ void AvmTraceBuilder::op_sha256(uint8_t indirect,
         call_ptr, clk, IntermRegister::IA, direct_src_offset, AvmMemoryTag::U8, AvmMemoryTag::U8);
     auto output_read = mem_trace_builder.read_and_load_from_memory(
         call_ptr, clk, IntermRegister::IC, direct_dst_offset, AvmMemoryTag::U8, AvmMemoryTag::U8);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::SHA256);
 
     // Store the clock time that we will use to line up the gadget later
     auto sha256_op_clk = clk;
@@ -2514,6 +2517,7 @@ void AvmTraceBuilder::op_sha256(uint8_t indirect,
     write_slice_to_memory(
         call_ptr, clk, direct_dst_offset, AvmMemoryTag::U8, AvmMemoryTag::U8, FF(internal_return_ptr), ff_result);
 }
+
 /**
  * @brief Poseidon2 Permutation with direct or indirect memory access.
  *
@@ -2524,7 +2528,7 @@ void AvmTraceBuilder::op_sha256(uint8_t indirect,
  */
 void AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t input_offset, uint32_t output_offset)
 {
-    auto clk = static_cast<uint32_t>(main_trace.size());
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Resolve the indirect flags, the results of this function are used to determine the memory offsets
     // that point to the starting memory addresses for the input, output and h_init values
@@ -2555,6 +2559,9 @@ void AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t input_
     // Read in the memory address of where the first limb should be stored
     auto read_b = mem_trace_builder.read_and_load_from_memory(
         call_ptr, clk, IntermRegister::IB, direct_dst_offset, AvmMemoryTag::FF, AvmMemoryTag::FF);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::POSEIDON2);
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
@@ -2615,7 +2622,7 @@ void AvmTraceBuilder::op_keccakf1600(uint8_t indirect,
                                      uint32_t input_size_offset)
 {
     // What happens if the input_size_offset is > 25 when the state is more that that?
-    auto clk = static_cast<uint32_t>(main_trace.size());
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
     // bool tag_match = res.tag_match;
     bool tag_match = true;
     uint32_t direct_src_offset = input_offset;
@@ -2642,6 +2649,9 @@ void AvmTraceBuilder::op_keccakf1600(uint8_t indirect,
         call_ptr, clk, IntermRegister::IA, direct_src_offset, AvmMemoryTag::U64, AvmMemoryTag::U64);
     auto output_read = mem_trace_builder.read_and_load_from_memory(
         call_ptr, clk, IntermRegister::IC, direct_dst_offset, AvmMemoryTag::U64, AvmMemoryTag::U64);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::KECCAKF1600);
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
@@ -2718,7 +2728,7 @@ void AvmTraceBuilder::op_keccak(uint8_t indirect,
                                 uint32_t input_offset,
                                 uint32_t input_size_offset)
 {
-    auto clk = static_cast<uint32_t>(main_trace.size());
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
     bool tag_match = true;
     uint32_t direct_src_offset = input_offset;
     uint32_t direct_dst_offset = output_offset;
@@ -2745,6 +2755,9 @@ void AvmTraceBuilder::op_keccak(uint8_t indirect,
         call_ptr, clk, IntermRegister::IA, direct_src_offset, AvmMemoryTag::U8, AvmMemoryTag::U8);
     auto output_read = mem_trace_builder.read_and_load_from_memory(
         call_ptr, clk, IntermRegister::IC, direct_dst_offset, AvmMemoryTag::U8, AvmMemoryTag::U8);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas_lookup(clk, OpCode::KECCAK);
 
     // Store the clock time that we will use to line up the gadget later
     auto keccak_op_clk = clk;
@@ -3028,10 +3041,11 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
     // 2**16 long)
     size_t const lookup_table_size = (bin_trace_size > 0 && range_check_required) ? 3 * (1 << 16) : 0;
     size_t const range_check_size = range_check_required ? UINT16_MAX + 1 : 0;
-    std::vector<size_t> trace_sizes = { mem_trace_size,        main_trace_size,    alu_trace_size,
-                                        range_check_size,      conv_trace_size,    lookup_table_size,
-                                        sha256_trace_size,  poseidon2_trace_size, pedersen_trace_size,  gas_trace_size + 1, KERNEL_INPUTS_LENGTH,
-                                        KERNEL_OUTPUTS_LENGTH, min_trace_size,     GAS_COST_TABLE.size() };
+    std::vector<size_t> trace_sizes = { mem_trace_size,       main_trace_size,       alu_trace_size,
+                                        range_check_size,     conv_trace_size,       lookup_table_size,
+                                        sha256_trace_size,    poseidon2_trace_size, pedersen_trace_size,  gas_trace_size + 1,
+                                        KERNEL_INPUTS_LENGTH, KERNEL_OUTPUTS_LENGTH, min_trace_size,
+                                        GAS_COST_TABLE.size() };
     auto trace_size = std::max_element(trace_sizes.begin(), trace_sizes.end());
 
     // We only need to pad with zeroes to the size to the largest trace here, pow_2 padding is handled in the

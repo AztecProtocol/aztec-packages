@@ -104,7 +104,7 @@ static const inline std::unordered_map<OpCode, GasTableEntry> GAS_COST_TABLE = {
 
     // Future Gadgets -- pending changes in noir
     { OpCode::SHA256COMPRESSION, temp_default_gas_entry },
-
+    { OpCode::KECCAKF1600, temp_default_gas_entry }, // Here for when we eventually support this
     // Sentinel
     // LAST_OPCODE_SENTINEL,
 };

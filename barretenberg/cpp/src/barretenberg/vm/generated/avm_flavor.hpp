@@ -100,6 +100,7 @@ class AvmFlavor {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 350;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
@@ -242,6 +243,13 @@ class AvmFlavor {
     static constexpr size_t NUM_ALL_ENTITIES = 412;
 >>>>>>> 5fb2ef20a7 (6542: Activate remaining opcodes for gas)
 >>>>>>> d1c94119f0 (6542: Activate remaining opcodes for gas)
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 356;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
+    // the unshifted and one for the shifted
+    static constexpr size_t NUM_ALL_ENTITIES = 422;
+>>>>>>> 83c86d41dd (6542: rebase on master and activate gas for the new gadgets (keccak,)
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
@@ -495,24 +503,13 @@ class AvmFlavor {
                               avm_conversion_num_limbs,
                               avm_conversion_radix,
                               avm_conversion_to_radix_le_sel,
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
+                              avm_gas_da_gas_fixed_table,
+                              avm_gas_gas_cost_sel,
+                              avm_gas_l2_gas_fixed_table,
                               avm_keccakf1600_clk,
                               avm_keccakf1600_input,
                               avm_keccakf1600_keccakf1600_sel,
                               avm_keccakf1600_output,
-=======
-<<<<<<< HEAD
->>>>>>> 961bb36ff6 (feat: simple gas decrement test)
-=======
-<<<<<<< HEAD
->>>>>>> 60d1f31c9b (6542: some renaming and comments)
-=======
-                              avm_gas_da_gas_fixed_table,
-                              avm_gas_gas_cost_sel,
-                              avm_gas_l2_gas_fixed_table,
->>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
                               avm_kernel_emit_l2_to_l1_msg_write_offset,
                               avm_kernel_emit_note_hash_write_offset,
                               avm_kernel_emit_nullifier_write_offset,
@@ -871,24 +868,13 @@ class AvmFlavor {
                      avm_conversion_num_limbs,
                      avm_conversion_radix,
                      avm_conversion_to_radix_le_sel,
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
+                     avm_gas_da_gas_fixed_table,
+                     avm_gas_gas_cost_sel,
+                     avm_gas_l2_gas_fixed_table,
                      avm_keccakf1600_clk,
                      avm_keccakf1600_input,
                      avm_keccakf1600_keccakf1600_sel,
                      avm_keccakf1600_output,
-=======
-<<<<<<< HEAD
->>>>>>> 961bb36ff6 (feat: simple gas decrement test)
-=======
-<<<<<<< HEAD
->>>>>>> 60d1f31c9b (6542: some renaming and comments)
-=======
-                     avm_gas_da_gas_fixed_table,
-                     avm_gas_gas_cost_sel,
-                     avm_gas_l2_gas_fixed_table,
->>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
                      avm_kernel_emit_l2_to_l1_msg_write_offset,
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
@@ -1252,24 +1238,13 @@ class AvmFlavor {
                               avm_conversion_num_limbs,
                               avm_conversion_radix,
                               avm_conversion_to_radix_le_sel,
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
+                              avm_gas_da_gas_fixed_table,
+                              avm_gas_gas_cost_sel,
+                              avm_gas_l2_gas_fixed_table,
                               avm_keccakf1600_clk,
                               avm_keccakf1600_input,
                               avm_keccakf1600_keccakf1600_sel,
                               avm_keccakf1600_output,
-=======
-<<<<<<< HEAD
->>>>>>> 961bb36ff6 (feat: simple gas decrement test)
-=======
-<<<<<<< HEAD
->>>>>>> 60d1f31c9b (6542: some renaming and comments)
-=======
-                              avm_gas_da_gas_fixed_table,
-                              avm_gas_gas_cost_sel,
-                              avm_gas_l2_gas_fixed_table,
->>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
                               avm_kernel_emit_l2_to_l1_msg_write_offset,
                               avm_kernel_emit_note_hash_write_offset,
                               avm_kernel_emit_nullifier_write_offset,
@@ -1694,24 +1669,13 @@ class AvmFlavor {
                      avm_conversion_num_limbs,
                      avm_conversion_radix,
                      avm_conversion_to_radix_le_sel,
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
+                     avm_gas_da_gas_fixed_table,
+                     avm_gas_gas_cost_sel,
+                     avm_gas_l2_gas_fixed_table,
                      avm_keccakf1600_clk,
                      avm_keccakf1600_input,
                      avm_keccakf1600_keccakf1600_sel,
                      avm_keccakf1600_output,
-=======
-<<<<<<< HEAD
->>>>>>> 961bb36ff6 (feat: simple gas decrement test)
-=======
-<<<<<<< HEAD
->>>>>>> 60d1f31c9b (6542: some renaming and comments)
-=======
-                     avm_gas_da_gas_fixed_table,
-                     avm_gas_gas_cost_sel,
-                     avm_gas_l2_gas_fixed_table,
->>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
                      avm_kernel_emit_l2_to_l1_msg_write_offset,
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
@@ -2136,24 +2100,13 @@ class AvmFlavor {
                      avm_conversion_num_limbs,
                      avm_conversion_radix,
                      avm_conversion_to_radix_le_sel,
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
+                     avm_gas_da_gas_fixed_table,
+                     avm_gas_gas_cost_sel,
+                     avm_gas_l2_gas_fixed_table,
                      avm_keccakf1600_clk,
                      avm_keccakf1600_input,
                      avm_keccakf1600_keccakf1600_sel,
                      avm_keccakf1600_output,
-=======
-<<<<<<< HEAD
->>>>>>> 961bb36ff6 (feat: simple gas decrement test)
-=======
-<<<<<<< HEAD
->>>>>>> 60d1f31c9b (6542: some renaming and comments)
-=======
-                     avm_gas_da_gas_fixed_table,
-                     avm_gas_gas_cost_sel,
-                     avm_gas_l2_gas_fixed_table,
->>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
                      avm_kernel_emit_l2_to_l1_msg_write_offset,
                      avm_kernel_emit_note_hash_write_offset,
                      avm_kernel_emit_nullifier_write_offset,
@@ -2924,24 +2877,13 @@ class AvmFlavor {
             Base::avm_conversion_num_limbs = "AVM_CONVERSION_NUM_LIMBS";
             Base::avm_conversion_radix = "AVM_CONVERSION_RADIX";
             Base::avm_conversion_to_radix_le_sel = "AVM_CONVERSION_TO_RADIX_LE_SEL";
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
+            Base::avm_gas_da_gas_fixed_table = "AVM_GAS_DA_GAS_FIXED_TABLE";
+            Base::avm_gas_gas_cost_sel = "AVM_GAS_GAS_COST_SEL";
+            Base::avm_gas_l2_gas_fixed_table = "AVM_GAS_L2_GAS_FIXED_TABLE";
             Base::avm_keccakf1600_clk = "AVM_KECCAKF1600_CLK";
             Base::avm_keccakf1600_input = "AVM_KECCAKF1600_INPUT";
             Base::avm_keccakf1600_keccakf1600_sel = "AVM_KECCAKF1600_KECCAKF1600_SEL";
             Base::avm_keccakf1600_output = "AVM_KECCAKF1600_OUTPUT";
-=======
-<<<<<<< HEAD
->>>>>>> 961bb36ff6 (feat: simple gas decrement test)
-=======
-<<<<<<< HEAD
->>>>>>> 60d1f31c9b (6542: some renaming and comments)
-=======
-            Base::avm_gas_da_gas_fixed_table = "AVM_GAS_DA_GAS_FIXED_TABLE";
-            Base::avm_gas_gas_cost_sel = "AVM_GAS_GAS_COST_SEL";
-            Base::avm_gas_l2_gas_fixed_table = "AVM_GAS_L2_GAS_FIXED_TABLE";
->>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
             Base::avm_kernel_emit_l2_to_l1_msg_write_offset = "AVM_KERNEL_EMIT_L2_TO_L1_MSG_WRITE_OFFSET";
             Base::avm_kernel_emit_note_hash_write_offset = "AVM_KERNEL_EMIT_NOTE_HASH_WRITE_OFFSET";
             Base::avm_kernel_emit_nullifier_write_offset = "AVM_KERNEL_EMIT_NULLIFIER_WRITE_OFFSET";
@@ -3317,24 +3259,13 @@ class AvmFlavor {
         Commitment avm_conversion_num_limbs;
         Commitment avm_conversion_radix;
         Commitment avm_conversion_to_radix_le_sel;
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
+        Commitment avm_gas_da_gas_fixed_table;
+        Commitment avm_gas_gas_cost_sel;
+        Commitment avm_gas_l2_gas_fixed_table;
         Commitment avm_keccakf1600_clk;
         Commitment avm_keccakf1600_input;
         Commitment avm_keccakf1600_keccakf1600_sel;
         Commitment avm_keccakf1600_output;
-=======
-<<<<<<< HEAD
->>>>>>> 961bb36ff6 (feat: simple gas decrement test)
-=======
-<<<<<<< HEAD
->>>>>>> 60d1f31c9b (6542: some renaming and comments)
-=======
-        Commitment avm_gas_da_gas_fixed_table;
-        Commitment avm_gas_gas_cost_sel;
-        Commitment avm_gas_l2_gas_fixed_table;
->>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
         Commitment avm_kernel_emit_l2_to_l1_msg_write_offset;
         Commitment avm_kernel_emit_note_hash_write_offset;
         Commitment avm_kernel_emit_nullifier_write_offset;
@@ -3710,24 +3641,13 @@ class AvmFlavor {
             avm_conversion_num_limbs = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_conversion_radix = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_conversion_to_radix_le_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
+            avm_gas_da_gas_fixed_table = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_gas_gas_cost_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_gas_l2_gas_fixed_table = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_keccakf1600_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_keccakf1600_input = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_keccakf1600_keccakf1600_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_keccakf1600_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-=======
-<<<<<<< HEAD
->>>>>>> 961bb36ff6 (feat: simple gas decrement test)
-=======
-<<<<<<< HEAD
->>>>>>> 60d1f31c9b (6542: some renaming and comments)
-=======
-            avm_gas_da_gas_fixed_table = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_gas_gas_cost_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_gas_l2_gas_fixed_table = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
->>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
             avm_kernel_emit_l2_to_l1_msg_write_offset =
                 deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_kernel_emit_note_hash_write_offset =
@@ -4125,24 +4045,13 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_conversion_num_limbs, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_conversion_radix, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_conversion_to_radix_le_sel, Transcript::proof_data);
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
+            serialize_to_buffer<Commitment>(avm_gas_da_gas_fixed_table, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_gas_gas_cost_sel, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_gas_l2_gas_fixed_table, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_keccakf1600_clk, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_keccakf1600_input, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_keccakf1600_keccakf1600_sel, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_keccakf1600_output, Transcript::proof_data);
-=======
-<<<<<<< HEAD
->>>>>>> 961bb36ff6 (feat: simple gas decrement test)
-=======
-<<<<<<< HEAD
->>>>>>> 60d1f31c9b (6542: some renaming and comments)
-=======
-            serialize_to_buffer<Commitment>(avm_gas_da_gas_fixed_table, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_gas_gas_cost_sel, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_gas_l2_gas_fixed_table, Transcript::proof_data);
->>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
             serialize_to_buffer<Commitment>(avm_kernel_emit_l2_to_l1_msg_write_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_emit_note_hash_write_offset, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_kernel_emit_nullifier_write_offset, Transcript::proof_data);

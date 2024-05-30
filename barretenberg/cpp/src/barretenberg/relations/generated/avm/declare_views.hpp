@@ -112,9 +112,9 @@
     [[maybe_unused]] auto avm_conversion_num_limbs = View(new_term.avm_conversion_num_limbs);                          \
     [[maybe_unused]] auto avm_conversion_radix = View(new_term.avm_conversion_radix);                                  \
     [[maybe_unused]] auto avm_conversion_to_radix_le_sel = View(new_term.avm_conversion_to_radix_le_sel);              \
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
+    [[maybe_unused]] auto avm_gas_da_gas_fixed_table = View(new_term.avm_gas_da_gas_fixed_table);                      \
+    [[maybe_unused]] auto avm_gas_gas_cost_sel = View(new_term.avm_gas_gas_cost_sel);                                  \
+    [[maybe_unused]] auto avm_gas_l2_gas_fixed_table = View(new_term.avm_gas_l2_gas_fixed_table);                      \
     [[maybe_unused]] auto avm_keccakf1600_clk = View(new_term.avm_keccakf1600_clk);                                    \
     [[maybe_unused]] auto avm_keccakf1600_input = View(new_term.avm_keccakf1600_input);                                \
     [[maybe_unused]] auto avm_keccakf1600_keccakf1600_sel = View(new_term.avm_keccakf1600_keccakf1600_sel);            \
@@ -128,29 +128,6 @@
     [[maybe_unused]] auto avm_kernel_emit_unencrypted_log_write_offset =                                               \
         View(new_term.avm_kernel_emit_unencrypted_log_write_offset);                                                   \
     [[maybe_unused]] auto avm_kernel_kernel_in_offset = View(new_term.avm_kernel_kernel_in_offset);                    \
-=======
->>>>>>> 961bb36ff6 (feat: simple gas decrement test)
-=======
-=======
-    [[maybe_unused]] auto avm_gas_da_gas_fixed_table = View(new_term.avm_gas_da_gas_fixed_table);                      \
-    [[maybe_unused]] auto avm_gas_gas_cost_sel = View(new_term.avm_gas_gas_cost_sel);                                  \
-    [[maybe_unused]] auto avm_gas_l2_gas_fixed_table = View(new_term.avm_gas_l2_gas_fixed_table);                      \
->>>>>>> df5862de90 (6542: some renaming and comments)
->>>>>>> 60d1f31c9b (6542: some renaming and comments)
-=======
-    [[maybe_unused]] auto avm_gas_da_gas_fixed_table = View(new_term.avm_gas_da_gas_fixed_table);                      \
-    [[maybe_unused]] auto avm_gas_gas_cost_sel = View(new_term.avm_gas_gas_cost_sel);                                  \
-    [[maybe_unused]] auto avm_gas_l2_gas_fixed_table = View(new_term.avm_gas_l2_gas_fixed_table);                      \
-    [[maybe_unused]] auto avm_kernel_emit_l2_to_l1_msg_write_offset =                                                  \
-        View(new_term.avm_kernel_emit_l2_to_l1_msg_write_offset);                                                      \
-    [[maybe_unused]] auto avm_kernel_emit_note_hash_write_offset =                                                     \
-        View(new_term.avm_kernel_emit_note_hash_write_offset);                                                         \
-    [[maybe_unused]] auto avm_kernel_emit_nullifier_write_offset =                                                     \
-        View(new_term.avm_kernel_emit_nullifier_write_offset);                                                         \
-    [[maybe_unused]] auto avm_kernel_emit_unencrypted_log_write_offset =                                               \
-        View(new_term.avm_kernel_emit_unencrypted_log_write_offset);                                                   \
-    [[maybe_unused]] auto avm_kernel_kernel_in_offset = View(new_term.avm_kernel_kernel_in_offset);                    \
->>>>>>> d54638b113 (6542: rebase on master and fix kernel output)
     [[maybe_unused]] auto avm_kernel_kernel_inputs__is_public = View(new_term.avm_kernel_kernel_inputs__is_public);    \
     [[maybe_unused]] auto avm_kernel_kernel_metadata_out__is_public =                                                  \
         View(new_term.avm_kernel_kernel_metadata_out__is_public);                                                      \
