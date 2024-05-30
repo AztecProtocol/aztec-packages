@@ -124,10 +124,12 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     const deployedContract = await deployContract();
 
+    const outgoingViewer = owner;
     await deployedContract.methods
       .test_insert_then_get_then_nullify_all_in_nested_calls(
         mintAmount,
         owner,
+        outgoingViewer,
         deployedContract.methods.insert_note_extra_emit.selector,
         deployedContract.methods.get_then_nullify_note.selector,
       )
@@ -196,10 +198,12 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     const deployedContract = await deployContract();
 
+    const outgoingViewer = owner;
     await deployedContract.methods
       .test_insert2_then_get2_then_nullify1_all_in_nested_calls(
         mintAmount,
         owner,
+        outgoingViewer,
         deployedContract.methods.insert_note_static_randomness.selector,
         deployedContract.methods.get_then_nullify_note.selector,
       )
@@ -297,13 +301,15 @@ describe('e2e_pending_note_hashes_contract', () => {
 
   it('Should drop note log for non existent note', async () => {
     const deployedContract = await deployContract();
-    // Add a note of value 10
-    await deployedContract.methods.insert_note(10, owner).send().wait();
-    // Add a note log with the same counter as the one above, but with value 5
-    await deployedContract.methods.test_emit_bad_note_log(owner).send().wait();
+    const outgoingViewer = owner;
+    // Add a note of value 10, with a note log
+    // Then emit another note log with the same counter as the one above, but with value 5
+    await deployedContract.methods.test_emit_bad_note_log(owner, outgoingViewer).send().wait();
 
     const mIVPK = wallet.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey.toString();
     const syncStats = await wallet.getSyncStats();
+    // Expect two decryptable note logs to be emitted
+    expect(syncStats[mIVPK].decrypted).toEqual(2);
     // Expect one note log to be dropped
     expect(syncStats[mIVPK].failed).toEqual(1);
   });

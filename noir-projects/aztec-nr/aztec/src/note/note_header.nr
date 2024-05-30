@@ -21,7 +21,7 @@ impl Eq for NoteHeader {
         (self.contract_address == other.contract_address) & 
         (self.nonce == other.nonce) & 
         (self.storage_slot == other.storage_slot)& 
-        (self.is_transient == other.is_transient)
+        (self.note_hash_counter == other.note_hash_counter)
     }
 }
 
