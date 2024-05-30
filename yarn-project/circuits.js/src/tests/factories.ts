@@ -42,6 +42,7 @@ import {
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_CALL,
@@ -411,6 +412,7 @@ export function makePublicCircuitPublicInputs(
     tupleGenerator(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x300, ReadRequest.empty),
     tupleGenerator(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x400, ReadRequest.empty),
     tupleGenerator(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x420, ReadRequest.empty),
+    tupleGenerator(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x440, ReadRequest.empty),
     tupleGenerator(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
       makeContractStorageUpdateRequest,
@@ -683,6 +685,12 @@ export function makeCombineHints(seed = 1): CombineHints {
       seed + 0x300,
     ),
     sortedPublicDataUpdateRequestsIndexes: makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => i, seed + 0x400),
+    dedupedPublicDataUpdateRequests: makeTuple(
+      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      makePublicDataUpdateRequest,
+      seed + 0x500,
+    ),
+    dedupedPublicDataUpdateRequestsRuns: makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => i, seed + 0x600),
   });
 }
 
