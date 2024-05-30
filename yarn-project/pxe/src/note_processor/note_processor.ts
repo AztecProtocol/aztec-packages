@@ -13,7 +13,7 @@ import {
   type PublicKey,
 } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
 
@@ -23,6 +23,7 @@ import { type PxeDatabase } from '../database/index.js';
 import { type OutgoingNoteDao } from '../database/outgoing_note_dao.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { produceNoteDaos } from './produce_note_dao.js';
+import { type AcirSimulator } from '@aztec/simulator';
 
 /**
  * Contains all the decrypted data in this array so that we can later batch insert it all into the database.
@@ -56,9 +57,9 @@ export class NoteProcessor {
     private keyStore: KeyStore,
     private db: PxeDatabase,
     private node: AztecNode,
-    private startingBlock: number = INITIAL_L2_BLOCK_NUM,
-    private simulator = getAcirSimulator(db, node, keyStore),
-    private log = createDebugLogger('aztec:note_processor'),
+    private startingBlock: number,
+    private simulator: AcirSimulator,
+    private log: Logger,
   ) {}
 
   public static async create(

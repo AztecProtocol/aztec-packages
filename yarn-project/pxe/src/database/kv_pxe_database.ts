@@ -16,6 +16,7 @@ import { type ContractInstanceWithAddress, SerializableContractInstance } from '
 import { DeferredNoteDao } from './deferred_note_dao.js';
 import { IncomingNoteDao } from './incoming_note_dao.js';
 import { type PxeDatabase } from './pxe_database.js';
+import { type OutgoingNoteDao } from './outgoing_note_dao.js';
 
 /**
  * A PXE database backed by LMDB.
@@ -136,10 +137,11 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   async addNote(note: IncomingNoteDao): Promise<void> {
-    await this.addNotes([note]);
+    await this.addNotes([note], []);
   }
 
-  addNotes(notes: IncomingNoteDao[]): Promise<void> {
+  addNotes(notes: IncomingNoteDao[], _outgoingNotes: OutgoingNoteDao[]): Promise<void> {
+    // TODO(benesjan): store the outgoing note
     return this.db.transaction(() => {
       for (const dao of notes) {
         // store notes by their index in the notes hash tree
