@@ -465,7 +465,7 @@ class UltraFlavor {
                         const uint64_t num_public_inputs,
                         const uint64_t pub_inputs_offset,
                         const bool contains_recursive_proof,
-                        const std::vector<uint32_t>& recursive_proof_public_input_indices,
+                        const AggregationObjectPubInputIndices& recursive_proof_public_input_indices,
                         const Commitment& q_m,
                         const Commitment& q_c,
                         const Commitment& q_l,

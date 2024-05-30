@@ -3,6 +3,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
+#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include <msgpack/sbuffer_decl.hpp>
 #include <utility>
 
@@ -36,7 +37,7 @@ template <typename FF_> class CircuitBuilderBase {
     std::map<uint32_t, uint32_t> tau;
 
     // Public input indices which contain recursive proof information
-    std::vector<uint32_t> recursive_proof_public_input_indices;
+    AggregationObjectPubInputIndices recursive_proof_public_input_indices;
     bool contains_recursive_proof = false;
 
     // We only know from the circuit description whether a circuit should use a prover which produces

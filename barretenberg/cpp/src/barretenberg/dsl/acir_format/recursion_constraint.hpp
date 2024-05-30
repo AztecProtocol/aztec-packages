@@ -46,9 +46,6 @@ struct RecursionConstraint {
     // An aggregation state is represented by two G1 affine elements. Each G1 point has
     // two field element coordinates (x, y). Thus, four field elements
     static constexpr size_t NUM_AGGREGATION_ELEMENTS = 4;
-    // Four limbs are used when simulating a non-native field using the bigfield class
-    static constexpr size_t AGGREGATION_OBJECT_SIZE =
-        NUM_AGGREGATION_ELEMENTS * NUM_QUOTIENT_PARTS; // 16 field elements
     std::vector<uint32_t> key;
     std::vector<uint32_t> proof;
     std::vector<uint32_t> public_inputs;
@@ -57,11 +54,11 @@ struct RecursionConstraint {
     friend bool operator==(RecursionConstraint const& lhs, RecursionConstraint const& rhs) = default;
 };
 
-std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recursion_constraints(
+std::array<uint32_t, bb::AGGREGATION_OBJECT_SIZE> create_recursion_constraints(
     Builder& builder,
     const RecursionConstraint& input,
-    std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> input_aggregation_object,
-    std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object,
+    std::array<uint32_t, bb::AGGREGATION_OBJECT_SIZE> input_aggregation_object,
+    std::array<uint32_t, bb::AGGREGATION_OBJECT_SIZE> nested_aggregation_object,
     bool has_valid_witness_assignments = false);
 
 std::vector<bb::fr> export_key_in_recursion_format(std::shared_ptr<verification_key> const& vkey);

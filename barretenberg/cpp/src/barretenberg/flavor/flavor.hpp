@@ -68,6 +68,7 @@
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/common/std_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
@@ -102,7 +103,7 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
   public:
     size_t circuit_size;
     bool contains_recursive_proof;
-    std::vector<uint32_t> recursive_proof_public_input_indices;
+    AggregationObjectPubInputIndices recursive_proof_public_input_indices;
     bb::EvaluationDomain<FF> evaluation_domain;
     std::shared_ptr<CommitmentKey_> commitment_key;
     size_t num_public_inputs;
@@ -133,7 +134,7 @@ class ProvingKeyAvm_ : public PrecomputedPolynomials, public WitnessPolynomials 
 
     size_t circuit_size;
     bool contains_recursive_proof;
-    std::vector<uint32_t> recursive_proof_public_input_indices;
+    AggregationObjectPubInputIndices recursive_proof_public_input_indices;
     bb::EvaluationDomain<FF> evaluation_domain;
     std::shared_ptr<CommitmentKey_> commitment_key;
 
@@ -183,7 +184,7 @@ class VerificationKey_ : public PrecomputedCommitments {
   public:
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     bool contains_recursive_proof;
-    std::vector<uint32_t> recursive_proof_public_input_indices;
+    AggregationObjectPubInputIndices recursive_proof_public_input_indices;
     uint64_t pub_inputs_offset = 0;
 
     VerificationKey_() = default;

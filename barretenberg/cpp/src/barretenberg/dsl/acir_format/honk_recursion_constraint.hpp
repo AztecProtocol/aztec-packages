@@ -58,11 +58,11 @@ struct HonkRecursionConstraint {
     friend bool operator==(HonkRecursionConstraint const& lhs, HonkRecursionConstraint const& rhs) = default;
 };
 
-std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_honk_recursion_constraints(
+std::array<uint32_t, bb::AGGREGATION_OBJECT_SIZE> create_honk_recursion_constraints(
     Builder& builder,
     const HonkRecursionConstraint& input,
-    std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> input_aggregation_object,
-    std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object,
+    std::array<uint32_t, bb::AGGREGATION_OBJECT_SIZE> input_aggregation_object,
+    std::array<uint32_t, bb::AGGREGATION_OBJECT_SIZE> nested_aggregation_object,
     bool has_valid_witness_assignments = false);
 
 } // namespace acir_format

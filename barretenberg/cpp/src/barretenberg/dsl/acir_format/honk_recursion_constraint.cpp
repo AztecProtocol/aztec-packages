@@ -8,7 +8,7 @@ using namespace bb;
 using namespace bb::stdlib::recursion::honk;
 
 std::array<bn254::Group, 2> agg_points_from_witness_indicies(
-    Builder& builder, const std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE>& obj_witness_indices)
+    Builder& builder, const std::array<uint32_t, bb::AGGREGATION_OBJECT_SIZE>& obj_witness_indices)
 {
     std::array<bn254::BaseField, 4> aggregation_elements;
     for (size_t i = 0; i < 4; ++i) {
@@ -37,11 +37,11 @@ std::array<bn254::Group, 2> agg_points_from_witness_indicies(
  *       We would either need a separate ACIR opcode where inner_proof_contains_recursive_proof = true,
  *       or we need non-witness data to be provided as metadata in the ACIR opcode
  */
-std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_honk_recursion_constraints(
+std::array<uint32_t, bb::AGGREGATION_OBJECT_SIZE> create_honk_recursion_constraints(
     Builder& builder,
     const HonkRecursionConstraint& input,
-    std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> input_aggregation_object,
-    std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object,
+    std::array<uint32_t, bb::AGGREGATION_OBJECT_SIZE> input_aggregation_object,
+    std::array<uint32_t, bb::AGGREGATION_OBJECT_SIZE> nested_aggregation_object,
     bool has_valid_witness_assignments)
 {
     using Flavor = UltraRecursiveFlavor_<Builder>;
@@ -147,10 +147,10 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     // is important, like what the plonk recursion constraint does.
 
     // We want to return an array, so just copy the vector into the array
-    ASSERT(result.proof_witness_indices.size() == HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE);
-    std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> resulting_output_aggregation_object;
+    ASSERT(result.proof_witness_indices.size() == bb::AGGREGATION_OBJECT_SIZE);
+    std::array<uint32_t, bb::AGGREGATION_OBJECT_SIZE> resulting_output_aggregation_object;
     std::copy(result.proof_witness_indices.begin(),
-              result.proof_witness_indices.begin() + HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE,
+              result.proof_witness_indices.begin() + bb::AGGREGATION_OBJECT_SIZE,
               resulting_output_aggregation_object.begin());
 
     return resulting_output_aggregation_object;
