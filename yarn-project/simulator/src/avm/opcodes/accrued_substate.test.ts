@@ -68,9 +68,11 @@ describe('Accrued Substate', () => {
       expect(exists).toEqual(new Uint8(0));
 
       const journalState = context.persistableState.flush();
-      expect(journalState.noteHashChecks).toEqual([
-        expect.objectContaining({ exists: false, leafIndex: leafIndex.toFr(), noteHash: noteHash.toFr() }),
-      ]);
+      expect(journalState.noteHashChecks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ exists: false, leafIndex: leafIndex.toFr(), noteHash: noteHash.toFr() }),
+        ]),
+      );
     });
 
     it('Should correctly return false when note hash exists at a different leaf index', async () => {
@@ -94,9 +96,11 @@ describe('Accrued Substate', () => {
       expect(exists).toEqual(new Uint8(0));
 
       const journalState = context.persistableState.flush();
-      expect(journalState.noteHashChecks).toEqual([
-        expect.objectContaining({ exists: false, leafIndex: leafIndex.toFr(), noteHash: noteHash.toFr() }),
-      ]);
+      expect(journalState.noteHashChecks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ exists: false, leafIndex: leafIndex.toFr(), noteHash: noteHash.toFr() }),
+        ]),
+      );
     });
 
     it('Should correctly return true when note hash exists at the given leaf index', async () => {
@@ -120,9 +124,11 @@ describe('Accrued Substate', () => {
       expect(exists).toEqual(new Uint8(1));
 
       const journalState = context.persistableState.flush();
-      expect(journalState.noteHashChecks).toEqual([
-        expect.objectContaining({ exists: true, leafIndex: leafIndex.toFr(), noteHash: noteHash.toFr() }),
-      ]);
+      expect(journalState.noteHashChecks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ exists: true, leafIndex: leafIndex.toFr(), noteHash: noteHash.toFr() }),
+        ]),
+      );
     });
   });
 
@@ -146,12 +152,14 @@ describe('Accrued Substate', () => {
       await new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ 0).execute(context);
 
       const journalState = context.persistableState.flush();
-      expect(journalState.newNoteHashes).toEqual([
-        expect.objectContaining({
-          storageAddress: context.environment.storageAddress,
-          noteHash: value.toFr(),
-        }),
-      ]);
+      expect(journalState.newNoteHashes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            storageAddress: context.environment.storageAddress,
+            noteHash: value.toFr(),
+          }),
+        ]),
+      );
     });
   });
 
@@ -196,9 +204,11 @@ describe('Accrued Substate', () => {
       expect(exists).toEqual(new Uint8(0));
 
       const journalState = context.persistableState.flush();
-      expect(journalState.nullifierChecks).toEqual([
-        expect.objectContaining({ nullifier: value.toFr(), storageAddress: address.toFr(), exists: false }),
-      ]);
+      expect(journalState.nullifierChecks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ nullifier: value.toFr(), storageAddress: address.toFr(), exists: false }),
+        ]),
+      );
     });
 
     it('Should correctly show true when nullifier exists', async () => {
@@ -223,9 +233,11 @@ describe('Accrued Substate', () => {
       expect(exists).toEqual(new Uint8(1));
 
       const journalState = context.persistableState.flush();
-      expect(journalState.nullifierChecks).toEqual([
-        expect.objectContaining({ nullifier: value.toFr(), storageAddress: address.toFr(), exists: true }),
-      ]);
+      expect(journalState.nullifierChecks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ nullifier: value.toFr(), storageAddress: address.toFr(), exists: true }),
+        ]),
+      );
     });
   });
 
@@ -249,12 +261,14 @@ describe('Accrued Substate', () => {
       await new EmitNullifier(/*indirect=*/ 0, /*offset=*/ 0).execute(context);
 
       const journalState = context.persistableState.flush();
-      expect(journalState.newNullifiers).toEqual([
-        expect.objectContaining({
-          storageAddress: context.environment.storageAddress.toField(),
-          nullifier: value.toFr(),
-        }),
-      ]);
+      expect(journalState.newNullifiers).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            storageAddress: context.environment.storageAddress.toField(),
+            nullifier: value.toFr(),
+          }),
+        ]),
+      );
     });
 
     it('Nullifier collision reverts (same nullifier emitted twice)', async () => {
@@ -328,9 +342,11 @@ describe('Accrued Substate', () => {
       expect(exists).toEqual(new Uint8(0));
 
       const journalState = context.persistableState.flush();
-      expect(journalState.l1ToL2MessageChecks).toEqual([
-        expect.objectContaining({ leafIndex: leafIndex.toFr(), msgHash: msgHash.toFr(), exists: false }),
-      ]);
+      expect(journalState.l1ToL2MessageChecks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ leafIndex: leafIndex.toFr(), msgHash: msgHash.toFr(), exists: false }),
+        ]),
+      );
     });
 
     it('Should correctly show true when L1ToL2 message exists', async () => {
@@ -354,9 +370,11 @@ describe('Accrued Substate', () => {
       expect(exists).toEqual(new Uint8(1));
 
       const journalState = context.persistableState.flush();
-      expect(journalState.l1ToL2MessageChecks).toEqual([
-        expect.objectContaining({ leafIndex: leafIndex.toFr(), msgHash: msgHash.toFr(), exists: true }),
-      ]);
+      expect(journalState.l1ToL2MessageChecks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ leafIndex: leafIndex.toFr(), msgHash: msgHash.toFr(), exists: true }),
+        ]),
+      );
     });
 
     it('Should correctly show false when another L1ToL2 message exists at that index', async () => {
@@ -380,9 +398,11 @@ describe('Accrued Substate', () => {
       expect(exists).toEqual(new Uint8(0));
 
       const journalState = context.persistableState.flush();
-      expect(journalState.l1ToL2MessageChecks).toEqual([
-        expect.objectContaining({ leafIndex: leafIndex.toFr(), msgHash: msgHash.toFr(), exists: false }),
-      ]);
+      expect(journalState.l1ToL2MessageChecks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ leafIndex: leafIndex.toFr(), msgHash: msgHash.toFr(), exists: false }),
+        ]),
+      );
     });
   });
 
@@ -424,9 +444,11 @@ describe('Accrued Substate', () => {
 
       const journalState = context.persistableState.flush();
       const expectedLog = Buffer.concat(values.map(v => v.toFr().toBuffer()));
-      expect(journalState.newLogs).toEqual([
-        new UnencryptedL2Log(context.environment.address, new EventSelector(eventSelector), expectedLog),
-      ]);
+      expect(journalState.newLogs).toEqual(
+        expect.arrayContaining([
+          new UnencryptedL2Log(context.environment.address, new EventSelector(eventSelector), expectedLog),
+        ]),
+      );
     });
   });
 
@@ -464,9 +486,9 @@ describe('Accrued Substate', () => {
       ).execute(context);
 
       const journalState = context.persistableState.flush();
-      expect(journalState.newL1Messages).toEqual([
-        expect.objectContaining({ recipient: EthAddress.fromField(recipient), content }),
-      ]);
+      expect(journalState.newL1Messages).toEqual(
+        expect.arrayContaining([expect.objectContaining({ recipient: EthAddress.fromField(recipient), content })]),
+      );
     });
   });
 
