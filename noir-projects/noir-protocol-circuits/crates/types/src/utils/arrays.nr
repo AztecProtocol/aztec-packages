@@ -180,7 +180,6 @@ pub fn assert_sorted_array<T, N, Env>(
     }
 }
 
-// C for container, T for type, N for length
 pub fn assert_deduped_array<T, N, Env>(
     original_array: [T; N],
     deduped_array: [T; N],

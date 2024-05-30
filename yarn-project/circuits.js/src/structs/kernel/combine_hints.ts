@@ -11,7 +11,7 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import {
-  deduplicateArray,
+  deduplicateSortedArray,
   getNonEmptyItems,
   mergeAccumulatedData,
   sortByCounterGetSortedHints,
@@ -113,7 +113,7 @@ export class CombineHints {
     const [sortedPublicDataUpdateRequests, sortedPublicDataUpdateRequestsIndexes] =
       sortByPositionThenCounterGetSortedHints(publicDataUpdateRequests, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
 
-    const [dedupedPublicDataUpdateRequests, dedupedPublicDataUpdateRequestsRuns] = deduplicateArray(
+    const [dedupedPublicDataUpdateRequests, dedupedPublicDataUpdateRequestsRuns] = deduplicateSortedArray(
       sortedPublicDataUpdateRequests,
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       () => PublicDataUpdateRequest.empty(),
