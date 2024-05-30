@@ -667,7 +667,7 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
     if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
         honk_recursion = true;
     }
-    auto constraint_system = get_constraint_system(bytecodePath, honk_recursion =);
+    auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, {});
 
     auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
