@@ -1164,7 +1164,7 @@ TEST_F(AvmExecutionTests, pedersenHashOpCode)
                                "03"                           // U32
                                "00000002"                     // value 2
                                "00000005"                     // dst_offset
-                               + to_hex(OpCode::PEDERSEN) +   // opcode KECCAK
+                               + to_hex(OpCode::PEDERSEN) +   // opcode PEDERSEN
                                "04"                           // Indirect flag (3rd operand indirect)
                                "00000002"                     // hash_index offset (direct)
                                "00000003"                     // dest offset (direct)
