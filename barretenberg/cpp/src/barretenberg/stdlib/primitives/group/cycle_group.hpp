@@ -106,11 +106,8 @@ template <typename Builder> class cycle_group {
         void validate_scalar_is_in_field() const;
 
         // This is a HACK!!
-        static cycle_scalar from_bigfield(stdlib::bigfield<Builder, bb::Bn254FqParams>& value)
-        {
-            auto val = bb::fq((value.get_value() % uint512_t(bb::fq::modulus)).lo);
-            return cycle_scalar(val);
-        };
+        cycle_scalar(stdlib::bigfield<Builder, typename ScalarField::Params>& value)
+            : cycle_scalar(ScalarField((value.get_value() % uint512_t(ScalarField::modulus)).lo)){};
     };
 
     /**
@@ -211,7 +208,7 @@ template <typename Builder> class cycle_group {
     {
         std::vector<cycle_scalar> cycle_scalars;
         for (auto scalar : scalars) {
-            cycle_scalars.emplace_back(cycle_scalar::from_bigfield(scalar));
+            cycle_scalars.emplace_back(scalar);
         }
         return batch_mul(base_points, cycle_scalars, context);
     }

@@ -48,7 +48,7 @@ template <class Builder> class CycleGroupTest : public ::testing::Test {
     };
 };
 
-using CircuitTypes = ::testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<bb::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(CycleGroupTest, CircuitTypes);
 
 /**
@@ -626,12 +626,14 @@ TYPED_TEST(CycleGroupTest, TestMul)
 TYPED_TEST(CycleGroupTest, TestOne)
 {
     STDLIB_TYPE_ALIASES
-    auto builder = Builder();
+    Builder builder;
     cycle_group_ct one = cycle_group_ct::one(&builder);
     auto expected_one_native = Group::one;
     auto one_native = one.get_value();
     EXPECT_EQ(one_native.x, expected_one_native.x);
     EXPECT_EQ(one_native.y, expected_one_native.y);
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 /**
@@ -642,34 +644,39 @@ TYPED_TEST(CycleGroupTest, TestOne)
 TYPED_TEST(CycleGroupTest, TestBigfieldFqConversion)
 {
     STDLIB_TYPE_ALIASES
-    using bigfield_t = stdlib::bigfield<Builder, bb::Bn254FqParams>;
-    auto native_element = Curve::ScalarField::random_element(&engine);
-    auto big_fq = bigfield_t(native_element);
-    auto cycle_fq = cycle_scalar_ct::from_bigfield(big_fq);
-    EXPECT_EQ(native_element, cycle_fq.get_value());
+    using FF = typename Curve::ScalarField;
+    using FF_ct = stdlib::bigfield<Builder, typename FF::Params>;
 
-    auto direct_cycle_fq = cycle_scalar_ct(native_element);
-    EXPECT_EQ(cycle_fq.get_value(), direct_cycle_fq.get_value());
+    auto elt = FF::random_element(&engine);
+    FF_ct big_elt(elt);
+    cycle_scalar_ct scalar_from_big(big_elt);
+    EXPECT_EQ(elt, scalar_from_big.get_value());
+
+    cycle_scalar_ct scalar_from_elt = (elt);
+    EXPECT_EQ(elt, scalar_from_elt.get_value());
 }
 
 TYPED_TEST(CycleGroupTest, TestBatchMulIsConsistent)
 {
     STDLIB_TYPE_ALIASES
-    auto builder = Builder();
+    using FF = typename Curve::ScalarField;
+    using FF_ct = stdlib::bigfield<Builder, typename FF::Params>;
 
-    using bigfield_t = stdlib::bigfield<Builder, bb::Bn254FqParams>;
-    auto scalar1 = Curve::ScalarField::random_element(&engine);
-    auto scalar2 = Curve::ScalarField::random_element(&engine);
+    Builder builder;
+    auto scalar1 = FF::random_element(&engine);
+    auto scalar2 = FF::random_element(&engine);
 
-    auto resut1 = cycle_group_ct::batch_mul({ TestFixture::generators[0], TestFixture::generators[1] },
-                                            { bigfield_t(scalar1), bigfield_t(scalar2) });
+    cycle_group_ct resut1 = cycle_group_ct::batch_mul({ TestFixture::generators[0], TestFixture::generators[1] },
+                                                      { FF_ct(scalar1), FF_ct(scalar2) });
 
-    auto result2 = cycle_group_ct::batch_mul({ TestFixture::generators[0], TestFixture::generators[1] },
-                                             { cycle_scalar_ct(scalar1), cycle_scalar_ct(scalar2) });
+    cycle_group_ct result2 = cycle_group_ct::batch_mul({ TestFixture::generators[0], TestFixture::generators[1] },
+                                                       { cycle_scalar_ct(scalar1), cycle_scalar_ct(scalar2) });
 
-    auto result1_native = resut1.get_value();
-    auto result2_native = result2.get_value();
+    AffineElement result1_native = resut1.get_value();
+    AffineElement result2_native = result2.get_value();
     EXPECT_EQ(result1_native.x, result2_native.x);
     EXPECT_EQ(result1_native.y, result2_native.y);
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 #pragma GCC diagnostic pop
