@@ -156,6 +156,26 @@ pub fn check_permutation<T, N>(
     }
 }
 
+pub fn check_padded_permutation<T, N>(
+    original_array: [T; N],
+    permuted_array: [T; N],
+    original_indexes: [u64; N]
+) where T: Eq + Empty {
+    let mut seen_empty = false;
+    for i in 0..N {
+        let original_value = original_array[i];
+        if is_empty(original_value) {
+            seen_empty = true;
+            assert(is_empty(permuted_array[i]), "Empty values must not be mixed with sorted values");
+        } else {
+            assert(!seen_empty, "Empty values must be padded to the right");
+
+            let index = original_indexes[i];
+            assert(permuted_array[index].eq(original_value), "Invalid index");
+        }
+    }
+}
+
 pub fn assert_sorted_array<T, N, Env>(
     original_array: [T; N],
     sorted_array: [T; N],
@@ -211,6 +231,10 @@ pub fn assert_deduped_array<T, N, Env>(
     [ (1,2,4), (2,3,3), (3,6,6), (4,8,9), (5,9,7), (0,0,0), ... padding with zeros ]
     */
 
+    let deduped_len = validate_array(deduped_array); // This also makes sure that the array is padded with empty items.  
+    let run_lengths_len = array_length(run_lengths); // Don't have to be a "validated" array because non zero padded values don't hurt.  
+    assert_eq(deduped_len, run_lengths_len, "Deduped array length does not match number of run lengths");
+
     let mut seen_empty = false;
     // container at the start of the current run
     let mut start_run_index = 0;
@@ -246,16 +270,7 @@ pub fn assert_deduped_array<T, N, Env>(
         }
     }
 
-    assert_eq(deduped_index, array_length(deduped_array), "Deduped array length does not match run lengths");
-
-    for i in 0..N {
-        if i + deduped_index < N {
-            assert(
-                is_empty(deduped_array[i + deduped_index]), "Empty values must be padded to the right in padding"
-            );
-            assert(run_lengths[i + deduped_index] == 0, "Invalid run length for padding");
-        }
-    }
+    assert_eq(deduped_index, deduped_len, "Final deduped index does not match deduped array length");
 }
 
 mod tests {
@@ -446,6 +461,7 @@ mod tests {
         let run_lengths = [3, 1, 1, 0];
         assert_deduped_array(original_array, deduped_array, run_lengths);
     }
+
     #[test(should_fail_with = "The container we are collapsing into must match the current container")]
     fn test_mismatched_deduped_value() {
         let original_array = [
@@ -463,7 +479,8 @@ mod tests {
         let run_lengths = [2, 1, 1, 0];
         assert_deduped_array(original_array, deduped_array, run_lengths);
     }
-    #[test(should_fail_with = "Invalid run length for padding")]
+
+    #[test(should_fail_with = "Deduped array length does not match number of run lengths")]
     fn test_run_lengths_not_zero_padded() {
         let original_array = [
             TestContainer { value: 1, position: 1, counter: 1 },
@@ -480,7 +497,8 @@ mod tests {
         let run_lengths = [2, 1, 1, 1]; // Last element should be 0
         assert_deduped_array(original_array, deduped_array, run_lengths);
     }
-    #[test(should_fail_with = "Deduped array length does not match run lengths")]
+
+    #[test(should_fail_with = "Deduped array length does not match number of run lengths")]
     fn test_deduped_padding_not_zero_padded() {
         let original_array = [
             TestContainer { value: 1, position: 1, counter: 1 },

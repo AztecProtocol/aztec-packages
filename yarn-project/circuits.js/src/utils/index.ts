@@ -35,7 +35,7 @@ export function mergeAccumulatedData<T extends IsEmpty, N extends number>(
   return arr;
 }
 
-// Sort items by their counters in ascending order. All empty items (counter === 0) are padded to the right.
+// Sort items by a provided compare function. All empty items are padded to the right.
 export function genericSort<T extends IsEmpty, N extends number>(
   arr: Tuple<T, N>,
   compareFn: (a: T, b: T) => number,

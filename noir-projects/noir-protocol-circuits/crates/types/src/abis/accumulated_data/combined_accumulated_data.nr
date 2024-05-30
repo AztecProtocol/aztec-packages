@@ -10,7 +10,10 @@ use crate::{
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, COMBINED_ACCUMULATED_DATA_LENGTH,
     MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    utils::{arrays::{array_merge, assert_sorted_array, assert_deduped_array}, reader::Reader},
+    utils::{
+    arrays::{array_merge, assert_sorted_array, assert_deduped_array, check_padded_permutation},
+    reader::Reader
+},
     traits::{Empty, Serialize, Deserialize}
 };
 
@@ -70,17 +73,13 @@ impl CombinedAccumulatedData {
             revertible.public_data_update_requests
         );
 
-        // by using a dummy function that always returns true, 
-        // we can check that the arrays are permutations of each other.
-        // We use this rather than the permutation check because this allows for zero padded permutations.
-        // Also, just check a permutation here,
-        // because the ordering checks are done in the dedup check.
-        assert_sorted_array(
+        // Just check a permutation here...
+        check_padded_permutation(
             merged_public_data_update_requests,
             combine_hints.sorted_public_data_update_requests,
-            combine_hints.sorted_public_data_update_requests_indexes,
-            |_,_| true
+            combine_hints.sorted_public_data_update_requests_indexes
         );
+        // ...because the ordering checks are done here.
         assert_deduped_array(
             combine_hints.sorted_public_data_update_requests,
             combine_hints.deduped_public_data_update_requests,
