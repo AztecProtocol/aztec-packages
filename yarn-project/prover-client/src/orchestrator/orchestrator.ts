@@ -24,6 +24,7 @@ import {
   type BaseRollupInputs,
   Fr,
   type GlobalVariables,
+  type Header,
   type KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -91,6 +92,7 @@ export class ProvingOrchestrator {
   private provingState: ProvingState | undefined = undefined;
   private pendingProvingJobs: AbortController[] = [];
   private paddingTx: ProcessedTx | undefined = undefined;
+  private initialHeader: Header | undefined = undefined;
 
   constructor(private db: MerkleTreeOperations, private prover: ServerCircuitProver) {}
 
@@ -108,6 +110,11 @@ export class ProvingOrchestrator {
     l1ToL2Messages: Fr[],
     verificationKeys: VerificationKeys,
   ): Promise<ProvingTicket> {
+    // Create initial header if not done so yet
+    if (!this.initialHeader) {
+      this.initialHeader = await this.db.buildInitialHeader();
+    }
+
     // Check that the length of the array of txs is a power of two
     // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
     if (!Number.isInteger(numTxs) || numTxs < 2 || (numTxs & (numTxs - 1)) !== 0) {
@@ -215,7 +222,7 @@ export class ProvingOrchestrator {
 
     logger.debug(`Padding rollup with ${paddingTxCount} empty transactions`);
     const paddingTx = makeEmptyProcessedTx(
-      await this.db.buildInitialHeader(),
+      this.initialHeader ?? (await this.db.buildInitialHeader()),
       this.provingState.globalVariables.chainId,
       this.provingState.globalVariables.version,
     );

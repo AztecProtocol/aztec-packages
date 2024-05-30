@@ -21,8 +21,6 @@ const logger = createDebugLogger('aztec:tx-prover');
 
 const PRIVATE_KERNEL = 'PrivateKernelTailArtifact';
 const PRIVATE_KERNEL_TO_PUBLIC = 'PrivateKernelTailToPublicArtifact';
-const PRIVATE_KERNEL_EMPTY = 'PrivateKernelEmptyArtifact';
-const EMPTY_NESTED = 'EmptyNestedArtifact';
 
 async function retrieveRealPrivateKernelVerificationKeys(config: BBConfig) {
   logger.info(`Retrieving private kernel verification keys`);
@@ -30,8 +28,6 @@ async function retrieveRealPrivateKernelVerificationKeys(config: BBConfig) {
   const vks: VerificationKeys = {
     privateKernelCircuit: await bbVerifier.getVerificationKeyData(PRIVATE_KERNEL),
     privateKernelToPublicCircuit: await bbVerifier.getVerificationKeyData(PRIVATE_KERNEL_TO_PUBLIC),
-    privateKernelEmpty: await bbVerifier.getVerificationKeyData(PRIVATE_KERNEL_EMPTY),
-    emptyNestedCircuit: await bbVerifier.getVerificationKeyData(EMPTY_NESTED),
   };
   return vks;
 }
