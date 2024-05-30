@@ -1150,7 +1150,7 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
 {
     std::string bytecode_hex = to_hex(OpCode::SENDER) +           // opcode SENDER
                                "00"                               // Indirect flag
-                               "00000001"                         // dst_offset 0
+                               "00000001"                         // dst_offset 1
                                + to_hex(OpCode::ADDRESS) +        // opcode ADDRESS
                                "00"                               // Indirect flag
                                "00000002"                         // dst_offset 2
@@ -1181,8 +1181,8 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
                                //    "0000000a"                         // dst_offset 10
                                + to_hex(OpCode::RETURN) + // opcode RETURN
                                "00"                       // Indirect flag
-                               "00000001"                 // ret offset 0
-                               "00000009";                // ret size 0
+                               "00000001"                 // ret offset 1
+                               "00000009";                // ret size 9
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
@@ -1345,7 +1345,7 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
 // Should throw whenever the wrong number of public inputs are provided
 TEST_F(AvmExecutionTests, ExecutorThrowsWithIncorrectNumberOfPublicInputs)
 {
-    std::string bytecode_hex = to_hex(OpCode::SENDER) + // opcode ADD
+    std::string bytecode_hex = to_hex(OpCode::SENDER) + // opcode SENDER
                                "00"                     // Indirect flag
                                "00000007";              // addr 7
 
