@@ -5,6 +5,7 @@ import {
   type ProcessedTx,
   PublicKernelType,
   type TxEffect,
+  makePaddingProcessedTx,
   toTxEffect,
 } from '@aztec/circuit-types';
 import {
@@ -88,6 +89,7 @@ const KernelTypesWithoutFunctions: Set<PublicKernelType> = new Set<PublicKernelT
 export class ProvingOrchestrator {
   private provingState: ProvingState | undefined = undefined;
   private pendingProvingJobs: AbortController[] = [];
+  private paddingTx: ProcessedTx | undefined = undefined;
 
   constructor(private db: MerkleTreeOperations, private prover: ServerCircuitProver) {}
 
@@ -206,14 +208,23 @@ export class ProvingOrchestrator {
       throw new Error(`Invalid proving state, call startNewBlock before adding transactions or completing the block`);
     }
 
-    // we need to pad the rollup with empty transactions
-    logger.debug(
-      `Padding rollup with ${
-        this.provingState.totalNumTxs - this.provingState.transactionsReceived
-      } empty transactions`,
-    );
-    for (let i = this.provingState.transactionsReceived; i < this.provingState.totalNumTxs; i++) {
-      await this.startTransaction(this.provingState.emptyTx, this.provingState);
+    // we may need to pad the rollup with empty transactions
+    const paddingTxCount = this.provingState.totalNumTxs - this.provingState.transactionsReceived;
+    if (paddingTxCount === 0) {
+      return;
+    }
+
+    logger.debug(`Padding rollup with ${paddingTxCount} empty transactions`);
+    if (!this.paddingTx) {
+      const emptyKernel = await this.prover.getEmptyPrivateKernelProof({
+        chainId: this.provingState.globalVariables.chainId,
+        version: this.provingState.globalVariables.version,
+        header: this.provingState.emptyTx.data.constants.historicalHeader,
+      });
+      this.paddingTx = makePaddingProcessedTx(emptyKernel);
+    }
+    for (let i = 0; i < paddingTxCount; i++) {
+      await this.startTransaction(this.paddingTx, this.provingState);
     }
   }
 

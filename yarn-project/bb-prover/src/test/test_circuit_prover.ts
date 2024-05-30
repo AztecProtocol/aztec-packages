@@ -10,9 +10,11 @@ import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
+  EmptyNestedData,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  PrivateKernelEmptyInputs,
   type Proof,
   type PublicKernelCircuitPublicInputs,
   RECURSIVE_PROOF_LENGTH,
@@ -27,9 +29,11 @@ import {
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { type FieldsOf } from '@aztec/foundation/types';
 import {
   BaseParityArtifact,
   MergeRollupArtifact,
+  PrivateKernelEmptyArtifact,
   RootParityArtifact,
   RootRollupArtifact,
   type ServerProtocolArtifact,
@@ -39,6 +43,8 @@ import {
   convertBaseParityOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
+  convertPrivateKernelEmptyInputsToWitnessMap,
+  convertPrivateKernelEmptyOutputsFromWitnessMap,
   convertRootParityInputsToWitnessMap,
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
@@ -78,6 +84,25 @@ export class TestCircuitProver implements ServerCircuitProver {
     private simulationProvider?: SimulationProvider,
     private logger = createDebugLogger('aztec:test-prover'),
   ) {}
+
+  public async getEmptyPrivateKernelProof(
+    inputs: Omit<FieldsOf<PrivateKernelEmptyInputs>, 'emptyNested'>,
+  ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>> {
+    const emptyNested = new EmptyNestedData(
+      makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+      VERIFICATION_KEYS['EmptyNestedArtifact'],
+    );
+    const kernelInputs = new PrivateKernelEmptyInputs(emptyNested, inputs.header, inputs.chainId, inputs.version);
+    const witnessMap = convertPrivateKernelEmptyInputsToWitnessMap(kernelInputs);
+    const witness = await this.wasmSimulator.simulateCircuit(witnessMap, PrivateKernelEmptyArtifact);
+    const result = convertPrivateKernelEmptyOutputsFromWitnessMap(witness);
+
+    return makePublicInputsAndProof(
+      result,
+      makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+      VerificationKeyData.makeFake(),
+    );
+  }
 
   /**
    * Simulates the base parity circuit from its inputs.

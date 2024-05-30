@@ -14,11 +14,12 @@ import {
   type BaseParityInputs,
   type BaseRollupInputs,
   EmptyNestedCircuitInputs,
+  EmptyNestedData,
   Fr,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
-  type PrivateKernelEmptyInputs,
+  PrivateKernelEmptyInputs,
   Proof,
   type PublicKernelCircuitPublicInputs,
   RECURSIVE_PROOF_LENGTH,
@@ -34,6 +35,7 @@ import {
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { type FieldsOf } from '@aztec/foundation/types';
 import {
   EmptyNestedArtifact,
   ServerCircuitArtifacts,
@@ -273,39 +275,51 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return makePublicInputsAndProof(circuitOutput, recursiveProof, verificationKey);
   }
 
-  public async getEmptyNestedProof(): Promise<PublicInputsAndProof<EmptyNestedCircuitInputs>> {
+  public async getEmptyPrivateKernelProof(
+    inputs: Omit<FieldsOf<PrivateKernelEmptyInputs>, 'emptyNested'>,
+  ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>> {
+    const emptyNested = await this.getEmptyNestedProof();
+    const emptyPrivateKernelProof = await this.getEmptyPrivateKernelProofFromEmptyNested(
+      PrivateKernelEmptyInputs.from({
+        ...inputs,
+        emptyNested,
+      }),
+    );
+
+    return emptyPrivateKernelProof;
+  }
+
+  private async getEmptyNestedProof(): Promise<EmptyNestedData> {
     const inputs = new EmptyNestedCircuitInputs();
-    const { circuitOutput, proof } = await this.createProof(
+    const { proof } = await this.createRecursiveProof(
       inputs,
       'EmptyNestedArtifact',
+      RECURSIVE_PROOF_LENGTH,
       (nothing: any) => abiEncode(EmptyNestedArtifact.abi as Abi, { inputs: nothing as any }),
       () => new EmptyNestedCircuitInputs(),
     );
 
-    const recursiveProof = makeRecursiveProofFromBinary(proof, NESTED_RECURSIVE_PROOF_LENGTH);
-
     const verificationKey = await this.getVerificationKeyDataForCircuit('EmptyNestedArtifact');
-    await this.verifyProof('EmptyNestedArtifact', proof);
+    await this.verifyProof('EmptyNestedArtifact', proof.binaryProof);
 
-    return makePublicInputsAndProof(circuitOutput, recursiveProof, verificationKey);
+    return new EmptyNestedData(proof, verificationKey.keyAsFields);
   }
 
-  public async getEmptyPrivateKernelProof(
+  private async getEmptyPrivateKernelProofFromEmptyNested(
     inputs: PrivateKernelEmptyInputs,
   ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>> {
-    const { circuitOutput, proof } = await this.createProof(
+    const { circuitOutput, proof } = await this.createRecursiveProof(
       inputs,
       'PrivateKernelEmptyArtifact',
+      NESTED_RECURSIVE_PROOF_LENGTH,
       convertPrivateKernelEmptyInputsToWitnessMap,
       convertPrivateKernelEmptyOutputsFromWitnessMap,
     );
 
-    const recursiveProof = makeRecursiveProofFromBinary(proof, NESTED_RECURSIVE_PROOF_LENGTH);
-
     const verificationKey = await this.getVerificationKeyDataForCircuit('PrivateKernelEmptyArtifact');
-    await this.verifyProof('PrivateKernelEmptyArtifact', proof);
+    await this.verifyProof('PrivateKernelEmptyArtifact', proof.binaryProof);
 
-    return makePublicInputsAndProof(circuitOutput, recursiveProof, verificationKey);
+    return makePublicInputsAndProof(circuitOutput, proof, verificationKey);
   }
 
   private async generateProofWithBB<

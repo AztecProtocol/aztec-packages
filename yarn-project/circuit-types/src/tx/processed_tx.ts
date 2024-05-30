@@ -2,6 +2,7 @@ import {
   EncryptedNoteTxL2Logs,
   EncryptedTxL2Logs,
   PublicDataWrite,
+  type PublicInputsAndProof,
   type SimulationError,
   type Tx,
   TxEffect,
@@ -147,6 +148,27 @@ export function makeProcessedTx(
     publicKernelRequests,
     gasUsed,
     finalPublicDataUpdateRequests: finalPublicDataUpdateRequests ?? kernelOutput.end.publicDataUpdateRequests,
+  };
+}
+
+/**
+ * Makes a padding empty tx with a valid proof.
+ * @returns A valid padding processed tx.
+ */
+export function makePaddingProcessedTx(kernelOutput: PublicInputsAndProof<KernelCircuitPublicInputs>): ProcessedTx {
+  const hash = new TxHash(Fr.ZERO.toBuffer());
+  return {
+    hash,
+    noteEncryptedLogs: EncryptedNoteTxL2Logs.empty(),
+    encryptedLogs: EncryptedTxL2Logs.empty(),
+    unencryptedLogs: UnencryptedTxL2Logs.empty(),
+    data: kernelOutput.inputs,
+    proof: kernelOutput.proof.binaryProof,
+    isEmpty: true,
+    revertReason: undefined,
+    publicKernelRequests: [],
+    gasUsed: {},
+    finalPublicDataUpdateRequests: [],
   };
 }
 

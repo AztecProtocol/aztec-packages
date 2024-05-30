@@ -7,7 +7,6 @@ import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
-  type EmptyNestedCircuitInputs,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
@@ -21,6 +20,7 @@ import {
   type RootRollupInputs,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 /**
  * Generates proofs for parity and rollup circuits.
@@ -89,10 +89,8 @@ export interface ServerCircuitProver {
     signal?: AbortSignal,
   ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>>;
 
-  getEmptyNestedProof(): Promise<PublicInputsAndProof<EmptyNestedCircuitInputs>>;
-
   getEmptyPrivateKernelProof(
-    inputs: PrivateKernelEmptyInputs,
+    inputs: Omit<FieldsOf<PrivateKernelEmptyInputs>, 'emptyNested'>,
   ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>>;
 }
 

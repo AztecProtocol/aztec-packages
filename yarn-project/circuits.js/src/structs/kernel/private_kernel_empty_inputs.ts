@@ -1,5 +1,6 @@
 import { type Fr } from '@aztec/foundation/fields';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 import { type RECURSIVE_PROOF_LENGTH } from '../../constants.gen.js';
 import { type Header } from '../header.js';
@@ -16,6 +17,10 @@ export class PrivateKernelEmptyInputs {
 
   toBuffer(): Buffer {
     return serializeToBuffer(this.emptyNested, this.header, this.chainId, this.version);
+  }
+
+  static from(fields: FieldsOf<PrivateKernelEmptyInputs>) {
+    return new PrivateKernelEmptyInputs(fields.emptyNested, fields.header, fields.chainId, fields.version);
   }
 }
 

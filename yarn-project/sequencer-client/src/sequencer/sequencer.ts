@@ -213,7 +213,7 @@ export class Sequencer {
       const numRealTxs = validTxs.length;
       const pow2 = Math.log2(numRealTxs);
       // TODO turn this back into a Math.ceil once we can pad blocks to the next-power-of-2 with empty txs
-      const totalTxs = 2 ** Math.floor(pow2);
+      const totalTxs = 2 ** Math.ceil(pow2);
       const blockSize = Math.max(2, totalTxs);
       const blockTicket = await this.prover.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages, emptyTx);
 
