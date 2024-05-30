@@ -12,7 +12,7 @@ This page outlines Aztec's fundamental technical concepts.
 
 <Image img={require("/img/aztec_high_level_network_architecture.png")} />
 
-1. A user interacts with Aztec through Aztec.js (like web3js or ethersjs) or Aztec CLI
+1. A user interacts with Aztec through Aztec.js (like web3js or ethersjs)
 2. Private functions are executed in the PXE, which is client-side
 3. They are rolled up and sent to the Public VM (running on an Aztec node)
 4. Public functions are executed in the Public VM
