@@ -1,6 +1,5 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { makeEmptyProcessedTx, makePaddingProcessedTx } from '@aztec/circuit-types';
-import { BaseRollupInputs, Fr, Header, PrivateKernelEmptyInputs, VerificationKeyData } from '@aztec/circuits.js';
+import { makePaddingProcessedTx } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
