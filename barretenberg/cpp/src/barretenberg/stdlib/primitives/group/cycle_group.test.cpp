@@ -632,8 +632,6 @@ TYPED_TEST(CycleGroupTest, TestOne)
     auto one_native = one.get_value();
     EXPECT_EQ(one_native.x, expected_one_native.x);
     EXPECT_EQ(one_native.y, expected_one_native.y);
-
-    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 /**
@@ -646,16 +644,29 @@ TYPED_TEST(CycleGroupTest, TestConversionFromBigfield)
     STDLIB_TYPE_ALIASES
     using FF = typename Curve::ScalarField;
     using FF_ct = stdlib::bigfield<Builder, typename FF::Params>;
-    Builder builder;
-    auto elt = FF::random_element(&engine);
-    FF_ct big_elt(&builder, elt);
-    cycle_scalar_ct scalar_from_big(big_elt);
-    EXPECT_EQ(elt, scalar_from_big.get_value());
 
-    cycle_scalar_ct scalar_from_elt = (elt);
-    EXPECT_EQ(elt, scalar_from_elt.get_value());
-
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    const auto run_test = [](bool construct_witnesses) {
+        Builder builder;
+        auto elt = FF::random_element(&engine);
+        FF_ct big_elt;
+        if (construct_witnesses) {
+            big_elt = FF_ct::from_witness(&builder, elt);
+        } else {
+            big_elt = FF_ct(elt);
+        }
+        cycle_scalar_ct scalar_from_big(big_elt);
+        EXPECT_EQ(elt, scalar_from_big.get_value());
+        cycle_scalar_ct scalar_from_elt(big_elt);
+        EXPECT_EQ(elt, scalar_from_elt.get_value());
+        if (construct_witnesses) {
+            EXPECT_FALSE(big_elt.is_constant());
+            EXPECT_FALSE(scalar_from_big.is_constant());
+            EXPECT_FALSE(scalar_from_elt.is_constant());
+            EXPECT_TRUE(CircuitChecker::check(builder));
+        }
+    };
+    run_test(/*construct_witnesses=*/true);
+    run_test(/*construct_witnesses=*/false);
 }
 
 TYPED_TEST(CycleGroupTest, TestBatchMulIsConsistent)
@@ -664,21 +675,39 @@ TYPED_TEST(CycleGroupTest, TestBatchMulIsConsistent)
     using FF = typename Curve::ScalarField;
     using FF_ct = stdlib::bigfield<Builder, typename FF::Params>;
 
-    Builder builder;
-    auto scalar1 = FF::random_element(&engine);
-    auto scalar2 = FF::random_element(&engine);
+    const auto run_test = [](bool construct_witnesses) {
+        Builder builder;
+        auto scalar1 = FF::random_element(&engine);
+        auto scalar2 = FF::random_element(&engine);
 
-    cycle_group_ct resut1 = cycle_group_ct::batch_mul({ TestFixture::generators[0], TestFixture::generators[1] },
-                                                      { FF_ct(scalar1), FF_ct(scalar2) });
+        FF_ct big_scalar1;
+        FF_ct big_scalar2;
+        if (construct_witnesses) {
+            big_scalar1 = FF_ct::from_witness(&builder, scalar1);
+            big_scalar2 = FF_ct::from_witness(&builder, scalar2);
+        } else {
+            big_scalar1 = FF_ct(scalar1);
+            big_scalar2 = FF_ct(scalar2);
+        }
+        cycle_group_ct result1 = cycle_group_ct::batch_mul({ TestFixture::generators[0], TestFixture::generators[1] },
+                                                           { big_scalar1, big_scalar2 });
 
-    cycle_group_ct result2 = cycle_group_ct::batch_mul({ TestFixture::generators[0], TestFixture::generators[1] },
-                                                       { cycle_scalar_ct(scalar1), cycle_scalar_ct(scalar2) });
+        cycle_group_ct result2 =
+            cycle_group_ct::batch_mul({ TestFixture::generators[0], TestFixture::generators[1] },
+                                      { cycle_scalar_ct(big_scalar1), cycle_scalar_ct(big_scalar2) });
 
-    AffineElement result1_native = resut1.get_value();
-    AffineElement result2_native = result2.get_value();
-    EXPECT_EQ(result1_native.x, result2_native.x);
-    EXPECT_EQ(result1_native.y, result2_native.y);
-
-    EXPECT_TRUE(CircuitChecker::check(builder));
+        AffineElement result1_native = result1.get_value();
+        AffineElement result2_native = result2.get_value();
+        EXPECT_EQ(result1_native.x, result2_native.x);
+        EXPECT_EQ(result1_native.y, result2_native.y);
+        if (construct_witnesses) {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1020): Re-enable these.
+            // EXPECT_FALSE(result1.is_constant());
+            // EXPECT_FALSE(result2.is_constant());
+            EXPECT_TRUE(CircuitChecker::check(builder));
+        }
+    };
+    run_test(/*construct_witnesses=*/true);
+    run_test(/*construct_witnesses=*/false);
 }
 #pragma GCC diagnostic pop

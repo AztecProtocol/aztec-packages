@@ -37,6 +37,7 @@ template <typename Builder> class cycle_group {
     using AffineElement = typename Curve::AffineElement;
     using GeneratorContext = crypto::GeneratorContext<Curve>;
     using ScalarField = typename Curve::ScalarField;
+    using BigScalarField = stdlib::bigfield<Builder, typename ScalarField::Params>;
 
     static constexpr size_t STANDARD_NUM_TABLE_BITS = 1;
     static constexpr size_t ULTRA_NUM_TABLE_BITS = 4;
@@ -105,7 +106,7 @@ template <typename Builder> class cycle_group {
         }
         void validate_scalar_is_in_field() const;
 
-        cycle_scalar(stdlib::bigfield<Builder, typename ScalarField::Params>& _value);
+        explicit cycle_scalar(BigScalarField&);
     };
 
     /**
@@ -201,7 +202,7 @@ template <typename Builder> class cycle_group {
     cycle_group& operator+=(const cycle_group& other);
     cycle_group& operator-=(const cycle_group& other);
     static cycle_group batch_mul(const std::vector<cycle_group>& base_points,
-                                 const std::vector<bigfield<Builder, bb::Bn254FqParams>>& scalars,
+                                 const std::vector<BigScalarField>& scalars,
                                  GeneratorContext context = {})
     {
         std::vector<cycle_scalar> cycle_scalars;
@@ -215,8 +216,8 @@ template <typename Builder> class cycle_group {
                                  GeneratorContext context = {});
     cycle_group operator*(const cycle_scalar& scalar) const;
     cycle_group& operator*=(const cycle_scalar& scalar);
-    cycle_group operator*(const stdlib::bigfield<Builder, bb::Bn254FqParams>& scalar) const;
-    cycle_group& operator*=(const stdlib::bigfield<Builder, bb::Bn254FqParams>& scalar);
+    cycle_group operator*(const BigScalarField& scalar) const;
+    cycle_group& operator*=(const BigScalarField& scalar);
     bool_t operator==(const cycle_group& other) const;
     void assert_equal(const cycle_group& other, std::string const& msg = "cycle_group::assert_equal") const;
     static cycle_group conditional_assign(const bool_t& predicate, const cycle_group& lhs, const cycle_group& rhs);
