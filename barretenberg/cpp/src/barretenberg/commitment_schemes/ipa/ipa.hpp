@@ -400,7 +400,7 @@ template <typename Curve_> class IPA {
 
         Fr b_zero = Fr::one();
         for (size_t i = 0; i < log_poly_degree; i++) {
-            auto exponent = static_cast<uint64_t>(Fr(2).pow(i));
+            uint32_t exponent = 1 << i;
             b_zero *= Fr::one() + (round_challenges_inv[log_poly_degree - 1 - i] *
                                    opening_claim.opening_pair.challenge.pow(exponent));
         }
@@ -543,7 +543,7 @@ template <typename Curve_> class IPA {
         Fr b_zero = one;
         for (size_t i = 0; i < log_poly_degree; i++) {
             // auto exponent = typename Curve::BaseField(2).pow(i);
-            size_t exponent = 1 << i;
+            uint32_t exponent = 1 << i;
             b_zero *= one + (round_challenges_inv[log_poly_degree - 1 - i] *
                              opening_claim.opening_pair.challenge.pow(exponent));
         }

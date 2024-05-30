@@ -902,9 +902,11 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         fq expected = base_val.pow(exponent_val);
 
         fq_ct base(&builder, static_cast<uint256_t>(base_val));
-        fr_ct exponent = witness_ct(&builder, exponent_val);
-        fq_ct result = base.pow(exponent);
+        fq_ct result = base.pow(exponent_val);
+        EXPECT_EQ(fq(result.get_value()), expected);
 
+        fr_ct exponent = witness_ct(&builder, exponent_val);
+        result = base.pow(exponent);
         EXPECT_EQ(fq(result.get_value()), expected);
 
         info("num gates = ", builder.get_num_gates());

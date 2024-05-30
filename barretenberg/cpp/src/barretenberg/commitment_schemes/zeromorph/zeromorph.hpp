@@ -175,7 +175,7 @@ template <typename PCS> class ZeroMorphProver_ {
         auto y_power = FF(1); // y^k
         for (size_t k = 0; k < log_N; ++k) {
             // Accumulate y^k * x^{N - d_k - 1} * q_k into \hat{q}
-            auto deg_k = static_cast<size_t>((1 << k) - 1);
+            auto deg_k = static_cast<uint32_t>((1 << k) - 1);
             auto x_power = x_challenge.pow(N - deg_k - 1); // x^{N - d_k - 1}
 
             result.add_scaled(quotients[k], -y_power * x_power);
@@ -477,10 +477,10 @@ template <typename PCS> class ZeroMorphVerifier_ {
 
         // Contribution from C_q_k, k = 0,...,log_N
         for (size_t k = 0; k < log_N; ++k) {
-            auto deg_k = static_cast<size_t>((1 << k) - 1);
+            uint32_t deg_k = static_cast<uint32_t>((1 << k) - 1);
             // Compute scalar y^k * x^{N - deg_k - 1}
-            auto scalar = y_challenge.pow(k);
-            scalar *= x_challenge.pow(N - deg_k - 1);
+            auto scalar = y_challenge.pow(static_cast<uint32_t>(k));
+            scalar *= x_challenge.pow(static_cast<uint32_t>(N - deg_k - 1));
             scalar *= FF(-1);
 
             scalars.emplace_back(scalar);
@@ -531,7 +531,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
                                     const std::vector<RefVector<Commitment>>& concatenation_groups_commitments = {})
     {
         size_t log_N = C_q_k.size();
-        size_t N = 1 << log_N;
+        uint32_t N = 1 << log_N;
 
         std::vector<FF> scalars;
         std::vector<Commitment> commitments;
@@ -575,7 +575,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
         // Note: this is an implementation detail related to Translator and is not part of the standard protocol.
         if (!concatenation_groups_commitments.empty()) {
             size_t CONCATENATION_GROUP_SIZE = concatenation_groups_commitments[0].size();
-            size_t MINICIRCUIT_N = N / CONCATENATION_GROUP_SIZE;
+            uint32_t MINICIRCUIT_N = N / CONCATENATION_GROUP_SIZE;
             std::vector<FF> x_shifts;
             auto current_x_shift = x_challenge;
             auto x_to_minicircuit_n = x_challenge.pow(MINICIRCUIT_N);

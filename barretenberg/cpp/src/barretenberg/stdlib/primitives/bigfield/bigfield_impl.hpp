@@ -965,23 +965,44 @@ bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& t
 }
 
 /**
- * @brief Raise a field_t to a power of an exponent (field_t). Note that the exponent must not exceed 32 bits and is
- * implicitly range constrained.
+ * @brief Raise a bigfield to a power of an exponent. Note that the exponent must not exceed 32 bits and is
+ * implicitly range constrained. The exponent is turned into a field_t witness for the underlying pow method
+ * to work.
  *
  * @returns this ** (exponent)
+ *
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1014) Improve the efficiency of this function.
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1015) Security of this (as part of the whole class)
+ */
+
+template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::pow(const uint32_t exponent) const
+{
+    auto* ctx = get_context() ? get_context() : nullptr;
+
+    return pow(witness_t<Builder>(ctx, exponent));
+}
+
+/**
+ * @brief Raise a bigfield to a power of an exponent (field_t) that must be a witness. Note that the exponent must not
+ * exceed 32 bits and is implicitly range constrained.
+ *
+ * @returns this ** (exponent)
+ *
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1014) Improve the efficiency of this function.
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1015) Security of this (as part of the whole class)
  */
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::pow(const field_t<Builder>& exponent) const
 {
     auto* ctx = get_context() ? get_context() : exponent.get_context();
     uint256_t exponent_value = exponent.get_value();
-    // if constexpr (IsSimulator<Builder>) {
-    //     if ((exponent_value >> 32) != static_cast<uint256_t>(0)) {
-    //         ctx->failure("field_t::pow exponent accumulator incorrect");
-    //     }
-    //     constexpr uint256_t MASK_32_BITS = 0xffff'ffff;
-    //     return get_value().pow(exponent_value & MASK_32_BITS);
-    // }
+    if constexpr (IsSimulator<Builder>) {
+        if ((exponent_value >> 32) != static_cast<uint256_t>(0)) {
+            ctx->failure("field_t::pow exponent accumulator incorrect");
+        }
+        constexpr uint256_t MASK_32_BITS = 0xffff'ffff;
+        return native(get_value()).pow(exponent_value & MASK_32_BITS);
+    }
 
     bool exponent_constant = exponent.is_constant();
     std::vector<bool_t<Builder>> exponent_bits(32);
@@ -1002,26 +1023,18 @@ bigfield<Builder, T> bigfield<Builder, T>::pow(const field_t<Builder>& exponent)
         exponent.assert_equal(exponent_accumulator, "field_t::pow exponent accumulator incorrect");
     }
     bigfield accumulator(ctx, 1);
-
     bigfield mul_coefficient = *this - 1;
     for (size_t digit_idx = 0; digit_idx < 32; ++digit_idx) {
         accumulator *= accumulator;
         const bigfield bit(field_t<Builder>(exponent_bits[digit_idx]),
-                           field_t<Builder>(witness_t<Builder>(ctx /* WORKTODO: hack */, 0)),
-                           field_t<Builder>(witness_t<Builder>(ctx /* WORKTODO: hack */, 0)),
-                           field_t<Builder>(witness_t<Builder>(ctx /* WORKTODO: hack */, 0)),
+                           field_t<Builder>(witness_t<Builder>(ctx, 0)),
+                           field_t<Builder>(witness_t<Builder>(ctx, 0)),
+                           field_t<Builder>(witness_t<Builder>(ctx, 0)),
                            /*can_overflow=*/true);
         accumulator *= (mul_coefficient * bit + 1);
     }
     accumulator.self_reduce();
     return accumulator;
-}
-
-template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::pow(const size_t exponent) const
-{
-    auto* ctx = get_context() ? get_context() : nullptr;
-
-    return pow(witness_t<Builder>(ctx, exponent));
 }
 
 /**

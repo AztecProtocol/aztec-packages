@@ -82,6 +82,15 @@ cycle_group<Builder>::cycle_group(const AffineElement& _in)
     , context(nullptr)
 {}
 
+/**
+ * @brief Construct a cycle_group object out of an AffineElement object and a given Builder
+ *
+ * @note This produces a circuit-constant object i.e. known at compile-time, no constraints.
+ *       If `_in` is not fixed for a given circuit, use `from_witness` instead
+ *
+ * @tparam Builder
+ * @param _in
+ */
 template <typename Builder>
 cycle_group<Builder>::cycle_group(Builder* _context, const AffineElement& _in)
     : x(_in.x)
@@ -91,6 +100,13 @@ cycle_group<Builder>::cycle_group(Builder* _context, const AffineElement& _in)
     , context(_context)
 {}
 
+/**
+ * @brief Construct a cycle_group representation of Group::one.
+ *
+ * @tparam Builder
+ * @param _context
+ * @return cycle_group<Builder>
+ */
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::one(Builder* _context)
 {
     field_t x(_context, Group::one.x);
@@ -643,6 +659,33 @@ typename cycle_group<Builder>::cycle_scalar cycle_group<Builder>::cycle_scalar::
     cycle_scalar result{ lo, hi, NUM_BITS, skip_primality_test, true };
     return result;
 }
+/**
+ * @brief Construct a new cycle scalar from a bigfield _value, over the same Scalar Field. If  _value is a witness, we
+ * add constraints to ensure the conversion is correct by reconstructing a bigfield from the limbs of the cycle_scalar
+ * and checking equality with the initial _value.
+ *
+ * @tparam Builder
+ * @param _value
+ * @todo (https://github.com/AztecProtocol/barretenberg/issues/1016): Optimise this method
+ */
+template <typename Builder>
+cycle_group<Builder>::cycle_scalar::cycle_scalar(stdlib::bigfield<Builder, typename ScalarField::Params>& _value)
+{
+    using bigfield_t = stdlib::bigfield<Builder, typename ScalarField::Params>;
+    const uint256_t value((_value.get_value() % uint512_t(ScalarField::modulus)).lo);
+    const uint256_t lo_v = value.slice(0, LO_BITS);
+    const uint256_t hi_v = value.slice(LO_BITS, HI_BITS);
+    lo = lo_v;
+    hi = hi_v;
+    if (!_value.is_constant()) {
+        auto* ctx = get_context() ? get_context() : _value.get_context();
+        // N.B. to be able to call assert equal, these cannot be constants
+        bigfield_t lo_big = bigfield_t(witness_t(ctx, lo_v), witness_t(ctx, 0));
+        bigfield_t hi_big = bigfield_t(witness_t(ctx, hi_v), witness_t(ctx, 0));
+        bigfield_t res = lo_big + hi_big * bigfield_t((uint256_t(1) << LO_BITS));
+        _value.assert_equal(res);
+    }
+};
 
 template <typename Builder> bool cycle_group<Builder>::cycle_scalar::is_constant() const
 {

@@ -655,7 +655,7 @@ TYPED_TEST(CycleGroupTest, TestConversionFromBigfield)
     cycle_scalar_ct scalar_from_elt = (elt);
     EXPECT_EQ(elt, scalar_from_elt.get_value());
 
-    EXPECT_FALSE(CircuitChecker::check(builder));
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TYPED_TEST(CycleGroupTest, TestBatchMulIsConsistent)
