@@ -19,9 +19,13 @@
 #include "barretenberg/relations/generated/avm/avm_alu.hpp"
 #include "barretenberg/relations/generated/avm/avm_binary.hpp"
 #include "barretenberg/relations/generated/avm/avm_conversion.hpp"
+#include "barretenberg/relations/generated/avm/avm_keccakf1600.hpp"
 #include "barretenberg/relations/generated/avm/avm_kernel.hpp"
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
 #include "barretenberg/relations/generated/avm/avm_mem.hpp"
+#include "barretenberg/relations/generated/avm/avm_pedersen.hpp"
+#include "barretenberg/relations/generated/avm/avm_poseidon2.hpp"
+#include "barretenberg/relations/generated/avm/avm_sha256.hpp"
 #include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/incl_mem_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/kernel_output_lookup.hpp"
@@ -69,6 +73,8 @@
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_b.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_c.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_d.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_pedersen.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_pos2_perm.hpp"
 #include "barretenberg/vm/generated/avm_flavor.hpp"
 
 namespace bb {
@@ -184,6 +190,10 @@ template <typename FF> struct AvmFullRow {
     FF avm_conversion_num_limbs{};
     FF avm_conversion_radix{};
     FF avm_conversion_to_radix_le_sel{};
+    FF avm_keccakf1600_clk{};
+    FF avm_keccakf1600_input{};
+    FF avm_keccakf1600_keccakf1600_sel{};
+    FF avm_keccakf1600_output{};
     FF avm_kernel_emit_l2_to_l1_msg_write_offset{};
     FF avm_kernel_emit_note_hash_write_offset{};
     FF avm_kernel_emit_nullifier_write_offset{};
@@ -264,6 +274,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_op_fdiv{};
     FF avm_main_sel_op_fee_per_da_gas{};
     FF avm_main_sel_op_fee_per_l2_gas{};
+    FF avm_main_sel_op_keccak{};
     FF avm_main_sel_op_l1_to_l2_msg_exists{};
     FF avm_main_sel_op_lt{};
     FF avm_main_sel_op_lte{};
@@ -272,8 +283,11 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_op_note_hash_exists{};
     FF avm_main_sel_op_nullifier_exists{};
     FF avm_main_sel_op_or{};
+    FF avm_main_sel_op_pedersen{};
+    FF avm_main_sel_op_poseidon2{};
     FF avm_main_sel_op_radix_le{};
     FF avm_main_sel_op_sender{};
+    FF avm_main_sel_op_sha256{};
     FF avm_main_sel_op_shl{};
     FF avm_main_sel_op_shr{};
     FF avm_main_sel_op_sload{};
@@ -320,9 +334,24 @@ template <typename FF> struct AvmFullRow {
     FF avm_mem_tsp{};
     FF avm_mem_val{};
     FF avm_mem_w_in_tag{};
+    FF avm_pedersen_clk{};
+    FF avm_pedersen_input{};
+    FF avm_pedersen_output{};
+    FF avm_pedersen_pedersen_sel{};
+    FF avm_poseidon2_clk{};
+    FF avm_poseidon2_input{};
+    FF avm_poseidon2_output{};
+    FF avm_poseidon2_poseidon_perm_sel{};
+    FF avm_sha256_clk{};
+    FF avm_sha256_input{};
+    FF avm_sha256_output{};
+    FF avm_sha256_sha256_compression_sel{};
+    FF avm_sha256_state{};
     FF perm_main_alu{};
     FF perm_main_bin{};
     FF perm_main_conv{};
+    FF perm_main_pos2_perm{};
+    FF perm_main_pedersen{};
     FF perm_main_mem_a{};
     FF perm_main_mem_b{};
     FF perm_main_mem_c{};
@@ -477,8 +506,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 391;
-    static constexpr size_t num_polys = 329;
+    static constexpr size_t num_fixed_columns = 414;
+    static constexpr size_t num_polys = 352;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -604,6 +633,10 @@ class AvmCircuitBuilder {
             polys.avm_conversion_num_limbs[i] = rows[i].avm_conversion_num_limbs;
             polys.avm_conversion_radix[i] = rows[i].avm_conversion_radix;
             polys.avm_conversion_to_radix_le_sel[i] = rows[i].avm_conversion_to_radix_le_sel;
+            polys.avm_keccakf1600_clk[i] = rows[i].avm_keccakf1600_clk;
+            polys.avm_keccakf1600_input[i] = rows[i].avm_keccakf1600_input;
+            polys.avm_keccakf1600_keccakf1600_sel[i] = rows[i].avm_keccakf1600_keccakf1600_sel;
+            polys.avm_keccakf1600_output[i] = rows[i].avm_keccakf1600_output;
             polys.avm_kernel_emit_l2_to_l1_msg_write_offset[i] = rows[i].avm_kernel_emit_l2_to_l1_msg_write_offset;
             polys.avm_kernel_emit_note_hash_write_offset[i] = rows[i].avm_kernel_emit_note_hash_write_offset;
             polys.avm_kernel_emit_nullifier_write_offset[i] = rows[i].avm_kernel_emit_nullifier_write_offset;
@@ -688,6 +721,7 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_op_fdiv[i] = rows[i].avm_main_sel_op_fdiv;
             polys.avm_main_sel_op_fee_per_da_gas[i] = rows[i].avm_main_sel_op_fee_per_da_gas;
             polys.avm_main_sel_op_fee_per_l2_gas[i] = rows[i].avm_main_sel_op_fee_per_l2_gas;
+            polys.avm_main_sel_op_keccak[i] = rows[i].avm_main_sel_op_keccak;
             polys.avm_main_sel_op_l1_to_l2_msg_exists[i] = rows[i].avm_main_sel_op_l1_to_l2_msg_exists;
             polys.avm_main_sel_op_lt[i] = rows[i].avm_main_sel_op_lt;
             polys.avm_main_sel_op_lte[i] = rows[i].avm_main_sel_op_lte;
@@ -696,8 +730,11 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_op_note_hash_exists[i] = rows[i].avm_main_sel_op_note_hash_exists;
             polys.avm_main_sel_op_nullifier_exists[i] = rows[i].avm_main_sel_op_nullifier_exists;
             polys.avm_main_sel_op_or[i] = rows[i].avm_main_sel_op_or;
+            polys.avm_main_sel_op_pedersen[i] = rows[i].avm_main_sel_op_pedersen;
+            polys.avm_main_sel_op_poseidon2[i] = rows[i].avm_main_sel_op_poseidon2;
             polys.avm_main_sel_op_radix_le[i] = rows[i].avm_main_sel_op_radix_le;
             polys.avm_main_sel_op_sender[i] = rows[i].avm_main_sel_op_sender;
+            polys.avm_main_sel_op_sha256[i] = rows[i].avm_main_sel_op_sha256;
             polys.avm_main_sel_op_shl[i] = rows[i].avm_main_sel_op_shl;
             polys.avm_main_sel_op_shr[i] = rows[i].avm_main_sel_op_shr;
             polys.avm_main_sel_op_sload[i] = rows[i].avm_main_sel_op_sload;
@@ -744,6 +781,19 @@ class AvmCircuitBuilder {
             polys.avm_mem_tsp[i] = rows[i].avm_mem_tsp;
             polys.avm_mem_val[i] = rows[i].avm_mem_val;
             polys.avm_mem_w_in_tag[i] = rows[i].avm_mem_w_in_tag;
+            polys.avm_pedersen_clk[i] = rows[i].avm_pedersen_clk;
+            polys.avm_pedersen_input[i] = rows[i].avm_pedersen_input;
+            polys.avm_pedersen_output[i] = rows[i].avm_pedersen_output;
+            polys.avm_pedersen_pedersen_sel[i] = rows[i].avm_pedersen_pedersen_sel;
+            polys.avm_poseidon2_clk[i] = rows[i].avm_poseidon2_clk;
+            polys.avm_poseidon2_input[i] = rows[i].avm_poseidon2_input;
+            polys.avm_poseidon2_output[i] = rows[i].avm_poseidon2_output;
+            polys.avm_poseidon2_poseidon_perm_sel[i] = rows[i].avm_poseidon2_poseidon_perm_sel;
+            polys.avm_sha256_clk[i] = rows[i].avm_sha256_clk;
+            polys.avm_sha256_input[i] = rows[i].avm_sha256_input;
+            polys.avm_sha256_output[i] = rows[i].avm_sha256_output;
+            polys.avm_sha256_sha256_compression_sel[i] = rows[i].avm_sha256_sha256_compression_sel;
+            polys.avm_sha256_state[i] = rows[i].avm_sha256_state;
             polys.lookup_byte_lengths_counts[i] = rows[i].lookup_byte_lengths_counts;
             polys.lookup_byte_operations_counts[i] = rows[i].lookup_byte_operations_counts;
             polys.kernel_output_lookup_counts[i] = rows[i].kernel_output_lookup_counts;
@@ -937,6 +987,11 @@ class AvmCircuitBuilder {
                 "avm_conversion", Avm_vm::get_relation_label_avm_conversion);
         };
 
+        auto avm_keccakf1600 = [=]() {
+            return evaluate_relation.template operator()<Avm_vm::avm_keccakf1600<FF>>(
+                "avm_keccakf1600", Avm_vm::get_relation_label_avm_keccakf1600);
+        };
+
         auto avm_kernel = [=]() {
             return evaluate_relation.template operator()<Avm_vm::avm_kernel<FF>>("avm_kernel",
                                                                                  Avm_vm::get_relation_label_avm_kernel);
@@ -952,6 +1007,21 @@ class AvmCircuitBuilder {
                                                                               Avm_vm::get_relation_label_avm_mem);
         };
 
+        auto avm_pedersen = [=]() {
+            return evaluate_relation.template operator()<Avm_vm::avm_pedersen<FF>>(
+                "avm_pedersen", Avm_vm::get_relation_label_avm_pedersen);
+        };
+
+        auto avm_poseidon2 = [=]() {
+            return evaluate_relation.template operator()<Avm_vm::avm_poseidon2<FF>>(
+                "avm_poseidon2", Avm_vm::get_relation_label_avm_poseidon2);
+        };
+
+        auto avm_sha256 = [=]() {
+            return evaluate_relation.template operator()<Avm_vm::avm_sha256<FF>>("avm_sha256",
+                                                                                 Avm_vm::get_relation_label_avm_sha256);
+        };
+
         auto perm_main_alu = [=]() {
             return evaluate_logderivative.template operator()<perm_main_alu_relation<FF>>("PERM_MAIN_ALU");
         };
@@ -962,6 +1032,14 @@ class AvmCircuitBuilder {
 
         auto perm_main_conv = [=]() {
             return evaluate_logderivative.template operator()<perm_main_conv_relation<FF>>("PERM_MAIN_CONV");
+        };
+
+        auto perm_main_pos2_perm = [=]() {
+            return evaluate_logderivative.template operator()<perm_main_pos2_perm_relation<FF>>("PERM_MAIN_POS2_PERM");
+        };
+
+        auto perm_main_pedersen = [=]() {
+            return evaluate_logderivative.template operator()<perm_main_pedersen_relation<FF>>("PERM_MAIN_PEDERSEN");
         };
 
         auto perm_main_mem_a = [=]() {
@@ -1156,17 +1234,29 @@ class AvmCircuitBuilder {
 
         relation_futures.emplace_back(std::async(std::launch::async, avm_conversion));
 
+        relation_futures.emplace_back(std::async(std::launch::async, avm_keccakf1600));
+
         relation_futures.emplace_back(std::async(std::launch::async, avm_kernel));
 
         relation_futures.emplace_back(std::async(std::launch::async, avm_main));
 
         relation_futures.emplace_back(std::async(std::launch::async, avm_mem));
 
+        relation_futures.emplace_back(std::async(std::launch::async, avm_pedersen));
+
+        relation_futures.emplace_back(std::async(std::launch::async, avm_poseidon2));
+
+        relation_futures.emplace_back(std::async(std::launch::async, avm_sha256));
+
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_alu));
 
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_bin));
 
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_conv));
+
+        relation_futures.emplace_back(std::async(std::launch::async, perm_main_pos2_perm));
+
+        relation_futures.emplace_back(std::async(std::launch::async, perm_main_pedersen));
 
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_mem_a));
 
@@ -1271,17 +1361,29 @@ class AvmCircuitBuilder {
 
         avm_conversion();
 
+        avm_keccakf1600();
+
         avm_kernel();
 
         avm_main();
 
         avm_mem();
 
+        avm_pedersen();
+
+        avm_poseidon2();
+
+        avm_sha256();
+
         perm_main_alu();
 
         perm_main_bin();
 
         perm_main_conv();
+
+        perm_main_pos2_perm();
+
+        perm_main_pedersen();
 
         perm_main_mem_a();
 

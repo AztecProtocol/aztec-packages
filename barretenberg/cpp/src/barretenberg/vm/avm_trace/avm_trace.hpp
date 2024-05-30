@@ -8,11 +8,14 @@
 #include "avm_instructions.hpp"
 #include "avm_mem_trace.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/vm/avm_trace/gadgets/avm_conversion_trace.hpp"
-#include "constants.hpp"
-
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
 #include "barretenberg/vm/avm_trace/avm_kernel_trace.hpp"
+#include "barretenberg/vm/avm_trace/gadgets/avm_conversion_trace.hpp"
+#include "barretenberg/vm/avm_trace/gadgets/avm_keccak.hpp"
+#include "barretenberg/vm/avm_trace/gadgets/avm_pedersen.hpp"
+#include "barretenberg/vm/avm_trace/gadgets/avm_poseidon2.hpp"
+#include "barretenberg/vm/avm_trace/gadgets/avm_sha256.hpp"
+#include "constants.hpp"
 
 namespace bb::avm_trace {
 
@@ -148,6 +151,23 @@ class AvmTraceBuilder {
     // --- Conversions
     // To Radix LE conversion operation.
     void op_to_radix_le(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset, uint32_t radix, uint32_t num_limbs);
+    // --- Hashing
+    // Sha256 compression operation
+    void op_sha256_compression(uint8_t indirect, uint32_t output_offset, uint32_t h_init_offset, uint32_t input_offset);
+    // Poseidon2 Permutation operation
+    void op_poseidon2_permutation(uint8_t indirect, uint32_t input_offset, uint32_t output_offset);
+    // Keccakf1600 operation - interface will likely change (e..g no input size offset)
+    void op_keccakf1600(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
+    // Keccak operation - temporary while we transition to keccakf1600
+    void op_keccak(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
+    // SHA256 operation - temporary while we transition to sha256_compression
+    void op_sha256(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
+    // Pedersen Hash operation
+    void op_pedersen_hash(uint8_t indirect,
+                          uint32_t gen_ctx_offset,
+                          uint32_t output_offset,
+                          uint32_t input_offset,
+                          uint32_t input_size_offset);
 
   private:
     // Used for the standard indirect address resolution of three operands opcode.
@@ -168,6 +188,10 @@ class AvmTraceBuilder {
     AvmBinaryTraceBuilder bin_trace_builder;
     AvmKernelTraceBuilder kernel_trace_builder;
     AvmConversionTraceBuilder conversion_trace_builder;
+    AvmSha256TraceBuilder sha256_trace_builder;
+    AvmPoseidon2TraceBuilder poseidon2_trace_builder;
+    AvmKeccakTraceBuilder keccak_trace_builder;
+    AvmPedersenTraceBuilder pedersen_trace_builder;
 
     /**
      * @brief Create a kernel lookup opcode object
@@ -236,5 +260,23 @@ class AvmTraceBuilder {
     uint32_t internal_return_ptr =
         0; // After a nested call, it should be initialized with MAX_SIZE_INTERNAL_STACK * call_ptr
     uint8_t call_ptr = 0;
+
+    // TODO(ilyas: #6383): Temporary way to bulk read slices
+    template <typename MEM>
+    uint32_t read_slice_to_memory(uint8_t space_id,
+                                  uint32_t clk,
+                                  uint32_t src_offset,
+                                  AvmMemoryTag r_tag,
+                                  AvmMemoryTag w_tag,
+                                  FF internal_return_ptr,
+                                  size_t slice_len,
+                                  std::vector<MEM>& slice);
+    void write_slice_to_memory(uint8_t space_id,
+                               uint32_t clk,
+                               uint32_t dst_offset,
+                               AvmMemoryTag r_tag,
+                               AvmMemoryTag w_tag,
+                               FF internal_return_ptr,
+                               std::vector<FF> const& slice);
 };
 } // namespace bb::avm_trace

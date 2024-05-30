@@ -32,7 +32,17 @@ RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 RUN ./bootstrap.sh
-RUN yarn workspaces focus @aztec/aztec @aztec/builder --production && yarn cache clean
+
+ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
+ENV BB_WORKING_DIRECTORY=/usr/src/yarn-project/bb
+ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
+ENV ACVM_WORKING_DIRECTORY=/usr/src/yarn-project/acvm
+
+RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY && \
+  echo -n RootRollupArtifact PrivateKernelTailArtifact PrivateKernelTailToPublicArtifact | xargs -d ' ' -P 3 -I {} node bb-prover/dest/bb/index.js write-vk -c {} && \
+  node bb-prover/dest/bb/index.js write-contract -c RootRollupArtifact -n UltraVerifier.sol
+
+RUN yarn workspaces focus @aztec/aztec @aztec/builder @aztec/cli --production && yarn cache clean
 
 # TODO: Use release-please to update package.json directly, and remove this!
 # It's here to ensure the image rebuilds if the commit tag changes (as the content hash won't).
@@ -48,4 +58,6 @@ ARG COMMIT_TAG=""
 ENV COMMIT_TAG=$COMMIT_TAG
 COPY --from=builder /usr/src /usr/src
 WORKDIR /usr/src/yarn-project
+# add curl to be able to download CRS file
+RUN apt update && apt install -y curl
 ENTRYPOINT ["yarn"]

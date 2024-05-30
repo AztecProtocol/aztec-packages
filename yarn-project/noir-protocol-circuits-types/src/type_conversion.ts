@@ -7,6 +7,7 @@ import {
   CallContext,
   CallRequest,
   CallerContext,
+  type CombineHints,
   CombinedAccumulatedData,
   CombinedConstantData,
   ConstantRollupData,
@@ -138,6 +139,7 @@ import type {
   CallContext as CallContextNoir,
   CallRequest as CallRequestNoir,
   CallerContext as CallerContextNoir,
+  CombineHints as CombineHintsNoir,
   CombinedAccumulatedData as CombinedAccumulatedDataNoir,
   CombinedConstantData as CombinedConstantDataNoir,
   ConstantRollupData as ConstantRollupDataNoir,
@@ -1041,6 +1043,7 @@ export function mapPublicDataUpdateRequestFromNoir(
   return new PublicDataUpdateRequest(
     mapFieldFromNoir(publicDataUpdateRequest.leaf_slot),
     mapFieldFromNoir(publicDataUpdateRequest.new_value),
+    mapNumberFromNoir(publicDataUpdateRequest.counter),
   );
 }
 
@@ -1055,6 +1058,7 @@ export function mapPublicDataUpdateRequestToNoir(
   return {
     leaf_slot: mapFieldToNoir(publicDataUpdateRequest.leafSlot),
     new_value: mapFieldToNoir(publicDataUpdateRequest.newValue),
+    counter: mapNumberToNoir(publicDataUpdateRequest.sideEffectCounter),
   };
 }
 
@@ -1752,6 +1756,31 @@ export function mapPublicKernelCircuitPrivateInputsToNoir(
   };
 }
 
+export function mapCombineHintsToNoir(combineHints: CombineHints): CombineHintsNoir {
+  return {
+    sorted_note_hashes: mapTuple(combineHints.sortedNoteHashes, mapNoteHashToNoir),
+    sorted_note_hashes_indexes: mapTuple(combineHints.sortedNoteHashesIndexes, mapNumberToNoir),
+    sorted_unencrypted_logs_hashes: mapTuple(combineHints.sortedUnencryptedLogsHashes, mapLogHashToNoir),
+    sorted_unencrypted_logs_hashes_indexes: mapTuple(combineHints.sortedUnencryptedLogsHashesIndexes, mapNumberToNoir),
+    sorted_public_data_update_requests: mapTuple(
+      combineHints.sortedPublicDataUpdateRequests,
+      mapPublicDataUpdateRequestToNoir,
+    ),
+    sorted_public_data_update_requests_indexes: mapTuple(
+      combineHints.sortedPublicDataUpdateRequestsIndexes,
+      mapNumberToNoir,
+    ),
+    deduped_public_data_update_requests: mapTuple(
+      combineHints.dedupedPublicDataUpdateRequests,
+      mapPublicDataUpdateRequestToNoir,
+    ),
+    deduped_public_data_update_requests_runs: mapTuple(
+      combineHints.dedupedPublicDataUpdateRequestsRuns,
+      mapNumberToNoir,
+    ),
+  };
+}
+
 export function mapPublicKernelTailCircuitPrivateInputsToNoir(
   inputs: PublicKernelTailCircuitPrivateInputs,
 ): PublicKernelTailCircuitPrivateInputsNoir {
@@ -1764,6 +1793,7 @@ export function mapPublicKernelTailCircuitPrivateInputsToNoir(
     public_data_hints: mapTuple(inputs.publicDataHints, mapPublicDataHintToNoir),
     public_data_read_request_hints: mapPublicDataReadRequestHintsToNoir(inputs.publicDataReadRequestHints),
     start_state: mapPartialStateReferenceToNoir(inputs.startState),
+    combine_hints: mapCombineHintsToNoir(inputs.combineHints),
   };
 }
 
@@ -1792,6 +1822,7 @@ export function mapStorageUpdateRequestToNoir(
   return {
     storage_slot: mapFieldToNoir(storageUpdateRequest.storageSlot),
     new_value: mapFieldToNoir(storageUpdateRequest.newValue),
+    counter: mapNumberToNoir(storageUpdateRequest.sideEffectCounter),
   };
 }
 /**
@@ -1878,8 +1909,10 @@ export function mapPublicCircuitPublicInputsToNoir(
     call_context: mapCallContextToNoir(publicInputs.callContext),
     args_hash: mapFieldToNoir(publicInputs.argsHash),
     returns_hash: mapFieldToNoir(publicInputs.returnsHash),
+    note_hash_read_requests: mapTuple(publicInputs.noteHashReadRequests, mapReadRequestToNoir),
     nullifier_read_requests: mapTuple(publicInputs.nullifierReadRequests, mapReadRequestToNoir),
     nullifier_non_existent_read_requests: mapTuple(publicInputs.nullifierNonExistentReadRequests, mapReadRequestToNoir),
+    l1_to_l2_msg_read_requests: mapTuple(publicInputs.l1ToL2MsgReadRequests, mapReadRequestToNoir),
     contract_storage_update_requests: mapTuple(
       publicInputs.contractStorageUpdateRequests,
       mapStorageUpdateRequestToNoir,
