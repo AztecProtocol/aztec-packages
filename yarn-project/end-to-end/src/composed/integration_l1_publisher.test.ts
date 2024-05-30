@@ -313,13 +313,8 @@ describe('L1Publisher integration', () => {
     fs.writeFileSync(path, output, 'utf8');
   };
 
-  const buildBlock = async (
-    globalVariables: GlobalVariables,
-    txs: ProcessedTx[],
-    l1ToL2Messages: Fr[],
-    emptyTx: ProcessedTx,
-  ) => {
-    const blockTicket = await builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages, emptyTx);
+  const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
+    const blockTicket = await builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages);
     for (const tx of txs) {
       await builder.addNewTx(tx);
     }
@@ -390,7 +385,7 @@ describe('L1Publisher integration', () => {
         feeRecipient,
         GasFees.empty(),
       );
-      const ticket = await buildBlock(globalVariables, txs, currentL1ToL2Messages, makeEmptyProcessedTx());
+      const ticket = await buildBlock(globalVariables, txs, currentL1ToL2Messages);
       const result = await ticket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
       const blockResult = await builder.finaliseBlock();
@@ -486,7 +481,7 @@ describe('L1Publisher integration', () => {
         feeRecipient,
         GasFees.empty(),
       );
-      const blockTicket = await buildBlock(globalVariables, txs, l1ToL2Messages, makeEmptyProcessedTx());
+      const blockTicket = await buildBlock(globalVariables, txs, l1ToL2Messages);
       const result = await blockTicket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
       const blockResult = await builder.finaliseBlock();
