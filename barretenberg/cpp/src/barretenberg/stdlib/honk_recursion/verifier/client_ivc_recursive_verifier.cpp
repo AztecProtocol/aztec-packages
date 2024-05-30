@@ -2,7 +2,7 @@
 
 namespace bb::stdlib::recursion::honk {
 
-void ClientIvcRecursiveVerifier_::verify(const ClientIVC::Proof& proof, VerifierInput& data)
+void ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof, VerifierInput& data)
 {
     // WORKTODO: Perform Goblin recursive verification here
 

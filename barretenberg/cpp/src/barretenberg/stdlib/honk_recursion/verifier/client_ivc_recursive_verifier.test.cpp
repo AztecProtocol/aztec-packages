@@ -4,11 +4,11 @@
 #include "barretenberg/common/test.hpp"
 
 namespace bb::stdlib::recursion::honk {
-class ClientIvcRecursionTests : public testing::Test {
+class ClientIVCRecursionTests : public testing::Test {
   public:
     using Builder = UltraCircuitBuilder;
-    using ClientIvcVerifier = ClientIvcRecursiveVerifier_;
-    using VerifierInput = ClientIvcVerifier::FoldingVerifier::VerifierInput;
+    using ClientIVCVerifier = ClientIVCRecursiveVerifier;
+    using VerifierInput = ClientIVCVerifier::FoldingVerifier::VerifierInput;
     using VerifierInstance = VerifierInput::Instance;
 
     static void SetUpTestSuite()
@@ -17,16 +17,16 @@ class ClientIvcRecursionTests : public testing::Test {
         srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
     }
 
-    struct ClientIvcProverOutput {
+    struct ClientIVCProverOutput {
         ClientIVC::Proof proof;
         VerifierInput verifier_input;
     };
 
     /**
-     * @brief Construct a genuine ClientIvc prover output based on accumulation of an arbitrary set of mock circuits
+     * @brief Construct a genuine ClientIVC prover output based on accumulation of an arbitrary set of mock circuits
      *
      */
-    static ClientIvcProverOutput construct_client_ivc_prover_output(ClientIVC& ivc)
+    static ClientIVCProverOutput construct_client_ivc_prover_output(ClientIVC& ivc)
     {
         using Builder = ClientIVC::ClientCircuit;
 
@@ -42,10 +42,10 @@ class ClientIvcRecursionTests : public testing::Test {
 };
 
 /**
- * @brief Ensure the ClientIvc proof used herein can be natively verified
+ * @brief Ensure the ClientIVC proof used herein can be natively verified
  *
  */
-TEST_F(ClientIvcRecursionTests, NativeVerification)
+TEST_F(ClientIVCRecursionTests, NativeVerification)
 {
     ClientIVC ivc;
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
@@ -61,18 +61,18 @@ TEST_F(ClientIvcRecursionTests, NativeVerification)
 }
 
 /**
- * @brief Construct and Check a recursive ClientIvc verification circuit
+ * @brief Construct and Check a recursive ClientIVC verification circuit
  *
  */
-TEST_F(ClientIvcRecursionTests, Basic)
+TEST_F(ClientIVCRecursionTests, Basic)
 {
-    // Generate a genuine ClientIvc prover output
+    // Generate a genuine ClientIVC prover output
     ClientIVC ivc;
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
-    // Construct the ClientIvc recursive verifier
+    // Construct the ClientIVC recursive verifier
     Builder builder;
-    ClientIvcVerifier verifier{ &builder };
+    ClientIVCVerifier verifier{ &builder };
 
     // Generate the recursive verification circuit
     verifier.verify(proof, verifier_input);

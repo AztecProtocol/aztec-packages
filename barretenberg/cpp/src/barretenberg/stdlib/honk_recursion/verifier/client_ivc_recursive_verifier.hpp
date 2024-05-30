@@ -3,7 +3,7 @@
 #include "barretenberg/stdlib/honk_recursion/verifier/decider_recursive_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
-class ClientIvcRecursiveVerifier_ {
+class ClientIVCRecursiveVerifier {
     using Builder = UltraCircuitBuilder;                   // The circuit will be an Ultra circuit
     using RecursiveFlavor = MegaRecursiveFlavor_<Builder>; // The verifier algorithms are Mega
     using RecursiveVerifierInstances = RecursiveVerifierInstances_<RecursiveFlavor, 2>;
@@ -15,7 +15,7 @@ class ClientIvcRecursiveVerifier_ {
     using FoldingVerifier = ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
     using VerifierInput = FoldingVerifier::VerifierInput;
 
-    ClientIvcRecursiveVerifier_(Builder* builder)
+    ClientIVCRecursiveVerifier(Builder* builder)
         : builder(builder){};
 
     void verify(const ClientIVC::Proof&, VerifierInput&);
